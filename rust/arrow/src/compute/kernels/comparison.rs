@@ -1029,7 +1029,6 @@ mod tests {
         let list_data = ArrayData::builder(list_data_type)
             .len(4)
             .add_buffer(value_offsets)
-            .null_count(1)
             .add_child_data(value_data)
             .null_bit_buffer(Buffer::from([0b00001011]))
             .build();

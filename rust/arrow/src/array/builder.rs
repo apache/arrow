@@ -499,9 +499,7 @@ impl BooleanBuilder {
             .len(len)
             .add_buffer(self.values_builder.finish());
         if null_count > 0 {
-            builder = builder
-                .null_count(null_count)
-                .null_bit_buffer(null_bit_buffer);
+            builder = builder.null_bit_buffer(null_bit_buffer);
         }
         let data = builder.build();
         BooleanArray::from(data)
@@ -648,9 +646,7 @@ impl<T: ArrowPrimitiveType> PrimitiveBuilder<T> {
             .len(len)
             .add_buffer(self.values_builder.finish());
         if null_count > 0 {
-            builder = builder
-                .null_count(null_count)
-                .null_bit_buffer(null_bit_buffer);
+            builder = builder.null_bit_buffer(null_bit_buffer);
         }
         let data = builder.build();
         PrimitiveArray::<T>::from(data)
@@ -669,9 +665,7 @@ impl<T: ArrowPrimitiveType> PrimitiveBuilder<T> {
             .len(len)
             .add_buffer(self.values_builder.finish());
         if null_count > 0 {
-            builder = builder
-                .null_count(null_count)
-                .null_bit_buffer(null_bit_buffer);
+            builder = builder.null_bit_buffer(null_bit_buffer);
         }
         builder = builder.add_child_data(values.data());
         DictionaryArray::<T>::from(builder.build())
@@ -778,7 +772,6 @@ where
 
         let offset_buffer = self.offsets_builder.finish();
         let null_bit_buffer = self.bitmap_builder.finish();
-        let nulls = null_bit_buffer.count_set_bits();
         self.offsets_builder.append(0);
         let data = ArrayData::builder(DataType::List(Box::new(Field::new(
             "item",
@@ -786,7 +779,6 @@ where
             true, // TODO: find a consistent way of getting this
         ))))
         .len(len)
-        .null_count(len - nulls)
         .add_buffer(offset_buffer)
         .add_child_data(values_data)
         .null_bit_buffer(null_bit_buffer)
@@ -896,7 +888,6 @@ where
 
         let offset_buffer = self.offsets_builder.finish();
         let null_bit_buffer = self.bitmap_builder.finish();
-        let nulls = null_bit_buffer.count_set_bits();
         self.offsets_builder.append(0);
         let data = ArrayData::builder(DataType::LargeList(Box::new(Field::new(
             "item",
@@ -904,7 +895,6 @@ where
             true,
         ))))
         .len(len)
-        .null_count(len - nulls)
         .add_buffer(offset_buffer)
         .add_child_data(values_data)
         .null_bit_buffer(null_bit_buffer)
@@ -1027,13 +1017,11 @@ where
         }
 
         let null_bit_buffer = self.bitmap_builder.finish();
-        let nulls = null_bit_buffer.count_set_bits();
         let data = ArrayData::builder(DataType::FixedSizeList(
             Box::new(Field::new("item", values_data.data_type().clone(), true)),
             self.list_len,
         ))
         .len(len)
-        .null_count(len - nulls)
         .add_child_data(values_data)
         .null_bit_buffer(null_bit_buffer)
         .build();
@@ -1763,9 +1751,7 @@ impl StructBuilder {
             .len(self.len)
             .child_data(child_data);
         if null_count > 0 {
-            builder = builder
-                .null_count(null_count)
-                .null_bit_buffer(null_bit_buffer);
+            builder = builder.null_bit_buffer(null_bit_buffer);
         }
 
         self.len = 0;
@@ -1793,8 +1779,6 @@ struct FieldData {
     values_buffer: Option<MutableBuffer>,
     ///  The number of array slots represented by the buffer
     slots: usize,
-    /// The number of null array slots in this child array
-    null_count: usize,
     /// A builder for the bitmap if required (for Sparse Unions)
     bitmap_builder: Option<BooleanBufferBuilder>,
 }
@@ -1811,7 +1795,6 @@ impl FieldData {
             data_type,
             values_buffer: Some(MutableBuffer::new(1)),
             slots: 0,
-            null_count: 0,
             bitmap_builder,
         }
     }
@@ -1851,7 +1834,6 @@ impl FieldData {
             let mutable_buffer = builder_to_mutable_buffer(builder);
             self.values_buffer = Some(mutable_buffer);
             self.slots += 1;
-            self.null_count += 1;
             b.append(false);
         };
         Ok(())
@@ -2024,7 +2006,6 @@ impl UnionBuilder {
                 values_buffer,
                 slots,
                 bitmap_builder,
-                null_count,
             },
         ) in self.fields.into_iter()
         {
@@ -2033,7 +2014,6 @@ impl UnionBuilder {
                 .freeze();
             let arr_data_builder = ArrayDataBuilder::new(data_type.clone())
                 .add_buffer(buffer)
-                .null_count(null_count)
                 .len(slots);
             //                .build();
             let arr_data_ref = match bitmap_builder {
@@ -3136,7 +3116,6 @@ mod tests {
 
         let expected_string_data = ArrayData::builder(DataType::Utf8)
             .len(4)
-            .null_count(2)
             .null_bit_buffer(Buffer::from(&[9_u8]))
             .add_buffer(Buffer::from(&[0, 3, 3, 3, 7].to_byte_slice()))
             .add_buffer(Buffer::from(b"joemark"))
@@ -3144,7 +3123,6 @@ mod tests {
 
         let expected_int_data = ArrayData::builder(DataType::Int32)
             .len(4)
-            .null_count(1)
             .null_bit_buffer(Buffer::from(&[11_u8]))
             .add_buffer(Buffer::from(&[1, 2, 0, 4].to_byte_slice()))
             .build();

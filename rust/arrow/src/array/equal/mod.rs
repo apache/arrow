@@ -946,7 +946,6 @@ mod tests {
         ]))
         .null_bit_buffer(Buffer::from(vec![0b00001011]))
         .len(5)
-        .null_count(2)
         .add_child_data(strings.data_ref().clone())
         .add_child_data(ints.data_ref().clone())
         .build();
@@ -958,7 +957,6 @@ mod tests {
         ]))
         .null_bit_buffer(Buffer::from(vec![0b00001011]))
         .len(5)
-        .null_count(2)
         .add_child_data(strings.data_ref().clone())
         .add_child_data(ints_non_null.data_ref().clone())
         .build();
@@ -974,7 +972,6 @@ mod tests {
         ]))
         .null_bit_buffer(Buffer::from(vec![0b00001011]))
         .len(5)
-        .null_count(2)
         .add_child_data(strings.data_ref().clone())
         .add_child_data(c_ints_non_null.data_ref().clone())
         .build();
@@ -990,7 +987,6 @@ mod tests {
         )]))
         .null_bit_buffer(Buffer::from(vec![0b00011110]))
         .len(5)
-        .null_count(1)
         .add_child_data(a.data_ref().clone())
         .build();
         let a = crate::array::make_array(a);
@@ -1009,7 +1005,6 @@ mod tests {
         ]))
         .null_bit_buffer(Buffer::from(vec![0b00001011]))
         .len(5)
-        .null_count(2)
         .add_child_data(strings.data_ref().clone())
         .add_child_data(ints_non_null.data_ref().clone())
         .build();
@@ -1021,7 +1016,6 @@ mod tests {
         )]))
         .null_bit_buffer(Buffer::from(vec![0b00011110]))
         .len(5)
-        .null_count(1)
         .add_child_data(b)
         .build();
         let b = crate::array::make_array(b);
@@ -1054,7 +1048,6 @@ mod tests {
         )]))
         .null_bit_buffer(Buffer::from(vec![0b00001010]))
         .len(5)
-        .null_count(3)
         .add_child_data(strings1.data_ref().clone())
         .build();
         let a = crate::array::make_array(a);
@@ -1066,7 +1059,6 @@ mod tests {
         )]))
         .null_bit_buffer(Buffer::from(vec![0b00001010]))
         .len(5)
-        .null_count(3)
         .add_child_data(strings2.data_ref().clone())
         .build();
         let b = crate::array::make_array(b);
@@ -1088,7 +1080,6 @@ mod tests {
         )]))
         .null_bit_buffer(Buffer::from(vec![0b00001011]))
         .len(5)
-        .null_count(2)
         .add_child_data(strings3.data_ref().clone())
         .build();
         let c = crate::array::make_array(c);

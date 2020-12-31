@@ -220,7 +220,12 @@ impl ExecutionContext {
     pub fn read_parquet(&mut self, filename: &str) -> Result<Arc<dyn DataFrame>> {
         Ok(Arc::new(DataFrameImpl::new(
             self.state.clone(),
-            &LogicalPlanBuilder::scan_parquet(&filename, None)?.build()?,
+            &LogicalPlanBuilder::scan_parquet(
+                &filename,
+                None,
+                self.state.lock().unwrap().config.concurrency,
+            )?
+            .build()?,
         )))
     }
 
@@ -258,7 +263,10 @@ impl ExecutionContext {
     /// Register a Parquet data source so that it can be referenced from SQL statements
     /// executed against this context.
     pub fn register_parquet(&mut self, name: &str, filename: &str) -> Result<()> {
-        let table = ParquetTable::try_new(&filename)?;
+        let table = ParquetTable::try_new(
+            &filename,
+            self.state.lock().unwrap().config.concurrency,
+        )?;
         self.register_table(name, Box::new(table));
         Ok(())
     }
@@ -492,7 +500,7 @@ impl ExecutionConfig {
     pub fn new() -> Self {
         Self {
             concurrency: num_cpus::get(),
-            batch_size: 4096,
+            batch_size: 32768,
             query_planner: Arc::new(DefaultQueryPlanner {}),
         }
     }
@@ -588,8 +596,8 @@ mod tests {
 
     use super::*;
     use crate::logical_plan::{col, create_udf, sum};
-    use crate::physical_plan::collect;
     use crate::physical_plan::functions::ScalarFunctionImplementation;
+    use crate::physical_plan::{collect, collect_partitioned};
     use crate::test;
     use crate::variable::VarType;
     use crate::{
@@ -675,14 +683,25 @@ mod tests {
         let logical_plan = ctx.optimize(&logical_plan)?;
 
         let physical_plan = ctx.create_physical_plan(&logical_plan)?;
+        println!("{:?}", physical_plan);
 
-        let results = collect(physical_plan).await?;
-
-        // there should be one batch per partition
+        let results = collect_partitioned(physical_plan).await?;
         assert_eq!(results.len(), partition_count);
 
-        let row_count: usize = results.iter().map(|batch| batch.num_rows()).sum();
-        assert_eq!(row_count, 20);
+        // there should be a total of 2 batches with 20 rows because the where clause filters
+        // out results from 2 partitions
+
+        // note that the order of partitions is not deterministic
+        let mut num_batches = 0;
+        let mut num_rows = 0;
+        for partition in &results {
+            for batch in partition {
+                num_batches += 1;
+                num_rows += batch.num_rows();
+            }
+        }
+        assert_eq!(2, num_batches);
+        assert_eq!(20, num_rows);
 
         Ok(())
     }

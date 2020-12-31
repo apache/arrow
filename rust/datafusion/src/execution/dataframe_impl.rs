@@ -207,6 +207,7 @@ mod tests {
             avg(col("c12")),
             sum(col("c12")),
             count(col("c12")),
+            count_distinct(col("c12")),
         ];
 
         let df = df.aggregate(group_expr, aggr_expr)?;
@@ -214,7 +215,7 @@ mod tests {
         let plan = df.to_logical_plan();
 
         // build same plan using SQL API
-        let sql = "SELECT c1, MIN(c12), MAX(c12), AVG(c12), SUM(c12), COUNT(c12) \
+        let sql = "SELECT c1, MIN(c12), MAX(c12), AVG(c12), SUM(c12), COUNT(c12), COUNT(DISTINCT c12) \
                    FROM aggregate_test_100 \
                    GROUP BY c1";
         let sql_plan = create_plan(sql)?;

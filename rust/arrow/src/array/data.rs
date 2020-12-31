@@ -286,12 +286,6 @@ impl ArrayDataBuilder {
         self
     }
 
-    #[inline]
-    pub const fn null_count(mut self, n: usize) -> Self {
-        self.null_count = Some(n);
-        self
-    }
-
     pub fn null_bit_buffer(mut self, buf: Buffer) -> Self {
         self.null_bit_buffer = Some(buf);
         self
@@ -373,9 +367,11 @@ mod tests {
         let b1 = Buffer::from(&v[..]);
         let arr_data = ArrayData::builder(DataType::Int32)
             .len(20)
-            .null_count(10)
             .offset(5)
             .add_buffer(b1)
+            .null_bit_buffer(Buffer::from(vec![
+                0b01011111, 0b10110101, 0b01100011, 0b00011110,
+            ]))
             .add_child_data(child_arr_data.clone())
             .build();
 
@@ -455,5 +451,15 @@ mod tests {
         let int_data = ArrayData::builder(DataType::Int32).build();
         let float_data = ArrayData::builder(DataType::Float32).build();
         assert_ne!(int_data, float_data);
+    }
+
+    #[test]
+    fn test_count_nulls() {
+        let null_buffer = Some(Buffer::from(vec![0b00010110, 0b10011111]));
+        let count = count_nulls(null_buffer.as_ref(), 0, 16);
+        assert_eq!(count, 7);
+
+        let count = count_nulls(null_buffer.as_ref(), 4, 8);
+        assert_eq!(count, 3);
     }
 }

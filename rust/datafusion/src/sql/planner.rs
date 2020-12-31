@@ -39,12 +39,11 @@ use crate::{
 
 use arrow::datatypes::*;
 
-use super::parser::ExplainPlan;
 use crate::prelude::JoinType;
 use sqlparser::ast::{
-    BinaryOperator, DataType as SQLDataType, Expr as SQLExpr, Join, JoinConstraint,
-    JoinOperator, Query, Select, SelectItem, SetExpr, TableFactor, TableWithJoins,
-    UnaryOperator, Value,
+    BinaryOperator, DataType as SQLDataType, Expr as SQLExpr, FunctionArg, Join,
+    JoinConstraint, JoinOperator, Query, Select, SelectItem, SetExpr, TableFactor,
+    TableWithJoins, UnaryOperator, Value,
 };
 use sqlparser::ast::{ColumnDef as SQLColumnDef, ColumnOption};
 use sqlparser::ast::{OrderByExpr, Statement};
@@ -85,13 +84,17 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
         match statement {
             DFStatement::CreateExternalTable(s) => self.external_table_to_plan(&s),
             DFStatement::Statement(s) => self.sql_statement_to_plan(&s),
-            DFStatement::Explain(s) => self.explain_statement_to_plan(&(*s)),
         }
     }
 
     /// Generate a logical plan from an SQL statement
     pub fn sql_statement_to_plan(&self, sql: &Statement) -> Result<LogicalPlan> {
         match sql {
+            Statement::Explain {
+                verbose,
+                statement,
+                analyze: _,
+            } => self.explain_statement_to_plan(*verbose, &statement),
             Statement::Query(query) => self.query_to_plan(&query),
             _ => Err(DataFusionError::NotImplemented(
                 "Only SELECT statements are implemented".to_string(),
@@ -162,10 +165,10 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
     ///
     pub fn explain_statement_to_plan(
         &self,
-        explain_plan: &ExplainPlan,
+        verbose: bool,
+        statement: &Statement,
     ) -> Result<LogicalPlan> {
-        let verbose = explain_plan.verbose;
-        let plan = self.statement_to_plan(&explain_plan.statement)?;
+        let plan = self.sql_statement_to_plan(&statement)?;
 
         let stringified_plans = vec![StringifiedPlan::new(
             PlanType::LogicalPlan,
@@ -328,6 +331,11 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
             TableFactor::NestedJoin(table_with_joins) => {
                 self.plan_table_with_joins(table_with_joins)
             }
+            // @todo Support TableFactory::TableFunction?
+            _ => Err(DataFusionError::NotImplemented(format!(
+                "Unsupported ast node {:?} in create_relation",
+                relation
+            ))),
         }
     }
 
@@ -608,6 +616,13 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
         Ok(expr)
     }
 
+    fn sql_fn_arg_to_logical_expr(&self, sql: &FunctionArg) -> Result<Expr> {
+        match sql {
+            FunctionArg::Named { name: _, arg } => self.sql_expr_to_logical_expr(arg),
+            FunctionArg::Unnamed(value) => self.sql_expr_to_logical_expr(value),
+        }
+    }
+
     fn sql_expr_to_logical_expr(&self, sql: &SQLExpr) -> Result<Expr> {
         match sql {
             SQLExpr::Value(Value::Number(n)) => match n.parse::<i64>() {
@@ -728,6 +743,10 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                         _ => Ok(Expr::Negative(Box::new(self.sql_expr_to_logical_expr(expr)?))),
                     }
                 }
+                _ => Err(DataFusionError::NotImplemented(format!(
+                    "Unsupported SQL unary operator {:?}",
+                    op
+                ))),
             },
 
             SQLExpr::Between {
@@ -784,7 +803,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                     let args = function
                         .args
                         .iter()
-                        .map(|a| self.sql_expr_to_logical_expr(a))
+                        .map(|a| self.sql_fn_arg_to_logical_expr(a))
                         .collect::<Result<Vec<Expr>>>()?;
 
                     return Ok(Expr::ScalarFunction { fun, args });
@@ -797,16 +816,18 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                             .args
                             .iter()
                             .map(|a| match a {
-                                SQLExpr::Value(Value::Number(_)) => Ok(lit(1_u8)),
-                                SQLExpr::Wildcard => Ok(lit(1_u8)),
-                                _ => self.sql_expr_to_logical_expr(a),
+                                FunctionArg::Unnamed(SQLExpr::Value(Value::Number(
+                                    _,
+                                ))) => Ok(lit(1_u8)),
+                                FunctionArg::Unnamed(SQLExpr::Wildcard) => Ok(lit(1_u8)),
+                                _ => self.sql_fn_arg_to_logical_expr(a),
                             })
                             .collect::<Result<Vec<Expr>>>()?
                     } else {
                         function
                             .args
                             .iter()
-                            .map(|a| self.sql_expr_to_logical_expr(a))
+                            .map(|a| self.sql_fn_arg_to_logical_expr(a))
                             .collect::<Result<Vec<Expr>>>()?
                     };
 
@@ -823,7 +844,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                         let args = function
                             .args
                             .iter()
-                            .map(|a| self.sql_expr_to_logical_expr(a))
+                            .map(|a| self.sql_fn_arg_to_logical_expr(a))
                             .collect::<Result<Vec<Expr>>>()?;
 
                         Ok(Expr::ScalarUDF { fun: fm, args })
@@ -833,7 +854,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                             let args = function
                                 .args
                                 .iter()
-                                .map(|a| self.sql_expr_to_logical_expr(a))
+                                .map(|a| self.sql_fn_arg_to_logical_expr(a))
                                 .collect::<Result<Vec<Expr>>>()?;
 
                             Ok(Expr::AggregateUDF { fun: fm, args })

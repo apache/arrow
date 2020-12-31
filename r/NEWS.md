@@ -19,6 +19,35 @@
 
 # arrow 2.0.0.9000
 
+## Python and Flight
+
+* Flight methods `flight_get()` and `flight_put()` (renamed from `push_data()` in this release) can handle both Tables and RecordBatches
+* `flight_put()` gains an `overwrite` argument to optionally check for the existence of a resource with the the same name
+* `list_flights()` and `flight_path_exists()` enable you to see available resources on a Flight server
+* `Schema` objects now have `r_to_py` and `py_to_r` methods
+* Schema metadata is correctly preserved when converting Tables to/from Python
+
+## Enhancements
+
+* Table columns can now be added, replaced, or removed by assigning `<-` with either `$` or `[[`
+* Column names of Tables and RecordBatches can be renamed by assigning `names()`
+* Large string types can now be written to Parquet files
+
+## Bug fixes
+
+* Fixed a performance regression in converting Arrow string types to R that was present in the 2.0.0 release
+* C++ functions now trigger garbage collection when needed
+* `write_parquet()` can now write RecordBatches
+* Reading a Table from a RecordBatchStreamReader containing 0 batches no longer crashes
+
+## Packaging and installation
+
+* Nightly development versions of the conda `r-arrow` package are available with `conda install -c arrow-nightlies -c conda-forge --strict-channel-priority r-arrow`
+* Linux installation now safely supports older `cmake` versions
+* Compiler version checking for enabling S3 support correctly identifies the active compiler
+* Updated guidance and troubleshooting in `vignette("install", package = "arrow")`, especially for known CentOS issues
+* Operating system detection on Linux uses the [`distro`](https://enpiar.com/distro/) package. If your OS isn't correctly identified, please report an issue there.
+
 # arrow 2.0.0
 
 ## Datasets

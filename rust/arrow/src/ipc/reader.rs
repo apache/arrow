@@ -160,11 +160,7 @@ fn create_array(
             let null_count = struct_node.null_count() as usize;
             let struct_array = if null_count > 0 {
                 // create struct array from fields, arrays and null data
-                StructArray::from((
-                    struct_arrays,
-                    null_buffer,
-                    struct_node.null_count() as usize,
-                ))
+                StructArray::from((struct_arrays, null_buffer))
             } else {
                 StructArray::from(struct_arrays)
             };
@@ -232,9 +228,7 @@ fn create_primitive_array(
                 .buffers(buffers[1..3].to_vec())
                 .offset(0);
             if null_count > 0 {
-                builder = builder
-                    .null_count(null_count)
-                    .null_bit_buffer(buffers[0].clone())
+                builder = builder.null_bit_buffer(buffers[0].clone())
             }
             builder.build()
         }
@@ -245,9 +239,7 @@ fn create_primitive_array(
                 .buffers(buffers[1..2].to_vec())
                 .offset(0);
             if null_count > 0 {
-                builder = builder
-                    .null_count(null_count)
-                    .null_bit_buffer(buffers[0].clone())
+                builder = builder.null_bit_buffer(buffers[0].clone())
             }
             builder.build()
         }
@@ -267,9 +259,7 @@ fn create_primitive_array(
                     .buffers(buffers[1..].to_vec())
                     .offset(0);
                 if null_count > 0 {
-                    builder = builder
-                        .null_count(null_count)
-                        .null_bit_buffer(buffers[0].clone())
+                    builder = builder.null_bit_buffer(buffers[0].clone())
                 }
                 let values = Arc::new(Int64Array::from(builder.build())) as ArrayRef;
                 // this cast is infallible, the unwrap is safe
@@ -281,9 +271,7 @@ fn create_primitive_array(
                     .buffers(buffers[1..].to_vec())
                     .offset(0);
                 if null_count > 0 {
-                    builder = builder
-                        .null_count(null_count)
-                        .null_bit_buffer(buffers[0].clone())
+                    builder = builder.null_bit_buffer(buffers[0].clone())
                 }
                 builder.build()
             }
@@ -296,9 +284,7 @@ fn create_primitive_array(
                     .buffers(buffers[1..].to_vec())
                     .offset(0);
                 if null_count > 0 {
-                    builder = builder
-                        .null_count(null_count)
-                        .null_bit_buffer(buffers[0].clone())
+                    builder = builder.null_bit_buffer(buffers[0].clone())
                 }
                 let values = Arc::new(Float64Array::from(builder.build())) as ArrayRef;
                 // this cast is infallible, the unwrap is safe
@@ -310,9 +296,7 @@ fn create_primitive_array(
                     .buffers(buffers[1..].to_vec())
                     .offset(0);
                 if null_count > 0 {
-                    builder = builder
-                        .null_count(null_count)
-                        .null_bit_buffer(buffers[0].clone())
+                    builder = builder.null_bit_buffer(buffers[0].clone())
                 }
                 builder.build()
             }
@@ -331,9 +315,7 @@ fn create_primitive_array(
                 .buffers(buffers[1..].to_vec())
                 .offset(0);
             if null_count > 0 {
-                builder = builder
-                    .null_count(null_count)
-                    .null_bit_buffer(buffers[0].clone())
+                builder = builder.null_bit_buffer(buffers[0].clone())
             }
             builder.build()
         }
@@ -344,9 +326,7 @@ fn create_primitive_array(
                 .buffers(buffers[1..2].to_vec())
                 .offset(0);
             if null_count > 0 {
-                builder = builder
-                    .null_count(null_count)
-                    .null_bit_buffer(buffers[0].clone())
+                builder = builder.null_bit_buffer(buffers[0].clone())
             }
             builder.build()
         }
@@ -372,9 +352,7 @@ fn create_list_array(
             .offset(0)
             .child_data(vec![child_array.data()]);
         if null_count > 0 {
-            builder = builder
-                .null_count(null_count)
-                .null_bit_buffer(buffers[0].clone())
+            builder = builder.null_bit_buffer(buffers[0].clone())
         }
         make_array(builder.build())
     } else if let DataType::LargeList(_) = *data_type {
@@ -385,9 +363,7 @@ fn create_list_array(
             .offset(0)
             .child_data(vec![child_array.data()]);
         if null_count > 0 {
-            builder = builder
-                .null_count(null_count)
-                .null_bit_buffer(buffers[0].clone())
+            builder = builder.null_bit_buffer(buffers[0].clone())
         }
         make_array(builder.build())
     } else if let DataType::FixedSizeList(_, _) = *data_type {
@@ -398,9 +374,7 @@ fn create_list_array(
             .offset(0)
             .child_data(vec![child_array.data()]);
         if null_count > 0 {
-            builder = builder
-                .null_count(null_count)
-                .null_bit_buffer(buffers[0].clone())
+            builder = builder.null_bit_buffer(buffers[0].clone())
         }
         make_array(builder.build())
     } else {
@@ -424,9 +398,7 @@ fn create_dictionary_array(
             .offset(0)
             .child_data(vec![value_array.data()]);
         if null_count > 0 {
-            builder = builder
-                .null_count(null_count)
-                .null_bit_buffer(buffers[0].clone())
+            builder = builder.null_bit_buffer(buffers[0].clone())
         }
         make_array(builder.build())
     } else {

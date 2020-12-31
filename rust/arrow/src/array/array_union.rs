@@ -73,7 +73,9 @@
 //! # Ok(())
 //! # }
 //! ```
-use crate::array::{make_array, Array, ArrayData, ArrayDataRef, ArrayRef};
+use crate::array::{
+    data::count_nulls, make_array, Array, ArrayData, ArrayDataRef, ArrayRef,
+};
 use crate::buffer::Buffer;
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
@@ -118,7 +120,7 @@ impl UnionArray {
         type_ids: Buffer,
         value_offsets: Option<Buffer>,
         child_arrays: Vec<(Field, ArrayRef)>,
-        bitmap_data: Option<(Buffer, usize)>,
+        bitmap_data: Option<Buffer>,
     ) -> Self {
         let (field_types, field_values): (Vec<_>, Vec<_>) =
             child_arrays.into_iter().unzip();
@@ -127,8 +129,8 @@ impl UnionArray {
             .add_buffer(type_ids)
             .child_data(field_values.into_iter().map(|a| a.data()).collect())
             .len(len);
-        if let Some((bitmap, null_count)) = bitmap_data {
-            builder = builder.null_bit_buffer(bitmap).null_count(null_count);
+        if let Some(bitmap) = bitmap_data {
+            builder = builder.null_bit_buffer(bitmap)
         }
         let data = match value_offsets {
             Some(b) => builder.add_buffer(b).build(),
@@ -143,16 +145,8 @@ impl UnionArray {
         child_arrays: Vec<(Field, ArrayRef)>,
         bitmap: Option<Buffer>,
     ) -> Result<Self> {
-        let bitmap_data = bitmap.map(|b| {
-            let null_count = type_ids.len() - b.count_set_bits();
-            (b, null_count)
-        });
-
         if let Some(b) = &value_offsets {
-            let nulls = match bitmap_data {
-                Some((_, n)) => n,
-                None => 0,
-            };
+            let nulls = count_nulls(bitmap.as_ref(), 0, type_ids.len());
             if ((type_ids.len() - nulls) * 4) != b.len() {
                 return Err(ArrowError::InvalidArgumentError(
                     "Type Ids and Offsets represent a different number of array slots."
@@ -192,12 +186,7 @@ impl UnionArray {
             }
         }
 
-        Ok(Self::new(
-            type_ids,
-            value_offsets,
-            child_arrays,
-            bitmap_data,
-        ))
+        Ok(Self::new(type_ids, value_offsets, child_arrays, bitmap))
     }
 
     /// Accesses the child array for `type_id`.

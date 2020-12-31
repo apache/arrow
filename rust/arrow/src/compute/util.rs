@@ -335,7 +335,6 @@ pub(super) mod tests {
 
         let list_data = ArrayData::builder(list_data_type)
             .len(list_len)
-            .null_count(list_null_count)
             .null_bit_buffer(list_bitmap.freeze())
             .add_buffer(value_offsets)
             .add_child_data(value_data)
@@ -401,7 +400,6 @@ pub(super) mod tests {
 
         let list_data = ArrayData::builder(list_data_type)
             .len(list_len)
-            .null_count(list_null_count)
             .null_bit_buffer(list_bitmap.freeze())
             .add_child_data(child_data)
             .build();

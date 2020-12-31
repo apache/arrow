@@ -26,6 +26,8 @@ Note also that if you use `conda` to manage your R environment, this document do
 You can `conda install -c conda-forge --strict-channel-priority r-arrow` and you'll get the latest official
 release of the R package along with any C++ dependencies.
 
+> Having trouble installing `arrow`? See the "Troubleshooting" section below.
+
 # Installation basics
 
 Install the latest release of `arrow` from CRAN with
@@ -81,6 +83,8 @@ environment variable set.
 If you already have `arrow` installed and want to upgrade to a different version,
 install a development build, or try to reinstall and fix issues with Linux
 C++ binaries, you can call `install_arrow()`.
+`install_arrow()` provides some convenience wrappers around the various
+environment variables described below.
 This function is part of the `arrow` package,
 and it is also available as a standalone script, so you can
 access it for convenience without first installing the package:
@@ -93,6 +97,8 @@ source("https://raw.githubusercontent.com/apache/arrow/master/r/R/install-arrow.
 while `install_arrow(nightly = TRUE)` will give you a development build.
 `install_arrow()` does not require environment variables to be set in order to
 satisfy C++ dependencies.
+
+> Note that, unlike packages like `tensorflow`, `blogdown`, and others that require external dependencies, you do not need to run `install_arrow()` after a successful `arrow` installation.
 
 <!-- TODO: does remotes::install_github("apache/arrow/r") work now? -->
 
@@ -164,7 +170,7 @@ which calls `tools/linuxlibs.R`.
 If the C++ library is built from source, `inst/build_arrow_static.sh` is executed.
 This build script is also what is used to generate the prebuilt binaries.
 
-# Troubleshooting and additional options
+# Troubleshooting
 
 The intent is that `install.packages("arrow")` will just work and handle all C++
 dependencies, but depending on your system, you may have better results if you
@@ -175,25 +181,25 @@ tune one of several parameters. Here are some known complications and ways to ad
 If you get an error like
 
 ```
-Cannot call io___MemoryMappedFile__Open(). Please use arrow::install_arrow() to install required runtime libraries.
+Cannot call io___MemoryMappedFile__Open(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries.
 ```
 
 for every `arrow` function you call,
 that means that installing the package failed to retrieve or build C++ libraries
-compatible with the current version of the R package. `install_arrow()` provides
-some convenience wrappers around the various environment variables described below
-and has defaults that should isolate the package installation and make it
-more likely to succeed. See its help page for details.
+compatible with the current version of the R package.
 
-As of version 0.17, it is expected that C++ dependencies should be built successfully
-on all Linux distributions, so if you see this message because the C++ libraries
-errored while building,
-please [report an issue](https://issues.apache.org/jira/projects/ARROW/issues).
+It is expected that C++ dependencies should be built successfully
+on all Linux distributions, so you should not see this message. If you do,
+please check the "Known installation issues" below to see if any apply.
+If none apply, retry the installation with `arrow::install_arrow(verbose = TRUE)`
+so that details on what failed are shown, then
+please [report an issue](https://issues.apache.org/jira/projects/ARROW/issues)
+and include the full verbose installation output.
 
 ## Using system libraries
 
 If a system library or other installed Arrow is found but it doesn't match the R package version
-(for example, you have libarrow 0.14 on your system and are installing R package 0.15.1),
+(for example, you have libarrow 1.0.0 on your system and are installing R package 2.0.0),
 it is likely that the R bindings will fail to compile.
 Because the Apache Arrow project is under active development,
 is it essential that versions of the C++ and R libraries match.
@@ -286,12 +292,12 @@ so that we can attempt to improve the script.
 * On CentOS, if you are using a more modern `devtoolset`, you may need to set
 the environment variables `CC` and `CXX` either in the shell or in R's `Makeconf`.
 For CentOS 7 and above, both the Arrow system packages and the C++ binaries
-for R are built with the default system compilers. If you want to use either of these 
-and you have a `devtoolset` installed, set `CC=/usr/bin/gcc CXX=/usr/bin/g++` 
-to use the system compilers instead of the `devtoolset`. 
-Alternatively, if you want to build `arrow` with the newer `devtoolset` compilers, 
+for R are built with the default system compilers. If you want to use either of these
+and you have a `devtoolset` installed, set `CC=/usr/bin/gcc CXX=/usr/bin/g++`
+to use the system compilers instead of the `devtoolset`.
+Alternatively, if you want to build `arrow` with the newer `devtoolset` compilers,
 set both `ARROW_USE_PKG_CONFIG` and `LIBARROW_BINARY` to `false` so that
-you build the Arrow C++ from source using those compilers. 
+you build the Arrow C++ from source using those compilers.
 Compiler mismatch between the arrow system libraries and the R
 package may cause R to segfault when `arrow` package functions are used.
 See discussions [here](https://issues.apache.org/jira/browse/ARROW-8586)
@@ -338,7 +344,8 @@ By default, these are all unset. All boolean variables are case-insensitive.
   `NOT_CRAN=true` as part of their workflow, without requiring additional
   environment variables to be set.
 * `ARROW_R_DEV`: If set to `true`, more verbose messaging will be printed
-  in the build script. This variable also is needed if you're modifying C++
+  in the build script. `arrow::install_arrow(verbose = TRUE)` sets this.
+  This variable also is needed if you're modifying C++
   code in the package: see "Editing C++ code" in the README.
 * `LIBARROW_DEBUG_DIR`: If the C++ library building from source fails (`cmake`),
   there may be messages telling you to check some log file in the build directory.

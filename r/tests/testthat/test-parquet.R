@@ -17,7 +17,7 @@
 
 context("Parquet file reading/writing")
 
-pq_file <- system.file("v0.7.1.parquet", package="arrow")
+pq_file <- system.file("v0.7.1.parquet", package = "arrow")
 
 test_that("reading a known Parquet file to tibble", {
   skip_if_not_available("snappy")
@@ -96,6 +96,12 @@ test_that("write_parquet() handles various write_statistics= specs", {
   expect_parquet_roundtrip(tab, write_statistics = TRUE)
   expect_parquet_roundtrip(tab, write_statistics = c(TRUE, FALSE, TRUE))
   expect_parquet_roundtrip(tab, write_statistics = c(x1 = TRUE, x2 = TRUE))
+})
+
+test_that("write_parquet() accepts RecordBatch too", {
+  batch <- RecordBatch$create(x1 = 1:5, x2 = 1:5, y = 1:5)
+  tab <- parquet_roundtrip(batch)
+  expect_equivalent(tab, Table$create(batch))
 })
 
 test_that("write_parquet() can truncate timestamps", {

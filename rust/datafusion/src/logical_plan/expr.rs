@@ -570,6 +570,15 @@ pub fn count(expr: Expr) -> Expr {
     }
 }
 
+/// Create an expression to represent the count(distinct) aggregate function
+pub fn count_distinct(expr: Expr) -> Expr {
+    Expr::AggregateFunction {
+        fun: aggregates::AggregateFunction::Count,
+        distinct: true,
+        args: vec![expr],
+    }
+}
+
 /// Whether it can be represented as a literal expression
 pub trait Literal {
     /// convert the value to a Literal expression

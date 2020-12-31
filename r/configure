@@ -193,8 +193,8 @@ else
     echo "$TEST_CMD"
   fi
   echo "------------------------- NOTE ---------------------------"
-  echo "After installation, please run arrow::install_arrow()"
-  echo "for help installing required runtime libraries"
+  echo "See https://arrow.apache.org/docs/r/articles/install.html"
+  echo "for help installing Arrow C++ libraries"
   echo "---------------------------------------------------------"
   PKG_LIBS=""
   PKG_CFLAGS=""

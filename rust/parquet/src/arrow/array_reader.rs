@@ -944,15 +944,11 @@ impl<OffsetSize: OffsetSizeTrait> ArrayReader for ListArrayReader<OffsetSize> {
         }
         let value_offsets = Buffer::from(&offsets.to_byte_slice());
 
-        // null list has def_level = 0
-        let null_count = def_levels.iter().filter(|x| x == &&0).count();
-
         let list_data = ArrayData::builder(self.get_data_type().clone())
             .len(offsets.len() - 1)
             .add_buffer(value_offsets)
             .add_child_data(batch_values.data())
             .null_bit_buffer(null_buf.freeze())
-            .null_count(null_count)
             .offset(next_batch_array.offset())
             .build();
 
@@ -1088,19 +1084,14 @@ impl ArrayReader for StructArrayReader {
 
         // calculate bitmap for current array
         let mut bitmap_builder = BooleanBufferBuilder::new(children_array_len);
-        let mut null_count = 0;
         for def_level in def_level_data {
             let not_null = *def_level >= self.struct_def_level;
-            if !not_null {
-                null_count += 1;
-            }
             bitmap_builder.append(not_null);
         }
 
         // Now we can build array data
         let array_data = ArrayDataBuilder::new(self.data_type.clone())
             .len(children_array_len)
-            .null_count(null_count)
             .null_bit_buffer(bitmap_builder.finish())
             .child_data(
                 children_array
@@ -2164,10 +2155,10 @@ mod tests {
             let mut values = Vec::with_capacity(values_per_page);
 
             for _ in 0..values_per_page {
-                let def_level = rng.gen_range(0, max_def_level + 1);
-                let rep_level = rng.gen_range(0, max_rep_level + 1);
+                let def_level = rng.gen_range(0..max_def_level + 1);
+                let rep_level = rng.gen_range(0..max_rep_level + 1);
                 if def_level == max_def_level {
-                    let len = rng.gen_range(1, str_base.len());
+                    let len = rng.gen_range(1..str_base.len());
                     let slice = &str_base[..len];
                     values.push(ByteArray::from(slice));
                     all_values.push(Some(slice.to_string()));
