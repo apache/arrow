@@ -25,4 +25,4 @@ cd ..
 chmod -R a+rwx .
 
 # Build docker image and container
-archery docker run -v "$(pwd)"/.:/arrow -v "$(pwd)"/workspace:/workspace --no-pull ubuntu-python /arrow/.buildkite/scripts/run_benchmarks
+archery docker run -v "$(pwd)"/.:/arrow -v "$(pwd)"/workspace:/workspace --no-pull ubuntu-python /arrow/.buildkite/scripts/run_benchmarks.sh
