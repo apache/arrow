@@ -31,8 +31,8 @@ pub(super) fn decimal_equal(
         _ => unreachable!(),
     };
 
-    let lhs_values = &lhs.buffers()[0].data()[lhs.offset() * size..];
-    let rhs_values = &rhs.buffers()[0].data()[rhs.offset() * size..];
+    let lhs_values = &lhs.buffers()[0].as_slice()[lhs.offset() * size..];
+    let rhs_values = &rhs.buffers()[0].as_slice()[rhs.offset() * size..];
 
     if lhs.null_count() == 0 && rhs.null_count() == 0 {
         equal_len(

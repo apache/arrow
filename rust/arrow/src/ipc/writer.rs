@@ -718,7 +718,7 @@ fn write_buffer(
     let total_len: i64 = (len + pad_len) as i64;
     // assert_eq!(len % 8, 0, "Buffer width not a multiple of 8 bytes");
     buffers.push(ipc::Buffer::new(offset, total_len));
-    arrow_data.extend_from_slice(buffer.data());
+    arrow_data.extend_from_slice(buffer.as_slice());
     arrow_data.extend_from_slice(&vec![0u8; pad_len][..]);
     offset + total_len
 }

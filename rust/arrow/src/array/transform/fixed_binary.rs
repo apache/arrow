@@ -25,7 +25,7 @@ pub(super) fn build_extend(array: &ArrayData) -> Extend {
         _ => unreachable!(),
     };
 
-    let values = &array.buffers()[0].data()[array.offset() * size..];
+    let values = &array.buffers()[0].as_slice()[array.offset() * size..];
     if array.null_count() == 0 {
         // fast case where we can copy regions without null issues
         Box::new(

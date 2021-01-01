@@ -29,8 +29,8 @@ pub(super) fn primitive_equal<T>(
     len: usize,
 ) -> bool {
     let byte_width = size_of::<T>();
-    let lhs_values = &lhs.buffers()[0].data()[lhs.offset() * byte_width..];
-    let rhs_values = &rhs.buffers()[0].data()[rhs.offset() * byte_width..];
+    let lhs_values = &lhs.buffers()[0].as_slice()[lhs.offset() * byte_width..];
+    let rhs_values = &rhs.buffers()[0].as_slice()[rhs.offset() * byte_width..];
 
     if lhs.null_count() == 0 && rhs.null_count() == 0 {
         // without nulls, we just need to compare slices

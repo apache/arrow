@@ -291,7 +291,7 @@ where
         let num_bytes = bit_util::ceil(data_len, 8);
         let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, true);
 
-        let null_slice = null_buf.data_mut();
+        let null_slice = null_buf.as_slice_mut();
 
         for (i, elem) in data.iter_mut().enumerate() {
             let index = ToPrimitive::to_usize(&indices.value(i)).ok_or_else(|| {
@@ -342,7 +342,7 @@ where
     let num_byte = bit_util::ceil(data_len, 8);
     let mut val_buf = MutableBuffer::new(num_byte).with_bitset(num_byte, false);
 
-    let val_slice = val_buf.data_mut();
+    let val_slice = val_buf.as_slice_mut();
 
     let null_count = values.null_count();
 
@@ -363,7 +363,7 @@ where
         nulls = indices.data_ref().null_buffer().cloned();
     } else {
         let mut null_buf = MutableBuffer::new(num_byte).with_bitset(num_byte, true);
-        let null_slice = null_buf.data_mut();
+        let null_slice = null_buf.as_slice_mut();
 
         (0..data_len).try_for_each::<_, Result<()>>(|i| {
             let index = ToPrimitive::to_usize(&indices.value(i)).ok_or_else(|| {
@@ -442,7 +442,7 @@ where
         let num_bytes = bit_util::ceil(data_len, 8);
 
         let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, true);
-        let null_slice = null_buf.data_mut();
+        let null_slice = null_buf.as_slice_mut();
 
         for (i, offset) in offsets.iter_mut().skip(1).enumerate() {
             let index = ToPrimitive::to_usize(&indices.value(i)).ok_or_else(|| {
@@ -480,7 +480,7 @@ where
         let num_bytes = bit_util::ceil(data_len, 8);
 
         let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, true);
-        let null_slice = null_buf.data_mut();
+        let null_slice = null_buf.as_slice_mut();
 
         for (i, offset) in offsets.iter_mut().skip(1).enumerate() {
             let index = ToPrimitive::to_usize(&indices.value(i)).ok_or_else(|| {
@@ -544,7 +544,7 @@ where
     let num_bytes = bit_util::ceil(indices.len(), 8);
     let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, true);
     {
-        let null_slice = null_buf.data_mut();
+        let null_slice = null_buf.as_slice_mut();
         offsets[..].windows(2).enumerate().for_each(
             |(i, window): (usize, &[OffsetType::Native])| {
                 if window[0] == window[1] {
@@ -587,7 +587,7 @@ where
     // determine null count and null buffer, which are a function of `values` and `indices`
     let num_bytes = bit_util::ceil(indices.len(), 8);
     let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, true);
-    let null_slice = null_buf.data_mut();
+    let null_slice = null_buf.as_slice_mut();
 
     for i in 0..indices.len() {
         let index = ToPrimitive::to_usize(&indices.value(i)).ok_or_else(|| {

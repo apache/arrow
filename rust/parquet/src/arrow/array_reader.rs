@@ -291,7 +291,7 @@ impl<T: DataType> ArrayReader for PrimitiveArrayReader<T> {
         if T::get_physical_type() == PhysicalType::BOOLEAN {
             let mut boolean_buffer = BooleanBufferBuilder::new(record_data.len());
 
-            for e in record_data.data() {
+            for e in record_data.as_slice() {
                 boolean_buffer.append(*e > 0);
             }
             record_data = boolean_buffer.finish();
@@ -920,7 +920,7 @@ impl<OffsetSize: OffsetSizeTrait> ArrayReader for ListArrayReader<OffsetSize> {
 
         let num_bytes = bit_util::ceil(offsets.len(), 8);
         let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
-        let null_slice = null_buf.data_mut();
+        let null_slice = null_buf.as_slice_mut();
         let mut list_index = 0;
         for i in 0..rep_levels.len() {
             if rep_levels[i] == 0 && def_levels[i] != 0 {

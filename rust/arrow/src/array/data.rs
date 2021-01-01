@@ -239,7 +239,7 @@ impl ArrayData {
     /// * the datatype is `Boolean` (it corresponds to a bit-packed buffer where the offset is not applicable)
     #[inline]
     pub(super) fn buffer<T: ArrowNativeType>(&self, buffer: usize) -> &[T] {
-        let values = unsafe { self.buffers[buffer].data().align_to::<T>() };
+        let values = unsafe { self.buffers[buffer].as_slice().align_to::<T>() };
         if !values.0.is_empty() || !values.2.is_empty() {
             panic!("The buffer is not byte-aligned with its interpretation")
         };
@@ -379,7 +379,7 @@ mod tests {
         assert_eq!(10, arr_data.null_count());
         assert_eq!(5, arr_data.offset());
         assert_eq!(1, arr_data.buffers().len());
-        assert_eq!(&[0, 1, 2, 3], arr_data.buffers()[0].data());
+        assert_eq!(&[0, 1, 2, 3], arr_data.buffers()[0].as_slice());
         assert_eq!(1, arr_data.child_data().len());
         assert_eq!(child_arr_data, arr_data.child_data()[0]);
     }
@@ -420,7 +420,7 @@ mod tests {
             .null_bit_buffer(Buffer::from(bit_v))
             .build();
         assert!(arr_data.null_buffer().is_some());
-        assert_eq!(&bit_v, arr_data.null_buffer().unwrap().data());
+        assert_eq!(&bit_v, arr_data.null_buffer().unwrap().as_slice());
     }
 
     #[test]

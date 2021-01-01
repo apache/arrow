@@ -599,7 +599,7 @@ fn create_null_buf(json_col: &ArrowJsonColumn) -> Buffer {
         .iter()
         .enumerate()
         .for_each(|(i, v)| {
-            let null_slice = null_buf.data_mut();
+            let null_slice = null_buf.as_slice_mut();
             if *v != 0 {
                 bit_util::set_bit(null_slice, i);
             }

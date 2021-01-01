@@ -232,6 +232,42 @@ test_that("Filtering with a function that doesn't have an Array/expr method stil
   )
 })
 
+test_that("filter() with .data pronoun", {
+  expect_dplyr_equal(
+    input %>%
+      filter(.data$dbl > 4) %>%
+      select(.data$chr, .data$int, .data$lgl) %>%
+      collect(),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(is.na(.data$lgl)) %>%
+      select(.data$chr, .data$int, .data$lgl) %>%
+      collect(),
+    tbl
+  )
+
+  # and the .env pronoun too!
+  chr <- 4
+  expect_dplyr_equal(
+    input %>%
+      filter(.data$dbl > .env$chr) %>%
+      select(.data$chr, .data$int, .data$lgl) %>%
+      collect(),
+    tbl
+  )
+
+  # but there is an error if we don't override the masking with `.env`
+  expect_dplyr_error(
+    tbl %>%
+      filter(.data$dbl > chr) %>%
+      select(.data$chr, .data$int, .data$lgl) %>%
+      collect()
+  )
+})
+
 test_that("summarize", {
   expect_dplyr_equal(
     input %>%

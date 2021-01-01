@@ -208,7 +208,7 @@ impl UnionArray {
     /// Panics if `index` is greater than the length of the array.
     pub fn type_id(&self, index: usize) -> i8 {
         assert!(index - self.offset() < self.len());
-        self.data().buffers()[0].data()[index] as i8
+        self.data().buffers()[0].as_slice()[index] as i8
     }
 
     /// Returns the offset into the underlying values array for the array slot at `index`.
@@ -225,7 +225,7 @@ impl UnionArray {
                 Some(b) => b.count_set_bits_offset(0, index),
                 None => index,
             };
-            self.data().buffers()[1].data()[valid_slots * size_of::<i32>()] as i32
+            self.data().buffers()[1].as_slice()[valid_slots * size_of::<i32>()] as i32
         } else {
             index as i32
         }

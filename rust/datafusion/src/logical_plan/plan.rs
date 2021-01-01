@@ -838,8 +838,10 @@ mod tests {
     /// test earliy stopping in pre-visit
     #[test]
     fn early_stoping_pre_visit() {
-        let mut visitor = StoppingVisitor::default();
-        visitor.return_false_from_pre_in = OptionalCounter::new(2);
+        let mut visitor = StoppingVisitor {
+            return_false_from_pre_in: OptionalCounter::new(2),
+            ..Default::default()
+        };
         let plan = test_plan();
         let res = plan.accept(&mut visitor);
         assert!(res.is_ok());
@@ -852,8 +854,10 @@ mod tests {
 
     #[test]
     fn early_stoping_post_visit() {
-        let mut visitor = StoppingVisitor::default();
-        visitor.return_false_from_post_in = OptionalCounter::new(1);
+        let mut visitor = StoppingVisitor {
+            return_false_from_post_in: OptionalCounter::new(1),
+            ..Default::default()
+        };
         let plan = test_plan();
         let res = plan.accept(&mut visitor);
         assert!(res.is_ok());
@@ -907,8 +911,10 @@ mod tests {
 
     #[test]
     fn error_pre_visit() {
-        let mut visitor = ErrorVisitor::default();
-        visitor.return_error_from_pre_in = OptionalCounter::new(2);
+        let mut visitor = ErrorVisitor {
+            return_error_from_pre_in: OptionalCounter::new(2),
+            ..Default::default()
+        };
         let plan = test_plan();
         let res = plan.accept(&mut visitor);
 
@@ -926,8 +932,10 @@ mod tests {
 
     #[test]
     fn error_post_visit() {
-        let mut visitor = ErrorVisitor::default();
-        visitor.return_error_from_post_in = OptionalCounter::new(1);
+        let mut visitor = ErrorVisitor {
+            return_error_from_post_in: OptionalCounter::new(1),
+            ..Default::default()
+        };
         let plan = test_plan();
         let res = plan.accept(&mut visitor);
         if let Err(e) = res {

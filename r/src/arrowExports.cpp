@@ -4999,7 +4999,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ImportSchema(SEXP schema_sexp){
-	Rf_error("Cannot call ImportSchema(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ImportSchema(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
