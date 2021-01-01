@@ -212,7 +212,7 @@ impl ExecutionPlan for HashJoinExec {
                     // 1. creates a [JoinHashMap] of all batches from the stream
                     // 2. stores the batches in a vector.
                     let initial = (JoinHashMap::default(), Vec::new(), 0);
-                    let (hashmap, batches, _len) = stream
+                    let (hashmap, batches, num_rows) = stream
                         .try_fold(initial, |mut acc, batch| async {
                             let hash = &mut acc.0;
                             let values = &mut acc.1;
@@ -223,7 +223,9 @@ impl ExecutionPlan for HashJoinExec {
                             Ok(acc)
                         })
                         .await?;
-                    let single_batch = vec![concat_batches(&batches[0].schema(), &batches, 32768)?];
+
+                    let single_batch =
+                        vec![concat_batches(&batches[0].schema(), &batches, num_rows)?];
 
                     let left_side = Arc::new((hashmap, single_batch));
                     *build_side = Some(left_side.clone());
