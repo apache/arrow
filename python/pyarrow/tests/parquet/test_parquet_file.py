@@ -188,7 +188,6 @@ def test_read_column_invalid_index():
             f.reader.read_column(index)
 
 
-
 @pytest.mark.pandas
 @pytest.mark.parametrize('batch_size', [300, 1000, 1300])
 def test_iter_batches_columns_reader(tempdir, batch_size):
