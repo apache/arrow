@@ -26,6 +26,7 @@ namespace gandiva {
 using arrow::boolean;
 using arrow::float32;
 using arrow::int32;
+using arrow::utf8;
 
 class TestProjector : public ::testing::Test {
  public:
@@ -80,7 +81,7 @@ TEST_F(TestProjector, TestNotMatchingDataType) {
 
 TEST_F(TestProjector, TestNotSupportedDataType) {
   // schema for input fields
-  auto field0 = field("f0", list(int32()));
+  auto field0 = field("f0", map(utf8(), int32()));
   auto schema = arrow::schema({field0});
 
   // output fields
@@ -94,7 +95,7 @@ TEST_F(TestProjector, TestNotSupportedDataType) {
   std::shared_ptr<Projector> projector;
   auto status = Projector::Make(schema, {lt_expr}, TestConfiguration(), &projector);
   EXPECT_TRUE(status.IsExpressionValidationError());
-  std::string expected_error = "Field f0 has unsupported data type list";
+  std::string expected_error = "Field f0 has unsupported data type map";
   EXPECT_TRUE(status.message().find(expected_error) != std::string::npos);
 }
 

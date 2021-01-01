@@ -80,6 +80,19 @@ class GANDIVA_EXPORT VectorReadFixedLenValueDex : public VectorReadBaseDex {
   void Accept(DexVisitor& visitor) override { visitor.Visit(*this); }
 };
 
+/// value component of a fixed-len list ValueVector
+class GANDIVA_EXPORT VectorReadFixedLenValueListDex : public VectorReadBaseDex {
+ public:
+  explicit VectorReadFixedLenValueListDex(FieldDescriptorPtr field_desc)
+      : VectorReadBaseDex(field_desc) {}
+
+  int DataIdx() const { return field_desc_->data_idx(); }
+
+  int OffsetsIdx() const { return field_desc_->offsets_idx(); }
+
+  void Accept(DexVisitor& visitor) override { visitor.Visit(*this); }
+};
+
 /// value component of a variable-len ValueVector
 class GANDIVA_EXPORT VectorReadVarLenValueDex : public VectorReadBaseDex {
  public:
@@ -89,6 +102,21 @@ class GANDIVA_EXPORT VectorReadVarLenValueDex : public VectorReadBaseDex {
   int DataIdx() const { return field_desc_->data_idx(); }
 
   int OffsetsIdx() const { return field_desc_->offsets_idx(); }
+
+  void Accept(DexVisitor& visitor) override { visitor.Visit(*this); }
+};
+
+/// value component of a variable-len list ValueVector
+class GANDIVA_EXPORT VectorReadVarLenValueListDex : public VectorReadBaseDex {
+ public:
+  explicit VectorReadVarLenValueListDex(FieldDescriptorPtr field_desc)
+      : VectorReadBaseDex(field_desc) {}
+
+  int DataIdx() const { return field_desc_->data_idx(); }
+
+  int OffsetsIdx() const { return field_desc_->offsets_idx(); }
+
+  int ChildOffsetsIdx() const { return field_desc_->child_data_offsets_idx(); }
 
   void Accept(DexVisitor& visitor) override { visitor.Visit(*this); }
 };

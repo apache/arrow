@@ -26,7 +26,9 @@ namespace gandiva {
 
 class VectorReadValidityDex;
 class VectorReadFixedLenValueDex;
+class VectorReadFixedLenValueListDex;
 class VectorReadVarLenValueDex;
+class VectorReadVarLenValueListDex;
 class LocalBitMapValidityDex;
 class LiteralDex;
 class TrueDex;
@@ -47,7 +49,9 @@ class GANDIVA_EXPORT DexVisitor {
 
   virtual void Visit(const VectorReadValidityDex& dex) = 0;
   virtual void Visit(const VectorReadFixedLenValueDex& dex) = 0;
+  virtual void Visit(const VectorReadFixedLenValueListDex& dex) = 0;
   virtual void Visit(const VectorReadVarLenValueDex& dex) = 0;
+  virtual void Visit(const VectorReadVarLenValueListDex& dex) = 0;
   virtual void Visit(const LocalBitMapValidityDex& dex) = 0;
   virtual void Visit(const TrueDex& dex) = 0;
   virtual void Visit(const FalseDex& dex) = 0;
@@ -70,7 +74,9 @@ class GANDIVA_EXPORT DexVisitor {
 class GANDIVA_EXPORT DexDefaultVisitor : public DexVisitor {
   VISIT_DCHECK(VectorReadValidityDex)
   VISIT_DCHECK(VectorReadFixedLenValueDex)
+  VISIT_DCHECK(VectorReadFixedLenValueListDex)
   VISIT_DCHECK(VectorReadVarLenValueDex)
+  VISIT_DCHECK(VectorReadVarLenValueListDex)
   VISIT_DCHECK(LocalBitMapValidityDex)
   VISIT_DCHECK(TrueDex)
   VISIT_DCHECK(FalseDex)

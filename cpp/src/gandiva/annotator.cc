@@ -46,15 +46,23 @@ FieldDescriptorPtr Annotator::MakeDesc(FieldPtr field, bool is_output) {
   int data_idx = buffer_count_++;
   int validity_idx = buffer_count_++;
   int offsets_idx = FieldDescriptor::kInvalidIdx;
+  int child_offsets_idx = FieldDescriptor::kInvalidIdx;
   if (arrow::is_binary_like(field->type()->id())) {
     offsets_idx = buffer_count_++;
+  }
+
+  if (field->type()->id() == arrow::Type::LIST) {
+    offsets_idx = buffer_count_++;
+    if (arrow::is_binary_like(field->type()->field(0)->type()->id())) {
+      child_offsets_idx = buffer_count_++;
+    }
   }
   int data_buffer_ptr_idx = FieldDescriptor::kInvalidIdx;
   if (is_output) {
     data_buffer_ptr_idx = buffer_count_++;
   }
   return std::make_shared<FieldDescriptor>(field, data_idx, validity_idx, offsets_idx,
-                                           data_buffer_ptr_idx);
+                                           data_buffer_ptr_idx, child_offsets_idx);
 }
 
 void Annotator::PrepareBuffersForField(const FieldDescriptor& desc,
@@ -74,16 +82,52 @@ void Annotator::PrepareBuffersForField(const FieldDescriptor& desc,
   if (desc.HasOffsetsIdx()) {
     uint8_t* offsets_buf = const_cast<uint8_t*>(array_data.buffers[buffer_idx]->data());
     eval_batch->SetBuffer(desc.offsets_idx(), offsets_buf, array_data.offset);
-    ++buffer_idx;
+
+    if (desc.HasChildOffsetsIdx()) {
+      if (is_output) {
+        // if list field is output field, we should put buffer pointer into eval batch
+        // for resizing
+        uint8_t* child_offsets_buf = reinterpret_cast<uint8_t*>(
+            array_data.child_data.at(0)->buffers[buffer_idx].get());
+        eval_batch->SetBuffer(desc.child_data_offsets_idx(), child_offsets_buf,
+                              array_data.child_data.at(0)->offset);
+      } else {
+        // if list field is input field, just put buffer data into eval batch
+        uint8_t* child_offsets_buf = const_cast<uint8_t*>(
+            array_data.child_data.at(0)->buffers[buffer_idx]->data());
+        eval_batch->SetBuffer(desc.child_data_offsets_idx(), child_offsets_buf,
+                              array_data.child_data.at(0)->offset);
+      }
+    }
+    if (array_data.type->id() != arrow::Type::LIST ||
+        arrow::is_binary_like(array_data.type->field(0)->type()->id()))
+      // primitive type list data buffer index is 1
+      // binary like type list data buffer index is 2
+      ++buffer_idx;
   }
 
-  uint8_t* data_buf = const_cast<uint8_t*>(array_data.buffers[buffer_idx]->data());
-  eval_batch->SetBuffer(desc.data_idx(), data_buf, array_data.offset);
+  if (array_data.type->id() != arrow::Type::LIST) {
+    uint8_t* data_buf = const_cast<uint8_t*>(array_data.buffers[buffer_idx]->data());
+    eval_batch->SetBuffer(desc.data_idx(), data_buf, array_data.offset);
+  } else {
+    uint8_t* data_buf =
+        const_cast<uint8_t*>(array_data.child_data.at(0)->buffers[buffer_idx]->data());
+    eval_batch->SetBuffer(desc.data_idx(), data_buf, array_data.child_data.at(0)->offset);
+  }
+
   if (is_output) {
     // pass in the Buffer object for output data buffers. Can be used for resizing.
-    uint8_t* data_buf_ptr =
-        reinterpret_cast<uint8_t*>(array_data.buffers[buffer_idx].get());
-    eval_batch->SetBuffer(desc.data_buffer_ptr_idx(), data_buf_ptr, array_data.offset);
+    if (array_data.type->id() != arrow::Type::LIST) {
+      uint8_t* data_buf_ptr =
+          reinterpret_cast<uint8_t*>(array_data.buffers[buffer_idx].get());
+      eval_batch->SetBuffer(desc.data_buffer_ptr_idx(), data_buf_ptr, array_data.offset);
+    } else {
+      // list data buffer is in child data buffer
+      uint8_t* data_buf_ptr = reinterpret_cast<uint8_t*>(
+          array_data.child_data.at(0)->buffers[buffer_idx].get());
+      eval_batch->SetBuffer(desc.data_buffer_ptr_idx(), data_buf_ptr,
+                            array_data.child_data.at(0)->offset);
+    }
   }
 }
 

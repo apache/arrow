@@ -74,4 +74,27 @@ class GANDIVA_EXPORT DecimalLValue : public LValue {
   llvm::Value* scale_;
 };
 
+class GANDIVA_EXPORT ListLValue : public LValue {
+ public:
+  ListLValue(llvm::Value* data, llvm::Value* child_offsets, llvm::Value* offsets_length,
+             llvm::Value* validity = NULLPTR)
+      : LValue(data, NULLPTR, validity),
+        child_offsets_(child_offsets),
+        offsets_length_(offsets_length) {}
+
+  llvm::Value* child_offsets() { return child_offsets_; }
+
+  llvm::Value* offsets_length() { return offsets_length_; }
+
+  void AppendFunctionParams(std::vector<llvm::Value*>* params) override {
+    LValue::AppendFunctionParams(params);
+    params->push_back(child_offsets_);
+    params->push_back(offsets_length_);
+  }
+
+ private:
+  llvm::Value* child_offsets_;
+  llvm::Value* offsets_length_;
+};
+
 }  // namespace gandiva

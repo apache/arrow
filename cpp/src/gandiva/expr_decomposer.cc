@@ -39,8 +39,16 @@ Status ExprDecomposer::Visit(const FieldNode& node) {
 
   DexPtr validity_dex = std::make_shared<VectorReadValidityDex>(desc);
   DexPtr value_dex;
-  if (desc->HasOffsetsIdx()) {
-    value_dex = std::make_shared<VectorReadVarLenValueDex>(desc);
+  if (desc->HasChildOffsetsIdx()) {
+    // handle list<binary> type
+    value_dex = std::make_shared<VectorReadVarLenValueListDex>(desc);
+  } else if (desc->HasOffsetsIdx()) {
+    if (desc->field()->type()->id() == arrow::Type::LIST) {
+      // handle list<primitive> type
+      value_dex = std::make_shared<VectorReadFixedLenValueListDex>(desc);
+    } else {
+      value_dex = std::make_shared<VectorReadVarLenValueDex>(desc);
+    }
   } else {
     value_dex = std::make_shared<VectorReadFixedLenValueDex>(desc);
   }

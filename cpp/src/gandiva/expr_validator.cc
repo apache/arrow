@@ -42,7 +42,7 @@ Status ExprValidator::Validate(const ExpressionPtr& expr) {
 }
 
 Status ExprValidator::Visit(const FieldNode& node) {
-  auto llvm_type = types_->IRType(node.return_type()->id());
+  auto llvm_type = types_->DataVecType(node.return_type());
   ARROW_RETURN_IF(llvm_type == nullptr,
                   Status::ExpressionValidationError("Field ", node.field()->name(),
                                                     " has unsupported data type ",
@@ -111,7 +111,7 @@ Status ExprValidator::Visit(const IfNode& node) {
 }
 
 Status ExprValidator::Visit(const LiteralNode& node) {
-  auto llvm_type = types_->IRType(node.return_type()->id());
+  auto llvm_type = types_->DataVecType(node.return_type());
   ARROW_RETURN_IF(llvm_type == nullptr,
                   Status::ExpressionValidationError("Value ", ToString(node.holder()),
                                                     " has unsupported data type ",

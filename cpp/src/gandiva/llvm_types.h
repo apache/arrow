@@ -65,6 +65,10 @@ class GANDIVA_EXPORT LLVMTypes {
 
   llvm::PointerType* i128_ptr_type() { return ptr_type(i128_type()); }
 
+  llvm::PointerType* float_ptr_type() { return ptr_type(float_type()); }
+
+  llvm::PointerType* double_ptr_type() { return ptr_type(double_type()); }
+
   template <typename ctype, size_t N = (sizeof(ctype) * CHAR_BIT)>
   llvm::Constant* int_constant(ctype val) {
     return llvm::ConstantInt::get(context_, llvm::APInt(N, val));
@@ -104,6 +108,13 @@ class GANDIVA_EXPORT LLVMTypes {
 
   /// For a given data type, find the ir type used for the data vector slot.
   llvm::Type* DataVecType(const DataTypePtr& data_type) {
+    // support list type
+    // list type data is formed by base type buffer, wrapped with offsets buffer
+    // offsets buffer is to separate data into list
+    // not support nested list
+    if (data_type->id() == arrow::Type::LIST) {
+      return IRType(data_type->field(0)->type()->id());
+    }
     return IRType(data_type->id());
   }
 

@@ -50,12 +50,22 @@ TEST_F(TestLLVMTypes, TestFound) {
             types_->i64_type());
   EXPECT_EQ(types_->DataVecType(arrow::timestamp(arrow::TimeUnit::MILLI)),
             types_->i64_type());
+
+  EXPECT_EQ(types_->IRType(arrow::Type::STRING), types_->i8_ptr_type());
+  EXPECT_EQ(types_->DataVecType(arrow::list(arrow::boolean())), types_->i1_type());
+  EXPECT_EQ(types_->DataVecType(arrow::list(arrow::int32())), types_->i32_type());
+  EXPECT_EQ(types_->DataVecType(arrow::list(arrow::int64())), types_->i64_type());
+  EXPECT_EQ(types_->DataVecType(arrow::list(arrow::float32())), types_->float_type());
+  EXPECT_EQ(types_->DataVecType(arrow::list(arrow::float64())), types_->double_type());
+  EXPECT_EQ(types_->DataVecType(arrow::list(arrow::utf8())), types_->i8_ptr_type());
 }
 
 TEST_F(TestLLVMTypes, TestNotFound) {
   EXPECT_EQ(types_->IRType(arrow::Type::SPARSE_UNION), nullptr);
   EXPECT_EQ(types_->IRType(arrow::Type::DENSE_UNION), nullptr);
   EXPECT_EQ(types_->DataVecType(arrow::null()), nullptr);
+  // not support nested list type
+  EXPECT_EQ(types_->DataVecType(arrow::list(arrow::list(arrow::utf8()))), nullptr);
 }
 
 }  // namespace gandiva
