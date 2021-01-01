@@ -42,18 +42,14 @@ pub fn parquet_to_arrow_schema(
     key_value_metadata: &Option<Vec<KeyValue>>,
 ) -> Result<Schema> {
     let mut metadata = parse_key_value_metadata(key_value_metadata).unwrap_or_default();
-    let arrow_schema_metadata = metadata
+    metadata
         .remove(super::ARROW_SCHEMA_META_KEY)
-        .map(|encoded| get_arrow_schema_from_metadata(&encoded));
-
-    match arrow_schema_metadata {
-        Some(Some(schema)) => Ok(schema),
-        _ => parquet_to_arrow_schema_by_columns(
+        .map(|encoded| get_arrow_schema_from_metadata(&encoded))
+        .unwrap_or(parquet_to_arrow_schema_by_columns(
             parquet_schema,
             0..parquet_schema.columns().len(),
             key_value_metadata,
-        ),
-    }
+        ))
 }
 
 /// Convert parquet schema to arrow schema including optional metadata,
@@ -123,7 +119,7 @@ where
     let arrow_schema_metadata = metadata
         .remove(super::ARROW_SCHEMA_META_KEY)
         .map(|encoded| get_arrow_schema_from_metadata(&encoded))
-        .unwrap_or_default();
+        .map_or(Ok(None), |v| v.map(Some))?;
 
     // add the Arrow metadata to the Parquet metadata
     if let Some(arrow_schema) = &arrow_schema_metadata {
@@ -175,7 +171,7 @@ where
 }
 
 /// Try to convert Arrow schema metadata into a schema
-fn get_arrow_schema_from_metadata(encoded_meta: &str) -> Option<Schema> {
+fn get_arrow_schema_from_metadata(encoded_meta: &str) -> Result<Schema> {
     let decoded = base64::decode(encoded_meta);
     match decoded {
         Ok(bytes) => {
@@ -187,28 +183,25 @@ fn get_arrow_schema_from_metadata(encoded_meta: &str) -> Option<Schema> {
             match arrow::ipc::root_as_message(slice) {
                 Ok(message) => message
                     .header_as_schema()
-                    .map(arrow::ipc::convert::fb_to_schema),
+                    .map(arrow::ipc::convert::fb_to_schema)
+                    .ok_or(ArrowError("the message is not Arrow Schema".to_string())),
                 Err(err) => {
                     // The flatbuffers implementation returns an error on verification error.
-                    // TODO: return error to caller?
-                    eprintln!(
+                    Err(ArrowError(format!(
                         "Unable to get root as message stored in {}: {:?}",
                         super::ARROW_SCHEMA_META_KEY,
                         err
-                    );
-                    None
+                    )))
                 }
             }
         }
         Err(err) => {
             // The C++ implementation returns an error if the schema can't be parsed.
-            // To prevent this, we explicitly log this, then compute the schema without the metadata
-            eprintln!(
+            Err(ArrowError(format!(
                 "Unable to decode the encoded schema stored in {}, {:?}",
                 super::ARROW_SCHEMA_META_KEY,
                 err
-            );
-            None
+            )))
         }
     }
 }
