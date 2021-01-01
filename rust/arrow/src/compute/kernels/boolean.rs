@@ -179,7 +179,7 @@ pub fn is_null(input: &Array) -> Result<BooleanArray> {
             let len_bytes = ceil(len, 8);
             MutableBuffer::new(len_bytes)
                 .with_bitset(len_bytes, false)
-                .freeze()
+                .into()
         }
         Some(buffer) => buffer_unary_not(buffer, input.offset(), len),
     };
@@ -213,7 +213,7 @@ pub fn is_not_null(input: &Array) -> Result<BooleanArray> {
             let len_bytes = ceil(len, 8);
             MutableBuffer::new(len_bytes)
                 .with_bitset(len_bytes, true)
-                .freeze()
+                .into()
         }
         Some(buffer) => buffer.bit_slice(input.offset(), len),
     };

@@ -69,7 +69,7 @@ macro_rules! compare_op {
             None,
             null_bit_buffer,
             0,
-            vec![buffer.freeze()],
+            vec![buffer.into()],
             vec![],
         );
         Ok(BooleanArray::from(Arc::new(data)))
@@ -102,7 +102,7 @@ macro_rules! compare_op_scalar {
             None,
             null_bit_buffer,
             0,
-            vec![buffer.freeze()],
+            vec![buffer.into()],
             vec![],
         );
         Ok(BooleanArray::from(Arc::new(data)))
@@ -452,7 +452,7 @@ where
         None,
         null_bit_buffer,
         0,
-        vec![result.freeze()],
+        vec![result.into()],
         vec![],
     );
     Ok(BooleanArray::from(Arc::new(data)))
@@ -535,7 +535,7 @@ where
         Some(null_count),
         null_bit_buffer,
         0,
-        vec![result.freeze()],
+        vec![result.into()],
         vec![],
     );
     Ok(BooleanArray::from(Arc::new(data)))
@@ -737,7 +737,7 @@ where
         None,
         None,
         0,
-        vec![bool_buf.freeze()],
+        vec![bool_buf.into()],
         vec![],
     );
     Ok(BooleanArray::from(Arc::new(data)))
@@ -795,7 +795,7 @@ where
         None,
         None,
         0,
-        vec![bool_buf.freeze()],
+        vec![bool_buf.into()],
         vec![],
     );
     Ok(BooleanArray::from(Arc::new(data)))
@@ -807,7 +807,7 @@ fn new_all_set_buffer(len: usize) -> Buffer {
     let buffer = MutableBuffer::new(len);
     let buffer = buffer.with_bitset(len, true);
 
-    buffer.freeze()
+    buffer.into()
 }
 
 // disable wrapping inside literal vectors used for test data and assertions

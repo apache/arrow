@@ -61,8 +61,8 @@ impl<'a> _MutableArrayData<'a> {
             DataType::Utf8
             | DataType::Binary
             | DataType::LargeUtf8
-            | DataType::LargeBinary => vec![self.buffer1.freeze(), self.buffer2.freeze()],
-            _ => vec![self.buffer1.freeze()],
+            | DataType::LargeBinary => vec![self.buffer1.into(), self.buffer2.into()],
+            _ => vec![self.buffer1.into()],
         };
 
         let child_data = match self.data_type {
@@ -80,7 +80,7 @@ impl<'a> _MutableArrayData<'a> {
             self.len,
             Some(self.null_count),
             if self.null_count > 0 {
-                Some(self.null_buffer.freeze())
+                Some(self.null_buffer.into())
             } else {
                 None
             },

@@ -127,7 +127,7 @@ impl From<Vec<bool>> for BooleanArray {
         }
         let array_data = ArrayData::builder(DataType::Boolean)
             .len(data.len())
-            .add_buffer(mut_buf.freeze())
+            .add_buffer(mut_buf.into())
             .build();
         BooleanArray::from(array_data)
     }
@@ -196,9 +196,9 @@ impl<Ptr: Borrow<Option<bool>>> FromIterator<Ptr> for BooleanArray {
             DataType::Boolean,
             data_len,
             None,
-            Some(null_buf.freeze()),
+            Some(null_buf.into()),
             0,
-            vec![val_buf.freeze()],
+            vec![val_buf.into()],
             vec![],
         );
         BooleanArray::from(Arc::new(data))

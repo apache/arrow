@@ -249,7 +249,7 @@ where
             .len(data_len)
             .add_buffer(Buffer::from(offsets.to_byte_slice()))
             .add_buffer(Buffer::from(&values[..]))
-            .null_bit_buffer(null_buf.freeze())
+            .null_bit_buffer(null_buf.into())
             .build();
         Self::from(array_data)
     }
@@ -401,7 +401,7 @@ impl From<Vec<Option<Vec<u8>>>> for FixedSizeBinaryArray {
             DataType::FixedSizeBinary(size as i32),
             len,
             None,
-            Some(null_buf.freeze()),
+            Some(null_buf.into()),
             0,
             vec![Buffer::from(&data)],
             vec![],

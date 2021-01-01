@@ -675,7 +675,7 @@ fn write_array_data(
                 let num_bytes = bit_util::ceil(num_rows, 8);
                 let buffer = MutableBuffer::new(num_bytes);
                 let buffer = buffer.with_bitset(num_bytes, true);
-                buffer.freeze()
+                buffer.into()
             }
             Some(buffer) => buffer.clone(),
         };

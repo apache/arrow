@@ -914,8 +914,8 @@ impl Decoder {
                 });
                 ArrayData::builder(list_field.data_type().clone())
                     .len(valid_len)
-                    .add_buffer(bool_values.freeze())
-                    .null_bit_buffer(bool_nulls.freeze())
+                    .add_buffer(bool_values.into())
+                    .null_bit_buffer(bool_nulls.into())
                     .build()
             }
             DataType::Int8 => self.read_primitive_list_values::<Int8Type>(rows),
@@ -986,7 +986,7 @@ impl Decoder {
                 let arrays =
                     self.build_struct_array(rows.as_slice(), fields.as_slice(), &[])?;
                 let data_type = DataType::Struct(fields.clone());
-                let buf = null_buffer.freeze();
+                let buf = null_buffer.into();
                 ArrayDataBuilder::new(data_type)
                     .len(rows.len())
                     .null_bit_buffer(buf)
@@ -1005,7 +1005,7 @@ impl Decoder {
             .len(list_len)
             .add_buffer(Buffer::from(offsets.to_byte_slice()))
             .add_child_data(array_data)
-            .null_bit_buffer(list_nulls.freeze())
+            .null_bit_buffer(list_nulls.into())
             .build();
         Ok(Arc::new(GenericListArray::<OffsetSize>::from(list_data)))
     }
@@ -1192,7 +1192,7 @@ impl Decoder {
                         let data_type = DataType::Struct(fields.clone());
                         let data = ArrayDataBuilder::new(data_type)
                             .len(len)
-                            .null_bit_buffer(null_buffer.freeze())
+                            .null_bit_buffer(null_buffer.into())
                             .child_data(arrays.into_iter().map(|a| a.data()).collect())
                             .build();
                         Ok(make_array(data))
