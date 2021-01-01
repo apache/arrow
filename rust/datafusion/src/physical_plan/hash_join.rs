@@ -81,6 +81,11 @@ pub struct HashJoinExec {
     build_side: Arc<Mutex<Option<JoinLeftData>>>,
 }
 
+struct ColumnIndex {
+    index: usize,
+    is_left: bool,
+}
+
 impl HashJoinExec {
     /// Tries to create a new [HashJoinExec].
     /// # Error
@@ -118,16 +123,16 @@ impl HashJoinExec {
     }
 
     /// Calculates column indices and left/right placement on input / output schemas and jointype
-    fn column_indices_from_schema(&self) -> ArrowResult<Vec<(usize, bool)>> {
+    fn column_indices_from_schema(&self) -> ArrowResult<Vec<ColumnIndex>> {
         let (primary_is_left, primary_schema, secondary_schema) = match self.join_type {
             JoinType::Inner | JoinType::Left => {
                 (true, self.left.schema(), self.right.schema())
             }
             JoinType::Right => (false, self.right.schema(), self.left.schema()),
         };
-        let mut column_indices = vec![];
+        let mut column_indices = Vec::with_capacity(self.schema.fields().len());
         for field in self.schema.fields() {
-            let (is_primary, column_index) = match primary_schema.index_of(field.name()) {
+            let (is_primary, index) = match primary_schema.index_of(field.name()) {
                     Ok(i) => Ok((true, i)),
                     Err(_) => {
                         match secondary_schema.index_of(field.name()) {
@@ -141,7 +146,7 @@ impl HashJoinExec {
 
             let is_left =
                 is_primary && primary_is_left || !is_primary && !primary_is_left;
-            column_indices.push((column_index, is_left));
+            column_indices.push(ColumnIndex { index, is_left });
         }
 
         Ok(column_indices)
@@ -286,7 +291,7 @@ struct HashJoinStream {
     /// right
     right: SendableRecordBatchStream,
     /// Information of index and left / right placement of columns
-    column_indices: Vec<(usize, bool)>,
+    column_indices: Vec<ColumnIndex>,
 }
 
 impl RecordBatchStream for HashJoinStream {
@@ -305,7 +310,7 @@ fn build_batch_from_indices(
     left: &Vec<RecordBatch>,
     right: &RecordBatch,
     indices: &[(JoinIndex, RightIndex)],
-    column_indices: &Vec<(usize, bool)>,
+    column_indices: &Vec<ColumnIndex>,
 ) -> ArrowResult<RecordBatch> {
     if left.is_empty() {
         todo!("Create empty record batch");
@@ -318,12 +323,12 @@ fn build_batch_from_indices(
 
     let right_indices = indices.iter().map(|(_, join_index)| join_index).collect();
 
-    for (column_index, is_left) in column_indices {
-        let array = if *is_left {
+    for column_index in column_indices {
+        let array = if column_index.is_left {
             // Note that we take `.data_ref()` to gather the [ArrayData] of each array.
             let arrays = left
                 .iter()
-                .map(|batch| batch.column(*column_index).data_ref().as_ref())
+                .map(|batch| batch.column(column_index.index).data_ref().as_ref())
                 .collect::<Vec<_>>();
 
             let mut mutable = MutableArrayData::new(arrays, true, indices.len());
@@ -337,7 +342,7 @@ fn build_batch_from_indices(
             make_array(Arc::new(mutable.freeze()))
         } else {
             // use the right indices
-            let array = right.column(*column_index);
+            let array = right.column(column_index.index);
             compute::take(array.as_ref(), &right_indices, None)?
         };
         columns.push(array);
@@ -412,7 +417,7 @@ fn build_batch(
     on_right: &HashSet<String>,
     join_type: JoinType,
     schema: &Schema,
-    column_indices: &Vec<(usize, bool)>,
+    column_indices: &Vec<ColumnIndex>,
 ) -> ArrowResult<RecordBatch> {
     let indices = build_join_indexes(&left_data.0, &batch, join_type, on_right).unwrap();
 
