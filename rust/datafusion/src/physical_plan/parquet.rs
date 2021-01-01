@@ -338,15 +338,14 @@ fn build_row_group_record_batch(
         }
     }
     let schema = Arc::new(Schema::new(fields));
-    let result = RecordBatch::try_new(schema, arrays)
-        .map_err(|err| DataFusionError::Plan(err.to_string()));
-    return result;
+    RecordBatch::try_new(schema, arrays)
+        .map_err(|err| DataFusionError::Plan(err.to_string()))
 }
 
 struct PhysicalExpressionBuilder<'a> {
     column_name: String,
-    column_expr: &'a Box<Expr>,
-    scalar_expr: &'a Box<Expr>,
+    column_expr: &'a Expr,
+    scalar_expr: &'a Expr,
     parquet_field: &'a Field,
     statistics_fields: Vec<Field>,
     stat_column_req: &'a mut Vec<(String, StatisticsType, Field)>,
@@ -355,8 +354,8 @@ struct PhysicalExpressionBuilder<'a> {
 
 impl<'a> PhysicalExpressionBuilder<'a> {
     fn try_new(
-        left: &'a Box<Expr>,
-        right: &'a Box<Expr>,
+        left: &'a Expr,
+        right: &'a Expr,
         parquet_schema: &'a Schema,
         stat_column_req: &'a mut Vec<(String, StatisticsType, Field)>,
     ) -> Result<Self> {
@@ -414,11 +413,11 @@ impl<'a> PhysicalExpressionBuilder<'a> {
     }
 
     fn column_expr(&self) -> &Expr {
-        self.column_expr.as_ref()
+        self.column_expr
     }
 
     fn scalar_expr(&self) -> &Expr {
-        self.scalar_expr.as_ref()
+        self.scalar_expr
     }
 
     fn column_name(&self) -> &String {
