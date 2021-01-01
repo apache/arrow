@@ -81,8 +81,11 @@ pub struct HashJoinExec {
     build_side: Arc<Mutex<Option<JoinLeftData>>>,
 }
 
+/// Information about the index and placement (left or right) of the columns
 struct ColumnIndex {
+    /// Index of the column 
     index: usize,
+    /// Whether the column is at the left or right side
     is_left: bool,
 }
 
