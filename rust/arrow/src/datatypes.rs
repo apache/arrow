@@ -542,13 +542,12 @@ where
     /// The number of bits used corresponds to the number of lanes of this type
     fn mask_from_u64(mask: u64) -> Self::SimdMask;
 
+    /// Creates a bitmask from the given SIMD mask.
+    /// Each bit corresponds to one vector lane, starting with the least-significant bit.
+    fn mask_to_u64(mask: &Self::SimdMask) -> u64;
+
     /// Gets the value of a single lane in a SIMD mask
     fn mask_get(mask: &Self::SimdMask, idx: usize) -> bool;
-
-    /// Gets the bitmask for a SimdMask as a byte slice and passes it to the closure used as the action parameter
-    fn bitmask<T>(mask: &Self::SimdMask, action: T)
-    where
-        T: FnMut(&[u8]);
 
     /// Sets the value of a single lane of a SIMD mask
     fn mask_set(mask: Self::SimdMask, idx: usize, value: bool) -> Self::SimdMask;
@@ -715,15 +714,13 @@ macro_rules! make_numeric_type {
             }
 
             #[inline]
-            fn mask_get(mask: &Self::SimdMask, idx: usize) -> bool {
-                unsafe { mask.extract_unchecked(idx) }
+            fn mask_to_u64(mask: &Self::SimdMask) -> u64 {
+                mask.bitmask() as u64
             }
 
-            fn bitmask<T>(mask: &Self::SimdMask, mut action: T)
-            where
-                T: FnMut(&[u8]),
-            {
-                action(mask.bitmask().to_byte_slice());
+            #[inline]
+            fn mask_get(mask: &Self::SimdMask, idx: usize) -> bool {
+                unsafe { mask.extract_unchecked(idx) }
             }
 
             #[inline]
