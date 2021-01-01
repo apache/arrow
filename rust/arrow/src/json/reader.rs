@@ -1003,7 +1003,7 @@ impl Decoder {
         // build list
         let list_data = ArrayData::builder(DataType::List(Box::new(list_field.clone())))
             .len(list_len)
-            .add_buffer(Buffer::from(offsets.to_byte_slice()))
+            .add_buffer(Buffer::from_slice_ref(&offsets))
             .add_child_data(array_data)
             .null_bit_buffer(list_nulls.into())
             .build();
@@ -1889,7 +1889,7 @@ mod tests {
             // test that the list offsets are correct
             assert_eq!(
                 cc.data().buffers()[0],
-                Buffer::from(vec![0i32, 2, 2, 4, 5].to_byte_slice())
+                Buffer::from_slice_ref(&[0i32, 2, 2, 4, 5])
             );
             let cc = cc.values();
             let cc = cc.as_any().downcast_ref::<BooleanArray>().unwrap();
@@ -1910,7 +1910,7 @@ mod tests {
             // test that the list offsets are correct
             assert_eq!(
                 dd.data().buffers()[0],
-                Buffer::from(vec![0i32, 1, 1, 2, 6].to_byte_slice())
+                Buffer::from_slice_ref(&[0i32, 1, 1, 2, 6])
             );
             let dd = dd.values();
             let dd = dd.as_any().downcast_ref::<StringArray>().unwrap();
@@ -2031,7 +2031,7 @@ mod tests {
             .build();
         let a_list = ArrayDataBuilder::new(a_field.data_type().clone())
             .len(5)
-            .add_buffer(Buffer::from(vec![0i32, 2, 3, 6, 6, 6].to_byte_slice()))
+            .add_buffer(Buffer::from_slice_ref(&[0i32, 2, 3, 6, 6, 6]))
             .add_child_data(a)
             .null_bit_buffer(Buffer::from(vec![0b00010111]))
             .build();
@@ -2046,7 +2046,7 @@ mod tests {
         let expected = expected.as_any().downcast_ref::<ListArray>().unwrap();
         assert_eq!(
             read.data().buffers()[0],
-            Buffer::from(vec![0i32, 2, 3, 6, 6, 6].to_byte_slice())
+            Buffer::from_slice_ref(&[0i32, 2, 3, 6, 6, 6])
         );
         // compare list null buffers
         assert_eq!(read.data().null_buffer(), expected.data().null_buffer());

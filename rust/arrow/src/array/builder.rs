@@ -217,12 +217,8 @@ impl<T: ArrowNativeType> BufferBuilder<T> {
     #[inline]
     pub fn append(&mut self, v: T) {
         self.reserve(1);
-        self.write_bytes(v.to_byte_slice(), 1);
-    }
-
-    fn write_bytes(&mut self, bytes: &[u8], len_added: usize) {
-        self.buffer.extend_from_slice(bytes);
-        self.len += len_added;
+        self.buffer.push(v);
+        self.len += 1;
     }
 
     /// Appends a value of type `T` into the builder N times,
@@ -242,8 +238,9 @@ impl<T: ArrowNativeType> BufferBuilder<T> {
     pub fn append_n(&mut self, n: usize, v: T) {
         self.reserve(n);
         for _ in 0..n {
-            self.write_bytes(v.to_byte_slice(), 1);
+            self.buffer.push(v);
         }
+        self.len += n;
     }
 
     /// Appends a slice of type `T`, growing the internal buffer as needed.
@@ -260,10 +257,8 @@ impl<T: ArrowNativeType> BufferBuilder<T> {
     /// ```
     #[inline]
     pub fn append_slice(&mut self, slice: &[T]) {
-        let array_slots = slice.len();
-        self.reserve(array_slots);
-
-        self.write_bytes(slice.to_byte_slice(), array_slots);
+        self.buffer.extend_from_slice(slice);
+        self.len += slice.len();
     }
 
     /// Resets this builder and returns an immutable [`Buffer`](crate::buffer::Buffer).
@@ -2154,17 +2149,6 @@ mod tests {
     }
 
     #[test]
-    fn test_write_bytes_i32() {
-        let mut b = Int32BufferBuilder::new(4);
-        let bytes = [8, 16, 32, 64].to_byte_slice();
-        b.write_bytes(bytes, 4);
-        assert_eq!(4, b.len());
-        assert_eq!(16, b.capacity());
-        let buffer = b.finish();
-        assert_eq!(16, buffer.len());
-    }
-
-    #[test]
     fn test_boolean_array_builder_append_slice() {
         let arr1 =
             BooleanArray::from(vec![Some(true), Some(false), None, None, Some(false)]);
@@ -2390,12 +2374,9 @@ mod tests {
         let list_array = builder.finish();
 
         let values = list_array.values().data().buffers()[0].clone();
+        assert_eq!(Buffer::from_slice_ref(&[0, 1, 2, 3, 4, 5, 6, 7]), values);
         assert_eq!(
-            Buffer::from(&[0, 1, 2, 3, 4, 5, 6, 7].to_byte_slice()),
-            values
-        );
-        assert_eq!(
-            Buffer::from(&[0, 3, 6, 8].to_byte_slice()),
+            Buffer::from_slice_ref(&[0, 3, 6, 8]),
             list_array.data().buffers()[0].clone()
         );
         assert_eq!(DataType::Int32, list_array.value_type());
@@ -2429,12 +2410,9 @@ mod tests {
         let list_array = builder.finish();
 
         let values = list_array.values().data().buffers()[0].clone();
+        assert_eq!(Buffer::from_slice_ref(&[0, 1, 2, 3, 4, 5, 6, 7]), values);
         assert_eq!(
-            Buffer::from(&[0, 1, 2, 3, 4, 5, 6, 7].to_byte_slice()),
-            values
-        );
-        assert_eq!(
-            Buffer::from(&[0i64, 3, 6, 8].to_byte_slice()),
+            Buffer::from_slice_ref(&[0i64, 3, 6, 8]),
             list_array.data().buffers()[0].clone()
         );
         assert_eq!(DataType::Int32, list_array.value_type());
@@ -2621,21 +2599,21 @@ mod tests {
         assert_eq!(4, list_array.len());
         assert_eq!(1, list_array.null_count());
         assert_eq!(
-            Buffer::from(&[0, 2, 5, 5, 6].to_byte_slice()),
+            Buffer::from_slice_ref(&[0, 2, 5, 5, 6]),
             list_array.data().buffers()[0].clone()
         );
 
         assert_eq!(6, list_array.values().data().len());
         assert_eq!(1, list_array.values().data().null_count());
         assert_eq!(
-            Buffer::from(&[0, 2, 4, 7, 7, 8, 10].to_byte_slice()),
+            Buffer::from_slice_ref(&[0, 2, 4, 7, 7, 8, 10]),
             list_array.values().data().buffers()[0].clone()
         );
 
         assert_eq!(10, list_array.values().data().child_data()[0].len());
         assert_eq!(0, list_array.values().data().child_data()[0].null_count());
         assert_eq!(
-            Buffer::from(&[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].to_byte_slice()),
+            Buffer::from_slice_ref(&[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]),
             list_array.values().data().child_data()[0].buffers()[0].clone()
         );
     }
@@ -2839,14 +2817,14 @@ mod tests {
         let expected_string_data = ArrayData::builder(DataType::Utf8)
             .len(4)
             .null_bit_buffer(Buffer::from(&[9_u8]))
-            .add_buffer(Buffer::from(&[0, 3, 3, 3, 7].to_byte_slice()))
-            .add_buffer(Buffer::from(b"joemark"))
+            .add_buffer(Buffer::from_slice_ref(&[0, 3, 3, 3, 7]))
+            .add_buffer(Buffer::from_slice_ref(b"joemark"))
             .build();
 
         let expected_int_data = ArrayData::builder(DataType::Int32)
             .len(4)
-            .null_bit_buffer(Buffer::from(&[11_u8]))
-            .add_buffer(Buffer::from(&[1, 2, 0, 4].to_byte_slice()))
+            .null_bit_buffer(Buffer::from_slice_ref(&[11_u8]))
+            .add_buffer(Buffer::from_slice_ref(&[1, 2, 0, 4]))
             .build();
 
         assert_eq!(expected_string_data, arr.column(0).data());

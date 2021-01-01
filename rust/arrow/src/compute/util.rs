@@ -175,7 +175,7 @@ pub(super) mod tests {
 
     use std::sync::Arc;
 
-    use crate::datatypes::{DataType, ToByteSlice};
+    use crate::datatypes::DataType;
     use crate::util::bit_util;
     use crate::{array::ArrayData, buffer::MutableBuffer};
 
@@ -311,13 +311,8 @@ pub(super) mod tests {
                     T::DATA_TYPE,
                     list_null_count == 0,
                 ))),
-                Buffer::from(
-                    offset
-                        .into_iter()
-                        .map(|x| x as i32)
-                        .collect::<Vec<i32>>()
-                        .as_slice()
-                        .to_byte_slice(),
+                Buffer::from_slice_ref(
+                    &offset.into_iter().map(|x| x as i32).collect::<Vec<i32>>(),
                 ),
             )
         } else if TypeId::of::<S>() == TypeId::of::<i64>() {
@@ -327,7 +322,7 @@ pub(super) mod tests {
                     T::DATA_TYPE,
                     list_null_count == 0,
                 ))),
-                Buffer::from(offset.as_slice().to_byte_slice()),
+                Buffer::from_slice_ref(&offset),
             )
         } else {
             unreachable!()

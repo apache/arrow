@@ -168,9 +168,7 @@ pub(super) fn child_logical_null_buffer(
         DataType::Dictionary(_, _) => {
             unimplemented!("Logical equality not yet implemented for nested dictionaries")
         }
-        data_type => {
-            panic!("Data type {:?} is not a supported nested type", data_type)
-        }
+        data_type => panic!("Data type {:?} is not a supported nested type", data_type),
     }
 }
 
