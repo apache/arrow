@@ -42,12 +42,17 @@ pub fn parquet_to_arrow_schema(
     key_value_metadata: &Option<Vec<KeyValue>>,
 ) -> Result<Schema> {
     let mut metadata = parse_key_value_metadata(key_value_metadata).unwrap_or_default();
-    let arrow_schema_metadata = metadata
+    let maybe_schema = metadata
         .remove(super::ARROW_SCHEMA_META_KEY)
         .map(|encoded| get_arrow_schema_from_metadata(&encoded));
 
+    let arrow_schema_metadata = match maybe_schema {
+        Some(v) => Some(v?),
+        _ => None,
+    };
+
     match arrow_schema_metadata {
-        Some(Ok(schema)) => Ok(schema),
+        Some(schema) => Ok(schema),
         _ => parquet_to_arrow_schema_by_columns(
             parquet_schema,
             0..parquet_schema.columns().len(),
