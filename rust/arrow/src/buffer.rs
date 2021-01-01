@@ -23,19 +23,19 @@ use packed_simd::u8x64;
 
 use crate::{
     bytes::{Bytes, Deallocation},
-    datatypes::ToByteSlice,
+    datatypes::{ArrowNativeType, ToByteSlice},
     ffi,
 };
 
 use std::convert::AsRef;
 use std::fmt::Debug;
+use std::iter::FromIterator;
 use std::ops::{BitAnd, BitOr, Not};
 use std::ptr::NonNull;
 use std::sync::Arc;
 
 #[cfg(feature = "avx512")]
 use crate::arch::avx512::*;
-use crate::datatypes::ArrowNativeType;
 use crate::error::{ArrowError, Result};
 use crate::memory;
 use crate::util::bit_chunk_iterator::BitChunks;
@@ -246,6 +246,12 @@ impl std::ops::Deref for Buffer {
 
     fn deref(&self) -> &[u8] {
         unsafe { std::slice::from_raw_parts(self.as_ptr(), self.len()) }
+    }
+}
+
+impl<T: ArrowNativeType> FromIterator<T> for Buffer {
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        MutableBuffer::from_iter(iter).into()
     }
 }
 
@@ -713,6 +719,33 @@ pub struct MutableBuffer {
     data: NonNull<u8>,
     len: usize,
     capacity: usize,
+}
+
+impl<T: ArrowNativeType> FromIterator<T> for MutableBuffer {
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        let mut iterator = iter.into_iter();
+
+        let (lower, _) = iterator.size_hint();
+
+        let mut buffer = Self::new(lower * std::mem::size_of::<T>());
+
+        while let Some(item) = iterator.next() {
+            let len = buffer.len();
+            let additional = std::mem::size_of::<T>();
+            if len + additional > buffer.capacity() {
+                let (lower, _) = iterator.size_hint();
+                let additional = lower * std::mem::size_of::<T>() + additional;
+                buffer.reserve(additional);
+            }
+            unsafe {
+                let dst = buffer.data.as_ptr().add(buffer.len) as *mut T;
+                let src = (&item) as *const T;
+                std::ptr::copy_nonoverlapping(src, dst, 1)
+            }
+            buffer.len += additional;
+        }
+        buffer
+    }
 }
 
 impl MutableBuffer {
@@ -1313,5 +1346,11 @@ mod tests {
             4,
             Buffer::from(&[0b01101101, 0b10101010]).count_set_bits_offset(7, 9)
         );
+    }
+
+    #[test]
+    fn test_from_iter() {
+        let buf = Buffer::from_iter(vec![1u32, 2u32]);
+        assert_eq!(buf, Buffer::from([1, 0, 0, 0, 2, 0, 0, 0]));
     }
 }

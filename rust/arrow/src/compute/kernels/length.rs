@@ -29,13 +29,13 @@ where
     OffsetSize: OffsetSizeTrait,
 {
     // note: offsets are stored as u8, but they can be interpreted as OffsetSize
-    let offsets = array.data_ref().clone().buffers()[0].clone();
+    let offsets = &array.data_ref().buffers()[0];
     // this is a 30% improvement over iterating over u8s and building OffsetSize, which
     // justifies the usage of `unsafe`.
     let slice: &[OffsetSize] =
         &unsafe { offsets.typed_data::<OffsetSize>() }[array.offset()..];
 
-    let lengths: Vec<OffsetSize> = slice
+    let lengths: Buffer = slice
         .windows(2)
         .map(|offset| offset[1] - offset[0])
         .collect();
@@ -52,7 +52,7 @@ where
         None,
         null_bit_buffer,
         0,
-        vec![Buffer::from_slice_ref(&lengths)],
+        vec![lengths],
         vec![],
     );
     Ok(make_array(Arc::new(data)))
