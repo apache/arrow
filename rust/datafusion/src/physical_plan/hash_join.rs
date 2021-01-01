@@ -217,9 +217,9 @@ impl ExecutionPlan for HashJoinExec {
                             let hash = &mut acc.0;
                             let values = &mut acc.1;
                             let index = acc.2;
-                            update_hash(&on_left, &batch, hash, 0).unwrap();
+                            update_hash(&on_left, &batch, hash, index).unwrap();
+                            acc.2 += batch.num_rows();
                             values.push(batch);
-                            acc.2 += 1;
                             Ok(acc)
                         })
                         .await?;
@@ -276,8 +276,8 @@ fn update_hash(
 
         hash.raw_entry_mut()
             .from_key(&key)
-            .and_modify(|_, v| v.push((index, row)))
-            .or_insert_with(|| (key.clone(), vec![(index, row)]));
+            .and_modify(|_, v| v.push((0, row + index)))
+            .or_insert_with(|| (key.clone(), vec![(0, row + index)]));
     }
     Ok(())
 }
