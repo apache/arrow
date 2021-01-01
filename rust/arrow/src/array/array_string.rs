@@ -21,9 +21,8 @@ use std::mem;
 use std::{any::Any, iter::FromIterator};
 
 use super::{
-    array::print_long_array, raw_pointer::as_aligned_pointer, raw_pointer::RawPtrBox,
-    Array, ArrayData, ArrayDataRef, GenericListArray, GenericStringIter, LargeListArray,
-    ListArray, OffsetSizeTrait,
+    array::print_long_array, raw_pointer::RawPtrBox, Array, ArrayData, ArrayDataRef,
+    GenericListArray, GenericStringIter, LargeListArray, ListArray, OffsetSizeTrait,
 };
 use crate::util::bit_util;
 use crate::{buffer::Buffer, datatypes::ToByteSlice};
@@ -80,7 +79,7 @@ impl<OffsetSize: StringOffsetSizeTrait> GenericStringArray<OffsetSize> {
 
     #[inline]
     fn value_offset_at(&self, i: usize) -> OffsetSize {
-        unsafe { *self.value_offsets.get().add(i) }
+        unsafe { *self.value_offsets.as_ptr().add(i) }
     }
 
     /// Returns the element at index `i` as &str
@@ -90,7 +89,7 @@ impl<OffsetSize: StringOffsetSizeTrait> GenericStringArray<OffsetSize> {
         unsafe {
             let pos = self.value_offset_at(offset);
             let slice = std::slice::from_raw_parts(
-                self.value_data.get().offset(pos.to_isize()),
+                self.value_data.as_ptr().offset(pos.to_isize()),
                 (self.value_offset_at(offset + 1) - pos).to_usize().unwrap(),
             );
 
@@ -166,7 +165,7 @@ where
             if let Some(s) = s {
                 let s = s.as_ref();
                 // set null bit
-                let null_slice = null_buf.data_mut();
+                let null_slice = null_buf.as_slice_mut();
                 bit_util::set_bit(null_slice, i);
 
                 length_so_far = length_so_far + OffsetSize::from_usize(s.len()).unwrap();
@@ -252,14 +251,12 @@ impl<OffsetSize: StringOffsetSizeTrait> From<ArrayDataRef>
             2,
             "StringArray data should contain 2 buffers only (offsets and values)"
         );
-        let raw_value_offsets = data.buffers()[0].raw_data();
-        let value_data = data.buffers()[1].raw_data();
+        let offsets = data.buffers()[0].as_ptr();
+        let values = data.buffers()[1].as_ptr();
         Self {
             data,
-            value_offsets: RawPtrBox::new(as_aligned_pointer::<OffsetSize>(
-                raw_value_offsets,
-            )),
-            value_data: RawPtrBox::new(value_data),
+            value_offsets: unsafe { RawPtrBox::new(offsets) },
+            value_data: unsafe { RawPtrBox::new(values) },
         }
     }
 }

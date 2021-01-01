@@ -351,17 +351,13 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
             Float32 => cast_bool_to_numeric::<Float32Type>(array),
             Float64 => cast_bool_to_numeric::<Float64Type>(array),
             Utf8 => {
-                let from = array.as_any().downcast_ref::<BooleanArray>().unwrap();
-                let mut b = StringBuilder::new(array.len());
-                for i in 0..array.len() {
-                    if array.is_null(i) {
-                        b.append(false)?;
-                    } else {
-                        b.append_value(if from.value(i) { "1" } else { "0" })?;
-                    }
-                }
-
-                Ok(Arc::new(b.finish()) as ArrayRef)
+                let array = array.as_any().downcast_ref::<BooleanArray>().unwrap();
+                Ok(Arc::new(
+                    array
+                        .iter()
+                        .map(|value| value.map(|value| if value { "1" } else { "0" }))
+                        .collect::<StringArray>(),
+                ))
             }
             _ => Err(ArrowError::ComputeError(format!(
                 "Casting from {:?} to {:?} not supported",
@@ -431,20 +427,15 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
             Float32 => cast_numeric_to_string::<Float32Type>(array),
             Float64 => cast_numeric_to_string::<Float64Type>(array),
             Binary => {
-                let from = array.as_any().downcast_ref::<BinaryArray>().unwrap();
-                let mut b = StringBuilder::new(array.len());
-                for i in 0..array.len() {
-                    if array.is_null(i) {
-                        b.append_null()?;
-                    } else {
-                        match str::from_utf8(from.value(i)) {
-                            Ok(s) => b.append_value(s)?,
-                            Err(_) => b.append_null()?, // not valid UTF8
-                        }
-                    }
-                }
-
-                Ok(Arc::new(b.finish()) as ArrayRef)
+                let array = array.as_any().downcast_ref::<BinaryArray>().unwrap();
+                Ok(Arc::new(
+                    array
+                        .iter()
+                        .map(|maybe_value| {
+                            maybe_value.and_then(|value| str::from_utf8(value).ok())
+                        })
+                        .collect::<StringArray>(),
+                ))
             }
             _ => Err(ArrowError::ComputeError(format!(
                 "Casting from {:?} to {:?} not supported",
@@ -892,31 +883,22 @@ where
     FROM: ArrowNumericType,
     FROM::Native: std::string::ToString,
 {
-    numeric_to_string_cast::<FROM>(
+    Ok(Arc::new(numeric_to_string_cast::<FROM>(
         array
             .as_any()
             .downcast_ref::<PrimitiveArray<FROM>>()
             .unwrap(),
-    )
-    .map(|to| Arc::new(to) as ArrayRef)
+    )))
 }
 
-fn numeric_to_string_cast<T>(from: &PrimitiveArray<T>) -> Result<StringArray>
+fn numeric_to_string_cast<T>(from: &PrimitiveArray<T>) -> StringArray
 where
     T: ArrowPrimitiveType + ArrowNumericType,
     T::Native: std::string::ToString,
 {
-    let mut b = StringBuilder::new(from.len());
-
-    for i in 0..from.len() {
-        if from.is_null(i) {
-            b.append(false)?;
-        } else {
-            b.append_value(&from.value(i).to_string())?;
-        }
-    }
-
-    Ok(b.finish())
+    from.iter()
+        .map(|maybe_value| maybe_value.map(|value| value.to_string()))
+        .collect()
 }
 
 /// Cast numeric types to Utf8
@@ -2714,11 +2696,8 @@ mod tests {
     fn test_cast_string_array_to_dict() {
         use DataType::*;
 
-        let mut builder = StringBuilder::new(10);
-        builder.append_value("one").unwrap();
-        builder.append_null().unwrap();
-        builder.append_value("three").unwrap();
-        let array: ArrayRef = Arc::new(builder.finish());
+        let array = Arc::new(StringArray::from(vec![Some("one"), None, Some("three")]))
+            as ArrayRef;
 
         let expected = vec!["one", "null", "three"];
 

@@ -93,8 +93,8 @@ pub(super) fn struct_equal(
         equal_values(lhs, rhs, lhs_nulls, rhs_nulls, lhs_start, rhs_start, len)
     } else {
         // get a ref of the null buffer bytes, to use in testing for nullness
-        let lhs_null_bytes = lhs_nulls.as_ref().unwrap().data();
-        let rhs_null_bytes = rhs_nulls.as_ref().unwrap().data();
+        let lhs_null_bytes = lhs_nulls.as_ref().unwrap().as_slice();
+        let rhs_null_bytes = rhs_nulls.as_ref().unwrap().as_slice();
         // with nulls, we need to compare item by item whenever it is not null
         (0..len).all(|i| {
             let lhs_pos = lhs_start + i;

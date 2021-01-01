@@ -193,6 +193,9 @@ fn add_benchmark(c: &mut Criterion) {
     c.bench_function("cast utf8 to f32", |b| {
         b.iter(|| cast_array(&f32_utf8_array, DataType::Float32))
     });
+    c.bench_function("cast i64 to string 512", |b| {
+        b.iter(|| cast_array(&i64_array, DataType::Utf8))
+    });
 
     c.bench_function("cast timestamp_ms to i64 512", |b| {
         b.iter(|| cast_array(&time_ms_array, DataType::Int64))

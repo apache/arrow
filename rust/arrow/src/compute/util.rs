@@ -297,7 +297,7 @@ pub(super) mod tests {
                 values.append(&mut array);
             } else {
                 list_null_count += 1;
-                bit_util::unset_bit(&mut list_bitmap.data_mut(), idx);
+                bit_util::unset_bit(&mut list_bitmap.as_slice_mut(), idx);
             }
             offset.push(values.len() as i64);
         }
@@ -386,7 +386,7 @@ pub(super) mod tests {
                 values.extend(items.into_iter());
             } else {
                 list_null_count += 1;
-                bit_util::unset_bit(&mut list_bitmap.data_mut(), idx);
+                bit_util::unset_bit(&mut list_bitmap.as_slice_mut(), idx);
                 values.extend(vec![None; length as usize].into_iter());
             }
         }

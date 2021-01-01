@@ -542,13 +542,12 @@ where
     /// The number of bits used corresponds to the number of lanes of this type
     fn mask_from_u64(mask: u64) -> Self::SimdMask;
 
+    /// Creates a bitmask from the given SIMD mask.
+    /// Each bit corresponds to one vector lane, starting with the least-significant bit.
+    fn mask_to_u64(mask: &Self::SimdMask) -> u64;
+
     /// Gets the value of a single lane in a SIMD mask
     fn mask_get(mask: &Self::SimdMask, idx: usize) -> bool;
-
-    /// Gets the bitmask for a SimdMask as a byte slice and passes it to the closure used as the action parameter
-    fn bitmask<T>(mask: &Self::SimdMask, action: T)
-    where
-        T: FnMut(&[u8]);
 
     /// Sets the value of a single lane of a SIMD mask
     fn mask_set(mask: Self::SimdMask, idx: usize, value: bool) -> Self::SimdMask;
@@ -715,15 +714,13 @@ macro_rules! make_numeric_type {
             }
 
             #[inline]
-            fn mask_get(mask: &Self::SimdMask, idx: usize) -> bool {
-                unsafe { mask.extract_unchecked(idx) }
+            fn mask_to_u64(mask: &Self::SimdMask) -> u64 {
+                mask.bitmask() as u64
             }
 
-            fn bitmask<T>(mask: &Self::SimdMask, mut action: T)
-            where
-                T: FnMut(&[u8]),
-            {
-                action(mask.bitmask().to_byte_slice());
+            #[inline]
+            fn mask_get(mask: &Self::SimdMask, idx: usize) -> bool {
+                unsafe { mask.extract_unchecked(idx) }
             }
 
             #[inline]
@@ -1245,6 +1242,31 @@ impl DataType {
                 | Float32
                 | Float64
         )
+    }
+
+    /// Compares the datatype with another, ignoring nested field names
+    /// and metadata
+    pub(crate) fn equals_datatype(&self, other: &DataType) -> bool {
+        match (&self, other) {
+            (DataType::List(a), DataType::List(b))
+            | (DataType::LargeList(a), DataType::LargeList(b)) => {
+                a.is_nullable() == b.is_nullable()
+                    && a.data_type().equals_datatype(b.data_type())
+            }
+            (DataType::FixedSizeList(a, a_size), DataType::FixedSizeList(b, b_size)) => {
+                a_size == b_size
+                    && a.is_nullable() == b.is_nullable()
+                    && a.data_type().equals_datatype(b.data_type())
+            }
+            (DataType::Struct(a), DataType::Struct(b)) => {
+                a.len() == b.len()
+                    && a.iter().zip(b).all(|(a, b)| {
+                        a.is_nullable() == b.is_nullable()
+                            && a.data_type().equals_datatype(b.data_type())
+                    })
+            }
+            _ => self == other,
+        }
     }
 }
 

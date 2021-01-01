@@ -17,29 +17,10 @@
 
 use crate::array::ArrayData;
 
-use super::{
-    Extend, _MutableArrayData,
-    utils::{reserve_for_bits, set_bits},
-};
+use super::{Extend, _MutableArrayData};
 
-pub(super) fn build_extend(array: &ArrayData) -> Extend {
-    let values = array.buffers()[0].as_slice();
-    Box::new(
-        move |mutable: &mut _MutableArrayData, _, start: usize, len: usize| {
-            let buffer = &mut mutable.buffer1;
-            reserve_for_bits(buffer, mutable.len + len);
-            set_bits(
-                &mut buffer.as_slice_mut(),
-                values,
-                mutable.len,
-                array.offset() + start,
-                len,
-            );
-        },
-    )
+pub(super) fn build_extend(_: &ArrayData) -> Extend {
+    Box::new(move |_, _, _, _| {})
 }
 
-pub(super) fn extend_nulls(mutable: &mut _MutableArrayData, len: usize) {
-    let buffer = &mut mutable.buffer1;
-    reserve_for_bits(buffer, mutable.len + len);
-}
+pub(super) fn extend_nulls(_: &mut _MutableArrayData, _: usize) {}

@@ -190,7 +190,7 @@ where
     if let Some(b) = &null_bit_buffer {
         // some value is null
         for i in 0..left.len() {
-            let is_valid = unsafe { bit_util::get_bit_raw(b.raw_data(), i) };
+            let is_valid = unsafe { bit_util::get_bit_raw(b.as_ptr(), i) };
             values.push(if is_valid {
                 let right_value = right.value(i);
                 if right_value.is_zero() {
