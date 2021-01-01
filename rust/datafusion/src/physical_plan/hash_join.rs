@@ -18,7 +18,10 @@
 //! Defines the join plan for executing partitions in parallel and then joining the results
 //! into a set of partitions.
 
-use arrow::{array::ArrayRef, compute};
+use arrow::{
+    array::{ArrayRef, UInt32Builder},
+    compute,
+};
 use std::sync::Arc;
 use std::{any::Any, collections::HashSet};
 
@@ -49,19 +52,10 @@ use super::{ExecutionPlan, Partitioning, RecordBatchStream, SendableRecordBatchS
 use crate::physical_plan::coalesce_batches::concat_batches;
 use ahash::RandomState;
 
-// An index of uniquely identifying a row.
-type Index = usize;
-// A pair (left index, right index)
-// Note that while this is currently equal to `Index`, the `JoinIndex` is semantically different
-// as a left join may issue None indices, in which case
-type JoinIndex = Option<usize>;
-// An index of row uniquely identifying a row in a batch
-type RightIndex = Option<u32>;
-
 // Maps ["on" value] -> [list of indices with this key's value]
 // E.g. [1, 2] -> [(0, 3), (1, 6), (0, 8)] indicates that (column1, column2) = [1, 2] is true
 // for rows 3 and 8 from batch 0 and row 6 from batch 1.
-type JoinHashMap = HashMap<Vec<u8>, Vec<Index>, RandomState>;
+type JoinHashMap = HashMap<Vec<u8>, Vec<usize>, RandomState>;
 type JoinLeftData = Arc<(JoinHashMap, RecordBatch)>;
 
 /// join execution plan executes partitions in parallel and combines them into a set of
@@ -315,21 +309,14 @@ fn build_batch_from_indices(
     schema: &Schema,
     left: &RecordBatch,
     right: &RecordBatch,
-    indices: &[(JoinIndex, RightIndex)],
+    left_indices: UInt32Array,
+    right_indices: UInt32Array,
     column_indices: &Vec<ColumnIndex>,
 ) -> ArrowResult<RecordBatch> {
     // build the columns of the new [RecordBatch]:
     // 1. pick whether the column is from the left or right
-    // 2. based on the pick, `take` items from the different recordBatches
+    // 2. based on the pick, `take` items from the different RecordBatches
     let mut columns: Vec<Arc<dyn Array>> = Vec::with_capacity(schema.fields().len());
-
-    // TODO: u64
-    let left_indices = indices
-        .iter()
-        .map(|(left_index, _)| left_index.map(|x| x as u32))
-        .collect();
-
-    let right_indices = indices.iter().map(|(_, join_index)| join_index).collect();
 
     for column_index in column_indices {
         let array = if column_index.is_left {
@@ -342,7 +329,7 @@ fn build_batch_from_indices(
         };
         columns.push(array);
     }
-    Ok(RecordBatch::try_new(Arc::new(schema.clone()), columns)?)
+    RecordBatch::try_new(Arc::new(schema.clone()), columns)
 }
 
 /// Create a key `Vec<u8>` that is used as key for the hashmap
@@ -414,9 +401,17 @@ fn build_batch(
     schema: &Schema,
     column_indices: &Vec<ColumnIndex>,
 ) -> ArrowResult<RecordBatch> {
-    let indices = build_join_indexes(&left_data.0, &batch, join_type, on_right).unwrap();
+    let (left_indices, right_indices) =
+        build_join_indexes(&left_data.0, &batch, join_type, on_right).unwrap();
 
-    build_batch_from_indices(schema, &left_data.1, batch, &indices, column_indices)
+    build_batch_from_indices(
+        schema,
+        &left_data.1,
+        batch,
+        left_indices,
+        right_indices,
+        column_indices,
+    )
 }
 
 /// returns a vector with (index from left, index from right).
@@ -451,7 +446,7 @@ fn build_join_indexes(
     right: &RecordBatch,
     join_type: JoinType,
     right_on: &HashSet<String>,
-) -> Result<Vec<(JoinIndex, RightIndex)>> {
+) -> Result<(UInt32Array, UInt32Array)> {
     let keys_values = right_on
         .iter()
         .map(|name| Ok(col(name).evaluate(right)?.into_array(right.num_rows())))
@@ -459,10 +454,11 @@ fn build_join_indexes(
 
     let mut key = Vec::with_capacity(keys_values.len());
 
+    let mut left_indices = UInt32Builder::new(0);
+    let mut right_indices = UInt32Builder::new(0);
+
     match join_type {
         JoinType::Inner => {
-            let mut indexes = Vec::new(); // unknown a prior size
-
             // Visit all of the right rows
             for row in 0..right.num_rows() {
                 // Get the key and find it in the build index
@@ -470,16 +466,15 @@ fn build_join_indexes(
                 let left_indexes = left.get(&key);
 
                 // for every item on the left and right with this key, add the respective pair
-                left_indexes.unwrap_or(&vec![]).iter().for_each(|x| {
+                for x in left_indexes.unwrap_or(&vec![]) {
                     // on an inner join, left and right indices are present
-                    indexes.push((Some(*x), Some(row as u32)));
-                })
+                    left_indices.append_value(*x as u32)?;
+                    right_indices.append_value(row as u32)?;
+                }
             }
-            Ok(indexes)
+            Ok((left_indices.finish(), right_indices.finish()))
         }
         JoinType::Left => {
-            let mut indexes = Vec::new(); // unknown a prior size
-
             // Keep track of which item is visited in the build input
             // TODO: this can be stored more efficiently with a marker
             let mut is_visited = HashSet::new();
@@ -492,42 +487,45 @@ fn build_join_indexes(
                 if let Some(indices) = left_indexes {
                     is_visited.insert(key.clone());
 
-                    indices.iter().for_each(|x| {
-                        indexes.push((Some(*x), Some(row as u32)));
-                    })
+                    for x in indices {
+                        left_indices.append_value(*x as u32)?;
+                        right_indices.append_value(row as u32)?;
+                    }
                 };
             }
             // Add the remaining left rows to the result set with None on the right side
             for (key, indices) in left {
                 if !is_visited.contains(key) {
-                    indices.iter().for_each(|x| {
-                        indexes.push((Some(*x), None));
-                    });
+                    for x in indices {
+                        left_indices.append_value(*x as u32)?;
+                        right_indices.append_null()?;
+                    };
                 }
             }
 
-            Ok(indexes)
+            Ok((left_indices.finish(), right_indices.finish()))
         }
         JoinType::Right => {
-            let mut indexes = Vec::new(); // unknown a prior size
             for row in 0..right.num_rows() {
                 create_key(&keys_values, row, &mut key)?;
 
-                let left_indices = left.get(&key);
+                let left_indexes = left.get(&key);
 
-                match left_indices {
+                match left_indexes {
                     Some(indices) => {
-                        indices.iter().for_each(|x| {
-                            indexes.push((Some(*x), Some(row as u32)));
-                        });
+                        for x in indices {
+                            left_indices.append_value(*x as u32)?;
+                            right_indices.append_value(row as u32)?;
+                        }
                     }
                     None => {
                         // when no match, add the row with None for the left side
-                        indexes.push((None, Some(row as u32)));
+                        left_indices.append_null()?;
+                        right_indices.append_value(row as u32)?;
                     }
                 }
             }
-            Ok(indexes)
+            Ok((left_indices.finish(), right_indices.finish()))
         }
     }
 }
