@@ -27,7 +27,7 @@ use futures::{Stream, StreamExt, TryStreamExt};
 use hashbrown::HashMap;
 use tokio::sync::Mutex;
 
-use arrow::array::{make_array, Array, MutableArrayData};
+use arrow::array::Array;
 use arrow::datatypes::DataType;
 use arrow::datatypes::{Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;
@@ -49,12 +49,12 @@ use super::{ExecutionPlan, Partitioning, RecordBatchStream, SendableRecordBatchS
 use crate::physical_plan::coalesce_batches::concat_batches;
 use ahash::RandomState;
 
-// An index of (batch, row) uniquely identifying a row in a part.
-type Index = (usize, usize);
+// An index of uniquely identifying a row.
+type Index = usize;
 // A pair (left index, right index)
 // Note that while this is currently equal to `Index`, the `JoinIndex` is semantically different
 // as a left join may issue None indices, in which case
-type JoinIndex = Option<(usize, usize)>;
+type JoinIndex = Option<usize>;
 // An index of row uniquely identifying a row in a batch
 type RightIndex = Option<u32>;
 
@@ -62,7 +62,7 @@ type RightIndex = Option<u32>;
 // E.g. [1, 2] -> [(0, 3), (1, 6), (0, 8)] indicates that (column1, column2) = [1, 2] is true
 // for rows 3 and 8 from batch 0 and row 6 from batch 1.
 type JoinHashMap = HashMap<Vec<u8>, Vec<Index>, RandomState>;
-type JoinLeftData = Arc<(JoinHashMap, Vec<RecordBatch>)>;
+type JoinLeftData = Arc<(JoinHashMap, RecordBatch)>;
 
 /// join execution plan executes partitions in parallel and combines them into a set of
 /// partitions.
@@ -225,7 +225,7 @@ impl ExecutionPlan for HashJoinExec {
                         .await?;
 
                     let single_batch =
-                        vec![concat_batches(&batches[0].schema(), &batches, num_rows)?];
+                        concat_batches(&batches[0].schema(), &batches, num_rows)?;
 
                     let left_side = Arc::new((hashmap, single_batch));
                     *build_side = Some(left_side.clone());
@@ -278,8 +278,8 @@ fn update_hash(
 
         hash.raw_entry_mut()
             .from_key(&key)
-            .and_modify(|_, v| v.push((0, row + index)))
-            .or_insert_with(|| (key.clone(), vec![(0, row + index)]));
+            .and_modify(|_, v| v.push(row + index))
+            .or_insert_with(|| (key.clone(), vec![row + index]));
     }
     Ok(())
 }
@@ -313,39 +313,28 @@ impl RecordBatchStream for HashJoinStream {
 /// *
 fn build_batch_from_indices(
     schema: &Schema,
-    left: &Vec<RecordBatch>,
+    left: &RecordBatch,
     right: &RecordBatch,
     indices: &[(JoinIndex, RightIndex)],
     column_indices: &Vec<ColumnIndex>,
 ) -> ArrowResult<RecordBatch> {
-    if left.is_empty() {
-        todo!("Create empty record batch");
-    }
-
     // build the columns of the new [RecordBatch]:
     // 1. pick whether the column is from the left or right
     // 2. based on the pick, `take` items from the different recordBatches
     let mut columns: Vec<Arc<dyn Array>> = Vec::with_capacity(schema.fields().len());
 
+    // TODO: u64
+    let left_indices = indices
+        .iter()
+        .map(|(left_index, _)| left_index.map(|x| x as u32))
+        .collect();
+
     let right_indices = indices.iter().map(|(_, join_index)| join_index).collect();
 
     for column_index in column_indices {
         let array = if column_index.is_left {
-            // Note that we take `.data_ref()` to gather the [ArrayData] of each array.
-            let arrays = left
-                .iter()
-                .map(|batch| batch.column(column_index.index).data_ref().as_ref())
-                .collect::<Vec<_>>();
-
-            let mut mutable = MutableArrayData::new(arrays, true, indices.len());
-            // use the left indices
-            for (join_index, _) in indices {
-                match join_index {
-                    Some((batch, row)) => mutable.extend(*batch, *row, *row + 1),
-                    None => mutable.extend_nulls(1),
-                }
-            }
-            make_array(Arc::new(mutable.freeze()))
+            let array = left.column(column_index.index);
+            compute::take(array.as_ref(), &left_indices, None)?
         } else {
             // use the right indices
             let array = right.column(column_index.index);
