@@ -75,6 +75,25 @@ impl RecordBatch {
     /// # }
     /// ```
     pub fn try_new(schema: SchemaRef, columns: Vec<ArrayRef>) -> Result<Self> {
+        let options = RecordBatchOptions::default();
+        Self::validate_new_batch(&schema, columns.as_slice(), &options)?;
+        Ok(RecordBatch { schema, columns })
+    }
+
+    pub fn try_new_with_options(
+        schema: SchemaRef,
+        columns: Vec<ArrayRef>,
+        options: &RecordBatchOptions,
+    ) -> Result<Self> {
+        Self::validate_new_batch(&schema, columns.as_slice(), options)?;
+        Ok(RecordBatch { schema, columns })
+    }
+
+    fn validate_new_batch(
+        schema: &SchemaRef,
+        columns: &[ArrayRef],
+        options: &RecordBatchOptions,
+    ) -> Result<()> {
         // check that there are some columns
         if columns.is_empty() {
             return Err(ArrowError::InvalidArgumentError(
@@ -93,22 +112,45 @@ impl RecordBatch {
         // check that all columns have the same row count, and match the schema
         let len = columns[0].data().len();
 
-        for (i, column) in columns.iter().enumerate() {
-            if column.len() != len {
-                return Err(ArrowError::InvalidArgumentError(
-                    "all columns in a record batch must have the same length".to_string(),
-                ));
+        // This is a bit repetitive, but it is better to check the condition outside the loop
+        if options.match_field_names {
+            for (i, column) in columns.iter().enumerate() {
+                if column.len() != len {
+                    return Err(ArrowError::InvalidArgumentError(
+                        "all columns in a record batch must have the same length"
+                            .to_string(),
+                    ));
+                }
+                if column.data_type() != schema.field(i).data_type() {
+                    return Err(ArrowError::InvalidArgumentError(format!(
+                        "column types must match schema types, expected {:?} but found {:?} at column index {}",
+                        schema.field(i).data_type(),
+                        column.data_type(),
+                        i)));
+                }
             }
-            // list types can have different names, but we only need the data types to be the same
-            if column.data_type() != schema.field(i).data_type() {
-                return Err(ArrowError::InvalidArgumentError(format!(
-                    "column types must match schema types, expected {:?} but found {:?} at column index {}",
-                    schema.field(i).data_type(),
-                    column.data_type(),
-                    i)));
+        } else {
+            for (i, column) in columns.iter().enumerate() {
+                if column.len() != len {
+                    return Err(ArrowError::InvalidArgumentError(
+                        "all columns in a record batch must have the same length"
+                            .to_string(),
+                    ));
+                }
+                if !column
+                    .data_type()
+                    .equals_datatype(schema.field(i).data_type())
+                {
+                    return Err(ArrowError::InvalidArgumentError(format!(
+                        "column types must match schema types, expected {:?} but found {:?} at column index {}",
+                        schema.field(i).data_type(),
+                        column.data_type(),
+                        i)));
+                }
             }
         }
-        Ok(RecordBatch { schema, columns })
+
+        Ok(())
     }
 
     /// Returns the [`Schema`](crate::datatypes::Schema) of the record batch.
@@ -184,6 +226,19 @@ impl RecordBatch {
     /// Get a reference to all columns in the record batch.
     pub fn columns(&self) -> &[ArrayRef] {
         &self.columns[..]
+    }
+}
+
+#[derive(Debug)]
+pub struct RecordBatchOptions {
+    pub match_field_names: bool,
+}
+
+impl Default for RecordBatchOptions {
+    fn default() -> Self {
+        Self {
+            match_field_names: true,
+        }
     }
 }
 
