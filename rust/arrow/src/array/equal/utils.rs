@@ -46,8 +46,8 @@ pub(super) fn equal_nulls(
     let lhs_null_count = count_nulls(lhs_nulls, lhs_start, len);
     let rhs_null_count = count_nulls(rhs_nulls, rhs_start, len);
     if lhs_null_count > 0 || rhs_null_count > 0 {
-        let lhs_values = lhs_nulls.unwrap().data();
-        let rhs_values = rhs_nulls.unwrap().data();
+        let lhs_values = lhs_nulls.unwrap().as_slice();
+        let rhs_values = rhs_nulls.unwrap().as_slice();
         equal_bits(
             lhs_values,
             rhs_values,

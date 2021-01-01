@@ -61,8 +61,8 @@ pub(super) fn variable_sized_equal<T: OffsetSizeTrait>(
     let rhs_offsets = rhs.buffer::<T>(0);
 
     // these are bytes, and thus the offset does not need to be multiplied
-    let lhs_values = &lhs.buffers()[1].data()[lhs.offset()..];
-    let rhs_values = &rhs.buffers()[1].data()[rhs.offset()..];
+    let lhs_values = &lhs.buffers()[1].as_slice()[lhs.offset()..];
+    let rhs_values = &rhs.buffers()[1].as_slice()[rhs.offset()..];
 
     let lhs_null_count = count_nulls(lhs_nulls, lhs_start, len);
     let rhs_null_count = count_nulls(rhs_nulls, rhs_start, len);
@@ -88,10 +88,10 @@ pub(super) fn variable_sized_equal<T: OffsetSizeTrait>(
 
             // the null bits can still be `None`, so we don't unwrap
             let lhs_is_null = !lhs_nulls
-                .map(|v| get_bit(v.data(), lhs_pos))
+                .map(|v| get_bit(v.as_slice(), lhs_pos))
                 .unwrap_or(false);
             let rhs_is_null = !rhs_nulls
-                .map(|v| get_bit(v.data(), rhs_pos))
+                .map(|v| get_bit(v.as_slice(), rhs_pos))
                 .unwrap_or(false);
 
             lhs_is_null

@@ -51,7 +51,7 @@ macro_rules! compare_op {
         let actual_capacity = bit_util::round_upto_multiple_of_64(byte_capacity);
         let mut buffer = MutableBuffer::new(actual_capacity);
         buffer.resize(byte_capacity);
-        let data = buffer.raw_data_mut();
+        let data = buffer.as_mut_ptr();
 
         for i in 0..$left.len() {
             if $op($left.value(i), $right.value(i)) {
@@ -84,7 +84,7 @@ macro_rules! compare_op_scalar {
         let actual_capacity = bit_util::round_upto_multiple_of_64(byte_capacity);
         let mut buffer = MutableBuffer::new(actual_capacity);
         buffer.resize(byte_capacity);
-        let data = buffer.raw_data_mut();
+        let data = buffer.as_mut_ptr();
 
         for i in 0..$left.len() {
             if $op($left.value(i), $right) {
@@ -653,10 +653,10 @@ where
             Some(buff) => buff,
             None => new_all_set_buffer(num_bytes),
         };
-    let not_both_null_bitmap = not_both_null_bit_buffer.data();
+    let not_both_null_bitmap = not_both_null_bit_buffer.as_slice();
 
     let mut bool_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
-    let bool_slice = bool_buf.data_mut();
+    let bool_slice = bool_buf.as_slice_mut();
 
     // if both array slots are valid, check if list contains primitive
     for i in 0..left_len {
@@ -708,10 +708,10 @@ where
             Some(buff) => buff,
             None => new_all_set_buffer(num_bytes),
         };
-    let not_both_null_bitmap = not_both_null_bit_buffer.data();
+    let not_both_null_bitmap = not_both_null_bit_buffer.as_slice();
 
     let mut bool_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
-    let bool_slice = bool_buf.data_mut();
+    let bool_slice = &mut bool_buf;
 
     for i in 0..left_len {
         // contains(null, null) = false

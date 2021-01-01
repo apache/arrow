@@ -76,7 +76,14 @@ To import an array, unsafely create an `ArrowArray` from two pointers using [Arr
 To export an array, create an `ArrowArray` using [ArrowArray::try_new].
 */
 
-use std::{ffi::CStr, ffi::CString, iter, mem::size_of, ptr, sync::Arc};
+use std::{
+    ffi::CStr,
+    ffi::CString,
+    iter,
+    mem::size_of,
+    ptr::{self, NonNull},
+    sync::Arc,
+};
 
 use crate::buffer::Buffer;
 use crate::datatypes::DataType;
@@ -329,7 +336,7 @@ impl FFI_ArrowArray {
             .iter()
             .map(|maybe_buffer| match maybe_buffer {
                 // note that `raw_data` takes into account the buffer's offset
-                Some(b) => b.raw_data() as *const std::os::raw::c_void,
+                Some(b) => b.as_ptr() as *const std::os::raw::c_void,
                 None => std::ptr::null(),
             })
             .collect::<Box<[_]>>();
@@ -393,11 +400,7 @@ unsafe fn create_buffer(
     assert!(index < array.n_buffers as usize);
     let ptr = *buffers.add(index);
 
-    if ptr.is_null() {
-        None
-    } else {
-        Some(Buffer::from_unowned(ptr, len, array))
-    }
+    NonNull::new(ptr as *mut u8).map(|ptr| Buffer::from_unowned(ptr, len, array))
 }
 
 impl Drop for FFI_ArrowArray {

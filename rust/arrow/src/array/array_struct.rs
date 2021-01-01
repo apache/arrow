@@ -384,8 +384,8 @@ mod tests {
         for i in 0..expected_int_data.len() {
             if !expected_int_data.is_null(i) {
                 assert_eq!(
-                    expected_value_buf.data()[i * 4..(i + 1) * 4],
-                    actual_value_buf.data()[i * 4..(i + 1) * 4]
+                    expected_value_buf.as_slice()[i * 4..(i + 1) * 4],
+                    actual_value_buf.as_slice()[i * 4..(i + 1) * 4]
                 );
             }
         }

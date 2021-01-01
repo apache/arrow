@@ -20,7 +20,10 @@
 
 use std::mem::align_of;
 use std::ptr::NonNull;
-use std::{alloc::Layout, sync::atomic::AtomicIsize};
+use std::{
+    alloc::{handle_alloc_error, Layout},
+    sync::atomic::AtomicIsize,
+};
 
 // NOTE: Below code is written for spatial/temporal prefetcher optimizations. Memory allocation
 // should align well with usage pattern of cache access and block sizes on layers of storage levels from
@@ -138,18 +141,19 @@ const BYPASS_PTR: NonNull<u8> = unsafe { NonNull::new_unchecked(ALIGNMENT as *mu
 // If this number is not zero after all objects have been `drop`, there is a memory leak
 pub static mut ALLOCATIONS: AtomicIsize = AtomicIsize::new(0);
 
-pub fn allocate_aligned(size: usize) -> *mut u8 {
+pub fn allocate_aligned(size: usize) -> NonNull<u8> {
     unsafe {
         if size == 0 {
             // In a perfect world, there is no need to request zero size allocation.
             // Currently, passing zero sized layout to alloc is UB.
             // This will dodge allocator api for any type.
-            BYPASS_PTR.as_ptr()
+            BYPASS_PTR
         } else {
             ALLOCATIONS.fetch_add(size as isize, std::sync::atomic::Ordering::SeqCst);
 
             let layout = Layout::from_size_align_unchecked(size, ALIGNMENT);
-            std::alloc::alloc_zeroed(layout)
+            let raw_ptr = std::alloc::alloc_zeroed(layout);
+            NonNull::new(raw_ptr).unwrap_or_else(|| handle_alloc_error(layout))
         }
     }
 }
@@ -162,10 +166,13 @@ pub fn allocate_aligned(size: usize) -> *mut u8 {
 /// * ptr must denote a block of memory currently allocated via this allocator,
 ///
 /// * size must be the same size that was used to allocate that block of memory,
-pub unsafe fn free_aligned(ptr: *mut u8, size: usize) {
-    if ptr != BYPASS_PTR.as_ptr() {
+pub unsafe fn free_aligned(ptr: NonNull<u8>, size: usize) {
+    if ptr != BYPASS_PTR {
         ALLOCATIONS.fetch_sub(size as isize, std::sync::atomic::Ordering::SeqCst);
-        std::alloc::dealloc(ptr, Layout::from_size_align_unchecked(size, ALIGNMENT));
+        std::alloc::dealloc(
+            ptr.as_ptr(),
+            Layout::from_size_align_unchecked(size, ALIGNMENT),
+        );
     }
 }
 
@@ -180,65 +187,69 @@ pub unsafe fn free_aligned(ptr: *mut u8, size: usize) {
 ///
 /// * new_size, when rounded up to the nearest multiple of [ALIGNMENT], must not overflow (i.e.,
 /// the rounded value must be less than usize::MAX).
-pub unsafe fn reallocate(ptr: *mut u8, old_size: usize, new_size: usize) -> *mut u8 {
-    if ptr == BYPASS_PTR.as_ptr() {
+pub unsafe fn reallocate(
+    ptr: NonNull<u8>,
+    old_size: usize,
+    new_size: usize,
+) -> NonNull<u8> {
+    if ptr == BYPASS_PTR {
         return allocate_aligned(new_size);
     }
 
     if new_size == 0 {
         free_aligned(ptr, old_size);
-        return BYPASS_PTR.as_ptr();
+        return BYPASS_PTR;
     }
 
     ALLOCATIONS.fetch_add(
         new_size as isize - old_size as isize,
         std::sync::atomic::Ordering::SeqCst,
     );
-    let new_ptr = std::alloc::realloc(
-        ptr,
+    let raw_ptr = std::alloc::realloc(
+        ptr.as_ptr(),
         Layout::from_size_align_unchecked(old_size, ALIGNMENT),
         new_size,
     );
+    let ptr = NonNull::new(raw_ptr).unwrap_or_else(|| {
+        handle_alloc_error(Layout::from_size_align_unchecked(new_size, ALIGNMENT))
+    });
 
-    if !new_ptr.is_null() && new_size > old_size {
-        new_ptr.add(old_size).write_bytes(0, new_size - old_size);
+    if new_size > old_size {
+        ptr.as_ptr()
+            .add(old_size)
+            .write_bytes(0, new_size - old_size);
     }
-
-    new_ptr
+    ptr
 }
 
 /// # Safety
 ///
 /// Behavior is undefined if any of the following conditions are violated:
 ///
-/// * `src` must be valid for reads of `len * size_of::<T>()` bytes.
+/// * `src` must be valid for reads of `len * size_of::<u8>()` bytes.
 ///
-/// * `dst` must be valid for writes of `len * size_of::<T>()` bytes.
+/// * `dst` must be valid for writes of `len * size_of::<u8>()` bytes.
 ///
 /// * Both `src` and `dst` must be properly aligned.
 ///
 /// `memcpy` creates a bitwise copy of `T`, regardless of whether `T` is [`Copy`]. If `T` is not
 /// [`Copy`], using both the values in the region beginning at `*src` and the region beginning at
 /// `*dst` can [violate memory safety][read-ownership].
-pub unsafe fn memcpy(dst: *mut u8, src: *const u8, len: usize) {
-    if len != 0x00 && src != BYPASS_PTR.as_ptr() {
-        std::ptr::copy_nonoverlapping(src, dst, len)
+pub unsafe fn memcpy(dst: NonNull<u8>, src: NonNull<u8>, count: usize) {
+    if src != BYPASS_PTR {
+        std::ptr::copy_nonoverlapping(src.as_ptr(), dst.as_ptr(), count)
     }
 }
 
-extern "C" {
-    pub fn memcmp(p1: *const u8, p2: *const u8, len: usize) -> i32;
-}
-
 /// Check if the pointer `p` is aligned to offset `a`.
-pub fn is_aligned<T>(p: *const T, a: usize) -> bool {
+pub fn is_aligned<T>(p: NonNull<T>, a: usize) -> bool {
     let a_minus_one = a.wrapping_sub(1);
-    let pmoda = p as usize & a_minus_one;
+    let pmoda = p.as_ptr() as usize & a_minus_one;
     pmoda == 0
 }
 
-pub fn is_ptr_aligned<T>(p: *const T) -> bool {
-    p.align_offset(align_of::<T>()) == 0
+pub fn is_ptr_aligned<T>(p: NonNull<T>) -> bool {
+    p.as_ptr().align_offset(align_of::<T>()) == 0
 }
 
 #[cfg(test)]
@@ -250,7 +261,7 @@ mod tests {
         for _ in 0..10 {
             let p = allocate_aligned(1024);
             // make sure this is 64-byte aligned
-            assert_eq!(0, (p as usize) % 64);
+            assert_eq!(0, (p.as_ptr() as usize) % 64);
             unsafe { free_aligned(p, 1024) };
         }
     }
@@ -258,16 +269,16 @@ mod tests {
     #[test]
     fn test_is_aligned() {
         // allocate memory aligned to 64-byte
-        let mut ptr = allocate_aligned(10);
+        let ptr = allocate_aligned(10);
         assert_eq!(true, is_aligned::<u8>(ptr, 1));
         assert_eq!(true, is_aligned::<u8>(ptr, 2));
         assert_eq!(true, is_aligned::<u8>(ptr, 4));
 
         // now make the memory aligned to 63-byte
-        ptr = unsafe { ptr.offset(1) };
+        let ptr = unsafe { NonNull::new_unchecked(ptr.as_ptr().offset(1)) };
         assert_eq!(true, is_aligned::<u8>(ptr, 1));
         assert_eq!(false, is_aligned::<u8>(ptr, 2));
         assert_eq!(false, is_aligned::<u8>(ptr, 4));
-        unsafe { free_aligned(ptr.offset(-1), 10) };
+        unsafe { free_aligned(NonNull::new_unchecked(ptr.as_ptr().offset(-1)), 10) };
     }
 }

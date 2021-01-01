@@ -26,13 +26,12 @@ use crate::{
     ffi,
 };
 
-use std::cmp;
 use std::convert::AsRef;
 use std::fmt::Debug;
 use std::mem;
 use std::ops::{BitAnd, BitOr, Not};
-use std::slice::{from_raw_parts, from_raw_parts_mut};
 use std::sync::Arc;
+use std::{cmp, ptr::NonNull};
 
 #[cfg(feature = "avx512")]
 use crate::arch::avx512::*;
@@ -70,7 +69,8 @@ impl Buffer {
     ///
     /// This function is unsafe as there is no guarantee that the given pointer is valid for `len`
     /// bytes. If the `ptr` and `capacity` come from a `Buffer`, then this is guaranteed.
-    pub unsafe fn from_raw_parts(ptr: *const u8, len: usize, capacity: usize) -> Self {
+    pub unsafe fn from_raw_parts(ptr: NonNull<u8>, len: usize, capacity: usize) -> Self {
+        assert!(len <= capacity);
         Buffer::build_with_arguments(ptr, len, Deallocation::Native(capacity))
     }
 
@@ -88,7 +88,7 @@ impl Buffer {
     /// This function is unsafe as there is no guarantee that the given pointer is valid for `len`
     /// bytes and that the foreign deallocator frees the region.
     pub unsafe fn from_unowned(
-        ptr: *const u8,
+        ptr: NonNull<u8>,
         len: usize,
         data: Arc<ffi::FFI_ArrowArray>,
     ) -> Self {
@@ -97,7 +97,7 @@ impl Buffer {
 
     /// Auxiliary method to create a new Buffer
     unsafe fn build_with_arguments(
-        ptr: *const u8,
+        ptr: NonNull<u8>,
         len: usize,
         deallocation: Deallocation,
     ) -> Self {
@@ -125,11 +125,14 @@ impl Buffer {
     }
 
     /// Returns the byte slice stored in this buffer
-    pub fn data(&self) -> &[u8] {
-        &self.data.as_slice()[self.offset..]
+    pub fn as_slice(&self) -> &[u8] {
+        &self.data[self.offset..]
     }
 
-    /// Returns a slice of this buffer, starting from `offset`.
+    /// Returns a new [Buffer] that is a slice of this buffer starting at `offset`.
+    /// Doing so allows the same memory region to be shared between buffers.
+    /// # Panics
+    /// Panics iff `offset` is larger than `len`.
     pub fn slice(&self, offset: usize) -> Self {
         assert!(
             offset <= self.len(),
@@ -141,12 +144,12 @@ impl Buffer {
         }
     }
 
-    /// Returns a raw pointer for this buffer.
+    /// Returns a pointer to the start of this buffer.
     ///
     /// Note that this should be used cautiously, and the returned pointer should not be
     /// stored anywhere, to avoid dangling pointers.
-    pub fn raw_data(&self) -> *const u8 {
-        unsafe { self.data.raw_data().add(self.offset) }
+    pub fn as_ptr(&self) -> *const u8 {
+        unsafe { self.data.ptr().as_ptr().add(self.offset) }
     }
 
     /// View buffer as typed slice.
@@ -161,9 +164,15 @@ impl Buffer {
     /// `bool` in Rust.  However, `bool` arrays in Arrow are bit-packed which breaks this condition.
     pub unsafe fn typed_data<T: ArrowNativeType + num::Num>(&self) -> &[T] {
         assert_eq!(self.len() % mem::size_of::<T>(), 0);
-        assert!(memory::is_ptr_aligned::<T>(self.raw_data() as *const T));
-        from_raw_parts(
-            self.raw_data() as *const T,
+        assert!(memory::is_ptr_aligned::<T>(self.data.ptr().cast()));
+        // JUSTIFICATION
+        //  Benefit
+        //      Many of the buffers represent specific types, and consumers of `Buffer` often need to re-interpret them.
+        //  Soundness
+        //      * The pointer is non-null by construction
+        //      * alignment asserted above
+        std::slice::from_raw_parts(
+            self.as_ptr() as *const T,
             self.len() / mem::size_of::<T>(),
         )
     }
@@ -183,7 +192,7 @@ impl Buffer {
     /// in larger chunks and starting at arbitrary bit offsets.
     /// Note that both `offset` and `length` are measured in bits.
     pub fn bit_chunks(&self, offset: usize, len: usize) -> BitChunks {
-        BitChunks::new(&self.data.as_slice()[self.offset..], offset, len)
+        BitChunks::new(&self.as_slice(), offset, len)
     }
 
     /// Returns the number of 1-bits in this buffer.
@@ -213,10 +222,30 @@ impl<T: AsRef<[u8]>> From<T> for Buffer {
         let len = slice.len() * mem::size_of::<u8>();
         let capacity = bit_util::round_upto_multiple_of_64(len);
         let buffer = memory::allocate_aligned(capacity);
+        // JUSTIFICATION
+        //  Benefit
+        //      It is often useful to create a buffer from bytes, typically when they are allocated by external sources
+        //  Soundness
+        //      * The pointers are non-null by construction
+        //      * alignment asserted above
+        //  Unsoundness
+        //      * There is no guarantee that the memory regions do are non-overalling, but `memcpy` requires this.
         unsafe {
-            memory::memcpy(buffer, slice.as_ptr(), len);
+            memory::memcpy(
+                buffer,
+                NonNull::new_unchecked(slice.as_ptr() as *mut u8),
+                len,
+            );
             Buffer::build_with_arguments(buffer, len, Deallocation::Native(capacity))
         }
+    }
+}
+
+impl std::ops::Deref for Buffer {
+    type Target = [u8];
+
+    fn deref(&self) -> &[u8] {
+        unsafe { std::slice::from_raw_parts(self.as_ptr(), self.len()) }
     }
 }
 
@@ -242,9 +271,9 @@ where
     let mut result = MutableBuffer::new(len).with_bitset(len, false);
     let lanes = u8x64::lanes();
 
-    let mut left_chunks = left.data()[left_offset..].chunks_exact(lanes);
-    let mut right_chunks = right.data()[right_offset..].chunks_exact(lanes);
-    let mut result_chunks = result.data_mut().chunks_exact_mut(lanes);
+    let mut left_chunks = left.as_slice()[left_offset..].chunks_exact(lanes);
+    let mut right_chunks = right.as_slice()[right_offset..].chunks_exact(lanes);
+    let mut result_chunks = result.as_slice_mut().chunks_exact_mut(lanes);
 
     result_chunks
         .borrow_mut()
@@ -289,8 +318,8 @@ where
     let mut result = MutableBuffer::new(len).with_bitset(len, false);
     let lanes = u8x64::lanes();
 
-    let mut left_chunks = left.data()[left_offset..].chunks_exact(lanes);
-    let mut result_chunks = result.data_mut().chunks_exact_mut(lanes);
+    let mut left_chunks = left.as_slice()[left_offset..].chunks_exact(lanes);
+    let mut result_chunks = result.as_slice_mut().chunks_exact_mut(lanes);
 
     result_chunks
         .borrow_mut()
@@ -399,10 +428,12 @@ pub(super) fn buffer_bin_and(
 
         let mut result = MutableBuffer::new(len).with_bitset(len, false);
 
-        let mut left_chunks = left.data()[left_offset..].chunks_exact(AVX512_U8X64_LANES);
+        let mut left_chunks =
+            left.as_slice()[left_offset..].chunks_exact(AVX512_U8X64_LANES);
         let mut right_chunks =
-            right.data()[right_offset..].chunks_exact(AVX512_U8X64_LANES);
-        let mut result_chunks = result.data_mut().chunks_exact_mut(AVX512_U8X64_LANES);
+            right.as_slice()[right_offset..].chunks_exact(AVX512_U8X64_LANES);
+        let mut result_chunks =
+            result.as_slice_mut().chunks_exact_mut(AVX512_U8X64_LANES);
 
         result_chunks
             .borrow_mut()
@@ -508,10 +539,12 @@ pub(super) fn buffer_bin_or(
 
         let mut result = MutableBuffer::new(len).with_bitset(len, false);
 
-        let mut left_chunks = left.data()[left_offset..].chunks_exact(AVX512_U8X64_LANES);
+        let mut left_chunks =
+            left.as_slice()[left_offset..].chunks_exact(AVX512_U8X64_LANES);
         let mut right_chunks =
-            right.data()[right_offset..].chunks_exact(AVX512_U8X64_LANES);
-        let mut result_chunks = result.data_mut().chunks_exact_mut(AVX512_U8X64_LANES);
+            right.as_slice()[right_offset..].chunks_exact(AVX512_U8X64_LANES);
+        let mut result_chunks =
+            result.as_slice_mut().chunks_exact_mut(AVX512_U8X64_LANES);
 
         result_chunks
             .borrow_mut()
@@ -667,7 +700,8 @@ unsafe impl Send for Buffer {}
 /// converted into a immutable buffer via the `freeze` method.
 #[derive(Debug)]
 pub struct MutableBuffer {
-    data: *mut u8,
+    // dangling iff capacity = 0
+    data: NonNull<u8>,
     len: usize,
     capacity: usize,
 }
@@ -700,7 +734,7 @@ impl MutableBuffer {
         assert!(end <= self.capacity);
         let v = if val { 255 } else { 0 };
         unsafe {
-            std::ptr::write_bytes(self.data, v, end);
+            std::ptr::write_bytes(self.data.as_ptr(), v, end);
             self.len = end;
         }
         self
@@ -714,7 +748,7 @@ impl MutableBuffer {
     pub fn set_null_bits(&mut self, start: usize, count: usize) {
         assert!(start + count <= self.capacity);
         unsafe {
-            std::ptr::write_bytes(self.data.add(start), 0, count);
+            std::ptr::write_bytes(self.data.as_ptr().add(start), 0, count);
         }
     }
 
@@ -726,9 +760,8 @@ impl MutableBuffer {
         if capacity > self.capacity {
             let new_capacity = bit_util::round_upto_multiple_of_64(capacity);
             let new_capacity = cmp::max(new_capacity, self.capacity * 2);
-            let new_data =
+            self.data =
                 unsafe { memory::reallocate(self.data, self.capacity, new_capacity) };
-            self.data = new_data as *mut u8;
             self.capacity = new_capacity;
         }
         self.capacity
@@ -747,9 +780,8 @@ impl MutableBuffer {
         } else {
             let new_capacity = bit_util::round_upto_multiple_of_64(new_len);
             if new_capacity < self.capacity {
-                let new_data =
+                self.data =
                     unsafe { memory::reallocate(self.data, self.capacity, new_capacity) };
-                self.data = new_data as *mut u8;
                 self.capacity = new_capacity;
             }
         }
@@ -780,21 +812,13 @@ impl MutableBuffer {
     }
 
     /// Returns the data stored in this buffer as a slice.
-    pub fn data(&self) -> &[u8] {
-        if self.data.is_null() {
-            &[]
-        } else {
-            unsafe { std::slice::from_raw_parts(self.raw_data(), self.len()) }
-        }
+    pub fn as_slice(&self) -> &[u8] {
+        self
     }
 
     /// Returns the data stored in this buffer as a mutable slice.
-    pub fn data_mut(&mut self) -> &mut [u8] {
-        if self.data.is_null() {
-            &mut []
-        } else {
-            unsafe { std::slice::from_raw_parts_mut(self.raw_data_mut(), self.len()) }
-        }
+    pub fn as_slice_mut(&mut self) -> &mut [u8] {
+        self
     }
 
     /// Returns a raw pointer for this buffer.
@@ -802,13 +826,13 @@ impl MutableBuffer {
     /// Note that this should be used cautiously, and the returned pointer should not be
     /// stored anywhere, to avoid dangling pointers.
     #[inline]
-    pub const fn raw_data(&self) -> *const u8 {
-        self.data
+    pub const fn as_ptr(&self) -> *const u8 {
+        self.data.as_ptr()
     }
 
     #[inline]
-    pub fn raw_data_mut(&mut self) -> *mut u8 {
-        self.data
+    pub fn as_mut_ptr(&mut self) -> *mut u8 {
+        self.data.as_ptr()
     }
 
     /// Freezes this buffer and return an immutable version of it.
@@ -826,10 +850,16 @@ impl MutableBuffer {
     /// View buffer as typed slice.
     pub fn typed_data_mut<T: ArrowNativeType>(&mut self) -> &mut [T] {
         assert_eq!(self.len() % mem::size_of::<T>(), 0);
-        assert!(memory::is_ptr_aligned::<T>(self.raw_data() as *const T));
+        assert!(memory::is_ptr_aligned::<T>(self.data.cast()));
+        // JUSTIFICATION
+        //  Benefit
+        //      Many of the buffers represent specific types, and consumers of `Buffer` often need to re-interpret them.
+        //  Soundness
+        //      * The pointer is non-null by construction
+        //      * alignment asserted above
         unsafe {
-            from_raw_parts_mut(
-                self.raw_data() as *mut T,
+            std::slice::from_raw_parts_mut(
+                self.as_ptr() as *mut T,
                 self.len() / mem::size_of::<T>(),
             )
         }
@@ -843,7 +873,9 @@ impl MutableBuffer {
             self.reserve(new_len);
         }
         unsafe {
-            memory::memcpy(self.data.add(self.len), bytes.as_ptr(), bytes.len());
+            let dst = NonNull::new_unchecked(self.data.as_ptr().add(self.len));
+            let src = NonNull::new_unchecked(bytes.as_ptr() as *mut u8);
+            memory::memcpy(dst, src, bytes.len());
         }
         self.len = new_len;
     }
@@ -858,11 +890,23 @@ impl MutableBuffer {
     }
 }
 
+impl std::ops::Deref for MutableBuffer {
+    type Target = [u8];
+
+    fn deref(&self) -> &[u8] {
+        unsafe { std::slice::from_raw_parts(self.as_ptr(), self.len) }
+    }
+}
+
+impl std::ops::DerefMut for MutableBuffer {
+    fn deref_mut(&mut self) -> &mut [u8] {
+        unsafe { std::slice::from_raw_parts_mut(self.as_mut_ptr(), self.len) }
+    }
+}
+
 impl Drop for MutableBuffer {
     fn drop(&mut self) {
-        if !self.data.is_null() {
-            unsafe { memory::free_aligned(self.data, self.capacity) };
-        }
+        unsafe { memory::free_aligned(self.data, self.capacity) };
     }
 }
 
@@ -874,7 +918,7 @@ impl PartialEq for MutableBuffer {
         if self.capacity != other.capacity {
             return false;
         }
-        unsafe { memory::memcmp(self.data, other.data, self.len) == 0 }
+        self.as_slice() == other.as_slice()
     }
 }
 
@@ -883,7 +927,6 @@ unsafe impl Send for MutableBuffer {}
 
 #[cfg(test)]
 mod tests {
-    use std::ptr::null_mut;
     use std::thread;
 
     use super::*;
@@ -919,24 +962,18 @@ mod tests {
 
     #[test]
     fn test_from_raw_parts() {
-        let buf = unsafe { Buffer::from_raw_parts(null_mut(), 0, 0) };
-        assert_eq!(0, buf.len());
-        assert_eq!(0, buf.data().len());
-        assert_eq!(0, buf.capacity());
-        assert!(buf.raw_data().is_null());
-
         let buf = Buffer::from(&[0, 1, 2, 3, 4]);
         assert_eq!(5, buf.len());
-        assert!(!buf.raw_data().is_null());
-        assert_eq!([0, 1, 2, 3, 4], buf.data());
+        assert!(!buf.as_ptr().is_null());
+        assert_eq!([0, 1, 2, 3, 4], buf.as_slice());
     }
 
     #[test]
     fn test_from_vec() {
         let buf = Buffer::from(&[0, 1, 2, 3, 4]);
         assert_eq!(5, buf.len());
-        assert!(!buf.raw_data().is_null());
-        assert_eq!([0, 1, 2, 3, 4], buf.data());
+        assert!(!buf.as_ptr().is_null());
+        assert_eq!([0, 1, 2, 3, 4], buf.as_slice());
     }
 
     #[test]
@@ -945,8 +982,8 @@ mod tests {
         let buf2 = buf;
         assert_eq!(5, buf2.len());
         assert_eq!(64, buf2.capacity());
-        assert!(!buf2.raw_data().is_null());
-        assert_eq!([0, 1, 2, 3, 4], buf2.data());
+        assert!(!buf2.as_ptr().is_null());
+        assert_eq!([0, 1, 2, 3, 4], buf2.as_slice());
     }
 
     #[test]
@@ -954,21 +991,21 @@ mod tests {
         let buf = Buffer::from(&[2, 4, 6, 8, 10]);
         let buf2 = buf.slice(2);
 
-        assert_eq!([6, 8, 10], buf2.data());
+        assert_eq!([6, 8, 10], buf2.as_slice());
         assert_eq!(3, buf2.len());
-        assert_eq!(unsafe { buf.raw_data().offset(2) }, buf2.raw_data());
+        assert_eq!(unsafe { buf.as_ptr().offset(2) }, buf2.as_ptr());
 
         let buf3 = buf2.slice(1);
-        assert_eq!([8, 10], buf3.data());
+        assert_eq!([8, 10], buf3.as_slice());
         assert_eq!(2, buf3.len());
-        assert_eq!(unsafe { buf.raw_data().offset(3) }, buf3.raw_data());
+        assert_eq!(unsafe { buf.as_ptr().offset(3) }, buf3.as_ptr());
 
         let buf4 = buf.slice(5);
         let empty_slice: [u8; 0] = [];
-        assert_eq!(empty_slice, buf4.data());
+        assert_eq!(empty_slice, buf4.as_slice());
         assert_eq!(0, buf4.len());
         assert!(buf4.is_empty());
-        assert_eq!(buf2.slice(2).data(), &[10]);
+        assert_eq!(buf2.slice(2).as_slice(), &[10]);
     }
 
     #[test]
@@ -1045,17 +1082,17 @@ mod tests {
         let mut buf = MutableBuffer::new(100);
         buf.extend_from_slice(b"hello");
         assert_eq!(5, buf.len());
-        assert_eq!(b"hello", buf.data());
+        assert_eq!(b"hello", buf.as_slice());
 
         buf.extend_from_slice(b" world");
         assert_eq!(11, buf.len());
-        assert_eq!(b"hello world", buf.data());
+        assert_eq!(b"hello world", buf.as_slice());
 
         buf.clear();
         assert_eq!(0, buf.len());
         buf.extend_from_slice(b"hello arrow");
         assert_eq!(11, buf.len());
-        assert_eq!(b"hello arrow", buf.data());
+        assert_eq!(b"hello arrow", buf.as_slice());
     }
 
     #[test]
@@ -1106,12 +1143,12 @@ mod tests {
         buf.extend_from_slice(b"aaaa bbbb cccc dddd");
         assert_eq!(19, buf.len());
         assert_eq!(64, buf.capacity());
-        assert_eq!(b"aaaa bbbb cccc dddd", buf.data());
+        assert_eq!(b"aaaa bbbb cccc dddd", buf.as_slice());
 
         let immutable_buf = buf.freeze();
         assert_eq!(19, immutable_buf.len());
         assert_eq!(64, immutable_buf.capacity());
-        assert_eq!(b"aaaa bbbb cccc dddd", immutable_buf.data());
+        assert_eq!(b"aaaa bbbb cccc dddd", immutable_buf.as_slice());
     }
 
     #[test]
@@ -1136,7 +1173,7 @@ mod tests {
     fn test_access_concurrently() {
         let buffer = Buffer::from(vec![1, 2, 3, 4, 5]);
         let buffer2 = buffer.clone();
-        assert_eq!([1, 2, 3, 4, 5], buffer.data());
+        assert_eq!([1, 2, 3, 4, 5], buffer.as_slice());
 
         let buffer_copy = thread::spawn(move || {
             // access buffer in another thread.

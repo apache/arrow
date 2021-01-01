@@ -42,7 +42,7 @@ fn extend_offset_values<T: OffsetSizeTrait>(
 
 pub(super) fn build_extend<T: OffsetSizeTrait>(array: &ArrayData) -> Extend {
     let offsets = array.buffer::<T>(0);
-    let values = &array.buffers()[1].data()[array.offset()..];
+    let values = &array.buffers()[1].as_slice()[array.offset()..];
     if array.null_count() == 0 {
         // fast case where we can copy regions without null issues
         Box::new(
