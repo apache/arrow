@@ -1124,21 +1124,14 @@ impl Decoder {
                             t
                         ))),
                     },
-                    DataType::Utf8 => {
-                        let mut builder = StringBuilder::new(rows.len());
-                        for row in rows {
-                            if let Some(value) = row.get(field.name()) {
-                                if let Some(str_v) = value.as_str() {
-                                    builder.append_value(str_v)?
-                                } else {
-                                    builder.append(false)?
-                                }
-                            } else {
-                                builder.append(false)?
-                            }
-                        }
-                        Ok(Arc::new(builder.finish()) as ArrayRef)
-                    }
+                    DataType::Utf8 => Ok(Arc::new(
+                        rows.iter()
+                            .map(|row| {
+                                let maybe_value = row.get(field.name());
+                                maybe_value.and_then(|value| value.as_str())
+                            })
+                            .collect::<StringArray>(),
+                    ) as ArrayRef),
                     DataType::List(ref list_field) => {
                         match list_field.data_type() {
                             DataType::Dictionary(ref key_ty, _) => {
