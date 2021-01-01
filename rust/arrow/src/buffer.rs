@@ -23,6 +23,7 @@ use packed_simd::u8x64;
 
 use crate::{
     bytes::{Bytes, Deallocation},
+    datatypes::ToByteSlice,
     ffi,
 };
 
@@ -55,6 +56,23 @@ pub struct Buffer {
 }
 
 impl Buffer {
+    /// Initializes a [Buffer] from a slice of items.
+    pub fn from_slice_ref<U: ArrowNativeType, T: AsRef<[U]>>(items: &T) -> Self {
+        // allocate aligned memory buffer
+        let slice = items.as_ref();
+        let len = slice.len() * std::mem::size_of::<U>();
+        let capacity = bit_util::round_upto_multiple_of_64(len);
+        let buffer = memory::allocate_aligned(capacity);
+        unsafe {
+            memory::memcpy(
+                buffer,
+                NonNull::new_unchecked(slice.as_ptr() as *mut u8),
+                len,
+            );
+            Buffer::build_with_arguments(buffer, len, Deallocation::Native(capacity))
+        }
+    }
+
     /// Creates a buffer from an existing memory region (must already be byte-aligned), this
     /// `Buffer` will free this piece of memory when dropped.
     ///
@@ -219,7 +237,7 @@ impl<T: AsRef<[u8]>> From<T> for Buffer {
         let len = slice.len();
         let mut buffer = MutableBuffer::new(len);
         buffer.extend_from_slice(slice);
-        buffer.freeze()
+        buffer.into()
     }
 }
 
@@ -684,8 +702,11 @@ impl From<MutableBuffer> for Buffer {
     }
 }
 
-/// Similar to `Buffer`, but is growable and can be mutated. A mutable buffer can be
-/// converted into a immutable buffer via the `into` method.
+/// A [`MutableBuffer`] is Arrow's interface to build a [`Buffer`] out of items or slices of items.
+/// [`Buffer`]s created from [`MutableBuffer`] (via `into`) is guaranteed to have data aligned
+/// with cache lines and in multiple of 64 bytes.
+/// Use [MutableBuffer::push] to insert an item, [MutableBuffer::extend_from_slice]
+/// to insert many items at once.
 #[derive(Debug)]
 pub struct MutableBuffer {
     // dangling iff capacity = 0
@@ -740,7 +761,7 @@ impl MutableBuffer {
         }
     }
 
-    /// Ensures that this buffer has at least `capacity` slots in this buffer. This will
+    /// Ensures that this buffer has at least `capacity` bytes in this buffer. This will
     /// also ensure the new capacity will be a multiple of 64 bytes.
     ///
     /// Returns the new capacity for this buffer.
@@ -852,17 +873,34 @@ impl MutableBuffer {
         }
     }
 
-    /// Extends the buffer from a byte slice, incrementing its capacity if needed.
+    /// Extends the buffer from a slice, increasing its capacity if needed.
     #[inline]
-    pub fn extend_from_slice(&mut self, bytes: &[u8]) {
-        let additional = bytes.len();
-        if self.len + additional > self.capacity() {
+    pub fn extend_from_slice<T: ToByteSlice>(&mut self, items: &[T]) {
+        let additional = items.len() * std::mem::size_of::<T>();
+        let new_len = self.len + additional;
+        if new_len > self.capacity {
             self.reserve(additional);
         }
         unsafe {
-            let dst = NonNull::new_unchecked(self.data.as_ptr().add(self.len));
-            let src = NonNull::new_unchecked(bytes.as_ptr() as *mut u8);
-            memory::memcpy(dst, src, additional);
+            let dst = self.data.as_ptr().add(self.len) as *mut T;
+            let src = items.as_ptr() as *const T;
+            std::ptr::copy_nonoverlapping(src, dst, items.len())
+        }
+        self.len = new_len;
+    }
+
+    /// Extends the buffer with a new item, increasing its capacity if needed.
+    #[inline]
+    pub fn push<T: ToByteSlice>(&mut self, item: T) {
+        let additional = std::mem::size_of::<T>();
+        let new_len = self.len + additional;
+        if new_len > self.capacity {
+            self.reserve(additional);
+        }
+        unsafe {
+            let dst = self.data.as_ptr().add(self.len) as *mut T;
+            let src = (&item) as *const T;
+            std::ptr::copy_nonoverlapping(src, dst, 1)
         }
         self.len += additional;
     }
@@ -914,7 +952,6 @@ mod tests {
     use std::thread;
 
     use super::*;
-    use crate::datatypes::ToByteSlice;
 
     #[test]
     fn test_buffer_data_equality() {
@@ -1172,7 +1209,7 @@ mod tests {
 
     macro_rules! check_as_typed_data {
         ($input: expr, $native_t: ty) => {{
-            let buffer = Buffer::from($input.to_byte_slice());
+            let buffer = Buffer::from_slice_ref($input);
             let slice: &[$native_t] = unsafe { buffer.typed_data::<$native_t>() };
             assert_eq!($input, slice);
         }};

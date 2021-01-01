@@ -24,8 +24,8 @@ use super::{
     array::print_long_array, raw_pointer::RawPtrBox, Array, ArrayData, ArrayDataRef,
     GenericListArray, GenericStringIter, OffsetSizeTrait,
 };
+use crate::buffer::Buffer;
 use crate::util::bit_util;
-use crate::{buffer::Buffer, datatypes::ToByteSlice};
 use crate::{buffer::MutableBuffer, datatypes::DataType};
 
 /// Like OffsetSizeTrait, but specialized for Strings
@@ -130,11 +130,11 @@ impl<OffsetSize: StringOffsetSizeTrait> GenericStringArray<OffsetSize> {
         for s in &v {
             length_so_far += OffsetSize::from_usize(s.len()).unwrap();
             offsets.push(length_so_far);
-            values.extend_from_slice(s.as_bytes());
+            values.extend_from_slice(s.as_ref());
         }
         let array_data = ArrayData::builder(OffsetSize::DATA_TYPE)
             .len(v.len())
-            .add_buffer(Buffer::from(offsets.to_byte_slice()))
+            .add_buffer(Buffer::from_slice_ref(&offsets))
             .add_buffer(Buffer::from(&values[..]))
             .build();
         Self::from(array_data)
@@ -179,7 +179,7 @@ where
 
         let array_data = ArrayData::builder(OffsetSize::DATA_TYPE)
             .len(data_len)
-            .add_buffer(Buffer::from(offsets.to_byte_slice()))
+            .add_buffer(Buffer::from_slice_ref(&offsets))
             .add_buffer(Buffer::from(&values[..]))
             .null_bit_buffer(null_buf.into())
             .build();
@@ -391,8 +391,8 @@ mod tests {
         let offsets: [i32; 4] = [0, 5, 5, 12];
         let array_data = ArrayData::builder(DataType::Utf8)
             .len(3)
-            .add_buffer(Buffer::from(offsets.to_byte_slice()))
-            .add_buffer(Buffer::from(&values[..]))
+            .add_buffer(Buffer::from_slice_ref(&offsets))
+            .add_buffer(Buffer::from_slice_ref(&values))
             .build();
         let string_array = StringArray::from(array_data);
         string_array.value(4);

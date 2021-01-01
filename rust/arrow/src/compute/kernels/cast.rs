@@ -273,7 +273,7 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
             let cast_array = cast(array, to.data_type())?;
             // create offsets, where if array.len() = 2, we have [0,1,2]
             let offsets: Vec<i32> = (0..=array.len() as i32).collect();
-            let value_offsets = Buffer::from(offsets[..].to_byte_slice());
+            let value_offsets = Buffer::from_slice_ref(&offsets);
             let list_data = ArrayData::new(
                 to.data_type().clone(),
                 array.len(),
@@ -1391,7 +1391,7 @@ mod tests {
         // Construct a value array
         let value_data = Int32Array::from(vec![0, 0, 0, -1, -2, -1, 2, 100000000]).data();
 
-        let value_offsets = Buffer::from(&[0, 3, 6, 8].to_byte_slice());
+        let value_offsets = Buffer::from_slice_ref(&[0, 3, 6, 8]);
 
         // Construct a list array from the above two
         let list_data_type =
@@ -1450,7 +1450,7 @@ mod tests {
         let value_data =
             Int32Array::from(vec![0, 0, 0, -1, -2, -1, 2, 8, 100000000]).data();
 
-        let value_offsets = Buffer::from(&[0, 3, 6, 9].to_byte_slice());
+        let value_offsets = Buffer::from_slice_ref(&[0, 3, 6, 9]);
 
         // Construct a list array from the above two
         let list_data_type =
@@ -2922,12 +2922,12 @@ mod tests {
         // Construct a value array
         let value_data = ArrayData::builder(DataType::Int32)
             .len(8)
-            .add_buffer(Buffer::from(&[0, 1, 2, 3, 4, 5, 6, 7].to_byte_slice()))
+            .add_buffer(Buffer::from_slice_ref(&[0, 1, 2, 3, 4, 5, 6, 7]))
             .build();
 
         // Construct a buffer for value offsets, for the nested array:
         //  [[0, 1, 2], [3, 4, 5], [6, 7]]
-        let value_offsets = Buffer::from(&[0, 3, 6, 8].to_byte_slice());
+        let value_offsets = Buffer::from_slice_ref(&[0, 3, 6, 8]);
 
         // Construct a list array from the above two
         let list_data_type =
@@ -2944,12 +2944,12 @@ mod tests {
         // Construct a value array
         let value_data = ArrayData::builder(DataType::Int32)
             .len(8)
-            .add_buffer(Buffer::from(&[0, 1, 2, 3, 4, 5, 6, 7].to_byte_slice()))
+            .add_buffer(Buffer::from_slice_ref(&[0, 1, 2, 3, 4, 5, 6, 7]))
             .build();
 
         // Construct a buffer for value offsets, for the nested array:
         //  [[0, 1, 2], [3, 4, 5], [6, 7]]
-        let value_offsets = Buffer::from(&[0i64, 3, 6, 8].to_byte_slice());
+        let value_offsets = Buffer::from_slice_ref(&[0i64, 3, 6, 8]);
 
         // Construct a list array from the above two
         let list_data_type =
@@ -2966,9 +2966,7 @@ mod tests {
         // Construct a value array
         let value_data = ArrayData::builder(DataType::Int32)
             .len(10)
-            .add_buffer(Buffer::from(
-                &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].to_byte_slice(),
-            ))
+            .add_buffer(Buffer::from_slice_ref(&[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]))
             .build();
 
         // Construct a fixed size list array from the above two

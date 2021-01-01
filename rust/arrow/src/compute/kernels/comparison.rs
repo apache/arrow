@@ -813,7 +813,7 @@ fn new_all_set_buffer(len: usize) -> Buffer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::datatypes::{Int8Type, ToByteSlice};
+    use crate::datatypes::Int8Type;
     use crate::{array::Int32Array, array::Int64Array, datatypes::Field};
 
     /// Evaluate `KERNEL` with two vectors as inputs and assert against the expected output.
@@ -1115,7 +1115,7 @@ mod tests {
             Some(7),
         ])
         .data();
-        let value_offsets = Buffer::from(&[0i64, 3, 6, 6, 9].to_byte_slice());
+        let value_offsets = Buffer::from_slice_ref(&[0i64, 3, 6, 6, 9]);
         let list_data_type =
             DataType::LargeList(Box::new(Field::new("item", DataType::Int32, true)));
         let list_data = ArrayData::builder(list_data_type)

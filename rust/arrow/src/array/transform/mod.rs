@@ -361,25 +361,25 @@ impl<'a> MutableArrayData<'a> {
             DataType::Utf8 | DataType::Binary => {
                 let mut buffer = MutableBuffer::new((1 + capacity) * size_of::<i32>());
                 // safety: `unsafe` code assumes that this buffer is initialized with one element
-                buffer.extend_from_slice(&[0i32].to_byte_slice());
+                buffer.push(0i32);
                 [buffer, MutableBuffer::new(capacity * size_of::<u8>())]
             }
             DataType::LargeUtf8 | DataType::LargeBinary => {
                 let mut buffer = MutableBuffer::new((1 + capacity) * size_of::<i64>());
                 // safety: `unsafe` code assumes that this buffer is initialized with one element
-                buffer.extend_from_slice(&[0i64].to_byte_slice());
+                buffer.push(0i64);
                 [buffer, MutableBuffer::new(capacity * size_of::<u8>())]
             }
             DataType::List(_) => {
                 // offset buffer always starts with a zero
                 let mut buffer = MutableBuffer::new((1 + capacity) * size_of::<i32>());
-                buffer.extend_from_slice(0i32.to_byte_slice());
+                buffer.push(0i32);
                 [buffer, empty_buffer]
             }
             DataType::LargeList(_) => {
                 // offset buffer always starts with a zero
                 let mut buffer = MutableBuffer::new((1 + capacity) * size_of::<i64>());
-                buffer.extend_from_slice(&[0i64].to_byte_slice());
+                buffer.push(0i64);
                 [buffer, empty_buffer]
             }
             DataType::FixedSizeBinary(size) => {
@@ -552,7 +552,6 @@ mod tests {
     };
     use crate::{
         array::{ListArray, StringBuilder},
-        datatypes::ToByteSlice,
         error::Result,
     };
 
@@ -1002,7 +1001,7 @@ mod tests {
             Some(15),
         ]);
         let list_value_offsets =
-            Buffer::from(&[0i32, 3, 5, 11, 13, 13, 15, 15, 17].to_byte_slice());
+            Buffer::from_slice_ref(&[0i32, 3, 5, 11, 13, 13, 15, 15, 17]);
         let expected_list_data = ArrayData::new(
             DataType::List(Box::new(Field::new("item", DataType::Int64, true))),
             8,
@@ -1083,9 +1082,8 @@ mod tests {
             Some(14),
             Some(15),
         ]);
-        let list_value_offsets = Buffer::from(
-            &[0, 3, 5, 5, 13, 15, 15, 15, 19, 19, 19, 19, 23].to_byte_slice(),
-        );
+        let list_value_offsets =
+            Buffer::from_slice_ref(&[0, 3, 5, 5, 13, 15, 15, 15, 19, 19, 19, 19, 23]);
         let expected_list_data = ArrayData::new(
             DataType::List(Box::new(Field::new("item", DataType::Int64, true))),
             12,
@@ -1156,7 +1154,7 @@ mod tests {
             None,
             // extend b[0..0]
         ]);
-        let list_value_offsets = Buffer::from(&[0, 3, 5, 6, 9, 10, 13].to_byte_slice());
+        let list_value_offsets = Buffer::from_slice_ref(&[0, 3, 5, 6, 9, 10, 13]);
         let expected_list_data = ArrayData::new(
             DataType::List(Box::new(Field::new("item", DataType::Utf8, true))),
             6,

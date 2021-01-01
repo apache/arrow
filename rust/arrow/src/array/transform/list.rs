@@ -15,10 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use crate::{
-    array::{ArrayData, OffsetSizeTrait},
-    datatypes::ToByteSlice,
-};
+use crate::array::{ArrayData, OffsetSizeTrait};
 
 use super::{
     Extend, _MutableArrayData,
@@ -82,7 +79,7 @@ pub(super) fn build_extend<T: OffsetSizeTrait>(array: &ArrayData) -> Extend {
                         );
                     }
                     // append offset
-                    offset_buffer.extend_from_slice(last_offset.to_byte_slice());
+                    offset_buffer.push(last_offset);
                 })
             },
         )
@@ -98,6 +95,5 @@ pub(super) fn extend_nulls<T: OffsetSizeTrait>(
     // this is safe due to how offset is built. See details on `get_last_offset`
     let last_offset: T = unsafe { get_last_offset(offset_buffer) };
 
-    let offsets = vec![last_offset; len];
-    offset_buffer.extend_from_slice(offsets.to_byte_slice());
+    (0..len).for_each(|_| offset_buffer.push(last_offset))
 }

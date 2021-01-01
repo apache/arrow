@@ -338,7 +338,6 @@ mod tests {
     use std::sync::Arc;
 
     use crate::buffer::Buffer;
-    use crate::datatypes::ToByteSlice;
     use crate::util::bit_util;
 
     #[test]
@@ -360,7 +359,7 @@ mod tests {
             Some(0),
             None,
             0,
-            vec![Buffer::from([1i32, 2, 3, 4, 5].to_byte_slice())],
+            vec![Buffer::from_slice_ref(&[1i32, 2, 3, 4, 5])],
             vec![],
         ));
         let v = vec![0, 1, 2, 3];

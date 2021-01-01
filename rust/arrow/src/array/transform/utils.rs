@@ -15,9 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use crate::{
-    array::OffsetSizeTrait, buffer::MutableBuffer, datatypes::ToByteSlice, util::bit_util,
-};
+use crate::{array::OffsetSizeTrait, buffer::MutableBuffer, util::bit_util};
 
 /// extends the `buffer` to be able to hold `len` bits, setting all bits of the new size to zero.
 #[inline]
@@ -56,7 +54,7 @@ pub(super) fn extend_offsets<T: OffsetSizeTrait>(
         // compute the new offset
         let length = offsets[1] - offsets[0];
         last_offset += length;
-        buffer.extend_from_slice(last_offset.to_byte_slice());
+        buffer.push(last_offset);
     });
 }
 
