@@ -595,8 +595,8 @@ def test_recordbatch_select_column():
 
     assert batch.column('a').equals(batch.column(0))
 
-    with pytest.raises(KeyError,
-                       match='Field "d" does not exist in record batch schema'):
+    with pytest.raises(
+            KeyError, match='Field "d" does not exist in record batch schema'):
         batch.column('d')
 
     with pytest.raises(TypeError):

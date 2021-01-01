@@ -721,11 +721,13 @@ cdef class RecordBatch(_PandasConvertible):
             field_indices = self.schema.get_all_field_indices(i)
 
             if len(field_indices) == 0:
-                raise KeyError("Field \"{}\" does not exist in record batch schema"
-                               .format(i))
+                raise KeyError(
+                    "Field \"{}\" does not exist in record batch schema"
+                    .format(i))
             elif len(field_indices) > 1:
-                raise KeyError("Field \"{}\" exists {} times in record batch schema"
-                               .format(i, len(field_indices)))
+                raise KeyError(
+                    "Field \"{}\" exists {} times in record batch schema"
+                    .format(i, len(field_indices)))
             else:
                 return field_indices[0]
         elif isinstance(i, int):
