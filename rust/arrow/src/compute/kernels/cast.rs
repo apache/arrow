@@ -897,7 +897,7 @@ where
     T::Native: lexical_core::ToLexical,
 {
     from.iter()
-        .map(|maybe_value| maybe_value.map(|value| lexical_to_string(value)))
+        .map(|maybe_value| maybe_value.map(lexical_to_string))
         .collect()
 }
 
