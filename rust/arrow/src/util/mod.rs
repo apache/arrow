@@ -23,3 +23,4 @@ pub mod integration_util;
 pub mod pretty;
 pub mod string_writer;
 pub mod test_util;
+pub mod serialization;
