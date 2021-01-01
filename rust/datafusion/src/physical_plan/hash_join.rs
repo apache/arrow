@@ -46,6 +46,7 @@ use super::{
 use crate::error::{DataFusionError, Result};
 
 use super::{ExecutionPlan, Partitioning, RecordBatchStream, SendableRecordBatchStream};
+use crate::physical_plan::coalesce_batches::concat_batches;
 use ahash::RandomState;
 
 // An index of (batch, row) uniquely identifying a row in a part.
@@ -83,7 +84,7 @@ pub struct HashJoinExec {
 
 /// Information about the index and placement (left or right) of the columns
 struct ColumnIndex {
-    /// Index of the column 
+    /// Index of the column
     index: usize,
     /// Whether the column is at the left or right side
     is_left: bool,
@@ -207,24 +208,24 @@ impl ExecutionPlan for HashJoinExec {
                         .iter()
                         .map(|on| on.0.clone())
                         .collect::<HashSet<_>>();
-
                     // This operation performs 2 steps at once:
                     // 1. creates a [JoinHashMap] of all batches from the stream
                     // 2. stores the batches in a vector.
                     let initial = (JoinHashMap::default(), Vec::new(), 0);
-                    let left_data = stream
+                    let (hashmap, batches, _len) = stream
                         .try_fold(initial, |mut acc, batch| async {
                             let hash = &mut acc.0;
                             let values = &mut acc.1;
                             let index = acc.2;
-                            update_hash(&on_left, &batch, hash, index).unwrap();
+                            update_hash(&on_left, &batch, hash, 0).unwrap();
                             values.push(batch);
                             acc.2 += 1;
                             Ok(acc)
                         })
                         .await?;
+                    let single_batch = vec![concat_batches(&batches[0].schema(), &batches, 32768)?];
 
-                    let left_side = Arc::new((left_data.0, left_data.1));
+                    let left_side = Arc::new((hashmap, single_batch));
                     *build_side = Some(left_side.clone());
                     left_side
                 }
