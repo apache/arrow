@@ -81,13 +81,14 @@ impl TableProvider for ParquetTable {
     ) -> Result<Arc<dyn ExecutionPlan>> {
         let predicate = if filters.is_empty() {
             None
-        }
-        else {
-            Some(filters.iter()
-                .skip(1)
-                .fold(filters[0].clone(), |acc, filter| {
-                    crate::logical_plan::and(acc, (*filter).to_owned())
-                })
+        } else {
+            Some(
+                filters
+                    .iter()
+                    .skip(1)
+                    .fold(filters[0].clone(), |acc, filter| {
+                        crate::logical_plan::and(acc, (*filter).to_owned())
+                    }),
             )
         };
         Ok(Arc::new(ParquetExec::try_from_path(

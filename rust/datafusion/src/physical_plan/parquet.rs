@@ -17,20 +17,41 @@
 
 //! Execution plan for reading Parquet files
 
-use std::{any::Any, collections::{HashMap, HashSet}};
 use std::fs::File;
 use std::sync::Arc;
 use std::task::{Context, Poll};
+use std::{
+    any::Any,
+    collections::{HashMap, HashSet},
+};
 use std::{fmt, thread};
 
-use super::{ColumnarValue, PhysicalExpr, RecordBatchStream, SendableRecordBatchStream, expressions, planner::DefaultPhysicalPlanner};
-use crate::{error::{DataFusionError, Result}, execution::context::ExecutionContextState, logical_plan::{Expr, Operator}, optimizer::utils, prelude::ExecutionConfig, scalar::ScalarValue};
+use super::{
+    expressions, planner::DefaultPhysicalPlanner, ColumnarValue, PhysicalExpr,
+    RecordBatchStream, SendableRecordBatchStream,
+};
 use crate::physical_plan::ExecutionPlan;
 use crate::physical_plan::{common, Partitioning};
-use arrow::{array::{ArrayData, ArrayRef, BooleanArray, BooleanBufferBuilder, make_array}, buffer::MutableBuffer, datatypes::{DataType, Field, Schema, SchemaRef}};
+use crate::{
+    error::{DataFusionError, Result},
+    execution::context::ExecutionContextState,
+    logical_plan::{Expr, Operator},
+    optimizer::utils,
+    prelude::ExecutionConfig,
+    scalar::ScalarValue,
+};
 use arrow::error::{ArrowError, Result as ArrowResult};
 use arrow::record_batch::RecordBatch;
-use parquet::file::{metadata::RowGroupMetaData, reader::{FileReader, SerializedFileReader}, statistics::Statistics as ParquetStatistics};
+use arrow::{
+    array::{make_array, ArrayData, ArrayRef, BooleanArray, BooleanBufferBuilder},
+    buffer::MutableBuffer,
+    datatypes::{DataType, Field, Schema, SchemaRef},
+};
+use parquet::file::{
+    metadata::RowGroupMetaData,
+    reader::{FileReader, SerializedFileReader},
+    statistics::Statistics as ParquetStatistics,
+};
 
 use crossbeam::channel::{bounded, Receiver, RecvError, Sender};
 use fmt::Debug;
@@ -98,7 +119,13 @@ impl ParquetExec {
                 .iter()
                 .map(|filename| filename.as_str())
                 .collect::<Vec<&str>>();
-            Self::try_from_files(&filenames, projection, predicate, batch_size, max_concurrency)
+            Self::try_from_files(
+                &filenames,
+                projection,
+                predicate,
+                batch_size,
+                max_concurrency,
+            )
         }
     }
 
@@ -159,11 +186,17 @@ impl ParquetExec {
             )));
         }
         let schema = schemas[0].clone();
-        let predicate_builder = predicate.and_then(
-            |predicate_expr| PredicateExpressionBuilder::try_new(&predicate_expr, schema.clone()).ok()
-        );
+        let predicate_builder = predicate.and_then(|predicate_expr| {
+            PredicateExpressionBuilder::try_new(&predicate_expr, schema.clone()).ok()
+        });
 
-        Ok(Self::new(partitions, schema, projection, predicate_builder, batch_size))
+        Ok(Self::new(
+            partitions,
+            schema,
+            projection,
+            predicate_builder,
+            batch_size,
+        ))
     }
 
     /// Create a new Parquet reader execution plan with provided partitions and schema
@@ -231,63 +264,82 @@ impl PredicateExpressionBuilder {
     pub fn try_new(expr: &Expr, parquet_schema: Schema) -> Result<Self> {
         // build predicate expression once
         let mut stat_column_req = Vec::<(String, StatisticsType, Field)>::new();
-        let predicate_expr = build_predicate_expression(expr, &parquet_schema, &mut stat_column_req)?;
-        
+        let predicate_expr =
+            build_predicate_expression(expr, &parquet_schema, &mut stat_column_req)?;
+
         Ok(Self {
             parquet_schema,
             predicate_expr,
-            stat_column_req
+            stat_column_req,
         })
     }
 
     /// Generate a predicate function used to filter row group metadata
-    pub fn build_row_group_predicate(&self, row_group_metadata: &[RowGroupMetaData]) -> Box<dyn Fn(&RowGroupMetaData, usize) -> bool> {
+    pub fn build_row_group_predicate(
+        &self,
+        row_group_metadata: &[RowGroupMetaData],
+    ) -> Box<dyn Fn(&RowGroupMetaData, usize) -> bool> {
         // build statistics record batch
-        let predicate_result = 
-            build_row_group_record_batch(row_group_metadata, &self.parquet_schema, &self.stat_column_req)
-            .and_then(|statistics_batch| {
-                // execute predicate expression
-                self.predicate_expr.evaluate(&statistics_batch)
-            })
-            .and_then(|v| match v {
-                ColumnarValue::Array(array) => Ok(array),
-                ColumnarValue::Scalar(_) => Err(DataFusionError::Plan("predicate expression didn't return an array".to_string()))
-            });
+        let predicate_result = build_row_group_record_batch(
+            row_group_metadata,
+            &self.parquet_schema,
+            &self.stat_column_req,
+        )
+        .and_then(|statistics_batch| {
+            // execute predicate expression
+            self.predicate_expr.evaluate(&statistics_batch)
+        })
+        .and_then(|v| match v {
+            ColumnarValue::Array(array) => Ok(array),
+            ColumnarValue::Scalar(_) => Err(DataFusionError::Plan(
+                "predicate expression didn't return an array".to_string(),
+            )),
+        });
 
         let predicate_array = match predicate_result {
             Ok(array) => array,
-            _ => return Box::new(|_r, _i| true)
+            _ => return Box::new(|_r, _i| true),
         };
 
         let predicate_array = predicate_array.as_any().downcast_ref::<BooleanArray>();
         match predicate_array {
             // return row group predicate function
             Some(array) => {
-                let predicate_values = array.iter().map(|x| x.unwrap_or(false)).collect::<Vec<_>>();
+                let predicate_values =
+                    array.iter().map(|x| x.unwrap_or(false)).collect::<Vec<_>>();
                 Box::new(move |_, i| predicate_values[i])
             }
             // predicate result is not a BooleanArray
-            _ => Box::new(|_r, _i| true)
+            _ => Box::new(|_r, _i| true),
         }
     }
 }
 
-fn build_row_group_record_batch(row_groups: &[RowGroupMetaData], parquet_schema: &Schema, stat_column_req: &Vec<(String, StatisticsType, Field)>) -> Result<RecordBatch> {
+fn build_row_group_record_batch(
+    row_groups: &[RowGroupMetaData],
+    parquet_schema: &Schema,
+    stat_column_req: &Vec<(String, StatisticsType, Field)>,
+) -> Result<RecordBatch> {
     let mut fields = Vec::<Field>::new();
     let mut arrays = Vec::<ArrayRef>::new();
     for (column_name, statistics_type, stat_field) in stat_column_req {
         if let Some((column_index, _)) = parquet_schema.column_with_name(column_name) {
-            let statistics = row_groups.iter().map(|g| 
-                g.column(column_index)
-                .statistics()
-            ).collect::<Vec<_>>();
-            let array = build_statistics_array(&statistics, statistics_type, stat_field.data_type());
+            let statistics = row_groups
+                .iter()
+                .map(|g| g.column(column_index).statistics())
+                .collect::<Vec<_>>();
+            let array = build_statistics_array(
+                &statistics,
+                statistics_type,
+                stat_field.data_type(),
+            );
             fields.push(stat_field.clone());
             arrays.push(array);
         }
     }
     let schema = Arc::new(Schema::new(fields));
-    let result = RecordBatch::try_new(schema, arrays).map_err(|err| DataFusionError::Plan(err.to_string()));
+    let result = RecordBatch::try_new(schema, arrays)
+        .map_err(|err| DataFusionError::Plan(err.to_string()));
     return result;
 }
 
@@ -302,26 +354,37 @@ struct PhysicalExpressionBuilder<'a> {
 }
 
 impl<'a> PhysicalExpressionBuilder<'a> {
-    fn try_new(left: &'a Box<Expr>, right: &'a Box<Expr>, parquet_schema: &'a Schema, stat_column_req: &'a mut Vec<(String, StatisticsType, Field)>) -> Result<Self> {
+    fn try_new(
+        left: &'a Box<Expr>,
+        right: &'a Box<Expr>,
+        parquet_schema: &'a Schema,
+        stat_column_req: &'a mut Vec<(String, StatisticsType, Field)>,
+    ) -> Result<Self> {
         // find column name; input could be a more complicated expression
         let mut left_columns = HashSet::<String>::new();
         utils::expr_to_column_names(left, &mut left_columns)?;
         let mut right_columns = HashSet::<String>::new();
         utils::expr_to_column_names(right, &mut right_columns)?;
-        let (column_expr, scalar_expr, column_names, reverse_operator) = match (left_columns.len(), right_columns.len()) {
-            (1, 0) => (left, right, left_columns, false),
-            (0, 1) => (right, left, right_columns, true),
-            _ => {
-                // if more than one column used in expression - not supported
-                return Err(DataFusionError::Plan("Multi-column expressions are not currently supported".to_string()))
-            }
-        };
+        let (column_expr, scalar_expr, column_names, reverse_operator) =
+            match (left_columns.len(), right_columns.len()) {
+                (1, 0) => (left, right, left_columns, false),
+                (0, 1) => (right, left, right_columns, true),
+                _ => {
+                    // if more than one column used in expression - not supported
+                    return Err(DataFusionError::Plan(
+                        "Multi-column expressions are not currently supported"
+                            .to_string(),
+                    ));
+                }
+            };
         let column_name = column_names.iter().next().unwrap().clone();
         let field = match parquet_schema.column_with_name(&column_name) {
             Some((_, f)) => f,
             _ => {
                 // field not found in parquet schema
-                return Err(DataFusionError::Plan("Field not found in parquet schema".to_string()))
+                return Err(DataFusionError::Plan(
+                    "Field not found in parquet schema".to_string(),
+                ));
             }
         };
 
@@ -346,7 +409,7 @@ impl<'a> PhysicalExpressionBuilder<'a> {
             Operator::Gt => Operator::Lt,
             Operator::LtEq => Operator::GtEq,
             Operator::GtEq => Operator::LtEq,
-            _ => op.clone()
+            _ => op.clone(),
         }
     }
 
@@ -363,22 +426,28 @@ impl<'a> PhysicalExpressionBuilder<'a> {
     }
 
     fn is_stat_column_missing(&self, statistics_type: &StatisticsType) -> bool {
-        self.stat_column_req.iter()
+        self.stat_column_req
+            .iter()
             .filter(|(c, t, _f)| c == &self.column_name && t == statistics_type)
-            .count() == 0
+            .count()
+            == 0
     }
 
     fn add_min_column(&mut self) -> String {
         let min_field = Field::new(
-            format!("{}_min", self.column_name).as_str(), 
+            format!("{}_min", self.column_name).as_str(),
             self.parquet_field.data_type().clone(),
-            self.parquet_field.is_nullable()
+            self.parquet_field.is_nullable(),
         );
         let min_column_name = min_field.name().clone();
         self.statistics_fields.push(min_field.clone());
         if self.is_stat_column_missing(&StatisticsType::Min) {
             // only add statistics column if not previously added
-            self.stat_column_req.push((self.column_name.to_string(), StatisticsType::Min, min_field));
+            self.stat_column_req.push((
+                self.column_name.to_string(),
+                StatisticsType::Min,
+                min_field,
+            ));
         }
         min_column_name
     }
@@ -387,13 +456,17 @@ impl<'a> PhysicalExpressionBuilder<'a> {
         let max_field = Field::new(
             format!("{}_max", self.column_name).as_str(),
             self.parquet_field.data_type().clone(),
-            self.parquet_field.is_nullable()
+            self.parquet_field.is_nullable(),
         );
         let max_column_name = max_field.name().clone();
         self.statistics_fields.push(max_field.clone());
         if self.is_stat_column_missing(&StatisticsType::Max) {
             // only add statistics column if not previously added
-            self.stat_column_req.push((self.column_name.to_string(), StatisticsType::Max, max_field));
+            self.stat_column_req.push((
+                self.column_name.to_string(),
+                StatisticsType::Max,
+                max_field,
+            ));
         }
         max_column_name
     }
@@ -404,37 +477,57 @@ impl<'a> PhysicalExpressionBuilder<'a> {
             scalar_functions: HashMap::new(),
             var_provider: HashMap::new(),
             aggregate_functions: HashMap::new(),
-            config: ExecutionConfig::new()
+            config: ExecutionConfig::new(),
         };
         let schema = Schema::new(self.statistics_fields.clone());
         DefaultPhysicalPlanner::default().create_physical_expr(
-            statistics_expr, &schema, &execution_context_state
+            statistics_expr,
+            &schema,
+            &execution_context_state,
         )
     }
 }
 
 /// Translate logical filter expression into parquet statistics physical filter expression
-fn build_predicate_expression(expr: &Expr, parquet_schema: &Schema, stat_column_req: &mut Vec<(String, StatisticsType, Field)>) -> Result<Arc<dyn PhysicalExpr>> {
+fn build_predicate_expression(
+    expr: &Expr,
+    parquet_schema: &Schema,
+    stat_column_req: &mut Vec<(String, StatisticsType, Field)>,
+) -> Result<Arc<dyn PhysicalExpr>> {
     // predicate expression can only be a binary expression
     let (left, op, right) = match expr {
-        Expr::BinaryExpr{left, op, right} => (left, op, right),
-        _ => { return Ok(expressions::lit(ScalarValue::Boolean(Some(true)))); }
+        Expr::BinaryExpr { left, op, right } => (left, op, right),
+        _ => {
+            return Ok(expressions::lit(ScalarValue::Boolean(Some(true))));
+        }
     };
 
     if op == &Operator::And || op == &Operator::Or {
-        let left_expr = build_predicate_expression(left, parquet_schema, stat_column_req)?;
-        let right_expr = build_predicate_expression(right, parquet_schema, stat_column_req)?;
-        let stat_fields = stat_column_req.iter().map(|(_, _, f)| f.clone()).collect::<Vec<_>>();
+        let left_expr =
+            build_predicate_expression(left, parquet_schema, stat_column_req)?;
+        let right_expr =
+            build_predicate_expression(right, parquet_schema, stat_column_req)?;
+        let stat_fields = stat_column_req
+            .iter()
+            .map(|(_, _, f)| f.clone())
+            .collect::<Vec<_>>();
         let stat_schema = Schema::new(stat_fields);
         let result = expressions::binary(left_expr, op.clone(), right_expr, &stat_schema);
         return result;
     }
 
-    let mut expr_builder = match PhysicalExpressionBuilder::try_new(left, right, parquet_schema, stat_column_req) {
+    let mut expr_builder = match PhysicalExpressionBuilder::try_new(
+        left,
+        right,
+        parquet_schema,
+        stat_column_req,
+    ) {
         Ok(builder) => builder,
         // allow partial failure in predicate expression generation
         // this can still produce a useful predicate when multiple conditions are joined using AND
-        Err(_) => { return Ok(expressions::lit(ScalarValue::Boolean(Some(true)))); } 
+        Err(_) => {
+            return Ok(expressions::lit(ScalarValue::Boolean(Some(true))));
+        }
     };
     let corrected_op = expr_builder.correct_operator(op);
     let statistics_expr = match corrected_op {
@@ -443,61 +536,75 @@ fn build_predicate_expression(expr: &Expr, parquet_schema: &Schema, stat_column_
             let max_column_name = expr_builder.add_max_column();
             // column = literal => column = (min, max) => min <= literal && literal <= max
             // (column / 2) = 4 => (column_min / 2) <= 4 && 4 <= (column_max / 2)
-            expr_builder.scalar_expr().gt_eq(rewrite_column_expr(
-                expr_builder.column_expr(), 
-                expr_builder.column_name(), 
-                min_column_name.as_str()
-            )?)
-            .and(expr_builder.scalar_expr().lt_eq(rewrite_column_expr(
-                expr_builder.column_expr(), 
-                expr_builder.column_name(), 
-                max_column_name.as_str())?
-            ))
+            expr_builder
+                .scalar_expr()
+                .gt_eq(rewrite_column_expr(
+                    expr_builder.column_expr(),
+                    expr_builder.column_name(),
+                    min_column_name.as_str(),
+                )?)
+                .and(expr_builder.scalar_expr().lt_eq(rewrite_column_expr(
+                    expr_builder.column_expr(),
+                    expr_builder.column_name(),
+                    max_column_name.as_str(),
+                )?))
         }
         Operator::Gt => {
             let max_column_name = expr_builder.add_max_column();
             // column > literal => (min, max) > literal => max > literal
             rewrite_column_expr(
                 expr_builder.column_expr(),
-                expr_builder.column_name(), 
-                max_column_name.as_str()
-            )?.gt(expr_builder.scalar_expr().clone())
+                expr_builder.column_name(),
+                max_column_name.as_str(),
+            )?
+            .gt(expr_builder.scalar_expr().clone())
         }
         Operator::GtEq => {
             // column >= literal => (min, max) >= literal => max >= literal
             let max_column_name = expr_builder.add_max_column();
             rewrite_column_expr(
                 expr_builder.column_expr(),
-                expr_builder.column_name(), 
-                max_column_name.as_str()
-            )?.gt_eq(expr_builder.scalar_expr().clone())
+                expr_builder.column_name(),
+                max_column_name.as_str(),
+            )?
+            .gt_eq(expr_builder.scalar_expr().clone())
         }
-        Operator::Lt => { // (input < input) => (predicate)
+        Operator::Lt => {
+            // (input < input) => (predicate)
             // column < literal => (min, max) < literal => min < literal
             let min_column_name = expr_builder.add_min_column();
             rewrite_column_expr(
                 expr_builder.column_expr(),
-                expr_builder.column_name(), 
-                min_column_name.as_str()
-            )?.lt(expr_builder.scalar_expr().clone())
+                expr_builder.column_name(),
+                min_column_name.as_str(),
+            )?
+            .lt(expr_builder.scalar_expr().clone())
         }
-        Operator::LtEq => { // (input <= input) => (predicate)
+        Operator::LtEq => {
+            // (input <= input) => (predicate)
             // column <= literal => (min, max) <= literal => min <= literal
             let min_column_name = expr_builder.add_min_column();
             rewrite_column_expr(
                 expr_builder.column_expr(),
-                expr_builder.column_name(), 
-                min_column_name.as_str()
-            )?.lt_eq(expr_builder.scalar_expr().clone())
+                expr_builder.column_name(),
+                min_column_name.as_str(),
+            )?
+            .lt_eq(expr_builder.scalar_expr().clone())
         }
         // other expressions are not supported
-        _ => { return Ok(expressions::lit(ScalarValue::Boolean(Some(true)))); }
+        _ => {
+            return Ok(expressions::lit(ScalarValue::Boolean(Some(true))));
+        }
     };
     expr_builder.build(&statistics_expr)
 }
 
 /// replaces a column with an old name with a new name in an expression
-fn rewrite_column_expr(expr: &Expr, column_old_name: &str, column_new_name: &str) -> Result<Expr> {
+fn rewrite_column_expr(
+    expr: &Expr,
+    column_old_name: &str,
+    column_new_name: &str,
+) -> Result<Expr> {
     let expressions = utils::expr_sub_expressions(&expr)?;
     let expressions = expressions
         .iter()
@@ -515,7 +622,7 @@ fn rewrite_column_expr(expr: &Expr, column_old_name: &str, column_new_name: &str
 #[derive(Debug, Clone, PartialEq)]
 enum StatisticsType {
     Min,
-    Max
+    Max,
 }
 
 fn build_null_array(data_type: &DataType, length: usize) -> ArrayRef {
@@ -528,7 +635,11 @@ fn build_null_array(data_type: &DataType, length: usize) -> ArrayRef {
     make_array(array_data)
 }
 
-fn build_statistics_array(statistics: &[Option<&ParquetStatistics>], statistics_type: &StatisticsType, data_type: &DataType) -> ArrayRef {
+fn build_statistics_array(
+    statistics: &[Option<&ParquetStatistics>],
+    statistics_type: &StatisticsType,
+    data_type: &DataType,
+) -> ArrayRef {
     let statistics_count = statistics.len();
     // this should be handled by the condition below
     // if statistics_count < 1 {
@@ -539,8 +650,7 @@ fn build_statistics_array(statistics: &[Option<&ParquetStatistics>], statistics_
     let first_group_stats = if let Some(Some(statistics)) = first_group_stats {
         // found first row group with statistics defined
         statistics
-    }
-    else {
+    } else {
         // no row group has statistics defined
         return build_null_array(data_type, statistics_count);
     };
@@ -550,30 +660,32 @@ fn build_statistics_array(statistics: &[Option<&ParquetStatistics>], statistics_
         ParquetStatistics::Int64(_) => (std::mem::size_of::<i64>(), DataType::Int64),
         ParquetStatistics::Float(_) => (std::mem::size_of::<f32>(), DataType::Float32),
         ParquetStatistics::Double(_) => (std::mem::size_of::<f64>(), DataType::Float64),
-        ParquetStatistics::ByteArray(_) if data_type == &DataType::Utf8 => (0, DataType::Utf8),
+        ParquetStatistics::ByteArray(_) if data_type == &DataType::Utf8 => {
+            (0, DataType::Utf8)
+        }
         _ => {
             // type of statistics not supported
             return build_null_array(data_type, statistics_count);
         }
     };
 
-    let statistics = statistics.iter().map(
-        |s| s.filter(
-            |s| s.has_min_max_set()
-        ).map(
-            |s| match statistics_type {
+    let statistics = statistics.iter().map(|s| {
+        s.filter(|s| s.has_min_max_set())
+            .map(|s| match statistics_type {
                 StatisticsType::Min => s.min_bytes(),
                 StatisticsType::Max => s.max_bytes(),
-            }
-        )
-    );
+            })
+    });
 
     if arrow_type == DataType::Utf8 {
-        let data_size = statistics.clone()
+        let data_size = statistics
+            .clone()
             .map(|x| x.map(|b| b.len()).unwrap_or(0))
             .sum();
-        let mut builder = arrow::array::StringBuilder::with_capacity(statistics_count, data_size);
-        let string_statistics = statistics.map(|x| x.and_then(|bytes| std::str::from_utf8(bytes).ok()));
+        let mut builder =
+            arrow::array::StringBuilder::with_capacity(statistics_count, data_size);
+        let string_statistics =
+            statistics.map(|x| x.and_then(|bytes| std::str::from_utf8(bytes).ok()));
         for maybe_string in string_statistics {
             match maybe_string {
                 Some(string_value) => builder.append_value(string_value).unwrap(),
@@ -590,8 +702,7 @@ fn build_statistics_array(statistics: &[Option<&ParquetStatistics>], statistics_
         if let Some(stat_data) = s {
             bitmap_builder.append(true);
             data_buffer.extend_from_slice(stat_data);
-        }
-        else {
+        } else {
             bitmap_builder.append(false);
             data_buffer.resize(data_buffer.len() + data_size);
             null_count += 1;
@@ -602,8 +713,7 @@ fn build_statistics_array(statistics: &[Option<&ParquetStatistics>], statistics_
         .len(statistics_count)
         .add_buffer(data_buffer.freeze());
     if null_count > 0 {
-        builder = builder
-            .null_bit_buffer(bitmap_builder.finish());
+        builder = builder.null_bit_buffer(bitmap_builder.finish());
     }
     let array_data = builder.build();
     let statistics_array = make_array(array_data);
@@ -611,11 +721,8 @@ fn build_statistics_array(statistics: &[Option<&ParquetStatistics>], statistics_
         return statistics_array;
     }
     // cast statistics array to required data type
-    arrow::compute::cast(
-        &statistics_array, data_type
-    ).unwrap_or_else(
-        |_| build_null_array(data_type, statistics_count)
-    )
+    arrow::compute::cast(&statistics_array, data_type)
+        .unwrap_or_else(|_| build_null_array(data_type, statistics_count))
 }
 
 #[async_trait]
@@ -706,7 +813,8 @@ fn read_files(
         let file = File::open(&filename)?;
         let mut file_reader = SerializedFileReader::new(file)?;
         if let Some(ref predicate_builder) = predicate_builder {
-            let row_group_predicate = predicate_builder.build_row_group_predicate(file_reader.metadata().row_groups());
+            let row_group_predicate = predicate_builder
+                .build_row_group_predicate(file_reader.metadata().row_groups());
             file_reader.filter_row_groups(&row_group_predicate);
         }
         let mut arrow_reader = ParquetFileArrowReader::new(Arc::new(file_reader));
@@ -858,17 +966,23 @@ mod tests {
         let s1 = ParquetStatistics::int32(None, Some(10), None, 0, false);
         let s2 = ParquetStatistics::int32(Some(2), Some(20), None, 0, false);
         let s3 = ParquetStatistics::int32(Some(3), Some(30), None, 0, false);
-        let statistics = vec![
-            Some(&s1), Some(&s2), Some(&s3)
-        ];
+        let statistics = vec![Some(&s1), Some(&s2), Some(&s3)];
 
-        let statistics_array = build_statistics_array(&statistics, &StatisticsType::Min, &DataType::Int32);
-        let int32_array = statistics_array.as_any().downcast_ref::<Int32Array>().unwrap();
+        let statistics_array =
+            build_statistics_array(&statistics, &StatisticsType::Min, &DataType::Int32);
+        let int32_array = statistics_array
+            .as_any()
+            .downcast_ref::<Int32Array>()
+            .unwrap();
         let int32_vec = int32_array.into_iter().collect::<Vec<_>>();
         assert_eq!(int32_vec, vec![None, Some(2), Some(3)]);
 
-        let statistics_array = build_statistics_array(&statistics, &StatisticsType::Max, &DataType::Int32);
-        let int32_array = statistics_array.as_any().downcast_ref::<Int32Array>().unwrap();
+        let statistics_array =
+            build_statistics_array(&statistics, &StatisticsType::Max, &DataType::Int32);
+        let int32_array = statistics_array
+            .as_any()
+            .downcast_ref::<Int32Array>()
+            .unwrap();
         let int32_vec = int32_array.into_iter().collect::<Vec<_>>();
         assert_eq!(int32_vec, vec![None, Some(20), Some(30)]);
 
