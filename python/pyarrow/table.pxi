@@ -783,17 +783,17 @@ cdef class RecordBatch(_PandasConvertible):
 
     def __getitem__(self, key):
         """
-        Slice or return column at given index
+        Slice or return column at given index or column name
 
         Parameters
         ----------
-        key : integer or slice
+        key : integer, str, or slice
             Slices with step not equal to 1 (or None) will produce a copy
             rather than a zero-copy view
 
         Returns
         -------
-        value : ChunkedArray (index) or RecordBatch (slice)
+        value : Array (index/column) or RecordBatch (slice)
         """
         if isinstance(key, slice):
             return _normalize_slice(self, key)
@@ -1187,6 +1187,19 @@ cdef class Table(_PandasConvertible):
         return _reconstruct_table, (columns, self.schema)
 
     def __getitem__(self, key):
+        """
+        Slice or return column at given index or column name
+
+        Parameters
+        ----------
+        key : integer, str, or slice
+            Slices with step not equal to 1 (or None) will produce a copy
+            rather than a zero-copy view
+
+        Returns
+        -------
+        value : ChunkedArray (index/column) or Table (slice)
+        """
         if isinstance(key, slice):
             return _normalize_slice(self, key)
         else:
