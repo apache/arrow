@@ -42,19 +42,14 @@ pub fn parquet_to_arrow_schema(
     key_value_metadata: &Option<Vec<KeyValue>>,
 ) -> Result<Schema> {
     let mut metadata = parse_key_value_metadata(key_value_metadata).unwrap_or_default();
-    let arrow_schema_metadata = metadata
+    metadata
         .remove(super::ARROW_SCHEMA_META_KEY)
         .map(|encoded| get_arrow_schema_from_metadata(&encoded))
-        .map_or(Ok(None), |v| v.map(Some))?;
-
-    match arrow_schema_metadata {
-        Some(schema) => Ok(schema),
-        _ => parquet_to_arrow_schema_by_columns(
+        .unwrap_or(parquet_to_arrow_schema_by_columns(
             parquet_schema,
             0..parquet_schema.columns().len(),
             key_value_metadata,
-        ),
-    }
+        ))
 }
 
 /// Convert parquet schema to arrow schema including optional metadata,
