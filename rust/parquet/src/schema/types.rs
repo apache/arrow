@@ -107,8 +107,8 @@ impl Type {
     /// Note that this will panic if called on a non-primitive type.
     pub fn get_precision(&self) -> i32 {
         match *self {
-            Type::PrimitiveType { precision, ..} => precision,
-            _ => panic!("Cannot call get_precision() on non-primitive type")
+            Type::PrimitiveType { precision, .. } => precision,
+            _ => panic!("Cannot call get_precision() on non-primitive type"),
         }
     }
 
@@ -116,8 +116,8 @@ impl Type {
     /// Note that this will panic if called on a non-primitive type.
     pub fn get_scale(&self) -> i32 {
         match *self {
-            Type::PrimitiveType { scale, ..} => scale,
-            _ => panic!("Cannot call get_scale() on non-primitive type")
+            Type::PrimitiveType { scale, .. } => scale,
+            _ => panic!("Cannot call get_scale() on non-primitive type"),
         }
     }
 

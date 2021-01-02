@@ -647,7 +647,10 @@ impl ParquetTypeConverter<'_> {
 
     fn to_decimal(&self) -> DataType {
         assert!(self.schema.is_primitive());
-        DataType::Decimal(self.schema.get_precision() as usize, self.schema.get_scale() as usize)
+        DataType::Decimal(
+            self.schema.get_precision() as usize,
+            self.schema.get_scale() as usize,
+        )
     }
 
     fn from_byte_array(&self) -> Result<DataType> {
