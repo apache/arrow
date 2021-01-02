@@ -582,13 +582,10 @@ impl Stream for HashJoinStream {
                     );
                     self.num_input_batches += 1;
                     self.num_input_rows += batch.num_rows();
-                    match result {
-                        Ok(ref batch) => {
-                            self.join_time += start.elapsed().as_millis() as usize;
-                            self.num_output_batches += 1;
-                            self.num_output_rows += batch.num_rows();
-                        }
-                        _ => {}
+                    if let Ok(ref batch) = result {
+                        self.join_time += start.elapsed().as_millis() as usize;
+                        self.num_output_batches += 1;
+                        self.num_output_rows += batch.num_rows();
                     }
                     Some(result)
                 }
