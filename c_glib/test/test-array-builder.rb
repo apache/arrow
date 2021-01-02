@@ -136,7 +136,7 @@ module ArrayBuilderAppendNullsTests
 
   def test_negative
     builder = create_builder
-    message = "[#{builder_class_name}][append-nulls]: " +
+    message = "[array-builder][append-nulls]: " +
       "the number of nulls must be 0 or larger: <-1>"
     assert_raise(Arrow::Error::Invalid.new(message)) do
       builder.append_nulls(-1)
@@ -1217,10 +1217,6 @@ class TestArrayBuilder < Test::Unit::TestCase
 
     sub_test_case("#append_nulls") do
       include ArrayBuilderAppendNullsTests
-
-      def builder_class_name
-        "binary-array-builder"
-      end
     end
 
     sub_test_case("capacity control") do
@@ -1279,10 +1275,100 @@ class TestArrayBuilder < Test::Unit::TestCase
 
     sub_test_case("#append_nulls") do
       include ArrayBuilderAppendNullsTests
+    end
 
-      def builder_class_name
-        "large-binary-array-builder"
-      end
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
+    end
+
+    sub_test_case("#length") do
+      include ArrayBuilderLengthTests
+    end
+
+    sub_test_case("#n_nulls") do
+      include ArrayBuilderNNullsTests
+    end
+  end
+
+  sub_test_case("Decimal128ArrayBuilder") do
+    def create_builder
+      Arrow::Decimal128ArrayBuilder.new(value_data_type)
+    end
+
+    def value_data_type
+      Arrow::Decimal128DataType.new(8, 2)
+    end
+
+    def builder_class_name
+      "decimal128-array-builder"
+    end
+
+    def sample_values
+      [
+        Arrow::Decimal128.new("23423445"),
+        Arrow::Decimal128.new("00012345"),
+        Arrow::Decimal128.new("00000000"),
+      ]
+    end
+
+    sub_test_case("value type") do
+      include ArrayBuilderValueTypeTests
+    end
+
+    # TODO
+    # sub_test_case("#append_values") do
+    #   include ArrayBuilderAppendValuesTests
+    # end
+
+    sub_test_case("#append_nulls") do
+      include ArrayBuilderAppendNullsTests
+    end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
+    end
+
+    sub_test_case("#length") do
+      include ArrayBuilderLengthTests
+    end
+
+    sub_test_case("#n_nulls") do
+      include ArrayBuilderNNullsTests
+    end
+  end
+
+  sub_test_case("Decimal256ArrayBuilder") do
+    def create_builder
+      Arrow::Decimal256ArrayBuilder.new(value_data_type)
+    end
+
+    def value_data_type
+      Arrow::Decimal256DataType.new(38, 2)
+    end
+
+    def builder_class_name
+      "decimal256-array-builder"
+    end
+
+    def sample_values
+      [
+        Arrow::Decimal256.new("23423445"),
+        Arrow::Decimal256.new("00012345"),
+        Arrow::Decimal256.new("00000000"),
+      ]
+    end
+
+    sub_test_case("value type") do
+      include ArrayBuilderValueTypeTests
+    end
+
+    # TODO
+    # sub_test_case("#append_values") do
+    #   include ArrayBuilderAppendValuesTests
+    # end
+
+    sub_test_case("#append_nulls") do
+      include ArrayBuilderAppendNullsTests
     end
 
     sub_test_case("capacity control") do
