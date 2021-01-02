@@ -32,7 +32,7 @@ use TimeUnit::*;
 /// Sort the `ArrayRef` using `SortOptions`.
 ///
 /// Performs a stable sort on values and indices. Nulls are ordered according to the `nulls_first` flag in `options`.
-/// For floating point arrays any NaN values are considered to be greater than any other non-null value.
+/// Floats are sorted using IEEE 754 totalOrder
 ///
 /// Returns an `ArrowError::ComputeError(String)` if the array type is either unsupported by `sort_to_indices` or `take`.
 ///
@@ -41,7 +41,8 @@ pub fn sort(values: &ArrayRef, options: Option<SortOptions>) -> Result<ArrayRef>
     take(values.as_ref(), &indices, None)
 }
 
-pub fn total_cmp_32(l: f32, r: f32) -> std::cmp::Ordering {
+// sorts f32 in IEEE 754 total ordering
+fn total_cmp_32(l: f32, r: f32) -> std::cmp::Ordering {
     let mut left = l.to_bits() as i32;
     let mut right = r.to_bits() as i32;
 
@@ -51,7 +52,8 @@ pub fn total_cmp_32(l: f32, r: f32) -> std::cmp::Ordering {
     left.cmp(&right)
 }
 
-pub fn total_cmp_64(l: f64, r: f64) -> std::cmp::Ordering {
+// sorts f64 in IEEE 754 total ordering
+fn total_cmp_64(l: f64, r: f64) -> std::cmp::Ordering {
     let mut left = l.to_bits() as i64;
     let mut right = r.to_bits() as i64;
 
