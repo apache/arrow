@@ -73,7 +73,7 @@ pub(super) fn build_extend<T: OffsetSizeTrait>(array: &ArrayData) -> Extend {
                 (start..start + len).for_each(|i| {
                     if array.is_valid(i) {
                         // compute the new offset
-                        last_offset = last_offset + offsets[i + 1] - offsets[i];
+                        last_offset += offsets[i + 1] - offsets[i];
 
                         // append value
                         child.extend(

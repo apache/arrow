@@ -22,7 +22,7 @@ use std::{any::Any, iter::FromIterator};
 
 use super::{
     array::print_long_array, raw_pointer::RawPtrBox, Array, ArrayData, ArrayDataRef,
-    GenericListArray, GenericStringIter, LargeListArray, ListArray, OffsetSizeTrait,
+    GenericListArray, GenericStringIter, OffsetSizeTrait,
 };
 use crate::util::bit_util;
 use crate::{buffer::Buffer, datatypes::ToByteSlice};
@@ -128,7 +128,7 @@ impl<OffsetSize: StringOffsetSizeTrait> GenericStringArray<OffsetSize> {
         let mut length_so_far = OffsetSize::zero();
         offsets.push(length_so_far);
         for s in &v {
-            length_so_far = length_so_far + OffsetSize::from_usize(s.len()).unwrap();
+            length_so_far += OffsetSize::from_usize(s.len()).unwrap();
             offsets.push(length_so_far);
             values.extend_from_slice(s.as_bytes());
         }
@@ -168,7 +168,7 @@ where
                 let null_slice = null_buf.as_slice_mut();
                 bit_util::set_bit(null_slice, i);
 
-                length_so_far = length_so_far + OffsetSize::from_usize(s.len()).unwrap();
+                length_so_far += OffsetSize::from_usize(s.len()).unwrap();
                 offsets.push(length_so_far);
                 values.extend_from_slice(s.as_bytes());
             } else {
@@ -269,15 +269,9 @@ pub type StringArray = GenericStringArray<i32>;
 /// whose maximum length (in bytes) is represented by a i64.
 pub type LargeStringArray = GenericStringArray<i64>;
 
-impl From<ListArray> for StringArray {
-    fn from(v: ListArray) -> Self {
-        StringArray::from_list(v)
-    }
-}
-
-impl From<LargeListArray> for LargeStringArray {
-    fn from(v: LargeListArray) -> Self {
-        LargeStringArray::from_list(v)
+impl<T: StringOffsetSizeTrait> From<GenericListArray<T>> for GenericStringArray<T> {
+    fn from(v: GenericListArray<T>) -> Self {
+        GenericStringArray::<T>::from_list(v)
     }
 }
 

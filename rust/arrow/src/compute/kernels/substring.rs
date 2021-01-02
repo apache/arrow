@@ -63,7 +63,7 @@ fn generic_substring<OffsetSize: StringOffsetSizeTrait>(
             // .max(0) is not needed as it is guaranteed
             .min(offsets[i + 1] - start); // so we do not go beyond this entry
 
-        length_so_far = length_so_far + length;
+        length_so_far += length;
 
         new_offsets.push(length_so_far);
 
