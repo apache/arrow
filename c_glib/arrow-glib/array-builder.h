@@ -70,6 +70,13 @@ GARROW_AVAILABLE_IN_3_0
 gboolean garrow_array_builder_append_nulls(GArrowArrayBuilder *builder,
                                            gint64 n,
                                            GError **error);
+GARROW_AVAILABLE_IN_3_0
+gboolean garrow_array_builder_append_empty_value(GArrowArrayBuilder *builder,
+                                                 GError **error);
+GARROW_AVAILABLE_IN_3_0
+gboolean garrow_array_builder_append_empty_values(GArrowArrayBuilder *builder,
+                                                  gint64 n,
+                                                  GError **error);
 
 #define GARROW_TYPE_NULL_ARRAY_BUILDER (garrow_null_array_builder_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowNullArrayBuilder,
@@ -1017,12 +1024,6 @@ GARROW_AVAILABLE_IN_2_0
 gboolean
 garrow_binary_dictionary_array_builder_append_null(GArrowBinaryDictionaryArrayBuilder *builder,
                                                    GError **error);
-GARROW_DEPRECATED_IN_3_0_FOR(garrow_array_builder_append_nulls)
-GARROW_AVAILABLE_IN_2_0
-gboolean
-garrow_binary_dictionary_array_builder_append_nulls(GArrowBinaryDictionaryArrayBuilder *builder,
-                                                    gint64 n,
-                                                    GError **error);
 #endif
 GARROW_AVAILABLE_IN_2_0
 gboolean
@@ -1087,12 +1088,6 @@ GARROW_AVAILABLE_IN_2_0
 gboolean
 garrow_string_dictionary_array_builder_append_null(GArrowStringDictionaryArrayBuilder *builder,
                                                    GError **error);
-GARROW_DEPRECATED_IN_3_0_FOR(garrow_array_builder_append_nulls)
-GARROW_AVAILABLE_IN_2_0
-gboolean
-garrow_string_dictionary_array_builder_append_nulls(GArrowStringDictionaryArrayBuilder *builder,
-                                                    gint64 n,
-                                                    GError **error);
 #endif
 GARROW_AVAILABLE_IN_2_0
 gboolean
