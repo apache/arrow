@@ -54,7 +54,7 @@ impl<T: DataType> RecordReader<T> {
         let (def_levels, null_map) = if column_schema.max_def_level() > 0 {
             (
                 Some(MutableBuffer::new(MIN_BATCH_SIZE)),
-                Some(BooleanBufferBuilder::new(MIN_BATCH_SIZE)),
+                Some(BooleanBufferBuilder::new(0)),
             )
         } else {
             (None, None)
