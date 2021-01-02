@@ -21,6 +21,11 @@ class TestUInt32DataType < Test::Unit::TestCase
     assert_equal(Arrow::Type::UINT32, data_type.id)
   end
 
+  def test_name
+    data_type = Arrow::UInt32DataType.new
+    assert_equal("uint32", data_type.name)
+  end
+
   def test_to_s
     data_type = Arrow::UInt32DataType.new
     assert_equal("uint32", data_type.to_s)

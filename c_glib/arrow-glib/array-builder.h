@@ -41,8 +41,8 @@ GArrowDataType *
 garrow_array_builder_get_value_data_type(GArrowArrayBuilder *builder);
 GArrowType garrow_array_builder_get_value_type(GArrowArrayBuilder *builder);
 
-GArrowArray        *garrow_array_builder_finish   (GArrowArrayBuilder *builder,
-                                                   GError **error);
+GArrowArray *garrow_array_builder_finish(GArrowArrayBuilder *builder,
+                                         GError **error);
 
 GARROW_AVAILABLE_IN_2_0
 void garrow_array_builder_reset(GArrowArrayBuilder *builder);

@@ -26,6 +26,10 @@ class TestMapDataType < Test::Unit::TestCase
     assert_equal(Arrow::Type::MAP, @data_type.id)
   end
 
+  def test_name
+    assert_equal("map", @data_type.name)
+  end
+
   def test_to_s
     assert_equal("map<string, int16>", @data_type.to_s)
   end

@@ -36,6 +36,10 @@ class TestDenseUnionDataType < Test::Unit::TestCase
     assert_equal(Arrow::Type::DENSE_UNION, @data_type.id)
   end
 
+  def test_name
+    assert_equal("dense_union", @data_type.name)
+  end
+
   def test_to_s
     assert_equal("dense_union<number: int32=2, text: string=9>",
                  @data_type.to_s)

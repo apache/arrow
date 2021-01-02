@@ -21,6 +21,11 @@ class TestNullDataType < Test::Unit::TestCase
     assert_equal(Arrow::Type::NA, data_type.id)
   end
 
+  def test_name
+    data_type = Arrow::NullDataType.new
+    assert_equal("null", data_type.name)
+  end
+
   def test_to_s
     data_type = Arrow::NullDataType.new
     assert_equal("null", data_type.to_s)
