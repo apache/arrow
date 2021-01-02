@@ -76,12 +76,16 @@ macro_rules! downcast_dict_take {
 /// # Ok(())
 /// # }
 /// ```
-pub fn take(
+pub fn take<IndexType>(
     values: &Array,
-    indices: &UInt32Array,
+    indices: &PrimitiveArray<IndexType>,
     options: Option<TakeOptions>,
-) -> Result<ArrayRef> {
-    take_impl::<UInt32Type>(values, indices, options)
+) -> Result<ArrayRef>
+where
+    IndexType: ArrowNumericType,
+    IndexType::Native: ToPrimitive,
+{
+    take_impl(values, indices, options)
 }
 
 fn take_impl<IndexType>(

@@ -316,7 +316,8 @@ fn build_batch_from_indices(
     // 2. based on the pick, `take` items from the different recordBatches
     let mut columns: Vec<Arc<dyn Array>> = Vec::with_capacity(schema.fields().len());
 
-    let right_indices = indices.iter().map(|(_, join_index)| join_index).collect();
+    let right_indices: UInt32Array =
+        indices.iter().map(|(_, join_index)| join_index).collect();
 
     for field in schema.fields() {
         // pick the column (left or right) based on the field name.
