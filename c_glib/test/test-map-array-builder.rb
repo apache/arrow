@@ -120,4 +120,24 @@ class TestMapArrayBuilder < Test::Unit::TestCase
     array = @builder.finish
     assert_equal(2, array.n_nulls)
   end
+
+  def test_append_empty_value
+    offsets = build_int32_array([0, 0])
+    keys = build_string_array([])
+    items = build_int16_array([])
+    expected_array = Arrow::MapArray.new(offsets, keys, items)
+    @builder.append_empty_value
+    assert_equal(expected_array,
+                 @builder.finish)
+  end
+
+  def test_append_empty_values
+    offsets = build_int32_array([0, 0, 0, 0])
+    keys = build_string_array([])
+    items = build_int16_array([])
+    expected_array = Arrow::MapArray.new(offsets, keys, items)
+    @builder.append_empty_values(3)
+    assert_equal(expected_array,
+                 @builder.finish)
+  end
 end

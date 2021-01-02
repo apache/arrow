@@ -633,6 +633,64 @@ garrow_array_builder_append_nulls(GArrowArrayBuilder *builder,
   return garrow_error_check(error, status, context);
 }
 
+/**
+ * garrow_array_builder_append_empty_value:
+ * @builder: A #GArrowArrayBuilder.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 3.0.0
+ */
+gboolean
+garrow_array_builder_append_empty_value(GArrowArrayBuilder *builder,
+                                        GError **error)
+{
+  auto arrow_builder = garrow_array_builder_get_raw(builder);
+  auto status = arrow_builder->AppendEmptyValue();
+  return garrow_error_check(error,
+                            status,
+                            "[array-builder][append-empty-value]");
+}
+
+/**
+ * garrow_array_builder_append_empty_values:
+ * @builder: A #GArrowArrayBuilder.
+ * @n: The number of null values to be appended.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Append multiple empty values at once. It's more efficient than multiple
+ * garrow_array_builder_append_empty_value() calls.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 3.0.0
+ */
+gboolean
+garrow_array_builder_append_empty_values(GArrowArrayBuilder *builder,
+                                         gint64 n,
+                                         GError **error)
+{
+  const gchar *context = "[array-builder][append-empty-values]";
+  if (n < 0) {
+    g_set_error(error,
+                GARROW_ERROR,
+                GARROW_ERROR_INVALID,
+                "%s: the number of empty values must be 0 or larger: "
+                "<%" G_GINT64_FORMAT ">",
+                context,
+                n);
+    return FALSE;
+  }
+  if (n == 0) {
+    return TRUE;
+  }
+
+  auto arrow_builder = garrow_array_builder_get_raw(builder);
+  auto status = arrow_builder->AppendEmptyValues(n);
+  return garrow_error_check(error, status, context);
+}
+
 
 G_DEFINE_TYPE(GArrowNullArrayBuilder,
               garrow_null_array_builder,
