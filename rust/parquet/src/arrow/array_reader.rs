@@ -405,6 +405,11 @@ where
     }
 
     fn next_batch(&mut self, batch_size: usize) -> Result<ArrayRef> {
+        // Try to initialize column reader
+        if self.column_reader.is_none() {
+            self.next_column_reader()?;
+        }
+
         let mut data_buffer: Vec<T::T> = Vec::with_capacity(batch_size);
         data_buffer.resize_with(batch_size, T::T::default);
 
@@ -425,9 +430,6 @@ where
         };
 
         let mut num_read = 0;
-
-        // Try to initialize column reader
-        self.next_column_reader()?;
 
         while self.column_reader.is_some() && num_read < batch_size {
             let num_to_read = batch_size - num_read;
