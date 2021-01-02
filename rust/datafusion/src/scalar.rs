@@ -473,8 +473,10 @@ impl fmt::Debug for ScalarValue {
             ScalarValue::UInt16(_) => write!(f, "UInt16({})", self),
             ScalarValue::UInt32(_) => write!(f, "UInt32({})", self),
             ScalarValue::UInt64(_) => write!(f, "UInt64({})", self),
-            ScalarValue::Utf8(_) => write!(f, "Utf8(\"{}\")", self),
-            ScalarValue::LargeUtf8(_) => write!(f, "LargeUtf8(\"{}\")", self),
+            ScalarValue::Utf8(None) => write!(f, "Utf8({})", self),
+            ScalarValue::Utf8(Some(_)) => write!(f, "Utf8(\"{}\")", self),
+            ScalarValue::LargeUtf8(None) => write!(f, "LargeUtf8({})", self),
+            ScalarValue::LargeUtf8(Some(_)) => write!(f, "LargeUtf8(\"{}\")", self),
             ScalarValue::List(_, _) => write!(f, "List([{}])", self),
             ScalarValue::Date32(_) => write!(f, "Date32(\"{}\")", self),
         }
