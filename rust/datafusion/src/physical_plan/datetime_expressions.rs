@@ -532,7 +532,8 @@ mod tests {
         let date_trunc_array = date_trunc(&[string_array, ts_array])
             .expect("that to_timestamp parsed values without error");
 
-        let expected_timestamps = to_timestamp(&[Arc::new(truncated_builder.finish())]).unwrap();
+        let expected_timestamps =
+            to_timestamp(&[Arc::new(truncated_builder.finish())]).unwrap();
 
         assert_eq!(date_trunc_array, expected_timestamps);
         Ok(())
