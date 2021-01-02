@@ -31,7 +31,7 @@ fn create_buffer(size: usize) -> Buffer {
         result.as_slice_mut()[i] = 0b01010101 << i << (i % 4);
     }
 
-    result.freeze()
+    result.into()
 }
 
 fn bench_buffer_and(left: &Buffer, right: &Buffer) {

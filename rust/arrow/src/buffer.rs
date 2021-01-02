@@ -295,7 +295,7 @@ where
             *res = scalar_op(*left, *right);
         });
 
-    result.freeze()
+    result.into()
 }
 
 /// Apply a bitwise operation `simd_op` / `scalar_op` to one input using simd instructions and return the result as a Buffer.
@@ -338,7 +338,7 @@ where
             *res = scalar_op(*left);
         });
 
-    result.freeze()
+    result.into()
 }
 
 /// Apply a bitwise operation `op` to two inputs and return the result as a Buffer.
@@ -374,7 +374,7 @@ where
     let rem = &rem.to_le_bytes()[0..remainder_bytes];
     result.extend_from_slice(rem);
 
-    result.freeze()
+    result.into()
 }
 
 /// Apply a bitwise operation `op` to one input and return the result as a Buffer.
@@ -407,7 +407,7 @@ where
     let rem = &rem.to_le_bytes()[0..remainder_bytes];
     result.extend_from_slice(rem);
 
-    result.freeze()
+    result.into()
 }
 
 #[cfg(all(target_arch = "x86_64", feature = "avx512"))]
@@ -455,7 +455,7 @@ pub(super) fn buffer_bin_and(
                 *res = *left & *right;
             });
 
-        result.freeze()
+        result.into()
     } else {
         bitwise_bin_op_helper(
             &left,
@@ -566,7 +566,7 @@ pub(super) fn buffer_bin_or(
                 *res = *left | *right;
             });
 
-        result.freeze()
+        result.into()
     } else {
         bitwise_bin_op_helper(
             &left,
@@ -696,8 +696,14 @@ impl Not for &Buffer {
 unsafe impl Sync for Buffer {}
 unsafe impl Send for Buffer {}
 
+impl From<MutableBuffer> for Buffer {
+    fn from(buffer: MutableBuffer) -> Self {
+        buffer.into_buffer()
+    }
+}
+
 /// Similar to `Buffer`, but is growable and can be mutated. A mutable buffer can be
-/// converted into a immutable buffer via the `freeze` method.
+/// converted into a immutable buffer via the `into` method.
 #[derive(Debug)]
 pub struct MutableBuffer {
     // dangling iff capacity = 0
@@ -835,8 +841,16 @@ impl MutableBuffer {
         self.data.as_ptr()
     }
 
+    #[deprecated(
+        since = "2.0.0",
+        note = "This method is deprecated in favour of `into` from the trait `Into`."
+    )]
     /// Freezes this buffer and return an immutable version of it.
     pub fn freeze(self) -> Buffer {
+        self.into_buffer()
+    }
+
+    fn into_buffer(self) -> Buffer {
         let buffer_data = unsafe {
             Bytes::new(self.data, self.len, Deallocation::Native(self.capacity))
         };
@@ -948,7 +962,7 @@ mod tests {
         let mut buf2 = MutableBuffer::new(65);
         buf2.extend_from_slice(&[0, 1, 2, 3, 4]);
 
-        let buf2 = buf2.freeze();
+        let buf2 = buf2.into();
         assert_eq!(buf1, buf2);
 
         // unequal because of different elements
@@ -1020,11 +1034,11 @@ mod tests {
     #[test]
     fn test_with_bitset() {
         let mut_buf = MutableBuffer::new(64).with_bitset(64, false);
-        let buf = mut_buf.freeze();
+        let buf: Buffer = mut_buf.into();
         assert_eq!(0, buf.count_set_bits());
 
         let mut_buf = MutableBuffer::new(64).with_bitset(64, true);
-        let buf = mut_buf.freeze();
+        let buf: Buffer = mut_buf.into();
         assert_eq!(512, buf.count_set_bits());
     }
 
@@ -1032,12 +1046,12 @@ mod tests {
     fn test_set_null_bits() {
         let mut mut_buf = MutableBuffer::new(64).with_bitset(64, true);
         mut_buf.set_null_bits(0, 64);
-        let buf = mut_buf.freeze();
+        let buf: Buffer = mut_buf.into();
         assert_eq!(0, buf.count_set_bits());
 
         let mut mut_buf = MutableBuffer::new(64).with_bitset(64, true);
         mut_buf.set_null_bits(32, 32);
-        let buf = mut_buf.freeze();
+        let buf: Buffer = mut_buf.into();
         assert_eq!(256, buf.count_set_bits());
     }
 
@@ -1138,14 +1152,14 @@ mod tests {
     }
 
     #[test]
-    fn test_mutable_freeze() {
+    fn test_mutable_into() {
         let mut buf = MutableBuffer::new(1);
         buf.extend_from_slice(b"aaaa bbbb cccc dddd");
         assert_eq!(19, buf.len());
         assert_eq!(64, buf.capacity());
         assert_eq!(b"aaaa bbbb cccc dddd", buf.as_slice());
 
-        let immutable_buf = buf.freeze();
+        let immutable_buf: Buffer = buf.into();
         assert_eq!(19, immutable_buf.len());
         assert_eq!(64, immutable_buf.capacity());
         assert_eq!(b"aaaa bbbb cccc dddd", immutable_buf.as_slice());

@@ -124,7 +124,7 @@ where
             })?;
             let start = offsets[ix];
             let end = offsets[ix + 1];
-            current_offset = current_offset + (end - start);
+            current_offset += end - start;
             new_offsets.push(current_offset);
 
             let mut curr = start;
@@ -132,7 +132,7 @@ where
             // if start == end, this slot is empty
             while curr < end {
                 values.push(Some(curr));
-                curr = curr + OffsetType::Native::one();
+                curr += OffsetType::Native::one();
             }
         } else {
             new_offsets.push(current_offset);
@@ -335,7 +335,7 @@ pub(super) mod tests {
 
         let list_data = ArrayData::builder(list_data_type)
             .len(list_len)
-            .null_bit_buffer(list_bitmap.freeze())
+            .null_bit_buffer(list_bitmap.into())
             .add_buffer(value_offsets)
             .add_child_data(value_data)
             .build();
@@ -400,7 +400,7 @@ pub(super) mod tests {
 
         let list_data = ArrayData::builder(list_data_type)
             .len(list_len)
-            .null_bit_buffer(list_bitmap.freeze())
+            .null_bit_buffer(list_bitmap.into())
             .add_child_data(child_data)
             .build();
 

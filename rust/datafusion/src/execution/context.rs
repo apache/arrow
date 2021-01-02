@@ -1055,6 +1055,57 @@ mod tests {
         Ok(())
     }
 
+    #[tokio::test]
+    async fn group_by_date_trunc() -> Result<()> {
+        let tmp_dir = TempDir::new()?;
+        let mut ctx = ExecutionContext::new();
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("c2", DataType::UInt64, false),
+            Field::new(
+                "t1",
+                DataType::Timestamp(TimeUnit::Microsecond, None),
+                false,
+            ),
+        ]));
+
+        // generate a partitioned file
+        for partition in 0..4 {
+            let filename = format!("partition-{}.{}", partition, "csv");
+            let file_path = tmp_dir.path().join(&filename);
+            let mut file = File::create(file_path)?;
+
+            // generate some data
+            for i in 0..10 {
+                let data = format!("{},2020-12-{}T00:00:00.000\n", i, i + 10);
+                file.write_all(data.as_bytes())?;
+            }
+        }
+
+        ctx.register_csv(
+            "test",
+            tmp_dir.path().to_str().unwrap(),
+            CsvReadOptions::new().schema(&schema).has_header(false),
+        )?;
+
+        let results = plan_and_collect(
+            &mut ctx,
+            "SELECT date_trunc('week', t1) as week, SUM(c2) FROM test GROUP BY date_trunc('week', t1)"
+        ).await?;
+        assert_eq!(results.len(), 1);
+
+        let batch = &results[0];
+
+        assert_eq!(field_names(batch), vec!["week", "SUM(c2)"]);
+
+        let expected: Vec<&str> =
+            vec!["2020-12-07T00:00:00,24", "2020-12-14T00:00:00,156"];
+        let mut rows = test::format_batch(&batch);
+        rows.sort();
+        assert_eq!(rows, expected);
+
+        Ok(())
+    }
+
     async fn run_count_distinct_integers_aggregated_scenario(
         partitions: Vec<Vec<(&str, u64)>>,
     ) -> Result<Vec<RecordBatch>> {

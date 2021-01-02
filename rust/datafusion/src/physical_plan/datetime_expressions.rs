@@ -25,6 +25,7 @@ use arrow::{
     buffer::Buffer,
     datatypes::{DataType, TimeUnit, ToByteSlice},
 };
+use chrono::Duration;
 use chrono::{prelude::*, LocalResult};
 
 #[inline]
@@ -205,6 +206,108 @@ pub fn to_timestamp(args: &[ArrayRef]) -> Result<TimestampNanosecondArray> {
     Ok(TimestampNanosecondArray::from(Arc::new(data)))
 }
 
+/// date_trunc SQL function
+pub fn date_trunc(args: &[ArrayRef]) -> Result<TimestampNanosecondArray> {
+    let granularity_array =
+        &args[0]
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .ok_or_else(|| {
+                DataFusionError::Execution(
+                    "Could not cast date_trunc granularity input to StringArray"
+                        .to_string(),
+                )
+            })?;
+
+    let array = &args[1]
+        .as_any()
+        .downcast_ref::<TimestampNanosecondArray>()
+        .ok_or_else(|| {
+            DataFusionError::Execution(
+                "Could not cast date_trunc array input to TimestampNanosecondArray"
+                    .to_string(),
+            )
+        })?;
+
+    let range = 0..array.len();
+    let result = range
+        .map(|i| {
+            if array.is_null(i) {
+                Ok(0_i64)
+            } else {
+                let date_time = match granularity_array.value(i) {
+                    "second" => array
+                        .value_as_datetime(i)
+                        .and_then(|d| d.with_nanosecond(0)),
+                    "minute" => array
+                        .value_as_datetime(i)
+                        .and_then(|d| d.with_nanosecond(0))
+                        .and_then(|d| d.with_second(0)),
+                    "hour" => array
+                        .value_as_datetime(i)
+                        .and_then(|d| d.with_nanosecond(0))
+                        .and_then(|d| d.with_second(0))
+                        .and_then(|d| d.with_minute(0)),
+                    "day" => array
+                        .value_as_datetime(i)
+                        .and_then(|d| d.with_nanosecond(0))
+                        .and_then(|d| d.with_second(0))
+                        .and_then(|d| d.with_minute(0))
+                        .and_then(|d| d.with_hour(0)),
+                    "week" => array
+                        .value_as_datetime(i)
+                        .and_then(|d| d.with_nanosecond(0))
+                        .and_then(|d| d.with_second(0))
+                        .and_then(|d| d.with_minute(0))
+                        .and_then(|d| d.with_hour(0))
+                        .map(|d| {
+                            d - Duration::seconds(60 * 60 * 24 * d.weekday() as i64)
+                        }),
+                    "month" => array
+                        .value_as_datetime(i)
+                        .and_then(|d| d.with_nanosecond(0))
+                        .and_then(|d| d.with_second(0))
+                        .and_then(|d| d.with_minute(0))
+                        .and_then(|d| d.with_hour(0))
+                        .and_then(|d| d.with_day0(0)),
+                    "year" => array
+                        .value_as_datetime(i)
+                        .and_then(|d| d.with_nanosecond(0))
+                        .and_then(|d| d.with_second(0))
+                        .and_then(|d| d.with_minute(0))
+                        .and_then(|d| d.with_hour(0))
+                        .and_then(|d| d.with_day0(0))
+                        .and_then(|d| d.with_month0(0)),
+                    unsupported => {
+                        return Err(DataFusionError::Execution(format!(
+                            "Unsupported date_trunc granularity: {}",
+                            unsupported
+                        )))
+                    }
+                };
+                date_time.map(|d| d.timestamp_nanos()).ok_or_else(|| {
+                    DataFusionError::Execution(format!(
+                        "Can't truncate date time: {:?}",
+                        array.value_as_datetime(i)
+                    ))
+                })
+            }
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    let data = ArrayData::new(
+        DataType::Timestamp(TimeUnit::Nanosecond, None),
+        array.len(),
+        Some(array.null_count()),
+        array.data().null_buffer().cloned(),
+        0,
+        vec![Buffer::from(result.to_byte_slice())],
+        vec![],
+    );
+
+    Ok(TimestampNanosecondArray::from(Arc::new(data)))
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
@@ -375,6 +478,64 @@ mod tests {
 
         assert_eq!(parsed_timestamps.len(), 2);
         assert_eq!(expected_timestamps, parsed_timestamps);
+        Ok(())
+    }
+
+    #[test]
+    fn date_trunc_test() -> Result<()> {
+        let mut ts_builder = StringBuilder::new(2);
+        let mut truncated_builder = StringBuilder::new(2);
+        let mut string_builder = StringBuilder::new(2);
+
+        ts_builder.append_null()?;
+        truncated_builder.append_null()?;
+        string_builder.append_value("second")?;
+
+        ts_builder.append_value("2020-09-08T13:42:29.190855Z")?;
+        truncated_builder.append_value("2020-09-08T13:42:29.000000Z")?;
+        string_builder.append_value("second")?;
+
+        ts_builder.append_value("2020-09-08T13:42:29.190855Z")?;
+        truncated_builder.append_value("2020-09-08T13:42:00.000000Z")?;
+        string_builder.append_value("minute")?;
+
+        ts_builder.append_value("2020-09-08T13:42:29.190855Z")?;
+        truncated_builder.append_value("2020-09-08T13:00:00.000000Z")?;
+        string_builder.append_value("hour")?;
+
+        ts_builder.append_value("2020-09-08T13:42:29.190855Z")?;
+        truncated_builder.append_value("2020-09-08T00:00:00.000000Z")?;
+        string_builder.append_value("day")?;
+
+        ts_builder.append_value("2020-09-08T13:42:29.190855Z")?;
+        truncated_builder.append_value("2020-09-07T00:00:00.000000Z")?;
+        string_builder.append_value("week")?;
+
+        ts_builder.append_value("2020-09-08T13:42:29.190855Z")?;
+        truncated_builder.append_value("2020-09-01T00:00:00.000000Z")?;
+        string_builder.append_value("month")?;
+
+        ts_builder.append_value("2020-09-08T13:42:29.190855Z")?;
+        truncated_builder.append_value("2020-01-01T00:00:00.000000Z")?;
+        string_builder.append_value("year")?;
+
+        ts_builder.append_value("2021-01-01T13:42:29.190855Z")?;
+        truncated_builder.append_value("2020-12-28T00:00:00.000000Z")?;
+        string_builder.append_value("week")?;
+
+        ts_builder.append_value("2020-01-01T13:42:29.190855Z")?;
+        truncated_builder.append_value("2019-12-30T00:00:00.000000Z")?;
+        string_builder.append_value("week")?;
+
+        let string_array = Arc::new(string_builder.finish());
+        let ts_array = Arc::new(to_timestamp(&[Arc::new(ts_builder.finish())]).unwrap());
+        let date_trunc_array = date_trunc(&[string_array, ts_array])
+            .expect("that to_timestamp parsed values without error");
+
+        let expected_timestamps =
+            to_timestamp(&[Arc::new(truncated_builder.finish())]).unwrap();
+
+        assert_eq!(date_trunc_array, expected_timestamps);
         Ok(())
     }
 

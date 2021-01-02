@@ -66,19 +66,6 @@ impl<T: ArrowPrimitiveType> PrimitiveArray<T> {
         self.data.is_empty()
     }
 
-    /// Returns a slice for the given offset and length
-    ///
-    /// Note this doesn't do any bound checking, for performance reason.
-    /// # Safety
-    /// caller must ensure that the passed in offset + len are less than the array len()
-    #[deprecated(note = "Please use values() instead")]
-    pub unsafe fn value_slice(&self, offset: usize, len: usize) -> &[T::Native] {
-        std::slice::from_raw_parts(
-            self.raw_values.as_ptr().add(self.data.offset()).add(offset),
-            len,
-        )
-    }
-
     /// Returns a slice of the values of this array
     #[inline]
     pub fn values(&self) -> &[T::Native] {
@@ -329,9 +316,9 @@ impl<T: ArrowPrimitiveType, Ptr: Borrow<Option<<T as ArrowPrimitiveType>::Native
             T::DATA_TYPE,
             data_len,
             None,
-            Some(null_buf.freeze()),
+            Some(null_buf.into()),
             0,
-            vec![val_buf.freeze()],
+            vec![val_buf.into()],
             vec![],
         );
         PrimitiveArray::from(Arc::new(data))
@@ -426,8 +413,8 @@ impl<T: ArrowTimestampType> PrimitiveArray<T> {
         let array_data =
             ArrayData::builder(DataType::Timestamp(T::get_time_unit(), timezone))
                 .len(data_len)
-                .add_buffer(val_buf.freeze())
-                .null_bit_buffer(null_buf.freeze())
+                .add_buffer(val_buf.into())
+                .null_bit_buffer(null_buf.into())
                 .build();
         PrimitiveArray::from(array_data)
     }

@@ -36,7 +36,7 @@ fn mutable_buffer(data: &[Vec<u32>], capacity: usize) -> Buffer {
         data.iter()
             .for_each(|vec| result.extend_from_slice(vec.to_byte_slice()));
 
-        result.freeze()
+        result.into()
     })
 }
 

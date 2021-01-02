@@ -30,7 +30,7 @@ use crate::error::{DataFusionError, Result};
 use crate::physical_plan::{Accumulator, AggregateExpr};
 use crate::physical_plan::{Distribution, ExecutionPlan, Partitioning, PhysicalExpr};
 
-use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
+use arrow::datatypes::{DataType, Field, Schema, SchemaRef, TimeUnit};
 use arrow::error::{ArrowError, Result as ArrowResult};
 use arrow::record_batch::RecordBatch;
 use arrow::{
@@ -49,6 +49,7 @@ use super::{
 use ahash::RandomState;
 use hashbrown::HashMap;
 
+use arrow::array::{TimestampMicrosecondArray, TimestampNanosecondArray};
 use async_trait::async_trait;
 
 /// Hash aggregate modes
@@ -672,6 +673,12 @@ fn create_batch_from_map(
                     GroupByScalar::Utf8(str) => {
                         Arc::new(StringArray::from(vec![&***str]))
                     }
+                    GroupByScalar::TimeMicrosecond(n) => {
+                        Arc::new(TimestampMicrosecondArray::from(vec![*n]))
+                    }
+                    GroupByScalar::TimeNanosecond(n) => {
+                        Arc::new(TimestampNanosecondArray::from_vec(vec![*n], None))
+                    }
                 })
                 .collect::<Vec<ArrayRef>>();
 
@@ -779,6 +786,20 @@ pub(crate) fn create_group_by_values(
             DataType::Utf8 => {
                 let array = col.as_any().downcast_ref::<StringArray>().unwrap();
                 vec[i] = GroupByScalar::Utf8(Box::new(array.value(row).into()))
+            }
+            DataType::Timestamp(TimeUnit::Microsecond, None) => {
+                let array = col
+                    .as_any()
+                    .downcast_ref::<TimestampMicrosecondArray>()
+                    .unwrap();
+                vec[i] = GroupByScalar::TimeMicrosecond(array.value(row))
+            }
+            DataType::Timestamp(TimeUnit::Nanosecond, None) => {
+                let array = col
+                    .as_any()
+                    .downcast_ref::<TimestampNanosecondArray>()
+                    .unwrap();
+                vec[i] = GroupByScalar::TimeNanosecond(array.value(row))
             }
             _ => {
                 // This is internal because we should have caught this before.

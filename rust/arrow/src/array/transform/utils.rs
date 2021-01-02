@@ -57,7 +57,7 @@ pub(super) fn extend_offsets<T: OffsetSizeTrait>(
     offsets.windows(2).for_each(|offsets| {
         // compute the new offset
         let length = offsets[1] - offsets[0];
-        last_offset = last_offset + length;
+        last_offset += length;
         buffer.extend_from_slice(last_offset.to_byte_slice());
     });
 }

@@ -18,10 +18,8 @@
 //! Defines the join plan for executing partitions in parallel and then joining the results
 //! into a set of partitions.
 
-use arrow::{
-    array::{ArrayRef, UInt32Builder},
-    compute,
-};
+use arrow::{array::{TimestampMicrosecondArray, TimestampNanosecondArray, UInt32Builder}, datatypes::TimeUnit};
+use arrow::{array::ArrayRef, compute};
 use std::sync::Arc;
 use std::{any::Any, collections::HashSet};
 
@@ -374,6 +372,20 @@ pub(crate) fn create_key(
                 let array = col.as_any().downcast_ref::<Int64Array>().unwrap();
                 vec.extend(array.value(row).to_le_bytes().iter());
             }
+            DataType::Timestamp(TimeUnit::Microsecond, None) => {
+                let array = col
+                    .as_any()
+                    .downcast_ref::<TimestampMicrosecondArray>()
+                    .unwrap();
+                vec.extend(array.value(row).to_le_bytes().iter());
+            }
+            DataType::Timestamp(TimeUnit::Nanosecond, None) => {
+                let array = col
+                    .as_any()
+                    .downcast_ref::<TimestampNanosecondArray>()
+                    .unwrap();
+                vec.extend(array.value(row).to_le_bytes().iter());
+            }
             DataType::Utf8 => {
                 let array = col.as_any().downcast_ref::<StringArray>().unwrap();
                 let value = array.value(row);
@@ -499,7 +511,7 @@ fn build_join_indexes(
                     for x in indices {
                         left_indices.append_value(*x as u32)?;
                         right_indices.append_null()?;
-                    };
+                    }
                 }
             }
 

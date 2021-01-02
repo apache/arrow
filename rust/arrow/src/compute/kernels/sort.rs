@@ -317,7 +317,7 @@ fn sort_boolean(
         Some(0),
         None,
         0,
-        vec![result.freeze()],
+        vec![result.into()],
         vec![],
     ));
 
@@ -384,7 +384,7 @@ where
         Some(0),
         None,
         0,
-        vec![result.freeze()],
+        vec![result.into()],
         vec![],
     ));
 
