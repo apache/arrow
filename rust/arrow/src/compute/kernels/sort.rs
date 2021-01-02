@@ -63,7 +63,7 @@ fn total_cmp_64(l: f64, r: f64) -> std::cmp::Ordering {
     left.cmp(&right)
 }
 
-pub fn cmp<T>(l: T, r: T) -> std::cmp::Ordering
+fn cmp<T>(l: T, r: T) -> std::cmp::Ordering
 where
     T: Ord,
 {
