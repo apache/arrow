@@ -176,6 +176,17 @@ garrow_decimal_to_string(typename DecimalConverter<Decimal>::GArrowType *decimal
 }
 
 template <typename Decimal>
+GBytes *
+garrow_decimal_to_bytes(typename DecimalConverter<Decimal>::GArrowType *decimal)
+{
+  DecimalConverter<Decimal> converter;
+  const auto arrow_decimal = converter.get_raw(decimal);
+  uint8_t data[DecimalConverter<Decimal>::ArrowType::bit_width / 8];
+  arrow_decimal->ToBytes(data);
+  return g_bytes_new(data, sizeof(data));
+}
+
+template <typename Decimal>
 void
 garrow_decimal_abs(typename DecimalConverter<Decimal>::GArrowType *decimal)
 {
@@ -540,6 +551,20 @@ gchar *
 garrow_decimal128_to_string(GArrowDecimal128 *decimal)
 {
   return garrow_decimal_to_string<arrow::Decimal128>(decimal);
+}
+
+/**
+ * garrow_decimal128_to_bytes:
+ * @decimal: A #GArrowDecimal128.
+ *
+ * Returns: (transfer full): The binary representation of the decimal.
+ *
+ * Since: 3.0.0
+ */
+GBytes *
+garrow_decimal128_to_bytes(GArrowDecimal128 *decimal)
+{
+  return garrow_decimal_to_bytes<arrow::Decimal128>(decimal);
 }
 
 /**
@@ -931,6 +956,20 @@ gchar *
 garrow_decimal256_to_string(GArrowDecimal256 *decimal)
 {
   return garrow_decimal_to_string<arrow::Decimal256>(decimal);
+}
+
+/**
+ * garrow_decimal256_to_bytes:
+ * @decimal: A #GArrowDecimal256.
+ *
+ * Returns: (transfer full): The binary representation of the decimal.
+ *
+ * Since: 3.0.0
+ */
+GBytes *
+garrow_decimal256_to_bytes(GArrowDecimal256 *decimal)
+{
+  return garrow_decimal_to_bytes<arrow::Decimal256>(decimal);
 }
 
 /**

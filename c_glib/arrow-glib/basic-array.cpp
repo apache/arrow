@@ -126,6 +126,11 @@ G_BEGIN_DECLS
  * string data. If you don't have Arrow format data, you need to
  * use #GArrowLargeStringArrayBuilder to create a new array.
  *
+ * #GArrowFixedSizeBinaryArray is a class for fixed size binary array.
+ * It can store zero or more fixed size binary data. If you don't have
+ * Arrow format data, you need to use
+ * #GArrowFixedSizeBinaryArrayBuilder to create a new array.
+ *
  * #GArrowDate32Array is a class for the number of days since UNIX
  * epoch in 32-bit signed integer array. It can store zero or more
  * date data. If you don't have Arrow format data, you need to use
@@ -2489,6 +2494,97 @@ garrow_fixed_size_binary_array_class_init(GArrowFixedSizeBinaryArrayClass *klass
 {
 }
 
+/**
+ * garrow_fixed_size_binary_array_new:
+ * @data_type: A #GArrowFixedSizeBinaryDataType for the array.
+ * @length: The number of elements.
+ * @data: The binary data in Arrow format of the array.
+ * @null_bitmap: (nullable): The bitmap that shows null elements. The
+ *   N-th element is null when the N-th bit is 0, not null otherwise.
+ *   If the array has no null elements, the bitmap must be %NULL and
+ *   @n_nulls is 0.
+ * @n_nulls: The number of null elements. If -1 is specified, the
+ *   number of nulls are computed from @null_bitmap.
+ *
+ * Returns: A newly created #GArrowFixedSizeBinaryArray.
+ *
+ * Since: 3.0.0
+ */
+GArrowFixedSizeBinaryArray *
+garrow_fixed_size_binary_array_new(GArrowFixedSizeBinaryDataType *data_type,
+                                   gint64 length,
+                                   GArrowBuffer *data,
+                                   GArrowBuffer *null_bitmap,
+                                   gint64 n_nulls)
+{
+  auto array =
+    garrow_primitive_array_new<arrow::FixedSizeBinaryType>(
+      GARROW_DATA_TYPE(data_type),
+      length,
+      data,
+      null_bitmap,
+      n_nulls);
+  return GARROW_FIXED_SIZE_BINARY_ARRAY(array);
+}
+
+/**
+ * garrow_fixed_size_binary_array_get_byte_width:
+ * @array: A #GArrowFixedSizeBinaryArray.
+ *
+ * Returns: The number of bytes of each value.
+ *
+ * Since: 3.0.0
+ */
+gint32
+garrow_fixed_size_binary_array_get_byte_width(GArrowFixedSizeBinaryArray *array)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_binary_array =
+    std::static_pointer_cast<arrow::FixedSizeBinaryArray>(arrow_array);
+  return arrow_binary_array->byte_width();
+}
+
+/**
+ * garrow_fixed_size_binary_array_get_value:
+ * @array: A #GArrowFixedSizeBinaryArray.
+ * @i: The index of the target value.
+ *
+ * Returns: (transfer full): The @i-th value.
+ *
+ * Since: 3.0.0
+ */
+GBytes *
+garrow_fixed_size_binary_array_get_value(GArrowFixedSizeBinaryArray *array,
+                                         gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_binary_array =
+    std::static_pointer_cast<arrow::FixedSizeBinaryArray>(arrow_array);
+  auto value = arrow_binary_array->GetValue(i);
+  return g_bytes_new_static(value,
+                            arrow_binary_array->byte_width());
+}
+
+/**
+ * garrow_fixed_size_binary_array_get_values_bytes:
+ * @array: A #GArrowFixedSizeBinaryArray.
+ *
+ * Returns: (transfer full): All values as a #GBytes.
+ *
+ * Since: 3.0.0
+ */
+GBytes *
+garrow_fixed_size_binary_array_get_values_bytes(GArrowFixedSizeBinaryArray *array)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_binary_array =
+    std::static_pointer_cast<arrow::FixedSizeBinaryArray>(arrow_array);
+  auto value = arrow_binary_array->raw_values();
+  return g_bytes_new_static(value,
+                            arrow_binary_array->byte_width() *
+                            arrow_array->length());
+}
+
 
 G_DEFINE_TYPE(GArrowDecimal128Array,
               garrow_decimal128_array,
@@ -2683,6 +2779,9 @@ garrow_array_new_raw_valist(std::shared_ptr<arrow::Array> *arrow_array,
     break;
   case arrow::Type::type::LARGE_STRING:
     type = GARROW_TYPE_LARGE_STRING_ARRAY;
+    break;
+  case arrow::Type::type::FIXED_SIZE_BINARY:
+    type = GARROW_TYPE_FIXED_SIZE_BINARY_ARRAY;
     break;
   case arrow::Type::type::DATE32:
     type = GARROW_TYPE_DATE32_ARRAY;
