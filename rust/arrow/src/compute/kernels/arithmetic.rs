@@ -112,7 +112,7 @@ where
         None,
         array.data_ref().null_buffer().cloned(),
         0,
-        vec![result.freeze()],
+        vec![result.into()],
         vec![],
     );
     Ok(PrimitiveArray::<T>::from(Arc::new(data)))
@@ -283,7 +283,7 @@ where
         None,
         null_bit_buffer,
         0,
-        vec![result.freeze()],
+        vec![result.into()],
         vec![],
     );
     Ok(PrimitiveArray::<T>::from(Arc::new(data)))
@@ -470,7 +470,7 @@ where
         None,
         null_bit_buffer,
         0,
-        vec![result.freeze()],
+        vec![result.into()],
         vec![],
     );
     Ok(PrimitiveArray::<T>::from(Arc::new(data)))

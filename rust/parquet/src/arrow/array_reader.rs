@@ -936,7 +936,7 @@ impl<OffsetSize: OffsetSizeTrait> ArrayReader for ListArrayReader<OffsetSize> {
             .len(offsets.len() - 1)
             .add_buffer(value_offsets)
             .add_child_data(batch_values.data())
-            .null_bit_buffer(null_buf.freeze())
+            .null_bit_buffer(null_buf.into())
             .offset(next_batch_array.offset())
             .build();
 
@@ -1106,7 +1106,7 @@ impl ArrayReader for StructArrayReader {
             })
             .transpose()?;
 
-        self.def_level_buffer = Some(def_level_data_buffer.freeze());
+        self.def_level_buffer = Some(def_level_data_buffer.into());
         self.rep_level_buffer = rep_level_data;
         Ok(Arc::new(StructArray::from(array_data)))
     }

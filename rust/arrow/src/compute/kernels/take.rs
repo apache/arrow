@@ -308,11 +308,11 @@ where
             Some(buffer) => Some(buffer_bin_and(
                 buffer,
                 0,
-                &null_buf.freeze(),
+                &null_buf.into(),
                 0,
                 indices.len(),
             )),
-            None => Some(null_buf.freeze()),
+            None => Some(null_buf.into()),
         };
     }
 
@@ -322,7 +322,7 @@ where
         None,
         nulls,
         0,
-        vec![buffer.freeze()],
+        vec![buffer.into()],
         vec![],
     );
     Ok(PrimitiveArray::<T>::from(Arc::new(data)))
@@ -383,11 +383,11 @@ where
             Some(buffer) => Some(buffer_bin_and(
                 buffer,
                 0,
-                &null_buf.freeze(),
+                &null_buf.into(),
                 0,
                 indices.len(),
             )),
-            None => Some(null_buf.freeze()),
+            None => Some(null_buf.into()),
         };
     }
 
@@ -397,7 +397,7 @@ where
         None,
         nulls,
         0,
-        vec![val_buf.freeze()],
+        vec![val_buf.into()],
         vec![],
     );
     Ok(BooleanArray::from(Arc::new(data)))
@@ -459,7 +459,7 @@ where
             }
             *offset = length_so_far;
         }
-        nulls = Some(null_buf.freeze());
+        nulls = Some(null_buf.into());
     } else if array.null_count() == 0 {
         for (i, offset) in offsets.iter_mut().skip(1).enumerate() {
             if indices.is_valid(i) {
@@ -501,15 +501,15 @@ where
 
         nulls = match indices.data_ref().null_buffer() {
             Some(buffer) => {
-                Some(buffer_bin_and(buffer, 0, &null_buf.freeze(), 0, data_len))
+                Some(buffer_bin_and(buffer, 0, &null_buf.into(), 0, data_len))
             }
-            None => Some(null_buf.freeze()),
+            None => Some(null_buf.into()),
         };
     }
 
     let mut data = ArrayData::builder(<OffsetSize as StringOffsetSizeTrait>::DATA_TYPE)
         .len(data_len)
-        .add_buffer(offsets_buffer.freeze())
+        .add_buffer(offsets_buffer.into())
         .add_buffer(Buffer::from(values));
     if let Some(null_buffer) = nulls {
         data = data.null_bit_buffer(null_buffer);
@@ -559,7 +559,7 @@ where
     // create a new list with taken data and computed null information
     let list_data = ArrayDataBuilder::new(values.data_type().clone())
         .len(indices.len())
-        .null_bit_buffer(null_buf.freeze())
+        .null_bit_buffer(null_buf.into())
         .offset(0)
         .add_child_data(taken.data())
         .add_buffer(value_offsets)
@@ -600,7 +600,7 @@ where
 
     let list_data = ArrayDataBuilder::new(values.data_type().clone())
         .len(indices.len())
-        .null_bit_buffer(null_buf.freeze())
+        .null_bit_buffer(null_buf.into())
         .offset(0)
         .add_child_data(taken.data())
         .build();

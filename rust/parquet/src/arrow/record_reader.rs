@@ -174,7 +174,7 @@ impl<T: DataType> RecordReader<T> {
             None
         };
 
-        Ok(replace(&mut self.def_levels, new_buffer).map(|x| x.freeze()))
+        Ok(replace(&mut self.def_levels, new_buffer).map(|x| x.into()))
     }
 
     /// Return repetition level data.
@@ -202,7 +202,7 @@ impl<T: DataType> RecordReader<T> {
             None
         };
 
-        Ok(replace(&mut self.rep_levels, new_buffer).map(|x| x.freeze()))
+        Ok(replace(&mut self.rep_levels, new_buffer).map(|x| x.into()))
     }
 
     /// Returns currently stored buffer data.
@@ -224,7 +224,7 @@ impl<T: DataType> RecordReader<T> {
 
         self.records.resize(new_len);
 
-        Ok(replace(&mut self.records, new_buffer).freeze())
+        Ok(replace(&mut self.records, new_buffer).into())
     }
 
     /// Returns currently stored null bitmap data.

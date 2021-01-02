@@ -286,7 +286,7 @@ impl<T: ArrowNativeType> BufferBuilder<T> {
     pub fn finish(&mut self) -> Buffer {
         let buf = std::mem::replace(&mut self.buffer, MutableBuffer::new(0));
         self.len = 0;
-        buf.freeze()
+        buf.into()
     }
 }
 
@@ -377,7 +377,7 @@ impl BooleanBufferBuilder {
             if *v {
                 // For performance the `len` of the buffer is not
                 // updated on each append but is updated in the
-                // `freeze` method instead.
+                // `into` method instead.
                 unsafe {
                     bit_util::set_bit_raw(self.buffer.as_mut_ptr(), self.len);
                 }
@@ -388,13 +388,13 @@ impl BooleanBufferBuilder {
 
     #[inline]
     pub fn finish(&mut self) -> Buffer {
-        // `append` does not update the buffer's `len` so do it before `freeze` is called.
+        // `append` does not update the buffer's `len` so do it before `into` is called.
         let new_buffer_len = bit_util::ceil(self.len, 8);
         debug_assert!(new_buffer_len >= self.buffer.len());
         let mut buf = std::mem::replace(&mut self.buffer, MutableBuffer::new(0));
         self.len = 0;
         buf.resize(new_buffer_len);
-        buf.freeze()
+        buf.into()
     }
 }
 
@@ -1752,7 +1752,7 @@ impl UnionBuilder {
         {
             let buffer = values_buffer
                 .expect("The `values_buffer` should only ever be None inside the `append` method.")
-                .freeze();
+                .into();
             let arr_data_builder = ArrayDataBuilder::new(data_type.clone())
                 .add_buffer(buffer)
                 .len(slots);
