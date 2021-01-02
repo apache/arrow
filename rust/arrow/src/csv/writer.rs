@@ -69,29 +69,13 @@ use csv as csv_crate;
 
 use std::io::Write;
 
-use crate::array::*;
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 use crate::record_batch::RecordBatch;
+use crate::{array::*, util::serialization::lexical_to_string};
 const DEFAULT_DATE_FORMAT: &str = "%F";
 const DEFAULT_TIME_FORMAT: &str = "%T";
 const DEFAULT_TIMESTAMP_FORMAT: &str = "%FT%H:%M:%S.%9f";
-
-pub fn to_string<N: lexical_core::ToLexical>(n: N) -> String {
-    let mut buf = Vec::<u8>::with_capacity(N::FORMATTED_SIZE_DECIMAL);
-    unsafe {
-        // JUSTIFICATION
-        //  Benefit
-        //      Allows using the faster serializer lexical core and convert to string
-        //  Soundness
-        //      Length of buf is set as written length afterwards. lexical_core
-        //      creates a valid string, so doesn't need to be checked.
-        let slice = std::slice::from_raw_parts_mut(buf.as_mut_ptr(), buf.capacity());
-        let len = lexical_core::write(n, slice).len();
-        buf.set_len(len);
-        String::from_utf8_unchecked(buf)
-    }
-}
 
 fn write_primitive_value<T>(array: &ArrayRef, i: usize) -> String
 where
@@ -99,7 +83,7 @@ where
     T::Native: lexical_core::ToLexical,
 {
     let c = array.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
-    to_string(c.value(i))
+    lexical_to_string(c.value(i))
 }
 
 /// A CSV writer
