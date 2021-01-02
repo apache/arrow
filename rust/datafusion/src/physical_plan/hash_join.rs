@@ -380,7 +380,7 @@ pub(crate) fn create_key(
                 // store the size
                 vec.extend(value.len().to_le_bytes().iter());
                 // store the string value
-                vec.extend(array.value(row).as_bytes().iter());
+                vec.extend(value.as_bytes().iter());
             }
             _ => {
                 // This is internal because we should have caught this before.
