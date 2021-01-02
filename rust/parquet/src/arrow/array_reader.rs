@@ -1562,20 +1562,10 @@ impl<'a> ArrayReaderBuilder {
             PhysicalType::FIXED_LEN_BYTE_ARRAY
                 if cur_type.get_basic_info().logical_type() == LogicalType::DECIMAL =>
             {
-                let (precision, scale) = match *cur_type {
-                    Type::PrimitiveType {
-                        ref precision,
-                        ref scale,
-                        ..
-                    } => (*precision, *scale),
-                    _ => {
-                        return Err(ArrowError(
-                            "Expected a physical type, not a group type".to_string(),
-                        ))
-                    }
-                };
-                let converter =
-                    DecimalConverter::new(DecimalArrayConverter::new(precision, scale));
+                let converter = DecimalConverter::new(DecimalArrayConverter::new(
+                    cur_type.get_precision(),
+                    cur_type.get_scale(),
+                ));
                 Ok(Box::new(ComplexObjectArrayReader::<
                     FixedLenByteArrayType,
                     DecimalConverter,
