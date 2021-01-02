@@ -39,8 +39,6 @@ pub struct HashBuildProbeOrder {}
 // Gets exact number of rows, if known by the statistics of the underlying
 fn get_num_rows(logical_plan: &LogicalPlan) -> Option<usize> {
     match logical_plan {
-        LogicalPlan::Projection { input, .. } => get_num_rows(input),
-        LogicalPlan::Sort { input, .. } => get_num_rows(input),
         LogicalPlan::TableScan { source, .. } => source.statistics().num_rows,
         LogicalPlan::EmptyRelation {
             produce_one_row, ..
@@ -55,7 +53,32 @@ fn get_num_rows(logical_plan: &LogicalPlan) -> Option<usize> {
             let num_rows_input = get_num_rows(input);
             num_rows_input.map(|rows| std::cmp::min(*limit, rows))
         }
-        _ => None,
+        LogicalPlan::Aggregate { .. } => {
+            // we cannot yet predict how many rows will be produced by an aggregate because
+            // we do not know the cardinality of the grouping keys
+            None
+        }
+        LogicalPlan::Filter { .. } => {
+            // we cannot yet predict how many rows will be produced by a filter because
+            // we don't know how selective it is (how many rows it will filter out)
+            None
+        }
+        LogicalPlan::Join { .. } => {
+            // we cannot predict the cardinality of the join output
+            None
+        }
+        LogicalPlan::Repartition { .. } => {
+            // we cannot predict how rows will be repartitioned
+            None
+        }
+        // the following operators are special cases and not querying data
+        LogicalPlan::CreateExternalTable { .. } => None,
+        LogicalPlan::Explain { .. } => None,
+        // we do not support estimating rows with extensions yet
+        LogicalPlan::Extension { .. } => None,
+        // the following operators do not modify row count in any way
+        LogicalPlan::Projection { input, .. } => get_num_rows(input),
+        LogicalPlan::Sort { input, .. } => get_num_rows(input),
     }
 }
 
