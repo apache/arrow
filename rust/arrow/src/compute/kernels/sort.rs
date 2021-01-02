@@ -295,10 +295,10 @@ fn sort_boolean(
 
     if options.nulls_first {
         result_slice[0..nulls_len].copy_from_slice(&nulls);
-        insert_valid_values(result_slice, nulls_len, valids, descending);
+        insert_valid_values(result_slice, nulls_len, valids);
     } else {
         // nulls last
-        insert_valid_values(result_slice, 0, valids, descending);
+        insert_valid_values(result_slice, 0, valids);
         result_slice[valids_len..].copy_from_slice(nulls.as_slice())
     }
 
@@ -385,7 +385,6 @@ fn insert_valid_values<T: ArrowNativeType>(
     result_slice: &mut [u32],
     offset: usize,
     valids: Vec<(u32, T)>,
-    descending: bool,
 ) {
     let valids_len = valids.len();
 
@@ -398,13 +397,7 @@ fn insert_valid_values<T: ArrowNativeType>(
             .for_each(|(dst, src)| *dst = src.0)
     };
 
-    // for descending order they come before valid numbers
-    // for ascending order they come after valid numbers
-    if descending {
-        append_valids(&mut result_slice[offset..offset + valids_len]);
-    } else {
-        append_valids(&mut result_slice[offset..offset + valids_len]);
-    }
+    append_valids(&mut result_slice[offset..offset + valids_len]);
 }
 
 /// Sort strings
