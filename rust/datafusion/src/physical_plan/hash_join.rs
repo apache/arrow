@@ -18,6 +18,7 @@
 //! Defines the join plan for executing partitions in parallel and then joining the results
 //! into a set of partitions.
 
+use arrow::array::{TimestampMicrosecondArray, TimestampNanosecondArray};
 use arrow::{array::ArrayRef, compute};
 use std::sync::Arc;
 use std::{any::Any, collections::HashSet};
@@ -28,7 +29,7 @@ use hashbrown::HashMap;
 use tokio::sync::Mutex;
 
 use arrow::array::{make_array, Array, MutableArrayData};
-use arrow::datatypes::DataType;
+use arrow::datatypes::{DataType, TimeUnit};
 use arrow::datatypes::{Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::RecordBatch;
@@ -371,6 +372,20 @@ pub(crate) fn create_key(
             }
             DataType::Int64 => {
                 let array = col.as_any().downcast_ref::<Int64Array>().unwrap();
+                vec.extend(array.value(row).to_le_bytes().iter());
+            }
+            DataType::Timestamp(TimeUnit::Microsecond, None) => {
+                let array = col
+                    .as_any()
+                    .downcast_ref::<TimestampMicrosecondArray>()
+                    .unwrap();
+                vec.extend(array.value(row).to_le_bytes().iter());
+            }
+            DataType::Timestamp(TimeUnit::Nanosecond, None) => {
+                let array = col
+                    .as_any()
+                    .downcast_ref::<TimestampNanosecondArray>()
+                    .unwrap();
                 vec.extend(array.value(row).to_le_bytes().iter());
             }
             DataType::Utf8 => {
