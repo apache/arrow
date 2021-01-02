@@ -1089,7 +1089,7 @@ mod tests {
 
         let results = plan_and_collect(
             &mut ctx,
-            "SELECT date_trunc(t1, 'week') as week, SUM(c2) FROM test GROUP BY date_trunc(t1, 'week')"
+            "SELECT date_trunc('week', t1) as week, SUM(c2) FROM test GROUP BY date_trunc('week', t1)"
         ).await?;
         assert_eq!(results.len(), 1);
 

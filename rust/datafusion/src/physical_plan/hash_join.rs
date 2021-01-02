@@ -19,7 +19,7 @@
 //! into a set of partitions.
 
 use arrow::{array::ArrayRef, compute};
-use arrow::array::{ArrayRef, TimestampMicrosecondArray, TimestampNanosecondArray};
+use arrow::array::{TimestampMicrosecondArray, TimestampNanosecondArray};
 use std::sync::Arc;
 use std::{any::Any, collections::HashSet};
 

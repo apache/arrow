@@ -208,18 +208,8 @@ pub fn to_timestamp(args: &[ArrayRef]) -> Result<TimestampNanosecondArray> {
 
 /// date_trunc SQL function
 pub fn date_trunc(args: &[ArrayRef]) -> Result<TimestampNanosecondArray> {
-    let array = &args[0]
-        .as_any()
-        .downcast_ref::<TimestampNanosecondArray>()
-        .ok_or_else(|| {
-            DataFusionError::Execution(
-                "Could not cast date_trunc array input to TimestampNanosecondArray"
-                    .to_string(),
-            )
-        })?;
-
     let granularity_array =
-        &args[1]
+        &args[0]
             .as_any()
             .downcast_ref::<StringArray>()
             .ok_or_else(|| {
@@ -228,6 +218,16 @@ pub fn date_trunc(args: &[ArrayRef]) -> Result<TimestampNanosecondArray> {
                         .to_string(),
                 )
             })?;
+
+    let array = &args[1]
+        .as_any()
+        .downcast_ref::<TimestampNanosecondArray>()
+        .ok_or_else(|| {
+            DataFusionError::Execution(
+                "Could not cast date_trunc array input to TimestampNanosecondArray"
+                    .to_string(),
+            )
+        })?;
 
     let range = 0..array.len();
     let result = range
@@ -483,48 +483,56 @@ mod tests {
 
     #[test]
     fn date_trunc_test() -> Result<()> {
-        let mut ts_builder = TimestampNanosecondArray::builder(2);
-        let mut truncated_builder = TimestampNanosecondArray::builder(2);
+        let mut ts_builder = StringBuilder::new(2);
+        let mut truncated_builder = StringBuilder::new(2);
         let mut string_builder = StringBuilder::new(2);
 
         ts_builder.append_null()?;
         truncated_builder.append_null()?;
         string_builder.append_value("second")?;
 
-        ts_builder.append_value(1599572549190855000)?;
-        truncated_builder.append_value(1599572549000000000)?;
+        ts_builder.append_value("2020-09-08T13:42:29.190855Z")?;
+        truncated_builder.append_value("2020-09-08T13:42:29.000000Z")?;
         string_builder.append_value("second")?;
 
-        ts_builder.append_value(1599572549190855000)?;
-        truncated_builder.append_value(1599572520000000000)?;
+        ts_builder.append_value("2020-09-08T13:42:29.190855Z")?;
+        truncated_builder.append_value("2020-09-08T13:42:00.000000Z")?;
         string_builder.append_value("minute")?;
 
-        ts_builder.append_value(1599572549190855000)?;
-        truncated_builder.append_value(1599570000000000000)?;
+        ts_builder.append_value("2020-09-08T13:42:29.190855Z")?;
+        truncated_builder.append_value("2020-09-08T13:00:00.000000Z")?;
         string_builder.append_value("hour")?;
 
-        ts_builder.append_value(1599572549190855000)?;
-        truncated_builder.append_value(1599523200000000000)?;
+        ts_builder.append_value("2020-09-08T13:42:29.190855Z")?;
+        truncated_builder.append_value("2020-09-08T00:00:00.000000Z")?;
         string_builder.append_value("day")?;
 
-        ts_builder.append_value(1599572549190855000)?;
-        truncated_builder.append_value(1599436800000000000)?;
+        ts_builder.append_value("2020-09-08T13:42:29.190855Z")?;
+        truncated_builder.append_value("2020-09-07T00:00:00.000000Z")?;
         string_builder.append_value("week")?;
 
-        ts_builder.append_value(1599572549190855000)?;
-        truncated_builder.append_value(1598918400000000000)?;
+        ts_builder.append_value("2020-09-08T13:42:29.190855Z")?;
+        truncated_builder.append_value("2020-09-01T00:00:00.000000Z")?;
         string_builder.append_value("month")?;
 
-        ts_builder.append_value(1599572549190855000)?;
-        truncated_builder.append_value(1577836800000000000)?;
+        ts_builder.append_value("2020-09-08T13:42:29.190855Z")?;
+        truncated_builder.append_value("2020-01-01T00:00:00.000000Z")?;
         string_builder.append_value("year")?;
 
+        ts_builder.append_value("2021-01-01T13:42:29.190855Z")?;
+        truncated_builder.append_value("2020-12-28T00:00:00.000000Z")?;
+        string_builder.append_value("week")?;
+
+        ts_builder.append_value("2020-01-01T13:42:29.190855Z")?;
+        truncated_builder.append_value("2019-12-30T00:00:00.000000Z")?;
+        string_builder.append_value("week")?;
+
         let string_array = Arc::new(string_builder.finish());
-        let ts_array = Arc::new(ts_builder.finish());
-        let date_trunc_array = date_trunc(&[ts_array, string_array])
+        let ts_array = Arc::new(to_timestamp(&[Arc::new(ts_builder.finish())]).unwrap());
+        let date_trunc_array = date_trunc(&[string_array, ts_array])
             .expect("that to_timestamp parsed values without error");
 
-        let expected_timestamps = truncated_builder.finish();
+        let expected_timestamps = to_timestamp(&[Arc::new(truncated_builder.finish())]).unwrap();
 
         assert_eq!(date_trunc_array, expected_timestamps);
         Ok(())
