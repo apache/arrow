@@ -28,33 +28,6 @@
 #include "gandiva/random_generator_holder.h"
 #include "gandiva/to_date_holder.h"
 
-/// Stub functions that can be accessed from LLVM or the pre-compiled library.
-#define POPULATE_NUMERIC_LIST_TYPE_VECTOR(TYPE, SCALE)                                \
-  int32_t gdv_fn_populate_list_##TYPE##_vector(int64_t context_ptr, int8_t* data_ptr, \
-                                               int32_t* offsets, int64_t slot,        \
-                                               TYPE* entry_buf, int32_t entry_len) {  \
-    auto buffer = reinterpret_cast<arrow::ResizableBuffer*>(data_ptr);                \
-    int32_t offset = static_cast<int32_t>(buffer->size());                            \
-    auto status = buffer->Resize(offset + entry_len * SCALE, false /*shrink*/);       \
-    if (!status.ok()) {                                                               \
-      gandiva::ExecutionContext* context =                                            \
-          reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);                  \
-      context->set_error_msg(status.message().c_str());                               \
-      return -1;                                                                      \
-    }                                                                                 \
-    memcpy(buffer->mutable_data() + offset, (char*)entry_buf, entry_len * SCALE);     \
-    offsets[slot] = offset / SCALE;                                                   \
-    offsets[slot + 1] = offset / SCALE + entry_len;                                   \
-    return 0;                                                                         \
-  }
-
-#define ADD_MAPPING_FOR_NUMERIC_LIST_TYPE_POPULATE_FUNCTION(LLVM_TYPE, DATA_TYPE)      \
-  args = {types->i64_type(), types->i8_ptr_type(),          types->i32_ptr_type(),     \
-          types->i64_type(), types->LLVM_TYPE##_ptr_type(), types->i32_type()};        \
-  engine->AddGlobalMappingForFunc(                                                     \
-      "gdv_fn_populate_list_" #DATA_TYPE "_vector", types->i32_type() /*return_type*/, \
-      args, reinterpret_cast<void*>(gdv_fn_populate_list_##DATA_TYPE##_vector));
-
 extern "C" {
 
 bool gdv_fn_like_utf8_utf8(int64_t ptr, const char* data, int data_len,
@@ -146,6 +119,26 @@ int32_t gdv_fn_populate_varlen_vector(int64_t context_ptr, int8_t* data_ptr,
   offsets[slot + 1] = offset + entry_len;
   return 0;
 }
+
+/// Stub functions that can be accessed from LLVM or the pre-compiled library.
+#define POPULATE_NUMERIC_LIST_TYPE_VECTOR(TYPE, SCALE)                                \
+  int32_t gdv_fn_populate_list_##TYPE##_vector(int64_t context_ptr, int8_t* data_ptr, \
+                                               int32_t* offsets, int64_t slot,        \
+                                               TYPE* entry_buf, int32_t entry_len) {  \
+    auto buffer = reinterpret_cast<arrow::ResizableBuffer*>(data_ptr);                \
+    int32_t offset = static_cast<int32_t>(buffer->size());                            \
+    auto status = buffer->Resize(offset + entry_len * SCALE, false /*shrink*/);       \
+    if (!status.ok()) {                                                               \
+      gandiva::ExecutionContext* context =                                            \
+          reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);                  \
+      context->set_error_msg(status.message().c_str());                               \
+      return -1;                                                                      \
+    }                                                                                 \
+    memcpy(buffer->mutable_data() + offset, (char*)entry_buf, entry_len * SCALE);     \
+    offsets[slot] = offset / SCALE;                                                   \
+    offsets[slot + 1] = offset / SCALE + entry_len;                                   \
+    return 0;                                                                         \
+  }
 
 POPULATE_NUMERIC_LIST_TYPE_VECTOR(int32_t, 4)
 POPULATE_NUMERIC_LIST_TYPE_VECTOR(int64_t, 8)
@@ -272,6 +265,7 @@ CAST_NUMERIC_FROM_STRING(float, arrow::FloatType, FLOAT4)
 CAST_NUMERIC_FROM_STRING(double, arrow::DoubleType, FLOAT8)
 
 #undef CAST_NUMERIC_FROM_STRING
+#undef POPULATE_NUMERIC_LIST_TYPE_VECTOR
 }
 
 namespace gandiva {
@@ -379,6 +373,13 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
                                   types->i1_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(gdv_fn_in_expr_lookup_utf8));
 
+#define ADD_MAPPING_FOR_NUMERIC_LIST_TYPE_POPULATE_FUNCTION(LLVM_TYPE, DATA_TYPE)      \
+  args = {types->i64_type(), types->i8_ptr_type(),          types->i32_ptr_type(),     \
+          types->i64_type(), types->LLVM_TYPE##_ptr_type(), types->i32_type()};        \
+  engine->AddGlobalMappingForFunc(                                                     \
+      "gdv_fn_populate_list_" #DATA_TYPE "_vector", types->i32_type() /*return_type*/, \
+      args, reinterpret_cast<void*>(gdv_fn_populate_list_##DATA_TYPE##_vector));
+
   ADD_MAPPING_FOR_NUMERIC_LIST_TYPE_POPULATE_FUNCTION(i32, int32_t)
   ADD_MAPPING_FOR_NUMERIC_LIST_TYPE_POPULATE_FUNCTION(i64, int64_t)
   ADD_MAPPING_FOR_NUMERIC_LIST_TYPE_POPULATE_FUNCTION(float, float)
@@ -447,5 +448,6 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc("gdv_fn_castFLOAT8_utf8", types->double_type(), args,
                                   reinterpret_cast<void*>(gdv_fn_castFLOAT8_utf8));
 }
+#undef ADD_MAPPING_FOR_NUMERIC_LIST_TYPE_POPULATE_FUNCTION
 
 }  // namespace gandiva

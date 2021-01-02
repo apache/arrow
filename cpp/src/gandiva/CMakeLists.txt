@@ -67,9 +67,11 @@ set(SRC_FILES
     expression_registry.cc
     exported_funcs_registry.cc
     filter.cc
+    array_ops.cc
     function_ir_builder.cc
     function_registry.cc
     function_registry_arithmetic.cc
+    function_registry_array.cc
     function_registry_datetime.cc
     function_registry_hash.cc
     function_registry_math_ops.cc
@@ -226,6 +228,7 @@ add_gandiva_test(internals-test
                  decimal_type_util_test.cc
                  random_generator_holder_test.cc
                  gdv_function_stubs_test.cc
+                 array_ops_test.cc
                  EXTRA_DEPENDENCIES
                  LLVM::LLVM_INTERFACE
                  EXTRA_INCLUDES

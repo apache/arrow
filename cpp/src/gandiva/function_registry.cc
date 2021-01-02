@@ -16,16 +16,18 @@
 // under the License.
 
 #include "gandiva/function_registry.h"
+
+#include <iterator>
+#include <utility>
+#include <vector>
+
 #include "gandiva/function_registry_arithmetic.h"
+#include "gandiva/function_registry_array.h"
 #include "gandiva/function_registry_datetime.h"
 #include "gandiva/function_registry_hash.h"
 #include "gandiva/function_registry_math_ops.h"
 #include "gandiva/function_registry_string.h"
 #include "gandiva/function_registry_timestamp_arithmetic.h"
-
-#include <iterator>
-#include <utility>
-#include <vector>
 
 namespace gandiva {
 
@@ -64,6 +66,9 @@ SignatureMap FunctionRegistry::InitPCMap() {
 
   auto v6 = GetDateTimeArithmeticFunctionRegistry();
   pc_registry_.insert(std::end(pc_registry_), v6.begin(), v6.end());
+
+  auto v7 = GetArrayFunctionRegistry();
+  pc_registry_.insert(std::end(pc_registry_), v7.begin(), v7.end());
 
   for (auto& elem : pc_registry_) {
     for (auto& func_signature : elem.signatures()) {
