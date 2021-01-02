@@ -197,44 +197,6 @@ garrow_array_builder_append_values(GArrowArrayBuilder *builder,
   return garrow_error_check(error, status, context);
 }
 
-template <typename BUILDER>
-gboolean
-garrow_array_builder_append_null(GArrowArrayBuilder *builder,
-                                 GError **error,
-                                 const gchar *context)
-{
-  auto arrow_builder =
-    static_cast<BUILDER>(garrow_array_builder_get_raw(builder));
-  auto status = arrow_builder->AppendNull();
-  return garrow_error_check(error, status, context);
-}
-
-template <typename BUILDER>
-gboolean
-garrow_array_builder_append_nulls(GArrowArrayBuilder *builder,
-                                  gint64 n,
-                                  GError **error,
-                                  const gchar *context)
-{
-  if (n < 0) {
-    g_set_error(error,
-                GARROW_ERROR,
-                GARROW_ERROR_INVALID,
-                "%s: the number of nulls must be 0 or larger: "
-                "<%" G_GINT64_FORMAT ">",
-                context,
-                n);
-    return FALSE;
-  }
-  if (n == 0) {
-    return TRUE;
-  }
-
-  auto arrow_builder =
-    static_cast<BUILDER>(garrow_array_builder_get_raw(builder));
-  auto status = arrow_builder->AppendNulls(n);
-  return garrow_error_check(error, status, context);
-}
 
 G_BEGIN_DECLS
 
@@ -615,6 +577,63 @@ garrow_array_builder_reserve(GArrowArrayBuilder *builder,
   return garrow_error_check(error, status, "[array-builder][reserve]");
 }
 
+/**
+ * garrow_array_builder_append_null:
+ * @builder: A #GArrowArrayBuilder.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 3.0.0
+ */
+gboolean
+garrow_array_builder_append_null(GArrowArrayBuilder *builder,
+                                 GError **error)
+{
+  auto arrow_builder = garrow_array_builder_get_raw(builder);
+  auto status = arrow_builder->AppendNull();
+  return garrow_error_check(error, status, "[array-builder][append-null]");
+}
+
+/**
+ * garrow_array_builder_append_nulls:
+ * @builder: A #GArrowArrayBuilder.
+ * @n: The number of null values to be appended.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Append multiple nulls at once. It's more efficient than multiple
+ * garrow_array_builder_append_null() calls.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 3.0.0
+ */
+gboolean
+garrow_array_builder_append_nulls(GArrowArrayBuilder *builder,
+                                  gint64 n,
+                                  GError **error)
+{
+  const gchar *context = "[array-builder][append-nulls]";
+  if (n < 0) {
+    g_set_error(error,
+                GARROW_ERROR,
+                GARROW_ERROR_INVALID,
+                "%s: the number of nulls must be 0 or larger: "
+                "<%" G_GINT64_FORMAT ">",
+                context,
+                n);
+    return FALSE;
+  }
+  if (n == 0) {
+    return TRUE;
+  }
+
+  auto arrow_builder = garrow_array_builder_get_raw(builder);
+  auto status = arrow_builder->AppendNulls(n);
+  return garrow_error_check(error, status, context);
+}
+
+
 G_DEFINE_TYPE(GArrowNullArrayBuilder,
               garrow_null_array_builder,
               GARROW_TYPE_ARRAY_BUILDER)
@@ -646,26 +665,26 @@ garrow_null_array_builder_new(void)
 }
 
 /**
- * garrow_null_array_builder_append_null:
+ * garrow_null_array_builder_append_null: (skip)
  * @builder: A #GArrowNullArrayBuilder.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
  * Since: 0.13.0
+ *
+ * Deprecated: 3.0.0:
+ *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
 garrow_null_array_builder_append_null(GArrowNullArrayBuilder *builder,
                                       GError **error)
 {
-  return garrow_array_builder_append_null<arrow::NullBuilder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     error,
-     "[null-array-builder][append-null]");
+  return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
 
 /**
- * garrow_null_array_builder_append_nulls:
+ * garrow_null_array_builder_append_nulls: (skip)
  * @builder: A #GArrowNullArrayBuilder.
  * @n: The number of null values to be appended.
  * @error: (nullable): Return location for a #GError or %NULL.
@@ -676,17 +695,18 @@ garrow_null_array_builder_append_null(GArrowNullArrayBuilder *builder,
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
  * Since: 0.13.0
+ *
+ * Deprecated: 3.0.0:
+ *   Use garrow_array_builder_append_nulls() instead.
  */
 gboolean
 garrow_null_array_builder_append_nulls(GArrowNullArrayBuilder *builder,
                                        gint64 n,
                                        GError **error)
 {
-  return garrow_array_builder_append_nulls<arrow::NullBuilder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     n,
-     error,
-     "[null-array-builder][append-nulls]");
+  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder),
+                                           n,
+                                           error);
 }
 
 
@@ -801,24 +821,24 @@ garrow_boolean_array_builder_append_values(GArrowBooleanArrayBuilder *builder,
 }
 
 /**
- * garrow_boolean_array_builder_append_null:
+ * garrow_boolean_array_builder_append_null: (skip)
  * @builder: A #GArrowBooleanArrayBuilder.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Deprecated: 3.0.0:
+ *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
 garrow_boolean_array_builder_append_null(GArrowBooleanArrayBuilder *builder,
                                          GError **error)
 {
-  return garrow_array_builder_append_null<arrow::BooleanBuilder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     error,
-     "[boolean-array-builder][append-null]");
+  return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
 
 /**
- * garrow_boolean_array_builder_append_nulls:
+ * garrow_boolean_array_builder_append_nulls: (skip)
  * @builder: A #GArrowBooleanArrayBuilder.
  * @n: The number of null values to be appended.
  * @error: (nullable): Return location for a #GError or %NULL.
@@ -829,17 +849,18 @@ garrow_boolean_array_builder_append_null(GArrowBooleanArrayBuilder *builder,
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
  * Since: 0.8.0
+ *
+ * Deprecated: 3.0.0:
+ *   Use garrow_array_builder_append_nulls() instead.
  */
 gboolean
 garrow_boolean_array_builder_append_nulls(GArrowBooleanArrayBuilder *builder,
                                           gint64 n,
                                           GError **error)
 {
-  return garrow_array_builder_append_nulls<arrow::BooleanBuilder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     n,
-     error,
-     "[boolean-array-builder][append-nulls]");
+  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder),
+                                           n,
+                                           error);
 }
 
 
@@ -955,26 +976,26 @@ garrow_int_array_builder_append_values(GArrowIntArrayBuilder *builder,
 }
 
 /**
- * garrow_int_array_builder_append_null:
+ * garrow_int_array_builder_append_null: (skip)
  * @builder: A #GArrowIntArrayBuilder.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
  * Since: 0.6.0
+ *
+ * Deprecated: 3.0.0:
+ *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
 garrow_int_array_builder_append_null(GArrowIntArrayBuilder *builder,
                                      GError **error)
 {
-  return garrow_array_builder_append_null<arrow::AdaptiveIntBuilder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     error,
-     "[int-array-builder][append-null]");
+  return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
 
 /**
- * garrow_int_array_builder_append_nulls:
+ * garrow_int_array_builder_append_nulls: (skip)
  * @builder: A #GArrowIntArrayBuilder.
  * @n: The number of null values to be appended.
  * @error: (nullable): Return location for a #GError or %NULL.
@@ -985,17 +1006,18 @@ garrow_int_array_builder_append_null(GArrowIntArrayBuilder *builder,
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
  * Since: 0.8.0
+ *
+ * Deprecated: 3.0.0:
+ *   Use garrow_array_builder_append_nulls() instead.
  */
 gboolean
 garrow_int_array_builder_append_nulls(GArrowIntArrayBuilder *builder,
                                       gint64 n,
                                       GError **error)
 {
-  return garrow_array_builder_append_nulls<arrow::AdaptiveIntBuilder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     n,
-     error,
-     "[int-array-builder][append-nulls]");
+  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder),
+                                           n,
+                                           error);
 }
 
 
@@ -1111,26 +1133,26 @@ garrow_uint_array_builder_append_values(GArrowUIntArrayBuilder *builder,
 }
 
 /**
- * garrow_uint_array_builder_append_null:
+ * garrow_uint_array_builder_append_null: (skip)
  * @builder: A #GArrowUIntArrayBuilder.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
  * Since: 0.8.0
+ *
+ * Deprecated: 3.0.0:
+ *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
 garrow_uint_array_builder_append_null(GArrowUIntArrayBuilder *builder,
                                       GError **error)
 {
-  return garrow_array_builder_append_null<arrow::AdaptiveUIntBuilder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     error,
-     "[uint-array-builder][append-null]");
+  return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
 
 /**
- * garrow_uint_array_builder_append_nulls:
+ * garrow_uint_array_builder_append_nulls: (skip)
  * @builder: A #GArrowUIntArrayBuilder.
  * @n: The number of null values to be appended.
  * @error: (nullable): Return location for a #GError or %NULL.
@@ -1141,17 +1163,18 @@ garrow_uint_array_builder_append_null(GArrowUIntArrayBuilder *builder,
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
  * Since: 0.8.0
+ *
+ * Deprecated: 3.0.0:
+ *   Use garrow_array_builder_append_nulls() instead.
  */
 gboolean
 garrow_uint_array_builder_append_nulls(GArrowUIntArrayBuilder *builder,
                                        gint64 n,
                                        GError **error)
 {
-  return garrow_array_builder_append_nulls<arrow::AdaptiveUIntBuilder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     n,
-     error,
-     "[uint-array-builder][append-nulls]");
+  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder),
+                                           n,
+                                           error);
 }
 
 
@@ -1262,24 +1285,24 @@ garrow_int8_array_builder_append_values(GArrowInt8ArrayBuilder *builder,
 }
 
 /**
- * garrow_int8_array_builder_append_null:
+ * garrow_int8_array_builder_append_null: (skip)
  * @builder: A #GArrowInt8ArrayBuilder.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Deprecated: 3.0.0:
+ *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
 garrow_int8_array_builder_append_null(GArrowInt8ArrayBuilder *builder,
                                       GError **error)
 {
-  return garrow_array_builder_append_null<arrow::Int8Builder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     error,
-     "[int8-array-builder][append-null]");
+  return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
 
 /**
- * garrow_int8_array_builder_append_nulls:
+ * garrow_int8_array_builder_append_nulls: (skip)
  * @builder: A #GArrowInt8ArrayBuilder.
  * @n: The number of null values to be appended.
  * @error: (nullable): Return location for a #GError or %NULL.
@@ -1290,17 +1313,18 @@ garrow_int8_array_builder_append_null(GArrowInt8ArrayBuilder *builder,
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
  * Since: 0.8.0
+ *
+ * Deprecated: 3.0.0:
+ *   Use garrow_array_builder_append_nulls() instead.
  */
 gboolean
 garrow_int8_array_builder_append_nulls(GArrowInt8ArrayBuilder *builder,
                                        gint64 n,
                                        GError **error)
 {
-  return garrow_array_builder_append_nulls<arrow::Int8Builder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     n,
-     error,
-     "[int8-array-builder][append-nulls]");
+  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder),
+                                           n,
+                                           error);
 }
 
 
@@ -1411,24 +1435,24 @@ garrow_uint8_array_builder_append_values(GArrowUInt8ArrayBuilder *builder,
 }
 
 /**
- * garrow_uint8_array_builder_append_null:
+ * garrow_uint8_array_builder_append_null: (skip)
  * @builder: A #GArrowUInt8ArrayBuilder.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Deprecated: 3.0.0:
+ *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
 garrow_uint8_array_builder_append_null(GArrowUInt8ArrayBuilder *builder,
                                        GError **error)
 {
-  return garrow_array_builder_append_null<arrow::UInt8Builder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     error,
-     "[uint8-array-builder][append-null]");
+  return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
 
 /**
- * garrow_uint8_array_builder_append_nulls:
+ * garrow_uint8_array_builder_append_nulls: (skip)
  * @builder: A #GArrowUInt8ArrayBuilder.
  * @n: The number of null values to be appended.
  * @error: (nullable): Return location for a #GError or %NULL.
@@ -1439,17 +1463,18 @@ garrow_uint8_array_builder_append_null(GArrowUInt8ArrayBuilder *builder,
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
  * Since: 0.8.0
+ *
+ * Deprecated: 3.0.0:
+ *   Use garrow_array_builder_append_nulls() instead.
  */
 gboolean
 garrow_uint8_array_builder_append_nulls(GArrowUInt8ArrayBuilder *builder,
                                         gint64 n,
                                         GError **error)
 {
-  return garrow_array_builder_append_nulls<arrow::UInt8Builder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     n,
-     error,
-     "[uint8-array-builder][append-nulls]");
+  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder),
+                                           n,
+                                           error);
 }
 
 
@@ -1560,24 +1585,24 @@ garrow_int16_array_builder_append_values(GArrowInt16ArrayBuilder *builder,
 }
 
 /**
- * garrow_int16_array_builder_append_null:
+ * garrow_int16_array_builder_append_null: (skip)
  * @builder: A #GArrowInt16ArrayBuilder.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Deprecated: 3.0.0:
+ *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
 garrow_int16_array_builder_append_null(GArrowInt16ArrayBuilder *builder,
                                        GError **error)
 {
-  return garrow_array_builder_append_null<arrow::Int16Builder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     error,
-     "[int16-array-builder][append-null]");
+  return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
 
 /**
- * garrow_int16_array_builder_append_nulls:
+ * garrow_int16_array_builder_append_nulls: (skip)
  * @builder: A #GArrowInt16ArrayBuilder.
  * @n: The number of null values to be appended.
  * @error: (nullable): Return location for a #GError or %NULL.
@@ -1588,17 +1613,18 @@ garrow_int16_array_builder_append_null(GArrowInt16ArrayBuilder *builder,
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
  * Since: 0.8.0
+ *
+ * Deprecated: 3.0.0:
+ *   Use garrow_array_builder_append_nulls() instead.
  */
 gboolean
 garrow_int16_array_builder_append_nulls(GArrowInt16ArrayBuilder *builder,
                                         gint64 n,
                                         GError **error)
 {
-  return garrow_array_builder_append_nulls<arrow::Int16Builder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     n,
-     error,
-     "[int16-array-builder][append-nulls]");
+  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder),
+                                           n,
+                                           error);
 }
 
 
@@ -1709,24 +1735,24 @@ garrow_uint16_array_builder_append_values(GArrowUInt16ArrayBuilder *builder,
 }
 
 /**
- * garrow_uint16_array_builder_append_null:
+ * garrow_uint16_array_builder_append_null: (skip)
  * @builder: A #GArrowUInt16ArrayBuilder.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Deprecated: 3.0.0:
+ *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
 garrow_uint16_array_builder_append_null(GArrowUInt16ArrayBuilder *builder,
                                         GError **error)
 {
-  return garrow_array_builder_append_null<arrow::UInt16Builder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     error,
-     "[uint16-array-builder][append-null]");
+  return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
 
 /**
- * garrow_uint16_array_builder_append_nulls:
+ * garrow_uint16_array_builder_append_nulls: (skip)
  * @builder: A #GArrowUInt16ArrayBuilder.
  * @n: The number of null values to be appended.
  * @error: (nullable): Return location for a #GError or %NULL.
@@ -1737,17 +1763,18 @@ garrow_uint16_array_builder_append_null(GArrowUInt16ArrayBuilder *builder,
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
  * Since: 0.8.0
+ *
+ * Deprecated: 3.0.0:
+ *   Use garrow_array_builder_append_nulls() instead.
  */
 gboolean
 garrow_uint16_array_builder_append_nulls(GArrowUInt16ArrayBuilder *builder,
                                          gint64 n,
                                          GError **error)
 {
-  return garrow_array_builder_append_nulls<arrow::UInt16Builder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     n,
-     error,
-     "[uint16-array-builder][append-nulls]");
+  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder),
+                                           n,
+                                           error);
 }
 
 
@@ -1858,24 +1885,24 @@ garrow_int32_array_builder_append_values(GArrowInt32ArrayBuilder *builder,
 }
 
 /**
- * garrow_int32_array_builder_append_null:
+ * garrow_int32_array_builder_append_null: (skip)
  * @builder: A #GArrowInt32ArrayBuilder.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Deprecated: 3.0.0:
+ *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
 garrow_int32_array_builder_append_null(GArrowInt32ArrayBuilder *builder,
                                        GError **error)
 {
-  return garrow_array_builder_append_null<arrow::Int32Builder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     error,
-     "[int32-array-builder][append-null]");
+  return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
 
 /**
- * garrow_int32_array_builder_append_nulls:
+ * garrow_int32_array_builder_append_nulls: (skip)
  * @builder: A #GArrowInt32ArrayBuilder.
  * @n: The number of null values to be appended.
  * @error: (nullable): Return location for a #GError or %NULL.
@@ -1886,17 +1913,18 @@ garrow_int32_array_builder_append_null(GArrowInt32ArrayBuilder *builder,
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
  * Since: 0.8.0
+ *
+ * Deprecated: 3.0.0:
+ *   Use garrow_array_builder_append_nulls() instead.
  */
 gboolean
 garrow_int32_array_builder_append_nulls(GArrowInt32ArrayBuilder *builder,
                                         gint64 n,
                                         GError **error)
 {
-  return garrow_array_builder_append_nulls<arrow::Int32Builder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     n,
-     error,
-     "[int32-array-builder][append-nulls]");
+  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder),
+                                           n,
+                                           error);
 }
 
 
@@ -2007,24 +2035,24 @@ garrow_uint32_array_builder_append_values(GArrowUInt32ArrayBuilder *builder,
 }
 
 /**
- * garrow_uint32_array_builder_append_null:
+ * garrow_uint32_array_builder_append_null: (skip)
  * @builder: A #GArrowUInt32ArrayBuilder.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Deprecated: 3.0.0:
+ *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
 garrow_uint32_array_builder_append_null(GArrowUInt32ArrayBuilder *builder,
                                         GError **error)
 {
-  return garrow_array_builder_append_null<arrow::UInt32Builder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     error,
-     "[uint32-array-builder][append-null]");
+  return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
 
 /**
- * garrow_uint32_array_builder_append_nulls:
+ * garrow_uint32_array_builder_append_nulls: (skip)
  * @builder: A #GArrowUInt32ArrayBuilder.
  * @n: The number of null values to be appended.
  * @error: (nullable): Return location for a #GError or %NULL.
@@ -2035,17 +2063,18 @@ garrow_uint32_array_builder_append_null(GArrowUInt32ArrayBuilder *builder,
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
  * Since: 0.8.0
+ *
+ * Deprecated: 3.0.0:
+ *   Use garrow_array_builder_append_nulls() instead.
  */
 gboolean
 garrow_uint32_array_builder_append_nulls(GArrowUInt32ArrayBuilder *builder,
                                          gint64 n,
                                          GError **error)
 {
-  return garrow_array_builder_append_nulls<arrow::UInt32Builder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     n,
-     error,
-     "[uint32-array-builder][append-nulls]");
+  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder),
+                                           n,
+                                           error);
 }
 
 
@@ -2156,24 +2185,24 @@ garrow_int64_array_builder_append_values(GArrowInt64ArrayBuilder *builder,
 }
 
 /**
- * garrow_int64_array_builder_append_null:
+ * garrow_int64_array_builder_append_null: (skip)
  * @builder: A #GArrowInt64ArrayBuilder.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Deprecated: 3.0.0:
+ *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
 garrow_int64_array_builder_append_null(GArrowInt64ArrayBuilder *builder,
                                        GError **error)
 {
-  return garrow_array_builder_append_null<arrow::Int64Builder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     error,
-     "[int64-array-builder][append-null]");
+  return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
 
 /**
- * garrow_int64_array_builder_append_nulls:
+ * garrow_int64_array_builder_append_nulls: (skip)
  * @builder: A #GArrowInt64ArrayBuilder.
  * @n: The number of null values to be appended.
  * @error: (nullable): Return location for a #GError or %NULL.
@@ -2184,17 +2213,18 @@ garrow_int64_array_builder_append_null(GArrowInt64ArrayBuilder *builder,
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
  * Since: 0.8.0
+ *
+ * Deprecated: 3.0.0:
+ *   Use garrow_array_builder_append_nulls() instead.
  */
 gboolean
 garrow_int64_array_builder_append_nulls(GArrowInt64ArrayBuilder *builder,
                                         gint64 n,
                                         GError **error)
 {
-  return garrow_array_builder_append_nulls<arrow::Int64Builder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     n,
-     error,
-     "[int64-array-builder][append-nulls]");
+  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder),
+                                           n,
+                                           error);
 }
 
 
@@ -2305,24 +2335,24 @@ garrow_uint64_array_builder_append_values(GArrowUInt64ArrayBuilder *builder,
 }
 
 /**
- * garrow_uint64_array_builder_append_null:
+ * garrow_uint64_array_builder_append_null: (skip)
  * @builder: A #GArrowUInt64ArrayBuilder.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Deprecated: 3.0.0:
+ *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
 garrow_uint64_array_builder_append_null(GArrowUInt64ArrayBuilder *builder,
                                         GError **error)
 {
-  return garrow_array_builder_append_null<arrow::UInt64Builder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     error,
-     "[uint64-array-builder][append-null]");
+  return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
 
 /**
- * garrow_uint64_array_builder_append_nulls:
+ * garrow_uint64_array_builder_append_nulls: (skip)
  * @builder: A #GArrowUInt64ArrayBuilder.
  * @n: The number of null values to be appended.
  * @error: (nullable): Return location for a #GError or %NULL.
@@ -2333,17 +2363,18 @@ garrow_uint64_array_builder_append_null(GArrowUInt64ArrayBuilder *builder,
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
  * Since: 0.8.0
+ *
+ * Deprecated: 3.0.0:
+ *   Use garrow_array_builder_append_nulls() instead.
  */
 gboolean
 garrow_uint64_array_builder_append_nulls(GArrowUInt64ArrayBuilder *builder,
                                          gint64 n,
                                          GError **error)
 {
-  return garrow_array_builder_append_nulls<arrow::UInt64Builder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     n,
-     error,
-     "[uint64-array-builder][append-nulls]");
+  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder),
+                                           n,
+                                           error);
 }
 
 
@@ -2454,24 +2485,24 @@ garrow_float_array_builder_append_values(GArrowFloatArrayBuilder *builder,
 }
 
 /**
- * garrow_float_array_builder_append_null:
+ * garrow_float_array_builder_append_null: (skip)
  * @builder: A #GArrowFloatArrayBuilder.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Deprecated: 3.0.0:
+ *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
 garrow_float_array_builder_append_null(GArrowFloatArrayBuilder *builder,
                                        GError **error)
 {
-  return garrow_array_builder_append_null<arrow::FloatBuilder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     error,
-     "[float-array-builder][append-null]");
+  return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
 
 /**
- * garrow_float_array_builder_append_nulls:
+ * garrow_float_array_builder_append_nulls: (skip)
  * @builder: A #GArrowFloatArrayBuilder.
  * @n: The number of null values to be appended.
  * @error: (nullable): Return location for a #GError or %NULL.
@@ -2482,17 +2513,18 @@ garrow_float_array_builder_append_null(GArrowFloatArrayBuilder *builder,
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
  * Since: 0.8.0
+ *
+ * Deprecated: 3.0.0:
+ *   Use garrow_array_builder_append_nulls() instead.
  */
 gboolean
 garrow_float_array_builder_append_nulls(GArrowFloatArrayBuilder *builder,
                                         gint64 n,
                                         GError **error)
 {
-  return garrow_array_builder_append_nulls<arrow::FloatBuilder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     n,
-     error,
-     "[float-array-builder][append-nulls]");
+  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder),
+                                           n,
+                                           error);
 }
 
 
@@ -2603,24 +2635,24 @@ garrow_double_array_builder_append_values(GArrowDoubleArrayBuilder *builder,
 }
 
 /**
- * garrow_double_array_builder_append_null:
+ * garrow_double_array_builder_append_null: (skip)
  * @builder: A #GArrowDoubleArrayBuilder.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Deprecated: 3.0.0:
+ *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
 garrow_double_array_builder_append_null(GArrowDoubleArrayBuilder *builder,
                                         GError **error)
 {
-  return garrow_array_builder_append_null<arrow::DoubleBuilder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     error,
-     "[double-array-builder][append-null]");
+  return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
 
 /**
- * garrow_double_array_builder_append_nulls:
+ * garrow_double_array_builder_append_nulls: (skip)
  * @builder: A #GArrowDoubleArrayBuilder.
  * @n: The number of null values to be appended.
  * @error: (nullable): Return location for a #GError or %NULL.
@@ -2631,17 +2663,18 @@ garrow_double_array_builder_append_null(GArrowDoubleArrayBuilder *builder,
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
  * Since: 0.8.0
+ *
+ * Deprecated: 3.0.0:
+ *   Use garrow_array_builder_append_nulls() instead.
  */
 gboolean
 garrow_double_array_builder_append_nulls(GArrowDoubleArrayBuilder *builder,
                                          gint64 n,
                                          GError **error)
 {
-  return garrow_array_builder_append_nulls<arrow::DoubleBuilder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     n,
-     error,
-     "[double-array-builder][append-nulls]");
+  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder),
+                                           n,
+                                           error);
 }
 
 
@@ -2787,24 +2820,24 @@ garrow_binary_array_builder_append_values(GArrowBinaryArrayBuilder *builder,
 }
 
 /**
- * garrow_binary_array_builder_append_null:
+ * garrow_binary_array_builder_append_null: (skip)
  * @builder: A #GArrowBinaryArrayBuilder.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Deprecated: 3.0.0:
+ *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
 garrow_binary_array_builder_append_null(GArrowBinaryArrayBuilder *builder,
                                         GError **error)
 {
-  return garrow_array_builder_append_null<arrow::BinaryBuilder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     error,
-     "[binary-array-builder][append-null]");
+  return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
 
 /**
- * garrow_binary_array_builder_append_nulls:
+ * garrow_binary_array_builder_append_nulls: (skip)
  * @builder: A #GArrowBinaryArrayBuilder.
  * @n: The number of null values to be appended.
  * @error: (nullable): Return location for a #GError or %NULL.
@@ -2812,17 +2845,18 @@ garrow_binary_array_builder_append_null(GArrowBinaryArrayBuilder *builder,
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
  * Since: 0.16.0
+ *
+ * Deprecated: 3.0.0:
+ *   Use garrow_array_builder_append_nulls() instead.
  */
 gboolean
 garrow_binary_array_builder_append_nulls(GArrowBinaryArrayBuilder *builder,
                                          gint64 n,
                                          GError **error)
 {
-  return garrow_array_builder_append_nulls<arrow::BinaryBuilder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     n,
-     error,
-     "[binary-array-builder][append-nulls]");
+  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder),
+                                           n,
+                                           error);
 }
 
 
@@ -2949,26 +2983,26 @@ garrow_large_binary_array_builder_append_values(GArrowLargeBinaryArrayBuilder *b
 }
 
 /**
- * garrow_large_binary_array_builder_append_null:
+ * garrow_large_binary_array_builder_append_null: (skip)
  * @builder: A #GArrowLargeBinaryArrayBuilder.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
  * Since: 0.16.0
+ *
+ * Deprecated: 3.0.0:
+ *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
 garrow_large_binary_array_builder_append_null(GArrowLargeBinaryArrayBuilder *builder,
                                               GError **error)
 {
-  return garrow_array_builder_append_null<arrow::LargeBinaryBuilder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     error,
-     "[large-binary-array-builder][append-null]");
+  return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
 
 /**
- * garrow_large_binary_array_builder_append_nulls:
+ * garrow_large_binary_array_builder_append_nulls: (skip)
  * @builder: A #GArrowLargeBinaryArrayBuilder.
  * @n: The number of null values to be appended.
  * @error: (nullable): Return location for a #GError or %NULL.
@@ -2976,17 +3010,18 @@ garrow_large_binary_array_builder_append_null(GArrowLargeBinaryArrayBuilder *bui
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
  * Since: 0.16.0
+ *
+ * Deprecated: 3.0.0:
+ *   Use garrow_array_builder_append_nulls() instead.
  */
 gboolean
 garrow_large_binary_array_builder_append_nulls(GArrowLargeBinaryArrayBuilder *builder,
                                                gint64 n,
                                                GError **error)
 {
-  return garrow_array_builder_append_nulls<arrow::LargeBinaryBuilder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     n,
-     error,
-     "[large-binary-array-builder][append-nulls]");
+  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder),
+                                           n,
+                                           error);
 }
 
 
@@ -3364,26 +3399,26 @@ garrow_date32_array_builder_append_values(GArrowDate32ArrayBuilder *builder,
 }
 
 /**
- * garrow_date32_array_builder_append_null:
+ * garrow_date32_array_builder_append_null: (skip)
  * @builder: A #GArrowDate32ArrayBuilder.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
  * Since: 0.7.0
+ *
+ * Deprecated: 3.0.0:
+ *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
 garrow_date32_array_builder_append_null(GArrowDate32ArrayBuilder *builder,
                                         GError **error)
 {
-  return garrow_array_builder_append_null<arrow::Date32Builder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     error,
-     "[date32-array-builder][append-null]");
+  return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
 
 /**
- * garrow_date32_array_builder_append_nulls:
+ * garrow_date32_array_builder_append_nulls: (skip)
  * @builder: A #GArrowDate32ArrayBuilder.
  * @n: The number of null values to be appended.
  * @error: (nullable): Return location for a #GError or %NULL.
@@ -3394,17 +3429,18 @@ garrow_date32_array_builder_append_null(GArrowDate32ArrayBuilder *builder,
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
  * Since: 0.8.0
+ *
+ * Deprecated: 3.0.0:
+ *   Use garrow_array_builder_append_nulls() instead.
  */
 gboolean
 garrow_date32_array_builder_append_nulls(GArrowDate32ArrayBuilder *builder,
                                          gint64 n,
                                          GError **error)
 {
-  return garrow_array_builder_append_nulls<arrow::Date32Builder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     n,
-     error,
-     "[date32-array-builder][append-nulls]");
+  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder),
+                                           n,
+                                           error);
 }
 
 
@@ -3520,26 +3556,26 @@ garrow_date64_array_builder_append_values(GArrowDate64ArrayBuilder *builder,
 }
 
 /**
- * garrow_date64_array_builder_append_null:
+ * garrow_date64_array_builder_append_null: (skip)
  * @builder: A #GArrowDate64ArrayBuilder.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
  * Since: 0.7.0
+ *
+ * Deprecated: 3.0.0:
+ *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
 garrow_date64_array_builder_append_null(GArrowDate64ArrayBuilder *builder,
                                         GError **error)
 {
-  return garrow_array_builder_append_null<arrow::Date64Builder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     error,
-     "[date64-array-builder][append-null]");
+  return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
 
 /**
- * garrow_date64_array_builder_append_nulls:
+ * garrow_date64_array_builder_append_nulls: (skip)
  * @builder: A #GArrowDate64ArrayBuilder.
  * @n: The number of null values to be appended.
  * @error: (nullable): Return location for a #GError or %NULL.
@@ -3550,17 +3586,18 @@ garrow_date64_array_builder_append_null(GArrowDate64ArrayBuilder *builder,
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
  * Since: 0.8.0
+ *
+ * Deprecated: 3.0.0:
+ *   Use garrow_array_builder_append_nulls() instead.
  */
 gboolean
 garrow_date64_array_builder_append_nulls(GArrowDate64ArrayBuilder *builder,
                                          gint64 n,
                                          GError **error)
 {
-  return garrow_array_builder_append_nulls<arrow::Date64Builder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     n,
-     error,
-     "[date64-array-builder][append-nulls]");
+  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder),
+                                           n,
+                                           error);
 }
 
 
@@ -3678,26 +3715,26 @@ garrow_timestamp_array_builder_append_values(GArrowTimestampArrayBuilder *builde
 }
 
 /**
- * garrow_timestamp_array_builder_append_null:
+ * garrow_timestamp_array_builder_append_null: (skip)
  * @builder: A #GArrowTimestampArrayBuilder.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
  * Since: 0.7.0
+ *
+ * Deprecated: 3.0.0:
+ *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
 garrow_timestamp_array_builder_append_null(GArrowTimestampArrayBuilder *builder,
                                            GError **error)
 {
-  return garrow_array_builder_append_null<arrow::TimestampBuilder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     error,
-     "[timestamp-array-builder][append-null]");
+  return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
 
 /**
- * garrow_timestamp_array_builder_append_nulls:
+ * garrow_timestamp_array_builder_append_nulls: (skip)
  * @builder: A #GArrowTimestampArrayBuilder.
  * @n: The number of null values to be appended.
  * @error: (nullable): Return location for a #GError or %NULL.
@@ -3708,17 +3745,18 @@ garrow_timestamp_array_builder_append_null(GArrowTimestampArrayBuilder *builder,
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
  * Since: 0.8.0
+ *
+ * Deprecated: 3.0.0:
+ *   Use garrow_array_builder_append_nulls() instead.
  */
 gboolean
 garrow_timestamp_array_builder_append_nulls(GArrowTimestampArrayBuilder *builder,
                                             gint64 n,
                                             GError **error)
 {
-  return garrow_array_builder_append_nulls<arrow::TimestampBuilder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     n,
-     error,
-     "[timestamp-array-builder][append-nulls]");
+  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder),
+                                           n,
+                                           error);
 }
 
 
@@ -3836,26 +3874,26 @@ garrow_time32_array_builder_append_values(GArrowTime32ArrayBuilder *builder,
 }
 
 /**
- * garrow_time32_array_builder_append_null:
+ * garrow_time32_array_builder_append_null: (skip)
  * @builder: A #GArrowTime32ArrayBuilder.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
  * Since: 0.7.0
+ *
+ * Deprecated: 3.0.0:
+ *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
 garrow_time32_array_builder_append_null(GArrowTime32ArrayBuilder *builder,
                                         GError **error)
 {
-  return garrow_array_builder_append_null<arrow::Time32Builder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     error,
-     "[time32-array-builder][append-null]");
+  return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
 
 /**
- * garrow_time32_array_builder_append_nulls:
+ * garrow_time32_array_builder_append_nulls: (skip)
  * @builder: A #GArrowTime32ArrayBuilder.
  * @n: The number of null values to be appended.
  * @error: (nullable): Return location for a #GError or %NULL.
@@ -3866,17 +3904,18 @@ garrow_time32_array_builder_append_null(GArrowTime32ArrayBuilder *builder,
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
  * Since: 0.8.0
+ *
+ * Deprecated: 3.0.0:
+ *   Use garrow_array_builder_append_nulls() instead.
  */
 gboolean
 garrow_time32_array_builder_append_nulls(GArrowTime32ArrayBuilder *builder,
                                          gint64 n,
                                          GError **error)
 {
-  return garrow_array_builder_append_nulls<arrow::Time32Builder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     n,
-     error,
-     "[time32-array-builder][append-nulls]");
+  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder),
+                                           n,
+                                           error);
 }
 
 
@@ -3994,26 +4033,26 @@ garrow_time64_array_builder_append_values(GArrowTime64ArrayBuilder *builder,
 }
 
 /**
- * garrow_time64_array_builder_append_null:
+ * garrow_time64_array_builder_append_null: (skip)
  * @builder: A #GArrowTime64ArrayBuilder.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
  * Since: 0.7.0
+ *
+ * Deprecated: 3.0.0:
+ *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
 garrow_time64_array_builder_append_null(GArrowTime64ArrayBuilder *builder,
                                         GError **error)
 {
-  return garrow_array_builder_append_null<arrow::Time64Builder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     error,
-     "[time64-array-builder][append-null]");
+  return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
 
 /**
- * garrow_time64_array_builder_append_nulls:
+ * garrow_time64_array_builder_append_nulls: (skip)
  * @builder: A #GArrowTime64ArrayBuilder.
  * @n: The number of null values to be appended.
  * @error: (nullable): Return location for a #GError or %NULL.
@@ -4024,17 +4063,18 @@ garrow_time64_array_builder_append_null(GArrowTime64ArrayBuilder *builder,
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
  * Since: 0.8.0
+ *
+ * Deprecated: 3.0.0:
+ *   Use garrow_array_builder_append_nulls() instead.
  */
 gboolean
 garrow_time64_array_builder_append_nulls(GArrowTime64ArrayBuilder *builder,
                                          gint64 n,
                                          GError **error)
 {
-  return garrow_array_builder_append_nulls<arrow::Time64Builder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     n,
-     error,
-     "[time64-array-builder][append-nulls]");
+  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder),
+                                           n,
+                                           error);
 }
 
 
@@ -4073,22 +4113,22 @@ garrow_binary_dictionary_array_builder_new(void)
 }
 
 /**
- * garrow_binary_dictionary_array_builder_append_null:
+ * garrow_binary_dictionary_array_builder_append_null: (skip)
  * @builder: A #GArrowBinaryDictionaryArrayBuilder.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
  * Since: 2.0.0
+ *
+ * Deprecated: 3.0.0:
+ *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
 garrow_binary_dictionary_array_builder_append_null(GArrowBinaryDictionaryArrayBuilder *builder,
                                                    GError **error)
 {
-  return garrow_array_builder_append_null<arrow::BinaryDictionaryBuilder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     error,
-     "[binary-dictionary-array-builder][append-null]");
+  return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
 
 /**
@@ -4343,22 +4383,22 @@ garrow_string_dictionary_array_builder_new(void)
 }
 
 /**
- * garrow_string_dictionary_array_builder_append_null:
+ * garrow_string_dictionary_array_builder_append_null: (skip)
  * @builder: A #GArrowStringDictionaryArrayBuilder.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
  * Since: 2.0.0
+ *
+ * Deprecated: 3.0.0:
+ *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
 garrow_string_dictionary_array_builder_append_null(GArrowStringDictionaryArrayBuilder *builder,
                                                    GError **error)
 {
-  return garrow_array_builder_append_null<arrow::StringDictionaryBuilder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     error,
-     "[string-dictionary-array-builder][append-null]");
+  return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
 
 /**
@@ -4727,22 +4767,22 @@ garrow_list_array_builder_append_value(GArrowListArrayBuilder *builder,
 }
 
 /**
- * garrow_list_array_builder_append_null:
+ * garrow_list_array_builder_append_null: (skip)
  * @builder: A #GArrowListArrayBuilder.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
  * It appends a new NULL element.
+ *
+ * Deprecated: 3.0.0:
+ *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
 garrow_list_array_builder_append_null(GArrowListArrayBuilder *builder,
                                       GError **error)
 {
-  return garrow_array_builder_append_null<arrow::ListBuilder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     error,
-     "[list-array-builder][append-null]");
+  return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
 
 /**
@@ -4863,7 +4903,7 @@ garrow_large_list_array_builder_append_value(GArrowLargeListArrayBuilder *builde
 }
 
 /**
- * garrow_large_list_array_builder_append_null:
+ * garrow_large_list_array_builder_append_null: (skip)
  * @builder: A #GArrowLargeListArrayBuilder.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
@@ -4872,15 +4912,15 @@ garrow_large_list_array_builder_append_value(GArrowLargeListArrayBuilder *builde
  * It appends a new NULL element.
  *
  * Since: 0.16.0
+ *
+ * Deprecated: 3.0.0:
+ *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
 garrow_large_list_array_builder_append_null(GArrowLargeListArrayBuilder *builder,
                                             GError **error)
 {
-  return garrow_array_builder_append_null<arrow::LargeListBuilder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     error,
-     "[large-list-array-builder][append-null]");
+  return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
 
 /**
@@ -5043,22 +5083,22 @@ garrow_struct_array_builder_append_value(GArrowStructArrayBuilder *builder,
 }
 
 /**
- * garrow_struct_array_builder_append_null:
+ * garrow_struct_array_builder_append_null: (skip)
  * @builder: A #GArrowStructArrayBuilder.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
  * It appends a new NULL element.
+ *
+ * Deprecated: 3.0.0:
+ *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
 garrow_struct_array_builder_append_null(GArrowStructArrayBuilder *builder,
                                         GError **error)
 {
-  return garrow_array_builder_append_null<arrow::StructBuilder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     error,
-     "[struct-array-builder][append-null]");
+  return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
 
 /**
@@ -5251,26 +5291,26 @@ garrow_map_array_builder_append_values(GArrowMapArrayBuilder *builder,
 }
 
 /**
- * garrow_map_array_builder_append_null:
+ * garrow_map_array_builder_append_null: (skip)
  * @builder: A #GArrowMapArrayBuilder.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
  * Since: 0.17.0
+ *
+ * Deprecated: 3.0.0:
+ *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
 garrow_map_array_builder_append_null(GArrowMapArrayBuilder *builder,
                                      GError **error)
 {
-  return garrow_array_builder_append_null<arrow::MapBuilder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     error,
-     "[map-array-builder][append-null]");
+  return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
 
 /**
- * garrow_map_array_builder_append_nulls:
+ * garrow_map_array_builder_append_nulls: (skip)
  * @builder: A #GArrowMapArrayBuilder.
  * @n: The number of null values to be appended.
  * @error: (nullable): Return location for a #GError or %NULL.
@@ -5281,17 +5321,18 @@ garrow_map_array_builder_append_null(GArrowMapArrayBuilder *builder,
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
  * Since: 0.17.0
+ *
+ * Deprecated: 3.0.0:
+ *   Use garrow_array_builder_append_nulls() instead.
  */
 gboolean
 garrow_map_array_builder_append_nulls(GArrowMapArrayBuilder *builder,
                                       gint64 n,
                                       GError **error)
 {
-  return garrow_array_builder_append_nulls<arrow::MapBuilder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     n,
-     error,
-     "[map-array-builder][append-nulls]");
+  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder),
+                                           n,
+                                           error);
 }
 
 /**
@@ -5444,7 +5485,7 @@ garrow_decimal128_array_builder_append_value(GArrowDecimal128ArrayBuilder *build
 }
 
 /**
- * garrow_decimal128_array_builder_append_null:
+ * garrow_decimal128_array_builder_append_null: (skip)
  * @builder: A #GArrowDecimal128ArrayBuilder.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
@@ -5453,15 +5494,15 @@ garrow_decimal128_array_builder_append_value(GArrowDecimal128ArrayBuilder *build
  * It appends a new NULL element.
  *
  * Since: 0.12.0
+ *
+ * Deprecated: 3.0.0:
+ *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
 garrow_decimal128_array_builder_append_null(GArrowDecimal128ArrayBuilder *builder,
                                             GError **error)
 {
-  return garrow_array_builder_append_null<arrow::Decimal128Builder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     error,
-     "[decimal128-array-builder][append-null]");
+  return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
 
 
@@ -5518,27 +5559,6 @@ garrow_decimal256_array_builder_append_value(GArrowDecimal256ArrayBuilder *build
      *arrow_decimal,
      error,
      "[decimal256-array-builder][append-value]");
-}
-
-/**
- * garrow_decimal256_array_builder_append_null:
- * @builder: A #GArrowDecimal256ArrayBuilder.
- * @error: (nullable): Return location for a #GError or %NULL.
- *
- * Returns: %TRUE on success, %FALSE if there was an error.
- *
- * It appends a new NULL element.
- *
- * Since: 3.0.0
- */
-gboolean
-garrow_decimal256_array_builder_append_null(GArrowDecimal256ArrayBuilder *builder,
-                                            GError **error)
-{
-  return garrow_array_builder_append_null<arrow::Decimal256Builder *>
-    (GARROW_ARRAY_BUILDER(builder),
-     error,
-     "[decimal256-array-builder][append-null]");
 }
 
 
