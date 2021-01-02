@@ -55,20 +55,6 @@ impl BooleanArray {
         self.data.is_empty()
     }
 
-    /// Returns a raw pointer to the values of this array.
-    pub fn raw_values(&self) -> *const u8 {
-        unsafe { self.raw_values.as_ptr().add(self.data.offset()) }
-    }
-
-    /// Returns a slice for the given offset and length
-    ///
-    /// Note this doesn't do any bound checking, for performance reason.
-    pub fn value_slice(&self, offset: usize, len: usize) -> &[u8] {
-        let raw =
-            unsafe { std::slice::from_raw_parts(self.raw_values().add(offset), len) };
-        &raw[..]
-    }
-
     // Returns a new boolean array builder
     pub fn builder(capacity: usize) -> BooleanBuilder {
         BooleanBuilder::new(capacity)
