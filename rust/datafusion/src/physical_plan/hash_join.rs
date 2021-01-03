@@ -295,8 +295,8 @@ fn update_hash(
 
         hash.raw_entry_mut()
             .from_key(&key)
-            .and_modify(|_, v| v.push(row as u64 + offset as u64))
-            .or_insert_with(|| (key.clone(), vec![row as u64 + offset as u64]));
+            .and_modify(|_, v| v.push((row + offset) as u64))
+            .or_insert_with(|| (key.clone(), vec![(row + offset) as u64]));
     }
     Ok(())
 }
