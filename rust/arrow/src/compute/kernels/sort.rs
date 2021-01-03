@@ -360,10 +360,10 @@ where
 
     if options.nulls_first {
         result_slice[0..nulls_len].copy_from_slice(&nulls);
-        insert_valid_and_nan_values(result_slice, nulls_len, valids, descending);
+        insert_valid_values(result_slice, nulls_len, valids);
     } else {
         // nulls last
-        insert_valid_and_nan_values(result_slice, 0, valids, descending);
+        insert_valid_values(result_slice, 0, valids);
         result_slice[valids_len..].copy_from_slice(nulls.as_slice())
     }
 
