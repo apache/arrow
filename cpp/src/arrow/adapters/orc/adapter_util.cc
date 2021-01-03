@@ -589,7 +589,6 @@ Status FillListBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch,
   DataType* elementType = array->value_type().get();
   int64_t arrowLength = array->length();
   if (!arrowLength) return Status::OK();
-  // int64_t initORCOffset = orcOffset, initArrowOffset = arrowOffset;
   if (orcOffset == 0) batch->offsets[0] = 0;
   if (array->null_count() || incomingMask) batch->hasNulls = true;
   for (; orcOffset < length && arrowOffset < arrowLength; orcOffset++, arrowOffset++) {
@@ -624,11 +623,9 @@ Status FillFixedSizeListBatch(const DataType* type, liborc::ColumnVectorBatch* c
   int64_t arrowLength = array->length();
   int32_t elementLength = array->value_length();  // Fixed length of each subarray
   if (!arrowLength) return Status::OK();
-  // int64_t initORCOffset = orcOffset, initArrowOffset = arrowOffset;
   if (orcOffset == 0) batch->offsets[0] = 0;
   if (array->null_count() || incomingMask) batch->hasNulls = true;
   for (; orcOffset < length && arrowOffset < arrowLength; orcOffset++, arrowOffset++) {
-    batch->offsets[orcOffset + 1] = batch->offsets[orcOffset] + elementLength;
     if (array->IsNull(arrowOffset) || (incomingMask && !(*incomingMask)[orcOffset])) {
       batch->notNull[orcOffset] = false;
       batch->offsets[orcOffset + 1] = batch->offsets[orcOffset];
