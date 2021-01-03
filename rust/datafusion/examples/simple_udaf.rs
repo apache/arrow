@@ -127,7 +127,7 @@ impl Accumulator for GeometricMean {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let mut ctx = create_context()?;
+    let ctx = create_context()?;
 
     // here is where we define the UDAF. We also declare its signature:
     let geometric_mean = create_udaf(
