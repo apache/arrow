@@ -215,8 +215,8 @@ impl ExecutionPlan for HashJoinExec {
                         .try_fold(initial, |mut acc, batch| async {
                             let hash = &mut acc.0;
                             let values = &mut acc.1;
-                            let index = acc.2;
-                            update_hash(&on_left, &batch, hash, index).unwrap();
+                            let offset = acc.2;
+                            update_hash(&on_left, &batch, hash, offset).unwrap();
                             acc.2 += batch.num_rows();
                             values.push(batch);
                             Ok(acc)
@@ -274,7 +274,7 @@ fn update_hash(
     on: &HashSet<String>,
     batch: &RecordBatch,
     hash: &mut JoinHashMap,
-    index: usize,
+    offset: usize,
 ) -> Result<()> {
     // evaluate the keys
     let keys_values = on
@@ -290,8 +290,8 @@ fn update_hash(
 
         hash.raw_entry_mut()
             .from_key(&key)
-            .and_modify(|_, v| v.push(row + index))
-            .or_insert_with(|| (key.clone(), vec![row + index]));
+            .and_modify(|_, v| v.push(row + offset))
+            .or_insert_with(|| (key.clone(), vec![row + offset]));
     }
     Ok(())
 }
