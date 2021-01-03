@@ -222,8 +222,6 @@ impl ExecutionPlan for HashJoinExec {
                             Ok(acc)
                         })
                         .await?;
-                    let num_rows: usize =
-                        batches.iter().map(|batch| batch.num_rows()).sum();
 
                     let single_batch =
                         concat_batches(&batches[0].schema(), &batches, num_rows)?;
