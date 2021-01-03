@@ -290,6 +290,7 @@ pub mod parquet;
 pub mod planner;
 pub mod projection;
 pub mod repartition;
+pub mod sized_stream;
 pub mod sort;
 pub mod string_expressions;
 pub mod type_coercion;

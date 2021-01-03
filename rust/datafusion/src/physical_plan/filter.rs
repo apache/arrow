@@ -19,11 +19,11 @@
 //! include in its output batches.
 
 use std::any::Any;
-use std::pin::Pin;
 use std::sync::Arc;
-use std::task::{Context, Poll};
 
-use super::{RecordBatchStream, SendableRecordBatchStream};
+use tokio::task;
+
+use super::{sized_stream::SizedRecordBatchStream, SendableRecordBatchStream};
 use crate::error::{DataFusionError, Result};
 use crate::physical_plan::{ExecutionPlan, Partitioning, PhysicalExpr};
 use arrow::array::BooleanArray;
@@ -34,7 +34,7 @@ use arrow::record_batch::RecordBatch;
 
 use async_trait::async_trait;
 
-use futures::stream::{Stream, StreamExt};
+use futures::stream::StreamExt;
 
 /// FilterExec evaluates a boolean predicate against all input batches to determine which rows to
 /// include in its output batches.
@@ -103,23 +103,21 @@ impl ExecutionPlan for FilterExec {
     }
 
     async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
-        Ok(Box::pin(FilterExecStream {
-            schema: self.input.schema().clone(),
-            predicate: self.predicate.clone(),
-            input: self.input.execute(partition).await?,
-        }))
-    }
-}
+        let predicate = self.predicate.clone();
 
-/// The FilterExec streams wraps the input iterator and applies the predicate expression to
-/// determine which rows to include in its output batches
-struct FilterExecStream {
-    /// Output schema, which is the same as the input schema for this operator
-    schema: SchemaRef,
-    /// The expression to filter on. This expression must evaluate to a boolean value.
-    predicate: Arc<dyn PhysicalExpr>,
-    /// The input partition to filter.
-    input: SendableRecordBatchStream,
+        let stream = self.input.execute(partition).await?;
+        let stream = stream.then(move |batch| {
+            let predicate = predicate.clone();
+            async move {
+                // Filtering batches is CPU-bounded and therefore justifies a dedicated thread pool
+                task::spawn_blocking(move || batch_filter(&batch?, &predicate))
+                    .await
+                    .unwrap()
+            }
+        });
+
+        Ok(Box::pin(SizedRecordBatchStream::new(stream, self.schema())))
+    }
 }
 
 fn batch_filter(
@@ -143,31 +141,6 @@ fn batch_filter(
                 // apply filter array to record batch
                 .and_then(|filter_array| filter_record_batch(batch, filter_array))
         })
-}
-
-impl Stream for FilterExecStream {
-    type Item = ArrowResult<RecordBatch>;
-
-    fn poll_next(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-    ) -> Poll<Option<Self::Item>> {
-        self.input.poll_next_unpin(cx).map(|x| match x {
-            Some(Ok(batch)) => Some(batch_filter(&batch, &self.predicate)),
-            other => other,
-        })
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        // same number of record batches
-        self.input.size_hint()
-    }
-}
-
-impl RecordBatchStream for FilterExecStream {
-    fn schema(&self) -> SchemaRef {
-        self.schema.clone()
-    }
 }
 
 #[cfg(test)]
