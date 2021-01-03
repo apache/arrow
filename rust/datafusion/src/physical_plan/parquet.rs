@@ -330,7 +330,7 @@ fn build_row_group_record_batch(
                 .collect::<Vec<_>>();
             let array = build_statistics_array(
                 &statistics,
-                statistics_type,
+                *statistics_type,
                 stat_field.data_type(),
             );
             fields.push(stat_field.clone());
@@ -424,10 +424,10 @@ impl<'a> PhysicalExpressionBuilder<'a> {
         &self.column_name
     }
 
-    fn is_stat_column_missing(&self, statistics_type: &StatisticsType) -> bool {
+    fn is_stat_column_missing(&self, statistics_type: StatisticsType) -> bool {
         self.stat_column_req
             .iter()
-            .filter(|(c, t, _f)| c == &self.column_name && t == statistics_type)
+            .filter(|(c, t, _f)| c == &self.column_name && t == &statistics_type)
             .count()
             == 0
     }
@@ -440,7 +440,7 @@ impl<'a> PhysicalExpressionBuilder<'a> {
         );
         let min_column_name = min_field.name().clone();
         self.statistics_fields.push(min_field.clone());
-        if self.is_stat_column_missing(&StatisticsType::Min) {
+        if self.is_stat_column_missing(StatisticsType::Min) {
             // only add statistics column if not previously added
             self.stat_column_req.push((
                 self.column_name.to_string(),
@@ -459,7 +459,7 @@ impl<'a> PhysicalExpressionBuilder<'a> {
         );
         let max_column_name = max_field.name().clone();
         self.statistics_fields.push(max_field.clone());
-        if self.is_stat_column_missing(&StatisticsType::Max) {
+        if self.is_stat_column_missing(StatisticsType::Max) {
             // only add statistics column if not previously added
             self.stat_column_req.push((
                 self.column_name.to_string(),
@@ -533,7 +533,7 @@ fn build_predicate_expression(
         Operator::Eq => {
             let min_column_name = expr_builder.add_min_column();
             let max_column_name = expr_builder.add_max_column();
-            // column = literal => column = (min, max) => min <= literal && literal <= max
+            // column = literal => (min, max) = literal => min <= literal && literal <= max
             // (column / 2) = 4 => (column_min / 2) <= 4 && 4 <= (column_max / 2)
             expr_builder
                 .scalar_expr()
@@ -569,7 +569,6 @@ fn build_predicate_expression(
             .gt_eq(expr_builder.scalar_expr().clone())
         }
         Operator::Lt => {
-            // (input < input) => (predicate)
             // column < literal => (min, max) < literal => min < literal
             let min_column_name = expr_builder.add_min_column();
             rewrite_column_expr(
@@ -580,7 +579,6 @@ fn build_predicate_expression(
             .lt(expr_builder.scalar_expr().clone())
         }
         Operator::LtEq => {
-            // (input <= input) => (predicate)
             // column <= literal => (min, max) <= literal => min <= literal
             let min_column_name = expr_builder.add_min_column();
             rewrite_column_expr(
@@ -618,7 +616,7 @@ fn rewrite_column_expr(
     utils::rewrite_expression(&expr, &expressions)
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 enum StatisticsType {
     Min,
     Max,
@@ -636,7 +634,7 @@ fn build_null_array(data_type: &DataType, length: usize) -> ArrayRef {
 
 fn build_statistics_array(
     statistics: &[Option<&ParquetStatistics>],
-    statistics_type: &StatisticsType,
+    statistics_type: StatisticsType,
     data_type: &DataType,
 ) -> ArrayRef {
     let statistics_count = statistics.len();
@@ -968,7 +966,7 @@ mod tests {
         let statistics = vec![Some(&s1), Some(&s2), Some(&s3)];
 
         let statistics_array =
-            build_statistics_array(&statistics, &StatisticsType::Min, &DataType::Int32);
+            build_statistics_array(&statistics, StatisticsType::Min, &DataType::Int32);
         let int32_array = statistics_array
             .as_any()
             .downcast_ref::<Int32Array>()
@@ -977,7 +975,7 @@ mod tests {
         assert_eq!(int32_vec, vec![None, Some(2), Some(3)]);
 
         let statistics_array =
-            build_statistics_array(&statistics, &StatisticsType::Max, &DataType::Int32);
+            build_statistics_array(&statistics, StatisticsType::Max, &DataType::Int32);
         let int32_array = statistics_array
             .as_any()
             .downcast_ref::<Int32Array>()
