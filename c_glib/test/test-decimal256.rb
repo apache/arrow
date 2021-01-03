@@ -36,6 +36,12 @@ class TestDecimal256 < Test::Unit::TestCase
     assert_equal(string_data, decimal.to_s)
   end
 
+  def test_to_bytes
+    decimal = Arrow::Decimal256.new("12.3")
+    assert_equal([123, 0, 0, 0].pack("q*"),
+                 decimal.to_bytes.to_s)
+  end
+
   def test_abs
     absolute_value = "23049223942343532412"
     negative_value = "-23049223942343532412"

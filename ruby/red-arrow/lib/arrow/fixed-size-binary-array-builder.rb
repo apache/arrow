@@ -16,42 +16,22 @@
 # under the License.
 
 module Arrow
-  class Decimal128ArrayBuilder
+  class FixedSizeBinaryArrayBuilder
     class << self
+      # @since 3.0.0
       def build(data_type, values)
         builder = new(data_type)
         builder.build(values)
       end
     end
 
-    alias_method :append_value_raw, :append_value
-    def append_value(value)
-      append_value_raw(normalize_value(value))
-    end
-
     alias_method :append_values_raw, :append_values
+    # @since 3.0.0
     def append_values(values, is_valids=nil)
       if values.is_a?(::Array)
-        values = values.collect do |value|
-          normalize_value(value)
-        end
         append_values_raw(values, is_valids)
       else
         append_values_packed(values, is_valids)
-      end
-    end
-
-    private
-    def normalize_value(value)
-      case value
-      when String
-        Decimal128.new(value)
-      when Float
-        Decimal128.new(value.to_s)
-      when BigDecimal
-        Decimal128.new(value.to_s)
-      else
-        value
       end
     end
   end

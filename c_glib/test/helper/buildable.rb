@@ -105,6 +105,11 @@ module Helper
       build_array(Arrow::LargeBinaryArrayBuilder.new, values)
     end
 
+    def build_fixed_size_binary_array(data_type, values)
+      build_array(Arrow::FixedSizeBinaryArrayBuilder.new(data_type),
+                  values)
+    end
+
     def build_string_array(values)
       build_array(Arrow::StringArrayBuilder.new, values)
     end
