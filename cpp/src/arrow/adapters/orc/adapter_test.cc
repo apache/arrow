@@ -2215,14 +2215,14 @@ TEST(TestAdapterWriteNested, writeMixedConvert) {
     for (int j = 0; j < 2; j++) {
       bitmapsIn[0][j][i] = 90;   // 01011010
       bitmapsIn[1][j][i] = 195;  // 11000011
-      bitmapsIn[2][j][i] = 143;  // 10001111
+      bitmapsIn[2][j][i] = 255;  // 11111111
     }
   }
   for (int i = 0; i < arrayBitmapSizeOut; i++) {
     bitmapsOut[0][i] = 90;   // 01011010
     bitmapsOut[1][i] = 195;  // 11000011
     // This is a reader bug we need to fix
-    bitmapsOut[2][i] = 143;  // 10001111
+    bitmapsOut[2][i] = 255;  // 11111111
   }
 
   BufferBuilderMatrix bitmapBufferBuildersIn(numCols, BufferBuilderVector(2, NULLPTR));
@@ -2347,15 +2347,6 @@ TEST(TestAdapterWriteNested, writeMixedConvert) {
 
   std::shared_ptr<adapters::orc::ORCWriterOptions> options =
       std::make_shared<adapters::orc::ORCWriterOptions>(batchSize);
-  // std::unique_ptr<adapters::orc::ORCFileWriter> writer;
-  // std::shared_ptr<io::FileOutputStream> file =
-  //     std::move(
-  //         io::FileOutputStream::Open(
-  //             "/Users/karlkatzen/Documents/code/orc-files/NestedConvert.orc", false))
-  //         .ValueOrDie();
-  // ARROW_EXPECT_OK(
-  //     adapters::orc::ORCFileWriter::Open(sharedPtrSchemaIn, file, options, &writer));
-  // ARROW_EXPECT_OK(writer->Write(tableIn));
   std::unique_ptr<ORCMemWriter> writer =
       std::unique_ptr<ORCMemWriter>(new ORCMemWriter());
   std::unique_ptr<liborc::OutputStream> out_stream =
@@ -2376,10 +2367,7 @@ TEST(TestAdapterWriteNested, writeMixedConvert) {
   ARROW_EXPECT_OK(reader->Read(&outputTable));
   EXPECT_EQ(outputTable->num_columns(), numCols);
   EXPECT_EQ(outputTable->num_rows(), numRows);
-  // EXPECT_TRUE(outputTable->Equals(*tableOut));
-  EXPECT_TRUE(outputTable->column(0)->Equals(*(tableOut->column(0))));
-  EXPECT_TRUE(outputTable->column(1)->Equals(*(tableOut->column(1))));
-  // EXPECT_TRUE(outputTable->column(2)->Equals(*(tableOut->column(2))));
+  EXPECT_TRUE(outputTable->Equals(*tableOut));
 }
 TEST(TestAdapterWriteNested, writeStructStruct) {
   std::vector<std::shared_ptr<Field>> xFields{field(
@@ -2605,3 +2593,12 @@ TEST(TestAdapterWriteNested, writeStructStruct) {
   EXPECT_TRUE(outputTable->Equals(*table));
 }
 }  // namespace arrow
+   // std::unique_ptr<adapters::orc::ORCFileWriter> writer;
+   // std::shared_ptr<io::FileOutputStream> file =
+   //     std::move(
+   //         io::FileOutputStream::Open(
+   //             "/Users/karlkatzen/Documents/code/orc-files/NestedConvert2.orc", false))
+   //         .ValueOrDie();
+   // ARROW_EXPECT_OK(
+   //     adapters::orc::ORCFileWriter::Open(sharedPtrSchemaOut, file, options, &writer));
+   // ARROW_EXPECT_OK(writer->Write(tableOut));
