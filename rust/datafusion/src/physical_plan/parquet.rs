@@ -398,9 +398,9 @@ impl<'a> PhysicalExpressionBuilder<'a> {
         })
     }
 
-    fn correct_operator(&self, op: &Operator) -> Operator {
+    fn correct_operator(&self, op: Operator) -> Operator {
         if !self.reverse_operator {
-            return op.clone();
+            return op;
         }
 
         match op {
@@ -408,7 +408,7 @@ impl<'a> PhysicalExpressionBuilder<'a> {
             Operator::Gt => Operator::Lt,
             Operator::LtEq => Operator::GtEq,
             Operator::GtEq => Operator::LtEq,
-            _ => op.clone(),
+            _ => op,
         }
     }
 
@@ -495,13 +495,13 @@ fn build_predicate_expression(
 ) -> Result<Arc<dyn PhysicalExpr>> {
     // predicate expression can only be a binary expression
     let (left, op, right) = match expr {
-        Expr::BinaryExpr { left, op, right } => (left, op, right),
+        Expr::BinaryExpr { left, op, right } => (left, *op, right),
         _ => {
             return Ok(expressions::lit(ScalarValue::Boolean(Some(true))));
         }
     };
 
-    if op == &Operator::And || op == &Operator::Or {
+    if op == Operator::And || op == Operator::Or {
         let left_expr =
             build_predicate_expression(left, parquet_schema, stat_column_req)?;
         let right_expr =
