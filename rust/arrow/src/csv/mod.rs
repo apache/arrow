@@ -20,8 +20,8 @@
 pub mod reader;
 pub mod writer;
 
-pub use self::reader::infer_schema_from_files;
 pub use self::reader::Reader;
 pub use self::reader::ReaderBuilder;
+pub use self::reader::{build_array, build_batch, infer_schema_from_files};
 pub use self::writer::Writer;
 pub use self::writer::WriterBuilder;

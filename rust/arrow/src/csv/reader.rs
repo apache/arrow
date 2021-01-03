@@ -380,8 +380,7 @@ impl<R: Read> Iterator for Reader<R> {
             return None;
         }
 
-        // parse the batches into a RecordBatch
-        let result = parse(
+        let result = build_batch(
             &self.batch_records[..read_records],
             &self.schema.fields(),
             &self.projection,
@@ -394,8 +393,92 @@ impl<R: Read> Iterator for Reader<R> {
     }
 }
 
-/// parses a slice of [csv_crate::StringRecord] into a [array::record_batch::RecordBatch].
-fn parse(
+/// Tries to create an [array::Array] from a slice of [csv_crate::StringRecord] by interpreting its
+/// values at column `column_index` to be of `data_type`.
+/// `line_number` is where the set of rows starts at, and is only used to report the line number in case of errors.
+/// # Error
+/// This function errors iff:
+/// * _any_ entry from `rows` at `column_index` cannot be parsed into the DataType.
+/// * The [array::datatypes::DataType] is not supported.
+pub fn build_array(
+    rows: &[StringRecord],
+    data_type: &DataType,
+    line_number: usize,
+    column_index: usize,
+) -> Result<ArrayRef> {
+    match data_type {
+        DataType::Boolean => build_boolean_array(line_number, rows, column_index),
+        DataType::Int8 => {
+            build_primitive_array::<Int8Type>(line_number, rows, column_index)
+        }
+        DataType::Int16 => {
+            build_primitive_array::<Int16Type>(line_number, rows, column_index)
+        }
+        DataType::Int32 => {
+            build_primitive_array::<Int32Type>(line_number, rows, column_index)
+        }
+        DataType::Int64 => {
+            build_primitive_array::<Int64Type>(line_number, rows, column_index)
+        }
+        DataType::UInt8 => {
+            build_primitive_array::<UInt8Type>(line_number, rows, column_index)
+        }
+        DataType::UInt16 => {
+            build_primitive_array::<UInt16Type>(line_number, rows, column_index)
+        }
+        DataType::UInt32 => {
+            build_primitive_array::<UInt32Type>(line_number, rows, column_index)
+        }
+        DataType::UInt64 => {
+            build_primitive_array::<UInt64Type>(line_number, rows, column_index)
+        }
+        DataType::Float32 => {
+            build_primitive_array::<Float32Type>(line_number, rows, column_index)
+        }
+        DataType::Float64 => {
+            build_primitive_array::<Float64Type>(line_number, rows, column_index)
+        }
+        DataType::Date32(_) => {
+            build_primitive_array::<Date32Type>(line_number, rows, column_index)
+        }
+        DataType::Date64(_) => {
+            build_primitive_array::<Date64Type>(line_number, rows, column_index)
+        }
+        DataType::Timestamp(TimeUnit::Microsecond, _) => {
+            build_primitive_array::<TimestampMicrosecondType>(
+                line_number,
+                rows,
+                column_index,
+            )
+        }
+        DataType::Timestamp(TimeUnit::Nanosecond, _) => build_primitive_array::<
+            TimestampNanosecondType,
+        >(
+            line_number, rows, column_index
+        ),
+        DataType::Utf8 => Ok(Arc::new(
+            rows.iter()
+                .map(|row| row.get(column_index))
+                .collect::<StringArray>(),
+        ) as ArrayRef),
+        other => Err(ArrowError::ParseError(format!(
+            "Unsupported data type {:?}",
+            other
+        ))),
+    }
+}
+
+/// Tries to create an [array::record_batch::RecordBatch] from a slice of [csv_crate::StringRecord] by interpreting
+/// each of its columns according to `fields`. When `projection` is not None, it is used to select a subset of `fields` to
+/// parse.
+/// `line_number` is where the set of rows starts at, and is only used to report the line number in case of errors.
+/// # Error
+/// This function errors iff:
+/// * _any_ entry from `rows` cannot be parsed into its corresponding field's `DataType`.
+/// * Any of the fields' [array::datatypes::DataType] is not supported.
+/// # Panic
+/// This function panics if any index in `projection` is larger than `fields.len()`.
+pub fn build_batch(
     rows: &[StringRecord],
     fields: &[Field],
     projection: &Option<Vec<usize>>,
@@ -403,79 +486,23 @@ fn parse(
 ) -> Result<RecordBatch> {
     let projection: Vec<usize> = match projection {
         Some(ref v) => v.clone(),
-        None => fields.iter().enumerate().map(|(i, _)| i).collect(),
+        None => (0..fields.len()).collect(),
     };
 
-    let arrays: Result<Vec<ArrayRef>> = projection
+    let columns = projection
         .iter()
         .map(|i| {
             let i = *i;
-            let field = &fields[i];
-            match field.data_type() {
-                &DataType::Boolean => build_boolean_array(line_number, rows, i),
-                &DataType::Int8 => {
-                    build_primitive_array::<Int8Type>(line_number, rows, i)
-                }
-                &DataType::Int16 => {
-                    build_primitive_array::<Int16Type>(line_number, rows, i)
-                }
-                &DataType::Int32 => {
-                    build_primitive_array::<Int32Type>(line_number, rows, i)
-                }
-                &DataType::Int64 => {
-                    build_primitive_array::<Int64Type>(line_number, rows, i)
-                }
-                &DataType::UInt8 => {
-                    build_primitive_array::<UInt8Type>(line_number, rows, i)
-                }
-                &DataType::UInt16 => {
-                    build_primitive_array::<UInt16Type>(line_number, rows, i)
-                }
-                &DataType::UInt32 => {
-                    build_primitive_array::<UInt32Type>(line_number, rows, i)
-                }
-                &DataType::UInt64 => {
-                    build_primitive_array::<UInt64Type>(line_number, rows, i)
-                }
-                &DataType::Float32 => {
-                    build_primitive_array::<Float32Type>(line_number, rows, i)
-                }
-                &DataType::Float64 => {
-                    build_primitive_array::<Float64Type>(line_number, rows, i)
-                }
-                &DataType::Date32(_) => {
-                    build_primitive_array::<Date32Type>(line_number, rows, i)
-                }
-                &DataType::Date64(_) => {
-                    build_primitive_array::<Date64Type>(line_number, rows, i)
-                }
-                &DataType::Timestamp(TimeUnit::Microsecond, _) => {
-                    build_primitive_array::<TimestampMicrosecondType>(
-                        line_number,
-                        rows,
-                        i,
-                    )
-                }
-                &DataType::Timestamp(TimeUnit::Nanosecond, _) => {
-                    build_primitive_array::<TimestampNanosecondType>(line_number, rows, i)
-                }
-                &DataType::Utf8 => Ok(Arc::new(
-                    rows.iter().map(|row| row.get(i)).collect::<StringArray>(),
-                ) as ArrayRef),
-                other => Err(ArrowError::ParseError(format!(
-                    "Unsupported data type {:?}",
-                    other
-                ))),
-            }
+            build_array(rows, fields[i].data_type(), line_number, i)
         })
-        .collect();
+        .collect::<Result<_>>()?;
 
     let projected_fields: Vec<Field> =
         projection.iter().map(|i| fields[*i].clone()).collect();
 
     let projected_schema = Arc::new(Schema::new(projected_fields));
 
-    arrays.and_then(|arr| RecordBatch::try_new(projected_schema, arr))
+    RecordBatch::try_new(projected_schema, columns)
 }
 
 /// Specialized parsing implementations
