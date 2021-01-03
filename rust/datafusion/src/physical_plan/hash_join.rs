@@ -18,7 +18,10 @@
 //! Defines the join plan for executing partitions in parallel and then joining the results
 //! into a set of partitions.
 
-use arrow::{array::{ArrayRef, UInt64Builder}, compute};
+use arrow::{
+    array::{ArrayRef, UInt64Builder},
+    compute,
+};
 use arrow::{
     array::{TimestampMicrosecondArray, TimestampNanosecondArray, UInt32Builder},
     datatypes::TimeUnit,
@@ -58,7 +61,7 @@ use log::debug;
 // Maps ["on" value] -> [list of indices with this key's value]
 // E.g. [1, 2] -> [(0, 3), (1, 6), (0, 8)] indicates that (column1, column2) = [1, 2] is true
 // for rows 3 and 8 from batch 0 and row 6 from batch 1.
-type JoinHashMap = HashMap<Vec<u8>, Vec<usize>, RandomState>;
+type JoinHashMap = HashMap<Vec<u8>, Vec<u64>, RandomState>;
 type JoinLeftData = Arc<(JoinHashMap, RecordBatch)>;
 
 /// join execution plan executes partitions in parallel and combines them into a set of
@@ -223,6 +226,8 @@ impl ExecutionPlan for HashJoinExec {
                         })
                         .await?;
 
+                    // Merge all batches into a single batch, so we
+                    // can directly index into the arrays
                     let single_batch =
                         concat_batches(&batches[0].schema(), &batches, num_rows)?;
 
@@ -290,8 +295,8 @@ fn update_hash(
 
         hash.raw_entry_mut()
             .from_key(&key)
-            .and_modify(|_, v| v.push(row + offset))
-            .or_insert_with(|| (key.clone(), vec![row + offset]));
+            .and_modify(|_, v| v.push(row as u64 + offset as u64))
+            .or_insert_with(|| (key.clone(), vec![row as u64 + offset as u64]));
     }
     Ok(())
 }
@@ -505,12 +510,15 @@ fn build_join_indexes(
                 // Get the key and find it in the build index
                 create_key(&keys_values, row, &mut key)?;
                 let left_indexes = left.get(&key);
-
                 // for every item on the left and right with this key, add the respective pair
-                for x in left_indexes.unwrap_or(&vec![]) {
-                    // on an inner join, left and right indices are present
-                    left_indices.append_value(*x as u64)?;
-                    right_indices.append_value(row as u32)?;
+
+                if let Some(indices) = left_indexes {
+                    left_indices.append_slice(&indices)?;
+
+                    for _ in 0..indices.len() {
+                        // on an inner join, left and right indices are present
+                        right_indices.append_value(row as u32)?;
+                    }
                 }
             }
             Ok((left_indices.finish(), right_indices.finish()))
@@ -527,9 +535,9 @@ fn build_join_indexes(
 
                 if let Some(indices) = left_indexes {
                     is_visited.insert(key.clone());
-
-                    for x in indices {
-                        left_indices.append_value(*x as u64)?;
+                    left_indices.append_slice(&indices)?;
+                    for _ in 0..indices.len() {
+                        // on an inner join, left and right indices are present
                         right_indices.append_value(row as u32)?;
                     }
                 };
@@ -537,8 +545,8 @@ fn build_join_indexes(
             // Add the remaining left rows to the result set with None on the right side
             for (key, indices) in left {
                 if !is_visited.contains(key) {
-                    for x in indices {
-                        left_indices.append_value(*x as u64)?;
+                    left_indices.append_slice(&indices)?;
+                    for _ in 0..indices.len() {
                         right_indices.append_null()?;
                     }
                 }
@@ -554,8 +562,9 @@ fn build_join_indexes(
 
                 match left_indexes {
                     Some(indices) => {
-                        for x in indices {
-                            left_indices.append_value(*x as u64)?;
+                        left_indices.append_slice(&indices)?;
+
+                        for _ in 0..indices.len() {
                             right_indices.append_value(row as u32)?;
                         }
                     }
