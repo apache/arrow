@@ -509,10 +509,9 @@ fn build_join_indexes(
             for row in 0..right.num_rows() {
                 // Get the key and find it in the build index
                 create_key(&keys_values, row, &mut key)?;
-                let left_indexes = left.get(&key);
-                // for every item on the left and right with this key, add the respective pair
 
-                if let Some(indices) = left_indexes {
+                // for every item on the left and right with this key, add the respective pair
+                if let Some(indices) = left.get(&key) {
                     left_indices.append_slice(&indices)?;
 
                     for _ in 0..indices.len() {
@@ -531,9 +530,8 @@ fn build_join_indexes(
             // First visit all of the rows
             for row in 0..right.num_rows() {
                 create_key(&keys_values, row, &mut key)?;
-                let left_indexes = left.get(&key);
 
-                if let Some(indices) = left_indexes {
+                if let Some(indices) = left.get(&key) {
                     is_visited.insert(key.clone());
                     left_indices.append_slice(&indices)?;
                     for _ in 0..indices.len() {
@@ -558,9 +556,7 @@ fn build_join_indexes(
             for row in 0..right.num_rows() {
                 create_key(&keys_values, row, &mut key)?;
 
-                let left_indexes = left.get(&key);
-
-                match left_indexes {
+                match left.get(&key) {
                     Some(indices) => {
                         left_indices.append_slice(&indices)?;
 
