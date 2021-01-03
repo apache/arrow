@@ -261,6 +261,22 @@ impl<OffsetSize: StringOffsetSizeTrait> From<ArrayDataRef>
     }
 }
 
+impl<OffsetSize: StringOffsetSizeTrait> From<Vec<Option<&str>>>
+    for GenericStringArray<OffsetSize>
+{
+    fn from(v: Vec<Option<&str>>) -> Self {
+        GenericStringArray::<OffsetSize>::from_opt_vec(v)
+    }
+}
+
+impl<OffsetSize: StringOffsetSizeTrait> From<Vec<&str>>
+    for GenericStringArray<OffsetSize>
+{
+    fn from(v: Vec<&str>) -> Self {
+        GenericStringArray::<OffsetSize>::from_vec(v)
+    }
+}
+
 /// An array where each element is a variable-sized sequence of bytes representing a string
 /// whose maximum length (in bytes) is represented by a i32.
 pub type StringArray = GenericStringArray<i32>;
@@ -272,30 +288,6 @@ pub type LargeStringArray = GenericStringArray<i64>;
 impl<T: StringOffsetSizeTrait> From<GenericListArray<T>> for GenericStringArray<T> {
     fn from(v: GenericListArray<T>) -> Self {
         GenericStringArray::<T>::from_list(v)
-    }
-}
-
-impl From<Vec<&str>> for StringArray {
-    fn from(v: Vec<&str>) -> Self {
-        StringArray::from_vec(v)
-    }
-}
-
-impl From<Vec<&str>> for LargeStringArray {
-    fn from(v: Vec<&str>) -> Self {
-        LargeStringArray::from_vec(v)
-    }
-}
-
-impl From<Vec<Option<&str>>> for StringArray {
-    fn from(v: Vec<Option<&str>>) -> Self {
-        StringArray::from_opt_vec(v)
-    }
-}
-
-impl From<Vec<Option<&str>>> for LargeStringArray {
-    fn from(v: Vec<Option<&str>>) -> Self {
-        LargeStringArray::from_opt_vec(v)
     }
 }
 
