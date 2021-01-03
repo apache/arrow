@@ -57,8 +57,8 @@ fn total_cmp_64(l: f64, r: f64) -> std::cmp::Ordering {
     let mut left = l.to_bits() as i64;
     let mut right = r.to_bits() as i64;
 
-    left ^= (((left >> 31) as u32) >> 1) as i64;
-    right ^= (((right >> 31) as u32) >> 1) as i64;
+    left ^= (((left >> 63) as u64) >> 1) as i64;
+    right ^= (((right >> 63) as u64) >> 1) as i64;
 
     left.cmp(&right)
 }
