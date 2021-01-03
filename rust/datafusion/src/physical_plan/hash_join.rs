@@ -18,7 +18,7 @@
 //! Defines the join plan for executing partitions in parallel and then joining the results
 //! into a set of partitions.
 
-use arrow::{array::ArrayRef, compute};
+use arrow::{array::{ArrayRef, UInt64Builder}, compute};
 use arrow::{
     array::{TimestampMicrosecondArray, TimestampNanosecondArray, UInt32Builder},
     datatypes::TimeUnit,
@@ -337,7 +337,7 @@ fn build_batch_from_indices(
     schema: &Schema,
     left: &RecordBatch,
     right: &RecordBatch,
-    left_indices: UInt32Array,
+    left_indices: UInt64Array,
     right_indices: UInt32Array,
     column_indices: &Vec<ColumnIndex>,
 ) -> ArrowResult<RecordBatch> {
@@ -487,7 +487,7 @@ fn build_join_indexes(
     right: &RecordBatch,
     join_type: JoinType,
     right_on: &HashSet<String>,
-) -> Result<(UInt32Array, UInt32Array)> {
+) -> Result<(UInt64Array, UInt32Array)> {
     let keys_values = right_on
         .iter()
         .map(|name| Ok(col(name).evaluate(right)?.into_array(right.num_rows())))
@@ -495,7 +495,7 @@ fn build_join_indexes(
 
     let mut key = Vec::with_capacity(keys_values.len());
 
-    let mut left_indices = UInt32Builder::new(0);
+    let mut left_indices = UInt64Builder::new(0);
     let mut right_indices = UInt32Builder::new(0);
 
     match join_type {
@@ -509,7 +509,7 @@ fn build_join_indexes(
                 // for every item on the left and right with this key, add the respective pair
                 for x in left_indexes.unwrap_or(&vec![]) {
                     // on an inner join, left and right indices are present
-                    left_indices.append_value(*x as u32)?;
+                    left_indices.append_value(*x as u64)?;
                     right_indices.append_value(row as u32)?;
                 }
             }
@@ -529,7 +529,7 @@ fn build_join_indexes(
                     is_visited.insert(key.clone());
 
                     for x in indices {
-                        left_indices.append_value(*x as u32)?;
+                        left_indices.append_value(*x as u64)?;
                         right_indices.append_value(row as u32)?;
                     }
                 };
@@ -538,7 +538,7 @@ fn build_join_indexes(
             for (key, indices) in left {
                 if !is_visited.contains(key) {
                     for x in indices {
-                        left_indices.append_value(*x as u32)?;
+                        left_indices.append_value(*x as u64)?;
                         right_indices.append_null()?;
                     }
                 }
@@ -555,7 +555,7 @@ fn build_join_indexes(
                 match left_indexes {
                     Some(indices) => {
                         for x in indices {
-                            left_indices.append_value(*x as u32)?;
+                            left_indices.append_value(*x as u64)?;
                             right_indices.append_value(row as u32)?;
                         }
                     }
