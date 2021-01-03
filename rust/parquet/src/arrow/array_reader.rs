@@ -2103,6 +2103,37 @@ mod tests {
     }
 
     #[test]
+    fn test_complex_array_reader_no_pages() {
+        let message_type = "
+        message test_schema {
+            REPEATED Group test_mid {
+                OPTIONAL BYTE_ARRAY leaf (UTF8);
+            }
+        }
+        ";
+        let schema = parse_message_type(message_type)
+            .map(|t| Arc::new(SchemaDescriptor::new(Arc::new(t))))
+            .unwrap();
+        let column_desc = schema.column(0);
+        let pages: Vec<Vec<Page>> = Vec::new();
+        let page_iterator = InMemoryPageIterator::new(schema, column_desc.clone(), pages);
+
+        let converter = Utf8Converter::new(Utf8ArrayConverter {});
+        let mut array_reader =
+            ComplexObjectArrayReader::<ByteArrayType, Utf8Converter>::new(
+                Box::new(page_iterator),
+                column_desc,
+                converter,
+                None,
+            )
+            .unwrap();
+
+        let values_per_page = 100; // this value is arbitrary in this test - the result should always be an array of 0 length
+        let array = array_reader.next_batch(values_per_page).unwrap();
+        assert_eq!(array.len(), 0);
+    }
+
+    #[test]
     fn test_complex_array_reader_def_and_rep_levels() {
         // Construct column schema
         let message_type = "
