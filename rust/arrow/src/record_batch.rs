@@ -294,8 +294,6 @@ pub trait RecordBatchReader: Iterator<Item = Result<RecordBatch>> {
 mod tests {
     use super::*;
 
-    use crate::buffer::*;
-
     #[test]
     fn create_record_batch() {
         let schema = Schema::new(vec![
@@ -303,21 +301,8 @@ mod tests {
             Field::new("b", DataType::Utf8, false),
         ]);
 
-        let v = vec![1, 2, 3, 4, 5];
-        let array_data = ArrayData::builder(DataType::Int32)
-            .len(5)
-            .add_buffer(Buffer::from(v.to_byte_slice()))
-            .build();
-        let a = Int32Array::from(array_data);
-
-        let v = vec![b'a', b'b', b'c', b'd', b'e'];
-        let offset_data = vec![0, 1, 2, 3, 4, 5, 6];
-        let array_data = ArrayData::builder(DataType::Utf8)
-            .len(5)
-            .add_buffer(Buffer::from(offset_data.to_byte_slice()))
-            .add_buffer(Buffer::from(v.to_byte_slice()))
-            .build();
-        let b = StringArray::from(array_data);
+        let a = Int32Array::from(vec![1, 2, 3, 4, 5]);
+        let b = StringArray::from(vec!["a", "b", "c", "d", "e"]);
 
         let record_batch =
             RecordBatch::try_new(Arc::new(schema), vec![Arc::new(a), Arc::new(b)])
@@ -355,23 +340,16 @@ mod tests {
 
     #[test]
     fn create_record_batch_from_struct_array() {
-        let boolean_data = ArrayData::builder(DataType::Boolean)
-            .len(4)
-            .add_buffer(Buffer::from([12_u8]))
-            .build();
-        let int_data = ArrayData::builder(DataType::Int32)
-            .len(4)
-            .add_buffer(Buffer::from([42, 28, 19, 31].to_byte_slice()))
-            .build();
+        let boolean = Arc::new(BooleanArray::from(vec![false, false, true, true]));
+        let int = Arc::new(Int32Array::from(vec![42, 28, 19, 31]));
         let struct_array = StructArray::from(vec![
             (
                 Field::new("b", DataType::Boolean, false),
-                Arc::new(BooleanArray::from(vec![false, false, true, true]))
-                    as Arc<Array>,
+                boolean.clone() as ArrayRef,
             ),
             (
                 Field::new("c", DataType::Int32, false),
-                Arc::new(Int32Array::from(vec![42, 28, 19, 31])),
+                int.clone() as ArrayRef,
             ),
         ]);
 
@@ -382,7 +360,7 @@ mod tests {
             struct_array.data_type(),
             &DataType::Struct(batch.schema().fields().to_vec())
         );
-        assert_eq!(batch.column(0).data(), boolean_data);
-        assert_eq!(batch.column(1).data(), int_data);
+        assert_eq!(batch.column(0).as_ref(), boolean.as_ref());
+        assert_eq!(batch.column(1).as_ref(), int.as_ref());
     }
 }

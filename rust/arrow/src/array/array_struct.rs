@@ -270,27 +270,26 @@ mod tests {
 
     use std::sync::Arc;
 
-    use crate::datatypes::{DataType, Field};
     use crate::{
         array::BooleanArray, array::Float32Array, array::Float64Array, array::Int32Array,
         array::StringArray, bitmap::Bitmap,
+    };
+    use crate::{
+        array::Int64Array,
+        datatypes::{DataType, Field},
     };
     use crate::{buffer::Buffer, datatypes::ToByteSlice};
 
     #[test]
     fn test_struct_array_builder() {
-        let boolean_data = ArrayData::builder(DataType::Boolean)
-            .len(4)
-            .add_buffer(Buffer::from([false, false, true, true].to_byte_slice()))
-            .build();
-        let int_data = ArrayData::builder(DataType::Int64)
-            .len(4)
-            .add_buffer(Buffer::from([42i64, 28, 19, 31].to_byte_slice()))
-            .build();
-        let mut field_types = vec![];
-        field_types.push(Field::new("a", DataType::Boolean, false));
-        field_types.push(Field::new("b", DataType::Int64, false));
-        let struct_array_data = ArrayData::builder(DataType::Struct(field_types))
+        let boolean_data = BooleanArray::from(vec![false, false, true, true]).data();
+        let int_data = Int64Array::from(vec![42, 28, 19, 31]).data();
+
+        let fields = vec![
+            Field::new("a", DataType::Boolean, false),
+            Field::new("b", DataType::Int64, false),
+        ];
+        let struct_array_data = ArrayData::builder(DataType::Struct(fields))
             .len(4)
             .add_child_data(boolean_data.clone())
             .add_child_data(int_data.clone())
@@ -303,27 +302,21 @@ mod tests {
 
     #[test]
     fn test_struct_array_from() {
-        let boolean_data = ArrayData::builder(DataType::Boolean)
-            .len(4)
-            .add_buffer(Buffer::from([12_u8]))
-            .build();
-        let int_data = ArrayData::builder(DataType::Int32)
-            .len(4)
-            .add_buffer(Buffer::from([42, 28, 19, 31].to_byte_slice()))
-            .build();
+        let boolean = Arc::new(BooleanArray::from(vec![false, false, true, true]));
+        let int = Arc::new(Int32Array::from(vec![42, 28, 19, 31]));
+
         let struct_array = StructArray::from(vec![
             (
                 Field::new("b", DataType::Boolean, false),
-                Arc::new(BooleanArray::from(vec![false, false, true, true]))
-                    as Arc<Array>,
+                boolean.clone() as ArrayRef,
             ),
             (
                 Field::new("c", DataType::Int32, false),
-                Arc::new(Int32Array::from(vec![42, 28, 19, 31])),
+                int.clone() as ArrayRef,
             ),
         ]);
-        assert_eq!(boolean_data, struct_array.column(0).data());
-        assert_eq!(int_data, struct_array.column(1).data());
+        assert_eq!(struct_array.column(0).as_ref(), boolean.as_ref());
+        assert_eq!(struct_array.column(1).as_ref(), int.as_ref());
         assert_eq!(4, struct_array.len());
         assert_eq!(0, struct_array.null_count());
         assert_eq!(0, struct_array.offset());
