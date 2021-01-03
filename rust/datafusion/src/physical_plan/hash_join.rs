@@ -24,6 +24,7 @@ use arrow::{
     datatypes::TimeUnit,
 };
 use std::sync::Arc;
+use std::time::Instant;
 use std::{any::Any, collections::HashSet};
 
 use async_trait::async_trait;
@@ -52,6 +53,7 @@ use crate::error::{DataFusionError, Result};
 use super::{ExecutionPlan, Partitioning, RecordBatchStream, SendableRecordBatchStream};
 use crate::physical_plan::coalesce_batches::concat_batches;
 use ahash::RandomState;
+use log::debug;
 
 // Maps ["on" value] -> [list of indices with this key's value]
 // E.g. [1, 2] -> [(0, 3), (1, 6), (0, 8)] indicates that (column1, column2) = [1, 2] is true
@@ -194,6 +196,8 @@ impl ExecutionPlan for HashJoinExec {
             match build_side.as_ref() {
                 Some(stream) => stream.clone(),
                 None => {
+                    let start = Instant::now();
+
                     // merge all left parts into a single stream
                     let merge = MergeExec::new(self.left.clone());
                     let stream = merge.execute(0).await?;
@@ -218,12 +222,22 @@ impl ExecutionPlan for HashJoinExec {
                             Ok(acc)
                         })
                         .await?;
+                    let num_rows: usize =
+                        batches.iter().map(|batch| batch.num_rows()).sum();
 
                     let single_batch =
                         concat_batches(&batches[0].schema(), &batches, num_rows)?;
 
                     let left_side = Arc::new((hashmap, single_batch));
+
                     *build_side = Some(left_side.clone());
+
+                    debug!(
+                        "Built build-side of hash join containing {} rows in {} ms",
+                        num_rows,
+                        start.elapsed().as_millis()
+                    );
+
                     left_side
                 }
             }
@@ -247,6 +261,11 @@ impl ExecutionPlan for HashJoinExec {
             left_data,
             right: stream,
             column_indices,
+            num_input_batches: 0,
+            num_input_rows: 0,
+            num_output_batches: 0,
+            num_output_rows: 0,
+            join_time: 0,
         }))
     }
 }
@@ -293,6 +312,16 @@ struct HashJoinStream {
     right: SendableRecordBatchStream,
     /// Information of index and left / right placement of columns
     column_indices: Vec<ColumnIndex>,
+    /// number of input batches
+    num_input_batches: usize,
+    /// number of input rows
+    num_input_rows: usize,
+    /// number of batches produced
+    num_output_batches: usize,
+    /// number of rows produced
+    num_output_rows: usize,
+    /// total time for joining probe-side batches to the build-side batches
+    join_time: usize,
 }
 
 impl RecordBatchStream for HashJoinStream {
@@ -324,7 +353,6 @@ fn build_batch_from_indices(
             let array = left.column(column_index.index);
             compute::take(array.as_ref(), &left_indices, None)?
         } else {
-            // use the right indices
             let array = right.column(column_index.index);
             compute::take(array.as_ref(), &right_indices, None)?
         };
@@ -555,15 +583,37 @@ impl Stream for HashJoinStream {
         self.right
             .poll_next_unpin(cx)
             .map(|maybe_batch| match maybe_batch {
-                Some(Ok(batch)) => Some(build_batch(
-                    &batch,
-                    &self.left_data,
-                    &self.on_right,
-                    self.join_type,
-                    &self.schema,
-                    &self.column_indices,
-                )),
-                other => other,
+                Some(Ok(batch)) => {
+                    let start = Instant::now();
+                    let result = build_batch(
+                        &batch,
+                        &self.left_data,
+                        &self.on_right,
+                        self.join_type,
+                        &self.schema,
+                        &self.column_indices,
+                    );
+                    self.num_input_batches += 1;
+                    self.num_input_rows += batch.num_rows();
+                    if let Ok(ref batch) = result {
+                        self.join_time += start.elapsed().as_millis() as usize;
+                        self.num_output_batches += 1;
+                        self.num_output_rows += batch.num_rows();
+                    }
+                    Some(result)
+                }
+                other => {
+                    debug!(
+                        "Processed {} probe-side input batches containing {} rows and \
+                        produced {} output batches containing {} rows in {} ms",
+                        self.num_input_batches,
+                        self.num_input_rows,
+                        self.num_output_batches,
+                        self.num_output_rows,
+                        self.join_time
+                    );
+                    other
+                }
             })
     }
 }

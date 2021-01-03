@@ -15,12 +15,19 @@
 // specific language governing permissions and limitations
 // under the License.
 
-pub mod bit_chunk_iterator;
-pub mod bit_util;
-pub mod display;
-pub mod integration_util;
-#[cfg(feature = "prettyprint")]
-pub mod pretty;
-pub(crate) mod serialization;
-pub mod string_writer;
-pub mod test_util;
+/// Converts numeric type to a `String`
+pub fn lexical_to_string<N: lexical_core::ToLexical>(n: N) -> String {
+    let mut buf = Vec::<u8>::with_capacity(N::FORMATTED_SIZE_DECIMAL);
+    unsafe {
+        // JUSTIFICATION
+        //  Benefit
+        //      Allows using the faster serializer lexical core and convert to string
+        //  Soundness
+        //      Length of buf is set as written length afterwards. lexical_core
+        //      creates a valid string, so doesn't need to be checked.
+        let slice = std::slice::from_raw_parts_mut(buf.as_mut_ptr(), buf.capacity());
+        let len = lexical_core::write(n, slice).len();
+        buf.set_len(len);
+        String::from_utf8_unchecked(buf)
+    }
+}

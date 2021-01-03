@@ -205,11 +205,5 @@ module Arrow
         end
       end
     end
-
-    def append_nulls(n)
-      n.times do
-        append_null
-      end
-    end
   end
 end

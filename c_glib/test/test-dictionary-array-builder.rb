@@ -98,6 +98,38 @@ class TestDictinaryArrayBuilder < Test::Unit::TestCase
         assert_equal(expected_array, @builder.finish)
       end
 
+      test("append_nulls") do
+        dictionary_array = build_binary_array([])
+        indices_array = build_int8_array([nil, nil, nil])
+        data_type = Arrow::DictionaryDataType.new(indices_array.value_data_type,
+                                                  dictionary_array.value_data_type,
+                                                  false)
+        expected_array = Arrow::DictionaryArray.new(data_type,
+                                                    indices_array,
+                                                    dictionary_array)
+        builder = Arrow::BinaryDictionaryArrayBuilder.new
+        builder.append_nulls(3)
+        assert_equal(expected_array,
+                     builder.finish)
+      end
+
+      test("append_empty_values") do
+        dictionary_array = build_binary_array(["hello"])
+        indices_array = build_int8_array([0, 0, 0, 0])
+        data_type = Arrow::DictionaryDataType.new(indices_array.value_data_type,
+                                                  dictionary_array.value_data_type,
+                                                  false)
+        expected_array = Arrow::DictionaryArray.new(data_type,
+                                                    indices_array,
+                                                    dictionary_array)
+        builder = Arrow::BinaryDictionaryArrayBuilder.new
+        builder.append_value("hello")
+        builder.append_empty_value
+        builder.append_empty_values(2)
+        assert_equal(expected_array,
+                     builder.finish)
+      end
+
       test("dictionary_length") do
         assert_equal(@dictionary.length, @builder.dictionary_length)
       end
@@ -242,6 +274,38 @@ class TestDictinaryArrayBuilder < Test::Unit::TestCase
                                 [true, true, false, true, true])
         @builder.append_indices([1, 2, 1, 3, 0])
         assert_equal(expected_array, @builder.finish)
+      end
+
+      test("append_nulls") do
+        dictionary_array = build_string_array([])
+        indices_array = build_int8_array([nil, nil, nil])
+        data_type = Arrow::DictionaryDataType.new(indices_array.value_data_type,
+                                                  dictionary_array.value_data_type,
+                                                  false)
+        expected_array = Arrow::DictionaryArray.new(data_type,
+                                                    indices_array,
+                                                    dictionary_array)
+        builder = Arrow::StringDictionaryArrayBuilder.new
+        builder.append_nulls(3)
+        assert_equal(expected_array,
+                     builder.finish)
+      end
+
+      test("append_empty_values") do
+        dictionary_array = build_string_array(["hello"])
+        indices_array = build_int8_array([0, 0, 0, 0])
+        data_type = Arrow::DictionaryDataType.new(indices_array.value_data_type,
+                                                  dictionary_array.value_data_type,
+                                                  false)
+        expected_array = Arrow::DictionaryArray.new(data_type,
+                                                    indices_array,
+                                                    dictionary_array)
+        builder = Arrow::StringDictionaryArrayBuilder.new
+        builder.append_string("hello")
+        builder.append_empty_value
+        builder.append_empty_values(2)
+        assert_equal(expected_array,
+                     builder.finish)
       end
 
       test("dictionary_length") do

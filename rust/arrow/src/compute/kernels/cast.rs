@@ -38,11 +38,11 @@
 use std::str;
 use std::sync::Arc;
 
-use crate::buffer::Buffer;
 use crate::compute::kernels::arithmetic::{divide, multiply};
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 use crate::{array::*, compute::take};
+use crate::{buffer::Buffer, util::serialization::lexical_to_string};
 
 /// Return true if a value of type `from_type` can be cast into a
 /// value of `to_type`. Note that such as cast may be lossy.
@@ -881,7 +881,7 @@ where
 fn cast_numeric_to_string<FROM>(array: &ArrayRef) -> Result<ArrayRef>
 where
     FROM: ArrowNumericType,
-    FROM::Native: std::string::ToString,
+    FROM::Native: lexical_core::ToLexical,
 {
     Ok(Arc::new(numeric_to_string_cast::<FROM>(
         array
@@ -894,10 +894,10 @@ where
 fn numeric_to_string_cast<T>(from: &PrimitiveArray<T>) -> StringArray
 where
     T: ArrowPrimitiveType + ArrowNumericType,
-    T::Native: std::string::ToString,
+    T::Native: lexical_core::ToLexical,
 {
     from.iter()
-        .map(|maybe_value| maybe_value.map(|value| value.to_string()))
+        .map(|maybe_value| maybe_value.map(lexical_to_string))
         .collect()
 }
 
