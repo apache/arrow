@@ -515,7 +515,6 @@ fn build_join_indexes(
                     left_indices.append_slice(&indices)?;
 
                     for _ in 0..indices.len() {
-                        // on an inner join, left and right indices are present
                         right_indices.append_value(row as u32)?;
                     }
                 }
@@ -525,6 +524,9 @@ fn build_join_indexes(
         JoinType::Left => {
             // Keep track of which item is visited in the build input
             // TODO: this can be stored more efficiently with a marker
+            //       https://issues.apache.org/jira/browse/ARROW-11116
+            // TODO: Fix LEFT join with multiple right batches
+            //       https://issues.apache.org/jira/browse/ARROW-10971
             let mut is_visited = HashSet::new();
 
             // First visit all of the rows
@@ -535,7 +537,6 @@ fn build_join_indexes(
                     is_visited.insert(key.clone());
                     left_indices.append_slice(&indices)?;
                     for _ in 0..indices.len() {
-                        // on an inner join, left and right indices are present
                         right_indices.append_value(row as u32)?;
                     }
                 };
