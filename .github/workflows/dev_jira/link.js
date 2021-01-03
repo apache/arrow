@@ -15,23 +15,21 @@
 // specific language governing permissions and limitations
 // under the License.
 
-const {owner: owner, repo: repo} = context.repo;
-
 function detectJIRAID(title) {
   if (!title) {
     return null;
   }
-  const matched = /^(ARROW|PARQUET)-\d+/.exec(title);
+  const matched = /^(WIP:?\s*)?((ARROW|PARQUET)-\d+)/.exec(title);
   if (!matched) {
     return null;
   }
-  return matched[0];
+  return matched[2];
 }
 
-async function haveComment(pullRequestNumber, body) {
+async function haveComment(github, context, pullRequestNumber, body) {
   const options = {
-    owner: owner,
-    repo: repo,
+    owner: context.repo.owner,
+    repo: context.repo.repo,
     issue_number: pullRequestNumber,
     page: 1
   };
@@ -48,30 +46,24 @@ async function haveComment(pullRequestNumber, body) {
   return false;
 }
 
-async function commentJIRAURL(pullRequestNumber, jiraID) {
+async function commentJIRAURL(github, context, pullRequestNumber, jiraID) {
   const jiraURL = `https://issues.apache.org/jira/browse/${jiraID}`;
-  if (await haveComment(pullRequestNumber, jiraURL)) {
+  if (await haveComment(github, context, pullRequestNumber, jiraURL)) {
     return;
   }
   await github.issues.createComment({
-    owner: owner,
-    repo: repo,
+    owner: context.repo.owner,
+    repo: context.repo.repo,
     issue_number: pullRequestNumber,
     body: jiraURL
   });
 }
 
-(async () => {
-  const {data: pulls} = await github.pulls.list({
-    owner: owner,
-    repo: repo,
-  });
-  pulls.forEach(async (pull) => {
-    const pullRequestNumber = pull.number;
-    const title = pull.title;
-    const jiraID = detectJIRAID(title);
-    if (jiraID) {
-      await commentJIRAURL(pullRequestNumber, jiraID);
-    }
-  });
-})();
+module.exports = async ({github, context}) => {
+  const pullRequestNumber = context.payload.number;
+  const title = context.payload.pull_request.title;
+  const jiraID = detectJIRAID(title);
+  if (jiraID) {
+    await commentJIRAURL(github, context, pullRequestNumber, jiraID);
+  }
+};
