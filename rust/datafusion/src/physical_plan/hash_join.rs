@@ -18,8 +18,11 @@
 //! Defines the join plan for executing partitions in parallel and then joining the results
 //! into a set of partitions.
 
-use arrow::{array::{TimestampMicrosecondArray, TimestampNanosecondArray, UInt32Builder}, datatypes::TimeUnit};
 use arrow::{array::ArrayRef, compute};
+use arrow::{
+    array::{TimestampMicrosecondArray, TimestampNanosecondArray, UInt32Builder},
+    datatypes::TimeUnit,
+};
 use std::sync::Arc;
 use std::{any::Any, collections::HashSet};
 
@@ -342,23 +345,23 @@ pub(crate) fn create_key(
         match col.data_type() {
             DataType::UInt8 => {
                 let array = col.as_any().downcast_ref::<UInt8Array>().unwrap();
-                vec.extend(array.value(row).to_le_bytes().iter());
+                vec.extend_from_slice(&array.value(row).to_le_bytes());
             }
             DataType::UInt16 => {
                 let array = col.as_any().downcast_ref::<UInt16Array>().unwrap();
-                vec.extend(array.value(row).to_le_bytes().iter());
+                vec.extend_from_slice(&array.value(row).to_le_bytes());
             }
             DataType::UInt32 => {
                 let array = col.as_any().downcast_ref::<UInt32Array>().unwrap();
-                vec.extend(array.value(row).to_le_bytes().iter());
+                vec.extend_from_slice(&array.value(row).to_le_bytes());
             }
             DataType::UInt64 => {
                 let array = col.as_any().downcast_ref::<UInt64Array>().unwrap();
-                vec.extend(array.value(row).to_le_bytes().iter());
+                vec.extend_from_slice(&array.value(row).to_le_bytes());
             }
             DataType::Int8 => {
                 let array = col.as_any().downcast_ref::<Int8Array>().unwrap();
-                vec.extend(array.value(row).to_le_bytes().iter());
+                vec.extend_from_slice(&array.value(row).to_le_bytes());
             }
             DataType::Int16 => {
                 let array = col.as_any().downcast_ref::<Int16Array>().unwrap();
@@ -366,33 +369,33 @@ pub(crate) fn create_key(
             }
             DataType::Int32 => {
                 let array = col.as_any().downcast_ref::<Int32Array>().unwrap();
-                vec.extend(array.value(row).to_le_bytes().iter());
+                vec.extend_from_slice(&array.value(row).to_le_bytes());
             }
             DataType::Int64 => {
                 let array = col.as_any().downcast_ref::<Int64Array>().unwrap();
-                vec.extend(array.value(row).to_le_bytes().iter());
+                vec.extend_from_slice(&array.value(row).to_le_bytes());
             }
             DataType::Timestamp(TimeUnit::Microsecond, None) => {
                 let array = col
                     .as_any()
                     .downcast_ref::<TimestampMicrosecondArray>()
                     .unwrap();
-                vec.extend(array.value(row).to_le_bytes().iter());
+                vec.extend_from_slice(&array.value(row).to_le_bytes());
             }
             DataType::Timestamp(TimeUnit::Nanosecond, None) => {
                 let array = col
                     .as_any()
                     .downcast_ref::<TimestampNanosecondArray>()
                     .unwrap();
-                vec.extend(array.value(row).to_le_bytes().iter());
+                vec.extend_from_slice(&array.value(row).to_le_bytes());
             }
             DataType::Utf8 => {
                 let array = col.as_any().downcast_ref::<StringArray>().unwrap();
                 let value = array.value(row);
                 // store the size
-                vec.extend(value.len().to_le_bytes().iter());
+                vec.extend_from_slice(&value.len().to_le_bytes());
                 // store the string value
-                vec.extend(value.as_bytes().iter());
+                vec.extend_from_slice(value.as_bytes());
             }
             _ => {
                 // This is internal because we should have caught this before.
