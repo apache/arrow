@@ -2679,7 +2679,6 @@ TEST(TestAdapterWriteNested, writeMixedListOfStruct) {
       2, std::make_shared<BufferBuilder>()),
       bufferBuilders(2, std::make_shared<BufferBuilder>()),
       offsetsBufferBuilders(2, std::make_shared<BufferBuilder>());
-  ;
   std::vector<std::shared_ptr<Buffer>> bitmapBuffers0(2, NULLPTR),
       bitmapBuffers(2, NULLPTR), offsetsBuffers(2, NULLPTR);
 
