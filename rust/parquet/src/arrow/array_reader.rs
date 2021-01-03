@@ -27,8 +27,8 @@ use arrow::array::{
     Array, ArrayData, ArrayDataBuilder, ArrayDataRef, ArrayRef, BinaryArray,
     BinaryBuilder, BooleanArray, BooleanBufferBuilder, DecimalBuilder,
     FixedSizeBinaryArray, FixedSizeBinaryBuilder, GenericListArray, Int16BufferBuilder,
-    Int64Array, ListBuilder, OffsetSizeTrait, PrimitiveArray, PrimitiveBuilder,
-    StringArray, StringBuilder, StructArray,
+    Int32Array, Int64Array, ListBuilder, OffsetSizeTrait, PrimitiveArray,
+    PrimitiveBuilder, StringArray, StringBuilder, StructArray,
 };
 use arrow::buffer::{Buffer, MutableBuffer};
 use arrow::datatypes::{
@@ -351,13 +351,31 @@ impl<T: DataType> ArrayReader for PrimitiveArrayReader<T> {
                 arrow::compute::cast(&a, target_type)?
             }
             ArrowType::Decimal(p, s) => {
-                let to_int64 = arrow::compute::cast(&array, &ArrowType::Int64)?;
-                let mut builder = DecimalBuilder::new(to_int64.len(), *p, *s);
-                let values = to_int64.as_any().downcast_ref::<Int64Array>().unwrap();
-                for maybe_value in values.iter() {
-                    match maybe_value {
-                        Some(value) => builder.append_value(value as i128)?,
-                        None => builder.append_null()?,
+                let mut builder = DecimalBuilder::new(array.len(), *p, *s);
+                match array.data_type() {
+                    ArrowType::Int32 => {
+                        let values = array.as_any().downcast_ref::<Int32Array>().unwrap();
+                        for maybe_value in values.iter() {
+                            match maybe_value {
+                                Some(value) => builder.append_value(value as i128)?,
+                                None => builder.append_null()?,
+                            }
+                        }
+                    }
+                    ArrowType::Int64 => {
+                        let values = array.as_any().downcast_ref::<Int64Array>().unwrap();
+                        for maybe_value in values.iter() {
+                            match maybe_value {
+                                Some(value) => builder.append_value(value as i128)?,
+                                None => builder.append_null()?,
+                            }
+                        }
+                    }
+                    _ => {
+                        return Err(ArrowError(format!(
+                            "Cannot convert {:?} to decimal",
+                            array.data_type()
+                        )))
                     }
                 }
                 Arc::new(builder.finish()) as ArrayRef
