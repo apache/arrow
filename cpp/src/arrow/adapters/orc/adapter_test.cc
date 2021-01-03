@@ -2604,5 +2604,4 @@ TEST(TestAdapterWriteNested, writeStructStruct) {
   EXPECT_EQ(outputTable->num_rows(), numRows);
   EXPECT_TRUE(outputTable->Equals(*table));
 }
-
 }  // namespace arrow
