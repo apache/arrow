@@ -710,7 +710,7 @@ fn build_statistics_array(
 
     let mut builder = ArrayData::builder(arrow_type)
         .len(statistics_count)
-        .add_buffer(data_buffer.freeze());
+        .add_buffer(data_buffer.into());
     if null_count > 0 {
         builder = builder.null_bit_buffer(bitmap_builder.finish());
     }
