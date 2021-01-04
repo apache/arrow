@@ -73,7 +73,9 @@ test_that("Garbage R metadata doesn't break things", {
     "Invalid metadata$r",
     fixed = TRUE
   )
-  tab$metadata$r <- .serialize_arrow_r_metadata("garbage")
+  # serialize data like .serialize_arrow_r_metadata does, but don't call that
+  # directly since it checks to ensure that the data is a list
+  tab$metadata$r <- rawToChar(serialize("garbage", NULL, ascii = TRUE))
   expect_warning(
     expect_identical(as.data.frame(tab), example_data[1:6]),
     "Invalid metadata$r",
@@ -133,4 +135,24 @@ test_that("metadata keeps attribute of top level data frame", {
   tab <- Table$create(df)
   expect_identical(attr(as.data.frame(tab), "foo"), "bar")
   expect_identical(as.data.frame(tab), df)
+})
+
+test_that("metadata drops readr's problems attribute", {
+  readr_like <- tibble::tibble(
+    dbl = 1.1,
+    not_here = NA_character_
+  )
+  attributes(readr_like) <- append(
+    attributes(readr_like),
+    list(problems = tibble::tibble(
+      row = 1L,
+      col = NA_character_,
+      expected = "2 columns",
+      actual = "1 columns",
+      file = "'test'"
+    ))
+  )
+
+  tab <- Table$create(readr_like)
+  expect_null(attr(as.data.frame(tab), "problems"))
 })
