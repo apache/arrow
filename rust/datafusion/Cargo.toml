@@ -59,7 +59,7 @@ chrono = "0.4"
 async-trait = "0.1.41"
 futures = "0.3"
 pin-project-lite= "^0.2.0"
-tokio = { version = "0.2", features = ["macros", "rt-core", "rt-threaded", "sync"] }
+tokio = { version = "0.2", features = ["macros", "blocking", "rt-core", "rt-threaded", "sync"] }
 log = "^0.4"
 
 [dev-dependencies]

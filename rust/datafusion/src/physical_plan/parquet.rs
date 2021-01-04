@@ -18,10 +18,10 @@
 //! Execution plan for reading Parquet files
 
 use std::any::Any;
+use std::fmt;
 use std::fs::File;
 use std::sync::Arc;
 use std::task::{Context, Poll};
-use std::{fmt, thread};
 
 use super::{RecordBatchStream, SendableRecordBatchStream};
 use crate::error::{DataFusionError, Result};
@@ -35,6 +35,7 @@ use parquet::file::reader::SerializedFileReader;
 use crossbeam::channel::{bounded, Receiver, RecvError, Sender};
 use fmt::Debug;
 use parquet::arrow::{ArrowReader, ParquetFileArrowReader};
+use tokio::task;
 
 use crate::datasource::datasource::Statistics;
 use async_trait::async_trait;
@@ -256,16 +257,21 @@ impl ExecutionPlan for ParquetExec {
         let projection = self.projection.clone();
         let batch_size = self.batch_size;
 
-        thread::spawn(move || {
-            if let Err(e) = read_files(
+        task::spawn_blocking(move || {
+            read_files(
                 &filenames,
                 projection.clone(),
                 batch_size,
                 response_tx.clone(),
-            ) {
-                println!("Parquet reader thread terminated due to error: {:?}", e);
-            }
-        });
+            )
+        })
+        .await
+        .unwrap_or_else(|e| {
+            Err(DataFusionError::Internal(format!(
+                "Parquet reader thread terminated due to error: {:?}",
+                e
+            )))
+        })?;
 
         Ok(Box::pin(ParquetStream {
             schema: self.schema.clone(),
