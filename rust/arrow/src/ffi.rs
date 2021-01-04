@@ -262,10 +262,10 @@ fn bit_width(data_type: &DataType, i: usize) -> Result<usize> {
             )))
         }
         // Variable-sized binaries: have two buffers.
-        // Utf8: first buffer is i32, second is in bytes
-        (DataType::Utf8, 1) => size_of::<i32>() * 8,
-        (DataType::Utf8, 2) => size_of::<u8>() * 8,
-        (DataType::Utf8, _) => {
+        // "small": first buffer is i32, second is in bytes
+        (DataType::Utf8, 1) | (DataType::Binary, 1) => size_of::<i32>() * 8,
+        (DataType::Utf8, 2) | (DataType::Binary, 2) => size_of::<u8>() * 8,
+        (DataType::Utf8, _) | (DataType::Binary, _) => {
             return Err(ArrowError::CDataInterface(format!(
                 "The datatype \"{:?}\" expects 3 buffers, but requested {}. Please verify that the C data interface is correctly implemented.",
                 data_type, i
@@ -273,9 +273,9 @@ fn bit_width(data_type: &DataType, i: usize) -> Result<usize> {
         }
         // Variable-sized binaries: have two buffers.
         // LargeUtf8: first buffer is i64, second is in bytes
-        (DataType::LargeUtf8, 1) => size_of::<i64>() * 8,
-        (DataType::LargeUtf8, 2) => size_of::<u8>() * 8,
-        (DataType::LargeUtf8, _) => {
+        (DataType::LargeUtf8, 1) | (DataType::LargeBinary, 1) => size_of::<i64>() * 8,
+        (DataType::LargeUtf8, 2) | (DataType::LargeBinary, 2) => size_of::<u8>() * 8,
+        (DataType::LargeUtf8, _) | (DataType::LargeBinary, _) => {
             return Err(ArrowError::CDataInterface(format!(
                 "The datatype \"{:?}\" expects 3 buffers, but requested {}. Please verify that the C data interface is correctly implemented.",
                 data_type, i
@@ -533,13 +533,16 @@ impl ArrowArray {
         let data_type = &self.data_type()?;
 
         Ok(match (data_type, i) {
-            (DataType::Utf8, 1) | (DataType::LargeUtf8, 1) => {
+            (DataType::Utf8, 1)
+            | (DataType::LargeUtf8, 1)
+            | (DataType::Binary, 1)
+            | (DataType::LargeBinary, 1) => {
                 // the len of the offset buffer (buffer 1) equals length + 1
                 let bits = bit_width(data_type, i)?;
                 debug_assert_eq!(bits % 8, 0);
                 (self.array.length as usize + 1) * (bits / 8)
             }
-            (DataType::Utf8, 2) => {
+            (DataType::Utf8, 2) | (DataType::Binary, 2) => {
                 // the len of the data buffer (buffer 2) equals the last value of the offset buffer (buffer 1)
                 let len = self.buffer_len(1)?;
                 // first buffer is the null buffer => add(1)
@@ -551,11 +554,11 @@ impl ArrowArray {
                 // get last offset
                 (unsafe { *offset_buffer.add(len / size_of::<i32>() - 1) }) as usize
             }
-            (DataType::LargeUtf8, 2) => {
+            (DataType::LargeUtf8, 2) | (DataType::LargeBinary, 2) => {
                 // the len of the data buffer (buffer 2) equals the last value of the offset buffer (buffer 1)
                 let len = self.buffer_len(1)?;
                 // first buffer is the null buffer => add(1)
-                // we assume that pointer is aligned for `i64`, as LargeUtf8 uses `i64` offsets.
+                // we assume that pointer is aligned for `i64`, as Large uses `i64` offsets.
                 #[allow(clippy::cast_ptr_alignment)]
                 let offset_buffer = unsafe {
                     *(self.array.buffers as *mut *const u8).add(1) as *const i64
@@ -622,8 +625,8 @@ impl ArrowArray {
 mod tests {
     use super::*;
     use crate::array::{
-        make_array, Array, ArrayData, BooleanArray, GenericStringArray, Int32Array,
-        StringOffsetSizeTrait,
+        make_array, Array, ArrayData, BinaryOffsetSizeTrait, BooleanArray,
+        GenericBinaryArray, GenericStringArray, Int32Array, StringOffsetSizeTrait,
     };
     use crate::compute::kernels;
     use std::convert::TryFrom;
@@ -695,6 +698,51 @@ mod tests {
     #[test]
     fn test_large_string() -> Result<()> {
         test_generic_string::<i64>()
+    }
+
+    fn test_generic_binary<Offset: BinaryOffsetSizeTrait>() -> Result<()> {
+        // create an array natively
+        let array: Vec<Option<&[u8]>> = vec![Some(b"a"), None, Some(b"aaa")];
+        let array = GenericBinaryArray::<Offset>::from(array);
+
+        // export it
+        let array = ArrowArray::try_from(array.data().as_ref().clone())?;
+
+        // (simulate consumer) import it
+        let data = Arc::new(ArrayData::try_from(array)?);
+        let array = make_array(data);
+
+        // perform some operation
+        let array = kernels::concat::concat(&[array.as_ref(), array.as_ref()]).unwrap();
+        let array = array
+            .as_any()
+            .downcast_ref::<GenericBinaryArray<Offset>>()
+            .unwrap();
+
+        // verify
+        let expected: Vec<Option<&[u8]>> = vec![
+            Some(b"a"),
+            None,
+            Some(b"aaa"),
+            Some(b"a"),
+            None,
+            Some(b"aaa"),
+        ];
+        let expected = GenericBinaryArray::<Offset>::from(expected);
+        assert_eq!(array, &expected);
+
+        // (drop/release)
+        Ok(())
+    }
+
+    #[test]
+    fn test_binary() -> Result<()> {
+        test_generic_binary::<i32>()
+    }
+
+    #[test]
+    fn test_large_binary() -> Result<()> {
+        test_generic_binary::<i64>()
     }
 
     #[test]
