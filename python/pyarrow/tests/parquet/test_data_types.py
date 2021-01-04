@@ -296,6 +296,17 @@ def test_nested_list_nonnullable_roundtrip_bug(use_legacy_dataset):
         t, data_page_size=4096, use_legacy_dataset=use_legacy_dataset)
 
 
+@parametrize_legacy_dataset
+def test_nested_list_struct_multiple_batches_roundtrip(
+    tempdir, use_legacy_dataset
+):
+    # Reproduce failure in ARROW-11024
+    data = [[{'x': 'abc', 'y': 'abc'}]]*100 + [[{'x': 'abc', 'y': 'gcb'}]]*100
+    table = pa.table([pa.array(data)], names=['column'])
+    _check_roundtrip(
+        table, row_group_size=20, use_legacy_dataset=use_legacy_dataset)
+
+
 def test_writing_empty_lists():
     # ARROW-2591: [Python] Segmentation fault issue in pq.write_table
     arr1 = pa.array([[], []], pa.list_(pa.int32()))
