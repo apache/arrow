@@ -621,6 +621,7 @@ test_that("Handling string data with embedded nuls", {
     as.raw(c(0x70, 0x65, 0x72, 0x73, 0x6f, 0x6e)),
     as.raw(c(0x77, 0x6f, 0x6d, 0x61, 0x6e)),
     as.raw(c(0x6d, 0x61, 0x00, 0x6e)), # <-- there's your nul, 0x00
+    as.raw(c(0x66, 0x00, 0x00, 0x61, 0x00, 0x6e)), # multiple nuls
     as.raw(c(0x63, 0x61, 0x6d, 0x65, 0x72, 0x61)),
     as.raw(c(0x74, 0x76))),
     class = c("arrow_binary", "vctrs_vctr", "list"))
@@ -629,9 +630,11 @@ test_that("Handling string data with embedded nuls", {
   expect_error(as.vector(array_with_nul), "nul")
 
   options(arrow.skip_nul = TRUE)
-  expect_identical(
-    as.vector(array_with_nul),
-    c("person", "woman", "man", "camera", "tv")
+  expect_warning(
+    expect_identical(
+      as.vector(array_with_nul),
+      c("person", "woman", "man", "fan", "camera", "tv")
+    )
   )
 })
 
@@ -745,7 +748,8 @@ test_that("Dictionary array: translate to R when dict isn't string", {
     expect_identical(
       as.vector(a),
       factor(c(3, 2, 2, 3, 1), labels = c("4.5", "3.2", "1.1"))
-    )
+    ),
+    "Stripping '\\0' (nul) from character vector"
   )
 })
 
