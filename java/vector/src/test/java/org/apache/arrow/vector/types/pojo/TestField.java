@@ -17,6 +17,8 @@
 
 package org.apache.arrow.vector.types.pojo;
 
+import static org.apache.arrow.vector.types.pojo.Schema.METADATA_KEY;
+import static org.apache.arrow.vector.types.pojo.Schema.METADATA_VALUE;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -42,6 +44,7 @@ public class TestField {
     Schema schema = new Schema(Collections.singletonList(
         field("a", false, new Int(8, true), metadata)
     ));
+    contains(schema, "\"" + METADATA_KEY + "\" : \"testKey\"", "\"" + METADATA_VALUE + "\" : \"testValue\"");
 
     String json = schema.toJson();
     Schema actual = Schema.fromJSON(json);
@@ -49,8 +52,6 @@ public class TestField {
     Map<String, String> actualMetadata = actual.getFields().get(0).getMetadata();
     assertEquals(1, actualMetadata.size());
     assertEquals("testValue", actualMetadata.get("testKey"));
-
-    contains(schema, "\"key\" : \"testKey\"", "\"value\" : \"testValue\"");
   }
 
   private void contains(Schema schema, String... s) {

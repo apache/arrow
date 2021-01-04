@@ -69,6 +69,9 @@ public class Schema {
     throw new IllegalArgumentException(String.format("field %s not found in %s", name, fields));
   }
 
+  static final String METADATA_KEY = "key";
+  static final String METADATA_VALUE = "value";
+
   private static final ObjectMapper mapper = new ObjectMapper();
   private static final ObjectWriter writer = mapper.writerWithDefaultPrettyPrinter();
   private static final ObjectReader reader = mapper.readerFor(Schema.class);
@@ -134,7 +137,7 @@ public class Schema {
 
   static Map<String, String> convertMetadata(List<Map<String, String>> metadata) {
     return (metadata == null) ? null : metadata.stream()
-        .map(e -> new AbstractMap.SimpleImmutableEntry<>(e.get("key"), e.get("value")))
+        .map(e -> new AbstractMap.SimpleImmutableEntry<>(e.get(METADATA_KEY), e.get(METADATA_VALUE)))
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
@@ -147,8 +150,8 @@ public class Schema {
 
   private static Map<String, String> convertEntryToKeyValueMap(Map.Entry<String, String> entry) {
     Map<String, String> map = new HashMap<>(2);
-    map.put("key", entry.getKey());
-    map.put("value", entry.getValue());
+    map.put(METADATA_KEY, entry.getKey());
+    map.put(METADATA_VALUE, entry.getValue());
     return Collections.unmodifiableMap(map);
   }
 

@@ -18,6 +18,8 @@
 package org.apache.arrow.vector.types.pojo;
 
 import static java.util.Arrays.asList;
+import static org.apache.arrow.vector.types.pojo.Schema.METADATA_KEY;
+import static org.apache.arrow.vector.types.pojo.Schema.METADATA_VALUE;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -211,7 +213,7 @@ public class TestSchema {
     );
     Schema schema = new Schema(fields, metadata);
     roundTrip(schema);
-    contains(schema, "\"key\" : \"testKey\"", "\"value\" : \"testValue\"");
+    contains(schema, "\"" + METADATA_KEY + "\" : \"testKey\"", "\"" + METADATA_VALUE + "\" : \"testValue\"");
   }
 
   private void roundTrip(Schema schema) throws IOException {
