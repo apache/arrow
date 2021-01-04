@@ -306,6 +306,14 @@ def test_nested_list_struct_multiple_batches_roundtrip(
     _check_roundtrip(
         table, row_group_size=20, use_legacy_dataset=use_legacy_dataset)
 
+    # Reproduce failure in ARROW-11069 (plain non-nested structs with strings)
+    data = pa.array(
+        [{'a': '1', 'b': '2'}, {'a': '3', 'b': '4'}, {'a': '5', 'b': '6'}]*10
+    )
+    table = pa.table({'column': data})
+    _check_roundtrip(
+        table, row_group_size=10, use_legacy_dataset=use_legacy_dataset)
+
 
 def test_writing_empty_lists():
     # ARROW-2591: [Python] Segmentation fault issue in pq.write_table
