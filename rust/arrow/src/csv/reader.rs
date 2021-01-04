@@ -416,7 +416,7 @@ fn parse(
             let field = &fields[i];
             match field.data_type() {
                 &DataType::Boolean => build_boolean_array(line_number, rows, i),
-                | &DataType::Int8
+                &DataType::Int8
                 | &DataType::Int16
                 | &DataType::Int32
                 | &DataType::Int64
@@ -453,7 +453,6 @@ fn parse(
 
     arrays.and_then(|arr| RecordBatch::try_new(projected_schema, arr))
 }
-
 
 fn parse_bool(string: &str) -> Option<bool> {
     if string.eq_ignore_ascii_case("false") {
