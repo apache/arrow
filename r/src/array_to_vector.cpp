@@ -18,6 +18,8 @@
 #include "./arrow_types.h"
 #if defined(ARROW_R_WITH_ARROW)
 
+#include <type_traits>
+
 #include <arrow/array.h>
 #include <arrow/builder.h>
 #include <arrow/datum.h>
@@ -288,25 +290,58 @@ struct Converter_String : public Converter {
     }
 
     StringArrayType* string_array = static_cast<StringArrayType*>(array.get());
-    if (array->null_count()) {
-      // need to watch for nulls
-      arrow::internal::BitmapReader null_reader(array->null_bitmap_data(),
-                                                array->offset(), n);
+
+    const bool all_valid = array->null_count() == 0;
+    const bool strip_out_nuls = GetBoolOption("arrow.skip_nul", false);
+
+    bool nul_was_stripped = false;
+
+    if (all_valid) {
+      // no need to watch for missing strings
       cpp11::unwind_protect([&] {
-        for (int i = 0; i < n; i++, null_reader.Next()) {
-          if (null_reader.IsSet()) {
+        if (strip_out_nuls) {
+          for (int i = 0; i < n; i++) {
+            SET_STRING_ELT(data, start + i,
+                           r_string_from_view_strip_nul(string_array->GetView(i),
+                                                        &nul_was_stripped));
+          }
+          return;
+        }
+
+        for (int i = 0; i < n; i++) {
+          SET_STRING_ELT(data, start + i, r_string_from_view(string_array->GetView(i)));
+        }
+      });
+    } else {
+      cpp11::unwind_protect([&] {
+        arrow::internal::BitmapReader validity_reader(array->null_bitmap_data(),
+                                                      array->offset(), n);
+
+        if (strip_out_nuls) {
+          for (int i = 0; i < n; i++, validity_reader.Next()) {
+            if (validity_reader.IsSet()) {
+              SET_STRING_ELT(data, start + i,
+                             r_string_from_view_strip_nul(string_array->GetView(i),
+                                                          &nul_was_stripped));
+            } else {
+              SET_STRING_ELT(data, start + i, NA_STRING);
+            }
+          }
+          return;
+        }
+
+        for (int i = 0; i < n; i++, validity_reader.Next()) {
+          if (validity_reader.IsSet()) {
             SET_STRING_ELT(data, start + i, r_string_from_view(string_array->GetView(i)));
           } else {
             SET_STRING_ELT(data, start + i, NA_STRING);
           }
         }
       });
-    } else {
-      cpp11::unwind_protect([&] {
-        for (int i = 0; i < n; i++) {
-          SET_STRING_ELT(data, start + i, r_string_from_view(string_array->GetView(i)));
-        }
-      });
+    }
+
+    if (nul_was_stripped) {
+      cpp11::warning("Stripping '\\0' (nul) from character vector");
     }
 
     return Status::OK();
@@ -315,8 +350,43 @@ struct Converter_String : public Converter {
   bool Parallel() const { return false; }
 
  private:
-  static SEXP r_string_from_view(const arrow::util::string_view& view) {
+  static SEXP r_string_from_view(arrow::util::string_view view) {
     return Rf_mkCharLenCE(view.data(), view.size(), CE_UTF8);
+  }
+
+  static SEXP r_string_from_view_strip_nul(arrow::util::string_view view,
+                                           bool* nul_was_stripped) {
+    const char* old_string = view.data();
+
+    std::string stripped_string;
+    size_t stripped_len = 0, nul_count = 0;
+
+    for (size_t i = 0; i < view.size(); i++) {
+      if (old_string[i] == '\0') {
+        ++nul_count;
+
+        if (nul_count == 1) {
+          // first nul spotted: allocate stripped string storage
+          stripped_string = view.to_string();
+          stripped_len = i;
+        }
+
+        // don't copy old_string[i] (which is \0) into stripped_string
+        continue;
+      }
+
+      if (nul_count > 0) {
+        stripped_string[stripped_len++] = old_string[i];
+      }
+    }
+
+    if (nul_count > 0) {
+      *nul_was_stripped = true;
+      stripped_string.resize(stripped_len);
+      return r_string_from_view(stripped_string);
+    }
+
+    return r_string_from_view(view);
   }
 };
 
