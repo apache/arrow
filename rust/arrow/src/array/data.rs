@@ -21,11 +21,12 @@
 use std::mem;
 use std::sync::Arc;
 
-use crate::buffer::Buffer;
+use crate::buffer::{Buffer, MutableBuffer};
 use crate::datatypes::DataType;
+use crate::util::bit_util;
 use crate::{bitmap::Bitmap, datatypes::ArrowNativeType};
 
-use super::equal::equal;
+use super::{equal::equal, OffsetSizeTrait};
 
 #[inline]
 pub(crate) fn count_nulls(
@@ -33,7 +34,7 @@ pub(crate) fn count_nulls(
     offset: usize,
     len: usize,
 ) -> usize {
-    if let Some(ref buf) = null_bit_buffer {
+    if let Some(buf) = null_bit_buffer {
         len.checked_sub(buf.count_set_bits_offset(offset, len))
             .unwrap()
     } else {
@@ -134,6 +135,84 @@ impl ArrayData {
     #[inline]
     pub const fn null_bitmap(&self) -> &Option<Bitmap> {
         &self.null_bitmap
+    }
+
+    /// Computes the logical validity bitmap of the array data using the
+    /// parent's array data. The parent should be a list or struct, else
+    /// the logical bitmap of the array is returned unaltered.
+    ///
+    /// Parent data is passed along with the parent's logical bitmap, as
+    /// nested arrays could have a logical bitmap different to the physical
+    /// one on the `ArrayData`.
+    ///
+    /// Safety
+    ///
+    /// As we index into [`ArrayData::child_data`], this function panics if
+    /// array data is not a nested type, as it will not have child data.
+    pub fn child_logical_null_buffer(
+        &self,
+        logical_null_buffer: Option<Buffer>,
+        child_index: usize,
+    ) -> Option<Buffer> {
+        // This function should only be called when having nested data types.
+        // However, as a convenience, we return the parent's logical buffer if
+        // we do not encounter a nested type.
+        let child_data = self.child_data().get(child_index).unwrap();
+
+        // TODO: rationalise this logic, prefer not creating populated bitmaps, use Option matching
+        // I found taking a Bitmap that's populated to be more convenient, but I was more concerned first
+        // about accuracy, so I'll explore using Option<&Bitmap> directly.
+        let parent_bitmap = logical_null_buffer.map(Bitmap::from).unwrap_or_else(|| {
+            let ceil = bit_util::ceil(self.len(), 8);
+            Bitmap::from(Buffer::from(vec![0b11111111; ceil]))
+        });
+        let self_null_bitmap = child_data.null_bitmap().clone().unwrap_or_else(|| {
+            let ceil = bit_util::ceil(child_data.len(), 8);
+            Bitmap::from(Buffer::from(vec![0b11111111; ceil]))
+        });
+        match self.data_type() {
+            DataType::List(_) => Some(logical_list_bitmap::<i32>(
+                self,
+                parent_bitmap,
+                self_null_bitmap,
+            )),
+            DataType::LargeList(_) => Some(logical_list_bitmap::<i64>(
+                self,
+                parent_bitmap,
+                self_null_bitmap,
+            )),
+            DataType::FixedSizeList(_, len) => {
+                let len = *len as usize;
+                let array_len = self.len();
+                let array_offset = self.offset();
+                let bitmap_len = bit_util::ceil(array_len * len, 8);
+                let mut buffer =
+                    MutableBuffer::new(bitmap_len).with_bitset(bitmap_len, false);
+                let mut null_slice = buffer.data_mut();
+                (array_offset..array_len + array_offset).for_each(|index| {
+                    let start = index * len;
+                    let end = start + len;
+                    let mask = parent_bitmap.is_set(index);
+                    (start..end).for_each(|child_index| {
+                        if mask && self_null_bitmap.is_set(child_index) {
+                            bit_util::set_bit(&mut null_slice, child_index);
+                        }
+                    });
+                });
+                Some(buffer.freeze())
+            }
+            DataType::Struct(_) => (&parent_bitmap & &self_null_bitmap)
+                .ok()
+                .map(|bitmap| bitmap.bits),
+            DataType::Union(_) => {
+                panic!("Logical equality not yet implemented for union arrays")
+            }
+            _ => {
+                panic!(
+                    "Encountered array data with child data, but not a known nested type"
+                )
+            }
+        }
     }
 
     /// Returns a reference to the null buffer of this array data.
@@ -331,14 +410,43 @@ impl ArrayDataBuilder {
     }
 }
 
+#[inline]
+fn logical_list_bitmap<OffsetSize: OffsetSizeTrait>(
+    parent_data: &ArrayData,
+    parent_bitmap: Bitmap,
+    child_bitmap: Bitmap,
+) -> Buffer {
+    let offsets = parent_data.buffer::<OffsetSize>(0);
+    let offset_start = offsets.first().unwrap().to_usize().unwrap();
+    let offset_len = offsets.get(parent_data.len()).unwrap().to_usize().unwrap();
+    let mut buffer = MutableBuffer::new_null(offset_len - offset_start);
+    let mut null_slice = buffer.data_mut();
+
+    offsets
+        .windows(2)
+        .enumerate()
+        .take(offset_len - offset_start)
+        .for_each(|(index, window)| {
+            dbg!(&window, index);
+            let start = window[0].to_usize().unwrap();
+            let end = window[1].to_usize().unwrap();
+            let mask = parent_bitmap.is_set(index);
+            (start..end).for_each(|child_index| {
+                if mask && child_bitmap.is_set(child_index) {
+                    bit_util::set_bit(&mut null_slice, child_index - offset_start);
+                }
+            });
+        });
+    buffer.freeze()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     use std::sync::Arc;
 
-    use crate::buffer::Buffer;
-    use crate::datatypes::ToByteSlice;
+    use crate::datatypes::{Field, ToByteSlice};
     use crate::util::bit_util;
 
     #[test]
@@ -461,5 +569,52 @@ mod tests {
 
         let count = count_nulls(null_buffer.as_ref(), 4, 8);
         assert_eq!(count, 3);
+    }
+
+    #[test]
+    fn test_logical_null_buffer() {
+        let child_data = ArrayData::builder(DataType::Int32)
+            .len(11)
+            .add_buffer(Buffer::from(
+                vec![1i32, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].to_byte_slice(),
+            ))
+            .build();
+
+        let data = ArrayData::builder(DataType::List(Box::new(Field::new(
+            "item",
+            DataType::Int32,
+            false,
+        ))))
+        .len(7)
+        .add_buffer(Buffer::from(vec![0, 0, 3, 5, 6, 9, 10, 11].to_byte_slice()))
+        .null_bit_buffer(Buffer::from(vec![0b01011010]))
+        .add_child_data(child_data.clone())
+        .build();
+
+        // Get the child logical null buffer. The child is non-nullable, but because the list has nulls,
+        // we expect the child to logically have some nulls, inherited from the parent:
+        // [1, 2, 3, null, null, 6, 7, 8, 9, null, 11]
+        let nulls = data.child_logical_null_buffer(data.null_buffer().cloned(), 0);
+        let expected = Some(Buffer::from(vec![0b11100111, 0b00000101]));
+        assert_eq!(nulls, expected);
+
+        // test with offset
+        let data = ArrayData::builder(DataType::List(Box::new(Field::new(
+            "item",
+            DataType::Int32,
+            false,
+        ))))
+        .len(4)
+        .offset(3)
+        .add_buffer(Buffer::from(vec![0, 0, 3, 5, 6, 9, 10, 11].to_byte_slice()))
+        // the null_bit_buffer doesn't have an offset, i.e. cleared the 3 offset bits 0b[---]01011[010]
+        .null_bit_buffer(Buffer::from(vec![0b00001011]))
+        .add_child_data(child_data)
+        .build();
+
+        let nulls = data.child_logical_null_buffer(data.null_buffer().cloned(), 0);
+
+        let expected = Some(Buffer::from(vec![0b00101111]));
+        assert_eq!(nulls, expected);
     }
 }

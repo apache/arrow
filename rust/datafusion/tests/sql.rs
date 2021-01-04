@@ -132,6 +132,7 @@ async fn parquet_single_nan_schema() {
 }
 
 #[tokio::test]
+#[ignore = "Test ignored, will be enabled as part of the nested Parquet reader"]
 async fn parquet_list_columns() {
     let mut ctx = ExecutionContext::new();
     let testdata = arrow::util::test_util::parquet_test_data();

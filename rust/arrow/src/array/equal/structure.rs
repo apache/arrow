@@ -38,12 +38,13 @@ fn equal_values(
     len: usize,
 ) -> bool {
     let mut temp_lhs: Option<Buffer> = None;
-    let mut temp_rhs: Option<Buffer> = None;
+    // let mut temp_rhs: Option<Buffer> = None;
 
     lhs.child_data()
         .iter()
         .zip(rhs.child_data())
-        .all(|(lhs_values, rhs_values)| {
+        .enumerate()
+        .all(|(index, (lhs_values, rhs_values))| {
             // merge the null data
             let lhs_merged_nulls = match (lhs_nulls, lhs_values.null_buffer()) {
                 (None, None) => None,
@@ -55,21 +56,24 @@ fn equal_values(
                     temp_lhs.as_ref()
                 }
             };
-            let rhs_merged_nulls = match (rhs_nulls, rhs_values.null_buffer()) {
-                (None, None) => None,
-                (None, Some(c)) => Some(c),
-                (Some(p), None) => Some(p),
-                (Some(p), Some(c)) => {
-                    let merged = (p & c).unwrap();
-                    temp_rhs = Some(merged);
-                    temp_rhs.as_ref()
-                }
-            };
+            // TODO: this is intentional, looking at which is the better option
+            let rhs_merged_nulls =
+                rhs.child_logical_null_buffer(rhs_nulls.cloned(), index);
+            // let rhs_merged_nulls = match (rhs_nulls, rhs_values.null_buffer()) {
+            //     (None, None) => None,
+            //     (None, Some(c)) => Some(c),
+            //     (Some(p), None) => Some(p),
+            //     (Some(p), Some(c)) => {
+            //         let merged = (p & c).unwrap();
+            //         temp_rhs = Some(merged);
+            //         temp_rhs.as_ref()
+            //     }
+            // };
             equal_range(
                 lhs_values,
                 rhs_values,
                 lhs_merged_nulls,
-                rhs_merged_nulls,
+                rhs_merged_nulls.as_ref(),
                 lhs_start,
                 rhs_start,
                 len,
