@@ -95,10 +95,14 @@ class ARROW_DS_EXPORT Expression {
   // XXX someday
   // Result<PipelineGraph> GetPipelines();
 
+  /// Access a Call or return nullptr if this expression is not a call
   const Call* call() const;
+  /// Access a Datum or return nullptr if this expression is not a literal
   const Datum* literal() const;
+  /// Access a FieldRef or return nullptr if this expression is not a field_ref
   const FieldRef* field_ref() const;
 
+  /// The type and shape to which this expression will evaluate
   ValueDescr descr() const;
   // XXX someday
   // NullGeneralization::type nullable() const;
@@ -150,9 +154,11 @@ Expression call(std::string function, std::vector<Expression> arguments,
               std::make_shared<Options>(std::move(options)));
 }
 
+/// Assemble a list of all fields referenced by an Expression at any depth.
 ARROW_DS_EXPORT
 std::vector<FieldRef> FieldsInExpression(const Expression&);
 
+/// Assemble a mapping from field references to known values.
 ARROW_DS_EXPORT
 Result<std::unordered_map<FieldRef, Datum, FieldRef::Hash>> ExtractKnownFieldValues(
     const Expression& guaranteed_true_predicate);
@@ -175,6 +181,7 @@ Result<Expression> Canonicalize(Expression, compute::ExecContext* = NULLPTR);
 ARROW_DS_EXPORT
 Result<Expression> FoldConstants(Expression);
 
+/// Simplify Expressions by replacing with known values of the fields which it references.
 ARROW_DS_EXPORT
 Result<Expression> ReplaceFieldsWithKnownValues(
     const std::unordered_map<FieldRef, Datum, FieldRef::Hash>& known_values, Expression);

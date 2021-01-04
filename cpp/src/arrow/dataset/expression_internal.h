@@ -299,19 +299,11 @@ inline Result<std::shared_ptr<StructScalar>> FunctionOptionsToStructScalar(
     return nullptr;
   }
 
-  auto Finish = [](ScalarVector values, std::vector<std::string> names) {
-    FieldVector fields(names.size());
-    for (size_t i = 0; i < fields.size(); ++i) {
-      fields[i] = field(std::move(names[i]), values[i]->type);
-    }
-    return std::make_shared<StructScalar>(std::move(values), struct_(std::move(fields)));
-  };
-
   if (auto options = GetSetLookupOptions(call)) {
     if (!options->value_set.is_array()) {
       return Status::NotImplemented("chunked value_set");
     }
-    return Finish(
+    return StructScalar::Make(
         {
             std::make_shared<ListScalar>(options->value_set.make_array()),
             MakeScalar(options->skip_nulls),
@@ -319,9 +311,8 @@ inline Result<std::shared_ptr<StructScalar>> FunctionOptionsToStructScalar(
         {"value_set", "skip_nulls"});
   }
 
-  if (call.function_name == "cast") {
-    auto options = checked_cast<const compute::CastOptions*>(call.options.get());
-    return Finish(
+  if (auto options = GetCastOptions(call)) {
+    return StructScalar::Make(
         {
             MakeNullScalar(options->to_type),
             MakeScalar(options->allow_int_overflow),
@@ -385,9 +376,22 @@ inline Status FunctionOptionsFromStructScalar(const StructScalar* repr,
   return Status::NotImplemented("conversion of options for ", call->function_name);
 }
 
+/// A helper for unboxing an Expression composed of associative function calls.
+/// Such expressions can frequently be rearranged to a semantically equivalent
+/// expression for more optimal execution or more straightforward manipulation.
+/// For example, (a + ((b + 3) + 4)) is equivalent to (((4 + 3) + a) + b) and the latter
+/// can be trivially constant-folded to ((7 + a) + b).
 struct FlattenedAssociativeChain {
+  /// True if a chain was already a left fold.
   bool was_left_folded = true;
-  std::vector<Expression> exprs, fringe;
+
+  /// All "branch" expressions in a flattened chain. For example given (a + ((b + 3) + 4))
+  /// exprs would be [(a + ((b + 3) + 4)), ((b + 3) + 4), (b + 3)]
+  std::vector<Expression> exprs;
+
+  /// All "leaf" expressions in a flattened chain. For example given (a + ((b + 3) + 4))
+  /// the fringe would be [a, b, 3, 4]
+  std::vector<Expression> fringe;
 
   explicit FlattenedAssociativeChain(Expression expr) : exprs{std::move(expr)} {
     auto call = CallNotNull(exprs.back());
