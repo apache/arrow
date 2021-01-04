@@ -794,6 +794,7 @@ def test_compare_array(typ):
     result = pc.greater_equal(arr1, arr2)
     assert result.equals(con([True, True, False, None, None]))
 
+
 @pytest.mark.parametrize("typ", ["array", "chunked_array"])
 def test_compare_string_scalar(typ):
     if typ == "array":
@@ -828,6 +829,7 @@ def test_compare_string_scalar(typ):
     result = pc.greater_equal(arr, scalar)
     assert result.equals(con([False, True, True, None]))
 
+
 @pytest.mark.parametrize("typ", ["array", "chunked_array"])
 def test_compare_scalar(typ):
     if typ == "array":
@@ -844,8 +846,7 @@ def test_compare_scalar(typ):
     if typ == "array":
         nascalar = pa.scalar(None, type="int64")
         result = pc.equal(arr, nascalar)
-        isnull = pc.is_null(result)
-        assert isnull.equals(con([True, True, True, True]))
+        assert result.to_pylist() == [None, None, None, None]
 
     result = pc.not_equal(arr, scalar)
     assert result.equals(con([True, False, True, None]))
