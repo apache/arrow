@@ -96,13 +96,10 @@ impl<'a> From<ipc::Field<'a>> for Field {
                     metadata_map.insert(k.to_string(), v.to_string());
                 }
             }
-            if !metadata_map.is_empty() {
-                metadata = Some(metadata_map);
-            }
+            metadata = Some(metadata_map);
         }
 
-        arrow_field.set_metadata(metadata);
-        arrow_field
+        arrow_field.with_metadata(metadata)
     }
 }
 

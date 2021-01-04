@@ -727,11 +727,15 @@ mod tests {
         let micros_tz = Some("UTC".to_string());
         let nanos_tz = Some("Africa/Johannesburg".to_string());
 
-        let mut field_bools_with_metadata =
-            Field::new("bools-with-metadata", DataType::Boolean, true);
-        let mut field_metadata = std::collections::BTreeMap::new();
-        field_metadata.insert("k".to_string(), "v".to_string());
-        field_bools_with_metadata.set_metadata(Some(field_metadata));
+        let field_bools_with_metadata =
+            Field::new("bools-with-metadata", DataType::Boolean, true).with_metadata(
+                Some(
+                    [("k".to_string(), "v".to_string())]
+                        .iter()
+                        .cloned()
+                        .collect(),
+                ),
+            );
 
         let schema = Schema::new(vec![
             field_bools_with_metadata,
