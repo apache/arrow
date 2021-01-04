@@ -570,15 +570,16 @@ Future<std::vector<Result<T>>> All(std::vector<Future<T>> futures) {
 
   auto state = std::make_shared<State>(std::move(futures));
 
-  auto out = Future<std::vector<T>>::Make();
+  auto out = Future<std::vector<Result<T>>>::Make();
   for (const Future<T>& future : state->futures) {
-    future.AddCallback([state](const Result<T>&) {
+    future.AddCallback([state, out](const Result<T>&) mutable {
       if (state->n_remaining.fetch_sub(1) != 1) return;
 
       std::vector<Result<T>> results(state->futures.size());
       for (size_t i = 0; i < results.size(); ++i) {
         results[i] = state->futures[i].result();
       }
+      out.MarkFinished(std::move(results));
     });
   }
   return out;

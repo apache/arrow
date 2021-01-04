@@ -67,6 +67,7 @@ class ReadaheadQueue::Impl : public std::enable_shared_from_this<ReadaheadQueue:
   }
 
   Status PopDone(std::unique_ptr<ReadaheadPromise>* out) {
+    DCHECK(max_readahead_ > 0);
     std::unique_lock<std::mutex> lock(mutex_);
     if (please_shutdown_) {
       return Status::Invalid("Shutdown requested");
@@ -83,6 +84,7 @@ class ReadaheadQueue::Impl : public std::enable_shared_from_this<ReadaheadQueue:
   }
 
   Status Pump(std::function<std::unique_ptr<ReadaheadPromise>()> factory) {
+    DCHECK(max_readahead_ > 0);
     std::unique_lock<std::mutex> lock(mutex_);
     if (please_shutdown_) {
       return Status::Invalid("Shutdown requested");
@@ -119,14 +121,18 @@ class ReadaheadQueue::Impl : public std::enable_shared_from_this<ReadaheadQueue:
   void DoWork() {
     std::unique_lock<std::mutex> lock(mutex_);
     while (!please_shutdown_) {
-      while (static_cast<int64_t>(done_.size()) < max_readahead_ && todo_.size() > 0) {
+      while (todo_.size() > 0 &&
+             ((max_readahead_ <= 0) ||
+              (static_cast<int64_t>(done_.size()) < max_readahead_))) {
         auto promise = std::move(todo_.front());
         todo_.pop_front();
         lock.unlock();
         promise->Call();
         lock.lock();
-        done_.push_back(std::move(promise));
-        work_done_.notify_one();
+        if (max_readahead_ > 0) {
+          done_.push_back(std::move(promise));
+          work_done_.notify_one();
+        }
         // Exit eagerly
         if (please_shutdown_) {
           return;

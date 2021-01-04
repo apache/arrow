@@ -17,6 +17,8 @@
 
 ADD_ARROW_EXAMPLE(row-wise-conversion-example)
 
+add_arrow_benchmark(dataset-csv-scan-example PREFIX "arrow-csv")
+
 if (ARROW_PARQUET AND ARROW_DATASET)
   if (ARROW_BUILD_SHARED)
     set(DATASET_EXAMPLES_LINK_LIBS arrow_dataset_shared)

@@ -119,6 +119,9 @@ struct ARROW_EXPORT ReadOptions {
 
   /// Whether to use the global CPU thread pool
   bool use_threads = true;
+  // TODO: Does this need to propagate anywhere?  E.g. python objects?
+  /// Whether to use blocking reads or asynchronous reads
+  bool legacy_blocking_reads = true;
   /// Block size we request from the IO layer; also determines the size of
   /// chunks when use_threads is true
   int32_t block_size = 1 << 20;  // 1 MB

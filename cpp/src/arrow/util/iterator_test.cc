@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/util/iterator.h"
+#include "arrow/util/async_iterator.h"
 
 #include <algorithm>
 #include <chrono>
@@ -130,6 +131,11 @@ inline Iterator<T> EmptyIt() {
   return MakeEmptyIterator<T>();
 }
 
+template <typename T>
+inline AsyncIterator<T> AsyncEmptyIt() {
+  return AsyncIterator<T>::MakeEmpty();
+}
+
 inline Iterator<TestInt> VectorIt(std::vector<TestInt> v) {
   return MakeVectorIterator<TestInt>(std::move(v));
 }
@@ -152,6 +158,18 @@ inline Iterator<T> FlattenIt(Iterator<Iterator<T>> its) {
 template <typename T>
 void AssertIteratorMatch(std::vector<T> expected, Iterator<T> actual) {
   EXPECT_EQ(expected, IteratorToVector(std::move(actual)));
+}
+
+template <typename T>
+std::vector<T> AsyncIteratorToVector(AsyncIterator<T> iterator) {
+  auto vec_future = iterator.ToVector();
+  EXPECT_OK_AND_ASSIGN(auto vec_ptr, vec_future.result());
+  return *vec_ptr;
+}
+
+template <typename T>
+void AssertAsyncIteratorMatch(std::vector<T> expected, AsyncIterator<T> actual) {
+  EXPECT_EQ(expected, AsyncIteratorToVector(std::move(actual)));
 }
 
 template <typename T>
@@ -212,6 +230,90 @@ TEST(TestVectorIterator, RangeForLoop) {
     ASSERT_EQ(*i_ptr, *ints_it++);
   }
   ASSERT_EQ(ints_it, ints.end());
+}
+
+TEST(TestAsyncEmptyIterator, Basic) {
+  AssertAsyncIteratorMatch({}, AsyncEmptyIt<TestInt>());
+}
+
+TEST(TestAsyncWrappedIterator, Basic) {
+  ASSERT_OK_AND_ASSIGN(auto wrapped,
+                       AsyncIteratorWrapper<TestInt>::Make(VectorIt({1, 2, 3})));
+  AssertAsyncIteratorMatch({1, 2, 3}, std::move(wrapped));
+}
+
+template <typename T>
+std::function<Status(T, Emitter<T>&)> MakeFirstN(int n) {
+  auto remaining = std::make_shared<int>(n);
+  return [remaining](T next, Emitter<T>& emitter) {
+    if (*remaining > 0) {
+      emitter.Emit(std::move(next));
+      *remaining = *remaining - 1;
+      if (*remaining == 0) {
+        emitter.Finish();
+      }
+    }
+    return Status::OK();
+  };
+}
+
+TEST(TestIteratorOperator, Truncating) {
+  auto original = VectorIt({1, 2, 3});
+  auto truncated =
+      MakeOperatorIterator<TestInt, TestInt>(std::move(original), MakeFirstN<TestInt>(2));
+  AssertIteratorMatch({1, 2}, std::move(truncated));
+}
+
+TEST(TestIteratorOperator, TestPointer) {
+  auto original = VectorIt<std::shared_ptr<int>>(
+      {std::make_shared<int>(1), std::make_shared<int>(2), std::make_shared<int>(3)});
+  auto truncated = MakeOperatorIterator<std::shared_ptr<int>, std::shared_ptr<int>>(
+      std::move(original), MakeFirstN<std::shared_ptr<int>>(2));
+  ASSERT_OK_AND_ASSIGN(auto result, truncated.ToVector());
+  ASSERT_EQ(2, result.size());
+}
+
+TEST(TestIteratorOperator, TruncatingShort) {
+  // Tests the failsafe case where we never call Finish
+  auto original = VectorIt({1});
+  auto truncated =
+      MakeOperatorIterator<TestInt, TestInt>(std::move(original), MakeFirstN<TestInt>(2));
+  AssertIteratorMatch({1}, std::move(truncated));
+}
+
+template <typename T>
+std::function<Status(T, Emitter<T>&)> MakeRepeatN(int repeat_count) {
+  return [repeat_count](T next, Emitter<T>& emitter) {
+    for (int i = 0; i < repeat_count; i++) {
+      emitter.Emit(next);
+    }
+    return Status::OK();
+  };
+}
+
+TEST(TestIteratorOperator, Repeating) {
+  auto original = VectorIt({1, 2, 3});
+  auto repeated = MakeOperatorIterator<TestInt, TestInt>(std::move(original),
+                                                         MakeRepeatN<TestInt>(2));
+  AssertIteratorMatch({1, 1, 2, 2, 3, 3}, std::move(repeated));
+}
+
+template <typename T>
+std::function<Status(T, Emitter<T>&)> MakeFilter(std::function<bool(T&)> filter) {
+  return [filter](T next, Emitter<T>& emitter) {
+    if (filter(next)) {
+      emitter.Emit(next);
+    }
+    return Status::OK();
+  };
+}
+
+TEST(TestIteratorOperator, Filter) {
+  // Test the case where a call to the operator doesn't emit anything or call finish
+  auto original = VectorIt({1, 2, 3});
+  auto repeated = MakeOperatorIterator<TestInt, TestInt>(
+      std::move(original), MakeFilter<TestInt>([](TestInt& t) { return t.value != 2; }));
+  AssertIteratorMatch({1, 3}, std::move(repeated));
 }
 
 TEST(TestFunctionIterator, RangeForLoop) {

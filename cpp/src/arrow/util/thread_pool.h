@@ -86,6 +86,21 @@ class ARROW_EXPORT Executor {
     return SpawnReal(hints, std::forward<Function>(func));
   }
 
+  template <typename T>
+  Future<T> Transfer(Future<T> future) {
+    Future<T> transferred;
+    future.AddCallback([this, transferred](const Result<T>& result) mutable {
+      Result<T> result_copy(result);
+      auto spawn_status = Spawn([transferred, result_copy]() mutable {
+        transferred.MarkFinished(result_copy);
+      });
+      if (!spawn_status.ok()) {
+        transferred.MarkFinished(spawn_status);
+      }
+    });
+    return transferred;
+  }
+
   // Submit a callable and arguments for execution.  Return a future that
   // will return the callable's result value once.
   // The callable's arguments are copied before execution.

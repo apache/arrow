@@ -20,6 +20,7 @@
 #include <cassert>
 #include <functional>
 #include <memory>
+#include <queue>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -34,6 +35,13 @@
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+
+namespace detail {
+
+template <typename Signature>
+using result_of_t = typename std::result_of<Signature>::type;
+
+}  // namespace detail
 
 template <typename T>
 class Iterator;
@@ -245,6 +253,61 @@ class VectorIterator {
 template <typename T>
 Iterator<T> MakeVectorIterator(std::vector<T> v) {
   return Iterator<T>(VectorIterator<T>(std::move(v)));
+}
+
+// TODO: Split into public interface and struct impl?  Otherwise there are a lot of
+// dangling members that should be private
+template <typename T>
+struct Emitter {
+  void Emit(T value) { item_buffer_.push(value); }
+  void Finish() { finished_ = true; }
+
+  Emitter() {}
+
+  ARROW_DISALLOW_COPY_AND_ASSIGN(Emitter);
+  ARROW_DEFAULT_MOVE_AND_ASSIGN(Emitter);
+
+  std::queue<T> item_buffer_;
+  bool finished_ = false;
+};
+
+// TODO: Should Operator here just be std::function<Status(T, Emitter&)> for self
+// documenting & type erasure purposes?
+template <typename T, typename V, typename Operator>
+class OperatorIterator {
+ public:
+  explicit OperatorIterator(Iterator<T> it, Operator&& op)
+      : it_(std::move(it)), op_(op) {}
+
+  // Note: it is not safe to call Next again until the previous iteration is finished
+  // should not iterate over this in a parallel fashion.  May need to revist.
+  Result<V> Next() {
+    while (!emitter_.finished_ && emitter_.item_buffer_.empty()) {
+      ARROW_ASSIGN_OR_RAISE(auto next, it_.Next());
+      auto finished = (next == IterationTraits<T>::End());
+      ARROW_RETURN_NOT_OK(op_(std::move(next), emitter_));
+      if (finished) {
+        emitter_.finished_ = true;
+      }
+    }
+    if (emitter_.finished_ && emitter_.item_buffer_.empty()) {
+      return IterationTraits<V>::End();
+    }
+    auto result = emitter_.item_buffer_.front();
+    emitter_.item_buffer_.pop();
+    return result;
+  }
+
+ private:
+  Iterator<T> it_;
+  Operator op_;
+  Emitter<V> emitter_;
+};
+
+// Should this be a member function of Iterator<T>?
+template <typename T, typename V, typename Operator>
+Iterator<V> MakeOperatorIterator(Iterator<T> it, Operator op) {
+  return Iterator<V>(OperatorIterator<T, V, Operator>(std::move(it), std::move(op)));
 }
 
 /// \brief Simple iterator which yields *pointers* to the elements of a std::vector<T>.
