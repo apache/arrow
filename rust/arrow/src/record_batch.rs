@@ -346,12 +346,8 @@ mod tests {
                 false,
             ),
         ];
-        let struct_type = DataType::Struct(struct_fields.clone());
-        let schema = Arc::new(Schema::new(vec![Field::new(
-            "a",
-            struct_type.clone(),
-            true,
-        )]));
+        let struct_type = DataType::Struct(struct_fields);
+        let schema = Arc::new(Schema::new(vec![Field::new("a", struct_type, true)]));
 
         let a1: ArrayRef = Arc::new(Int32Array::from(vec![1, 2]));
         let a2_child = Int8Array::from(vec![1, 2, 3, 4]);

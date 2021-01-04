@@ -1919,14 +1919,10 @@ mod tests {
         assert!(!list_b.equals_datatype(&list_c));
         assert!(!list_a.equals_datatype(&list_d));
 
-        let list_e = DataType::FixedSizeList(
-            Box::new(Field::new("item", list_a.clone(), false)),
-            3,
-        );
-        let list_f = DataType::FixedSizeList(
-            Box::new(Field::new("array", list_b.clone(), false)),
-            3,
-        );
+        let list_e =
+            DataType::FixedSizeList(Box::new(Field::new("item", list_a, false)), 3);
+        let list_f =
+            DataType::FixedSizeList(Box::new(Field::new("array", list_b, false)), 3);
         let list_g = DataType::FixedSizeList(
             Box::new(Field::new("item", DataType::FixedSizeBinary(3), true)),
             3,
@@ -1935,7 +1931,7 @@ mod tests {
         assert!(!list_e.equals_datatype(&list_g));
         assert!(!list_f.equals_datatype(&list_g));
 
-        let list_h = DataType::Struct(vec![Field::new("f1", list_e.clone(), true)]);
+        let list_h = DataType::Struct(vec![Field::new("f1", list_e, true)]);
         let list_i = DataType::Struct(vec![Field::new("f1", list_f.clone(), true)]);
         let list_j = DataType::Struct(vec![Field::new("f1", list_f.clone(), false)]);
         let list_k = DataType::Struct(vec![
@@ -1949,8 +1945,8 @@ mod tests {
             Field::new("ff3", DataType::LargeUtf8, true),
         ]);
         let list_m = DataType::Struct(vec![
-            Field::new("ff1", list_f.clone(), false),
-            Field::new("ff2", list_g.clone(), false),
+            Field::new("ff1", list_f, false),
+            Field::new("ff2", list_g, false),
             Field::new("ff3", DataType::Utf8, true),
         ]);
         assert!(list_h.equals_datatype(&list_i));
