@@ -302,6 +302,8 @@ pub trait RecordBatchReader: Iterator<Item = Result<RecordBatch>> {
 mod tests {
     use super::*;
 
+    use crate::buffer::Buffer;
+
     #[test]
     fn create_record_batch() {
         let schema = Schema::new(vec![
