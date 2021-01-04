@@ -378,20 +378,21 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
             Date32(DateUnit::Day) => {
                 use chrono::Datelike;
                 let string_array = array.as_any().downcast_ref::<StringArray>().unwrap();
-                let mut builder = PrimitiveBuilder::<Date32Type>::new(string_array.len());
-                for i in 0..string_array.len() {
-                    if string_array.is_null(i) {
-                        builder.append_null()?;
-                    } else {
-                        match string_array.value(i).parse::<chrono::NaiveDate>() {
-                            Ok(date) => builder.append_value(
-                                date.num_days_from_ce() - EPOCH_DAYS_FROM_CE,
-                            )?,
-                            Err(_) => builder.append_null()?, // not a valid date
-                        };
-                    }
-                }
-                Ok(Arc::new(builder.finish()) as ArrayRef)
+                let array = (0..string_array.len())
+                    .map(|i| {
+                        if string_array.is_null(i) {
+                            None
+                        } else {
+                            match string_array.value(i).parse::<chrono::NaiveDate>() {
+                                Ok(date) => {
+                                    Some(date.num_days_from_ce() - EPOCH_DAYS_FROM_CE)
+                                }
+                                Err(_) => None, // not a valid date
+                            }
+                        }
+                    })
+                    .collect::<Date32Array>();
+                Ok(Arc::new(array) as ArrayRef)
             }
             Date64(DateUnit::Millisecond) => {
                 let string_array = array.as_any().downcast_ref::<StringArray>().unwrap();
