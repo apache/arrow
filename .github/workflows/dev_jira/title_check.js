@@ -15,49 +15,39 @@
 // specific language governing permissions and limitations
 // under the License.
 
-console.log("title-check");
-
 const fs = require("fs");
-
-const {owner: owner, repo: repo} = context.repo;
 
 function haveJIRAID(title) {
   if (!title) {
     return false;
   }
-  return /^(ARROW|PARQUET)-\d+/.test(title);
+  return /^(WIP:?\s*)?(ARROW|PARQUET)-\d+/.test(title);
 }
 
-async function commentOpenJIRAIssue(pullRequestNumber) {
+async function commentOpenJIRAIssue(github, context, pullRequestNumber) {
   const {data: comments} = await github.issues.listComments({
-    owner: owner,
-    repo: repo,
+    owner: context.repo.owner,
+    repo: context.repo.repo,
     issue_number: pullRequestNumber,
     per_page: 1
   });
   if (comments.length > 0) {
     return;
   }
-  const commentPath = ".github/workflows/dev_cron/title_check.md";
+  const commentPath = ".github/workflows/dev_jira/title_check.md";
   const comment = fs.readFileSync(commentPath).toString();
   await github.issues.createComment({
-    owner: owner,
-    repo: repo,
+    owner: context.repo.owner,
+    repo: context.repo.repo,
     issue_number: pullRequestNumber,
     body: comment
   });
 }
 
-(async () => {
-  const {data: pulls} = await github.pulls.list({
-    owner: owner,
-    repo: repo,
-  });
-  pulls.forEach(async (pull) => {
-    const pullRequestNumber = pull.number;
-    const title = pull.title;
-    if (!haveJIRAID(title)) {
-      await commentOpenJIRAIssue(pullRequestNumber);
-    }
-  });
-})();
+module.exports = async ({github, context}) => {
+  const pullRequestNumber = context.payload.number;
+  const title = context.payload.pull_request.title;
+  if (!haveJIRAID(title)) {
+    await commentOpenJIRAIssue(github, context, pullRequestNumber);
+  }
+};
