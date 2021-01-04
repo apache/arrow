@@ -305,6 +305,10 @@ cdef class LargeListType(DataType):
         return large_list, (self.value_type,)
 
     @property
+    def value_field(self):
+        return pyarrow_wrap_field(self.list_type.value_field())
+
+    @property
     def value_type(self):
         """
         The data type of large list values.
@@ -350,6 +354,10 @@ cdef class FixedSizeListType(DataType):
 
     def __reduce__(self):
         return list_, (self.value_type, self.list_size)
+
+    @property
+    def value_field(self):
+        return pyarrow_wrap_field(self.list_type.value_field())
 
     @property
     def value_type(self):
