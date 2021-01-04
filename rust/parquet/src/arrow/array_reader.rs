@@ -25,10 +25,10 @@ use std::vec::Vec;
 
 use arrow::array::{
     Array, ArrayData, ArrayDataBuilder, ArrayDataRef, ArrayRef, BinaryArray,
-    BinaryBuilder, BooleanArray, BooleanBufferBuilder, FixedSizeBinaryArray,
-    FixedSizeBinaryBuilder, GenericListArray, Int16BufferBuilder, ListBuilder,
-    OffsetSizeTrait, PrimitiveArray, PrimitiveBuilder, StringArray, StringBuilder,
-    StructArray,
+    BinaryBuilder, BooleanArray, BooleanBufferBuilder, DecimalBuilder,
+    FixedSizeBinaryArray, FixedSizeBinaryBuilder, GenericListArray, Int16BufferBuilder,
+    Int32Array, Int64Array, ListBuilder, OffsetSizeTrait, PrimitiveArray,
+    PrimitiveBuilder, StringArray, StringBuilder, StructArray,
 };
 use arrow::buffer::{Buffer, MutableBuffer};
 use arrow::datatypes::{
@@ -349,6 +349,36 @@ impl<T: DataType> ArrayReader for PrimitiveArrayReader<T> {
                 // this is cheap as it internally reinterprets the data
                 let a = arrow::compute::cast(&array, &ArrowType::Date32(DateUnit::Day))?;
                 arrow::compute::cast(&a, target_type)?
+            }
+            ArrowType::Decimal(p, s) => {
+                let mut builder = DecimalBuilder::new(array.len(), *p, *s);
+                match array.data_type() {
+                    ArrowType::Int32 => {
+                        let values = array.as_any().downcast_ref::<Int32Array>().unwrap();
+                        for maybe_value in values.iter() {
+                            match maybe_value {
+                                Some(value) => builder.append_value(value as i128)?,
+                                None => builder.append_null()?,
+                            }
+                        }
+                    }
+                    ArrowType::Int64 => {
+                        let values = array.as_any().downcast_ref::<Int64Array>().unwrap();
+                        for maybe_value in values.iter() {
+                            match maybe_value {
+                                Some(value) => builder.append_value(value as i128)?,
+                                None => builder.append_null()?,
+                            }
+                        }
+                    }
+                    _ => {
+                        return Err(ArrowError(format!(
+                            "Cannot convert {:?} to decimal",
+                            array.data_type()
+                        )))
+                    }
+                }
+                Arc::new(builder.finish()) as ArrayRef
             }
             _ => arrow::compute::cast(&array, target_type)?,
         };
@@ -1550,20 +1580,10 @@ impl<'a> ArrayReaderBuilder {
             PhysicalType::FIXED_LEN_BYTE_ARRAY
                 if cur_type.get_basic_info().logical_type() == LogicalType::DECIMAL =>
             {
-                let (precision, scale) = match *cur_type {
-                    Type::PrimitiveType {
-                        ref precision,
-                        ref scale,
-                        ..
-                    } => (*precision, *scale),
-                    _ => {
-                        return Err(ArrowError(
-                            "Expected a physical type, not a group type".to_string(),
-                        ))
-                    }
-                };
-                let converter =
-                    DecimalConverter::new(DecimalArrayConverter::new(precision, scale));
+                let converter = DecimalConverter::new(DecimalArrayConverter::new(
+                    cur_type.get_precision(),
+                    cur_type.get_scale(),
+                ));
                 Ok(Box::new(ComplexObjectArrayReader::<
                     FixedLenByteArrayType,
                     DecimalConverter,

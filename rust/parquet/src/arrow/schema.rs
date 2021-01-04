@@ -584,6 +584,7 @@ impl ParquetTypeConverter<'_> {
             LogicalType::INT_32 => Ok(DataType::Int32),
             LogicalType::DATE => Ok(DataType::Date32(DateUnit::Day)),
             LogicalType::TIME_MILLIS => Ok(DataType::Time32(TimeUnit::Millisecond)),
+            LogicalType::DECIMAL => Ok(self.to_decimal()),
             other => Err(ArrowError(format!(
                 "Unable to convert parquet INT32 logical type {}",
                 other
@@ -603,6 +604,7 @@ impl ParquetTypeConverter<'_> {
             LogicalType::TIMESTAMP_MICROS => {
                 Ok(DataType::Timestamp(TimeUnit::Microsecond, None))
             }
+            LogicalType::DECIMAL => Ok(self.to_decimal()),
             other => Err(ArrowError(format!(
                 "Unable to convert parquet INT64 logical type {}",
                 other
@@ -612,21 +614,7 @@ impl ParquetTypeConverter<'_> {
 
     fn from_fixed_len_byte_array(&self) -> Result<DataType> {
         match self.schema.get_basic_info().logical_type() {
-            LogicalType::DECIMAL => {
-                let (precision, scale) = match self.schema {
-                    Type::PrimitiveType {
-                        ref precision,
-                        ref scale,
-                        ..
-                    } => (*precision, *scale),
-                    _ => {
-                        return Err(ArrowError(
-                            "Expected a physical type, not a group type".to_string(),
-                        ))
-                    }
-                };
-                Ok(DataType::Decimal(precision as usize, scale as usize))
-            }
+            LogicalType::DECIMAL => Ok(self.to_decimal()),
             LogicalType::INTERVAL => {
                 // There is currently no reliable way of determining which IntervalUnit
                 // to return. Thus without the original Arrow schema, the results
@@ -648,6 +636,14 @@ impl ParquetTypeConverter<'_> {
                 Ok(DataType::FixedSizeBinary(byte_width))
             }
         }
+    }
+
+    fn to_decimal(&self) -> DataType {
+        assert!(self.schema.is_primitive());
+        DataType::Decimal(
+            self.schema.get_precision() as usize,
+            self.schema.get_scale() as usize,
+        )
     }
 
     fn from_byte_array(&self) -> Result<DataType> {
