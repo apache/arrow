@@ -46,6 +46,7 @@ fn lengths_equal<T: OffsetSizeTrait>(lhs: &[T], rhs: &[T]) -> bool {
         })
 }
 
+#[allow(clippy::too_many_arguments)]
 #[inline]
 fn offset_value_equal<T: OffsetSizeTrait>(
     lhs_values: &ArrayData,
