@@ -123,6 +123,51 @@ jobs:
         ARROW_CI_MODULES: "JAVA"
         DOCKER_IMAGE_ID: debian-java
         JDK: 11
+    
+    - name: "C++ on ppc64le"
+      os: linux
+      arch: ppc64le
+      env:
+        ARCH: ppc64le
+        ARROW_CI_MODULES: "CPP"
+        DOCKER_IMAGE_ID: ubuntu-cpp
+        # Can't use CMAKE_UNITIFY_BUILD=ON because of compiler crash.
+        # Can't enable ARROW_S3 because compiler is killed while compiling
+        # aws-sdk-cpp.
+        DOCKER_RUN_ARGS: >-
+          "
+          -e ARROW_BUILD_STATIC=OFF
+          -e ARROW_FLIGHT=ON
+          -e ARROW_ORC=OFF
+          -e ARROW_PARQUET=OFF
+          -e ARROW_S3=OFF
+          -e PARQUET_BUILD_EXAMPLES=OFF
+          -e PARQUET_BUILD_EXECUTABLES=OFF
+          -e Protobuf_SOURCE=BUNDLED
+          -e cares_SOURCE=BUNDLED
+          -e gRPC_SOURCE=BUNDLED
+          "
+        # The LLVM's APT repository provides only arm64 binaries.
+        # We should use LLVM provided by Ubuntu.
+        LLVM: "10"
+        UBUNTU: "20.04"
+
+    - name: "Go on ppc64le"
+      os: linux
+      arch: ppc64le
+      env:
+        ARCH: ppc64le
+        ARROW_CI_MODULES: "GO"
+        DOCKER_IMAGE_ID: debian-go
+
+    - name: "Java on ppc64le"
+      os: linux
+      arch: ppc64le
+      env:
+        ARCH: ppc64le
+        ARROW_CI_MODULES: "JAVA"
+        DOCKER_IMAGE_ID: debian-java
+        JDK: 11
 
   allow_failures:
     - arch: s390x
