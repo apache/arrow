@@ -80,7 +80,7 @@ impl RecordBatch {
         Ok(RecordBatch { schema, columns })
     }
 
-    /// Creates a [RecordBatch` from a schema and columns, with additional options,
+    /// Creates a `RecordBatch` from a schema and columns, with additional options,
     /// such as whether to strictly validate field names.
     ///
     /// See [`RecordBatch::try_new`] for the expected conditions.
