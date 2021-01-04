@@ -423,57 +423,6 @@ def test_compose_run(arrow_compose_path):
         compose.run('conda-python', volumes=volumes)
 
 
-# def test_compose_run_force_pull_and_build(arrow_compose_path):
-#     compose = DockerCompose(arrow_compose_path)
-
-#     expected_calls = [
-#         "pull --ignore-pull-failures conda-cpp",
-#         format_run("conda-cpp")
-#     ]
-#     with assert_compose_calls(compose, expected_calls):
-#         compose.run('conda-cpp', force_pull=True)
-
-#     expected_calls = [
-#         "build conda-cpp",
-#         format_run("conda-cpp")
-#     ]
-#     with assert_compose_calls(compose, expected_calls):
-#         compose.run('conda-cpp', force_build=True)
-
-#     expected_calls = [
-#         "pull --ignore-pull-failures conda-cpp",
-#         "build conda-cpp",
-#         format_run("conda-cpp")
-#     ]
-#     with assert_compose_calls(compose, expected_calls):
-#         compose.run('conda-cpp', force_pull=True, force_build=True)
-
-#     expected_calls = [
-#         "pull --ignore-pull-failures conda-cpp",
-#         "pull --ignore-pull-failures conda-python",
-#         "pull --ignore-pull-failures conda-python-pandas",
-#         "build conda-cpp",
-#         "build conda-python",
-#         "build conda-python-pandas",
-#         format_run("conda-python-pandas bash")
-#     ]
-#     with assert_compose_calls(compose, expected_calls):
-#         compose.run('conda-python-pandas', command='bash', force_build=True,
-#                     force_pull=True)
-
-#     expected_calls = [
-#         "pull --ignore-pull-failures conda-cpp",
-#         "pull --ignore-pull-failures conda-python",
-#         "build conda-cpp",
-#         "build conda-python",
-#         "build --no-cache conda-python-pandas",
-#         format_run("conda-python-pandas bash")
-#     ]
-#     with assert_compose_calls(compose, expected_calls):
-#         compose.run('conda-python-pandas', command='bash', force_build=True,
-#                     force_pull=True, use_leaf_cache=False)
-
-
 def test_compose_push(arrow_compose_path):
     compose = DockerCompose(arrow_compose_path, params=dict(PYTHON='3.8'))
     expected_env = PartialEnv(PYTHON="3.8")
