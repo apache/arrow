@@ -188,7 +188,7 @@ impl ArrayData {
                 let bitmap_len = bit_util::ceil(array_len * len, 8);
                 let mut buffer =
                     MutableBuffer::new(bitmap_len).with_bitset(bitmap_len, false);
-                let mut null_slice = buffer.data_mut();
+                let mut null_slice = buffer.as_slice_mut();
                 (array_offset..array_len + array_offset).for_each(|index| {
                     let start = index * len;
                     let end = start + len;
@@ -199,7 +199,7 @@ impl ArrayData {
                         }
                     });
                 });
-                Some(buffer.freeze())
+                Some(buffer.into())
             }
             DataType::Struct(_) => (&parent_bitmap & &self_null_bitmap)
                 .ok()
@@ -420,7 +420,7 @@ fn logical_list_bitmap<OffsetSize: OffsetSizeTrait>(
     let offset_start = offsets.first().unwrap().to_usize().unwrap();
     let offset_len = offsets.get(parent_data.len()).unwrap().to_usize().unwrap();
     let mut buffer = MutableBuffer::new_null(offset_len - offset_start);
-    let mut null_slice = buffer.data_mut();
+    let mut null_slice = buffer.as_slice_mut();
 
     offsets
         .windows(2)
@@ -437,7 +437,7 @@ fn logical_list_bitmap<OffsetSize: OffsetSizeTrait>(
                 }
             });
         });
-    buffer.freeze()
+    buffer.into()
 }
 
 #[cfg(test)]

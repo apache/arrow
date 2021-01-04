@@ -57,8 +57,8 @@ pub(super) fn dictionary_equal<T: ArrowNativeType>(
         })
     } else {
         // get a ref of the null buffer bytes, to use in testing for nullness
-        let lhs_null_bytes = lhs_nulls.as_ref().unwrap().data();
-        let rhs_null_bytes = rhs_nulls.as_ref().unwrap().data();
+        let lhs_null_bytes = lhs_nulls.as_ref().unwrap().as_slice();
+        let rhs_null_bytes = rhs_nulls.as_ref().unwrap().as_slice();
         (0..len).all(|i| {
             let lhs_pos = lhs_start + i;
             let rhs_pos = rhs_start + i;
