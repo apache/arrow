@@ -21,9 +21,11 @@ import static org.apache.arrow.adapter.jdbc.JdbcToArrowConfig.DEFAULT_TARGET_BAT
 
 import java.util.Calendar;
 import java.util.Map;
+import java.util.function.Function;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 
 /**
  * This class builds {@link JdbcToArrowConfig}s.
@@ -36,6 +38,7 @@ public class JdbcToArrowConfigBuilder {
   private Map<String, JdbcFieldInfo> arraySubTypesByColumnName;
 
   private int targetBatchSize;
+  private Function<JdbcFieldInfo, ArrowType> jdbcToArrowTypeConverter;
 
   /**
    * Default constructor for the <code>JdbcToArrowConfigBuilder}</code>.
@@ -163,6 +166,12 @@ public class JdbcToArrowConfigBuilder {
     return this;
   }
 
+  public JdbcToArrowConfigBuilder setJdbcToArrowTypeConverter(
+      Function<JdbcFieldInfo, ArrowType> jdbcToArrowTypeConverter) {
+    this.jdbcToArrowTypeConverter = jdbcToArrowTypeConverter;
+    return this;
+  }
+
   /**
    * This builds the {@link JdbcToArrowConfig} from the provided
    * {@link BufferAllocator} and {@link Calendar}.
@@ -177,6 +186,7 @@ public class JdbcToArrowConfigBuilder {
         includeMetadata,
         arraySubTypesByColumnIndex,
         arraySubTypesByColumnName,
-        targetBatchSize);
+        targetBatchSize,
+        jdbcToArrowTypeConverter);
   }
 }
