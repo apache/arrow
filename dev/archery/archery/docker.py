@@ -292,6 +292,9 @@ class DockerCompose(Command):
 
             # append volumes from the compose conf
             for v in service.get('volumes', []):
+                if not isinstance(v, str):
+                    # if not the compact string volume definition
+                    v = "{}:{}".format(v['source'], v['target'])
                 args.extend(['-v', v])
 
             # get the actual docker image name instead of the compose service

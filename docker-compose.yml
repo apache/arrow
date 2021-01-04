@@ -122,11 +122,11 @@ x-hierarchy:
   # helper services
   - impala
   - postgres
-  - wheel-manylinux-2010
-  - wheel-manylinux-2014
-  - wheel-manylinux-test
-  - wheel-windows-vs2017
-  - wheel-windows-test
+  - python-wheel-manylinux-2010
+  - python-wheel-manylinux-2014
+  - python-wheel-manylinux-test
+  - python-wheel-windows-vs2017
+  - python-wheel-windows-test
 
 volumes:
   conda-ccache:
@@ -154,8 +154,8 @@ services:
 
   # See available versions at:
   #    https://quay.io/repository/pypa/manylinux2010_x86_64?tab=tags
-  wheel-manylinux-2010:
-    image: ${REPO}:wheel-manylinux-2010
+  python-wheel-manylinux-2010:
+    image: ${REPO}:python-${PYTHON}-wheel-manylinux-2010
     build:
       args:
         base: quay.io/pypa/manylinux2010_x86_64:2020-12-03-912b0de
@@ -164,7 +164,7 @@ services:
       context: .
       dockerfile: ci/docker/wheel-manylinux-201x.dockerfile
       cache_from:
-        - ${REPO}:wheel-manylinux-2010
+        - ${REPO}:python-${PYTHON}-wheel-manylinux-2010
     environment:
       <<: *ccache
       MANYLINUX_VERSION: 2010
@@ -175,8 +175,8 @@ services:
 
   # See available versions at:
   #    https://quay.io/repository/pypa/manylinux2014_x86_64?tab=tags
-  wheel-manylinux-2014:
-    image: ${REPO}:wheel-manylinux-2014
+  python-wheel-manylinux-2014:
+    image: ${REPO}:python-${PYTHON}-wheel-manylinux-2014
     build:
       args:
         base:  quay.io/pypa/manylinux2014_x86_64:2020-11-11-bc8ce45
@@ -185,7 +185,7 @@ services:
       context: .
       dockerfile: ci/docker/wheel-manylinux-201x.dockerfile
       cache_from:
-        - ${REPO}:wheel-manylinux-2014
+        - ${REPO}:python-${PYTHON}-wheel-manylinux-2014
     environment:
       <<: *ccache
       MANYLINUX_VERSION: 2014
@@ -194,15 +194,15 @@ services:
       - ${DOCKER_VOLUME_PREFIX}wheel-manylinux2014-ccache:/ccache:delegated
     command: /arrow/ci/scripts/wheel_manylinux_build.sh
 
-  wheel-manylinux-test:
+  python-wheel-manylinux-test:
     image: python:${PYTHON}
     shm_size: 2G
     volumes:
       - .:/arrow:delegated
     command: /arrow/ci/scripts/wheel_manylinux_test.sh
 
-  wheel-windows-vs2017:
-    image: ${REPO}:wheel-windows-vs2017
+  python-wheel-windows-vs2017:
+    image: ${REPO}:python-${PYTHON}-wheel-windows-vs2017
     build:
       args:
         vcpkg: ${VCPKG}
@@ -220,8 +220,8 @@ services:
         source: .
         target: "C:/arrow"
 
-  wheel-windows-test:
-    image: ${REPO}:wheel-windows-test-${PYTHON}
+  python-wheel-windows-test:
+    image: ${REPO}:python-${PYTHON}-wheel-windows-test
     # TODO(kszucs): the official python image doesn't work because we don't bundle msvcp140.dll
     # image: python:${PYTHON}-windowsservercore-1809
     build:

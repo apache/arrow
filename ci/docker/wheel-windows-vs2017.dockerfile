@@ -53,9 +53,14 @@ RUN vcpkg install --clean-after-build \
 RUN setx path "%path%;C:\Program Files\Git\usr\bin"
 
 # Define the full version number otherwise choco falls back to patch number 0 (3.7 => 3.7.0)
-ARG python=3.6.8
-RUN setx PYTHON_VERSION %python% && \
-    choco install -r -y --no-progress --force python --version=%python%
+ARG python=3.6
+RUN (if "%python%"=="3.6" setx PYTHON_VERSION 3.6.8) & \
+    (if "%python%"=="3.7" setx PYTHON_VERSION 3.7.4) & \
+    (if "%python%"=="3.8" setx PYTHON_VERSION 3.8.6) & \
+    (if "%python%"=="3.9" setx PYTHON_VERSION 3.9.1)
+# Remove preinstalled Python27 and Python37 then reinstall specific version using choco
+RUN rm -rf Python* && \
+    choco install -r -y --no-progress python --version=%PYTHON_VERSION%
 RUN python -m pip install -U pip
 
 COPY python/requirements-wheel-build.txt arrow/python/
