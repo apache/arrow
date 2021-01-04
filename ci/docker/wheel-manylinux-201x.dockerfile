@@ -21,7 +21,7 @@ FROM ${base}
 RUN yum install -y git flex curl autoconf zip ccache wget
 
 # Install CMake
-ARG cmake=3.19.1
+ARG cmake=3.19.2
 RUN wget https://github.com/Kitware/CMake/releases/download/v${cmake}/cmake-${cmake}-Linux-x86_64.tar.gz -O - | \
     tar -xzf - --directory /usr/local --strip-components=1
 
