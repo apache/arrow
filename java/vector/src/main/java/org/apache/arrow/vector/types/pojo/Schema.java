@@ -37,6 +37,7 @@ import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.ipc.message.FBSerializables;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -137,13 +138,33 @@ public class Schema {
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
+  static List<Map<String, String>> convertMetadata(Map<String, String> metadata) {
+    return (metadata == null) ? null : metadata.entrySet()
+        .stream()
+        .map(Schema::convertEntryToKeyValueMap)
+        .collect(Collectors.toList());
+  }
+
+  private static Map<String, String> convertEntryToKeyValueMap(Map.Entry<String, String> entry) {
+    Map<String, String> map = new HashMap<>(2);
+    map.put("key", entry.getKey());
+    map.put("value", entry.getValue());
+    return Collections.unmodifiableMap(map);
+  }
+
   public List<Field> getFields() {
     return fields;
   }
 
-  @JsonInclude(Include.NON_EMPTY)
+  @JsonIgnore
   public Map<String, String> getCustomMetadata() {
     return metadata;
+  }
+
+  @JsonProperty("metadata")
+  @JsonInclude(Include.NON_EMPTY)
+  List<Map<String, String>> getCustomMetadataForJson() {
+    return convertMetadata(getCustomMetadata());
   }
 
   /**

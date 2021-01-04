@@ -22,6 +22,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.apache.arrow.vector.types.DateUnit;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
@@ -193,6 +195,23 @@ public class TestSchema {
     ));
     roundTrip(schema);
     contains(schema, "HALF", "SINGLE", "DOUBLE");
+  }
+
+  @Test
+  public void testMetadata() throws IOException {
+    Map<String, String> metadata = new HashMap<>(1);
+    metadata.put("testKey", "testValue");
+
+    java.util.List<Field> fields = asList(
+        field("a", false, new Int(8, true)),
+        field("b", new Struct(),
+            field("c", new Int(16, true)),
+            field("d", new Utf8())),
+        field("e", new List(), field(null, new Date(DateUnit.MILLISECOND)))
+    );
+    Schema schema = new Schema(fields, metadata);
+    roundTrip(schema);
+    contains(schema, "\"key\" : \"testKey\"", "\"value\" : \"testValue\"");
   }
 
   private void roundTrip(Schema schema) throws IOException {
