@@ -73,7 +73,9 @@ test_that("Garbage R metadata doesn't break things", {
     "Invalid metadata$r",
     fixed = TRUE
   )
-  tab$metadata$r <- .serialize_arrow_r_metadata("garbage")
+  # serialize data like .serialize_arrow_r_metadata does, but don't call that
+  # directly since it checks to ensure that the data is a list
+  tab$metadata$r <- rawToChar(serialize("garbage", NULL, ascii = TRUE))
   expect_warning(
     expect_identical(as.data.frame(tab), example_data[1:6]),
     "Invalid metadata$r",
