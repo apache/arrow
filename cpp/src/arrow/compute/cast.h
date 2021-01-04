@@ -160,8 +160,8 @@ Result<Datum> Cast(const Datum& value, std::shared_ptr<DataType> to_type,
 /// \addtogroup compute-concrete-options
 /// @{
 
-struct ARROW_EXPORT StructOptions : public FunctionOptions {
-  explicit StructOptions(std::vector<std::string> n) : field_names(std::move(n)) {}
+struct ARROW_EXPORT ProjectOptions : public FunctionOptions {
+  explicit ProjectOptions(std::vector<std::string> n) : field_names(std::move(n)) {}
 
   /// Names for wrapped columns
   std::vector<std::string> field_names;

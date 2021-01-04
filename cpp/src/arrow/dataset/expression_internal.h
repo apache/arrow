@@ -251,9 +251,9 @@ inline const compute::SetLookupOptions* GetSetLookupOptions(
   return checked_cast<const compute::SetLookupOptions*>(call.options.get());
 }
 
-inline const compute::StructOptions* GetStructOptions(const Expression::Call& call) {
-  if (call.function_name != "struct") return nullptr;
-  return checked_cast<const compute::StructOptions*>(call.options.get());
+inline const compute::ProjectOptions* GetProjectOptions(const Expression::Call& call) {
+  if (call.function_name != "project") return nullptr;
+  return checked_cast<const compute::ProjectOptions*>(call.options.get());
 }
 
 inline const compute::StrptimeOptions* GetStrptimeOptions(const Expression::Call& call) {

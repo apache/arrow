@@ -139,7 +139,7 @@ std::string Expression::ToString() const {
     return binary(std::move(op));
   }
 
-  if (auto options = GetStructOptions(*call)) {
+  if (auto options = GetProjectOptions(*call)) {
     std::string out = "{";
     auto argument = call->arguments.begin();
     for (const auto& field_name : options->field_names) {
@@ -251,8 +251,8 @@ bool Expression::Equals(const Expression& other) const {
     return options->to_type->Equals(other_options->to_type);
   }
 
-  if (auto options = GetStructOptions(*call)) {
-    auto other_options = GetStructOptions(*other_call);
+  if (auto options = GetProjectOptions(*call)) {
+    auto other_options = GetProjectOptions(*other_call);
     return options->field_names == other_options->field_names;
   }
 
@@ -380,7 +380,7 @@ inline bool KernelStateIsImmutable(const std::string& function) {
 
   // known functions with non-null but nevertheless immutable KernelState
   static std::unordered_set<std::string> names = {
-      "is_in", "index_in", "cast", "struct", "strptime",
+      "is_in", "index_in", "cast", "project", "strptime",
   };
 
   return names.find(function) != names.end();
@@ -1121,7 +1121,7 @@ Result<Expression> Deserialize(const Buffer& buffer) {
 }
 
 Expression project(std::vector<Expression> values, std::vector<std::string> names) {
-  return call("struct", std::move(values), compute::StructOptions{std::move(names)});
+  return call("project", std::move(values), compute::ProjectOptions{std::move(names)});
 }
 
 Expression equal(Expression lhs, Expression rhs) {

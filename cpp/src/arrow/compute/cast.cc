@@ -118,17 +118,17 @@ class CastMetaFunction : public MetaFunction {
 
 }  // namespace
 
-const FunctionDoc struct_doc{"Wrap Arrays into a StructArray",
-                             ("Names of the StructArray's fields are\n"
-                              "specified through StructOptions."),
-                             {"*args"},
-                             "StructOptions"};
+const FunctionDoc project_doc{"Wrap Arrays into a StructArray",
+                              ("Names of the StructArray's fields are\n"
+                               "specified through ProjectOptions."),
+                              {"*args"},
+                              "ProjectOptions"};
 
-Result<ValueDescr> StructResolve(KernelContext* ctx,
-                                 const std::vector<ValueDescr>& descrs) {
-  const auto& names = OptionsWrapper<StructOptions>::Get(ctx).field_names;
+Result<ValueDescr> ProjectResolve(KernelContext* ctx,
+                                  const std::vector<ValueDescr>& descrs) {
+  const auto& names = OptionsWrapper<ProjectOptions>::Get(ctx).field_names;
   if (names.size() != descrs.size()) {
-    return Status::Invalid("Struct() was passed ", names.size(), " field ", "names but ",
+    return Status::Invalid("project() was passed ", names.size(), " field ", "names but ",
                            descrs.size(), " arguments");
   }
 
@@ -157,8 +157,8 @@ Result<ValueDescr> StructResolve(KernelContext* ctx,
   return ValueDescr{struct_(std::move(fields)), shape};
 }
 
-void StructExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  KERNEL_ASSIGN_OR_RAISE(auto descr, ctx, StructResolve(ctx, batch.GetDescriptors()));
+void ProjectExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  KERNEL_ASSIGN_OR_RAISE(auto descr, ctx, ProjectResolve(ctx, batch.GetDescriptors()));
 
   if (descr.shape == ValueDescr::SCALAR) {
     ScalarVector scalars(batch.num_values());
@@ -189,15 +189,15 @@ void StructExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
 void RegisterScalarCast(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::make_shared<CastMetaFunction>()));
 
-  auto struct_function =
-      std::make_shared<ScalarFunction>("struct", Arity::VarArgs(), &struct_doc);
-  ScalarKernel kernel{KernelSignature::Make({InputType{}}, OutputType{StructResolve},
+  auto project_function =
+      std::make_shared<ScalarFunction>("project", Arity::VarArgs(), &project_doc);
+  ScalarKernel kernel{KernelSignature::Make({InputType{}}, OutputType{ProjectResolve},
                                             /*is_varargs=*/true),
-                      StructExec, OptionsWrapper<StructOptions>::Init};
+                      ProjectExec, OptionsWrapper<ProjectOptions>::Init};
   kernel.null_handling = NullHandling::OUTPUT_NOT_NULL;
   kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
-  DCHECK_OK(struct_function->AddKernel(std::move(kernel)));
-  DCHECK_OK(registry->AddFunction(std::move(struct_function)));
+  DCHECK_OK(project_function->AddKernel(std::move(kernel)));
+  DCHECK_OK(registry->AddFunction(std::move(project_function)));
 }
 
 }  // namespace internal

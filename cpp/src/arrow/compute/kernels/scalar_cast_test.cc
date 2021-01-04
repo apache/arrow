@@ -1896,48 +1896,5 @@ TEST_F(TestCast, ExtensionTypeToIntDowncast) {
   ASSERT_OK(UnregisterExtensionType("smallint"));
 }
 
-class TestStruct : public TestBase {
- public:
-  Result<Datum> Struct(std::vector<Datum> args) {
-    StructOptions opts{field_names};
-    return CallFunction("struct", args, &opts);
-  }
-
-  std::vector<std::string> field_names;
-};
-
-TEST_F(TestStruct, Scalar) {
-  std::shared_ptr<StructScalar> expected(new StructScalar{{}, struct_({})});
-  ASSERT_OK_AND_EQ(Datum(expected), Struct({}));
-
-  auto i32 = MakeScalar(1);
-  auto f64 = MakeScalar(2.5);
-  auto str = MakeScalar("yo");
-
-  expected.reset(new StructScalar{
-      {i32, f64, str},
-      struct_({field("i", i32->type), field("f", f64->type), field("s", str->type)})});
-  field_names = {"i", "f", "s"};
-  ASSERT_OK_AND_EQ(Datum(expected), Struct({i32, f64, str}));
-
-  // Three field names but one input value
-  ASSERT_RAISES(Invalid, Struct({str}));
-}
-
-TEST_F(TestStruct, Array) {
-  field_names = {"i", "s"};
-  auto i32 = ArrayFromJSON(int32(), "[42, 13, 7]");
-  auto str = ArrayFromJSON(utf8(), R"(["aa", "aa", "aa"])");
-  ASSERT_OK_AND_ASSIGN(Datum expected, StructArray::Make({i32, str}, field_names));
-
-  ASSERT_OK_AND_EQ(expected, Struct({i32, str}));
-
-  // Scalars are broadcast to the length of the arrays
-  ASSERT_OK_AND_EQ(expected, Struct({i32, MakeScalar("aa")}));
-
-  // Array length mismatch
-  ASSERT_RAISES(Invalid, Struct({i32->Slice(1), str}));
-}
-
 }  // namespace compute
 }  // namespace arrow

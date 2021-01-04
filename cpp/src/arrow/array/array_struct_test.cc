@@ -594,16 +594,6 @@ TEST(TestFieldRef, GetChildren) {
   auto expected_a = ArrayFromJSON(float64(), "[6.125, 0.0, -1]");
   AssertArraysEqual(*a, *expected_a);
 
-  auto ToChunked = [struct_array](int64_t midpoint) {
-    return ChunkedArray(
-        ArrayVector{
-            struct_array->Slice(0, midpoint),
-            struct_array->Slice(midpoint),
-        },
-        struct_array->type());
-  };
-  AssertChunkedEquivalent(ToChunked(1), ToChunked(2));
-
   // more nested:
   struct_array =
       ArrayFromJSON(struct_({field("a", struct_({field("a", float64())}))}), R"([
@@ -615,7 +605,6 @@ TEST(TestFieldRef, GetChildren) {
   ASSERT_OK_AND_ASSIGN(a, FieldRef("a", "a").GetOne(*struct_array));
   expected_a = ArrayFromJSON(float64(), "[6.125, 0.0, -1]");
   AssertArraysEqual(*a, *expected_a);
-  AssertChunkedEquivalent(ToChunked(1), ToChunked(2));
 }
 
 }  // namespace arrow
