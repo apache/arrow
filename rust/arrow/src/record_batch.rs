@@ -80,6 +80,10 @@ impl RecordBatch {
         Ok(RecordBatch { schema, columns })
     }
 
+    /// Creates a `RecordBatch` from a schema and columns, with additional options,
+    /// such as whether to strictly validate field names.
+    ///
+    /// See [`RecordBatch::try_new`] for the expected conditions.
     pub fn try_new_with_options(
         schema: SchemaRef,
         columns: Vec<ArrayRef>,
@@ -89,6 +93,8 @@ impl RecordBatch {
         Ok(RecordBatch { schema, columns })
     }
 
+    /// Validate the schema and columns using [`RecordBatchOptions`]. Returns an error
+    /// if any validation check fails.
     fn validate_new_batch(
         schema: &SchemaRef,
         columns: &[ArrayRef],
@@ -229,8 +235,10 @@ impl RecordBatch {
     }
 }
 
+/// Options that control the behaviour used when creating a [`RecordBatch`].
 #[derive(Debug)]
 pub struct RecordBatchOptions {
+    /// Match field names of structs and lists. If set to `true`, the names must match.
     pub match_field_names: bool,
 }
 
@@ -294,6 +302,8 @@ pub trait RecordBatchReader: Iterator<Item = Result<RecordBatch>> {
 mod tests {
     use super::*;
 
+    use crate::buffer::Buffer;
+
     #[test]
     fn create_record_batch() {
         let schema = Schema::new(vec![
@@ -324,6 +334,53 @@ mod tests {
 
         let batch = RecordBatch::try_new(Arc::new(schema), vec![Arc::new(a)]);
         assert!(!batch.is_ok());
+    }
+
+    #[test]
+    fn create_record_batch_field_name_mismatch() {
+        let struct_fields = vec![
+            Field::new("a1", DataType::Int32, false),
+            Field::new(
+                "a2",
+                DataType::List(Box::new(Field::new("item", DataType::Int8, false))),
+                false,
+            ),
+        ];
+        let struct_type = DataType::Struct(struct_fields);
+        let schema = Arc::new(Schema::new(vec![Field::new("a", struct_type, true)]));
+
+        let a1: ArrayRef = Arc::new(Int32Array::from(vec![1, 2]));
+        let a2_child = Int8Array::from(vec![1, 2, 3, 4]);
+        let a2 = ArrayDataBuilder::new(DataType::List(Box::new(Field::new(
+            "array",
+            DataType::Int8,
+            false,
+        ))))
+        .add_child_data(a2_child.data())
+        .len(2)
+        .add_buffer(Buffer::from(vec![0i32, 3, 4].to_byte_slice()))
+        .build();
+        let a2: ArrayRef = Arc::new(ListArray::from(a2));
+        let a = ArrayDataBuilder::new(DataType::Struct(vec![
+            Field::new("aa1", DataType::Int32, false),
+            Field::new("a2", a2.data_type().clone(), false),
+        ]))
+        .add_child_data(a1.data())
+        .add_child_data(a2.data())
+        .len(2)
+        .build();
+        let a: ArrayRef = Arc::new(StructArray::from(a));
+
+        // creating the batch with field name validation should fail
+        let batch = RecordBatch::try_new(schema.clone(), vec![a.clone()]);
+        assert!(batch.is_err());
+
+        // creating the batch without field name validation should pass
+        let options = RecordBatchOptions {
+            match_field_names: false,
+        };
+        let batch = RecordBatch::try_new_with_options(schema, vec![a], &options);
+        assert!(batch.is_ok());
     }
 
     #[test]
