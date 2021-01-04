@@ -1482,6 +1482,7 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
     auto file_meta_data = std::unique_ptr<FileMetaData>(new FileMetaData());
     file_meta_data->impl_->metadata_ = std::move(metadata_);
     file_meta_data->impl_->InitSchema();
+    file_meta_data->impl_->InitKeyValueMetadata();
     return file_meta_data;
   }
 
