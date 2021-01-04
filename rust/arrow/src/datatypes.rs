@@ -1307,6 +1307,7 @@ impl Field {
 
     /// Sets the `Field`'s optional custom metadata.
     /// The metadata is set as `None` for empty map.
+    /// Return cloned `Self`.
     #[inline]
     pub fn with_metadata(&mut self, metadata: Option<BTreeMap<String, String>>) -> Self {
         // To make serde happy, convert Some(empty_map) to None.
@@ -2961,7 +2962,7 @@ mod tests {
     fn person_schema() -> Schema {
         let kv_array = [("k".to_string(), "v".to_string())];
         let field_metadata: BTreeMap<String, String> = kv_array.iter().cloned().collect();
-        let mut first_name = Field::new("first_name", DataType::Utf8, false)
+        let first_name = Field::new("first_name", DataType::Utf8, false)
             .with_metadata(Some(field_metadata));
 
         Schema::new(vec![
