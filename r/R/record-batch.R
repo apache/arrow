@@ -274,6 +274,12 @@ as.data.frame.RecordBatch <- function(x, row.names = NULL, optional = FALSE, ...
 }
 
 .serialize_arrow_r_metadata <- function(x) {
+  # drop problems attributes (most likely from readr)
+  if ("attributes" %in% names(x) &&
+      "problems" %in% names(x[["attributes"]]) ) {
+    x[["attributes"]][["problems"]] <- NULL
+  }
+
   rawToChar(serialize(x, NULL, ascii = TRUE))
 }
 
