@@ -122,8 +122,117 @@ x-hierarchy:
   # helper services
   - impala
   - postgres
+  - wheel-manylinux-2010
+  - wheel-manylinux-2014
+  - wheel-manylinux-test
+  - wheel-windows-vs2017
+  - wheel-windows-test
+
+volumes:
+  conda-ccache:
+    name: ${ARCH}-conda-ccache
+  debian-ccache:
+    name: ${ARCH}-debian-${DEBIAN}-ccache
+  ubuntu-ccache:
+    name: ${ARCH}-ubuntu-${UBUNTU}-ccache
+  fedora-ccache:
+    name: ${ARCH}-fedora-${FEDORA}-ccache
+  debian-rust:
+    name: ${ARCH}-debian-${DEBIAN}-rust
+  maven-cache:
+    name: maven-cache
+  wheel-manylinux1-ccache:
+    name: centos-python-manylinux1-ccache
+  wheel-manylinux2010-ccache:
+    name: centos-python-manylinux2010-ccache
+  wheel-manylinux2014-ccache:
+    name: centos-python-manylinux2014-ccache
+  wheel-windows-clcache:
+    name: windows-wheel-clcache
 
 services:
+
+  # See available versions at:
+  #    https://quay.io/repository/pypa/manylinux2010_x86_64?tab=tags
+  wheel-manylinux-2010:
+    image: ${REPO}:wheel-manylinux-2010
+    build:
+      args:
+        base: quay.io/pypa/manylinux2010_x86_64:2020-12-03-912b0de
+        vcpkg: ${VCPKG}
+        python: ${PYTHON}
+      context: .
+      dockerfile: ci/docker/wheel-manylinux-201x.dockerfile
+      cache_from:
+        - ${REPO}:wheel-manylinux-2010
+    environment:
+      <<: *ccache
+      MANYLINUX_VERSION: 2010
+    volumes:
+      - .:/arrow:delegated
+      - ${DOCKER_VOLUME_PREFIX}wheel-manylinux2010-ccache:/ccache:delegated
+    command: /arrow/ci/scripts/wheel_manylinux_build.sh
+
+  # See available versions at:
+  #    https://quay.io/repository/pypa/manylinux2014_x86_64?tab=tags
+  wheel-manylinux-2014:
+    image: ${REPO}:wheel-manylinux-2014
+    build:
+      args:
+        base:  quay.io/pypa/manylinux2014_x86_64:2020-11-11-bc8ce45
+        vcpkg: ${VCPKG}
+        python: ${PYTHON}
+      context: .
+      dockerfile: ci/docker/wheel-manylinux-201x.dockerfile
+      cache_from:
+        - ${REPO}:wheel-manylinux-2014
+    environment:
+      <<: *ccache
+      MANYLINUX_VERSION: 2014
+    volumes:
+      - .:/arrow:delegated
+      - ${DOCKER_VOLUME_PREFIX}wheel-manylinux2014-ccache:/ccache:delegated
+    command: /arrow/ci/scripts/wheel_manylinux_build.sh
+
+  wheel-manylinux-test:
+    image: python:${PYTHON}
+    shm_size: 2G
+    volumes:
+      - .:/arrow:delegated
+    command: /arrow/ci/scripts/wheel_manylinux_test.sh
+
+  wheel-windows-vs2017:
+    image: ${REPO}:wheel-windows-vs2017
+    build:
+      args:
+        vcpkg: ${VCPKG}
+        python: ${PYTHON}
+      context: .
+      dockerfile: ci/docker/wheel-windows-vs2017.dockerfile
+      # This should make the pushed images reusable, but the image gets rebuilt
+      # no matter
+      # cache_from:
+      #   - mcr.microsoft.com/windows/servercore:ltsc2019
+      #   - ${REPO}:wheel-windows-vs2017
+    volumes:
+      - "${DOCKER_VOLUME_PREFIX}wheel-windows-clcache:C:/clcache"
+      - type: bind
+        source: .
+        target: "C:/arrow"
+
+  wheel-windows-test:
+    image: ${REPO}:wheel-windows-test-${PYTHON}
+    # TODO(kszucs): the official python image doesn't work because we don't bundle msvcp140.dll
+    # image: python:${PYTHON}-windowsservercore-1809
+    build:
+      args:
+        python: ${PYTHON}
+      context: .
+      dockerfile: ci/docker/wheel-windows-test.dockerfile
+    volumes:
+      - type: bind
+        source: .
+        target: "C:/arrow"
 
   ################################# C++ #######################################
   # Release build:
@@ -169,7 +278,7 @@ services:
       ARROW_USE_PRECOMPILED_HEADERS: "ON"
     volumes: &conda-volumes
       - .:/arrow:delegated
-      - ${DOCKER_VOLUME_DIRECTORY:-.docker}/${ARCH}-conda-ccache:/ccache:delegated
+      - ${DOCKER_VOLUME_PREFIX}conda-ccache:/ccache:delegated
     command: &cpp-conda-command
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build true &&
         /arrow/ci/scripts/cpp_test.sh /arrow /build"]
@@ -229,7 +338,7 @@ services:
       ARROW_MIMALLOC: "ON"
     volumes: &debian-volumes
       - .:/arrow:delegated
-      - ${DOCKER_VOLUME_DIRECTORY:-.docker}/${ARCH}-debian-${DEBIAN}-ccache:/ccache:delegated
+      - ${DOCKER_VOLUME_PREFIX}debian-ccache:/ccache:delegated
     command: &cpp-command >
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
@@ -261,7 +370,7 @@ services:
       ARROW_MIMALLOC: "ON"
     volumes: &ubuntu-volumes
       - .:/arrow:delegated
-      - ${DOCKER_VOLUME_DIRECTORY:-.docker}/${ARCH}-ubuntu-${UBUNTU}-ccache:/ccache:delegated
+      - ${DOCKER_VOLUME_PREFIX}ubuntu-ccache:/ccache:delegated
     command: *cpp-command
 
   ubuntu-cuda-cpp:
@@ -352,7 +461,7 @@ services:
       ARROW_MIMALLOC: "ON"
     volumes: &fedora-volumes
       - .:/arrow:delegated
-      - ${DOCKER_VOLUME_DIRECTORY:-.docker}/${ARCH}-fedora-${FEDORA}-ccache:/ccache:delegated
+      - ${DOCKER_VOLUME_PREFIX}fedora-ccache:/ccache:delegated
     command: *cpp-command
 
   ############################### C GLib ######################################
@@ -804,7 +913,7 @@ services:
     volumes:
       - .:/arrow:delegated
       - ./python/manylinux1:/io:delegated
-      - ${DOCKER_VOLUME_DIRECTORY:-.docker}/centos-python-manylinux1-ccache:/ccache:delegated
+      - ${DOCKER_VOLUME_PREFIX}wheel-manylinux1-ccache:/ccache:delegated
     command: &manylinux-command /io/build_arrow.sh
 
   centos-python-manylinux2010:
@@ -824,7 +933,7 @@ services:
     volumes:
       - .:/arrow:delegated
       - ./python/manylinux201x:/io:delegated
-      - ${DOCKER_VOLUME_DIRECTORY:-.docker}/centos-python-manylinux2010-ccache:/ccache:delegated
+      - ${DOCKER_VOLUME_PREFIX}wheel-manylinux2010-ccache:/ccache:delegated
     command: *manylinux-command
 
   centos-python-manylinux2014:
@@ -844,7 +953,7 @@ services:
     volumes:
       - .:/arrow:delegated
       - ./python/manylinux201x:/io:delegated
-      - ${DOCKER_VOLUME_DIRECTORY:-.docker}/centos-python-manylinux2014-ccache:/ccache:delegated
+      - ${DOCKER_VOLUME_PREFIX}wheel-manylinux2014-ccache:/ccache:delegated
     command: *manylinux-command
 
   ################################## R ########################################
@@ -1017,7 +1126,7 @@ services:
     shm_size: *shm-size
     volumes: &java-volumes
       - .:/arrow:delegated
-      - ${DOCKER_VOLUME_DIRECTORY:-.docker}/maven-cache:/root/.m2:delegated
+      - ${DOCKER_VOLUME_PREFIX}maven-cache:/root/.m2:delegated
     command: &java-command >
       /bin/bash -c "
         /arrow/ci/scripts/java_build.sh /arrow /build &&
@@ -1043,8 +1152,8 @@ services:
       <<: *ccache
     volumes:
       - .:/arrow:delegated
-      - ${DOCKER_VOLUME_DIRECTORY:-.docker}/maven-cache:/root/.m2:delegated
-      - ${DOCKER_VOLUME_DIRECTORY:-.docker}/${ARCH}-debian-9-ccache:/ccache:delegated
+      - ${DOCKER_VOLUME_PREFIX}maven-cache:/root/.m2:delegated
+      - ${DOCKER_VOLUME_PREFIX}debian-ccache:/ccache:delegated
     command:
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
@@ -1232,8 +1341,8 @@ services:
     shm_size: *shm-size
     volumes: &conda-maven-volumes
       - .:/arrow:delegated
-      - ${DOCKER_VOLUME_DIRECTORY:-.docker}/maven-cache:/root/.m2:delegated
-      - ${DOCKER_VOLUME_DIRECTORY:-.docker}/${ARCH}-conda-ccache:/ccache:delegated
+      - ${DOCKER_VOLUME_PREFIX}maven-cache:/root/.m2:delegated
+      - ${DOCKER_VOLUME_PREFIX}conda-ccache:/ccache:delegated
     command:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_build.sh /arrow /build &&

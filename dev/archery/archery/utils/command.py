@@ -56,6 +56,9 @@ class Command:
     property/attribute.
     """
 
+    def __init__(self, bin):
+        self.bin = bin
+
     def run(self, *argv, **kwargs):
         assert hasattr(self, "bin")
         invocation = shlex.split(self.bin)
