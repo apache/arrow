@@ -73,6 +73,9 @@ enum RVectorType {
   OTHER
 };
 
+// this flattens out a logical type of what an R object is
+// because TYPEOF() is not detailed enough
+// we can't use arrow types though as there is no 1-1 mapping
 RVectorType GetVectorType(SEXP x) {
   switch (TYPEOF(x)) {
     case LGLSXP:
@@ -220,6 +223,22 @@ Result<T> CIntFromRScalar(RScalar* obj) {
   return Status::Invalid("Cannot convert to Int");
 }
 
+Result<int64_t> RPosixct_Convert(double seconds, const TimestampType* type) {
+  switch (type->unit()) {
+    case TimeUnit::SECOND:
+      return seconds;
+    case TimeUnit::MILLI:
+      return seconds * 1000;
+    case TimeUnit::MICRO:
+      return seconds * 1000000;
+    case TimeUnit::NANO:
+      return seconds * 1000000000;
+    default:
+      break;
+  }
+  return Status::Invalid("invalid time unit");
+}
+
 struct DiffTimeData {
   double data;
   int multiplier;
@@ -355,19 +374,7 @@ class RValue {
   static Result<int64_t> Convert(const TimestampType* type, const RConversionOptions&,
                                  RScalar* value) {
     if (value->rtype == POSIXCT) {
-      auto seconds = *reinterpret_cast<double*>(value->data);
-      switch (type->unit()) {
-        case TimeUnit::SECOND:
-          return seconds;
-        case TimeUnit::MILLI:
-          return seconds * 1000;
-        case TimeUnit::MICRO:
-          return seconds * 1000000;
-        case TimeUnit::NANO:
-          return seconds * 1000000000;
-        default:
-          return Status::Invalid("invalid time unit");
-      }
+      return RPosixct_Convert(*reinterpret_cast<double*>(value->data), type);
     }
 
     return Status::Invalid("invalid conversion to timestamp");
@@ -487,6 +494,50 @@ bool is_NA<int64_t>(int64_t value) {
   return value == NA_INT64;
 }
 
+template <typename T>
+struct RVectorVisitor {
+  using data_type =
+      typename std::conditional<std::is_same<T, int64_t>::value, double, T>::type;
+
+  template <typename PrimitiveBuilder, typename ValueConverter>
+  static Status Convert(SEXP x, R_xlen_t start, R_xlen_t size,
+                        PrimitiveBuilder* primitive_builder,
+                        ValueConverter&& value_converter) {
+    auto handler = [primitive_builder, value_converter](data_type value) {
+      ARROW_ASSIGN_OR_RAISE(auto converted, value_converter(value));
+      primitive_builder->UnsafeAppend(converted);
+      return Status::OK();
+    };
+    return Visit(x, start, size, primitive_builder, handler);
+  }
+
+  template <typename PrimitiveBuilder, typename ValueHandler>
+  static Status Visit(SEXP x, R_xlen_t start, R_xlen_t size,
+                      PrimitiveBuilder* primitive_builder, ValueHandler&& handler) {
+    cpp11::r_vector<data_type> values(x);
+    auto it = values.begin() + start;
+
+    for (R_xlen_t i = 0; i < size; i++, ++it) {
+      auto value = GetValue(*it);
+
+      if (is_NA<T>(value)) {
+        primitive_builder->UnsafeAppendNull();
+      } else {
+        RETURN_NOT_OK(handler(value));
+      }
+    }
+
+    return Status::OK();
+  }
+
+  static T GetValue(data_type x) { return x; }
+};
+
+template <>
+int64_t RVectorVisitor<int64_t>::GetValue(double x) {
+  return *reinterpret_cast<int64_t*>(&x);
+}
+
 template <RVectorType rtype, typename T, class VisitorFunc>
 inline Status VisitRPrimitiveVector(SEXP x, R_xlen_t start, R_xlen_t size,
                                     VisitorFunc&& func) {
@@ -592,68 +643,71 @@ inline Status VisitDataFrame(SEXP x, R_xlen_t start, R_xlen_t size, VisitorFunc&
 
 class RConverter : public Converter<RScalar*, RConversionOptions> {
  public:
+  virtual Status Append(RScalar*) { return Status::Invalid("not using Append()"); }
+
   virtual Status AppendRange(SEXP x, R_xlen_t start, R_xlen_t size) {
-    RETURN_NOT_OK(this->Reserve(size));
+    // RETURN_NOT_OK(this->Reserve(size));
+    //
+    // auto func = [this](RScalar* obj) { return Append(obj); };
+    // using VisitorFunc = decltype(func);
+    //
+    // switch (rtype) {
+    //   case BOOLEAN:
+    //     return VisitRPrimitiveVector<BOOLEAN, cpp11::r_bool, VisitorFunc>(
+    //         x, start, size, std::forward<VisitorFunc>(func));
+    //   case UINT8:
+    //     return VisitRPrimitiveVector<UINT8, uint8_t, VisitorFunc>(
+    //         x, start, size, std::forward<VisitorFunc>(func));
+    //   case INT32:
+    //     return VisitRPrimitiveVector<INT32, int, VisitorFunc>(
+    //         x, start, size, std::forward<VisitorFunc>(func));
+    //   case FLOAT64:
+    //     return VisitRPrimitiveVector<FLOAT64, double, VisitorFunc>(
+    //         x, start, size, std::forward<VisitorFunc>(func));
+    //   case DATE_DBL:
+    //     return VisitRPrimitiveVector<DATE_DBL, double, VisitorFunc>(
+    //         x, start, size, std::forward<VisitorFunc>(func));
+    //   case DATE_INT:
+    //     return VisitRPrimitiveVector<DATE_INT, int, VisitorFunc>(
+    //         x, start, size, std::forward<VisitorFunc>(func));
+    //
+    //   case STRING:
+    //     return VisitRPrimitiveVector<STRING, cpp11::r_string, VisitorFunc>(
+    //         x, start, size, std::forward<VisitorFunc>(func));
+    //
+    //   case INT64:
+    //     return VisitInt64Vector<VisitorFunc>(x, start, size,
+    //                                          std::forward<VisitorFunc>(func));
+    //
+    //   case BINARY:
+    //     return VisitRPrimitiveVector<BINARY, SEXP, VisitorFunc>(
+    //         x, start, size, std::forward<VisitorFunc>(func));
+    //
+    //   case LIST:
+    //     return VisitRPrimitiveVector<LIST, SEXP, VisitorFunc>(
+    //         x, start, size, std::forward<VisitorFunc>(func));
+    //
+    //   case FACTOR:
+    //     return VisitFactor<VisitorFunc>(x, start, size,
+    //     std::forward<VisitorFunc>(func));
+    //
+    //   case TIME:
+    //     return VisitDifftime<VisitorFunc>(x, start, size,
+    //                                       std::forward<VisitorFunc>(func));
+    //
+    //   case POSIXCT:
+    //     return VisitRPrimitiveVector<POSIXCT, double, VisitorFunc>(
+    //         x, start, size, std::forward<VisitorFunc>(func));
+    //
+    //   case DATAFRAME:
+    //     return VisitDataFrame<VisitorFunc>(x, start, size,
+    //                                        std::forward<VisitorFunc>(func));
+    //
+    //   default:
+    //     break;
+    // }
 
     RVectorType rtype = GetVectorType(x);
-    auto func = [this](RScalar* obj) { return Append(obj); };
-    using VisitorFunc = decltype(func);
-
-    switch (rtype) {
-      case BOOLEAN:
-        return VisitRPrimitiveVector<BOOLEAN, cpp11::r_bool, VisitorFunc>(
-            x, start, size, std::forward<VisitorFunc>(func));
-      case UINT8:
-        return VisitRPrimitiveVector<UINT8, uint8_t, VisitorFunc>(
-            x, start, size, std::forward<VisitorFunc>(func));
-      case INT32:
-        return VisitRPrimitiveVector<INT32, int, VisitorFunc>(
-            x, start, size, std::forward<VisitorFunc>(func));
-      case FLOAT64:
-        return VisitRPrimitiveVector<FLOAT64, double, VisitorFunc>(
-            x, start, size, std::forward<VisitorFunc>(func));
-      case DATE_DBL:
-        return VisitRPrimitiveVector<DATE_DBL, double, VisitorFunc>(
-            x, start, size, std::forward<VisitorFunc>(func));
-      case DATE_INT:
-        return VisitRPrimitiveVector<DATE_INT, int, VisitorFunc>(
-            x, start, size, std::forward<VisitorFunc>(func));
-
-      case STRING:
-        return VisitRPrimitiveVector<STRING, cpp11::r_string, VisitorFunc>(
-            x, start, size, std::forward<VisitorFunc>(func));
-
-      case INT64:
-        return VisitInt64Vector<VisitorFunc>(x, start, size,
-                                             std::forward<VisitorFunc>(func));
-
-      case BINARY:
-        return VisitRPrimitiveVector<BINARY, SEXP, VisitorFunc>(
-            x, start, size, std::forward<VisitorFunc>(func));
-
-      case LIST:
-        return VisitRPrimitiveVector<LIST, SEXP, VisitorFunc>(
-            x, start, size, std::forward<VisitorFunc>(func));
-
-      case FACTOR:
-        return VisitFactor<VisitorFunc>(x, start, size, std::forward<VisitorFunc>(func));
-
-      case TIME:
-        return VisitDifftime<VisitorFunc>(x, start, size,
-                                          std::forward<VisitorFunc>(func));
-
-      case POSIXCT:
-        return VisitRPrimitiveVector<POSIXCT, double, VisitorFunc>(
-            x, start, size, std::forward<VisitorFunc>(func));
-
-      case DATAFRAME:
-        return VisitDataFrame<VisitorFunc>(x, start, size,
-                                           std::forward<VisitorFunc>(func));
-
-      default:
-        break;
-    }
-
     return Status::Invalid("No visitor for R type ", rtype);
   }
 };
@@ -661,14 +715,85 @@ class RConverter : public Converter<RScalar*, RConversionOptions> {
 template <typename T, typename Enable = void>
 class RPrimitiveConverter;
 
+struct RConvert {
+  template <typename Type, typename From>
+  static enable_if_integer<Type, Result<typename Type::c_type>> Convert(Type*,
+                                                                        From from) {
+    return CIntFromRScalarImpl<typename Type::c_type>(from);
+  }
+
+  template <typename Type, typename From>
+  static enable_if_t<std::is_same<Type, const DoubleType>::value &&
+                         !std::is_same<From, double>::value,
+                     Result<typename Type::c_type>>
+  Convert(Type*, From from) {
+    constexpr int64_t kDoubleMax = 1LL << 53;
+    constexpr int64_t kDoubleMin = -(1LL << 53);
+
+    if (from < kDoubleMin || from > kDoubleMax) {
+      return Status::Invalid("Integer value ", from, " is outside of the range exactly",
+                             " representable by a IEEE 754 double precision value");
+    }
+    return static_cast<double>(from);
+  }
+
+  template <typename Type, typename From>
+  static enable_if_t<std::is_same<Type, const DoubleType>::value &&
+                         std::is_same<From, double>::value,
+                     Result<typename Type::c_type>>
+  Convert(Type*, From from) {
+    return from;
+  }
+
+  template <typename Type, typename From>
+  static enable_if_t<std::is_same<Type, const FloatType>::value &&
+                         !std::is_same<From, double>::value,
+                     Result<typename Type::c_type>>
+  Convert(Type*, From from) {
+    constexpr int64_t kFloatMax = 1LL << 24;
+    constexpr int64_t kFloatMin = -(1LL << 24);
+
+    if (from < kFloatMin || from > kFloatMax) {
+      return Status::Invalid("Integer value ", from, " is outside of the range exactly",
+                             " representable by a IEEE 754 single precision value");
+    }
+    return static_cast<float>(from);
+  }
+
+  template <typename Type, typename From>
+  static enable_if_t<std::is_same<Type, const FloatType>::value &&
+                         std::is_same<From, double>::value,
+                     Result<typename Type::c_type>>
+  Convert(Type*, From from) {
+    return static_cast<float>(from);
+  }
+
+  template <typename Type, typename From>
+  static enable_if_t<std::is_same<Type, const HalfFloatType>::value,
+                     Result<typename Type::c_type>>
+  Convert(Type*, From from) {
+    return Status::Invalid("Cannot convert to Half Float");
+  }
+
+  template <typename Type>
+  static enable_if_t<std::is_same<Type, const BooleanType>::value,
+                     Result<typename Type::c_type>>
+  Convert(Type*, cpp11::r_bool from) {
+    return from == TRUE;
+  }
+
+  Result<int> Convert(Date32Type*, int from) { return from; }
+
+  Result<int64_t> Convert(Date64Type*, int from) {
+    constexpr int64_t kSecondsPerDay = 86400;
+    return from * kSecondsPerDay;
+  }
+};
+
 template <typename T>
 class RPrimitiveConverter<T, enable_if_null<T>>
     : public PrimitiveConverter<T, RConverter> {
  public:
-  Status Append(RScalar* value) override {
-    return this->primitive_builder_->AppendNull();
-  }
-
   Status AppendRange(SEXP, R_xlen_t start, R_xlen_t size) override {
     return this->primitive_builder_->AppendNulls(size);
   }
@@ -676,20 +801,166 @@ class RPrimitiveConverter<T, enable_if_null<T>>
 
 template <typename T>
 class RPrimitiveConverter<
-    T, enable_if_t<is_number_type<T>::value || is_boolean_type<T>::value ||
-                   is_date_type<T>::value || is_time_type<T>::value ||
-                   is_decimal_type<T>::value>>
+    T, enable_if_t<is_integer_type<T>::value || is_floating_type<T>::value>>
     : public PrimitiveConverter<T, RConverter> {
  public:
-  Status Append(RScalar* value) override {
-    if (RValue::IsNull(value)) {
-      return this->primitive_builder_->AppendNull();
-    } else {
-      ARROW_ASSIGN_OR_RAISE(
-          auto converted, RValue::Convert(this->primitive_type_, this->options_, value));
-      return this->primitive_builder_->Append(converted);
+  Status AppendRange(SEXP x, R_xlen_t start, R_xlen_t size) override {
+    RETURN_NOT_OK(this->Reserve(size));
+
+    auto rtype = GetVectorType(x);
+    switch (rtype) {
+      case UINT8:
+        return AppendRangeImpl<unsigned char>(x, start, size);
+      case INT32:
+        return AppendRangeImpl<int>(x, start, size);
+      case FLOAT64:
+        return AppendRangeImpl<double>(x, start, size);
+      case INT64:
+        return AppendRangeImpl<int64_t>(x, start, size);
+
+      default:
+        break;
     }
+    return Status::Invalid("cannot convert to integer ");
+  }
+
+ private:
+  template <typename r_value_type>
+  Status AppendRangeImpl(SEXP x, R_xlen_t start, R_xlen_t size) {
+    auto value_converter = [this](r_value_type value) {
+      return RConvert::Convert(this->primitive_type_, value);
+    };
+    return RVectorVisitor<r_value_type>::Convert(x, start, size, this->primitive_builder_,
+                                                 value_converter);
+  }
+};
+
+template <typename T>
+class RPrimitiveConverter<T, enable_if_t<is_boolean_type<T>::value>>
+    : public PrimitiveConverter<T, RConverter> {
+ public:
+  Status AppendRange(SEXP x, R_xlen_t start, R_xlen_t size) override {
+    RETURN_NOT_OK(this->Reserve(size));
+
+    if (GetVectorType(x) != BOOLEAN) {
+      return Status::Invalid("cannot convert to boolean type ");
+    }
+
+    auto value_converter = [this](cpp11::r_bool value) {
+      return RConvert::Convert(this->primitive_type_, value);
+    };
+    return RVectorVisitor<cpp11::r_bool>::Convert(
+        x, start, size, this->primitive_builder_, value_converter);
+  }
+};
+
+template <typename T>
+class RPrimitiveConverter<T, enable_if_t<is_date_type<T>::value>>
+    : public PrimitiveConverter<T, RConverter> {
+ public:
+  Status AppendRange(SEXP x, R_xlen_t start, R_xlen_t size) override {
+    RETURN_NOT_OK(this->Reserve(size));
+
+    switch (GetVectorType(x)) {
+      case DATE_INT:
+        return AppendRange_Date_int(x, start, size);
+
+      case DATE_DBL:
+        return AppendRange_Date_dbl(x, start, size);
+
+      case POSIXCT:
+        return AppendRange_Posixct(x, start, size);
+
+      default:
+        break;
+    }
+
+    return Status::Invalid("cannot convert to date type ");
+  }
+
+ private:
+  Status AppendRange_Date_int(SEXP x, R_xlen_t start, R_xlen_t size) {
+    auto value_converter = [this](int value) {
+      return RConvert::Convert(this->primitive_type_, value);
+    };
+    return RVectorVisitor<int>::Convert(x, start, size, this->primitive_builder_,
+                                        value_converter);
+  }
+
+  Status AppendRange_Date_dbl(SEXP x, R_xlen_t start, R_xlen_t size) {
+    // TODO
     return Status::OK();
+  }
+
+  Status AppendRange_Posixct(SEXP x, R_xlen_t start, R_xlen_t size) {
+    // TODO
+    return Status::OK();
+  }
+};
+
+// Status RScalar_to_days(RScalar* value, int32_t* days) {
+//   constexpr int64_t kSecondsPerDay = 86400;
+//
+//   switch (value->rtype) {
+//   case DATE_DBL: {
+//     *days = static_cast<int32_t>(*reinterpret_cast<double*>(value->data));
+//     return Status::OK();
+//   }
+//   case DATE_INT: {
+//     *days = *reinterpret_cast<int32_t*>(value->data);
+//     return Status::OK();
+//   }
+//   case POSIXCT: {
+//     *days = *reinterpret_cast<double*>(value->data) / kSecondsPerDay;
+//     return Status::OK();
+//   }
+//
+//   default:
+//     break;
+//   }
+//   return Status::Invalid("invalid conversion to Date");
+// }
+
+int64_t get_TimeUnit_multiplier(TimeUnit::type unit) {
+  switch (unit) {
+    case TimeUnit::SECOND:
+      return 1;
+    case TimeUnit::MILLI:
+      return 1000;
+    case TimeUnit::MICRO:
+      return 1000000;
+    case TimeUnit::NANO:
+      return 1000000000;
+    default:
+      return 0;
+  }
+}
+
+template <typename T>
+class RPrimitiveConverter<T, enable_if_t<is_time_type<T>::value>>
+    : public PrimitiveConverter<T, RConverter> {
+ public:
+  Status AppendRange(SEXP x, R_xlen_t start, R_xlen_t size) override {
+    RETURN_NOT_OK(this->Reserve(size));
+    auto rtype = GetVectorType(x);
+    if (rtype != TIME) {
+      return Status::Invalid("conversion to time from incompatible r vector type");
+    }
+
+    // multiplier to get the number of seconds from the value stored in the R vector
+    int difftime_multiplier;
+    RETURN_NOT_OK(GetDifftimeMultiplier(x, &difftime_multiplier));
+
+    // then multiply the seconds by this to match the time unit
+    auto multiplier =
+        get_TimeUnit_multiplier(this->primitive_type_->unit()) * difftime_multiplier;
+
+    using c_type = typename T::c_type;
+    auto value_converter = [multiplier](double value) {
+      return Result<c_type>(static_cast<c_type>(value * multiplier));
+    };
+    return RVectorVisitor<double>::Convert(x, start, size, this->primitive_builder_,
+                                           value_converter);
   }
 };
 
@@ -697,15 +968,31 @@ template <typename T>
 class RPrimitiveConverter<T, enable_if_t<is_timestamp_type<T>::value>>
     : public PrimitiveConverter<T, RConverter> {
  public:
-  Status Append(RScalar* value) override {
-    if (RValue::IsNull(value)) {
-      return this->primitive_builder_->AppendNull();
-    } else {
-      ARROW_ASSIGN_OR_RAISE(
-          auto converted, RValue::Convert(this->primitive_type_, this->options_, value));
-      this->primitive_builder_->UnsafeAppend(converted);
+  Status AppendRange(SEXP x, R_xlen_t start, R_xlen_t size) override {
+    RETURN_NOT_OK(this->Reserve(size));
+
+    RVectorType rtype = GetVectorType(x);
+    if (rtype != POSIXCT) {
+      return Status::Invalid("Invalid conversion to timestamp");
     }
-    return Status::OK();
+
+    int64_t multiplier = get_TimeUnit_multiplier(this->primitive_type_->unit());
+
+    using c_type = typename T::c_type;
+    auto value_converter = [multiplier](double value) {
+      return Result<c_type>(static_cast<c_type>(value * multiplier));
+    };
+    return RVectorVisitor<double>::Convert(x, start, size, this->primitive_builder_,
+                                           value_converter);
+  }
+};
+
+template <typename T>
+class RPrimitiveConverter<T, enable_if_t<is_decimal_type<T>::value>>
+    : public PrimitiveConverter<T, RConverter> {
+ public:
+  Status AppendRange(SEXP x, R_xlen_t start, R_xlen_t size) override {
+    return Status::NotImplemented("conversion from R to decimal");
   }
 };
 
@@ -715,49 +1002,50 @@ class RPrimitiveConverter<T, enable_if_binary<T>>
  public:
   using OffsetType = typename T::offset_type;
 
-  Status Append(RScalar* value) override {
-    if (RValue::IsNull(value)) {
-      this->primitive_builder_->UnsafeAppendNull();
-    } else {
-      ARROW_RETURN_NOT_OK(
-          RValue::Convert(this->primitive_type_, this->options_, value, view_));
-      // Since we don't know the varying length input size in advance, we need to
-      // reserve space in the value builder one by one. ReserveData raises CapacityError
-      // if the value would not fit into the array.
-      ARROW_RETURN_NOT_OK(this->primitive_builder_->ReserveData(view_.size));
-      this->primitive_builder_->UnsafeAppend(view_.bytes,
-                                             static_cast<OffsetType>(view_.size));
+  Status AppendRange(SEXP x, R_xlen_t start, R_xlen_t size) override {
+    RETURN_NOT_OK(this->Reserve(size));
+
+    RVectorType rtype = GetVectorType(x);
+    // TODO: handle STRSXP
+    if (rtype != BINARY) {
+      return Status::Invalid("invalid R type to convert to binary");
     }
 
-    return Status::OK();
+    auto handler = [this](SEXP raw) {
+      R_xlen_t n = XLENGTH(raw);
+      ARROW_RETURN_NOT_OK(this->primitive_builder_->ReserveData(n));
+      this->primitive_builder_->UnsafeAppend(RAW_RO(raw), static_cast<OffsetType>(n));
+      return Status::OK();
+    };
+    return RVectorVisitor<SEXP>::Visit(x, start, size, this->primitive_builder_, handler);
   }
-
- protected:
-  RBytesView view_;
 };
 
 template <typename T>
 class RPrimitiveConverter<T, enable_if_t<std::is_same<T, FixedSizeBinaryType>::value>>
     : public PrimitiveConverter<T, RConverter> {
  public:
-  Status Append(RScalar* value) override {
-    if (RValue::IsNull(value)) {
-      this->primitive_builder_->UnsafeAppendNull();
-    } else {
-      ARROW_RETURN_NOT_OK(
-          RValue::Convert(this->primitive_type_, this->options_, value, view_));
-      // Since we don't know the varying length input size in advance, we need to
-      // reserve space in the value builder one by one. ReserveData raises CapacityError
-      // if the value would not fit into the array.
-      ARROW_RETURN_NOT_OK(this->primitive_builder_->ReserveData(view_.size));
-      this->primitive_builder_->UnsafeAppend(view_.bytes);
+  Status AppendRange(SEXP x, R_xlen_t start, R_xlen_t size) override {
+    RETURN_NOT_OK(this->Reserve(size));
+
+    RVectorType rtype = GetVectorType(x);
+    // TODO: handle STRSXP
+    if (rtype != BINARY) {
+      return Status::Invalid("invalid R type to convert to binary");
     }
 
-    return Status::OK();
-  }
+    auto handler = [this](SEXP raw) {
+      R_xlen_t n = XLENGTH(raw);
 
- protected:
-  RBytesView view_;
+      if (n != this->primitive_builder_->byte_width()) {
+        return Status::Invalid("invalid size");
+      }
+      ARROW_RETURN_NOT_OK(this->primitive_builder_->ReserveData(n));
+      this->primitive_builder_->UnsafeAppend(RAW_RO(raw), n);
+      return Status::OK();
+    };
+    return RVectorVisitor<SEXP>::Visit(x, start, size, this->primitive_builder_, handler);
+  }
 };
 
 template <typename T>
@@ -766,34 +1054,31 @@ class RPrimitiveConverter<T, enable_if_string_like<T>>
  public:
   using OffsetType = typename T::offset_type;
 
-  Status Append(RScalar* value) override {
-    if (RValue::IsNull(value)) {
-      return this->primitive_builder_->AppendNull();
-    } else {
-      ARROW_RETURN_NOT_OK(
-          RValue::Convert(this->primitive_type_, this->options_, value, view_));
+  Status AppendRange(SEXP x, R_xlen_t start, R_xlen_t size) override {
+    RETURN_NOT_OK(this->Reserve(size));
 
-      if (!view_.is_utf8) {
-        observed_binary_ = true;
-      }
-
-      ARROW_RETURN_NOT_OK(this->primitive_builder_->ReserveData(view_.size));
-      this->primitive_builder_->UnsafeAppend(view_.bytes,
-                                             static_cast<OffsetType>(view_.size));
+    RVectorType rtype = GetVectorType(x);
+    if (rtype != STRING) {
+      return Status::Invalid("invalid R type to convert to string");
     }
-    return Status::OK();
-  }
 
- protected:
-  bool observed_binary_ = false;
-  RBytesView view_;
+    auto handler = [this](cpp11::r_string s) {
+      R_xlen_t n = XLENGTH(s);
+      ARROW_RETURN_NOT_OK(this->primitive_builder_->ReserveData(n));
+      this->primitive_builder_->UnsafeAppend(STRING_PTR_RO(s),
+                                             static_cast<OffsetType>(n));
+      return Status::OK();
+    };
+    return RVectorVisitor<cpp11::r_string>::Visit(x, start, size,
+                                                  this->primitive_builder_, handler);
+  }
 };
 
 template <typename T>
 class RPrimitiveConverter<T, enable_if_t<is_duration_type<T>::value>>
     : public PrimitiveConverter<T, RConverter> {
  public:
-  Status Append(RScalar* value) override {
+  Status AppendRange(SEXP x, R_xlen_t start, R_xlen_t size) override {
     // TODO: look in lubridate
     return Status::NotImplemented("conversion to duration not yet implemented");
   }
@@ -809,7 +1094,7 @@ template <typename U>
 class RDictionaryConverter<U, enable_if_has_c_type<U>>
     : public DictionaryConverter<U, RConverter> {
  public:
-  Status Append(RScalar* value) override {
+  Status AppendRange(SEXP x, R_xlen_t start, R_xlen_t size) override {
     return Status::NotImplemented(
         "dictionaries only implemented with string value types");
   }
@@ -819,14 +1104,21 @@ template <typename U>
 class RDictionaryConverter<U, enable_if_has_string_view<U>>
     : public DictionaryConverter<U, RConverter> {
  public:
-  Status Append(RScalar* value) override {
-    if (RValue::IsNull(value)) {
-      return this->value_builder_->AppendNull();
-    } else {
-      ARROW_RETURN_NOT_OK(
-          RValue::Convert(this->value_type_, this->options_, value, view_));
-      return this->value_builder_->Append(view_.bytes, static_cast<int32_t>(view_.size));
+  Status AppendRange(SEXP x, R_xlen_t start, R_xlen_t size) override {
+    RETURN_NOT_OK(this->Reserve(size));
+
+    RVectorType rtype = GetVectorType(x);
+    if (rtype != FACTOR) {
+      return Status::Invalid("invalid R type to convert to string");
     }
+
+    SEXP levels = Rf_getAttrib(x, Rf_install("levels"));
+
+    auto handler = [this, levels](int value) {
+      SEXP s = STRING_ELT(levels, value - 1);
+      return this->value_builder_->Append(STRING_PTR_RO(s), XLENGTH(s));
+    };
+    return RVectorVisitor<int>::Visit(x, start, size, this->value_builder_, handler);
   }
 
  protected:

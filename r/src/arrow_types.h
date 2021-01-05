@@ -64,6 +64,8 @@ arrow::MemoryPool* gc_memory_pool();
 #define DATAPTR(x) (void*)STRING_PTR(x)
 #endif
 
+#define VECTOR_PTR_RO(x) ((const SEXP*)DATAPTR_RO(x))
+
 namespace arrow {
 
 static inline void StopIfNotOk(const Status& status) {
