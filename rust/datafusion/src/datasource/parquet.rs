@@ -79,18 +79,7 @@ impl TableProvider for ParquetTable {
         batch_size: usize,
         filters: &[Expr],
     ) -> Result<Arc<dyn ExecutionPlan>> {
-        let predicate = if filters.is_empty() {
-            None
-        } else {
-            Some(
-                filters
-                    .iter()
-                    .skip(1)
-                    .fold(filters[0].clone(), |acc, filter| {
-                        crate::logical_plan::and(acc, (*filter).to_owned())
-                    }),
-            )
-        };
+        let predicate = combine_filters(filters);
         Ok(Arc::new(ParquetExec::try_from_path(
             &self.path,
             projection.clone(),
@@ -103,6 +92,22 @@ impl TableProvider for ParquetTable {
     fn statistics(&self) -> Statistics {
         self.statistics.clone()
     }
+}
+
+/// Combines an array of filter expressions into a single filter expression
+/// consisting of the input filter expressions joined with logical AND.
+/// Returns None if the filters array is empty.
+fn combine_filters(filters: &[Expr]) -> Option<Expr> {
+    if filters.is_empty() {
+        return None;
+    }
+    let combined_filter = filters
+        .iter()
+        .skip(1)
+        .fold(filters[0].clone(), |acc, filter| {
+            crate::logical_plan::and(acc, filter.clone())
+        });
+    Some(combined_filter)
 }
 
 #[cfg(test)]
@@ -349,5 +354,30 @@ mod tests {
             .await
             .expect("should have received at least one batch")
             .map_err(|e| e.into())
+    }
+
+    #[test]
+    fn combine_zero_filters() {
+        let result = combine_filters(&[]);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn combine_one_filter() {
+        use crate::logical_plan::{binary_expr, col, lit, Operator};
+        let filter = binary_expr(col("c1"), Operator::Lt, lit(1));
+        let result = combine_filters(&[filter.clone()]);
+        assert_eq!(result, Some(filter));
+    }
+
+    #[test]
+    fn combine_multiple_filters() {
+        use crate::logical_plan::{and, binary_expr, col, lit, Operator};
+        let filter1 = binary_expr(col("c1"), Operator::Lt, lit(1));
+        let filter2 = binary_expr(col("c2"), Operator::Lt, lit(2));
+        let filter3 = binary_expr(col("c3"), Operator::Lt, lit(3));
+        let result =
+            combine_filters(&[filter1.clone(), filter2.clone(), filter3.clone()]);
+        assert_eq!(result, Some(and(and(filter1, filter2), filter3)));
     }
 }
