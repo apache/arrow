@@ -176,12 +176,25 @@ TEST(Trie, EmptyString) {
 }
 
 TEST(Trie, LongString) {
-  TrieBuilder builder;
-  ASSERT_OK(builder.Append(""));
-  const Trie trie = builder.Finish();
-  auto maxlen = static_cast<size_t>(std::numeric_limits<int16_t>::max()) + 1;
-  std::string long_string(maxlen, 'x');
-  ASSERT_EQ(-1, trie.Find(long_string));
+  auto maxlen = static_cast<size_t>(std::numeric_limits<int16_t>::max());
+  // Ensure we can insert strings with length up to maxlen
+  for (auto&& length : {maxlen, maxlen - 1, maxlen / 2}) {
+    TrieBuilder builder;
+    std::string long_string(length, 'x');
+    ASSERT_OK(builder.Append(""));
+    ASSERT_OK(builder.Append(long_string));
+    const Trie trie = builder.Finish();
+    ASSERT_EQ(1, trie.Find(long_string));
+  }
+
+  // Ensure that the trie always returns false for strings with length > maxlen
+  for (auto&& length : {maxlen, maxlen - 1, maxlen / 2, maxlen + 1, maxlen * 2}) {
+    TrieBuilder builder;
+    ASSERT_OK(builder.Append(""));
+    const Trie trie = builder.Finish();
+    std::string long_string(length, 'x');
+    ASSERT_EQ(-1, trie.Find(long_string));
+  }
 }
 
 TEST(Trie, Basics1) {
