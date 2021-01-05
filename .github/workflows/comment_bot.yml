@@ -18,18 +18,16 @@
 name: Comment Bot
 
 on:
-  pull_request:
-  push:
   # TODO(kszucs): support pull_request_review_comment
-  # issue_comment:
-  #   types:
-  #     - created
-  #     - edited
+  issue_comment:
+    types:
+      - created
+      - edited
 
 jobs:
   crossbow:
     name: Listen!
-    # if: startsWith(github.event.comment.body, '@github-actions crossbow')
+    if: startsWith(github.event.comment.body, '@github-actions crossbow')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Arrow
@@ -51,6 +49,7 @@ jobs:
             --event-name ${{ github.event_name }} \
             --event-payload ${{ github.event_path }}
 
+  # TODO(kszucs): re-enable the following workflows once r-lib/* actions are allowed to run
   # autotune:
   #   name: "Fix all the things"
   #   if: startsWith(github.event.comment.body, '@github-actions autotune')
