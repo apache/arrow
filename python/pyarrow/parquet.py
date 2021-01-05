@@ -328,18 +328,18 @@ class ParquetFile:
         ----------
         batch_size: int, default 64K
             Maximum number of records to yield per batch. Batches may be
-            smaller if there aren't enough rows in a rowgroup.
+            smaller if there aren't enough rows in the file.
         row_groups: list
             Only these row groups will be read from the file.
         columns: list
             If not None, only these columns will be read from the file. A
             column name may be a prefix of a nested field, e.g. 'a' will select
-            'a.b', 'a.c', and 'a.d.e'
+            'a.b', 'a.c', and 'a.d.e'.
         use_threads : boolean, default True
-            Perform multi-threaded column reads
+            Perform multi-threaded column reads.
         use_pandas_metadata : boolean, default False
             If True and file has custom pandas schema metadata, ensure that
-            index columns are also loaded
+            index columns are also loaded.
 
         Returns
         -------
