@@ -22,7 +22,7 @@ use crate::{
     util::bit_util::get_bit,
 };
 
-use super::equal_range;
+use super::{equal_range, utils::child_logical_null_buffer};
 
 fn lengths_equal<T: OffsetSizeTrait>(lhs: &[T], rhs: &[T]) -> bool {
     // invariant from `base_equal`
@@ -122,8 +122,16 @@ pub(super) fn list_equal<T: OffsetSizeTrait>(
     let rhs_null_count = count_nulls(rhs_nulls, rhs_start, len);
 
     // compute the child logical bitmap
-    let child_lhs_nulls = lhs.child_logical_null_buffer(lhs_nulls.cloned(), 0);
-    let child_rhs_nulls = rhs.child_logical_null_buffer(rhs_nulls.cloned(), 0);
+    let child_lhs_nulls = child_logical_null_buffer(
+        lhs,
+        lhs_nulls.cloned(),
+        lhs.child_data().get(0).unwrap(),
+    );
+    let child_rhs_nulls = child_logical_null_buffer(
+        rhs,
+        rhs_nulls.cloned(),
+        rhs.child_data().get(0).unwrap(),
+    );
 
     if lhs_null_count == 0 && rhs_null_count == 0 {
         lengths_equal(
