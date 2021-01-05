@@ -42,10 +42,8 @@ fn equal_values(
         .zip(rhs.child_data())
         .all(|(lhs_values, rhs_values)| {
             // merge the null data
-            let lhs_merged_nulls =
-                child_logical_null_buffer(lhs, lhs_nulls.cloned(), lhs_values);
-            let rhs_merged_nulls =
-                child_logical_null_buffer(rhs, rhs_nulls.cloned(), rhs_values);
+            let lhs_merged_nulls = child_logical_null_buffer(lhs, lhs_nulls, lhs_values);
+            let rhs_merged_nulls = child_logical_null_buffer(rhs, rhs_nulls, rhs_values);
             equal_range(
                 lhs_values,
                 rhs_values,

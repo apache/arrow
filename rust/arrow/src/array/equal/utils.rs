@@ -90,14 +90,17 @@ pub(super) fn equal_len(
 /// one on the `ArrayData`.
 pub(super) fn child_logical_null_buffer(
     parent_data: &ArrayData,
-    logical_null_buffer: Option<Buffer>,
+    logical_null_buffer: Option<&Buffer>,
     child_data: &ArrayData,
 ) -> Option<Buffer> {
     let parent_len = parent_data.len();
-    let parent_bitmap = logical_null_buffer.map(Bitmap::from).unwrap_or_else(|| {
-        let ceil = bit_util::ceil(parent_len, 8);
-        Bitmap::from(Buffer::from(vec![0b11111111; ceil]))
-    });
+    let parent_bitmap = logical_null_buffer
+        .cloned()
+        .map(Bitmap::from)
+        .unwrap_or_else(|| {
+            let ceil = bit_util::ceil(parent_len, 8);
+            Bitmap::from(Buffer::from(vec![0b11111111; ceil]))
+        });
     let self_null_bitmap = child_data.null_bitmap().clone().unwrap_or_else(|| {
         let ceil = bit_util::ceil(child_data.len(), 8);
         Bitmap::from(Buffer::from(vec![0b11111111; ceil]))
@@ -232,7 +235,7 @@ mod tests {
         // [1, 2, 3, null, null, 6, 7, 8, 9, null, 11]
         let nulls = child_logical_null_buffer(
             &data,
-            data.null_buffer().cloned(),
+            data.null_buffer(),
             data.child_data().get(0).unwrap(),
         );
         let expected = Some(Buffer::from(vec![0b11100111, 0b00000101]));
@@ -254,7 +257,7 @@ mod tests {
 
         let nulls = child_logical_null_buffer(
             &data,
-            data.null_buffer().cloned(),
+            data.null_buffer(),
             data.child_data().get(0).unwrap(),
         );
 
