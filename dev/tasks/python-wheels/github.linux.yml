@@ -51,11 +51,9 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
-          {% raw %}
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-access-key-id: {{ '${{ secrets.AWS_ACCESS_KEY_ID }}' }}
+          aws-secret-access-key: {{ '${{ secrets.AWS_SECRET_ACCESS_KEY }}' }}
           aws-region: us-east-2
-          {% endraw %}
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
@@ -78,10 +76,6 @@ jobs:
         run: archery docker run python-wheel-manylinux-test
 
       ############################ Artifact Uploading #########################
-      - name: Prepare artifacts
-        # the artifacts must be uploaded from a directory relative to the build root
-        shell: bash
-        run: mv arrow/python/repaired_wheels/ wheels/
       - name: Upload artifacts
         shell: bash
         run: |
@@ -89,7 +83,7 @@ jobs:
             --queue-path . \
             --queue-remote {{ queue_remote_url }} \
             upload-artifacts \
-            --pattern "wheels/*.whl" \
+            --pattern "arrow/python/repaired_wheels/*.whl" \
             --sha {{ task.branch }} \
             --tag {{ task.tag }}
         env:

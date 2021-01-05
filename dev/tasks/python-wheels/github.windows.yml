@@ -29,9 +29,12 @@ jobs:
     name: "Build wheel for Windows"
     runs-on: windows-2019
     env:
-      PYTHON_VERSION: "{{ python_version }}"
-      PYARROW_VERSION: {{ arrow.no_rc_version }}
+      # archery uses this environment variable
+      PYTHON: {{ python_version }}
+      REPO: 415900421099.dkr.ecr.us-east-2.amazonaws.com/apache-arrow
+
     steps:
+      ############################ Checkout ###################################
       - name: Checkout Arrow
         shell: bash
         run: |
@@ -43,19 +46,35 @@ jobs:
       - name: Fetch Submodules and Tags
         shell: bash
         run: cd arrow && ci/scripts/util_checkout.sh
+
+      ############################ Docker Registry ############################
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: {{ '${{ secrets.AWS_ACCESS_KEY_ID }}' }}
+          aws-secret-access-key: {{ '${{ secrets.AWS_SECRET_ACCESS_KEY }}' }}
+          aws-region: us-east-2
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      ############################ Archery Installation #######################
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
           python-version: 3.8
       - name: Install Archery and Crossbow dependencies
         run: pip install -e arrow/dev/archery[all]
+
+      ############################ Build & Test ###############################
       - name: Build wheel
         shell: bash
-        run: docker command ... build then test
-      - name: Prepare artifacts
-        # the artifacts must be uploaded from a directory relative to the build root
+        run: archery docker run --no-build -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} python-wheel-windows-vs2017
+      - name: Test wheel
         shell: bash
-        run: mv arrow/python/dist/ wheels/
+        run: archery docker run python-wheel-windows-test
+
+      ############################ Artifact Uploading #########################
       - name: Upload artifacts
         shell: bash
         run: |
@@ -63,7 +82,7 @@ jobs:
             --queue-path . \
             --queue-remote {{ queue_remote_url }} \
             upload-artifacts \
-            --pattern "wheels/*.whl" \
+            --pattern "arrow/python/repaired_wheels/*.whl" \
             --sha {{ task.branch }} \
             --tag {{ task.tag }}
         env:
