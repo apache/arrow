@@ -33,7 +33,7 @@ pub(crate) fn count_nulls(
     offset: usize,
     len: usize,
 ) -> usize {
-    if let Some(ref buf) = null_bit_buffer {
+    if let Some(buf) = null_bit_buffer {
         len.checked_sub(buf.count_set_bits_offset(offset, len))
             .unwrap()
     } else {
@@ -337,7 +337,6 @@ mod tests {
 
     use std::sync::Arc;
 
-    use crate::buffer::Buffer;
     use crate::datatypes::ToByteSlice;
     use crate::util::bit_util;
 
