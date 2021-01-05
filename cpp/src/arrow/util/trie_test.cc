@@ -175,6 +175,15 @@ TEST(Trie, EmptyString) {
   ASSERT_EQ(-1, trie.Find("x"));
 }
 
+TEST(Trie, LongString) {
+  TrieBuilder builder;
+  ASSERT_OK(builder.Append(""));
+  const Trie trie = builder.Finish();
+  auto maxlen = static_cast<size_t>(std::numeric_limits<int16_t>::max()) + 1;
+  std::string long_string(maxlen, 'x');
+  ASSERT_EQ(-1, trie.Find(long_string));
+}
+
 TEST(Trie, Basics1) {
   TestTrieContents({"abc", "de", "f"});
   TestTrieContents({"abc", "de", "f", ""});
