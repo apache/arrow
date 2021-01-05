@@ -79,9 +79,6 @@ x-hierarchy:
   # Each node must be either a string scalar of a list containing the
   # descendant images if any. Archery checks that all node has a corresponding
   # service entry, so any new image/service must be listed here.
-  - centos-python-manylinux1
-  - centos-python-manylinux2010
-  - centos-python-manylinux2014
   - conda-cpp:
     - conda-cpp-hiveserver2
     - conda-cpp-valgrind
@@ -893,68 +890,6 @@ services:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         /arrow/ci/scripts/integration_kartothek.sh /kartothek /build"]
-
-  ########################## Python Wheels ####################################
-
-  centos-python-manylinux1:
-    image: ${REPO}:amd64-centos-5.11-python-manylinux1
-    build:
-      context: python/manylinux1
-      dockerfile: Dockerfile-x86_64_base
-      cache_from:
-        - ${REPO}:amd64-centos-5.11-python-manylinux1
-      args:
-        llvm: ${LLVM}
-    shm_size: *shm-size
-    environment:
-      <<: *ccache
-      PYTHON_VERSION: ${PYTHON_VERSION:-3.6}
-      UNICODE_WIDTH: ${UNICODE_WIDTH:-16}
-    volumes:
-      - .:/arrow:delegated
-      - ./python/manylinux1:/io:delegated
-      - ${DOCKER_VOLUME_PREFIX}wheel-manylinux1-ccache:/ccache:delegated
-    command: &manylinux-command /io/build_arrow.sh
-
-  centos-python-manylinux2010:
-    image: ${REPO}:amd64-centos-6.10-python-manylinux2010
-    build:
-      context: python/manylinux201x
-      dockerfile: Dockerfile-x86_64_base_2010
-      cache_from:
-        - ${REPO}:amd64-centos-6.10-python-manylinux2010
-      args:
-        llvm: ${LLVM}
-    shm_size: *shm-size
-    environment:
-      <<: *ccache
-      PYTHON_VERSION: ${PYTHON_VERSION:-3.6}
-      UNICODE_WIDTH: ${UNICODE_WIDTH:-16}
-    volumes:
-      - .:/arrow:delegated
-      - ./python/manylinux201x:/io:delegated
-      - ${DOCKER_VOLUME_PREFIX}wheel-manylinux2010-ccache:/ccache:delegated
-    command: *manylinux-command
-
-  centos-python-manylinux2014:
-    image: ${REPO}:amd64-centos-7.7-python-manylinux2014
-    build:
-      context: python/manylinux201x
-      dockerfile: Dockerfile-x86_64_base_2014
-      cache_from:
-        - ${REPO}:amd64-centos-7.7-python-manylinux2014
-      args:
-        llvm: ${LLVM}
-    shm_size: *shm-size
-    environment:
-      <<: *ccache
-      PYTHON_VERSION: ${PYTHON_VERSION:-3.6}
-      UNICODE_WIDTH: ${UNICODE_WIDTH:-16}
-    volumes:
-      - .:/arrow:delegated
-      - ./python/manylinux201x:/io:delegated
-      - ${DOCKER_VOLUME_PREFIX}wheel-manylinux2014-ccache:/ccache:delegated
-    command: *manylinux-command
 
   ################################## R ########################################
 
