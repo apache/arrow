@@ -345,6 +345,18 @@ Result<Datum> IsValid(const Datum& values, ExecContext* ctx = NULLPTR);
 ARROW_EXPORT
 Result<Datum> IsNull(const Datum& values, ExecContext* ctx = NULLPTR);
 
+/// \brief IsNan returns true for each element of `values` that is NaN,
+/// false otherwise
+///
+/// \param[in] values input to look for NaN
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 3.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> IsNan(const Datum& values, ExecContext* ctx = NULLPTR);
+
 /// \brief FillNull replaces each null element in `values`
 /// with `fill_value`
 ///

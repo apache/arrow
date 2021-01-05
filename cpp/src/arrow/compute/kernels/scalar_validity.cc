@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <cmath>
+
 #include "arrow/compute/kernels/common.h"
 
 #include "arrow/util/bit_util.h"
@@ -74,6 +76,13 @@ struct IsNullOperator {
   }
 };
 
+struct IsNanOperator {
+  template <typename OutType, typename InType>
+  static constexpr OutType Call(KernelContext*, const InType& value) {
+    return std::isnan(value);
+  }
+};
+
 void MakeFunction(std::string name, const FunctionDoc* doc,
                   std::vector<InputType> in_types, OutputType out_type,
                   ArrayKernelExec exec, FunctionRegistry* registry,
@@ -88,6 +97,23 @@ void MakeFunction(std::string name, const FunctionDoc* doc,
 
   DCHECK_OK(func->AddKernel(std::move(kernel)));
   DCHECK_OK(registry->AddFunction(std::move(func)));
+}
+
+template <typename InType>
+void AddIsNanKernel(const std::shared_ptr<DataType>& ty, ScalarFunction* func) {
+  DCHECK_OK(
+      func->AddKernel({ty}, boolean(),
+                      applicator::ScalarUnary<BooleanType, InType, IsNanOperator>::Exec));
+}
+
+std::shared_ptr<ScalarFunction> MakeIsNanFunction(std::string name,
+                                                  const FunctionDoc* doc) {
+  auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
+
+  AddIsNanKernel<FloatType>(float32(), func.get());
+  AddIsNanKernel<DoubleType>(float64(), func.get());
+
+  return func;
 }
 
 void IsValidExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
@@ -132,6 +158,10 @@ const FunctionDoc is_null_doc("Return true if null",
                               ("For each input value, emit true iff the value is null."),
                               {"values"});
 
+const FunctionDoc is_nan_doc("Return true if NaN",
+                             ("For each input value, emit true iff the value is NaN."),
+                             {"values"});
+
 }  // namespace
 
 void RegisterScalarValidity(FunctionRegistry* registry) {
@@ -141,6 +171,8 @@ void RegisterScalarValidity(FunctionRegistry* registry) {
   MakeFunction("is_null", &is_null_doc, {ValueDescr::ANY}, boolean(), IsNullExec,
                registry, MemAllocation::PREALLOCATE,
                /*can_write_into_slices=*/true);
+
+  DCHECK_OK(registry->AddFunction(MakeIsNanFunction("is_nan", &is_nan_doc)));
 }
 
 }  // namespace internal
