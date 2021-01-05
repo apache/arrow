@@ -50,6 +50,23 @@ fn create_string_array(size: usize, with_nulls: bool) -> ArrayRef {
     Arc::new(builder.finish())
 }
 
+fn create_bool_array(size: usize, with_nulls: bool) -> ArrayRef {
+    // use random numbers to avoid spurious compiler optimizations wrt to branching
+    let mut rng = seedable_rng();
+    let mut builder = BooleanBuilder::new(size);
+
+    for _ in 0..size {
+        let val = rng.gen::<i32>();
+        let is_even = val % 2 == 0;
+        if with_nulls && is_even {
+            builder.append_null().unwrap();
+        } else {
+            builder.append_value(is_even).unwrap();
+        }
+    }
+    Arc::new(builder.finish())
+}
+
 fn create_array(size: usize, with_nulls: bool) -> ArrayRef {
     // use random numbers to avoid spurious compiler optimizations wrt to branching
     let mut rng = seedable_rng();
@@ -81,6 +98,14 @@ fn add_benchmark(c: &mut Criterion) {
 
     let arr_a_nulls = create_string_array(512, true);
     c.bench_function("equal_string_nulls_512", |b| {
+        b.iter(|| bench_equal(&arr_a_nulls))
+    });
+
+    let arr_a = create_bool_array(512, false);
+    c.bench_function("equal_bool_512", |b| b.iter(|| bench_equal(&arr_a)));
+
+    let arr_a_nulls = create_bool_array(512, true);
+    c.bench_function("equal_bool_nulls_512", |b| {
         b.iter(|| bench_equal(&arr_a_nulls))
     });
 }
