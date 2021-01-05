@@ -260,18 +260,11 @@ impl ExecutionPlan for ParquetExec {
         task::spawn_blocking(move || {
             read_files(
                 &filenames,
-                projection.clone(),
+                &projection,
                 batch_size,
-                response_tx.clone(),
+                response_tx,
             )
-        })
-        .await
-        .unwrap_or_else(|e| {
-            Err(DataFusionError::Internal(format!(
-                "Parquet reader thread terminated due to error: {:?}",
-                e
-            )))
-        })?;
+        });
 
         Ok(Box::pin(ParquetStream {
             schema: self.schema.clone(),
@@ -292,7 +285,7 @@ fn send_result(
 
 fn read_files(
     filenames: &[String],
-    projection: Vec<usize>,
+    projection: &[usize],
     batch_size: usize,
     response_tx: Sender<Option<ArrowResult<RecordBatch>>>,
 ) -> Result<()> {
@@ -301,7 +294,7 @@ fn read_files(
         let file_reader = Arc::new(SerializedFileReader::new(file)?);
         let mut arrow_reader = ParquetFileArrowReader::new(file_reader);
         let mut batch_reader =
-            arrow_reader.get_record_reader_by_columns(projection.clone(), batch_size)?;
+            arrow_reader.get_record_reader_by_columns(projection.to_owned(), batch_size)?;
         loop {
             match batch_reader.next() {
                 Some(Ok(batch)) => {
