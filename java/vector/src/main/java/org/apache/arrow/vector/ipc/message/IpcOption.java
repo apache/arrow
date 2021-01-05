@@ -31,10 +31,14 @@ public class IpcOption {
   // The metadata version. Defaults to V5.
   public final MetadataVersion metadataVersion;
 
+  public IpcOption() {
+    this(false, MetadataVersion.DEFAULT);
+  }
+
   public IpcOption(boolean writeLegacyIpcFormat, MetadataVersion metadataVersion) {
     this.write_legacy_ipc_format = writeLegacyIpcFormat;
     this.metadataVersion = metadataVersion;
   }
 
-  public static IpcOption DEFAULT = new IpcOption(false, MetadataVersion.DEFAULT);
+  public static final IpcOption DEFAULT = new IpcOption();
 }

@@ -195,6 +195,7 @@ class ArrowMessage implements AutoCloseable {
                        ArrowBuf buf) {
     // No need to take IpcOption as this is used for deserialized ArrowMessage coming from the wire.
     this.writeOption = message != null ?
+        // avoid writing legacy ipc format by default
         new IpcOption(false, MetadataVersion.fromFlatbufID(message.getMessage().version())) :
         IpcOption.DEFAULT;
     this.message = message;

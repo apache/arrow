@@ -168,6 +168,7 @@ public class MessageSerializerTest {
     ArrowRecordBatch batch = new ArrowRecordBatch(
         16, asList(new ArrowFieldNode(16, 8)), asList(validityb, valuesb));
 
+    // avoid writing legacy ipc format by default
     IpcOption option = new IpcOption(false, MetadataVersion.V4);
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     MessageSerializer.serialize(new WriteChannel(Channels.newChannel(out)), batch, option);
@@ -192,6 +193,7 @@ public class MessageSerializerTest {
     ArrowRecordBatch batch = new ArrowRecordBatch(
         16, asList(new ArrowFieldNode(16, 8)), asList(validityb, valuesb));
 
+    // avoid writing legacy ipc format by default
     IpcOption option = new IpcOption(false, MetadataVersion.V5);
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     MessageSerializer.serialize(new WriteChannel(Channels.newChannel(out)), batch, option);

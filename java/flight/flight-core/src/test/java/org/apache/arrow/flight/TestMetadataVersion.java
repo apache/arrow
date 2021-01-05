@@ -56,6 +56,8 @@ public class TestMetadataVersion {
     schema = new Schema(Collections.singletonList(Field.nullable("foo", new ArrowType.Int(32, true))));
     unionSchema = new Schema(
         Collections.singletonList(Field.nullable("union", new ArrowType.Union(UnionMode.Dense, new int[]{0}))));
+
+    // avoid writing legacy ipc format by default
     optionV4 = new IpcOption(false, MetadataVersion.V4);
     optionV5 = IpcOption.DEFAULT;
   }

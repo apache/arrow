@@ -354,7 +354,7 @@ public class TestBasicOperation {
       final VectorUnloader unloader = new VectorUnloader(root);
       root.setRowCount(0);
       final MethodDescriptor.Marshaller<ArrowMessage> marshaller = ArrowMessage.createMarshaller(allocator);
-      try (final ArrowMessage message = new ArrowMessage(unloader.getRecordBatch(), null, new IpcOption())) {
+      try (final ArrowMessage message = new ArrowMessage(unloader.getRecordBatch(), null, IpcOption.DEFAULT)) {
         Assert.assertEquals(ArrowMessage.HeaderType.RECORD_BATCH, message.getMessageType());
         // Should have at least one empty body buffer (there may be multiple for e.g. data and validity)
         Iterator<ArrowBuf> iterator = message.getBufs().iterator();
@@ -388,7 +388,7 @@ public class TestBasicOperation {
     try (final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE)) {
       final MethodDescriptor.Marshaller<ArrowMessage> marshaller = ArrowMessage.createMarshaller(allocator);
       Flight.FlightDescriptor descriptor = FlightDescriptor.command(new byte[0]).toProtocol();
-      try (final ArrowMessage message = new ArrowMessage(descriptor, schema, new IpcOption())) {
+      try (final ArrowMessage message = new ArrowMessage(descriptor, schema, IpcOption.DEFAULT)) {
         Assert.assertEquals(ArrowMessage.HeaderType.SCHEMA, message.getMessageType());
         // Should have no body buffers
         Assert.assertFalse(message.getBufs().iterator().hasNext());
