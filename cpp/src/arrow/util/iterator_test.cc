@@ -140,6 +140,19 @@ inline Iterator<TestInt> VectorIt(std::vector<TestInt> v) {
   return MakeVectorIterator<TestInt>(std::move(v));
 }
 
+std::function<Future<TestInt>()> AsyncVectorIt(std::vector<TestInt> v) {
+  auto index = std::make_shared<size_t>(0);
+  auto vec = std::make_shared<std::vector<TestInt>>(std::move(v));
+  return [index, vec]() -> Future<TestInt> {
+    if (*index >= vec->size()) {
+      return Future<TestInt>::MakeFinished(IterationTraits<TestInt>::End());
+    }
+    auto next = (*vec)[*index];
+    (*index)++;
+    return Future<TestInt>::MakeFinished(next);
+  };
+}
+
 template <typename T>
 inline Iterator<T> VectorIt(std::vector<T> v) {
   return MakeVectorIterator<T>(std::move(v));
@@ -236,11 +249,11 @@ TEST(TestAsyncEmptyIterator, Basic) {
   AssertAsyncIteratorMatch({}, AsyncEmptyIt<TestInt>());
 }
 
-TEST(TestAsyncWrappedIterator, Basic) {
-  ASSERT_OK_AND_ASSIGN(auto wrapped,
-                       AsyncIteratorWrapper<TestInt>::Make(VectorIt({1, 2, 3})));
-  AssertAsyncIteratorMatch({1, 2, 3}, std::move(wrapped));
-}
+// TEST(TestAsyncWrappedIterator, Basic) {
+//   ASSERT_OK_AND_ASSIGN(auto wrapped,
+//                        AsyncIteratorWrapper<TestInt>::Make(VectorIt({1, 2, 3})));
+//   AssertAsyncIteratorMatch({1, 2, 3}, std::move(wrapped));
+// }
 
 template <typename T>
 std::function<Status(T, Emitter<T>&)> MakeFirstN(int n) {
@@ -279,6 +292,46 @@ TEST(TestIteratorOperator, TruncatingShort) {
   auto truncated =
       MakeOperatorIterator<TestInt, TestInt>(std::move(original), MakeFirstN<TestInt>(2));
   AssertIteratorMatch({1}, std::move(truncated));
+}
+
+constexpr auto kYieldDuration = std::chrono::microseconds(50);
+
+TEST(TestAsyncUtil, Background) {
+  std::vector<TestInt> expected = {1, 2, 3};
+  auto pool = internal::GetCpuThreadPool();
+  auto iterator = VectorIt(expected);
+  auto slow_iterator = MakeOperatorIterator<TestInt, TestInt>(
+      std::move(iterator), [](TestInt item, Emitter<TestInt>& emitter) {
+        std::this_thread::sleep_for(kYieldDuration);
+        emitter.Emit(item);
+        return Status::OK();
+      });
+  ASSERT_OK_AND_ASSIGN(auto background,
+                       MakeBackgroundIterator<TestInt>(std::move(slow_iterator), pool));
+  auto future = async::CollectAsyncGenerator(background);
+  ASSERT_FALSE(future.is_finished());
+  future.Wait();
+  ASSERT_TRUE(future.is_finished());
+  ASSERT_EQ(expected, *future.result());
+}
+
+TEST(TestAsyncUtil, Visit) {
+  auto generator = AsyncVectorIt({1, 2, 3});
+  auto sum = std::make_shared<unsigned int>();
+  auto sum_future = async::VisitAsyncGenerator<TestInt>(generator, [sum](TestInt item) {
+    (*sum) += item.value;
+    return Status::OK();
+  });
+  // Should be superfluous
+  sum_future.Wait();
+  ASSERT_EQ(6, *sum);
+}
+
+TEST(TestAsyncUtil, Collect) {
+  std::vector<TestInt> expected = {1, 2, 3};
+  auto generator = AsyncVectorIt(expected);
+  auto collected = async::CollectAsyncGenerator(generator);
+  ASSERT_EQ(expected, *collected.result());
 }
 
 template <typename T>

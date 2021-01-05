@@ -17,8 +17,10 @@
 
 #pragma once
 
+#include "arrow/util/functional.h"
 #include "arrow/util/future.h"
 #include "arrow/util/iterator.h"
+#include "arrow/util/optional.h"
 #include "arrow/util/thread_pool.h"
 
 namespace arrow {
@@ -146,6 +148,131 @@ class AsyncIterator : public util::EqualityComparable<AsyncIterator<T>> {
   /// type then invokes its Next member function.
   Future<T> (*next_)(void*) = NULLPTR;
 };
+
+namespace async {
+
+/// Iterates through a generator of futures, visiting the result of each one and returning
+/// a future that completes when all have been visited
+template <typename T>
+Future<> VisitAsyncGenerator(std::function<Future<T>()> generator,
+                             std::function<Status(T)> visitor) {
+  auto loop_body = [generator, visitor] {
+    auto next = generator();
+    return next.Then([visitor](const T& result) -> Result<ControlFlow<detail::Empty>> {
+      if (result == IterationTraits<T>::End()) {
+        return Break(detail::Empty());
+      } else {
+        auto visited = visitor(result);
+        if (visited.ok()) {
+          return Continue();
+        } else {
+          return visited;
+        }
+      }
+    });
+  };
+  return Loop(loop_body);
+}
+
+template <typename T>
+Future<std::vector<T>> CollectAsyncGenerator(std::function<Future<T>()> generator) {
+  auto vec = std::make_shared<std::vector<T>>();
+  auto loop_body = [generator, vec] {
+    auto next = generator();
+    return next.Then([vec](const T& result) -> Result<ControlFlow<std::vector<T>>> {
+      if (result == IterationTraits<T>::End()) {
+        return Break(*vec);
+      } else {
+        vec->push_back(result);
+        return Continue();
+      }
+    });
+  };
+  return Loop(loop_body);
+}
+
+template <typename T = detail::Empty>
+struct TransformFlow {
+  using YieldValueType = T;
+
+  bool HasValue() const { return yield_value_.has_value(); }
+  bool Finished() const { return !yield_value_.has_value(); }
+  bool ReadyForNext() const { return ready_for_next_; }
+
+  static Result<YieldValueType> MoveYieldValue(const TransformFlow& cf) {
+    return std::move(*cf.yield_value_);
+  }
+
+  mutable util::optional<YieldValueType> yield_value_;
+  bool finished_;
+  bool ready_for_next_;
+};
+
+struct Finish {
+  template <typename T>
+  operator TransformFlow<T>() && {  // NOLINT explicit
+    return {true, true};
+  }
+};
+
+struct Skip {
+  template <typename T>
+  operator TransformFlow<T>() && {  // NOLINT explicit
+    return {false, true};
+  }
+};
+
+template <typename T = detail::Empty>
+TransformFlow<T> Yield(T value = {}, bool ready_for_next = true) {
+  return TransformFlow<T>{std::move(value), false, ready_for_next};
+}
+
+template <typename T, typename V>
+std::function<Future<V>()> Transform(
+    std::function<Future<T>()> generator,
+    std::function<TransformFlow<V>(T value)> transformer) {
+  auto finished = std::make_shared<bool>();
+  auto last_value = std::make_shared<util::optional<T>>();
+
+  std::function<util::optional<V>> pump =
+      [transformer](std::shared_ptr<bool>& finished,
+                    std::shared_ptr<util::optional<T>>& last_value) {
+        while (!*finished && last_value->has_value()) {
+          TransformFlow<V> next = transformer(**last_value);
+          if (next.ReadyForNext()) {
+            last_value->reset();
+          }
+          if (next.Finished()) {
+            *finished = true;
+          }
+          if (next.HasValue()) {
+            return next.Value();
+          }
+        }
+        if (*finished) {
+          return IterationTraits<V>::End();
+        }
+        return util::optional<V>();
+      };
+
+  std::function<Future<V>()> result;
+  result = [finished, last_value, generator, result]() {
+    auto maybe_next = pump(finished, last_value);
+    if (maybe_next->has_value()) {
+      return Future<V>::MakeFinished(maybe_next);
+    }
+    return generator().Then([result, last_value](const Result<T>& next_result) {
+      if (next_result.ok()) {
+        *last_value = *next_result;
+        return result();
+      } else {
+        return Future<V>::MakeFinished(next_result.status());
+      }
+    });
+  };
+}
+
+}  // namespace async
 
 namespace detail {
 
@@ -285,5 +412,81 @@ class AsyncIteratorWrapper {
   internal::Executor* executor_;
   bool done_ = false;
 };
+
+/// \brief Async generator that iterates on an underlying iterator in a
+/// separate thread.
+/// TODO: After sleeping on it I should add limit back into readahead to avoid
+/// memory exhaustion.  Item is "consumed" as soon as future is created.
+template <typename T>
+class BackgroundIterator {
+  using PromiseType = typename detail::AsyncIteratorWrapperPromise<T>;
+
+ public:
+  explicit BackgroundIterator(Iterator<T> it, internal::Executor* executor)
+      : it_(new Iterator<T>(std::move(it))),
+        queue_(new detail::ReadaheadQueue(0)),
+        executor_(executor) {}
+
+  ~BackgroundIterator() {
+    if (queue_) {
+      // Make sure the queue doesn't call any promises after this object
+      // is destroyed.
+      queue_->EnsureShutdownOrDie();
+    }
+  }
+
+  ARROW_DEFAULT_MOVE_AND_ASSIGN(BackgroundIterator);
+  ARROW_DISALLOW_COPY_AND_ASSIGN(BackgroundIterator);
+
+  Future<T> operator()() {
+    if (done_) {
+      return Future<T>::MakeFinished(IterationTraits<T>::End());
+    }
+    auto promise = std::unique_ptr<PromiseType>(new PromiseType{it_.get()});
+    auto result = Future<T>(promise->out_);
+    // TODO: Need a futuristic version of ARROW_RETURN_NOT_OK
+    auto append_status = queue_->Append(
+        static_cast<std::unique_ptr<detail::ReadaheadPromise>>(std::move(promise)));
+    if (!append_status.ok()) {
+      return Future<T>::MakeFinished(append_status);
+    }
+
+    result.AddCallback([this](const Result<T>& result) {
+      if (!result.ok() || result.ValueUnsafe() == IterationTraits<T>::End()) {
+        done_ = true;
+      }
+    });
+
+    return executor_->Transfer(result);
+  }
+
+ protected:
+  // The underlying iterator is referenced by pointer in ReadaheadPromise,
+  // so make sure it doesn't move.
+  std::unique_ptr<Iterator<T>> it_;
+  std::unique_ptr<detail::ReadaheadQueue> queue_;
+  internal::Executor* executor_;
+  bool done_ = false;
+};
+
+template <typename T>
+struct BackgroundIteratorWrapper {
+  explicit BackgroundIteratorWrapper(std::shared_ptr<BackgroundIterator<T>> target)
+      : target_(std::move(target)) {}
+
+  Future<T> operator()() { return (*target_)(); }
+
+  std::shared_ptr<BackgroundIterator<T>> target_;
+};
+
+/// \brief Construct an Iterator which invokes a callable on Next()
+template <typename T>
+static Result<std::function<Future<T>()>> MakeBackgroundIterator(
+    Iterator<T> iterator, internal::ThreadPool* executor) {
+  auto background_iterator =
+      std::make_shared<BackgroundIterator<T>>(std::move(iterator), executor);
+  return static_cast<std::function<Future<T>()>>(
+      BackgroundIteratorWrapper<T>(std::move(background_iterator)));
+}
 
 }  // namespace arrow

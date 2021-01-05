@@ -88,7 +88,7 @@ class ARROW_EXPORT Executor {
 
   template <typename T>
   Future<T> Transfer(Future<T> future) {
-    Future<T> transferred;
+    auto transferred = Future<T>::Make();
     future.AddCallback([this, transferred](const Result<T>& result) mutable {
       Result<T> result_copy(result);
       auto spawn_status = Spawn([transferred, result_copy]() mutable {
