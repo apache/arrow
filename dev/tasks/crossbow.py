@@ -1469,7 +1469,7 @@ def submit(obj, tasks, groups, params, job_prefix, config_path, arrow_version,
     if dry_run:
         yaml.dump(job, output)
     else:
-        queue.fetch()
+        # queue.fetch()
         queue.put(job, prefix=job_prefix)
         queue.push()
         yaml.dump(job, output)

@@ -26,14 +26,15 @@ on:
 
 jobs:
   build:
-    name: "Build wheel for Windows"
-    runs-on: windows-2016
+    name: "Build wheel for Manylinux {{ manylinux_version }}"
+    runs-on: ubuntu-latest
     env:
-      ARCH: "x64"
-      GENERATOR: Visual Studio 15 2017
-      PYTHON_VERSION: "{{ python_version }}"
-      PYARROW_VERSION: {{ arrow.no_rc_version }}
+      # archery uses this environment variable
+      PYTHON: {{ python_version }}
+      REPO: 415900421099.dkr.ecr.us-east-2.amazonaws.com/apache-arrow
+
     steps:
+      ############################ Checkout ###################################
       - name: Checkout Arrow
         shell: bash
         run: |
@@ -45,39 +46,42 @@ jobs:
       - name: Fetch Submodules and Tags
         shell: bash
         run: cd arrow && ci/scripts/util_checkout.sh
-      - uses: actions/setup-python@v2
+
+      ############################ Docker Registry ############################
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
         with:
-          python-version: "{{ python_version }}"
-      - name: Set up Miniconda
-        shell: bash
-        run: |
-          echo "c:\\Miniconda\\condabin" >> $GITHUB_PATH
+          {% raw %}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-2
+          {% endraw %}
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      ############################ Archery Installation #######################
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+      - name: Install Archery and Crossbow dependencies
+        run: pip install -e arrow/dev/archery[all]
+
+      ############################ Build & Test ###############################
       - name: Build wheel
         shell: bash
-        run: |
-          arrow/dev/tasks/python-wheels/win-build.bat
+        run: archery docker run --no-build -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} python-wheel-manylinux-{{ manylinux_version }}
+      # TODO(kszucs): auditwheel show
+      - name: Test wheel
+        shell: bash
+        run: archery docker run python-wheel-manylinux-test
+
+      ############################ Artifact Uploading #########################
       - name: Prepare artifacts
         # the artifacts must be uploaded from a directory relative to the build root
         shell: bash
-        run: |
-          mv arrow/python/dist/ wheels/
-      {% if arrow.branch == 'master' %}
-      - name: Upload to gemfury
-        shell: bash
-        run: |
-          conda.bat install -y curl
-          WHEEL_PATH=$(echo wheels/*.whl)
-          curl.exe \
-            -F "package=@${WHEEL_PATH}" \
-            "https://${CROSSBOW_GEMFURY_TOKEN}@push.fury.io/${CROSSBOW_GEMFURY_ORG}/"
-        env:
-          CROSSBOW_GEMFURY_ORG: {{ '${{ secrets.CROSSBOW_GEMFURY_ORG }}' }}
-          CROSSBOW_GEMFURY_TOKEN: {{ '${{ secrets.CROSSBOW_GEMFURY_TOKEN }}' }}
-      {% endif %}
-      - name: Set up Crossbow
-        shell: bash
-        run: |
-          pip install --requirement arrow/dev/tasks/requirements-crossbow.txt
+        run: mv arrow/python/repaired_wheels/ wheels/
       - name: Upload artifacts
         shell: bash
         run: |

@@ -22,6 +22,7 @@ ENV VCPKG_DEFAULT_TRIPLET=x64-windows-static-md \
     VCPKG_PLATFORM_TOOLSET=v141 \
     VCPKG_BUILD_TYPE=%build_type%
 
+# could spare ~750MB with VCPKG_FORCE_SYSTEM_BINARIES=1
 RUN vcpkg install --clean-after-build \
         abseil \
         aws-sdk-cpp[config,cognito-identity,core,identity-management,s3,sts,transfer] \
