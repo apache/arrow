@@ -215,5 +215,12 @@ inline static std::string nested_src() {
   )";
 }
 
+inline static std::string null_src() {
+  return R"(
+    { "plain": null, "list1": [], "list2": [], "struct": { "plain": null } }
+    { "plain": null, "list1": [], "list2": [null], "struct": {} }
+  )";
+}
+
 }  // namespace json
 }  // namespace arrow

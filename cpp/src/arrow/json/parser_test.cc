@@ -221,6 +221,17 @@ TEST(BlockParser, Nested) {
                       R"([{"ps":null}, {}, {"ps":"78"}, {"ps":"90"}])"});
 }
 
+TEST(BlockParser, Null) {
+  auto options = ParseOptions::Defaults();
+  options.unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
+  AssertParseColumns(
+      options, null_src(),
+      {field("plain", null()), field("list1", list(null())), field("list2", list(null())),
+       field("struct", struct_({field("plain", null())}))},
+      {"[null, null]", "[[], []]", "[[], [null]]",
+       R"([{"plain": null}, {"plain": null}])"});
+}
+
 TEST(BlockParser, AdHoc) {
   auto options = ParseOptions::Defaults();
   options.unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
