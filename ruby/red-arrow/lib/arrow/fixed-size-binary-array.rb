@@ -15,19 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: PR rebase needed labeler
-on:
-  push:
-  pull_request_target:
-    types: [synchronize]
-
-jobs:
-  label:
-    name: Label
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checks if PR needs rebase
-        uses: eps1lon/actions-label-merge-conflict@releases/2.x
-        with:
-          dirtyLabel: "needs-rebase"
-          repoToken: "${{ secrets.GITHUB_TOKEN }}"
+module Arrow
+  class FixedSizeBinaryArray
+    alias_method :get_value_raw, :get_value
+    # @since 3.0.0
+    def get_value(i)
+      get_value_raw(i).to_s
+    end
+  end
+end

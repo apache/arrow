@@ -19,8 +19,6 @@
 #![allow(
     clippy::float_cmp,
     clippy::module_inception,
-    clippy::needless_lifetimes,
-    clippy::needless_range_loop,
     clippy::new_without_default,
     clippy::ptr_arg,
     clippy::type_complexity

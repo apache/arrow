@@ -15,19 +15,24 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: PR rebase needed labeler
-on:
-  push:
-  pull_request_target:
-    types: [synchronize]
+module Arrow
+  class FixedSizeBinaryArrayBuilder
+    class << self
+      # @since 3.0.0
+      def build(data_type, values)
+        builder = new(data_type)
+        builder.build(values)
+      end
+    end
 
-jobs:
-  label:
-    name: Label
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checks if PR needs rebase
-        uses: eps1lon/actions-label-merge-conflict@releases/2.x
-        with:
-          dirtyLabel: "needs-rebase"
-          repoToken: "${{ secrets.GITHUB_TOKEN }}"
+    alias_method :append_values_raw, :append_values
+    # @since 3.0.0
+    def append_values(values, is_valids=nil)
+      if values.is_a?(::Array)
+        append_values_raw(values, is_valids)
+      else
+        append_values_packed(values, is_valids)
+      end
+    end
+  end
+end

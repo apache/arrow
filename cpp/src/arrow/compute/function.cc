@@ -81,7 +81,9 @@ Result<const KernelType*> DispatchExactImpl(const Function& func,
   }
 
   // Dispatch as the CPU feature
+#if defined(ARROW_HAVE_RUNTIME_AVX512) || defined(ARROW_HAVE_RUNTIME_AVX2)
   auto cpu_info = arrow::internal::CpuInfo::GetInstance();
+#endif
 #if defined(ARROW_HAVE_RUNTIME_AVX512)
   if (cpu_info->IsSupported(arrow::internal::CpuInfo::AVX512)) {
     if (kernel_matches[SimdLevel::AVX512]) {

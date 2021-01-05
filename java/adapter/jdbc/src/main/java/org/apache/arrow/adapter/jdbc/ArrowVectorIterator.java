@@ -17,6 +17,8 @@
 
 package org.apache.arrow.adapter.jdbc;
 
+import static org.apache.arrow.adapter.jdbc.JdbcToArrowUtils.isColumnNullable;
+
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -26,6 +28,7 @@ import org.apache.arrow.adapter.jdbc.consumer.CompositeJdbcConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.JdbcConsumer;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.ValueVectorUtility;
 
@@ -64,8 +67,10 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
   private void initialize() throws SQLException {
     // create consumers
     for (int i = 1; i <= consumers.length; i++) {
-      consumers[i - 1] = JdbcToArrowUtils.getConsumer(resultSet, i, resultSet.getMetaData().getColumnType(i),
-          null, config);
+      ArrowType arrowType = config.getJdbcToArrowTypeConverter()
+          .apply(new JdbcFieldInfo(resultSet.getMetaData(), i));
+      consumers[i - 1] = JdbcToArrowUtils.getConsumer(
+          arrowType, i, isColumnNullable(resultSet, i), null, config);
     }
 
     load(createVectorSchemaRoot());

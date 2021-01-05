@@ -80,9 +80,26 @@ class Decimal256ArrayBuilderTest < Test::Unit::TestCase
     test("is_valids") do
       @builder.append_values([
                                Arrow::Decimal256.new("10.1"),
-                               nil,
                                Arrow::Decimal256.new("10.1"),
+                               Arrow::Decimal256.new("10.1"),
+                             ],
+                             [
+                               true,
+                               false,
+                               true,
                              ])
+      array = @builder.finish
+      assert_equal([
+                     BigDecimal("10.1"),
+                     nil,
+                     BigDecimal("10.1"),
+                   ],
+                   array.to_a)
+    end
+
+    test("packed") do
+      @builder.append_values(Arrow::Decimal256.new("10.1").to_bytes.to_s * 3,
+                             [true, false, true])
       array = @builder.finish
       assert_equal([
                      BigDecimal("10.1"),

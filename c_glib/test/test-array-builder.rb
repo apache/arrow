@@ -43,6 +43,94 @@ module ArrayBuilderAppendValuesTests
   def test_with_is_valids
     builder = create_builder
     builder.append_values(sample_values, [true, true, false])
+    actual_sample_values = sample_values.dup
+    actual_sample_values[2] = nil
+    assert_equal(build_array(actual_sample_values),
+                 builder.finish)
+  end
+
+  def test_with_large_is_valids
+    builder = create_builder
+    n = 10000
+    large_sample_values = sample_values * n
+    large_is_valids = [true, true, false] * n
+    builder.append_values(large_sample_values, large_is_valids)
+    actual_sample_values = sample_values.dup
+    actual_sample_values[2] = nil
+    actual_large_sample_values = actual_sample_values * n
+    assert_equal(build_array(actual_large_sample_values),
+                 builder.finish)
+  end
+
+  def test_mismatch_length
+    builder = create_builder
+    message = "[#{builder_class_name}][append-values]: " +
+      "values length and is_valids length must be equal: <3> != <2>"
+    assert_raise(Arrow::Error::Invalid.new(message)) do
+      builder.append_values(sample_values, [true, true])
+    end
+  end
+end
+
+module ArrayBuilderAppendValuesWithNullTests
+  def test_values_only
+    builder = create_builder
+    builder.append_values(sample_values_with_null)
+    assert_equal(build_array(sample_values_with_null),
+                 builder.finish)
+  end
+
+  def test_large_values_only
+    builder = create_builder
+    n = 10000
+    large_sample_values_with_null = sample_values_with_null * n
+    builder.append_values(large_sample_values_with_null)
+    assert_equal(build_array(large_sample_values_with_null),
+                 builder.finish)
+  end
+
+  def test_with_is_valids
+    builder = create_builder
+    builder.append_values(sample_values_with_null, [true, true, false])
+    actual_sample_values = sample_values_with_null.dup
+    actual_sample_values[2] = nil
+    assert_equal(build_array(actual_sample_values),
+                 builder.finish)
+  end
+
+  def test_with_large_is_valids
+    builder = create_builder
+    n = 10000
+    large_sample_values = sample_values_with_null * n
+    large_is_valids = [true, true, false] * n
+    builder.append_values(large_sample_values, large_is_valids)
+    actual_sample_values = sample_values_with_null.dup
+    actual_sample_values[2] = nil
+    actual_large_sample_values = actual_sample_values * n
+    assert_equal(build_array(actual_large_sample_values),
+                 builder.finish)
+  end
+end
+
+module ArrayBuilderAppendValuesPackedTests
+  def test_empty
+    builder = create_builder
+    builder.append_values_packed("")
+    assert_equal(build_array([]),
+                 builder.finish)
+  end
+
+  def test_values_only
+    builder = create_builder
+    builder.append_values_packed(pack_values(sample_values))
+    assert_equal(build_array(sample_values),
+                 builder.finish)
+  end
+
+  def test_with_is_valids
+    builder = create_builder
+    builder.append_values_packed(pack_values(sample_values),
+                                 [true, true, false])
     sample_values_with_null = sample_values
     sample_values_with_null[2] = nil
     assert_equal(build_array(sample_values_with_null),
@@ -54,7 +142,8 @@ module ArrayBuilderAppendValuesTests
     n = 10000
     large_sample_values = sample_values * n
     large_is_valids = [true, true, false] * n
-    builder.append_values(large_sample_values, large_is_valids)
+    builder.append_values_packed(pack_values(large_sample_values),
+                                 large_is_valids)
     sample_values_with_null = sample_values
     sample_values_with_null[2] = nil
     large_sample_values_with_null = sample_values_with_null * n
@@ -64,10 +153,11 @@ module ArrayBuilderAppendValuesTests
 
   def test_mismatch_length
     builder = create_builder
-    message = "[#{builder_class_name}][append-values]: " +
-      "values length and is_valids length must be equal: <3> != <2>"
+    message = "[fixed-size-binary-array-builder][append-values-packed]: " +
+      "the number of values and is_valids length must be equal: <3> != <2>"
     assert_raise(Arrow::Error::Invalid.new(message)) do
-      builder.append_values(sample_values, [true, true])
+      builder.append_values_packed(pack_values(sample_values),
+                                   [true, true])
     end
   end
 end
@@ -1600,6 +1690,90 @@ class TestArrayBuilder < Test::Unit::TestCase
     end
   end
 
+  sub_test_case("FixedSizeBinaryArrayBuilder") do
+    def create_builder
+      Arrow::FixedSizeBinaryArrayBuilder.new(value_data_type)
+    end
+
+    def value_data_type
+      Arrow::FixedSizeBinaryDataType.new(4)
+    end
+
+    def builder_class_name
+      "fixed-size-binary-array-builder"
+    end
+
+    def sample_values
+      [
+        "0123",
+        "abcd",
+        "\x0\x0\x0\x0".b,
+      ]
+    end
+
+    def sample_values_with_null
+      [
+        "0123",
+        nil,
+        "\x0\x0\x0\x0".b,
+      ]
+    end
+
+    def pack_values(values)
+      values.join("")
+    end
+
+    def empty_value
+      "\x0\x0\x0\x0"
+    end
+
+    sub_test_case("value type") do
+      include ArrayBuilderValueTypeTests
+    end
+
+    sub_test_case("#append_value") do
+      test("nil") do
+        builder = create_builder
+        builder.append_value(nil)
+        assert_equal(build_array([nil]),
+                     builder.finish)
+      end
+    end
+
+    sub_test_case("#append_values") do
+      include ArrayBuilderAppendValuesTests
+      include ArrayBuilderAppendValuesWithNullTests
+    end
+
+    sub_test_case("#append_values_packed") do
+      include ArrayBuilderAppendValuesPackedTests
+    end
+
+    sub_test_case("#append_nulls") do
+      include ArrayBuilderAppendNullsTests
+    end
+
+    sub_test_case("#append_empty_value") do
+      include ArrayBuilderAppendEmptyValueTests
+    end
+
+    sub_test_case("#append_empty_values") do
+      include ArrayBuilderAppendEmptyValuesTests
+    end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
+    end
+
+    sub_test_case("#length") do
+      include ArrayBuilderLengthTests
+    end
+
+    sub_test_case("#n_nulls") do
+      include ArrayBuilderNNullsTests
+    end
+  end
+
   sub_test_case("Decimal128ArrayBuilder") do
     def create_builder
       Arrow::Decimal128ArrayBuilder.new(value_data_type)
@@ -1621,6 +1795,18 @@ class TestArrayBuilder < Test::Unit::TestCase
       ]
     end
 
+    def sample_values_with_null
+      [
+        Arrow::Decimal128.new("23423445"),
+        nil,
+        Arrow::Decimal128.new("00000000"),
+      ]
+    end
+
+    def pack_values(values)
+      values.collect(&:to_bytes).collect(&:to_s).join("")
+    end
+
     def empty_value
       Arrow::Decimal128.new("0")
     end
@@ -1629,10 +1815,23 @@ class TestArrayBuilder < Test::Unit::TestCase
       include ArrayBuilderValueTypeTests
     end
 
-    # TODO
-    # sub_test_case("#append_values") do
-    #   include ArrayBuilderAppendValuesTests
-    # end
+    sub_test_case("#append_value") do
+      test("nil") do
+        builder = create_builder
+        builder.append_value(nil)
+        assert_equal(build_array([nil]),
+                     builder.finish)
+      end
+    end
+
+    sub_test_case("#append_values") do
+      include ArrayBuilderAppendValuesTests
+      include ArrayBuilderAppendValuesWithNullTests
+    end
+
+    sub_test_case("#append_values_packed") do
+      include ArrayBuilderAppendValuesPackedTests
+    end
 
     sub_test_case("#append_nulls") do
       include ArrayBuilderAppendNullsTests
@@ -1680,6 +1879,18 @@ class TestArrayBuilder < Test::Unit::TestCase
       ]
     end
 
+    def sample_values_with_null
+      [
+        Arrow::Decimal256.new("23423445"),
+        nil,
+        Arrow::Decimal256.new("00000000"),
+      ]
+    end
+
+    def pack_values(values)
+      values.collect(&:to_bytes).collect(&:to_s).join("")
+    end
+
     def empty_value
       Arrow::Decimal256.new("0")
     end
@@ -1688,10 +1899,23 @@ class TestArrayBuilder < Test::Unit::TestCase
       include ArrayBuilderValueTypeTests
     end
 
-    # TODO
-    # sub_test_case("#append_values") do
-    #   include ArrayBuilderAppendValuesTests
-    # end
+    sub_test_case("#append_value") do
+      test("nil") do
+        builder = create_builder
+        builder.append_value(nil)
+        assert_equal(build_array([nil]),
+                     builder.finish)
+      end
+    end
+
+    sub_test_case("#append_values") do
+      include ArrayBuilderAppendValuesTests
+      include ArrayBuilderAppendValuesWithNullTests
+    end
+
+    sub_test_case("#append_values_packed") do
+      include ArrayBuilderAppendValuesPackedTests
+    end
 
     sub_test_case("#append_nulls") do
       include ArrayBuilderAppendNullsTests

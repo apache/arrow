@@ -17,6 +17,7 @@
 
 //! Execution plan for reading Parquet files
 
+use std::fmt;
 use std::fs::File;
 use std::sync::Arc;
 use std::task::{Context, Poll};
@@ -24,7 +25,6 @@ use std::{
     any::Any,
     collections::{HashMap, HashSet},
 };
-use std::{fmt, thread};
 
 use super::{
     expressions, planner::DefaultPhysicalPlanner, ColumnarValue, PhysicalExpr,
@@ -56,6 +56,7 @@ use parquet::file::{
 use crossbeam::channel::{bounded, Receiver, RecvError, Sender};
 use fmt::Debug;
 use parquet::arrow::{ArrowReader, ParquetFileArrowReader};
+use tokio::task;
 
 use crate::datasource::datasource::Statistics;
 use async_trait::async_trait;
@@ -770,13 +771,13 @@ impl ExecutionPlan for ParquetExec {
         let predicate_builder = self.predicate_builder.clone();
         let batch_size = self.batch_size;
 
-        thread::spawn(move || {
+        task::spawn_blocking(move || {
             if let Err(e) = read_files(
                 &filenames,
-                projection.clone(),
-                predicate_builder,
+                &projection,
+                &predicate_builder,
                 batch_size,
-                response_tx.clone(),
+                response_tx,
             ) {
                 println!("Parquet reader thread terminated due to error: {:?}", e);
             }
@@ -801,22 +802,22 @@ fn send_result(
 
 fn read_files(
     filenames: &[String],
-    projection: Vec<usize>,
-    predicate_builder: Option<PredicateExpressionBuilder>,
+    projection: &[usize],
+    predicate_builder: &Option<PredicateExpressionBuilder>,
     batch_size: usize,
     response_tx: Sender<Option<ArrowResult<RecordBatch>>>,
 ) -> Result<()> {
     for filename in filenames {
         let file = File::open(&filename)?;
         let mut file_reader = SerializedFileReader::new(file)?;
-        if let Some(ref predicate_builder) = predicate_builder {
+        if let Some(predicate_builder) = predicate_builder {
             let row_group_predicate = predicate_builder
                 .build_row_group_predicate(file_reader.metadata().row_groups());
             file_reader.filter_row_groups(&row_group_predicate);
         }
         let mut arrow_reader = ParquetFileArrowReader::new(Arc::new(file_reader));
-        let mut batch_reader =
-            arrow_reader.get_record_reader_by_columns(projection.clone(), batch_size)?;
+        let mut batch_reader = arrow_reader
+            .get_record_reader_by_columns(projection.to_owned(), batch_size)?;
         loop {
             match batch_reader.next() {
                 Some(Ok(batch)) => {

@@ -798,6 +798,54 @@ gboolean garrow_large_string_array_builder_append_strings(GArrowLargeStringArray
                                                           GError **error);
 
 
+#define GARROW_TYPE_FIXED_SIZE_BINARY_ARRAY_BUILDER      \
+  (garrow_fixed_size_binary_array_builder_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowFixedSizeBinaryArrayBuilder,
+                         garrow_fixed_size_binary_array_builder,
+                         GARROW,
+                         FIXED_SIZE_BINARY_ARRAY_BUILDER,
+                         GArrowArrayBuilder)
+struct _GArrowFixedSizeBinaryArrayBuilderClass
+{
+  GArrowArrayBuilderClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_3_0
+GArrowFixedSizeBinaryArrayBuilder *
+garrow_fixed_size_binary_array_builder_new(
+  GArrowFixedSizeBinaryDataType *data_type);
+
+GARROW_AVAILABLE_IN_3_0
+gboolean
+garrow_fixed_size_binary_array_builder_append_value(
+  GArrowFixedSizeBinaryArrayBuilder *builder,
+  const guint8 *value,
+  gint32 length,
+  GError **error);
+GARROW_AVAILABLE_IN_3_0
+gboolean
+garrow_fixed_size_binary_array_builder_append_value_bytes(
+  GArrowFixedSizeBinaryArrayBuilder *builder,
+  GBytes *value,
+  GError **error);
+GARROW_AVAILABLE_IN_3_0
+gboolean
+garrow_fixed_size_binary_array_builder_append_values(
+  GArrowFixedSizeBinaryArrayBuilder *builder,
+  GBytes **values,
+  gint64 values_length,
+  const gboolean *is_valids,
+  gint64 is_valids_length,
+  GError **error);
+GARROW_AVAILABLE_IN_3_0
+gboolean
+garrow_fixed_size_binary_array_builder_append_values_packed(
+  GArrowFixedSizeBinaryArrayBuilder *builder,
+  GBytes *values,
+  const gboolean *is_valids,
+  gint64 is_valids_length,
+  GError **error);
+
 #define GARROW_TYPE_DATE32_ARRAY_BUILDER        \
   (garrow_date32_array_builder_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowDate32ArrayBuilder,
@@ -1274,10 +1322,10 @@ G_DECLARE_DERIVABLE_TYPE(GArrowDecimal128ArrayBuilder,
                          garrow_decimal128_array_builder,
                          GARROW,
                          DECIMAL128_ARRAY_BUILDER,
-                         GArrowArrayBuilder)
+                         GArrowFixedSizeBinaryArrayBuilder)
 struct _GArrowDecimal128ArrayBuilderClass
 {
-  GArrowArrayBuilderClass parent_class;
+  GArrowFixedSizeBinaryArrayBuilderClass parent_class;
 };
 
 GArrowDecimal128ArrayBuilder *garrow_decimal128_array_builder_new(GArrowDecimal128DataType *data_type);
@@ -1292,6 +1340,15 @@ GARROW_AVAILABLE_IN_0_12
 gboolean garrow_decimal128_array_builder_append_value(GArrowDecimal128ArrayBuilder *builder,
                                                       GArrowDecimal128 *value,
                                                       GError **error);
+GARROW_AVAILABLE_IN_3_0
+gboolean
+garrow_decimal128_array_builder_append_values(
+  GArrowDecimal128ArrayBuilder *builder,
+  GArrowDecimal128 **values,
+  gint64 values_length,
+  const gboolean *is_valids,
+  gint64 is_valids_length,
+  GError **error);
 #ifndef GARROW_DISABLE_DEPRECATED
 GARROW_DEPRECATED_IN_3_0_FOR(garrow_array_builder_append_null)
 GARROW_AVAILABLE_IN_0_12
@@ -1305,10 +1362,10 @@ G_DECLARE_DERIVABLE_TYPE(GArrowDecimal256ArrayBuilder,
                          garrow_decimal256_array_builder,
                          GARROW,
                          DECIMAL256_ARRAY_BUILDER,
-                         GArrowArrayBuilder)
+                         GArrowFixedSizeBinaryArrayBuilder)
 struct _GArrowDecimal256ArrayBuilderClass
 {
-  GArrowArrayBuilderClass parent_class;
+  GArrowFixedSizeBinaryArrayBuilderClass parent_class;
 };
 
 GArrowDecimal256ArrayBuilder *garrow_decimal256_array_builder_new(GArrowDecimal256DataType *data_type);
@@ -1317,5 +1374,14 @@ GARROW_AVAILABLE_IN_3_0
 gboolean garrow_decimal256_array_builder_append_value(GArrowDecimal256ArrayBuilder *builder,
                                                       GArrowDecimal256 *value,
                                                       GError **error);
+GARROW_AVAILABLE_IN_3_0
+gboolean
+garrow_decimal256_array_builder_append_values(
+  GArrowDecimal256ArrayBuilder *builder,
+  GArrowDecimal256 **values,
+  gint64 values_length,
+  const gboolean *is_valids,
+  gint64 is_valids_length,
+  GError **error);
 
 G_END_DECLS

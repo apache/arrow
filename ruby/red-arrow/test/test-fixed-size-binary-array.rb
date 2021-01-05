@@ -15,19 +15,22 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: PR rebase needed labeler
-on:
-  push:
-  pull_request_target:
-    types: [synchronize]
-
-jobs:
-  label:
-    name: Label
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checks if PR needs rebase
-        uses: eps1lon/actions-label-merge-conflict@releases/2.x
-        with:
-          dirtyLabel: "needs-rebase"
-          repoToken: "${{ secrets.GITHUB_TOKEN }}"
+class FixedSizeBinaryArrayTest < Test::Unit::TestCase
+  sub_test_case(".new") do
+    test("build") do
+      data_type = Arrow::FixedSizeBinaryDataType.new(4)
+      values = [
+        "0123",
+        nil,
+        GLib::Bytes.new("abcd"),
+      ]
+      array = Arrow::FixedSizeBinaryArray.new(data_type, values)
+      assert_equal([
+                     "0123",
+                     nil,
+                     "abcd",
+                   ],
+                   array.to_a)
+    end
+  end
+end

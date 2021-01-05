@@ -21,9 +21,9 @@
 #
 # Soft link it as git hook under top dir of apache arrow git repository:
 # $ ln -s  ../../rust/pre-commit.sh .git/hooks/pre-commit
-
-# NOTE: colorized output may not work as expected.
-#       I've seen the difference between /bin/sh and GUN bash 5 on macOS.
+#
+# This file be run directly:
+# $ ./pre-commit.sh
 
 function RED() {
 	echo "\033[0;31m$@\033[0m"
@@ -37,50 +37,52 @@ function BYELLOW() {
 	echo "\033[1;33m$@\033[0m"
 }
 
-MSG="git pre-commit hook"
 RUST_DIR="rust"
-CARGO_FMT="cargo +stable fmt --all"
-CARGO_CLIPPY="cargo clippy"
 
-NUM_CHANGES=$(git diff --cached --name-only "${RUST_DIR}" |
-	grep -e ".*/*.rs$" -o -e "^rustfmt.toml$" -o -e "^rust-toolchain$" |
+# env GIT_DIR is set by git when run a pre-commit hook.
+if [ -z "${GIT_DIR}" ]; then
+	GIT_DIR=$(git rev-parse --show-toplevel)
+fi
+
+cd ${GIT_DIR}/${RUST_DIR}
+
+NUM_CHANGES=$(git diff --cached --name-only . |
+	grep -e ".*/*.rs$" |
 	awk '{print $1}' |
 	wc -l)
 
 if [ ${NUM_CHANGES} -eq 0 ]; then
-	echo -e "$(GREEN INFO) ${MSG}: no changes in: *rs, rustfmt.toml, rust-toolchain, skip fmt/clippy"
-	#exit 0
+	echo -e "$(GREEN INFO): no staged changes in *.rs, $(GREEN skip cargo fmt/clippy)"
+	exit 0
 fi
 
-cd ${RUST_DIR}
+# 1. cargo clippy
 
-# 1. Abort on cargo fmt error.
+echo -e "$(GREEN INFO): cargo clippy ..."
 
-echo -e "$(GREEN INFO) ${MSG}: cargo fmt checking ..."
-
-$CARGO_FMT -q -- --check 2>/dev/null
-if [ $? -eq 0 ]; then
-	echo -e "$(GREEN INFO) ${MSG}: $(GREEN cargo fmt check passed)"
-else
-	echo -e "$(GREEN INFO) ${MSG}: cargo fmt formatting ..."
-	$CARGO_FMT
-	echo
-	echo -e "$(BYELLOW WARN) ${MSG}: cargo fmt $(BYELLOW fixed some files)"
-fi
-
-# 2. Warn on cargo clippy errors/warnings.
-
-echo
-echo "===================================================="
-echo
-echo -e "$(GREEN INFO) ${MSG}: cargo clippy ..."
-echo
-
-# Cargo clippy always return exit code 0, and tee doesnt work.
+# Cargo clippy always return exit code 0, and `tee` doesn't work.
 # So let's just run cargo clippy.
-$CARGO_CLIPPY
-echo
-echo -e "$(BYELLOW WARN) ${MSG}: please try fix $(BYELLOW clippy issues) if any"
-echo
+cargo clippy
+echo -e "$(GREEN INFO): cargo clippy done"
+
+# 2. cargo fmt: format with nightly and stable.
+
+CHANGED_BY_CARGO_FMT=false
+echo -e "$(GREEN INFO): cargo fmt with nightly and stable ..."
+
+for version in nightly stable; do
+	CMD="cargo +${version} fmt"
+	${CMD} --all -q -- --check 2>/dev/null
+	if [ $? -ne 0 ]; then
+		${CMD} --all
+		echo -e "$(BYELLOW WARN): ${CMD} changed some files"
+		CHANGED_BY_CARGO_FMT=true
+	fi
+done
+
+if ${CHANGED_BY_CARGO_FMT}; then
+	echo -e "$(RED FAIL): git commit $(RED ABORTED), please have a look and run git add/commit again"
+	exit 1
+fi
 
 exit 0

@@ -65,6 +65,8 @@ module Arrow
       require "arrow/dictionary-data-type"
       require "arrow/field"
       require "arrow/file-output-stream"
+      require "arrow/fixed-size-binary-array"
+      require "arrow/fixed-size-binary-array-builder"
       require "arrow/group"
       require "arrow/list-array-builder"
       require "arrow/list-data-type"

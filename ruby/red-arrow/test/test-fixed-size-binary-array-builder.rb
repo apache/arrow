@@ -15,10 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class Decimal128ArrayBuilderTest < Test::Unit::TestCase
+class FixedSizeBinaryArrayBuilderTest < Test::Unit::TestCase
   def setup
-    @data_type = Arrow::Decimal128DataType.new(3, 1)
-    @builder = Arrow::Decimal128ArrayBuilder.new(@data_type)
+    @data_type = Arrow::FixedSizeBinaryDataType.new(4)
+    @builder = Arrow::FixedSizeBinaryArrayBuilder.new(@data_type)
   end
 
   sub_test_case("#append_value") do
@@ -28,60 +28,40 @@ class Decimal128ArrayBuilderTest < Test::Unit::TestCase
       assert_equal(nil, array[0])
     end
 
-    test("Arrow::Decimal128") do
-      @builder.append_value(Arrow::Decimal128.new("10.1"))
-      array = @builder.finish
-      assert_equal(BigDecimal("10.1"),
-                   array[0])
-    end
-
     test("String") do
-      @builder.append_value("10.1")
+      @builder.append_value("0123")
       array = @builder.finish
-      assert_equal(BigDecimal("10.1"),
-                   array[0])
+      assert_equal("0123", array[0])
     end
 
-    test("Float") do
-      @builder.append_value(10.1)
+    test("GLib::Bytes") do
+      @builder.append_value(GLib::Bytes.new("0123"))
       array = @builder.finish
-      assert_equal(BigDecimal("10.1"),
-                   array[0])
-    end
-
-    test("BigDecimal") do
-      @builder.append_value(BigDecimal("10.1"))
-      array = @builder.finish
-      assert_equal(BigDecimal("10.1"),
-                   array[0])
+      assert_equal("0123", array[0])
     end
   end
 
   sub_test_case("#append_values") do
     test("mixed") do
       @builder.append_values([
-                               Arrow::Decimal128.new("10.1"),
+                               "0123",
                                nil,
-                               "10.1",
-                               10.1,
-                               BigDecimal("10.1"),
+                               GLib::Bytes.new("abcd"),
                              ])
       array = @builder.finish
       assert_equal([
-                     BigDecimal("10.1"),
+                     "0123",
                      nil,
-                     BigDecimal("10.1"),
-                     BigDecimal("10.1"),
-                     BigDecimal("10.1"),
+                     "abcd",
                    ],
                    array.to_a)
     end
 
     test("is_valids") do
       @builder.append_values([
-                               Arrow::Decimal128.new("10.1"),
-                               Arrow::Decimal128.new("10.1"),
-                               Arrow::Decimal128.new("10.1"),
+                               "0123",
+                               "0123",
+                               "0123",
                              ],
                              [
                                true,
@@ -90,21 +70,21 @@ class Decimal128ArrayBuilderTest < Test::Unit::TestCase
                              ])
       array = @builder.finish
       assert_equal([
-                     BigDecimal("10.1"),
+                     "0123",
                      nil,
-                     BigDecimal("10.1"),
+                     "0123",
                    ],
                    array.to_a)
     end
 
     test("packed") do
-      @builder.append_values(Arrow::Decimal128.new("10.1").to_bytes.to_s * 3,
+      @builder.append_values("0123" * 3,
                              [true, false, true])
       array = @builder.finish
       assert_equal([
-                     BigDecimal("10.1"),
+                     "0123",
                      nil,
-                     BigDecimal("10.1"),
+                     "0123",
                    ],
                    array.to_a)
     end

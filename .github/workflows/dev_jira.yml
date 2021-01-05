@@ -15,49 +15,38 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: Dev Cron
+name: PR JIRA integration
 
 on:
-  push:
-    paths:
-      - '.github/workflows/dev_cron.yml'
-  pull_request:
-    paths:
-      - '.github/workflows/dev_cron.yml'
-  schedule:
-    - cron: |
-        */15 * * * *
+  pull_request_target:
+    types:
+      - opened
+      - edited
 
 jobs:
 
-  jira-link:
-    if: github.repository == 'apache/arrow'
-    name: JIRA link
+  link:
+    name: Link
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@master
+      - uses: actions/checkout@v2
       - name: Comment
-        uses: actions/github-script@master
+        uses: actions/github-script@v3
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const fs = require("fs");
-            const path = ".github/workflows/dev_cron/jira_link.js";
-            const script = fs.readFileSync(path).toString();
-            eval(script);
+            const script = require(`${process.env.GITHUB_WORKSPACE}/.github/workflows/dev_jira/link.js`);
+            script({github, context});
 
   title-check:
-    if: github.repository == 'apache/arrow'
     name: Title check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@master
+      - uses: actions/checkout@v2
       - name: Check
-        uses: actions/github-script@master
+        uses: actions/github-script@v3
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const fs = require("fs");
-            const path = ".github/workflows/dev_cron/title_check.js";
-            const script = fs.readFileSync(path).toString();
-            eval(script);
+            const script = require(`${process.env.GITHUB_WORKSPACE}/.github/workflows/dev_jira/title_check.js`);
+            script({github, context});

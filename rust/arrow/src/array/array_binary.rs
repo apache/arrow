@@ -268,27 +268,19 @@ impl<'a, T: BinaryOffsetSizeTrait> IntoIterator for &'a GenericBinaryArray<T> {
     }
 }
 
-impl From<Vec<&[u8]>> for BinaryArray {
-    fn from(v: Vec<&[u8]>) -> Self {
-        BinaryArray::from_vec(v)
-    }
-}
-
-impl From<Vec<Option<&[u8]>>> for BinaryArray {
+impl<OffsetSize: BinaryOffsetSizeTrait> From<Vec<Option<&[u8]>>>
+    for GenericBinaryArray<OffsetSize>
+{
     fn from(v: Vec<Option<&[u8]>>) -> Self {
-        BinaryArray::from_opt_vec(v)
+        GenericBinaryArray::<OffsetSize>::from_opt_vec(v)
     }
 }
 
-impl From<Vec<&[u8]>> for LargeBinaryArray {
+impl<OffsetSize: BinaryOffsetSizeTrait> From<Vec<&[u8]>>
+    for GenericBinaryArray<OffsetSize>
+{
     fn from(v: Vec<&[u8]>) -> Self {
-        LargeBinaryArray::from_vec(v)
-    }
-}
-
-impl From<Vec<Option<&[u8]>>> for LargeBinaryArray {
-    fn from(v: Vec<Option<&[u8]>>) -> Self {
-        LargeBinaryArray::from_opt_vec(v)
+        GenericBinaryArray::<OffsetSize>::from_vec(v)
     }
 }
 
@@ -563,6 +555,13 @@ impl DecimalArray {
 
         let data = builder.build();
         Self::from(data)
+    }
+    pub fn precision(&self) -> usize {
+        self.precision
+    }
+
+    pub fn scale(&self) -> usize {
+        self.scale
     }
 }
 

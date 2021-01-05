@@ -19,7 +19,7 @@ use crate::{
     array::data::count_nulls, array::ArrayData, buffer::Buffer, util::bit_util::get_bit,
 };
 
-use super::equal_range;
+use super::{equal_range, utils::child_logical_null_buffer};
 
 /// Compares the values of two [ArrayData] starting at `lhs_start` and `rhs_start` respectively
 /// for `len` slots. The null buffers `lhs_nulls` and `rhs_nulls` inherit parent nullability.
@@ -37,39 +37,18 @@ fn equal_values(
     rhs_start: usize,
     len: usize,
 ) -> bool {
-    let mut temp_lhs: Option<Buffer> = None;
-    let mut temp_rhs: Option<Buffer> = None;
-
     lhs.child_data()
         .iter()
         .zip(rhs.child_data())
         .all(|(lhs_values, rhs_values)| {
             // merge the null data
-            let lhs_merged_nulls = match (lhs_nulls, lhs_values.null_buffer()) {
-                (None, None) => None,
-                (None, Some(c)) => Some(c),
-                (Some(p), None) => Some(p),
-                (Some(p), Some(c)) => {
-                    let merged = (p & c).unwrap();
-                    temp_lhs = Some(merged);
-                    temp_lhs.as_ref()
-                }
-            };
-            let rhs_merged_nulls = match (rhs_nulls, rhs_values.null_buffer()) {
-                (None, None) => None,
-                (None, Some(c)) => Some(c),
-                (Some(p), None) => Some(p),
-                (Some(p), Some(c)) => {
-                    let merged = (p & c).unwrap();
-                    temp_rhs = Some(merged);
-                    temp_rhs.as_ref()
-                }
-            };
+            let lhs_merged_nulls = child_logical_null_buffer(lhs, lhs_nulls, lhs_values);
+            let rhs_merged_nulls = child_logical_null_buffer(rhs, rhs_nulls, rhs_values);
             equal_range(
                 lhs_values,
                 rhs_values,
-                lhs_merged_nulls,
-                rhs_merged_nulls,
+                lhs_merged_nulls.as_ref(),
+                rhs_merged_nulls.as_ref(),
                 lhs_start,
                 rhs_start,
                 len,
