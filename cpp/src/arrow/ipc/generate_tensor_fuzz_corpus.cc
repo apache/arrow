@@ -68,9 +68,9 @@ Result<std::vector<std::shared_ptr<Tensor>>> Tensors() {
                                        uint8(), uint16(), uint32(), uint64()};
   uint32_t seed = 0;
   for (auto type : types) {
-    RETURN_NOT_OK(test::MakeRandomTensor(type, shape, true, &tensor, seed++));
+    RETURN_NOT_OK(test::MakeRandomTensor(type, shape, /*row_major_p=*/true, &tensor, seed++));
     tensors.push_back(tensor);
-    RETURN_NOT_OK(test::MakeRandomTensor(type, shape, false, &tensor, seed++));
+    RETURN_NOT_OK(test::MakeRandomTensor(type, shape, /*row_major_p=*/false, &tensor, seed++));
     tensors.push_back(tensor);
   }
   return tensors;
