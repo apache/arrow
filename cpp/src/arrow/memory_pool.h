@@ -97,7 +97,7 @@ class ARROW_EXPORT MemoryPool {
   /// returns -1
   virtual int64_t max_memory() const;
 
-  /// The name of the backend used by this MemoryPool (e.g. "system" or "jemalloc");
+  /// The name of the backend used by this MemoryPool (e.g. "system" or "jemalloc").
   virtual std::string backend_name() const = 0;
 
  protected:
@@ -149,10 +149,10 @@ class ARROW_EXPORT ProxyMemoryPool : public MemoryPool {
   std::unique_ptr<ProxyMemoryPoolImpl> impl_;
 };
 
-/// Return a process-wide memory pool based on the system allocator.
+/// \brief Return a process-wide memory pool based on the system allocator.
 ARROW_EXPORT MemoryPool* system_memory_pool();
 
-/// Return a process-wide memory pool based on jemalloc.
+/// \brief Return a process-wide memory pool based on jemalloc.
 ///
 /// May return NotImplemented if jemalloc is not available.
 ARROW_EXPORT Status jemalloc_memory_pool(MemoryPool** out);
@@ -168,7 +168,7 @@ ARROW_EXPORT Status jemalloc_memory_pool(MemoryPool** out);
 ARROW_EXPORT
 Status jemalloc_set_decay_ms(int ms);
 
-/// Return a process-wide memory pool based on mimalloc.
+/// \brief Return a process-wide memory pool based on mimalloc.
 ///
 /// May return NotImplemented if mimalloc is not available.
 ARROW_EXPORT Status mimalloc_memory_pool(MemoryPool** out);

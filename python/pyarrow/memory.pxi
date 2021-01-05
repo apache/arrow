@@ -54,6 +54,13 @@ cdef class MemoryPool(_Weakrefable):
         ret = self.pool.max_memory()
         return ret if ret >= 0 else None
 
+    @property
+    def backend_name(self):
+        """
+        The name of the backend used by this MemoryPool (e.g. "jemalloc").
+        """
+        return frombytes(self.pool.backend_name())
+
 
 cdef CMemoryPool* maybe_unbox_memory_pool(MemoryPool memory_pool):
     if memory_pool is None:
