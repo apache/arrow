@@ -366,8 +366,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
 
                 let mut all_join_keys = vec![];
                 let mut left = plans[0].clone();
-                for i in 1..plans.len() {
-                    let right = &plans[i];
+                for right in plans.iter().skip(1) {
                     let left_schema = left.schema();
                     let right_schema = right.schema();
                     let mut join_keys = vec![];
@@ -644,9 +643,8 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
 
             SQLExpr::CompoundIdentifier(ids) => {
                 let mut var_names = vec![];
-                for i in 0..ids.len() {
-                    let id = ids[i].clone();
-                    var_names.push(id.value);
+                for id in ids {
+                    var_names.push(id.value.clone());
                 }
                 if &var_names[0][0..1] == "@" {
                     Ok(Expr::ScalarVariable(var_names))

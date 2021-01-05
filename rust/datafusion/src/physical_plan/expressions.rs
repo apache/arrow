@@ -2458,8 +2458,8 @@ mod tests {
             .as_any()
             .downcast_ref::<BooleanArray>()
             .expect("failed to downcast to BooleanArray");
-        for i in 0..5 {
-            assert_eq!(result.value(i), expected[i]);
+        for (i, &expected_item) in expected.iter().enumerate().take(5) {
+            assert_eq!(result.value(i), expected_item);
         }
 
         Ok(())
@@ -2492,8 +2492,8 @@ mod tests {
             .as_any()
             .downcast_ref::<BooleanArray>()
             .expect("failed to downcast to BooleanArray");
-        for i in 0..5 {
-            assert_eq!(result.value(i), expected[i]);
+        for (i, &expected_item) in expected.iter().enumerate().take(5) {
+            assert_eq!(result.value(i), expected_item);
         }
 
         Ok(())

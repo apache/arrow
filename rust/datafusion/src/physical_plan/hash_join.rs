@@ -369,8 +369,7 @@ pub(crate) fn create_key(
     vec: &mut Vec<u8>,
 ) -> Result<()> {
     vec.clear();
-    for i in 0..group_by_keys.len() {
-        let col = &group_by_keys[i];
+    for col in group_by_keys {
         match col.data_type() {
             DataType::UInt8 => {
                 let array = col.as_any().downcast_ref::<UInt8Array>().unwrap();

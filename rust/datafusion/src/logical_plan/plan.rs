@@ -341,7 +341,7 @@ impl LogicalPlan {
     ///              \n  TableScan: foo.csv projection=None",
     ///             display_string);
     /// ```
-    pub fn display_indent<'a>(&'a self) -> impl fmt::Display + 'a {
+    pub fn display_indent(&self) -> impl fmt::Display + '_ {
         // Boilerplate structure to wrap LogicalPlan with something
         // that that can be formatted
         struct Wrapper<'a>(&'a LogicalPlan);
@@ -382,7 +382,7 @@ impl LogicalPlan {
     ///             \n  TableScan: foo.csv projection=None [id:Int32]",
     ///             display_string);
     /// ```
-    pub fn display_indent_schema<'a>(&'a self) -> impl fmt::Display + 'a {
+    pub fn display_indent_schema(&self) -> impl fmt::Display + '_ {
         // Boilerplate structure to wrap LogicalPlan with something
         // that that can be formatted
         struct Wrapper<'a>(&'a LogicalPlan);
@@ -426,7 +426,7 @@ impl LogicalPlan {
     ///   dot -Tpdf < /tmp/example.dot  > /tmp/example.pdf
     /// ```
     ///
-    pub fn display_graphviz<'a>(&'a self) -> impl fmt::Display + 'a {
+    pub fn display_graphviz(&self) -> impl fmt::Display + '_ {
         // Boilerplate structure to wrap LogicalPlan with something
         // that that can be formatted
         struct Wrapper<'a>(&'a LogicalPlan);
@@ -478,7 +478,7 @@ impl LogicalPlan {
     ///
     /// assert_eq!("TableScan: foo.csv projection=None", display_string);
     /// ```
-    pub fn display<'a>(&'a self) -> impl fmt::Display + 'a {
+    pub fn display(&self) -> impl fmt::Display + '_ {
         // Boilerplate structure to wrap LogicalPlan with something
         // that that can be formatted
         struct Wrapper<'a>(&'a LogicalPlan);
@@ -507,11 +507,11 @@ impl LogicalPlan {
                     }
                     LogicalPlan::Projection { ref expr, .. } => {
                         write!(f, "Projection: ")?;
-                        for i in 0..expr.len() {
+                        for (i, expr_item) in expr.iter().enumerate() {
                             if i > 0 {
                                 write!(f, ", ")?;
                             }
-                            write!(f, "{:?}", expr[i])?;
+                            write!(f, "{:?}", expr_item)?;
                         }
                         Ok(())
                     }
@@ -530,11 +530,11 @@ impl LogicalPlan {
                     ),
                     LogicalPlan::Sort { ref expr, .. } => {
                         write!(f, "Sort: ")?;
-                        for i in 0..expr.len() {
+                        for (i, expr_item) in expr.iter().enumerate() {
                             if i > 0 {
                                 write!(f, ", ")?;
                             }
-                            write!(f, "{:?}", expr[i])?;
+                            write!(f, "{:?}", expr_item)?;
                         }
                         Ok(())
                     }
