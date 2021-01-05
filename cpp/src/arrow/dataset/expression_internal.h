@@ -40,20 +40,6 @@ const Expression::Call* CallNotNull(const Expression& expr) {
   return call;
 }
 
-inline void GetAllFieldRefs(const Expression& expr,
-                            std::unordered_set<FieldRef, FieldRef::Hash>* refs) {
-  if (auto lit = expr.literal()) return;
-
-  if (auto ref = expr.field_ref()) {
-    refs->emplace(*ref);
-    return;
-  }
-
-  for (const Expression& arg : CallNotNull(expr)->arguments) {
-    GetAllFieldRefs(arg, refs);
-  }
-}
-
 inline std::vector<ValueDescr> GetDescriptors(const std::vector<Expression>& exprs) {
   std::vector<ValueDescr> descrs(exprs.size());
   for (size_t i = 0; i < exprs.size(); ++i) {
@@ -69,45 +55,6 @@ inline std::vector<ValueDescr> GetDescriptors(const std::vector<Datum>& values) 
     descrs[i] = values[i].descr();
   }
   return descrs;
-}
-
-struct FieldPathGetDatumImpl {
-  template <typename T, typename = decltype(FieldPath{}.Get(std::declval<const T&>()))>
-  Result<Datum> operator()(const std::shared_ptr<T>& ptr) {
-    return path_.Get(*ptr).template As<Datum>();
-  }
-
-  template <typename T>
-  Result<Datum> operator()(const T&) {
-    return Status::NotImplemented("FieldPath::Get() into Datum ", datum_.ToString());
-  }
-
-  const Datum& datum_;
-  const FieldPath& path_;
-};
-
-inline Result<Datum> GetDatumField(const FieldRef& ref, const Datum& input) {
-  Datum field;
-
-  FieldPath path;
-  if (auto type = input.type()) {
-    ARROW_ASSIGN_OR_RAISE(path, ref.FindOneOrNone(*type));
-  } else if (auto schema = input.schema()) {
-    ARROW_ASSIGN_OR_RAISE(path, ref.FindOneOrNone(*schema));
-  } else {
-    return Status::NotImplemented("retrieving fields from datum ", input.ToString());
-  }
-
-  if (path) {
-    ARROW_ASSIGN_OR_RAISE(field,
-                          util::visit(FieldPathGetDatumImpl{input, path}, input.value));
-  }
-
-  if (field == Datum{}) {
-    field = Datum(std::make_shared<NullScalar>());
-  }
-
-  return field;
 }
 
 struct Comparison {
@@ -291,89 +238,6 @@ inline Status EnsureNotDictionary(Expression::Call* call) {
   return Status::OK();
 }
 
-inline Result<std::shared_ptr<StructScalar>> FunctionOptionsToStructScalar(
-    const Expression::Call& call) {
-  if (call.options == nullptr) {
-    return nullptr;
-  }
-
-  if (auto options = GetSetLookupOptions(call)) {
-    if (!options->value_set.is_array()) {
-      return Status::NotImplemented("chunked value_set");
-    }
-    return StructScalar::Make(
-        {
-            std::make_shared<ListScalar>(options->value_set.make_array()),
-            MakeScalar(options->skip_nulls),
-        },
-        {"value_set", "skip_nulls"});
-  }
-
-  if (auto options = GetCastOptions(call)) {
-    return StructScalar::Make(
-        {
-            MakeNullScalar(options->to_type),
-            MakeScalar(options->allow_int_overflow),
-            MakeScalar(options->allow_time_truncate),
-            MakeScalar(options->allow_time_overflow),
-            MakeScalar(options->allow_decimal_truncate),
-            MakeScalar(options->allow_float_truncate),
-            MakeScalar(options->allow_invalid_utf8),
-        },
-        {
-            "to_type_holder",
-            "allow_int_overflow",
-            "allow_time_truncate",
-            "allow_time_overflow",
-            "allow_decimal_truncate",
-            "allow_float_truncate",
-            "allow_invalid_utf8",
-        });
-  }
-
-  return Status::NotImplemented("conversion of options for ", call.function_name);
-}
-
-inline Status FunctionOptionsFromStructScalar(const StructScalar* repr,
-                                              Expression::Call* call) {
-  if (repr == nullptr) {
-    call->options = nullptr;
-    return Status::OK();
-  }
-
-  if (IsSetLookup(call->function_name)) {
-    ARROW_ASSIGN_OR_RAISE(auto value_set, repr->field("value_set"));
-    ARROW_ASSIGN_OR_RAISE(auto skip_nulls, repr->field("skip_nulls"));
-    call->options = std::make_shared<compute::SetLookupOptions>(
-        checked_cast<const ListScalar&>(*value_set).value,
-        checked_cast<const BooleanScalar&>(*skip_nulls).value);
-    return Status::OK();
-  }
-
-  if (call->function_name == "cast") {
-    auto options = std::make_shared<compute::CastOptions>();
-    ARROW_ASSIGN_OR_RAISE(auto to_type_holder, repr->field("to_type_holder"));
-    options->to_type = to_type_holder->type;
-
-    int i = 1;
-    for (bool* opt : {
-             &options->allow_int_overflow,
-             &options->allow_time_truncate,
-             &options->allow_time_overflow,
-             &options->allow_decimal_truncate,
-             &options->allow_float_truncate,
-             &options->allow_invalid_utf8,
-         }) {
-      *opt = checked_cast<const BooleanScalar&>(*repr->value[i++]).value;
-    }
-
-    call->options = std::move(options);
-    return Status::OK();
-  }
-
-  return Status::NotImplemented("conversion of options for ", call->function_name);
-}
-
 /// A helper for unboxing an Expression composed of associative function calls.
 /// Such expressions can frequently be rearranged to a semantically equivalent
 /// expression for more optimal execution or more straightforward manipulation.
@@ -433,6 +297,16 @@ inline Result<std::shared_ptr<compute::Function>> GetFunction(
   return compute::GetCastFunction(to_type);
 }
 
+/// Modify an Expression with pre-order and post-order visitation.
+/// `pre` will be invoked on each Expression. `pre` will visit Calls before their
+/// arguments, `post_call` will visit Calls (and no other Expressions) after their
+/// arguments. Visitors should return the Identical expression to indicate no change; this
+/// will prevent unnecessary construction in the common case where a modification is not
+/// possible/necessary/...
+///
+/// If an argument was modified, `post_call` visits a reconstructed Call with the modified
+/// arguments but also receives a pointer to the unmodified Expression as a second
+/// argument. If no arguments were modified the unmodified Expression* will be nullptr.
 template <typename PreVisit, typename PostVisitCall>
 Result<Expression> Modify(Expression expr, const PreVisit& pre,
                           const PostVisitCall& post_call) {
@@ -442,23 +316,29 @@ Result<Expression> Modify(Expression expr, const PreVisit& pre,
   if (!call) return expr;
 
   bool at_least_one_modified = false;
-  auto modified_call = *call;
-  auto modified_argument = modified_call.arguments.begin();
+  std::vector<Expression> modified_arguments;
 
-  for (const auto& argument : call->arguments) {
-    ARROW_ASSIGN_OR_RAISE(*modified_argument, Modify(argument, pre, post_call));
+  for (size_t i = 0; i < call->arguments.size(); ++i) {
+    ARROW_ASSIGN_OR_RAISE(auto modified_argument,
+                          Modify(call->arguments[i], pre, post_call));
 
-    if (!Identical(*modified_argument, argument)) {
+    if (Identical(modified_argument, call->arguments[i])) {
+      continue;
+    }
+
+    if (!at_least_one_modified) {
+      modified_arguments = call->arguments;
       at_least_one_modified = true;
     }
-    ++modified_argument;
+
+    modified_arguments[i] = std::move(modified_argument);
   }
 
   if (at_least_one_modified) {
     // reconstruct the call expression with the modified arguments
-    auto modified_expr = Expression(std::move(modified_call));
-
-    return post_call(std::move(modified_expr), &expr);
+    auto modified_call = *call;
+    modified_call.arguments = std::move(modified_arguments);
+    return post_call(Expression(std::move(modified_call)), &expr);
   }
 
   return post_call(std::move(expr), nullptr);

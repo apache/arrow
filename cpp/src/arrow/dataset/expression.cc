@@ -300,17 +300,15 @@ size_t Expression::hash() const {
 bool Expression::IsBound() const {
   if (descr().type == nullptr) return false;
 
-  if (auto lit = literal()) return true;
+  if (auto call = this->call()) {
+    if (call->kernel == nullptr) return false;
 
-  if (auto ref = field_ref()) return true;
-
-  auto call = CallNotNull(*this);
-
-  for (const Expression& arg : call->arguments) {
-    if (!arg.IsBound()) return false;
+    for (const Expression& arg : call->arguments) {
+      if (!arg.IsBound()) return false;
+    }
   }
 
-  return call->kernel != nullptr;
+  return true;
 }
 
 bool Expression::IsScalarExpression() const {
@@ -506,6 +504,45 @@ Status InsertImplicitCasts(Expression::Call* call) {
   }
 
   return Status::OK();
+}
+
+struct FieldPathGetDatumImpl {
+  template <typename T, typename = decltype(FieldPath{}.Get(std::declval<const T&>()))>
+  Result<Datum> operator()(const std::shared_ptr<T>& ptr) {
+    return path_.Get(*ptr).template As<Datum>();
+  }
+
+  template <typename T>
+  Result<Datum> operator()(const T&) {
+    return Status::NotImplemented("FieldPath::Get() into Datum ", datum_.ToString());
+  }
+
+  const Datum& datum_;
+  const FieldPath& path_;
+};
+
+inline Result<Datum> GetDatumField(const FieldRef& ref, const Datum& input) {
+  Datum field;
+
+  FieldPath path;
+  if (auto type = input.type()) {
+    ARROW_ASSIGN_OR_RAISE(path, ref.FindOneOrNone(*type));
+  } else if (auto schema = input.schema()) {
+    ARROW_ASSIGN_OR_RAISE(path, ref.FindOneOrNone(*schema));
+  } else {
+    return Status::NotImplemented("retrieving fields from datum ", input.ToString());
+  }
+
+  if (path) {
+    ARROW_ASSIGN_OR_RAISE(field,
+                          util::visit(FieldPathGetDatumImpl{input, path}, input.value));
+  }
+
+  if (field == Datum{}) {
+    field = Datum(std::make_shared<NullScalar>());
+  }
+
+  return field;
 }
 
 }  // namespace
@@ -1016,6 +1053,93 @@ Result<Expression> SimplifyWithGuarantee(Expression expr,
 
   return expr;
 }
+
+namespace {
+
+inline Result<std::shared_ptr<StructScalar>> FunctionOptionsToStructScalar(
+    const Expression::Call& call) {
+  if (call.options == nullptr) {
+    return nullptr;
+  }
+
+  if (auto options = GetSetLookupOptions(call)) {
+    if (!options->value_set.is_array()) {
+      return Status::NotImplemented("chunked value_set");
+    }
+    return StructScalar::Make(
+        {
+            std::make_shared<ListScalar>(options->value_set.make_array()),
+            MakeScalar(options->skip_nulls),
+        },
+        {"value_set", "skip_nulls"});
+  }
+
+  if (auto options = GetCastOptions(call)) {
+    return StructScalar::Make(
+        {
+            MakeNullScalar(options->to_type),
+            MakeScalar(options->allow_int_overflow),
+            MakeScalar(options->allow_time_truncate),
+            MakeScalar(options->allow_time_overflow),
+            MakeScalar(options->allow_decimal_truncate),
+            MakeScalar(options->allow_float_truncate),
+            MakeScalar(options->allow_invalid_utf8),
+        },
+        {
+            "to_type_holder",
+            "allow_int_overflow",
+            "allow_time_truncate",
+            "allow_time_overflow",
+            "allow_decimal_truncate",
+            "allow_float_truncate",
+            "allow_invalid_utf8",
+        });
+  }
+
+  return Status::NotImplemented("conversion of options for ", call.function_name);
+}
+
+inline Status FunctionOptionsFromStructScalar(const StructScalar* repr,
+                                              Expression::Call* call) {
+  if (repr == nullptr) {
+    call->options = nullptr;
+    return Status::OK();
+  }
+
+  if (IsSetLookup(call->function_name)) {
+    ARROW_ASSIGN_OR_RAISE(auto value_set, repr->field("value_set"));
+    ARROW_ASSIGN_OR_RAISE(auto skip_nulls, repr->field("skip_nulls"));
+    call->options = std::make_shared<compute::SetLookupOptions>(
+        checked_cast<const ListScalar&>(*value_set).value,
+        checked_cast<const BooleanScalar&>(*skip_nulls).value);
+    return Status::OK();
+  }
+
+  if (call->function_name == "cast") {
+    auto options = std::make_shared<compute::CastOptions>();
+    ARROW_ASSIGN_OR_RAISE(auto to_type_holder, repr->field("to_type_holder"));
+    options->to_type = to_type_holder->type;
+
+    int i = 1;
+    for (bool* opt : {
+             &options->allow_int_overflow,
+             &options->allow_time_truncate,
+             &options->allow_time_overflow,
+             &options->allow_decimal_truncate,
+             &options->allow_float_truncate,
+             &options->allow_invalid_utf8,
+         }) {
+      *opt = checked_cast<const BooleanScalar&>(*repr->value[i++]).value;
+    }
+
+    call->options = std::move(options);
+    return Status::OK();
+  }
+
+  return Status::NotImplemented("conversion of options for ", call->function_name);
+}
+
+}  // namespace
 
 // Serialization is accomplished by converting expressions to KeyValueMetadata and storing
 // this in the schema of a RecordBatch. Embedded arrays and scalars are stored in its
