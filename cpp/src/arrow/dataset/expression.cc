@@ -17,6 +17,7 @@
 
 #include "arrow/dataset/expression.h"
 
+#include <iostream>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -1203,6 +1204,12 @@ Result<std::shared_ptr<Buffer>> Serialize(const Expression& expr) {
   } ToRecordBatch;
 
   ARROW_ASSIGN_OR_RAISE(auto batch, ToRecordBatch(expr));
+  std::cout << "Serialization of:\nmetadata:\n"
+            << batch->schema()->metadata()->ToString()
+            << "\nschema:" << batch->schema()->ToString()
+            << "\nstorage:" << batch->ToString() << "\n"
+            << expr.ToString();
+
   ARROW_ASSIGN_OR_RAISE(auto stream, io::BufferOutputStream::Create());
   ARROW_ASSIGN_OR_RAISE(auto writer, ipc::MakeFileWriter(stream, batch->schema()));
   RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
@@ -1222,6 +1229,11 @@ Result<Expression> Deserialize(const Buffer& buffer) {
         "serialized Expression's batch repr was not a single row - had ",
         batch->num_rows());
   }
+
+  std::cout << "Deserialization of:\nmetadata:\n"
+            << batch->schema()->metadata()->ToString()
+            << "\nschema:" << batch->schema()->ToString()
+            << "\nstorage:" << batch->ToString();
 
   struct FromRecordBatch {
     const RecordBatch& batch_;
@@ -1283,7 +1295,9 @@ Result<Expression> Deserialize(const Buffer& buffer) {
     }
   };
 
-  return FromRecordBatch{*batch, 0}.GetOne();
+  ARROW_ASSIGN_OR_RAISE(auto expr, (FromRecordBatch{*batch, 0}.GetOne()));
+  std::cout << expr.ToString() << std::endl;
+  return expr;
 }
 
 Expression project(std::vector<Expression> values, std::vector<std::string> names) {

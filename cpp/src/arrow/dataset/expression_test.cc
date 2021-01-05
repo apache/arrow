@@ -1063,6 +1063,9 @@ TEST(Expression, SerializationRoundTrips) {
   ExpectRoundTrips(call("is_in", {literal(1)},
                         compute::SetLookupOptions{ArrayFromJSON(int32(), "[1, 2, 3]")}));
 
+  ExpectRoundTrips(call("is_in", {literal(int64_t(1))},
+                        compute::SetLookupOptions{ArrayFromJSON(int64(), "[1, 2, 3]")}));
+
   ExpectRoundTrips(
       call("is_in",
            {call("cast", {field_ref("version")}, compute::CastOptions::Safe(float64()))},
