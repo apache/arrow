@@ -953,6 +953,10 @@ struct FieldPathGetImpl {
     int depth = 0;
     const T* out;
     for (int index : path->indices()) {
+      if (children == nullptr) {
+        return Status::NotImplemented("Get child data of non-struct array");
+      }
+
       if (index < 0 || static_cast<size_t>(index) >= children->size()) {
         *out_of_range_depth = depth;
         return nullptr;
@@ -990,7 +994,12 @@ struct FieldPathGetImpl {
                                                 const ArrayDataVector& child_data) {
     return FieldPathGetImpl::Get(
         path, &child_data,
-        [](const std::shared_ptr<ArrayData>& data) { return &data->child_data; });
+        [](const std::shared_ptr<ArrayData>& data) -> const ArrayDataVector* {
+          if (data->type->id() != Type::STRUCT) {
+            return nullptr;
+          }
+          return &data->child_data;
+        });
   }
 };
 
@@ -1021,6 +1030,9 @@ Result<std::shared_ptr<Array>> FieldPath::Get(const Array& array) const {
 }
 
 Result<std::shared_ptr<ArrayData>> FieldPath::Get(const ArrayData& data) const {
+  if (data.type->id() != Type::STRUCT) {
+    return Status::NotImplemented("Get child data of non-struct array");
+  }
   return FieldPathGetImpl::Get(this, data.child_data);
 }
 

@@ -31,6 +31,7 @@
 #include "arrow/dataset/test_util.h"
 #include "arrow/testing/gtest_util.h"
 
+using testing::HasSubstr;
 using testing::UnorderedElementsAreArray;
 
 namespace arrow {
@@ -426,6 +427,14 @@ TEST(Expression, ExecuteFieldRef) {
     {"a": -1}
   ])"),
               MakeNullScalar(null()));
+
+  // XXX this *should* fail in Bind but for now it will just error in
+  // ExecuteScalarExpression
+  ASSERT_OK_AND_ASSIGN(auto list_item, field_ref("item").Bind(list(int32())));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      NotImplemented, HasSubstr("non-struct array"),
+      ExecuteScalarExpression(list_item,
+                              ArrayFromJSON(list(int32()), "[[1,2], [], null, [5]]")));
 }
 
 Result<Datum> NaiveExecuteScalarExpression(const Expression& expr, const Datum& input) {
