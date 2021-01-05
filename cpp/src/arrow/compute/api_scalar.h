@@ -352,7 +352,7 @@ Result<Datum> IsNull(const Datum& values, ExecContext* ctx = NULLPTR);
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting datum
 ///
-/// \since X.X.X
+/// \since 3.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> IsNan(const Datum& values, ExecContext* ctx = NULLPTR);

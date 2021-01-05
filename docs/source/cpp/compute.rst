@@ -466,7 +466,7 @@ Structural transforms
   Output is an array of the same type as the inputs, and with the same values
   as the first input, except for nulls replaced with the second input value.
 
-* \(2) Output is true iff the corresponding input element is NaN according to std::isnan(value).
+* \(2) Output is true iff the corresponding input element is NaN.
 
 * \(3) Output is true iff the corresponding input element is null.
 

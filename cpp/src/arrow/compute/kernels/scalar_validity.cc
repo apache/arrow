@@ -157,8 +157,7 @@ const FunctionDoc is_null_doc("Return true if null",
                               {"values"});
 
 const FunctionDoc is_nan_doc("Return true if NaN",
-                             ("For each input value, emit true iff the value is NaN "
-                              "(according to std::isnan(value))."),
+                             ("For each input value, emit true iff the value is NaN."),
                              {"values"});
 
 }  // namespace

@@ -39,9 +39,9 @@ class TestValidityKernels : public ::testing::Test {
   }
 };
 
-typedef TestValidityKernels<BooleanType> TestBooleanValidityKernels;
-typedef TestValidityKernels<FloatType> TestFloatValidityKernels;
-typedef TestValidityKernels<DoubleType> TestDoubleValidityKernels;
+using TestBooleanValidityKernels = TestValidityKernels<BooleanType>;
+using TestFloatValidityKernels = TestValidityKernels<FloatType>;
+using TestDoubleValidityKernels = TestValidityKernels<DoubleType>;
 
 TEST_F(TestBooleanValidityKernels, ArrayIsValid) {
   CheckScalarUnary("is_valid", type_singleton(), "[]", type_singleton(), "[]");
@@ -114,7 +114,7 @@ TEST_F(TestDoubleValidityKernels, DoubleArrayIsNan) {
 
 TEST_F(TestFloatValidityKernels, FloatScalarIsNan) {
   CheckScalarUnary("is_nan", MakeNullScalar(float32()), MakeNullScalar(boolean()));
-  CheckScalarUnary("is_nan", MakeScalar(42.0), MakeScalar(false));
+  CheckScalarUnary("is_nan", MakeScalar(42.0f), MakeScalar(false));
   CheckScalarUnary("is_nan", MakeScalar(std::nanf("")), MakeScalar(true));
 }
 
