@@ -77,6 +77,16 @@ foreach(SRC_FILE ${PRECOMPILED_SRCS})
            ${ARROW_GANDIVA_PC_CXX_FLAGS}
            -I${CMAKE_SOURCE_DIR}/src
            -I${ARROW_BINARY_DIR}/src)
+  if(ARROW_WITH_UTF8PROC)
+    list(APPEND PRECOMPILE_COMMAND -DARROW_WITH_UTF8PROC)
+    if(UTF8PROC_COMPILER_DEFINITIONS)
+      # This doesn't work when multiple definitions exist.
+      list(APPEND PRECOMPILE_COMMAND "-D${UTF8PROC_COMPILER_DEFINITIONS}")
+    endif()
+    if(UTF8PROC_INCLUDE_DIR)
+      list(APPEND PRECOMPILE_COMMAND "-I${UTF8PROC_INCLUDE_DIR}")
+    endif()
+  endif()
   if(NOT ARROW_USE_NATIVE_INT128)
     list(APPEND PRECOMPILE_COMMAND -I${Boost_INCLUDE_DIR})
   endif()
