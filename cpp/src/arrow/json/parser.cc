@@ -154,10 +154,11 @@ struct BuilderPtr {
 
   bool operator!() const { return *this == null; }
 
+  // The static BuilderPtr for null type data
   static const BuilderPtr null;
 };
 
-const BuilderPtr BuilderPtr::null(Kind::kNull, 0, false);
+const BuilderPtr BuilderPtr::null(Kind::kNull, 0, true);
 
 template <>
 class RawArrayBuilder<Kind::kBoolean> {
