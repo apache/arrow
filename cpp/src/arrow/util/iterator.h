@@ -195,6 +195,88 @@ class Iterator : public util::EqualityComparable<Iterator<T>> {
 };
 
 template <typename T>
+struct TransformFlow {
+  using YieldValueType = T;
+
+  bool HasValue() const { return yield_value_.has_value(); }
+  bool Finished() const { return finished_; }
+  bool ReadyForNext() const { return ready_for_next_; }
+  T Value() const { return *yield_value_; }
+
+  bool finished_;
+  bool ready_for_next_;
+  util::optional<YieldValueType> yield_value_;
+};
+
+struct TransformFinish {
+  template <typename T>
+  operator TransformFlow<T>() && {  // NOLINT explicit
+    return {true, true};
+  }
+};
+
+struct TransformSkip {
+  template <typename T>
+  operator TransformFlow<T>() && {  // NOLINT explicit
+    return {false, true};
+  }
+};
+
+template <typename T>
+TransformFlow<T> TransformYield(T value = {}, bool ready_for_next = true) {
+  return TransformFlow<T>{false, ready_for_next, std::move(value)};
+}
+
+template <typename T, typename V>
+class TransformIterator {
+ public:
+  explicit TransformIterator(Iterator<T> it, std::function<TransformFlow<V>(T)> op)
+      : it_(std::move(it)), op_(std::move(op)) {}
+
+  util::optional<V> Pump() {
+    while (!finished_ && last_value_.has_value()) {
+      TransformFlow<V> next = op_(*last_value_);
+      if (next.ReadyForNext()) {
+        last_value_.reset();
+      }
+      if (next.Finished()) {
+        finished_ = true;
+      }
+      if (next.HasValue()) {
+        return next.Value();
+      }
+    }
+    if (finished_) {
+      return IterationTraits<V>::End();
+    }
+    return util::optional<V>();
+  }
+
+  Result<V> Next() {
+    while (!finished_) {
+      util::optional<V> next = Pump();
+      if (next.has_value()) {
+        return *next;
+      }
+      ARROW_ASSIGN_OR_RAISE(last_value_, it_.Next());
+    }
+    return IterationTraits<V>::End();
+  }
+
+ private:
+  Iterator<T> it_;
+  std::function<TransformFlow<V>(T)> op_;
+  util::optional<V> last_value_;
+  bool finished_;
+};
+
+template <typename T, typename V>
+Iterator<V> MakeTransformedIterator(Iterator<T> it,
+                                    std::function<TransformFlow<V>(T)> op) {
+  return Iterator<V>(TransformIterator<T, V>(std::move(it), std::move(op)));
+}
+
+template <typename T>
 struct IterationTraits<Iterator<T>> {
   // The end condition for an Iterator of Iterators is a default constructed (null)
   // Iterator.

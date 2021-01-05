@@ -191,44 +191,8 @@ Future<std::vector<T>> CollectAsyncGenerator(std::function<Future<T>()> generato
   return Loop(loop_body);
 }
 
-template <typename T = detail::Empty>
-struct TransformFlow {
-  using YieldValueType = T;
-
-  bool HasValue() const { return yield_value_.has_value(); }
-  bool Finished() const { return !yield_value_.has_value(); }
-  bool ReadyForNext() const { return ready_for_next_; }
-
-  static Result<YieldValueType> MoveYieldValue(const TransformFlow& cf) {
-    return std::move(*cf.yield_value_);
-  }
-
-  mutable util::optional<YieldValueType> yield_value_;
-  bool finished_;
-  bool ready_for_next_;
-};
-
-struct Finish {
-  template <typename T>
-  operator TransformFlow<T>() && {  // NOLINT explicit
-    return {true, true};
-  }
-};
-
-struct Skip {
-  template <typename T>
-  operator TransformFlow<T>() && {  // NOLINT explicit
-    return {false, true};
-  }
-};
-
-template <typename T = detail::Empty>
-TransformFlow<T> Yield(T value = {}, bool ready_for_next = true) {
-  return TransformFlow<T>{std::move(value), false, ready_for_next};
-}
-
 template <typename T, typename V>
-std::function<Future<V>()> Transform(
+std::function<Future<V>()> TransformAsyncGenerator(
     std::function<Future<T>()> generator,
     std::function<TransformFlow<V>(T value)> transformer) {
   auto finished = std::make_shared<bool>();

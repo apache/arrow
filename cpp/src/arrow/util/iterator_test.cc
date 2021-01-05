@@ -153,6 +153,31 @@ std::function<Future<TestInt>()> AsyncVectorIt(std::vector<TestInt> v) {
   };
 }
 
+constexpr auto kYieldDuration = std::chrono::microseconds(50);
+
+// Yields items with a small pause between each one from a background thread
+std::function<Future<TestInt>()> BackgroundAsyncVectorIt(std::vector<TestInt> v) {
+  auto pool = internal::GetCpuThreadPool();
+  auto iterator = VectorIt(v);
+  auto slow_iterator = MakeOperatorIterator<TestInt, TestInt>(
+      std::move(iterator), [](TestInt item, Emitter<TestInt>& emitter) {
+        std::this_thread::sleep_for(kYieldDuration);
+        emitter.Emit(item);
+        return Status::OK();
+      });
+  EXPECT_OK_AND_ASSIGN(auto background,
+                       MakeBackgroundIterator<TestInt>(std::move(slow_iterator), pool));
+  return background;
+}
+
+std::vector<TestInt> RangeVector(int max) {
+  std::vector<TestInt> range(max);
+  for (unsigned int i = 0; i < max; i++) {
+    range[i] = i;
+  }
+  return range;
+}
+
 template <typename T>
 inline Iterator<T> VectorIt(std::vector<T> v) {
   return MakeVectorIterator<T>(std::move(v));
@@ -249,70 +274,68 @@ TEST(TestAsyncEmptyIterator, Basic) {
   AssertAsyncIteratorMatch({}, AsyncEmptyIt<TestInt>());
 }
 
-// TEST(TestAsyncWrappedIterator, Basic) {
-//   ASSERT_OK_AND_ASSIGN(auto wrapped,
-//                        AsyncIteratorWrapper<TestInt>::Make(VectorIt({1, 2, 3})));
-//   AssertAsyncIteratorMatch({1, 2, 3}, std::move(wrapped));
-// }
-
 template <typename T>
-std::function<Status(T, Emitter<T>&)> MakeFirstN(int n) {
+std::function<TransformFlow<T>(T)> MakeFirstN(int n) {
   auto remaining = std::make_shared<int>(n);
-  return [remaining](T next, Emitter<T>& emitter) {
+  return [remaining](T next) -> TransformFlow<T> {
     if (*remaining > 0) {
-      emitter.Emit(std::move(next));
       *remaining = *remaining - 1;
-      if (*remaining == 0) {
-        emitter.Finish();
-      }
+      return TransformYield(next);
     }
-    return Status::OK();
+    return TransformFinish();
   };
 }
 
-TEST(TestIteratorOperator, Truncating) {
+TEST(TestIteratorTransform, Truncating) {
   auto original = VectorIt({1, 2, 3});
-  auto truncated =
-      MakeOperatorIterator<TestInt, TestInt>(std::move(original), MakeFirstN<TestInt>(2));
+  auto truncated = MakeTransformedIterator(std::move(original), MakeFirstN<TestInt>(2));
   AssertIteratorMatch({1, 2}, std::move(truncated));
 }
 
-TEST(TestIteratorOperator, TestPointer) {
+TEST(TestIteratorTransform, TestPointer) {
   auto original = VectorIt<std::shared_ptr<int>>(
       {std::make_shared<int>(1), std::make_shared<int>(2), std::make_shared<int>(3)});
-  auto truncated = MakeOperatorIterator<std::shared_ptr<int>, std::shared_ptr<int>>(
-      std::move(original), MakeFirstN<std::shared_ptr<int>>(2));
+  auto truncated =
+      MakeTransformedIterator(std::move(original), MakeFirstN<std::shared_ptr<int>>(2));
   ASSERT_OK_AND_ASSIGN(auto result, truncated.ToVector());
   ASSERT_EQ(2, result.size());
 }
 
-TEST(TestIteratorOperator, TruncatingShort) {
+TEST(TestIteratorTransform, TruncatingShort) {
   // Tests the failsafe case where we never call Finish
   auto original = VectorIt({1});
-  auto truncated =
-      MakeOperatorIterator<TestInt, TestInt>(std::move(original), MakeFirstN<TestInt>(2));
+  auto truncated = MakeTransformedIterator<TestInt, TestInt>(std::move(original),
+                                                             MakeFirstN<TestInt>(2));
   AssertIteratorMatch({1}, std::move(truncated));
 }
 
-constexpr auto kYieldDuration = std::chrono::microseconds(50);
-
 TEST(TestAsyncUtil, Background) {
   std::vector<TestInt> expected = {1, 2, 3};
-  auto pool = internal::GetCpuThreadPool();
-  auto iterator = VectorIt(expected);
-  auto slow_iterator = MakeOperatorIterator<TestInt, TestInt>(
-      std::move(iterator), [](TestInt item, Emitter<TestInt>& emitter) {
-        std::this_thread::sleep_for(kYieldDuration);
-        emitter.Emit(item);
-        return Status::OK();
-      });
-  ASSERT_OK_AND_ASSIGN(auto background,
-                       MakeBackgroundIterator<TestInt>(std::move(slow_iterator), pool));
+  auto background = BackgroundAsyncVectorIt(expected);
   auto future = async::CollectAsyncGenerator(background);
   ASSERT_FALSE(future.is_finished());
   future.Wait();
   ASSERT_TRUE(future.is_finished());
   ASSERT_EQ(expected, *future.result());
+}
+
+TEST(TestAsyncUtil, CompleteBackgroundStressTest) {
+  auto expected = RangeVector(1000);
+  std::vector<Future<std::vector<TestInt>>> futures;
+  for (unsigned int i = 0; i < 1000; i++) {
+    auto background = BackgroundAsyncVectorIt(expected);
+    futures.push_back(async::CollectAsyncGenerator(background));
+  }
+  auto combined = All(futures);
+  combined.Wait(2);
+  if (combined.is_finished()) {
+    ASSERT_OK_AND_ASSIGN(auto completed_vectors, combined.result());
+    for (auto&& vector : completed_vectors) {
+      ASSERT_EQ(vector, expected);
+    }
+  } else {
+    FAIL() << "After 2 seconds all background iterators had not finished collecting";
+  }
 }
 
 TEST(TestAsyncUtil, Visit) {
@@ -335,36 +358,41 @@ TEST(TestAsyncUtil, Collect) {
 }
 
 template <typename T>
-std::function<Status(T, Emitter<T>&)> MakeRepeatN(int repeat_count) {
-  return [repeat_count](T next, Emitter<T>& emitter) {
-    for (int i = 0; i < repeat_count; i++) {
-      emitter.Emit(next);
+std::function<TransformFlow<T>(T)> MakeRepeatN(int repeat_count) {
+  auto current_repeat = std::make_shared<int>(0);
+  return [repeat_count, current_repeat](T next) -> TransformFlow<T> {
+    (*current_repeat) += 1;
+    bool ready_for_next = false;
+    if (*current_repeat == repeat_count) {
+      *current_repeat = 0;
+      ready_for_next = true;
     }
-    return Status::OK();
+    return TransformYield(next, ready_for_next);
   };
 }
 
-TEST(TestIteratorOperator, Repeating) {
+TEST(TestIteratorTransform, Repeating) {
   auto original = VectorIt({1, 2, 3});
-  auto repeated = MakeOperatorIterator<TestInt, TestInt>(std::move(original),
-                                                         MakeRepeatN<TestInt>(2));
+  auto repeated = MakeTransformedIterator<TestInt, TestInt>(std::move(original),
+                                                            MakeRepeatN<TestInt>(2));
   AssertIteratorMatch({1, 1, 2, 2, 3, 3}, std::move(repeated));
 }
 
 template <typename T>
-std::function<Status(T, Emitter<T>&)> MakeFilter(std::function<bool(T&)> filter) {
-  return [filter](T next, Emitter<T>& emitter) {
+std::function<TransformFlow<T>(T)> MakeFilter(std::function<bool(T&)> filter) {
+  return [filter](T next) -> TransformFlow<T> {
     if (filter(next)) {
-      emitter.Emit(next);
+      return TransformYield(next);
+    } else {
+      return TransformSkip();
     }
-    return Status::OK();
   };
 }
 
 TEST(TestIteratorOperator, Filter) {
   // Test the case where a call to the operator doesn't emit anything or call finish
   auto original = VectorIt({1, 2, 3});
-  auto repeated = MakeOperatorIterator<TestInt, TestInt>(
+  auto repeated = MakeTransformedIterator(
       std::move(original), MakeFilter<TestInt>([](TestInt& t) { return t.value != 2; }));
   AssertIteratorMatch({1, 3}, std::move(repeated));
 }
