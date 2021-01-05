@@ -162,8 +162,9 @@ impl ArrayData {
         // TODO: rationalise this logic, prefer not creating populated bitmaps, use Option matching
         // I found taking a Bitmap that's populated to be more convenient, but I was more concerned first
         // about accuracy, so I'll explore using Option<&Bitmap> directly.
+        let parent_len = self.len();
         let parent_bitmap = logical_null_buffer.map(Bitmap::from).unwrap_or_else(|| {
-            let ceil = bit_util::ceil(self.len(), 8);
+            let ceil = bit_util::ceil(parent_len, 8);
             Bitmap::from(Buffer::from(vec![0b11111111; ceil]))
         });
         let self_null_bitmap = child_data.null_bitmap().clone().unwrap_or_else(|| {
@@ -183,13 +184,12 @@ impl ArrayData {
             )),
             DataType::FixedSizeList(_, len) => {
                 let len = *len as usize;
-                let array_len = self.len();
                 let array_offset = self.offset();
-                let bitmap_len = bit_util::ceil(array_len * len, 8);
+                let bitmap_len = bit_util::ceil(parent_len * len, 8);
                 let mut buffer =
                     MutableBuffer::new(bitmap_len).with_bitset(bitmap_len, false);
                 let mut null_slice = buffer.as_slice_mut();
-                (array_offset..array_len + array_offset).for_each(|index| {
+                (array_offset..parent_len + array_offset).for_each(|index| {
                     let start = index * len;
                     let end = start + len;
                     let mask = parent_bitmap.is_set(index);
@@ -201,9 +201,33 @@ impl ArrayData {
                 });
                 Some(buffer.into())
             }
-            DataType::Struct(_) => (&parent_bitmap & &self_null_bitmap)
-                .ok()
-                .map(|bitmap| bitmap.bits),
+            DataType::Struct(_) => {
+                // Arrow implementations are free to pad data, which can result in null buffers not
+                // having the same length.
+                // Rust bitwise comparisons will return an error if left AND right is performed on
+                // buffers of different length.
+                // This might be a valid case during integration testing, where we read Arrow arrays
+                // from IPC data, which has padding.
+                //
+                // We first perform a bitwise comparison, and if there is an error, we revert to a
+                // slower method that indexes into the buffers one-by-one.
+                let result = &parent_bitmap & &self_null_bitmap;
+                if let Ok(bitmap) = result {
+                    return Some(bitmap.bits);
+                }
+                // slow path
+                let array_offset = self.offset();
+                let mut buffer = MutableBuffer::new_null(parent_len);
+                let mut null_slice = buffer.as_slice_mut();
+                (0..parent_len).for_each(|index| {
+                    if parent_bitmap.is_set(index + array_offset)
+                        && self_null_bitmap.is_set(index + array_offset)
+                    {
+                        bit_util::set_bit(&mut null_slice, index);
+                    }
+                });
+                Some(buffer.into())
+            }
             DataType::Union(_) => {
                 panic!("Logical equality not yet implemented for union arrays")
             }
@@ -427,7 +451,6 @@ fn logical_list_bitmap<OffsetSize: OffsetSizeTrait>(
         .enumerate()
         .take(offset_len - offset_start)
         .for_each(|(index, window)| {
-            dbg!(&window, index);
             let start = window[0].to_usize().unwrap();
             let end = window[1].to_usize().unwrap();
             let mask = parent_bitmap.is_set(index);
