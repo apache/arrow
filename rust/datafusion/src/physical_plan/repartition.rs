@@ -138,8 +138,8 @@ impl ExecutionPlan for RepartitionExec {
                     }
 
                     // notify each output partition that this input partition has no more data
-                    for i in 0..num_output_partitions {
-                        let tx = &mut channels[i].0;
+                    for channel in channels.iter_mut().take(num_output_partitions) {
+                        let tx = &mut channel.0;
                         tx.send(None)
                             .map_err(|e| DataFusionError::Execution(e.to_string()))?;
                     }
