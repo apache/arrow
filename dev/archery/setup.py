@@ -26,7 +26,9 @@ if sys.version_info < (3, 6):
 
 extras = {
     'benchmark': ['pandas'],
-    'bot': ['ruamel.yaml', 'pygithub'],
+    # bot extra includes crossbow's dependencies
+    'bot': ['ruamel.yaml', 'pygithub', 'github3.py', 'jinja2', 'jira',
+            'pygit2', 'setuptools_scm', 'toolz'],
     'docker': ['ruamel.yaml', 'python-dotenv'],
     'release': ['jinja2', 'jira', 'semver', 'gitpython']
 }
