@@ -1349,9 +1349,9 @@ Status GetTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>* type
     return Status::IOError("Header-type of flatbuffer-encoded Message is not Tensor.");
   }
 
-  auto ndim = tensor->shape()->size();
+  flatbuffers::uoffset_t ndim = tensor->shape()->size();
 
-  for (decltype(ndim) i = 0; i < ndim; ++i) {
+  for (flatbuffers::uoffset_t i = 0; i < ndim; ++i) {
     auto dim = tensor->shape()->Get(i);
 
     shape->push_back(dim->size());
