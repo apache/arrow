@@ -377,8 +377,7 @@ class TestDictionaryEncoding : public TestEncodingBase<Type> {
     // Also test spaced decoding
     decoder->SetData(num_values_, indices->data(), static_cast<int>(indices->size()));
     // Also tests DecodeSpaced handling for valid_bits=nullptr
-    values_decoded =
-        decoder->DecodeSpaced(decode_buf_, num_values_, 0, nullptr, 0);
+    values_decoded = decoder->DecodeSpaced(decode_buf_, num_values_, 0, nullptr, 0);
     ASSERT_EQ(num_values_, values_decoded);
     ASSERT_NO_FATAL_FAILURE(VerifyResults<c_type>(decode_buf_, draws_, num_values_));
   }

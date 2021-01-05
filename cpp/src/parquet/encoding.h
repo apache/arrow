@@ -300,8 +300,8 @@ class TypedDecoder : virtual public Decoder {
       return ::arrow::util::internal::SpacedExpand<T>(buffer, num_values, null_count,
                                                       valid_bits, valid_bits_offset);
     } else {
-       Decode(buffer, num_values);
-       return num_values;
+      Decode(buffer, num_values);
+      return num_values;
     }
   }
 

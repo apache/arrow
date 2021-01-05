@@ -913,8 +913,8 @@ void ByteStreamSplitEncoder<DType>::PutSpaced(const T* src, int num_values,
                                               const uint8_t* valid_bits,
                                               int64_t valid_bits_offset) {
   if (valid_bits != NULLPTR) {
-    PARQUET_ASSIGN_OR_THROW(
-        auto buffer, ::arrow::AllocateBuffer(num_values * sizeof(T), this->memory_pool()));
+    PARQUET_ASSIGN_OR_THROW(auto buffer, ::arrow::AllocateBuffer(num_values * sizeof(T),
+                                                                 this->memory_pool()));
     T* data = reinterpret_cast<T*>(buffer->mutable_data());
     int num_valid_values = ::arrow::util::internal::SpacedCompress<T>(
         src, num_values, valid_bits, valid_bits_offset, data);
