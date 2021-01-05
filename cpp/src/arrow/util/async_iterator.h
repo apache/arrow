@@ -192,38 +192,39 @@ Future<std::vector<T>> CollectAsyncGenerator(std::function<Future<T>()> generato
 }
 
 template <typename T, typename V>
+util::optional<V> Pump(const std::shared_ptr<bool>& finished,
+                       const std::shared_ptr<util::optional<T>>& last_value,
+                       std::function<TransformFlow<V>(T)> transformer) {
+  while (!*finished && last_value->has_value()) {
+    TransformFlow<V> next = transformer(**last_value);
+    if (next.ReadyForNext()) {
+      last_value->reset();
+    }
+    if (next.Finished()) {
+      *finished = true;
+    }
+    if (next.HasValue()) {
+      return next.Value();
+    }
+  }
+  if (*finished) {
+    return IterationTraits<V>::End();
+  }
+  return util::optional<V>();
+}
+
+template <typename T, typename V>
 std::function<Future<V>()> TransformAsyncGenerator(
     std::function<Future<T>()> generator,
     std::function<TransformFlow<V>(T value)> transformer) {
   auto finished = std::make_shared<bool>();
   auto last_value = std::make_shared<util::optional<T>>();
 
-  std::function<util::optional<V>> pump =
-      [transformer](std::shared_ptr<bool>& finished,
-                    std::shared_ptr<util::optional<T>>& last_value) {
-        while (!*finished && last_value->has_value()) {
-          TransformFlow<V> next = transformer(**last_value);
-          if (next.ReadyForNext()) {
-            last_value->reset();
-          }
-          if (next.Finished()) {
-            *finished = true;
-          }
-          if (next.HasValue()) {
-            return next.Value();
-          }
-        }
-        if (*finished) {
-          return IterationTraits<V>::End();
-        }
-        return util::optional<V>();
-      };
-
   std::function<Future<V>()> result;
-  result = [finished, last_value, generator, result]() {
-    auto maybe_next = pump(finished, last_value);
-    if (maybe_next->has_value()) {
-      return Future<V>::MakeFinished(maybe_next);
+  result = [finished, last_value, generator, transformer, result]() {
+    auto maybe_next = Pump<T, V>(finished, last_value, transformer);
+    if (maybe_next.has_value()) {
+      return Future<V>::MakeFinished(*maybe_next);
     }
     return generator().Then([result, last_value](const Result<T>& next_result) {
       if (next_result.ok()) {
@@ -234,6 +235,7 @@ std::function<Future<V>()> TransformAsyncGenerator(
       }
     });
   };
+  return result;
 }
 
 }  // namespace async
