@@ -298,7 +298,7 @@ Result<ScanTaskIterator> ParquetFileFormat::ScanFile(std::shared_ptr<ScanOptions
   // metdata, it will not be excluded.
   if (parquet_fragment->metadata() != nullptr) {
     ARROW_ASSIGN_OR_RAISE(row_groups,
-                          parquet_fragment->FilterRowGroups(options->filter2));
+                          parquet_fragment->FilterRowGroups(options->filter));
 
     pre_filtered = true;
     if (row_groups.empty()) MakeEmpty();
@@ -314,7 +314,7 @@ Result<ScanTaskIterator> ParquetFileFormat::ScanFile(std::shared_ptr<ScanOptions
   if (!pre_filtered) {
     // row groups were not already filtered; do this now
     ARROW_ASSIGN_OR_RAISE(row_groups,
-                          parquet_fragment->FilterRowGroups(options->filter2));
+                          parquet_fragment->FilterRowGroups(options->filter));
 
     if (row_groups.empty()) MakeEmpty();
   }

@@ -63,7 +63,7 @@ class ARROW_DS_EXPORT ScanOptions {
   std::shared_ptr<ScanOptions> ReplaceSchema(std::shared_ptr<Schema> schema) const;
 
   // Filter
-  Expression filter2 = literal(true);
+  Expression filter = literal(true);
 
   // Schema to which record batches will be reconciled
   const std::shared_ptr<Schema>& schema() const { return projector.schema(); }

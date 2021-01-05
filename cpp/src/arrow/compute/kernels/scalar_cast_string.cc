@@ -203,7 +203,8 @@ void AddNumberToStringCasts(CastFunction* func) {
   for (const std::shared_ptr<DataType>& in_ty : NumericTypes()) {
     DCHECK_OK(
         func->AddKernel(in_ty->id(), {in_ty}, out_ty,
-                        GenerateNumeric<NumericToStringCastFunctor, OutType>(*in_ty),
+                        TrivialScalarUnaryAsArraysExec(
+                            GenerateNumeric<NumericToStringCastFunctor, OutType>(*in_ty)),
                         NullHandling::COMPUTED_NO_PREALLOCATE));
   }
 }

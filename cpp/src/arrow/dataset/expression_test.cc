@@ -47,6 +47,51 @@ Expression cast(Expression argument, std::shared_ptr<DataType> to_type) {
               compute::CastOptions::Safe(std::move(to_type)));
 }
 
+template <typename Actual, typename Expected>
+void ExpectResultsEqual(Actual&& actual, Expected&& expected) {
+  using MaybeActual = typename EnsureResult<typename std::decay<Actual>::type>::type;
+  using MaybeExpected = typename EnsureResult<typename std::decay<Expected>::type>::type;
+
+  MaybeActual maybe_actual(std::forward<Actual>(actual));
+  MaybeExpected maybe_expected(std::forward<Expected>(expected));
+
+  if (maybe_expected.ok()) {
+    ASSERT_OK_AND_ASSIGN(auto actual, maybe_actual);
+    EXPECT_EQ(actual, *maybe_expected);
+  } else {
+    EXPECT_EQ(maybe_actual.status().code(), expected.status().code());
+    EXPECT_NE(maybe_actual.status().message().find(expected.status().message()),
+              std::string::npos)
+        << "  actual:   " << maybe_actual.status() << "\n"
+        << "  expected: " << maybe_expected.status();
+  }
+}
+
+TEST(ExpressionUtils, Comparison) {
+  auto Expect = [](Result<std::string> expected, Datum l, Datum r) {
+    ExpectResultsEqual(Comparison::Execute(l, r).Map(Comparison::GetName), expected);
+  };
+
+  Datum zero(0), one(1), two(2), null(std::make_shared<Int32Scalar>()), str("hello");
+
+  Status parse_failure = Status::Invalid("Failed to parse");
+
+  Expect("equal", one, one);
+  Expect("less", one, two);
+  Expect("greater", one, zero);
+
+  // cast RHS to LHS type; "hello" > "1"
+  Expect("greater", str, one);
+  // cast RHS to LHS type; "hello" is not convertible to int
+  Expect(parse_failure, one, str);
+
+  Expect("na", one, null);
+  Expect("na", str, null);
+  Expect("na", null, one);
+  // cast RHS to LHS type; "hello" is not convertible to int
+  Expect(parse_failure, null, str);
+}
+
 TEST(Expression, ToString) {
   EXPECT_EQ(field_ref("alpha").ToString(), "alpha");
 

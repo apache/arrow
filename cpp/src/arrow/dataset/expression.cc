@@ -375,7 +375,9 @@ bool Expression::IsSatisfiable() const {
   return true;
 }
 
-inline bool KernelStateIsImmutable(const std::string& function) {
+namespace {
+
+bool KernelStateIsImmutable(const std::string& function) {
   // XXX maybe just add Kernel::state_is_immutable or so?
 
   // known functions with non-null but nevertheless immutable KernelState
@@ -399,6 +401,40 @@ Result<std::unique_ptr<compute::KernelState>> InitKernelState(
   return std::move(kernel_state);
 }
 
+Status InsertImplicitCasts(Expression::Call* call);
+
+// Produce a bound Expression from unbound Call and bound arguments.
+Result<Expression> BindNonRecursive(const Expression::Call& call,
+                                    std::vector<Expression> arguments,
+                                    bool insert_implicit_casts,
+                                    compute::ExecContext* exec_context) {
+  DCHECK(std::all_of(arguments.begin(), arguments.end(),
+                     [](const Expression& argument) { return argument.IsBound(); }));
+
+  auto bound_call = call;
+  bound_call.arguments = std::move(arguments);
+
+  if (insert_implicit_casts) {
+    RETURN_NOT_OK(InsertImplicitCasts(&bound_call));
+  }
+
+  ARROW_ASSIGN_OR_RAISE(bound_call.function, GetFunction(bound_call, exec_context));
+
+  auto descrs = GetDescriptors(bound_call.arguments);
+  ARROW_ASSIGN_OR_RAISE(bound_call.kernel, bound_call.function->DispatchExact(descrs));
+
+  compute::KernelContext kernel_context(exec_context);
+  ARROW_ASSIGN_OR_RAISE(bound_call.kernel_state,
+                        InitKernelState(bound_call, exec_context));
+  kernel_context.SetState(bound_call.kernel_state.get());
+
+  ARROW_ASSIGN_OR_RAISE(
+      bound_call.descr,
+      bound_call.kernel->signature->out_type().Resolve(&kernel_context, descrs));
+
+  return Expression(std::move(bound_call));
+}
+
 Status MaybeInsertCast(std::shared_ptr<DataType> to_type, Expression* expr) {
   if (expr->descr().type->Equals(to_type)) {
     return Status::OK();
@@ -410,18 +446,15 @@ Status MaybeInsertCast(std::shared_ptr<DataType> to_type, Expression* expr) {
     return Status::OK();
   }
 
-  // FIXME the resulting cast Call must be bound but this is a hack
-  auto with_cast = call("cast", {literal(MakeNullScalar(expr->descr().type))},
-                        compute::CastOptions::Safe(to_type));
+  Expression::Call with_cast;
+  with_cast.function_name = "cast";
+  with_cast.options = std::make_shared<compute::CastOptions>(
+      compute::CastOptions::Safe(std::move(to_type)));
 
-  static ValueDescr ignored_descr;
-  ARROW_ASSIGN_OR_RAISE(with_cast, with_cast.Bind(ignored_descr));
-
-  auto call_with_cast = *CallNotNull(with_cast);
-  call_with_cast.arguments[0] = std::move(*expr);
-  call_with_cast.descr = ValueDescr{std::move(to_type), expr->descr().shape};
-
-  *expr = Expression(std::move(call_with_cast));
+  compute::ExecContext exec_context;
+  ARROW_ASSIGN_OR_RAISE(*expr,
+                        BindNonRecursive(with_cast, {std::move(*expr)},
+                                         /*insert_implicit_casts=*/false, &exec_context));
   return Status::OK();
 }
 
@@ -475,6 +508,8 @@ Status InsertImplicitCasts(Expression::Call* call) {
   return Status::OK();
 }
 
+}  // namespace
+
 Result<Expression> Expression::Bind(ValueDescr in,
                                     compute::ExecContext* exec_context) const {
   if (exec_context == nullptr) {
@@ -490,28 +525,15 @@ Result<Expression> Expression::Bind(ValueDescr in,
     return Expression{Parameter{*ref, std::move(descr)}};
   }
 
-  auto bound_call = *CallNotNull(*this);
+  auto call = CallNotNull(*this);
 
-  ARROW_ASSIGN_OR_RAISE(bound_call.function, GetFunction(bound_call, exec_context));
-
-  for (auto&& argument : bound_call.arguments) {
-    ARROW_ASSIGN_OR_RAISE(argument, argument.Bind(in, exec_context));
+  std::vector<Expression> bound_arguments(call->arguments.size());
+  for (size_t i = 0; i < bound_arguments.size(); ++i) {
+    ARROW_ASSIGN_OR_RAISE(bound_arguments[i], call->arguments[i].Bind(in, exec_context));
   }
-  RETURN_NOT_OK(InsertImplicitCasts(&bound_call));
 
-  auto descrs = GetDescriptors(bound_call.arguments);
-  ARROW_ASSIGN_OR_RAISE(bound_call.kernel, bound_call.function->DispatchExact(descrs));
-
-  compute::KernelContext kernel_context(exec_context);
-  ARROW_ASSIGN_OR_RAISE(bound_call.kernel_state,
-                        InitKernelState(bound_call, exec_context));
-  kernel_context.SetState(bound_call.kernel_state.get());
-
-  ARROW_ASSIGN_OR_RAISE(
-      bound_call.descr,
-      bound_call.kernel->signature->out_type().Resolve(&kernel_context, descrs));
-
-  return Expression(std::move(bound_call));
+  return BindNonRecursive(*call, std::move(bound_arguments),
+                          /*insert_implicit_casts=*/true, exec_context);
 }
 
 Result<Expression> Expression::Bind(const Schema& in_schema,
@@ -574,6 +596,8 @@ Result<Datum> ExecuteScalarExpression(const Expression& expr, const Datum& input
   return executor->WrapResults(arguments, listener->values());
 }
 
+namespace {
+
 std::array<std::pair<const Expression&, const Expression&>, 2>
 ArgumentsAndFlippedArguments(const Expression::Call& call) {
   DCHECK_EQ(call.arguments.size(), 2);
@@ -625,6 +649,8 @@ bool DefinitelyNotNull(const Expression& expr) {
 
   return false;
 }
+
+}  // namespace
 
 std::vector<FieldRef> FieldsInExpression(const Expression& expr) {
   if (auto lit = expr.literal()) return {};
@@ -701,7 +727,9 @@ Result<Expression> FoldConstants(Expression expr) {
       });
 }
 
-inline std::vector<Expression> GuaranteeConjunctionMembers(
+namespace {
+
+std::vector<Expression> GuaranteeConjunctionMembers(
     const Expression& guaranteed_true_predicate) {
   auto guarantee = guaranteed_true_predicate.call();
   if (!guarantee || guarantee->function_name != "and_kleene") {
@@ -754,6 +782,8 @@ Status ExtractKnownFieldValuesImpl(
   return Status::OK();
 }
 
+}  // namespace
+
 Result<std::unordered_map<FieldRef, Datum, FieldRef::Hash>> ExtractKnownFieldValues(
     const Expression& guaranteed_true_predicate) {
   auto conjunction_members = GuaranteeConjunctionMembers(guaranteed_true_predicate);
@@ -786,7 +816,9 @@ Result<Expression> ReplaceFieldsWithKnownValues(
       [](Expression expr, ...) { return expr; });
 }
 
-inline bool IsBinaryAssociativeCommutative(const Expression::Call& call) {
+namespace {
+
+bool IsBinaryAssociativeCommutative(const Expression::Call& call) {
   static std::unordered_set<std::string> binary_associative_commutative{
       "and",      "or",  "and_kleene",       "or_kleene",  "xor",
       "multiply", "add", "multiply_checked", "add_checked"};
@@ -794,6 +826,8 @@ inline bool IsBinaryAssociativeCommutative(const Expression::Call& call) {
   auto it = binary_associative_commutative.find(call.function_name);
   return it != binary_associative_commutative.end();
 }
+
+}  // namespace
 
 Result<Expression> Canonicalize(Expression expr, compute::ExecContext* exec_context) {
   if (exec_context == nullptr) {
@@ -885,6 +919,8 @@ Result<Expression> Canonicalize(Expression expr, compute::ExecContext* exec_cont
       [](Expression expr, ...) { return expr; });
 }
 
+namespace {
+
 Result<Expression> DirectComparisonSimplification(Expression expr,
                                                   const Expression::Call& guarantee) {
   return Modify(
@@ -896,17 +932,19 @@ Result<Expression> DirectComparisonSimplification(Expression expr,
         // Ensure both calls are comparisons with equal LHS and scalar RHS
         auto cmp = Comparison::Get(expr);
         auto cmp_guarantee = Comparison::Get(guarantee.function_name);
-        if (!cmp || !cmp_guarantee) return expr;
 
+        if (!cmp) return expr;
+        if (!cmp_guarantee) return expr;
         if (call->arguments[0] != guarantee.arguments[0]) return expr;
 
         auto rhs = call->arguments[1].literal();
         auto guarantee_rhs = guarantee.arguments[1].literal();
-        if (!rhs || !guarantee_rhs) return expr;
 
-        if (!rhs->is_scalar() || !guarantee_rhs->is_scalar()) {
-          return expr;
-        }
+        if (!rhs) return expr;
+        if (!rhs->is_scalar()) return expr;
+
+        if (!guarantee_rhs) return expr;
+        if (!guarantee_rhs->is_scalar()) return expr;
 
         ARROW_ASSIGN_OR_RAISE(auto cmp_rhs_guarantee_rhs,
                               Comparison::Execute(*rhs, *guarantee_rhs));
@@ -915,13 +953,15 @@ Result<Expression> DirectComparisonSimplification(Expression expr,
         if (cmp_rhs_guarantee_rhs == Comparison::EQUAL) {
           // RHS of filter is equal to RHS of guarantee
 
-          if ((*cmp_guarantee & *cmp) == *cmp_guarantee) {
+          if ((*cmp & *cmp_guarantee) == *cmp_guarantee) {
             // guarantee is a subset of filter, so all data will be included
+            // x > 1, x >= 1, x != 1 guaranteed by x > 1
             return literal(true);
           }
 
-          if ((*cmp_guarantee & *cmp) == 0) {
+          if ((*cmp & *cmp_guarantee) == 0) {
             // guarantee disjoint with filter, so all data will be excluded
+            // x > 1, x >= 1, x != 1 unsatisfiable if x == 1
             return literal(false);
           }
 
@@ -929,7 +969,7 @@ Result<Expression> DirectComparisonSimplification(Expression expr,
         }
 
         if (*cmp_guarantee & cmp_rhs_guarantee_rhs) {
-          // unusable guarantee
+          // x > 1, x >= 1, x != 1 cannot use guarantee x >= 3
           return expr;
         }
 
@@ -942,6 +982,8 @@ Result<Expression> DirectComparisonSimplification(Expression expr,
         }
       });
 }
+
+}  // namespace
 
 Result<Expression> SimplifyWithGuarantee(Expression expr,
                                          const Expression& guaranteed_true_predicate) {

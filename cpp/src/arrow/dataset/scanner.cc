@@ -39,7 +39,7 @@ ScanOptions::ScanOptions(std::shared_ptr<Schema> schema)
 std::shared_ptr<ScanOptions> ScanOptions::ReplaceSchema(
     std::shared_ptr<Schema> schema) const {
   auto copy = ScanOptions::Make(std::move(schema));
-  copy->filter2 = filter2;
+  copy->filter = filter;
   copy->batch_size = batch_size;
   return copy;
 }
@@ -51,7 +51,7 @@ std::vector<std::string> ScanOptions::MaterializedFields() const {
     fields.push_back(f->name());
   }
 
-  for (const FieldRef& ref : FieldsInExpression(filter2)) {
+  for (const FieldRef& ref : FieldsInExpression(filter)) {
     DCHECK(ref.name());
     fields.push_back(*ref.name());
   }
@@ -71,7 +71,7 @@ Result<FragmentIterator> Scanner::GetFragments() {
   // Transform Datasets in a flat Iterator<Fragment>. This
   // iterator is lazily constructed, i.e. Dataset::GetFragments is
   // not invoked until a Fragment is requested.
-  return GetFragmentsFromDatasets({dataset_}, scan_options_->filter2);
+  return GetFragmentsFromDatasets({dataset_}, scan_options_->filter);
 }
 
 Result<ScanTaskIterator> Scanner::Scan() {
@@ -125,7 +125,7 @@ Status ScannerBuilder::Filter(const Expression& filter) {
   for (const auto& ref : FieldsInExpression(filter)) {
     RETURN_NOT_OK(ref.FindOne(*schema()));
   }
-  ARROW_ASSIGN_OR_RAISE(scan_options_->filter2, filter.Bind(*schema()));
+  ARROW_ASSIGN_OR_RAISE(scan_options_->filter, filter.Bind(*schema()));
   return Status::OK();
 }
 

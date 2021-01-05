@@ -167,7 +167,13 @@ Result<std::unordered_map<FieldRef, Datum, FieldRef::Hash>> ExtractKnownFieldVal
 ///
 /// @{
 ///
-/// These operate on bound expressions.
+/// These transform bound expressions. Some transforms utilize a guarantee, which is
+/// provided as an Expression which is guaranteed to evaluate to true. The
+/// guaranteed_true_predicate need not be bound, but canonicalization is currently
+/// deferred to producers of guarantees. For example in order to be recognized as a
+/// guarantee on a field value, an Expression must be a call to "equal" with field_ref LHS
+/// and literal RHS. Flipping the arguments, "is_in" with a one-long value_set, ... or
+/// other semantically identical Expressions will not be recognized.
 
 /// Weak canonicalization which establishes guarantees for subsequent passes. Even
 /// equivalent Expressions may result in different canonicalized expressions.

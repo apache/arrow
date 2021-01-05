@@ -160,7 +160,7 @@ class TestParquetFileFormat : public ArrowParquetWriterMixin {
   }
 
   void SetFilter(Expression filter) {
-    ASSERT_OK_AND_ASSIGN(opts_->filter2, filter.Bind(*schema_));
+    ASSERT_OK_AND_ASSIGN(opts_->filter, filter.Bind(*schema_));
   }
 
   std::shared_ptr<RecordBatch> SingleBatch(Fragment* fragment) {

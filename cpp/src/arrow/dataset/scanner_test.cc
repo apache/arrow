@@ -207,7 +207,7 @@ TEST(ScanOptions, TestMaterializedFields) {
   auto opts = ScanOptions::Make(schema({}));
   EXPECT_THAT(opts->MaterializedFields(), IsEmpty());
 
-  opts->filter2 = equal(field_ref("i32"), literal(10));
+  opts->filter = equal(field_ref("i32"), literal(10));
   EXPECT_THAT(opts->MaterializedFields(), ElementsAre("i32"));
 
   opts = ScanOptions::Make(schema({i32, i64}));
@@ -216,10 +216,10 @@ TEST(ScanOptions, TestMaterializedFields) {
   opts = opts->ReplaceSchema(schema({i32}));
   EXPECT_THAT(opts->MaterializedFields(), ElementsAre("i32"));
 
-  opts->filter2 = equal(field_ref("i32"), literal(10));
+  opts->filter = equal(field_ref("i32"), literal(10));
   EXPECT_THAT(opts->MaterializedFields(), ElementsAre("i32", "i32"));
 
-  opts->filter2 = equal(field_ref("i64"), literal(10));
+  opts->filter = equal(field_ref("i64"), literal(10));
   EXPECT_THAT(opts->MaterializedFields(), ElementsAre("i32", "i64"));
 }
 

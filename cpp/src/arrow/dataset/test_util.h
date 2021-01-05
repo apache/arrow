@@ -152,7 +152,7 @@ class DatasetFixtureMixin : public ::testing::Test {
   /// record batches yielded by the data fragments of a dataset.
   void AssertDatasetFragmentsEqual(RecordBatchReader* expected, Dataset* dataset,
                                    bool ensure_drained = true) {
-    ASSERT_OK_AND_ASSIGN(auto predicate, options_->filter2.Bind(*dataset->schema()));
+    ASSERT_OK_AND_ASSIGN(auto predicate, options_->filter.Bind(*dataset->schema()));
     ASSERT_OK_AND_ASSIGN(auto it, dataset->GetFragments(predicate));
 
     ARROW_EXPECT_OK(it.Visit([&](std::shared_ptr<Fragment> fragment) -> Status {
@@ -202,7 +202,7 @@ class DatasetFixtureMixin : public ::testing::Test {
   }
 
   void SetFilter(Expression filter) {
-    ASSERT_OK_AND_ASSIGN(options_->filter2, filter.Bind(*schema_));
+    ASSERT_OK_AND_ASSIGN(options_->filter, filter.Bind(*schema_));
   }
 
   std::shared_ptr<Schema> schema_;

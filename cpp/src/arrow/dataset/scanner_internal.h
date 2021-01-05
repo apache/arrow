@@ -74,7 +74,7 @@ class FilterAndProjectScanTask : public ScanTask {
       : ScanTask(task->options(), task->context()),
         task_(std::move(task)),
         partition_(std::move(partition)),
-        filter_(options()->filter2),
+        filter_(options()->filter),
         projector_(options()->projector) {}
 
   Result<RecordBatchIterator> Execute() override {

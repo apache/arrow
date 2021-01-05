@@ -92,7 +92,7 @@ static inline Result<csv::ConvertOptions> GetConvertOptions(
   // FIXME(bkietz) also acquire types of fields materialized but not projected.
   // This requires that scan_options include the full dataset schema (not just
   // the projected schema).
-  for (const FieldRef& ref : FieldsInExpression(scan_options->filter2)) {
+  for (const FieldRef& ref : FieldsInExpression(scan_options->filter)) {
     DCHECK(ref.name());
     ARROW_ASSIGN_OR_RAISE(auto match, ref.FindOneOrNone(*scan_options->schema()));
     if (!match) {

@@ -186,7 +186,6 @@ struct Comparison {
   static std::string GetName(type op) {
     switch (op) {
       case NA:
-        DCHECK(false) << "unreachable";
         break;
       case EQUAL:
         return "equal";
@@ -201,7 +200,6 @@ struct Comparison {
       case GREATER_EQUAL:
         return "greater_equal";
     }
-    DCHECK(false);
     return "na";
   }
 
