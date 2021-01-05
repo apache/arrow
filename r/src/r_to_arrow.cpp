@@ -1041,7 +1041,7 @@ class RPrimitiveConverter<T, enable_if_t<std::is_same<T, FixedSizeBinaryType>::v
         return Status::Invalid("invalid size");
       }
       ARROW_RETURN_NOT_OK(this->primitive_builder_->ReserveData(n));
-      this->primitive_builder_->UnsafeAppend(RAW_RO(raw), n);
+      this->primitive_builder_->UnsafeAppend(RAW_RO(raw));
       return Status::OK();
     };
     return RVectorVisitor<SEXP>::Visit(x, start, size, this->primitive_builder_, handler);
@@ -1065,8 +1065,7 @@ class RPrimitiveConverter<T, enable_if_string_like<T>>
     auto handler = [this](cpp11::r_string s) {
       R_xlen_t n = XLENGTH(s);
       ARROW_RETURN_NOT_OK(this->primitive_builder_->ReserveData(n));
-      this->primitive_builder_->UnsafeAppend(STRING_PTR_RO(s),
-                                             static_cast<OffsetType>(n));
+      this->primitive_builder_->UnsafeAppend(CHAR(s), static_cast<OffsetType>(n));
       return Status::OK();
     };
     return RVectorVisitor<cpp11::r_string>::Visit(x, start, size,
@@ -1116,7 +1115,7 @@ class RDictionaryConverter<U, enable_if_has_string_view<U>>
 
     auto handler = [this, levels](int value) {
       SEXP s = STRING_ELT(levels, value - 1);
-      return this->value_builder_->Append(STRING_PTR_RO(s), XLENGTH(s));
+      return this->value_builder_->Append(CHAR(s));
     };
     return RVectorVisitor<int>::Visit(x, start, size, this->value_builder_, handler);
   }
