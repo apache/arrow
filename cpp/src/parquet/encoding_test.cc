@@ -353,7 +353,8 @@ class TestDictionaryEncoding : public TestEncodingBase<Type> {
         dynamic_cast<typename EncodingTraits<Type>::Encoder*>(base_spaced_encoder.get());
 
     // PutSpaced should lead to the same results
-    ASSERT_NO_THROW(spaced_encoder->PutSpaced(draws_, num_values_, valid_bits.data(), 0));
+    // This also checks the PutSpaced implementation for valid_bits=nullptr
+    ASSERT_NO_THROW(spaced_encoder->PutSpaced(draws_, num_values_, nullptr, 0));
     std::shared_ptr<Buffer> indices_from_spaced = spaced_encoder->FlushValues();
     ASSERT_TRUE(indices_from_spaced->Equals(*indices));
 
@@ -375,8 +376,8 @@ class TestDictionaryEncoding : public TestEncodingBase<Type> {
 
     // Also test spaced decoding
     decoder->SetData(num_values_, indices->data(), static_cast<int>(indices->size()));
-    values_decoded =
-        decoder->DecodeSpaced(decode_buf_, num_values_, 0, valid_bits.data(), 0);
+    // Also tests DecodeSpaced handling for valid_bits=nullptr
+    values_decoded = decoder->DecodeSpaced(decode_buf_, num_values_, 0, nullptr, 0);
     ASSERT_EQ(num_values_, values_decoded);
     ASSERT_NO_FATAL_FAILURE(VerifyResults<c_type>(decode_buf_, draws_, num_values_));
   }
