@@ -258,12 +258,7 @@ impl ExecutionPlan for ParquetExec {
         let batch_size = self.batch_size;
 
         task::spawn_blocking(move || {
-            read_files(
-                &filenames,
-                &projection,
-                batch_size,
-                response_tx,
-            )
+            read_files(&filenames, &projection, batch_size, response_tx)
         });
 
         Ok(Box::pin(ParquetStream {
@@ -293,8 +288,8 @@ fn read_files(
         let file = File::open(&filename)?;
         let file_reader = Arc::new(SerializedFileReader::new(file)?);
         let mut arrow_reader = ParquetFileArrowReader::new(file_reader);
-        let mut batch_reader =
-            arrow_reader.get_record_reader_by_columns(projection.to_owned(), batch_size)?;
+        let mut batch_reader = arrow_reader
+            .get_record_reader_by_columns(projection.to_owned(), batch_size)?;
         loop {
             match batch_reader.next() {
                 Some(Ok(batch)) => {
