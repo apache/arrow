@@ -854,6 +854,31 @@ services:
     command: >
       /bin/bash -c "/arrow/ci/scripts/r_test.sh /arrow"
 
+  r-forward-compatibility:
+    # This lets you test forward compatilbity from old arrow versions (given in OLD_ARROW_VERSION)
+    #
+    # Usage:
+    #   R_ORG=rstudio R_IMAGE=r-base R_TAG=3.6-bionic OLD_ARROW_VERSION=1.0.1 docker-compose build r-forward-compatibility
+    #   R_ORG=rstudio R_IMAGE=r-base R_TAG=3.6-bionic OLD_ARROW_VERSION=1.0.1 docker-compose run r-forward-compatibility
+    image: ${REPO}:r-${R_ORG}-${R_IMAGE}-${R_TAG}
+    build:
+      context: .
+      dockerfile: ci/docker/linux-r.dockerfile
+      cache_from:
+        - ${REPO}:r-${R_ORG}-${R_IMAGE}-${R_TAG}
+      args:
+        base: ${R_ORG}/${R_IMAGE}:${R_TAG}
+        r_dev: ${ARROW_R_DEV}
+    shm_size: *shm-size
+    environment:
+      ARROW_R_DEV: ${ARROW_R_DEV}
+      ARROW_USE_PKG_CONFIG: "false"
+      OLD_ARROW_VERSION: ${OLD_ARROW_VERSION}
+    volumes:
+      - .:/arrow:delegated
+    command: >
+      /bin/bash -c "/arrow/ci/scripts/r_test_old_version.sh /arrow"
+
   ubuntu-r-sanitizer:
     # Only 18.04 and amd64 supported
     # Usage:
