@@ -19,7 +19,6 @@
 
 // IWYU pragma: begin_exports
 
-#include <cmath>
 #include <cstdint>
 #include <memory>
 #include <string>

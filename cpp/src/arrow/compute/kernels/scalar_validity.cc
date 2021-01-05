@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <cmath>
+
 #include "arrow/compute/kernels/common.h"
 
 #include "arrow/util/bit_util.h"
