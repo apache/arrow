@@ -258,7 +258,9 @@ impl ExecutionPlan for ParquetExec {
         let batch_size = self.batch_size;
 
         task::spawn_blocking(move || {
-            read_files(&filenames, &projection, batch_size, response_tx)
+            if let Err(e) = read_files(&filenames, &projection, batch_size, response_tx) {
+                println!("Parquet reader thread terminated due to error: {:?}", e);
+            }
         });
 
         Ok(Box::pin(ParquetStream {
