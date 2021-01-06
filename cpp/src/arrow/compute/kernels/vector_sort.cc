@@ -1526,7 +1526,7 @@ class MultipleKeyTableSorter : public TypeVisitor {
 // ----------------------------------------------------------------------
 // Top-level sort functions
 
-static auto kDefaultSortOptions = SortOptions::Defaults();
+const auto kDefaultSortOptions = SortOptions::Defaults();
 
 const FunctionDoc sort_indices_doc(
     "Return the indices that would sort an array, record batch or table",
@@ -1685,7 +1685,7 @@ class SortIndicesMetaFunction : public MetaFunction {
   }
 };
 
-static auto kDefaultArraySortOptions = ArraySortOptions::Defaults();
+const auto kDefaultArraySortOptions = ArraySortOptions::Defaults();
 
 const FunctionDoc array_sort_indices_doc(
     "Return the indices that would sort an array",
