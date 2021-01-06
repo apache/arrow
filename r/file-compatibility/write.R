@@ -1,5 +1,9 @@
 library(arrow)
 
+if (!dir.exists("file-compatibility/files")) {
+  dir.create("file-compatibility/files")
+}
+
 example_with_metadata <- tibble::tibble(
   a = structure("one", class = "special_string"),
   b = 2,
