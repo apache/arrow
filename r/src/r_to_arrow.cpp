@@ -123,339 +123,6 @@ RVectorType GetVectorType(SEXP x) {
   return OTHER;
 }
 
-struct RScalar {
-  RVectorType rtype;
-  void* data;
-  bool null;
-};
-
-struct RBytesView {
-  const char* bytes;
-  R_xlen_t size;
-  bool is_utf8;
-
-  Status ParseString(RScalar* value) {
-    SEXP s = *reinterpret_cast<SEXP*>(value->data);
-    bytes = CHAR(s);
-    size = XLENGTH(s);
-
-    // TODO: test it
-    is_utf8 = true;
-
-    return Status::OK();
-  }
-
-  Status ParseRaw(RScalar* value) {
-    SEXP raw;
-
-    if (value->rtype == LIST || value->rtype == BINARY) {
-      raw = *reinterpret_cast<SEXP*>(value->data);
-      if (TYPEOF(raw) != RAWSXP) {
-        return Status::Invalid("can only handle RAW vectors");
-      }
-    } else {
-      return Status::NotImplemented("cannot parse binary with RBytesView::ParseRaw()");
-    }
-
-    bytes = reinterpret_cast<const char*>(RAW_RO(raw));
-    size = XLENGTH(raw);
-    is_utf8 = false;
-
-    return Status::OK();
-  }
-};
-
-template <typename Int>
-Result<float> IntegerScalarToFloat32Safe(int64_t value) {
-  constexpr int64_t kFloatMax = 1LL << 24;
-  constexpr int64_t kFloatMin = -(1LL << 24);
-
-  if (value < kFloatMin || value > kFloatMax) {
-    return Status::Invalid("Integer value ", value, " is outside of the range exactly",
-                           " representable by a IEEE 754 single precision value");
-  }
-  return static_cast<float>(value);
-}
-
-template <typename Int>
-Result<double> IntegerScalarToDoubleSafe(int64_t value) {
-  constexpr int64_t kDoubleMax = 1LL << 53;
-  constexpr int64_t kDoubleMin = -(1LL << 53);
-
-  if (value < kDoubleMin || value > kDoubleMax) {
-    return Status::Invalid("Integer value ", value, " is outside of the range exactly",
-                           " representable by a IEEE 754 double precision value");
-  }
-  return static_cast<double>(value);
-}
-
-template <typename T>
-Result<T> CIntFromRScalarImpl(int64_t value) {
-  if (value < std::numeric_limits<T>::min() || value > std::numeric_limits<T>::max()) {
-    return Status::Invalid("value outside of range");
-  }
-  return static_cast<T>(value);
-}
-
-template <>
-Result<uint64_t> CIntFromRScalarImpl<uint64_t>(int64_t value) {
-  if (value < 0) {
-    return Status::Invalid("value outside of range");
-  }
-  return static_cast<uint64_t>(value);
-}
-
-template <typename T>
-Result<T> CIntFromRScalar(RScalar* obj) {
-  switch (obj->rtype) {
-    case FLOAT64:
-      return CIntFromRScalarImpl<T>(*reinterpret_cast<double*>(obj->data));
-    case INT32:
-      return CIntFromRScalarImpl<T>(*reinterpret_cast<int*>(obj->data));
-    case UINT8:
-      return CIntFromRScalarImpl<T>(*reinterpret_cast<unsigned char*>(obj->data));
-    case INT64:
-      return CIntFromRScalarImpl<T>(*reinterpret_cast<int64_t*>(obj->data));
-    default:
-      break;
-  }
-
-  return Status::Invalid("Cannot convert to Int");
-}
-
-Result<int64_t> RPosixct_Convert(double seconds, const TimestampType* type) {
-  switch (type->unit()) {
-    case TimeUnit::SECOND:
-      return seconds;
-    case TimeUnit::MILLI:
-      return seconds * 1000;
-    case TimeUnit::MICRO:
-      return seconds * 1000000;
-    case TimeUnit::NANO:
-      return seconds * 1000000000;
-    default:
-      break;
-  }
-  return Status::Invalid("invalid time unit");
-}
-
-struct DiffTimeData {
-  double data;
-  int multiplier;
-};
-
-struct DataFrameRow {
-  SEXP data;
-  R_xlen_t row;
-};
-
-Status RScalar_to_days(RScalar* value, int32_t* days) {
-  constexpr int64_t kSecondsPerDay = 86400;
-
-  switch (value->rtype) {
-    case DATE_DBL: {
-      *days = static_cast<int32_t>(*reinterpret_cast<double*>(value->data));
-      return Status::OK();
-    }
-    case DATE_INT: {
-      *days = *reinterpret_cast<int32_t*>(value->data);
-      return Status::OK();
-    }
-    case POSIXCT: {
-      *days = *reinterpret_cast<double*>(value->data) / kSecondsPerDay;
-      return Status::OK();
-    }
-
-    default:
-      break;
-  }
-  return Status::Invalid("invalid conversion to Date");
-}
-
-class RValue {
- public:
-  static bool IsNull(RScalar* obj) { return obj->null; }
-
-  static Result<bool> Convert(const BooleanType*, const RConversionOptions&,
-                              RScalar* value) {
-    if (value->rtype == BOOLEAN) {
-      return *reinterpret_cast<bool*>(value->data);
-    }
-
-    return Status::Invalid("invalid conversion to bool, expecting a logical vector");
-  }
-
-  static Result<uint16_t> Convert(const HalfFloatType*, const RConversionOptions&,
-                                  RScalar* value) {
-    return Status::NotImplemented("conversion to half float from R not implemented");
-  }
-
-  static Result<float> Convert(const FloatType*, const RConversionOptions&,
-                               RScalar* value) {
-    switch (value->rtype) {
-      case FLOAT64:
-        return static_cast<float>(*reinterpret_cast<double*>(value->data));
-      case INT32:
-        return IntegerScalarToFloat32Safe<int>(*reinterpret_cast<int*>(value->data));
-      case UINT8:
-        return IntegerScalarToFloat32Safe<uint8_t>(
-            *reinterpret_cast<unsigned char*>(value->data));
-      case INT64:
-        return IntegerScalarToFloat32Safe<int64_t>(
-            *reinterpret_cast<int64_t*>(value->data));
-      default:
-        break;
-    }
-    return Status::Invalid("invalid conversion to float");
-  }
-
-  static Result<double> Convert(const DoubleType*, const RConversionOptions&,
-                                RScalar* value) {
-    switch (value->rtype) {
-      case FLOAT64:
-        return static_cast<float>(*reinterpret_cast<double*>(value->data));
-      case INT32:
-        return IntegerScalarToDoubleSafe<int>(*reinterpret_cast<int*>(value->data));
-      case UINT8:
-        return IntegerScalarToDoubleSafe<uint8_t>(
-            *reinterpret_cast<unsigned char*>(value->data));
-      case INT64:
-        return IntegerScalarToDoubleSafe<int64_t>(
-            *reinterpret_cast<int64_t*>(value->data));
-      default:
-        break;
-    }
-
-    return Status::Invalid("invalid conversion to double");
-  }
-
-  template <typename T>
-  static enable_if_integer<T, Result<typename T::c_type>> Convert(
-      const T*, const RConversionOptions&, RScalar* value) {
-    return CIntFromRScalar<typename T::c_type>(value);
-  }
-
-  static Result<int32_t> Convert(const Date32Type*, const RConversionOptions&,
-                                 RScalar* value) {
-    int32_t days;
-    RETURN_NOT_OK(RScalar_to_days(value, &days));
-    return days;
-  }
-
-  static Result<int64_t> Convert(const Date64Type*, const RConversionOptions&,
-                                 RScalar* value) {
-    constexpr static int64_t kMillisecondsPerDay = 86400000;
-
-    // first truncate to a number of days since epoch and then convert to milliseconds
-    int32_t days;
-    RETURN_NOT_OK(RScalar_to_days(value, &days));
-
-    return static_cast<int64_t>(days) * kMillisecondsPerDay;
-  }
-
-  static Result<int32_t> Convert(const Time32Type* type, const RConversionOptions&,
-                                 RScalar* value) {
-    if (value->rtype == TIME) {
-      DiffTimeData* data = reinterpret_cast<DiffTimeData*>(value->data);
-      auto seconds = data->data * data->multiplier;
-      switch (type->unit()) {
-        case TimeUnit::SECOND:
-          return seconds;
-        case TimeUnit::MILLI:
-          return seconds * 1000;
-        default:
-          return Status::Invalid("invalid time unit");
-      }
-    }
-
-    return Status::Invalid("invalid conversion to time32");
-  }
-
-  static Result<int64_t> Convert(const TimestampType* type, const RConversionOptions&,
-                                 RScalar* value) {
-    if (value->rtype == POSIXCT) {
-      return RPosixct_Convert(*reinterpret_cast<double*>(value->data), type);
-    }
-
-    return Status::Invalid("invalid conversion to timestamp");
-  }
-
-  static Result<int64_t> Convert(const Time64Type* type, const RConversionOptions&,
-                                 RScalar* value) {
-    constexpr int64_t kMicroSeconds = 1000000;
-    constexpr int64_t kNanoSeconds = 1000000000;
-
-    if (value->rtype == TIME) {
-      DiffTimeData* data = reinterpret_cast<DiffTimeData*>(value->data);
-      auto seconds = data->data * data->multiplier;
-      switch (type->unit()) {
-        case TimeUnit::MICRO:
-          return seconds * kMicroSeconds;
-        case TimeUnit::NANO:
-          return seconds * kNanoSeconds;
-        default:
-          return Status::Invalid("invalid time unit");
-      }
-    }
-
-    return Status::Invalid("invalid conversion to time64");
-  }
-
-  static Result<Decimal128> Convert(const Decimal128Type*, const RConversionOptions&,
-                                    RScalar* value) {
-    // TODO: improve error
-    return Status::Invalid("invalid conversion to decimal128");
-  }
-
-  static Result<Decimal256> Convert(const Decimal256Type*, const RConversionOptions&,
-                                    RScalar* value) {
-    // TODO: improve error
-    return Status::Invalid("invalid conversion to decimal256");
-  }
-
-  template <typename T>
-  static enable_if_string<T, Status> Convert(const T*, const RConversionOptions&,
-                                             RScalar* value, RBytesView& view) {
-    switch (value->rtype) {
-      case STRING:
-      case FACTOR:
-        return view.ParseString(value);
-      default:
-        break;
-    }
-
-    // TODO: improve error
-    return Status::Invalid("invalid conversion to string");
-  }
-
-  static Status Convert(const BaseBinaryType*, const RConversionOptions&, RScalar* value,
-                        RBytesView& view) {
-    switch (value->rtype) {
-      case BINARY:
-      case LIST:
-        return view.ParseRaw(value);
-
-      case STRING:
-        return Status::NotImplemented("conversion string -> binary");
-
-      default:
-        break;
-    }
-
-    // TODO: improve error
-    return Status::Invalid("invalid conversion to binary");
-  }
-
-  static Status Convert(const FixedSizeBinaryType* type, const RConversionOptions&,
-                        RScalar* value, RBytesView& view) {
-    ARROW_RETURN_NOT_OK(view.ParseRaw(value));
-    if (view.size != type->byte_width()) {
-      return Status::Invalid("invalid size");
-    }
-    return Status::OK();
-  }
-};
-
 template <typename T>
 bool is_NA(T value);
 
@@ -526,109 +193,6 @@ int64_t RVectorVisitor<int64_t>::GetValue(double x) {
   return *reinterpret_cast<int64_t*>(&x);
 }
 
-template <RVectorType rtype, typename T, class VisitorFunc>
-inline Status VisitRPrimitiveVector(SEXP x, R_xlen_t start, R_xlen_t size,
-                                    VisitorFunc&& func) {
-  RScalar obj{rtype, nullptr, false};
-  cpp11::r_vector<T> values(x);
-  auto it = values.begin() + start;
-
-  for (R_xlen_t i = 0; i < size; i++, ++it) {
-    auto value = *it;
-    obj.data = reinterpret_cast<void*>(&value);
-    obj.null = is_NA<T>(value);
-    RETURN_NOT_OK(func(&obj));
-  }
-
-  return Status::OK();
-}
-
-template <class VisitorFunc>
-inline Status VisitInt64Vector(SEXP x, R_xlen_t start, R_xlen_t size,
-                               VisitorFunc&& func) {
-  RScalar obj{INT64, nullptr, false};
-  cpp11::doubles values(x);
-  auto it = values.begin() + start;
-
-  for (R_xlen_t i = 0; i < size; i++, ++it) {
-    double value = *it;
-    obj.data = reinterpret_cast<void*>(&value);
-    obj.null = is_NA<int64_t>(*reinterpret_cast<int64_t*>(&value));
-    RETURN_NOT_OK(func(&obj));
-  }
-  return Status::OK();
-}
-
-template <class VisitorFunc>
-inline Status VisitFactor(SEXP x, R_xlen_t start, R_xlen_t size, VisitorFunc&& func) {
-  cpp11::strings levels(Rf_getAttrib(x, R_LevelsSymbol));
-  SEXP* levels_ptr = const_cast<SEXP*>(STRING_PTR_RO(levels));
-
-  RScalar obj{FACTOR, nullptr, false};
-  cpp11::r_vector<int> values(x);
-  auto it = values.begin() + start;
-
-  for (R_xlen_t i = 0; i < size; i++, ++it) {
-    int value = *it;
-    if (is_NA<int>(value)) {
-      obj.null = true;
-    } else {
-      obj.null = false;
-      obj.data = reinterpret_cast<void*>(&levels_ptr[value - 1]);
-    }
-    RETURN_NOT_OK(func(&obj));
-  }
-  return Status::OK();
-}
-
-Status GetDifftimeMultiplier(SEXP obj, int* res) {
-  std::string unit(CHAR(STRING_ELT(Rf_getAttrib(obj, symbols::units), 0)));
-  if (unit == "secs") {
-    *res = 1;
-  } else if (unit == "mins") {
-    *res = 60;
-  } else if (unit == "hours") {
-    *res = 3600;
-  } else if (unit == "days") {
-    *res = 86400;
-  } else if (unit == "weeks") {
-    *res = 604800;
-  } else {
-    return Status::Invalid("unknown difftime unit");
-  }
-  return Status::OK();
-}
-
-template <class VisitorFunc>
-inline Status VisitDifftime(SEXP x, R_xlen_t start, R_xlen_t size, VisitorFunc&& func) {
-  DiffTimeData scalar;
-  RETURN_NOT_OK(GetDifftimeMultiplier(x, &scalar.multiplier));
-
-  RScalar obj{TIME, reinterpret_cast<void*>(&scalar), false};
-  cpp11::doubles values(x);
-  auto it = values.begin() + start;
-
-  for (R_xlen_t i = 0; i < size; i++, ++it) {
-    double value = *it;
-    scalar.data = value;
-    obj.null = is_NA<double>(value);
-    RETURN_NOT_OK(func(&obj));
-  }
-  return Status::OK();
-}
-
-template <class VisitorFunc>
-inline Status VisitDataFrame(SEXP x, R_xlen_t start, R_xlen_t size, VisitorFunc&& func) {
-  DataFrameRow row({x, start});
-  RScalar obj{DATAFRAME, reinterpret_cast<void*>(&row), false};
-
-  for (R_xlen_t i = 0; i < size; i++) {
-    ++row.row;
-    RETURN_NOT_OK(func(&obj));
-  }
-  return Status::OK();
-}
-
 class RConverter : public Converter<SEXP, RConversionOptions> {
  public:
   virtual Status Append(SEXP) { return Status::Invalid("not using Append()"); }
@@ -642,13 +206,33 @@ class RConverter : public Converter<SEXP, RConversionOptions> {
 template <typename T, typename Enable = void>
 class RPrimitiveConverter;
 
+template <typename T>
+Result<T> CIntFromRScalarImpl(int64_t value) {
+  if (value < std::numeric_limits<T>::min() || value > std::numeric_limits<T>::max()) {
+    return Status::Invalid("value outside of range");
+  }
+  return static_cast<T>(value);
+}
+
+template <>
+Result<uint64_t> CIntFromRScalarImpl<uint64_t>(int64_t value) {
+  if (value < 0) {
+    return Status::Invalid("value outside of range");
+  }
+  return static_cast<uint64_t>(value);
+}
+
+// utility to convert R single values from (int, raw, double and int64) vectors
+// to arrow integers and floating point
 struct RConvert {
+  // ---- convert to an arrow integer
   template <typename Type, typename From>
   static enable_if_integer<Type, Result<typename Type::c_type>> Convert(Type*,
                                                                         From from) {
     return CIntFromRScalarImpl<typename Type::c_type>(from);
   }
 
+  // ---- convert R integer types to double
   template <typename Type, typename From>
   static enable_if_t<std::is_same<Type, const DoubleType>::value &&
                          !std::is_same<From, double>::value,
@@ -664,6 +248,7 @@ struct RConvert {
     return static_cast<double>(from);
   }
 
+  // ---- convert double to double
   template <typename Type, typename From>
   static enable_if_t<std::is_same<Type, const DoubleType>::value &&
                          std::is_same<From, double>::value,
@@ -672,6 +257,7 @@ struct RConvert {
     return from;
   }
 
+  // ---- convert R integer types to float
   template <typename Type, typename From>
   static enable_if_t<std::is_same<Type, const FloatType>::value &&
                          !std::is_same<From, double>::value,
@@ -687,6 +273,7 @@ struct RConvert {
     return static_cast<float>(from);
   }
 
+  // ---- convert double to float
   template <typename Type, typename From>
   static enable_if_t<std::is_same<Type, const FloatType>::value &&
                          std::is_same<From, double>::value,
@@ -695,18 +282,12 @@ struct RConvert {
     return static_cast<float>(from);
   }
 
+  // ---- convert to half float: not implemented
   template <typename Type, typename From>
   static enable_if_t<std::is_same<Type, const HalfFloatType>::value,
                      Result<typename Type::c_type>>
   Convert(Type*, From from) {
     return Status::Invalid("Cannot convert to Half Float");
-  }
-
-  template <typename Type>
-  static enable_if_t<std::is_same<Type, const BooleanType>::value,
-                     Result<typename Type::c_type>>
-  Convert(Type*, cpp11::r_bool from) {
-    return from == TRUE;
   }
 };
 
@@ -881,7 +462,20 @@ class RPrimitiveConverter<T, enable_if_t<is_time_type<T>::value>>
 
     // multiplier to get the number of seconds from the value stored in the R vector
     int difftime_multiplier;
-    RETURN_NOT_OK(GetDifftimeMultiplier(x, &difftime_multiplier));
+    std::string unit(CHAR(STRING_ELT(Rf_getAttrib(x, symbols::units), 0)));
+    if (unit == "secs") {
+      difftime_multiplier = 1;
+    } else if (unit == "mins") {
+      difftime_multiplier = 60;
+    } else if (unit == "hours") {
+      difftime_multiplier = 3600;
+    } else if (unit == "days") {
+      difftime_multiplier = 86400;
+    } else if (unit == "weeks") {
+      difftime_multiplier = 604800;
+    } else {
+      return Status::Invalid("unknown difftime unit");
+    }
 
     // then multiply the seconds by this to match the time unit
     auto multiplier =
@@ -1062,7 +656,7 @@ class RDictionaryConverter<U, enable_if_has_string_view<U>>
       return Status::Invalid("invalid R type to convert to dictionary");
     }
 
-    SEXP levels = Rf_getAttrib(x, Rf_install("levels"));
+    cpp11::strings levels(Rf_getAttrib(x, R_LevelsSymbol));
     auto append_value = [this, levels](int value) {
       SEXP s = STRING_ELT(levels, value - 1);
       return this->value_builder_->Append(CHAR(s));
@@ -1070,9 +664,6 @@ class RDictionaryConverter<U, enable_if_has_string_view<U>>
     auto append_null = [this]() { return this->value_builder_->AppendNull(); };
     return RVectorVisitor<int>::Visit(x, start, size, append_null, append_value);
   }
-
- protected:
-  RBytesView view_;
 };
 
 template <typename T, typename Enable = void>
@@ -1121,6 +712,8 @@ struct RConverterTrait<StructType> {
 class RStructConverter : public StructConverter<RConverter, RConverterTrait> {
  public:
   Status AppendRange(SEXP x, R_xlen_t start, R_xlen_t size) override {
+    // this specifically does not use this->Reserve() because
+    // children_[i]->AppendRange() below will reserve the additional capacity
     RETURN_NOT_OK(this->builder_->Reserve(size));
 
     R_xlen_t n_columns = XLENGTH(x);
@@ -1128,13 +721,12 @@ class RStructConverter : public StructConverter<RConverter, RConverterTrait> {
       return Status::Invalid("Can only convert data frames to Struct type");
     }
 
-    auto struct_builder = this->struct_builder_;
     for (R_xlen_t i = 0; i < size; i++) {
-      RETURN_NOT_OK(struct_builder->Append());
+      RETURN_NOT_OK(struct_builder_->Append());
     }
 
     for (R_xlen_t i = 0; i < n_columns; i++) {
-      RETURN_NOT_OK(this->children_[i]->AppendRange(VECTOR_ELT(x, i), start, size));
+      RETURN_NOT_OK(children_[i]->AppendRange(VECTOR_ELT(x, i), start, size));
     }
 
     return Status::OK();
