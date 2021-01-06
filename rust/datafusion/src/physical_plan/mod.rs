@@ -104,10 +104,36 @@ pub async fn collect(plan: Arc<dyn ExecutionPlan>) -> Result<Vec<RecordBatch>> {
     }
 }
 
+/// Execute the [ExecutionPlan] and collect the results in memory
+pub async fn collect_partitioned(
+    plan: Arc<dyn ExecutionPlan>,
+) -> Result<Vec<Vec<RecordBatch>>> {
+    match plan.output_partitioning().partition_count() {
+        0 => Ok(vec![]),
+        1 => {
+            let it = plan.execute(0).await?;
+            Ok(vec![common::collect(it).await?])
+        }
+        _ => {
+            let mut partitions = vec![];
+            for i in 0..plan.output_partitioning().partition_count() {
+                partitions.push(common::collect(plan.execute(i).await?).await?)
+            }
+            Ok(partitions)
+        }
+    }
+}
+
 /// Partitioning schemes supported by operators.
 #[derive(Debug, Clone)]
 pub enum Partitioning {
-    /// Unknown partitioning scheme
+    /// Allocate batches using a round-robin algorithm and the specified number of partitions
+    RoundRobinBatch(usize),
+    /// Allocate rows based on a hash of one of more expressions and the specified
+    /// number of partitions
+    /// This partitioning scheme is not yet fully supported. See https://issues.apache.org/jira/browse/ARROW-11011
+    Hash(Vec<Arc<dyn PhysicalExpr>>, usize),
+    /// Unknown partitioning scheme with a known number of partitions
     UnknownPartitioning(usize),
 }
 
@@ -116,6 +142,8 @@ impl Partitioning {
     pub fn partition_count(&self) -> usize {
         use Partitioning::*;
         match self {
+            RoundRobinBatch(n) => *n,
+            Hash(_, n) => *n,
             UnknownPartitioning(n) => *n,
         }
     }
@@ -240,6 +268,7 @@ pub trait Accumulator: Send + Sync + Debug {
 
 pub mod aggregates;
 pub mod array_expressions;
+pub mod coalesce_batches;
 pub mod common;
 pub mod csv;
 pub mod datetime_expressions;
@@ -260,6 +289,7 @@ pub mod merge;
 pub mod parquet;
 pub mod planner;
 pub mod projection;
+pub mod repartition;
 pub mod sort;
 pub mod string_expressions;
 pub mod type_coercion;

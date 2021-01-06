@@ -37,6 +37,7 @@ clone the repository and build the source code.
 git clone git@github.com:databricks/tpch-dbgen.git
 cd tpch-dbgen
 make
+export TPCH_DATA=$(pwd)
 ```
 
 Data can now be generated with the following command. Note that `-s 1` means use Scale Factor 1 or ~1 GB of
@@ -63,7 +64,7 @@ This utility does not yet provide support for changing the number of partitions 
 option is to use the following Docker image to perform the conversion from `tbl` files to CSV or Parquet.
 
 ```bash
-docker run -it ballistacompute/spark-benchmarks:0.4.0-SNAPSHOT 
+docker run -it ballistacompute/spark-benchmarks:0.4.0-SNAPSHOT
   -h, --help   Show help message
 
 Subcommand: convert-tpch

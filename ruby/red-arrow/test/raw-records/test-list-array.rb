@@ -379,6 +379,26 @@ module RawRecordsListArrayTests
     assert_equal(records, target.raw_records)
   end
 
+  def test_decimal256
+    records = [
+      [
+        [
+          BigDecimal("92.92"),
+          nil,
+          BigDecimal("29.29"),
+        ],
+      ],
+      [nil],
+    ]
+    target = build({
+                     type: :decimal256,
+                     precision: 38,
+                     scale: 2,
+                   },
+                   records)
+    assert_equal(records, target.raw_records)
+  end
+
   def test_list
     records = [
       [

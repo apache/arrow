@@ -34,6 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
@@ -49,6 +50,7 @@ import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.DecimalVector;
+import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
@@ -62,6 +64,8 @@ import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.types.FloatingPointPrecision;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -368,6 +372,56 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
       for (int i = 0; i < vector.getValueCount(); i++) {
         assertEquals(values[index++].intValue(), vector.get(i));
       }
+    }
+  }
+
+  /**
+   * Runs a simple query, and encapsulates the result into a field vector.
+   */
+  private FieldVector getQueryResult(JdbcToArrowConfig config) throws SQLException, IOException {
+    ArrowVectorIterator iterator = JdbcToArrow.sqlToArrowVectorIterator(
+        conn.createStatement().executeQuery("select real_field8 from table1"), config);
+
+    VectorSchemaRoot root = iterator.next();
+
+    // only one vector, since there is one column in the select statement.
+    assertEquals(1, root.getFieldVectors().size());
+    FieldVector result = root.getVector(0);
+
+    // make sure some data is actually read
+    assertTrue(result.getValueCount() > 0);
+
+    return result;
+  }
+
+  @Test
+  public void testJdbcToArrowCustomTypeConversion() throws SQLException, IOException {
+    JdbcToArrowConfigBuilder builder = new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE),
+        Calendar.getInstance()).setTargetBatchSize(JdbcToArrowConfig.NO_LIMIT_BATCH_SIZE);
+
+    // first experiment, using default type converter
+    JdbcToArrowConfig config = builder.build();
+
+    try (FieldVector vector = getQueryResult(config)) {
+      // the default converter translates real to float4
+      assertTrue(vector instanceof Float4Vector);
+    }
+
+    // second experiment, using customized type converter
+    builder.setJdbcToArrowTypeConverter(fieldInfo -> {
+      switch (fieldInfo.getJdbcType()) {
+        case Types.REAL:
+          // this is different from the default type converter
+          return new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE);
+        default:
+          return null;
+      }
+    });
+    config = builder.build();
+
+    try (FieldVector vector = getQueryResult(config)) {
+      // the customized converter translates real to float8
+      assertTrue(vector instanceof Float8Vector);
     }
   }
 }

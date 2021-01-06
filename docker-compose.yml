@@ -105,7 +105,6 @@ x-hierarchy:
   - fedora-cpp:
     - fedora-python
   - ubuntu-cpp:
-    - ubuntu-cpp-cmake32
     - ubuntu-c-glib:
       - ubuntu-ruby
     - ubuntu-lint
@@ -587,32 +586,6 @@ services:
 
   ##############################  Integration #################################
 
-  ubuntu-cpp-cmake32:
-    # Usage:
-    #   docker-compose build ubuntu-cpp
-    #   docker-compose build ubuntu-cpp-cmake32
-    #   docker-compose run ubuntu-cpp-cmake32
-    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp-cmake-3.2
-    build:
-      context: .
-      cache_from:
-        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp-cmake-3.2
-      dockerfile: ci/docker/linux-apt-cmake.dockerfile
-      args:
-        base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
-        cmake: 3.2.3
-    ulimits: *ulimits
-    environment:
-      <<: *ccache
-      ARROW_ORC: "OFF"
-      ARROW_GANDIVA: "OFF"
-      # uriparser requires cmake 3.3
-      ARROW_FLIGHT: "OFF"
-      # Vendor boost to avoid dealing with stale FindBoost.
-      BOOST_SOURCE: "BUNDLED"
-    volumes: *ubuntu-volumes
-    command: *cpp-command
-
   conda-python-pandas:
     # Possible $PANDAS parameters:
     #  - `latest`: latest release
@@ -867,6 +840,7 @@ services:
       args:
         base: ${R_ORG}/${R_IMAGE}:${R_TAG}
         r_dev: ${ARROW_R_DEV}
+        devtoolset_version: ${DEVTOOLSET_VERSION}
     shm_size: *shm-size
     environment:
       LIBARROW_DOWNLOAD: "false"
@@ -874,6 +848,7 @@ services:
       ARROW_R_DEV: ${ARROW_R_DEV}
       # To test for CRAN release, delete ^^ these two env vars so we download the Apache release
       ARROW_USE_PKG_CONFIG: "false"
+      DEVTOOLSET_VERSION: ${DEVTOOLSET_VERSION}
     volumes:
       - .:/arrow:delegated
     command: >

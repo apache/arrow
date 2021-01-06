@@ -21,6 +21,11 @@ class TestLargeStringDataType < Test::Unit::TestCase
     assert_equal(Arrow::Type::LARGE_STRING, data_type.id)
   end
 
+  def test_name
+    data_type = Arrow::LargeStringDataType.new
+    assert_equal("large_utf8", data_type.name)
+  end
+
   def test_to_s
     data_type = Arrow::LargeStringDataType.new
     assert_equal("large_string", data_type.to_s)

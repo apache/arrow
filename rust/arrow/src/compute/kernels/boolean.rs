@@ -179,7 +179,7 @@ pub fn is_null(input: &Array) -> Result<BooleanArray> {
             let len_bytes = ceil(len, 8);
             MutableBuffer::new(len_bytes)
                 .with_bitset(len_bytes, false)
-                .freeze()
+                .into()
         }
         Some(buffer) => buffer_unary_not(buffer, input.offset(), len),
     };
@@ -213,7 +213,7 @@ pub fn is_not_null(input: &Array) -> Result<BooleanArray> {
             let len_bytes = ceil(len, 8);
             MutableBuffer::new(len_bytes)
                 .with_bitset(len_bytes, true)
-                .freeze()
+                .into()
         }
         Some(buffer) => buffer.bit_slice(input.offset(), len),
     };
@@ -262,9 +262,9 @@ where
     let right_combo_buffer = match right.data().null_bitmap() {
         Some(right_bitmap) => {
             // NOTE: right values and bitmaps are combined and stay at bit offset right.offset()
-            (&right.values() & &right_bitmap.bits).ok().map(|b| b.not())
+            (right.values() & &right_bitmap.bits).ok().map(|b| b.not())
         }
-        None => Some(!&right.values()),
+        None => Some(!right.values()),
     };
 
     // AND of original left null bitmap with right expression

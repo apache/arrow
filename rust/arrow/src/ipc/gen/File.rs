@@ -42,6 +42,7 @@ impl std::fmt::Debug for Block {
     }
 }
 
+impl flatbuffers::SimpleToVerifyInSlice for Block {}
 impl flatbuffers::SafeSliceAccess for Block {}
 impl<'a> flatbuffers::Follow<'a> for Block {
     type Inner = &'a Block;
@@ -79,6 +80,16 @@ impl<'b> flatbuffers::Push for &'b Block {
     }
 }
 
+impl<'a> flatbuffers::Verifiable for Block {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        v.in_buffer::<Self>(pos)
+    }
+}
 impl Block {
     pub fn new(_offset: i64, _metaDataLength: i32, _bodyLength: i64) -> Self {
         Block {
@@ -166,12 +177,12 @@ impl<'a> Footer<'a> {
     #[inline]
     pub fn schema(&self) -> Option<Schema<'a>> {
         self._tab
-            .get::<flatbuffers::ForwardsUOffset<Schema<'a>>>(Footer::VT_SCHEMA, None)
+            .get::<flatbuffers::ForwardsUOffset<Schema>>(Footer::VT_SCHEMA, None)
     }
     #[inline]
     pub fn dictionaries(&self) -> Option<&'a [Block]> {
         self._tab
-            .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<Block>>>(
+            .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, Block>>>(
                 Footer::VT_DICTIONARIES,
                 None,
             )
@@ -180,7 +191,7 @@ impl<'a> Footer<'a> {
     #[inline]
     pub fn recordBatches(&self) -> Option<&'a [Block]> {
         self._tab
-            .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<Block>>>(
+            .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, Block>>>(
                 Footer::VT_RECORDBATCHES,
                 None,
             )
@@ -192,11 +203,42 @@ impl<'a> Footer<'a> {
         &self,
     ) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<KeyValue<'a>>>> {
         self._tab.get::<flatbuffers::ForwardsUOffset<
-            flatbuffers::Vector<flatbuffers::ForwardsUOffset<KeyValue<'a>>>,
+            flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<KeyValue>>,
         >>(Footer::VT_CUSTOM_METADATA, None)
     }
 }
 
+impl flatbuffers::Verifiable for Footer<'_> {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        v.visit_table(pos)?
+            .visit_field::<MetadataVersion>(&"version", Self::VT_VERSION, false)?
+            .visit_field::<flatbuffers::ForwardsUOffset<Schema>>(
+                &"schema",
+                Self::VT_SCHEMA,
+                false,
+            )?
+            .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, Block>>>(
+                &"dictionaries",
+                Self::VT_DICTIONARIES,
+                false,
+            )?
+            .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, Block>>>(
+                &"recordBatches",
+                Self::VT_RECORDBATCHES,
+                false,
+            )?
+            .visit_field::<flatbuffers::ForwardsUOffset<
+                flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<KeyValue>>,
+            >>(&"custom_metadata", Self::VT_CUSTOM_METADATA, false)?
+            .finish();
+        Ok(())
+    }
+}
 pub struct FooterArgs<'a> {
     pub version: MetadataVersion,
     pub schema: Option<flatbuffers::WIPOffset<Schema<'a>>>,
@@ -302,15 +344,79 @@ impl std::fmt::Debug for Footer<'_> {
     }
 }
 #[inline]
+#[deprecated(since = "1.13", note = "Deprecated in favor of `root_as...` methods.")]
 pub fn get_root_as_footer<'a>(buf: &'a [u8]) -> Footer<'a> {
-    flatbuffers::get_root::<Footer<'a>>(buf)
+    unsafe { flatbuffers::root_unchecked::<Footer<'a>>(buf) }
 }
 
 #[inline]
+#[deprecated(since = "1.13", note = "Deprecated in favor of `root_as...` methods.")]
 pub fn get_size_prefixed_root_as_footer<'a>(buf: &'a [u8]) -> Footer<'a> {
-    flatbuffers::get_size_prefixed_root::<Footer<'a>>(buf)
+    unsafe { flatbuffers::size_prefixed_root_unchecked::<Footer<'a>>(buf) }
 }
 
+#[inline]
+/// Verifies that a buffer of bytes contains a `Footer`
+/// and returns it.
+/// Note that verification is still experimental and may not
+/// catch every error, or be maximally performant. For the
+/// previous, unchecked, behavior use
+/// `root_as_footer_unchecked`.
+pub fn root_as_footer(buf: &[u8]) -> Result<Footer, flatbuffers::InvalidFlatbuffer> {
+    flatbuffers::root::<Footer>(buf)
+}
+#[inline]
+/// Verifies that a buffer of bytes contains a size prefixed
+/// `Footer` and returns it.
+/// Note that verification is still experimental and may not
+/// catch every error, or be maximally performant. For the
+/// previous, unchecked, behavior use
+/// `size_prefixed_root_as_footer_unchecked`.
+pub fn size_prefixed_root_as_footer(
+    buf: &[u8],
+) -> Result<Footer, flatbuffers::InvalidFlatbuffer> {
+    flatbuffers::size_prefixed_root::<Footer>(buf)
+}
+#[inline]
+/// Verifies, with the given options, that a buffer of bytes
+/// contains a `Footer` and returns it.
+/// Note that verification is still experimental and may not
+/// catch every error, or be maximally performant. For the
+/// previous, unchecked, behavior use
+/// `root_as_footer_unchecked`.
+pub fn root_as_footer_with_opts<'b, 'o>(
+    opts: &'o flatbuffers::VerifierOptions,
+    buf: &'b [u8],
+) -> Result<Footer<'b>, flatbuffers::InvalidFlatbuffer> {
+    flatbuffers::root_with_opts::<Footer<'b>>(opts, buf)
+}
+#[inline]
+/// Verifies, with the given verifier options, that a buffer of
+/// bytes contains a size prefixed `Footer` and returns
+/// it. Note that verification is still experimental and may not
+/// catch every error, or be maximally performant. For the
+/// previous, unchecked, behavior use
+/// `root_as_footer_unchecked`.
+pub fn size_prefixed_root_as_footer_with_opts<'b, 'o>(
+    opts: &'o flatbuffers::VerifierOptions,
+    buf: &'b [u8],
+) -> Result<Footer<'b>, flatbuffers::InvalidFlatbuffer> {
+    flatbuffers::size_prefixed_root_with_opts::<Footer<'b>>(opts, buf)
+}
+#[inline]
+/// Assumes, without verification, that a buffer of bytes contains a Footer and returns it.
+/// # Safety
+/// Callers must trust the given bytes do indeed contain a valid `Footer`.
+pub unsafe fn root_as_footer_unchecked(buf: &[u8]) -> Footer {
+    flatbuffers::root_unchecked::<Footer>(buf)
+}
+#[inline]
+/// Assumes, without verification, that a buffer of bytes contains a size prefixed Footer and returns it.
+/// # Safety
+/// Callers must trust the given bytes do indeed contain a valid size prefixed `Footer`.
+pub unsafe fn size_prefixed_root_as_footer_unchecked(buf: &[u8]) -> Footer {
+    flatbuffers::size_prefixed_root_unchecked::<Footer>(buf)
+}
 #[inline]
 pub fn finish_footer_buffer<'a, 'b>(
     fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>,

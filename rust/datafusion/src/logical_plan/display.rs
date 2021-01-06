@@ -100,7 +100,7 @@ impl<'a, 'b> PlanVisitor for IndentVisitor<'a, 'b> {
 ///      format!("{}", display_schema(&schema))
 ///  );
 /// ```
-pub fn display_schema<'a>(schema: &'a Schema) -> impl fmt::Display + 'a {
+pub fn display_schema(schema: &Schema) -> impl fmt::Display + '_ {
     struct Wrapper<'a>(&'a Schema);
 
     impl<'a> fmt::Display for Wrapper<'a> {

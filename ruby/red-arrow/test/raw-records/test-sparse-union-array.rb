@@ -335,6 +335,20 @@ module RawRecordsSparseUnionArrayTests
     assert_equal(records, target.raw_records)
   end
 
+  def test_decimal256
+    records = [
+      [{"0" => BigDecimal("92.92")}],
+      [{"1" => nil}],
+    ]
+    target = build({
+                     type: :decimal256,
+                     precision: 38,
+                     scale: 2,
+                   },
+                   records)
+    assert_equal(records, target.raw_records)
+  end
+
   def test_list
     records = [
       [{"0" => [true, nil, false]}],

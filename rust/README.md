@@ -92,14 +92,31 @@ This populates data in two git submodules:
 - `../cpp/submodules/parquet_testing/data` (sourced from https://github.com/apache/parquet-testing.git)
 - `../testing` (sourced from https://github.com/apache/arrow-testing)
 
-The following Env vars are required to run `cargo test`, examples, etc.
+By default, `cargo test` will look for these directories at their
+standard location. The following Env vars can be used to override the
+location should you choose
 
 ```bash
+# Optionaly specify a different location for test data
 export PARQUET_TEST_DATA=$(cd ../cpp/submodules/parquet-testing/data; pwd)
 export ARROW_TEST_DATA=$(cd ../testing/data; pwd)
 ```
 
 From here on, this is a pure Rust project and `cargo` can be used to run tests, benchmarks, docs and examples as usual.
+
+
+### Running the tests
+
+Run tests using the Rust standard `cargo test` command:
+
+```bash
+# run all tests.
+cargo test
+
+
+# run only tests for the arrow crate
+cargo test -p arrow
+```
 
 ## Code Formatting
 
@@ -128,3 +145,28 @@ Search for `allow(clippy::` in the codebase to identify lints that are ignored/a
 * If you are introducing a line that returns a lint warning or error, you may disable the lint on that line.
 * If you have several lints on a function or module, you may disable the lint on the function or module.
 * If a lint is pervasive across multiple modules, you may disable it at the crate level.
+
+## Git Pre-Commit Hook
+
+We can use [git pre-commit hook](https://git-scm.com/book/en/v2/Customizing-Git-Git-Hooks) to automate various kinds of git pre-commit checking/formatting.
+
+Suppose you are in the root directory of the project.
+
+First check if the file already exists:
+
+```bash
+ls -l .git/hooks/pre-commit
+```
+
+If the file already exists, to avoid mistakenly **overriding**, you MAY have to check
+the link source or file content. Else if not exist, let's safely soft link [pre-commit.sh](pre-commit.sh) as file `.git/hooks/pre-commit`:
+
+```
+ln -s  ../../rust/pre-commit.sh .git/hooks/pre-commit
+```
+
+If sometimes you want to commit without checking, just run `git commit` with `--no-verify`:
+
+```bash
+git commit --no-verify -m "... commit message ..."
+```

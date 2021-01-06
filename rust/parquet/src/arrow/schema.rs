@@ -26,7 +26,7 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use arrow::datatypes::{DataType, DateUnit, Field, Schema, TimeUnit};
+use arrow::datatypes::{DataType, DateUnit, Field, IntervalUnit, Schema, TimeUnit};
 use arrow::ipc::writer;
 
 use crate::basic::{LogicalType, Repetition, Type as PhysicalType};
@@ -35,25 +35,21 @@ use crate::file::{metadata::KeyValue, properties::WriterProperties};
 use crate::schema::types::{ColumnDescriptor, SchemaDescriptor, Type, TypePtr};
 
 /// Convert Parquet schema to Arrow schema including optional metadata.
-/// Attempts to decode any existing Arrow shcema metadata, falling back
+/// Attempts to decode any existing Arrow schema metadata, falling back
 /// to converting the Parquet schema column-wise
 pub fn parquet_to_arrow_schema(
     parquet_schema: &SchemaDescriptor,
     key_value_metadata: &Option<Vec<KeyValue>>,
 ) -> Result<Schema> {
     let mut metadata = parse_key_value_metadata(key_value_metadata).unwrap_or_default();
-    let arrow_schema_metadata = metadata
+    metadata
         .remove(super::ARROW_SCHEMA_META_KEY)
-        .map(|encoded| get_arrow_schema_from_metadata(&encoded));
-
-    match arrow_schema_metadata {
-        Some(Some(schema)) => Ok(schema),
-        _ => parquet_to_arrow_schema_by_columns(
+        .map(|encoded| get_arrow_schema_from_metadata(&encoded))
+        .unwrap_or(parquet_to_arrow_schema_by_columns(
             parquet_schema,
             0..parquet_schema.columns().len(),
             key_value_metadata,
-        ),
-    }
+        ))
 }
 
 /// Convert parquet schema to arrow schema including optional metadata,
@@ -123,7 +119,7 @@ where
     let arrow_schema_metadata = metadata
         .remove(super::ARROW_SCHEMA_META_KEY)
         .map(|encoded| get_arrow_schema_from_metadata(&encoded))
-        .unwrap_or_default();
+        .map_or(Ok(None), |v| v.map(Some))?;
 
     // add the Arrow metadata to the Parquet metadata
     if let Some(arrow_schema) = &arrow_schema_metadata {
@@ -175,7 +171,7 @@ where
 }
 
 /// Try to convert Arrow schema metadata into a schema
-fn get_arrow_schema_from_metadata(encoded_meta: &str) -> Option<Schema> {
+fn get_arrow_schema_from_metadata(encoded_meta: &str) -> Result<Schema> {
     let decoded = base64::decode(encoded_meta);
     match decoded {
         Ok(bytes) => {
@@ -184,20 +180,28 @@ fn get_arrow_schema_from_metadata(encoded_meta: &str) -> Option<Schema> {
             } else {
                 bytes.as_slice()
             };
-            let message = arrow::ipc::get_root_as_message(slice);
-            message
-                .header_as_schema()
-                .map(arrow::ipc::convert::fb_to_schema)
+            match arrow::ipc::root_as_message(slice) {
+                Ok(message) => message
+                    .header_as_schema()
+                    .map(arrow::ipc::convert::fb_to_schema)
+                    .ok_or(ArrowError("the message is not Arrow Schema".to_string())),
+                Err(err) => {
+                    // The flatbuffers implementation returns an error on verification error.
+                    Err(ArrowError(format!(
+                        "Unable to get root as message stored in {}: {:?}",
+                        super::ARROW_SCHEMA_META_KEY,
+                        err
+                    )))
+                }
+            }
         }
         Err(err) => {
             // The C++ implementation returns an error if the schema can't be parsed.
-            // To prevent this, we explicitly log this, then compute the schema without the metadata
-            eprintln!(
+            Err(ArrowError(format!(
                 "Unable to decode the encoded schema stored in {}, {:?}",
                 super::ARROW_SCHEMA_META_KEY,
                 err
-            );
-            None
+            )))
         }
     }
 }
@@ -368,6 +372,7 @@ fn arrow_to_parquet_type(field: &Field) -> Result<Type> {
             .with_logical_type(LogicalType::DATE)
             .with_repetition(repetition)
             .build(),
+        // date64 is cast to date32
         DataType::Date64(_) => Type::primitive_type_builder(name, PhysicalType::INT32)
             .with_logical_type(LogicalType::DATE)
             .with_repetition(repetition)
@@ -579,6 +584,7 @@ impl ParquetTypeConverter<'_> {
             LogicalType::INT_32 => Ok(DataType::Int32),
             LogicalType::DATE => Ok(DataType::Date32(DateUnit::Day)),
             LogicalType::TIME_MILLIS => Ok(DataType::Time32(TimeUnit::Millisecond)),
+            LogicalType::DECIMAL => Ok(self.to_decimal()),
             other => Err(ArrowError(format!(
                 "Unable to convert parquet INT32 logical type {}",
                 other
@@ -598,6 +604,7 @@ impl ParquetTypeConverter<'_> {
             LogicalType::TIMESTAMP_MICROS => {
                 Ok(DataType::Timestamp(TimeUnit::Microsecond, None))
             }
+            LogicalType::DECIMAL => Ok(self.to_decimal()),
             other => Err(ArrowError(format!(
                 "Unable to convert parquet INT64 logical type {}",
                 other
@@ -606,18 +613,37 @@ impl ParquetTypeConverter<'_> {
     }
 
     fn from_fixed_len_byte_array(&self) -> Result<DataType> {
-        let byte_width = match self.schema {
-            Type::PrimitiveType {
-                ref type_length, ..
-            } => *type_length,
-            _ => {
-                return Err(ArrowError(
-                    "Expected a physical type, not a group type".to_string(),
-                ))
+        match self.schema.get_basic_info().logical_type() {
+            LogicalType::DECIMAL => Ok(self.to_decimal()),
+            LogicalType::INTERVAL => {
+                // There is currently no reliable way of determining which IntervalUnit
+                // to return. Thus without the original Arrow schema, the results
+                // would be incorrect if all 12 bytes of the interval are populated
+                Ok(DataType::Interval(IntervalUnit::DayTime))
             }
-        };
+            _ => {
+                let byte_width = match self.schema {
+                    Type::PrimitiveType {
+                        ref type_length, ..
+                    } => *type_length,
+                    _ => {
+                        return Err(ArrowError(
+                            "Expected a physical type, not a group type".to_string(),
+                        ))
+                    }
+                };
 
-        Ok(DataType::FixedSizeBinary(byte_width))
+                Ok(DataType::FixedSizeBinary(byte_width))
+            }
+        }
+    }
+
+    fn to_decimal(&self) -> DataType {
+        assert!(self.schema.is_primitive());
+        DataType::Decimal(
+            self.schema.get_precision() as usize,
+            self.schema.get_scale() as usize,
+        )
     }
 
     fn from_byte_array(&self) -> Result<DataType> {

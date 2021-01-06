@@ -36,6 +36,7 @@ jobs:
         export R_ORG={{ r_org }}
         export R_IMAGE={{ r_image }}
         export R_TAG={{ r_tag }}
+        export DEVTOOLSET_VERSION={{ devtoolset_version|default("-1") }}
         docker-compose pull --ignore-pull-failures r
         docker-compose build r
       displayName: Docker build

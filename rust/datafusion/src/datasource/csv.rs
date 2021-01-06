@@ -25,7 +25,7 @@
 //! use datafusion::datasource::TableProvider;
 //! use datafusion::datasource::csv::{CsvFile, CsvReadOptions};
 //!
-//! let testdata = std::env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+//! let testdata = arrow::util::test_util::arrow_test_data();
 //! let csvdata = CsvFile::try_new(
 //!     &format!("{}/csv/aggregate_test_100.csv", testdata),
 //!     CsvReadOptions::new().delimiter(b'|'),
@@ -41,6 +41,7 @@ use std::sync::Arc;
 use crate::datasource::datasource::Statistics;
 use crate::datasource::TableProvider;
 use crate::error::{DataFusionError, Result};
+use crate::logical_plan::Expr;
 use crate::physical_plan::csv::CsvExec;
 pub use crate::physical_plan::csv::CsvReadOptions;
 use crate::physical_plan::{common, ExecutionPlan};
@@ -95,6 +96,7 @@ impl TableProvider for CsvFile {
         &self,
         projection: &Option<Vec<usize>>,
         batch_size: usize,
+        _filters: &[Expr],
     ) -> Result<Arc<dyn ExecutionPlan>> {
         Ok(Arc::new(CsvExec::try_new(
             &self.path,

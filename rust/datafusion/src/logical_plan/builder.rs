@@ -35,7 +35,7 @@ use super::dfschema::ToDFSchema;
 use super::{
     col, exprlist_to_fields, Expr, JoinType, LogicalPlan, PlanType, StringifiedPlan,
 };
-use crate::logical_plan::{DFField, DFSchema, DFSchemaRef};
+use crate::logical_plan::{DFField, DFSchema, DFSchemaRef, Partitioning};
 use std::collections::HashSet;
 
 /// Builder for logical plans
@@ -80,8 +80,12 @@ impl LogicalPlanBuilder {
     }
 
     /// Scan a Parquet data source
-    pub fn scan_parquet(path: &str, projection: Option<Vec<usize>>) -> Result<Self> {
-        let provider = Arc::new(ParquetTable::try_new(path)?);
+    pub fn scan_parquet(
+        path: &str,
+        projection: Option<Vec<usize>>,
+        max_concurrency: usize,
+    ) -> Result<Self> {
+        let provider = Arc::new(ParquetTable::try_new(path, max_concurrency)?);
         Self::scan("", provider, projection)
     }
 
@@ -115,6 +119,7 @@ impl LogicalPlanBuilder {
             source: provider,
             projected_schema,
             projection,
+            filters: vec![],
         };
 
         Ok(Self::from(&table_scan))
@@ -204,6 +209,14 @@ impl LogicalPlanBuilder {
                 schema: DFSchemaRef::new(join_schema),
             }))
         }
+    }
+
+    /// Repartition
+    pub fn repartition(&self, partitioning_scheme: Partitioning) -> Result<Self> {
+        Ok(Self::from(&LogicalPlan::Repartition {
+            input: Arc::new(self.plan.clone()),
+            partitioning_scheme,
+        }))
     }
 
     /// Apply an aggregate

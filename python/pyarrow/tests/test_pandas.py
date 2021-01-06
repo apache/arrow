@@ -416,7 +416,7 @@ class TestConvertMetadata:
                 pa.Table.from_pandas(df)
 
             expected = df.copy()
-            expected.columns = df.columns.astype(str)
+            expected.columns = df.columns.values.astype(str)
             with pytest.warns(UserWarning):
                 _check_pandas_roundtrip(df, expected=expected,
                                         preserve_index=True)
@@ -3917,7 +3917,12 @@ def test_convert_to_extension_array(monkeypatch):
     tm.assert_frame_equal(result, df2)
 
     # monkeypatch pandas Int64Dtype to *not* have the protocol method
-    monkeypatch.delattr(pd.core.arrays.integer._IntegerDtype, "__from_arrow__")
+    if LooseVersion(pd.__version__) < "1.3.0.dev":
+        monkeypatch.delattr(
+            pd.core.arrays.integer._IntegerDtype, "__from_arrow__")
+    else:
+        monkeypatch.delattr(
+            pd.core.arrays.integer.NumericDtype, "__from_arrow__")
     # Int64Dtype has no __from_arrow__ -> use normal conversion
     result = table.to_pandas()
     assert len(result._data.blocks) == 1
@@ -3969,10 +3974,12 @@ def test_conversion_extensiontype_to_extensionarray(monkeypatch):
     # (remove the version added above and the actual version for recent pandas)
     if LooseVersion(pd.__version__) < "0.26.0.dev":
         monkeypatch.delattr(pd.Int64Dtype, "__from_arrow__")
+    elif LooseVersion(pd.__version__) < "1.3.0.dev":
+        monkeypatch.delattr(
+            pd.core.arrays.integer._IntegerDtype, "__from_arrow__")
     else:
         monkeypatch.delattr(
-            pd.core.arrays.integer._IntegerDtype, "__from_arrow__",
-            raising=False)
+            pd.core.arrays.integer.NumericDtype, "__from_arrow__")
 
     result = arr.to_pandas()
     assert not isinstance(result._data.blocks[0], _int.ExtensionBlock)

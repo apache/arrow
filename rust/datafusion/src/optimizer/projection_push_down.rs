@@ -182,7 +182,7 @@ fn optimize_plan(
                     true,
                 )?),
 
-                join_type: join_type.clone(),
+                join_type: *join_type,
                 on: on.clone(),
                 schema: schema.clone(),
             })
@@ -243,6 +243,7 @@ fn optimize_plan(
             table_name,
             source,
             projection,
+            filters,
             ..
         } => {
             let (projection, projected_schema) = get_projected_schema(
@@ -258,6 +259,7 @@ fn optimize_plan(
                 source: source.clone(),
                 projection: Some(projection),
                 projected_schema,
+                filters: filters.clone(),
             })
         }
         LogicalPlan::Explain {
@@ -273,6 +275,7 @@ fn optimize_plan(
         // expressions in this node to the list of required columns
         LogicalPlan::Limit { .. }
         | LogicalPlan::Filter { .. }
+        | LogicalPlan::Repartition { .. }
         | LogicalPlan::EmptyRelation { .. }
         | LogicalPlan::Sort { .. }
         | LogicalPlan::CreateExternalTable { .. }

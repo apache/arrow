@@ -23,6 +23,7 @@ use crate::arrow::schema::{
     parquet_to_arrow_schema_by_columns, parquet_to_arrow_schema_by_root_columns,
 };
 use crate::errors::{ParquetError, Result};
+use crate::file::metadata::ParquetMetaData;
 use crate::file::reader::FileReader;
 use arrow::datatypes::{DataType as ArrowType, Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;
@@ -154,6 +155,11 @@ impl ParquetFileArrowReader {
     pub fn new(file_reader: Arc<dyn FileReader>) -> Self {
         Self { file_reader }
     }
+
+    // Expose the reader metadata
+    pub fn get_metadata(&mut self) -> ParquetMetaData {
+        self.file_reader.metadata().clone()
+    }
 }
 
 pub struct ParquetRecordBatchReader {
@@ -229,7 +235,8 @@ impl ParquetRecordBatchReader {
 mod tests {
     use crate::arrow::arrow_reader::{ArrowReader, ParquetFileArrowReader};
     use crate::arrow::converter::{
-        Converter, FixedSizeArrayConverter, FromConverter, Utf8ArrayConverter,
+        Converter, FixedSizeArrayConverter, FromConverter, IntervalDayTimeArrayConverter,
+        Utf8ArrayConverter,
     };
     use crate::column::writer::get_typed_column_writer_mut;
     use crate::data_type::{
@@ -243,16 +250,13 @@ mod tests {
     use crate::schema::parser::parse_message_type;
     use crate::schema::types::TypePtr;
     use crate::util::test_common::{get_temp_filename, RandGen};
-    use arrow::array::{
-        Array, BooleanArray, FixedSizeBinaryArray, StringArray, StructArray,
-    };
+    use arrow::array::*;
     use arrow::record_batch::RecordBatchReader;
     use rand::RngCore;
     use serde_json::json;
     use serde_json::Value::{Array as JArray, Null as JNull, Object as JObject};
     use std::cmp::min;
     use std::convert::TryFrom;
-    use std::env;
     use std::fs::File;
     use std::path::{Path, PathBuf};
     use std::sync::Arc;
@@ -356,6 +360,23 @@ mod tests {
         >(20, message_type, &converter);
     }
 
+    #[test]
+    fn test_interval_day_time_column_reader() {
+        let message_type = "
+        message test_schema {
+          REQUIRED FIXED_LEN_BYTE_ARRAY (12) leaf (INTERVAL);
+        }
+        ";
+
+        let converter = IntervalDayTimeArrayConverter {};
+        run_single_column_reader_tests::<
+            FixedLenByteArrayType,
+            IntervalDayTimeArray,
+            IntervalDayTimeArrayConverter,
+            RandFixedLenGen,
+        >(12, message_type, &converter);
+    }
+
     struct RandUtf8Gen {}
 
     impl RandGen<ByteArrayType> for RandUtf8Gen {
@@ -379,6 +400,38 @@ mod tests {
             Utf8ArrayConverter,
             RandUtf8Gen,
         >(2, message_type, &converter);
+    }
+
+    #[test]
+    fn test_read_decimal_file() {
+        use arrow::array::DecimalArray;
+        let testdata = arrow::util::test_util::parquet_test_data();
+        let file_variants = vec![("fixed_length", 25), ("int32", 4), ("int64", 10)];
+        for (prefix, target_precision) in file_variants {
+            let path = format!("{}/{}_decimal.parquet", testdata, prefix);
+            let parquet_reader =
+                SerializedFileReader::try_from(File::open(&path).unwrap()).unwrap();
+            let mut arrow_reader = ParquetFileArrowReader::new(Arc::new(parquet_reader));
+
+            let mut record_reader = arrow_reader.get_record_reader(32).unwrap();
+
+            let batch = record_reader.next().unwrap().unwrap();
+            assert_eq!(batch.num_rows(), 24);
+            let col = batch
+                .column(0)
+                .as_any()
+                .downcast_ref::<DecimalArray>()
+                .unwrap();
+
+            let expected = 1..25;
+
+            assert_eq!(col.precision(), target_precision);
+            assert_eq!(col.scale(), 2);
+
+            for (i, v) in expected.enumerate() {
+                assert_eq!(col.value(i), v * 100_i128);
+            }
+        }
     }
 
     /// Parameters for single_column_reader_test
@@ -558,7 +611,7 @@ mod tests {
 
     fn get_test_file(file_name: &str) -> File {
         let mut path = PathBuf::new();
-        path.push(env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined!"));
+        path.push(arrow::util::test_util::arrow_test_data());
         path.push(file_name);
 
         File::open(path.as_path()).expect("File not found!")

@@ -20,8 +20,9 @@
 use std::{convert::TryFrom, fmt, sync::Arc};
 
 use arrow::array::{
-    Int16Builder, Int32Builder, Int64Builder, Int8Builder, ListBuilder, UInt16Builder,
-    UInt32Builder, UInt64Builder, UInt8Builder,
+    Int16Builder, Int32Builder, Int64Builder, Int8Builder, ListBuilder,
+    TimestampMicrosecondArray, TimestampNanosecondArray, UInt16Builder, UInt32Builder,
+    UInt64Builder, UInt8Builder,
 };
 use arrow::{
     array::ArrayRef,
@@ -37,6 +38,7 @@ use arrow::{
 };
 
 use crate::error::{DataFusionError, Result};
+use arrow::datatypes::TimeUnit;
 
 /// Represents a dynamically typed, nullable single value.
 /// This is the single-valued counter-part of arrow’s `Array`.
@@ -72,6 +74,10 @@ pub enum ScalarValue {
     List(Option<Vec<ScalarValue>>, DataType),
     /// Date stored as a signed 32bit int
     Date32(Option<i32>),
+    /// Timestamp Microseconds
+    TimeMicrosecond(Option<i64>),
+    /// Timestamp Nanoseconds
+    TimeNanosecond(Option<i64>),
 }
 
 macro_rules! typed_cast {
@@ -131,6 +137,12 @@ impl ScalarValue {
             ScalarValue::Int16(_) => DataType::Int16,
             ScalarValue::Int32(_) => DataType::Int32,
             ScalarValue::Int64(_) => DataType::Int64,
+            ScalarValue::TimeMicrosecond(_) => {
+                DataType::Timestamp(TimeUnit::Microsecond, None)
+            }
+            ScalarValue::TimeNanosecond(_) => {
+                DataType::Timestamp(TimeUnit::Nanosecond, None)
+            }
             ScalarValue::Float32(_) => DataType::Float32,
             ScalarValue::Float64(_) => DataType::Float64,
             ScalarValue::Utf8(_) => DataType::Utf8,
@@ -163,20 +175,23 @@ impl ScalarValue {
 
     /// whether this value is null or not.
     pub fn is_null(&self) -> bool {
-        matches!(*self, ScalarValue::Boolean(None)
-            | ScalarValue::UInt8(None)
-            | ScalarValue::UInt16(None)
-            | ScalarValue::UInt32(None)
-            | ScalarValue::UInt64(None)
-            | ScalarValue::Int8(None)
-            | ScalarValue::Int16(None)
-            | ScalarValue::Int32(None)
-            | ScalarValue::Int64(None)
-            | ScalarValue::Float32(None)
-            | ScalarValue::Float64(None)
-            | ScalarValue::Utf8(None)
-            | ScalarValue::LargeUtf8(None)
-            | ScalarValue::List(None, _))
+        matches!(
+            *self,
+            ScalarValue::Boolean(None)
+                | ScalarValue::UInt8(None)
+                | ScalarValue::UInt16(None)
+                | ScalarValue::UInt32(None)
+                | ScalarValue::UInt64(None)
+                | ScalarValue::Int8(None)
+                | ScalarValue::Int16(None)
+                | ScalarValue::Int32(None)
+                | ScalarValue::Int64(None)
+                | ScalarValue::Float32(None)
+                | ScalarValue::Float64(None)
+                | ScalarValue::Utf8(None)
+                | ScalarValue::LargeUtf8(None)
+                | ScalarValue::List(None, _)
+        )
     }
 
     /// Converts a scalar value into an 1-row array.
@@ -202,6 +217,12 @@ impl ScalarValue {
             ScalarValue::UInt16(e) => Arc::new(UInt16Array::from(vec![*e; size])),
             ScalarValue::UInt32(e) => Arc::new(UInt32Array::from(vec![*e; size])),
             ScalarValue::UInt64(e) => Arc::new(UInt64Array::from(vec![*e; size])),
+            ScalarValue::TimeMicrosecond(e) => {
+                Arc::new(TimestampMicrosecondArray::from(vec![*e]))
+            }
+            ScalarValue::TimeNanosecond(e) => {
+                Arc::new(TimestampNanosecondArray::from_opt_vec(vec![*e], None))
+            }
             ScalarValue::Utf8(e) => Arc::new(StringArray::from(vec![e.as_deref(); size])),
             ScalarValue::LargeUtf8(e) => {
                 Arc::new(LargeStringArray::from(vec![e.as_deref(); size]))
@@ -437,6 +458,8 @@ impl fmt::Display for ScalarValue {
             ScalarValue::UInt16(e) => format_option!(f, e)?,
             ScalarValue::UInt32(e) => format_option!(f, e)?,
             ScalarValue::UInt64(e) => format_option!(f, e)?,
+            ScalarValue::TimeMicrosecond(e) => format_option!(f, e)?,
+            ScalarValue::TimeNanosecond(e) => format_option!(f, e)?,
             ScalarValue::Utf8(e) => format_option!(f, e)?,
             ScalarValue::LargeUtf8(e) => format_option!(f, e)?,
             ScalarValue::List(e, _) => match e {
@@ -470,8 +493,12 @@ impl fmt::Debug for ScalarValue {
             ScalarValue::UInt16(_) => write!(f, "UInt16({})", self),
             ScalarValue::UInt32(_) => write!(f, "UInt32({})", self),
             ScalarValue::UInt64(_) => write!(f, "UInt64({})", self),
-            ScalarValue::Utf8(_) => write!(f, "Utf8(\"{}\")", self),
-            ScalarValue::LargeUtf8(_) => write!(f, "LargeUtf8(\"{}\")", self),
+            ScalarValue::TimeMicrosecond(_) => write!(f, "TimeMicrosecond({})", self),
+            ScalarValue::TimeNanosecond(_) => write!(f, "TimeNanosecond({})", self),
+            ScalarValue::Utf8(None) => write!(f, "Utf8({})", self),
+            ScalarValue::Utf8(Some(_)) => write!(f, "Utf8(\"{}\")", self),
+            ScalarValue::LargeUtf8(None) => write!(f, "LargeUtf8({})", self),
+            ScalarValue::LargeUtf8(Some(_)) => write!(f, "LargeUtf8(\"{}\")", self),
             ScalarValue::List(_, _) => write!(f, "List([{}])", self),
             ScalarValue::Date32(_) => write!(f, "Date32(\"{}\")", self),
         }

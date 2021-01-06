@@ -96,7 +96,8 @@ impl<'a> flatbuffers::Follow<'a> for MetadataVersion {
     type Inner = Self;
     #[inline]
     fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-        Self(flatbuffers::read_scalar_at::<i16>(buf, loc))
+        let b = flatbuffers::read_scalar_at::<i16>(buf, loc);
+        Self(b)
     }
 }
 
@@ -111,14 +112,28 @@ impl flatbuffers::Push for MetadataVersion {
 impl flatbuffers::EndianScalar for MetadataVersion {
     #[inline]
     fn to_little_endian(self) -> Self {
-        Self(i16::to_le(self.0))
+        let b = i16::to_le(self.0);
+        Self(b)
     }
     #[inline]
     fn from_little_endian(self) -> Self {
-        Self(i16::from_le(self.0))
+        let b = i16::from_le(self.0);
+        Self(b)
     }
 }
 
+impl<'a> flatbuffers::Verifiable for MetadataVersion {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        i16::run_verifier(v, pos)
+    }
+}
+
+impl flatbuffers::SimpleToVerifyInSlice for MetadataVersion {}
 #[deprecated(
     since = "1.13",
     note = "Use associated constants instead. This will no longer be generated in 2021."
@@ -202,7 +217,8 @@ impl<'a> flatbuffers::Follow<'a> for Feature {
     type Inner = Self;
     #[inline]
     fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-        Self(flatbuffers::read_scalar_at::<i64>(buf, loc))
+        let b = flatbuffers::read_scalar_at::<i64>(buf, loc);
+        Self(b)
     }
 }
 
@@ -217,14 +233,28 @@ impl flatbuffers::Push for Feature {
 impl flatbuffers::EndianScalar for Feature {
     #[inline]
     fn to_little_endian(self) -> Self {
-        Self(i64::to_le(self.0))
+        let b = i64::to_le(self.0);
+        Self(b)
     }
     #[inline]
     fn from_little_endian(self) -> Self {
-        Self(i64::from_le(self.0))
+        let b = i64::from_le(self.0);
+        Self(b)
     }
 }
 
+impl<'a> flatbuffers::Verifiable for Feature {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        i64::run_verifier(v, pos)
+    }
+}
+
+impl flatbuffers::SimpleToVerifyInSlice for Feature {}
 #[deprecated(
     since = "1.13",
     note = "Use associated constants instead. This will no longer be generated in 2021."
@@ -275,7 +305,8 @@ impl<'a> flatbuffers::Follow<'a> for UnionMode {
     type Inner = Self;
     #[inline]
     fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-        Self(flatbuffers::read_scalar_at::<i16>(buf, loc))
+        let b = flatbuffers::read_scalar_at::<i16>(buf, loc);
+        Self(b)
     }
 }
 
@@ -290,14 +321,28 @@ impl flatbuffers::Push for UnionMode {
 impl flatbuffers::EndianScalar for UnionMode {
     #[inline]
     fn to_little_endian(self) -> Self {
-        Self(i16::to_le(self.0))
+        let b = i16::to_le(self.0);
+        Self(b)
     }
     #[inline]
     fn from_little_endian(self) -> Self {
-        Self(i16::from_le(self.0))
+        let b = i16::from_le(self.0);
+        Self(b)
     }
 }
 
+impl<'a> flatbuffers::Verifiable for UnionMode {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        i16::run_verifier(v, pos)
+    }
+}
+
+impl flatbuffers::SimpleToVerifyInSlice for UnionMode {}
 #[deprecated(
     since = "1.13",
     note = "Use associated constants instead. This will no longer be generated in 2021."
@@ -351,7 +396,8 @@ impl<'a> flatbuffers::Follow<'a> for Precision {
     type Inner = Self;
     #[inline]
     fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-        Self(flatbuffers::read_scalar_at::<i16>(buf, loc))
+        let b = flatbuffers::read_scalar_at::<i16>(buf, loc);
+        Self(b)
     }
 }
 
@@ -366,14 +412,28 @@ impl flatbuffers::Push for Precision {
 impl flatbuffers::EndianScalar for Precision {
     #[inline]
     fn to_little_endian(self) -> Self {
-        Self(i16::to_le(self.0))
+        let b = i16::to_le(self.0);
+        Self(b)
     }
     #[inline]
     fn from_little_endian(self) -> Self {
-        Self(i16::from_le(self.0))
+        let b = i16::from_le(self.0);
+        Self(b)
     }
 }
 
+impl<'a> flatbuffers::Verifiable for Precision {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        i16::run_verifier(v, pos)
+    }
+}
+
+impl flatbuffers::SimpleToVerifyInSlice for Precision {}
 #[deprecated(
     since = "1.13",
     note = "Use associated constants instead. This will no longer be generated in 2021."
@@ -424,7 +484,8 @@ impl<'a> flatbuffers::Follow<'a> for DateUnit {
     type Inner = Self;
     #[inline]
     fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-        Self(flatbuffers::read_scalar_at::<i16>(buf, loc))
+        let b = flatbuffers::read_scalar_at::<i16>(buf, loc);
+        Self(b)
     }
 }
 
@@ -439,14 +500,28 @@ impl flatbuffers::Push for DateUnit {
 impl flatbuffers::EndianScalar for DateUnit {
     #[inline]
     fn to_little_endian(self) -> Self {
-        Self(i16::to_le(self.0))
+        let b = i16::to_le(self.0);
+        Self(b)
     }
     #[inline]
     fn from_little_endian(self) -> Self {
-        Self(i16::from_le(self.0))
+        let b = i16::from_le(self.0);
+        Self(b)
     }
 }
 
+impl<'a> flatbuffers::Verifiable for DateUnit {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        i16::run_verifier(v, pos)
+    }
+}
+
+impl flatbuffers::SimpleToVerifyInSlice for DateUnit {}
 #[deprecated(
     since = "1.13",
     note = "Use associated constants instead. This will no longer be generated in 2021."
@@ -511,7 +586,8 @@ impl<'a> flatbuffers::Follow<'a> for TimeUnit {
     type Inner = Self;
     #[inline]
     fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-        Self(flatbuffers::read_scalar_at::<i16>(buf, loc))
+        let b = flatbuffers::read_scalar_at::<i16>(buf, loc);
+        Self(b)
     }
 }
 
@@ -526,14 +602,28 @@ impl flatbuffers::Push for TimeUnit {
 impl flatbuffers::EndianScalar for TimeUnit {
     #[inline]
     fn to_little_endian(self) -> Self {
-        Self(i16::to_le(self.0))
+        let b = i16::to_le(self.0);
+        Self(b)
     }
     #[inline]
     fn from_little_endian(self) -> Self {
-        Self(i16::from_le(self.0))
+        let b = i16::from_le(self.0);
+        Self(b)
     }
 }
 
+impl<'a> flatbuffers::Verifiable for TimeUnit {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        i16::run_verifier(v, pos)
+    }
+}
+
+impl flatbuffers::SimpleToVerifyInSlice for TimeUnit {}
 #[deprecated(
     since = "1.13",
     note = "Use associated constants instead. This will no longer be generated in 2021."
@@ -585,7 +675,8 @@ impl<'a> flatbuffers::Follow<'a> for IntervalUnit {
     type Inner = Self;
     #[inline]
     fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-        Self(flatbuffers::read_scalar_at::<i16>(buf, loc))
+        let b = flatbuffers::read_scalar_at::<i16>(buf, loc);
+        Self(b)
     }
 }
 
@@ -600,14 +691,28 @@ impl flatbuffers::Push for IntervalUnit {
 impl flatbuffers::EndianScalar for IntervalUnit {
     #[inline]
     fn to_little_endian(self) -> Self {
-        Self(i16::to_le(self.0))
+        let b = i16::to_le(self.0);
+        Self(b)
     }
     #[inline]
     fn from_little_endian(self) -> Self {
-        Self(i16::from_le(self.0))
+        let b = i16::from_le(self.0);
+        Self(b)
     }
 }
 
+impl<'a> flatbuffers::Verifiable for IntervalUnit {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        i16::run_verifier(v, pos)
+    }
+}
+
+impl flatbuffers::SimpleToVerifyInSlice for IntervalUnit {}
 #[deprecated(
     since = "1.13",
     note = "Use associated constants instead. This will no longer be generated in 2021."
@@ -743,11 +848,13 @@ impl std::fmt::Debug for Type {
         }
     }
 }
+pub struct TypeUnionTableOffset {}
 impl<'a> flatbuffers::Follow<'a> for Type {
     type Inner = Self;
     #[inline]
     fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-        Self(flatbuffers::read_scalar_at::<u8>(buf, loc))
+        let b = flatbuffers::read_scalar_at::<u8>(buf, loc);
+        Self(b)
     }
 }
 
@@ -762,15 +869,28 @@ impl flatbuffers::Push for Type {
 impl flatbuffers::EndianScalar for Type {
     #[inline]
     fn to_little_endian(self) -> Self {
-        Self(u8::to_le(self.0))
+        let b = u8::to_le(self.0);
+        Self(b)
     }
     #[inline]
     fn from_little_endian(self) -> Self {
-        Self(u8::from_le(self.0))
+        let b = u8::from_le(self.0);
+        Self(b)
     }
 }
 
-pub struct TypeUnionTableOffset {}
+impl<'a> flatbuffers::Verifiable for Type {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        u8::run_verifier(v, pos)
+    }
+}
+
+impl flatbuffers::SimpleToVerifyInSlice for Type {}
 #[deprecated(
     since = "1.13",
     note = "Use associated constants instead. This will no longer be generated in 2021."
@@ -824,7 +944,8 @@ impl<'a> flatbuffers::Follow<'a> for DictionaryKind {
     type Inner = Self;
     #[inline]
     fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-        Self(flatbuffers::read_scalar_at::<i16>(buf, loc))
+        let b = flatbuffers::read_scalar_at::<i16>(buf, loc);
+        Self(b)
     }
 }
 
@@ -839,14 +960,28 @@ impl flatbuffers::Push for DictionaryKind {
 impl flatbuffers::EndianScalar for DictionaryKind {
     #[inline]
     fn to_little_endian(self) -> Self {
-        Self(i16::to_le(self.0))
+        let b = i16::to_le(self.0);
+        Self(b)
     }
     #[inline]
     fn from_little_endian(self) -> Self {
-        Self(i16::from_le(self.0))
+        let b = i16::from_le(self.0);
+        Self(b)
     }
 }
 
+impl<'a> flatbuffers::Verifiable for DictionaryKind {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        i16::run_verifier(v, pos)
+    }
+}
+
+impl flatbuffers::SimpleToVerifyInSlice for DictionaryKind {}
 #[deprecated(
     since = "1.13",
     note = "Use associated constants instead. This will no longer be generated in 2021."
@@ -899,7 +1034,8 @@ impl<'a> flatbuffers::Follow<'a> for Endianness {
     type Inner = Self;
     #[inline]
     fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-        Self(flatbuffers::read_scalar_at::<i16>(buf, loc))
+        let b = flatbuffers::read_scalar_at::<i16>(buf, loc);
+        Self(b)
     }
 }
 
@@ -914,14 +1050,28 @@ impl flatbuffers::Push for Endianness {
 impl flatbuffers::EndianScalar for Endianness {
     #[inline]
     fn to_little_endian(self) -> Self {
-        Self(i16::to_le(self.0))
+        let b = i16::to_le(self.0);
+        Self(b)
     }
     #[inline]
     fn from_little_endian(self) -> Self {
-        Self(i16::from_le(self.0))
+        let b = i16::from_le(self.0);
+        Self(b)
     }
 }
 
+impl<'a> flatbuffers::Verifiable for Endianness {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        i16::run_verifier(v, pos)
+    }
+}
+
+impl flatbuffers::SimpleToVerifyInSlice for Endianness {}
 /// ----------------------------------------------------------------------
 /// A Buffer represents a single contiguous memory segment
 // struct Buffer, aligned to 8
@@ -940,6 +1090,7 @@ impl std::fmt::Debug for Buffer {
     }
 }
 
+impl flatbuffers::SimpleToVerifyInSlice for Buffer {}
 impl flatbuffers::SafeSliceAccess for Buffer {}
 impl<'a> flatbuffers::Follow<'a> for Buffer {
     type Inner = &'a Buffer;
@@ -980,6 +1131,16 @@ impl<'b> flatbuffers::Push for &'b Buffer {
     }
 }
 
+impl<'a> flatbuffers::Verifiable for Buffer {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        v.in_buffer::<Self>(pos)
+    }
+}
 impl Buffer {
     pub fn new(_offset: i64, _length: i64) -> Self {
         Buffer {
@@ -1035,6 +1196,17 @@ impl<'a> Null<'a> {
     }
 }
 
+impl flatbuffers::Verifiable for Null<'_> {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        v.visit_table(pos)?.finish();
+        Ok(())
+    }
+}
 pub struct NullArgs {}
 impl<'a> Default for NullArgs {
     #[inline]
@@ -1103,6 +1275,17 @@ impl<'a> Struct_<'a> {
     }
 }
 
+impl flatbuffers::Verifiable for Struct_<'_> {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        v.visit_table(pos)?.finish();
+        Ok(())
+    }
+}
 pub struct Struct_Args {}
 impl<'a> Default for Struct_Args {
     #[inline]
@@ -1170,6 +1353,17 @@ impl<'a> List<'a> {
     }
 }
 
+impl flatbuffers::Verifiable for List<'_> {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        v.visit_table(pos)?.finish();
+        Ok(())
+    }
+}
 pub struct ListArgs {}
 impl<'a> Default for ListArgs {
     #[inline]
@@ -1237,6 +1431,17 @@ impl<'a> LargeList<'a> {
     }
 }
 
+impl flatbuffers::Verifiable for LargeList<'_> {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        v.visit_table(pos)?.finish();
+        Ok(())
+    }
+}
 pub struct LargeListArgs {}
 impl<'a> Default for LargeListArgs {
     #[inline]
@@ -1315,6 +1520,19 @@ impl<'a> FixedSizeList<'a> {
     }
 }
 
+impl flatbuffers::Verifiable for FixedSizeList<'_> {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        v.visit_table(pos)?
+            .visit_field::<i32>(&"listSize", Self::VT_LISTSIZE, false)?
+            .finish();
+        Ok(())
+    }
+}
 pub struct FixedSizeListArgs {
     pub listSize: i32,
 }
@@ -1425,6 +1643,19 @@ impl<'a> Map<'a> {
     }
 }
 
+impl flatbuffers::Verifiable for Map<'_> {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        v.visit_table(pos)?
+            .visit_field::<bool>(&"keysSorted", Self::VT_KEYSSORTED, false)?
+            .finish();
+        Ok(())
+    }
+}
 pub struct MapArgs {
     pub keysSorted: bool,
 }
@@ -1524,6 +1755,24 @@ impl<'a> Union<'a> {
     }
 }
 
+impl flatbuffers::Verifiable for Union<'_> {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        v.visit_table(pos)?
+            .visit_field::<UnionMode>(&"mode", Self::VT_MODE, false)?
+            .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, i32>>>(
+                &"typeIds",
+                Self::VT_TYPEIDS,
+                false,
+            )?
+            .finish();
+        Ok(())
+    }
+}
 pub struct UnionArgs<'a> {
     pub mode: UnionMode,
     pub typeIds: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, i32>>>,
@@ -1626,6 +1875,20 @@ impl<'a> Int<'a> {
     }
 }
 
+impl flatbuffers::Verifiable for Int<'_> {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        v.visit_table(pos)?
+            .visit_field::<i32>(&"bitWidth", Self::VT_BITWIDTH, false)?
+            .visit_field::<bool>(&"is_signed", Self::VT_IS_SIGNED, false)?
+            .finish();
+        Ok(())
+    }
+}
 pub struct IntArgs {
     pub bitWidth: i32,
     pub is_signed: bool,
@@ -1718,6 +1981,19 @@ impl<'a> FloatingPoint<'a> {
     }
 }
 
+impl flatbuffers::Verifiable for FloatingPoint<'_> {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        v.visit_table(pos)?
+            .visit_field::<Precision>(&"precision", Self::VT_PRECISION, false)?
+            .finish();
+        Ok(())
+    }
+}
 pub struct FloatingPointArgs {
     pub precision: Precision,
 }
@@ -1799,6 +2075,17 @@ impl<'a> Utf8<'a> {
     }
 }
 
+impl flatbuffers::Verifiable for Utf8<'_> {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        v.visit_table(pos)?.finish();
+        Ok(())
+    }
+}
 pub struct Utf8Args {}
 impl<'a> Default for Utf8Args {
     #[inline]
@@ -1865,6 +2152,17 @@ impl<'a> Binary<'a> {
     }
 }
 
+impl flatbuffers::Verifiable for Binary<'_> {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        v.visit_table(pos)?.finish();
+        Ok(())
+    }
+}
 pub struct BinaryArgs {}
 impl<'a> Default for BinaryArgs {
     #[inline]
@@ -1934,6 +2232,17 @@ impl<'a> LargeUtf8<'a> {
     }
 }
 
+impl flatbuffers::Verifiable for LargeUtf8<'_> {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        v.visit_table(pos)?.finish();
+        Ok(())
+    }
+}
 pub struct LargeUtf8Args {}
 impl<'a> Default for LargeUtf8Args {
     #[inline]
@@ -2003,6 +2312,17 @@ impl<'a> LargeBinary<'a> {
     }
 }
 
+impl flatbuffers::Verifiable for LargeBinary<'_> {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        v.visit_table(pos)?.finish();
+        Ok(())
+    }
+}
 pub struct LargeBinaryArgs {}
 impl<'a> Default for LargeBinaryArgs {
     #[inline]
@@ -2081,6 +2401,19 @@ impl<'a> FixedSizeBinary<'a> {
     }
 }
 
+impl flatbuffers::Verifiable for FixedSizeBinary<'_> {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        v.visit_table(pos)?
+            .visit_field::<i32>(&"byteWidth", Self::VT_BYTEWIDTH, false)?
+            .finish();
+        Ok(())
+    }
+}
 pub struct FixedSizeBinaryArgs {
     pub byteWidth: i32,
 }
@@ -2156,6 +2489,17 @@ impl<'a> Bool<'a> {
     }
 }
 
+impl flatbuffers::Verifiable for Bool<'_> {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        v.visit_table(pos)?.finish();
+        Ok(())
+    }
+}
 pub struct BoolArgs {}
 impl<'a> Default for BoolArgs {
     #[inline]
@@ -2253,6 +2597,21 @@ impl<'a> Decimal<'a> {
     }
 }
 
+impl flatbuffers::Verifiable for Decimal<'_> {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        v.visit_table(pos)?
+            .visit_field::<i32>(&"precision", Self::VT_PRECISION, false)?
+            .visit_field::<i32>(&"scale", Self::VT_SCALE, false)?
+            .visit_field::<i32>(&"bitWidth", Self::VT_BITWIDTH, false)?
+            .finish();
+        Ok(())
+    }
+}
 pub struct DecimalArgs {
     pub precision: i32,
     pub scale: i32,
@@ -2361,6 +2720,19 @@ impl<'a> Date<'a> {
     }
 }
 
+impl flatbuffers::Verifiable for Date<'_> {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        v.visit_table(pos)?
+            .visit_field::<DateUnit>(&"unit", Self::VT_UNIT, false)?
+            .finish();
+        Ok(())
+    }
+}
 pub struct DateArgs {
     pub unit: DateUnit,
 }
@@ -2455,6 +2827,20 @@ impl<'a> Time<'a> {
     }
 }
 
+impl flatbuffers::Verifiable for Time<'_> {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        v.visit_table(pos)?
+            .visit_field::<TimeUnit>(&"unit", Self::VT_UNIT, false)?
+            .visit_field::<i32>(&"bitWidth", Self::VT_BITWIDTH, false)?
+            .finish();
+        Ok(())
+    }
+}
 pub struct TimeArgs {
     pub unit: TimeUnit,
     pub bitWidth: i32,
@@ -2582,6 +2968,24 @@ impl<'a> Timestamp<'a> {
     }
 }
 
+impl flatbuffers::Verifiable for Timestamp<'_> {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        v.visit_table(pos)?
+            .visit_field::<TimeUnit>(&"unit", Self::VT_UNIT, false)?
+            .visit_field::<flatbuffers::ForwardsUOffset<&str>>(
+                &"timezone",
+                Self::VT_TIMEZONE,
+                false,
+            )?
+            .finish();
+        Ok(())
+    }
+}
 pub struct TimestampArgs<'a> {
     pub unit: TimeUnit,
     pub timezone: Option<flatbuffers::WIPOffset<&'a str>>,
@@ -2679,6 +3083,19 @@ impl<'a> Interval<'a> {
     }
 }
 
+impl flatbuffers::Verifiable for Interval<'_> {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        v.visit_table(pos)?
+            .visit_field::<IntervalUnit>(&"unit", Self::VT_UNIT, false)?
+            .finish();
+        Ok(())
+    }
+}
 pub struct IntervalArgs {
     pub unit: IntervalUnit,
 }
@@ -2769,6 +3186,19 @@ impl<'a> Duration<'a> {
     }
 }
 
+impl flatbuffers::Verifiable for Duration<'_> {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        v.visit_table(pos)?
+            .visit_field::<TimeUnit>(&"unit", Self::VT_UNIT, false)?
+            .finish();
+        Ok(())
+    }
+}
 pub struct DurationArgs {
     pub unit: TimeUnit,
 }
@@ -2869,6 +3299,28 @@ impl<'a> KeyValue<'a> {
     }
 }
 
+impl flatbuffers::Verifiable for KeyValue<'_> {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        v.visit_table(pos)?
+            .visit_field::<flatbuffers::ForwardsUOffset<&str>>(
+                &"key",
+                Self::VT_KEY,
+                false,
+            )?
+            .visit_field::<flatbuffers::ForwardsUOffset<&str>>(
+                &"value",
+                Self::VT_VALUE,
+                false,
+            )?
+            .finish();
+        Ok(())
+    }
+}
 pub struct KeyValueArgs<'a> {
     pub key: Option<flatbuffers::WIPOffset<&'a str>>,
     pub value: Option<flatbuffers::WIPOffset<&'a str>>,
@@ -2980,7 +3432,7 @@ impl<'a> DictionaryEncoding<'a> {
     /// and to avoid uint64 indices unless they are required by an application.
     #[inline]
     pub fn indexType(&self) -> Option<Int<'a>> {
-        self._tab.get::<flatbuffers::ForwardsUOffset<Int<'a>>>(
+        self._tab.get::<flatbuffers::ForwardsUOffset<Int>>(
             DictionaryEncoding::VT_INDEXTYPE,
             None,
         )
@@ -3006,6 +3458,30 @@ impl<'a> DictionaryEncoding<'a> {
     }
 }
 
+impl flatbuffers::Verifiable for DictionaryEncoding<'_> {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        v.visit_table(pos)?
+            .visit_field::<i64>(&"id", Self::VT_ID, false)?
+            .visit_field::<flatbuffers::ForwardsUOffset<Int>>(
+                &"indexType",
+                Self::VT_INDEXTYPE,
+                false,
+            )?
+            .visit_field::<bool>(&"isOrdered", Self::VT_ISORDERED, false)?
+            .visit_field::<DictionaryKind>(
+                &"dictionaryKind",
+                Self::VT_DICTIONARYKIND,
+                false,
+            )?
+            .finish();
+        Ok(())
+    }
+}
 pub struct DictionaryEncodingArgs<'a> {
     pub id: i64,
     pub indexType: Option<flatbuffers::WIPOffset<Int<'a>>>,
@@ -3170,7 +3646,7 @@ impl<'a> Field<'a> {
     #[inline]
     pub fn dictionary(&self) -> Option<DictionaryEncoding<'a>> {
         self._tab
-            .get::<flatbuffers::ForwardsUOffset<DictionaryEncoding<'a>>>(
+            .get::<flatbuffers::ForwardsUOffset<DictionaryEncoding>>(
                 Field::VT_DICTIONARY,
                 None,
             )
@@ -3182,7 +3658,7 @@ impl<'a> Field<'a> {
         &self,
     ) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<Field<'a>>>> {
         self._tab.get::<flatbuffers::ForwardsUOffset<
-            flatbuffers::Vector<flatbuffers::ForwardsUOffset<Field<'a>>>,
+            flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<Field>>,
         >>(Field::VT_CHILDREN, None)
     }
     /// User-defined metadata
@@ -3191,7 +3667,7 @@ impl<'a> Field<'a> {
         &self,
     ) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<KeyValue<'a>>>> {
         self._tab.get::<flatbuffers::ForwardsUOffset<
-            flatbuffers::Vector<flatbuffers::ForwardsUOffset<KeyValue<'a>>>,
+            flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<KeyValue>>,
         >>(Field::VT_CUSTOM_METADATA, None)
     }
     #[inline]
@@ -3405,6 +3881,49 @@ impl<'a> Field<'a> {
     }
 }
 
+impl flatbuffers::Verifiable for Field<'_> {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<&str>>(&"name", Self::VT_NAME, false)?
+     .visit_field::<bool>(&"nullable", Self::VT_NULLABLE, false)?
+     .visit_union::<Type, _>(&"type_type", Self::VT_TYPE_TYPE, &"type_", Self::VT_TYPE_, false, |key, v, pos| {
+        match key {
+          Type::Null => v.verify_union_variant::<flatbuffers::ForwardsUOffset<Null>>("Type::Null", pos),
+          Type::Int => v.verify_union_variant::<flatbuffers::ForwardsUOffset<Int>>("Type::Int", pos),
+          Type::FloatingPoint => v.verify_union_variant::<flatbuffers::ForwardsUOffset<FloatingPoint>>("Type::FloatingPoint", pos),
+          Type::Binary => v.verify_union_variant::<flatbuffers::ForwardsUOffset<Binary>>("Type::Binary", pos),
+          Type::Utf8 => v.verify_union_variant::<flatbuffers::ForwardsUOffset<Utf8>>("Type::Utf8", pos),
+          Type::Bool => v.verify_union_variant::<flatbuffers::ForwardsUOffset<Bool>>("Type::Bool", pos),
+          Type::Decimal => v.verify_union_variant::<flatbuffers::ForwardsUOffset<Decimal>>("Type::Decimal", pos),
+          Type::Date => v.verify_union_variant::<flatbuffers::ForwardsUOffset<Date>>("Type::Date", pos),
+          Type::Time => v.verify_union_variant::<flatbuffers::ForwardsUOffset<Time>>("Type::Time", pos),
+          Type::Timestamp => v.verify_union_variant::<flatbuffers::ForwardsUOffset<Timestamp>>("Type::Timestamp", pos),
+          Type::Interval => v.verify_union_variant::<flatbuffers::ForwardsUOffset<Interval>>("Type::Interval", pos),
+          Type::List => v.verify_union_variant::<flatbuffers::ForwardsUOffset<List>>("Type::List", pos),
+          Type::Struct_ => v.verify_union_variant::<flatbuffers::ForwardsUOffset<Struct_>>("Type::Struct_", pos),
+          Type::Union => v.verify_union_variant::<flatbuffers::ForwardsUOffset<Union>>("Type::Union", pos),
+          Type::FixedSizeBinary => v.verify_union_variant::<flatbuffers::ForwardsUOffset<FixedSizeBinary>>("Type::FixedSizeBinary", pos),
+          Type::FixedSizeList => v.verify_union_variant::<flatbuffers::ForwardsUOffset<FixedSizeList>>("Type::FixedSizeList", pos),
+          Type::Map => v.verify_union_variant::<flatbuffers::ForwardsUOffset<Map>>("Type::Map", pos),
+          Type::Duration => v.verify_union_variant::<flatbuffers::ForwardsUOffset<Duration>>("Type::Duration", pos),
+          Type::LargeBinary => v.verify_union_variant::<flatbuffers::ForwardsUOffset<LargeBinary>>("Type::LargeBinary", pos),
+          Type::LargeUtf8 => v.verify_union_variant::<flatbuffers::ForwardsUOffset<LargeUtf8>>("Type::LargeUtf8", pos),
+          Type::LargeList => v.verify_union_variant::<flatbuffers::ForwardsUOffset<LargeList>>("Type::LargeList", pos),
+          _ => Ok(()),
+        }
+     })?
+     .visit_field::<flatbuffers::ForwardsUOffset<DictionaryEncoding>>(&"dictionary", Self::VT_DICTIONARY, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<Field>>>>(&"children", Self::VT_CHILDREN, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<KeyValue>>>>(&"custom_metadata", Self::VT_CUSTOM_METADATA, false)?
+     .finish();
+        Ok(())
+    }
+}
 pub struct FieldArgs<'a> {
     pub name: Option<flatbuffers::WIPOffset<&'a str>>,
     pub nullable: bool,
@@ -3802,7 +4321,7 @@ impl<'a> Schema<'a> {
         &self,
     ) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<Field<'a>>>> {
         self._tab.get::<flatbuffers::ForwardsUOffset<
-            flatbuffers::Vector<flatbuffers::ForwardsUOffset<Field<'a>>>,
+            flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<Field>>,
         >>(Schema::VT_FIELDS, None)
     }
     #[inline]
@@ -3810,7 +4329,7 @@ impl<'a> Schema<'a> {
         &self,
     ) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<KeyValue<'a>>>> {
         self._tab.get::<flatbuffers::ForwardsUOffset<
-            flatbuffers::Vector<flatbuffers::ForwardsUOffset<KeyValue<'a>>>,
+            flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<KeyValue>>,
         >>(Schema::VT_CUSTOM_METADATA, None)
     }
     /// Features used in the stream/file.
@@ -3824,6 +4343,22 @@ impl<'a> Schema<'a> {
     }
 }
 
+impl flatbuffers::Verifiable for Schema<'_> {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        v.visit_table(pos)?
+     .visit_field::<Endianness>(&"endianness", Self::VT_ENDIANNESS, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<Field>>>>(&"fields", Self::VT_FIELDS, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<KeyValue>>>>(&"custom_metadata", Self::VT_CUSTOM_METADATA, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, Feature>>>(&"features", Self::VT_FEATURES, false)?
+     .finish();
+        Ok(())
+    }
+}
 pub struct SchemaArgs<'a> {
     pub endianness: Endianness,
     pub fields: Option<
@@ -3920,15 +4455,79 @@ impl std::fmt::Debug for Schema<'_> {
     }
 }
 #[inline]
+#[deprecated(since = "1.13", note = "Deprecated in favor of `root_as...` methods.")]
 pub fn get_root_as_schema<'a>(buf: &'a [u8]) -> Schema<'a> {
-    flatbuffers::get_root::<Schema<'a>>(buf)
+    unsafe { flatbuffers::root_unchecked::<Schema<'a>>(buf) }
 }
 
 #[inline]
+#[deprecated(since = "1.13", note = "Deprecated in favor of `root_as...` methods.")]
 pub fn get_size_prefixed_root_as_schema<'a>(buf: &'a [u8]) -> Schema<'a> {
-    flatbuffers::get_size_prefixed_root::<Schema<'a>>(buf)
+    unsafe { flatbuffers::size_prefixed_root_unchecked::<Schema<'a>>(buf) }
 }
 
+#[inline]
+/// Verifies that a buffer of bytes contains a `Schema`
+/// and returns it.
+/// Note that verification is still experimental and may not
+/// catch every error, or be maximally performant. For the
+/// previous, unchecked, behavior use
+/// `root_as_schema_unchecked`.
+pub fn root_as_schema(buf: &[u8]) -> Result<Schema, flatbuffers::InvalidFlatbuffer> {
+    flatbuffers::root::<Schema>(buf)
+}
+#[inline]
+/// Verifies that a buffer of bytes contains a size prefixed
+/// `Schema` and returns it.
+/// Note that verification is still experimental and may not
+/// catch every error, or be maximally performant. For the
+/// previous, unchecked, behavior use
+/// `size_prefixed_root_as_schema_unchecked`.
+pub fn size_prefixed_root_as_schema(
+    buf: &[u8],
+) -> Result<Schema, flatbuffers::InvalidFlatbuffer> {
+    flatbuffers::size_prefixed_root::<Schema>(buf)
+}
+#[inline]
+/// Verifies, with the given options, that a buffer of bytes
+/// contains a `Schema` and returns it.
+/// Note that verification is still experimental and may not
+/// catch every error, or be maximally performant. For the
+/// previous, unchecked, behavior use
+/// `root_as_schema_unchecked`.
+pub fn root_as_schema_with_opts<'b, 'o>(
+    opts: &'o flatbuffers::VerifierOptions,
+    buf: &'b [u8],
+) -> Result<Schema<'b>, flatbuffers::InvalidFlatbuffer> {
+    flatbuffers::root_with_opts::<Schema<'b>>(opts, buf)
+}
+#[inline]
+/// Verifies, with the given verifier options, that a buffer of
+/// bytes contains a size prefixed `Schema` and returns
+/// it. Note that verification is still experimental and may not
+/// catch every error, or be maximally performant. For the
+/// previous, unchecked, behavior use
+/// `root_as_schema_unchecked`.
+pub fn size_prefixed_root_as_schema_with_opts<'b, 'o>(
+    opts: &'o flatbuffers::VerifierOptions,
+    buf: &'b [u8],
+) -> Result<Schema<'b>, flatbuffers::InvalidFlatbuffer> {
+    flatbuffers::size_prefixed_root_with_opts::<Schema<'b>>(opts, buf)
+}
+#[inline]
+/// Assumes, without verification, that a buffer of bytes contains a Schema and returns it.
+/// # Safety
+/// Callers must trust the given bytes do indeed contain a valid `Schema`.
+pub unsafe fn root_as_schema_unchecked(buf: &[u8]) -> Schema {
+    flatbuffers::root_unchecked::<Schema>(buf)
+}
+#[inline]
+/// Assumes, without verification, that a buffer of bytes contains a size prefixed Schema and returns it.
+/// # Safety
+/// Callers must trust the given bytes do indeed contain a valid size prefixed `Schema`.
+pub unsafe fn size_prefixed_root_as_schema_unchecked(buf: &[u8]) -> Schema {
+    flatbuffers::size_prefixed_root_unchecked::<Schema>(buf)
+}
 #[inline]
 pub fn finish_schema_buffer<'a, 'b>(
     fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>,

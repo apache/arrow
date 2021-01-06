@@ -51,7 +51,7 @@ macro_rules! compare_op {
         let actual_capacity = bit_util::round_upto_multiple_of_64(byte_capacity);
         let mut buffer = MutableBuffer::new(actual_capacity);
         buffer.resize(byte_capacity);
-        let data = buffer.raw_data_mut();
+        let data = buffer.as_mut_ptr();
 
         for i in 0..$left.len() {
             if $op($left.value(i), $right.value(i)) {
@@ -69,7 +69,7 @@ macro_rules! compare_op {
             None,
             null_bit_buffer,
             0,
-            vec![buffer.freeze()],
+            vec![buffer.into()],
             vec![],
         );
         Ok(BooleanArray::from(Arc::new(data)))
@@ -84,7 +84,7 @@ macro_rules! compare_op_scalar {
         let actual_capacity = bit_util::round_upto_multiple_of_64(byte_capacity);
         let mut buffer = MutableBuffer::new(actual_capacity);
         buffer.resize(byte_capacity);
-        let data = buffer.raw_data_mut();
+        let data = buffer.as_mut_ptr();
 
         for i in 0..$left.len() {
             if $op($left.value(i), $right) {
@@ -102,7 +102,7 @@ macro_rules! compare_op_scalar {
             None,
             null_bit_buffer,
             0,
-            vec![buffer.freeze()],
+            vec![buffer.into()],
             vec![],
         );
         Ok(BooleanArray::from(Arc::new(data)))
@@ -163,7 +163,7 @@ pub fn like_utf8(left: &StringArray, right: &StringArray) -> Result<BooleanArray
             map.get(pat).unwrap()
         };
 
-        result.append(re.is_match(haystack))?;
+        result.append(re.is_match(haystack));
     }
 
     let data = ArrayData::new(
@@ -189,18 +189,18 @@ pub fn like_utf8_scalar(left: &StringArray, right: &str) -> Result<BooleanArray>
     if !right.contains(is_like_pattern) {
         // fast path, can use equals
         for i in 0..left.len() {
-            result.append(left.value(i) == right)?;
+            result.append(left.value(i) == right);
         }
     } else if right.ends_with('%') && !right[..right.len() - 1].contains(is_like_pattern)
     {
         // fast path, can use starts_with
         for i in 0..left.len() {
-            result.append(left.value(i).starts_with(&right[..right.len() - 1]))?;
+            result.append(left.value(i).starts_with(&right[..right.len() - 1]));
         }
     } else if right.starts_with('%') && !right[1..].contains(is_like_pattern) {
         // fast path, can use ends_with
         for i in 0..left.len() {
-            result.append(left.value(i).ends_with(&right[1..]))?;
+            result.append(left.value(i).ends_with(&right[1..]));
         }
     } else {
         let re_pattern = right.replace("%", ".*").replace("_", ".");
@@ -213,7 +213,7 @@ pub fn like_utf8_scalar(left: &StringArray, right: &str) -> Result<BooleanArray>
 
         for i in 0..left.len() {
             let haystack = left.value(i);
-            result.append(re.is_match(haystack))?;
+            result.append(re.is_match(haystack));
         }
     };
 
@@ -259,7 +259,7 @@ pub fn nlike_utf8(left: &StringArray, right: &StringArray) -> Result<BooleanArra
             map.get(pat).unwrap()
         };
 
-        result.append(!re.is_match(haystack))?;
+        result.append(!re.is_match(haystack));
     }
 
     let data = ArrayData::new(
@@ -281,18 +281,18 @@ pub fn nlike_utf8_scalar(left: &StringArray, right: &str) -> Result<BooleanArray
     if !right.contains(is_like_pattern) {
         // fast path, can use equals
         for i in 0..left.len() {
-            result.append(left.value(i) != right)?;
+            result.append(left.value(i) != right);
         }
     } else if right.ends_with('%') && !right[..right.len() - 1].contains(is_like_pattern)
     {
         // fast path, can use ends_with
         for i in 0..left.len() {
-            result.append(!left.value(i).starts_with(&right[..right.len() - 1]))?;
+            result.append(!left.value(i).starts_with(&right[..right.len() - 1]));
         }
     } else if right.starts_with('%') && !right[1..].contains(is_like_pattern) {
         // fast path, can use starts_with
         for i in 0..left.len() {
-            result.append(!left.value(i).ends_with(&right[1..]))?;
+            result.append(!left.value(i).ends_with(&right[1..]));
         }
     } else {
         let re_pattern = right.replace("%", ".*").replace("_", ".");
@@ -304,7 +304,7 @@ pub fn nlike_utf8_scalar(left: &StringArray, right: &str) -> Result<BooleanArray
         })?;
         for i in 0..left.len() {
             let haystack = left.value(i);
-            result.append(!re.is_match(haystack))?;
+            result.append(!re.is_match(haystack));
         }
     }
 
@@ -371,16 +371,18 @@ pub fn gt_eq_utf8_scalar(left: &StringArray, right: &str) -> Result<BooleanArray
 /// Helper function to perform boolean lambda function on values from two arrays using
 /// SIMD.
 #[cfg(simd_x86)]
-fn simd_compare_op<T, F>(
+fn simd_compare_op<T, SIMD_OP, SCALAR_OP>(
     left: &PrimitiveArray<T>,
     right: &PrimitiveArray<T>,
-    op: F,
+    simd_op: SIMD_OP,
+    scalar_op: SCALAR_OP,
 ) -> Result<BooleanArray>
 where
     T: ArrowNumericType,
-    F: Fn(T::Simd, T::Simd) -> T::SimdMask,
+    SIMD_OP: Fn(T::Simd, T::Simd) -> T::SimdMask,
+    SCALAR_OP: Fn(T::Native, T::Native) -> bool,
 {
-    use std::mem;
+    use std::borrow::BorrowMut;
 
     let len = left.len();
     if len != right.len() {
@@ -393,36 +395,64 @@ where
     let null_bit_buffer = combine_option_bitmap(left.data_ref(), right.data_ref(), len)?;
 
     let lanes = T::lanes();
-    let mut result = MutableBuffer::new(left.len() * mem::size_of::<bool>());
+    let buffer_size = bit_util::ceil(len, 8);
+    let mut result = MutableBuffer::new(buffer_size).with_bitset(buffer_size, false);
 
-    let rem = len % lanes;
+    // this is currently the case for all our datatypes and allows us to always append full bytes
+    assert!(
+        lanes % 8 == 0,
+        "Number of vector lanes must be multiple of 8"
+    );
+    let mut left_chunks = left.values().chunks_exact(lanes);
+    let mut right_chunks = right.values().chunks_exact(lanes);
 
-    for i in (0..len - rem).step_by(lanes) {
-        let simd_left = T::load(left.value_slice(i, lanes));
-        let simd_right = T::load(right.value_slice(i, lanes));
-        let simd_result = op(simd_left, simd_right);
-        T::bitmask(&simd_result, |b| {
-            result.extend_from_slice(b);
+    let result_remainder = left_chunks
+        .borrow_mut()
+        .zip(right_chunks.borrow_mut())
+        .fold(
+            result.typed_data_mut(),
+            |result_slice, (left_slice, right_slice)| {
+                let simd_left = T::load(left_slice);
+                let simd_right = T::load(right_slice);
+                let simd_result = simd_op(simd_left, simd_right);
+
+                let bitmask = T::mask_to_u64(&simd_result);
+                let bytes = bitmask.to_le_bytes();
+                &result_slice[0..lanes / 8].copy_from_slice(&bytes[0..lanes / 8]);
+
+                &mut result_slice[lanes / 8..]
+            },
+        );
+
+    let left_remainder = left_chunks.remainder();
+    let right_remainder = right_chunks.remainder();
+
+    assert_eq!(left_remainder.len(), right_remainder.len());
+
+    let remainder_bitmask = left_remainder
+        .iter()
+        .zip(right_remainder.iter())
+        .enumerate()
+        .fold(0_u64, |mut mask, (i, (scalar_left, scalar_right))| {
+            let bit = if scalar_op(*scalar_left, *scalar_right) {
+                1_u64
+            } else {
+                0_u64
+            };
+            mask |= bit << i;
+            mask
         });
-    }
-
-    if rem > 0 {
-        let simd_left = T::load(left.value_slice(len - rem, lanes));
-        let simd_right = T::load(right.value_slice(len - rem, lanes));
-        let simd_result = op(simd_left, simd_right);
-        let rem_buffer_size = (rem as f32 / 8f32).ceil() as usize;
-        T::bitmask(&simd_result, |b| {
-            result.extend_from_slice(&b[0..rem_buffer_size]);
-        });
-    }
+    let remainder_mask_as_bytes =
+        &remainder_bitmask.to_le_bytes()[0..bit_util::ceil(left_remainder.len(), 8)];
+    result_remainder.copy_from_slice(remainder_mask_as_bytes);
 
     let data = ArrayData::new(
         DataType::Boolean,
-        left.len(),
+        len,
         None,
         null_bit_buffer,
         0,
-        vec![result.freeze()],
+        vec![result.into()],
         vec![],
     );
     Ok(BooleanArray::from(Arc::new(data)))
@@ -431,49 +461,81 @@ where
 /// Helper function to perform boolean lambda function on values from an array and a scalar value using
 /// SIMD.
 #[cfg(simd_x86)]
-fn simd_compare_op_scalar<T, F>(
+fn simd_compare_op_scalar<T, SIMD_OP, SCALAR_OP>(
     left: &PrimitiveArray<T>,
     right: T::Native,
-    op: F,
+    simd_op: SIMD_OP,
+    scalar_op: SCALAR_OP,
 ) -> Result<BooleanArray>
 where
     T: ArrowNumericType,
-    F: Fn(T::Simd, T::Simd) -> T::SimdMask,
+    SIMD_OP: Fn(T::Simd, T::Simd) -> T::SimdMask,
+    SCALAR_OP: Fn(T::Native, T::Native) -> bool,
 {
-    use std::mem;
+    use std::borrow::BorrowMut;
 
     let len = left.len();
-    let null_bit_buffer = left.data().null_buffer().cloned();
+
     let lanes = T::lanes();
-    let mut result = MutableBuffer::new(left.len() * mem::size_of::<bool>());
+    let buffer_size = bit_util::ceil(len, 8);
+    let mut result = MutableBuffer::new(buffer_size).with_bitset(buffer_size, false);
+
+    // this is currently the case for all our datatypes and allows us to always append full bytes
+    assert!(
+        lanes % 8 == 0,
+        "Number of vector lanes must be multiple of 8"
+    );
+    let mut left_chunks = left.values().chunks_exact(lanes);
     let simd_right = T::init(right);
 
-    let rem = len % lanes;
+    let result_remainder = left_chunks.borrow_mut().fold(
+        result.typed_data_mut(),
+        |result_slice, left_slice| {
+            let simd_left = T::load(left_slice);
+            let simd_result = simd_op(simd_left, simd_right);
 
-    for i in (0..len - rem).step_by(lanes) {
-        let simd_left = T::load(left.value_slice(i, lanes));
-        let simd_result = op(simd_left, simd_right);
-        T::bitmask(&simd_result, |b| {
-            result.extend_from_slice(b);
-        });
-    }
+            let bitmask = T::mask_to_u64(&simd_result);
+            let bytes = bitmask.to_le_bytes();
+            &result_slice[0..lanes / 8].copy_from_slice(&bytes[0..lanes / 8]);
 
-    if rem > 0 {
-        let simd_left = T::load(left.value_slice(len - rem, lanes));
-        let simd_result = op(simd_left, simd_right);
-        let rem_buffer_size = (rem as f32 / 8f32).ceil() as usize;
-        T::bitmask(&simd_result, |b| {
-            result.extend_from_slice(&b[0..rem_buffer_size]);
-        });
-    }
+            &mut result_slice[lanes / 8..]
+        },
+    );
+
+    let left_remainder = left_chunks.remainder();
+
+    let remainder_bitmask =
+        left_remainder
+            .iter()
+            .enumerate()
+            .fold(0_u64, |mut mask, (i, scalar_left)| {
+                let bit = if scalar_op(*scalar_left, right) {
+                    1_u64
+                } else {
+                    0_u64
+                };
+                mask |= bit << i;
+                mask
+            });
+    let remainder_mask_as_bytes =
+        &remainder_bitmask.to_le_bytes()[0..bit_util::ceil(left_remainder.len(), 8)];
+    result_remainder.copy_from_slice(remainder_mask_as_bytes);
+
+    let null_bit_buffer = left
+        .data_ref()
+        .null_buffer()
+        .map(|b| b.bit_slice(left.offset(), left.len()));
+
+    // null count is the same as in the input since the right side of the scalar comparison cannot be null
+    let null_count = left.null_count();
 
     let data = ArrayData::new(
         DataType::Boolean,
-        left.len(),
-        None,
+        len,
+        Some(null_count),
         null_bit_buffer,
         0,
-        vec![result.freeze()],
+        vec![result.into()],
         vec![],
     );
     Ok(BooleanArray::from(Arc::new(data)))
@@ -485,7 +547,7 @@ where
     T: ArrowNumericType,
 {
     #[cfg(simd_x86)]
-    return simd_compare_op(left, right, T::eq);
+    return simd_compare_op(left, right, T::eq, |a, b| a == b);
     #[cfg(not(simd_x86))]
     return compare_op!(left, right, |a, b| a == b);
 }
@@ -496,7 +558,7 @@ where
     T: ArrowNumericType,
 {
     #[cfg(simd_x86)]
-    return simd_compare_op_scalar(left, right, T::eq);
+    return simd_compare_op_scalar(left, right, T::eq, |a, b| a == b);
     #[cfg(not(simd_x86))]
     return compare_op_scalar!(left, right, |a, b| a == b);
 }
@@ -507,7 +569,7 @@ where
     T: ArrowNumericType,
 {
     #[cfg(simd_x86)]
-    return simd_compare_op(left, right, T::ne);
+    return simd_compare_op(left, right, T::ne, |a, b| a != b);
     #[cfg(not(simd_x86))]
     return compare_op!(left, right, |a, b| a != b);
 }
@@ -518,7 +580,7 @@ where
     T: ArrowNumericType,
 {
     #[cfg(simd_x86)]
-    return simd_compare_op_scalar(left, right, T::ne);
+    return simd_compare_op_scalar(left, right, T::ne, |a, b| a != b);
     #[cfg(not(simd_x86))]
     return compare_op_scalar!(left, right, |a, b| a != b);
 }
@@ -530,7 +592,7 @@ where
     T: ArrowNumericType,
 {
     #[cfg(simd_x86)]
-    return simd_compare_op(left, right, T::lt);
+    return simd_compare_op(left, right, T::lt, |a, b| a < b);
     #[cfg(not(simd_x86))]
     return compare_op!(left, right, |a, b| a < b);
 }
@@ -542,7 +604,7 @@ where
     T: ArrowNumericType,
 {
     #[cfg(simd_x86)]
-    return simd_compare_op_scalar(left, right, T::lt);
+    return simd_compare_op_scalar(left, right, T::lt, |a, b| a < b);
     #[cfg(not(simd_x86))]
     return compare_op_scalar!(left, right, |a, b| a < b);
 }
@@ -557,7 +619,7 @@ where
     T: ArrowNumericType,
 {
     #[cfg(simd_x86)]
-    return simd_compare_op(left, right, T::le);
+    return simd_compare_op(left, right, T::le, |a, b| a <= b);
     #[cfg(not(simd_x86))]
     return compare_op!(left, right, |a, b| a <= b);
 }
@@ -569,7 +631,7 @@ where
     T: ArrowNumericType,
 {
     #[cfg(simd_x86)]
-    return simd_compare_op_scalar(left, right, T::le);
+    return simd_compare_op_scalar(left, right, T::le, |a, b| a <= b);
     #[cfg(not(simd_x86))]
     return compare_op_scalar!(left, right, |a, b| a <= b);
 }
@@ -581,7 +643,7 @@ where
     T: ArrowNumericType,
 {
     #[cfg(simd_x86)]
-    return simd_compare_op(left, right, T::gt);
+    return simd_compare_op(left, right, T::gt, |a, b| a > b);
     #[cfg(not(simd_x86))]
     return compare_op!(left, right, |a, b| a > b);
 }
@@ -593,7 +655,7 @@ where
     T: ArrowNumericType,
 {
     #[cfg(simd_x86)]
-    return simd_compare_op_scalar(left, right, T::gt);
+    return simd_compare_op_scalar(left, right, T::gt, |a, b| a > b);
     #[cfg(not(simd_x86))]
     return compare_op_scalar!(left, right, |a, b| a > b);
 }
@@ -608,7 +670,7 @@ where
     T: ArrowNumericType,
 {
     #[cfg(simd_x86)]
-    return simd_compare_op(left, right, T::ge);
+    return simd_compare_op(left, right, T::ge, |a, b| a >= b);
     #[cfg(not(simd_x86))]
     return compare_op!(left, right, |a, b| a >= b);
 }
@@ -620,7 +682,7 @@ where
     T: ArrowNumericType,
 {
     #[cfg(simd_x86)]
-    return simd_compare_op_scalar(left, right, T::ge);
+    return simd_compare_op_scalar(left, right, T::ge, |a, b| a >= b);
     #[cfg(not(simd_x86))]
     return compare_op_scalar!(left, right, |a, b| a >= b);
 }
@@ -649,10 +711,10 @@ where
             Some(buff) => buff,
             None => new_all_set_buffer(num_bytes),
         };
-    let not_both_null_bitmap = not_both_null_bit_buffer.data();
+    let not_both_null_bitmap = not_both_null_bit_buffer.as_slice();
 
     let mut bool_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
-    let bool_slice = bool_buf.data_mut();
+    let bool_slice = bool_buf.as_slice_mut();
 
     // if both array slots are valid, check if list contains primitive
     for i in 0..left_len {
@@ -675,7 +737,7 @@ where
         None,
         None,
         0,
-        vec![bool_buf.freeze()],
+        vec![bool_buf.into()],
         vec![],
     );
     Ok(BooleanArray::from(Arc::new(data)))
@@ -704,10 +766,10 @@ where
             Some(buff) => buff,
             None => new_all_set_buffer(num_bytes),
         };
-    let not_both_null_bitmap = not_both_null_bit_buffer.data();
+    let not_both_null_bitmap = not_both_null_bit_buffer.as_slice();
 
     let mut bool_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
-    let bool_slice = bool_buf.data_mut();
+    let bool_slice = &mut bool_buf;
 
     for i in 0..left_len {
         // contains(null, null) = false
@@ -733,7 +795,7 @@ where
         None,
         None,
         0,
-        vec![bool_buf.freeze()],
+        vec![bool_buf.into()],
         vec![],
     );
     Ok(BooleanArray::from(Arc::new(data)))
@@ -745,36 +807,60 @@ fn new_all_set_buffer(len: usize) -> Buffer {
     let buffer = MutableBuffer::new(len);
     let buffer = buffer.with_bitset(len, true);
 
-    buffer.freeze()
+    buffer.into()
 }
 
+// disable wrapping inside literal vectors used for test data and assertions
+#[rustfmt::skip::macros(vec)]
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::datatypes::{Int8Type, ToByteSlice};
-    use crate::{array::Int32Array, datatypes::Field};
+    use crate::{array::Int32Array, array::Int64Array, datatypes::Field};
+
+    /// Evaluate `KERNEL` with two vectors as inputs and assert against the expected output.
+    /// `A_VEC` and `B_VEC` can be of type `Vec<i64>` or `Vec<Option<i64>>`.
+    /// `EXPECTED` can be either `Vec<bool>` or `Vec<Option<bool>>`.
+    /// The main reason for this macro is that inputs and outputs align nicely after `cargo fmt`.
+    macro_rules! cmp_i64 {
+        ($KERNEL:ident, $A_VEC:expr, $B_VEC:expr, $EXPECTED:expr) => {
+            let a = Int64Array::from($A_VEC);
+            let b = Int64Array::from($B_VEC);
+            let c = $KERNEL(&a, &b).unwrap();
+            assert_eq!(BooleanArray::from($EXPECTED), c);
+        };
+    }
+
+    /// Evaluate `KERNEL` with one vectors and one scalar as inputs and assert against the expected output.
+    /// `A_VEC` can be of type `Vec<i64>` or `Vec<Option<i64>>`.
+    /// `EXPECTED` can be either `Vec<bool>` or `Vec<Option<bool>>`.
+    /// The main reason for this macro is that inputs and outputs align nicely after `cargo fmt`.
+    macro_rules! cmp_i64_scalar {
+        ($KERNEL:ident, $A_VEC:expr, $B:literal, $EXPECTED:expr) => {
+            let a = Int64Array::from($A_VEC);
+            let c = $KERNEL(&a, $B).unwrap();
+            assert_eq!(BooleanArray::from($EXPECTED), c);
+        };
+    }
 
     #[test]
     fn test_primitive_array_eq() {
-        let a = Int32Array::from(vec![8, 8, 8, 8, 8]);
-        let b = Int32Array::from(vec![6, 7, 8, 9, 10]);
-        let c = eq(&a, &b).unwrap();
-        assert_eq!(false, c.value(0));
-        assert_eq!(false, c.value(1));
-        assert_eq!(true, c.value(2));
-        assert_eq!(false, c.value(3));
-        assert_eq!(false, c.value(4));
+        cmp_i64!(
+            eq,
+            vec![8, 8, 8, 8, 8, 8, 8, 8, 8, 8],
+            vec![6, 7, 8, 9, 10, 6, 7, 8, 9, 10],
+            vec![false, false, true, false, false, false, false, true, false, false]
+        );
     }
 
     #[test]
     fn test_primitive_array_eq_scalar() {
-        let a = Int32Array::from(vec![6, 7, 8, 9, 10]);
-        let c = eq_scalar(&a, 8).unwrap();
-        assert_eq!(false, c.value(0));
-        assert_eq!(false, c.value(1));
-        assert_eq!(true, c.value(2));
-        assert_eq!(false, c.value(3));
-        assert_eq!(false, c.value(4));
+        cmp_i64_scalar!(
+            eq_scalar,
+            vec![6, 7, 8, 9, 10, 6, 7, 8, 9, 10],
+            8,
+            vec![false, false, true, false, false, false, false, true, false, false]
+        );
     }
 
     #[test]
@@ -793,193 +879,205 @@ mod tests {
 
     #[test]
     fn test_primitive_array_neq() {
-        let a = Int32Array::from(vec![8, 8, 8, 8, 8]);
-        let b = Int32Array::from(vec![6, 7, 8, 9, 10]);
-        let c = neq(&a, &b).unwrap();
-        assert_eq!(true, c.value(0));
-        assert_eq!(true, c.value(1));
-        assert_eq!(false, c.value(2));
-        assert_eq!(true, c.value(3));
-        assert_eq!(true, c.value(4));
+        cmp_i64!(
+            neq,
+            vec![8, 8, 8, 8, 8, 8, 8, 8, 8, 8],
+            vec![6, 7, 8, 9, 10, 6, 7, 8, 9, 10],
+            vec![true, true, false, true, true, true, true, false, true, true]
+        );
     }
 
     #[test]
     fn test_primitive_array_neq_scalar() {
-        let a = Int32Array::from(vec![6, 7, 8, 9, 10]);
-        let c = neq_scalar(&a, 8).unwrap();
-        assert_eq!(true, c.value(0));
-        assert_eq!(true, c.value(1));
-        assert_eq!(false, c.value(2));
-        assert_eq!(true, c.value(3));
-        assert_eq!(true, c.value(4));
+        cmp_i64_scalar!(
+            neq_scalar,
+            vec![6, 7, 8, 9, 10, 6, 7, 8, 9, 10],
+            8,
+            vec![true, true, false, true, true, true, true, false, true, true]
+        );
     }
 
     #[test]
     fn test_primitive_array_lt() {
-        let a = Int32Array::from(vec![8, 8, 8, 8, 8]);
-        let b = Int32Array::from(vec![6, 7, 8, 9, 10]);
-        let c = lt(&a, &b).unwrap();
-        assert_eq!(false, c.value(0));
-        assert_eq!(false, c.value(1));
-        assert_eq!(false, c.value(2));
-        assert_eq!(true, c.value(3));
-        assert_eq!(true, c.value(4));
+        cmp_i64!(
+            lt,
+            vec![8, 8, 8, 8, 8, 8, 8, 8, 8, 8],
+            vec![6, 7, 8, 9, 10, 6, 7, 8, 9, 10],
+            vec![false, false, false, true, true, false, false, false, true, true]
+        );
     }
 
     #[test]
     fn test_primitive_array_lt_scalar() {
-        let a = Int32Array::from(vec![6, 7, 8, 9, 10]);
-        let c = lt_scalar(&a, 8).unwrap();
-        assert_eq!(true, c.value(0));
-        assert_eq!(true, c.value(1));
-        assert_eq!(false, c.value(2));
-        assert_eq!(false, c.value(3));
-        assert_eq!(false, c.value(4));
+        cmp_i64_scalar!(
+            lt_scalar,
+            vec![6, 7, 8, 9, 10, 6, 7, 8, 9, 10],
+            8,
+            vec![true, true, false, false, false, true, true, false, false, false]
+        );
     }
 
     #[test]
     fn test_primitive_array_lt_nulls() {
-        let a = Int32Array::from(vec![None, None, Some(1)]);
-        let b = Int32Array::from(vec![None, Some(1), None]);
-        let c = lt(&a, &b).unwrap();
-        assert_eq!(false, c.value(0));
-        assert_eq!(true, c.value(1));
-        assert_eq!(false, c.value(2));
+        cmp_i64!(
+            lt,
+            vec![None, None, Some(1), Some(1), None, None, Some(2), Some(2),],
+            vec![None, Some(1), None, Some(1), None, Some(3), None, Some(3),],
+            vec![None, None, None, Some(false), None, None, None, Some(true)]
+        );
     }
 
     #[test]
     fn test_primitive_array_lt_scalar_nulls() {
-        let a = Int32Array::from(vec![None, Some(1), Some(2)]);
-        let c = lt_scalar(&a, 2).unwrap();
-        assert_eq!(true, c.value(0));
-        assert_eq!(true, c.value(1));
-        assert_eq!(false, c.value(2));
+        cmp_i64_scalar!(
+            lt_scalar,
+            vec![None, Some(1), Some(2), Some(3), None, Some(1), Some(2), Some(3), Some(2), None],
+            2,
+            vec![None, Some(true), Some(false), Some(false), None, Some(true), Some(false), Some(false), Some(false), None]
+        );
     }
 
     #[test]
     fn test_primitive_array_lt_eq() {
-        let a = Int32Array::from(vec![8, 8, 8, 8, 8]);
-        let b = Int32Array::from(vec![6, 7, 8, 9, 10]);
-        let c = lt_eq(&a, &b).unwrap();
-        assert_eq!(false, c.value(0));
-        assert_eq!(false, c.value(1));
-        assert_eq!(true, c.value(2));
-        assert_eq!(true, c.value(3));
-        assert_eq!(true, c.value(4));
+        cmp_i64!(
+            lt_eq,
+            vec![8, 8, 8, 8, 8, 8, 8, 8, 8, 8],
+            vec![6, 7, 8, 9, 10, 6, 7, 8, 9, 10],
+            vec![false, false, true, true, true, false, false, true, true, true]
+        );
     }
 
     #[test]
     fn test_primitive_array_lt_eq_scalar() {
-        let a = Int32Array::from(vec![6, 7, 8, 9, 10]);
-        let c = lt_eq_scalar(&a, 8).unwrap();
-        assert_eq!(true, c.value(0));
-        assert_eq!(true, c.value(1));
-        assert_eq!(true, c.value(2));
-        assert_eq!(false, c.value(3));
-        assert_eq!(false, c.value(4));
+        cmp_i64_scalar!(
+            lt_eq_scalar,
+            vec![6, 7, 8, 9, 10, 6, 7, 8, 9, 10],
+            8,
+            vec![true, true, true, false, false, true, true, true, false, false]
+        );
     }
 
     #[test]
     fn test_primitive_array_lt_eq_nulls() {
-        let a = Int32Array::from(vec![None, None, Some(1)]);
-        let b = Int32Array::from(vec![None, Some(1), None]);
-        let c = lt_eq(&a, &b).unwrap();
-        assert_eq!(true, c.value(0));
-        assert_eq!(true, c.value(1));
-        assert_eq!(false, c.value(2));
+        cmp_i64!(
+            lt_eq,
+            vec![None, None, Some(1), None, None, Some(1), None, None, Some(1)],
+            vec![None, Some(1), Some(0), None, Some(1), Some(2), None, None, Some(3)],
+            vec![None, None, Some(false), None, None, Some(true), None, None, Some(true)]
+        );
     }
 
     #[test]
     fn test_primitive_array_lt_eq_scalar_nulls() {
-        let a = Int32Array::from(vec![None, Some(1), Some(2)]);
-        let c = lt_eq_scalar(&a, 1).unwrap();
-        assert_eq!(true, c.value(0));
-        assert_eq!(true, c.value(1));
-        assert_eq!(false, c.value(2));
+        cmp_i64_scalar!(
+            lt_eq_scalar,
+            vec![None, Some(1), Some(2), None, Some(1), Some(2), None, Some(1), Some(2)],
+            1,
+            vec![None, Some(true), Some(false), None, Some(true), Some(false), None, Some(true), Some(false)]
+        );
     }
 
     #[test]
     fn test_primitive_array_gt() {
-        let a = Int32Array::from(vec![8, 8, 8, 8, 8]);
-        let b = Int32Array::from(vec![6, 7, 8, 9, 10]);
-        let c = gt(&a, &b).unwrap();
-        assert_eq!(true, c.value(0));
-        assert_eq!(true, c.value(1));
-        assert_eq!(false, c.value(2));
-        assert_eq!(false, c.value(3));
-        assert_eq!(false, c.value(4));
+        cmp_i64!(
+            gt,
+            vec![8, 8, 8, 8, 8, 8, 8, 8, 8, 8],
+            vec![6, 7, 8, 9, 10, 6, 7, 8, 9, 10],
+            vec![true, true, false, false, false, true, true, false, false, false]
+        );
     }
 
     #[test]
     fn test_primitive_array_gt_scalar() {
-        let a = Int32Array::from(vec![6, 7, 8, 9, 10]);
-        let c = gt_scalar(&a, 8).unwrap();
-        assert_eq!(false, c.value(0));
-        assert_eq!(false, c.value(1));
-        assert_eq!(false, c.value(2));
-        assert_eq!(true, c.value(3));
-        assert_eq!(true, c.value(4));
+        cmp_i64_scalar!(
+            gt_scalar,
+            vec![6, 7, 8, 9, 10, 6, 7, 8, 9, 10],
+            8,
+            vec![false, false, false, true, true, false, false, false, true, true]
+        );
     }
 
     #[test]
     fn test_primitive_array_gt_nulls() {
-        let a = Int32Array::from(vec![None, None, Some(1)]);
-        let b = Int32Array::from(vec![None, Some(1), None]);
-        let c = gt(&a, &b).unwrap();
-        assert_eq!(false, c.value(0));
-        assert_eq!(false, c.value(1));
-        assert_eq!(true, c.value(2));
+        cmp_i64!(
+            gt,
+            vec![None, None, Some(1), None, None, Some(2), None, None, Some(3)],
+            vec![None, Some(1), Some(1), None, Some(1), Some(1), None, Some(1), Some(1)],
+            vec![None, None, Some(false), None, None, Some(true), None, None, Some(true)]
+        );
     }
 
     #[test]
     fn test_primitive_array_gt_scalar_nulls() {
-        let a = Int32Array::from(vec![None, Some(1), Some(2)]);
-        let c = gt_scalar(&a, 1).unwrap();
-        assert_eq!(false, c.value(0));
-        assert_eq!(false, c.value(1));
-        assert_eq!(true, c.value(2));
+        cmp_i64_scalar!(
+            gt_scalar,
+            vec![None, Some(1), Some(2), None, Some(1), Some(2), None, Some(1), Some(2)],
+            1,
+            vec![None, Some(false), Some(true), None, Some(false), Some(true), None, Some(false), Some(true)]
+        );
     }
 
     #[test]
     fn test_primitive_array_gt_eq() {
-        let a = Int32Array::from(vec![8, 8, 8, 8, 8]);
-        let b = Int32Array::from(vec![6, 7, 8, 9, 10]);
-        let c = gt_eq(&a, &b).unwrap();
-        assert_eq!(true, c.value(0));
-        assert_eq!(true, c.value(1));
-        assert_eq!(true, c.value(2));
-        assert_eq!(false, c.value(3));
-        assert_eq!(false, c.value(4));
+        cmp_i64!(
+            gt_eq,
+            vec![8, 8, 8, 8, 8, 8, 8, 8, 8, 8],
+            vec![6, 7, 8, 9, 10, 6, 7, 8, 9, 10],
+            vec![true, true, true, false, false, true, true, true, false, false]
+        );
     }
 
     #[test]
     fn test_primitive_array_gt_eq_scalar() {
-        let a = Int32Array::from(vec![6, 7, 8, 9, 10]);
-        let c = gt_eq_scalar(&a, 8).unwrap();
-        assert_eq!(false, c.value(0));
-        assert_eq!(false, c.value(1));
-        assert_eq!(true, c.value(2));
-        assert_eq!(true, c.value(3));
-        assert_eq!(true, c.value(4));
+        cmp_i64_scalar!(
+            gt_eq_scalar,
+            vec![6, 7, 8, 9, 10, 6, 7, 8, 9, 10],
+            8,
+            vec![false, false, true, true, true, false, false, true, true, true]
+        );
     }
 
     #[test]
     fn test_primitive_array_gt_eq_nulls() {
-        let a = Int32Array::from(vec![None, None, Some(1)]);
-        let b = Int32Array::from(vec![None, Some(1), None]);
-        let c = gt_eq(&a, &b).unwrap();
-        assert_eq!(true, c.value(0));
-        assert_eq!(false, c.value(1));
-        assert_eq!(true, c.value(2));
+        cmp_i64!(
+            gt_eq,
+            vec![None, None, Some(1), None, Some(1), Some(2), None, None, Some(1)],
+            vec![None, Some(1), None, None, Some(1), Some(1), None, Some(2), Some(2)],
+            vec![None, None, None, None, Some(true), Some(true), None, None, Some(false)]
+        );
     }
 
     #[test]
     fn test_primitive_array_gt_eq_scalar_nulls() {
-        let a = Int32Array::from(vec![None, Some(1), Some(2)]);
-        let c = gt_eq_scalar(&a, 1).unwrap();
-        assert_eq!(false, c.value(0));
-        assert_eq!(true, c.value(1));
-        assert_eq!(true, c.value(2));
+        cmp_i64_scalar!(
+            gt_eq_scalar,
+            vec![None, Some(1), Some(2), None, Some(2), Some(3), None, Some(3), Some(4)],
+            2,
+            vec![None, Some(false), Some(true), None, Some(true), Some(true), None, Some(true), Some(true)]
+        );
+    }
+
+    #[test]
+    fn test_primitive_array_compare_slice() {
+        let a: Int32Array = (0..100).map(Some).collect();
+        let a = a.slice(50, 50);
+        let a = a.as_any().downcast_ref::<Int32Array>().unwrap();
+        let b: Int32Array = (100..200).map(Some).collect();
+        let b = b.slice(50, 50);
+        let b = b.as_any().downcast_ref::<Int32Array>().unwrap();
+        let actual = lt(&a, &b).unwrap();
+        let expected: BooleanArray = (0..50).map(|_| Some(true)).collect();
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn test_primitive_array_compare_scalar_slice() {
+        let a: Int32Array = (0..100).map(Some).collect();
+        let a = a.slice(50, 50);
+        let a = a.as_any().downcast_ref::<Int32Array>().unwrap();
+        let actual = lt_scalar(&a, 200).unwrap();
+        let expected: BooleanArray = (0..50).map(|_| Some(true)).collect();
+        assert_eq!(expected, actual);
     }
 
     #[test]
@@ -1025,7 +1123,6 @@ mod tests {
         let list_data = ArrayData::builder(list_data_type)
             .len(4)
             .add_buffer(value_offsets)
-            .null_count(1)
             .add_child_data(value_data)
             .null_bit_buffer(Buffer::from([0b00001011]))
             .build();

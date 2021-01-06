@@ -438,6 +438,35 @@ test_that("filter() with %in%", {
   )
 })
 
+test_that("filter() with .data", {
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
+  expect_equivalent(
+    ds %>%
+      select(.data$int, .data$part) %>%
+      filter(.data$int == 3, .data$part == 1) %>%
+      collect(),
+    tibble(int = df1$int[3], part = 1)
+  )
+
+  expect_equivalent(
+    ds %>%
+      select(.data$int, .data$part) %>%
+      filter(.data$int %in% c(6, 4, 3, 103, 107), .data$part == 1) %>%
+      collect(),
+    tibble(int = df1$int[c(3, 4, 6)], part = 1)
+  )
+
+  # and the .env pronoun too!
+  chr <- 1
+  expect_equivalent(
+    ds %>%
+      select(.data$int, .data$part) %>%
+      filter(.data$int %in% c(6, 4, 3, 103, 107), .data$part == .env$chr) %>%
+      collect(),
+    tibble(int = df1$int[c(3, 4, 6)], part = 1)
+  )
+})
+
 test_that("filter() on timestamp columns", {
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
   expect_equivalent(

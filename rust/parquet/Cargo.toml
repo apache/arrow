@@ -36,19 +36,19 @@ snap = { version = "1.0", optional = true }
 brotli = { version = "3.3", optional = true }
 flate2 = { version = "1.0", optional = true }
 lz4 = { version = "1.23", optional = true }
-zstd = { version = "0.5", optional = true }
+zstd = { version = "0.6", optional = true }
 chrono = "0.4"
 num-bigint = "0.3"
 arrow = { path = "../arrow", version = "3.0.0-SNAPSHOT", optional = true }
 base64 = { version = "*", optional = true }
 
 [dev-dependencies]
-rand = "0.7"
+rand = "0.8"
 snap = "1.0"
 brotli = "3.3"
 flate2 = "1.0"
 lz4 = "1.23"
-zstd = "0.5"
+zstd = "0.6"
 arrow = { path = "../arrow", version = "3.0.0-SNAPSHOT" }
 serde_json = { version = "1.0", features = ["preserve_order"] }
 

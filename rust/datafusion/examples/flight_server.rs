@@ -64,7 +64,7 @@ impl FlightService for FlightServiceImpl {
     ) -> Result<Response<SchemaResult>, Status> {
         let request = request.into_inner();
 
-        let table = ParquetTable::try_new(&request.path[0]).unwrap();
+        let table = ParquetTable::try_new(&request.path[0], num_cpus::get()).unwrap();
 
         let options = arrow::ipc::writer::IpcWriteOptions::default();
         let schema_result = arrow_flight::utils::flight_schema_from_arrow_schema(
@@ -87,8 +87,7 @@ impl FlightService for FlightServiceImpl {
                 // create local execution context
                 let mut ctx = ExecutionContext::new();
 
-                let testdata = std::env::var("PARQUET_TEST_DATA")
-                    .expect("PARQUET_TEST_DATA not defined");
+                let testdata = arrow::util::test_util::parquet_test_data();
 
                 // register parquet file with the execution context
                 ctx.register_parquet(

@@ -22,7 +22,7 @@ use arrow::datatypes::{Field, Schema};
 use std::collections::HashSet;
 
 /// All valid types of joins.
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum JoinType {
     /// Inner join
     Inner,

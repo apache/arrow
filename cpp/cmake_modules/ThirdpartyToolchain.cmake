@@ -184,15 +184,15 @@ endmacro()
 macro(provide_find_module PACKAGE_NAME)
   set(module_ "${CMAKE_SOURCE_DIR}/cmake_modules/Find${PACKAGE_NAME}.cmake")
   if(EXISTS "${module_}")
-    message(STATUS "Providing cmake module for ${PACKAGE_NAME}")
+    message(STATUS "Providing CMake module for ${PACKAGE_NAME}")
     install(FILES "${module_}" DESTINATION "${ARROW_CMAKE_INSTALL_DIR}")
   endif()
   unset(module_)
 endmacro()
 
 macro(resolve_dependency DEPENDENCY_NAME)
-  set(options HAVE_ALT)
-  set(one_value_args REQUIRED_VERSION IS_RUNTIME_DEPENDENCY)
+  set(options)
+  set(one_value_args HAVE_ALT IS_RUNTIME_DEPENDENCY REQUIRED_VERSION USE_CONFIG)
   cmake_parse_arguments(ARG
                         "${options}"
                         "${one_value_args}"
@@ -210,12 +210,15 @@ macro(resolve_dependency DEPENDENCY_NAME)
   else()
     set(PACKAGE_NAME ${DEPENDENCY_NAME})
   endif()
+  set(FIND_PACKAGE_ARGUMENTS ${PACKAGE_NAME})
+  if(ARG_REQUIRED_VERSION)
+    list(APPEND FIND_PACKAGE_ARGUMENTS ${ARG_REQUIRED_VERSION})
+  endif()
+  if(ARG_USE_CONFIG)
+    list(APPEND FIND_PACKAGE_ARGUMENTS CONFIG)
+  endif()
   if(${DEPENDENCY_NAME}_SOURCE STREQUAL "AUTO")
-    if(ARG_REQUIRED_VERSION)
-      find_package(${PACKAGE_NAME} ${ARG_REQUIRED_VERSION})
-    else()
-      find_package(${PACKAGE_NAME})
-    endif()
+    find_package(${FIND_PACKAGE_ARGUMENTS})
     if(${${PACKAGE_NAME}_FOUND})
       set(${DEPENDENCY_NAME}_SOURCE "SYSTEM")
     else()
@@ -225,11 +228,7 @@ macro(resolve_dependency DEPENDENCY_NAME)
   elseif(${DEPENDENCY_NAME}_SOURCE STREQUAL "BUNDLED")
     build_dependency(${DEPENDENCY_NAME})
   elseif(${DEPENDENCY_NAME}_SOURCE STREQUAL "SYSTEM")
-    if(ARG_REQUIRED_VERSION)
-      find_package(${PACKAGE_NAME} ${ARG_REQUIRED_VERSION} REQUIRED)
-    else()
-      find_package(${PACKAGE_NAME} REQUIRED)
-    endif()
+    find_package(${FIND_PACKAGE_ARGUMENTS} REQUIRED)
   endif()
   if(${DEPENDENCY_NAME}_SOURCE STREQUAL "SYSTEM" AND ARG_IS_RUNTIME_DEPENDENCY)
     provide_find_module(${PACKAGE_NAME})
@@ -895,6 +894,7 @@ endif()
 if(ARROW_BOOST_REQUIRED)
   resolve_dependency(Boost
                      HAVE_ALT
+                     TRUE
                      REQUIRED_VERSION
                      ${ARROW_BOOST_REQUIRED_VERSION}
                      IS_RUNTIME_DEPENDENCY
@@ -1078,22 +1078,6 @@ if(ARROW_USE_OPENSSL)
   message(STATUS "Found OpenSSL Crypto Library: ${OPENSSL_CRYPTO_LIBRARY}")
   message(STATUS "Building with OpenSSL (Version: ${OPENSSL_VERSION}) support")
 
-  # OpenSSL::SSL and OpenSSL::Crypto were not added to
-  # FindOpenSSL.cmake until version 3.4.0.
-  # https://gitlab.kitware.com/cmake/cmake/blob/75e3a8e811b290cb9921887f2b086377af90880f/Modules/FindOpenSSL.cmake
-  if(NOT TARGET OpenSSL::SSL)
-    add_library(OpenSSL::SSL UNKNOWN IMPORTED)
-    set_target_properties(OpenSSL::SSL
-                          PROPERTIES IMPORTED_LOCATION "${OPENSSL_SSL_LIBRARY}"
-                                     INTERFACE_INCLUDE_DIRECTORIES
-                                     "${OPENSSL_INCLUDE_DIR}")
-
-    add_library(OpenSSL::Crypto UNKNOWN IMPORTED)
-    set_target_properties(OpenSSL::Crypto
-                          PROPERTIES IMPORTED_LOCATION "${OPENSSL_CRYPTO_LIBRARY}"
-                                     INTERFACE_INCLUDE_DIRECTORIES
-                                     "${OPENSSL_INCLUDE_DIR}")
-  endif()
   list(APPEND ARROW_SYSTEM_DEPENDENCIES "OpenSSL")
 
   include_directories(SYSTEM ${OPENSSL_INCLUDE_DIR})
@@ -1232,7 +1216,11 @@ endmacro()
 
 if(ARROW_NEED_GFLAGS)
   set(ARROW_GFLAGS_REQUIRED_VERSION "2.1.0")
-  resolve_dependency(gflags HAVE_ALT REQUIRED_VERSION ${ARROW_GFLAGS_REQUIRED_VERSION})
+  resolve_dependency(gflags
+                     HAVE_ALT
+                     TRUE
+                     REQUIRED_VERSION
+                     ${ARROW_GFLAGS_REQUIRED_VERSION})
   # TODO: Don't use global includes but rather target_include_directories
   include_directories(SYSTEM ${GFLAGS_INCLUDE_DIR})
 
@@ -1439,7 +1427,7 @@ if(ARROW_WITH_PROTOBUF)
   if(TARGET arrow::protobuf::libprotobuf)
     set(ARROW_PROTOBUF_LIBPROTOBUF arrow::protobuf::libprotobuf)
   else()
-    # Old CMake versions don't define the targets
+    # CMake 3.8 or older don't define the targets
     if(NOT TARGET protobuf::libprotobuf)
       add_library(protobuf::libprotobuf UNKNOWN IMPORTED)
       set_target_properties(protobuf::libprotobuf
@@ -1452,6 +1440,7 @@ if(ARROW_WITH_PROTOBUF)
   if(TARGET arrow::protobuf::libprotoc)
     set(ARROW_PROTOBUF_LIBPROTOC arrow::protobuf::libprotoc)
   else()
+    # CMake 3.8 or older don't define the targets
     if(NOT TARGET protobuf::libprotoc)
       if(PROTOBUF_PROTOC_LIBRARY AND NOT Protobuf_PROTOC_LIBRARY)
         # Old CMake versions have a different casing.
@@ -1754,7 +1743,11 @@ macro(build_gtest)
 endmacro()
 
 if(ARROW_TESTING)
-  resolve_dependency(GTest REQUIRED_VERSION 1.10.0)
+  resolve_dependency(GTest
+                     REQUIRED_VERSION
+                     1.10.0
+                     USE_CONFIG
+                     TRUE)
 
   if(NOT GTEST_VENDORED)
     # TODO(wesm): This logic does not work correctly with the MSVC static libraries
@@ -1905,7 +1898,10 @@ endmacro()
 
 if(ARROW_WITH_RAPIDJSON)
   set(ARROW_RAPIDJSON_REQUIRED_VERSION "1.1.0")
-  resolve_dependency(RapidJSON HAVE_ALT REQUIRED_VERSION
+  resolve_dependency(RapidJSON
+                     HAVE_ALT
+                     TRUE
+                     REQUIRED_VERSION
                      ${ARROW_RAPIDJSON_REQUIRED_VERSION})
 
   if(RapidJSON_INCLUDE_DIR)
@@ -2136,7 +2132,7 @@ macro(build_re2)
 endmacro()
 
 if(ARROW_WITH_RE2)
-  resolve_dependency(re2 HAVE_ALT)
+  resolve_dependency(re2 HAVE_ALT TRUE)
   add_definitions(-DARROW_WITH_RE2)
 
   # TODO: Don't use global includes but rather target_include_directories
@@ -2266,10 +2262,9 @@ macro(build_cares)
     )
 
   set(CARES_CMAKE_ARGS
-      -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+      "${EP_COMMON_CMAKE_ARGS}"
       -DCARES_STATIC=ON
       -DCARES_SHARED=OFF
-      "-DCMAKE_C_FLAGS=${EP_C_FLAGS}"
       -DCMAKE_INSTALL_LIBDIR=lib
       "-DCMAKE_INSTALL_PREFIX=${CARES_PREFIX}")
 
@@ -2328,10 +2323,9 @@ macro(build_grpc)
   # First need to build Abseil
   set(ABSL_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/absl_ep-install")
   set(ABSL_CMAKE_ARGS
+      "${EP_COMMON_CMAKE_ARGS}"
       -DABSL_RUN_TESTS=OFF
-      -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
       -DCMAKE_CXX_STANDARD=11
-      "-DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}"
       -DCMAKE_INSTALL_LIBDIR=lib
       "-DCMAKE_INSTALL_PREFIX=${ABSL_PREFIX}")
   set(ABSL_BUILD_BYPRODUCTS)
@@ -2370,8 +2364,6 @@ macro(build_grpc)
   set(GRPC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/grpc_ep-install")
   set(GRPC_HOME "${GRPC_PREFIX}")
   set(GRPC_INCLUDE_DIR "${GRPC_PREFIX}/include")
-  set(GRPC_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=${GRPC_PREFIX}"
-                      -DBUILD_SHARED_LIBS=OFF)
 
   set(
     GRPC_STATIC_LIBRARY_GPR
@@ -2444,7 +2436,7 @@ macro(build_grpc)
   string(REPLACE ";" "|" GRPC_PREFIX_PATH_ALT_SEP "${GRPC_CMAKE_PREFIX}")
 
   set(GRPC_CMAKE_ARGS
-      -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+      "${EP_COMMON_CMAKE_ARGS}"
       -DCMAKE_PREFIX_PATH='${GRPC_PREFIX_PATH_ALT_SEP}'
       -DgRPC_BUILD_CSHARP_EXT=OFF
       -DgRPC_ABSL_PROVIDER=package
@@ -2454,7 +2446,6 @@ macro(build_grpc)
       -DgRPC_SSL_PROVIDER=package
       -DgRPC_ZLIB_PROVIDER=package
       -DCMAKE_CXX_FLAGS=${GRPC_CMAKE_CXX_FLAGS}
-      -DCMAKE_C_FLAGS=${EP_C_FLAGS}
       -DCMAKE_INSTALL_PREFIX=${GRPC_PREFIX}
       -DCMAKE_INSTALL_LIBDIR=lib
       -DBUILD_SHARED_LIBS=OFF)
@@ -2557,7 +2548,11 @@ endmacro()
 
 if(ARROW_WITH_GRPC)
   set(ARROW_GRPC_REQUIRED_VERSION "1.17.0")
-  resolve_dependency(gRPC HAVE_ALT REQUIRED_VERSION ${ARROW_GRPC_REQUIRED_VERSION})
+  resolve_dependency(gRPC
+                     HAVE_ALT
+                     TRUE
+                     REQUIRED_VERSION
+                     ${ARROW_GRPC_REQUIRED_VERSION})
 
   if(TARGET gRPC::address_sorting)
     set(GRPC_HAS_ADDRESS_SORTING TRUE)
@@ -2808,10 +2803,10 @@ macro(build_awssdk)
   list(APPEND ARROW_BUNDLED_STATIC_LIBS ${AWSSDK_LIBRARIES})
   set(AWSSDK_LINK_LIBRARIES ${AWSSDK_LIBRARIES})
   if(UNIX)
-    # on linux and macos curl seems to be required
+    # on Linux and macOS curl seems to be required
     find_package(CURL REQUIRED)
     if(NOT TARGET CURL::libcurl)
-      # For old FindCURL.cmake
+      # For CMake 3.11 or older
       add_library(CURL::libcurl UNKNOWN IMPORTED)
       set_target_properties(CURL::libcurl
                             PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
@@ -2838,7 +2833,7 @@ endmacro()
 if(ARROW_S3)
   # See https://aws.amazon.com/blogs/developer/developer-experience-of-the-aws-sdk-for-c-now-simplified-by-cmake/
 
-  # Workaround to force AWS cmake configuration to look for shared libraries
+  # Workaround to force AWS CMake configuration to look for shared libraries
   if(DEFINED ENV{CONDA_PREFIX})
     if(DEFINED BUILD_SHARED_LIBS)
       set(BUILD_SHARED_LIBS_WAS_SET TRUE)

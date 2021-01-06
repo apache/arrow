@@ -27,8 +27,7 @@ async fn main() -> Result<()> {
     // create local execution context
     let mut ctx = ExecutionContext::new();
 
-    let testdata =
-        std::env::var("PARQUET_TEST_DATA").expect("PARQUET_TEST_DATA not defined");
+    let testdata = arrow::util::test_util::parquet_test_data();
 
     let filename = &format!("{}/alltypes_plain.parquet", testdata);
 

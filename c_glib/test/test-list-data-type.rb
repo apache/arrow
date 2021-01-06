@@ -26,6 +26,11 @@ class TestListDataType < Test::Unit::TestCase
     assert_equal(Arrow::Type::LIST, @data_type.id)
   end
 
+  def test_name
+    assert_equal("list", @data_type.name)
+  end
+
+
   def test_to_s
     assert_equal("list<enabled: bool>", @data_type.to_s)
   end

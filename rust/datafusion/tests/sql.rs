@@ -16,7 +16,6 @@
 // under the License.
 
 use std::convert::TryFrom;
-use std::env;
 use std::sync::Arc;
 
 extern crate arrow;
@@ -118,7 +117,7 @@ async fn parquet_query() {
 #[tokio::test]
 async fn parquet_single_nan_schema() {
     let mut ctx = ExecutionContext::new();
-    let testdata = env::var("PARQUET_TEST_DATA").expect("PARQUET_TEST_DATA not defined");
+    let testdata = arrow::util::test_util::parquet_test_data();
     ctx.register_parquet("single_nan", &format!("{}/single_nan.parquet", testdata))
         .unwrap();
     let sql = "SELECT mycol FROM single_nan";
@@ -133,9 +132,10 @@ async fn parquet_single_nan_schema() {
 }
 
 #[tokio::test]
+#[ignore = "Test ignored, will be enabled as part of the nested Parquet reader"]
 async fn parquet_list_columns() {
     let mut ctx = ExecutionContext::new();
-    let testdata = env::var("PARQUET_TEST_DATA").expect("PARQUET_TEST_DATA not defined");
+    let testdata = arrow::util::test_util::parquet_test_data();
     ctx.register_parquet(
         "list_columns",
         &format!("{}/list_columns.parquet", testdata),
@@ -1275,7 +1275,7 @@ fn aggr_test_schema() -> SchemaRef {
 }
 
 async fn register_aggregate_csv_by_sql(ctx: &mut ExecutionContext) {
-    let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+    let testdata = arrow::util::test_util::arrow_test_data();
 
     // TODO: The following c9 should be migrated to UInt32 and c10 should be UInt64 once
     // unsigned is supported.
@@ -1315,7 +1315,7 @@ async fn register_aggregate_csv_by_sql(ctx: &mut ExecutionContext) {
 }
 
 fn register_aggregate_csv(ctx: &mut ExecutionContext) -> Result<()> {
-    let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+    let testdata = arrow::util::test_util::arrow_test_data();
     let schema = aggr_test_schema();
     ctx.register_csv(
         "aggregate_test_100",
@@ -1326,7 +1326,7 @@ fn register_aggregate_csv(ctx: &mut ExecutionContext) -> Result<()> {
 }
 
 fn register_alltypes_parquet(ctx: &mut ExecutionContext) {
-    let testdata = env::var("PARQUET_TEST_DATA").expect("PARQUET_TEST_DATA not defined");
+    let testdata = arrow::util::test_util::parquet_test_data();
     ctx.register_parquet(
         "alltypes_plain",
         &format!("{}/alltypes_plain.parquet", testdata),
@@ -1823,6 +1823,30 @@ async fn csv_between_expr_negated() -> Result<()> {
     let mut actual = execute(&mut ctx, sql).await;
     actual.sort();
     let expected = vec![vec!["10837"]];
+    assert_eq!(expected, actual);
+    Ok(())
+}
+
+#[tokio::test]
+async fn string_expressions() -> Result<()> {
+    let mut ctx = ExecutionContext::new();
+    let sql = "SELECT
+        char_length('tom') AS char_length
+        ,char_length(NULL) AS char_length_null
+        ,character_length('tom') AS character_length
+        ,character_length(NULL) AS character_length_null
+        ,lower('TOM') AS lower
+        ,lower(NULL) AS lower_null
+        ,upper('tom') AS upper
+        ,upper(NULL) AS upper_null
+        ,trim(' tom ') AS trim
+        ,trim(NULL) AS trim_null
+    ";
+    let actual = execute(&mut ctx, sql).await;
+
+    let expected = vec![vec![
+        "3", "NULL", "3", "NULL", "tom", "NULL", "TOM", "NULL", "tom", "NULL",
+    ]];
     assert_eq!(expected, actual);
     Ok(())
 }

@@ -473,10 +473,9 @@ impl Accumulator for AvgAccumulator {
 
     fn evaluate(&self) -> Result<ScalarValue> {
         match self.sum {
-            ScalarValue::Float64(e) => Ok(ScalarValue::Float64(match e {
-                Some(f) => Some(f / self.count as f64),
-                None => None,
-            })),
+            ScalarValue::Float64(e) => {
+                Ok(ScalarValue::Float64(e.map(|f| f / self.count as f64)))
+            }
             _ => Err(DataFusionError::Internal(
                 "Sum should be f64 on average".to_string(),
             )),
@@ -878,81 +877,56 @@ impl AggregateExpr for Count {
 
 #[derive(Debug)]
 struct CountAccumulator {
-    count: ScalarValue,
+    count: u64,
 }
 
 impl CountAccumulator {
     /// new count accumulator
     pub fn new() -> Self {
-        Self {
-            count: ScalarValue::from(0u64),
-        }
-    }
-
-    fn update_from_option(&mut self, delta: &Option<u64>) -> Result<()> {
-        self.count = ScalarValue::UInt64(match (&self.count, delta) {
-            (ScalarValue::UInt64(None), None) => None,
-            (ScalarValue::UInt64(None), Some(rhs)) => Some(*rhs),
-            (ScalarValue::UInt64(Some(lhs)), None) => Some(*lhs),
-            (ScalarValue::UInt64(Some(lhs)), Some(rhs)) => Some(lhs + rhs),
-            _ => {
-                return Err(DataFusionError::Internal(
-                    "Code should not be reached reach".to_string(),
-                ))
-            }
-        });
-        Ok(())
+        Self { count: 0 }
     }
 }
 
 impl Accumulator for CountAccumulator {
     fn update_batch(&mut self, values: &Vec<ArrayRef>) -> Result<()> {
         let array = &values[0];
-        let delta = if array.len() == array.data().null_count() {
-            None
-        } else {
-            Some((array.len() - array.data().null_count()) as u64)
-        };
-        self.update_from_option(&delta)
+        self.count += (array.len() - array.data().null_count()) as u64;
+        Ok(())
     }
 
     fn update(&mut self, values: &Vec<ScalarValue>) -> Result<()> {
         let value = &values[0];
-        self.count = match (&self.count, value.is_null()) {
-            (ScalarValue::UInt64(None), false) => ScalarValue::from(1u64),
-            (ScalarValue::UInt64(Some(count)), false) => ScalarValue::from(count + 1),
-            // value is null => no change in count
-            (e, true) => e.clone(),
-            (_, false) => {
-                return Err(DataFusionError::Internal(
-                    "Count is always of type u64".to_string(),
-                ))
-            }
-        };
+        if !value.is_null() {
+            self.count += 1;
+        }
         Ok(())
     }
 
     fn merge(&mut self, states: &Vec<ScalarValue>) -> Result<()> {
         let count = &states[0];
-        if let ScalarValue::UInt64(delta) = count {
-            self.update_from_option(delta)
+        if let ScalarValue::UInt64(Some(delta)) = count {
+            self.count += *delta;
         } else {
             unreachable!()
         }
+        Ok(())
     }
 
     fn merge_batch(&mut self, states: &Vec<ArrayRef>) -> Result<()> {
         let counts = states[0].as_any().downcast_ref::<UInt64Array>().unwrap();
         let delta = &compute::sum(counts);
-        self.update_from_option(delta)
+        if let Some(d) = delta {
+            self.count += *d;
+        }
+        Ok(())
     }
 
     fn state(&self) -> Result<Vec<ScalarValue>> {
-        Ok(vec![self.count.clone()])
+        Ok(vec![ScalarValue::UInt64(Some(self.count))])
     }
 
     fn evaluate(&self) -> Result<ScalarValue> {
-        Ok(self.count.clone())
+        Ok(ScalarValue::UInt64(Some(self.count)))
     }
 }
 
@@ -1702,12 +1676,10 @@ pub fn not(
 ) -> Result<Arc<dyn PhysicalExpr>> {
     let data_type = arg.data_type(input_schema)?;
     if data_type != DataType::Boolean {
-        Err(DataFusionError::Internal(
-            format!(
-                "NOT '{:?}' can't be evaluated because the expression's type is {:?}, not boolean",
-                arg, data_type,
-            ),
-        ))
+        Err(DataFusionError::Internal(format!(
+            "NOT '{:?}' can't be evaluated because the expression's type is {:?}, not boolean",
+            arg, data_type,
+        )))
     } else {
         Ok(Arc::new(NotExpr::new(arg)))
     }
@@ -2486,8 +2458,8 @@ mod tests {
             .as_any()
             .downcast_ref::<BooleanArray>()
             .expect("failed to downcast to BooleanArray");
-        for i in 0..5 {
-            assert_eq!(result.value(i), expected[i]);
+        for (i, &expected_item) in expected.iter().enumerate().take(5) {
+            assert_eq!(result.value(i), expected_item);
         }
 
         Ok(())
@@ -2520,8 +2492,8 @@ mod tests {
             .as_any()
             .downcast_ref::<BooleanArray>()
             .expect("failed to downcast to BooleanArray");
-        for i in 0..5 {
-            assert_eq!(result.value(i), expected[i]);
+        for (i, &expected_item) in expected.iter().enumerate().take(5) {
+            assert_eq!(result.value(i), expected_item);
         }
 
         Ok(())

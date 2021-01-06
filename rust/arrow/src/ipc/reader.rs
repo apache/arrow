@@ -160,11 +160,7 @@ fn create_array(
             let null_count = struct_node.null_count() as usize;
             let struct_array = if null_count > 0 {
                 // create struct array from fields, arrays and null data
-                StructArray::from((
-                    struct_arrays,
-                    null_buffer,
-                    struct_node.null_count() as usize,
-                ))
+                StructArray::from((struct_arrays, null_buffer))
             } else {
                 StructArray::from(struct_arrays)
             };
@@ -232,9 +228,7 @@ fn create_primitive_array(
                 .buffers(buffers[1..3].to_vec())
                 .offset(0);
             if null_count > 0 {
-                builder = builder
-                    .null_count(null_count)
-                    .null_bit_buffer(buffers[0].clone())
+                builder = builder.null_bit_buffer(buffers[0].clone())
             }
             builder.build()
         }
@@ -245,9 +239,7 @@ fn create_primitive_array(
                 .buffers(buffers[1..2].to_vec())
                 .offset(0);
             if null_count > 0 {
-                builder = builder
-                    .null_count(null_count)
-                    .null_bit_buffer(buffers[0].clone())
+                builder = builder.null_bit_buffer(buffers[0].clone())
             }
             builder.build()
         }
@@ -267,9 +259,7 @@ fn create_primitive_array(
                     .buffers(buffers[1..].to_vec())
                     .offset(0);
                 if null_count > 0 {
-                    builder = builder
-                        .null_count(null_count)
-                        .null_bit_buffer(buffers[0].clone())
+                    builder = builder.null_bit_buffer(buffers[0].clone())
                 }
                 let values = Arc::new(Int64Array::from(builder.build())) as ArrayRef;
                 // this cast is infallible, the unwrap is safe
@@ -281,9 +271,7 @@ fn create_primitive_array(
                     .buffers(buffers[1..].to_vec())
                     .offset(0);
                 if null_count > 0 {
-                    builder = builder
-                        .null_count(null_count)
-                        .null_bit_buffer(buffers[0].clone())
+                    builder = builder.null_bit_buffer(buffers[0].clone())
                 }
                 builder.build()
             }
@@ -296,9 +284,7 @@ fn create_primitive_array(
                     .buffers(buffers[1..].to_vec())
                     .offset(0);
                 if null_count > 0 {
-                    builder = builder
-                        .null_count(null_count)
-                        .null_bit_buffer(buffers[0].clone())
+                    builder = builder.null_bit_buffer(buffers[0].clone())
                 }
                 let values = Arc::new(Float64Array::from(builder.build())) as ArrayRef;
                 // this cast is infallible, the unwrap is safe
@@ -310,9 +296,7 @@ fn create_primitive_array(
                     .buffers(buffers[1..].to_vec())
                     .offset(0);
                 if null_count > 0 {
-                    builder = builder
-                        .null_count(null_count)
-                        .null_bit_buffer(buffers[0].clone())
+                    builder = builder.null_bit_buffer(buffers[0].clone())
                 }
                 builder.build()
             }
@@ -331,9 +315,7 @@ fn create_primitive_array(
                 .buffers(buffers[1..].to_vec())
                 .offset(0);
             if null_count > 0 {
-                builder = builder
-                    .null_count(null_count)
-                    .null_bit_buffer(buffers[0].clone())
+                builder = builder.null_bit_buffer(buffers[0].clone())
             }
             builder.build()
         }
@@ -344,9 +326,7 @@ fn create_primitive_array(
                 .buffers(buffers[1..2].to_vec())
                 .offset(0);
             if null_count > 0 {
-                builder = builder
-                    .null_count(null_count)
-                    .null_bit_buffer(buffers[0].clone())
+                builder = builder.null_bit_buffer(buffers[0].clone())
             }
             builder.build()
         }
@@ -372,9 +352,7 @@ fn create_list_array(
             .offset(0)
             .child_data(vec![child_array.data()]);
         if null_count > 0 {
-            builder = builder
-                .null_count(null_count)
-                .null_bit_buffer(buffers[0].clone())
+            builder = builder.null_bit_buffer(buffers[0].clone())
         }
         make_array(builder.build())
     } else if let DataType::LargeList(_) = *data_type {
@@ -385,9 +363,7 @@ fn create_list_array(
             .offset(0)
             .child_data(vec![child_array.data()]);
         if null_count > 0 {
-            builder = builder
-                .null_count(null_count)
-                .null_bit_buffer(buffers[0].clone())
+            builder = builder.null_bit_buffer(buffers[0].clone())
         }
         make_array(builder.build())
     } else if let DataType::FixedSizeList(_, _) = *data_type {
@@ -398,9 +374,7 @@ fn create_list_array(
             .offset(0)
             .child_data(vec![child_array.data()]);
         if null_count > 0 {
-            builder = builder
-                .null_count(null_count)
-                .null_bit_buffer(buffers[0].clone())
+            builder = builder.null_bit_buffer(buffers[0].clone())
         }
         make_array(builder.build())
     } else {
@@ -424,9 +398,7 @@ fn create_dictionary_array(
             .offset(0)
             .child_data(vec![value_array.data()]);
         if null_count > 0 {
-            builder = builder
-                .null_count(null_count)
-                .null_bit_buffer(buffers[0].clone())
+            builder = builder.null_bit_buffer(buffers[0].clone())
         }
         make_array(builder.build())
     } else {
@@ -590,7 +562,10 @@ impl<R: Read + Seek> FileReader<R> {
         let mut footer_data = vec![0; footer_len as usize];
         reader.seek(SeekFrom::End(-10 - footer_len as i64))?;
         reader.read_exact(&mut footer_data)?;
-        let footer = ipc::get_root_as_footer(&footer_data[..]);
+
+        let footer = ipc::root_as_footer(&footer_data[..]).map_err(|err| {
+            ArrowError::IoError(format!("Unable to get root as footer: {:?}", err))
+        })?;
 
         let blocks = footer.recordBatches().ok_or_else(|| {
             ArrowError::IoError(
@@ -621,7 +596,9 @@ impl<R: Read + Seek> FileReader<R> {
 
             reader.read_exact(&mut block_data)?;
 
-            let message = ipc::get_root_as_message(&block_data[..]);
+            let message = ipc::root_as_message(&block_data[..]).map_err(|err| {
+                ArrowError::IoError(format!("Unable to get root as message: {:?}", err))
+            })?;
 
             match message.header_type() {
                 ipc::MessageHeader::DictionaryBatch => {
@@ -698,7 +675,9 @@ impl<R: Read + Seek> FileReader<R> {
         let mut block_data = vec![0; meta_len as usize];
         self.reader.read_exact(&mut block_data)?;
 
-        let message = ipc::get_root_as_message(&block_data[..]);
+        let message = ipc::root_as_message(&block_data[..]).map_err(|err| {
+            ArrowError::IoError(format!("Unable to get root as footer: {:?}", err))
+        })?;
 
         // some old test data's footer metadata is not set, so we account for that
         if self.metadata_version != ipc::MetadataVersion::V1
@@ -804,7 +783,9 @@ impl<R: Read> StreamReader<R> {
         let mut meta_buffer = vec![0; meta_len as usize];
         reader.read_exact(&mut meta_buffer)?;
 
-        let message = ipc::get_root_as_message(meta_buffer.as_slice());
+        let message = ipc::root_as_message(meta_buffer.as_slice()).map_err(|err| {
+            ArrowError::IoError(format!("Unable to get root as message: {:?}", err))
+        })?;
         // message header is a Schema, so read it
         let ipc_schema: ipc::Schema = message.header_as_schema().ok_or_else(|| {
             ArrowError::IoError("Unable to read IPC message as schema".to_string())
@@ -873,7 +854,9 @@ impl<R: Read> StreamReader<R> {
         self.reader.read_exact(&mut meta_buffer)?;
 
         let vecs = &meta_buffer.to_vec();
-        let message = ipc::get_root_as_message(vecs);
+        let message = ipc::root_as_message(vecs).map_err(|err| {
+            ArrowError::IoError(format!("Unable to get root as message: {:?}", err))
+        })?;
 
         match message.header_type() {
             ipc::MessageHeader::Schema => Err(ArrowError::IoError(
@@ -939,12 +922,11 @@ mod tests {
     use flate2::read::GzDecoder;
 
     use crate::util::integration_util::*;
-    use std::env;
     use std::fs::File;
 
     #[test]
     fn read_generated_files() {
-        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let testdata = crate::util::test_util::arrow_test_data();
         // the test is repetitive, thus we can read all supported files at once
         let paths = vec![
             "generated_interval",
@@ -974,7 +956,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "Big Endian is not supported for Decimal!")]
     fn read_decimal_be_file_should_panic() {
-        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let testdata = crate::util::test_util::arrow_test_data();
         let file = File::open(format!(
                 "{}/arrow-ipc-stream/integration/1.0.0-bigendian/generated_decimal.arrow_file",
                 testdata
@@ -986,7 +968,7 @@ mod tests {
     #[test]
     fn read_generated_be_files_should_work() {
         // complementary to the previous test
-        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let testdata = crate::util::test_util::arrow_test_data();
         let paths = vec![
             "generated_interval",
             "generated_datetime",
@@ -1009,7 +991,7 @@ mod tests {
 
     #[test]
     fn read_generated_streams() {
-        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let testdata = crate::util::test_util::arrow_test_data();
         // the test is repetitive, thus we can read all supported files at once
         let paths = vec![
             "generated_interval",
@@ -1091,7 +1073,7 @@ mod tests {
 
     /// Read gzipped JSON file
     fn read_gzip_json(path: &str) -> ArrowJson {
-        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let testdata = crate::util::test_util::arrow_test_data();
         let file = File::open(format!(
             "{}/arrow-ipc-stream/integration/0.14.1/{}.json.gz",
             testdata, path

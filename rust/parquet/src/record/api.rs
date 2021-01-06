@@ -537,7 +537,10 @@ impl Field {
 
     /// Determines if this Row represents a primitive value.
     pub fn is_primitive(&self) -> bool {
-        !matches!(*self, Field::Group(_) | Field::ListInternal(_) | Field::MapInternal(_))
+        !matches!(
+            *self,
+            Field::Group(_) | Field::ListInternal(_) | Field::MapInternal(_)
+        )
     }
 
     /// Converts Parquet BOOLEAN type with logical type into `bool` value.

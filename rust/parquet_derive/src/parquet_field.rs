@@ -826,11 +826,7 @@ mod test {
             {
                 let definition_levels : Vec<i16> = self.iter().map(|rec| if rec.maybe_happened.is_some() { 1 } else { 0 }).collect();
                 let vals : Vec<_> = records.iter().filter_map(|rec| {
-                    if let Some(inner) = rec.maybe_happened {
-                        Some( inner.timestamp_millis() )
-                    } else {
-                        None
-                    }
+                    rec.maybe_happened.map(|inner| {  inner.timestamp_millis()  })
                 }).collect();
 
                 if let parquet::column::writer::ColumnWriter::Int64ColumnWriter(ref mut typed) = column_writer {
@@ -870,11 +866,7 @@ mod test {
             {
                 let definition_levels : Vec<i16> = self.iter().map(|rec| if rec.maybe_happened.is_some() { 1 } else { 0 }).collect();
                 let vals : Vec<_> = records.iter().filter_map(|rec| {
-                    if let Some(inner) = rec.maybe_happened {
-                        Some( inner.signed_duration_since(chrono::NaiveDate::from_ymd(1970, 1, 1)).num_days() as i32 )
-                    } else {
-                        None
-                    }
+                    rec.maybe_happened.map(|inner| {  inner.signed_duration_since(chrono::NaiveDate::from_ymd(1970, 1, 1)).num_days() as i32  })
                 }).collect();
 
                 if let parquet::column::writer::ColumnWriter::Int32ColumnWriter(ref mut typed) = column_writer {
@@ -914,11 +906,7 @@ mod test {
             {
                 let definition_levels : Vec<i16> = self.iter().map(|rec| if rec.maybe_unique_id.is_some() { 1 } else { 0 }).collect();
                 let vals : Vec<_> = records.iter().filter_map(|rec| {
-                    if let Some(ref inner) = rec.maybe_unique_id {
-                        Some( (&inner.to_string()[..]).into() )
-                    } else {
-                        None
-                    }
+                    rec.maybe_unique_id.map(|ref inner| {  (&inner.to_string()[..]).into()  })
                 }).collect();
 
                 if let parquet::column::writer::ColumnWriter::ByteArrayColumnWriter(ref mut typed) = column_writer {

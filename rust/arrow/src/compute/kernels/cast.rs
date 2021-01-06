@@ -38,11 +38,11 @@
 use std::str;
 use std::sync::Arc;
 
-use crate::buffer::Buffer;
 use crate::compute::kernels::arithmetic::{divide, multiply};
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 use crate::{array::*, compute::take};
+use crate::{buffer::Buffer, util::serialization::lexical_to_string};
 
 /// Return true if a value of type `from_type` can be cast into a
 /// value of `to_type`. Note that such as cast may be lossy.
@@ -351,17 +351,13 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
             Float32 => cast_bool_to_numeric::<Float32Type>(array),
             Float64 => cast_bool_to_numeric::<Float64Type>(array),
             Utf8 => {
-                let from = array.as_any().downcast_ref::<BooleanArray>().unwrap();
-                let mut b = StringBuilder::new(array.len());
-                for i in 0..array.len() {
-                    if array.is_null(i) {
-                        b.append(false)?;
-                    } else {
-                        b.append_value(if from.value(i) { "1" } else { "0" })?;
-                    }
-                }
-
-                Ok(Arc::new(b.finish()) as ArrayRef)
+                let array = array.as_any().downcast_ref::<BooleanArray>().unwrap();
+                Ok(Arc::new(
+                    array
+                        .iter()
+                        .map(|value| value.map(|value| if value { "1" } else { "0" }))
+                        .collect::<StringArray>(),
+                ))
             }
             _ => Err(ArrowError::ComputeError(format!(
                 "Casting from {:?} to {:?} not supported",
@@ -380,7 +376,7 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
             Float32 => cast_string_to_numeric::<Float32Type>(array),
             Float64 => cast_string_to_numeric::<Float64Type>(array),
             Date32(DateUnit::Day) => {
-                let zero_time = chrono::NaiveTime::from_hms(0, 0, 0);
+                use chrono::Datelike;
                 let string_array = array.as_any().downcast_ref::<StringArray>().unwrap();
                 let mut builder = PrimitiveBuilder::<Date32Type>::new(string_array.len());
                 for i in 0..string_array.len() {
@@ -389,8 +385,7 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
                     } else {
                         match string_array.value(i).parse::<chrono::NaiveDate>() {
                             Ok(date) => builder.append_value(
-                                (date.and_time(zero_time).timestamp() / SECONDS_IN_DAY)
-                                    as i32,
+                                date.num_days_from_ce() - EPOCH_DAYS_FROM_CE,
                             )?,
                             Err(_) => builder.append_null()?, // not a valid date
                         };
@@ -432,20 +427,15 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
             Float32 => cast_numeric_to_string::<Float32Type>(array),
             Float64 => cast_numeric_to_string::<Float64Type>(array),
             Binary => {
-                let from = array.as_any().downcast_ref::<BinaryArray>().unwrap();
-                let mut b = StringBuilder::new(array.len());
-                for i in 0..array.len() {
-                    if array.is_null(i) {
-                        b.append_null()?;
-                    } else {
-                        match str::from_utf8(from.value(i)) {
-                            Ok(s) => b.append_value(s)?,
-                            Err(_) => b.append_null()?, // not valid UTF8
-                        }
-                    }
-                }
-
-                Ok(Arc::new(b.finish()) as ArrayRef)
+                let array = array.as_any().downcast_ref::<BinaryArray>().unwrap();
+                Ok(Arc::new(
+                    array
+                        .iter()
+                        .map(|maybe_value| {
+                            maybe_value.and_then(|value| str::from_utf8(value).ok())
+                        })
+                        .collect::<StringArray>(),
+                ))
             }
             _ => Err(ArrowError::ComputeError(format!(
                 "Casting from {:?} to {:?} not supported",
@@ -835,6 +825,8 @@ const MICROSECONDS: i64 = 1_000_000;
 const NANOSECONDS: i64 = 1_000_000_000;
 /// Number of milliseconds in a day
 const MILLISECONDS_IN_DAY: i64 = SECONDS_IN_DAY * MILLISECONDS;
+/// Number of days between 0001-01-01 and 1970-01-01
+const EPOCH_DAYS_FROM_CE: i32 = 719_163;
 
 /// Cast an array by changing its array_data type to the desired type
 ///
@@ -881,10 +873,7 @@ where
     R::Native: num::NumCast,
 {
     from.iter()
-        .map(|v| match v {
-            Some(v) => num::cast::cast::<T::Native, R::Native>(v),
-            None => None,
-        })
+        .map(|v| v.and_then(num::cast::cast::<T::Native, R::Native>))
         .collect()
 }
 
@@ -892,41 +881,33 @@ where
 fn cast_numeric_to_string<FROM>(array: &ArrayRef) -> Result<ArrayRef>
 where
     FROM: ArrowNumericType,
-    FROM::Native: std::string::ToString,
+    FROM::Native: lexical_core::ToLexical,
 {
-    numeric_to_string_cast::<FROM>(
+    Ok(Arc::new(numeric_to_string_cast::<FROM>(
         array
             .as_any()
             .downcast_ref::<PrimitiveArray<FROM>>()
             .unwrap(),
-    )
-    .map(|to| Arc::new(to) as ArrayRef)
+    )))
 }
 
-fn numeric_to_string_cast<T>(from: &PrimitiveArray<T>) -> Result<StringArray>
+fn numeric_to_string_cast<T>(from: &PrimitiveArray<T>) -> StringArray
 where
     T: ArrowPrimitiveType + ArrowNumericType,
-    T::Native: std::string::ToString,
+    T::Native: lexical_core::ToLexical,
 {
-    let mut b = StringBuilder::new(from.len());
-
-    for i in 0..from.len() {
-        if from.is_null(i) {
-            b.append(false)?;
-        } else {
-            b.append_value(&from.value(i).to_string())?;
-        }
-    }
-
-    Ok(b.finish())
+    from.iter()
+        .map(|maybe_value| maybe_value.map(lexical_to_string))
+        .collect()
 }
 
 /// Cast numeric types to Utf8
-fn cast_string_to_numeric<TO>(from: &ArrayRef) -> Result<ArrayRef>
+fn cast_string_to_numeric<T>(from: &ArrayRef) -> Result<ArrayRef>
 where
-    TO: ArrowNumericType,
+    T: ArrowNumericType,
+    <T as ArrowPrimitiveType>::Native: lexical_core::FromLexical,
 {
-    Ok(Arc::new(string_to_numeric_cast::<TO>(
+    Ok(Arc::new(string_to_numeric_cast::<T>(
         from.as_any().downcast_ref::<StringArray>().unwrap(),
     )))
 }
@@ -934,16 +915,14 @@ where
 fn string_to_numeric_cast<T>(from: &StringArray) -> PrimitiveArray<T>
 where
     T: ArrowNumericType,
+    <T as ArrowPrimitiveType>::Native: lexical_core::FromLexical,
 {
     (0..from.len())
         .map(|i| {
             if from.is_null(i) {
                 None
             } else {
-                match from.value(i).parse::<T::Native>() {
-                    Ok(v) => Some(v),
-                    Err(_) => None,
-                }
+                lexical_core::parse(from.value(i).as_bytes()).ok()
             }
         })
         .collect()
@@ -1122,7 +1101,7 @@ where
                 )
             })?;
 
-    take(&cast_dict_values, u32_indicies, None)
+    take(cast_dict_values.as_ref(), u32_indicies, None)
 }
 
 /// Attempts to encode an array into an `ArrayDictionary` with index
@@ -2717,11 +2696,8 @@ mod tests {
     fn test_cast_string_array_to_dict() {
         use DataType::*;
 
-        let mut builder = StringBuilder::new(10);
-        builder.append_value("one").unwrap();
-        builder.append_null().unwrap();
-        builder.append_value("three").unwrap();
-        let array: ArrayRef = Arc::new(builder.finish());
+        let array = Arc::new(StringArray::from(vec![Some("one"), None, Some("three")]))
+            as ArrayRef;
 
         let expected = vec!["one", "null", "three"];
 
@@ -2761,7 +2737,9 @@ mod tests {
 
     #[test]
     fn test_cast_utf8_to_date32() {
-        use chrono::{NaiveDate, NaiveTime};
+        use chrono::NaiveDate;
+        let from_ymd = chrono::NaiveDate::from_ymd;
+        let since = chrono::NaiveDate::signed_duration_since;
 
         let a = StringArray::from(vec![
             "2000-01-01",          // valid date with leading 0s
@@ -2774,19 +2752,14 @@ mod tests {
         let b = cast(&array, &DataType::Date32(DateUnit::Day)).unwrap();
         let c = b.as_any().downcast_ref::<Date32Array>().unwrap();
 
-        let zero_time = NaiveTime::from_hms(0, 0, 0);
         // test valid inputs
-        let date_value = (NaiveDate::from_ymd(2000, 1, 1)
-            .and_time(zero_time)
-            .timestamp()
-            / SECONDS_IN_DAY) as i32;
+        let date_value = since(NaiveDate::from_ymd(2000, 1, 1), from_ymd(1970, 1, 1))
+            .num_days() as i32;
         assert_eq!(true, c.is_valid(0)); // "2000-01-01"
         assert_eq!(date_value, c.value(0));
 
-        let date_value = (NaiveDate::from_ymd(2000, 2, 2)
-            .and_time(zero_time)
-            .timestamp()
-            / SECONDS_IN_DAY) as i32;
+        let date_value = since(NaiveDate::from_ymd(2000, 2, 2), from_ymd(1970, 1, 1))
+            .num_days() as i32;
         assert_eq!(true, c.is_valid(1)); // "2000-2-2"
         assert_eq!(date_value, c.value(1));
 

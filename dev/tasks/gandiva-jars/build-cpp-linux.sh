@@ -69,4 +69,4 @@ popd
 
 
 # copy the library to distribution
-cp -L  /arrow-dist/lib/libgandiva_jni.so /io/dist
+cp -L  /arrow-dist/lib/libgandiva_jni.so /arrow/dist

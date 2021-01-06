@@ -111,8 +111,8 @@ class ARROW_EXPORT HadoopFileSystem : public FileSystem {
   Status MakeDirectory(const std::string& path) override;
 
   // Delete file or directory
-  // @param path: absolute path to data
-  // @param recursive: if path is a directory, delete contents as well
+  // @param path absolute path to data
+  // @param recursive if path is a directory, delete contents as well
   // @returns error status on failure
   Status Delete(const std::string& path, bool recursive = false);
 
@@ -188,9 +188,9 @@ class ARROW_EXPORT HadoopFileSystem : public FileSystem {
 
   // FileMode::WRITE options
   // @param path complete file path
-  // @param buffer_size, 0 for default
-  // @param replication, 0 for default
-  // @param default_block_size, 0 for default
+  // @param buffer_size 0 by default
+  // @param replication 0 by default
+  // @param default_block_size 0 by default
   Status OpenWritable(const std::string& path, bool append, int32_t buffer_size,
                       int16_t replication, int64_t default_block_size,
                       std::shared_ptr<HdfsOutputStream>* file);

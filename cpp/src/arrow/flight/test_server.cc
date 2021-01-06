@@ -31,6 +31,7 @@
 #include "arrow/util/logging.h"
 
 DEFINE_int32(port, 31337, "Server port to listen on");
+DEFINE_string(unix, "", "Unix socket path to listen on");
 
 std::unique_ptr<arrow::flight::FlightServerBase> g_server;
 
@@ -40,14 +41,22 @@ int main(int argc, char** argv) {
   g_server = arrow::flight::ExampleTestServer();
 
   arrow::flight::Location location;
-  ARROW_CHECK_OK(arrow::flight::Location::ForGrpcTcp("0.0.0.0", FLAGS_port, &location));
+  if (FLAGS_unix.empty()) {
+    ARROW_CHECK_OK(arrow::flight::Location::ForGrpcTcp("0.0.0.0", FLAGS_port, &location));
+  } else {
+    ARROW_CHECK_OK(arrow::flight::Location::ForGrpcUnix(FLAGS_unix, &location));
+  }
   arrow::flight::FlightServerOptions options(location);
 
   ARROW_CHECK_OK(g_server->Init(options));
   // Exit with a clean error code (0) on SIGTERM
   ARROW_CHECK_OK(g_server->SetShutdownOnSignals({SIGTERM}));
 
-  std::cout << "Server listening on localhost:" << FLAGS_port << std::endl;
+  if (FLAGS_unix.empty()) {
+    std::cout << "Server listening on localhost:" << FLAGS_port << std::endl;
+  } else {
+    std::cout << "Server listening on unix://" << FLAGS_unix << std::endl;
+  }
   ARROW_CHECK_OK(g_server->Serve());
   return 0;
 }

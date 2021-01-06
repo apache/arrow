@@ -18,6 +18,11 @@
 class TestDecimal128 < Test::Unit::TestCase
   include Helper::Omittable
 
+  def test_copy
+    decimal = Arrow::Decimal128.new("234.23445")
+    assert_equal(decimal, decimal.copy)
+  end
+
   def test_to_string_scale
     integer_data = 23423445
     string_data = "234.23445"
@@ -29,6 +34,12 @@ class TestDecimal128 < Test::Unit::TestCase
     string_data = "99999999999999999999999999999999999999"
     decimal = Arrow::Decimal128.new(string_data)
     assert_equal(string_data, decimal.to_s)
+  end
+
+  def test_to_bytes
+    decimal = Arrow::Decimal128.new("12.3")
+    assert_equal([123, 0].pack("q*"),
+                 decimal.to_bytes.to_s)
   end
 
   def test_abs

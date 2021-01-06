@@ -467,6 +467,12 @@ TEST_F(TestStringCompareKernel, SimpleCompareArrayScalar) {
       eq, "[\"five\",\"four\",\"three\",\"two\",\"one\",\"zero\"]", one, "[0,0,0,0,1,0]");
   ValidateCompare<StringType>(eq, "[null,\"zero\",\"one\",\"one\"]", one, "[null,0,1,1]");
 
+  Datum na(std::make_shared<StringScalar>());
+  ValidateCompare<StringType>(eq, "[null,\"zero\",\"one\",\"one\"]", na,
+                              "[null,null,null,null]");
+  ValidateCompare<StringType>(eq, na, "[null,\"zero\",\"one\",\"one\"]",
+                              "[null,null,null,null]");
+
   CompareOptions neq(CompareOperator::NOT_EQUAL);
   ValidateCompare<StringType>(neq, "[]", one, "[]");
   ValidateCompare<StringType>(neq, "[null]", one, "[null]");

@@ -19,6 +19,7 @@
 //! queried by DataFusion. This allows data to be pre-loaded into memory and then
 //! repeatedly queried without incurring additional file I/O overhead.
 
+use log::debug;
 use std::any::Any;
 use std::sync::Arc;
 
@@ -28,15 +29,53 @@ use arrow::record_batch::RecordBatch;
 use crate::datasource::datasource::Statistics;
 use crate::datasource::TableProvider;
 use crate::error::{DataFusionError, Result};
+use crate::logical_plan::Expr;
 use crate::physical_plan::common;
 use crate::physical_plan::memory::MemoryExec;
 use crate::physical_plan::ExecutionPlan;
+
+use super::datasource::ColumnStatistics;
 
 /// In-memory table
 pub struct MemTable {
     schema: SchemaRef,
     batches: Vec<Vec<RecordBatch>>,
     statistics: Statistics,
+}
+
+// Calculates statistics based on partitions
+fn calculate_statistics(
+    schema: &SchemaRef,
+    partitions: &Vec<Vec<RecordBatch>>,
+) -> Statistics {
+    let num_rows: usize = partitions
+        .iter()
+        .flat_map(|batches| batches.iter().map(RecordBatch::num_rows))
+        .sum();
+
+    let mut null_count: Vec<usize> = vec![0; schema.fields().len()];
+    for partition in partitions.iter() {
+        for batch in partition {
+            for (i, array) in batch.columns().iter().enumerate() {
+                null_count[i] += array.null_count();
+            }
+        }
+    }
+
+    let column_statistics = Some(
+        null_count
+            .iter()
+            .map(|null_count| ColumnStatistics {
+                null_count: Some(*null_count),
+            })
+            .collect(),
+    );
+
+    Statistics {
+        num_rows: Some(num_rows),
+        total_byte_size: None,
+        column_statistics,
+    }
 }
 
 impl MemTable {
@@ -47,17 +86,13 @@ impl MemTable {
             .flatten()
             .all(|batches| batches.schema() == schema)
         {
-            let num_rows: usize = partitions
-                .iter()
-                .flat_map(|batches| batches.iter().map(RecordBatch::num_rows))
-                .sum();
+            let statistics = calculate_statistics(&schema, &partitions);
+            debug!("MemTable statistics: {:?}", statistics);
+
             Ok(Self {
                 schema,
                 batches: partitions,
-                statistics: Statistics {
-                    num_rows: Some(num_rows),
-                    total_byte_size: None,
-                },
+                statistics,
             })
         } else {
             Err(DataFusionError::Plan(
@@ -69,7 +104,7 @@ impl MemTable {
     /// Create a mem table by reading from another data source
     pub async fn load(t: &dyn TableProvider, batch_size: usize) -> Result<Self> {
         let schema = t.schema();
-        let exec = t.scan(&None, batch_size)?;
+        let exec = t.scan(&None, batch_size, &[])?;
         let partition_count = exec.output_partitioning().partition_count();
 
         let tasks = (0..partition_count)
@@ -108,6 +143,7 @@ impl TableProvider for MemTable {
         &self,
         projection: &Option<Vec<usize>>,
         _batch_size: usize,
+        _filters: &[Expr],
     ) -> Result<Arc<dyn ExecutionPlan>> {
         let columns: Vec<usize> = match projection {
             Some(p) => p.clone(),
@@ -161,6 +197,7 @@ mod tests {
             Field::new("a", DataType::Int32, false),
             Field::new("b", DataType::Int32, false),
             Field::new("c", DataType::Int32, false),
+            Field::new("d", DataType::Int32, true),
         ]));
 
         let batch = RecordBatch::try_new(
@@ -169,15 +206,33 @@ mod tests {
                 Arc::new(Int32Array::from(vec![1, 2, 3])),
                 Arc::new(Int32Array::from(vec![4, 5, 6])),
                 Arc::new(Int32Array::from(vec![7, 8, 9])),
+                Arc::new(Int32Array::from(vec![None, None, Some(9)])),
             ],
         )?;
 
         let provider = MemTable::try_new(schema, vec![vec![batch]])?;
 
         assert_eq!(provider.statistics().num_rows, Some(3));
+        assert_eq!(
+            provider.statistics().column_statistics,
+            Some(vec![
+                ColumnStatistics {
+                    null_count: Some(0)
+                },
+                ColumnStatistics {
+                    null_count: Some(0)
+                },
+                ColumnStatistics {
+                    null_count: Some(0)
+                },
+                ColumnStatistics {
+                    null_count: Some(2)
+                },
+            ])
+        );
 
         // scan with projection
-        let exec = provider.scan(&Some(vec![2, 1]), 1024)?;
+        let exec = provider.scan(&Some(vec![2, 1]), 1024, &[])?;
         let mut it = exec.execute(0).await?;
         let batch2 = it.next().await.unwrap()?;
         assert_eq!(2, batch2.schema().fields().len());
@@ -207,7 +262,7 @@ mod tests {
 
         let provider = MemTable::try_new(schema, vec![vec![batch]])?;
 
-        let exec = provider.scan(&None, 1024)?;
+        let exec = provider.scan(&None, 1024, &[])?;
         let mut it = exec.execute(0).await?;
         let batch1 = it.next().await.unwrap()?;
         assert_eq!(3, batch1.schema().fields().len());
@@ -237,7 +292,7 @@ mod tests {
 
         let projection: Vec<usize> = vec![0, 4];
 
-        match provider.scan(&Some(projection), 1024) {
+        match provider.scan(&Some(projection), 1024, &[]) {
             Err(DataFusionError::Internal(e)) => {
                 assert_eq!("\"Projection index out of range\"", format!("{:?}", e))
             }

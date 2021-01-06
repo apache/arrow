@@ -21,7 +21,8 @@ on:
     types: [opened, reopened]
 
 jobs:
-  assign-rust-labels:
+  label:
+    name: Label
     runs-on: ubuntu-latest
     steps:
     - name: Assign Github labels

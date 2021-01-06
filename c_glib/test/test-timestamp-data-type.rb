@@ -21,6 +21,11 @@ class TestTimestampDataType < Test::Unit::TestCase
     assert_equal(Arrow::Type::TIMESTAMP, data_type.id)
   end
 
+  def test_name
+    data_type = Arrow::TimestampDataType.new(:micro)
+    assert_equal("timestamp", data_type.name)
+  end
+
   sub_test_case("second") do
     def setup
       @data_type = Arrow::TimestampDataType.new(:second)

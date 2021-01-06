@@ -17,7 +17,11 @@
 
 package org.apache.arrow.adapter.jdbc;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 import java.sql.Types;
 import java.util.Calendar;
@@ -113,11 +117,11 @@ public class JdbcToArrowConfigTest {
     assertTrue(config.shouldIncludeMetadata());
 
     config = new JdbcToArrowConfig(allocator, calendar, true, null,
-        null, JdbcToArrowConfig.NO_LIMIT_BATCH_SIZE);
+        null, JdbcToArrowConfig.NO_LIMIT_BATCH_SIZE, null);
     assertTrue(config.shouldIncludeMetadata());
 
     config = new JdbcToArrowConfig(allocator, calendar, false, null,
-        null, JdbcToArrowConfig.NO_LIMIT_BATCH_SIZE);
+        null, JdbcToArrowConfig.NO_LIMIT_BATCH_SIZE, null);
     assertFalse(config.shouldIncludeMetadata());
   }
 

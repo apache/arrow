@@ -19,7 +19,6 @@
 extern crate criterion;
 use criterion::Criterion;
 
-use std::env;
 use std::sync::{Arc, Mutex};
 
 extern crate arrow;
@@ -58,7 +57,7 @@ fn create_context() -> Arc<Mutex<ExecutionContext>> {
         Field::new("c13", DataType::Utf8, false),
     ]));
 
-    let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+    let testdata = arrow::util::test_util::arrow_test_data();
 
     // create CSV data source
     let csv = CsvFile::try_new(

@@ -216,6 +216,7 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         CFlightCallOptions()
         CTimeoutDuration timeout
         CIpcWriteOptions write_options
+        vector[pair[c_string, c_string]] headers
 
     cdef cppclass CCertKeyPair" arrow::flight::CertKeyPair":
         CCertKeyPair()
@@ -306,6 +307,11 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
 
         CStatus Authenticate(CFlightCallOptions& options,
                              unique_ptr[CClientAuthHandler] auth_handler)
+
+        CResult[pair[c_string, c_string]] AuthenticateBasicToken(
+            CFlightCallOptions& options,
+            const c_string& username,
+            const c_string& password)
 
         CStatus DoAction(CFlightCallOptions& options, CAction& action,
                          unique_ptr[CResultStream]* results)

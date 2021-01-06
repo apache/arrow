@@ -46,7 +46,6 @@ except ImportError:
     ServerMiddleware, ServerMiddlewareFactory = object, object
     ClientMiddleware, ClientMiddlewareFactory = object, object
 
-
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not flight'
 pytestmark = pytest.mark.flight
@@ -506,6 +505,158 @@ class TokenClientAuthHandler(ClientAuthHandler):
         return self.token
 
 
+class NoopAuthHandler(ServerAuthHandler):
+    """A no-op auth handler."""
+
+    def authenticate(self, outgoing, incoming):
+        """Do nothing."""
+
+    def is_valid(self, token):
+        """
+        Returning an empty string.
+        Returning None causes Type error.
+        """
+        return ""
+
+
+def case_insensitive_header_lookup(headers, lookup_key):
+    """Lookup the value of given key in the given headers.
+       The key lookup is case insensitive.
+    """
+    for key in headers:
+        if key.lower() == lookup_key.lower():
+            return headers.get(key)
+
+
+class ClientHeaderAuthMiddlewareFactory(ClientMiddlewareFactory):
+    """ClientMiddlewareFactory that creates ClientAuthHeaderMiddleware."""
+
+    def __init__(self):
+        self.call_credential = []
+
+    def start_call(self, info):
+        return ClientHeaderAuthMiddleware(self)
+
+    def set_call_credential(self, call_credential):
+        self.call_credential = call_credential
+
+
+class ClientHeaderAuthMiddleware(ClientMiddleware):
+    """
+    ClientMiddleware that extracts the authorization header
+    from the server.
+
+    This is an example of a ClientMiddleware that can extract
+    the bearer token authorization header from a HTTP header
+    authentication enabled server.
+
+    Parameters
+    ----------
+    factory : ClientHeaderAuthMiddlewareFactory
+        This factory is used to set call credentials if an
+        authorization header is found in the headers from the server.
+    """
+
+    def __init__(self, factory):
+        self.factory = factory
+
+    def received_headers(self, headers):
+        auth_header = case_insensitive_header_lookup(headers, 'Authorization')
+        self.factory.set_call_credential([
+            b'authorization',
+            auth_header[0].encode("utf-8")])
+
+
+class HeaderAuthServerMiddlewareFactory(ServerMiddlewareFactory):
+    """Validates incoming username and password."""
+
+    def start_call(self, info, headers):
+        auth_header = case_insensitive_header_lookup(
+            headers,
+            'Authorization'
+        )
+        values = auth_header[0].split(' ')
+        token = ''
+        error_message = 'Invalid credentials'
+
+        if values[0] == 'Basic':
+            decoded = base64.b64decode(values[1])
+            pair = decoded.decode("utf-8").split(':')
+            if not (pair[0] == 'test' and pair[1] == 'password'):
+                raise flight.FlightUnauthenticatedError(error_message)
+            token = 'token1234'
+        elif values[0] == 'Bearer':
+            token = values[1]
+            if not token == 'token1234':
+                raise flight.FlightUnauthenticatedError(error_message)
+        else:
+            raise flight.FlightUnauthenticatedError(error_message)
+
+        return HeaderAuthServerMiddleware(token)
+
+
+class HeaderAuthServerMiddleware(ServerMiddleware):
+    """A ServerMiddleware that transports incoming username and passowrd."""
+
+    def __init__(self, token):
+        self.token = token
+
+    def sending_headers(self):
+        return {'authorization': 'Bearer ' + self.token}
+
+
+class HeaderAuthFlightServer(FlightServerBase):
+    """A Flight server that tests with basic token authentication. """
+
+    def do_action(self, context, action):
+        middleware = context.get_middleware("auth")
+        if middleware:
+            auth_header = case_insensitive_header_lookup(
+                middleware.sending_headers(), 'Authorization')
+            values = auth_header.split(' ')
+            return [values[1].encode("utf-8")]
+        raise flight.FlightUnauthenticatedError(
+            'No token auth middleware found.')
+
+
+class ArbitraryHeadersServerMiddlewareFactory(ServerMiddlewareFactory):
+    """A ServerMiddlewareFactory that transports arbitrary headers."""
+
+    def start_call(self, info, headers):
+        return ArbitraryHeadersServerMiddleware(headers)
+
+
+class ArbitraryHeadersServerMiddleware(ServerMiddleware):
+    """A ServerMiddleware that transports arbitrary headers."""
+
+    def __init__(self, incoming):
+        self.incoming = incoming
+
+    def sending_headers(self):
+        return self.incoming
+
+
+class ArbitraryHeadersFlightServer(FlightServerBase):
+    """A Flight server that tests multiple arbitrary headers."""
+
+    def do_action(self, context, action):
+        middleware = context.get_middleware("arbitrary-headers")
+        if middleware:
+            headers = middleware.sending_headers()
+            header_1 = case_insensitive_header_lookup(
+                headers,
+                'test-header-1'
+            )
+            header_2 = case_insensitive_header_lookup(
+                headers,
+                'test-header-2'
+            )
+            value1 = header_1[0].encode("utf-8")
+            value2 = header_2[0].encode("utf-8")
+            return [value1, value2]
+        raise flight.FlightServerError("No headers middleware found")
+
+
 class HeaderServerMiddleware(ServerMiddleware):
     """Expose a per-call value to the RPC method body."""
 
@@ -788,6 +939,7 @@ class ConvenienceServer(FlightServerBase):
     """
     Server for testing various implementation conveniences (auto-boxing, etc.)
     """
+
     @property
     def simple_action_results(self):
         return [b'foo', b'bar', b'baz']
@@ -994,6 +1146,100 @@ def test_token_auth_invalid():
         client = FlightClient(('localhost', server.port))
         with pytest.raises(flight.FlightUnauthenticatedError):
             client.authenticate(TokenClientAuthHandler('test', 'wrong'))
+
+
+header_auth_server_middleware_factory = HeaderAuthServerMiddlewareFactory()
+no_op_auth_handler = NoopAuthHandler()
+
+
+def test_authenticate_basic_token():
+    """Test authenticate_basic_token with bearer token and auth headers."""
+    with HeaderAuthFlightServer(auth_handler=no_op_auth_handler, middleware={
+        "auth": HeaderAuthServerMiddlewareFactory()
+    }) as server:
+        client = FlightClient(('localhost', server.port))
+        token_pair = client.authenticate_basic_token(b'test', b'password')
+        assert token_pair[0] == b'authorization'
+        assert token_pair[1] == b'Bearer token1234'
+
+
+def test_authenticate_basic_token_invalid_password():
+    """Test authenticate_basic_token with an invalid password."""
+    with HeaderAuthFlightServer(auth_handler=no_op_auth_handler, middleware={
+        "auth": HeaderAuthServerMiddlewareFactory()
+    }) as server:
+        client = FlightClient(('localhost', server.port))
+        with pytest.raises(flight.FlightUnauthenticatedError):
+            client.authenticate_basic_token(b'test', b'badpassword')
+
+
+def test_authenticate_basic_token_and_action():
+    """Test authenticate_basic_token and doAction after authentication."""
+    with HeaderAuthFlightServer(auth_handler=no_op_auth_handler, middleware={
+        "auth": HeaderAuthServerMiddlewareFactory()
+    }) as server:
+        client = FlightClient(('localhost', server.port))
+        token_pair = client.authenticate_basic_token(b'test', b'password')
+        assert token_pair[0] == b'authorization'
+        assert token_pair[1] == b'Bearer token1234'
+        options = flight.FlightCallOptions(headers=[token_pair])
+        result = list(client.do_action(
+            action=flight.Action('test-action', b''), options=options))
+        assert result[0].body.to_pybytes() == b'token1234'
+
+
+def test_authenticate_basic_token_with_client_middleware():
+    """Test authenticate_basic_token with client middleware
+       to intercept authorization header returned by the
+       HTTP header auth enabled server.
+    """
+    with HeaderAuthFlightServer(auth_handler=no_op_auth_handler, middleware={
+        "auth": HeaderAuthServerMiddlewareFactory()
+    }) as server:
+        client_auth_middleware = ClientHeaderAuthMiddlewareFactory()
+        client = FlightClient(
+            ('localhost', server.port),
+            middleware=[client_auth_middleware]
+        )
+        encoded_credentials = base64.b64encode(b'test:password')
+        options = flight.FlightCallOptions(headers=[
+            (b'authorization', b'Basic ' + encoded_credentials)
+        ])
+        result = list(client.do_action(
+            action=flight.Action('test-action', b''), options=options))
+        assert result[0].body.to_pybytes() == b'token1234'
+        assert client_auth_middleware.call_credential[0] == b'authorization'
+        assert client_auth_middleware.call_credential[1] == \
+            b'Bearer ' + b'token1234'
+        result2 = list(client.do_action(
+            action=flight.Action('test-action', b''), options=options))
+        assert result2[0].body.to_pybytes() == b'token1234'
+        assert client_auth_middleware.call_credential[0] == b'authorization'
+        assert client_auth_middleware.call_credential[1] == \
+            b'Bearer ' + b'token1234'
+
+
+def test_arbitrary_headers_in_flight_call_options():
+    """Test passing multiple arbitrary headers to the middleware."""
+    with ArbitraryHeadersFlightServer(
+            auth_handler=no_op_auth_handler,
+            middleware={
+                "auth": HeaderAuthServerMiddlewareFactory(),
+                "arbitrary-headers": ArbitraryHeadersServerMiddlewareFactory()
+            }) as server:
+        client = FlightClient(('localhost', server.port))
+        token_pair = client.authenticate_basic_token(b'test', b'password')
+        assert token_pair[0] == b'authorization'
+        assert token_pair[1] == b'Bearer token1234'
+        options = flight.FlightCallOptions(headers=[
+            token_pair,
+            (b'test-header-1', b'value1'),
+            (b'test-header-2', b'value2')
+        ])
+        result = list(client.do_action(flight.Action(
+            "test-action", b""), options=options))
+        assert result[0].body.to_pybytes() == b'value1'
+        assert result[1].body.to_pybytes() == b'value2'
 
 
 def test_location_invalid():
@@ -1295,7 +1541,7 @@ def test_do_put_independent_read_write():
 def test_server_middleware_same_thread():
     """Ensure that server middleware run on the same thread as the RPC."""
     with HeaderFlightServer(middleware={
-            "test": HeaderServerMiddlewareFactory(),
+        "test": HeaderServerMiddlewareFactory(),
     }) as server:
         client = FlightClient(('localhost', server.port))
         results = list(client.do_action(flight.Action(b"test", b"")))
@@ -1307,7 +1553,7 @@ def test_server_middleware_same_thread():
 def test_middleware_reject():
     """Test rejecting an RPC with server middleware."""
     with HeaderFlightServer(middleware={
-            "test": SelectiveAuthServerMiddlewareFactory(),
+        "test": SelectiveAuthServerMiddlewareFactory(),
     }) as server:
         client = FlightClient(('localhost', server.port))
         # The middleware allows this through without auth.
@@ -1526,7 +1772,7 @@ def test_doexchange_transform():
 def test_middleware_multi_header():
     """Test sending/receiving multiple (binary-valued) headers."""
     with MultiHeaderFlightServer(middleware={
-            "test": MultiHeaderServerMiddlewareFactory(),
+        "test": MultiHeaderServerMiddlewareFactory(),
     }) as server:
         headers = MultiHeaderClientMiddlewareFactory()
         client = FlightClient(('localhost', server.port), middleware=[headers])

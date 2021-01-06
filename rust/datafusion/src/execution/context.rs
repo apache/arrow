@@ -16,7 +16,8 @@
 // under the License.
 
 //! ExecutionContext contains methods for registering data sources and executing queries
-
+use crate::optimizer::hash_build_probe_order::HashBuildProbeOrder;
+use log::debug;
 use std::fs;
 use std::path::Path;
 use std::string::String;
@@ -27,6 +28,7 @@ use std::{
 };
 
 use futures::{StreamExt, TryStreamExt};
+use tokio::task::{self, JoinHandle};
 
 use arrow::csv;
 
@@ -53,6 +55,7 @@ use crate::sql::{
 use crate::variable::{VarProvider, VarType};
 use crate::{dataframe::DataFrame, physical_plan::udaf::AggregateUDF};
 use parquet::arrow::ArrowWriter;
+use parquet::file::properties::WriterProperties;
 
 /// ExecutionContext is the main interface for executing queries with DataFusion. The context
 /// provides the following functionality:
@@ -217,7 +220,12 @@ impl ExecutionContext {
     pub fn read_parquet(&mut self, filename: &str) -> Result<Arc<dyn DataFrame>> {
         Ok(Arc::new(DataFrameImpl::new(
             self.state.clone(),
-            &LogicalPlanBuilder::scan_parquet(&filename, None)?.build()?,
+            &LogicalPlanBuilder::scan_parquet(
+                &filename,
+                None,
+                self.state.lock().unwrap().config.concurrency,
+            )?
+            .build()?,
         )))
     }
 
@@ -232,6 +240,7 @@ impl ExecutionContext {
             source: provider,
             projected_schema: schema.to_dfschema_ref()?,
             projection: None,
+            filters: vec![],
         };
         Ok(Arc::new(DataFrameImpl::new(
             self.state.clone(),
@@ -254,7 +263,10 @@ impl ExecutionContext {
     /// Register a Parquet data source so that it can be referenced from SQL statements
     /// executed against this context.
     pub fn register_parquet(&mut self, name: &str, filename: &str) -> Result<()> {
-        let table = ParquetTable::try_new(&filename)?;
+        let table = ParquetTable::try_new(
+            &filename,
+            self.state.lock().unwrap().config.concurrency,
+        )?;
         self.register_table(name, Box::new(table));
         Ok(())
     }
@@ -276,7 +288,7 @@ impl ExecutionContext {
     /// Retrieves a DataFrame representing a table previously registered by calling the
     /// register_table function. An Err result will be returned if no table has been
     /// registered with the provided name.
-    pub fn table(&mut self, table_name: &str) -> Result<Arc<dyn DataFrame>> {
+    pub fn table(&self, table_name: &str) -> Result<Arc<dyn DataFrame>> {
         match self.state.lock().unwrap().datasources.get(table_name) {
             Some(provider) => {
                 let schema = provider.schema();
@@ -285,6 +297,7 @@ impl ExecutionContext {
                     source: Arc::clone(provider),
                     projected_schema: schema.to_dfschema_ref()?,
                     projection: None,
+                    filters: vec![],
                 };
                 Ok(Arc::new(DataFrameImpl::new(
                     self.state.clone(),
@@ -312,8 +325,11 @@ impl ExecutionContext {
     /// Optimize the logical plan by applying optimizer rules
     pub fn optimize(&self, plan: &LogicalPlan) -> Result<LogicalPlan> {
         // Apply standard rewrites and optimizations
+        debug!("Logical plan:\n {:?}", plan);
         let mut plan = ProjectionPushDown::new().optimize(&plan)?;
         plan = FilterPushDown::new().optimize(&plan)?;
+        plan = HashBuildProbeOrder::new().optimize(&plan)?;
+        debug!("Optimized logical plan:\n {:?}", plan);
 
         self.state
             .lock()
@@ -342,25 +358,34 @@ impl ExecutionContext {
         path: String,
     ) -> Result<()> {
         // create directory to contain the CSV files (one per partition)
-        let path = path.to_owned();
-        fs::create_dir(&path)?;
-
-        for i in 0..plan.output_partitioning().partition_count() {
-            let path = path.clone();
-            let plan = plan.clone();
-            let filename = format!("part-{}.csv", i);
-            let path = Path::new(&path).join(&filename);
-            let file = fs::File::create(path)?;
-            let mut writer = csv::Writer::new(file);
-            let stream = plan.execute(i).await?;
-
-            stream
-                .map(|batch| writer.write(&batch?))
-                .try_collect()
-                .await
-                .map_err(DataFusionError::from)?;
+        let fs_path = Path::new(&path);
+        match fs::create_dir(fs_path) {
+            Ok(()) => {
+                let mut tasks = vec![];
+                for i in 0..plan.output_partitioning().partition_count() {
+                    let plan = plan.clone();
+                    let filename = format!("part-{}.csv", i);
+                    let path = fs_path.join(&filename);
+                    let file = fs::File::create(path)?;
+                    let mut writer = csv::Writer::new(file);
+                    let stream = plan.execute(i).await?;
+                    let handle: JoinHandle<Result<()>> = task::spawn(async move {
+                        stream
+                            .map(|batch| writer.write(&batch?))
+                            .try_collect()
+                            .await
+                            .map_err(DataFusionError::from)
+                    });
+                    tasks.push(handle);
+                }
+                futures::future::join_all(tasks).await;
+                Ok(())
+            }
+            Err(e) => Err(DataFusionError::Execution(format!(
+                "Could not create directory {}: {:?}",
+                path, e
+            ))),
         }
-        Ok(())
     }
 
     /// Execute a query and write the results to a partitioned Parquet file
@@ -368,30 +393,42 @@ impl ExecutionContext {
         &self,
         plan: Arc<dyn ExecutionPlan>,
         path: String,
+        writer_properties: Option<WriterProperties>,
     ) -> Result<()> {
-        // create directory to contain the CSV files (one per partition)
-        let path = path.to_owned();
-        fs::create_dir(&path)?;
-
-        for i in 0..plan.output_partitioning().partition_count() {
-            let path = path.clone();
-            let plan = plan.clone();
-            let filename = format!("part-{}.parquet", i);
-            let path = Path::new(&path).join(&filename);
-            let file = fs::File::create(path)?;
-            let mut writer =
-                ArrowWriter::try_new(file.try_clone().unwrap(), plan.schema(), None)?;
-            let stream = plan.execute(i).await?;
-
-            stream
-                .map(|batch| writer.write(&batch?))
-                .try_collect()
-                .await
-                .map_err(DataFusionError::from)?;
-
-            writer.close()?;
+        // create directory to contain the Parquet files (one per partition)
+        let fs_path = Path::new(&path);
+        match fs::create_dir(fs_path) {
+            Ok(()) => {
+                let mut tasks = vec![];
+                for i in 0..plan.output_partitioning().partition_count() {
+                    let plan = plan.clone();
+                    let filename = format!("part-{}.parquet", i);
+                    let path = fs_path.join(&filename);
+                    let file = fs::File::create(path)?;
+                    let mut writer = ArrowWriter::try_new(
+                        file.try_clone().unwrap(),
+                        plan.schema(),
+                        writer_properties.clone(),
+                    )?;
+                    let stream = plan.execute(i).await?;
+                    let handle: JoinHandle<Result<()>> = task::spawn(async move {
+                        stream
+                            .map(|batch| writer.write(&batch?))
+                            .try_collect()
+                            .await
+                            .map_err(DataFusionError::from)?;
+                        writer.close().map_err(DataFusionError::from)
+                    });
+                    tasks.push(handle);
+                }
+                futures::future::join_all(tasks).await;
+                Ok(())
+            }
+            Err(e) => Err(DataFusionError::Execution(format!(
+                "Could not create directory {}: {:?}",
+                path, e
+            ))),
         }
-        Ok(())
     }
 }
 
@@ -463,7 +500,7 @@ impl ExecutionConfig {
     pub fn new() -> Self {
         Self {
             concurrency: num_cpus::get(),
-            batch_size: 4096,
+            batch_size: 32768,
             query_planner: Arc::new(DefaultQueryPlanner {}),
         }
     }
@@ -559,8 +596,8 @@ mod tests {
 
     use super::*;
     use crate::logical_plan::{col, create_udf, sum};
-    use crate::physical_plan::collect;
     use crate::physical_plan::functions::ScalarFunctionImplementation;
+    use crate::physical_plan::{collect, collect_partitioned};
     use crate::test;
     use crate::variable::VarType;
     use crate::{
@@ -646,14 +683,25 @@ mod tests {
         let logical_plan = ctx.optimize(&logical_plan)?;
 
         let physical_plan = ctx.create_physical_plan(&logical_plan)?;
+        println!("{:?}", physical_plan);
 
-        let results = collect(physical_plan).await?;
-
-        // there should be one batch per partition
+        let results = collect_partitioned(physical_plan).await?;
         assert_eq!(results.len(), partition_count);
 
-        let row_count: usize = results.iter().map(|batch| batch.num_rows()).sum();
-        assert_eq!(row_count, 20);
+        // there should be a total of 2 batches with 20 rows because the where clause filters
+        // out results from 2 partitions
+
+        // note that the order of partitions is not deterministic
+        let mut num_batches = 0;
+        let mut num_rows = 0;
+        for partition in &results {
+            for batch in partition {
+                num_batches += 1;
+                num_rows += batch.num_rows();
+            }
+        }
+        assert_eq!(2, num_batches);
+        assert_eq!(20, num_rows);
 
         Ok(())
     }
@@ -662,7 +710,7 @@ mod tests {
     async fn projection_on_table_scan() -> Result<()> {
         let tmp_dir = TempDir::new()?;
         let partition_count = 4;
-        let mut ctx = create_ctx(&tmp_dir, partition_count)?;
+        let ctx = create_ctx(&tmp_dir, partition_count)?;
 
         let table = ctx.table("test")?;
         let logical_plan = LogicalPlanBuilder::from(&table.to_logical_plan())
@@ -1007,6 +1055,57 @@ mod tests {
         Ok(())
     }
 
+    #[tokio::test]
+    async fn group_by_date_trunc() -> Result<()> {
+        let tmp_dir = TempDir::new()?;
+        let mut ctx = ExecutionContext::new();
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("c2", DataType::UInt64, false),
+            Field::new(
+                "t1",
+                DataType::Timestamp(TimeUnit::Microsecond, None),
+                false,
+            ),
+        ]));
+
+        // generate a partitioned file
+        for partition in 0..4 {
+            let filename = format!("partition-{}.{}", partition, "csv");
+            let file_path = tmp_dir.path().join(&filename);
+            let mut file = File::create(file_path)?;
+
+            // generate some data
+            for i in 0..10 {
+                let data = format!("{},2020-12-{}T00:00:00.000\n", i, i + 10);
+                file.write_all(data.as_bytes())?;
+            }
+        }
+
+        ctx.register_csv(
+            "test",
+            tmp_dir.path().to_str().unwrap(),
+            CsvReadOptions::new().schema(&schema).has_header(false),
+        )?;
+
+        let results = plan_and_collect(
+            &mut ctx,
+            "SELECT date_trunc('week', t1) as week, SUM(c2) FROM test GROUP BY date_trunc('week', t1)"
+        ).await?;
+        assert_eq!(results.len(), 1);
+
+        let batch = &results[0];
+
+        assert_eq!(field_names(batch), vec!["week", "SUM(c2)"]);
+
+        let expected: Vec<&str> =
+            vec!["2020-12-07T00:00:00,24", "2020-12-14T00:00:00,156"];
+        let mut rows = test::format_batch(&batch);
+        rows.sort();
+        assert_eq!(rows, expected);
+
+        Ok(())
+    }
+
     async fn run_count_distinct_integers_aggregated_scenario(
         partitions: Vec<Vec<(&str, u64)>>,
     ) -> Result<Vec<RecordBatch>> {
@@ -1220,7 +1319,7 @@ mod tests {
 
         // execute a simple query and write the results to CSV
         let out_dir = tmp_dir.as_ref().to_str().unwrap().to_string() + "/out";
-        write_parquet(&mut ctx, "SELECT c1, c2 FROM test", &out_dir).await?;
+        write_parquet(&mut ctx, "SELECT c1, c2 FROM test", &out_dir, None).await?;
 
         // create a new context and verify that the results were saved to a partitioned csv file
         let mut ctx = ExecutionContext::new();
@@ -1565,11 +1664,13 @@ mod tests {
         ctx: &mut ExecutionContext,
         sql: &str,
         out_dir: &str,
+        writer_properties: Option<WriterProperties>,
     ) -> Result<()> {
         let logical_plan = ctx.create_logical_plan(sql)?;
         let logical_plan = ctx.optimize(&logical_plan)?;
         let physical_plan = ctx.create_physical_plan(&logical_plan)?;
-        ctx.write_parquet(physical_plan, out_dir.to_string()).await
+        ctx.write_parquet(physical_plan, out_dir.to_string(), writer_properties)
+            .await
     }
 
     /// Generate CSV partitions within the supplied directory

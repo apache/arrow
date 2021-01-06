@@ -265,6 +265,17 @@ module ValuesBasicArraysTests
     target = build(Arrow::Decimal128Array.new(data_type, values))
     assert_equal(values, target.values)
   end
+
+  def test_decimal256
+    values = [
+      BigDecimal("92.92"),
+      nil,
+      BigDecimal("29.29"),
+    ]
+    data_type = Arrow::Decimal256DataType.new(38, 2)
+    target = build(Arrow::Decimal256Array.new(data_type, values))
+    assert_equal(values, target.values)
+  end
 end
 
 class ValuesArrayBasicArraysTest < Test::Unit::TestCase

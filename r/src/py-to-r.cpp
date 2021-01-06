@@ -35,6 +35,12 @@ std::shared_ptr<arrow::RecordBatch> ImportRecordBatch(
 }
 
 // [[arrow::export]]
+std::shared_ptr<arrow::Schema> ImportSchema(
+    arrow::r::Pointer<struct ArrowSchema> schema) {
+  return ValueOrStop(arrow::ImportSchema(schema));
+}
+
+// [[arrow::export]]
 arrow::r::Pointer<struct ArrowSchema> allocate_arrow_schema() { return {}; }
 
 // [[arrow::export]]

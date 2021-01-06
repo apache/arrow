@@ -39,7 +39,7 @@ Building requires:
 
 * A C++11-enabled compiler. On Linux, gcc 4.8 and higher should be
   sufficient. For Windows, at least Visual Studio 2015 is required.
-* CMake 3.2 or higher
+* CMake 3.5 or higher
 * On Linux and macOS, either ``make`` or ``ninja`` build utilities
 
 On Ubuntu/Debian you can install the requirements with:
@@ -229,7 +229,7 @@ several times with different options if you want to exercise all of them.
 CMake version requirements
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-While we support CMake 3.2 and higher, some features require a newer version of
+While we support CMake 3.5 and higher, some features require a newer version of
 CMake:
 
 * Building the benchmarks requires 3.6 or higher

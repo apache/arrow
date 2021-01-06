@@ -18,6 +18,7 @@
 //! Utilities for converting between IPC types and native Arrow types
 
 use crate::datatypes::{DataType, DateUnit, Field, IntervalUnit, Schema, TimeUnit};
+use crate::error::{ArrowError, Result};
 use crate::ipc;
 
 use flatbuffers::{
@@ -123,9 +124,20 @@ pub fn fb_to_schema(fb: ipc::Schema) -> Schema {
 }
 
 /// Deserialize an IPC message into a schema
-pub fn schema_from_bytes(bytes: &[u8]) -> Option<Schema> {
-    let ipc = ipc::get_root_as_message(bytes);
-    ipc.header_as_schema().map(fb_to_schema)
+pub fn schema_from_bytes(bytes: &[u8]) -> Result<Schema> {
+    if let Ok(ipc) = ipc::root_as_message(bytes) {
+        if let Some(schema) = ipc.header_as_schema().map(fb_to_schema) {
+            Ok(schema)
+        } else {
+            Err(ArrowError::IoError(
+                "Unable to get head as schema".to_string(),
+            ))
+        }
+    } else {
+        Err(ArrowError::IoError(
+            "Unable to get root as message".to_string(),
+        ))
+    }
 }
 
 /// Get the Arrow data type from the flatbuffer Field table
@@ -777,7 +789,7 @@ mod tests {
         let fb = schema_to_fb(&schema);
 
         // read back fields
-        let ipc = ipc::get_root_as_schema(fb.finished_data());
+        let ipc = ipc::root_as_schema(fb.finished_data()).unwrap();
         let schema2 = fb_to_schema(ipc);
         assert_eq!(schema, schema2);
     }
@@ -794,7 +806,7 @@ mod tests {
             4, 0, 6, 0, 0, 0, 32, 0, 0, 0, 6, 0, 0, 0, 102, 105, 101, 108, 100, 49, 0, 0,
             0, 0, 0, 0,
         ];
-        let ipc = ipc::get_root_as_message(&bytes[..]);
+        let ipc = ipc::root_as_message(&bytes[..]).unwrap();
         let schema = ipc.header_as_schema().unwrap();
 
         // a message generated from Rust, same as the Python one
@@ -806,7 +818,7 @@ mod tests {
             8, 0, 4, 0, 6, 0, 0, 0, 32, 0, 0, 0, 6, 0, 0, 0, 102, 105, 101, 108, 100, 49,
             0, 0,
         ];
-        let ipc2 = ipc::get_root_as_message(&bytes[..]);
+        let ipc2 = ipc::root_as_message(&bytes[..]).unwrap();
         let schema2 = ipc.header_as_schema().unwrap();
 
         assert_eq!(schema, schema2);

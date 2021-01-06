@@ -384,7 +384,7 @@ with_s3_support <- function(env_vars) {
   if (arrow_s3) {
     # User wants S3 support. Let's make sure they're not on gcc < 4.9
     # and make sure that we have curl and openssl system libs
-    info <- system(paste(env_vars, "&& $CMAKE --system-information"), intern = TRUE)
+    info <- system(paste("export", env_vars, "&& $CMAKE --system-information"), intern = TRUE)
     info <- grep("^[A-Z_]* .*$", info, value = TRUE)
     vals <- as.list(sub('^.*? "?(.*?)"?$', "\\1", info))
     names(vals) <- sub("^(.*?) .*$", "\\1", info)
@@ -410,9 +410,9 @@ cmake_find_package <- function(pkg, version = NULL, env_vars) {
   find_package <- paste0("find_package(", pkg, " ", version, " REQUIRED)")
   writeLines(find_package, file.path(td, "CMakeLists.txt"))
   cmake_cmd <- paste0(
-    env_vars,
+    "export ", env_vars,
     " && cd ", td,
-    " && $CMAKE",
+    " && $CMAKE ",
     " -DCMAKE_EXPORT_NO_PACKAGE_REGISTRY=ON",
     " -DCMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY=ON",
     " ."

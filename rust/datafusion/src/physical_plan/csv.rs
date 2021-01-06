@@ -282,13 +282,13 @@ impl RecordBatchStream for CsvStream {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test::{aggr_test_schema, arrow_testdata_path};
+    use crate::test::aggr_test_schema;
     use futures::StreamExt;
 
     #[tokio::test]
     async fn csv_exec_with_projection() -> Result<()> {
         let schema = aggr_test_schema();
-        let testdata = arrow_testdata_path();
+        let testdata = arrow::util::test_util::arrow_test_data();
         let filename = "aggregate_test_100.csv";
         let path = format!("{}/csv/{}", testdata, filename);
         let csv = CsvExec::try_new(
@@ -314,7 +314,7 @@ mod tests {
     #[tokio::test]
     async fn csv_exec_without_projection() -> Result<()> {
         let schema = aggr_test_schema();
-        let testdata = arrow_testdata_path();
+        let testdata = arrow::util::test_util::arrow_test_data();
         let filename = "aggregate_test_100.csv";
         let path = format!("{}/csv/{}", testdata, filename);
         let csv =

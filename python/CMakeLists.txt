@@ -35,11 +35,9 @@ endif()
 
 include(CMakeParseArguments)
 
-# Compatibility with CMake 3.1
-if(POLICY CMP0054)
-  # http://www.cmake.org/cmake/help/v3.1/policy/CMP0054.html
-  cmake_policy(SET CMP0054 NEW)
-endif()
+# Only interpret if() arguments as variables or keywords when unquoted.
+# https://www.cmake.org/cmake/help/latest/policy/CMP0054.html
+cmake_policy(SET CMP0054 NEW)
 
 # Use the first Python installation on PATH, not the newest one
 set(Python3_FIND_STRATEGY "LOCATION")

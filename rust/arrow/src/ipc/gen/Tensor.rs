@@ -77,6 +77,24 @@ impl<'a> TensorDim<'a> {
     }
 }
 
+impl flatbuffers::Verifiable for TensorDim<'_> {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        v.visit_table(pos)?
+            .visit_field::<i64>(&"size_", Self::VT_SIZE_, false)?
+            .visit_field::<flatbuffers::ForwardsUOffset<&str>>(
+                &"name",
+                Self::VT_NAME,
+                false,
+            )?
+            .finish();
+        Ok(())
+    }
+}
 pub struct TensorDimArgs<'a> {
     pub size_: i64,
     pub name: Option<flatbuffers::WIPOffset<&'a str>>,
@@ -203,7 +221,7 @@ impl<'a> Tensor<'a> {
     ) -> flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<TensorDim<'a>>> {
         self._tab
             .get::<flatbuffers::ForwardsUOffset<
-                flatbuffers::Vector<flatbuffers::ForwardsUOffset<TensorDim<'a>>>,
+                flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<TensorDim>>,
             >>(Tensor::VT_SHAPE, None)
             .unwrap()
     }
@@ -454,6 +472,47 @@ impl<'a> Tensor<'a> {
     }
 }
 
+impl flatbuffers::Verifiable for Tensor<'_> {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        v.visit_table(pos)?
+     .visit_union::<Type, _>(&"type_type", Self::VT_TYPE_TYPE, &"type_", Self::VT_TYPE_, true, |key, v, pos| {
+        match key {
+          Type::Null => v.verify_union_variant::<flatbuffers::ForwardsUOffset<Null>>("Type::Null", pos),
+          Type::Int => v.verify_union_variant::<flatbuffers::ForwardsUOffset<Int>>("Type::Int", pos),
+          Type::FloatingPoint => v.verify_union_variant::<flatbuffers::ForwardsUOffset<FloatingPoint>>("Type::FloatingPoint", pos),
+          Type::Binary => v.verify_union_variant::<flatbuffers::ForwardsUOffset<Binary>>("Type::Binary", pos),
+          Type::Utf8 => v.verify_union_variant::<flatbuffers::ForwardsUOffset<Utf8>>("Type::Utf8", pos),
+          Type::Bool => v.verify_union_variant::<flatbuffers::ForwardsUOffset<Bool>>("Type::Bool", pos),
+          Type::Decimal => v.verify_union_variant::<flatbuffers::ForwardsUOffset<Decimal>>("Type::Decimal", pos),
+          Type::Date => v.verify_union_variant::<flatbuffers::ForwardsUOffset<Date>>("Type::Date", pos),
+          Type::Time => v.verify_union_variant::<flatbuffers::ForwardsUOffset<Time>>("Type::Time", pos),
+          Type::Timestamp => v.verify_union_variant::<flatbuffers::ForwardsUOffset<Timestamp>>("Type::Timestamp", pos),
+          Type::Interval => v.verify_union_variant::<flatbuffers::ForwardsUOffset<Interval>>("Type::Interval", pos),
+          Type::List => v.verify_union_variant::<flatbuffers::ForwardsUOffset<List>>("Type::List", pos),
+          Type::Struct_ => v.verify_union_variant::<flatbuffers::ForwardsUOffset<Struct_>>("Type::Struct_", pos),
+          Type::Union => v.verify_union_variant::<flatbuffers::ForwardsUOffset<Union>>("Type::Union", pos),
+          Type::FixedSizeBinary => v.verify_union_variant::<flatbuffers::ForwardsUOffset<FixedSizeBinary>>("Type::FixedSizeBinary", pos),
+          Type::FixedSizeList => v.verify_union_variant::<flatbuffers::ForwardsUOffset<FixedSizeList>>("Type::FixedSizeList", pos),
+          Type::Map => v.verify_union_variant::<flatbuffers::ForwardsUOffset<Map>>("Type::Map", pos),
+          Type::Duration => v.verify_union_variant::<flatbuffers::ForwardsUOffset<Duration>>("Type::Duration", pos),
+          Type::LargeBinary => v.verify_union_variant::<flatbuffers::ForwardsUOffset<LargeBinary>>("Type::LargeBinary", pos),
+          Type::LargeUtf8 => v.verify_union_variant::<flatbuffers::ForwardsUOffset<LargeUtf8>>("Type::LargeUtf8", pos),
+          Type::LargeList => v.verify_union_variant::<flatbuffers::ForwardsUOffset<LargeList>>("Type::LargeList", pos),
+          _ => Ok(()),
+        }
+     })?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<TensorDim>>>>(&"shape", Self::VT_SHAPE, true)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, i64>>>(&"strides", Self::VT_STRIDES, false)?
+     .visit_field::<Buffer>(&"data", Self::VT_DATA, true)?
+     .finish();
+        Ok(())
+    }
+}
 pub struct TensorArgs<'a> {
     pub type_type: Type,
     pub type_: Option<flatbuffers::WIPOffset<flatbuffers::UnionWIPOffset>>,
@@ -764,15 +823,79 @@ impl std::fmt::Debug for Tensor<'_> {
     }
 }
 #[inline]
+#[deprecated(since = "1.13", note = "Deprecated in favor of `root_as...` methods.")]
 pub fn get_root_as_tensor<'a>(buf: &'a [u8]) -> Tensor<'a> {
-    flatbuffers::get_root::<Tensor<'a>>(buf)
+    unsafe { flatbuffers::root_unchecked::<Tensor<'a>>(buf) }
 }
 
 #[inline]
+#[deprecated(since = "1.13", note = "Deprecated in favor of `root_as...` methods.")]
 pub fn get_size_prefixed_root_as_tensor<'a>(buf: &'a [u8]) -> Tensor<'a> {
-    flatbuffers::get_size_prefixed_root::<Tensor<'a>>(buf)
+    unsafe { flatbuffers::size_prefixed_root_unchecked::<Tensor<'a>>(buf) }
 }
 
+#[inline]
+/// Verifies that a buffer of bytes contains a `Tensor`
+/// and returns it.
+/// Note that verification is still experimental and may not
+/// catch every error, or be maximally performant. For the
+/// previous, unchecked, behavior use
+/// `root_as_tensor_unchecked`.
+pub fn root_as_tensor(buf: &[u8]) -> Result<Tensor, flatbuffers::InvalidFlatbuffer> {
+    flatbuffers::root::<Tensor>(buf)
+}
+#[inline]
+/// Verifies that a buffer of bytes contains a size prefixed
+/// `Tensor` and returns it.
+/// Note that verification is still experimental and may not
+/// catch every error, or be maximally performant. For the
+/// previous, unchecked, behavior use
+/// `size_prefixed_root_as_tensor_unchecked`.
+pub fn size_prefixed_root_as_tensor(
+    buf: &[u8],
+) -> Result<Tensor, flatbuffers::InvalidFlatbuffer> {
+    flatbuffers::size_prefixed_root::<Tensor>(buf)
+}
+#[inline]
+/// Verifies, with the given options, that a buffer of bytes
+/// contains a `Tensor` and returns it.
+/// Note that verification is still experimental and may not
+/// catch every error, or be maximally performant. For the
+/// previous, unchecked, behavior use
+/// `root_as_tensor_unchecked`.
+pub fn root_as_tensor_with_opts<'b, 'o>(
+    opts: &'o flatbuffers::VerifierOptions,
+    buf: &'b [u8],
+) -> Result<Tensor<'b>, flatbuffers::InvalidFlatbuffer> {
+    flatbuffers::root_with_opts::<Tensor<'b>>(opts, buf)
+}
+#[inline]
+/// Verifies, with the given verifier options, that a buffer of
+/// bytes contains a size prefixed `Tensor` and returns
+/// it. Note that verification is still experimental and may not
+/// catch every error, or be maximally performant. For the
+/// previous, unchecked, behavior use
+/// `root_as_tensor_unchecked`.
+pub fn size_prefixed_root_as_tensor_with_opts<'b, 'o>(
+    opts: &'o flatbuffers::VerifierOptions,
+    buf: &'b [u8],
+) -> Result<Tensor<'b>, flatbuffers::InvalidFlatbuffer> {
+    flatbuffers::size_prefixed_root_with_opts::<Tensor<'b>>(opts, buf)
+}
+#[inline]
+/// Assumes, without verification, that a buffer of bytes contains a Tensor and returns it.
+/// # Safety
+/// Callers must trust the given bytes do indeed contain a valid `Tensor`.
+pub unsafe fn root_as_tensor_unchecked(buf: &[u8]) -> Tensor {
+    flatbuffers::root_unchecked::<Tensor>(buf)
+}
+#[inline]
+/// Assumes, without verification, that a buffer of bytes contains a size prefixed Tensor and returns it.
+/// # Safety
+/// Callers must trust the given bytes do indeed contain a valid size prefixed `Tensor`.
+pub unsafe fn size_prefixed_root_as_tensor_unchecked(buf: &[u8]) -> Tensor {
+    flatbuffers::size_prefixed_root_unchecked::<Tensor>(buf)
+}
 #[inline]
 pub fn finish_tensor_buffer<'a, 'b>(
     fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>,

@@ -23,14 +23,14 @@ use std::mem;
 use num::Num;
 
 use super::{
-    array::print_long_array, make_array, raw_pointer::as_aligned_pointer,
-    raw_pointer::RawPtrBox, Array, ArrayDataRef, ArrayRef,
+    array::print_long_array, make_array, raw_pointer::RawPtrBox, Array, ArrayDataRef,
+    ArrayRef,
 };
 use crate::datatypes::ArrowNativeType;
 use crate::datatypes::DataType;
 
 /// trait declaring an offset size, relevant for i32 vs i64 array types.
-pub trait OffsetSizeTrait: ArrowNativeType + Num + Ord {
+pub trait OffsetSizeTrait: ArrowNativeType + Num + Ord + std::ops::AddAssign {
     fn prefix() -> &'static str;
 
     fn to_isize(&self) -> isize;
@@ -100,7 +100,7 @@ impl<OffsetSize: OffsetSizeTrait> GenericListArray<OffsetSize> {
 
     #[inline]
     fn value_offset_at(&self, i: usize) -> OffsetSize {
-        unsafe { *self.value_offsets.get().add(i) }
+        unsafe { *self.value_offsets.as_ptr().add(i) }
     }
 }
 
@@ -117,18 +117,19 @@ impl<OffsetSize: OffsetSizeTrait> From<ArrayDataRef> for GenericListArray<Offset
             "ListArray should contain a single child array (values array)"
         );
         let values = make_array(data.child_data()[0].clone());
-        let raw_value_offsets = data.buffers()[0].raw_data();
-        let value_offsets: *const OffsetSize = as_aligned_pointer(raw_value_offsets);
+        let value_offsets = data.buffers()[0].as_ptr();
+
+        let value_offsets = unsafe { RawPtrBox::<OffsetSize>::new(value_offsets) };
         unsafe {
             assert!(
-                (*value_offsets.offset(0)).is_zero(),
+                (*value_offsets.as_ptr().offset(0)).is_zero(),
                 "offsets do not start at zero"
             );
         }
         Self {
             data,
             values,
-            value_offsets: RawPtrBox::new(value_offsets),
+            value_offsets,
         }
     }
 }

@@ -17,21 +17,23 @@
 
 import os
 import pickle
-import pytest
 import random
 import unittest
-
 from io import BytesIO
 from os.path import join as pjoin
 
 import numpy as np
-import pyarrow as pa
-import pyarrow.tests.test_parquet as test_parquet
+import pytest
 
+import pyarrow as pa
 from pyarrow.pandas_compat import _pandas_api
 from pyarrow.tests import util
+from pyarrow.tests.parquet.common import _test_dataframe
+from pyarrow.tests.parquet.test_dataset import (
+    _test_read_common_metadata_files, _test_write_to_dataset_with_partitions,
+    _test_write_to_dataset_no_partitions
+)
 from pyarrow.util import guid
-
 
 # ----------------------------------------------------------------------
 # HDFS tests
@@ -276,7 +278,7 @@ class HdfsTestCases:
         size = 5
         test_data = []
         for i in range(nfiles):
-            df = test_parquet._test_dataframe(size, seed=i)
+            df = _test_dataframe(size, seed=i)
 
             df['index'] = np.arange(i * size, (i + 1) * size)
 
@@ -339,7 +341,7 @@ class HdfsTestCases:
         path = _get_hdfs_uri(pjoin(tmpdir, 'test.parquet'))
 
         size = 5
-        df = test_parquet._test_dataframe(size, seed=0)
+        df = _test_dataframe(size, seed=0)
         # Hack so that we don't have a dtype cast in v1 files
         df['uint32'] = df['uint32'].astype(np.int64)
         table = pa.Table.from_pandas(df, preserve_index=False)
@@ -357,14 +359,14 @@ class HdfsTestCases:
     def test_read_common_metadata_files(self):
         tmpdir = pjoin(self.tmp_path, 'common-metadata-' + guid())
         self.hdfs.mkdir(tmpdir)
-        test_parquet._test_read_common_metadata_files(self.hdfs, tmpdir)
+        _test_read_common_metadata_files(self.hdfs, tmpdir)
 
     @pytest.mark.parquet
     @pytest.mark.pandas
     def test_write_to_dataset_with_partitions(self):
         tmpdir = pjoin(self.tmp_path, 'write-partitions-' + guid())
         self.hdfs.mkdir(tmpdir)
-        test_parquet._test_write_to_dataset_with_partitions(
+        _test_write_to_dataset_with_partitions(
             tmpdir, filesystem=self.hdfs)
 
     @pytest.mark.parquet
@@ -372,7 +374,7 @@ class HdfsTestCases:
     def test_write_to_dataset_no_partitions(self):
         tmpdir = pjoin(self.tmp_path, 'write-no_partitions-' + guid())
         self.hdfs.mkdir(tmpdir)
-        test_parquet._test_write_to_dataset_no_partitions(
+        _test_write_to_dataset_no_partitions(
             tmpdir, filesystem=self.hdfs)
 
 

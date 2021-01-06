@@ -49,7 +49,7 @@ use std::collections::HashSet;
 /// # Ok(())
 /// # }
 /// ```
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub enum Expr {
     /// An expression with a specific name.
     Alias(Box<Expr>, String),
@@ -570,6 +570,15 @@ pub fn count(expr: Expr) -> Expr {
     }
 }
 
+/// Create an expression to represent the count(distinct) aggregate function
+pub fn count_distinct(expr: Expr) -> Expr {
+    Expr::AggregateFunction {
+        fun: aggregates::AggregateFunction::Count,
+        distinct: true,
+        args: vec![expr],
+    }
+}
+
 /// Whether it can be represented as a literal expression
 pub trait Literal {
     /// convert the value to a Literal expression
@@ -617,7 +626,7 @@ pub fn lit<T: Literal>(n: T) -> Expr {
 }
 
 /// Create an convenience function representing a unary scalar function
-macro_rules! unary_math_expr {
+macro_rules! unary_scalar_expr {
     ($ENUM:ident, $FUNC:ident) => {
         #[allow(missing_docs)]
         pub fn $FUNC(e: Expr) -> Expr {
@@ -629,24 +638,27 @@ macro_rules! unary_math_expr {
     };
 }
 
-// generate methods for creating the supported unary math expressions
-unary_math_expr!(Sqrt, sqrt);
-unary_math_expr!(Sin, sin);
-unary_math_expr!(Cos, cos);
-unary_math_expr!(Tan, tan);
-unary_math_expr!(Asin, asin);
-unary_math_expr!(Acos, acos);
-unary_math_expr!(Atan, atan);
-unary_math_expr!(Floor, floor);
-unary_math_expr!(Ceil, ceil);
-unary_math_expr!(Round, round);
-unary_math_expr!(Trunc, trunc);
-unary_math_expr!(Abs, abs);
-unary_math_expr!(Signum, signum);
-unary_math_expr!(Exp, exp);
-unary_math_expr!(Log, ln);
-unary_math_expr!(Log2, log2);
-unary_math_expr!(Log10, log10);
+// generate methods for creating the supported unary expressions
+unary_scalar_expr!(Sqrt, sqrt);
+unary_scalar_expr!(Sin, sin);
+unary_scalar_expr!(Cos, cos);
+unary_scalar_expr!(Tan, tan);
+unary_scalar_expr!(Asin, asin);
+unary_scalar_expr!(Acos, acos);
+unary_scalar_expr!(Atan, atan);
+unary_scalar_expr!(Floor, floor);
+unary_scalar_expr!(Ceil, ceil);
+unary_scalar_expr!(Round, round);
+unary_scalar_expr!(Trunc, trunc);
+unary_scalar_expr!(Abs, abs);
+unary_scalar_expr!(Signum, signum);
+unary_scalar_expr!(Exp, exp);
+unary_scalar_expr!(Log, ln);
+unary_scalar_expr!(Log2, log2);
+unary_scalar_expr!(Log10, log10);
+unary_scalar_expr!(Lower, lower);
+unary_scalar_expr!(Trim, trim);
+unary_scalar_expr!(Upper, upper);
 
 /// returns the length of a string in bytes
 pub fn length(e: Expr) -> Expr {
@@ -689,6 +701,7 @@ pub fn create_udf(
 
 /// Creates a new UDAF with a specific signature, state type and return type.
 /// The signature and state type must match the `Acumulator's implementation`.
+#[allow(clippy::rc_buffer)]
 pub fn create_udaf(
     name: &str,
     input_type: DataType,

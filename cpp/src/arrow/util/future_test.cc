@@ -82,6 +82,7 @@ struct MoveOnlyDataType {
     if (data != nullptr) {
       delete data;
       data = nullptr;
+      moves = -1;
     }
   }
 
@@ -89,6 +90,7 @@ struct MoveOnlyDataType {
     Destroy();
     data = other->data;
     other->data = nullptr;
+    moves = other->moves + 1;
   }
 
   int ToInt() const { return data == nullptr ? -42 : *data; }
@@ -102,6 +104,7 @@ struct MoveOnlyDataType {
   }
 
   int* data = nullptr;
+  int moves = 0;
 };
 
 template <>
@@ -122,15 +125,23 @@ void AssertFinished(const Future<T>& fut) {
 // Assert the future is successful *now*
 template <typename T>
 void AssertSuccessful(const Future<T>& fut) {
-  ASSERT_EQ(fut.state(), FutureState::SUCCESS);
-  ASSERT_OK(fut.status());
+  if (IsFutureFinished(fut.state())) {
+    ASSERT_EQ(fut.state(), FutureState::SUCCESS);
+    ASSERT_OK(fut.status());
+  } else {
+    FAIL() << "Expected future to be completed successfully but it was still pending";
+  }
 }
 
 // Assert the future is failed *now*
 template <typename T>
 void AssertFailed(const Future<T>& fut) {
-  ASSERT_EQ(fut.state(), FutureState::FAILURE);
-  ASSERT_FALSE(fut.status().ok());
+  if (IsFutureFinished(fut.state())) {
+    ASSERT_EQ(fut.state(), FutureState::FAILURE);
+    ASSERT_FALSE(fut.status().ok());
+  } else {
+    FAIL() << "Expected future to have failed but it was still pending";
+  }
 }
 
 template <typename T>
@@ -273,6 +284,551 @@ TEST(FutureSyncTest, Int) {
     fut.MarkFinished(Status::IOError("xxx"));
     AssertFailed(fut);
     ASSERT_RAISES(IOError, fut.result());
+  }
+}
+
+TEST(FutureRefTest, ChainRemoved) {
+  // Creating a future chain should not prevent the futures from being deleted if the
+  // entire chain is deleted
+  std::weak_ptr<FutureImpl> ref;
+  std::weak_ptr<FutureImpl> ref2;
+  {
+    auto fut = Future<>::Make();
+    auto fut2 =
+        fut.Then([](const Result<detail::Empty>& status) { return Status::OK(); });
+    ref = fut.impl_;
+    ref2 = fut2.impl_;
+  }
+  ASSERT_TRUE(ref.expired());
+  ASSERT_TRUE(ref2.expired());
+
+  {
+    auto fut = Future<>::Make();
+    auto fut2 = fut.Then([](const Result<detail::Empty>&) { return Future<>::Make(); });
+    ref = fut.impl_;
+    ref2 = fut2.impl_;
+  }
+  ASSERT_TRUE(ref.expired());
+  ASSERT_TRUE(ref2.expired());
+}
+
+TEST(FutureRefTest, TailRemoved) {
+  // Keeping the head of the future chain should keep the entire chain alive
+  std::shared_ptr<Future<>> ref;
+  std::weak_ptr<FutureImpl> ref2;
+  bool side_effect_run = false;
+  {
+    ref = std::make_shared<Future<>>(Future<>::Make());
+    auto fut2 = ref->Then([&side_effect_run](const Result<detail::Empty>& status) {
+      side_effect_run = true;
+      return Status::OK();
+    });
+    ref2 = fut2.impl_;
+  }
+  ASSERT_FALSE(ref2.expired());
+
+  ref->MarkFinished();
+  ASSERT_TRUE(side_effect_run);
+  ASSERT_TRUE(ref2.expired());
+}
+
+TEST(FutureRefTest, HeadRemoved) {
+  // Keeping the tail of the future chain should not keep the entire chain alive.  If no
+  // one has a reference to the head then there is no need to keep it, nothing will finish
+  // it.  In theory the intermediate futures could be finished by some external process
+  // but that would be highly unusual and bad practice so in reality this would just be a
+  // reference to a future that will never complete which is ok.
+  std::weak_ptr<FutureImpl> ref;
+  std::shared_ptr<Future<>> ref2;
+  {
+    auto fut = std::make_shared<Future<>>(Future<>::Make());
+    ref = fut->impl_;
+    ref2 = std::make_shared<Future<>>(fut->Then([](...) {}));
+  }
+  ASSERT_TRUE(ref.expired());
+
+  {
+    auto fut = Future<>::Make();
+    ref2 = std::make_shared<Future<>>(fut.Then([&](...) {
+      auto intermediate = Future<>::Make();
+      ref = intermediate.impl_;
+      return intermediate;
+    }));
+    fut.MarkFinished();
+  }
+  ASSERT_TRUE(ref.expired());
+}
+
+TEST(FutureTest, StressCallback) {
+  for (unsigned int n = 0; n < 1000; n++) {
+    auto fut = Future<>::Make();
+    std::atomic<unsigned int> count_finished_immediately(0);
+    std::atomic<unsigned int> count_finished_deferred(0);
+    std::atomic<unsigned int> callbacks_added(0);
+    std::atomic<bool> finished(false);
+
+    std::thread callback_adder([&] {
+      auto test_thread = std::this_thread::get_id();
+      while (!finished.load()) {
+        fut.AddCallback([&test_thread, &count_finished_immediately,
+                         &count_finished_deferred](const Result<detail::Empty>& result) {
+          if (std::this_thread::get_id() == test_thread) {
+            count_finished_immediately++;
+          } else {
+            count_finished_deferred++;
+          }
+        });
+        callbacks_added++;
+      }
+    });
+
+    while (callbacks_added.load() == 0) {
+      // Spin until the callback_adder has started running
+    }
+
+    ASSERT_EQ(0, count_finished_deferred.load());
+    ASSERT_EQ(0, count_finished_immediately.load());
+
+    fut.MarkFinished();
+
+    while (count_finished_immediately.load() == 0) {
+      // Spin until the callback_adder has added at least one post-future
+    }
+
+    finished.store(true);
+    callback_adder.join();
+    auto total_added = callbacks_added.load();
+    auto total_immediate = count_finished_immediately.load();
+    auto total_deferred = count_finished_deferred.load();
+    ASSERT_EQ(total_added, total_immediate + total_deferred);
+  }
+}
+
+TEST(FutureCompletionTest, Void) {
+  {
+    // Simple callback
+    auto fut = Future<int>::Make();
+    int passed_in_result = 0;
+    auto fut2 =
+        fut.Then([&passed_in_result](const int& result) { passed_in_result = result; });
+    fut.MarkFinished(42);
+    AssertSuccessful(fut2);
+    ASSERT_EQ(passed_in_result, 42);
+  }
+  {
+    // Propagate failure by returning it from on_failure
+    auto fut = Future<int>::Make();
+    auto fut2 = fut.Then([](...) {}, [](const Status& s) { return s; });
+    fut.MarkFinished(Status::IOError("xxx"));
+    AssertFailed(fut2);
+    ASSERT_TRUE(fut2.status().IsIOError());
+  }
+  {
+    // From void
+    auto fut = Future<>::Make();
+    auto fut2 = fut.Then([](const Result<detail::Empty>&) {});
+    fut.MarkFinished();
+    AssertSuccessful(fut2);
+  }
+  {
+    // Propagate failure by not having on_failure
+    auto fut = Future<>::Make();
+    auto cb_was_run = false;
+    auto fut2 = fut.Then([&cb_was_run](const Result<detail::Empty>& res) {
+      cb_was_run = true;
+      return res;
+    });
+    fut.MarkFinished(Status::IOError("xxx"));
+    AssertFailed(fut2);
+    ASSERT_FALSE(cb_was_run);
+  }
+  {
+    // Swallow failure by catching in on_failure
+    auto fut = Future<>::Make();
+    Status status_seen = Status::OK();
+    auto fut2 = fut.Then([](...) {},
+                         [&status_seen](const Status& s) {
+                           status_seen = s;
+                           return Status::OK();
+                         });
+    ASSERT_TRUE(status_seen.ok());
+    fut.MarkFinished(Status::IOError("xxx"));
+    ASSERT_TRUE(status_seen.IsIOError());
+    AssertSuccessful(fut2);
+  }
+}
+
+TEST(FutureCompletionTest, NonVoid) {
+  {
+    // Simple callback
+    auto fut = Future<int>::Make();
+    auto fut2 = fut.Then([](int result) {
+      auto passed_in_result = result;
+      return passed_in_result * passed_in_result;
+    });
+    fut.MarkFinished(42);
+    AssertSuccessful(fut2);
+    auto result = *fut2.result();
+    ASSERT_EQ(result, 42 * 42);
+  }
+  {
+    // Propagate failure by not having on_failure
+    auto fut = Future<int>::Make();
+    auto cb_was_run = false;
+    auto fut2 = fut.Then([&cb_was_run](int result) {
+      cb_was_run = true;
+      auto passed_in_result = result;
+      return passed_in_result * passed_in_result;
+    });
+    fut.MarkFinished(Status::IOError("xxx"));
+    AssertFailed(fut2);
+    ASSERT_TRUE(fut2.status().IsIOError());
+    ASSERT_FALSE(cb_was_run);
+  }
+  {
+    // Swallow failure by catching in on_failure
+    auto fut = Future<int>::Make();
+    bool was_io_error = false;
+    auto fut2 = fut.Then([](int) { return 99; },
+                         [&was_io_error](const Status& s) {
+                           was_io_error = s.IsIOError();
+                           return 100;
+                         });
+    fut.MarkFinished(Status::IOError("xxx"));
+    AssertSuccessful(fut2);
+    auto result = *fut2.result();
+    ASSERT_EQ(result, 100);
+    ASSERT_TRUE(was_io_error);
+  }
+  {
+    // From void
+    auto fut = Future<>::Make();
+    auto fut2 = fut.Then([](...) { return 42; });
+    fut.MarkFinished();
+    AssertSuccessful(fut2);
+    auto result = *fut2.result();
+    ASSERT_EQ(result, 42);
+  }
+  {
+    // Propagate failure by returning failure
+
+    // Cannot do this.  Must return Result<int> because
+    // both callbacks must return the same thing and you can't
+    // return an int from the second callback if you're trying
+    // to propagate a failure
+  }
+}
+
+TEST(FutureCompletionTest, FutureNonVoid) {
+  {
+    // Simple callback
+    auto fut = Future<int>::Make();
+    auto innerFut = Future<std::string>::Make();
+    int passed_in_result = 0;
+    auto fut2 = fut.Then([&passed_in_result, innerFut](int result) {
+      passed_in_result = result;
+      return innerFut;
+    });
+    fut.MarkFinished(42);
+    ASSERT_EQ(passed_in_result, 42);
+    AssertNotFinished(fut2);
+    innerFut.MarkFinished("hello");
+    AssertSuccessful(fut2);
+    auto result = *fut2.result();
+    ASSERT_EQ(result, "hello");
+  }
+  {
+    // Propagate failure by not having on_failure
+    auto fut = Future<int>::Make();
+    auto innerFut = Future<std::string>::Make();
+    auto was_cb_run = false;
+    auto fut2 = fut.Then([innerFut, &was_cb_run](int) {
+      return innerFut;
+      was_cb_run = true;
+    });
+    fut.MarkFinished(Status::IOError("xxx"));
+    AssertFailed(fut2);
+    ASSERT_TRUE(fut2.status().IsIOError());
+    ASSERT_FALSE(was_cb_run);
+  }
+  {
+    // Swallow failure by catching in on_failure
+    auto fut = Future<int>::Make();
+    auto innerFut = Future<std::string>::Make();
+    bool was_io_error = false;
+    auto was_cb_run = false;
+    auto fut2 = fut.Then(
+        [innerFut, &was_cb_run](int) {
+          was_cb_run = true;
+          return innerFut;
+        },
+        [&was_io_error, innerFut](const Status& s) {
+          was_io_error = s.IsIOError();
+          return innerFut;
+        });
+    fut.MarkFinished(Status::IOError("xxx"));
+    AssertNotFinished(fut2);
+    innerFut.MarkFinished("hello");
+    AssertSuccessful(fut2);
+    auto result = *fut2.result();
+    ASSERT_EQ(result, "hello");
+    ASSERT_TRUE(was_io_error);
+    ASSERT_FALSE(was_cb_run);
+  }
+  {
+    // From void
+    auto fut = Future<>::Make();
+    auto innerFut = Future<std::string>::Make();
+    auto fut2 = fut.Then([&innerFut](...) { return innerFut; });
+    fut.MarkFinished();
+    AssertNotFinished(fut2);
+    innerFut.MarkFinished("hello");
+    AssertSuccessful(fut2);
+    auto result = *fut2.result();
+    ASSERT_EQ(result, "hello");
+  }
+  {
+    // Propagate failure by returning failure
+    auto fut = Future<>::Make();
+    auto innerFut = Future<std::string>::Make();
+    auto was_cb_run = false;
+    auto fut2 = fut.Then(
+        [&innerFut, &was_cb_run](...) {
+          was_cb_run = true;
+          return Result<Future<std::string>>(innerFut);
+        },
+        [](const Status& status) { return Result<Future<std::string>>(status); });
+    fut.MarkFinished(Status::IOError("xxx"));
+    AssertFailed(fut2);
+    ASSERT_FALSE(was_cb_run);
+  }
+}
+
+TEST(FutureCompletionTest, Status) {
+  {
+    // Simple callback
+    auto fut = Future<int>::Make();
+    int passed_in_result = 0;
+    Future<> fut2 = fut.Then([&passed_in_result](int result) {
+      passed_in_result = result;
+      return Status::OK();
+    });
+    fut.MarkFinished(42);
+    ASSERT_EQ(passed_in_result, 42);
+    AssertSuccessful(fut2);
+  }
+  {
+    // Propagate failure by not having on_failure
+    auto fut = Future<int>::Make();
+    auto was_cb_run = false;
+    auto fut2 = fut.Then([&was_cb_run](int) {
+      was_cb_run = true;
+      return Status::OK();
+    });
+    fut.MarkFinished(Status::IOError("xxx"));
+    AssertFailed(fut2);
+    ASSERT_TRUE(fut2.status().IsIOError());
+    ASSERT_FALSE(was_cb_run);
+  }
+  {
+    // Swallow failure by catching in on_failure
+    auto fut = Future<int>::Make();
+    bool was_io_error = false;
+    auto was_cb_run = false;
+    auto fut2 = fut.Then(
+        [&was_cb_run](int i) {
+          was_cb_run = true;
+          return Status::OK();
+        },
+        [&was_io_error](const Status& s) {
+          was_io_error = s.IsIOError();
+          return Status::OK();
+        });
+    fut.MarkFinished(Status::IOError("xxx"));
+    AssertSuccessful(fut2);
+    ASSERT_TRUE(was_io_error);
+    ASSERT_FALSE(was_cb_run);
+  }
+  {
+    // From void
+    auto fut = Future<>::Make();
+    auto fut2 = fut.Then([](const Result<detail::Empty>& res) { return Status::OK(); });
+    fut.MarkFinished();
+    AssertSuccessful(fut2);
+  }
+  {
+    // Propagate failure by returning failure
+    auto fut = Future<>::Make();
+    auto was_cb_run = false;
+    auto fut2 = fut.Then(
+        [&was_cb_run](const Result<detail::Empty>& res) {
+          was_cb_run = true;
+          return Status::OK();
+        },
+        [](const Status& s) { return s; });
+    fut.MarkFinished(Status::IOError("xxx"));
+    AssertFailed(fut2);
+    ASSERT_FALSE(was_cb_run);
+  }
+}
+
+TEST(FutureCompletionTest, Result) {
+  {
+    // Simple callback
+    auto fut = Future<int>::Make();
+    Future<int> fut2 = fut.Then([](const int& i) {
+      auto passed_in_result = i;
+      return Result<int>(passed_in_result * passed_in_result);
+    });
+    fut.MarkFinished(42);
+    AssertSuccessful(fut2);
+    auto result = *fut2.result();
+    ASSERT_EQ(result, 42 * 42);
+  }
+  {
+    // Propagate failure by not having on_failure
+    auto fut = Future<int>::Make();
+    auto was_cb_run = false;
+    auto fut2 = fut.Then([&was_cb_run](const int& i) {
+      was_cb_run = true;
+      auto passed_in_result = i;
+      return Result<int>(passed_in_result * passed_in_result);
+    });
+    fut.MarkFinished(Status::IOError("xxx"));
+    AssertFailed(fut2);
+    ASSERT_TRUE(fut2.status().IsIOError());
+    ASSERT_FALSE(was_cb_run);
+  }
+  {
+    // Swallow failure by catching in on_failure
+    auto fut = Future<int>::Make();
+    bool was_io_error = false;
+    bool was_cb_run = false;
+    auto fut2 = fut.Then(
+        [&was_cb_run](const int& i) {
+          was_cb_run = true;
+          return Result<int>(100);
+        },
+        [&was_io_error](const Status& s) {
+          was_io_error = s.IsIOError();
+          return Result<int>(100);
+        });
+    fut.MarkFinished(Status::IOError("xxx"));
+    AssertSuccessful(fut2);
+    auto result = *fut2.result();
+    ASSERT_EQ(result, 100);
+    ASSERT_TRUE(was_io_error);
+    ASSERT_FALSE(was_cb_run);
+  }
+  {
+    // From void
+    auto fut = Future<>::Make();
+    auto fut2 = fut.Then([](...) { return Result<int>(42); });
+    fut.MarkFinished();
+    AssertSuccessful(fut2);
+    auto result = *fut2.result();
+    ASSERT_EQ(result, 42);
+  }
+  {
+    // Propagate failure by returning failure
+    auto fut = Future<>::Make();
+    auto was_cb_run = false;
+    auto fut2 = fut.Then(
+        [&was_cb_run](...) {
+          was_cb_run = true;
+          return Result<int>(42);
+        },
+        [](const Status& s) { return Result<int>(s); });
+    fut.MarkFinished(Status::IOError("xxx"));
+    AssertFailed(fut2);
+    ASSERT_FALSE(was_cb_run);
+  }
+}
+
+TEST(FutureCompletionTest, FutureVoid) {
+  {
+    // Simple callback
+    auto fut = Future<int>::Make();
+    auto innerFut = Future<>::Make();
+    int passed_in_result = 0;
+    auto fut2 = fut.Then([&passed_in_result, innerFut](int i) {
+      passed_in_result = i;
+      return innerFut;
+    });
+    fut.MarkFinished(42);
+    AssertNotFinished(fut2);
+    innerFut.MarkFinished();
+    AssertSuccessful(fut2);
+    auto res = fut2.status();
+    ASSERT_OK(res);
+    ASSERT_EQ(passed_in_result, 42);
+  }
+  {
+    // Precompleted future
+    auto fut = Future<int>::Make();
+    auto innerFut = Future<>::Make();
+    innerFut.MarkFinished();
+    int passed_in_result = 0;
+    auto fut2 = fut.Then([&passed_in_result, innerFut](int i) {
+      passed_in_result = i;
+      return innerFut;
+    });
+    AssertNotFinished(fut2);
+    fut.MarkFinished(42);
+    AssertSuccessful(fut2);
+    ASSERT_EQ(passed_in_result, 42);
+  }
+  {
+    // Propagate failure by not having on_failure
+    auto fut = Future<int>::Make();
+    auto innerFut = Future<>::Make();
+    auto was_cb_run = false;
+    auto fut2 = fut.Then([innerFut, &was_cb_run](int) {
+      was_cb_run = true;
+      return innerFut;
+    });
+    fut.MarkFinished(Status::IOError("xxx"));
+    AssertFailed(fut2);
+    if (IsFutureFinished(fut2.state())) {
+      ASSERT_TRUE(fut2.status().IsIOError());
+    }
+    ASSERT_FALSE(was_cb_run);
+  }
+  {
+    // Swallow failure by catching in on_failure
+    auto fut = Future<int>::Make();
+    auto innerFut = Future<>::Make();
+    auto was_cb_run = false;
+    auto fut2 = fut.Then(
+        [innerFut, &was_cb_run](int) {
+          was_cb_run = true;
+          return innerFut;
+        },
+        [innerFut](const Status& s) { return innerFut; });
+    fut.MarkFinished(Status::IOError("xxx"));
+    AssertNotFinished(fut2);
+    innerFut.MarkFinished();
+    AssertSuccessful(fut2);
+    ASSERT_FALSE(was_cb_run);
+  }
+  {
+    // From void
+    auto fut = Future<>::Make();
+    auto innerFut = Future<>::Make();
+    auto fut2 = fut.Then([&innerFut](...) { return innerFut; });
+    fut.MarkFinished();
+    AssertNotFinished(fut2);
+    innerFut.MarkFinished();
+    AssertSuccessful(fut2);
+  }
+  {
+    // Propagate failure by returning failure
+    auto fut = Future<>::Make();
+    auto innerFut = Future<>::Make();
+    auto fut2 = fut.Then([&innerFut](...) { return innerFut; },
+                         [](const Status& s) { return Future<>::MakeFinished(s); });
+    fut.MarkFinished(Status::IOError("xxx"));
+    AssertFailed(fut2);
   }
 }
 
@@ -767,5 +1323,30 @@ TYPED_TEST(FutureIteratorTest, BasicAsCompleted) { this->TestBasicAsCompleted();
 TYPED_TEST(FutureIteratorTest, ErrorsAsCompleted) { this->TestErrorsAsCompleted(); }
 
 TYPED_TEST(FutureIteratorTest, StressAsCompleted) { this->TestStressAsCompleted(); }
+
+namespace internal {
+TEST(FnOnceTest, MoveOnlyDataType) {
+  // ensuring this is valid guarantees we are making no unnecessary copies
+  FnOnce<int(const MoveOnlyDataType&, MoveOnlyDataType, std::string)> fn =
+      [](const MoveOnlyDataType& i0, MoveOnlyDataType i1, std::string copyable) {
+        return *i0.data + *i1.data + (i0.moves * 1000) + (i1.moves * 100);
+      };
+
+  using arg0 = call_traits::argument_type<0, decltype(fn)>;
+  using arg1 = call_traits::argument_type<1, decltype(fn)>;
+  using arg2 = call_traits::argument_type<2, decltype(fn)>;
+  static_assert(std::is_same<arg0, const MoveOnlyDataType&>::value, "");
+  static_assert(std::is_same<arg1, MoveOnlyDataType>::value, "");
+  static_assert(std::is_same<arg2, std::string>::value,
+                "should not add a && to the call type (demanding rvalue unnecessarily)");
+
+  MoveOnlyDataType i0{1}, i1{41};
+  std::string copyable = "";
+  ASSERT_EQ(std::move(fn)(i0, std::move(i1), copyable), 242);
+  ASSERT_EQ(i0.moves, 0);
+  ASSERT_EQ(i1.moves, 0);
+}
+
+}  // namespace internal
 
 }  // namespace arrow

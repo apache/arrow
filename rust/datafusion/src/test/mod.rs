@@ -21,9 +21,8 @@ use crate::datasource::{MemTable, TableProvider};
 use crate::error::Result;
 use crate::logical_plan::{LogicalPlan, LogicalPlanBuilder};
 use arrow::array::{self, Int32Array};
-use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
+use arrow::datatypes::{DataType, Field, Schema, SchemaRef, TimeUnit};
 use arrow::record_batch::RecordBatch;
-use std::env;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::{BufReader, BufWriter};
@@ -47,14 +46,9 @@ pub fn create_table_dual() -> Box<dyn TableProvider + Send + Sync> {
     Box::new(provider)
 }
 
-/// Get the value of the ARROW_TEST_DATA environment variable
-pub fn arrow_testdata_path() -> String {
-    env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined")
-}
-
 /// Generated partitioned copy of a CSV file
 pub fn create_partitioned_csv(filename: &str, partitions: usize) -> Result<String> {
-    let testdata = arrow_testdata_path();
+    let testdata = arrow::util::test_util::arrow_test_data();
     let path = format!("{}/csv/{}", testdata, filename);
 
     let tmp_dir = TempDir::new()?;
@@ -215,6 +209,24 @@ pub fn format_batch(batch: &RecordBatch) -> Vec<String> {
                         .downcast_ref::<array::Float64Array>()
                         .unwrap()
                         .value(row_index)
+                )),
+                DataType::Timestamp(TimeUnit::Microsecond, _) => s.push_str(&format!(
+                    "{:?}",
+                    array
+                        .as_any()
+                        .downcast_ref::<array::TimestampMicrosecondArray>()
+                        .unwrap()
+                        .value_as_datetime(row_index)
+                        .unwrap()
+                )),
+                DataType::Timestamp(TimeUnit::Nanosecond, _) => s.push_str(&format!(
+                    "{:?}",
+                    array
+                        .as_any()
+                        .downcast_ref::<array::TimestampNanosecondArray>()
+                        .unwrap()
+                        .value_as_datetime(row_index)
+                        .unwrap()
                 )),
                 _ => s.push('?'),
             }

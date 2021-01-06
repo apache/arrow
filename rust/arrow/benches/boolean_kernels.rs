@@ -19,48 +19,46 @@
 extern crate criterion;
 use criterion::Criterion;
 
+use rand::distributions::{Distribution, Standard};
+use rand::Rng;
+
+use arrow::util::test_util::seedable_rng;
+
 extern crate arrow;
 
 use arrow::array::*;
 use arrow::compute::kernels::boolean as boolean_kernels;
 
-///  Helper function to create arrays
-fn create_boolean_array(size: usize) -> BooleanArray {
-    let mut builder = BooleanBuilder::new(size);
-    for i in 0..size {
-        if i % 2 == 0 {
-            builder.append_value(true).unwrap();
-        } else {
-            builder.append_value(false).unwrap();
-        }
-    }
-    builder.finish()
+fn create_boolean(size: usize) -> BooleanArray
+where
+    Standard: Distribution<bool>,
+{
+    seedable_rng()
+        .sample_iter(&Standard)
+        .take(size)
+        .map(Some)
+        .collect()
 }
 
-/// Benchmark for `AND`
-fn bench_and(size: usize) {
-    let buffer_a = create_boolean_array(size);
-    let buffer_b = create_boolean_array(size);
-    criterion::black_box(boolean_kernels::and(&buffer_a, &buffer_b).unwrap());
+fn bench_and(lhs: &BooleanArray, rhs: &BooleanArray) {
+    criterion::black_box(boolean_kernels::and(lhs, rhs).unwrap());
 }
 
-/// Benchmark for `OR`
-fn bench_or(size: usize) {
-    let buffer_a = create_boolean_array(size);
-    let buffer_b = create_boolean_array(size);
-    criterion::black_box(boolean_kernels::or(&buffer_a, &buffer_b).unwrap());
+fn bench_or(lhs: &BooleanArray, rhs: &BooleanArray) {
+    criterion::black_box(boolean_kernels::or(lhs, rhs).unwrap());
 }
 
-/// Benchmark for `NOT`
-fn bench_not(size: usize) {
-    let buffer = create_boolean_array(size);
-    criterion::black_box(boolean_kernels::not(&buffer).unwrap());
+fn bench_not(array: &BooleanArray) {
+    criterion::black_box(boolean_kernels::not(&array).unwrap());
 }
 
 fn add_benchmark(c: &mut Criterion) {
-    c.bench_function("and", |b| b.iter(|| bench_and(512)));
-    c.bench_function("or", |b| b.iter(|| bench_or(512)));
-    c.bench_function("not", |b| b.iter(|| bench_not(512)));
+    let size = 2usize.pow(15);
+    let array1 = create_boolean(size);
+    let array2 = create_boolean(size);
+    c.bench_function("and", |b| b.iter(|| bench_and(&array1, &array2)));
+    c.bench_function("or", |b| b.iter(|| bench_or(&array1, &array2)));
+    c.bench_function("not", |b| b.iter(|| bench_not(&array1)));
 }
 
 criterion_group!(benches, add_benchmark);

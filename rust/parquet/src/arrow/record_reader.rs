@@ -163,8 +163,8 @@ impl<T: DataType> RecordReader<T> {
 
             new_buffer.resize(num_bytes);
 
-            let new_def_levels = new_buffer.data_mut();
-            let left_def_levels = &def_levels_buf.data_mut()[new_len..];
+            let new_def_levels = new_buffer.as_slice_mut();
+            let left_def_levels = &def_levels_buf.as_slice_mut()[new_len..];
 
             new_def_levels[0..num_bytes].copy_from_slice(&left_def_levels[0..num_bytes]);
 
@@ -174,7 +174,7 @@ impl<T: DataType> RecordReader<T> {
             None
         };
 
-        Ok(replace(&mut self.def_levels, new_buffer).map(|x| x.freeze()))
+        Ok(replace(&mut self.def_levels, new_buffer).map(|x| x.into()))
     }
 
     /// Return repetition level data.
@@ -190,8 +190,8 @@ impl<T: DataType> RecordReader<T> {
 
             new_buffer.resize(num_bytes);
 
-            let new_rep_levels = new_buffer.data_mut();
-            let left_rep_levels = &rep_levels_buf.data_mut()[new_len..];
+            let new_rep_levels = new_buffer.as_slice_mut();
+            let left_rep_levels = &rep_levels_buf.as_slice_mut()[new_len..];
 
             new_rep_levels[0..num_bytes].copy_from_slice(&left_rep_levels[0..num_bytes]);
 
@@ -202,7 +202,7 @@ impl<T: DataType> RecordReader<T> {
             None
         };
 
-        Ok(replace(&mut self.rep_levels, new_buffer).map(|x| x.freeze()))
+        Ok(replace(&mut self.rep_levels, new_buffer).map(|x| x.into()))
     }
 
     /// Returns currently stored buffer data.
@@ -217,14 +217,14 @@ impl<T: DataType> RecordReader<T> {
 
         new_buffer.resize(num_bytes);
 
-        let new_records = new_buffer.data_mut();
-        let left_records = &mut self.records.data_mut()[new_len..];
+        let new_records = new_buffer.as_slice_mut();
+        let left_records = &mut self.records.as_slice_mut()[new_len..];
 
         new_records[0..num_bytes].copy_from_slice(&left_records[0..num_bytes]);
 
         self.records.resize(new_len);
 
-        Ok(replace(&mut self.records, new_buffer).freeze())
+        Ok(replace(&mut self.records, new_buffer).into())
     }
 
     /// Returns currently stored null bitmap data.
@@ -249,7 +249,7 @@ impl<T: DataType> RecordReader<T> {
                 self.null_bitmap
                     .as_mut()
                     .unwrap()
-                    .append(old_bitmap.is_set(i))?;
+                    .append(old_bitmap.is_set(i));
             }
 
             Ok(Some(old_bitmap.into_buffer()))
@@ -291,20 +291,20 @@ impl<T: DataType> RecordReader<T> {
 
         // Convert mutable buffer spaces to mutable slices
         let (prefix, values, suffix) =
-            unsafe { self.records.data_mut().align_to_mut::<T::T>() };
+            unsafe { self.records.as_slice_mut().align_to_mut::<T::T>() };
         assert!(prefix.is_empty() && suffix.is_empty());
         let values = &mut values[values_written..];
 
         let def_levels = self.def_levels.as_mut().map(|buf| {
             let (prefix, def_levels, suffix) =
-                unsafe { buf.data_mut().align_to_mut::<i16>() };
+                unsafe { buf.as_slice_mut().align_to_mut::<i16>() };
             assert!(prefix.is_empty() && suffix.is_empty());
             &mut def_levels[values_written..]
         });
 
         let rep_levels = self.rep_levels.as_mut().map(|buf| {
             let (prefix, rep_levels, suffix) =
-                unsafe { buf.data_mut().align_to_mut::<i16>() };
+                unsafe { buf.as_slice_mut().align_to_mut::<i16>() };
             assert!(prefix.is_empty() && suffix.is_empty());
             &mut rep_levels[values_written..]
         });
@@ -317,7 +317,8 @@ impl<T: DataType> RecordReader<T> {
 
         // get new references for the def levels.
         let def_levels = self.def_levels.as_ref().map(|buf| {
-            let (prefix, def_levels, suffix) = unsafe { buf.data().align_to::<i16>() };
+            let (prefix, def_levels, suffix) =
+                unsafe { buf.as_slice().align_to::<i16>() };
             assert!(prefix.is_empty() && suffix.is_empty());
             &def_levels[values_written..]
         });
@@ -357,9 +358,8 @@ impl<T: DataType> RecordReader<T> {
                     "Definition levels should exist when data is less than levels!"
                 )
             })?;
-            (0..levels_read).try_for_each(|idx| {
-                null_buffer.append(def_levels[idx] == max_def_level)
-            })?;
+            (0..levels_read)
+                .for_each(|idx| null_buffer.append(def_levels[idx] == max_def_level));
         }
 
         let values_read = max(values_read, levels_read);
@@ -371,7 +371,8 @@ impl<T: DataType> RecordReader<T> {
     /// records read.
     fn split_records(&mut self, records_to_read: usize) -> Result<usize> {
         let rep_levels = self.rep_levels.as_ref().map(|buf| {
-            let (prefix, rep_levels, suffix) = unsafe { buf.data().align_to::<i16>() };
+            let (prefix, rep_levels, suffix) =
+                unsafe { buf.as_slice().align_to::<i16>() };
             assert!(prefix.is_empty() && suffix.is_empty());
             rep_levels
         });
@@ -439,9 +440,7 @@ mod tests {
     use crate::schema::parser::parse_message_type;
     use crate::schema::types::SchemaDescriptor;
     use crate::util::test_common::page_util::{DataPageBuilder, DataPageBuilderImpl};
-    use arrow::array::{
-        BooleanBufferBuilder, BufferBuilderTrait, Int16BufferBuilder, Int32BufferBuilder,
-    };
+    use arrow::array::{BooleanBufferBuilder, Int16BufferBuilder, Int32BufferBuilder};
     use arrow::bitmap::Bitmap;
     use std::sync::Arc;
 
@@ -529,7 +528,7 @@ mod tests {
         }
 
         let mut bb = Int32BufferBuilder::new(7);
-        bb.append_slice(&[4, 7, 6, 3, 2, 8, 9]).unwrap();
+        bb.append_slice(&[4, 7, 6, 3, 2, 8, 9]);
         let expected_buffer = bb.finish();
         assert_eq!(
             expected_buffer,
@@ -617,7 +616,7 @@ mod tests {
 
         // Verify result record data
         let mut bb = Int32BufferBuilder::new(7);
-        bb.append_slice(&[0, 7, 0, 6, 3, 0, 8]).unwrap();
+        bb.append_slice(&[0, 7, 0, 6, 3, 0, 8]);
         let expected_buffer = bb.finish();
         assert_eq!(
             expected_buffer,
@@ -626,8 +625,7 @@ mod tests {
 
         // Verify result def levels
         let mut bb = Int16BufferBuilder::new(7);
-        bb.append_slice(&[1i16, 2i16, 0i16, 2i16, 2i16, 0i16, 2i16])
-            .unwrap();
+        bb.append_slice(&[1i16, 2i16, 0i16, 2i16, 2i16, 0i16, 2i16]);
         let expected_def_levels = bb.finish();
         assert_eq!(
             Some(expected_def_levels),
@@ -636,8 +634,7 @@ mod tests {
 
         // Verify bitmap
         let mut bb = BooleanBufferBuilder::new(7);
-        bb.append_slice(&[false, true, false, true, true, false, true])
-            .unwrap();
+        bb.append_slice(&[false, true, false, true, true, false, true]);
         let expected_bitmap = Bitmap::from(bb.finish());
         assert_eq!(
             Some(expected_bitmap),
@@ -727,7 +724,7 @@ mod tests {
 
         // Verify result record data
         let mut bb = Int32BufferBuilder::new(9);
-        bb.append_slice(&[4, 0, 0, 7, 6, 3, 2, 8, 9]).unwrap();
+        bb.append_slice(&[4, 0, 0, 7, 6, 3, 2, 8, 9]);
         let expected_buffer = bb.finish();
         assert_eq!(
             expected_buffer,
@@ -736,8 +733,7 @@ mod tests {
 
         // Verify result def levels
         let mut bb = Int16BufferBuilder::new(9);
-        bb.append_slice(&[2i16, 0i16, 1i16, 2i16, 2i16, 2i16, 2i16, 2i16, 2i16])
-            .unwrap();
+        bb.append_slice(&[2i16, 0i16, 1i16, 2i16, 2i16, 2i16, 2i16, 2i16, 2i16]);
         let expected_def_levels = bb.finish();
         assert_eq!(
             Some(expected_def_levels),
@@ -746,8 +742,7 @@ mod tests {
 
         // Verify bitmap
         let mut bb = BooleanBufferBuilder::new(9);
-        bb.append_slice(&[true, false, false, true, true, true, true, true, true])
-            .unwrap();
+        bb.append_slice(&[true, false, false, true, true, true, true, true, true]);
         let expected_bitmap = Bitmap::from(bb.finish());
         assert_eq!(
             Some(expected_bitmap),

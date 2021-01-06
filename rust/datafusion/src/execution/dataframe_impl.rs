@@ -24,6 +24,7 @@ use crate::error::Result;
 use crate::execution::context::{ExecutionContext, ExecutionContextState};
 use crate::logical_plan::{
     col, DFSchema, Expr, FunctionRegistry, JoinType, LogicalPlan, LogicalPlanBuilder,
+    Partitioning,
 };
 use crate::{arrow::record_batch::RecordBatch, physical_plan::collect};
 
@@ -107,6 +108,16 @@ impl DataFrame for DataFrameImpl {
     ) -> Result<Arc<dyn DataFrame>> {
         let plan = LogicalPlanBuilder::from(&self.plan)
             .join(&right.to_logical_plan(), join_type, left_cols, right_cols)?
+            .build()?;
+        Ok(Arc::new(DataFrameImpl::new(self.ctx_state.clone(), &plan)))
+    }
+
+    fn repartition(
+        &self,
+        partitioning_scheme: Partitioning,
+    ) -> Result<Arc<dyn DataFrame>> {
+        let plan = LogicalPlanBuilder::from(&self.plan)
+            .repartition(partitioning_scheme)?
             .build()?;
         Ok(Arc::new(DataFrameImpl::new(self.ctx_state.clone(), &plan)))
     }
@@ -196,6 +207,7 @@ mod tests {
             avg(col("c12")),
             sum(col("c12")),
             count(col("c12")),
+            count_distinct(col("c12")),
         ];
 
         let df = df.aggregate(group_expr, aggr_expr)?;
@@ -203,7 +215,7 @@ mod tests {
         let plan = df.to_logical_plan();
 
         // build same plan using SQL API
-        let sql = "SELECT c1, MIN(c12), MAX(c12), AVG(c12), SUM(c12), COUNT(c12) \
+        let sql = "SELECT c1, MIN(c12), MAX(c12), AVG(c12), SUM(c12), COUNT(c12), COUNT(DISTINCT c12) \
                    FROM aggregate_test_100 \
                    GROUP BY c1";
         let sql_plan = create_plan(sql)?;
@@ -323,7 +335,7 @@ mod tests {
 
     fn register_aggregate_csv(ctx: &mut ExecutionContext) -> Result<()> {
         let schema = test::aggr_test_schema();
-        let testdata = test::arrow_testdata_path();
+        let testdata = arrow::util::test_util::arrow_test_data();
         ctx.register_csv(
             "aggregate_test_100",
             &format!("{}/csv/aggregate_test_100.csv", testdata),
