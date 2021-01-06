@@ -1307,9 +1307,8 @@ impl Field {
 
     /// Sets the `Field`'s optional custom metadata.
     /// The metadata is set as `None` for empty map.
-    /// Return cloned `Self`.
     #[inline]
-    pub fn with_metadata(&mut self, metadata: Option<BTreeMap<String, String>>) -> Self {
+    pub fn set_metadata(&mut self, metadata: Option<BTreeMap<String, String>>) {
         // To make serde happy, convert Some(empty_map) to None.
         self.metadata = None;
         if let Some(v) = metadata {
@@ -1317,7 +1316,6 @@ impl Field {
                 self.metadata = Some(v);
             }
         }
-        self.clone()
     }
 
     /// Returns the immutable reference to the `Field`'s optional custom metadata.
@@ -1617,10 +1615,10 @@ impl Field {
                         merged.insert(key.clone(), from_value.clone());
                     }
                 }
-                self.with_metadata(Some(merged));
+                self.set_metadata(Some(merged));
             }
             (None, Some(from_metadata)) => {
-                self.with_metadata(Some(from_metadata.clone()));
+                self.set_metadata(Some(from_metadata.clone()));
             }
             _ => {}
         }
@@ -2091,12 +2089,12 @@ mod tests {
         let field_metadata: BTreeMap<String, String> = kv_array.iter().cloned().collect();
 
         // Non-empty map: should be converted as JSON obj { ... }
-        let first_name = Field::new("first_name", DataType::Utf8, false)
-            .with_metadata(Some(field_metadata));
+        let mut first_name = Field::new("first_name", DataType::Utf8, false);
+        first_name.set_metadata(Some(field_metadata));
 
         // Empty map: should be omitted.
-        let last_name = Field::new("last_name", DataType::Utf8, false)
-            .with_metadata(Some(BTreeMap::default()));
+        let mut last_name = Field::new("last_name", DataType::Utf8, false);
+        last_name.set_metadata(Some(BTreeMap::default()));
 
         let person = DataType::Struct(vec![
             first_name,
@@ -2927,7 +2925,8 @@ mod tests {
         assert!(schema2 != schema4);
         assert!(schema3 != schema4);
 
-        let f = Field::new("c1", DataType::Utf8, false).with_metadata(Some(
+        let mut f = Field::new("c1", DataType::Utf8, false);
+        f.set_metadata(Some(
             [("foo".to_string(), "bar".to_string())]
                 .iter()
                 .cloned()
@@ -2966,8 +2965,8 @@ mod tests {
     fn person_schema() -> Schema {
         let kv_array = [("k".to_string(), "v".to_string())];
         let field_metadata: BTreeMap<String, String> = kv_array.iter().cloned().collect();
-        let first_name = Field::new("first_name", DataType::Utf8, false)
-            .with_metadata(Some(field_metadata));
+        let mut first_name = Field::new("first_name", DataType::Utf8, false);
+        first_name.set_metadata(Some(field_metadata));
 
         Schema::new(vec![
             first_name,
@@ -2998,16 +2997,16 @@ mod tests {
                 .iter()
                 .cloned()
                 .collect();
-        let f1 = Field::new("first_name", DataType::Utf8, false)
-            .with_metadata(Some(metadata1));
+        let mut f1 = Field::new("first_name", DataType::Utf8, false);
+        f1.set_metadata(Some(metadata1));
 
         let metadata2: BTreeMap<String, String> =
             [("foo".to_string(), "baz".to_string())]
                 .iter()
                 .cloned()
                 .collect();
-        let f2 = Field::new("first_name", DataType::Utf8, false)
-            .with_metadata(Some(metadata2));
+        let mut f2 = Field::new("first_name", DataType::Utf8, false);
+        f2.set_metadata(Some(metadata2));
 
         assert!(
             Schema::try_merge(&[Schema::new(vec![f1]), Schema::new(vec![f2])]).is_err()
@@ -3020,21 +3019,23 @@ mod tests {
                 .iter()
                 .cloned()
                 .collect();
-        let f2 = Field::new("first_name", DataType::Utf8, false)
-            .with_metadata(Some(metadata2));
+        let mut f2 = Field::new("first_name", DataType::Utf8, false);
+        f2.set_metadata(Some(metadata2));
 
         assert!(f1.try_merge(&f2).is_ok());
         assert!(f1.metadata.is_some());
         assert_eq!(f1.metadata.unwrap(), f2.metadata.unwrap());
 
         // 3. Some + Some
-        let mut f1 = Field::new("first_name", DataType::Utf8, false).with_metadata(Some(
+        let mut f1 = Field::new("first_name", DataType::Utf8, false);
+        f1.set_metadata(Some(
             [("foo".to_string(), "bar".to_string())]
                 .iter()
                 .cloned()
                 .collect(),
         ));
-        let f2 = Field::new("first_name", DataType::Utf8, false).with_metadata(Some(
+        let mut f2 = Field::new("first_name", DataType::Utf8, false);
+        f2.set_metadata(Some(
             [("foo2".to_string(), "bar2".to_string())]
                 .iter()
                 .cloned()
@@ -3055,7 +3056,8 @@ mod tests {
         );
 
         // 4. Some + None.
-        let mut f1 = Field::new("first_name", DataType::Utf8, false).with_metadata(Some(
+        let mut f1 = Field::new("first_name", DataType::Utf8, false);
+        f1.set_metadata(Some(
             [("foo".to_string(), "bar".to_string())]
                 .iter()
                 .cloned()
