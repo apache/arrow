@@ -690,9 +690,13 @@ mod tests {
             .iter()
             .cloned()
             .collect();
+        let field_md: BTreeMap<String, String> = [("k".to_string(), "v".to_string())]
+            .iter()
+            .cloned()
+            .collect();
         let schema = Schema::new_with_metadata(
             vec![
-                Field::new("uint8", DataType::UInt8, false),
+                Field::new("uint8", DataType::UInt8, false).with_metadata(Some(field_md)),
                 Field::new("uint16", DataType::UInt16, true),
                 Field::new("uint32", DataType::UInt32, false),
                 Field::new("uint64", DataType::UInt64, true),
