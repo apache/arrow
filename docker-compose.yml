@@ -216,6 +216,7 @@ services:
       - type: bind
         source: .
         target: "C:/arrow"
+    command: arrow\\ci\\scripts\\wheel_windows_build.bat
 
   python-wheel-windows-test:
     image: ${REPO}:python-${PYTHON}-wheel-windows-test
@@ -226,6 +227,7 @@ services:
         python: ${PYTHON}
       context: .
       dockerfile: ci/docker/wheel-windows-test.dockerfile
+    command: arrow\\ci\\scripts\\wheel_windows_test.bat
     volumes:
       - type: bind
         source: .

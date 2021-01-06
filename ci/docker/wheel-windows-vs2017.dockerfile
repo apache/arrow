@@ -74,5 +74,3 @@ RUN pip install clcache
 # For debugging purposes
 # RUN wget --no-check-certificate https://github.com/lucasg/Dependencies/releases/download/v1.10/Dependencies_x64_Release.zip
 # RUN unzip Dependencies_x64_Release.zip -d Dependencies && setx path "%path%;C:\Depencencies"
-
-CMD arrow/ci/scripts/wheel_windows_build.bat
