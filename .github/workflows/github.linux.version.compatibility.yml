@@ -41,9 +41,9 @@ jobs:
       - name: Checkout Arrow
         run: |
           # git clone --no-checkout {{ arrow.remote }} arrow
-          # git clone --no-checkout  https://github.com/jonkeane/arrow.git  arrow
+          git clone --no-checkout  https://github.com/jonkeane/arrow.git  arrow
           # git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
-          # git -C arrow fetch -t https://github.com/jonkeane/arrow.git ARROW-10623-attr-writing-test
+          git -C arrow fetch -t https://github.com/jonkeane/arrow.git ARROW-10623-attr-writing-test
           git -C arrow checkout FETCH_HEAD
           git -C arrow submodule update --init --recursive
       - name: Free Up Disk Space
