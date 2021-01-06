@@ -725,6 +725,7 @@ def _reconstruct_block(item, ndim, columns=None, extension_columns=None):
 
     """
     import pandas.core.internals as _int
+    from pandas.arrays import DatetimeArray
 
     block_arr = item.get('block', None)
     placement = item['placement']
@@ -736,8 +737,9 @@ def _reconstruct_block(item, ndim, columns=None, extension_columns=None):
                                 klass=_int.CategoricalBlock, ndim=ndim)
     elif 'timezone' in item:
         dtype = make_datetimetz(item['timezone'])
-        cls = dtype.construct_array_type()
-        block_arr = cls._simple_new(block_arr, dtype=dtype)
+        # TODO: once older pandas is dropped, use dtype.construct_array_type()
+        #  instead of hard-coding DatetimeArray
+        block_arr = DatetimeArray(block_arr, dtype=dtype)
         block = _int.make_block(block_arr, placement=placement,
                                 klass=_int.DatetimeTZBlock)
     elif 'object' in item:
