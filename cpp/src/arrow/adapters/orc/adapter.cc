@@ -471,17 +471,17 @@ int64_t ORCFileReader::NumberOfStripes() { return impl_->NumberOfStripes(); }
 
 int64_t ORCFileReader::NumberOfRows() { return impl_->NumberOfRows(); }
 
-class ArrowOutputFile : public liborc::OutputStream {
+class ArrowOutputStream : public liborc::OutputStream {
  public:
-  explicit ArrowOutputFile(const std::shared_ptr<io::FileOutputStream>& file)
-      : file_(file), length_(0) {}
+  explicit ArrowOutputStream(const std::shared_ptr<io::OutputStream>& output_stream)
+      : output_stream_(output_stream), length_(0) {}
 
   uint64_t getLength() const override { return length_; }
 
   uint64_t getNaturalWriteSize() const override { return 128 * 1024; }
 
   void write(const void* buf, size_t length) override {
-    ORC_THROW_NOT_OK(file_->Write(buf, static_cast<int64_t>(length)));
+    ORC_THROW_NOT_OK(output_stream_->Write(buf, static_cast<int64_t>(length)));
     length_ += static_cast<int64_t>(length);
   }
 
@@ -491,8 +491,8 @@ class ArrowOutputFile : public liborc::OutputStream {
   }
 
   void close() override {
-    if (!file_->closed()) {
-      ORC_THROW_NOT_OK(file_->Close());
+    if (!output_stream_->closed()) {
+      ORC_THROW_NOT_OK(output_stream_->Close());
     }
   }
 
@@ -501,18 +501,18 @@ class ArrowOutputFile : public liborc::OutputStream {
   void set_length(int64_t length) { length_ = length; }
 
  private:
-  std::shared_ptr<io::FileOutputStream> file_;
+  std::shared_ptr<io::OutputStream> output_stream_;
   int64_t length_;
 };
 
 class ORCFileWriter::Impl {
  public:
   Status Open(const std::shared_ptr<Schema>& schema,
-              const std::shared_ptr<io::FileOutputStream>& file,
+              const std::shared_ptr<io::OutputStream>& output_stream,
               const std::shared_ptr<ORCWriterOptions>& options) {
     orc_options_ = std::make_shared<liborc::WriterOptions>();
     outStream_ = ORC_UNIQUE_PTR<liborc::OutputStream>(
-        static_cast<liborc::OutputStream*>(new ArrowOutputFile(file)));
+        static_cast<liborc::OutputStream*>(new ArrowOutputStream(output_stream)));
     ORC_THROW_NOT_OK(GetORCType(schema.get(), &orcSchema_));
     try {
       writer_ = createWriter(*orcSchema_, outStream_.get(), *orc_options_);
@@ -563,11 +563,11 @@ ORCFileWriter::~ORCFileWriter() {}
 ORCFileWriter::ORCFileWriter() { impl_.reset(new ORCFileWriter::Impl()); }
 
 Status ORCFileWriter::Open(const std::shared_ptr<Schema>& schema,
-                           const std::shared_ptr<io::FileOutputStream>& file,
+                           const std::shared_ptr<io::OutputStream>& output_stream,
                            const std::shared_ptr<ORCWriterOptions>& options,
                            std::unique_ptr<ORCFileWriter>* writer) {
   auto result = std::unique_ptr<ORCFileWriter>(new ORCFileWriter());
-  ORC_THROW_NOT_OK(result->impl_->Open(schema, file, options));
+  ORC_THROW_NOT_OK(result->impl_->Open(schema, output_stream, options));
   *writer = std::move(result);
   return Status::OK();
 }

@@ -165,12 +165,12 @@ class ARROW_EXPORT ORCFileWriter {
   /// \brief Creates a new ORC writer.
   ///
   /// \param[in] schema of the Arrow table
-  /// \param[in] file the file to write into
+  /// \param[in] output_stream the io::OutputStream to write into
   /// \param[in] options ORC writer options
   /// \param[out] writer the returned writer object
   /// \return Status
   static Status Open(const std::shared_ptr<Schema>& schema,
-                     const std::shared_ptr<io::FileOutputStream>& file,
+                     const std::shared_ptr<io::OutputStream>& output_stream,
                      const std::shared_ptr<ORCWriterOptions>& options,
                      std::unique_ptr<ORCFileWriter>* writer);
 
