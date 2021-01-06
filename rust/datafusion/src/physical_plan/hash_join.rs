@@ -206,11 +206,8 @@ impl ExecutionPlan for HashJoinExec {
                     let merge = MergeExec::new(self.left.clone());
                     let stream = merge.execute(0).await?;
 
-                    let on_left = self
-                        .on
-                        .iter()
-                        .map(|on| on.0.clone())
-                        .collect::<Vec<_>>();
+                    let on_left =
+                        self.on.iter().map(|on| on.0.clone()).collect::<Vec<_>>();
                     // This operation performs 2 steps at once:
                     // 1. creates a [JoinHashMap] of all batches from the stream
                     // 2. stores the batches in a vector.
@@ -220,8 +217,15 @@ impl ExecutionPlan for HashJoinExec {
                             let hash = &mut acc.0;
                             let values = &mut acc.1;
                             let offset = acc.2;
-                            update_hash(&on_left, &batch, hash, offset, &mut acc.3, &random_state)
-                                .unwrap();
+                            update_hash(
+                                &on_left,
+                                &batch,
+                                hash,
+                                offset,
+                                &mut acc.3,
+                                &random_state,
+                            )
+                            .unwrap();
                             acc.2 += batch.num_rows();
                             values.push(batch);
                             Ok(acc)
@@ -252,11 +256,7 @@ impl ExecutionPlan for HashJoinExec {
         // over the right that uses this information to issue new batches.
 
         let stream = self.right.execute(partition).await?;
-        let on_right = self
-            .on
-            .iter()
-            .map(|on| on.1.clone())
-            .collect::<Vec<_>>();
+        let on_right = self.on.iter().map(|on| on.1.clone()).collect::<Vec<_>>();
 
         let column_indices = self.column_indices_from_schema()?;
         Ok(Box::pin(HashJoinStream {
@@ -271,7 +271,7 @@ impl ExecutionPlan for HashJoinExec {
             num_output_batches: 0,
             num_output_rows: 0,
             join_time: 0,
-            random_state
+            random_state,
         }))
     }
 }
@@ -284,7 +284,7 @@ fn update_hash(
     hash: &mut JoinHashMap,
     offset: usize,
     hash_buf: &mut Vec<u64>,
-    random_state: &RandomState
+    random_state: &RandomState,
 ) -> Result<()> {
     // evaluate the keys
     let keys_values = on
@@ -518,8 +518,7 @@ fn build_join_indexes(
                 // Get the hash and find it in the build index
 
                 // for every item on the left and right we check if it matches
-                if let Some(indices) = left.get(&hash_values[row])
-                {
+                if let Some(indices) = left.get(&hash_values[row]) {
                     for &i in indices {
                         // TODO: collision check
                         if true {
@@ -541,8 +540,7 @@ fn build_join_indexes(
 
             // First visit all of the rows
             for row in 0..right.num_rows() {
-                if let Some(indices) = left.get(&hash_values[row])
-                {
+                if let Some(indices) = left.get(&hash_values[row]) {
                     for &i in indices {
                         // Collision check
                         if true {
@@ -567,8 +565,7 @@ fn build_join_indexes(
         }
         JoinType::Right => {
             for row in 0..right.num_rows() {
-                match left.get(&hash_values[row])
-                {
+                match left.get(&hash_values[row]) {
                     Some(indices) => {
                         for &i in indices {
                             if true {
@@ -590,7 +587,7 @@ fn build_join_indexes(
 }
 use core::hash::BuildHasher;
 
-/// Creates hash values for every 
+/// Creates hash values for every
 fn create_hashes<'a>(
     arrays: &[ArrayRef],
     random_state: &RandomState,
