@@ -99,7 +99,7 @@ jobs:
       - name: Install old Arrow
         run: |
           install.packages(c("remotes", "testthat"))
-          remotes::install_version("arrow",  "{matrix.old_arrow_version}")
+          remotes::install_version("arrow",  "${{ matrix.old_arrow_version }}")
         shell: Rscript {0}
       - name: Setup our testing directory, copy only the tests to it.
         run: |
