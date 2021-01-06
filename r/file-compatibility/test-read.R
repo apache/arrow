@@ -10,8 +10,6 @@ skip_if_version <- function(version, msg, op = `<=`) {
 pq_file <- "files/ex_data.parquet"
 
 test_that("Can sread the file", {
-  skip_if_version("1.0.1", "Version 1.0.1 can't read new version metadata.")
-
   df <- read_parquet(pq_file)
   print(str(df))
   expect_true(TRUE)
