@@ -22,7 +22,6 @@ name: Crossbow
 # TODO:
 # * move this back to dev/tasks/r/github.linux.version.compatibility.yml when done
 # * add back only on branches "*-github-*"
-# * rstudio package manager packages?
 
 on:
   push
@@ -65,14 +64,14 @@ jobs:
       - name: Write files
         run: |
           cd arrow/r
-          R -f file-compatibility/write.R
+          R -f extra-tests/write.R
         shell: bash
 
       - name: Upload the parquet artifacts
         uses: actions/upload-artifact@v2
         with:
           name: files
-          path: arrow/r/file-compatibility/files
+          path: arrow/r/extra-tests/files
 
   read-files:
     name: "Read files with Arrow ${{ matrix.old_arrow_version }}"
@@ -104,14 +103,14 @@ jobs:
         shell: Rscript {0}
       - name: Setup our testing directory, copy only the tests to it.
         run: |
-          mkdir -p file-compatibility/files
-          cp arrow/r/file-compatibility/test-*.R file-compatibility/
+          mkdir -p extra-tests/files
+          cp arrow/r/extra-tests/test-*.R extra-tests/
       - name: Download artifacts
         uses: actions/download-artifact@v2
         with:
           name: files
-          path: file-compatibility/files
+          path: extra-tests/files
       - name: Test reading
         run: |
-          testthat::test_dir("file-compatibility")
+          testthat::test_dir("extra-tests")
         shell: Rscript {0}
