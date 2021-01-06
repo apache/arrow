@@ -37,9 +37,6 @@ if [ "$ARROW_R_DEV" = "TRUE" ]; then
   export NOT_CRAN=true
 fi
 
-
-ls
-
 ${R_BIN} CMD INSTALL .
 
 popd
