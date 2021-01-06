@@ -835,3 +835,61 @@ cdef class _SplitPatternOptions(FunctionOptions):
 class SplitPatternOptions(_SplitPatternOptions):
     def __init__(self, *, pattern, max_splits=-1, reverse=False):
         self._set_options(pattern, max_splits, reverse)
+
+
+cdef class _ArraySortOptions(FunctionOptions):
+    cdef:
+        CArraySortOptions array_sort_options
+
+    cdef const CFunctionOptions* get_options(self) except NULL:
+        return &self.array_sort_options
+
+    def _set_options(self, order):
+        if order == "ascending":
+            self.array_sort_options.order = CSortOrder_Ascending
+        elif order == "descending":
+            self.array_sort_options.order = CSortOrder_Descending
+        else:
+            raise ValueError(
+                "{!r} is not a valid order".format(order)
+            )
+
+
+class ArraySortOptions(_ArraySortOptions):
+    def __init__(self, *, order='ascending'):
+        self._set_options(order)
+
+
+cdef class _SortOptions(FunctionOptions):
+    cdef:
+        CSortOptions sort_options
+
+    cdef const CFunctionOptions* get_options(self) except NULL:
+        return &self.sort_options
+
+    def _set_options(self, sort_keys):
+        cdef:
+            vector[CSortKey] c_sort_keys
+            c_string c_name
+            CSortOrder c_order
+
+        for name, order in sort_keys:
+            if order == "ascending":
+                c_order = CSortOrder_Ascending
+            elif order == "descending":
+                c_order = CSortOrder_Descending
+            else:
+                raise ValueError(
+                    "{!r} is not a valid order".format(order)
+                )
+            c_name = tobytes(name)
+            c_sort_keys.push_back(CSortKey(c_name, c_order))
+
+        self.sort_options.sort_keys = c_sort_keys
+
+
+class SortOptions(_SortOptions):
+    def __init__(self, sort_keys=None):
+        if sort_keys is None:
+            sort_keys = []
+        self._set_options(sort_keys)

@@ -1809,6 +1809,25 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CPartitionNthOptions(int64_t pivot)
         int64_t pivot
 
+    ctypedef enum CSortOrder" arrow::compute::SortOrder":
+        CSortOrder_Ascending \
+            "arrow::compute::SortOrder::Ascending"
+        CSortOrder_Descending \
+            "arrow::compute::SortOrder::Descending"
+
+    cdef cppclass CArraySortOptions \
+            "arrow::compute::ArraySortOptions"(CFunctionOptions):
+        CSortOrder order
+
+    cdef cppclass CSortKey" arrow::compute::SortKey":
+        CSortKey(c_string name, CSortOrder order)
+        c_string name
+        CSortOrder order
+
+    cdef cppclass CSortOptions \
+            "arrow::compute::SortOptions"(CFunctionOptions):
+        vector[CSortKey] sort_keys
+
     enum DatumType" arrow::Datum::type":
         DatumType_NONE" arrow::Datum::NONE"
         DatumType_SCALAR" arrow::Datum::SCALAR"

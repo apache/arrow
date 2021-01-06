@@ -1056,3 +1056,51 @@ def test_partition_nth():
                for i in range(pivot))
     assert all(data[indices[i]] >= data[indices[pivot]]
                for i in range(pivot, len(data)))
+
+
+def test_array_sort_indices():
+    arr = pa.array([1, 2, None, 0])
+    result = pc.array_sort_indices(arr)
+    assert result.to_pylist() == [3, 0, 1, 2]
+    result = pc.array_sort_indices(arr, order="ascending")
+    assert result.to_pylist() == [3, 0, 1, 2]
+    result = pc.array_sort_indices(arr, order="descending")
+    assert result.to_pylist() == [1, 0, 3, 2]
+
+    with pytest.raises(ValueError, match="not a valid order"):
+        pc.array_sort_indices(arr, order="nonscending")
+
+
+def test_sort_indices_array():
+    arr = pa.array([1, 2, None, 0])
+    result = pc.sort_indices(arr)
+    assert result.to_pylist() == [3, 0, 1, 2]
+    result = pc.sort_indices(arr, sort_keys=[("dummy", "ascending")])
+    assert result.to_pylist() == [3, 0, 1, 2]
+    result = pc.sort_indices(arr, sort_keys=[("dummy", "descending")])
+    assert result.to_pylist() == [1, 0, 3, 2]
+    result = pc.sort_indices(
+        arr, options=pc.SortOptions(sort_keys=[("dummy", "descending")])
+    )
+    assert result.to_pylist() == [1, 0, 3, 2]
+
+
+def test_sort_indices_table():
+    table = pa.table({"a": [1, 1, 0], "b": [1, 0, 1]})
+
+    result = pc.sort_indices(table, sort_keys=[("a", "ascending")])
+    assert result.to_pylist() == [2, 0, 1]
+
+    result = pc.sort_indices(
+        table, sort_keys=[("a", "ascending"), ("b", "ascending")]
+    )
+    assert result.to_pylist() == [2, 1, 0]
+
+    with pytest.raises(ValueError, match="Must specify one or more sort keys"):
+        pc.sort_indices(table)
+
+    with pytest.raises(ValueError, match="Nonexistent sort key column"):
+        pc.sort_indices(table, sort_keys=[("unknown", "ascending")])
+
+    with pytest.raises(ValueError, match="not a valid order"):
+        pc.sort_indices(table, sort_keys=[("a", "nonscending")])
