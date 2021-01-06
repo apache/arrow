@@ -751,6 +751,46 @@ def docker_compose(obj, src, dry_run):
     obj['compose'] = compose
 
 
+@docker_compose.command('build')
+@click.argument('image')
+@click.option('--force-pull/--no-pull', default=True,
+              help="Whether to force pull the image and its ancestor images")
+@click.option('--using-docker-cli', default=False, is_flag=True,
+              help="Use docker CLI directly for building instead of calling "
+                   "docker-compose. This may help to reuse cached layers.")
+@click.option('--use-cache/--no-cache', default=True,
+              help="Whether to use cache when building the image and its "
+                   "ancestor images")
+@click.option('--use-leaf-cache/--no-leaf-cache', default=True,
+              help="Whether to use cache when building only the (leaf) image "
+                   "passed as the argument. To disable caching for both the "
+                   "image and its ancestors use --no-cache option.")
+@click.pass_obj
+def docker_compose_build(obj, image, *, force_pull, using_docker_cli,
+                         use_cache, use_leaf_cache):
+    """
+    Execute docker-compose builds.
+    """
+    from .docker import UndefinedImage
+
+    compose = obj['compose']
+
+    try:
+        if force_pull:
+            compose.pull(image, pull_leaf=use_leaf_cache,
+                         using_docker=using_docker_cli)
+        compose.build(image, use_cache=use_cache,
+                      use_leaf_cache=use_leaf_cache,
+                      using_docker=using_docker_cli)
+    except UndefinedImage as e:
+        raise click.ClickException(
+            "There is no service/image defined in docker-compose.yml with "
+            "name: {}".format(str(e))
+        )
+    except RuntimeError as e:
+        raise click.ClickException(str(e))
+
+
 @docker_compose.command('run')
 @click.argument('image')
 @click.argument('command', required=False, default=None)
