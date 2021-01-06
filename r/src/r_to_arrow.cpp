@@ -914,29 +914,6 @@ class RPrimitiveConverter<T, enable_if_t<is_date_type<T>::value>>
   static int64_t FromPosixct(const Date64Type*, double from) { return from * 1000; }
 };
 
-// Status RScalar_to_days(RScalar* value, int32_t* days) {
-//   constexpr int64_t kSecondsPerDay = 86400;
-//
-//   switch (value->rtype) {
-//   case DATE_DBL: {
-//     *days = static_cast<int32_t>(*reinterpret_cast<double*>(value->data));
-//     return Status::OK();
-//   }
-//   case DATE_INT: {
-//     *days = *reinterpret_cast<int32_t*>(value->data);
-//     return Status::OK();
-//   }
-//   case POSIXCT: {
-//     *days = *reinterpret_cast<double*>(value->data) / kSecondsPerDay;
-//     return Status::OK();
-//   }
-//
-//   default:
-//     break;
-//   }
-//   return Status::Invalid("invalid conversion to Date");
-// }
-
 int64_t get_TimeUnit_multiplier(TimeUnit::type unit) {
   switch (unit) {
     case TimeUnit::SECOND:
@@ -1177,19 +1154,21 @@ struct RConverterTrait<T, enable_if_list_like<T>> {
 template <typename T>
 class RListConverter : public ListConverter<T, RConverter, RConverterTrait> {
  public:
-  Status Append(RScalar* value) override {
-    if (RValue::IsNull(value)) {
-      return this->list_builder_->AppendNull();
+  Status AppendRange(SEXP x, R_xlen_t start, R_xlen_t size) override {
+    RETURN_NOT_OK(this->Reserve(size));
+
+    RVectorType rtype = GetVectorType(x);
+    if (rtype != LIST) {
+      return Status::Invalid("Cannot convert to list type");
     }
 
-    // append one element to the list
-    RETURN_NOT_OK(this->list_builder_->Append());
-
-    // append the contents through the list value converter
-    SEXP obj = *reinterpret_cast<SEXP*>(value->data);
-    R_xlen_t size = XLENGTH(obj);
-    RETURN_NOT_OK(this->list_builder_->ValidateOverflow(size));
-    return this->value_converter_.get()->AppendRange(obj, 0, size);
+    auto append_value = [this](SEXP value) {
+      R_xlen_t n = XLENGTH(value);
+      RETURN_NOT_OK(this->list_builder_->ValidateOverflow(n));
+      return this->value_converter_.get()->AppendRange(value, 0, n);
+    };
+    auto append_null = [this]() { return this->list_builder_->AppendNull(); };
+    return RVectorVisitor<SEXP>::Visit(x, start, size, append_null, append_value);
   }
 };
 
@@ -1202,15 +1181,6 @@ struct RConverterTrait<StructType> {
 
 class RStructConverter : public StructConverter<RConverter, RConverterTrait> {
  public:
-  Status Append(RScalar* value) override {
-    if (value->rtype != DATAFRAME) {
-      return Status::Invalid("expecting a data frame");
-    }
-
-    auto row = reinterpret_cast<DataFrameRow*>(value);
-    return AppendRange(row->data, row->row, 1);
-  }
-
   Status AppendRange(SEXP x, R_xlen_t start, R_xlen_t size) override {
     RETURN_NOT_OK(this->builder_->Reserve(size));
 
