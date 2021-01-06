@@ -30,14 +30,12 @@ on:
 jobs:
   write-files:
     name: "Write files"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     strategy:
       fail-fast: false
     env:
-      R_ORG: "rstudio"
-      R_IMAGE: "r-base"
-      R_TAG: "4.0-focal"
       ARROW_R_DEV: "FALSE"
+      RSPM: "https://packagemanager.rstudio.com/cran/__linux__/focal/latest"
     steps:
       - name: Checkout Arrow
         run: |
@@ -53,17 +51,23 @@ jobs:
       - name: Fetch Submodules and Tags
         shell: bash
         run: cd arrow && ci/scripts/util_checkout.sh
-      - name: Docker Pull
-        shell: bash
-        run: cd arrow && docker-compose pull --ignore-pull-failures r
-      - name: Docker Build
-        shell: bash
-        run: cd arrow && docker-compose build r
-      - name: Docker Run
-        shell: bash
+      - uses: r-lib/actions/setup-r@v1
+      - name: Install dependencies
         run: |
-          cd arrow &&
-          docker-compose run r /bin/bash -c "/arrow/ci/scripts/r_build_install.sh /arrow && R -f file-compatibility/write.R"
+          install.packages(c("remotes", "glue", "sys"))
+          remotes::install_deps("arrow/r", dependencies = TRUE)
+        shell: Rscript {0}
+      - name: Install Arrow
+        run: |
+          cd arrow/r
+          R CMD INSTALL .
+        shell: bash
+      - name: Write files
+        run: |
+          cd arrow/r
+          R -f file-compatibility/write.R
+        shell: bash
+
       - name: Upload the parquet artifacts
         uses: actions/upload-artifact@v2
         with:
