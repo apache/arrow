@@ -119,7 +119,8 @@ struct ARROW_EXPORT ReadOptions {
 
   /// Whether to use the global CPU thread pool
   bool use_threads = true;
-  // TODO: Does this need to propagate anywhere?  E.g. python objects?
+  // TODO: This needs to propagate to python and cglib?  I'll need some help understanding
+  // that flow
   /// Whether to use blocking reads or asynchronous reads
   bool legacy_blocking_reads = true;
   /// Block size we request from the IO layer; also determines the size of

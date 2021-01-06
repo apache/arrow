@@ -36,7 +36,7 @@ namespace fs = arrow::fs;
 namespace ds = arrow::dataset;
 namespace csv = arrow::csv;
 
-const int NUM_FILES = 16;
+const int NUM_FILES = 5;
 
 #define ABORT_ON_FAILURE(expr)                     \
   do {                                             \
@@ -73,18 +73,13 @@ static arrow::Future<> TestFileRead(benchmark::State& state, int file_index,
                                        MakeReadOptions(threaded_reader, blocking_reads),
                                        MakeParseOptions(), MakeConvertOptions())
                     .ValueOrDie();
-  return reader->ReadAsync().Then(
-      [reader, file_index](const std::shared_ptr<Table>& table) {
-        if (table->num_rows() != 100000) {
-          return arrow::Status::Invalid("Expected 100,000 rows but only got " +
-                                        std::to_string(table->num_rows()));
-        }
-        return arrow::Status::OK();
-      },
-      [reader, file_index](const arrow::Status& failure_reason) {
-        std::cout << "Failed reading file (" << file_index << ") for reason ("
-                  << failure_reason << ")" << std::endl;
-      });
+  return reader->ReadAsync().Then([reader](const std::shared_ptr<Table>& table) {
+    if (table->num_rows() != 100000) {
+      return arrow::Status::Invalid("Expected 100,000 rows but only got " +
+                                    std::to_string(table->num_rows()));
+    }
+    return arrow::Status::OK();
+  });
 }
 
 static void SerialTestFileSystem(benchmark::State& state, fs::FileSystem& filesystem,
@@ -205,9 +200,9 @@ BENCHMARK(LocalFsSerialOuterThreadedInner)->UseRealTime();
 BENCHMARK(LocalFsThreadedOuterSerialInner)->UseRealTime();
 BENCHMARK(LocalFsSerialOuterAsyncInner)->UseRealTime();
 BENCHMARK(LocalFsThreadedOuterAsyncInner)->UseRealTime();
-BENCHMARK(SlowFsSerialOuterSerialInner);
-BENCHMARK(SlowFsSerialOuterThreadedInner)->UseRealTime();
-BENCHMARK(SlowFsThreadedOuterSerialInner)->UseRealTime();
-BENCHMARK(SlowFsSerialOuterAsyncInner)->UseRealTime();
-BENCHMARK(SlowFsThreadedOuterAsyncInner)->UseRealTime();
+// BENCHMARK(SlowFsSerialOuterSerialInner);
+// BENCHMARK(SlowFsSerialOuterThreadedInner)->UseRealTime();
+// BENCHMARK(SlowFsThreadedOuterSerialInner)->UseRealTime();
+// BENCHMARK(SlowFsSerialOuterAsyncInner)->UseRealTime();
+// BENCHMARK(SlowFsThreadedOuterAsyncInner)->UseRealTime();
 BENCHMARK_MAIN();

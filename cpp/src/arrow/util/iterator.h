@@ -198,6 +198,16 @@ template <typename T>
 struct TransformFlow {
   using YieldValueType = T;
 
+  TransformFlow(YieldValueType value, bool ready_for_next)
+      : finished_(false),
+        ready_for_next_(ready_for_next),
+        status_(),
+        yield_value_(std::move(value)) {}
+  TransformFlow(bool finished, bool ready_for_next)
+      : finished_(finished), ready_for_next_(ready_for_next), status_(), yield_value_() {}
+  TransformFlow(Status s)
+      : finished_(true), ready_for_next_(false), status_(s), yield_value_() {}
+
   bool HasValue() const { return yield_value_.has_value(); }
   bool Finished() const { return finished_; }
   Status status() const { return status_; }
@@ -214,58 +224,39 @@ struct TransformFlow {
 struct TransformFinish {
   template <typename T>
   operator TransformFlow<T>() && {  // NOLINT explicit
-    return {true, true};
+    return TransformFlow<T>(true, true);
   }
 };
 
 struct TransformSkip {
   template <typename T>
   operator TransformFlow<T>() && {  // NOLINT explicit
-    return {false, true};
+    return TransformFlow<T>(false, true);
   }
 };
 
 template <typename T>
 TransformFlow<T> TransformAbort(Status status) {
-  return TransformFlow<T>{true, false, status};
+  return TransformFlow<T>(status);
 }
 
 template <typename T>
 TransformFlow<T> TransformYield(T value = {}, bool ready_for_next = true) {
-  return TransformFlow<T>{false, ready_for_next, Status::OK(), std::move(value)};
+  return TransformFlow<T>(std::move(value), ready_for_next);
 }
 
-template <typename Callable, typename Res, typename... Args>
-class SharedCallable {
- public:
-  explicit SharedCallable(Callable c) : ptr_(std::make_shared<Callable>(std::move(c))) {}
-  explicit SharedCallable(std::shared_ptr<Callable> ptr) : ptr_(std::move(ptr)) {}
-
-  Res operator()(Args&&... args) { return (*ptr_)(std::forward<Args>(args)...); }
-
- private:
-  std::shared_ptr<Callable> ptr_;
-};
-
-template <typename Callable, typename Res, typename... Args>
-std::function<Res(Args...)> MakeSharedCallable(Callable c) {
-  return std::function<Res(Args...)>(SharedCallable<Callable, Res, Args...>(c));
-}
-
-template <typename Callable, typename Res, typename... Args>
-std::function<Res(Args...)> MakeSharedCallable(std::shared_ptr<Callable> ptr) {
-  return std::function<Res(Args...)>(SharedCallable<Callable, Res, Args...>(ptr));
-}
+template <typename T, typename V>
+using Transformer = std::function<TransformFlow<V>(T)>;
 
 template <typename T, typename V>
 class TransformIterator {
  public:
-  explicit TransformIterator(Iterator<T> it, std::function<TransformFlow<V>(T)> op)
-      : it_(std::move(it)), op_(std::move(op)) {}
+  explicit TransformIterator(Iterator<T> it, Transformer<T, V> transformer)
+      : it_(std::move(it)), transformer_(std::move(transformer)) {}
 
   util::optional<Result<V>> Pump() {
     while (!finished_ && last_value_.has_value()) {
-      TransformFlow<V> next = op_(*last_value_);
+      TransformFlow<V> next = transformer_(*last_value_);
       if (next.ReadyForNext()) {
         last_value_.reset();
       }
@@ -298,14 +289,13 @@ class TransformIterator {
 
  private:
   Iterator<T> it_;
-  std::function<TransformFlow<V>(T)> op_;
+  Transformer<T, V> transformer_;
   util::optional<T> last_value_;
   bool finished_;
 };
 
 template <typename T, typename V>
-Iterator<V> MakeTransformedIterator(Iterator<T> it,
-                                    std::function<TransformFlow<V>(T)> op) {
+Iterator<V> MakeTransformedIterator(Iterator<T> it, Transformer<T, V> op) {
   return Iterator<V>(TransformIterator<T, V>(std::move(it), std::move(op)));
 }
 

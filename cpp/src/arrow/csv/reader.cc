@@ -17,11 +17,9 @@
 
 #include "arrow/csv/reader.h"
 
-// TODO remove <iostream>
 #include <cstdint>
 #include <cstring>
 #include <functional>
-#include <iostream>
 #include <limits>
 #include <memory>
 #include <sstream>
@@ -110,7 +108,7 @@ class CSVBufferIterator {
       std::function<Future<std::shared_ptr<Buffer>>()> buffer_iterator) {
     std::function<TransformFlow<std::shared_ptr<Buffer>>(std::shared_ptr<Buffer>)> fn =
         CSVBufferIterator();
-    return async::TransformAsyncGenerator(std::move(buffer_iterator), fn);
+    return TransformAsyncGenerator(std::move(buffer_iterator), fn);
   }
 
   TransformFlow<std::shared_ptr<Buffer>> operator()(std::shared_ptr<Buffer> buf) {
@@ -121,12 +119,7 @@ class CSVBufferIterator {
 
     int64_t offset = 0;
     if (first_buffer_) {
-      // TODO: Cleanup
-      auto data_r = util::SkipUTF8BOM(buf->data(), buf->size());
-      if (!data_r.ok()) {
-        return TransformAbort<std::shared_ptr<Buffer>>(data_r.status());
-      }
-      auto data = *data_r;
+      ARROW_ASSIGN_OR_RAISE(auto data, util::SkipUTF8BOM(buf->data(), buf->size()));
       offset += data - buf->data();
       DCHECK_GE(offset, 0);
       first_buffer_ = false;
@@ -148,8 +141,6 @@ class CSVBufferIterator {
   }
 
  protected:
-  // TODO: Remove
-  int counter = 0;
   bool first_buffer_ = true;
   // Whether there was a trailing CR at the end of last received buffer
   bool trailing_cr_ = false;
@@ -166,8 +157,9 @@ struct CSVBlock {
 };
 
 // This is an unfortunate side-effect of using optional<T> as the iterator in the
-// CSVBlock iterator.  All we need to know is if value == end and optional<T>() will
-// always equal optional<T>() but it won't compile if T is not comparable
+// CSVBlock iterator.  We need to be able to compare with
+// IterationTraits<optional<T>>::End() and empty optionals will always compare true but
+// the optional copmarator won't compile if the underlying type isn't comparable
 bool operator==(const CSVBlock& left, const CSVBlock& right) { return false; }
 
 class BlockReader {
@@ -198,8 +190,9 @@ class SerialBlockReader : public BlockReader {
     auto block_reader =
         std::make_shared<SerialBlockReader>(std::move(chunker), first_buffer);
     auto block_reader_fn =
-        MakeSharedCallable<SerialBlockReader, TransformFlow<util::optional<CSVBlock>>,
-                           std::shared_ptr<Buffer>>(block_reader);
+        internal::MakeSharedCallable<SerialBlockReader,
+                                     TransformFlow<util::optional<CSVBlock>>,
+                                     std::shared_ptr<Buffer>>(block_reader);
     return MakeTransformedIterator(std::move(buffer_iterator), block_reader_fn);
   }
 
@@ -214,21 +207,11 @@ class SerialBlockReader : public BlockReader {
 
     if (is_final) {
       // End of file reached => compute completion from penultimate block
-      // TODO: Cleanup back to RETURN_NOT_OK by converting Status to
-      // TransformFinish(status)
-      auto chunker_status =
-          chunker_->ProcessFinal(partial_, buffer_, &completion, &buffer_);
-      if (!chunker_status.ok()) {
-        return TransformAbort<util::optional<CSVBlock>>(chunker_status);
-      }
+      RETURN_NOT_OK(chunker_->ProcessFinal(partial_, buffer_, &completion, &buffer_));
     } else {
       // Get completion of partial from previous block.
-      // TODO: Cleanup back to RETURN_NOT_OK by converting Status to
-      auto chunker_status =
-          chunker_->ProcessWithPartial(partial_, buffer_, &completion, &buffer_);
-      if (!chunker_status.ok()) {
-        return TransformAbort<util::optional<CSVBlock>>(chunker_status);
-      }
+      RETURN_NOT_OK(
+          chunker_->ProcessWithPartial(partial_, buffer_, &completion, &buffer_));
     }
     int64_t bytes_before_buffer = partial_->size() + completion->size();
 
@@ -262,8 +245,9 @@ class ThreadedBlockReader : public BlockReader {
     auto block_reader =
         std::make_shared<ThreadedBlockReader>(std::move(chunker), first_buffer);
     auto block_reader_fn =
-        MakeSharedCallable<ThreadedBlockReader, TransformFlow<util::optional<CSVBlock>>,
-                           std::shared_ptr<Buffer>>(block_reader);
+        internal::MakeSharedCallable<ThreadedBlockReader,
+                                     TransformFlow<util::optional<CSVBlock>>,
+                                     std::shared_ptr<Buffer>>(block_reader);
     return MakeTransformedIterator(std::move(buffer_iterator), block_reader_fn);
   }
 
@@ -273,9 +257,10 @@ class ThreadedBlockReader : public BlockReader {
     auto block_reader =
         std::make_shared<ThreadedBlockReader>(std::move(chunker), first_buffer);
     auto block_reader_fn =
-        MakeSharedCallable<ThreadedBlockReader, TransformFlow<util::optional<CSVBlock>>,
-                           std::shared_ptr<Buffer>>(block_reader);
-    return async::TransformAsyncGenerator(buffer_generator, block_reader_fn);
+        internal::MakeSharedCallable<ThreadedBlockReader,
+                                     TransformFlow<util::optional<CSVBlock>>,
+                                     std::shared_ptr<Buffer>>(block_reader);
+    return TransformAsyncGenerator(buffer_generator, block_reader_fn);
   }
 
   TransformFlow<util::optional<CSVBlock>> operator()(
@@ -293,30 +278,18 @@ class ThreadedBlockReader : public BlockReader {
 
     if (is_final) {
       // End of file reached => compute completion from penultimate block
-      // TODO: Cleanup RETURN_NOT_OK
-      auto chunker_status =
-          chunker_->ProcessFinal(current_partial, current_buffer, &completion, &whole);
-      if (!chunker_status.ok()) {
-        return TransformAbort<util::optional<CSVBlock>>(chunker_status);
-      }
+      RETURN_NOT_OK(
+          chunker_->ProcessFinal(current_partial, current_buffer, &completion, &whole));
     } else {
       // Get completion of partial from previous block.
       std::shared_ptr<Buffer> starts_with_whole;
       // Get completion of partial from previous block.
-      // TODO: Cleanup RETURN_NOT_OK
-      auto chunker_status = chunker_->ProcessWithPartial(current_partial, current_buffer,
-                                                         &completion, &starts_with_whole);
-      if (!chunker_status.ok()) {
-        return TransformAbort<util::optional<CSVBlock>>(chunker_status);
-      }
+      RETURN_NOT_OK(chunker_->ProcessWithPartial(current_partial, current_buffer,
+                                                 &completion, &starts_with_whole));
 
       // Get a complete CSV block inside `partial + block`, and keep
       // the rest for the next iteration.
-      // TODO: Cleanup RETURN_NOT_OK
-      chunker_status = chunker_->Process(starts_with_whole, &whole, &next_partial);
-      if (!chunker_status.ok()) {
-        return TransformAbort<util::optional<CSVBlock>>(chunker_status);
-      }
+      RETURN_NOT_OK(chunker_->Process(starts_with_whole, &whole, &next_partial));
     }
 
     partial_ = std::move(next_partial);
@@ -972,7 +945,7 @@ class AsyncThreadedTableReader : public BaseTableReader {
         return Status::OK();
       };
 
-      return async::VisitAsyncGenerator(block_generator, block_visitor)
+      return VisitAsyncGenerator(block_generator, block_visitor)
           .Then([this](...) -> Future<> {
             // By this point we've added all top level tasks so it is safe to call
             // FinishAsync

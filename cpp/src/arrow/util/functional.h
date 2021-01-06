@@ -127,80 +127,33 @@ class FnOnce<R(A...)> {
   std::unique_ptr<Impl> impl_;
 };
 
-// // By default std::function will make a copy of whatever it is wrapping.  However, some
-// // callables might be move-only.  This extension allows you to create a std::function
-// from
-// // a move-only target.  This function will then own the target.
-// //
-// // TODO: I got this from
-// // https://stackoverflow.com/questions/25330716/move-only-version-of-stdfunction what
-// // needs to be done to use it?  Any kind of citing or attribution?
-// template <typename T>
-// class unique_function : public std::function<T> {
-//   template <typename Fn, typename En = void>
-//   struct wrapper;
+/// Wraps a callable in a shared_ptr forwards calls to the shared pointer.  std::function
+/// tends to create lots of copies of its target callables and if those callables have
+/// move-only state that is a problem.
+/// TODO: Improve templating.  Can any of these arguments be inferred somehow?  It's a bit
+/// awkward to have to specify all three things.  Seems like Res & Args could be inferred
+/// from Callable maybe?
+template <typename Callable, typename Res, typename... Args>
+class SharedCallable {
+ public:
+  explicit SharedCallable(Callable c) : ptr_(std::make_shared<Callable>(std::move(c))) {}
+  explicit SharedCallable(std::shared_ptr<Callable> ptr) : ptr_(std::move(ptr)) {}
 
-//   // specialization for CopyConstructible Fn
-//   template <typename Fn>
-//   struct wrapper<Fn, enable_if_t<std::is_copy_constructible<Fn>::value>> {
-//     Fn fn;
+  Res operator()(Args&&... args) { return (*ptr_)(std::forward<Args>(args)...); }
 
-//     template <typename Res, typename... Args>
-//     Res operator()(Args&&... args) {
-//       return fn(std::forward<Args>(args)...);
-//     }
-//   };
+ private:
+  std::shared_ptr<Callable> ptr_;
+};
 
-//   // specialization for MoveConstructible-only Fn
-//   template <typename Fn>
-//   struct wrapper<Fn, enable_if_t<!std::is_copy_constructible<Fn>::value &&
-//                                  std::is_move_constructible<Fn>::value>> {
-//     Fn fn;
+template <typename Callable, typename Res, typename... Args>
+std::function<Res(Args...)> MakeSharedCallable(Callable c) {
+  return std::function<Res(Args...)>(SharedCallable<Callable, Res, Args...>(c));
+}
 
-//     wrapper(Fn&& fn) : fn(std::forward<Fn>(fn)) {}
-
-//     ARROW_DEFAULT_MOVE_AND_ASSIGN(wrapper);
-//     //    ARROW_DISALLOW_COPY_AND_ASSIGN(wrapper);
-
-//     // TODO: It seems safer to delete these (done above).  Why didn't SO do that?
-//     // these two functions are instantiated by std::function
-//     // and are never called
-//     wrapper(const wrapper& rhs) : fn(const_cast<Fn&&>(rhs.fn)) {
-//       throw 0;
-//     }  // hack to initialize fn for non-DefaultContructible types
-//     wrapper& operator=(wrapper&) { throw 0; }
-
-//     template <typename Res, typename... Args>
-//     Res operator()(Args&&... args) {
-//       return fn(std::forward<Args>(args)...);
-//     }
-//   };
-
-//   using base = std::function<T>;
-
-//  public:
-//   unique_function() noexcept = default;
-//   unique_function(std::nullptr_t) noexcept : base(nullptr) {}
-
-//   template <typename Fn>
-//   unique_function(Fn&& f) : base(wrapper<Fn>{std::forward<Fn>(f)}) {}
-
-//   ARROW_DEFAULT_MOVE_AND_ASSIGN(unique_function);
-//   ARROW_DISALLOW_COPY_AND_ASSIGN(unique_function);
-
-//   unique_function& operator=(std::nullptr_t) {
-//     base::operator=(nullptr);
-//     return *this;
-//   }
-
-//   template <typename Fn>
-//   unique_function& operator=(Fn&& f) {
-//     base::operator=(wrapper<Fn>{std::forward<Fn>(f)});
-//     return *this;
-//   }
-
-//   using base::operator();
-// };
+template <typename Callable, typename Res, typename... Args>
+std::function<Res(Args...)> MakeSharedCallable(std::shared_ptr<Callable> ptr) {
+  return std::function<Res(Args...)>(SharedCallable<Callable, Res, Args...>(ptr));
+}
 
 }  // namespace internal
 }  // namespace arrow
