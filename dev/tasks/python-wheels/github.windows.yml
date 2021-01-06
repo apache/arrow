@@ -51,7 +51,7 @@ jobs:
       ############################ Docker Registry ############################
       - name: Login to GitHub Container Registry
         shell: bash
-        run: docker login ghcr.io -u {{ '${{ github.repository_owner }}' }} -p {{ '${{ secrets.CROSSBOW_GITHUB_TOKEN }}' }}
+        run: docker login ghcr.io -u {{ '${{ github.repository_owner }}' }} -p {{ '${{ secrets.CROSSBOW_GHCR_TOKEN }}' }}
 
       ############################ Archery Installation #######################
       - name: Set up Python
@@ -59,6 +59,7 @@ jobs:
         with:
           python-version: 3.8
       - name: Install Archery and Crossbow dependencies
+        shell: bash
         run: pip install -e arrow/dev/archery[all]
 
       ############################ Build & Test ###############################
@@ -67,7 +68,7 @@ jobs:
         run: archery docker run --no-build -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} python-wheel-windows-vs2017
       - name: Test wheel
         shell: bash
-        run: archery docker run --using-docker-cli python-wheel-windows-test
+        run: archery docker run python-wheel-windows-test
 
       ############################ Artifact Uploading #########################
       - name: Upload artifacts

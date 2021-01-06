@@ -312,7 +312,7 @@ class DockerCompose(Command):
                     args.extend(cmd)
 
             # execute as a plain docker cli command
-            self._execute_docker('run', '--rm', '-it', *args)
+            self._execute_docker('run', '--rm', *args)
         else:
             # execute as a docker-compose command
             args.append(service_name)

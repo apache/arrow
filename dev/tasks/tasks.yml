@@ -508,6 +508,14 @@ tasks:
     artifacts:
       - pyarrow-{no_rc_version}-cp36-cp36m-win_amd64.whl
 
+  wheel-windows-cp37m:
+    ci: github
+    template: python-wheels/github.windows.yml
+    params:
+      python_version: 3.7
+    artifacts:
+      - pyarrow-{no_rc_version}-cp37-cp37m-win_amd64.whl
+
   # wheel-win-cp36m:
   #   ci: github
   #   template: python-wheels/github.win.yml
