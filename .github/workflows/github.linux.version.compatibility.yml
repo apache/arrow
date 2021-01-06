@@ -63,7 +63,7 @@ jobs:
         shell: bash
         run: |
           cd arrow &&
-          docker-compose run r /bin/bash -c "/arrow/ci/scripts/r_build_install.sh /arrow && cd r && R -f file-compatibility/write.R"
+          docker-compose run r /bin/bash -c "/arrow/ci/scripts/r_build_install.sh /arrow && R -f file-compatibility/write.R"
       - name: Upload the parquet artifacts
         uses: actions/upload-artifact@v2
         with:
