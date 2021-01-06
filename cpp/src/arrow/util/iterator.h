@@ -205,7 +205,7 @@ struct TransformFlow {
         yield_value_(std::move(value)) {}
   TransformFlow(bool finished, bool ready_for_next)
       : finished_(finished), ready_for_next_(ready_for_next), status_(), yield_value_() {}
-  TransformFlow(Status s)
+  TransformFlow(Status s)  // NOLINT runtime/explicit
       : finished_(true), ready_for_next_(false), status_(s), yield_value_() {}
 
   bool HasValue() const { return yield_value_.has_value(); }
@@ -234,11 +234,6 @@ struct TransformSkip {
     return TransformFlow<T>(false, true);
   }
 };
-
-template <typename T>
-TransformFlow<T> TransformAbort(Status status) {
-  return TransformFlow<T>(status);
-}
 
 template <typename T>
 TransformFlow<T> TransformYield(T value = {}, bool ready_for_next = true) {
