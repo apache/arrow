@@ -80,7 +80,7 @@ Status KeyValuePartitioning::SetDefaultValuesFromKeys(const Expression& expr,
     ARROW_ASSIGN_OR_RAISE(auto match,
                           ref_value.first.FindOneOrNone(*projector->schema()));
 
-    if (!match) continue;
+    if (match.empty()) continue;
     RETURN_NOT_OK(projector->SetDefaultValue(match, ref_value.second.scalar()));
   }
   return Status::OK();
@@ -105,12 +105,11 @@ Result<Partitioning::PartitionedBatches> KeyValuePartitioning::Partition(
   for (const auto& partition_field : schema_->fields()) {
     ARROW_ASSIGN_OR_RAISE(
         auto match, FieldRef(partition_field->name()).FindOneOrNone(*rest->schema()))
+    if (match.empty()) continue;
 
-    if (match) {
-      by_fields.push_back(partition_field);
-      by_columns.push_back(rest->column(match[0]));
-      ARROW_ASSIGN_OR_RAISE(rest, rest->RemoveColumn(match[0]));
-    }
+    by_fields.push_back(partition_field);
+    by_columns.push_back(rest->column(match[0]));
+    ARROW_ASSIGN_OR_RAISE(rest, rest->RemoveColumn(match[0]));
   }
 
   if (by_fields.empty()) {
@@ -138,7 +137,7 @@ Result<Partitioning::PartitionedBatches> KeyValuePartitioning::Partition(
 
 Result<Expression> KeyValuePartitioning::ConvertKey(const Key& key) const {
   ARROW_ASSIGN_OR_RAISE(auto match, FieldRef(key.name).FindOneOrNone(*schema_));
-  if (!match) {
+  if (match.empty()) {
     return literal(true);
   }
 
@@ -201,7 +200,7 @@ Result<std::string> KeyValuePartitioning::Format(const Expression& expr) const {
     }
 
     ARROW_ASSIGN_OR_RAISE(auto match, ref_value.first.FindOneOrNone(*schema_));
-    if (!match) continue;
+    if (match.empty()) continue;
 
     const auto& value = ref_value.second.scalar();
 

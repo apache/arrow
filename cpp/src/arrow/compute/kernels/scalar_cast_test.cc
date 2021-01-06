@@ -1798,7 +1798,6 @@ TYPED_TEST(TestDictionaryCast, Basic) {
     auto dict_arr = *DictionaryArray::FromArrays(dict_ty, indices, dict);
     std::shared_ptr<Array> expected = *Take(*dict, *indices);
 
-    // TODO: Should casting dictionary scalars work?
     this->CheckPass(*dict_arr, *expected, expected->type(), CastOptions::Safe(),
                     /*check_scalar=*/false);
 

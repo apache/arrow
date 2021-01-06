@@ -297,8 +297,7 @@ Result<ScanTaskIterator> ParquetFileFormat::ScanFile(std::shared_ptr<ScanOptions
   // prior statistics knowledge. In the case where a RowGroup doesn't have statistics
   // metdata, it will not be excluded.
   if (parquet_fragment->metadata() != nullptr) {
-    ARROW_ASSIGN_OR_RAISE(row_groups,
-                          parquet_fragment->FilterRowGroups(options->filter));
+    ARROW_ASSIGN_OR_RAISE(row_groups, parquet_fragment->FilterRowGroups(options->filter));
 
     pre_filtered = true;
     if (row_groups.empty()) MakeEmpty();
@@ -313,8 +312,7 @@ Result<ScanTaskIterator> ParquetFileFormat::ScanFile(std::shared_ptr<ScanOptions
 
   if (!pre_filtered) {
     // row groups were not already filtered; do this now
-    ARROW_ASSIGN_OR_RAISE(row_groups,
-                          parquet_fragment->FilterRowGroups(options->filter));
+    ARROW_ASSIGN_OR_RAISE(row_groups, parquet_fragment->FilterRowGroups(options->filter));
 
     if (row_groups.empty()) MakeEmpty();
   }
@@ -511,13 +509,13 @@ Result<std::vector<int>> ParquetFileFragment::FilterRowGroups(Expression predica
   }
 
   for (const FieldRef& ref : FieldsInExpression(predicate)) {
-    ARROW_ASSIGN_OR_RAISE(auto path, ref.FindOneOrNone(*physical_schema_));
+    ARROW_ASSIGN_OR_RAISE(auto match, ref.FindOneOrNone(*physical_schema_));
 
-    if (!path) continue;
-    if (statistics_expressions_complete_[path[0]]) continue;
-    statistics_expressions_complete_[path[0]] = true;
+    if (match.empty()) continue;
+    if (statistics_expressions_complete_[match[0]]) continue;
+    statistics_expressions_complete_[match[0]] = true;
 
-    const SchemaField& schema_field = manifest_->schema_fields[path[0]];
+    const SchemaField& schema_field = manifest_->schema_fields[match[0]];
     int i = 0;
     for (int row_group : *row_groups_) {
       auto row_group_metadata = metadata_->RowGroup(row_group);

@@ -513,22 +513,22 @@ struct FieldPathGetDatumImpl {
 inline Result<Datum> GetDatumField(const FieldRef& ref, const Datum& input) {
   Datum field;
 
-  FieldPath path;
+  FieldPath match;
   if (auto type = input.type()) {
-    ARROW_ASSIGN_OR_RAISE(path, ref.FindOneOrNone(*type));
+    ARROW_ASSIGN_OR_RAISE(match, ref.FindOneOrNone(*type));
   } else if (auto schema = input.schema()) {
-    ARROW_ASSIGN_OR_RAISE(path, ref.FindOneOrNone(*schema));
+    ARROW_ASSIGN_OR_RAISE(match, ref.FindOneOrNone(*schema));
   } else {
     return Status::NotImplemented("retrieving fields from datum ", input.ToString());
   }
 
-  if (path) {
+  if (!match.empty()) {
     ARROW_ASSIGN_OR_RAISE(field,
-                          util::visit(FieldPathGetDatumImpl{input, path}, input.value));
+                          util::visit(FieldPathGetDatumImpl{input, match}, input.value));
   }
 
   if (field == Datum{}) {
-    field = Datum(std::make_shared<NullScalar>());
+    return Datum(std::make_shared<NullScalar>());
   }
 
   return field;

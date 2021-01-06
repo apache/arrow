@@ -1404,8 +1404,7 @@ class ARROW_EXPORT FieldPath {
     size_t operator()(const FieldPath& path) const { return path.hash(); }
   };
 
-  explicit operator bool() const { return !indices_.empty(); }
-  bool operator!() const { return indices_.empty(); }
+  bool empty() const { return indices_.empty(); }
   bool operator==(const FieldPath& other) const { return indices() == other.indices(); }
   bool operator!=(const FieldPath& other) const { return indices() != other.indices(); }
 
@@ -1618,10 +1617,10 @@ class ARROW_EXPORT FieldRef {
   template <typename T>
   Result<GetType<T>> GetOneOrNone(const T& root) const {
     ARROW_ASSIGN_OR_RAISE(auto match, FindOneOrNone(root));
-    if (match) {
-      return match.Get(root).ValueOrDie();
+    if (match.empty()) {
+      return static_cast<GetType<T>>(NULLPTR);
     }
-    return GetType<T>(NULLPTR);
+    return match.Get(root).ValueOrDie();
   }
 
  private:

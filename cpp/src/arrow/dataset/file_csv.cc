@@ -95,9 +95,9 @@ static inline Result<csv::ConvertOptions> GetConvertOptions(
   for (const FieldRef& ref : FieldsInExpression(scan_options->filter)) {
     DCHECK(ref.name());
     ARROW_ASSIGN_OR_RAISE(auto match, ref.FindOneOrNone(*scan_options->schema()));
-    if (!match) {
-      convert_options.include_columns.push_back(*ref.name());
-    }
+    if (match.empty()) continue;
+
+    convert_options.include_columns.push_back(*ref.name());
   }
 
   return convert_options;
