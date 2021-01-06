@@ -86,6 +86,7 @@ jobs:
           - "1.0.1"
     env:
       RSPM: "https://packagemanager.rstudio.com/cran/__linux__/focal/latest"
+      OLD_ARROW_VERSION: ${{ matrix.old_arrow_version }}
     steps:
       - name: Checkout Arrow
         run: |
