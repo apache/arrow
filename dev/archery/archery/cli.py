@@ -756,6 +756,7 @@ def docker_compose(obj, src, dry_run):
 @click.option('--force-pull/--no-pull', default=True,
               help="Whether to force pull the image and its ancestor images")
 @click.option('--using-docker-cli', default=False, is_flag=True,
+              envvar='ARCHERY_USE_DOCKER_CLI',
               help="Use docker CLI directly for building instead of calling "
                    "docker-compose. This may help to reuse cached layers.")
 @click.option('--use-cache/--no-cache', default=True,
@@ -805,6 +806,7 @@ def docker_compose_build(obj, image, *, force_pull, using_docker_cli,
 @click.option('--build-only', default=False, is_flag=True,
               help="Pull and/or build the image, but do not run it")
 @click.option('--using-docker-cli', default=False, is_flag=True,
+              envvar='ARCHERY_USE_DOCKER_CLI',
               help="Use docker CLI directly for building instead of calling "
                    "docker-compose. This may help to reuse cached layers.")
 @click.option('--use-cache/--no-cache', default=True,

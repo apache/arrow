@@ -31,7 +31,8 @@ jobs:
     env:
       # archery uses this environment variable
       PYTHON: {{ python_version }}
-      REPO: 415900421099.dkr.ecr.us-east-2.amazonaws.com/apache-arrow
+      REPO: ghcr.io/ursa-labs/arrow
+      ARCHERY_USE_DOCKER_CLI: 1
 
     steps:
       ############################ Checkout ###################################
@@ -48,15 +49,9 @@ jobs:
         run: cd arrow && ci/scripts/util_checkout.sh
 
       ############################ Docker Registry ############################
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          aws-access-key-id: {{ '${{ secrets.AWS_ACCESS_KEY_ID }}' }}
-          aws-secret-access-key: {{ '${{ secrets.AWS_SECRET_ACCESS_KEY }}' }}
-          aws-region: us-east-2
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v1
+      - name: Login to GitHub Container Registry
+        shell: bash
+        run: docker login ghcr.io -u {{ '${{ github.repository_owner }}' }} -p {{ '${{ secrets.CROSSBOW_GITHUB_TOKEN }}' }}
 
       ############################ Archery Installation #######################
       - name: Set up Python
@@ -72,7 +67,7 @@ jobs:
         run: archery docker run --no-build -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} python-wheel-windows-vs2017
       - name: Test wheel
         shell: bash
-        run: archery docker run python-wheel-windows-test
+        run: archery docker run --using-docker-cli python-wheel-windows-test
 
       ############################ Artifact Uploading #########################
       - name: Upload artifacts
