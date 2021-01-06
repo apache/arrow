@@ -19,12 +19,10 @@
 # github comment reports!
 name: Crossbow
 
-# TODO: move this back to de/vtasks/r/github.linux.version.compatibility.yml when done
+# TODO: move this back to dev/tasks/r/github.linux.version.compatibility.yml when done
 
 on:
-  push:
-    branches:
-      - "*-github-*"
+  push
 
 jobs:
   write-files:
