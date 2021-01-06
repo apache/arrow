@@ -5539,7 +5539,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Scalar__ToString(SEXP s_sexp){
-	Rf_error("Cannot call Scalar__ToString(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Scalar__ToString(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 

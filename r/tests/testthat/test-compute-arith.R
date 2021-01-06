@@ -31,7 +31,7 @@ test_that("Addition", {
   expect_error(casted + 127)
   expect_error(casted + 200)
 
-  skip("autocasting should happen in compute kernels; R workaround fails on this ARROW-11078")
+  skip("autocasting should happen in compute kernels; R workaround fails on this ARROW-8919")
   expect_type_equal(a + 4.1, float64())
   expect_equal(a + 4.1, Array$create(c(5.1, 6.1, 7.1, 8.1, NA_real_)))
 })
@@ -73,6 +73,6 @@ test_that("Division", {
 test_that("Dates casting", {
   a <- Array$create(c(Sys.Date() + 1:4, NA_integer_))
 
-  skip("autocasting should happen in compute kernels; R workaround fails on this ARROW-11078")
+  skip("autocasting should happen in compute kernels; R workaround fails on this ARROW-8919")
   expect_equal(a + 2, Array$create(c((Sys.Date() + 1:4 ) + 2), NA_integer_))
 })

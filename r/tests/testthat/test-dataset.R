@@ -601,7 +601,7 @@ test_that("filter() with expressions", {
     )
   )
 
-  skip("Implicit casts aren't being inserted everywhere they need to be (ARROW-11080)")
+  skip("Implicit casts aren't being inserted everywhere they need to be (ARROW-8919)")
   # Error: NotImplemented: Function multiply_checked has no kernel matching input types (scalar[double], array[int32])
   expect_equivalent(
     ds %>%
@@ -615,7 +615,7 @@ test_that("filter() with expressions", {
     )
   )
 
-  skip("Implicit casts are only inserted for scalars (ARROW-11080)")
+  skip("Implicit casts are only inserted for scalars (ARROW-8919)")
   # Error: NotImplemented: Function add_checked has no kernel matching input types (array[double], array[int32])
   expect_equivalent(
     ds %>%
