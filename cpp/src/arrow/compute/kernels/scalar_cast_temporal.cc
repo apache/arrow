@@ -336,10 +336,10 @@ std::shared_ptr<CastFunction> GetDate32Cast() {
   AddZeroCopyCast(Type::INT32, int32(), date32(), func.get());
 
   // date64 -> date32
-  AddSimpleArrayOnlyCast<Date64Type, Date32Type>(date64(), date32(), func.get());
+  AddSimpleCast<Date64Type, Date32Type>(date64(), date32(), func.get());
 
   // timestamp -> date32
-  AddSimpleArrayOnlyCast<TimestampType, Date32Type>(InputType(Type::TIMESTAMP), date32(),
+  AddSimpleCast<TimestampType, Date32Type>(InputType(Type::TIMESTAMP), date32(),
                                                     func.get());
   return func;
 }
@@ -353,10 +353,10 @@ std::shared_ptr<CastFunction> GetDate64Cast() {
   AddZeroCopyCast(Type::INT64, int64(), date64(), func.get());
 
   // date32 -> date64
-  AddSimpleArrayOnlyCast<Date32Type, Date64Type>(date32(), date64(), func.get());
+  AddSimpleCast<Date32Type, Date64Type>(date32(), date64(), func.get());
 
   // timestamp -> date64
-  AddSimpleArrayOnlyCast<TimestampType, Date64Type>(InputType(Type::TIMESTAMP), date64(),
+  AddSimpleCast<TimestampType, Date64Type>(InputType(Type::TIMESTAMP), date64(),
                                                     func.get());
   return func;
 }
@@ -387,7 +387,7 @@ std::shared_ptr<CastFunction> GetTime32Cast() {
   AddZeroCopyCast(Type::INT32, /*in_type=*/int32(), kOutputTargetType, func.get());
 
   // time64 -> time32
-  AddSimpleArrayOnlyCast<Time64Type, Time32Type>(InputType(Type::TIME64),
+  AddSimpleCast<Time64Type, Time32Type>(InputType(Type::TIME64),
                                                  kOutputTargetType, func.get());
 
   // time32 -> time32
@@ -404,7 +404,7 @@ std::shared_ptr<CastFunction> GetTime64Cast() {
   AddZeroCopyCast(Type::INT64, /*in_type=*/int64(), kOutputTargetType, func.get());
 
   // time32 -> time64
-  AddSimpleArrayOnlyCast<Time32Type, Time64Type>(InputType(Type::TIME32),
+  AddSimpleCast<Time32Type, Time64Type>(InputType(Type::TIME32),
                                                  kOutputTargetType, func.get());
 
   // Between durations
@@ -422,16 +422,16 @@ std::shared_ptr<CastFunction> GetTimestampCast() {
 
   // From date types
   // TODO: ARROW-8876, these casts are not directly tested
-  AddSimpleArrayOnlyCast<Date32Type, TimestampType>(InputType(Type::DATE32),
+  AddSimpleCast<Date32Type, TimestampType>(InputType(Type::DATE32),
                                                     kOutputTargetType, func.get());
-  AddSimpleArrayOnlyCast<Date64Type, TimestampType>(InputType(Type::DATE64),
+  AddSimpleCast<Date64Type, TimestampType>(InputType(Type::DATE64),
                                                     kOutputTargetType, func.get());
 
   // string -> timestamp
-  AddSimpleArrayOnlyCast<StringType, TimestampType>(utf8(), kOutputTargetType,
+  AddSimpleCast<StringType, TimestampType>(utf8(), kOutputTargetType,
                                                     func.get());
   // large_string -> timestamp
-  AddSimpleArrayOnlyCast<LargeStringType, TimestampType>(large_utf8(), kOutputTargetType,
+  AddSimpleCast<LargeStringType, TimestampType>(large_utf8(), kOutputTargetType,
                                                          func.get());
 
   // From one timestamp to another

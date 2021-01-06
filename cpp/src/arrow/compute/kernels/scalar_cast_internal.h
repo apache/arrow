@@ -55,16 +55,11 @@ void OutputAllNull(KernelContext* ctx, const ExecBatch& batch, Datum* out);
 
 void CastFromNull(KernelContext* ctx, const ExecBatch& batch, Datum* out);
 
-// Adds a cast function where the functor is defined and the input and output
-// types have a type_singleton
+// Adds a cast function where CastFunctor is specialized and the input and output
+// types are parameter free (have a type_singleton). Scalar inputs are handled by
+// wrapping with TrivialScalarUnaryAsArraysExec.
 template <typename InType, typename OutType>
 void AddSimpleCast(InputType in_ty, OutputType out_ty, CastFunction* func) {
-  DCHECK_OK(func->AddKernel(InType::type_id, {in_ty}, out_ty,
-                            CastFunctor<OutType, InType>::Exec));
-}
-
-template <typename InType, typename OutType>
-void AddSimpleArrayOnlyCast(InputType in_ty, OutputType out_ty, CastFunction* func) {
   DCHECK_OK(func->AddKernel(
       InType::type_id, {in_ty}, out_ty,
       TrivialScalarUnaryAsArraysExec(CastFunctor<OutType, InType>::Exec)));
