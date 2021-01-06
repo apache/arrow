@@ -21,6 +21,11 @@ class TestLargeBinaryDataType < Test::Unit::TestCase
     assert_equal(Arrow::Type::LARGE_BINARY, data_type.id)
   end
 
+  def test_name
+    data_type = Arrow::LargeBinaryDataType.new
+    assert_equal("large_binary", data_type.name)
+  end
+
   def test_to_s
     data_type = Arrow::LargeBinaryDataType.new
     assert_equal("large_binary", data_type.to_s)

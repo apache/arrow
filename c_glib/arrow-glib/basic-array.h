@@ -638,4 +638,20 @@ gchar *garrow_decimal256_array_format_value(GArrowDecimal256Array *array,
 GArrowDecimal256 *garrow_decimal256_array_get_value(GArrowDecimal256Array *array,
                                                     gint64 i);
 
+#define GARROW_TYPE_EXTENSION_ARRAY (garrow_extension_array_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowExtensionArray,
+                         garrow_extension_array,
+                         GARROW,
+                         EXTENSION_ARRAY,
+                         GArrowArray)
+struct _GArrowExtensionArrayClass
+{
+  GArrowArrayClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_3_0
+GArrowArray *
+garrow_extension_array_get_storage(GArrowExtensionArray *array);
+
+
 G_END_DECLS

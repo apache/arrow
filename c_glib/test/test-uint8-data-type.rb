@@ -28,6 +28,11 @@ class TestUInt8DataType < Test::Unit::TestCase
     end
   end
 
+  def test_name
+    data_type = Arrow::UInt8DataType.new
+    assert_equal("uint8", data_type.name)
+  end
+
   def test_to_s
     data_type = Arrow::UInt8DataType.new
     assert_equal("uint8", data_type.to_s)
