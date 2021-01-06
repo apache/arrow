@@ -727,88 +727,95 @@ mod tests {
         let micros_tz = Some("UTC".to_string());
         let nanos_tz = Some("Africa/Johannesburg".to_string());
 
-        let field_bools_with_metadata =
-            Field::new("bools-with-metadata", DataType::Boolean, true).with_metadata(
-                Some(
-                    [("k".to_string(), "v".to_string())]
-                        .iter()
-                        .cloned()
-                        .collect(),
+        let schema =
+            Schema::new(vec![
+                Field::new("bools-with-metadata-map", DataType::Boolean, true)
+                    .with_metadata(Some(
+                        [("k".to_string(), "v".to_string())]
+                            .iter()
+                            .cloned()
+                            .collect(),
+                    )),
+                Field::new("bools-with-metadata-vec", DataType::Boolean, true)
+                    .with_metadata(Some(
+                        [("k2".to_string(), "v2".to_string())]
+                            .iter()
+                            .cloned()
+                            .collect(),
+                    )),
+                Field::new("bools", DataType::Boolean, true),
+                Field::new("int8s", DataType::Int8, true),
+                Field::new("int16s", DataType::Int16, true),
+                Field::new("int32s", DataType::Int32, true),
+                Field::new("int64s", DataType::Int64, true),
+                Field::new("uint8s", DataType::UInt8, true),
+                Field::new("uint16s", DataType::UInt16, true),
+                Field::new("uint32s", DataType::UInt32, true),
+                Field::new("uint64s", DataType::UInt64, true),
+                Field::new("float32s", DataType::Float32, true),
+                Field::new("float64s", DataType::Float64, true),
+                Field::new("date_days", DataType::Date32(DateUnit::Day), true),
+                Field::new("date_millis", DataType::Date64(DateUnit::Millisecond), true),
+                Field::new("time_secs", DataType::Time32(TimeUnit::Second), true),
+                Field::new("time_millis", DataType::Time32(TimeUnit::Millisecond), true),
+                Field::new("time_micros", DataType::Time64(TimeUnit::Microsecond), true),
+                Field::new("time_nanos", DataType::Time64(TimeUnit::Nanosecond), true),
+                Field::new("ts_secs", DataType::Timestamp(TimeUnit::Second, None), true),
+                Field::new(
+                    "ts_millis",
+                    DataType::Timestamp(TimeUnit::Millisecond, None),
+                    true,
                 ),
-            );
+                Field::new(
+                    "ts_micros",
+                    DataType::Timestamp(TimeUnit::Microsecond, None),
+                    true,
+                ),
+                Field::new(
+                    "ts_nanos",
+                    DataType::Timestamp(TimeUnit::Nanosecond, None),
+                    true,
+                ),
+                Field::new(
+                    "ts_secs_tz",
+                    DataType::Timestamp(TimeUnit::Second, secs_tz.clone()),
+                    true,
+                ),
+                Field::new(
+                    "ts_millis_tz",
+                    DataType::Timestamp(TimeUnit::Millisecond, millis_tz.clone()),
+                    true,
+                ),
+                Field::new(
+                    "ts_micros_tz",
+                    DataType::Timestamp(TimeUnit::Microsecond, micros_tz.clone()),
+                    true,
+                ),
+                Field::new(
+                    "ts_nanos_tz",
+                    DataType::Timestamp(TimeUnit::Nanosecond, nanos_tz.clone()),
+                    true,
+                ),
+                Field::new("utf8s", DataType::Utf8, true),
+                Field::new(
+                    "lists",
+                    DataType::List(Box::new(Field::new("item", DataType::Int32, true))),
+                    true,
+                ),
+                Field::new(
+                    "structs",
+                    DataType::Struct(vec![
+                        Field::new("int32s", DataType::Int32, true),
+                        Field::new("utf8s", DataType::Utf8, true),
+                    ]),
+                    true,
+                ),
+            ]);
 
-        let schema = Schema::new(vec![
-            field_bools_with_metadata,
-            Field::new("bools", DataType::Boolean, true),
-            Field::new("int8s", DataType::Int8, true),
-            Field::new("int16s", DataType::Int16, true),
-            Field::new("int32s", DataType::Int32, true),
-            Field::new("int64s", DataType::Int64, true),
-            Field::new("uint8s", DataType::UInt8, true),
-            Field::new("uint16s", DataType::UInt16, true),
-            Field::new("uint32s", DataType::UInt32, true),
-            Field::new("uint64s", DataType::UInt64, true),
-            Field::new("float32s", DataType::Float32, true),
-            Field::new("float64s", DataType::Float64, true),
-            Field::new("date_days", DataType::Date32(DateUnit::Day), true),
-            Field::new("date_millis", DataType::Date64(DateUnit::Millisecond), true),
-            Field::new("time_secs", DataType::Time32(TimeUnit::Second), true),
-            Field::new("time_millis", DataType::Time32(TimeUnit::Millisecond), true),
-            Field::new("time_micros", DataType::Time64(TimeUnit::Microsecond), true),
-            Field::new("time_nanos", DataType::Time64(TimeUnit::Nanosecond), true),
-            Field::new("ts_secs", DataType::Timestamp(TimeUnit::Second, None), true),
-            Field::new(
-                "ts_millis",
-                DataType::Timestamp(TimeUnit::Millisecond, None),
-                true,
-            ),
-            Field::new(
-                "ts_micros",
-                DataType::Timestamp(TimeUnit::Microsecond, None),
-                true,
-            ),
-            Field::new(
-                "ts_nanos",
-                DataType::Timestamp(TimeUnit::Nanosecond, None),
-                true,
-            ),
-            Field::new(
-                "ts_secs_tz",
-                DataType::Timestamp(TimeUnit::Second, secs_tz.clone()),
-                true,
-            ),
-            Field::new(
-                "ts_millis_tz",
-                DataType::Timestamp(TimeUnit::Millisecond, millis_tz.clone()),
-                true,
-            ),
-            Field::new(
-                "ts_micros_tz",
-                DataType::Timestamp(TimeUnit::Microsecond, micros_tz.clone()),
-                true,
-            ),
-            Field::new(
-                "ts_nanos_tz",
-                DataType::Timestamp(TimeUnit::Nanosecond, nanos_tz.clone()),
-                true,
-            ),
-            Field::new("utf8s", DataType::Utf8, true),
-            Field::new(
-                "lists",
-                DataType::List(Box::new(Field::new("item", DataType::Int32, true))),
-                true,
-            ),
-            Field::new(
-                "structs",
-                DataType::Struct(vec![
-                    Field::new("int32s", DataType::Int32, true),
-                    Field::new("utf8s", DataType::Utf8, true),
-                ]),
-                true,
-            ),
-        ]);
-
-        let bools_with_metadata = BooleanArray::from(vec![Some(true), None, Some(false)]);
+        let bools_with_metadata_map =
+            BooleanArray::from(vec![Some(true), None, Some(false)]);
+        let bools_with_metadata_vec =
+            BooleanArray::from(vec![Some(true), None, Some(false)]);
         let bools = BooleanArray::from(vec![Some(true), None, Some(false)]);
         let int8s = Int8Array::from(vec![Some(1), None, Some(3)]);
         let int16s = Int16Array::from(vec![Some(1), None, Some(3)]);
@@ -897,7 +904,8 @@ mod tests {
         let record_batch = RecordBatch::try_new(
             Arc::new(schema.clone()),
             vec![
-                Arc::new(bools_with_metadata),
+                Arc::new(bools_with_metadata_map),
+                Arc::new(bools_with_metadata_vec),
                 Arc::new(bools),
                 Arc::new(int8s),
                 Arc::new(int16s),

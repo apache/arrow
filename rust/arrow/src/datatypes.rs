@@ -1397,23 +1397,27 @@ impl Field {
                         let mut res: BTreeMap<String, String> = BTreeMap::new();
                         for value in values {
                             match value.as_object() {
-                                Some(value) => {
-                                    if value.len() != 1 {
+                                Some(map) => {
+                                    if map.len() != 2 {
                                         return Err(ArrowError::ParseError(
-                                            "Field 'metadata' must have exact one json map for a key-value pair".to_string(),
+                                            "Field 'metadata' must have exact two entries for each key-value map".to_string(),
                                         ));
                                     }
-                                    for (k, v) in value {
-                                        if let Some(str_value) = v.as_str() {
+                                    if let (Some(k), Some(v)) =
+                                        (map.get("key"), map.get("value"))
+                                    {
+                                        if let (Some(k_str), Some(v_str)) =
+                                            (k.as_str(), v.as_str())
+                                        {
                                             res.insert(
-                                                k.clone(),
-                                                str_value.to_string().clone(),
+                                                k_str.to_string().clone(),
+                                                v_str.to_string().clone(),
                                             );
                                         } else {
-                                            return Err(ArrowError::ParseError(
-                                                format!("Field 'metadata' contains non-string value for key {}", k),
-                                            ));
+                                            return Err(ArrowError::ParseError("Field 'metadata' must have map value of string type".to_string()));
                                         }
+                                    } else {
+                                        return Err(ArrowError::ParseError("Field 'metadata' lacks map keys named \"key\" or \"value\"".to_string()));
                                     }
                                 }
                                 _ => {
