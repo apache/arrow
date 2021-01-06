@@ -34,7 +34,7 @@ jobs:
     strategy:
       fail-fast: false
     env:
-      ARROW_R_DEV: "FALSE"
+      ARROW_R_DEV: "TRUE"
       RSPM: "https://packagemanager.rstudio.com/cran/__linux__/focal/latest"
     steps:
       - name: Checkout Arrow
@@ -77,7 +77,7 @@ jobs:
   read-files:
     name: "Read files with Arrow {matrix.old_arrow_version}"
     needs: [write-files]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     strategy:
       fail-fast: false
       matrix:
@@ -85,16 +85,32 @@ jobs:
           - "2.0.0"
           - "1.0.1"
     env:
-      R_ORG: "rstudio"
-      R_IMAGE: "r-base"
-      R_TAG: "latest"
-      ARROW_R_DEV: "FALSE"
+      RSPM: "https://packagemanager.rstudio.com/cran/__linux__/focal/latest"
     steps:
+      - name: Checkout Arrow
+        run: |
+          # git clone --no-checkout {{ arrow.remote }} arrow
+          git clone --no-checkout  https://github.com/jonkeane/arrow.git  arrow
+          # git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
+          git -C arrow fetch -t https://github.com/jonkeane/arrow.git ARROW-10623-attr-writing-test
+          git -C arrow checkout FETCH_HEAD
+          git -C arrow submodule update --init --recursive
+      - uses: r-lib/actions/setup-r@v1
+      - name: Install old Arrow
+        run: |
+          install.packages(c("remotes", "testthat"))
+          remotes::install_version("arrow",  "{matrix.old_arrow_version}")
+        shell: Rscript {0}
+      - name: Setup our testing directory, copy only the tests to it.
+        run: |
+          mkdir -p file-compatibility/files
+          cp arrow/r/file-compatibility/test-*.R
       - name: Download artifacts
         uses: actions/download-artifact@v2
         with:
           name: files
-          path: .
-      - name:
-        shell: bash
-        run: ls -la .
+          path: file-compatibility/files
+      - name: Install dependencies
+        run: |
+          testthat::test_dir("file-compatibility")
+        shell: Rscript {0}
