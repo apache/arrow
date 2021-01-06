@@ -360,22 +360,6 @@ Iterator<T> MakeVectorIterator(std::vector<T> v) {
   return Iterator<T>(VectorIterator<T>(std::move(v)));
 }
 
-// TODO: Split into public interface and struct impl?  Otherwise there are a lot of
-// dangling members that should be private
-template <typename T>
-struct Emitter {
-  void Emit(T value) { item_buffer_.push(value); }
-  void Finish() { finished_ = true; }
-
-  Emitter() {}
-
-  ARROW_DISALLOW_COPY_AND_ASSIGN(Emitter);
-  ARROW_DEFAULT_MOVE_AND_ASSIGN(Emitter);
-
-  std::queue<T> item_buffer_;
-  bool finished_ = false;
-};
-
 /// \brief Simple iterator which yields *pointers* to the elements of a std::vector<T>.
 /// This is provided to support T where IterationTraits<T>::End is not specialized
 template <typename T>

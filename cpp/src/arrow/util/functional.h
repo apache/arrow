@@ -21,7 +21,6 @@
 #include <tuple>
 #include <type_traits>
 
-#include "arrow/type_traits.h"
 #include "arrow/util/macros.h"
 
 namespace arrow {

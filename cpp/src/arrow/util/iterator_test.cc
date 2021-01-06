@@ -130,12 +130,6 @@ template <typename T>
 inline Iterator<T> EmptyIt() {
   return MakeEmptyIterator<T>();
 }
-
-template <typename T>
-inline AsyncIterator<T> AsyncEmptyIt() {
-  return AsyncIterator<T>::MakeEmpty();
-}
-
 inline Iterator<TestInt> VectorIt(std::vector<TestInt> v) {
   return MakeVectorIterator<TestInt>(std::move(v));
 }
@@ -198,21 +192,8 @@ void AssertIteratorMatch(std::vector<T> expected, Iterator<T> actual) {
 }
 
 template <typename T>
-std::vector<T> AsyncIteratorToVector(AsyncIterator<T> iterator) {
-  auto vec_future = iterator.ToVector();
-  EXPECT_OK_AND_ASSIGN(auto vec_ptr, vec_future.result());
-  return *vec_ptr;
-}
-
-template <typename T>
-void AssertAsyncIteratorMatch(std::vector<T> expected, AsyncIterator<T> actual) {
-  EXPECT_EQ(expected, AsyncIteratorToVector(std::move(actual)));
-}
-
-template <typename T>
-void AssertAsyncGeneratorMatch(std::vector<T> expected,
-                               std::function<Future<T>()> actual) {
-  auto vec_future = async::CollectAsyncGenerator(std::move(actual));
+void AssertAsyncGeneratorMatch(std::vector<T> expected, AsyncGenerator<T> actual) {
+  auto vec_future = CollectAsyncGenerator(std::move(actual));
   EXPECT_OK_AND_ASSIGN(auto vec, vec_future.result());
   EXPECT_EQ(expected, vec);
 }
@@ -277,10 +258,6 @@ TEST(TestVectorIterator, RangeForLoop) {
   ASSERT_EQ(ints_it, ints.end());
 }
 
-TEST(TestAsyncEmptyIterator, Basic) {
-  AssertAsyncIteratorMatch({}, AsyncEmptyIt<TestInt>());
-}
-
 template <typename T>
 std::function<TransformFlow<T>(T)> MakeFirstN(int n) {
   auto remaining = std::make_shared<int>(n);
@@ -319,7 +296,7 @@ TEST(TestIteratorTransform, TruncatingShort) {
 TEST(TestAsyncUtil, Background) {
   std::vector<TestInt> expected = {1, 2, 3};
   auto background = BackgroundAsyncVectorIt(expected);
-  auto future = async::CollectAsyncGenerator(background);
+  auto future = CollectAsyncGenerator(background);
   ASSERT_FALSE(future.is_finished());
   future.Wait();
   ASSERT_TRUE(future.is_finished());
@@ -331,7 +308,7 @@ TEST(TestAsyncUtil, Background) {
 //   std::vector<Future<std::vector<TestInt>>> futures;
 //   for (unsigned int i = 0; i < 1000; i++) {
 //     auto background = BackgroundAsyncVectorIt(expected);
-//     futures.push_back(async::CollectAsyncGenerator(background));
+//     futures.push_back(CollectAsyncGenerator(background));
 //   }
 //   auto combined = All(futures);
 //   combined.Wait(2);
@@ -348,7 +325,7 @@ TEST(TestAsyncUtil, Background) {
 TEST(TestAsyncUtil, Visit) {
   auto generator = AsyncVectorIt({1, 2, 3});
   auto sum = std::make_shared<unsigned int>();
-  auto sum_future = async::VisitAsyncGenerator<TestInt>(generator, [sum](TestInt item) {
+  auto sum_future = VisitAsyncGenerator<TestInt>(generator, [sum](TestInt item) {
     (*sum) += item.value;
     return Status::OK();
   });
@@ -360,7 +337,7 @@ TEST(TestAsyncUtil, Visit) {
 TEST(TestAsyncUtil, Collect) {
   std::vector<TestInt> expected = {1, 2, 3};
   auto generator = AsyncVectorIt(expected);
-  auto collected = async::CollectAsyncGenerator(generator);
+  auto collected = CollectAsyncGenerator(generator);
   ASSERT_EQ(expected, *collected.result());
 }
 
@@ -407,7 +384,7 @@ TEST(TestIteratorTransform, Filter) {
 TEST(TestAsyncIteratorTransform, Filter) {
   auto original = AsyncVectorIt({1, 2, 3});
   auto filter = MakeFilter<TestInt>([](TestInt& t) { return t.value != 2; });
-  auto filtered = async::TransformAsyncGenerator(std::move(original), filter);
+  auto filtered = TransformAsyncGenerator(std::move(original), filter);
   AssertAsyncGeneratorMatch({1, 3}, std::move(filtered));
 }
 
