@@ -104,7 +104,7 @@ jobs:
       - name: Setup our testing directory, copy only the tests to it.
         run: |
           mkdir -p file-compatibility/files
-          cp arrow/r/file-compatibility/test-*.R
+          cp arrow/r/file-compatibility/test-*.R file-compatibility/
       - name: Download artifacts
         uses: actions/download-artifact@v2
         with:
