@@ -18,7 +18,7 @@
 import { ArrayBufferViewInput, toArrayBufferView } from './buffer';
 import { TypedArray, TypedArrayConstructor } from '../interfaces';
 import { BigIntArray, BigIntArrayConstructor } from '../interfaces';
-import { BigIntAvailable, BigInt64Array, BigUint64Array } from './compat';
+import { BigIntAvailable, BigInt64Array, BigInt64ArrayAvailable, BigUint64Array, BigUint64ArrayAvailable } from './compat';
 
 /** @ignore */
 export const isArrowBigNumSymbol = Symbol.for('isArrowBigNum');
@@ -88,7 +88,7 @@ export let bignumToString: { <T extends BN<BigNumArray>>(a: T): string; };
 /** @ignore */
 export let bignumToBigInt: { <T extends BN<BigNumArray>>(a: T): bigint; };
 
-if (!BigIntAvailable) {
+if (!BigIntAvailable || !BigInt64ArrayAvailable || !BigUint64ArrayAvailable) {
     bignumToString = decimalToString;
     bignumToBigInt = <any> bignumToString;
 } else {
