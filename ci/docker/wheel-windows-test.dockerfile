@@ -5,6 +5,9 @@ FROM abrarov/msvc-2017
 
 SHELL ["cmd", "/S", "/C"]
 
+# Add unix tools to path
+RUN setx path "%path%;C:\Program Files\Git\usr\bin"
+
 # Define the full version number otherwise choco falls back to patch number 0 (3.7 => 3.7.0)
 ARG python=3.6
 RUN (if "%python%"=="3.6" setx PYTHON_VERSION 3.6.8) & \

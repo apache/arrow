@@ -26,6 +26,7 @@ set ARROW_WITH_LZ4=ON
 set ARROW_WITH_SNAPPY=ON
 set ARROW_WITH_ZLIB=ON
 set ARROW_WITH_ZSTD=ON
+set CMAKE_UNITY_BUILD=ON
 set CMAKE_BUILD_TYPE=Release
 set CMAKE_GENERATOR=Visual Studio 15 2017 Win64
 
@@ -62,7 +63,7 @@ cmake ^
     -DCMAKE_CXX_COMPILER=clcache ^
     -DCMAKE_INSTALL_PREFIX=C:\arrow-dist ^
     -DCMAKE_TOOLCHAIN_FILE=C:\vcpkg\scripts\buildsystems\vcpkg.cmake ^
-    -DCMAKE_UNITY_BUILD=OFF ^
+    -DCMAKE_UNITY_BUILD=%CMAKE_UNITY_BUILD% ^
     -DMSVC_LINK_VERBOSE=ON ^
     -DVCPKG_TARGET_TRIPLET=x64-windows-static-md ^
     -G "%CMAKE_GENERATOR%" ^

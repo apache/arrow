@@ -50,7 +50,7 @@ RUN vcpkg install --clean-after-build \
         zlib \
         zstd
 
-# Add unix tool to path
+# Add unix tools to path
 RUN setx path "%path%;C:\Program Files\Git\usr\bin"
 
 # Define the full version number otherwise choco falls back to patch number 0 (3.7 => 3.7.0)
