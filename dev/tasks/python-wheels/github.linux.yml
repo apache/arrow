@@ -31,7 +31,7 @@ jobs:
     env:
       # archery uses this environment variable
       PYTHON: {{ python_version }}
-      REPO: 415900421099.dkr.ecr.us-east-2.amazonaws.com/apache-arrow
+      REPO: ghcr.io/ursa-labs/arrow
 
     steps:
       ############################ Checkout ###################################
@@ -46,17 +46,6 @@ jobs:
       - name: Fetch Submodules and Tags
         shell: bash
         run: cd arrow && ci/scripts/util_checkout.sh
-
-      ############################ Docker Registry ############################
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          aws-access-key-id: {{ '${{ secrets.AWS_ACCESS_KEY_ID }}' }}
-          aws-secret-access-key: {{ '${{ secrets.AWS_SECRET_ACCESS_KEY }}' }}
-          aws-region: us-east-2
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v1
 
       ############################ Archery Installation #######################
       - name: Set up Python
