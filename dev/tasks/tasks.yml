@@ -1928,13 +1928,13 @@ tasks:
       # use the master branch of kartothek, so prevent reusing any layers
       run: --no-leaf-cache conda-python-kartothek
 
-  test-conda-python-3.7-hdfs-2.9.2:
+  test-conda-python-3.7-hdfs-3.2:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
         PYTHON: 3.7
-        HDFS: 2.9.2
+        HDFS: 3.2.1
       run: conda-python-hdfs
 
   test-conda-python-3.7-spark-branch-3.0:

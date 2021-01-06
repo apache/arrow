@@ -29,7 +29,7 @@ RUN conda install -q \
     conda clean --all
 
 # installing libhdfs (JNI)
-ARG hdfs=2.9.2
+ARG hdfs=3.2.1
 ENV HADOOP_HOME=/opt/hadoop-${hdfs} \
     HADOOP_OPTS=-Djava.library.path=/opt/hadoop-${hdfs}/lib/native \
     PATH=$PATH:/opt/hadoop-${hdfs}/bin:/opt/hadoop-${hdfs}/sbin
