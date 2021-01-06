@@ -28,11 +28,11 @@ public interface CompressionCodec {
   /**
    * Compress a buffer.
    * @param allocator the allocator for allocating memory for compressed buffer.
-   * @param unCompressedBuffer the buffer to compress.
+   * @param uncompressedBuffer the buffer to compress.
    *                           Implementation of this method should take care of releasing this buffer.
    * @return the compressed buffer.
    */
-  ArrowBuf compress(BufferAllocator allocator, ArrowBuf unCompressedBuffer);
+  ArrowBuf compress(BufferAllocator allocator, ArrowBuf uncompressedBuffer);
 
   /**
    * Decompress a buffer.

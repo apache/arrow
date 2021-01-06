@@ -38,8 +38,8 @@ public class NoCompressionCodec implements CompressionCodec {
   }
 
   @Override
-  public ArrowBuf compress(BufferAllocator allocator, ArrowBuf unCompressedBuffer) {
-    return unCompressedBuffer;
+  public ArrowBuf compress(BufferAllocator allocator, ArrowBuf uncompressedBuffer) {
+    return uncompressedBuffer;
   }
 
   @Override

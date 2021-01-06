@@ -49,8 +49,8 @@ public class Lz4CompressionCodec implements CompressionCodec {
   }
 
   @Override
-  public ArrowBuf compress(BufferAllocator allocator, ArrowBuf unCompressedBuffer) {
-    Preconditions.checkArgument(unCompressedBuffer.writerIndex() <= Integer.MAX_VALUE,
+  public ArrowBuf compress(BufferAllocator allocator, ArrowBuf uncompressedBuffer) {
+    Preconditions.checkArgument(uncompressedBuffer.writerIndex() <= Integer.MAX_VALUE,
         "The uncompressed buffer size exceeds the integer limit");
 
     // create compressor lazily
@@ -58,27 +58,27 @@ public class Lz4CompressionCodec implements CompressionCodec {
       compressor = factory.fastCompressor();
     }
 
-    int maxCompressedLength = compressor.maxCompressedLength((int) unCompressedBuffer.writerIndex());
+    int maxCompressedLength = compressor.maxCompressedLength((int) uncompressedBuffer.writerIndex());
 
     // first 8 bytes reserved for uncompressed length, to be consistent with the
     // C++ implementation.
     ArrowBuf compressedBuffer = allocator.buffer(maxCompressedLength + SIZE_OF_MESSAGE_LENGTH);
-    long uncompressedLength = unCompressedBuffer.writerIndex();
+    long uncompressedLength = uncompressedBuffer.writerIndex();
     if (!LITTLE_ENDIAN) {
       uncompressedLength = Long.reverseBytes(uncompressedLength);
     }
     compressedBuffer.setLong(0, uncompressedLength);
 
     ByteBuffer uncompressed =
-        MemoryUtil.directBuffer(unCompressedBuffer.memoryAddress(), (int) unCompressedBuffer.writerIndex());
+        MemoryUtil.directBuffer(uncompressedBuffer.memoryAddress(), (int) uncompressedBuffer.writerIndex());
     ByteBuffer compressed =
         MemoryUtil.directBuffer(compressedBuffer.memoryAddress() + SIZE_OF_MESSAGE_LENGTH, maxCompressedLength);
 
     int compressedLength = compressor.compress(
-        uncompressed, 0, (int) unCompressedBuffer.writerIndex(), compressed, 0, maxCompressedLength);
+        uncompressed, 0, (int) uncompressedBuffer.writerIndex(), compressed, 0, maxCompressedLength);
     compressedBuffer.writerIndex(compressedLength + SIZE_OF_MESSAGE_LENGTH);
 
-    unCompressedBuffer.close();
+    uncompressedBuffer.close();
     return compressedBuffer;
   }
 
