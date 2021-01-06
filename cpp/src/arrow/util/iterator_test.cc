@@ -163,7 +163,7 @@ std::function<Future<TestInt>()> BackgroundAsyncVectorIt(std::vector<TestInt> v)
   return background;
 }
 
-std::vector<TestInt> RangeVector(int max) {
+std::vector<TestInt> RangeVector(unsigned int max) {
   std::vector<TestInt> range(max);
   for (unsigned int i = 0; i < max; i++) {
     range[i] = i;
