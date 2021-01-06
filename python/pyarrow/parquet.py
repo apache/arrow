@@ -319,6 +319,44 @@ class ParquetFile:
                                            column_indices=column_indices,
                                            use_threads=use_threads)
 
+    def iter_batches(self, batch_size=65536, row_groups=None, columns=None,
+                     use_threads=True, use_pandas_metadata=False):
+        """
+        Read streaming batches from a Parquet file
+
+        Parameters
+        ----------
+        batch_size: int, default 64K
+            Maximum number of records to yield per batch. Batches may be
+            smaller if there aren't enough rows in the file.
+        row_groups: list
+            Only these row groups will be read from the file.
+        columns: list
+            If not None, only these columns will be read from the file. A
+            column name may be a prefix of a nested field, e.g. 'a' will select
+            'a.b', 'a.c', and 'a.d.e'.
+        use_threads : boolean, default True
+            Perform multi-threaded column reads.
+        use_pandas_metadata : boolean, default False
+            If True and file has custom pandas schema metadata, ensure that
+            index columns are also loaded.
+
+        Returns
+        -------
+        iterator of pyarrow.RecordBatch
+            Contents of each batch as a record batch
+        """
+        if row_groups is None:
+            row_groups = range(0, self.metadata.num_row_groups)
+        column_indices = self._get_column_indices(
+            columns, use_pandas_metadata=use_pandas_metadata)
+
+        batches = self.reader.iter_batches(batch_size,
+                                           row_groups=row_groups,
+                                           column_indices=column_indices,
+                                           use_threads=use_threads)
+        return batches
+
     def read(self, columns=None, use_threads=True, use_pandas_metadata=False):
         """
         Read a Table from Parquet format,

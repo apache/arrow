@@ -186,3 +186,73 @@ def test_read_column_invalid_index():
     for index in (-1, 2):
         with pytest.raises((ValueError, IndexError)):
             f.reader.read_column(index)
+
+
+@pytest.mark.pandas
+@pytest.mark.parametrize('batch_size', [300, 1000, 1300])
+def test_iter_batches_columns_reader(tempdir, batch_size):
+    total_size = 3000
+    chunk_size = 1000
+    # TODO: Add categorical support
+    df = alltypes_sample(size=total_size)
+
+    filename = tempdir / 'pandas_roundtrip.parquet'
+    arrow_table = pa.Table.from_pandas(df)
+    _write_table(arrow_table, filename, version="2.0",
+                 coerce_timestamps='ms', chunk_size=chunk_size)
+
+    file_ = pq.ParquetFile(filename)
+    for columns in [df.columns[:10], df.columns[10:]]:
+        batches = file_.iter_batches(batch_size=batch_size, columns=columns)
+        batch_starts = range(0, total_size+batch_size, batch_size)
+        for batch, start in zip(batches, batch_starts):
+            end = min(total_size, start + batch_size)
+            tm.assert_frame_equal(
+                batch.to_pandas(),
+                df.iloc[start:end, :].loc[:, columns].reset_index(drop=True)
+            )
+
+
+@pytest.mark.pandas
+@pytest.mark.parametrize('chunk_size', [1000])
+def test_iter_batches_reader(tempdir, chunk_size):
+    df = alltypes_sample(size=10000, categorical=True)
+
+    filename = tempdir / 'pandas_roundtrip.parquet'
+    arrow_table = pa.Table.from_pandas(df)
+    assert arrow_table.schema.pandas_metadata is not None
+
+    _write_table(arrow_table, filename, version="2.0",
+                 coerce_timestamps='ms', chunk_size=chunk_size)
+
+    file_ = pq.ParquetFile(filename)
+
+    def get_all_batches(f):
+        for row_group in range(f.num_row_groups):
+            batches = f.iter_batches(
+                batch_size=900,
+                row_groups=[row_group],
+            )
+
+            for batch in batches:
+                yield batch
+
+    batches = list(get_all_batches(file_))
+    batch_no = 0
+
+    for i in range(file_.num_row_groups):
+        tm.assert_frame_equal(
+            batches[batch_no].to_pandas(),
+            file_.read_row_groups([i]).to_pandas().head(900)
+        )
+
+        batch_no += 1
+
+        tm.assert_frame_equal(
+            batches[batch_no].to_pandas().reset_index(drop=True),
+            file_.read_row_groups([i]).to_pandas().iloc[900:].reset_index(
+                drop=True
+            )
+        )
+
+        batch_no += 1
