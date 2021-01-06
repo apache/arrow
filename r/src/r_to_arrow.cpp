@@ -629,72 +629,11 @@ inline Status VisitDataFrame(SEXP x, R_xlen_t start, R_xlen_t size, VisitorFunc&
   return Status::OK();
 }
 
-class RConverter : public Converter<RScalar*, RConversionOptions> {
+class RConverter : public Converter<SEXP, RConversionOptions> {
  public:
-  virtual Status Append(RScalar*) { return Status::Invalid("not using Append()"); }
+  virtual Status Append(SEXP) { return Status::Invalid("not using Append()"); }
 
   virtual Status AppendRange(SEXP x, R_xlen_t start, R_xlen_t size) {
-    // RETURN_NOT_OK(this->Reserve(size));
-    //
-    // auto func = [this](RScalar* obj) { return Append(obj); };
-    // using VisitorFunc = decltype(func);
-    //
-    // switch (rtype) {
-    //   case BOOLEAN:
-    //     return VisitRPrimitiveVector<BOOLEAN, cpp11::r_bool, VisitorFunc>(
-    //         x, start, size, std::forward<VisitorFunc>(func));
-    //   case UINT8:
-    //     return VisitRPrimitiveVector<UINT8, uint8_t, VisitorFunc>(
-    //         x, start, size, std::forward<VisitorFunc>(func));
-    //   case INT32:
-    //     return VisitRPrimitiveVector<INT32, int, VisitorFunc>(
-    //         x, start, size, std::forward<VisitorFunc>(func));
-    //   case FLOAT64:
-    //     return VisitRPrimitiveVector<FLOAT64, double, VisitorFunc>(
-    //         x, start, size, std::forward<VisitorFunc>(func));
-    //   case DATE_DBL:
-    //     return VisitRPrimitiveVector<DATE_DBL, double, VisitorFunc>(
-    //         x, start, size, std::forward<VisitorFunc>(func));
-    //   case DATE_INT:
-    //     return VisitRPrimitiveVector<DATE_INT, int, VisitorFunc>(
-    //         x, start, size, std::forward<VisitorFunc>(func));
-    //
-    //   case STRING:
-    //     return VisitRPrimitiveVector<STRING, cpp11::r_string, VisitorFunc>(
-    //         x, start, size, std::forward<VisitorFunc>(func));
-    //
-    //   case INT64:
-    //     return VisitInt64Vector<VisitorFunc>(x, start, size,
-    //                                          std::forward<VisitorFunc>(func));
-    //
-    //   case BINARY:
-    //     return VisitRPrimitiveVector<BINARY, SEXP, VisitorFunc>(
-    //         x, start, size, std::forward<VisitorFunc>(func));
-    //
-    //   case LIST:
-    //     return VisitRPrimitiveVector<LIST, SEXP, VisitorFunc>(
-    //         x, start, size, std::forward<VisitorFunc>(func));
-    //
-    //   case FACTOR:
-    //     return VisitFactor<VisitorFunc>(x, start, size,
-    //     std::forward<VisitorFunc>(func));
-    //
-    //   case TIME:
-    //     return VisitDifftime<VisitorFunc>(x, start, size,
-    //                                       std::forward<VisitorFunc>(func));
-    //
-    //   case POSIXCT:
-    //     return VisitRPrimitiveVector<POSIXCT, double, VisitorFunc>(
-    //         x, start, size, std::forward<VisitorFunc>(func));
-    //
-    //   case DATAFRAME:
-    //     return VisitDataFrame<VisitorFunc>(x, start, size,
-    //                                        std::forward<VisitorFunc>(func));
-    //
-    //   default:
-    //     break;
-    // }
-
     RVectorType rtype = GetVectorType(x);
     return Status::Invalid("No visitor for R type ", rtype);
   }
