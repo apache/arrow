@@ -117,7 +117,7 @@ cdef class Expression(_Weakrefable):
     @staticmethod
     def _deserialize(Buffer buffer not None):
         return Expression.wrap(GetResultValue(CDeserializeExpression(
-            deref(pyarrow_unwrap_buffer(buffer)))))
+            pyarrow_unwrap_buffer(buffer))))
 
     def __reduce__(self):
         buffer = pyarrow_wrap_buffer(GetResultValue(

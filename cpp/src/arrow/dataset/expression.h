@@ -216,7 +216,7 @@ ARROW_DS_EXPORT
 Result<std::shared_ptr<Buffer>> Serialize(const Expression&);
 
 ARROW_DS_EXPORT
-Result<Expression> Deserialize(const Buffer&);
+Result<Expression> Deserialize(std::shared_ptr<Buffer>);
 
 // Convenience aliases for factories
 

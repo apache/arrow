@@ -53,7 +53,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
     cdef CResult[shared_ptr[CBuffer]] CSerializeExpression \
         "arrow::dataset::Serialize"(const CExpression&)
     cdef CResult[CExpression] CDeserializeExpression \
-        "arrow::dataset::Deserialize"(const CBuffer&)
+        "arrow::dataset::Deserialize"(shared_ptr[CBuffer])
 
     cdef cppclass CRecordBatchProjector "arrow::dataset::RecordBatchProjector":
         pass

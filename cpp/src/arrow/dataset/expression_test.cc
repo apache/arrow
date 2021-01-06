@@ -1029,7 +1029,7 @@ TEST(Expression, Filter) {
 TEST(Expression, SerializationRoundTrips) {
   auto ExpectRoundTrips = [](const Expression& expr) {
     ASSERT_OK_AND_ASSIGN(auto serialized, Serialize(expr));
-    ASSERT_OK_AND_ASSIGN(Expression roundtripped, Deserialize(*serialized));
+    ASSERT_OK_AND_ASSIGN(Expression roundtripped, Deserialize(serialized));
     EXPECT_EQ(expr, roundtripped);
   };
 
@@ -1062,9 +1062,6 @@ TEST(Expression, SerializationRoundTrips) {
 
   ExpectRoundTrips(call("is_in", {literal(1)},
                         compute::SetLookupOptions{ArrayFromJSON(int32(), "[1, 2, 3]")}));
-
-  ExpectRoundTrips(call("is_in", {literal(int64_t(1))},
-                        compute::SetLookupOptions{ArrayFromJSON(int64(), "[1, 2, 3]")}));
 
   ExpectRoundTrips(
       call("is_in",
