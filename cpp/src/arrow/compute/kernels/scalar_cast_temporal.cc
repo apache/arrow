@@ -340,7 +340,7 @@ std::shared_ptr<CastFunction> GetDate32Cast() {
 
   // timestamp -> date32
   AddSimpleCast<TimestampType, Date32Type>(InputType(Type::TIMESTAMP), date32(),
-                                                    func.get());
+                                           func.get());
   return func;
 }
 
@@ -357,7 +357,7 @@ std::shared_ptr<CastFunction> GetDate64Cast() {
 
   // timestamp -> date64
   AddSimpleCast<TimestampType, Date64Type>(InputType(Type::TIMESTAMP), date64(),
-                                                    func.get());
+                                           func.get());
   return func;
 }
 
@@ -387,8 +387,8 @@ std::shared_ptr<CastFunction> GetTime32Cast() {
   AddZeroCopyCast(Type::INT32, /*in_type=*/int32(), kOutputTargetType, func.get());
 
   // time64 -> time32
-  AddSimpleCast<Time64Type, Time32Type>(InputType(Type::TIME64),
-                                                 kOutputTargetType, func.get());
+  AddSimpleCast<Time64Type, Time32Type>(InputType(Type::TIME64), kOutputTargetType,
+                                        func.get());
 
   // time32 -> time32
   AddCrossUnitCast<Time32Type>(func.get());
@@ -404,8 +404,8 @@ std::shared_ptr<CastFunction> GetTime64Cast() {
   AddZeroCopyCast(Type::INT64, /*in_type=*/int64(), kOutputTargetType, func.get());
 
   // time32 -> time64
-  AddSimpleCast<Time32Type, Time64Type>(InputType(Type::TIME32),
-                                                 kOutputTargetType, func.get());
+  AddSimpleCast<Time32Type, Time64Type>(InputType(Type::TIME32), kOutputTargetType,
+                                        func.get());
 
   // Between durations
   AddCrossUnitCast<Time64Type>(func.get());
@@ -422,17 +422,16 @@ std::shared_ptr<CastFunction> GetTimestampCast() {
 
   // From date types
   // TODO: ARROW-8876, these casts are not directly tested
-  AddSimpleCast<Date32Type, TimestampType>(InputType(Type::DATE32),
-                                                    kOutputTargetType, func.get());
-  AddSimpleCast<Date64Type, TimestampType>(InputType(Type::DATE64),
-                                                    kOutputTargetType, func.get());
+  AddSimpleCast<Date32Type, TimestampType>(InputType(Type::DATE32), kOutputTargetType,
+                                           func.get());
+  AddSimpleCast<Date64Type, TimestampType>(InputType(Type::DATE64), kOutputTargetType,
+                                           func.get());
 
   // string -> timestamp
-  AddSimpleCast<StringType, TimestampType>(utf8(), kOutputTargetType,
-                                                    func.get());
+  AddSimpleCast<StringType, TimestampType>(utf8(), kOutputTargetType, func.get());
   // large_string -> timestamp
   AddSimpleCast<LargeStringType, TimestampType>(large_utf8(), kOutputTargetType,
-                                                         func.get());
+                                                func.get());
 
   // From one timestamp to another
   AddCrossUnitCast<TimestampType>(func.get());
