@@ -119,7 +119,11 @@ class ThreadedTaskGroup : public TaskGroup {
   Future<> FinishAsync() override {
     std::lock_guard<std::mutex> lock(mutex_);
     if (!completion_future_.has_value()) {
-      completion_future_ = Future<>::Make();
+      if (nremaining_.load() == 0) {
+        completion_future_ = Future<>::MakeFinished(status_);
+      } else {
+        completion_future_ = Future<>::Make();
+      }
     }
     return *completion_future_;
   }
@@ -150,9 +154,12 @@ class ThreadedTaskGroup : public TaskGroup {
         // the lock.
         // TODO: If optional is thread safe then we can skip this locking entirely
         auto future = *completion_future_;
+        auto finished = completion_future_->is_finished();
         auto status = status_;
         lock.unlock();
-        future.MarkFinished(status);
+        if (!finished) {
+          future.MarkFinished(status);
+        }
       }
     }
   }

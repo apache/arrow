@@ -65,7 +65,16 @@ class ARROW_EXPORT TaskGroup : public std::enable_shared_from_this<TaskGroup> {
 
   /// Returns a future that will complete the first time all tasks are finished.
   /// This should be called only after all top level tasks
-  /// have been added to the task group.  It is only expected to be called once.
+  /// have been added to the task group.
+  ///
+  /// If you are using a TaskGroup asyncrhonously there are a few considerations to keep
+  /// in mind.  The tasks should not block on I/O, etc (defeats the purpose of using
+  /// futures) and should not be doing any nested locking or you run the risk of the tasks
+  /// getting stuck in the thread pool waiting for tasks which cannot get scheduled.
+  ///
+  /// Primarily this call is intended to help migrate existing work written with TaskGroup
+  /// in mind to using futures without having to do a complete conversion on the first
+  /// pass.
   virtual Future<> FinishAsync() = 0;
 
   /// The current aggregate error Status.  Non-blocking, useful for stopping early.
