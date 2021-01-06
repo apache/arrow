@@ -499,21 +499,9 @@ struct RVectorVisitor {
   using data_type =
       typename std::conditional<std::is_same<T, int64_t>::value, double, T>::type;
 
-  template <typename PrimitiveBuilder, typename ValueConverter>
-  static Status Convert(SEXP x, R_xlen_t start, R_xlen_t size,
-                        PrimitiveBuilder* primitive_builder,
-                        ValueConverter&& value_converter) {
-    auto handler = [primitive_builder, value_converter](data_type value) {
-      ARROW_ASSIGN_OR_RAISE(auto converted, value_converter(value));
-      primitive_builder->UnsafeAppend(converted);
-      return Status::OK();
-    };
-    return Visit(x, start, size, primitive_builder, handler);
-  }
-
-  template <typename PrimitiveBuilder, typename ValueHandler>
-  static Status Visit(SEXP x, R_xlen_t start, R_xlen_t size,
-                      PrimitiveBuilder* primitive_builder, ValueHandler&& handler) {
+  template <typename AppendNull, typename AppendValue>
+  static Status Visit(SEXP x, R_xlen_t start, R_xlen_t size, AppendNull&& append_null,
+                      AppendValue&& append_value) {
     cpp11::r_vector<data_type> values(x);
     auto it = values.begin() + start;
 
@@ -521,9 +509,9 @@ struct RVectorVisitor {
       auto value = GetValue(*it);
 
       if (is_NA<T>(value)) {
-        primitive_builder->UnsafeAppendNull();
+        RETURN_NOT_OK(append_null());
       } else {
-        RETURN_NOT_OK(handler(value));
+        RETURN_NOT_OK(append_value(value));
       }
     }
 
@@ -781,13 +769,6 @@ struct RConvert {
   Convert(Type*, cpp11::r_bool from) {
     return from == TRUE;
   }
-
-  static Result<int> Convert(const Date32Type*, int from) { return from; }
-
-  static Result<int64_t> Convert(const Date64Type*, int from) {
-    constexpr int64_t kSecondsPerDay = 86400;
-    return from * kSecondsPerDay;
-  }
 };
 
 template <typename T>
@@ -805,8 +786,6 @@ class RPrimitiveConverter<
     : public PrimitiveConverter<T, RConverter> {
  public:
   Status AppendRange(SEXP x, R_xlen_t start, R_xlen_t size) override {
-    RETURN_NOT_OK(this->Reserve(size));
-
     auto rtype = GetVectorType(x);
     switch (rtype) {
       case UINT8:
@@ -821,17 +800,26 @@ class RPrimitiveConverter<
       default:
         break;
     }
-    return Status::Invalid("cannot convert to integer ");
+    // TODO: mention T in the error
+    return Status::Invalid("cannot convert");
   }
 
  private:
   template <typename r_value_type>
   Status AppendRangeImpl(SEXP x, R_xlen_t start, R_xlen_t size) {
-    auto value_converter = [this](r_value_type value) {
-      return RConvert::Convert(this->primitive_type_, value);
+    RETURN_NOT_OK(this->Reserve(size));
+
+    auto append_value = [this](r_value_type value) {
+      ARROW_ASSIGN_OR_RAISE(auto converted,
+                            RConvert::Convert(this->primitive_type_, value));
+      this->primitive_builder_->UnsafeAppend(converted);
+      return Status::OK();
     };
-    return RVectorVisitor<r_value_type>::Convert(x, start, size, this->primitive_builder_,
-                                                 value_converter);
+    auto append_null = [this]() {
+      this->primitive_builder_->UnsafeAppendNull();
+      return Status::OK();
+    };
+    return RVectorVisitor<r_value_type>::Visit(x, start, size, append_null, append_value);
   }
 };
 
@@ -840,17 +828,22 @@ class RPrimitiveConverter<T, enable_if_t<is_boolean_type<T>::value>>
     : public PrimitiveConverter<T, RConverter> {
  public:
   Status AppendRange(SEXP x, R_xlen_t start, R_xlen_t size) override {
+    auto rtype = GetVectorType(x);
+    if (rtype != BOOLEAN) {
+      return Status::Invalid("cannot convert");
+    }
     RETURN_NOT_OK(this->Reserve(size));
 
-    if (GetVectorType(x) != BOOLEAN) {
-      return Status::Invalid("cannot convert to boolean type ");
-    }
-
-    auto value_converter = [this](cpp11::r_bool value) {
-      return RConvert::Convert(this->primitive_type_, value);
+    auto append_value = [this](cpp11::r_bool value) {
+      this->primitive_builder_->UnsafeAppend(value == 1);
+      return Status::OK();
     };
-    return RVectorVisitor<cpp11::r_bool>::Convert(
-        x, start, size, this->primitive_builder_, value_converter);
+    auto append_null = [this]() {
+      this->primitive_builder_->UnsafeAppendNull();
+      return Status::OK();
+    };
+    return RVectorVisitor<cpp11::r_bool>::Visit(x, start, size, append_null,
+                                                append_value);
   }
 };
 
@@ -863,10 +856,10 @@ class RPrimitiveConverter<T, enable_if_t<is_date_type<T>::value>>
 
     switch (GetVectorType(x)) {
       case DATE_INT:
-        return AppendRange_Date_int(x, start, size);
+        return AppendRange_Date<int>(x, start, size);
 
       case DATE_DBL:
-        return AppendRange_Date_dbl(x, start, size);
+        return AppendRange_Date<double>(x, start, size);
 
       case POSIXCT:
         return AppendRange_Posixct(x, start, size);
@@ -879,23 +872,46 @@ class RPrimitiveConverter<T, enable_if_t<is_date_type<T>::value>>
   }
 
  private:
-  Status AppendRange_Date_int(SEXP x, R_xlen_t start, R_xlen_t size) {
-    auto value_converter = [this](int value) {
-      return RConvert::Convert(this->primitive_type_, value);
+  template <typename r_value_type>
+  Status AppendRange_Date(SEXP x, R_xlen_t start, R_xlen_t size) {
+    auto append_null = [this]() {
+      this->primitive_builder_->UnsafeAppendNull();
+      return Status::OK();
     };
-    return RVectorVisitor<int>::Convert(x, start, size, this->primitive_builder_,
-                                        value_converter);
-  }
+    auto append_value = [this](r_value_type value) {
+      this->primitive_builder_->UnsafeAppend(FromRDate(this->primitive_type_, value));
+      return Status::OK();
+    };
 
-  Status AppendRange_Date_dbl(SEXP x, R_xlen_t start, R_xlen_t size) {
-    // TODO
-    return Status::OK();
+    return RVectorVisitor<r_value_type>::Visit(x, start, size, append_null, append_value);
   }
 
   Status AppendRange_Posixct(SEXP x, R_xlen_t start, R_xlen_t size) {
-    // TODO
-    return Status::OK();
+    auto append_null = [this]() {
+      this->primitive_builder_->UnsafeAppendNull();
+      return Status::OK();
+    };
+    auto append_value = [this](double value) {
+      this->primitive_builder_->UnsafeAppend(FromPosixct(this->primitive_type_, value));
+      return Status::OK();
+    };
+
+    return RVectorVisitor<double>::Visit(x, start, size, append_null, append_value);
   }
+
+  static int FromRDate(const Date32Type*, int from) { return from; }
+
+  static int64_t FromRDate(const Date64Type*, int from) {
+    constexpr int64_t kMilliSecondsPerDay = 86400000;
+    return from * kMilliSecondsPerDay;
+  }
+
+  static int FromPosixct(const Date32Type*, double from) {
+    constexpr int64_t kSecondsPerDay = 86400;
+    return from / kSecondsPerDay;
+  }
+
+  static int64_t FromPosixct(const Date64Type*, double from) { return from * 1000; }
 };
 
 // Status RScalar_to_days(RScalar* value, int32_t* days) {
@@ -944,7 +960,7 @@ class RPrimitiveConverter<T, enable_if_t<is_time_type<T>::value>>
     RETURN_NOT_OK(this->Reserve(size));
     auto rtype = GetVectorType(x);
     if (rtype != TIME) {
-      return Status::Invalid("conversion to time from incompatible r vector type");
+      return Status::Invalid("Invalid conversion to time");
     }
 
     // multiplier to get the number of seconds from the value stored in the R vector
@@ -955,12 +971,16 @@ class RPrimitiveConverter<T, enable_if_t<is_time_type<T>::value>>
     auto multiplier =
         get_TimeUnit_multiplier(this->primitive_type_->unit()) * difftime_multiplier;
 
-    using c_type = typename T::c_type;
-    auto value_converter = [multiplier](double value) {
-      return Result<c_type>(static_cast<c_type>(value * multiplier));
+    auto append_value = [this, multiplier](double value) {
+      auto converted = static_cast<typename T::c_type>(value * multiplier);
+      this->primitive_builder_->UnsafeAppend(converted);
+      return Status::OK();
     };
-    return RVectorVisitor<double>::Convert(x, start, size, this->primitive_builder_,
-                                           value_converter);
+    auto append_null = [this]() {
+      this->primitive_builder_->UnsafeAppendNull();
+      return Status::OK();
+    };
+    return RVectorVisitor<double>::Visit(x, start, size, append_null, append_value);
   }
 };
 
@@ -978,12 +998,16 @@ class RPrimitiveConverter<T, enable_if_t<is_timestamp_type<T>::value>>
 
     int64_t multiplier = get_TimeUnit_multiplier(this->primitive_type_->unit());
 
-    using c_type = typename T::c_type;
-    auto value_converter = [multiplier](double value) {
-      return Result<c_type>(static_cast<c_type>(value * multiplier));
+    auto append_value = [this, multiplier](double value) {
+      auto converted = static_cast<typename T::c_type>(value * multiplier);
+      this->primitive_builder_->UnsafeAppend(converted);
+      return Status::OK();
     };
-    return RVectorVisitor<double>::Convert(x, start, size, this->primitive_builder_,
-                                           value_converter);
+    auto append_null = [this]() {
+      this->primitive_builder_->UnsafeAppendNull();
+      return Status::OK();
+    };
+    return RVectorVisitor<double>::Visit(x, start, size, append_null, append_value);
   }
 };
 
@@ -1006,18 +1030,21 @@ class RPrimitiveConverter<T, enable_if_binary<T>>
     RETURN_NOT_OK(this->Reserve(size));
 
     RVectorType rtype = GetVectorType(x);
-    // TODO: handle STRSXP
     if (rtype != BINARY) {
       return Status::Invalid("invalid R type to convert to binary");
     }
 
-    auto handler = [this](SEXP raw) {
+    auto append_value = [this](SEXP raw) {
       R_xlen_t n = XLENGTH(raw);
       ARROW_RETURN_NOT_OK(this->primitive_builder_->ReserveData(n));
       this->primitive_builder_->UnsafeAppend(RAW_RO(raw), static_cast<OffsetType>(n));
       return Status::OK();
     };
-    return RVectorVisitor<SEXP>::Visit(x, start, size, this->primitive_builder_, handler);
+    auto append_null = [this]() {
+      this->primitive_builder_->UnsafeAppendNull();
+      return Status::OK();
+    };
+    return RVectorVisitor<SEXP>::Visit(x, start, size, append_null, append_value);
   }
 };
 
@@ -1034,7 +1061,7 @@ class RPrimitiveConverter<T, enable_if_t<std::is_same<T, FixedSizeBinaryType>::v
       return Status::Invalid("invalid R type to convert to binary");
     }
 
-    auto handler = [this](SEXP raw) {
+    auto append_value = [this](SEXP raw) {
       R_xlen_t n = XLENGTH(raw);
 
       if (n != this->primitive_builder_->byte_width()) {
@@ -1044,7 +1071,11 @@ class RPrimitiveConverter<T, enable_if_t<std::is_same<T, FixedSizeBinaryType>::v
       this->primitive_builder_->UnsafeAppend(RAW_RO(raw));
       return Status::OK();
     };
-    return RVectorVisitor<SEXP>::Visit(x, start, size, this->primitive_builder_, handler);
+    auto append_null = [this]() {
+      this->primitive_builder_->UnsafeAppendNull();
+      return Status::OK();
+    };
+    return RVectorVisitor<SEXP>::Visit(x, start, size, append_null, append_value);
   }
 };
 
@@ -1062,14 +1093,18 @@ class RPrimitiveConverter<T, enable_if_string_like<T>>
       return Status::Invalid("invalid R type to convert to string");
     }
 
-    auto handler = [this](cpp11::r_string s) {
+    auto append_value = [this](cpp11::r_string s) {
       R_xlen_t n = XLENGTH(s);
       ARROW_RETURN_NOT_OK(this->primitive_builder_->ReserveData(n));
       this->primitive_builder_->UnsafeAppend(CHAR(s), static_cast<OffsetType>(n));
       return Status::OK();
     };
-    return RVectorVisitor<cpp11::r_string>::Visit(x, start, size,
-                                                  this->primitive_builder_, handler);
+    auto append_null = [this]() {
+      this->primitive_builder_->UnsafeAppendNull();
+      return Status::OK();
+    };
+    return RVectorVisitor<cpp11::r_string>::Visit(x, start, size, append_null,
+                                                  append_value);
   }
 };
 
@@ -1108,17 +1143,16 @@ class RDictionaryConverter<U, enable_if_has_string_view<U>>
 
     RVectorType rtype = GetVectorType(x);
     if (rtype != FACTOR) {
-      return Status::Invalid("invalid R type to convert to string");
+      return Status::Invalid("invalid R type to convert to dictionary");
     }
 
-    // SEXP levels = Rf_getAttrib(x, Rf_install("levels"));
-
-    // auto handler = [this, levels](int value) {
-    //   SEXP s = STRING_ELT(levels, value - 1);
-    //   return this->value_builder_->Append(CHAR(s));
-    // };
-    // return RVectorVisitor<int>::Visit(x, start, size, this->value_builder_, handler);
-    return Status::OK();
+    SEXP levels = Rf_getAttrib(x, Rf_install("levels"));
+    auto append_value = [this, levels](int value) {
+      SEXP s = STRING_ELT(levels, value - 1);
+      return this->value_builder_->Append(CHAR(s));
+    };
+    auto append_null = [this]() { return this->value_builder_->AppendNull(); };
+    return RVectorVisitor<int>::Visit(x, start, size, append_null, append_value);
   }
 
  protected:
