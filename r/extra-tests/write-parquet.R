@@ -1,7 +1,7 @@
 library(arrow)
 
-if (!dir.exists("file-compatibility/files")) {
-  dir.create("file-compatibility/files")
+if (!dir.exists("extra-tests/files")) {
+  dir.create("extra-tests/files")
 }
 
 example_with_metadata <- tibble::tibble(
