@@ -1,0 +1,219 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+setup_rust_stable: &setup_rust_stable
+  - rustup toolchain install stable
+  - rustup default stable
+  - rustup component add rustfmt
+
+setup_rust_nightly: &setup_rust_nightly
+  - rustup toolchain install nightly-2020-11-24
+  - rustup default nightly-2020-11-24
+  - rustup component add rustfmt
+
+# configuration for the plugin `gencer/cache#v2.3.7`.
+# This configuration uses the local file system, which avoids the need for s3/gcp, but increases
+# cache misses with multiple agents on the same queue.
+cache_config: &cache_config
+  backend: tarball
+  key: "v1-cache-{{ runner.os }}-stable-{{ checksum 'rust/Cargo.toml' }}"
+  tarball:
+    # this is the path on the machine. It must be writtable by the buildkite agent
+    path: '/tmp/buildkite-cache-rust'
+    # 7 day retention period
+    max: 7
+    # gz it
+    compress: false
+  paths:
+    # these paths *must* match the ones in `setup_cargo_docker_paths`
+    - '.cargo'
+    - 'target'
+
+# configuration for the plugin `docker#v3.7.0`.
+docker_config: &docker_config
+  image: amd64/rust
+
+# changes CARGO paths to match the configuration of `docker#v3.7.0`
+setup_cargo_docker_paths: &setup_cargo_docker_paths
+  # `docker#v3.7.0` plugin uses mounts the directory at `workdir`
+  - export CARGO_HOME="/workdir/.cargo"
+  - export CARGO_TARGET_DIR="/workdir/target"
+
+steps:
+  - label: 🔨 Library
+    agents:
+      queue: "docker"
+    key: "linux-build-lib"
+    plugins:
+      - gencer/cache#v2.3.7:
+          <<: *cache_config
+      - docker#v3.7.0:
+          <<: *docker_config
+    commands:
+      - *setup_rust_stable
+      - *setup_cargo_docker_paths
+      - |
+        cd rust
+        cargo build
+
+  - label: ✅ Test
+    agents:
+      queue: "docker"
+    depends_on: "linux-build-lib"
+    plugins:
+      - gencer/cache#v2.3.7:
+          <<: *cache_config
+      - docker#v3.7.0:
+          <<: *docker_config
+    commands:
+      - *setup_rust_stable
+      - *setup_cargo_docker_paths
+      - |
+        cd rust
+        cargo test
+        # test datafusion examples
+        cd datafusion
+        cargo run --example csv_sql
+        cargo run --example parquet_sql
+        cd ..
+        cd arrow
+        cargo test
+        cargo run --example builders
+        cargo run --example dynamic_types
+        cargo run --example read_csv
+        cargo run --example read_csv_infer_schema
+
+  - label: ✅ Lint
+    agents:
+      queue: "docker"
+    depends_on: "linux-build-lib"
+    plugins:
+      - gencer/cache#v2.3.7:
+          <<: *cache_config
+      - docker#v3.7.0:
+          <<: *docker_config
+    commands:
+      - *setup_rust_stable
+      - rustup component add clippy
+      - *setup_cargo_docker_paths
+      - |
+        cd rust
+        cargo fmt --all -- --check
+        cargo clippy --all-targets --workspace -- -D warnings -A clippy::redundant_field_names
+
+  - label: ✅ Coverage
+    agents:
+      queue: "docker"
+    depends_on: "linux-build-lib"
+    plugins:
+      - gencer/cache#v2.3.7:
+          <<: *cache_config
+          # this key is not equal because coverage uses different flags.
+          key: "v1-cache-{{ runner.os }}-cache-coverage-{{ checksum 'rust/Cargo.toml' }}"
+      - docker#v3.7.0:
+          <<: *docker_config
+    commands:
+      - *setup_rust_stable
+      - rustup component add rustfmt clippy
+      - *setup_cargo_docker_paths
+      - |
+        # 2020-11-15: There is a cargo-tarpaulin regression in 0.17.0
+        # see https://github.com/xd009642/tarpaulin/issues/618
+        cargo install --version 0.16.0 cargo-tarpaulin
+        cd rust
+        cargo tarpaulin --out Xml
+      - bash <(curl -s https://codecov.io/bash)
+
+  - label: 🚀 SIMD
+    agents:
+      queue: "docker"
+    depends_on: "linux-build-lib"
+    plugins:
+      - gencer/cache#v2.3.7:
+          <<: *cache_config
+          # this key is not equal because nightly.
+          key: "v1-cache-{{ runner.os }}-cache-nightly-{{ checksum 'rust/Cargo.toml' }}"
+      - docker#v3.7.0:
+          <<: *docker_config
+    commands:
+      - *setup_rust_nightly
+      - *setup_cargo_docker_paths
+      - |
+        cd rust/arrow
+        cargo test --features simd
+
+  - label: 🐍 C data interface integration
+    agents:
+      queue: "docker"
+    plugins:
+      - gencer/cache#v2.3.7:
+          <<: *cache_config
+          # this key is not equal because maturin uses different compilation flags.
+          key: "v1-cache-{{ runner.os }}-maturin-cache-{{ checksum 'rust/Cargo.toml' }}"
+      - docker#v3.7.0:
+          <<: *docker_config
+    commands:
+      - *setup_rust_stable
+      - *setup_cargo_docker_paths
+      - |
+        cd rust/arrow-pyarrow-integration-testing
+
+        curl https://pyenv.run | bash
+        export PATH="$HOME/.pyenv/bin:$PATH"
+        pyenv install 3.8.3
+        pyenv global 3.8.3
+
+        python -m venv venv
+        source venv/bin/activate
+
+        pip install maturin==0.8.2 toml==0.10.1 pyarrow==1.0.0
+        maturin develop
+        python -m unittest discover tests
+
+  - label: ✅ MacOS / Windows
+    agents:
+      queue: "macos"
+    plugins:
+      - gencer/cache#v2.3.7:
+          <<: *cache_config
+          key: "v1-cache-{{ runner.os }}-stable-{{ checksum 'rust/Cargo.toml' }}"
+    commands:
+      - *setup_rust_stable
+      - |
+        export CARGO_HOME="$PWD/.cargo"
+        export CARGO_TARGET_DIR="$PWD/target"
+        cd rust
+        cargo test
+        cd ..
+
+  - label: 🔨 wasm32
+    agents:
+      queue: "docker"
+    plugins:
+      - gencer/cache#v2.3.7:
+          <<: *cache_config
+          # this key is not equal because coverage uses different flags.
+          key: "v1-cache-{{ runner.os }}-cache-wasm32-{{ checksum 'rust/Cargo.toml' }}"
+      - docker#v3.7.0:
+          <<: *docker_config
+    commands:
+      - *setup_rust_nightly
+      - rustup target add wasm32-unknown-unknown
+      - *setup_cargo_docker_paths
+      - |
+        cd rust/arrow
+        cargo build --target wasm32-unknown-unknown
