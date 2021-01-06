@@ -26,9 +26,9 @@ use arrow::{
     array::{TimestampMicrosecondArray, TimestampNanosecondArray, UInt32Builder},
     datatypes::TimeUnit,
 };
-use std::sync::Arc;
 use std::time::Instant;
 use std::{any::Any, collections::HashSet};
+use std::{hash::Hasher, sync::Arc};
 
 use async_trait::async_trait;
 use futures::{Stream, StreamExt, TryStreamExt};
@@ -61,7 +61,7 @@ use log::debug;
 // Maps ["on" value] -> [list of indices with this key's value]
 // E.g. [1, 2] -> [(0, 3), (1, 6), (0, 8)] indicates that (column1, column2) = [1, 2] is true
 // for rows 3 and 8 from batch 0 and row 6 from batch 1.
-type JoinHashMap = HashMap<Vec<u8>, Vec<u64>, RandomState>;
+type JoinHashMap = HashMap<u64, Vec<u64>, RandomState>;
 type JoinLeftData = Arc<(JoinHashMap, RecordBatch)>;
 
 /// join execution plan executes partitions in parallel and combines them into a set of
@@ -194,6 +194,7 @@ impl ExecutionPlan for HashJoinExec {
 
     async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
         // we only want to compute the build side once
+        let random_state = RandomState::new();
         let left_data = {
             let mut build_side = self.build_side.lock().await;
             match build_side.as_ref() {
@@ -209,17 +210,18 @@ impl ExecutionPlan for HashJoinExec {
                         .on
                         .iter()
                         .map(|on| on.0.clone())
-                        .collect::<HashSet<_>>();
+                        .collect::<Vec<_>>();
                     // This operation performs 2 steps at once:
                     // 1. creates a [JoinHashMap] of all batches from the stream
                     // 2. stores the batches in a vector.
-                    let initial = (JoinHashMap::default(), Vec::new(), 0);
-                    let (hashmap, batches, num_rows) = stream
+                    let initial = (JoinHashMap::default(), Vec::new(), 0, Vec::new());
+                    let (hashmap, batches, num_rows, _) = stream
                         .try_fold(initial, |mut acc, batch| async {
                             let hash = &mut acc.0;
                             let values = &mut acc.1;
                             let offset = acc.2;
-                            update_hash(&on_left, &batch, hash, offset).unwrap();
+                            update_hash(&on_left, &batch, hash, offset, &mut acc.3, &random_state)
+                                .unwrap();
                             acc.2 += batch.num_rows();
                             values.push(batch);
                             Ok(acc)
@@ -254,12 +256,12 @@ impl ExecutionPlan for HashJoinExec {
             .on
             .iter()
             .map(|on| on.1.clone())
-            .collect::<HashSet<_>>();
+            .collect::<Vec<_>>();
 
         let column_indices = self.column_indices_from_schema()?;
         Ok(Box::pin(HashJoinStream {
             schema: self.schema.clone(),
-            on_right,
+            on_right: on_right,
             join_type: self.join_type,
             left_data,
             right: stream,
@@ -269,6 +271,7 @@ impl ExecutionPlan for HashJoinExec {
             num_output_batches: 0,
             num_output_rows: 0,
             join_time: 0,
+            random_state
         }))
     }
 }
@@ -276,10 +279,12 @@ impl ExecutionPlan for HashJoinExec {
 /// Updates `hash` with new entries from [RecordBatch] evaluated against the expressions `on`,
 /// assuming that the [RecordBatch] corresponds to the `index`th
 fn update_hash(
-    on: &HashSet<String>,
+    on: &[String],
     batch: &RecordBatch,
     hash: &mut JoinHashMap,
     offset: usize,
+    hash_buf: &mut Vec<u64>,
+    random_state: &RandomState
 ) -> Result<()> {
     // evaluate the keys
     let keys_values = on
@@ -287,16 +292,15 @@ fn update_hash(
         .map(|name| Ok(col(name).evaluate(batch)?.into_array(batch.num_rows())))
         .collect::<Result<Vec<_>>>()?;
 
-    let mut key = Vec::with_capacity(keys_values.len());
-
     // update the hash map
-    for row in 0..batch.num_rows() {
-        create_key(&keys_values, row, &mut key)?;
+    let hash_values = create_hashes(&keys_values, &random_state, hash_buf)?;
 
+    // insert hashes to key of the hashmap
+    for (row, hash_value) in hash_values.iter().enumerate() {
         hash.raw_entry_mut()
-            .from_key(&key)
+            .from_key(hash_value)
             .and_modify(|_, v| v.push((row + offset) as u64))
-            .or_insert_with(|| (key.clone(), vec![(row + offset) as u64]));
+            .or_insert_with(|| (*hash_value, vec![(row + offset) as u64]));
     }
     Ok(())
 }
@@ -306,7 +310,7 @@ struct HashJoinStream {
     /// Input schema
     schema: Arc<Schema>,
     /// columns from the right used to compute the hash
-    on_right: HashSet<String>,
+    on_right: Vec<String>,
     /// type of the join
     join_type: JoinType,
     /// information from the left
@@ -325,6 +329,7 @@ struct HashJoinStream {
     num_output_rows: usize,
     /// total time for joining probe-side batches to the build-side batches
     join_time: usize,
+    random_state: RandomState,
 }
 
 impl RecordBatchStream for HashJoinStream {
@@ -442,13 +447,15 @@ pub(crate) fn create_key(
 fn build_batch(
     batch: &RecordBatch,
     left_data: &JoinLeftData,
-    on_right: &HashSet<String>,
+    on_right: &[String],
     join_type: JoinType,
     schema: &Schema,
     column_indices: &Vec<ColumnIndex>,
+    random_state: &RandomState,
 ) -> ArrowResult<RecordBatch> {
     let (left_indices, right_indices) =
-        build_join_indexes(&left_data.0, &batch, join_type, on_right).unwrap();
+        build_join_indexes(&left_data.0, &batch, join_type, on_right, random_state)
+            .unwrap();
 
     build_batch_from_indices(
         schema,
@@ -491,31 +498,34 @@ fn build_join_indexes(
     left: &JoinHashMap,
     right: &RecordBatch,
     join_type: JoinType,
-    right_on: &HashSet<String>,
+    right_on: &[String],
+    random_state: &RandomState,
 ) -> Result<(UInt64Array, UInt32Array)> {
     let keys_values = right_on
         .iter()
         .map(|name| Ok(col(name).evaluate(right)?.into_array(right.num_rows())))
         .collect::<Result<Vec<_>>>()?;
 
-    let mut key = Vec::with_capacity(keys_values.len());
-
     let mut left_indices = UInt64Builder::new(0);
     let mut right_indices = UInt32Builder::new(0);
+    let buf = &mut Vec::new();
+    let hash_values = create_hashes(&keys_values, &random_state, buf)?;
 
     match join_type {
         JoinType::Inner => {
             // Visit all of the right rows
             for row in 0..right.num_rows() {
-                // Get the key and find it in the build index
-                create_key(&keys_values, row, &mut key)?;
+                // Get the hash and find it in the build index
 
-                // for every item on the left and right with this key, add the respective pair
-                if let Some(indices) = left.get(&key) {
-                    left_indices.append_slice(&indices)?;
-
-                    for _ in 0..indices.len() {
-                        right_indices.append_value(row as u32)?;
+                // for every item on the left and right we check if it matches
+                if let Some(indices) = left.get(&hash_values[row])
+                {
+                    for &i in indices {
+                        // TODO: collision check
+                        if true {
+                            left_indices.append_value(i)?;
+                            right_indices.append_value(row as u32)?;
+                        }
                     }
                 }
             }
@@ -531,21 +541,23 @@ fn build_join_indexes(
 
             // First visit all of the rows
             for row in 0..right.num_rows() {
-                create_key(&keys_values, row, &mut key)?;
-
-                if let Some(indices) = left.get(&key) {
-                    is_visited.insert(key.clone());
-                    left_indices.append_slice(&indices)?;
-                    for _ in 0..indices.len() {
-                        right_indices.append_value(row as u32)?;
+                if let Some(indices) = left.get(&hash_values[row])
+                {
+                    for &i in indices {
+                        // Collision check
+                        if true {
+                            left_indices.append_value(i)?;
+                            right_indices.append_value(row as u32)?;
+                            is_visited.insert(i);
+                        }
                     }
                 };
             }
             // Add the remaining left rows to the result set with None on the right side
-            for (key, indices) in left {
-                if !is_visited.contains(key) {
-                    left_indices.append_slice(&indices)?;
-                    for _ in 0..indices.len() {
+            for (_, indices) in left {
+                for i in indices {
+                    if !is_visited.contains(i) {
+                        left_indices.append_slice(&indices)?;
                         right_indices.append_null()?;
                     }
                 }
@@ -555,14 +567,14 @@ fn build_join_indexes(
         }
         JoinType::Right => {
             for row in 0..right.num_rows() {
-                create_key(&keys_values, row, &mut key)?;
-
-                match left.get(&key) {
+                match left.get(&hash_values[row])
+                {
                     Some(indices) => {
-                        left_indices.append_slice(&indices)?;
-
-                        for _ in 0..indices.len() {
-                            right_indices.append_value(row as u32)?;
+                        for &i in indices {
+                            if true {
+                                left_indices.append_value(i)?;
+                                right_indices.append_value(row as u32)?;
+                            }
                         }
                     }
                     None => {
@@ -575,6 +587,131 @@ fn build_join_indexes(
             Ok((left_indices.finish(), right_indices.finish()))
         }
     }
+}
+use core::hash::BuildHasher;
+
+/// Creates hash values for every 
+fn create_hashes<'a>(
+    arrays: &[ArrayRef],
+    random_state: &RandomState,
+    buf: &'a mut Vec<u64>,
+) -> Result<Vec<u64>> {
+    let rows = arrays[0].len();
+    buf.fill(0);
+    buf.resize(rows, 0);
+
+    let mut hashes = vec![0; rows];
+
+    for col in arrays {
+        match col.data_type() {
+            DataType::UInt8 => {
+                let array = col.as_any().downcast_ref::<UInt8Array>().unwrap();
+
+                for (i, hash) in hashes.iter_mut().enumerate() {
+                    let mut hasher = random_state.build_hasher();
+                    hasher.write_u8(array.value(i));
+                    *hash = hasher.finish().overflowing_add(*hash).0;
+                }
+            }
+            DataType::UInt16 => {
+                let array = col.as_any().downcast_ref::<UInt16Array>().unwrap();
+
+                for (i, hash) in hashes.iter_mut().enumerate() {
+                    let mut hasher = random_state.build_hasher();
+                    hasher.write_u16(array.value(i));
+                    *hash = hasher.finish().overflowing_add(*hash).0;
+                }
+            }
+            DataType::UInt32 => {
+                let array = col.as_any().downcast_ref::<UInt32Array>().unwrap();
+
+                for (i, hash) in hashes.iter_mut().enumerate() {
+                    let mut hasher = random_state.build_hasher();
+                    hasher.write_u32(array.value(i));
+                    *hash = hasher.finish().overflowing_add(*hash).0;
+                }
+            }
+            DataType::UInt64 => {
+                let array = col.as_any().downcast_ref::<UInt64Array>().unwrap();
+
+                for (i, hash) in hashes.iter_mut().enumerate() {
+                    let mut hasher = random_state.build_hasher();
+                    hasher.write_u64(array.value(i));
+                    *hash = hasher.finish().overflowing_add(*hash).0;
+                }
+            }
+            DataType::Int8 => {
+                let array = col.as_any().downcast_ref::<Int8Array>().unwrap();
+
+                for (i, hash) in hashes.iter_mut().enumerate() {
+                    let mut hasher = random_state.build_hasher();
+                    hasher.write_i8(array.value(i));
+                    *hash = hasher.finish().overflowing_add(*hash).0;
+                }
+            }
+            DataType::Int16 => {
+                let array = col.as_any().downcast_ref::<Int16Array>().unwrap();
+                for (i, hash) in hashes.iter_mut().enumerate() {
+                    let mut hasher = random_state.build_hasher();
+                    hasher.write_i16(array.value(i));
+                    *hash = hasher.finish().overflowing_add(*hash).0;
+                }
+            }
+            DataType::Int32 => {
+                let array = col.as_any().downcast_ref::<Int32Array>().unwrap();
+                for (i, hash) in hashes.iter_mut().enumerate() {
+                    let mut hasher = random_state.build_hasher();
+                    hasher.write_i32(array.value(i));
+                    *hash = hasher.finish().overflowing_add(*hash).0;
+                }
+            }
+            DataType::Int64 => {
+                let array = col.as_any().downcast_ref::<Int64Array>().unwrap();
+                for (i, hash) in hashes.iter_mut().enumerate() {
+                    let mut hasher = random_state.build_hasher();
+                    hasher.write_i64(array.value(i));
+                    *hash = hasher.finish().overflowing_add(*hash).0;
+                }
+            }
+            DataType::Timestamp(TimeUnit::Microsecond, None) => {
+                let array = col
+                    .as_any()
+                    .downcast_ref::<TimestampMicrosecondArray>()
+                    .unwrap();
+                for (i, hash) in hashes.iter_mut().enumerate() {
+                    let mut hasher = random_state.build_hasher();
+                    hasher.write_i64(array.value(i));
+                    *hash = hasher.finish().overflowing_add(*hash).0;
+                }
+            }
+            DataType::Timestamp(TimeUnit::Nanosecond, None) => {
+                let array = col
+                    .as_any()
+                    .downcast_ref::<TimestampNanosecondArray>()
+                    .unwrap();
+                for (i, hash) in hashes.iter_mut().enumerate() {
+                    let mut hasher = random_state.build_hasher();
+                    hasher.write_i64(array.value(i));
+                    *hash = hasher.finish().overflowing_add(*hash).0;
+                }
+            }
+            DataType::Utf8 => {
+                let array = col.as_any().downcast_ref::<StringArray>().unwrap();
+                for (i, hash) in hashes.iter_mut().enumerate() {
+                    let mut hasher = random_state.build_hasher();
+                    hasher.write(array.value(i).as_bytes());
+                    *hash = hasher.finish().overflowing_add(*hash).0;
+                }
+            }
+            _ => {
+                // This is internal because we should have caught this before.
+                return Err(DataFusionError::Internal(
+                    "Unsupported GROUP BY data type".to_string(),
+                ));
+            }
+        }
+    }
+    Ok(hashes)
 }
 
 impl Stream for HashJoinStream {
@@ -596,6 +733,7 @@ impl Stream for HashJoinStream {
                         self.join_type,
                         &self.schema,
                         &self.column_indices,
+                        &self.random_state,
                     );
                     self.num_input_batches += 1;
                     self.num_input_rows += batch.num_rows();
