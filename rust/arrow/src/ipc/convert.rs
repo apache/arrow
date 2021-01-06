@@ -326,6 +326,23 @@ pub(crate) fn build_field<'a>(
     fbb: &mut FlatBufferBuilder<'a>,
     field: &Field,
 ) -> WIPOffset<ipc::Field<'a>> {
+    // Optional custom metadata.
+    let mut fb_metadata = None;
+    if let Some(metadata) = field.metadata() {
+        if !metadata.is_empty() {
+            let mut kv_vec = vec![];
+            for (k, v) in metadata {
+                let kv_args = ipc::KeyValueArgs {
+                    key: Some(fbb.create_string(k.as_str())),
+                    value: Some(fbb.create_string(v.as_str())),
+                };
+                let kv_offset = ipc::KeyValue::create(fbb, &kv_args);
+                kv_vec.push(kv_offset);
+            }
+            fb_metadata = Some(fbb.create_vector(&kv_vec));
+        }
+    };
+
     let fb_field_name = fbb.create_string(field.name().as_str());
     let field_type = get_fb_field_type(field.data_type(), field.is_nullable(), fbb);
 
@@ -356,6 +373,11 @@ pub(crate) fn build_field<'a>(
         Some(children) => field_builder.add_children(children),
     };
     field_builder.add_type_(field_type.type_);
+
+    if let Some(fb_metadata) = fb_metadata {
+        field_builder.add_custom_metadata(fb_metadata);
+    }
+
     field_builder.finish()
 }
 
