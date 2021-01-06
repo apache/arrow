@@ -98,15 +98,14 @@ class CSVBufferIterator {
  public:
   static Iterator<std::shared_ptr<Buffer>> Make(
       Iterator<std::shared_ptr<Buffer>> buffer_iterator) {
-    // TODO: Can this be unique pointer?  Or does the Operator func get copied around?
-    std::function<TransformFlow<std::shared_ptr<Buffer>>(std::shared_ptr<Buffer>)> fn =
+    Transformer<std::shared_ptr<Buffer>, std::shared_ptr<Buffer>> fn =
         CSVBufferIterator();
     return MakeTransformedIterator(std::move(buffer_iterator), fn);
   }
 
-  static std::function<Future<std::shared_ptr<Buffer>>()> MakeAsync(
-      std::function<Future<std::shared_ptr<Buffer>>()> buffer_iterator) {
-    std::function<TransformFlow<std::shared_ptr<Buffer>>(std::shared_ptr<Buffer>)> fn =
+  static AsyncGenerator<std::shared_ptr<Buffer>> MakeAsync(
+      AsyncGenerator<std::shared_ptr<Buffer>> buffer_iterator) {
+    Transformer<std::shared_ptr<Buffer>, std::shared_ptr<Buffer>> fn =
         CSVBufferIterator();
     return TransformAsyncGenerator(std::move(buffer_iterator), fn);
   }
@@ -251,8 +250,8 @@ class ThreadedBlockReader : public BlockReader {
     return MakeTransformedIterator(std::move(buffer_iterator), block_reader_fn);
   }
 
-  static std::function<Future<util::optional<CSVBlock>>()> MakeAsyncIterator(
-      std::function<Future<std::shared_ptr<Buffer>>()> buffer_generator,
+  static AsyncGenerator<util::optional<CSVBlock>> MakeAsyncIterator(
+      AsyncGenerator<std::shared_ptr<Buffer>> buffer_generator,
       std::unique_ptr<Chunker> chunker, std::shared_ptr<Buffer> first_buffer) {
     auto block_reader =
         std::make_shared<ThreadedBlockReader>(std::move(chunker), first_buffer);
@@ -797,7 +796,6 @@ class SerialTableReader : public BaseTableReader {
     auto block_iterator = SerialBlockReader::MakeIterator(std::move(buffer_iterator_),
                                                           MakeChunker(parse_options_),
                                                           std::move(first_buffer));
-    // TODO Could be a range-based for loop but util::optional iterators don't support it
     while (true) {
       ARROW_ASSIGN_OR_RAISE(auto maybe_block, block_iterator.Next());
       if (!maybe_block.has_value()) {
@@ -927,6 +925,9 @@ class AsyncThreadedTableReader : public BaseTableReader {
   Future<std::shared_ptr<Table>> ReadAsync() override {
     task_group_ = internal::TaskGroup::MakeThreaded(thread_pool_);
 
+    // TODO: Need to prevent this from being deleted while read is running.  Don't want to
+    // block the destructor because that can put a wait in the wrong spot.  Perhaps
+    // enable_shared_from_this?
     return ProcessFirstBuffer().Then([this](const std::shared_ptr<Buffer> first_buffer) {
       auto block_generator = ThreadedBlockReader::MakeAsyncIterator(
           buffer_generator_, MakeChunker(parse_options_), std::move(first_buffer));
@@ -975,7 +976,7 @@ class AsyncThreadedTableReader : public BaseTableReader {
   }
 
   ThreadPool* thread_pool_;
-  std::function<Future<std::shared_ptr<Buffer>>()> buffer_generator_;
+  AsyncGenerator<std::shared_ptr<Buffer>> buffer_generator_;
 };
 
 /////////////////////////////////////////////////////////////////////////

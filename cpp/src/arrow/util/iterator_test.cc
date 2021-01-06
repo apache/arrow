@@ -303,24 +303,24 @@ TEST(TestAsyncUtil, Background) {
   ASSERT_EQ(expected, *future.result());
 }
 
-// TEST(TestAsyncUtil, CompleteBackgroundStressTest) {
-//   auto expected = RangeVector(1000);
-//   std::vector<Future<std::vector<TestInt>>> futures;
-//   for (unsigned int i = 0; i < 1000; i++) {
-//     auto background = BackgroundAsyncVectorIt(expected);
-//     futures.push_back(CollectAsyncGenerator(background));
-//   }
-//   auto combined = All(futures);
-//   combined.Wait(2);
-//   if (combined.is_finished()) {
-//     ASSERT_OK_AND_ASSIGN(auto completed_vectors, combined.result());
-//     for (auto&& vector : completed_vectors) {
-//       ASSERT_EQ(vector, expected);
-//     }
-//   } else {
-//     FAIL() << "After 2 seconds all background iterators had not finished collecting";
-//   }
-// }
+TEST(TestAsyncUtil, CompleteBackgroundStressTest) {
+  auto expected = RangeVector(100);
+  std::vector<Future<std::vector<TestInt>>> futures;
+  for (unsigned int i = 0; i < 100; i++) {
+    auto background = BackgroundAsyncVectorIt(expected);
+    futures.push_back(CollectAsyncGenerator(background));
+  }
+  auto combined = All(futures);
+  combined.Wait(2);
+  if (combined.is_finished()) {
+    ASSERT_OK_AND_ASSIGN(auto completed_vectors, combined.result());
+    for (auto&& vector : completed_vectors) {
+      ASSERT_EQ(vector, expected);
+    }
+  } else {
+    FAIL() << "After 2 seconds all background iterators had not finished collecting";
+  }
+}
 
 TEST(TestAsyncUtil, Visit) {
   auto generator = AsyncVectorIt({1, 2, 3});

@@ -145,8 +145,6 @@ struct BackgroundIteratorPromise : ReadaheadPromise {
 
 /// \brief Async generator that iterates on an underlying iterator in a
 /// separate thread.
-/// TODO: After sleeping on it I should add limit back into readahead to avoid
-/// memory exhaustion.  Item is "consumed" as soon as future is created.
 template <typename T>
 class BackgroundIterator {
   using PromiseType = typename detail::BackgroundIteratorPromise<T>;
