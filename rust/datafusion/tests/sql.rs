@@ -1841,11 +1841,14 @@ async fn string_expressions() -> Result<()> {
         ,upper(NULL) AS upper_null
         ,trim(' tom ') AS trim
         ,trim(NULL) AS trim_null
+        ,ltrim(' tom ') AS trim_left
+        ,rtrim(' tom ') AS trim_right
     ";
     let actual = execute(&mut ctx, sql).await;
 
     let expected = vec![vec![
-        "3", "NULL", "3", "NULL", "tom", "NULL", "TOM", "NULL", "tom", "NULL",
+        "3", "NULL", "3", "NULL", "tom", "NULL", "TOM", "NULL", "tom", "NULL", "tom ",
+        " tom",
     ]];
     assert_eq!(expected, actual);
     Ok(())
