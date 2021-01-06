@@ -782,9 +782,9 @@ struct RConvert {
     return from == TRUE;
   }
 
-  Result<int> Convert(Date32Type*, int from) { return from; }
+  static Result<int> Convert(const Date32Type*, int from) { return from; }
 
-  Result<int64_t> Convert(Date64Type*, int from) {
+  static Result<int64_t> Convert(const Date64Type*, int from) {
     constexpr int64_t kSecondsPerDay = 86400;
     return from * kSecondsPerDay;
   }
