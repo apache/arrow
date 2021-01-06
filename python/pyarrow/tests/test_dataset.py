@@ -408,19 +408,6 @@ def test_expression_serialization():
     f = ds.scalar({'a': 1})
     g = ds.scalar(pa.scalar(1))
 
-    condition = ds.field('i64') > 5
-    schema = pa.schema([
-        pa.field('i64', pa.int64()),
-        pa.field('f64', pa.float64())
-    ])
-    assert condition.validate(schema) == pa.bool_()
-
-    assert condition.assume(ds.field('i64') == 5).equals(
-        ds.scalar(False))
-
-    assert condition.assume(ds.field('i64') == 7).equals(
-        ds.scalar(True))
-
     all_exprs = [a, b, c, d, e, f, g, a == b, a > b, a & b, a | b, ~c,
                  d.is_valid(), a.cast(pa.int32(), safe=False),
                  a.cast(pa.int32(), safe=False), a.isin([1, 2, 3]),
@@ -781,7 +768,9 @@ def test_fragments_reconstruct(tempdir):
 
     # Fragments don't contain the partition's columns if not provided to the
     # `to_table(schema=...)` method.
-    with pytest.raises(ValueError, match="Field named 'part' not found"):
+    pattern = (r'No match for FieldRef.Name\(part\) in ' +
+               fragment.physical_schema.to_string(False, False, False))
+    with pytest.raises(ValueError, match=pattern):
         new_fragment = parquet_format.make_fragment(
             fragment.path, fragment.filesystem,
             partition_expression=fragment.partition_expression)

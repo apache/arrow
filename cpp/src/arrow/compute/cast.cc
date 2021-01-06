@@ -135,7 +135,7 @@ CastFunction::CastFunction(std::string name, Type::type out_type)
   impl_->out_type = out_type;
 }
 
-CastFunction::~CastFunction() {}
+CastFunction::~CastFunction() = default;
 
 Type::type CastFunction::out_type_id() const { return impl_->out_type; }
 

@@ -83,7 +83,11 @@ def test_exported_functions():
     functions = exported_functions
     assert len(functions) >= 10
     for func in functions:
-        args = [object()] * func.__arrow_compute_function__['arity']
+        arity = func.__arrow_compute_function__['arity']
+        if arity is Ellipsis:
+            args = [object()] * 3
+        else:
+            args = [object()] * arity
         with pytest.raises(TypeError,
                            match="Got unexpected argument type "
                                  "<class 'object'> for compute function"):
@@ -172,7 +176,8 @@ def test_function_attributes():
         kernels = func.kernels
         assert func.num_kernels == len(kernels)
         assert all(isinstance(ker, pc.Kernel) for ker in kernels)
-        assert func.arity >= 1  # no varargs functions for now
+        if func.arity is not Ellipsis:
+            assert func.arity >= 1
         repr(func)
         for ker in kernels:
             repr(ker)
@@ -402,7 +407,7 @@ def test_generated_docstrings():
             If not passed, will allocate memory from the default memory pool.
         options : pyarrow.compute.MinMaxOptions, optional
             Parameters altering compute function semantics
-        **kwargs: optional
+        **kwargs : optional
             Parameters for MinMaxOptions constructor.  Either `options`
             or `**kwargs` can be passed, but not both at the same time.
         """)

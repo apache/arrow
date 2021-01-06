@@ -41,7 +41,9 @@ namespace compute {
 
 /// \brief Base class for specifying options configuring a function's behavior,
 /// such as error handling.
-struct ARROW_EXPORT FunctionOptions {};
+struct ARROW_EXPORT FunctionOptions {
+  virtual ~FunctionOptions() = default;
+};
 
 /// \brief Contains the number of required arguments for the function.
 ///
@@ -96,7 +98,7 @@ struct ARROW_EXPORT FunctionDoc {
   /// \brief Name of the options class, if any.
   std::string options_class;
 
-  FunctionDoc() {}
+  FunctionDoc() = default;
 
   FunctionDoc(std::string summary, std::string description,
               std::vector<std::string> arg_names, std::string options_class = "")

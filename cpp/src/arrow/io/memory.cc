@@ -261,10 +261,10 @@ void FixedSizeBufferWriter::set_memcopy_threshold(int64_t threshold) {
 // ----------------------------------------------------------------------
 // In-memory buffer reader
 
-BufferReader::BufferReader(const std::shared_ptr<Buffer>& buffer)
-    : buffer_(buffer),
-      data_(buffer->data()),
-      size_(buffer->size()),
+BufferReader::BufferReader(std::shared_ptr<Buffer> buffer)
+    : buffer_(std::move(buffer)),
+      data_(buffer_->data()),
+      size_(buffer_->size()),
       position_(0),
       is_open_(true) {}
 

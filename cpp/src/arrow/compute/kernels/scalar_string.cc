@@ -1207,7 +1207,9 @@ struct ParseStrptime {
   int64_t Call(KernelContext* ctx, util::string_view val) const {
     int64_t result = 0;
     if (!(*parser)(val.data(), val.size(), unit, &result)) {
-      ctx->SetStatus(Status::Invalid("Failed to parse string ", val));
+      ctx->SetStatus(Status::Invalid("Failed to parse string: '", val,
+                                     "' as a scalar of type ",
+                                     TimestampType(unit).ToString()));
     }
     return result;
   }

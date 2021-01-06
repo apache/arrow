@@ -35,7 +35,7 @@
 namespace arrow {
 namespace dataset {
 
-DatasetFactory::DatasetFactory() : root_partition_(scalar(true)) {}
+DatasetFactory::DatasetFactory() : root_partition_(literal(true)) {}
 
 Result<std::shared_ptr<Schema>> DatasetFactory::Inspect(InspectOptions options) {
   ARROW_ASSIGN_OR_RAISE(auto schemas, InspectSchemas(std::move(options)));

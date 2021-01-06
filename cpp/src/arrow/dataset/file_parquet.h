@@ -117,12 +117,12 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
 
   /// \brief Create a Fragment targeting all RowGroups.
   Result<std::shared_ptr<FileFragment>> MakeFragment(
-      FileSource source, std::shared_ptr<Expression> partition_expression,
+      FileSource source, Expression partition_expression,
       std::shared_ptr<Schema> physical_schema) override;
 
   /// \brief Create a Fragment, restricted to the specified row groups.
   Result<std::shared_ptr<ParquetFileFragment>> MakeFragment(
-      FileSource source, std::shared_ptr<Expression> partition_expression,
+      FileSource source, Expression partition_expression,
       std::shared_ptr<Schema> physical_schema, std::vector<int> row_groups);
 
   /// \brief Return a FileReader on the given source.
@@ -150,7 +150,7 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
 /// significant performance boost when scanning high latency file systems.
 class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
  public:
-  Result<FragmentVector> SplitByRowGroup(const std::shared_ptr<Expression>& predicate);
+  Result<FragmentVector> SplitByRowGroup(Expression predicate);
 
   /// \brief Return the RowGroups selected by this fragment.
   const std::vector<int>& row_groups() const {
@@ -166,12 +166,12 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
   Status EnsureCompleteMetadata(parquet::arrow::FileReader* reader = NULLPTR);
 
   /// \brief Return fragment which selects a filtered subset of this fragment's RowGroups.
-  Result<std::shared_ptr<Fragment>> Subset(const std::shared_ptr<Expression>& predicate);
+  Result<std::shared_ptr<Fragment>> Subset(Expression predicate);
   Result<std::shared_ptr<Fragment>> Subset(std::vector<int> row_group_ids);
 
  private:
   ParquetFileFragment(FileSource source, std::shared_ptr<FileFormat> format,
-                      std::shared_ptr<Expression> partition_expression,
+                      Expression partition_expression,
                       std::shared_ptr<Schema> physical_schema,
                       util::optional<std::vector<int>> row_groups);
 
@@ -185,7 +185,7 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
   }
 
   // Return a filtered subset of row group indices.
-  Result<std::vector<int>> FilterRowGroups(const Expression& predicate);
+  Result<std::vector<int>> FilterRowGroups(Expression predicate);
 
   ParquetFileFormat& parquet_format_;
 
@@ -193,7 +193,7 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
   // or util::nullopt if all row groups are selected.
   util::optional<std::vector<int>> row_groups_;
 
-  ExpressionVector statistics_expressions_;
+  std::vector<Expression> statistics_expressions_;
   std::vector<bool> statistics_expressions_complete_;
   std::shared_ptr<parquet::FileMetaData> metadata_;
   std::shared_ptr<parquet::arrow::SchemaManifest> manifest_;

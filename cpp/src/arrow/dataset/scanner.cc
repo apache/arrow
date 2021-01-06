@@ -23,10 +23,10 @@
 
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/dataset_internal.h"
-#include "arrow/dataset/filter.h"
 #include "arrow/dataset/scanner_internal.h"
 #include "arrow/table.h"
 #include "arrow/util/iterator.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/task_group.h"
 #include "arrow/util/thread_pool.h"
 
@@ -34,14 +34,12 @@ namespace arrow {
 namespace dataset {
 
 ScanOptions::ScanOptions(std::shared_ptr<Schema> schema)
-    : evaluator(ExpressionEvaluator::Null()),
-      projector(RecordBatchProjector(std::move(schema))) {}
+    : projector(RecordBatchProjector(std::move(schema))) {}
 
 std::shared_ptr<ScanOptions> ScanOptions::ReplaceSchema(
     std::shared_ptr<Schema> schema) const {
   auto copy = ScanOptions::Make(std::move(schema));
   copy->filter = filter;
-  copy->evaluator = evaluator;
   copy->batch_size = batch_size;
   return copy;
 }
@@ -53,8 +51,9 @@ std::vector<std::string> ScanOptions::MaterializedFields() const {
     fields.push_back(f->name());
   }
 
-  for (auto&& name : FieldsInExpression(filter)) {
-    fields.push_back(std::move(name));
+  for (const FieldRef& ref : FieldsInExpression(filter)) {
+    DCHECK(ref.name());
+    fields.push_back(*ref.name());
   }
 
   return fields;
@@ -64,7 +63,7 @@ Result<RecordBatchIterator> InMemoryScanTask::Execute() {
   return MakeVectorIterator(record_batches_);
 }
 
-FragmentIterator Scanner::GetFragments() {
+Result<FragmentIterator> Scanner::GetFragments() {
   if (fragment_ != nullptr) {
     return MakeVectorIterator(FragmentVector{fragment_});
   }
@@ -79,7 +78,8 @@ Result<ScanTaskIterator> Scanner::Scan() {
   // Transforms Iterator<Fragment> into a unified
   // Iterator<ScanTask>. The first Iterator::Next invocation is going to do
   // all the work of unwinding the chained iterators.
-  return GetScanTaskIterator(GetFragments(), scan_options_, scan_context_);
+  ARROW_ASSIGN_OR_RAISE(auto fragment_it, GetFragments());
+  return GetScanTaskIterator(std::move(fragment_it), scan_options_, scan_context_);
 }
 
 Result<ScanTaskIterator> ScanTaskIteratorFromRecordBatch(
@@ -95,15 +95,24 @@ ScannerBuilder::ScannerBuilder(std::shared_ptr<Dataset> dataset,
     : dataset_(std::move(dataset)),
       fragment_(nullptr),
       scan_options_(ScanOptions::Make(dataset_->schema())),
-      scan_context_(std::move(scan_context)) {}
+      scan_context_(std::move(scan_context)) {
+  DCHECK_OK(Filter(literal(true)));
+}
 
 ScannerBuilder::ScannerBuilder(std::shared_ptr<Schema> schema,
                                std::shared_ptr<Fragment> fragment,
                                std::shared_ptr<ScanContext> scan_context)
     : dataset_(nullptr),
       fragment_(std::move(fragment)),
-      scan_options_(ScanOptions::Make(schema)),
-      scan_context_(std::move(scan_context)) {}
+      fragment_schema_(schema),
+      scan_options_(ScanOptions::Make(std::move(schema))),
+      scan_context_(std::move(scan_context)) {
+  DCHECK_OK(Filter(literal(true)));
+}
+
+const std::shared_ptr<Schema>& ScannerBuilder::schema() const {
+  return fragment_ ? fragment_schema_ : dataset_->schema();
+}
 
 Status ScannerBuilder::Project(std::vector<std::string> columns) {
   RETURN_NOT_OK(schema()->CanReferenceFieldsByNames(columns));
@@ -112,14 +121,13 @@ Status ScannerBuilder::Project(std::vector<std::string> columns) {
   return Status::OK();
 }
 
-Status ScannerBuilder::Filter(std::shared_ptr<Expression> filter) {
-  RETURN_NOT_OK(schema()->CanReferenceFieldsByNames(FieldsInExpression(*filter)));
-  RETURN_NOT_OK(filter->Validate(*schema()));
-  scan_options_->filter = std::move(filter);
+Status ScannerBuilder::Filter(const Expression& filter) {
+  for (const auto& ref : FieldsInExpression(filter)) {
+    RETURN_NOT_OK(ref.FindOne(*schema()));
+  }
+  ARROW_ASSIGN_OR_RAISE(scan_options_->filter, filter.Bind(*schema()));
   return Status::OK();
 }
-
-Status ScannerBuilder::Filter(const Expression& filter) { return Filter(filter.Copy()); }
 
 Status ScannerBuilder::UseThreads(bool use_threads) {
   scan_context_->use_threads = use_threads;
@@ -141,10 +149,6 @@ Result<std::shared_ptr<Scanner>> ScannerBuilder::Finish() const {
         scan_options_->ReplaceSchema(SchemaFromColumnNames(schema(), project_columns_));
   } else {
     scan_options = std::make_shared<ScanOptions>(*scan_options_);
-  }
-
-  if (!scan_options->filter->Equals(true)) {
-    scan_options->evaluator = std::make_shared<TreeEvaluator>();
   }
 
   if (dataset_ == nullptr) {

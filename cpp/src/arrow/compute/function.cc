@@ -152,10 +152,15 @@ Result<Datum> Function::Execute(const std::vector<Datum>& args,
 Status Function::Validate() const {
   if (!doc_->summary.empty()) {
     // Documentation given, check its contents
-    if (static_cast<int>(doc_->arg_names.size()) != arity_.num_args) {
-      return Status::Invalid("In function '", name_,
-                             "': ", "number of argument names != function arity");
+    int arg_count = static_cast<int>(doc_->arg_names.size());
+    if (arg_count == arity_.num_args) {
+      return Status::OK();
     }
+    if (arity_.is_varargs && arg_count == arity_.num_args + 1) {
+      return Status::OK();
+    }
+    return Status::Invalid("In function '", name_,
+                           "': ", "number of argument names != function arity");
   }
   return Status::OK();
 }

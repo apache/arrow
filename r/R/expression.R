@@ -153,18 +153,8 @@ print.array_expression <- function(x, ...) {
 #' `Expression$field_ref(name)` is used to construct an `Expression` which
 #' evaluates to the named column in the `Dataset` against which it is evaluated.
 #'
-#' `Expression$compare(OP, e1, e2)` takes two `Expression` operands, constructing
-#' an `Expression` which will evaluate these operands then compare them with the
-#' relation specified by OP (e.g. "==", "!=", ">", etc.) For example, to filter
-#' down to rows where the column named "alpha" is less than 5:
-#' `Expression$compare("<", Expression$field_ref("alpha"), Expression$scalar(5))`
-#'
-#' `Expression$and(e1, e2)`, `Expression$or(e1, e2)`, and `Expression$not(e1)`
-#' construct an `Expression` combining their arguments with Boolean operators.
-#'
-#' `Expression$is_valid(x)` is essentially (an inversion of) `is.na()` for `Expression`s.
-#'
-#' `Expression$in_(x, set)` evaluates x and returns whether or not it is a member of the set.
+#' `Expression$create(function_name, ..., options)` builds a function-call
+#' `Expression` containing one or more `Expression`s.
 #' @name Expression
 #' @rdname Expression
 #' @export
@@ -173,84 +163,52 @@ Expression <- R6Class("Expression", inherit = ArrowObject,
     ToString = function() dataset___expr__ToString(self)
   )
 )
-
+Expression$create <- function(function_name,
+                              ...,
+                              args = list(...),
+                              options = empty_named_list()) {
+  assert_that(is.string(function_name))
+  dataset___expr__call(function_name, args, options)
+}
 Expression$field_ref <- function(name) {
-  assert_is(name, "character")
-  assert_that(length(name) == 1)
+  assert_that(is.string(name))
   dataset___expr__field_ref(name)
 }
 Expression$scalar <- function(x) {
   dataset___expr__scalar(Scalar$create(x))
 }
-Expression$compare <- function(OP, e1, e2) {
-  comp_func <- comparison_function_map[[OP]]
-  if (is.null(comp_func)) {
-    stop(OP, " is not a supported comparison function", call. = FALSE)
-  }
-  comp_func(e1, e2)
-}
 
-comparison_function_map <- list(
-  "==" = dataset___expr__equal,
-  "!=" = dataset___expr__not_equal,
-  ">" = dataset___expr__greater,
-  ">=" = dataset___expr__greater_equal,
-  "<" = dataset___expr__less,
-  "<=" = dataset___expr__less_equal
-)
-Expression$in_ <- function(x, set) {
-  dataset___expr__in(x, Array$create(set))
-}
-Expression$and <- function(e1, e2) {
-  dataset___expr__and(e1, e2)
-}
-Expression$or <- function(e1, e2) {
-  dataset___expr__or(e1, e2)
-}
-Expression$not <- function(e1) {
-  dataset___expr__not(e1)
-}
-Expression$is_valid <- function(e1) {
-  dataset___expr__is_valid(e1)
+build_dataset_expression <- function(.Generic, e1, e2, ...) {
+  if (.Generic %in% names(.unary_function_map)) {
+    expr <- Expression$create(.unary_function_map[[.Generic]], e1)
+  } else if (.Generic == "%in%") {
+    # Special-case %in%, which is different from the Array function name
+    expr <- Expression$create("is_in", e1,
+      options = list(
+        value_set = Array$create(e2),
+        skip_nulls = TRUE
+      )
+    )
+  } else {
+    if (!inherits(e1, "Expression")) {
+      e1 <- Expression$scalar(e1)
+    }
+    if (!inherits(e2, "Expression")) {
+      e2 <- Expression$scalar(e2)
+    }
+    expr <- Expression$create(.binary_function_map[[.Generic]], e1, e2, ...)
+  }
+  expr
 }
 
 #' @export
 Ops.Expression <- function(e1, e2) {
   if (.Generic == "!") {
-    return(Expression$not(e1))
-  }
-  make_expression(.Generic, e1, e2)
-}
-
-make_expression <- function(operator, e1, e2) {
-  if (operator == "%in%") {
-    # In doesn't take Scalar, it takes Array
-    return(Expression$in_(e1, e2))
-  }
-
-  # Handle unary functions before touching e2
-  if (operator == "is.na") {
-    return(is.na(e1))
-  }
-  if (operator == "!") {
-    return(Expression$not(e1))
-  }
-
-  # Check for non-expressions and convert to Expressions
-  if (!inherits(e1, "Expression")) {
-    e1 <- Expression$scalar(e1)
-  }
-  if (!inherits(e2, "Expression")) {
-    e2 <- Expression$scalar(e2)
-  }
-  if (operator == "&") {
-    Expression$and(e1, e2)
-  } else if (operator == "|") {
-    Expression$or(e1, e2)
+    build_dataset_expression(.Generic, e1)
   } else {
-    Expression$compare(operator, e1, e2)
+    build_dataset_expression(.Generic, e1, e2)
   }
 }
 
 #' @export
-is.na.Expression <- function(x) !Expression$is_valid(x)
+is.na.Expression <- function(x) Expression$create("is_null", x)

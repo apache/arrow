@@ -49,6 +49,7 @@ struct NumericToStringCastFunctor {
   using FormatterType = StringFormatter<I>;
 
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    DCHECK(out->is_array());
     const ArrayData& input = *batch[0].array();
     ArrayData* output = out->mutable_array();
     ctx->SetStatus(Convert(ctx, input, output));
@@ -160,6 +161,7 @@ struct BinaryToBinaryCastFunctor {
   using output_offset_type = typename O::offset_type;
 
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    DCHECK(out->is_array());
     const CastOptions& options = checked_cast<const CastState&>(*ctx->state()).options;
     const ArrayData& input = *batch[0].array();
 
@@ -194,13 +196,15 @@ void AddNumberToStringCasts(CastFunction* func) {
   auto out_ty = TypeTraits<OutType>::type_singleton();
 
   DCHECK_OK(func->AddKernel(Type::BOOL, {boolean()}, out_ty,
-                            NumericToStringCastFunctor<OutType, BooleanType>::Exec,
+                            TrivialScalarUnaryAsArraysExec(
+                                NumericToStringCastFunctor<OutType, BooleanType>::Exec),
                             NullHandling::COMPUTED_NO_PREALLOCATE));
 
   for (const std::shared_ptr<DataType>& in_ty : NumericTypes()) {
     DCHECK_OK(
         func->AddKernel(in_ty->id(), {in_ty}, out_ty,
-                        GenerateNumeric<NumericToStringCastFunctor, OutType>(*in_ty),
+                        TrivialScalarUnaryAsArraysExec(
+                            GenerateNumeric<NumericToStringCastFunctor, OutType>(*in_ty)),
                         NullHandling::COMPUTED_NO_PREALLOCATE));
   }
 }
@@ -210,9 +214,10 @@ void AddBinaryToBinaryCast(CastFunction* func) {
   auto in_ty = TypeTraits<InType>::type_singleton();
   auto out_ty = TypeTraits<OutType>::type_singleton();
 
-  DCHECK_OK(func->AddKernel(OutType::type_id, {in_ty}, out_ty,
-                            BinaryToBinaryCastFunctor<OutType, InType>::Exec,
-                            NullHandling::COMPUTED_NO_PREALLOCATE));
+  DCHECK_OK(func->AddKernel(
+      OutType::type_id, {in_ty}, out_ty,
+      TrivialScalarUnaryAsArraysExec(BinaryToBinaryCastFunctor<OutType, InType>::Exec),
+      NullHandling::COMPUTED_NO_PREALLOCATE));
 }
 
 }  // namespace

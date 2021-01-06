@@ -282,7 +282,9 @@ struct ParseString {
   OutValue Call(KernelContext* ctx, Arg0Value val) const {
     OutValue result = OutValue(0);
     if (ARROW_PREDICT_FALSE(!ParseValue<OutType>(val.data(), val.size(), &result))) {
-      ctx->SetStatus(Status::Invalid("Failed to parse string: ", val));
+      ctx->SetStatus(Status::Invalid("Failed to parse string: '", val,
+                                     "' as a scalar of type ",
+                                     TypeTraits<OutType>::type_singleton()->ToString()));
     }
     return result;
   }
@@ -630,8 +632,8 @@ std::vector<std::shared_ptr<CastFunction>> GetNumericCasts() {
   // Make a cast to null that does not do much. Not sure why we need to be able
   // to cast from dict<null> -> null but there are unit tests for it
   auto cast_null = std::make_shared<CastFunction>("cast_null", Type::NA);
-  DCHECK_OK(cast_null->AddKernel(Type::DICTIONARY, {InputType::Array(Type::DICTIONARY)},
-                                 null(), OutputAllNull));
+  DCHECK_OK(cast_null->AddKernel(Type::DICTIONARY, {InputType(Type::DICTIONARY)}, null(),
+                                 OutputAllNull));
   functions.push_back(cast_null);
 
   functions.push_back(GetCastToInteger<Int8Type>("cast_int8"));

@@ -24,6 +24,7 @@
 
 #include "arrow/array.h"
 #include "arrow/array/builder_nested.h"
+#include "arrow/chunked_array.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
@@ -580,6 +581,30 @@ TEST_F(TestStructBuilder, TestSlice) {
   ASSERT_EQ(list_field->value_length(0), 0);
   ASSERT_EQ(list_field->value_length(1), 3);
   ASSERT_EQ(list_field->null_count(), 1);
+}
+
+TEST(TestFieldRef, GetChildren) {
+  auto struct_array = ArrayFromJSON(struct_({field("a", float64())}), R"([
+    {"a": 6.125},
+    {"a": 0.0},
+    {"a": -1}
+  ])");
+
+  ASSERT_OK_AND_ASSIGN(auto a, FieldRef("a").GetOne(*struct_array));
+  auto expected_a = ArrayFromJSON(float64(), "[6.125, 0.0, -1]");
+  AssertArraysEqual(*a, *expected_a);
+
+  // more nested:
+  struct_array =
+      ArrayFromJSON(struct_({field("a", struct_({field("a", float64())}))}), R"([
+    {"a": {"a": 6.125}},
+    {"a": {"a": 0.0}},
+    {"a": {"a": -1}}
+  ])");
+
+  ASSERT_OK_AND_ASSIGN(a, FieldRef("a", "a").GetOne(*struct_array));
+  expected_a = ArrayFromJSON(float64(), "[6.125, 0.0, -1]");
+  AssertArraysEqual(*a, *expected_a);
 }
 
 }  // namespace arrow

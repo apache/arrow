@@ -736,52 +736,12 @@ FixedSizeListType__list_size <- function(type){
     .Call(`_arrow_FixedSizeListType__list_size` , type)
 }
 
+dataset___expr__call <- function(func_name, argument_list, options){
+    .Call(`_arrow_dataset___expr__call` , func_name, argument_list, options)
+}
+
 dataset___expr__field_ref <- function(name){
     .Call(`_arrow_dataset___expr__field_ref` , name)
-}
-
-dataset___expr__equal <- function(lhs, rhs){
-    .Call(`_arrow_dataset___expr__equal` , lhs, rhs)
-}
-
-dataset___expr__not_equal <- function(lhs, rhs){
-    .Call(`_arrow_dataset___expr__not_equal` , lhs, rhs)
-}
-
-dataset___expr__greater <- function(lhs, rhs){
-    .Call(`_arrow_dataset___expr__greater` , lhs, rhs)
-}
-
-dataset___expr__greater_equal <- function(lhs, rhs){
-    .Call(`_arrow_dataset___expr__greater_equal` , lhs, rhs)
-}
-
-dataset___expr__less <- function(lhs, rhs){
-    .Call(`_arrow_dataset___expr__less` , lhs, rhs)
-}
-
-dataset___expr__less_equal <- function(lhs, rhs){
-    .Call(`_arrow_dataset___expr__less_equal` , lhs, rhs)
-}
-
-dataset___expr__in <- function(lhs, rhs){
-    .Call(`_arrow_dataset___expr__in` , lhs, rhs)
-}
-
-dataset___expr__and <- function(lhs, rhs){
-    .Call(`_arrow_dataset___expr__and` , lhs, rhs)
-}
-
-dataset___expr__or <- function(lhs, rhs){
-    .Call(`_arrow_dataset___expr__or` , lhs, rhs)
-}
-
-dataset___expr__not <- function(lhs){
-    .Call(`_arrow_dataset___expr__not` , lhs)
-}
-
-dataset___expr__is_valid <- function(lhs){
-    .Call(`_arrow_dataset___expr__is_valid` , lhs)
 }
 
 dataset___expr__scalar <- function(x){
