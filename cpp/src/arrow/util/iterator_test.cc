@@ -159,11 +159,10 @@ constexpr auto kYieldDuration = std::chrono::microseconds(50);
 std::function<Future<TestInt>()> BackgroundAsyncVectorIt(std::vector<TestInt> v) {
   auto pool = internal::GetCpuThreadPool();
   auto iterator = VectorIt(v);
-  auto slow_iterator = MakeOperatorIterator<TestInt, TestInt>(
-      std::move(iterator), [](TestInt item, Emitter<TestInt>& emitter) {
+  auto slow_iterator = MakeTransformedIterator<TestInt, TestInt>(
+      std::move(iterator), [](TestInt item) -> TransformFlow<TestInt> {
         std::this_thread::sleep_for(kYieldDuration);
-        emitter.Emit(item);
-        return Status::OK();
+        return TransformYield(item);
       });
   EXPECT_OK_AND_ASSIGN(auto background,
                        MakeBackgroundIterator<TestInt>(std::move(slow_iterator), pool));
@@ -398,7 +397,7 @@ std::function<TransformFlow<T>(T)> MakeFilter(std::function<bool(T&)> filter) {
 }
 
 TEST(TestIteratorTransform, Filter) {
-  // Test the case where a call to the operator doesn't emit anything or call finish
+  // Exercises TransformSkip
   auto original = VectorIt({1, 2, 3});
   auto filter = MakeFilter<TestInt>([](TestInt& t) { return t.value != 2; });
   auto filtered = MakeTransformedIterator(std::move(original), filter);

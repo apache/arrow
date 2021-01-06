@@ -63,6 +63,11 @@ class ARROW_EXPORT TaskGroup : public std::enable_shared_from_this<TaskGroup> {
   /// task (or subgroup).
   virtual Status Finish() = 0;
 
+  /// Returns a future that will complete the first time all tasks are finished.
+  /// This should be called only after all top level tasks
+  /// have been added to the task group.  It is only expected to be called once.
+  virtual Future<> FinishAsync() = 0;
+
   /// The current aggregate error Status.  Non-blocking, useful for stopping early.
   virtual Status current_status() = 0;
 

@@ -200,11 +200,14 @@ struct TransformFlow {
 
   bool HasValue() const { return yield_value_.has_value(); }
   bool Finished() const { return finished_; }
+  Status status() const { return status_; }
+  bool Ok() const { return status_.ok(); }
   bool ReadyForNext() const { return ready_for_next_; }
   T Value() const { return *yield_value_; }
 
   bool finished_;
   bool ready_for_next_;
+  Status status_;
   util::optional<YieldValueType> yield_value_;
 };
 
@@ -223,8 +226,35 @@ struct TransformSkip {
 };
 
 template <typename T>
+TransformFlow<T> TransformAbort(Status status) {
+  return TransformFlow<T>{true, false, status};
+}
+
+template <typename T>
 TransformFlow<T> TransformYield(T value = {}, bool ready_for_next = true) {
-  return TransformFlow<T>{false, ready_for_next, std::move(value)};
+  return TransformFlow<T>{false, ready_for_next, Status::OK(), std::move(value)};
+}
+
+template <typename Callable, typename Res, typename... Args>
+class SharedCallable {
+ public:
+  explicit SharedCallable(Callable c) : ptr_(std::make_shared<Callable>(std::move(c))) {}
+  explicit SharedCallable(std::shared_ptr<Callable> ptr) : ptr_(std::move(ptr)) {}
+
+  Res operator()(Args&&... args) { return (*ptr_)(std::forward<Args>(args)...); }
+
+ private:
+  std::shared_ptr<Callable> ptr_;
+};
+
+template <typename Callable, typename Res, typename... Args>
+std::function<Res(Args...)> MakeSharedCallable(Callable c) {
+  return std::function<Res(Args...)>(SharedCallable<Callable, Res, Args...>(c));
+}
+
+template <typename Callable, typename Res, typename... Args>
+std::function<Res(Args...)> MakeSharedCallable(std::shared_ptr<Callable> ptr) {
+  return std::function<Res(Args...)>(SharedCallable<Callable, Res, Args...>(ptr));
 }
 
 template <typename T, typename V>
@@ -233,7 +263,7 @@ class TransformIterator {
   explicit TransformIterator(Iterator<T> it, std::function<TransformFlow<V>(T)> op)
       : it_(std::move(it)), op_(std::move(op)) {}
 
-  util::optional<V> Pump() {
+  util::optional<Result<V>> Pump() {
     while (!finished_ && last_value_.has_value()) {
       TransformFlow<V> next = op_(*last_value_);
       if (next.ReadyForNext()) {
@@ -241,6 +271,9 @@ class TransformIterator {
       }
       if (next.Finished()) {
         finished_ = true;
+      }
+      if (!next.Ok()) {
+        return next.status();
       }
       if (next.HasValue()) {
         return next.Value();
@@ -254,7 +287,7 @@ class TransformIterator {
 
   Result<V> Next() {
     while (!finished_) {
-      util::optional<V> next = Pump();
+      util::optional<Result<V>> next = Pump();
       if (next.has_value()) {
         return *next;
       }
@@ -266,7 +299,7 @@ class TransformIterator {
  private:
   Iterator<T> it_;
   std::function<TransformFlow<V>(T)> op_;
-  util::optional<V> last_value_;
+  util::optional<T> last_value_;
   bool finished_;
 };
 
@@ -352,45 +385,6 @@ struct Emitter {
   std::queue<T> item_buffer_;
   bool finished_ = false;
 };
-
-// TODO: Should Operator here just be std::function<Status(T, Emitter&)> for self
-// documenting & type erasure purposes?
-template <typename T, typename V, typename Operator>
-class OperatorIterator {
- public:
-  explicit OperatorIterator(Iterator<T> it, Operator&& op)
-      : it_(std::move(it)), op_(op) {}
-
-  // Note: it is not safe to call Next again until the previous iteration is finished
-  // should not iterate over this in a parallel fashion.  May need to revist.
-  Result<V> Next() {
-    while (!emitter_.finished_ && emitter_.item_buffer_.empty()) {
-      ARROW_ASSIGN_OR_RAISE(auto next, it_.Next());
-      auto finished = (next == IterationTraits<T>::End());
-      ARROW_RETURN_NOT_OK(op_(std::move(next), emitter_));
-      if (finished) {
-        emitter_.finished_ = true;
-      }
-    }
-    if (emitter_.finished_ && emitter_.item_buffer_.empty()) {
-      return IterationTraits<V>::End();
-    }
-    auto result = emitter_.item_buffer_.front();
-    emitter_.item_buffer_.pop();
-    return result;
-  }
-
- private:
-  Iterator<T> it_;
-  Operator op_;
-  Emitter<V> emitter_;
-};
-
-// Should this be a member function of Iterator<T>?
-template <typename T, typename V, typename Operator>
-Iterator<V> MakeOperatorIterator(Iterator<T> it, Operator op) {
-  return Iterator<V>(OperatorIterator<T, V, Operator>(std::move(it), std::move(op)));
-}
 
 /// \brief Simple iterator which yields *pointers* to the elements of a std::vector<T>.
 /// This is provided to support T where IterationTraits<T>::End is not specialized

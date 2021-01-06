@@ -192,50 +192,74 @@ Future<std::vector<T>> CollectAsyncGenerator(std::function<Future<T>()> generato
 }
 
 template <typename T, typename V>
-util::optional<V> Pump(const std::shared_ptr<bool>& finished,
-                       const std::shared_ptr<util::optional<T>>& last_value,
-                       std::function<TransformFlow<V>(T)> transformer) {
-  while (!*finished && last_value->has_value()) {
-    TransformFlow<V> next = transformer(**last_value);
-    if (next.ReadyForNext()) {
-      last_value->reset();
+class TransformingGenerator {
+ public:
+  TransformingGenerator(std::function<Future<T>()> generator,
+                        std::function<TransformFlow<V>(T)> transformer)
+      : finished_(), last_value_(), generator_(generator), transformer_(transformer) {}
+
+  ARROW_DISALLOW_COPY_AND_ASSIGN(TransformingGenerator);
+  ARROW_DEFAULT_MOVE_AND_ASSIGN(TransformingGenerator);
+
+  util::optional<V> Pump() {
+    while (!finished_ && last_value_.has_value()) {
+      TransformFlow<V> next = transformer_(*last_value_);
+      if (next.ReadyForNext()) {
+        last_value_.reset();
+      }
+      if (next.Finished()) {
+        finished_ = true;
+      }
+      if (next.HasValue()) {
+        return next.Value();
+      }
     }
-    if (next.Finished()) {
-      *finished = true;
+    if (finished_) {
+      return IterationTraits<V>::End();
     }
-    if (next.HasValue()) {
-      return next.Value();
-    }
+    return util::optional<V>();
   }
-  if (*finished) {
-    return IterationTraits<V>::End();
+
+  Future<V> operator()() {
+    auto maybe_next = Pump();
+    if (maybe_next.has_value()) {
+      return Future<V>::MakeFinished(*maybe_next);
+    }
+    return generator_().Then([this](const Result<T>& next_result) {
+      if (next_result.ok()) {
+        last_value_ = *next_result;
+        return (*this)();
+      } else {
+        return Future<V>::MakeFinished(next_result.status());
+      }
+    });
   }
-  return util::optional<V>();
-}
+
+ protected:
+  bool finished_;
+  util::optional<T> last_value_;
+  std::function<Future<T>()> generator_;
+  std::function<TransformFlow<V>(T)> transformer_;
+};
+
+template <typename T, typename V>
+struct TransformingGeneratorWrapper {
+  explicit TransformingGeneratorWrapper(
+      std::shared_ptr<TransformingGenerator<T, V>> target)
+      : target_(std::move(target)) {}
+
+  Future<V> operator()() { return (*target_)(); }
+
+  std::shared_ptr<TransformingGenerator<T, V>> target_;
+};
 
 template <typename T, typename V>
 std::function<Future<V>()> TransformAsyncGenerator(
     std::function<Future<T>()> generator,
     std::function<TransformFlow<V>(T value)> transformer) {
-  auto finished = std::make_shared<bool>();
-  auto last_value = std::make_shared<util::optional<T>>();
-
-  std::function<Future<V>()> result;
-  result = [finished, last_value, generator, transformer, result]() {
-    auto maybe_next = Pump<T, V>(finished, last_value, transformer);
-    if (maybe_next.has_value()) {
-      return Future<V>::MakeFinished(*maybe_next);
-    }
-    return generator().Then([result, last_value](const Result<T>& next_result) {
-      if (next_result.ok()) {
-        *last_value = *next_result;
-        return result();
-      } else {
-        return Future<V>::MakeFinished(next_result.status());
-      }
-    });
-  };
-  return result;
+  auto transforming_generator = TransformingGeneratorWrapper<T, V>(
+      std::make_shared<TransformingGenerator<T, V>>(generator, transformer));
+  return static_cast<std::function<Future<V>()>>(transforming_generator);
 }
 
 }  // namespace async

@@ -36,7 +36,7 @@ namespace fs = arrow::fs;
 namespace ds = arrow::dataset;
 namespace csv = arrow::csv;
 
-const int NUM_FILES = 5;
+const int NUM_FILES = 16;
 
 #define ABORT_ON_FAILURE(expr)                     \
   do {                                             \
@@ -64,43 +64,64 @@ static csv::ConvertOptions MakeConvertOptions() {
   return result;
 }
 
-static void TestFileRead(benchmark::State& state, int file_index,
-                         fs::FileSystem& filesystem, bool threaded_reader,
-                         bool blocking_reads) {
+static arrow::Future<> TestFileRead(benchmark::State& state, int file_index,
+                                    fs::FileSystem& filesystem, bool threaded_reader,
+                                    bool blocking_reads) {
   auto path = std::to_string(file_index) + ".csv";
   auto input_stream = filesystem.OpenInputStream(path).ValueOrDie();
   auto reader = csv::TableReader::Make(arrow::default_memory_pool(), input_stream,
                                        MakeReadOptions(threaded_reader, blocking_reads),
                                        MakeParseOptions(), MakeConvertOptions())
                     .ValueOrDie();
-  auto table = reader->Read().ValueOrDie();
-  if (table->num_rows() != 100000) {
-    std::cerr << "Expected 100,000 rows but only got " << table->num_rows() << std::endl;
-    abort();
-  }
+  return reader->ReadAsync().Then(
+      [reader, file_index](const std::shared_ptr<Table>& table) {
+        if (table->num_rows() != 100000) {
+          return arrow::Status::Invalid("Expected 100,000 rows but only got " +
+                                        std::to_string(table->num_rows()));
+        }
+        return arrow::Status::OK();
+      },
+      [reader, file_index](const arrow::Status& failure_reason) {
+        std::cout << "Failed reading file (" << file_index << ") for reason ("
+                  << failure_reason << ")" << std::endl;
+      });
 }
 
 static void SerialTestFileSystem(benchmark::State& state, fs::FileSystem& filesystem,
                                  bool threaded_reader, bool blocking_reads) {
   for (auto file_index = 0; file_index < NUM_FILES; file_index++) {
-    TestFileRead(state, file_index, filesystem, threaded_reader, blocking_reads);
+    ABORT_ON_FAILURE(
+        TestFileRead(state, file_index, filesystem, threaded_reader, blocking_reads)
+            .result()
+            .status());
   }
 }
 
 static void ThreadedTestFileSystem(benchmark::State& state, fs::FileSystem& filesystem,
                                    bool threaded_reader, bool blocking_reads) {
-  auto task_group =
-      arrow::internal::TaskGroup::MakeThreaded(arrow::internal::GetCpuThreadPool());
-  task_group->Append([&] {
+  if (blocking_reads) {
+    auto task_group =
+        arrow::internal::TaskGroup::MakeThreaded(arrow::internal::GetCpuThreadPool());
+    task_group->Append([&] {
+      for (auto file_index = 0; file_index < NUM_FILES; file_index++) {
+        task_group->Append([&, file_index] {
+          return TestFileRead(state, file_index, filesystem, threaded_reader,
+                              blocking_reads)
+              .result()
+              .status();
+        });
+      }
+      return arrow::Status::OK();
+    });
+    ABORT_ON_FAILURE(task_group->Finish());
+  } else {
+    std::vector<arrow::Future<>> futures;
     for (auto file_index = 0; file_index < NUM_FILES; file_index++) {
-      task_group->Append([&, file_index] {
-        TestFileRead(state, file_index, filesystem, threaded_reader, blocking_reads);
-        return arrow::Status::OK();
-      });
+      futures.push_back(
+          TestFileRead(state, file_index, filesystem, threaded_reader, blocking_reads));
     }
-    return arrow::Status::OK();
-  });
-  ABORT_ON_FAILURE(task_group->Finish());
+    ABORT_ON_FAILURE(arrow::All(futures).result().status());
+  }
 }
 
 static void TestFileSystem(benchmark::State& state, fs::FileSystem& filesystem,
@@ -124,6 +145,16 @@ static void TestLocalFileSystem(benchmark::State& state, bool threaded_outer,
   TestFileSystem(state, local_fs, threaded_outer, threaded_reader, blocking_reads);
 }
 
+static void TestArtificallySlowFileSystem(benchmark::State& state, bool threaded_outer,
+                                          bool threaded_reader, bool blocking_reads) {
+  std::string local_path;
+  auto local_fs = std::make_shared<fs::SubTreeFileSystem>(
+      "/home/pace/dev/data/csv", std::make_shared<fs::LocalFileSystem>());
+  auto slow_fs = fs::SlowFileSystem(local_fs, 0.05);
+
+  TestFileSystem(state, slow_fs, threaded_outer, threaded_reader, blocking_reads);
+}
+
 // static void TestS3FileSystem(benchmark::State& state, bool threaded_outer,
 //                              bool threaded_reader, bool blocking_reads) {
 //   auto s3_fs = fs::S3FileSystem(MakeS3Options());
@@ -145,8 +176,38 @@ static void LocalFsThreadedOuterSerialInner(benchmark::State& state) {
   TestLocalFileSystem(state, true, false, true);
 }
 
-// BENCHMARK(LocalFsSerialOuterSerialInner);
-// BENCHMARK(LocalFsSerialOuterThreadedInner)->UseRealTime();
-// BENCHMARK(LocalFsThreadedOuterSerialInner)->UseRealTime();
+static void LocalFsThreadedOuterAsyncInner(benchmark::State& state) {
+  TestLocalFileSystem(state, true, true, false);
+}
+
+static void SlowFsSerialOuterSerialInner(benchmark::State& state) {
+  TestArtificallySlowFileSystem(state, false, false, true);
+}
+
+static void SlowFsSerialOuterThreadedInner(benchmark::State& state) {
+  TestArtificallySlowFileSystem(state, false, true, true);
+}
+
+static void SlowFsSerialOuterAsyncInner(benchmark::State& state) {
+  TestArtificallySlowFileSystem(state, false, true, false);
+}
+
+static void SlowFsThreadedOuterSerialInner(benchmark::State& state) {
+  TestArtificallySlowFileSystem(state, true, false, true);
+}
+
+static void SlowFsThreadedOuterAsyncInner(benchmark::State& state) {
+  TestArtificallySlowFileSystem(state, true, true, false);
+}
+
+BENCHMARK(LocalFsSerialOuterSerialInner);
+BENCHMARK(LocalFsSerialOuterThreadedInner)->UseRealTime();
+BENCHMARK(LocalFsThreadedOuterSerialInner)->UseRealTime();
 BENCHMARK(LocalFsSerialOuterAsyncInner)->UseRealTime();
+BENCHMARK(LocalFsThreadedOuterAsyncInner)->UseRealTime();
+BENCHMARK(SlowFsSerialOuterSerialInner);
+BENCHMARK(SlowFsSerialOuterThreadedInner)->UseRealTime();
+BENCHMARK(SlowFsThreadedOuterSerialInner)->UseRealTime();
+BENCHMARK(SlowFsSerialOuterAsyncInner)->UseRealTime();
+BENCHMARK(SlowFsThreadedOuterAsyncInner)->UseRealTime();
 BENCHMARK_MAIN();

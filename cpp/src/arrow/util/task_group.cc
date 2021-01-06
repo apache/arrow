@@ -54,6 +54,8 @@ class SerialTaskGroup : public TaskGroup {
     return status_;
   }
 
+  Future<> FinishAsync() override { return Future<>::MakeFinished(Finish()); }
+
   int parallelism() override { return 1; }
 
   Status status_;
@@ -114,6 +116,14 @@ class ThreadedTaskGroup : public TaskGroup {
     return status_;
   }
 
+  Future<> FinishAsync() override {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (!completion_future_.has_value()) {
+      completion_future_ = Future<>::Make();
+    }
+    return *completion_future_;
+  }
+
   int parallelism() override { return executor_->GetCapacity(); }
 
  protected:
@@ -135,6 +145,15 @@ class ThreadedTaskGroup : public TaskGroup {
       // before cv.notify_one() has returned
       std::unique_lock<std::mutex> lock(mutex_);
       cv_.notify_one();
+      if (completion_future_.has_value()) {
+        // MarkFinished could be slow.  We don't want to call it while we are holding
+        // the lock.
+        // TODO: If optional is thread safe then we can skip this locking entirely
+        auto future = *completion_future_;
+        auto status = status_;
+        lock.unlock();
+        future.MarkFinished(status);
+      }
     }
   }
 
@@ -148,6 +167,7 @@ class ThreadedTaskGroup : public TaskGroup {
   std::condition_variable cv_;
   Status status_;
   bool finished_ = false;
+  util::optional<Future<>> completion_future_;
 };
 
 std::shared_ptr<TaskGroup> TaskGroup::MakeSerial() {

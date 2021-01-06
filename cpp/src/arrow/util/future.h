@@ -642,9 +642,6 @@ Future<BreakValueType> Loop(Iterate iterate) {
 
   struct Callback {
     void operator()(const Result<Control>& maybe_control) && {
-      auto break_fut = weak_break_fut.get();
-      if (!break_fut.is_valid()) return;
-
       if (!maybe_control.ok() || maybe_control->IsBreak()) {
         Result<BreakValueType> maybe_break = maybe_control.Map(Control::MoveBreakValue);
         return break_fut.MarkFinished(std::move(maybe_break));
@@ -656,12 +653,11 @@ Future<BreakValueType> Loop(Iterate iterate) {
     }
 
     Iterate iterate;
-    WeakFuture<BreakValueType> weak_break_fut;
+    Future<BreakValueType> break_fut;
   };
 
   auto control_fut = iterate();
-  control_fut.AddCallback(
-      Callback{std::move(iterate), WeakFuture<BreakValueType>(break_fut)});
+  control_fut.AddCallback(Callback{std::move(iterate), break_fut});
 
   return break_fut;
 }

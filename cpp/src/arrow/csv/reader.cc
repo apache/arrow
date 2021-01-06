@@ -101,34 +101,32 @@ class CSVBufferIterator {
   static Iterator<std::shared_ptr<Buffer>> Make(
       Iterator<std::shared_ptr<Buffer>> buffer_iterator) {
     // TODO: Can this be unique pointer?  Or does the Operator func get copied around?
-    auto it = std::make_shared<CSVBufferIterator>();
-    return MakeOperatorIterator<std::shared_ptr<Buffer>, std::shared_ptr<Buffer>>(
-        std::move(buffer_iterator),
-        [it](std::shared_ptr<Buffer> next, Emitter<std::shared_ptr<Buffer>>& emitter) {
-          return it->Next(next, emitter);
-        });
+    std::function<TransformFlow<std::shared_ptr<Buffer>>(std::shared_ptr<Buffer>)> fn =
+        CSVBufferIterator();
+    return MakeTransformedIterator(std::move(buffer_iterator), fn);
   }
 
-  static AsyncIterator<std::shared_ptr<Buffer>> MakeAsync(
-      AsyncIterator<std::shared_ptr<Buffer>> buffer_iterator) {
-    auto it = std::make_shared<CSVBufferIterator>();
-    return MakeAsyncOperatorIterator<std::shared_ptr<Buffer>, std::shared_ptr<Buffer>>(
-        std::move(buffer_iterator),
-        [it](std::shared_ptr<Buffer> next, Emitter<std::shared_ptr<Buffer>>& emitter) {
-          return it->Next(next, emitter);
-        });
+  static std::function<Future<std::shared_ptr<Buffer>>()> MakeAsync(
+      std::function<Future<std::shared_ptr<Buffer>>()> buffer_iterator) {
+    std::function<TransformFlow<std::shared_ptr<Buffer>>(std::shared_ptr<Buffer>)> fn =
+        CSVBufferIterator();
+    return async::TransformAsyncGenerator(std::move(buffer_iterator), fn);
   }
 
-  Status Next(std::shared_ptr<Buffer> buf, Emitter<std::shared_ptr<Buffer>>& emitter) {
+  TransformFlow<std::shared_ptr<Buffer>> operator()(std::shared_ptr<Buffer> buf) {
     if (buf == nullptr) {
       // EOF
-      emitter.Finish();
-      return Status::OK();
+      return TransformFinish();
     }
 
     int64_t offset = 0;
     if (first_buffer_) {
-      ARROW_ASSIGN_OR_RAISE(auto data, util::SkipUTF8BOM(buf->data(), buf->size()));
+      // TODO: Cleanup
+      auto data_r = util::SkipUTF8BOM(buf->data(), buf->size());
+      if (!data_r.ok()) {
+        return TransformAbort<std::shared_ptr<Buffer>>(data_r.status());
+      }
+      auto data = *data_r;
       offset += data - buf->data();
       DCHECK_GE(offset, 0);
       first_buffer_ = false;
@@ -143,14 +141,15 @@ class CSVBufferIterator {
     buf = SliceBuffer(buf, offset);
     if (buf->size() == 0) {
       // EOF
-      emitter.Finish();
+      return TransformFinish();
     } else {
-      emitter.Emit(buf);
+      return TransformYield(buf);
     }
-    return Status::OK();
   }
 
  protected:
+  // TODO: Remove
+  int counter = 0;
   bool first_buffer_ = true;
   // Whether there was a trailing CR at the end of last received buffer
   bool trailing_cr_ = false;
@@ -165,6 +164,11 @@ struct CSVBlock {
   bool is_final;
   std::function<Status(int64_t)> consume_bytes;
 };
+
+// This is an unfortunate side-effect of using optional<T> as the iterator in the
+// CSVBlock iterator.  All we need to know is if value == end and optional<T>() will
+// always equal optional<T>() but it won't compile if T is not comparable
+bool operator==(const CSVBlock& left, const CSVBlock& right) { return false; }
 
 class BlockReader {
  public:
@@ -188,11 +192,21 @@ class SerialBlockReader : public BlockReader {
  public:
   using BlockReader::BlockReader;
 
-  Status Next(std::shared_ptr<Buffer> next_buffer,
-              Emitter<std::shared_ptr<CSVBlock>>& emitter) {
+  static Iterator<util::optional<CSVBlock>> MakeIterator(
+      Iterator<std::shared_ptr<Buffer>> buffer_iterator, std::unique_ptr<Chunker> chunker,
+      std::shared_ptr<Buffer> first_buffer) {
+    auto block_reader =
+        std::make_shared<SerialBlockReader>(std::move(chunker), first_buffer);
+    auto block_reader_fn =
+        MakeSharedCallable<SerialBlockReader, TransformFlow<util::optional<CSVBlock>>,
+                           std::shared_ptr<Buffer>>(block_reader);
+    return MakeTransformedIterator(std::move(buffer_iterator), block_reader_fn);
+  }
+
+  TransformFlow<util::optional<CSVBlock>> operator()(
+      std::shared_ptr<Buffer> next_buffer) {
     if (buffer_ == nullptr) {
-      emitter.Finish();
-      return Status::OK();
+      return TransformFinish();
     }
 
     std::shared_ptr<Buffer> completion;
@@ -200,11 +214,21 @@ class SerialBlockReader : public BlockReader {
 
     if (is_final) {
       // End of file reached => compute completion from penultimate block
-      RETURN_NOT_OK(chunker_->ProcessFinal(partial_, buffer_, &completion, &buffer_));
+      // TODO: Cleanup back to RETURN_NOT_OK by converting Status to
+      // TransformFinish(status)
+      auto chunker_status =
+          chunker_->ProcessFinal(partial_, buffer_, &completion, &buffer_);
+      if (!chunker_status.ok()) {
+        return TransformAbort<util::optional<CSVBlock>>(chunker_status);
+      }
     } else {
       // Get completion of partial from previous block.
-      RETURN_NOT_OK(
-          chunker_->ProcessWithPartial(partial_, buffer_, &completion, &buffer_));
+      // TODO: Cleanup back to RETURN_NOT_OK by converting Status to
+      auto chunker_status =
+          chunker_->ProcessWithPartial(partial_, buffer_, &completion, &buffer_);
+      if (!chunker_status.ok()) {
+        return TransformAbort<util::optional<CSVBlock>>(chunker_status);
+      }
     }
     int64_t bytes_before_buffer = partial_->size() + completion->size();
 
@@ -221,10 +245,9 @@ class SerialBlockReader : public BlockReader {
       return Status::OK();
     };
 
-    emitter.Emit(
-        std::make_shared<CSVBlock>(CSVBlock{partial_, completion, buffer_, block_index_++,
-                                            is_final, std::move(consume_bytes)}));
-    return Status::OK();
+    return TransformYield<util::optional<CSVBlock>>(
+        CSVBlock{partial_, completion, buffer_, block_index_++, is_final,
+                 std::move(consume_bytes)});
   }
 };
 
@@ -233,12 +256,33 @@ class ThreadedBlockReader : public BlockReader {
  public:
   using BlockReader::BlockReader;
 
-  Status Next(std::shared_ptr<Buffer> next_buffer,
-              Emitter<std::shared_ptr<CSVBlock>>& emitter) {
+  static Iterator<util::optional<CSVBlock>> MakeIterator(
+      Iterator<std::shared_ptr<Buffer>> buffer_iterator, std::unique_ptr<Chunker> chunker,
+      std::shared_ptr<Buffer> first_buffer) {
+    auto block_reader =
+        std::make_shared<ThreadedBlockReader>(std::move(chunker), first_buffer);
+    auto block_reader_fn =
+        MakeSharedCallable<ThreadedBlockReader, TransformFlow<util::optional<CSVBlock>>,
+                           std::shared_ptr<Buffer>>(block_reader);
+    return MakeTransformedIterator(std::move(buffer_iterator), block_reader_fn);
+  }
+
+  static std::function<Future<util::optional<CSVBlock>>()> MakeAsyncIterator(
+      std::function<Future<std::shared_ptr<Buffer>>()> buffer_generator,
+      std::unique_ptr<Chunker> chunker, std::shared_ptr<Buffer> first_buffer) {
+    auto block_reader =
+        std::make_shared<ThreadedBlockReader>(std::move(chunker), first_buffer);
+    auto block_reader_fn =
+        MakeSharedCallable<ThreadedBlockReader, TransformFlow<util::optional<CSVBlock>>,
+                           std::shared_ptr<Buffer>>(block_reader);
+    return async::TransformAsyncGenerator(buffer_generator, block_reader_fn);
+  }
+
+  TransformFlow<util::optional<CSVBlock>> operator()(
+      std::shared_ptr<Buffer> next_buffer) {
     if (buffer_ == nullptr) {
       // EOF
-      emitter.Finish();
-      return Status::OK();
+      return TransformFinish();
     }
 
     std::shared_ptr<Buffer> whole, completion, next_partial;
@@ -249,26 +293,37 @@ class ThreadedBlockReader : public BlockReader {
 
     if (is_final) {
       // End of file reached => compute completion from penultimate block
-      RETURN_NOT_OK(
-          chunker_->ProcessFinal(current_partial, current_buffer, &completion, &whole));
+      // TODO: Cleanup RETURN_NOT_OK
+      auto chunker_status =
+          chunker_->ProcessFinal(current_partial, current_buffer, &completion, &whole);
+      if (!chunker_status.ok()) {
+        return TransformAbort<util::optional<CSVBlock>>(chunker_status);
+      }
     } else {
       // Get completion of partial from previous block.
       std::shared_ptr<Buffer> starts_with_whole;
       // Get completion of partial from previous block.
-      RETURN_NOT_OK(chunker_->ProcessWithPartial(current_partial, current_buffer,
-                                                 &completion, &starts_with_whole));
+      // TODO: Cleanup RETURN_NOT_OK
+      auto chunker_status = chunker_->ProcessWithPartial(current_partial, current_buffer,
+                                                         &completion, &starts_with_whole);
+      if (!chunker_status.ok()) {
+        return TransformAbort<util::optional<CSVBlock>>(chunker_status);
+      }
 
       // Get a complete CSV block inside `partial + block`, and keep
       // the rest for the next iteration.
-      RETURN_NOT_OK(chunker_->Process(starts_with_whole, &whole, &next_partial));
+      // TODO: Cleanup RETURN_NOT_OK
+      chunker_status = chunker_->Process(starts_with_whole, &whole, &next_partial);
+      if (!chunker_status.ok()) {
+        return TransformAbort<util::optional<CSVBlock>>(chunker_status);
+      }
     }
 
     partial_ = std::move(next_partial);
     buffer_ = std::move(next_buffer);
 
-    emitter.Emit(std::make_shared<CSVBlock>(
-        CSVBlock{current_partial, completion, whole, block_index_++, is_final, {}}));
-    return Status::OK();
+    return TransformYield<util::optional<CSVBlock>>(
+        CSVBlock{current_partial, completion, whole, block_index_++, is_final, {}});
   }
 };
 
@@ -676,7 +731,7 @@ class SerialStreamingReader : public BaseStreamingReader {
     if (eof_) {
       return nullptr;
     }
-    if (block_iterator_ == nullptr) {
+    if (!block_iterator_) {
       Status st = SetupReader();
       if (!st.ok()) {
         // Can't setup reader => bail out
@@ -690,8 +745,8 @@ class SerialStreamingReader : public BaseStreamingReader {
     }
 
     if (!source_eof_) {
-      ARROW_ASSIGN_OR_RAISE(auto maybe_block, block_iterator_->Next());
-      if (maybe_block != IterationTraits<std::shared_ptr<CSVBlock>>::End()) {
+      ARROW_ASSIGN_OR_RAISE(auto maybe_block, block_iterator_.Next());
+      if (maybe_block.has_value()) {
         last_block_index_ = maybe_block->block_index;
         auto maybe_parsed = ParseAndInsert(maybe_block->partial, maybe_block->completion,
                                            maybe_block->buffer, maybe_block->block_index,
@@ -725,21 +780,15 @@ class SerialStreamingReader : public BaseStreamingReader {
     RETURN_NOT_OK(ProcessHeader(first_buffer, &first_buffer));
     RETURN_NOT_OK(MakeColumnDecoders());
 
-    auto block_reader = std::make_shared<SerialBlockReader>(MakeChunker(parse_options_),
-                                                            std::move(first_buffer));
-    auto op = [block_reader](std::shared_ptr<Buffer> next_buffer,
-                             Emitter<std::shared_ptr<CSVBlock>>& emitter) {
-      return block_reader->Next(next_buffer, emitter);
-    };
-    block_iterator_ = std::make_shared<Iterator<std::shared_ptr<CSVBlock>>>(
-        MakeOperatorIterator<std::shared_ptr<Buffer>, std::shared_ptr<CSVBlock>>(
-            std::move(buffer_iterator_), op));
+    block_iterator_ = SerialBlockReader::MakeIterator(std::move(buffer_iterator_),
+                                                      MakeChunker(parse_options_),
+                                                      std::move(first_buffer));
     return Status::OK();
   }
 
   bool source_eof_ = false;
   int64_t last_block_index_ = 0;
-  std::shared_ptr<Iterator<std::shared_ptr<CSVBlock>>> block_iterator_;
+  Iterator<util::optional<CSVBlock>> block_iterator_;
 };
 
 /////////////////////////////////////////////////////////////////////////
@@ -772,17 +821,16 @@ class SerialTableReader : public BaseTableReader {
     RETURN_NOT_OK(ProcessHeader(first_buffer, &first_buffer));
     RETURN_NOT_OK(MakeColumnBuilders());
 
-    SerialBlockReader block_reader(MakeChunker(parse_options_), std::move(first_buffer));
-    auto block_iterator =
-        MakeOperatorIterator<std::shared_ptr<Buffer>, std::shared_ptr<CSVBlock>>(
-            std::move(buffer_iterator_),
-            [&block_reader](std::shared_ptr<Buffer> buffer,
-                            Emitter<std::shared_ptr<CSVBlock>>& emitter) {
-              return block_reader.Next(buffer, emitter);
-            });
-
-    for (auto&& maybe_block_r : block_iterator) {
-      ARROW_ASSIGN_OR_RAISE(auto maybe_block, maybe_block_r);
+    auto block_iterator = SerialBlockReader::MakeIterator(std::move(buffer_iterator_),
+                                                          MakeChunker(parse_options_),
+                                                          std::move(first_buffer));
+    // TODO Could be a range-based for loop but util::optional iterators don't support it
+    while (true) {
+      ARROW_ASSIGN_OR_RAISE(auto maybe_block, block_iterator.Next());
+      if (!maybe_block.has_value()) {
+        // EOF
+        break;
+      }
       ARROW_ASSIGN_OR_RAISE(int64_t parsed_bytes,
                             ParseAndInsert(maybe_block->partial, maybe_block->completion,
                                            maybe_block->buffer, maybe_block->block_index,
@@ -841,18 +889,16 @@ class ThreadedTableReader : public BaseTableReader {
     RETURN_NOT_OK(ProcessHeader(first_buffer, &first_buffer));
     RETURN_NOT_OK(MakeColumnBuilders());
 
-    ThreadedBlockReader block_reader(MakeChunker(parse_options_),
-                                     std::move(first_buffer));
-    auto block_iterator =
-        MakeOperatorIterator<std::shared_ptr<Buffer>, std::shared_ptr<CSVBlock>>(
-            std::move(buffer_iterator_),
-            [&block_reader](std::shared_ptr<Buffer> buffer,
-                            Emitter<std::shared_ptr<CSVBlock>>& emitter) {
-              return block_reader.Next(buffer, emitter);
-            });
+    auto block_iterator = ThreadedBlockReader::MakeIterator(std::move(buffer_iterator_),
+                                                            MakeChunker(parse_options_),
+                                                            std::move(first_buffer));
 
-    for (auto&& maybe_block_r : block_iterator) {
-      ARROW_ASSIGN_OR_RAISE(auto maybe_block, maybe_block_r);
+    while (true) {
+      ARROW_ASSIGN_OR_RAISE(auto maybe_block, block_iterator.Next());
+      if (!maybe_block.has_value()) {
+        // EOF
+        break;
+      }
       DCHECK(!maybe_block->consume_bytes);
 
       // Launch parse task
@@ -873,9 +919,6 @@ class ThreadedTableReader : public BaseTableReader {
   ThreadPool* thread_pool_;
   Iterator<std::shared_ptr<Buffer>> buffer_iterator_;
 };
-
-/////////////////////////////////////////////////////////////////////////
-// Parallel TableReader implementation
 
 class AsyncThreadedTableReader : public BaseTableReader {
  public:
@@ -900,13 +943,9 @@ class AsyncThreadedTableReader : public BaseTableReader {
     ARROW_ASSIGN_OR_RAISE(auto istream_it,
                           io::MakeInputStreamIterator(input_, read_options_.block_size));
 
-    int32_t block_queue_size = thread_pool_->GetCapacity();
     ARROW_ASSIGN_OR_RAISE(auto rh_it,
-                          MakeReadaheadIterator(std::move(istream_it), block_queue_size));
-    ARROW_ASSIGN_OR_RAISE(
-        auto async_rh_it,
-        AsyncIteratorWrapper<std::shared_ptr<Buffer>>::Make(std::move(rh_it)));
-    buffer_iterator_ = CSVBufferIterator::MakeAsync(std::move(async_rh_it));
+                          MakeBackgroundIterator(std::move(istream_it), thread_pool_));
+    buffer_generator_ = CSVBufferIterator::MakeAsync(std::move(rh_it));
     return Status::OK();
   }
 
@@ -916,38 +955,30 @@ class AsyncThreadedTableReader : public BaseTableReader {
     task_group_ = internal::TaskGroup::MakeThreaded(thread_pool_);
 
     return ProcessFirstBuffer().Then([this](const std::shared_ptr<Buffer> first_buffer) {
-      ThreadedBlockReader block_reader(MakeChunker(parse_options_),
-                                       std::move(first_buffer));
-      auto block_iterator =
-          MakeAsyncOperatorIterator<std::shared_ptr<Buffer>, std::shared_ptr<CSVBlock>>(
-              std::move(buffer_iterator_),
-              [&block_reader](std::shared_ptr<Buffer> buffer,
-                              Emitter<std::shared_ptr<CSVBlock>>& emitter) {
-                return block_reader.Next(buffer, emitter);
-              });
+      auto block_generator = ThreadedBlockReader::MakeAsyncIterator(
+          buffer_generator_, MakeChunker(parse_options_), std::move(first_buffer));
 
-      return block_iterator
-          .Visit([this](const std::shared_ptr<CSVBlock> maybe_block) {
-            std::cout << "Calling ParseAndInsert on block" << std::endl;
-            DCHECK(!maybe_block->consume_bytes);
+      std::function<Status(util::optional<CSVBlock>)> block_visitor =
+          [this](util::optional<CSVBlock> maybe_block) -> Status {
+        DCHECK(!maybe_block->consume_bytes);
 
-            // Launch parse task
-            task_group_->Append([this, maybe_block] {
-              return ParseAndInsert(maybe_block->partial, maybe_block->completion,
-                                    maybe_block->buffer, maybe_block->block_index,
-                                    maybe_block->is_final)
-                  .status();
-            });
-            return Status::OK();
+        // Launch parse task
+        task_group_->Append([this, maybe_block] {
+          return ParseAndInsert(maybe_block->partial, maybe_block->completion,
+                                maybe_block->buffer, maybe_block->block_index,
+                                maybe_block->is_final)
+              .status();
+        });
+        return Status::OK();
+      };
+
+      return async::VisitAsyncGenerator(block_generator, block_visitor)
+          .Then([this](...) -> Future<> {
+            // By this point we've added all top level tasks so it is safe to call
+            // FinishAsync
+            return task_group_->FinishAsync();
           })
-          // TODO: Any chance we can specialize away the need to specify "const
-          // Result<arrow::detail::Empty>&"
-          .Then([this](const Result<arrow::detail::Empty>&)
-                    -> Result<std::shared_ptr<Table>> {
-            // The task_group_ should be full of CPU only tasks (nothing blocking on I/O)
-            // so it is ok to just synchronously wait here
-            RETURN_NOT_OK(task_group_->Finish());
-
+          .Then([this](...) -> Result<std::shared_ptr<Table>> {
             // Finish conversion, create schema and table
             return MakeTable();
           });
@@ -956,21 +987,14 @@ class AsyncThreadedTableReader : public BaseTableReader {
 
  protected:
   Future<std::shared_ptr<Buffer>> ProcessFirstBuffer() {
-    std::cout << "About to process first buffer" << std::endl;
     // First block
-    auto first_buffer_future = buffer_iterator_.Next();
-    // TODO: Return type inference fails if we don't specify the return type here.  Can
-    // that be improved?
+    auto first_buffer_future = buffer_generator_();
     return first_buffer_future.Then([this](const std::shared_ptr<Buffer>& first_buffer)
                                         -> Result<std::shared_ptr<Buffer>> {
-      std::cout << "Processing first buffer" << std::endl;
       if (first_buffer == nullptr) {
         return Status::Invalid("Empty CSV file");
       }
-      // TODO: Can't use the same pointer since it is const.  That does beg the question,
-      // "What happens if a callback modifies the item being processed like we do here?"
       std::shared_ptr<Buffer> first_buffer_processed;
-      // TODO: Cleanup with futuristic RETURN_NOT_OK
       RETURN_NOT_OK(ProcessHeader(first_buffer, &first_buffer_processed));
       RETURN_NOT_OK(MakeColumnBuilders());
       return first_buffer_processed;
@@ -978,7 +1002,7 @@ class AsyncThreadedTableReader : public BaseTableReader {
   }
 
   ThreadPool* thread_pool_;
-  AsyncIterator<std::shared_ptr<Buffer>> buffer_iterator_;
+  std::function<Future<std::shared_ptr<Buffer>>()> buffer_generator_;
 };
 
 /////////////////////////////////////////////////////////////////////////
