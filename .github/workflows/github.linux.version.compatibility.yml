@@ -75,7 +75,7 @@ jobs:
           path: arrow/r/file-compatibility/files
 
   read-files:
-    name: "Read files with Arrow {matrix.old_arrow_version}"
+    name: "Read files with Arrow ${{ matrix.old_arrow_version }}"
     needs: [write-files]
     runs-on: ubuntu-20.04
     strategy:
@@ -110,7 +110,7 @@ jobs:
         with:
           name: files
           path: file-compatibility/files
-      - name: Install dependencies
+      - name: Test reading
         run: |
           testthat::test_dir("file-compatibility")
         shell: Rscript {0}
