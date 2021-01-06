@@ -107,6 +107,13 @@ struct CompareOptions : public FunctionOptions {
   enum CompareOperator op;
 };
 
+struct ARROW_EXPORT ProjectOptions : public FunctionOptions {
+  explicit ProjectOptions(std::vector<std::string> n) : field_names(std::move(n)) {}
+
+  /// Names for wrapped columns
+  std::vector<std::string> field_names;
+};
+
 /// @}
 
 /// \brief Add two values together. Array values must be the same length. If
