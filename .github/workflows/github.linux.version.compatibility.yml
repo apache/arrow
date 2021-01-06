@@ -64,7 +64,7 @@ jobs:
       - name: Write files
         run: |
           cd arrow/r
-          R -f extra-tests/write.R
+          R -f extra-tests/write-parquet.R
         shell: bash
 
       - name: Upload the parquet artifacts
