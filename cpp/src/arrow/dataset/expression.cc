@@ -376,17 +376,6 @@ bool Expression::IsSatisfiable() const {
 
 namespace {
 
-bool KernelStateIsImmutable(const std::string& function) {
-  // XXX maybe just add Kernel::state_is_immutable or so?
-
-  // known functions with non-null but nevertheless immutable KernelState
-  static std::unordered_set<std::string> names = {
-      "is_in", "index_in", "cast", "project", "strptime",
-  };
-
-  return names.find(function) != names.end();
-}
-
 Result<std::unique_ptr<compute::KernelState>> InitKernelState(
     const Expression::Call& call, compute::ExecContext* exec_context) {
   if (!call.kernel->init) return nullptr;
@@ -663,29 +652,6 @@ util::optional<compute::NullHandling::type> GetNullHandling(
     return static_cast<const compute::ScalarKernel*>(call.kernel)->null_handling;
   }
   return util::nullopt;
-}
-
-bool DefinitelyNotNull(const Expression& expr) {
-  DCHECK(expr.IsBound());
-
-  if (expr.literal()) {
-    return !expr.IsNullLiteral();
-  }
-
-  if (expr.field_ref()) return false;
-
-  auto call = CallNotNull(expr);
-  if (auto null_handling = GetNullHandling(*call)) {
-    if (null_handling == compute::NullHandling::OUTPUT_NOT_NULL) {
-      return true;
-    }
-    if (null_handling == compute::NullHandling::INTERSECTION) {
-      return std::all_of(call->arguments.begin(), call->arguments.end(),
-                         DefinitelyNotNull);
-    }
-  }
-
-  return false;
 }
 
 }  // namespace
