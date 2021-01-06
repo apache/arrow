@@ -1111,13 +1111,14 @@ class RDictionaryConverter<U, enable_if_has_string_view<U>>
       return Status::Invalid("invalid R type to convert to string");
     }
 
-    SEXP levels = Rf_getAttrib(x, Rf_install("levels"));
+    // SEXP levels = Rf_getAttrib(x, Rf_install("levels"));
 
-    auto handler = [this, levels](int value) {
-      SEXP s = STRING_ELT(levels, value - 1);
-      return this->value_builder_->Append(CHAR(s));
-    };
-    return RVectorVisitor<int>::Visit(x, start, size, this->value_builder_, handler);
+    // auto handler = [this, levels](int value) {
+    //   SEXP s = STRING_ELT(levels, value - 1);
+    //   return this->value_builder_->Append(CHAR(s));
+    // };
+    // return RVectorVisitor<int>::Visit(x, start, size, this->value_builder_, handler);
+    return Status::OK();
   }
 
  protected:
