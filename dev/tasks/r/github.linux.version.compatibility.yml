@@ -19,10 +19,6 @@
 # github comment reports!
 name: Crossbow
 
-# TODO:
-# * move this back to dev/tasks/r/github.linux.version.compatibility.yml when done
-# * add back only on branches "*-github-*"
-
 on:
   push
 
@@ -38,10 +34,8 @@ jobs:
     steps:
       - name: Checkout Arrow
         run: |
-          # git clone --no-checkout {{ arrow.remote }} arrow
-          git clone --no-checkout  https://github.com/jonkeane/arrow.git  arrow
-          # git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
-          git -C arrow fetch -t https://github.com/jonkeane/arrow.git ARROW-10623-attr-writing-test
+          git clone --no-checkout {{ arrow.remote }} arrow
+          git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
           git -C arrow checkout FETCH_HEAD
           git -C arrow submodule update --init --recursive
       - name: Free Up Disk Space
@@ -89,10 +83,8 @@ jobs:
     steps:
       - name: Checkout Arrow
         run: |
-          # git clone --no-checkout {{ arrow.remote }} arrow
-          git clone --no-checkout  https://github.com/jonkeane/arrow.git  arrow
-          # git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
-          git -C arrow fetch -t https://github.com/jonkeane/arrow.git ARROW-10623-attr-writing-test
+          git clone --no-checkout {{ arrow.remote }} arrow
+          git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
           git -C arrow checkout FETCH_HEAD
           git -C arrow submodule update --init --recursive
       - uses: r-lib/actions/setup-r@v1
