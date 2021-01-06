@@ -587,6 +587,13 @@ fn build_join_indexes(
 }
 use core::hash::BuildHasher;
 
+// Simple function to combine two hashes  
+fn combine_hashes(l: u64, r: u64) -> u64{
+    let mut hash = (17 * 37u64).overflowing_add(l).0;
+    hash = hash.overflowing_mul(37).0.overflowing_add(r).0;
+    return hash;
+}
+
 /// Creates hash values for every
 fn create_hashes<'a>(
     arrays: &[ArrayRef],
@@ -607,7 +614,7 @@ fn create_hashes<'a>(
                 for (i, hash) in hashes.iter_mut().enumerate() {
                     let mut hasher = random_state.build_hasher();
                     hasher.write_u8(array.value(i));
-                    *hash = hasher.finish().overflowing_add(*hash).0;
+                    *hash = combine_hashes(hasher.finish(), *hash);
                 }
             }
             DataType::UInt16 => {
@@ -616,7 +623,7 @@ fn create_hashes<'a>(
                 for (i, hash) in hashes.iter_mut().enumerate() {
                     let mut hasher = random_state.build_hasher();
                     hasher.write_u16(array.value(i));
-                    *hash = hasher.finish().overflowing_add(*hash).0;
+                    *hash = combine_hashes(hasher.finish(), *hash);
                 }
             }
             DataType::UInt32 => {
@@ -625,7 +632,7 @@ fn create_hashes<'a>(
                 for (i, hash) in hashes.iter_mut().enumerate() {
                     let mut hasher = random_state.build_hasher();
                     hasher.write_u32(array.value(i));
-                    *hash = hasher.finish().overflowing_add(*hash).0;
+                    *hash = combine_hashes(hasher.finish(), *hash);
                 }
             }
             DataType::UInt64 => {
@@ -634,7 +641,7 @@ fn create_hashes<'a>(
                 for (i, hash) in hashes.iter_mut().enumerate() {
                     let mut hasher = random_state.build_hasher();
                     hasher.write_u64(array.value(i));
-                    *hash = hasher.finish().overflowing_add(*hash).0;
+                    *hash = combine_hashes(hasher.finish(), *hash);
                 }
             }
             DataType::Int8 => {
@@ -643,7 +650,7 @@ fn create_hashes<'a>(
                 for (i, hash) in hashes.iter_mut().enumerate() {
                     let mut hasher = random_state.build_hasher();
                     hasher.write_i8(array.value(i));
-                    *hash = hasher.finish().overflowing_add(*hash).0;
+                    *hash = combine_hashes(hasher.finish(), *hash);
                 }
             }
             DataType::Int16 => {
@@ -651,7 +658,7 @@ fn create_hashes<'a>(
                 for (i, hash) in hashes.iter_mut().enumerate() {
                     let mut hasher = random_state.build_hasher();
                     hasher.write_i16(array.value(i));
-                    *hash = hasher.finish().overflowing_add(*hash).0;
+                    *hash = combine_hashes(hasher.finish(), *hash);
                 }
             }
             DataType::Int32 => {
@@ -659,7 +666,7 @@ fn create_hashes<'a>(
                 for (i, hash) in hashes.iter_mut().enumerate() {
                     let mut hasher = random_state.build_hasher();
                     hasher.write_i32(array.value(i));
-                    *hash = hasher.finish().overflowing_add(*hash).0;
+                    *hash = combine_hashes(hasher.finish(), *hash);
                 }
             }
             DataType::Int64 => {
@@ -667,7 +674,7 @@ fn create_hashes<'a>(
                 for (i, hash) in hashes.iter_mut().enumerate() {
                     let mut hasher = random_state.build_hasher();
                     hasher.write_i64(array.value(i));
-                    *hash = hasher.finish().overflowing_add(*hash).0;
+                    *hash = combine_hashes(hasher.finish(), *hash);
                 }
             }
             DataType::Timestamp(TimeUnit::Microsecond, None) => {
@@ -678,7 +685,7 @@ fn create_hashes<'a>(
                 for (i, hash) in hashes.iter_mut().enumerate() {
                     let mut hasher = random_state.build_hasher();
                     hasher.write_i64(array.value(i));
-                    *hash = hasher.finish().overflowing_add(*hash).0;
+                    *hash = combine_hashes(hasher.finish(), *hash);
                 }
             }
             DataType::Timestamp(TimeUnit::Nanosecond, None) => {
@@ -689,7 +696,7 @@ fn create_hashes<'a>(
                 for (i, hash) in hashes.iter_mut().enumerate() {
                     let mut hasher = random_state.build_hasher();
                     hasher.write_i64(array.value(i));
-                    *hash = hasher.finish().overflowing_add(*hash).0;
+                    *hash = combine_hashes(hasher.finish(), *hash);
                 }
             }
             DataType::Utf8 => {
@@ -697,7 +704,7 @@ fn create_hashes<'a>(
                 for (i, hash) in hashes.iter_mut().enumerate() {
                     let mut hasher = random_state.build_hasher();
                     hasher.write(array.value(i).as_bytes());
-                    *hash = hasher.finish().overflowing_add(*hash).0;
+                    *hash = combine_hashes(hasher.finish(), *hash);
                 }
             }
             _ => {
