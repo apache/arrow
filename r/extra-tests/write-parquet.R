@@ -15,4 +15,9 @@ example_with_metadata <- tibble::tibble(
   d = "four"
 )
 
-write_parquet(example_with_metadata, "file-compatibility/files/ex_data.parquet")
+attr(example_with_metadata, "top_level") <- list(
+  field_one = 12,
+  field_two = "more stuff"
+)
+
+write_parquet(example_with_metadata, "extra-tests/files/ex_data.parquet")
