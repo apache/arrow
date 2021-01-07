@@ -143,6 +143,7 @@ jobs:
         run: |
           rm -f /usr/local/bin/2to3
           brew update --preinstall
+          brew unlink gcc@8 gcc@9
           brew bundle --file=cpp/Brewfile
           brew install coreutils
           python3 -mpip install \

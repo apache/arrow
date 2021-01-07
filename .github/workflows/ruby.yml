@@ -131,6 +131,7 @@ jobs:
         run: |
           rm -f /usr/local/bin/2to3
           brew update --preinstall
+          brew unlink gcc@8 gcc@9
           brew bundle --file=cpp/Brewfile
           brew bundle --file=c_glib/Brewfile
           bundle install --gemfile c_glib/Gemfile
