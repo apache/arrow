@@ -68,7 +68,7 @@ jobs:
           path: arrow/r/extra-tests/files
 
   read-files:
-    name: "Read files with Arrow {{ OLD_ARROW_VERSION }}"
+    name: "Read files with Arrow {{ '${{ matrix.old_arrow_version }}' }}"
     needs: [write-files]
     runs-on: ubuntu-20.04
     strategy:
@@ -79,7 +79,7 @@ jobs:
           - "1.0.1"
     env:
       RSPM: "https://packagemanager.rstudio.com/cran/__linux__/focal/latest"
-      OLD_ARROW_VERSION: {{ OLD_ARROW_VERSION }}
+      OLD_ARROW_VERSION: {{ '${{ matrix.old_arrow_version }}' }}
     steps:
       - name: Checkout Arrow
         run: |
@@ -91,7 +91,7 @@ jobs:
       - name: Install old Arrow
         run: |
           install.packages(c("remotes", "testthat"))
-          remotes::install_version("arrow",  "{{ OLD_ARROW_VERSION }}")
+          remotes::install_version("arrow",  "{{ '${{ matrix.old_arrow_version }}' }}")
         shell: Rscript {0}
       - name: Setup our testing directory, copy only the tests to it.
         run: |

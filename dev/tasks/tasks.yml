@@ -1756,8 +1756,6 @@ tasks:
   test-r-version-compatibility:
     ci: github
     template: r/github.linux.version.compatibility.yml
-    params:
-      OLD_ARROW_VERSION: "${{ matrix.old_arrow_version }}"
 
   test-r-rhub-ubuntu-gcc-release:
     ci: azure
