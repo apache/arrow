@@ -40,6 +40,8 @@ from pyarrow._compute import (  # noqa
     StrptimeOptions,
     TakeOptions,
     VarianceOptions,
+    ArraySortOptions,
+    SortOptions,
     # Functions
     function_registry,
     call_function,
@@ -62,7 +64,7 @@ def _get_arg_names(func):
             arg_names = ["left", "right"]
         else:
             raise NotImplementedError(
-                "unsupported arity: {}".format(func.arity))
+                f"unsupported arity: {func.arity} (function: {func.name})")
 
     return arg_names
 
@@ -116,7 +118,7 @@ def _decorate_compute_function(wrapper, exposed_name, func, option_class):
         doc_pieces.append("""\
             options : pyarrow.compute.{0}, optional
                 Parameters altering compute function semantics
-            **kwargs: optional
+            **kwargs : optional
                 Parameters for {0} constructor.  Either `options`
                 or `**kwargs` can be passed, but not both at the same time.
             """.format(option_class.__name__))
@@ -160,14 +162,14 @@ def _handle_options(name, option_class, options, kwargs):
 
 _wrapper_template = dedent("""\
     def make_wrapper(func, option_class):
-        def {func_name}({args_sig}, *, memory_pool=None):
+        def {func_name}({args_sig}{kwonly}, memory_pool=None):
             return func.call([{args_sig}], None, memory_pool)
         return {func_name}
     """)
 
 _wrapper_options_template = dedent("""\
     def make_wrapper(func, option_class):
-        def {func_name}({args_sig}, *, options=None, memory_pool=None,
+        def {func_name}({args_sig}{kwonly}, options=None, memory_pool=None,
                         **kwargs):
             options = _handle_options({func_name!r}, option_class, options,
                                       kwargs)
@@ -180,6 +182,7 @@ def _wrap_function(name, func):
     option_class = _get_options_class(func)
     arg_names = _get_arg_names(func)
     args_sig = ', '.join(arg_names)
+    kwonly = '' if arg_names[-1].startswith('*') else ', *'
 
     # Generate templated wrapper, so that the signature matches
     # the documented argument names.
@@ -188,7 +191,8 @@ def _wrap_function(name, func):
         template = _wrapper_options_template
     else:
         template = _wrapper_template
-    exec(template.format(func_name=name, args_sig=args_sig), globals(), ns)
+    exec(template.format(func_name=name, args_sig=args_sig, kwonly=kwonly),
+         globals(), ns)
     wrapper = ns['make_wrapper'](func, option_class)
 
     return _decorate_compute_function(wrapper, name, func, option_class)

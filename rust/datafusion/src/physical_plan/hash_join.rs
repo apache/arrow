@@ -380,8 +380,7 @@ pub(crate) fn create_key(
     vec: &mut Vec<u8>,
 ) -> Result<()> {
     vec.clear();
-    for i in 0..group_by_keys.len() {
-        let col = &group_by_keys[i];
+    for col in group_by_keys {
         match col.data_type() {
             DataType::UInt8 => {
                 let array = col.as_any().downcast_ref::<UInt8Array>().unwrap();
@@ -510,10 +509,11 @@ fn build_join_indexes(
         .map(|name| Ok(col(name).evaluate(right)?.into_array(right.num_rows())))
         .collect::<Result<Vec<_>>>()?;
 
-    let mut left_indices = UInt64Builder::new(0);
-    let mut right_indices = UInt32Builder::new(0);
     let buf = &mut Vec::new();
     let hash_values = create_hashes(&keys_values, &random_state, buf)?;
+
+    let mut left_indices = UInt64Builder::new(0);
+    let mut right_indices = UInt32Builder::new(0);
 
     match join_type {
         JoinType::Inner => {

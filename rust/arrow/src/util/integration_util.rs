@@ -20,7 +20,7 @@
 //! These utilities define structs that read the integration JSON format for integration testing purposes.
 
 use serde_derive::{Deserialize, Serialize};
-use serde_json::{Number as VNumber, Value};
+use serde_json::{Map as SJMap, Number as VNumber, Value};
 
 use crate::array::*;
 use crate::datatypes::*;
@@ -60,13 +60,30 @@ pub struct ArrowJsonField {
 
 impl From<&Field> for ArrowJsonField {
     fn from(field: &Field) -> Self {
+        let metadata_value = match field.metadata() {
+            Some(kv_list) => {
+                let mut array = Vec::new();
+                for (k, v) in kv_list {
+                    let mut kv_map = SJMap::new();
+                    kv_map.insert(k.clone(), Value::String(v.clone()));
+                    array.push(Value::Object(kv_map));
+                }
+                if !array.is_empty() {
+                    Some(Value::Array(array))
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        };
+
         Self {
             name: field.name().to_string(),
             field_type: field.data_type().to_json(),
             nullable: field.is_nullable(),
             children: vec![],
             dictionary: None, // TODO: not enough info
-            metadata: None,   // TODO(ARROW-10259)
+            metadata: metadata_value,
         }
     }
 }
@@ -709,7 +726,30 @@ mod tests {
         let millis_tz = Some("America/New_York".to_string());
         let micros_tz = Some("UTC".to_string());
         let nanos_tz = Some("Africa/Johannesburg".to_string());
+
         let schema = Schema::new(vec![
+            {
+                let mut f =
+                    Field::new("bools-with-metadata-map", DataType::Boolean, true);
+                f.set_metadata(Some(
+                    [("k".to_string(), "v".to_string())]
+                        .iter()
+                        .cloned()
+                        .collect(),
+                ));
+                f
+            },
+            {
+                let mut f =
+                    Field::new("bools-with-metadata-vec", DataType::Boolean, true);
+                f.set_metadata(Some(
+                    [("k2".to_string(), "v2".to_string())]
+                        .iter()
+                        .cloned()
+                        .collect(),
+                ));
+                f
+            },
             Field::new("bools", DataType::Boolean, true),
             Field::new("int8s", DataType::Int8, true),
             Field::new("int16s", DataType::Int16, true),
@@ -779,6 +819,10 @@ mod tests {
             ),
         ]);
 
+        let bools_with_metadata_map =
+            BooleanArray::from(vec![Some(true), None, Some(false)]);
+        let bools_with_metadata_vec =
+            BooleanArray::from(vec![Some(true), None, Some(false)]);
         let bools = BooleanArray::from(vec![Some(true), None, Some(false)]);
         let int8s = Int8Array::from(vec![Some(1), None, Some(3)]);
         let int16s = Int16Array::from(vec![Some(1), None, Some(3)]);
@@ -867,6 +911,8 @@ mod tests {
         let record_batch = RecordBatch::try_new(
             Arc::new(schema.clone()),
             vec![
+                Arc::new(bools_with_metadata_map),
+                Arc::new(bools_with_metadata_vec),
                 Arc::new(bools),
                 Arc::new(int8s),
                 Arc::new(int16s),

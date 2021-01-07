@@ -290,6 +290,15 @@ tasks:
       - arrow-cpp-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
 
+  conda-osx-clang-py39:
+    ci: azure
+    template: conda-recipes/azure.osx.yml
+    params:
+      config: osx_python3.9.____cpython
+    artifacts:
+      - arrow-cpp-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.tar.bz2
+      - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.tar.bz2
+
   ############################## Conda Windows ################################
 
   conda-win-vs2017-py36-r36:
@@ -494,8 +503,8 @@ tasks:
   ############################## Wheel OSX ####################################
 
   wheel-osx-mavericks-cp36m:
-    ci: travis
-    template: python-wheels/travis.osx.yml
+    ci: github
+    template: python-wheels/github.osx.yml
     params:
       python_version: 3.6
       macos_deployment_target: 10.9
@@ -504,8 +513,8 @@ tasks:
       - pyarrow-{no_rc_version}-cp36-cp36m-macosx_10_9_x86_64.whl
 
   wheel-osx-mavericks-cp37m:
-    ci: travis
-    template: python-wheels/travis.osx.yml
+    ci: github
+    template: python-wheels/github.osx.yml
     params:
       python_version: 3.7
       macos_deployment_target: 10.9
@@ -514,8 +523,8 @@ tasks:
       - pyarrow-{no_rc_version}-cp37-cp37m-macosx_10_9_x86_64.whl
 
   wheel-osx-mavericks-cp38:
-    ci: travis
-    template: python-wheels/travis.osx.yml
+    ci: github
+    template: python-wheels/github.osx.yml
     params:
       python_version: 3.8
       macos_deployment_target: 10.9
@@ -523,11 +532,21 @@ tasks:
     artifacts:
       - pyarrow-{no_rc_version}-cp38-cp38-macosx_10_9_x86_64.whl
 
+  wheel-osx-mavericks-cp39:
+    ci: github
+    template: python-wheels/github.osx.yml
+    params:
+      python_version: 3.9
+      macos_deployment_target: 10.9
+      arrow_s3: "OFF"
+    artifacts:
+      - pyarrow-{no_rc_version}-cp39-cp39-macosx_10_9_x86_64.whl
+
   # enable S3 support from macOS 10.13 so we don't need to bundle curl, crypt and ssl
 
   wheel-osx-high-sierra-cp36m:
-    ci: travis
-    template: python-wheels/travis.osx.yml
+    ci: github
+    template: python-wheels/github.osx.yml
     params:
       python_version: 3.6
       macos_deployment_target: 10.13
@@ -536,8 +555,8 @@ tasks:
       - pyarrow-{no_rc_version}-cp36-cp36m-macosx_10_13_x86_64.whl
 
   wheel-osx-high-sierra-cp37m:
-    ci: travis
-    template: python-wheels/travis.osx.yml
+    ci: github
+    template: python-wheels/github.osx.yml
     params:
       python_version: 3.7
       macos_deployment_target: 10.13
@@ -546,14 +565,24 @@ tasks:
       - pyarrow-{no_rc_version}-cp37-cp37m-macosx_10_13_x86_64.whl
 
   wheel-osx-high-sierra-cp38:
-    ci: travis
-    template: python-wheels/travis.osx.yml
+    ci: github
+    template: python-wheels/github.osx.yml
     params:
       python_version: 3.8
       macos_deployment_target: 10.13
       arrow_s3: "ON"
     artifacts:
       - pyarrow-{no_rc_version}-cp38-cp38-macosx_10_13_x86_64.whl
+
+  wheel-osx-high-sierra-cp39:
+    ci: github
+    template: python-wheels/github.osx.yml
+    params:
+      python_version: 3.9
+      macos_deployment_target: 10.13
+      arrow_s3: "ON"
+    artifacts:
+      - pyarrow-{no_rc_version}-cp39-cp39-macosx_10_13_x86_64.whl
 
   ############################## Wheel Windows ################################
 
@@ -1928,13 +1957,13 @@ tasks:
       # use the master branch of kartothek, so prevent reusing any layers
       run: --no-leaf-cache conda-python-kartothek
 
-  test-conda-python-3.7-hdfs-2.9.2:
+  test-conda-python-3.7-hdfs-3.2:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
         PYTHON: 3.7
-        HDFS: 2.9.2
+        HDFS: 3.2.1
       run: conda-python-hdfs
 
   test-conda-python-3.7-spark-branch-3.0:

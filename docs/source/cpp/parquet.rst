@@ -27,6 +27,10 @@ Reading and writing Parquet files
 .. seealso::
    :ref:`Parquet reader and writer API reference <cpp-api-parquet>`.
 
+.. sidebar:: Contents
+
+   .. contents:: :local:
+
 The `Parquet format <https://parquet.apache.org/documentation/latest/>`__
 is a space-efficient columnar storage format for complex data.  The Parquet
 C++ implementation is part of the Apache Arrow project and benefits
@@ -244,7 +248,22 @@ Limitations
 
 Writing or reading back FixedSizedList data with null entries is not supported.
 
-.. TODO: document supported encryption features
+Encryption
+----------
+
+Parquet C++ implements all features specified in the
+`encryption specification <https://github.com/apache/parquet-format/blob/master/Encryption.md>`__,
+except for encryption of column index and bloom filter modules. 
+
+More specifically, Parquet C++ supports:
+
+* AES_GCM_V1 and AES_GCM_CTR_V1 encryption algorithms.
+* AAD suffix for Footer, ColumnMetaData, Data Page, Dictionary Page,
+  Data PageHeader, Dictionary PageHeader module types. Other module types
+  (ColumnIndex, OffsetIndex, BloomFilter Header, BloomFilter Bitset) are not
+  supported.
+* EncryptionWithFooterKey and EncryptionWithColumnKey modes.
+* Encrypted Footer and Plaintext Footer modes.
 
 
 Reading Parquet files

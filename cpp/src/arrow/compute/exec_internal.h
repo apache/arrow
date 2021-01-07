@@ -84,14 +84,14 @@ class ARROW_EXPORT ExecListener {
 
 class DatumAccumulator : public ExecListener {
  public:
-  DatumAccumulator() {}
+  DatumAccumulator() = default;
 
   Status OnResult(Datum value) override {
     values_.emplace_back(value);
     return Status::OK();
   }
 
-  std::vector<Datum> values() const { return values_; }
+  std::vector<Datum> values() { return std::move(values_); }
 
  private:
   std::vector<Datum> values_;

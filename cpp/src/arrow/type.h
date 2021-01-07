@@ -1386,9 +1386,7 @@ class ARROW_EXPORT DictionaryUnifier {
 /// FieldPaths provide a number of accessors for drilling down to potentially nested
 /// children. They are overloaded for convenience to support Schema (returns a field),
 /// DataType (returns a child field), Field (returns a child field of this field's type)
-/// Array (returns a child array), RecordBatch (returns a column), ChunkedArray (returns a
-/// ChunkedArray where each chunk is a child array of the corresponding original chunk)
-/// and Table (returns a column).
+/// Array (returns a child array), RecordBatch (returns a column).
 class ARROW_EXPORT FieldPath {
  public:
   FieldPath() = default;
@@ -1402,9 +1400,11 @@ class ARROW_EXPORT FieldPath {
   std::string ToString() const;
 
   size_t hash() const;
+  struct Hash {
+    size_t operator()(const FieldPath& path) const { return path.hash(); }
+  };
 
-  explicit operator bool() const { return !indices_.empty(); }
-  bool operator!() const { return indices_.empty(); }
+  bool empty() const { return indices_.empty(); }
   bool operator==(const FieldPath& other) const { return indices() == other.indices(); }
   bool operator!=(const FieldPath& other) const { return indices() != other.indices(); }
 
@@ -1421,11 +1421,10 @@ class ARROW_EXPORT FieldPath {
 
   /// \brief Retrieve the referenced column from a RecordBatch or Table
   Result<std::shared_ptr<Array>> Get(const RecordBatch& batch) const;
-  Result<std::shared_ptr<ChunkedArray>> Get(const Table& table) const;
 
-  /// \brief Retrieve the referenced child Array from an Array or ChunkedArray
+  /// \brief Retrieve the referenced child from an Array or ArrayData
   Result<std::shared_ptr<Array>> Get(const Array& array) const;
-  Result<std::shared_ptr<ChunkedArray>> Get(const ChunkedArray& array) const;
+  Result<std::shared_ptr<ArrayData>> Get(const ArrayData& data) const;
 
  private:
   std::vector<int> indices_;
@@ -1517,6 +1516,12 @@ class ARROW_EXPORT FieldRef {
   std::string ToString() const;
 
   size_t hash() const;
+  struct Hash {
+    size_t operator()(const FieldRef& ref) const { return ref.hash(); }
+  };
+
+  explicit operator bool() const { return Equals(FieldPath{}); }
+  bool operator!() const { return !Equals(FieldPath{}); }
 
   bool IsFieldPath() const { return util::holds_alternative<FieldPath>(impl_); }
   bool IsName() const { return util::holds_alternative<std::string>(impl_); }
@@ -1526,6 +1531,13 @@ class ARROW_EXPORT FieldRef {
     return true;
   }
 
+  const FieldPath* field_path() const {
+    return IsFieldPath() ? &util::get<FieldPath>(impl_) : NULLPTR;
+  }
+  const std::string* name() const {
+    return IsName() ? &util::get<std::string>(impl_) : NULLPTR;
+  }
+
   /// \brief Retrieve FieldPath of every child field which matches this FieldRef.
   std::vector<FieldPath> FindAll(const Schema& schema) const;
   std::vector<FieldPath> FindAll(const Field& field) const;
@@ -1533,10 +1545,9 @@ class ARROW_EXPORT FieldRef {
   std::vector<FieldPath> FindAll(const FieldVector& fields) const;
 
   /// \brief Convenience function which applies FindAll to arg's type or schema.
+  std::vector<FieldPath> FindAll(const ArrayData& array) const;
   std::vector<FieldPath> FindAll(const Array& array) const;
-  std::vector<FieldPath> FindAll(const ChunkedArray& array) const;
   std::vector<FieldPath> FindAll(const RecordBatch& batch) const;
-  std::vector<FieldPath> FindAll(const Table& table) const;
 
   /// \brief Convenience function: raise an error if matches is empty.
   template <typename T>
@@ -1606,10 +1617,10 @@ class ARROW_EXPORT FieldRef {
   template <typename T>
   Result<GetType<T>> GetOneOrNone(const T& root) const {
     ARROW_ASSIGN_OR_RAISE(auto match, FindOneOrNone(root));
-    if (match) {
-      return match.Get(root).ValueOrDie();
+    if (match.empty()) {
+      return static_cast<GetType<T>>(NULLPTR);
     }
-    return NULLPTR;
+    return match.Get(root).ValueOrDie();
   }
 
  private:
@@ -1669,7 +1680,7 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
   /// \brief The custom key-value metadata, if any
   ///
   /// \return metadata may be null
-  std::shared_ptr<const KeyValueMetadata> metadata() const;
+  const std::shared_ptr<const KeyValueMetadata>& metadata() const;
 
   /// \brief Render a string representation of the schema suitable for debugging
   /// \param[in] show_metadata when true, if KeyValueMetadata is non-empty,

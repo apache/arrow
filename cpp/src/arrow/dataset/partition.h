@@ -26,7 +26,7 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/dataset/filter.h"
+#include "arrow/dataset/expression.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 #include "arrow/util/optional.h"
@@ -63,13 +63,13 @@ class ARROW_DS_EXPORT Partitioning {
   /// produce sub-batches which satisfy mutually exclusive Expressions.
   struct PartitionedBatches {
     RecordBatchVector batches;
-    ExpressionVector expressions;
+    std::vector<Expression> expressions;
   };
   virtual Result<PartitionedBatches> Partition(
       const std::shared_ptr<RecordBatch>& batch) const = 0;
 
   /// \brief Parse a path into a partition expression
-  virtual Result<std::shared_ptr<Expression>> Parse(const std::string& path) const = 0;
+  virtual Result<Expression> Parse(const std::string& path) const = 0;
 
   virtual Result<std::string> Format(const Expression& expr) const = 0;
 
@@ -122,21 +122,13 @@ class ARROW_DS_EXPORT KeyValuePartitioning : public Partitioning {
     std::string name, value;
   };
 
-  static Status VisitKeys(
-      const Expression& expr,
-      const std::function<Status(const std::string& name,
-                                 const std::shared_ptr<Scalar>& value)>& visitor);
-
-  static Result<std::unordered_map<std::string, std::shared_ptr<Scalar>>> GetKeys(
-      const Expression& expr);
-
   static Status SetDefaultValuesFromKeys(const Expression& expr,
                                          RecordBatchProjector* projector);
 
   Result<PartitionedBatches> Partition(
       const std::shared_ptr<RecordBatch>& batch) const override;
 
-  Result<std::shared_ptr<Expression>> Parse(const std::string& path) const override;
+  Result<Expression> Parse(const std::string& path) const override;
 
   Result<std::string> Format(const Expression& expr) const override;
 
@@ -153,7 +145,7 @@ class ARROW_DS_EXPORT KeyValuePartitioning : public Partitioning {
   virtual Result<std::string> FormatValues(const std::vector<Scalar*>& values) const = 0;
 
   /// Convert a Key to a full expression.
-  Result<std::shared_ptr<Expression>> ConvertKey(const Key& key) const;
+  Result<Expression> ConvertKey(const Key& key) const;
 
   ArrayVector dictionaries_;
 };
@@ -215,8 +207,7 @@ class ARROW_DS_EXPORT HivePartitioning : public KeyValuePartitioning {
 /// \brief Implementation provided by lambda or other callable
 class ARROW_DS_EXPORT FunctionPartitioning : public Partitioning {
  public:
-  using ParseImpl =
-      std::function<Result<std::shared_ptr<Expression>>(const std::string&)>;
+  using ParseImpl = std::function<Result<Expression>(const std::string&)>;
 
   using FormatImpl = std::function<Result<std::string>(const Expression&)>;
 
@@ -229,7 +220,7 @@ class ARROW_DS_EXPORT FunctionPartitioning : public Partitioning {
 
   std::string type_name() const override { return name_; }
 
-  Result<std::shared_ptr<Expression>> Parse(const std::string& path) const override {
+  Result<Expression> Parse(const std::string& path) const override {
     return parse_impl_(path);
   }
 
@@ -293,6 +284,23 @@ class ARROW_DS_EXPORT PartitioningOrFactory {
   std::shared_ptr<PartitioningFactory> factory_;
   std::shared_ptr<Partitioning> partitioning_;
 };
+
+/// \brief Assemble lists of indices of identical rows.
+///
+/// \param[in] by A StructArray whose columns will be used as grouping criteria.
+/// \return A StructArray mapping unique rows (in field "values", represented as a
+///         StructArray with the same fields as `by`) to lists of indices where
+///         that row appears (in field "groupings").
+ARROW_DS_EXPORT
+Result<std::shared_ptr<StructArray>> MakeGroupings(const StructArray& by);
+
+/// \brief Produce slices of an Array which correspond to the provided groupings.
+ARROW_DS_EXPORT
+Result<std::shared_ptr<ListArray>> ApplyGroupings(const ListArray& groupings,
+                                                  const Array& array);
+ARROW_DS_EXPORT
+Result<RecordBatchVector> ApplyGroupings(const ListArray& groupings,
+                                         const std::shared_ptr<RecordBatch>& batch);
 
 }  // namespace dataset
 }  // namespace arrow

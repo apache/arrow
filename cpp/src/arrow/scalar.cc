@@ -184,6 +184,20 @@ FixedSizeListScalar::FixedSizeListScalar(std::shared_ptr<Array> value)
     : BaseListScalar(
           value, fixed_size_list(value->type(), static_cast<int32_t>(value->length()))) {}
 
+Result<std::shared_ptr<StructScalar>> StructScalar::Make(
+    ScalarVector values, std::vector<std::string> field_names) {
+  if (values.size() != field_names.size()) {
+    return Status::Invalid("Mismatching number of field names and child scalars");
+  }
+
+  FieldVector fields(field_names.size());
+  for (size_t i = 0; i < fields.size(); ++i) {
+    fields[i] = arrow::field(std::move(field_names[i]), values[i]->type);
+  }
+
+  return std::make_shared<StructScalar>(std::move(values), struct_(std::move(fields)));
+}
+
 Result<std::shared_ptr<Scalar>> StructScalar::field(FieldRef ref) const {
   ARROW_ASSIGN_OR_RAISE(auto path, ref.FindOne(*type));
   if (path.indices().size() != 1) {

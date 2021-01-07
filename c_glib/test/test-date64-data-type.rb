@@ -21,6 +21,11 @@ class TestDate64DataType < Test::Unit::TestCase
     assert_equal(Arrow::Type::DATE64, data_type.id)
   end
 
+  def test_name
+    data_type = Arrow::Date64DataType.new
+    assert_equal("date64", data_type.name)
+  end
+
   def test_to_s
     data_type = Arrow::Date64DataType.new
     assert_equal("date64[ms]", data_type.to_s)

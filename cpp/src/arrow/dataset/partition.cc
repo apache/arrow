@@ -18,31 +18,22 @@
 #include "arrow/dataset/partition.h"
 
 #include <algorithm>
-#include <chrono>
 #include <memory>
-#include <set>
-#include <stack>
 #include <utility>
 #include <vector>
 
 #include "arrow/array/array_base.h"
 #include "arrow/array/array_nested.h"
-#include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_dict.h"
 #include "arrow/compute/api_scalar.h"
+#include "arrow/compute/api_vector.h"
+#include "arrow/compute/cast.h"
 #include "arrow/dataset/dataset_internal.h"
-#include "arrow/dataset/file_base.h"
-#include "arrow/dataset/filter.h"
-#include "arrow/dataset/scanner.h"
-#include "arrow/dataset/scanner_internal.h"
-#include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/scalar.h"
-#include "arrow/util/iterator.h"
+#include "arrow/util/int_util_internal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"
-#include "arrow/util/range.h"
-#include "arrow/util/sort.h"
 #include "arrow/util/string_view.h"
 
 namespace arrow {
@@ -60,8 +51,8 @@ std::shared_ptr<Partitioning> Partitioning::Default() {
 
     std::string type_name() const override { return "default"; }
 
-    Result<std::shared_ptr<Expression>> Parse(const std::string& path) const override {
-      return scalar(true);
+    Result<Expression> Parse(const std::string& path) const override {
+      return literal(true);
     }
 
     Result<std::string> Format(const Expression& expr) const override {
@@ -71,70 +62,36 @@ std::shared_ptr<Partitioning> Partitioning::Default() {
 
     Result<PartitionedBatches> Partition(
         const std::shared_ptr<RecordBatch>& batch) const override {
-      return PartitionedBatches{{batch}, {scalar(true)}};
+      return PartitionedBatches{{batch}, {literal(true)}};
     }
   };
 
   return std::make_shared<DefaultPartitioning>();
 }
 
-Status KeyValuePartitioning::VisitKeys(
-    const Expression& expr,
-    const std::function<Status(const std::string& name,
-                               const std::shared_ptr<Scalar>& value)>& visitor) {
-  return VisitConjunctionMembers(expr, [visitor](const Expression& expr) {
-    if (expr.type() != ExpressionType::COMPARISON) {
-      return Status::OK();
-    }
-
-    const auto& cmp = checked_cast<const ComparisonExpression&>(expr);
-    if (cmp.op() != compute::CompareOperator::EQUAL) {
-      return Status::OK();
-    }
-
-    auto lhs = cmp.left_operand().get();
-    auto rhs = cmp.right_operand().get();
-    if (lhs->type() != ExpressionType::FIELD) std::swap(lhs, rhs);
-
-    if (lhs->type() != ExpressionType::FIELD || rhs->type() != ExpressionType::SCALAR) {
-      return Status::OK();
-    }
-
-    return visitor(checked_cast<const FieldExpression*>(lhs)->name(),
-                   checked_cast<const ScalarExpression*>(rhs)->value());
-  });
-}
-
-Result<std::unordered_map<std::string, std::shared_ptr<Scalar>>>
-KeyValuePartitioning::GetKeys(const Expression& expr) {
-  std::unordered_map<std::string, std::shared_ptr<Scalar>> keys;
-  RETURN_NOT_OK(
-      VisitKeys(expr, [&](const std::string& name, const std::shared_ptr<Scalar>& value) {
-        keys.emplace(name, value);
-        return Status::OK();
-      }));
-  return keys;
-}
-
 Status KeyValuePartitioning::SetDefaultValuesFromKeys(const Expression& expr,
                                                       RecordBatchProjector* projector) {
-  return KeyValuePartitioning::VisitKeys(
-      expr, [projector](const std::string& name, const std::shared_ptr<Scalar>& value) {
-        ARROW_ASSIGN_OR_RAISE(auto match,
-                              FieldRef(name).FindOneOrNone(*projector->schema()));
-        if (!match) {
-          return Status::OK();
-        }
-        return projector->SetDefaultValue(match, value);
-      });
+  ARROW_ASSIGN_OR_RAISE(auto known_values, ExtractKnownFieldValues(expr));
+  for (const auto& ref_value : known_values) {
+    if (!ref_value.second.is_scalar()) {
+      return Status::Invalid("non-scalar partition key ", ref_value.second.ToString());
+    }
+
+    ARROW_ASSIGN_OR_RAISE(auto match,
+                          ref_value.first.FindOneOrNone(*projector->schema()));
+
+    if (match.empty()) continue;
+    RETURN_NOT_OK(projector->SetDefaultValue(match, ref_value.second.scalar()));
+  }
+  return Status::OK();
 }
 
-inline std::shared_ptr<Expression> ConjunctionFromGroupingRow(Scalar* row) {
+inline Expression ConjunctionFromGroupingRow(Scalar* row) {
   ScalarVector* values = &checked_cast<StructScalar*>(row)->value;
-  ExpressionVector equality_expressions(values->size());
+  std::vector<Expression> equality_expressions(values->size());
   for (size_t i = 0; i < values->size(); ++i) {
     const std::string& name = row->type->field(static_cast<int>(i))->name();
-    equality_expressions[i] = equal(field_ref(name), scalar(std::move(values->at(i))));
+    equality_expressions[i] = equal(field_ref(name), literal(std::move(values->at(i))));
   }
   return and_(std::move(equality_expressions));
 }
@@ -148,17 +105,16 @@ Result<Partitioning::PartitionedBatches> KeyValuePartitioning::Partition(
   for (const auto& partition_field : schema_->fields()) {
     ARROW_ASSIGN_OR_RAISE(
         auto match, FieldRef(partition_field->name()).FindOneOrNone(*rest->schema()))
+    if (match.empty()) continue;
 
-    if (match) {
-      by_fields.push_back(partition_field);
-      by_columns.push_back(rest->column(match[0]));
-      ARROW_ASSIGN_OR_RAISE(rest, rest->RemoveColumn(match[0]));
-    }
+    by_fields.push_back(partition_field);
+    by_columns.push_back(rest->column(match[0]));
+    ARROW_ASSIGN_OR_RAISE(rest, rest->RemoveColumn(match[0]));
   }
 
   if (by_fields.empty()) {
     // no fields to group by; return the whole batch
-    return PartitionedBatches{{batch}, {scalar(true)}};
+    return PartitionedBatches{{batch}, {literal(true)}};
   }
 
   ARROW_ASSIGN_OR_RAISE(auto by,
@@ -179,11 +135,10 @@ Result<Partitioning::PartitionedBatches> KeyValuePartitioning::Partition(
   return out;
 }
 
-Result<std::shared_ptr<Expression>> KeyValuePartitioning::ConvertKey(
-    const Key& key) const {
+Result<Expression> KeyValuePartitioning::ConvertKey(const Key& key) const {
   ARROW_ASSIGN_OR_RAISE(auto match, FieldRef(key.name).FindOneOrNone(*schema_));
-  if (!match) {
-    return scalar(true);
+  if (match.empty()) {
+    return literal(true);
   }
 
   auto field_index = match[0];
@@ -220,18 +175,15 @@ Result<std::shared_ptr<Expression>> KeyValuePartitioning::ConvertKey(
     ARROW_ASSIGN_OR_RAISE(converted, Scalar::Parse(field->type(), key.value));
   }
 
-  return equal(field_ref(field->name()), scalar(std::move(converted)));
+  return equal(field_ref(field->name()), literal(std::move(converted)));
 }
 
-Result<std::shared_ptr<Expression>> KeyValuePartitioning::Parse(
-    const std::string& path) const {
-  ExpressionVector expressions;
+Result<Expression> KeyValuePartitioning::Parse(const std::string& path) const {
+  std::vector<Expression> expressions;
 
   for (const Key& key : ParseKeys(path)) {
     ARROW_ASSIGN_OR_RAISE(auto expr, ConvertKey(key));
-
-    if (expr->Equals(true)) continue;
-
+    if (expr == literal(true)) continue;
     expressions.push_back(std::move(expr));
   }
 
@@ -241,20 +193,25 @@ Result<std::shared_ptr<Expression>> KeyValuePartitioning::Parse(
 Result<std::string> KeyValuePartitioning::Format(const Expression& expr) const {
   std::vector<Scalar*> values{static_cast<size_t>(schema_->num_fields()), nullptr};
 
-  RETURN_NOT_OK(VisitKeys(expr, [&](const std::string& name,
-                                    const std::shared_ptr<Scalar>& value) {
-    ARROW_ASSIGN_OR_RAISE(auto match, FieldRef(name).FindOneOrNone(*schema_));
-    if (match) {
-      const auto& field = schema_->field(match[0]);
-      if (!value->type->Equals(field->type())) {
-        return Status::TypeError("scalar ", value->ToString(), " (of type ", *value->type,
-                                 ") is invalid for ", field->ToString());
-      }
-
-      values[match[0]] = value.get();
+  ARROW_ASSIGN_OR_RAISE(auto known_values, ExtractKnownFieldValues(expr));
+  for (const auto& ref_value : known_values) {
+    if (!ref_value.second.is_scalar()) {
+      return Status::Invalid("non-scalar partition key ", ref_value.second.ToString());
     }
-    return Status::OK();
-  }));
+
+    ARROW_ASSIGN_OR_RAISE(auto match, ref_value.first.FindOneOrNone(*schema_));
+    if (match.empty()) continue;
+
+    const auto& value = ref_value.second.scalar();
+
+    const auto& field = schema_->field(match[0]);
+    if (!value->type->Equals(field->type())) {
+      return Status::TypeError("scalar ", value->ToString(), " (of type ", *value->type,
+                               ") is invalid for ", field->ToString());
+    }
+
+    values[match[0]] = value.get();
+  }
 
   return FormatValues(values);
 }
@@ -571,6 +528,193 @@ Result<std::shared_ptr<Schema>> PartitioningOrFactory::GetOrInferSchema(
   }
 
   return factory()->Inspect(paths);
+}
+
+// Transform an array of counts to offsets which will divide a ListArray
+// into an equal number of slices with corresponding lengths.
+inline Result<std::shared_ptr<Array>> CountsToOffsets(
+    std::shared_ptr<Int64Array> counts) {
+  Int32Builder offset_builder;
+  RETURN_NOT_OK(offset_builder.Resize(counts->length() + 1));
+  offset_builder.UnsafeAppend(0);
+
+  for (int64_t i = 0; i < counts->length(); ++i) {
+    DCHECK_NE(counts->Value(i), 0);
+    auto next_offset = static_cast<int32_t>(offset_builder[i] + counts->Value(i));
+    offset_builder.UnsafeAppend(next_offset);
+  }
+
+  std::shared_ptr<Array> offsets;
+  RETURN_NOT_OK(offset_builder.Finish(&offsets));
+  return offsets;
+}
+
+// Helper for simultaneous dictionary encoding of multiple arrays.
+//
+// The fused dictionary is the Cartesian product of the individual dictionaries.
+// For example given two arrays A, B where A has unique values ["ex", "why"]
+// and B has unique values [0, 1] the fused dictionary is the set of tuples
+// [["ex", 0], ["ex", 1], ["why", 0], ["ex", 1]].
+//
+// TODO(bkietz) this capability belongs in an Action of the hash kernels, where
+// it can be used to group aggregates without materializing a grouped batch.
+// For the purposes of writing we need the materialized grouped batch anyway
+// since no Writers accept a selection vector.
+class StructDictionary {
+ public:
+  struct Encoded {
+    std::shared_ptr<Int32Array> indices;
+    std::shared_ptr<StructDictionary> dictionary;
+  };
+
+  static Result<Encoded> Encode(const ArrayVector& columns) {
+    Encoded out{nullptr, std::make_shared<StructDictionary>()};
+
+    for (const auto& column : columns) {
+      if (column->null_count() != 0) {
+        return Status::NotImplemented("Grouping on a field with nulls");
+      }
+
+      RETURN_NOT_OK(out.dictionary->AddOne(column, &out.indices));
+    }
+
+    return out;
+  }
+
+  Result<std::shared_ptr<StructArray>> Decode(std::shared_ptr<Int32Array> fused_indices,
+                                              FieldVector fields) {
+    std::vector<Int32Builder> builders(dictionaries_.size());
+    for (Int32Builder& b : builders) {
+      RETURN_NOT_OK(b.Resize(fused_indices->length()));
+    }
+
+    std::vector<int32_t> codes(dictionaries_.size());
+    for (int64_t i = 0; i < fused_indices->length(); ++i) {
+      Expand(fused_indices->Value(i), codes.data());
+
+      auto builder_it = builders.begin();
+      for (int32_t index : codes) {
+        builder_it++->UnsafeAppend(index);
+      }
+    }
+
+    ArrayVector columns(dictionaries_.size());
+    for (size_t i = 0; i < dictionaries_.size(); ++i) {
+      std::shared_ptr<ArrayData> indices;
+      RETURN_NOT_OK(builders[i].FinishInternal(&indices));
+
+      ARROW_ASSIGN_OR_RAISE(Datum column, compute::Take(dictionaries_[i], indices));
+      columns[i] = column.make_array();
+    }
+
+    return StructArray::Make(std::move(columns), std::move(fields));
+  }
+
+ private:
+  Status AddOne(Datum column, std::shared_ptr<Int32Array>* fused_indices) {
+    ArrayData* encoded;
+    if (column.type()->id() != Type::DICTIONARY) {
+      ARROW_ASSIGN_OR_RAISE(column, compute::DictionaryEncode(column));
+    }
+    encoded = column.mutable_array();
+
+    auto indices =
+        std::make_shared<Int32Array>(encoded->length, std::move(encoded->buffers[1]));
+
+    dictionaries_.push_back(MakeArray(std::move(encoded->dictionary)));
+    auto dictionary_size = static_cast<int32_t>(dictionaries_.back()->length());
+
+    if (*fused_indices == nullptr) {
+      *fused_indices = std::move(indices);
+      size_ = dictionary_size;
+      return Status::OK();
+    }
+
+    // It's useful to think about the case where each of dictionaries_ has size 10.
+    // In this case the decimal digit in the ones place is the code in dictionaries_[0],
+    // the tens place corresponds to dictionaries_[1], etc.
+    // The incumbent indices must be shifted to the hundreds place so as not to collide.
+    ARROW_ASSIGN_OR_RAISE(Datum new_fused_indices,
+                          compute::Multiply(indices, MakeScalar(size_)));
+
+    ARROW_ASSIGN_OR_RAISE(new_fused_indices,
+                          compute::Add(new_fused_indices, *fused_indices));
+
+    *fused_indices = checked_pointer_cast<Int32Array>(new_fused_indices.make_array());
+
+    // XXX should probably cap this at 2**15 or so
+    ARROW_CHECK(!internal::MultiplyWithOverflow(size_, dictionary_size, &size_));
+    return Status::OK();
+  }
+
+  // expand a fused code into component dict codes, order is in order of addition
+  void Expand(int32_t fused_code, int32_t* codes) {
+    for (size_t i = 0; i < dictionaries_.size(); ++i) {
+      auto dictionary_size = static_cast<int32_t>(dictionaries_[i]->length());
+      codes[i] = fused_code % dictionary_size;
+      fused_code /= dictionary_size;
+    }
+  }
+
+  int32_t size_;
+  ArrayVector dictionaries_;
+};
+
+Result<std::shared_ptr<StructArray>> MakeGroupings(const StructArray& by) {
+  if (by.num_fields() == 0) {
+    return Status::NotImplemented("Grouping with no criteria");
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto fused, StructDictionary::Encode(by.fields()));
+
+  ARROW_ASSIGN_OR_RAISE(auto sort_indices, compute::SortIndices(*fused.indices));
+  ARROW_ASSIGN_OR_RAISE(Datum sorted, compute::Take(fused.indices, *sort_indices));
+  fused.indices = checked_pointer_cast<Int32Array>(sorted.make_array());
+
+  ARROW_ASSIGN_OR_RAISE(auto fused_counts_and_values,
+                        compute::ValueCounts(fused.indices));
+  fused.indices.reset();
+
+  auto unique_fused_indices =
+      checked_pointer_cast<Int32Array>(fused_counts_and_values->GetFieldByName("values"));
+  ARROW_ASSIGN_OR_RAISE(
+      auto unique_rows,
+      fused.dictionary->Decode(std::move(unique_fused_indices), by.type()->fields()));
+
+  auto counts =
+      checked_pointer_cast<Int64Array>(fused_counts_and_values->GetFieldByName("counts"));
+  ARROW_ASSIGN_OR_RAISE(auto offsets, CountsToOffsets(std::move(counts)));
+
+  ARROW_ASSIGN_OR_RAISE(auto grouped_sort_indices,
+                        ListArray::FromArrays(*offsets, *sort_indices));
+
+  return StructArray::Make(
+      ArrayVector{std::move(unique_rows), std::move(grouped_sort_indices)},
+      std::vector<std::string>{"values", "groupings"});
+}
+
+Result<std::shared_ptr<ListArray>> ApplyGroupings(const ListArray& groupings,
+                                                  const Array& array) {
+  ARROW_ASSIGN_OR_RAISE(Datum sorted,
+                        compute::Take(array, groupings.data()->child_data[0]));
+
+  return std::make_shared<ListArray>(list(array.type()), groupings.length(),
+                                     groupings.value_offsets(), sorted.make_array());
+}
+
+Result<RecordBatchVector> ApplyGroupings(const ListArray& groupings,
+                                         const std::shared_ptr<RecordBatch>& batch) {
+  ARROW_ASSIGN_OR_RAISE(Datum sorted,
+                        compute::Take(batch, groupings.data()->child_data[0]));
+
+  const auto& sorted_batch = *sorted.record_batch();
+
+  RecordBatchVector out(static_cast<size_t>(groupings.length()));
+  for (size_t i = 0; i < out.size(); ++i) {
+    out[i] = sorted_batch.Slice(groupings.value_offset(i), groupings.value_length(i));
+  }
+
+  return out;
 }
 
 }  // namespace dataset

@@ -405,6 +405,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CFieldRef()
         CFieldRef(c_string name)
         CFieldRef(int index)
+        const c_string* name() const
+
+    cdef cppclass CFieldRefHash" arrow::FieldRef::Hash":
+        pass
 
     cdef cppclass CStructType" arrow::StructType"(CDataType):
         CStructType(const vector[shared_ptr[CField]]& fields)
@@ -1809,6 +1813,25 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CPartitionNthOptions(int64_t pivot)
         int64_t pivot
 
+    ctypedef enum CSortOrder" arrow::compute::SortOrder":
+        CSortOrder_Ascending \
+            "arrow::compute::SortOrder::Ascending"
+        CSortOrder_Descending \
+            "arrow::compute::SortOrder::Descending"
+
+    cdef cppclass CArraySortOptions \
+            "arrow::compute::ArraySortOptions"(CFunctionOptions):
+        CSortOrder order
+
+    cdef cppclass CSortKey" arrow::compute::SortKey":
+        CSortKey(c_string name, CSortOrder order)
+        c_string name
+        CSortOrder order
+
+    cdef cppclass CSortOptions \
+            "arrow::compute::SortOptions"(CFunctionOptions):
+        vector[CSortKey] sort_keys
+
     enum DatumType" arrow::Datum::type":
         DatumType_NONE" arrow::Datum::NONE"
         DatumType_SCALAR" arrow::Datum::SCALAR"
@@ -1826,13 +1849,14 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CDatum(const shared_ptr[CRecordBatch]& value)
         CDatum(const shared_ptr[CTable]& value)
 
-        DatumType kind()
+        DatumType kind() const
+        c_string ToString() const
 
-        shared_ptr[CArrayData] array()
-        shared_ptr[CChunkedArray] chunked_array()
-        shared_ptr[CRecordBatch] record_batch()
-        shared_ptr[CTable] table()
-        shared_ptr[CScalar] scalar()
+        const shared_ptr[CArrayData]& array() const
+        const shared_ptr[CChunkedArray]& chunked_array() const
+        const shared_ptr[CRecordBatch]& record_batch() const
+        const shared_ptr[CTable]& table() const
+        const shared_ptr[CScalar]& scalar() const
 
     cdef cppclass CSetLookupOptions \
             "arrow::compute::SetLookupOptions"(CFunctionOptions):

@@ -648,7 +648,8 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
     // Decide if we need to preallocate memory for this kernel
     validity_preallocated_ =
         (kernel_->null_handling != NullHandling::COMPUTED_NO_PREALLOCATE &&
-         kernel_->null_handling != NullHandling::OUTPUT_NOT_NULL);
+         kernel_->null_handling != NullHandling::OUTPUT_NOT_NULL &&
+         output_descr_.type->id() != Type::NA);
     if (kernel_->mem_allocation == MemAllocation::PREALLOCATE) {
       ComputeDataPreallocate(*output_descr_.type, &data_preallocated_);
     }

@@ -2985,7 +2985,7 @@ garrow_binary_array_builder_append_value_bytes(GArrowBinaryArrayBuilder *builder
 
 /**
  * garrow_binary_array_builder_append_values:
- * @builder: A #GArrowLargeBinaryArrayBuilder.
+ * @builder: A #GArrowBinaryArrayBuilder.
  * @values: (array length=values_length): The array of #GBytes.
  * @values_length: The length of @values.
  * @is_valids: (nullable) (array length=is_valids_length): The array of
@@ -3506,7 +3506,7 @@ garrow_fixed_size_binary_array_builder_class_init(
 
 /**
  * garrow_fixed_size_binary_array_builder_new:
- * @data_type: A #GArrowFixedSizeDataType for created array.
+ * @data_type: A #GArrowFixedSizeBinaryDataType for created array.
  *
  * Returns: A newly created #GArrowFixedSizeBinaryArrayBuilder.
  */
@@ -3681,7 +3681,6 @@ garrow_fixed_size_binary_array_builder_append_values_packed(
      error,
      "[fixed-size-binary-array-builder][append-values-packed]");
 }
-
 
 
 G_DEFINE_TYPE(GArrowDate32ArrayBuilder,

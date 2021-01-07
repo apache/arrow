@@ -21,6 +21,7 @@
 #include "arrow/compute/cast.h"           // IWYU pragma: export
 #include "arrow/compute/cast_internal.h"  // IWYU pragma: export
 #include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/util_internal.h"
 
 namespace arrow {
 
@@ -54,12 +55,14 @@ void OutputAllNull(KernelContext* ctx, const ExecBatch& batch, Datum* out);
 
 void CastFromNull(KernelContext* ctx, const ExecBatch& batch, Datum* out);
 
-// Adds a cast function where the functor is defined and the input and output
-// types have a type_singleton
+// Adds a cast function where CastFunctor is specialized and the input and output
+// types are parameter free (have a type_singleton). Scalar inputs are handled by
+// wrapping with TrivialScalarUnaryAsArraysExec.
 template <typename InType, typename OutType>
 void AddSimpleCast(InputType in_ty, OutputType out_ty, CastFunction* func) {
-  DCHECK_OK(func->AddKernel(InType::type_id, {in_ty}, out_ty,
-                            CastFunctor<OutType, InType>::Exec));
+  DCHECK_OK(func->AddKernel(
+      InType::type_id, {in_ty}, out_ty,
+      TrivialScalarUnaryAsArraysExec(CastFunctor<OutType, InType>::Exec)));
 }
 
 void ZeroCopyCastExec(KernelContext* ctx, const ExecBatch& batch, Datum* out);

@@ -30,12 +30,10 @@
 #include <vector>
 
 #include "arrow/array.h"
-#include "arrow/chunked_array.h"
 #include "arrow/compare.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
-#include "arrow/table.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/hash_util.h"
 #include "arrow/util/hashing.h"
@@ -885,19 +883,20 @@ size_t FieldPath::hash() const {
 }
 
 std::string FieldPath::ToString() const {
+  if (this->indices().empty()) {
+    return "FieldPath(empty)";
+  }
+
   std::string repr = "FieldPath(";
   for (auto index : this->indices()) {
     repr += std::to_string(index) + " ";
   }
-  repr.resize(repr.size() - 1);
-  repr += ")";
+  repr.back() = ')';
   return repr;
 }
 
 struct FieldPathGetImpl {
   static const DataType& GetType(const ArrayData& data) { return *data.type; }
-
-  static const DataType& GetType(const ChunkedArray& array) { return *array.type(); }
 
   static void Summarize(const FieldVector& fields, std::stringstream* ss) {
     *ss << "{ ";
@@ -954,6 +953,10 @@ struct FieldPathGetImpl {
     int depth = 0;
     const T* out;
     for (int index : path->indices()) {
+      if (children == nullptr) {
+        return Status::NotImplemented("Get child data of non-struct array");
+      }
+
       if (index < 0 || static_cast<size_t>(index) >= children->size()) {
         *out_of_range_depth = depth;
         return nullptr;
@@ -991,32 +994,11 @@ struct FieldPathGetImpl {
                                                 const ArrayDataVector& child_data) {
     return FieldPathGetImpl::Get(
         path, &child_data,
-        [](const std::shared_ptr<ArrayData>& data) { return &data->child_data; });
-  }
-
-  static Result<std::shared_ptr<ChunkedArray>> Get(
-      const FieldPath* path, const ChunkedArrayVector& columns_arg) {
-    ChunkedArrayVector columns = columns_arg;
-
-    return FieldPathGetImpl::Get(
-        path, &columns, [&](const std::shared_ptr<ChunkedArray>& a) {
-          columns.clear();
-
-          for (int i = 0; i < a->type()->num_fields(); ++i) {
-            ArrayVector child_chunks;
-
-            for (const auto& chunk : a->chunks()) {
-              auto child_chunk = MakeArray(chunk->data()->child_data[i]);
-              child_chunks.push_back(std::move(child_chunk));
-            }
-
-            auto child_column = std::make_shared<ChunkedArray>(
-                std::move(child_chunks), a->type()->field(i)->type());
-
-            columns.emplace_back(std::move(child_column));
+        [](const std::shared_ptr<ArrayData>& data) -> const ArrayDataVector* {
+          if (data->type->id() != Type::STRUCT) {
+            return nullptr;
           }
-
-          return &columns;
+          return &data->child_data;
         });
   }
 };
@@ -1039,11 +1021,19 @@ Result<std::shared_ptr<Field>> FieldPath::Get(const FieldVector& fields) const {
 
 Result<std::shared_ptr<Array>> FieldPath::Get(const RecordBatch& batch) const {
   ARROW_ASSIGN_OR_RAISE(auto data, FieldPathGetImpl::Get(this, batch.column_data()));
-  return MakeArray(data);
+  return MakeArray(std::move(data));
 }
 
-Result<std::shared_ptr<ChunkedArray>> FieldPath::Get(const Table& table) const {
-  return FieldPathGetImpl::Get(this, table.columns());
+Result<std::shared_ptr<Array>> FieldPath::Get(const Array& array) const {
+  ARROW_ASSIGN_OR_RAISE(auto data, Get(*array.data()));
+  return MakeArray(std::move(data));
+}
+
+Result<std::shared_ptr<ArrayData>> FieldPath::Get(const ArrayData& data) const {
+  if (data.type->id() != Type::STRUCT) {
+    return Status::NotImplemented("Get child data of non-struct array");
+  }
+  return FieldPathGetImpl::Get(this, data.child_data);
 }
 
 FieldRef::FieldRef(FieldPath indices) : impl_(std::move(indices)) {
@@ -1291,20 +1281,16 @@ std::vector<FieldPath> FieldRef::FindAll(const FieldVector& fields) const {
   return util::visit(Visitor{fields}, impl_);
 }
 
-std::vector<FieldPath> FieldRef::FindAll(const Array& array) const {
-  return FindAll(*array.type());
+std::vector<FieldPath> FieldRef::FindAll(const ArrayData& array) const {
+  return FindAll(*array.type);
 }
 
-std::vector<FieldPath> FieldRef::FindAll(const ChunkedArray& array) const {
+std::vector<FieldPath> FieldRef::FindAll(const Array& array) const {
   return FindAll(*array.type());
 }
 
 std::vector<FieldPath> FieldRef::FindAll(const RecordBatch& batch) const {
   return FindAll(*batch.schema());
-}
-
-std::vector<FieldPath> FieldRef::FindAll(const Table& table) const {
-  return FindAll(*table.schema());
 }
 
 void PrintTo(const FieldRef& ref, std::ostream* os) { *os << ref.ToString(); }
@@ -1333,7 +1319,7 @@ Schema::Schema(std::vector<std::shared_ptr<Field>> fields,
 Schema::Schema(const Schema& schema)
     : detail::Fingerprintable(), impl_(new Impl(*schema.impl_)) {}
 
-Schema::~Schema() {}
+Schema::~Schema() = default;
 
 int Schema::num_fields() const { return static_cast<int>(impl_->fields_.size()); }
 
@@ -1476,7 +1462,7 @@ std::shared_ptr<Schema> Schema::WithMetadata(
   return std::make_shared<Schema>(impl_->fields_, metadata);
 }
 
-std::shared_ptr<const KeyValueMetadata> Schema::metadata() const {
+const std::shared_ptr<const KeyValueMetadata>& Schema::metadata() const {
   return impl_->metadata_;
 }
 

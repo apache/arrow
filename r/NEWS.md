@@ -29,6 +29,7 @@
 
 ## Enhancements
 
+* Arithmetic operations (`+`, `*`, etc.) are supported on Arrays and ChunkedArrays and can be used in filter expressions in Arrow `dplyr` pipelines
 * Table columns can now be added, replaced, or removed by assigning (`<-`) with either `$` or `[[`
 * Column names of Tables and RecordBatches can be renamed by assigning `names()`
 * Large string types can now be written to Parquet files
