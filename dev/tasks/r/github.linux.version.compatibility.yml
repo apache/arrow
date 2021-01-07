@@ -96,6 +96,7 @@ jobs:
       - name: Setup our testing directory, copy only the tests to it.
         run: |
           mkdir -p extra-tests/files
+          cp arrow/r/extra-tests/helper*.R extra-tests/
           cp arrow/r/extra-tests/test-*.R extra-tests/
       - name: Download artifacts
         uses: actions/download-artifact@v2
