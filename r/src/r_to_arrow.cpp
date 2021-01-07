@@ -310,13 +310,13 @@ class RPrimitiveConverter<
     auto rtype = GetVectorType(x);
     switch (rtype) {
       case UINT8:
-        return AppendRangeImpl<unsigned char>(x, start, size);
+        return AppendRangeDispatch<unsigned char>(x, start, size);
       case INT32:
-        return AppendRangeImpl<int>(x, start, size);
+        return AppendRangeDispatch<int>(x, start, size);
       case FLOAT64:
-        return AppendRangeImpl<double>(x, start, size);
+        return AppendRangeDispatch<double>(x, start, size);
       case INT64:
-        return AppendRangeImpl<int64_t>(x, start, size);
+        return AppendRangeDispatch<int64_t>(x, start, size);
 
       default:
         break;
@@ -327,7 +327,7 @@ class RPrimitiveConverter<
 
  private:
   template <typename r_value_type>
-  Status AppendRangeImpl(SEXP x, R_xlen_t start, R_xlen_t size) {
+  Status AppendRangeLoopDifferentType(SEXP x, R_xlen_t start, R_xlen_t size) {
     RETURN_NOT_OK(this->Reserve(size));
 
     auto append_value = [this](r_value_type value) {
@@ -342,6 +342,88 @@ class RPrimitiveConverter<
     };
     return RVectorVisitor<r_value_type>::Visit(x, start, size, append_null, append_value);
   }
+
+  template <typename r_value_type>
+  Status AppendRangeSameTypeNotALTREP(SEXP x, R_xlen_t start, R_xlen_t size) {
+    const r_value_type* p = reinterpret_cast<const r_value_type*>(DATAPTR_RO(x)) + start;
+    const r_value_type* p_end = p + size;
+
+    auto first_na = std::find_if(p, p_end, is_NA<r_value_type>);
+
+    if (first_na == p_end) {
+      // no nulls, so we can use AppendValues() directly
+      return this->primitive_builder_->AppendValues(p, p_end);
+    }
+
+    // Append all values up until the first NULL
+    RETURN_NOT_OK(this->primitive_builder_->AppendValues(p, first_na));
+
+    // loop for the remaining
+    RETURN_NOT_OK(this->primitive_builder_->Reserve(p_end - first_na));
+    p = first_na;
+    for (; p < p_end; ++p) {
+      r_value_type value = *p;
+      if (is_NA<r_value_type>(value)) {
+        this->primitive_builder_->UnsafeAppendNull();
+      } else {
+        this->primitive_builder_->UnsafeAppend(value);
+      }
+    }
+    return Status::OK();
+  }
+
+  template <typename r_value_type>
+  Status AppendRangeSameTypeALTREP(SEXP x, R_xlen_t start, R_xlen_t size) {
+    // if it is altrep, then we use cpp11 looping
+    // without needing to convert
+    RETURN_NOT_OK(this->primitive_builder_->Reserve(size));
+    cpp11::r_vector<r_value_type> vec(x);
+    auto it = vec.begin() + start;
+    for (R_xlen_t i = 0; i < size; i++, ++it) {
+      r_value_type value = *it;
+      if (is_NA<int64_t>(value)) {
+        this->primitive_builder_->UnsafeAppendNull();
+      } else {
+        this->primitive_builder_->UnsafeAppend(value);
+      }
+    }
+    return Status::OK();
+  }
+
+  template <>
+  Status AppendRangeSameTypeALTREP<int64_t>(SEXP x, R_xlen_t start, R_xlen_t size) {
+    // if it is altrep, then we use cpp11 looping
+    // without needing to convert
+    RETURN_NOT_OK(this->primitive_builder_->Reserve(size));
+    cpp11::r_vector<double> vec(x);
+    auto it = vec.begin() + start;
+    for (R_xlen_t i = 0; i < size; i++, ++it) {
+      double d = *it;
+      int64_t value = *reinterpret_cast<int64_t*>(&d);
+      if (is_NA<int64_t>(value)) {
+        this->primitive_builder_->UnsafeAppendNull();
+      } else {
+        this->primitive_builder_->UnsafeAppend(value);
+      }
+    }
+    return Status::OK();
+  }
+
+  template <typename r_value_type>
+  Status AppendRangeDispatch(SEXP x, R_xlen_t start, R_xlen_t size) {
+    if (std::is_same<typename T::c_type, r_value_type>::value) {
+
+      if (!ALTREP(x)) {
+        return AppendRangeSameTypeNotALTREP<r_value_type>(x, start, size);
+      } else {
+        return AppendRangeSameTypeALTREP<r_value_type>(x, start, size);
+      }
+    }
+
+    // here if underlying types differ so going
+    return AppendRangeLoopDifferentType<r_value_type>(x, start, size);
+  }
+
 };
 
 template <typename T>
@@ -745,6 +827,8 @@ struct RConverterTrait<DictionaryType> {
   using dictionary_type = RDictionaryConverter<T>;
 };
 
+// ---- short circuit the Converter api entirely when we can do zero-copy
+
 // in some situations we can just use the memory of the R object in an RBuffer
 // instead of going through ArrayBuilder, etc ...
 bool can_reuse_memory(SEXP x, const std::shared_ptr<arrow::DataType>& type) {
@@ -845,14 +929,15 @@ std::shared_ptr<arrow::Array> vec_to_arrow(SEXP x, SEXP s_type) {
   }
   options.size = vctrs::short_vec_size(x);
 
+  // maybe short circuit when zero-copy is possible
   if (can_reuse_memory(x, options.type)) {
     return Array__from_vector_reuse_memory(x);
   }
 
+  // otherwise go through the converter api
   auto converter = ValueOrStop(MakeConverter<RConverter, RConverterTrait>(
       options.type, options, gc_memory_pool()));
   StopIfNotOk(converter->AppendRange(x, 0, options.size));
-
   return ValueOrStop(converter->ToArray());
 }
 

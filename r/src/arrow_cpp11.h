@@ -23,6 +23,7 @@
 #undef Free
 
 #include <cpp11.hpp>
+#include <cpp11/altrep.hpp>
 
 #include "./nameof.h"
 
