@@ -315,10 +315,8 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
 
         std::unordered_set<WriteQueue*> need_flushed;
         for (size_t i = 0; i < groups.batches.size(); ++i) {
-          ARROW_ASSIGN_OR_RAISE(
-              auto partition_expression,
-              and_(std::move(groups.expressions[i]), fragment->partition_expression())
-                  .Bind(*scanner->schema()));
+          auto partition_expression =
+              and_(std::move(groups.expressions[i]), fragment->partition_expression());
           auto batch = std::move(groups.batches[i]);
 
           ARROW_ASSIGN_OR_RAISE(auto part,

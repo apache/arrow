@@ -2317,6 +2317,29 @@ def test_write_dataset_partitioned(tempdir):
 
 @pytest.mark.parquet
 @pytest.mark.pandas
+def test_write_dataset_partitioned_dict(tempdir):
+    directory = tempdir / "partitioned"
+    _ = _create_parquet_dataset_partitioned(directory)
+
+    # directory partitioning, dictionary partition columns
+    dataset = ds.dataset(
+        directory,
+        partitioning=ds.HivePartitioning.discover(infer_dictionary=True))
+    target = tempdir / 'partitioned-dir-target'
+    expected_paths = [
+        target / "a", target / "a" / "part-0.feather",
+        target / "b", target / "b" / "part-1.feather"
+    ]
+    partitioning_schema = ds.partitioning(pa.schema([
+        dataset.schema.field('part')]),
+        dictionaries=[pa.array(['a', 'b'])])
+    _check_dataset_roundtrip(
+        dataset, str(target), expected_paths, target,
+        partitioning=partitioning_schema)
+
+
+@pytest.mark.parquet
+@pytest.mark.pandas
 def test_write_dataset_use_threads(tempdir):
     directory = tempdir / "partitioned"
     _ = _create_parquet_dataset_partitioned(directory)

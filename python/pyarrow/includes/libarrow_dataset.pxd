@@ -277,7 +277,8 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CDirectoryPartitioning \
             "arrow::dataset::DirectoryPartitioning"(CPartitioning):
-        CDirectoryPartitioning(shared_ptr[CSchema] schema)
+        CDirectoryPartitioning(shared_ptr[CSchema] schema,
+                               vector[shared_ptr[CArray]] dictionaries)
 
         @staticmethod
         shared_ptr[CPartitioningFactory] MakeFactory(
@@ -285,7 +286,8 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CHivePartitioning \
             "arrow::dataset::HivePartitioning"(CPartitioning):
-        CHivePartitioning(shared_ptr[CSchema] schema)
+        CHivePartitioning(shared_ptr[CSchema] schema,
+                          vector[shared_ptr[CArray]] dictionaries)
 
         @staticmethod
         shared_ptr[CPartitioningFactory] MakeFactory(

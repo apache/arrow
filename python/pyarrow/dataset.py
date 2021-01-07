@@ -88,7 +88,8 @@ def scalar(value):
     return Expression._scalar(value)
 
 
-def partitioning(schema=None, field_names=None, flavor=None):
+def partitioning(schema=None, field_names=None, flavor=None,
+                 dictionaries=None):
     """
     Specify a partitioning scheme.
 
@@ -158,7 +159,7 @@ def partitioning(schema=None, field_names=None, flavor=None):
             if field_names is not None:
                 raise ValueError(
                     "Cannot specify both 'schema' and 'field_names'")
-            return DirectoryPartitioning(schema)
+            return DirectoryPartitioning(schema, dictionaries)
         elif field_names is not None:
             if isinstance(field_names, list):
                 return DirectoryPartitioning.discover(field_names)
@@ -175,7 +176,7 @@ def partitioning(schema=None, field_names=None, flavor=None):
             raise ValueError("Cannot specify 'field_names' for flavor 'hive'")
         elif schema is not None:
             if isinstance(schema, pa.Schema):
-                return HivePartitioning(schema)
+                return HivePartitioning(schema, dictionaries)
             else:
                 raise ValueError(
                     "Expected Schema for 'schema', got {}".format(

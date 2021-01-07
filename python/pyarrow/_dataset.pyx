@@ -1433,12 +1433,19 @@ cdef class DirectoryPartitioning(Partitioning):
     cdef:
         CDirectoryPartitioning* directory_partitioning
 
-    def __init__(self, Schema schema not None):
-        cdef shared_ptr[CDirectoryPartitioning] partitioning
-        partitioning = make_shared[CDirectoryPartitioning](
-            pyarrow_unwrap_schema(schema)
+    def __init__(self, Schema schema not None, dictionaries=None):
+        cdef:
+            shared_ptr[CDirectoryPartitioning] c_partitioning
+            vector[shared_ptr[CArray]] c_dictionaries
+
+        for dictionary in dictionaries or []:
+            c_dictionaries.push_back(pyarrow_unwrap_array(dictionary))
+
+        c_partitioning = make_shared[CDirectoryPartitioning](
+            pyarrow_unwrap_schema(schema),
+            c_dictionaries
         )
-        self.init(<shared_ptr[CPartitioning]> partitioning)
+        self.init(<shared_ptr[CPartitioning]> c_partitioning)
 
     cdef init(self, const shared_ptr[CPartitioning]& sp):
         Partitioning.init(self, sp)
@@ -1524,12 +1531,19 @@ cdef class HivePartitioning(Partitioning):
     cdef:
         CHivePartitioning* hive_partitioning
 
-    def __init__(self, Schema schema not None):
-        cdef shared_ptr[CHivePartitioning] partitioning
-        partitioning = make_shared[CHivePartitioning](
-            pyarrow_unwrap_schema(schema)
+    def __init__(self, Schema schema not None, dictionaries=None):
+        cdef:
+            shared_ptr[CHivePartitioning] c_partitioning
+            vector[shared_ptr[CArray]] c_dictionaries
+
+        for dictionary in dictionaries or []:
+            c_dictionaries.push_back(pyarrow_unwrap_array(dictionary))
+
+        c_partitioning = make_shared[CHivePartitioning](
+            pyarrow_unwrap_schema(schema),
+            c_dictionaries
         )
-        self.init(<shared_ptr[CPartitioning]> partitioning)
+        self.init(<shared_ptr[CPartitioning]> c_partitioning)
 
     cdef init(self, const shared_ptr[CPartitioning]& sp):
         Partitioning.init(self, sp)

@@ -90,27 +90,35 @@ ValueDescr Expression::descr() const {
   return CallNotNull(*this)->descr;
 }
 
+namespace {
+
+std::string PrintDatum(const Datum& datum) {
+  if (datum.is_scalar()) {
+    switch (datum.type()->id()) {
+      case Type::STRING:
+      case Type::LARGE_STRING:
+        return '"' +
+               Escape(util::string_view(*datum.scalar_as<BaseBinaryScalar>().value)) +
+               '"';
+
+      case Type::BINARY:
+      case Type::FIXED_SIZE_BINARY:
+      case Type::LARGE_BINARY:
+        return '"' + datum.scalar_as<BaseBinaryScalar>().value->ToHexString() + '"';
+
+      default:
+        break;
+    }
+    return datum.scalar()->ToString();
+  }
+  return datum.ToString();
+}
+
+}  // namespace
+
 std::string Expression::ToString() const {
   if (auto lit = literal()) {
-    if (lit->is_scalar()) {
-      switch (lit->type()->id()) {
-        case Type::STRING:
-        case Type::LARGE_STRING:
-          return '"' +
-                 Escape(util::string_view(*lit->scalar_as<BaseBinaryScalar>().value)) +
-                 '"';
-
-        case Type::BINARY:
-        case Type::FIXED_SIZE_BINARY:
-        case Type::LARGE_BINARY:
-          return '"' + lit->scalar_as<BaseBinaryScalar>().value->ToHexString() + '"';
-
-        default:
-          break;
-      }
-      return lit->scalar()->ToString();
-    }
-    return lit->ToString();
+    return PrintDatum(*lit);
   }
 
   if (auto ref = field_ref()) {
@@ -763,16 +771,7 @@ Status ExtractKnownFieldValuesImpl(
     auto ref = call->arguments[0].field_ref();
     auto lit = call->arguments[1].literal();
 
-    auto it_success = known_values->emplace(*ref, *lit);
-    if (it_success.second) continue;
-
-    // A value was already known for ref; check it
-    auto ref_lit = it_success.first;
-    if (*lit != ref_lit->second) {
-      return Status::Invalid("Conflicting guarantees: (", ref->ToString(),
-                             " == ", lit->ToString(), ") vs (", ref->ToString(),
-                             " == ", ref_lit->second.ToString());
-    }
+    known_values->emplace(*ref, *lit);
   }
 
   conjunction_members->erase(unconsumed_end, conjunction_members->end());
