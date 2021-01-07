@@ -64,10 +64,10 @@ jobs:
 
       ############################ Build & Test ###############################
       - name: Build wheel
-        shell: bash
+        shell: cmd
         run: archery docker run --no-build -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} python-wheel-windows-vs2017
       - name: Test wheel
-        shell: bash
+        shell: cmd
         run: archery docker run --no-pull python-wheel-windows-test
 
       ############################ Artifact Uploading #########################

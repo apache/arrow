@@ -5,24 +5,25 @@ FROM abrarov/msvc-2017
 
 # Install CMake and Ninja
 RUN choco install --no-progress -r -y cmake --installargs 'ADD_CMAKE_TO_PATH=System' && \
-    choco install --no-progress -r -y wget gzip ninja
+    choco install --no-progress -r -y gzip wget ninja
 
 # Install vcpkg
-# ARG vcpkg=a2135fd97e834e83a705b1cff0d91a0e45a0fb00
 ARG vcpkg=50ea8c0ab7aca3bb9245bba7fc877ad2f2a4464c
 RUN git clone https://github.com/Microsoft/vcpkg && \
     git -C vcpkg checkout %vcpkg% && \
     vcpkg\bootstrap-vcpkg.bat -disableMetrics -win64 && \
-    vcpkg\vcpkg.exe integrate install && \
-    setx path "%path%;C:\vcpkg"
+    setx PATH "%PATH%;C:\vcpkg"
 
 # Configure vcpkg and install dependencies
+# NOTE: use windows batch environment notation for build arguments in RUN
+# statements but bash notation in ENV statements
+# VCPKG_FORCE_SYSTEM_BINARIES=1 spare around ~750MB of image size if the system
+# cmake's and ninja's versions are recent enough
+COPY ci/vcpkg arrow/ci/vcpkg
 ARG build_type=release
-ENV VCPKG_DEFAULT_TRIPLET=x64-windows-static-md \
-    VCPKG_PLATFORM_TOOLSET=v141 \
-    VCPKG_BUILD_TYPE=%build_type%
-
-# could spare ~750MB with VCPKG_FORCE_SYSTEM_BINARIES=1
+ENV CMAKE_BUILD_TYPE=${build_type} \
+    VCPKG_OVERLAY_TRIPLETS=C:\\arrow\\ci\\vcpkg \
+    VCPKG_DEFAULT_TRIPLET=x64-windows-static-md-${build_type}
 RUN vcpkg install --clean-after-build \
         abseil \
         aws-sdk-cpp[config,cognito-identity,core,identity-management,s3,sts,transfer] \

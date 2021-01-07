@@ -43,10 +43,15 @@ RUN git clone https://github.com/microsoft/vcpkg /opt/vcpkg && \
     ln -s /opt/vcpkg/vcpkg /usr/bin/vcpkg
 
 # Install dependencies from vcpkg
+COPY ci/vcpkg arrow/ci/vcpkg
 ARG build_type=release
-ENV VCPKG_LIBRARY_LINKAGE=static \
+ENV CMAKE_BUILD_TYPE=${build_type} \
     VCPKG_FORCE_SYSTEM_BINARIES=1 \
-    VCPKG_BUILD_TYPE=${build_type}
+    VCPKG_OVERLAY_TRIPLETS=/arrow/ci/vcpkg \
+    VCPKG_DEFAULT_TRIPLET=x64-linux-static-${build_type}
+
+# TODO(kszucs): factor out the package enumration to a text file and reuse it
+# from the windows image and potentially in a future macos wheel build
 RUN vcpkg install --clean-after-build \
         abseil \
         aws-sdk-cpp[config,cognito-identity,core,identity-management,s3,sts,transfer] \
