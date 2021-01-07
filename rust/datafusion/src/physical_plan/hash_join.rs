@@ -497,7 +497,6 @@ fn build_join_indexes(
     let mut right_indices = UInt32Builder::new(0);
     let buf = &mut Vec::new();
     let hash_values = create_hashes(&keys_values, &random_state, buf)?;
-    println!("{:?}", left);
 
     match join_type {
         JoinType::Inner => {
@@ -592,7 +591,6 @@ fn create_hashes<'a>(
     buf.resize(rows, 0);
 
     let mut hashes = vec![0; rows];
-    println!("{:?}", hashes);
 
     for col in arrays {
         match col.data_type() {
@@ -653,7 +651,6 @@ fn create_hashes<'a>(
                 let array = col.as_any().downcast_ref::<Int32Array>().unwrap();
                 for (i, hash) in hashes.iter_mut().enumerate() {
                     let mut hasher = random_state.build_hasher();
-                    println!("{}", array.value(i));
                     hasher.write_i32(array.value(i));
                     *hash = combine_hashes(hasher.finish(), *hash);
                 }
@@ -704,7 +701,6 @@ fn create_hashes<'a>(
             }
         }
     }
-    println!("{:?}", hashes);
     Ok(hashes)
 }
 
