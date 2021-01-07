@@ -1568,8 +1568,7 @@ def get_generated_json_files(tempdir=None):
 
         generate_custom_metadata_case()
         .skip_category('Go')
-        .skip_category('JS')
-        .skip_category('Rust'),  # TODO(ARROW-10259)
+        .skip_category('JS'),
 
         generate_duplicate_fieldnames_case()
         .skip_category('Go')

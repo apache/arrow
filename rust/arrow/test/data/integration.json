@@ -2,6 +2,31 @@
   "schema": {
     "fields": [
       {
+        "name": "bools-with-metadata-map",
+        "type": {
+          "name": "bool"
+        },
+        "nullable": true,
+        "metadata": {
+          "k": "v"
+        },
+        "children": []
+      },
+      {
+        "name": "bools-with-metadata-vec",
+        "type": {
+          "name": "bool"
+        },
+        "nullable": true,
+        "metadata": [
+          {
+            "key": "k2",
+            "value": "v2"
+          }
+        ],
+        "children": []
+      },
+      {
         "name": "bools",
         "type": {
           "name": "bool"
@@ -301,6 +326,34 @@
     {
       "count": 3,
       "columns": [
+        {
+          "name": "bools-with-metadata-map",
+          "count": 3,
+          "VALIDITY": [
+            1,
+            0,
+            1
+          ],
+          "DATA": [
+            true,
+            true,
+            false
+          ]
+        },
+        {
+          "name": "bools-with-metadata-vec",
+          "count": 3,
+          "VALIDITY": [
+            1,
+            0,
+            1
+          ],
+          "DATA": [
+            true,
+            true,
+            false
+          ]
+        },
         {
           "name": "bools",
           "count": 3,

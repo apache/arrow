@@ -22,6 +22,7 @@
 //!  * [`Field`](crate::datatypes::Field) to describe one field within a schema.
 //!  * [`DataType`](crate::datatypes::DataType) to describe the type of a field.
 
+use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::default::Default;
 use std::fmt;
@@ -193,6 +194,9 @@ pub struct Field {
     nullable: bool,
     dict_id: i64,
     dict_is_ordered: bool,
+    /// A map of key-value pairs containing additional custom meta data.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    metadata: Option<BTreeMap<String, String>>,
 }
 
 pub trait ArrowNativeType:
@@ -1279,6 +1283,7 @@ impl Field {
             nullable,
             dict_id: 0,
             dict_is_ordered: false,
+            metadata: None,
         }
     }
 
@@ -1296,7 +1301,27 @@ impl Field {
             nullable,
             dict_id,
             dict_is_ordered,
+            metadata: None,
         }
+    }
+
+    /// Sets the `Field`'s optional custom metadata.
+    /// The metadata is set as `None` for empty map.
+    #[inline]
+    pub fn set_metadata(&mut self, metadata: Option<BTreeMap<String, String>>) {
+        // To make serde happy, convert Some(empty_map) to None.
+        self.metadata = None;
+        if let Some(v) = metadata {
+            if !v.is_empty() {
+                self.metadata = Some(v);
+            }
+        }
+    }
+
+    /// Returns the immutable reference to the `Field`'s optional custom metadata.
+    #[inline]
+    pub const fn metadata(&self) -> &Option<BTreeMap<String, String>> {
+        &self.metadata
     }
 
     /// Returns an immutable reference to the `Field`'s name
@@ -1363,6 +1388,68 @@ impl Field {
                         ));
                     }
                 };
+
+                // Referenced example file: testing/data/arrow-ipc-stream/integration/1.0.0-littleendian/generated_custom_metadata.json.gz
+                let metadata = match map.get("metadata") {
+                    Some(&Value::Array(ref values)) => {
+                        let mut res: BTreeMap<String, String> = BTreeMap::new();
+                        for value in values {
+                            match value.as_object() {
+                                Some(map) => {
+                                    if map.len() != 2 {
+                                        return Err(ArrowError::ParseError(
+                                            "Field 'metadata' must have exact two entries for each key-value map".to_string(),
+                                        ));
+                                    }
+                                    if let (Some(k), Some(v)) =
+                                        (map.get("key"), map.get("value"))
+                                    {
+                                        if let (Some(k_str), Some(v_str)) =
+                                            (k.as_str(), v.as_str())
+                                        {
+                                            res.insert(
+                                                k_str.to_string().clone(),
+                                                v_str.to_string().clone(),
+                                            );
+                                        } else {
+                                            return Err(ArrowError::ParseError("Field 'metadata' must have map value of string type".to_string()));
+                                        }
+                                    } else {
+                                        return Err(ArrowError::ParseError("Field 'metadata' lacks map keys named \"key\" or \"value\"".to_string()));
+                                    }
+                                }
+                                _ => {
+                                    return Err(ArrowError::ParseError(
+                                        "Field 'metadata' contains non-object key-value pair".to_string(),
+                                    ));
+                                }
+                            }
+                        }
+                        Some(res)
+                    }
+                    // We also support map format, because Schema's metadata supports this.
+                    // See https://github.com/apache/arrow/pull/5907
+                    Some(&Value::Object(ref values)) => {
+                        let mut res: BTreeMap<String, String> = BTreeMap::new();
+                        for (k, v) in values {
+                            if let Some(str_value) = v.as_str() {
+                                res.insert(k.clone(), str_value.to_string().clone());
+                            } else {
+                                return Err(ArrowError::ParseError(
+                                    format!("Field 'metadata' contains non-string value for key {}", k),
+                                ));
+                            }
+                        }
+                        Some(res)
+                    }
+                    Some(_) => {
+                        return Err(ArrowError::ParseError(
+                            "Field `metadata` is not json array".to_string(),
+                        ));
+                    }
+                    _ => None,
+                };
+
                 // if data_type is a struct or list, get its children
                 let data_type = match data_type {
                     DataType::List(_)
@@ -1461,6 +1548,7 @@ impl Field {
                     data_type,
                     dict_id,
                     dict_is_ordered,
+                    metadata,
                 })
             }
             _ => Err(ArrowError::ParseError(
@@ -1500,6 +1588,7 @@ impl Field {
     }
 
     /// Merge field into self if it is compatible. Struct will be merged recursively.
+    /// NOTE: `self` may be updated to unexpected state in case of merge failure.
     ///
     /// Example:
     ///
@@ -1511,6 +1600,28 @@ impl Field {
     /// assert!(field.is_nullable());
     /// ```
     pub fn try_merge(&mut self, from: &Field) -> Result<()> {
+        // merge metadata
+        match (self.metadata(), from.metadata()) {
+            (Some(self_metadata), Some(from_metadata)) => {
+                let mut merged = self_metadata.clone();
+                for (key, from_value) in from_metadata {
+                    if let Some(self_value) = self_metadata.get(key) {
+                        if self_value != from_value {
+                            return Err(ArrowError::SchemaError(format!(
+                                "Fail to merge field due to conflicting metadata data value for key {}", key),
+                            ));
+                        }
+                    } else {
+                        merged.insert(key.clone(), from_value.clone());
+                    }
+                }
+                self.set_metadata(Some(merged));
+            }
+            (None, Some(from_metadata)) => {
+                self.set_metadata(Some(from_metadata.clone()));
+            }
+            _ => {}
+        }
         if from.dict_id != self.dict_id {
             return Err(ArrowError::SchemaError(
                 "Fail to merge schema Field due to conflicting dict_id".to_string(),
@@ -1614,9 +1725,10 @@ impl Field {
     }
 }
 
+// TODO: improve display with crate https://crates.io/crates/derive_more ?
 impl fmt::Display for Field {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}: {:?}", self.name, self.data_type)
+        write!(f, "{:?}", self)
     }
 }
 
@@ -1973,9 +2085,20 @@ mod tests {
 
     #[test]
     fn serde_struct_type() {
+        let kv_array = [("k".to_string(), "v".to_string())];
+        let field_metadata: BTreeMap<String, String> = kv_array.iter().cloned().collect();
+
+        // Non-empty map: should be converted as JSON obj { ... }
+        let mut first_name = Field::new("first_name", DataType::Utf8, false);
+        first_name.set_metadata(Some(field_metadata));
+
+        // Empty map: should be omitted.
+        let mut last_name = Field::new("last_name", DataType::Utf8, false);
+        last_name.set_metadata(Some(BTreeMap::default()));
+
         let person = DataType::Struct(vec![
-            Field::new("first_name", DataType::Utf8, false),
-            Field::new("last_name", DataType::Utf8, false),
+            first_name,
+            last_name,
             Field::new(
                 "address",
                 DataType::Struct(vec![
@@ -1993,7 +2116,7 @@ mod tests {
 
         assert_eq!(
             "{\"Struct\":[\
-             {\"name\":\"first_name\",\"data_type\":\"Utf8\",\"nullable\":false,\"dict_id\":0,\"dict_is_ordered\":false},\
+             {\"name\":\"first_name\",\"data_type\":\"Utf8\",\"nullable\":false,\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"k\":\"v\"}},\
              {\"name\":\"last_name\",\"data_type\":\"Utf8\",\"nullable\":false,\"dict_id\":0,\"dict_is_ordered\":false},\
              {\"name\":\"address\",\"data_type\":{\"Struct\":\
              [{\"name\":\"street\",\"data_type\":\"Utf8\",\"nullable\":false,\"dict_id\":0,\"dict_is_ordered\":false},\
@@ -2687,12 +2810,14 @@ mod tests {
     #[test]
     fn create_schema_string() {
         let schema = person_schema();
-        assert_eq!(schema.to_string(), "first_name: Utf8, \
-        last_name: Utf8, \
-        address: Struct([\
-        Field { name: \"street\", data_type: Utf8, nullable: false, dict_id: 0, dict_is_ordered: false }, \
-        Field { name: \"zip\", data_type: UInt16, nullable: false, dict_id: 0, dict_is_ordered: false }]), \
-        interests: Dictionary(Int32, Utf8)")
+        assert_eq!(schema.to_string(),
+        "Field { name: \"first_name\", data_type: Utf8, nullable: false, dict_id: 0, dict_is_ordered: false, metadata: Some({\"k\": \"v\"}) }, \
+        Field { name: \"last_name\", data_type: Utf8, nullable: false, dict_id: 0, dict_is_ordered: false, metadata: None }, \
+        Field { name: \"address\", data_type: Struct([\
+            Field { name: \"street\", data_type: Utf8, nullable: false, dict_id: 0, dict_is_ordered: false, metadata: None }, \
+            Field { name: \"zip\", data_type: UInt16, nullable: false, dict_id: 0, dict_is_ordered: false, metadata: None }\
+        ]), nullable: false, dict_id: 0, dict_is_ordered: false, metadata: None }, \
+        Field { name: \"interests\", data_type: Dictionary(Int32, Utf8), nullable: true, dict_id: 123, dict_is_ordered: true, metadata: None }")
     }
 
     #[test]
@@ -2709,6 +2834,14 @@ mod tests {
         assert_eq!(first_name.is_nullable(), false);
         assert_eq!(first_name.dict_id(), None);
         assert_eq!(first_name.dict_is_ordered(), None);
+
+        let metadata = first_name.metadata();
+        assert!(metadata.is_some());
+        let md = metadata.as_ref().unwrap();
+        assert_eq!(md.len(), 1);
+        let key = md.get("k");
+        assert!(key.is_some());
+        assert_eq!(key.unwrap(), "v");
 
         let interests = &schema.fields()[3];
         assert_eq!(interests.name(), "interests");
@@ -2791,6 +2924,20 @@ mod tests {
         assert!(schema2 != schema3);
         assert!(schema2 != schema4);
         assert!(schema3 != schema4);
+
+        let mut f = Field::new("c1", DataType::Utf8, false);
+        f.set_metadata(Some(
+            [("foo".to_string(), "bar".to_string())]
+                .iter()
+                .cloned()
+                .collect(),
+        ));
+        let schema5 = Schema::new(vec![
+            f,
+            Field::new("c2", DataType::Float64, true),
+            Field::new("c3", DataType::LargeBinary, true),
+        ]);
+        assert!(schema1 != schema5);
     }
 
     #[test]
@@ -2816,8 +2963,13 @@ mod tests {
     }
 
     fn person_schema() -> Schema {
+        let kv_array = [("k".to_string(), "v".to_string())];
+        let field_metadata: BTreeMap<String, String> = kv_array.iter().cloned().collect();
+        let mut first_name = Field::new("first_name", DataType::Utf8, false);
+        first_name.set_metadata(Some(field_metadata));
+
         Schema::new(vec![
-            Field::new("first_name", DataType::Utf8, false),
+            first_name,
             Field::new("last_name", DataType::Utf8, false),
             Field::new(
                 "address",
@@ -2835,6 +2987,98 @@ mod tests {
                 true,
             ),
         ])
+    }
+
+    #[test]
+    fn test_try_merge_field_with_metadata() {
+        // 1. Different values for the same key should cause error.
+        let metadata1: BTreeMap<String, String> =
+            [("foo".to_string(), "bar".to_string())]
+                .iter()
+                .cloned()
+                .collect();
+        let mut f1 = Field::new("first_name", DataType::Utf8, false);
+        f1.set_metadata(Some(metadata1));
+
+        let metadata2: BTreeMap<String, String> =
+            [("foo".to_string(), "baz".to_string())]
+                .iter()
+                .cloned()
+                .collect();
+        let mut f2 = Field::new("first_name", DataType::Utf8, false);
+        f2.set_metadata(Some(metadata2));
+
+        assert!(
+            Schema::try_merge(&[Schema::new(vec![f1]), Schema::new(vec![f2])]).is_err()
+        );
+
+        // 2. None + Some
+        let mut f1 = Field::new("first_name", DataType::Utf8, false);
+        let metadata2: BTreeMap<String, String> =
+            [("missing".to_string(), "value".to_string())]
+                .iter()
+                .cloned()
+                .collect();
+        let mut f2 = Field::new("first_name", DataType::Utf8, false);
+        f2.set_metadata(Some(metadata2));
+
+        assert!(f1.try_merge(&f2).is_ok());
+        assert!(f1.metadata.is_some());
+        assert_eq!(f1.metadata.unwrap(), f2.metadata.unwrap());
+
+        // 3. Some + Some
+        let mut f1 = Field::new("first_name", DataType::Utf8, false);
+        f1.set_metadata(Some(
+            [("foo".to_string(), "bar".to_string())]
+                .iter()
+                .cloned()
+                .collect(),
+        ));
+        let mut f2 = Field::new("first_name", DataType::Utf8, false);
+        f2.set_metadata(Some(
+            [("foo2".to_string(), "bar2".to_string())]
+                .iter()
+                .cloned()
+                .collect(),
+        ));
+
+        assert!(f1.try_merge(&f2).is_ok());
+        assert!(f1.metadata.is_some());
+        assert_eq!(
+            f1.metadata.unwrap(),
+            [
+                ("foo".to_string(), "bar".to_string()),
+                ("foo2".to_string(), "bar2".to_string())
+            ]
+            .iter()
+            .cloned()
+            .collect()
+        );
+
+        // 4. Some + None.
+        let mut f1 = Field::new("first_name", DataType::Utf8, false);
+        f1.set_metadata(Some(
+            [("foo".to_string(), "bar".to_string())]
+                .iter()
+                .cloned()
+                .collect(),
+        ));
+        let f2 = Field::new("first_name", DataType::Utf8, false);
+        assert!(f1.try_merge(&f2).is_ok());
+        assert!(f1.metadata.is_some());
+        assert_eq!(
+            f1.metadata.unwrap(),
+            [("foo".to_string(), "bar".to_string())]
+                .iter()
+                .cloned()
+                .collect()
+        );
+
+        // 5. None + None.
+        let mut f1 = Field::new("first_name", DataType::Utf8, false);
+        let f2 = Field::new("first_name", DataType::Utf8, false);
+        assert!(f1.try_merge(&f2).is_ok());
+        assert!(f1.metadata.is_none());
     }
 
     #[test]
