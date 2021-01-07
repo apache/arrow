@@ -57,21 +57,53 @@ build_array_expression <- function(.Generic, e1, e2, ...) {
   if (.Generic %in% names(.unary_function_map)) {
     expr <- array_expression(.unary_function_map[[.Generic]], e1)
   } else {
-    e1 <- .wrap_arrow(e1, .Generic, e2$type)
-    e2 <- .wrap_arrow(e2, .Generic, e1$type)
+    e1 <- .wrap_arrow(e1, .Generic)
+    e2 <- .wrap_arrow(e2, .Generic)
+
+    # In Arrow, "divide" is one function, which does integer division on
+    # integer inputs and floating-point division on floats
+    if (.Generic == "/") {
+      # TODO: omg so many ways it's wrong to assume these types
+      e1 <- cast_array_expression(e1, float64())
+      e2 <- cast_array_expression(e2, float64())
+    } else if (.Generic == "%/%") {
+      # In R, integer division works like floor(float division)
+      out <- build_array_expression("/", e1, e2)
+      return(cast_array_expression(out, int32(), allow_float_truncate = TRUE))
+    } else if (.Generic == "%%") {
+      # {e1 - e2 * ( e1 %/% e2 )}
+      # ^^^ form doesn't work because Ops.Array evaluates eagerly,
+      # but we can build that up
+      quotient <- build_array_expression("%/%", e1, e2)
+      # this cast is to ensure that the result of this and e1 are the same
+      # (autocasting only applies to scalars)
+      base <- cast_array_expression(quotient * e2, e1$type)
+      return(build_array_expression("-", e1, base))
+    }
+
     expr <- array_expression(.binary_function_map[[.Generic]], e1, e2, ...)
   }
   expr
 }
 
-.wrap_arrow <- function(arg, fun, type) {
+cast_array_expression <- function(x, to_type, safe = TRUE, ...) {
+  opts <- list(
+    to_type = to_type,
+    allow_int_overflow = !safe,
+    allow_time_truncate = !safe,
+    allow_float_truncate = !safe
+  )
+  array_expression("cast", x, options = modifyList(opts, list(...)))
+}
+
+.wrap_arrow <- function(arg, fun) {
   if (!inherits(arg, c("ArrowObject", "array_expression"))) {
     # TODO: Array$create if lengths are equal?
     # TODO: these kernels should autocast like the dataset ones do (e.g. int vs. float)
     if (fun == "%in%") {
-      arg <- Array$create(arg, type = type)
+      arg <- Array$create(arg)
     } else {
-      arg <- Scalar$create(arg, type = type)
+      arg <- Scalar$create(arg)
     }
   }
   arg
@@ -91,6 +123,15 @@ build_array_expression <- function(.Generic, e1, e2, ...) {
   "<=" = "less_equal",
   "&" = "and_kleene",
   "|" = "or_kleene",
+  "+" = "add_checked",
+  "-" = "subtract_checked",
+  "*" = "multiply_checked",
+  "/" = "divide_checked",
+  "%/%" = "divide_checked",
+  # we don't actually use divide_checked with `%%`, rather it is rewritten to
+  # use %/% above.
+  "%%" = "divide_checked",
+  # TODO: "^"  (ARROW-11070)
   "%in%" = "is_in_meta_binary"
 )
 
@@ -104,6 +145,16 @@ eval_array_expression <- function(x) {
       a
     }
   })
+  if (length(x$args) == 2L) {
+    # Insert implicit casts
+    if (inherits(x$args[[1]], "Scalar")) {
+      x$args[[1]] <- x$args[[1]]$cast(x$args[[2]]$type)
+    } else if (inherits(x$args[[2]], "Scalar")) {
+      x$args[[2]] <- x$args[[2]]$cast(x$args[[1]]$type)
+    } else if (x$fun == "is_in_meta_binary" && inherits(x$args[[2]], "Array")) {
+      x$args[[2]] <- x$args[[2]]$cast(x$args[[1]]$type)
+    }
+  }
   call_function(x$fun, args = x$args, options = x$options %||% empty_named_list())
 }
 
@@ -160,7 +211,16 @@ print.array_expression <- function(x, ...) {
 #' @export
 Expression <- R6Class("Expression", inherit = ArrowObject,
   public = list(
-    ToString = function() dataset___expr__ToString(self)
+    ToString = function() dataset___expr__ToString(self),
+    cast = function(to_type, safe = TRUE, ...) {
+      opts <- list(
+        to_type = to_type,
+        allow_int_overflow = !safe,
+        allow_time_truncate = !safe,
+        allow_float_truncate = !safe
+      )
+      Expression$create("cast", self, options = modifyList(opts, list(...)))
+    }
   )
 )
 Expression$create <- function(function_name,
@@ -196,6 +256,21 @@ build_dataset_expression <- function(.Generic, e1, e2, ...) {
     if (!inherits(e2, "Expression")) {
       e2 <- Expression$scalar(e2)
     }
+
+    # In Arrow, "divide" is one function, which does integer division on
+    # integer inputs and floating-point division on floats
+    if (.Generic == "/") {
+      # TODO: omg so many ways it's wrong to assume these types
+      e1 <- e1$cast(float64())
+      e2 <- e2$cast(float64())
+    } else if (.Generic == "%/%") {
+      # In R, integer division works like floor(float division)
+      out <- build_dataset_expression("/", e1, e2)
+      return(out$cast(int32(), allow_float_truncate = TRUE))
+    } else if (.Generic == "%%") {
+      return(e1 - e2 * ( e1 %/% e2 ))
+    }
+
     expr <- Expression$create(.binary_function_map[[.Generic]], e1, e2, ...)
   }
   expr

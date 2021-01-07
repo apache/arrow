@@ -5545,22 +5545,6 @@ extern "C" SEXP _arrow_Scalar__ToString(SEXP s_sexp){
 
 // scalar.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Scalar> Scalar__CastTo(const std::shared_ptr<arrow::Scalar>& s, const std::shared_ptr<arrow::DataType>& t);
-extern "C" SEXP _arrow_Scalar__CastTo(SEXP s_sexp, SEXP t_sexp){
-BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<arrow::Scalar>&>::type s(s_sexp);
-	arrow::r::Input<const std::shared_ptr<arrow::DataType>&>::type t(t_sexp);
-	return cpp11::as_sexp(Scalar__CastTo(s, t));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_Scalar__CastTo(SEXP s_sexp, SEXP t_sexp){
-	Rf_error("Cannot call Scalar__CastTo(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-// scalar.cpp
-#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Scalar> StructScalar__field(const std::shared_ptr<arrow::StructScalar>& s, int i);
 extern "C" SEXP _arrow_StructScalar__field(SEXP s_sexp, SEXP i_sexp){
 BEGIN_CPP11
@@ -6617,7 +6601,6 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ipc___RecordBatchStreamWriter__Open", (DL_FUNC) &_arrow_ipc___RecordBatchStreamWriter__Open, 4}, 
 		{ "_arrow_Array__GetScalar", (DL_FUNC) &_arrow_Array__GetScalar, 2}, 
 		{ "_arrow_Scalar__ToString", (DL_FUNC) &_arrow_Scalar__ToString, 1}, 
-		{ "_arrow_Scalar__CastTo", (DL_FUNC) &_arrow_Scalar__CastTo, 2}, 
 		{ "_arrow_StructScalar__field", (DL_FUNC) &_arrow_StructScalar__field, 2}, 
 		{ "_arrow_StructScalar__GetFieldByName", (DL_FUNC) &_arrow_StructScalar__GetFieldByName, 2}, 
 		{ "_arrow_Scalar__as_vector", (DL_FUNC) &_arrow_Scalar__as_vector, 1}, 

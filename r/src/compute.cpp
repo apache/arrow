@@ -185,6 +185,33 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
                                      cpp11::as_cpp<bool>(options["skip_nulls"]));
   }
 
+  // hacky attempt to pass through to_type and other options
+  if (func_name == "cast") {
+    using Options = arrow::compute::CastOptions;
+    auto out = std::make_shared<Options>(true);
+    SEXP to_type = options["to_type"];
+    if (!Rf_isNull(to_type) && cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(to_type)) {
+      out->to_type = cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(to_type);
+    }
+
+    SEXP allow_float_truncate = options["allow_float_truncate"];
+    if (!Rf_isNull(allow_float_truncate) && cpp11::as_cpp<bool>(allow_float_truncate)) {
+      out->allow_float_truncate = cpp11::as_cpp<bool>(allow_float_truncate);
+    }
+
+    SEXP allow_time_truncate = options["allow_time_truncate"];
+    if (!Rf_isNull(allow_time_truncate) && cpp11::as_cpp<bool>(allow_time_truncate)) {
+      out->allow_time_truncate = cpp11::as_cpp<bool>(allow_time_truncate);
+    }
+
+    SEXP allow_int_overflow = options["allow_int_overflow"];
+    if (!Rf_isNull(allow_int_overflow) && cpp11::as_cpp<bool>(allow_int_overflow)) {
+      out->allow_int_overflow = cpp11::as_cpp<bool>(allow_int_overflow);
+    }
+
+    return out;
+  }
+
   return nullptr;
 }
 

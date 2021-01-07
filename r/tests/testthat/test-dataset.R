@@ -523,6 +523,113 @@ test_that("filter() on date32 columns", {
   )
 })
 
+test_that("filter() with expressions", {
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
+  expect_is(ds$format, "ParquetFileFormat")
+  expect_is(ds$filesystem, "LocalFileSystem")
+  expect_is(ds, "Dataset")
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl) %>%
+      filter(dbl * 2 > 14 & dbl - 50 < 3L) %>%
+      collect() %>%
+      arrange(dbl),
+    rbind(
+      df1[8:10, c("chr", "dbl")],
+      df2[1:2, c("chr", "dbl")]
+    )
+  )
+
+  # check division's special casing.
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl) %>%
+      filter(dbl / 2 > 3.5 & dbl < 53) %>%
+      collect() %>%
+      arrange(dbl),
+    rbind(
+      df1[8:10, c("chr", "dbl")],
+      df2[1:2, c("chr", "dbl")]
+    )
+  )
+
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl, int) %>%
+      filter(int %/% 2L > 3 & dbl < 53) %>%
+      collect() %>%
+      arrange(dbl),
+    rbind(
+      df1[8:10, c("chr", "dbl", "int")],
+      df2[1:2, c("chr", "dbl", "int")]
+    )
+  )
+
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl, int) %>%
+      filter(int %/% 2 > 3 & dbl < 53) %>%
+      collect() %>%
+      arrange(dbl),
+    rbind(
+      df1[8:10, c("chr", "dbl", "int")],
+      df2[1:2, c("chr", "dbl", "int")]
+    )
+  )
+
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl, int) %>%
+      filter(int %% 2L > 0 & dbl < 53) %>%
+      collect() %>%
+      arrange(dbl),
+    rbind(
+      df1[c(1, 3, 5, 7, 9), c("chr", "dbl", "int")],
+      df2[1, c("chr", "dbl", "int")]
+    )
+  )
+
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl, int) %>%
+      filter(int %% 2L > 0 & dbl < 53) %>%
+      collect() %>%
+      arrange(dbl),
+    rbind(
+      df1[c(1, 3, 5, 7, 9), c("chr", "dbl", "int")],
+      df2[1, c("chr", "dbl", "int")]
+    )
+  )
+
+  skip("Implicit casts aren't being inserted everywhere they need to be (ARROW-8919)")
+  # Error: NotImplemented: Function multiply_checked has no kernel matching input types (scalar[double], array[int32])
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl, int) %>%
+      filter(int %% 2 > 0 & dbl < 53) %>%
+      collect() %>%
+      arrange(dbl),
+    rbind(
+      df1[c(1, 3, 5, 7, 9), c("chr", "dbl", "int")],
+      df2[1, c("chr", "dbl", "int")]
+    )
+  )
+
+  skip("Implicit casts are only inserted for scalars (ARROW-8919)")
+  # Error: NotImplemented: Function add_checked has no kernel matching input types (array[double], array[int32])
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl, int) %>%
+      filter(dbl + int > 15 & dbl < 53L) %>%
+      collect() %>%
+      arrange(dbl),
+    rbind(
+      df1[8:10, c("chr", "dbl", "int")],
+      df2[1:2, c("chr", "dbl", "int")]
+    )
+  )
+})
+
 test_that("filter scalar validation doesn't crash (ARROW-7772)", {
   expect_error(
     ds %>%
