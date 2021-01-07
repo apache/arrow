@@ -656,7 +656,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
             on
                 l_orderkey = o_orderkey
             where
-                (l_shipmode = 'MAIL' or l_shipmode = 'SHIP')
+                l_shipmode in ('MAIL', 'SHIP')
                 and l_commitdate < l_receiptdate
                 and l_shipdate < l_commitdate
                 and l_receiptdate >= date '1994-01-01'

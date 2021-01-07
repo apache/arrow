@@ -42,7 +42,10 @@ use crate::physical_plan::{expressions, Distribution};
 use crate::physical_plan::{hash_utils, Partitioning};
 use crate::physical_plan::{AggregateExpr, ExecutionPlan, PhysicalExpr, PhysicalPlanner};
 use crate::prelude::JoinType;
+use crate::scalar::ScalarValue;
 use crate::variable::VarType;
+use arrow::compute::can_cast_types;
+
 use arrow::compute::SortOptions;
 use arrow::datatypes::{Schema, SchemaRef};
 use expressions::col;
@@ -593,6 +596,57 @@ impl DefaultPhysicalPlanner {
                     binary_expr
                 }
             }
+            Expr::InList {
+                expr,
+                list,
+                negated,
+            } => match expr.as_ref() {
+                Expr::Literal(ScalarValue::Utf8(None)) => {
+                    Ok(expressions::lit(ScalarValue::Boolean(None)))
+                }
+                _ => {
+                    let value_expr =
+                        self.create_physical_expr(expr, input_schema, ctx_state)?;
+                    let value_expr_data_type = value_expr.data_type(input_schema)?;
+
+                    let list_exprs =
+                        list.iter()
+                            .map(|expr| match expr {
+                                Expr::Literal(ScalarValue::Utf8(None)) => self
+                                    .create_physical_expr(expr, input_schema, ctx_state),
+                                _ => {
+                                    let list_expr = self.create_physical_expr(
+                                        expr,
+                                        input_schema,
+                                        ctx_state,
+                                    )?;
+                                    let list_expr_data_type =
+                                        list_expr.data_type(input_schema)?;
+
+                                    if list_expr_data_type == value_expr_data_type {
+                                        Ok(list_expr)
+                                    } else if can_cast_types(
+                                        &list_expr_data_type,
+                                        &value_expr_data_type,
+                                    ) {
+                                        expressions::cast(
+                                            list_expr,
+                                            input_schema,
+                                            value_expr.data_type(input_schema)?,
+                                        )
+                                    } else {
+                                        Err(DataFusionError::Plan(format!(
+                                            "Unsupported CAST from {:?} to {:?}",
+                                            list_expr_data_type, value_expr_data_type
+                                        )))
+                                    }
+                                }
+                            })
+                            .collect::<Result<Vec<_>>>()?;
+
+                    expressions::in_list(value_expr, list_exprs, negated)
+                }
+            },
             other => Err(DataFusionError::NotImplemented(format!(
                 "Physical plan does not support logical expression {:?}",
                 other
@@ -699,6 +753,7 @@ mod tests {
     use crate::logical_plan::{DFField, DFSchema, DFSchemaRef};
     use crate::physical_plan::{csv::CsvReadOptions, expressions, Partitioning};
     use crate::prelude::ExecutionConfig;
+    use crate::scalar::ScalarValue;
     use crate::{
         logical_plan::{col, lit, sum, LogicalPlanBuilder},
         physical_plan::SendableRecordBatchStream,
@@ -881,6 +936,53 @@ mod tests {
                 expected_error
             ),
         }
+        Ok(())
+    }
+
+    #[test]
+    fn in_list_types() -> Result<()> {
+        let testdata = arrow::util::test_util::arrow_test_data();
+        let path = format!("{}/csv/aggregate_test_100.csv", testdata);
+        let options = CsvReadOptions::new().schema_infer_max_records(100);
+
+        // expression: "a in ('a', 1)"
+        let list = vec![
+            Expr::Literal(ScalarValue::Utf8(Some("a".to_string()))),
+            Expr::Literal(ScalarValue::Int64(Some(1))),
+        ];
+        let logical_plan = LogicalPlanBuilder::scan_csv(&path, options, None)?
+            // filter clause needs the type coercion rule applied
+            .filter(col("c12").lt(lit(0.05)))?
+            .project(vec![col("c1").in_list(list, false)])?
+            .build()?;
+        let execution_plan = plan(&logical_plan)?;
+        // verify that the plan correctly adds cast from Int64(1) to Utf8
+        let expected = "InListExpr { expr: Column { name: \"c1\" }, list: [Literal { value: Utf8(\"a\") }, CastExpr { expr: Literal { value: Int64(1) }, cast_type: Utf8 }], negated: false }";
+        assert!(format!("{:?}", execution_plan).contains(expected));
+
+        // expression: "a in (true, 'a')"
+        let list = vec![
+            Expr::Literal(ScalarValue::Boolean(Some(true))),
+            Expr::Literal(ScalarValue::Utf8(Some("a".to_string()))),
+        ];
+        let logical_plan = LogicalPlanBuilder::scan_csv(&path, options, None)?
+            // filter clause needs the type coercion rule applied
+            .filter(col("c12").lt(lit(0.05)))?
+            .project(vec![col("c12").lt_eq(lit(0.025)).in_list(list, false)])?
+            .build()?;
+        let execution_plan = plan(&logical_plan);
+
+        let expected_error = "Unsupported CAST from Utf8 to Boolean";
+        match execution_plan {
+            Ok(_) => panic!("Expected planning failure"),
+            Err(e) => assert!(
+                e.to_string().contains(expected_error),
+                "Error '{}' did not contain expected error '{}'",
+                e.to_string(),
+                expected_error
+            ),
+        }
+
         Ok(())
     }
 
