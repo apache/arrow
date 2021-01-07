@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "arrow/csv/parser.h"
+#include "arrow/io/memory.h"
 #include "arrow/testing/visibility.h"
 
 namespace arrow {
@@ -45,6 +46,9 @@ void MakeCSVParser(std::vector<std::string> lines, std::shared_ptr<BlockParser>*
 // Make a BlockParser from a vector of strings representing a single CSV column
 ARROW_TESTING_EXPORT
 void MakeColumnParser(std::vector<std::string> items, std::shared_ptr<BlockParser>* out);
+
+ARROW_TESTING_EXPORT
+Result<std::shared_ptr<Buffer>> MakeSampleCsvBuffer(size_t num_rows);
 
 }  // namespace csv
 }  // namespace arrow

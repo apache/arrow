@@ -891,7 +891,9 @@ class ThreadedTableReader : public BaseTableReader {
   Iterator<std::shared_ptr<Buffer>> buffer_iterator_;
 };
 
-class AsyncThreadedTableReader : public BaseTableReader {
+class AsyncThreadedTableReader
+    : public BaseTableReader,
+      public std::enable_shared_from_this<AsyncThreadedTableReader> {
  public:
   using BaseTableReader::BaseTableReader;
 
@@ -925,36 +927,36 @@ class AsyncThreadedTableReader : public BaseTableReader {
   Future<std::shared_ptr<Table>> ReadAsync() override {
     task_group_ = internal::TaskGroup::MakeThreaded(thread_pool_);
 
-    // TODO: Need to prevent this from being deleted while read is running.  Don't want to
-    // block the destructor because that can put a wait in the wrong spot.  Perhaps
-    // enable_shared_from_this?
-    return ProcessFirstBuffer().Then([this](const std::shared_ptr<Buffer> first_buffer) {
+    auto self = shared_from_this();
+    return ProcessFirstBuffer().Then([self](const std::shared_ptr<Buffer> first_buffer) {
       auto block_generator = ThreadedBlockReader::MakeAsyncIterator(
-          buffer_generator_, MakeChunker(parse_options_), std::move(first_buffer));
+          self->buffer_generator_, MakeChunker(self->parse_options_),
+          std::move(first_buffer));
 
       std::function<Status(util::optional<CSVBlock>)> block_visitor =
-          [this](util::optional<CSVBlock> maybe_block) -> Status {
+          [self](util::optional<CSVBlock> maybe_block) -> Status {
         DCHECK(!maybe_block->consume_bytes);
 
         // Launch parse task
-        task_group_->Append([this, maybe_block] {
-          return ParseAndInsert(maybe_block->partial, maybe_block->completion,
-                                maybe_block->buffer, maybe_block->block_index,
-                                maybe_block->is_final)
+        self->task_group_->Append([self, maybe_block] {
+          return self
+              ->ParseAndInsert(maybe_block->partial, maybe_block->completion,
+                               maybe_block->buffer, maybe_block->block_index,
+                               maybe_block->is_final)
               .status();
         });
         return Status::OK();
       };
 
       return VisitAsyncGenerator(block_generator, block_visitor)
-          .Then([this](...) -> Future<> {
+          .Then([self](...) -> Future<> {
             // By this point we've added all top level tasks so it is safe to call
             // FinishAsync
-            return task_group_->FinishAsync();
+            return self->task_group_->FinishAsync();
           })
-          .Then([this](...) -> Result<std::shared_ptr<Table>> {
+          .Then([self](...) -> Result<std::shared_ptr<Table>> {
             // Finish conversion, create schema and table
-            return MakeTable();
+            return self->MakeTable();
           });
     });
   }

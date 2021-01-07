@@ -247,7 +247,10 @@ template <typename T, typename V>
 class TransformIterator {
  public:
   explicit TransformIterator(Iterator<T> it, Transformer<T, V> transformer)
-      : it_(std::move(it)), transformer_(std::move(transformer)) {}
+      : it_(std::move(it)),
+        transformer_(std::move(transformer)),
+        last_value_(),
+        finished_() {}
 
   util::optional<Result<V>> Pump() {
     while (!finished_ && last_value_.has_value()) {

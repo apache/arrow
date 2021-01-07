@@ -153,7 +153,8 @@ class BackgroundIterator {
   explicit BackgroundIterator(Iterator<T> it, internal::Executor* executor)
       : it_(new Iterator<T>(std::move(it))),
         queue_(new detail::ReadaheadQueue(0)),
-        executor_(executor) {}
+        executor_(executor),
+        done_() {}
 
   ~BackgroundIterator() {
     if (queue_) {
@@ -194,7 +195,7 @@ class BackgroundIterator {
   std::unique_ptr<Iterator<T>> it_;
   std::unique_ptr<detail::ReadaheadQueue> queue_;
   internal::Executor* executor_;
-  bool done_ = false;
+  bool done_;
 };
 
 /// \brief Creates an AsyncGenerator<T> by iterating over an Iterator<T> on a background

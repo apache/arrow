@@ -41,8 +41,7 @@ class ARROW_EXPORT TableReader {
 
   /// Read the entire CSV file and convert it to a Arrow Table
   virtual Result<std::shared_ptr<Table>> Read() = 0;
-  // TODO: Do I need to copy the above doc-comment?  Are these actual doc comments for
-  // auto generated documentation or just for developers?
+  /// Read the entire CSV file and convert it to a Arrow Table
   virtual Future<std::shared_ptr<Table>> ReadAsync() = 0;
 
   /// Create a TableReader instance
