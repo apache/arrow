@@ -52,7 +52,6 @@
 #include "arrow/util/string.h"
 #include "arrow/util/ubsan.h"
 #include "arrow/visitor_inline.h"
-
 #include "generated/File_generated.h"  // IWYU pragma: export
 #include "generated/Message_generated.h"
 #include "generated/Schema_generated.h"
@@ -538,8 +537,7 @@ Status GetCompressionExperimental(const flatbuf::Message* message,
     if (index != -1) {
       // Arrow 0.17 stored string in upper case, internal utils now require lower case
       auto name = arrow::internal::AsciiToLower(metadata->value(index));
-      ARROW_ASSIGN_OR_RAISE(*out,
-                            util::Codec::GetCompressionType(name));
+      ARROW_ASSIGN_OR_RAISE(*out, util::Codec::GetCompressionType(name));
     }
     return internal::CheckCompressionSupported(*out);
   }
