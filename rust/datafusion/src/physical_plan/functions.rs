@@ -124,6 +124,10 @@ pub enum BuiltinScalarFunction {
     Upper,
     /// trim
     Trim,
+    /// trim left
+    Ltrim,
+    /// trim right
+    Rtrim,
     /// to_timestamp
     ToTimestamp,
     /// construct an array from columns
@@ -168,6 +172,8 @@ impl FromStr for BuiltinScalarFunction {
             "concat" => BuiltinScalarFunction::Concat,
             "lower" => BuiltinScalarFunction::Lower,
             "trim" => BuiltinScalarFunction::Trim,
+            "ltrim" => BuiltinScalarFunction::Ltrim,
+            "rtrim" => BuiltinScalarFunction::Rtrim,
             "upper" => BuiltinScalarFunction::Upper,
             "to_timestamp" => BuiltinScalarFunction::ToTimestamp,
             "date_trunc" => BuiltinScalarFunction::DateTrunc,
@@ -224,6 +230,26 @@ pub fn return_type(
                 // this error is internal as `data_types` should have captured this.
                 return Err(DataFusionError::Internal(
                     "The upper function can only accept strings.".to_string(),
+                ));
+            }
+        }),
+        BuiltinScalarFunction::Ltrim => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::LargeUtf8,
+            DataType::Utf8 => DataType::Utf8,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The ltrim function can only accept strings.".to_string(),
+                ));
+            }
+        }),
+        BuiltinScalarFunction::Rtrim => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::LargeUtf8,
+            DataType::Utf8 => DataType::Utf8,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The rtrim function can only accept strings.".to_string(),
                 ));
             }
         }),
@@ -312,6 +338,22 @@ pub fn create_physical_expr(
                 other,
             ))),
         },
+        BuiltinScalarFunction::Ltrim => |args| match args[0].data_type() {
+            DataType::Utf8 => Ok(Arc::new(string_expressions::ltrim::<i32>(args)?)),
+            DataType::LargeUtf8 => Ok(Arc::new(string_expressions::ltrim::<i64>(args)?)),
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function ltrim",
+                other,
+            ))),
+        },
+        BuiltinScalarFunction::Rtrim => |args| match args[0].data_type() {
+            DataType::Utf8 => Ok(Arc::new(string_expressions::rtrim::<i32>(args)?)),
+            DataType::LargeUtf8 => Ok(Arc::new(string_expressions::rtrim::<i64>(args)?)),
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function rtrim",
+                other,
+            ))),
+        },
         BuiltinScalarFunction::Upper => |args| match args[0].data_type() {
             DataType::Utf8 => Ok(Arc::new(string_expressions::upper::<i32>(args)?)),
             DataType::LargeUtf8 => Ok(Arc::new(string_expressions::upper::<i64>(args)?)),
@@ -361,6 +403,12 @@ fn signature(fun: &BuiltinScalarFunction) -> Signature {
             Signature::Uniform(1, vec![DataType::Utf8, DataType::LargeUtf8])
         }
         BuiltinScalarFunction::Trim => {
+            Signature::Uniform(1, vec![DataType::Utf8, DataType::LargeUtf8])
+        }
+        BuiltinScalarFunction::Ltrim => {
+            Signature::Uniform(1, vec![DataType::Utf8, DataType::LargeUtf8])
+        }
+        BuiltinScalarFunction::Rtrim => {
             Signature::Uniform(1, vec![DataType::Utf8, DataType::LargeUtf8])
         }
         BuiltinScalarFunction::ToTimestamp => Signature::Uniform(1, vec![DataType::Utf8]),

@@ -658,6 +658,8 @@ unary_scalar_expr!(Log2, log2);
 unary_scalar_expr!(Log10, log10);
 unary_scalar_expr!(Lower, lower);
 unary_scalar_expr!(Trim, trim);
+unary_scalar_expr!(Ltrim, ltrim);
+unary_scalar_expr!(Rtrim, rtrim);
 unary_scalar_expr!(Upper, upper);
 
 /// returns the length of a string in bytes
