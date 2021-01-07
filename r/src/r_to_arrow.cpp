@@ -26,6 +26,7 @@
 #include <arrow/array/builder_nested.h>
 #include <arrow/array/builder_primitive.h>
 #include <arrow/type_traits.h>
+#include <arrow/util/bitmap_writer.h>
 #include <arrow/util/checked_cast.h>
 #include <arrow/util/converter.h>
 
@@ -744,18 +745,109 @@ struct RConverterTrait<DictionaryType> {
   using dictionary_type = RDictionaryConverter<T>;
 };
 
+// in some situations we can just use the memory of the R object in an RBuffer
+// instead of going through ArrayBuilder, etc ...
+bool can_reuse_memory(SEXP x, const std::shared_ptr<arrow::DataType>& type) {
+  // TODO: this probably should be disabled when x is an ALTREP object
+  //       because MakeSimpleArray below will force materialization
+  switch (type->id()) {
+    case Type::INT32:
+      return TYPEOF(x) == INTSXP && !OBJECT(x);
+    case Type::DOUBLE:
+      return TYPEOF(x) == REALSXP && !OBJECT(x);
+    case Type::INT8:
+      return TYPEOF(x) == RAWSXP && !OBJECT(x);
+    case Type::INT64:
+      return TYPEOF(x) == REALSXP && Rf_inherits(x, "integer64");
+    default:
+      break;
+  }
+  return false;
+}
+
+// this is only used on some special cases when the arrow Array can just use the memory of
+// the R object, via an RBuffer, hence be zero copy
+template <int RTYPE, typename RVector, typename Type>
+std::shared_ptr<Array> MakeSimpleArray(SEXP x) {
+  using value_type = typename arrow::TypeTraits<Type>::ArrayType::value_type;
+  RVector vec(x);
+  auto n = vec.size();
+  auto p_vec_start = reinterpret_cast<value_type*>(DATAPTR(vec));
+  auto p_vec_end = p_vec_start + n;
+  std::vector<std::shared_ptr<Buffer>> buffers{nullptr,
+                                               std::make_shared<RBuffer<RVector>>(vec)};
+
+  int null_count = 0;
+
+  auto first_na = std::find_if(p_vec_start, p_vec_end, is_NA<value_type>);
+  if (first_na < p_vec_end) {
+    auto null_bitmap =
+        ValueOrStop(AllocateBuffer(BitUtil::BytesForBits(n), gc_memory_pool()));
+    internal::FirstTimeBitmapWriter bitmap_writer(null_bitmap->mutable_data(), 0, n);
+
+    // first loop to clear all the bits before the first NA
+    auto j = std::distance(p_vec_start, first_na);
+    int i = 0;
+    for (; i < j; i++, bitmap_writer.Next()) {
+      bitmap_writer.Set();
+    }
+
+    auto p_vec = first_na;
+    // then finish
+    for (; i < n; i++, bitmap_writer.Next(), ++p_vec) {
+      if (is_NA<value_type>(*p_vec)) {
+        bitmap_writer.Clear();
+        null_count++;
+      } else {
+        bitmap_writer.Set();
+      }
+    }
+
+    bitmap_writer.Finish();
+    buffers[0] = std::move(null_bitmap);
+  }
+
+  auto data = ArrayData::Make(std::make_shared<Type>(), LENGTH(x), std::move(buffers),
+                              null_count, 0 /*offset*/);
+
+  // return the right Array class
+  return std::make_shared<typename TypeTraits<Type>::ArrayType>(data);
+}
+
+std::shared_ptr<arrow::Array> Array__from_vector_reuse_memory(SEXP x) {
+  auto type = TYPEOF(x);
+
+  if (type == INTSXP) {
+    return MakeSimpleArray<INTSXP, cpp11::integers, Int32Type>(x);
+  } else if (type == REALSXP && Rf_inherits(x, "integer64")) {
+    return MakeSimpleArray<REALSXP, cpp11::doubles, Int64Type>(x);
+  } else if (type == REALSXP) {
+    return MakeSimpleArray<REALSXP, cpp11::doubles, DoubleType>(x);
+  } else if (type == RAWSXP) {
+    return MakeSimpleArray<RAWSXP, cpp11::raws, UInt8Type>(x);
+  }
+
+  cpp11::stop("Unreachable: you might need to fix can_reuse_memory()");
+}
+
 std::shared_ptr<arrow::Array> vec_to_arrow(SEXP x, SEXP s_type) {
+  // short circuit if `x` is already an Array
+  if (Rf_inherits(x, "Array")) {
+    return cpp11::as_cpp<std::shared_ptr<arrow::Array>>(x);
+  }
+
   RConversionOptions options;
   options.strict = !Rf_isNull(s_type);
-
-  std::shared_ptr<arrow::DataType> type;
   if (options.strict) {
     options.type = cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(s_type);
   } else {
     options.type = arrow::r::InferArrowType(x);
   }
-
   options.size = vctrs::short_vec_size(x);
+
+  if (can_reuse_memory(x, options.type)) {
+    return Array__from_vector_reuse_memory(x);
+  }
 
   auto converter = ValueOrStop(MakeConverter<RConverter, RConverterTrait>(
       options.type, options, gc_memory_pool()));
