@@ -215,8 +215,8 @@ impl ExecutionPlan for HashJoinExec {
                     // This operation performs 2 steps at once:
                     // 1. creates a [JoinHashMap] of all batches from the stream
                     // 2. stores the batches in a vector.
-                    let initial = (JoinHashMap::default(), Vec::new(), 0, Vec::new());
-                    let (hashmap, batches, num_rows, _) = stream
+                    let initial = (JoinHashMap::default(), Vec::new(), 0);
+                    let (hashmap, batches, num_rows) = stream
                         .try_fold(initial, |mut acc, batch| async {
                             let hash = &mut acc.0;
                             let values = &mut acc.1;
@@ -226,7 +226,6 @@ impl ExecutionPlan for HashJoinExec {
                                 &batch,
                                 hash,
                                 offset,
-                                &mut acc.3,
                                 &self.random_state,
                             )
                             .unwrap();
@@ -287,7 +286,6 @@ fn update_hash(
     batch: &RecordBatch,
     hash: &mut JoinHashMap,
     offset: usize,
-    hash_buf: &mut Vec<u64>,
     random_state: &RandomState,
 ) -> Result<()> {
     // evaluate the keys
@@ -297,7 +295,7 @@ fn update_hash(
         .collect::<Result<Vec<_>>>()?;
 
     // update the hash map
-    let hash_values = create_hashes(&keys_values, &random_state, hash_buf)?;
+    let hash_values = create_hashes(&keys_values, &random_state)?;
 
     // insert hashes to key of the hashmap
     for (row, hash_value) in hash_values.iter().enumerate() {
@@ -509,8 +507,7 @@ fn build_join_indexes(
         .map(|name| Ok(col(name).evaluate(right)?.into_array(right.num_rows())))
         .collect::<Result<Vec<_>>>()?;
 
-    let buf = &mut Vec::new();
-    let hash_values = create_hashes(&keys_values, &random_state, buf)?;
+    let hash_values = create_hashes(&keys_values, &random_state)?;
 
     let mut left_indices = UInt64Builder::new(0);
     let mut right_indices = UInt32Builder::new(0);
@@ -601,11 +598,8 @@ fn combine_hashes(l: u64, r: u64) -> u64 {
 fn create_hashes<'a>(
     arrays: &[ArrayRef],
     random_state: &RandomState,
-    buf: &'a mut Vec<u64>,
 ) -> Result<Vec<u64>> {
     let rows = arrays[0].len();
-    buf.resize(rows, 0);
-
     let mut hashes = vec![0; rows];
 
     for col in arrays {
