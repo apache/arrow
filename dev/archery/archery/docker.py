@@ -286,6 +286,9 @@ class DockerCompose(Command):
             if service['need_gpu']:
                 args.extend(['--gpus', 'all'])
 
+            if service.get('shm_size'):
+                args.extend(['--shm-size', service['shm_size']])
+
             # append env variables from the compose conf
             for k, v in service.get('environment', {}).items():
                 args.extend(['-e', '{}={}'.format(k, v)])
