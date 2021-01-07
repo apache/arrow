@@ -32,7 +32,7 @@ jobs:
       # archery uses this environment variable
       PYTHON: {{ python_version }}
       REPO: ghcr.io/ursa-labs/arrow
-      ARCHERY_USE_DOCKER_CLI: 1
+      COMPOSE_DOCKER_CLI_BUILD: 1
 
     steps:
       ############################ Checkout ###################################
