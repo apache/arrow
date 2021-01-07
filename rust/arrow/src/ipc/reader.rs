@@ -562,7 +562,6 @@ impl<R: Read + Seek> FileReader<R> {
         let mut footer_data = vec![0; footer_len as usize];
         reader.seek(SeekFrom::End(-10 - footer_len as i64))?;
         reader.read_exact(&mut footer_data)?;
-        dbg!(&footer_data);
 
         let footer = ipc::root_as_footer(&footer_data[..]).map_err(|err| {
             ArrowError::IoError(format!("Unable to get root as footer: {:?}", err))
@@ -920,15 +919,15 @@ impl<R: Read> RecordBatchReader for StreamReader<R> {
 mod tests {
     use super::*;
 
+    use std::fs::File;
+
     use flate2::read::GzDecoder;
 
     use crate::util::integration_util::*;
-    use std::fs::File;
-    use std::env;
 
     #[test]
     fn read_generated_files_014() {
-        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let testdata = crate::util::test_util::arrow_test_data();
         let version = "0.14.1";
         // the test is repetitive, thus we can read all supported files at once
         let paths = vec![
@@ -994,7 +993,7 @@ mod tests {
 
     #[test]
     fn read_generated_streams_014() {
-        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let testdata = crate::util::test_util::arrow_test_data();
         let version = "0.14.1";
         // the test is repetitive, thus we can read all supported files at once
         let paths = vec![
@@ -1028,7 +1027,7 @@ mod tests {
 
     #[test]
     fn read_generated_files_100() {
-        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let testdata = crate::util::test_util::arrow_test_data();
         let version = "1.0.0-littleendian";
         // the test is repetitive, thus we can read all supported files at once
         let paths = vec![
@@ -1057,7 +1056,7 @@ mod tests {
 
     #[test]
     fn read_generated_streams_100() {
-        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let testdata = crate::util::test_util::arrow_test_data();
         let version = "1.0.0-littleendian";
         // the test is repetitive, thus we can read all supported files at once
         let paths = vec![
@@ -1139,7 +1138,7 @@ mod tests {
 
     /// Read gzipped JSON file
     fn read_gzip_json(version: &str, path: &str) -> ArrowJson {
-        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let testdata = crate::util::test_util::arrow_test_data();
         let file = File::open(format!(
             "{}/arrow-ipc-stream/integration/{}/{}.json.gz",
             testdata, version, path

@@ -100,7 +100,7 @@ impl Default for IpcWriteOptions {
     fn default() -> Self {
         Self {
             alignment: 8,
-            write_legacy_ipc_format: true,
+            write_legacy_ipc_format: false,
             metadata_version: ipc::MetadataVersion::V5,
         }
     }
@@ -740,16 +740,17 @@ fn pad_to_8(len: u32) -> usize {
 mod tests {
     use super::*;
 
+    use std::fs::File;
+    use std::io::Read;
+    use std::sync::Arc;
+
     use flate2::read::GzDecoder;
+    use ipc::MetadataVersion;
 
     use crate::array::*;
     use crate::datatypes::Field;
     use crate::ipc::reader::*;
     use crate::util::integration_util::*;
-    use std::fs::File;
-    use std::env;
-    use std::io::Read;
-    use std::sync::Arc;
 
     #[test]
     fn test_write_file() {
@@ -798,8 +799,7 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_write_null_file() {
+    fn write_null_file(options: IpcWriteOptions, suffix: &str) {
         let schema = Schema::new(vec![
             Field::new("nulls", DataType::Null, true),
             Field::new("int32s", DataType::Int32, false),
@@ -820,16 +820,18 @@ mod tests {
             ],
         )
         .unwrap();
+        let file_name = format!("target/debug/testdata/nulls_{}.arrow_file", suffix);
         {
-            let file = File::create("target/debug/testdata/nulls.arrow_file").unwrap();
-            let mut writer = FileWriter::try_new(file, &schema).unwrap();
+            let file = File::create(&file_name).unwrap();
+            let mut writer =
+                FileWriter::try_new_with_options(file, &schema, options).unwrap();
 
             writer.write(&batch).unwrap();
             // this is inside a block to test the implicit finishing of the file on `Drop`
         }
 
         {
-            let file = File::open("target/debug/testdata/nulls.arrow_file").unwrap();
+            let file = File::open(&file_name).unwrap();
             let reader = FileReader::try_new(file).unwrap();
             reader.for_each(|maybe_batch| {
                 maybe_batch
@@ -845,10 +847,41 @@ mod tests {
             });
         }
     }
+    #[test]
+    fn test_write_null_file_v4() {
+        write_null_file(
+            IpcWriteOptions::try_new(8, false, MetadataVersion::V4).unwrap(),
+            "v4_a8",
+        );
+        write_null_file(
+            IpcWriteOptions::try_new(8, true, MetadataVersion::V4).unwrap(),
+            "v4_a8l",
+        );
+        write_null_file(
+            IpcWriteOptions::try_new(64, false, MetadataVersion::V4).unwrap(),
+            "v4_a64",
+        );
+        write_null_file(
+            IpcWriteOptions::try_new(64, true, MetadataVersion::V4).unwrap(),
+            "v4_a64l",
+        );
+    }
+
+    #[test]
+    fn test_write_null_file_v5() {
+        write_null_file(
+            IpcWriteOptions::try_new(8, false, MetadataVersion::V5).unwrap(),
+            "v5_a8",
+        );
+        write_null_file(
+            IpcWriteOptions::try_new(64, false, MetadataVersion::V5).unwrap(),
+            "v5_a64",
+        );
+    }
 
     #[test]
     fn read_and_rewrite_generated_files_014() {
-        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let testdata = crate::util::test_util::arrow_test_data();
         let version = "0.14.1";
         // the test is repetitive, thus we can read all supported files at once
         let paths = vec![
@@ -899,7 +932,7 @@ mod tests {
 
     #[test]
     fn read_and_rewrite_generated_streams_014() {
-        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let testdata = crate::util::test_util::arrow_test_data();
         let version = "0.14.1";
         // the test is repetitive, thus we can read all supported files at once
         let paths = vec![
@@ -948,7 +981,7 @@ mod tests {
 
     #[test]
     fn read_and_rewrite_generated_files_100() {
-        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let testdata = crate::util::test_util::arrow_test_data();
         let version = "1.0.0-littleendian";
         // the test is repetitive, thus we can read all supported files at once
         let paths = vec![
@@ -1012,7 +1045,7 @@ mod tests {
 
     #[test]
     fn read_and_rewrite_generated_streams_100() {
-        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let testdata = crate::util::test_util::arrow_test_data();
         let version = "1.0.0-littleendian";
         // the test is repetitive, thus we can read all supported files at once
         let paths = vec![
@@ -1073,7 +1106,7 @@ mod tests {
 
     /// Read gzipped JSON file
     fn read_gzip_json(version: &str, path: &str) -> ArrowJson {
-        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let testdata = crate::util::test_util::arrow_test_data();
         let file = File::open(format!(
             "{}/arrow-ipc-stream/integration/{}/{}.json.gz",
             testdata, version, path
