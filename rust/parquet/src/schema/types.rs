@@ -103,6 +103,24 @@ impl Type {
         }
     }
 
+    /// Gets precision of this primitive type.
+    /// Note that this will panic if called on a non-primitive type.
+    pub fn get_precision(&self) -> i32 {
+        match *self {
+            Type::PrimitiveType { precision, .. } => precision,
+            _ => panic!("Cannot call get_precision() on non-primitive type"),
+        }
+    }
+
+    /// Gets scale of this primitive type.
+    /// Note that this will panic if called on a non-primitive type.
+    pub fn get_scale(&self) -> i32 {
+        match *self {
+            Type::PrimitiveType { scale, .. } => scale,
+            _ => panic!("Cannot call get_scale() on non-primitive type"),
+        }
+    }
+
     /// Checks if `sub_type` schema is part of current schema.
     /// This method can be used to check if projected columns are part of the root schema.
     pub fn check_contains(&self, sub_type: &Type) -> bool {

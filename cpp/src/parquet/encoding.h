@@ -290,14 +290,18 @@ class TypedDecoder : virtual public Decoder {
   /// \return The number of values decoded, including nulls.
   virtual int DecodeSpaced(T* buffer, int num_values, int null_count,
                            const uint8_t* valid_bits, int64_t valid_bits_offset) {
-    int values_to_read = num_values - null_count;
-    int values_read = Decode(buffer, values_to_read);
-    if (values_read != values_to_read) {
-      throw ParquetException("Number of values / definition_levels read did not match");
-    }
+    if (null_count > 0) {
+      int values_to_read = num_values - null_count;
+      int values_read = Decode(buffer, values_to_read);
+      if (values_read != values_to_read) {
+        throw ParquetException("Number of values / definition_levels read did not match");
+      }
 
-    return ::arrow::util::internal::SpacedExpand<T>(buffer, num_values, null_count,
-                                                    valid_bits, valid_bits_offset);
+      return ::arrow::util::internal::SpacedExpand<T>(buffer, num_values, null_count,
+                                                      valid_bits, valid_bits_offset);
+    } else {
+      return Decode(buffer, num_values);
+    }
   }
 
   /// \brief Decode into an ArrayBuilder or other accumulator

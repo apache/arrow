@@ -62,6 +62,8 @@ gboolean garrow_decimal128_greater_than_or_equal(GArrowDecimal128 *decimal,
 gchar *garrow_decimal128_to_string_scale(GArrowDecimal128 *decimal,
                                          gint32 scale);
 gchar *garrow_decimal128_to_string(GArrowDecimal128 *decimal);
+GARROW_AVAILABLE_IN_3_0
+GBytes *garrow_decimal128_to_bytes(GArrowDecimal128 *decimal);
 void garrow_decimal128_abs(GArrowDecimal128 *decimal);
 void garrow_decimal128_negate(GArrowDecimal128 *decimal);
 gint64 garrow_decimal128_to_integer(GArrowDecimal128 *decimal);
@@ -125,6 +127,8 @@ gchar *garrow_decimal256_to_string_scale(GArrowDecimal256 *decimal,
                                          gint32 scale);
 GARROW_AVAILABLE_IN_3_0
 gchar *garrow_decimal256_to_string(GArrowDecimal256 *decimal);
+GARROW_AVAILABLE_IN_3_0
+GBytes *garrow_decimal256_to_bytes(GArrowDecimal256 *decimal);
 GARROW_AVAILABLE_IN_3_0
 void garrow_decimal256_abs(GArrowDecimal256 *decimal);
 GARROW_AVAILABLE_IN_3_0

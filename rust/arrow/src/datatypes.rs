@@ -1908,6 +1908,54 @@ mod tests {
     use std::f32::NAN;
 
     #[test]
+    fn test_list_datatype_equality() {
+        // tests that list type equality is checked while ignoring list names
+        let list_a = DataType::List(Box::new(Field::new("item", DataType::Int32, true)));
+        let list_b = DataType::List(Box::new(Field::new("array", DataType::Int32, true)));
+        let list_c = DataType::List(Box::new(Field::new("item", DataType::Int32, false)));
+        let list_d = DataType::List(Box::new(Field::new("item", DataType::UInt32, true)));
+        assert!(list_a.equals_datatype(&list_b));
+        assert!(!list_a.equals_datatype(&list_c));
+        assert!(!list_b.equals_datatype(&list_c));
+        assert!(!list_a.equals_datatype(&list_d));
+
+        let list_e =
+            DataType::FixedSizeList(Box::new(Field::new("item", list_a, false)), 3);
+        let list_f =
+            DataType::FixedSizeList(Box::new(Field::new("array", list_b, false)), 3);
+        let list_g = DataType::FixedSizeList(
+            Box::new(Field::new("item", DataType::FixedSizeBinary(3), true)),
+            3,
+        );
+        assert!(list_e.equals_datatype(&list_f));
+        assert!(!list_e.equals_datatype(&list_g));
+        assert!(!list_f.equals_datatype(&list_g));
+
+        let list_h = DataType::Struct(vec![Field::new("f1", list_e, true)]);
+        let list_i = DataType::Struct(vec![Field::new("f1", list_f.clone(), true)]);
+        let list_j = DataType::Struct(vec![Field::new("f1", list_f.clone(), false)]);
+        let list_k = DataType::Struct(vec![
+            Field::new("f1", list_f.clone(), false),
+            Field::new("f2", list_g.clone(), false),
+            Field::new("f3", DataType::Utf8, true),
+        ]);
+        let list_l = DataType::Struct(vec![
+            Field::new("ff1", list_f.clone(), false),
+            Field::new("ff2", list_g.clone(), false),
+            Field::new("ff3", DataType::LargeUtf8, true),
+        ]);
+        let list_m = DataType::Struct(vec![
+            Field::new("ff1", list_f, false),
+            Field::new("ff2", list_g, false),
+            Field::new("ff3", DataType::Utf8, true),
+        ]);
+        assert!(list_h.equals_datatype(&list_i));
+        assert!(!list_h.equals_datatype(&list_j));
+        assert!(!list_k.equals_datatype(&list_l));
+        assert!(list_k.equals_datatype(&list_m));
+    }
+
+    #[test]
     fn create_struct_type() {
         let _person = DataType::Struct(vec![
             Field::new("first_name", DataType::Utf8, false),

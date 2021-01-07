@@ -26,36 +26,32 @@ module Arrow
 
     alias_method :append_value_raw, :append_value
     def append_value(value)
-      case value
-      when nil
-        return append_null
-      when String
-        value = Decimal128.new(value)
-      when Float
-        value = Decimal128.new(value.to_s)
-      when BigDecimal
-        value = Decimal128.new(value.to_s)
-      end
-      append_value_raw(value)
+      append_value_raw(normalize_value(value))
     end
 
+    alias_method :append_values_raw, :append_values
     def append_values(values, is_valids=nil)
-      if is_valids
-        is_valids.each_with_index do |is_valid, i|
-          if is_valid
-            append_value(values[i])
-          else
-            append_null
-          end
+      if values.is_a?(::Array)
+        values = values.collect do |value|
+          normalize_value(value)
         end
+        append_values_raw(values, is_valids)
       else
-        values.each do |value|
-          if value.nil?
-            append_null
-          else
-            append_value(value)
-          end
-        end
+        append_values_packed(values, is_valids)
+      end
+    end
+
+    private
+    def normalize_value(value)
+      case value
+      when String
+        Decimal128.new(value)
+      when Float
+        Decimal128.new(value.to_s)
+      when BigDecimal
+        Decimal128.new(value.to_s)
+      else
+        value
       end
     end
   end

@@ -288,7 +288,7 @@ impl ExecutionContext {
     /// Retrieves a DataFrame representing a table previously registered by calling the
     /// register_table function. An Err result will be returned if no table has been
     /// registered with the provided name.
-    pub fn table(&mut self, table_name: &str) -> Result<Arc<dyn DataFrame>> {
+    pub fn table(&self, table_name: &str) -> Result<Arc<dyn DataFrame>> {
         match self.state.lock().unwrap().datasources.get(table_name) {
             Some(provider) => {
                 let schema = provider.schema();
@@ -710,7 +710,7 @@ mod tests {
     async fn projection_on_table_scan() -> Result<()> {
         let tmp_dir = TempDir::new()?;
         let partition_count = 4;
-        let mut ctx = create_ctx(&tmp_dir, partition_count)?;
+        let ctx = create_ctx(&tmp_dir, partition_count)?;
 
         let table = ctx.table("test")?;
         let logical_plan = LogicalPlanBuilder::from(&table.to_logical_plan())

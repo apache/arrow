@@ -564,6 +564,48 @@ def test_recordbatch_pickle():
     assert result.schema == schema
 
 
+def test_recordbatch_get_field():
+    data = [
+        pa.array(range(5)),
+        pa.array([-10, -5, 0, 5, 10]),
+        pa.array(range(5, 10))
+    ]
+    batch = pa.RecordBatch.from_arrays(data, names=('a', 'b', 'c'))
+
+    assert batch.field('a').equals(batch.schema.field('a'))
+    assert batch.field(0).equals(batch.schema.field('a'))
+
+    with pytest.raises(KeyError):
+        batch.field('d')
+
+    with pytest.raises(TypeError):
+        batch.field(None)
+
+    with pytest.raises(IndexError):
+        batch.field(4)
+
+
+def test_recordbatch_select_column():
+    data = [
+        pa.array(range(5)),
+        pa.array([-10, -5, 0, 5, 10]),
+        pa.array(range(5, 10))
+    ]
+    batch = pa.RecordBatch.from_arrays(data, names=('a', 'b', 'c'))
+
+    assert batch.column('a').equals(batch.column(0))
+
+    with pytest.raises(
+            KeyError, match='Field "d" does not exist in record batch schema'):
+        batch.column('d')
+
+    with pytest.raises(TypeError):
+        batch.column(None)
+
+    with pytest.raises(IndexError):
+        batch.column(4)
+
+
 def test_recordbatch_from_struct_array_invalid():
     with pytest.raises(TypeError):
         pa.RecordBatch.from_struct_array(pa.array(range(5)))

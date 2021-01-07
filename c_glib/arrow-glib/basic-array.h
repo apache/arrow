@@ -587,6 +587,24 @@ struct _GArrowFixedSizeBinaryArrayClass
   GArrowPrimitiveArrayClass parent_class;
 };
 
+GARROW_AVAILABLE_IN_3_0
+GArrowFixedSizeBinaryArray *
+garrow_fixed_size_binary_array_new(GArrowFixedSizeBinaryDataType *data_type,
+                                   gint64 length,
+                                   GArrowBuffer *data,
+                                   GArrowBuffer *null_bitmap,
+                                   gint64 n_nulls);
+GARROW_AVAILABLE_IN_3_0
+gint32
+garrow_fixed_size_binary_array_get_byte_width(GArrowFixedSizeBinaryArray *array);
+GARROW_AVAILABLE_IN_3_0
+GBytes *
+garrow_fixed_size_binary_array_get_value(GArrowFixedSizeBinaryArray *array,
+                                         gint64 i);
+GARROW_AVAILABLE_IN_3_0
+GBytes *
+garrow_fixed_size_binary_array_get_values_bytes(GArrowFixedSizeBinaryArray *array);
+
 
 #define GARROW_TYPE_DECIMAL128_ARRAY (garrow_decimal128_array_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowDecimal128Array,

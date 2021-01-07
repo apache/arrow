@@ -123,25 +123,28 @@ impl<OffsetSize: StringOffsetSizeTrait> GenericStringArray<OffsetSize> {
     }
 
     pub(crate) fn from_vec(v: Vec<&str>) -> Self {
-        let mut offsets = Vec::with_capacity(v.len() + 1);
-        let mut values = Vec::new();
+        let mut offsets =
+            MutableBuffer::new((v.len() + 1) * std::mem::size_of::<OffsetSize>());
+        let mut values = MutableBuffer::new(0);
+
         let mut length_so_far = OffsetSize::zero();
-        offsets.push(length_so_far);
+        offsets.extend_from_slice(length_so_far.to_byte_slice());
+
         for s in &v {
             length_so_far += OffsetSize::from_usize(s.len()).unwrap();
-            offsets.push(length_so_far);
+            offsets.extend_from_slice(length_so_far.to_byte_slice());
             values.extend_from_slice(s.as_bytes());
         }
         let array_data = ArrayData::builder(OffsetSize::DATA_TYPE)
             .len(v.len())
-            .add_buffer(Buffer::from(offsets.to_byte_slice()))
-            .add_buffer(Buffer::from(&values[..]))
+            .add_buffer(offsets.into())
+            .add_buffer(values.into())
             .build();
         Self::from(array_data)
     }
 
     pub(crate) fn from_opt_vec(v: Vec<Option<&str>>) -> Self {
-        GenericStringArray::from_iter(v.into_iter())
+        v.into_iter().collect()
     }
 }
 
@@ -155,32 +158,32 @@ where
         let (_, data_len) = iter.size_hint();
         let data_len = data_len.expect("Iterator must be sized"); // panic if no upper bound.
 
-        let mut offsets = Vec::with_capacity(data_len + 1);
-        let mut values = Vec::new();
+        let mut offsets =
+            MutableBuffer::new((data_len + 1) * std::mem::size_of::<OffsetSize>());
+        let mut values = MutableBuffer::new(0);
         let mut null_buf = MutableBuffer::new_null(data_len);
+        let null_slice = null_buf.as_slice_mut();
         let mut length_so_far = OffsetSize::zero();
-        offsets.push(length_so_far);
+        offsets.extend_from_slice(length_so_far.to_byte_slice());
 
         for (i, s) in iter.enumerate() {
             if let Some(s) = s {
                 let s = s.as_ref();
                 // set null bit
-                let null_slice = null_buf.as_slice_mut();
                 bit_util::set_bit(null_slice, i);
 
                 length_so_far += OffsetSize::from_usize(s.len()).unwrap();
-                offsets.push(length_so_far);
                 values.extend_from_slice(s.as_bytes());
             } else {
-                offsets.push(length_so_far);
                 values.extend_from_slice(b"");
             }
+            offsets.extend_from_slice(length_so_far.to_byte_slice());
         }
 
         let array_data = ArrayData::builder(OffsetSize::DATA_TYPE)
             .len(data_len)
-            .add_buffer(Buffer::from(offsets.to_byte_slice()))
-            .add_buffer(Buffer::from(&values[..]))
+            .add_buffer(offsets.into())
+            .add_buffer(values.into())
             .null_bit_buffer(null_buf.into())
             .build();
         Self::from(array_data)
@@ -261,6 +264,22 @@ impl<OffsetSize: StringOffsetSizeTrait> From<ArrayDataRef>
     }
 }
 
+impl<OffsetSize: StringOffsetSizeTrait> From<Vec<Option<&str>>>
+    for GenericStringArray<OffsetSize>
+{
+    fn from(v: Vec<Option<&str>>) -> Self {
+        GenericStringArray::<OffsetSize>::from_opt_vec(v)
+    }
+}
+
+impl<OffsetSize: StringOffsetSizeTrait> From<Vec<&str>>
+    for GenericStringArray<OffsetSize>
+{
+    fn from(v: Vec<&str>) -> Self {
+        GenericStringArray::<OffsetSize>::from_vec(v)
+    }
+}
+
 /// An array where each element is a variable-sized sequence of bytes representing a string
 /// whose maximum length (in bytes) is represented by a i32.
 pub type StringArray = GenericStringArray<i32>;
@@ -272,30 +291,6 @@ pub type LargeStringArray = GenericStringArray<i64>;
 impl<T: StringOffsetSizeTrait> From<GenericListArray<T>> for GenericStringArray<T> {
     fn from(v: GenericListArray<T>) -> Self {
         GenericStringArray::<T>::from_list(v)
-    }
-}
-
-impl From<Vec<&str>> for StringArray {
-    fn from(v: Vec<&str>) -> Self {
-        StringArray::from_vec(v)
-    }
-}
-
-impl From<Vec<&str>> for LargeStringArray {
-    fn from(v: Vec<&str>) -> Self {
-        LargeStringArray::from_vec(v)
-    }
-}
-
-impl From<Vec<Option<&str>>> for StringArray {
-    fn from(v: Vec<Option<&str>>) -> Self {
-        StringArray::from_opt_vec(v)
-    }
-}
-
-impl From<Vec<Option<&str>>> for LargeStringArray {
-    fn from(v: Vec<Option<&str>>) -> Self {
-        LargeStringArray::from_opt_vec(v)
     }
 }
 

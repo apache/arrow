@@ -796,6 +796,41 @@ def test_compare_array(typ):
 
 
 @pytest.mark.parametrize("typ", ["array", "chunked_array"])
+def test_compare_string_scalar(typ):
+    if typ == "array":
+        def con(values): return pa.array(values)
+    else:
+        def con(values): return pa.chunked_array([values])
+
+    arr = con(['a', 'b', 'c', None])
+    scalar = pa.scalar('b')
+
+    result = pc.equal(arr, scalar)
+    assert result.equals(con([False, True, False, None]))
+
+    if typ == "array":
+        nascalar = pa.scalar(None, type="string")
+        result = pc.equal(arr, nascalar)
+        isnull = pc.is_null(result)
+        assert isnull.equals(con([True, True, True, True]))
+
+    result = pc.not_equal(arr, scalar)
+    assert result.equals(con([True, False, True, None]))
+
+    result = pc.less(arr, scalar)
+    assert result.equals(con([True, False, False, None]))
+
+    result = pc.less_equal(arr, scalar)
+    assert result.equals(con([True, True, False, None]))
+
+    result = pc.greater(arr, scalar)
+    assert result.equals(con([False, False, True, None]))
+
+    result = pc.greater_equal(arr, scalar)
+    assert result.equals(con([False, True, True, None]))
+
+
+@pytest.mark.parametrize("typ", ["array", "chunked_array"])
 def test_compare_scalar(typ):
     if typ == "array":
         def con(values): return pa.array(values)
@@ -803,11 +838,15 @@ def test_compare_scalar(typ):
         def con(values): return pa.chunked_array([values])
 
     arr = con([1, 2, 3, None])
-    # TODO this is a hacky way to construct a scalar ..
-    scalar = pa.array([2]).sum()
+    scalar = pa.scalar(2)
 
     result = pc.equal(arr, scalar)
     assert result.equals(con([False, True, False, None]))
+
+    if typ == "array":
+        nascalar = pa.scalar(None, type="int64")
+        result = pc.equal(arr, nascalar)
+        assert result.to_pylist() == [None, None, None, None]
 
     result = pc.not_equal(arr, scalar)
     assert result.equals(con([True, False, True, None]))
