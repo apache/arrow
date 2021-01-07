@@ -86,5 +86,7 @@ set PYARROW_WITH_S3=%ARROW_S3%
 set ARROW_HOME=C:\arrow-dist
 
 pushd C:\arrow\python
+@REM bundle the msvc runtime
+cp "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Redist\MSVC\14.16.27012\x64\Microsoft.VC141.CRT\msvcp140.dll" pyarrow\
 python setup.py bdist_wheel || exit /B
 popd
