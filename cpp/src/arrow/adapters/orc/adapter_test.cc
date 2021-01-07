@@ -34,8 +34,8 @@ namespace liborc = orc;
 
 namespace arrow {
 
-constexpr int DEFAULT_MEM_STREAM_SIZE = 10 * 1024 * 1024;
 constexpr int DEFAULT_SMALL_MEM_STREAM_SIZE = 16384 * 5;  // 80KB
+constexpr int DEFAULT_MEM_STREAM_SIZE = 10 * 1024 * 1024;
 
 using ArrayBuilderVector = std::vector<std::shared_ptr<ArrayBuilder>>;
 using ArrayBuilderMatrix = std::vector<ArrayBuilderVector>;
