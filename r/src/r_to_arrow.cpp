@@ -412,7 +412,6 @@ class RPrimitiveConverter<
   template <typename r_value_type>
   Status AppendRangeDispatch(SEXP x, R_xlen_t start, R_xlen_t size) {
     if (std::is_same<typename T::c_type, r_value_type>::value) {
-
       if (!ALTREP(x)) {
         return AppendRangeSameTypeNotALTREP<r_value_type>(x, start, size);
       } else {
@@ -423,7 +422,6 @@ class RPrimitiveConverter<
     // here if underlying types differ so going
     return AppendRangeLoopDifferentType<r_value_type>(x, start, size);
   }
-
 };
 
 template <typename T>
