@@ -665,6 +665,26 @@ class PartitionNthOptions(_PartitionNthOptions):
         self._set_options(pivot)
 
 
+cdef class _ProjectOptions(FunctionOptions):
+    cdef:
+        unique_ptr[CProjectOptions] project_options
+
+    cdef const CFunctionOptions* get_options(self) except NULL:
+        return self.project_options.get()
+
+    def _set_options(self, field_names):
+        cdef:
+            vector[c_string] c_field_names
+        for n in field_names:
+            c_field_names.push_back(tobytes(n))
+        self.project_options.reset(new CProjectOptions(field_names))
+
+
+class ProjectOptions(_ProjectOptions):
+    def __init__(self, field_names):
+        self._set_options(field_names)
+
+
 cdef class _MinMaxOptions(FunctionOptions):
     cdef:
         CMinMaxOptions min_max_options

@@ -36,6 +36,7 @@ from pyarrow._compute import (  # noqa
     MinMaxOptions,
     ModeOptions,
     PartitionNthOptions,
+    ProjectOptions,
     SetLookupOptions,
     StrptimeOptions,
     TakeOptions,
