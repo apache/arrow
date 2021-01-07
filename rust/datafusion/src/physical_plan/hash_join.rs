@@ -265,7 +265,7 @@ impl ExecutionPlan for HashJoinExec {
         let column_indices = self.column_indices_from_schema()?;
         Ok(Box::pin(HashJoinStream {
             schema: self.schema.clone(),
-            on_right: on_right,
+            on_right,
             join_type: self.join_type,
             left_data,
             right: stream,
@@ -518,11 +518,11 @@ fn build_join_indexes(
     match join_type {
         JoinType::Inner => {
             // Visit all of the right rows
-            for row in 0..right.num_rows() {
+            for (row, hash_value) in hash_values.iter().enumerate() {
                 // Get the hash and find it in the build index
 
                 // for every item on the left and right we check if it matches
-                if let Some(indices) = left.get(&hash_values[row]) {
+                if let Some(indices) = left.get(hash_value) {
                     for &i in indices {
                         // TODO: collision check
                         if true {
@@ -543,8 +543,8 @@ fn build_join_indexes(
             let mut is_visited = HashSet::new();
 
             // First visit all of the rows
-            for row in 0..right.num_rows() {
-                if let Some(indices) = left.get(&hash_values[row]) {
+            for (row, hash_value) in hash_values.iter().enumerate() {
+                if let Some(indices) = left.get(hash_value) {
                     for &i in indices {
                         // Collision check
                         if true {
@@ -568,8 +568,8 @@ fn build_join_indexes(
             Ok((left_indices.finish(), right_indices.finish()))
         }
         JoinType::Right => {
-            for row in 0..right.num_rows() {
-                match left.get(&hash_values[row]) {
+            for (row, hash_value) in hash_values.iter().enumerate() {
+                match left.get(hash_value) {
                     Some(indices) => {
                         for &i in indices {
                             if true {
@@ -593,9 +593,8 @@ use core::hash::BuildHasher;
 
 // Simple function to combine two hashes
 fn combine_hashes(l: u64, r: u64) -> u64 {
-    let mut hash = (17 * 37u64).overflowing_add(l).0;
-    hash = hash.overflowing_mul(37).0.overflowing_add(r).0;
-    return hash;
+    let hash = (17 * 37u64).overflowing_add(l).0;
+    hash.overflowing_mul(37).0.overflowing_add(r).0
 }
 
 /// Creates hash values for every
