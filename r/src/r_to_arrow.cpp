@@ -677,25 +677,36 @@ class RPrimitiveConverter<T, enable_if_string_like<T>>
   using OffsetType = typename T::offset_type;
 
   Status AppendRange(SEXP x, R_xlen_t start, R_xlen_t size) override {
-    RETURN_NOT_OK(this->Reserve(size));
-
     RVectorType rtype = GetVectorType(x);
     if (rtype != STRING) {
       return Status::Invalid("invalid R type to convert to string");
     }
 
-    auto append_value = [this](cpp11::r_string s) {
-      R_xlen_t n = XLENGTH(s);
-      ARROW_RETURN_NOT_OK(this->primitive_builder_->ReserveData(n));
-      this->primitive_builder_->UnsafeAppend(CHAR(s), static_cast<OffsetType>(n));
-      return Status::OK();
-    };
-    auto append_null = [this]() {
-      this->primitive_builder_->UnsafeAppendNull();
-      return Status::OK();
-    };
-    return RVectorVisitor<cpp11::r_string>::Visit(x, start, size, append_null,
-                                                  append_value);
+    cpp11::strings s(arrow::r::utf8_strings(x));
+    RETURN_NOT_OK(this->primitive_builder_->Reserve(s.size()));
+    auto it = s.begin() + start;
+
+    // we know all the R strings are utf8 already, so we can get
+    // a definite size and then use UnsafeAppend*()
+    int64_t total_length = 0;
+    for (R_xlen_t i = 0; i < size; i++, ++it) {
+      cpp11::r_string si = *it;
+      total_length += cpp11::is_na(si) ? 0 : si.size();
+    }
+    RETURN_NOT_OK(this->primitive_builder_->ReserveData(total_length));
+
+    // append
+    it = s.begin() + start;
+    for (R_xlen_t i = 0; i < size; i++, ++it) {
+      cpp11::r_string si = *it;
+      if (si == NA_STRING) {
+        this->primitive_builder_->UnsafeAppendNull();
+      } else {
+        this->primitive_builder_->UnsafeAppend(CHAR(si), si.size());
+      }
+    }
+
+    return Status::OK();
   }
 };
 
