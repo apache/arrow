@@ -45,6 +45,8 @@ pub struct IpcWriteOptions {
     write_legacy_ipc_format: bool,
     /// The metadata version to write. The Rust IPC writer supports V4+
     metadata_version: ipc::MetadataVersion,
+    /// Optional custom metadata.
+    custom_metadata: HashMap<String, String>,
 }
 
 impl IpcWriteOptions {
@@ -69,6 +71,7 @@ impl IpcWriteOptions {
                 alignment,
                 write_legacy_ipc_format,
                 metadata_version,
+                custom_metadata: HashMap::default(),
             }),
             ipc::MetadataVersion::V5 => {
                 if write_legacy_ipc_format {
@@ -81,6 +84,7 @@ impl IpcWriteOptions {
                         alignment,
                         write_legacy_ipc_format,
                         metadata_version,
+                        custom_metadata: HashMap::default(),
                     })
                 }
             }
@@ -95,6 +99,7 @@ impl Default for IpcWriteOptions {
             alignment: 8,
             write_legacy_ipc_format: true,
             metadata_version: ipc::MetadataVersion::V4,
+            custom_metadata: HashMap::default(),
         }
     }
 }
@@ -114,13 +119,34 @@ impl IpcDataGenerator {
             fb.as_union_value()
         };
 
-        let mut message = ipc::MessageBuilder::new(&mut fbb);
-        message.add_version(write_options.metadata_version);
-        message.add_header_type(ipc::MessageHeader::Schema);
-        message.add_bodyLength(0);
-        message.add_header(schema);
-        // TODO: custom metadata
-        let data = message.finish();
+        // Optional custom metadata.
+        let mut fb_metadata = None;
+        if !write_options.custom_metadata.is_empty() {
+            let mut kv_vec = vec![];
+            for (k, v) in &write_options.custom_metadata {
+                let kv_args = ipc::KeyValueArgs {
+                    key: Some(fbb.create_string(k.as_str())),
+                    value: Some(fbb.create_string(v.as_str())),
+                };
+                let kv_offset = ipc::KeyValue::create(&mut fbb, &kv_args);
+                kv_vec.push(kv_offset);
+            }
+
+            fb_metadata = Some(fbb.create_vector(&kv_vec));
+        }
+
+        let message_args = ipc::MessageArgs {
+            version: write_options.metadata_version,
+            header_type: ipc::MessageHeader::Schema,
+            header: Some(schema),
+            bodyLength: 0,
+            custom_metadata: fb_metadata,
+        };
+
+        // NOTE:
+        // As of crate `flatbuffers` 0.8.0, with `Message::new()`, almost no way to fix
+        // compilation error caused by "multiple mutable reference to fbb".
+        let data = ipc::Message::create(&mut fbb, &message_args);
         fbb.finish(data, None);
 
         let data = fbb.finished_data();

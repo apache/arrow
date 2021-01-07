@@ -18,7 +18,7 @@
 //! A two-dimensional batch of column-oriented data with a defined
 //! [schema](crate::datatypes::Schema).
 
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use crate::array::*;
 use crate::datatypes::*;
@@ -40,6 +40,7 @@ use crate::error::{ArrowError, Result};
 pub struct RecordBatch {
     schema: SchemaRef,
     columns: Vec<Arc<Array>>,
+    custom_metadata: HashMap<String, String>,
 }
 
 impl RecordBatch {
@@ -77,7 +78,11 @@ impl RecordBatch {
     pub fn try_new(schema: SchemaRef, columns: Vec<ArrayRef>) -> Result<Self> {
         let options = RecordBatchOptions::default();
         Self::validate_new_batch(&schema, columns.as_slice(), &options)?;
-        Ok(RecordBatch { schema, columns })
+        Ok(RecordBatch {
+            schema,
+            columns,
+            custom_metadata: HashMap::default(),
+        })
     }
 
     /// Creates a `RecordBatch` from a schema and columns, with additional options,
@@ -90,7 +95,11 @@ impl RecordBatch {
         options: &RecordBatchOptions,
     ) -> Result<Self> {
         Self::validate_new_batch(&schema, columns.as_slice(), options)?;
-        Ok(RecordBatch { schema, columns })
+        Ok(RecordBatch {
+            schema,
+            columns,
+            custom_metadata: options.custom_metadata.clone(),
+        })
     }
 
     /// Validate the schema and columns using [`RecordBatchOptions`]. Returns an error
@@ -240,12 +249,26 @@ impl RecordBatch {
 pub struct RecordBatchOptions {
     /// Match field names of structs and lists. If set to `true`, the names must match.
     pub match_field_names: bool,
+    pub custom_metadata: HashMap<String, String>,
+}
+
+impl RecordBatchOptions {
+    pub fn new(
+        match_field_names: bool,
+        custom_metadata: HashMap<String, String>,
+    ) -> Self {
+        Self {
+            match_field_names,
+            custom_metadata,
+        }
+    }
 }
 
 impl Default for RecordBatchOptions {
     fn default() -> Self {
         Self {
             match_field_names: true,
+            custom_metadata: HashMap::default(),
         }
     }
 }
@@ -261,6 +284,7 @@ impl From<&StructArray> for RecordBatch {
             RecordBatch {
                 schema: Arc::new(schema),
                 columns,
+                custom_metadata: HashMap::default(),
             }
         } else {
             unreachable!("unable to get datatype as struct")
@@ -378,6 +402,7 @@ mod tests {
         // creating the batch without field name validation should pass
         let options = RecordBatchOptions {
             match_field_names: false,
+            custom_metadata: HashMap::default(),
         };
         let batch = RecordBatch::try_new_with_options(schema, vec![a], &options);
         assert!(batch.is_ok());
