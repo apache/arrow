@@ -52,6 +52,12 @@ function arrowvector(x, i, nl, fi, de, ded, meta; dictencoding::Bool=false, dict
     return arrowvector(S, x, i, nl, fi, de, ded, meta; dictencode=dictencode, kw...)
 end
 
+# defaults for Dates types
+ArrowTypes.default(::Type{Dates.Date}) = Dates.Date(1,1,1)
+ArrowTypes.default(::Type{Dates.Time}) = Dates.Time(1,1,1)
+ArrowTypes.default(::Type{Dates.DateTime}) = Dates.DateTime(1,1,1,1,1,1)
+ArrowTypes.default(::Type{TimeZones.ZonedDateTime}) = TimeZones.ZonedDateTime(1,1,1,1,1,1,TimeZones.tz"UTC")
+
 # conversions to arrow types
 arrowvector(::Type{Dates.Date}, x, i, nl, fi, de, ded, meta; kw...) =
     arrowvector(converter(DATE, x), i, nl, fi, de, ded, meta; kw...)
@@ -69,7 +75,11 @@ function arrowvector(::Type{S}, x, i, nl, fi, de, ded, meta; kw...) where {S}
     if ArrowTypes.istyperegistered(S)
         meta = meta === nothing ? Dict{String, String}() : meta
         arrowtype = ArrowTypes.getarrowtype!(meta, S)
-        return arrowvector(converter(arrowtype, x), i, nl, fi, de, ded, meta; kw...)
+        if arrowtype === S
+            return arrowvector(ArrowType(S), x, i, nl, fi, de, ded, meta; kw...)
+        else
+            return arrowvector(converter(arrowtype, x), i, nl, fi, de, ded, meta; kw...)
+        end
     end
     return arrowvector(ArrowType(S), x, i, nl, fi, de, ded, meta; kw...)
 end
@@ -117,24 +127,24 @@ function ValidityBitmap(x)
     blen = cld(len, 8)
     bytes = Vector{UInt8}(undef, blen)
     st = iterate(x)
-    i = 0
     nc = 0
-    for k = 1:blen
-        b = 0x00
-        for j = 1:8
-            if (i + j) <= len
-                y, state = st
-                if y === missing
-                    nc += 1
-                    b = setbit(b, false, j)
-                else
-                    b = setbit(b, true, j)
-                end
-                st = iterate(x, state)
-            end
+    b = 0xff
+    j = k = 1
+    for y in x
+        if y === missing
+            nc += 1
+            b = setbit(b, false, j)
         end
-        i += 8
-        @inbounds bytes[k] = b
+        j += 1
+        if j == 9
+            @inbounds bytes[k] = b
+            b = 0xff
+            j = 1
+            k += 1
+        end
+    end
+    if j > 1
+        bytes[k] = b
     end
     return ValidityBitmap(nc == 0 ? UInt8[] : bytes, 1, nc == 0 ? 0 : len, nc)
 end

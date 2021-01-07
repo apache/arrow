@@ -32,8 +32,8 @@ Primitive(::Type{T}, b::Vector{UInt8}, v::ValidityBitmap, data::A, l, meta) wher
 
 Base.size(p::Primitive) = (p.ℓ,)
 
-function Base.copy(p::Primitive)
-    if nullcount(p) == 0
+function Base.copy(p::Primitive{T, A}) where {T, A}
+    if nullcount(p) == 0 && T === eltype(A)
         return copy(p.data)
     else
         return convert(Array, p)

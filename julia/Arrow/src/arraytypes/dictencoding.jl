@@ -25,6 +25,7 @@ mutable struct DictEncoding{T, A} <: ArrowVector{T}
     id::Int64
     data::A
     isOrdered::Bool
+    metadata::Union{Nothing, Dict{String, String}}
 end
 
 Base.size(d::DictEncoding) = size(d.data)
@@ -128,7 +129,7 @@ function arrowvector(::DictEncodedType, x, i, nl, fi, de, ded, meta; dictencode:
             pool = [get(pool[i]) for i = 1:length(pool)]
         end
         data = arrowvector(pool, i, nl, fi, de, ded, nothing; dictencode=dictencodenested, dictencodenested=dictencodenested, dictencoding=true, kw...)
-        encoding = DictEncoding{eltype(data), typeof(data)}(id, data, false)
+        encoding = DictEncoding{eltype(data), typeof(data)}(id, data, false, getmetadata(data))
         de[id] = Lockable(encoding)
     else
         # encoding already exists
@@ -138,10 +139,11 @@ function arrowvector(::DictEncodedType, x, i, nl, fi, de, ded, meta; dictencode:
         encodinglockable = de[id]
         @lock encodinglockable begin
             encoding = encodinglockable.x
-            pool = Dict(a => (b - 1) for (b, a) in enumerate(encoding))
-            deltas = eltype(x)[]
             len = length(x)
-            inds = Vector{encodingtype(len)}(undef, len)
+            ET = encodingtype(len)
+            pool = Dict{Union{eltype(encoding), eltype(x)}, ET}(a => (b - 1) for (b, a) in enumerate(encoding))
+            deltas = eltype(x)[]
+            inds = Vector{ET}(undef, len)
             categorical = typeof(x).name.name == :CategoricalArray
             for (j, val) in enumerate(x)
                 if categorical
@@ -154,21 +156,21 @@ function arrowvector(::DictEncodedType, x, i, nl, fi, de, ded, meta; dictencode:
             end
             if !isempty(deltas)
                 data = arrowvector(deltas, i, nl, fi, de, ded, nothing; dictencode=dictencodenested, dictencodenested=dictencodenested, dictencoding=true, kw...)
-                push!(ded, DictEncoding{eltype(data), typeof(data)}(id, data, false))
+                push!(ded, DictEncoding{eltype(data), typeof(data)}(id, data, false, getmetadata(data)))
                 if typeof(encoding.data) <: ChainedVector
                     append!(encoding.data, data)
                 else
                     data2 = ChainedVector([encoding.data, data])
-                    encoding = DictEncoding{eltype(data2), typeof(data2)}(id, data2, false)
+                    encoding = DictEncoding{eltype(data2), typeof(data2)}(id, data2, false, getmetadata(encoding))
                     de[id] = Lockable(encoding)
                 end
             end
         end
     end
-    if meta !== nothing && data.metadata !== nothing
-        merge!(meta, data.metadata)
-    elseif data.metadata !== nothing
-        meta = data.metadata
+    if meta !== nothing && getmetadata(encoding) !== nothing
+        merge!(meta, getmetadata(encoding))
+    elseif getmetadata(encoding) !== nothing
+        meta = getmetadata(encoding)
     end
     return DictEncoded(UInt8[], validity, inds, encoding, meta)
 end
@@ -201,16 +203,9 @@ function Base.copy(x::DictEncoded{T, S}) where {T, S}
     pool = copy(x.encoding.data)
     valid = x.validity
     inds = x.indices
-    if T >: Missing
-        refs = Vector{S}(undef, length(inds))
-        @inbounds for i = 1:length(inds)
-            refs[i] = ifelse(valid[i], inds[i] + one(S), missing)
-        end
-    else
-        refs = copy(inds)
-        @inbounds for i = 1:length(inds)
-            refs[i] = refs[i] + one(S)
-        end
+    refs = copy(inds)
+    @inbounds for i = 1:length(inds)
+        refs[i] = refs[i] + one(S)
     end
     return PooledArray(PooledArrays.RefArray(refs), Dict{T, S}(val => i for (i, val) in enumerate(pool)), pool)
 end

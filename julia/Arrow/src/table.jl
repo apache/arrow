@@ -54,7 +54,7 @@ Tables.partitions(x::Stream) = x
 
 Stream(io::IO, pos::Integer=1, len=nothing; convert::Bool=true) = Stream(Base.read(io), pos, len; convert=convert)
 Stream(str::String, pos::Integer=1, len=nothing; convert::Bool=true) = isfile(str) ? Stream(Mmap.mmap(str), pos, len; convert=convert) :
-    throw(ArgumentError("$str is not a valid arrow file"))
+    throw(ArgumentError("$str is not a file"))
 
 # will detect whether we're reading a Stream from a file or stream
 function Stream(bytes::Vector{UInt8}, off::Integer=1, tlen::Union{Integer, Nothing}=nothing; convert::Bool=true)
@@ -107,7 +107,7 @@ function Base.iterate(x::Stream, (pos, id)=(x.pos, 1))
             field = x.dictencoded[id]
             values, _, _ = build(field, field.type, batch, recordbatch, x.dictencodings, Int64(1), Int64(1), x.convert)
             A = ChainedVector([values])
-            x.dictencodings[id] = DictEncoding{eltype(A), typeof(A)}(id, A, field.dictionary.isOrdered)
+            x.dictencodings[id] = DictEncoding{eltype(A), typeof(A)}(id, A, field.dictionary.isOrdered, values.metadata)
             @debug 1 "parsed dictionary batch message: id=$id, data=$values\n"
         elseif header isa Meta.RecordBatch
             @debug 1 "parsing record batch message: compression = $(header.compression)"
@@ -150,7 +150,7 @@ sink function: e.g. `DataFrame(Arrow.Table(file))`, `SQLite.load!(db, "table", A
 Supports the `convert` keyword argument which controls whether certain arrow primitive types will be
 lazily converted to more friendly Julia defaults; by default, `convert=true`.
 """
-struct Table <: Tables.AbstractColumns
+mutable struct Table <: Tables.AbstractColumns
     names::Vector{Symbol}
     types::Vector{Type}
     columns::Vector{AbstractVector}
@@ -174,13 +174,29 @@ Tables.columnnames(t::Table) = names(t)
 Tables.getcolumn(t::Table, i::Int) = columns(t)[i]
 Tables.getcolumn(t::Table, nm::Symbol) = lookup(t)[nm]
 
+struct CopyingTable <: Tables.AbstractColumns
+    tbl::Table
+end
+
+table(t::CopyingTable) = getfield(t, :tbl)
+
+Tables.istable(::CopyingTable) = true
+Tables.columnaccess(::CopyingTable) = true
+Tables.columns(t::CopyingTable) = table(t)
+Tables.schema(t::CopyingTable) = Tables.schema(table(t))
+Tables.columnnames(t::CopyingTable) = names(table(t))
+Tables.getcolumn(t::CopyingTable, i::Int) = columns(table(t))[i]
+Tables.getcolumn(t::CopyingTable, nm::Symbol) = lookup(table(t))[nm]
+
+Base.copy(t::Table) = CopyingTable(t)
+
 # high-level user API functions
 Table(io::IO, pos::Integer=1, len=nothing; convert::Bool=true) = Table(Base.read(io), pos, len; convert=convert)
-Table(str::String, pos::Integer=1, len=nothing; convert::Bool=true) = isfile(str) ? Table(Mmap.mmap(str), pos, len; convert=convert) :
-    throw(ArgumentError("$str is not a valid arrow file"))
+Table(str::String, pos::Integer=1, len=nothing; convert::Bool=true) = isfile(str) ? Table(Mmap.mmap(str), pos, len; convert=convert, frommmap=true) :
+    throw(ArgumentError("$str is not a file"))
 
 # will detect whether we're reading a Table from a file or stream
-function Table(bytes::Vector{UInt8}, off::Integer=1, tlen::Union{Integer, Nothing}=nothing; convert::Bool=true)
+function Table(bytes::Vector{UInt8}, off::Integer=1, tlen::Union{Integer, Nothing}=nothing; convert::Bool=true, frommmap::Bool=false)
     len = something(tlen, length(bytes))
     if len > 24 &&
         _startswith(bytes, off, FILE_FORMAT_MAGIC_BYTES) &&
@@ -241,7 +257,7 @@ function Table(bytes::Vector{UInt8}, off::Integer=1, tlen::Union{Integer, Nothin
             field = dictencoded[id]
             values, _, _ = build(field, field.type, batch, recordbatch, dictencodings, Int64(1), Int64(1), convert)
             A = ChainedVector([values])
-            dictencodings[id] = DictEncoding{eltype(A), typeof(A)}(id, A, field.dictionary.isOrdered)
+            dictencodings[id] = DictEncoding{eltype(A), typeof(A)}(id, A, field.dictionary.isOrdered, values.metadata)
             @debug 1 "parsed dictionary batch message: id=$id, data=$values\n"
         elseif header isa Meta.RecordBatch
             @debug 1 "parsing record batch message: compression = $(header.compression)"
@@ -263,6 +279,11 @@ function Table(bytes::Vector{UInt8}, off::Integer=1, tlen::Union{Integer, Nothin
     meta = sch !== nothing ? sch.custom_metadata : nothing
     if meta !== nothing
         setmetadata!(t, Dict(String(kv.key) => String(kv.value) for kv in meta))
+    end
+    if frommmap
+        # finalizer(t) do x
+        #     finalize(bytes)
+        # end
     end
     return t
 end
