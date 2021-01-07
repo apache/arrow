@@ -53,6 +53,15 @@ public class Lz4CompressionCodec implements CompressionCodec {
     Preconditions.checkArgument(uncompressedBuffer.writerIndex() <= Integer.MAX_VALUE,
         "The uncompressed buffer size exceeds the integer limit");
 
+    if (uncompressedBuffer.writerIndex() == 0L) {
+      // shortcut for empty buffer
+      ArrowBuf compressedBuffer = allocator.buffer(SIZE_OF_MESSAGE_LENGTH);
+      compressedBuffer.setLong(0, 0);
+      compressedBuffer.writerIndex(SIZE_OF_MESSAGE_LENGTH);
+      uncompressedBuffer.close();
+      return compressedBuffer;
+    }
+
     // create compressor lazily
     if (compressor == null) {
       compressor = factory.fastCompressor();
@@ -87,18 +96,25 @@ public class Lz4CompressionCodec implements CompressionCodec {
     Preconditions.checkArgument(compressedBuffer.writerIndex() <= Integer.MAX_VALUE,
         "The compressed buffer size exceeds the integer limit");
 
-    Preconditions.checkArgument(compressedBuffer.writerIndex() > SIZE_OF_MESSAGE_LENGTH,
+    Preconditions.checkArgument(compressedBuffer.writerIndex() >= SIZE_OF_MESSAGE_LENGTH,
         "Not enough data to decompress.");
+
+    long decompressedLength = compressedBuffer.getLong(0);
+    if (!LITTLE_ENDIAN) {
+      decompressedLength = Long.reverseBytes(decompressedLength);
+    }
+
+    if (decompressedLength == 0L) {
+      // shortcut for empty buffer
+      compressedBuffer.close();
+      return allocator.getEmpty();
+    }
 
     // create decompressor lazily
     if (decompressor == null) {
       decompressor = factory.fastDecompressor();
     }
 
-    long decompressedLength = compressedBuffer.getLong(0);
-    if (!LITTLE_ENDIAN) {
-      decompressedLength = Long.reverseBytes(decompressedLength);
-    }
     ByteBuffer compressed = MemoryUtil.directBuffer(
         compressedBuffer.memoryAddress() + SIZE_OF_MESSAGE_LENGTH, (int) compressedBuffer.writerIndex());
 

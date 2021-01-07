@@ -30,6 +30,7 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.junit.After;
@@ -169,6 +170,34 @@ public class TestCompressionCodec {
       } else {
         assertArrayEquals(String.valueOf(i).getBytes(), newVec.get(i));
       }
+    }
+
+    newVec.close();
+    AutoCloseables.close(decompressedBuffers);
+  }
+
+  @Test
+  public void testEmptyBuffer() throws Exception {
+    final int vecLength = 10;
+    final VarBinaryVector origVec = new VarBinaryVector("vec", allocator);
+
+    origVec.allocateNew(vecLength);
+
+    // Do not set any values (all missing)
+    origVec.setValueCount(vecLength);
+
+    final List<ArrowBuf> origBuffers = origVec.getFieldBuffers();
+    final List<ArrowBuf> compressedBuffers = compressBuffers(origBuffers);
+    final List<ArrowBuf> decompressedBuffers = deCompressBuffers(compressedBuffers);
+
+    // orchestrate new vector
+    VarBinaryVector newVec = new VarBinaryVector("new vec", allocator);
+    newVec.loadFieldBuffers(new ArrowFieldNode(vecLength, vecLength), decompressedBuffers);
+
+    // verify new vector
+    assertEquals(vecLength, newVec.getValueCount());
+    for (int i = 0; i < vecLength; i++) {
+      assertTrue(newVec.isNull(i));
     }
 
     newVec.close();
