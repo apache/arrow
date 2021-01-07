@@ -134,7 +134,9 @@ impl HashJoinExec {
     /// Calculates column indices and left/right placement on input / output schemas and jointype
     fn column_indices_from_schema(&self) -> ArrowResult<Vec<ColumnIndex>> {
         let (primary_is_left, primary_schema, secondary_schema) = match self.join_type {
-            JoinType::Inner | JoinType::Left => (true, self.left.schema(), self.right.schema()),
+            JoinType::Inner | JoinType::Left => {
+                (true, self.left.schema(), self.right.schema())
+            }
             JoinType::Right => (false, self.right.schema(), self.left.schema()),
         };
         let mut column_indices = Vec::with_capacity(self.schema.fields().len());
@@ -151,7 +153,8 @@ impl HashJoinExec {
                     }
                 }.map_err(DataFusionError::into_arrow_external_error)?;
 
-            let is_left = is_primary && primary_is_left || !is_primary && !primary_is_left;
+            let is_left =
+                is_primary && primary_is_left || !is_primary && !primary_is_left;
             column_indices.push(ColumnIndex { index, is_left });
         }
 
@@ -207,7 +210,8 @@ impl ExecutionPlan for HashJoinExec {
                     let merge = MergeExec::new(self.left.clone());
                     let stream = merge.execute(0).await?;
 
-                    let on_left = self.on.iter().map(|on| on.0.clone()).collect::<Vec<_>>();
+                    let on_left =
+                        self.on.iter().map(|on| on.0.clone()).collect::<Vec<_>>();
                     // This operation performs 2 steps at once:
                     // 1. creates a [JoinHashMap] of all batches from the stream
                     // 2. stores the batches in a vector.
@@ -217,8 +221,15 @@ impl ExecutionPlan for HashJoinExec {
                             let hash = &mut acc.0;
                             let values = &mut acc.1;
                             let offset = acc.2;
-                            update_hash(&on_left, &batch, hash, offset, &mut acc.3, &self.random_state)
-                                .unwrap();
+                            update_hash(
+                                &on_left,
+                                &batch,
+                                hash,
+                                offset,
+                                &mut acc.3,
+                                &self.random_state,
+                            )
+                            .unwrap();
                             acc.2 += batch.num_rows();
                             values.push(batch);
                             Ok(acc)
@@ -227,7 +238,8 @@ impl ExecutionPlan for HashJoinExec {
 
                     // Merge all batches into a single batch, so we
                     // can directly index into the arrays
-                    let single_batch = concat_batches(&batches[0].schema(), &batches, num_rows)?;
+                    let single_batch =
+                        concat_batches(&batches[0].schema(), &batches, num_rows)?;
 
                     let left_side = Arc::new((hashmap, single_batch));
 
@@ -362,7 +374,11 @@ fn build_batch_from_indices(
 }
 
 /// Create a key `Vec<u8>` that is used as key for the hashmap
-pub(crate) fn create_key(group_by_keys: &[ArrayRef], row: usize, vec: &mut Vec<u8>) -> Result<()> {
+pub(crate) fn create_key(
+    group_by_keys: &[ArrayRef],
+    row: usize,
+    vec: &mut Vec<u8>,
+) -> Result<()> {
     vec.clear();
     for i in 0..group_by_keys.len() {
         let col = &group_by_keys[i];
@@ -442,7 +458,8 @@ fn build_batch(
     random_state: &RandomState,
 ) -> ArrowResult<RecordBatch> {
     let (left_indices, right_indices) =
-        build_join_indexes(&left_data.0, &batch, join_type, on_right, random_state).unwrap();
+        build_join_indexes(&left_data.0, &batch, join_type, on_right, random_state)
+            .unwrap();
 
     build_batch_from_indices(
         schema,
@@ -897,10 +914,12 @@ mod tests {
             ("b2", &vec![1, 2]),
             ("c1", &vec![7, 8]),
         );
-        let batch2 = build_table_i32(("a1", &vec![2]), ("b2", &vec![2]), ("c1", &vec![9]));
+        let batch2 =
+            build_table_i32(("a1", &vec![2]), ("b2", &vec![2]), ("c1", &vec![9]));
         let schema = batch1.schema();
-        let left =
-            Arc::new(MemoryExec::try_new(&vec![vec![batch1], vec![batch2]], schema, None).unwrap());
+        let left = Arc::new(
+            MemoryExec::try_new(&vec![vec![batch1], vec![batch2]], schema, None).unwrap(),
+        );
 
         let right = build_table(
             ("a1", &vec![1, 2, 3]),
@@ -940,10 +959,12 @@ mod tests {
             ("b1", &vec![4, 6]),
             ("c2", &vec![70, 80]),
         );
-        let batch2 = build_table_i32(("a2", &vec![30]), ("b1", &vec![5]), ("c2", &vec![90]));
+        let batch2 =
+            build_table_i32(("a2", &vec![30]), ("b1", &vec![5]), ("c2", &vec![90]));
         let schema = batch1.schema();
-        let right =
-            Arc::new(MemoryExec::try_new(&vec![vec![batch1], vec![batch2]], schema, None).unwrap());
+        let right = Arc::new(
+            MemoryExec::try_new(&vec![vec![batch1], vec![batch2]], schema, None).unwrap(),
+        );
 
         let on = &[("b1", "b1")];
 
