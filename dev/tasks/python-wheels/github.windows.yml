@@ -78,7 +78,7 @@ jobs:
             --queue-path . \
             --queue-remote {{ queue_remote_url }} \
             upload-artifacts \
-            --pattern "arrow/python/repaired_wheels/*.whl" \
+            --pattern "arrow/python/dist/*.whl" \
             --sha {{ task.branch }} \
             --tag {{ task.tag }}
         env:
