@@ -68,7 +68,7 @@ jobs:
         run: archery docker run --no-build -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} python-wheel-windows-vs2017
       - name: Test wheel
         shell: cmd
-        run: archery docker run --no-pull python-wheel-windows-test
+        run: archery docker run python-wheel-windows-test
 
       ############################ Artifact Uploading #########################
       - name: Upload artifacts
