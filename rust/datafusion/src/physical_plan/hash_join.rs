@@ -80,6 +80,8 @@ pub struct HashJoinExec {
     schema: SchemaRef,
     /// Build-side
     build_side: Arc<Mutex<Option<JoinLeftData>>>,
+
+    random_state: Arc<RandomState>,
 }
 
 /// Information about the index and placement (left or right) of the columns
@@ -116,6 +118,8 @@ impl HashJoinExec {
             .map(|(l, r)| (l.to_string(), r.to_string()))
             .collect();
 
+        let random_state = RandomState::new();
+
         Ok(HashJoinExec {
             left,
             right,
@@ -123,15 +127,14 @@ impl HashJoinExec {
             join_type: *join_type,
             schema,
             build_side: Arc::new(Mutex::new(None)),
+            random_state: Arc::new(random_state),
         })
     }
 
     /// Calculates column indices and left/right placement on input / output schemas and jointype
     fn column_indices_from_schema(&self) -> ArrowResult<Vec<ColumnIndex>> {
         let (primary_is_left, primary_schema, secondary_schema) = match self.join_type {
-            JoinType::Inner | JoinType::Left => {
-                (true, self.left.schema(), self.right.schema())
-            }
+            JoinType::Inner | JoinType::Left => (true, self.left.schema(), self.right.schema()),
             JoinType::Right => (false, self.right.schema(), self.left.schema()),
         };
         let mut column_indices = Vec::with_capacity(self.schema.fields().len());
@@ -148,8 +151,7 @@ impl HashJoinExec {
                     }
                 }.map_err(DataFusionError::into_arrow_external_error)?;
 
-            let is_left =
-                is_primary && primary_is_left || !is_primary && !primary_is_left;
+            let is_left = is_primary && primary_is_left || !is_primary && !primary_is_left;
             column_indices.push(ColumnIndex { index, is_left });
         }
 
@@ -194,7 +196,6 @@ impl ExecutionPlan for HashJoinExec {
 
     async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
         // we only want to compute the build side once
-        let random_state = RandomState::new();
         let left_data = {
             let mut build_side = self.build_side.lock().await;
             match build_side.as_ref() {
@@ -206,8 +207,7 @@ impl ExecutionPlan for HashJoinExec {
                     let merge = MergeExec::new(self.left.clone());
                     let stream = merge.execute(0).await?;
 
-                    let on_left =
-                        self.on.iter().map(|on| on.0.clone()).collect::<Vec<_>>();
+                    let on_left = self.on.iter().map(|on| on.0.clone()).collect::<Vec<_>>();
                     // This operation performs 2 steps at once:
                     // 1. creates a [JoinHashMap] of all batches from the stream
                     // 2. stores the batches in a vector.
@@ -217,15 +217,8 @@ impl ExecutionPlan for HashJoinExec {
                             let hash = &mut acc.0;
                             let values = &mut acc.1;
                             let offset = acc.2;
-                            update_hash(
-                                &on_left,
-                                &batch,
-                                hash,
-                                offset,
-                                &mut acc.3,
-                                &random_state,
-                            )
-                            .unwrap();
+                            update_hash(&on_left, &batch, hash, offset, &mut acc.3, &self.random_state)
+                                .unwrap();
                             acc.2 += batch.num_rows();
                             values.push(batch);
                             Ok(acc)
@@ -234,8 +227,7 @@ impl ExecutionPlan for HashJoinExec {
 
                     // Merge all batches into a single batch, so we
                     // can directly index into the arrays
-                    let single_batch =
-                        concat_batches(&batches[0].schema(), &batches, num_rows)?;
+                    let single_batch = concat_batches(&batches[0].schema(), &batches, num_rows)?;
 
                     let left_side = Arc::new((hashmap, single_batch));
 
@@ -271,7 +263,7 @@ impl ExecutionPlan for HashJoinExec {
             num_output_batches: 0,
             num_output_rows: 0,
             join_time: 0,
-            random_state,
+            random_state: self.random_state.clone(),
         }))
     }
 }
@@ -329,7 +321,7 @@ struct HashJoinStream {
     num_output_rows: usize,
     /// total time for joining probe-side batches to the build-side batches
     join_time: usize,
-    random_state: RandomState,
+    random_state: Arc<RandomState>,
 }
 
 impl RecordBatchStream for HashJoinStream {
@@ -370,11 +362,7 @@ fn build_batch_from_indices(
 }
 
 /// Create a key `Vec<u8>` that is used as key for the hashmap
-pub(crate) fn create_key(
-    group_by_keys: &[ArrayRef],
-    row: usize,
-    vec: &mut Vec<u8>,
-) -> Result<()> {
+pub(crate) fn create_key(group_by_keys: &[ArrayRef], row: usize, vec: &mut Vec<u8>) -> Result<()> {
     vec.clear();
     for i in 0..group_by_keys.len() {
         let col = &group_by_keys[i];
@@ -454,8 +442,7 @@ fn build_batch(
     random_state: &RandomState,
 ) -> ArrowResult<RecordBatch> {
     let (left_indices, right_indices) =
-        build_join_indexes(&left_data.0, &batch, join_type, on_right, random_state)
-            .unwrap();
+        build_join_indexes(&left_data.0, &batch, join_type, on_right, random_state).unwrap();
 
     build_batch_from_indices(
         schema,
@@ -510,6 +497,7 @@ fn build_join_indexes(
     let mut right_indices = UInt32Builder::new(0);
     let buf = &mut Vec::new();
     let hash_values = create_hashes(&keys_values, &random_state, buf)?;
+    println!("{:?}", left);
 
     match join_type {
         JoinType::Inner => {
@@ -587,8 +575,8 @@ fn build_join_indexes(
 }
 use core::hash::BuildHasher;
 
-// Simple function to combine two hashes  
-fn combine_hashes(l: u64, r: u64) -> u64{
+// Simple function to combine two hashes
+fn combine_hashes(l: u64, r: u64) -> u64 {
     let mut hash = (17 * 37u64).overflowing_add(l).0;
     hash = hash.overflowing_mul(37).0.overflowing_add(r).0;
     return hash;
@@ -601,10 +589,10 @@ fn create_hashes<'a>(
     buf: &'a mut Vec<u64>,
 ) -> Result<Vec<u64>> {
     let rows = arrays[0].len();
-    buf.fill(0);
     buf.resize(rows, 0);
 
     let mut hashes = vec![0; rows];
+    println!("{:?}", hashes);
 
     for col in arrays {
         match col.data_type() {
@@ -665,6 +653,7 @@ fn create_hashes<'a>(
                 let array = col.as_any().downcast_ref::<Int32Array>().unwrap();
                 for (i, hash) in hashes.iter_mut().enumerate() {
                     let mut hasher = random_state.build_hasher();
+                    println!("{}", array.value(i));
                     hasher.write_i32(array.value(i));
                     *hash = combine_hashes(hasher.finish(), *hash);
                 }
@@ -715,6 +704,7 @@ fn create_hashes<'a>(
             }
         }
     }
+    println!("{:?}", hashes);
     Ok(hashes)
 }
 
@@ -911,12 +901,10 @@ mod tests {
             ("b2", &vec![1, 2]),
             ("c1", &vec![7, 8]),
         );
-        let batch2 =
-            build_table_i32(("a1", &vec![2]), ("b2", &vec![2]), ("c1", &vec![9]));
+        let batch2 = build_table_i32(("a1", &vec![2]), ("b2", &vec![2]), ("c1", &vec![9]));
         let schema = batch1.schema();
-        let left = Arc::new(
-            MemoryExec::try_new(&vec![vec![batch1], vec![batch2]], schema, None).unwrap(),
-        );
+        let left =
+            Arc::new(MemoryExec::try_new(&vec![vec![batch1], vec![batch2]], schema, None).unwrap());
 
         let right = build_table(
             ("a1", &vec![1, 2, 3]),
@@ -956,12 +944,10 @@ mod tests {
             ("b1", &vec![4, 6]),
             ("c2", &vec![70, 80]),
         );
-        let batch2 =
-            build_table_i32(("a2", &vec![30]), ("b1", &vec![5]), ("c2", &vec![90]));
+        let batch2 = build_table_i32(("a2", &vec![30]), ("b1", &vec![5]), ("c2", &vec![90]));
         let schema = batch1.schema();
-        let right = Arc::new(
-            MemoryExec::try_new(&vec![vec![batch1], vec![batch2]], schema, None).unwrap(),
-        );
+        let right =
+            Arc::new(MemoryExec::try_new(&vec![vec![batch1], vec![batch2]], schema, None).unwrap());
 
         let on = &[("b1", "b1")];
 
