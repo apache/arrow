@@ -20,15 +20,21 @@ ARG arch=amd64
 ARG python=3.6
 FROM ${repo}:${arch}-conda-python-${python}
 
-ARG spark=3.0.1
+ARG jdk=8
+ARG maven=3.5
 
 # The Spark tests currently break with pandas >= 1.0
 RUN conda install -q \
         patch \
-        pandas=0.25.3 \
-        pyspark=${spark} && \
+        pandas=1.2.0 \
+        openjdk=${jdk} \
+        maven=${maven} && \
     conda clean --all
 
+# installing specific version of spark
+ARG spark=master
+COPY ci/scripts/install_spark.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_spark.sh ${spark} /spark
 
 # build cpp with tests
 ENV CC=gcc \
