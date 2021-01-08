@@ -262,28 +262,22 @@ TEST_F(ConcatenateTest, DictionaryTypeDifferentDictionaries) {
     // are padded to length 8 so we can know the size ahead of time.
     StringBuilder values_one_builder;
     StringBuilder values_two_builder;
-    StringBuilder expected_values_builder;
     ASSERT_OK(values_one_builder.Resize(SIZE));
     ASSERT_OK(values_two_builder.Resize(SIZE));
-    ASSERT_OK(expected_values_builder.Resize(SIZE * 2));
     ASSERT_OK(values_one_builder.ReserveData(8 * SIZE));
     ASSERT_OK(values_two_builder.ReserveData(8 * SIZE));
-    ASSERT_OK(expected_values_builder.ReserveData(8 * SIZE * 2));
     for (auto i = 0; i < SIZE; i++) {
       auto i_str = std::to_string(i);
       auto padded = i_str.insert(0, 8 - i_str.length(), '0');
       values_one_builder.UnsafeAppend(padded);
-      expected_values_builder.UnsafeAppend(padded);
-    }
-    for (auto i = SIZE; i < 2 * SIZE; i++) {
-      auto i_str = std::to_string(i);
-      auto padded = i_str.insert(0, 8 - i_str.length(), '0');
-      values_two_builder.UnsafeAppend(padded);
-      expected_values_builder.UnsafeAppend(padded);
+      auto upper_i_str = std::to_string(i + SIZE);
+      auto upper_padded = upper_i_str.insert(0, 8 - i_str.length(), '0');
+      values_two_builder.UnsafeAppend(upper_padded);
     }
     ASSERT_OK_AND_ASSIGN(auto dictionary_one, values_one_builder.Finish());
     ASSERT_OK_AND_ASSIGN(auto dictionary_two, values_two_builder.Finish());
-    ASSERT_OK_AND_ASSIGN(auto expected_dictionary, expected_values_builder.Finish());
+    ASSERT_OK_AND_ASSIGN(auto expected_dictionary,
+                         Concatenate({dictionary_one, dictionary_two}))
 
     auto one = std::make_shared<DictionaryArray>(dict_type, indices, dictionary_one);
     auto two = std::make_shared<DictionaryArray>(dict_type, indices, dictionary_two);
@@ -335,16 +329,13 @@ TEST_F(ConcatenateTest, DictionaryTypeEnlargedIndices) {
 
   UInt16Builder values_builder;
   ASSERT_OK(values_builder.Reserve(size));
-  for (auto i = 0; i < size; i++) {
-    values_builder.UnsafeAppend(i);
-  }
-  ASSERT_OK_AND_ASSIGN(auto dictionary_one, values_builder.Finish());
-
   UInt16Builder values_builder_two;
   ASSERT_OK(values_builder_two.Reserve(size));
-  for (auto i = size; i < 2 * size; i++) {
-    values_builder_two.UnsafeAppend(i);
+  for (auto i = 0; i < size; i++) {
+    values_builder.UnsafeAppend(i);
+    values_builder_two.UnsafeAppend(i + size);
   }
+  ASSERT_OK_AND_ASSIGN(auto dictionary_one, values_builder.Finish());
   ASSERT_OK_AND_ASSIGN(auto dictionary_two, values_builder_two.Finish());
 
   auto dict_one = std::make_shared<DictionaryArray>(dict_type, indices, dictionary_one);
