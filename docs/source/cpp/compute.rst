@@ -461,6 +461,8 @@ Structural transforms
 +--------------------------+------------+------------------------------------------------+---------------------+---------+
 | list_value_length        | Unary      | List-like                                      | Int32 or Int64      | \(5)    |
 +--------------------------+------------+------------------------------------------------+---------------------+---------+
+| project                  | Varargs    | Any                                            | Struct              | \(6)    |
++--------------------------+------------+------------------------------------------------+---------------------+---------+
 
 * \(1) First input must be an array, second input a scalar of the same type.
   Output is an array of the same type as the inputs, and with the same values
@@ -474,6 +476,11 @@ Structural transforms
 
 * \(5) Each output element is the length of the corresponding input element
   (null if input is null).  Output type is Int32 for List, Int64 for LargeList.
+
+* \(6) The output struct's field types are the types of its arguments. The
+  field names are specified using an instance of :struct:`ProjectOptions`.
+  The output shape will be scalar if all inputs are scalar, otherwise any
+  scalars will be broadcast to arrays.
 
 Conversions
 ~~~~~~~~~~~
