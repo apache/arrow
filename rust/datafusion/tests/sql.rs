@@ -1855,6 +1855,29 @@ async fn string_expressions() -> Result<()> {
 }
 
 #[tokio::test]
+async fn crypto_expressions() -> Result<()> {
+    let mut ctx = ExecutionContext::new();
+    let sql = "SELECT
+        md5('tom') AS md5_tom,
+        sha224('tom') AS sha224_tom,
+        sha256('tom') AS sha256_tom,
+        sha384('tom') AS sha348_tom,
+        sha512('tom') AS sha512_tom
+    ";
+    let actual = execute(&mut ctx, sql).await;
+
+    let expected = vec![vec![
+        "34b7da764b21d298ef307d04d8152dc5",
+        "BF6CB62649C42A9AE3876AB6F6D92AD36CB5414E495F8873292BE4D",
+        "E1608F75C5D7813F3D4031CB30BFB786507D98137538FF8E128A6FF74E84E643",
+        "96F5B68AA77848E4FDF5C1CB35DE2DBFAD6FFD7C25D9EA7C6C19B8A4D55A9187EB117C557883F58C16DFAC3E343",
+        "6E1B9B3FE84068E3751F7AD5E959D6F39AD0F8885D855166F55C659469D3C8B78118C44A2A49C72DDB481CD6D8731034E11CC0307BA843A9B3495CB8D3E"
+    ]];
+    assert_eq!(expected, actual);
+    Ok(())
+}
+
+#[tokio::test]
 async fn in_list_array() -> Result<()> {
     let mut ctx = ExecutionContext::new();
     register_aggregate_csv_by_sql(&mut ctx).await;
