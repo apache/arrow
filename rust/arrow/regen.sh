@@ -55,12 +55,15 @@ bazel build :flatc
 popd
 
 FB_PATCH="rust/arrow/format-0ed34c83.patch"
-echo"Patch flatbuffer files with ${FB_PATCH} for cargo doc"
+echo "Patch flatbuffer files with ${FB_PATCH} for cargo doc"
 echo "NOTE: the patch MAY need update in case of changes in format/*.fbs"
-git apply rust/arrow/format-5504ee4.patch
+git apply --check ${FB_PATCH} && git apply ${FB_PATCH}
 
 # Execute the code generation:
 $FLATC --filename-suffix "" --rust -o rust/arrow/src/ipc/gen/ format/*.fbs
+
+# Reset changes to format/
+git checkout -- format
 
 # Now the files are wrongly named so we have to change that.
 popd
