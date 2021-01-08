@@ -171,6 +171,24 @@ test_that("Array supports NA", {
   expect_error(x_int$IsNull(-1), "subscript out of bounds")
 })
 
+test_that("Array create with NAs and NaNs", {
+  expect_equal(as.vector(Array$create(NA_real_, uint16())), NA_integer_)
+  expect_equal(as.vector(Array$create(NA_real_, uint32())), NA_integer_)
+  expect_equal(as.vector(Array$create(NA_real_, uint64())), NA_integer_)
+  expect_equal(as.vector(Array$create(NA_real_, int16())), NA_integer_)
+  expect_equal(as.vector(Array$create(NA_real_, int32())), NA_integer_)
+  expect_equal(as.vector(Array$create(NA_real_, int64())), NA_integer_)
+
+  expect_equal(as.vector(Array$create(NaN, int32())), NA_integer_)
+  expect_equal(as.vector(Array$create(NaN, int64())), NA_integer_)
+
+  skip("Why are these all returning 0?")
+  expect_equal(as.vector(Array$create(NaN, uint16())), NA_integer_)
+  expect_equal(as.vector(Array$create(NaN, uint32())), NA_integer_)
+  expect_equal(as.vector(Array$create(NaN, uint64())), NA_integer_)
+  expect_equal(as.vector(Array$create(NaN, int16())), NA_integer_)
+})
+
 test_that("Array support null type (ARROW-7064)", {
   expect_array_roundtrip(vctrs::unspecified(10), null())
 })

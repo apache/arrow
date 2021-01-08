@@ -44,7 +44,7 @@ df1 <- tibble(
 second_date <- lubridate::ymd_hms("2017-03-09 07:01:02")
 df2 <- tibble(
   int = 101:110,
-  dbl = as.numeric(51:60),
+  dbl = c(as.numeric(51:59), NaN),
   lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
   chr = letters[10:1],
   fct = factor(LETTERS[10:1]),
@@ -414,6 +414,17 @@ test_that("filter() with is.na()", {
       filter(!is.na(lgl), part == 1) %>%
       collect(),
     tibble(part = 1L, lgl = df1$lgl[!is.na(df1$lgl)])
+  )
+})
+
+test_that("filter() with is.na()", {
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
+  expect_equivalent(
+    ds %>%
+      select(part, dbl) %>%
+      filter(!is.nan(dbl), part == 1) %>%
+      collect(),
+    tibble(part = 1L, dbl = df1$dbl[!is.nan(df1$dbl)])
   )
 })
 

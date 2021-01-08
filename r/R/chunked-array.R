@@ -131,6 +131,9 @@ as.vector.ChunkedArray <- function(x, mode) x$as_vector()
 is.na.ChunkedArray <- function(x) call_function("is_null", x)
 
 #' @export
+is.nan.ChunkedArray <- function(x) call_function("is_nan", x)
+
+#' @export
 `[.ChunkedArray` <- filter_rows
 
 #' @export
