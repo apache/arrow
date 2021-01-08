@@ -104,9 +104,31 @@ CsvFileFormat$create <- function(..., opts = csv_file_format_parse_options(...))
 }
 
 csv_file_format_parse_options <- function(...) {
+  opt_names <- names(list(...))
   # Support both the readr spelling of options and the arrow spelling
+  arrow_opts <- names(formals(CsvParseOptions$create))
   readr_opts <- names(formals(readr_to_csv_parse_options))
-  if (any(readr_opts %in% names(list(...)))) {
+  is_arrow_opt <- !is.na(pmatch(opt_names, arrow_opts))
+  is_readr_opt <- !is.na(pmatch(opt_names, readr_opts))
+  bad_opts <- opt_names[!is_arrow_opt & !is_readr_opt]
+  if (length(bad_opts)) {
+    stop("Unsupported options: ",
+         paste(bad_opts, collapse = ", "),
+         call. = FALSE)
+  }
+  is_ambig_opt <- is.na(pmatch(opt_names, c(arrow_opts, readr_opts)))
+  ambig_opts <- opt_names[is_ambig_opt]
+  if (length(ambig_opts)) {
+    stop("Ambiguous arguments: ",
+         paste(ambig_opts, collapse = ", "),
+         ". Use full argument names",
+         call. = FALSE)
+  }
+  if (any(is_readr_opt)) {
+    if (!all(is_readr_opt)) {
+      stop("Use either Arrow parse options or readr parse options, not both",
+           call. = FALSE)
+    }
     readr_to_csv_parse_options(...)
   } else {
     CsvParseOptions$create(...)
