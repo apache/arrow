@@ -147,17 +147,4 @@ done
 popd
 cargo +stable fmt -- src/ipc/gen/*
 
-echo "=== TIPS ==="
-echo "Let's manually fix rustdoc of SparseTensorIndexCSF::indptrType:"
-echo 'prepend the tree with ```text, and append the tree with ```'
-cat <<TREE_EOF
-    /// \`\`\`text
-    ///         0          1
-    ///        / \         |
-    ///       0   1        1
-    ///      /   / \       |
-    ///     0   0   1      1
-    ///    /|  /|   |    /| |
-    ///   1 2 0 2   0   0 1 2
-    /// \`\`\`
-TREE_EOF
+echo "DONE! please run cargo doc and fix possible warnings!"
