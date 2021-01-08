@@ -16,7 +16,6 @@
 // under the License.
 
 #pragma once
-
 #include "arrow/util/functional.h"
 #include "arrow/util/future.h"
 #include "arrow/util/iterator.h"
@@ -79,6 +78,9 @@ class TransformingGenerator {
     while (!finished_ && last_value_.has_value()) {
       TransformFlow<V> next = transformer_(*last_value_);
       if (next.ReadyForNext()) {
+        if (*last_value_ == IterationTraits<T>::End()) {
+          finished_ = true;
+        }
         last_value_.reset();
       }
       if (next.Finished()) {
@@ -95,18 +97,34 @@ class TransformingGenerator {
   }
 
   Future<V> operator()() {
-    auto maybe_next = Pump();
-    if (maybe_next.has_value()) {
-      return Future<V>::MakeFinished(*maybe_next);
-    }
-    return generator_().Then([this](const Result<T>& next_result) {
-      if (next_result.ok()) {
-        last_value_ = *next_result;
-        return (*this)();
-      } else {
-        return Future<V>::MakeFinished(next_result.status());
+    while (true) {
+      auto maybe_next = Pump();
+      if (maybe_next.has_value()) {
+        return Future<V>::MakeFinished(*maybe_next);
       }
-    });
+
+      auto next_fut = generator_();
+      // If finished already, process results immediately inside the loop to avoid stack
+      // overflow
+      if (next_fut.is_finished()) {
+        auto next_result = next_fut.result();
+        if (next_result.ok()) {
+          last_value_ = *next_result;
+        } else {
+          return Future<V>::MakeFinished(next_result.status());
+        }
+        // Otherwise, if not finished immediately, add callback to process results
+      } else {
+        return next_fut.Then([this](const Result<T>& next_result) {
+          if (next_result.ok()) {
+            last_value_ = *next_result;
+            return (*this)();
+          } else {
+            return Future<V>::MakeFinished(next_result.status());
+          }
+        });
+      }
+    }
   }
 
  protected:
@@ -205,8 +223,7 @@ static Result<AsyncGenerator<T>> MakeBackgroundIterator(Iterator<T> iterator,
                                                         internal::ThreadPool* executor) {
   auto background_iterator =
       std::make_shared<BackgroundIterator<T>>(std::move(iterator), executor);
-  return internal::MakeSharedCallable<BackgroundIterator<T>, Future<T>>(
-      background_iterator);
+  return [background_iterator]() { return (*background_iterator)(); };
 }
 
 }  // namespace arrow

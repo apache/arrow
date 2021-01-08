@@ -126,33 +126,5 @@ class FnOnce<R(A...)> {
   std::unique_ptr<Impl> impl_;
 };
 
-/// Wraps a callable in a shared_ptr forwards calls to the shared pointer.  std::function
-/// tends to create lots of copies of its target callables and if those callables have
-/// move-only state that is a problem.
-/// TODO: Improve templating.  Can any of these arguments be inferred somehow?  It's a bit
-/// awkward to have to specify all three things.  Seems like Res & Args could be inferred
-/// from Callable maybe?
-template <typename Callable, typename Res, typename... Args>
-class SharedCallable {
- public:
-  explicit SharedCallable(Callable c) : ptr_(std::make_shared<Callable>(std::move(c))) {}
-  explicit SharedCallable(std::shared_ptr<Callable> ptr) : ptr_(std::move(ptr)) {}
-
-  Res operator()(Args&&... args) { return (*ptr_)(std::forward<Args>(args)...); }
-
- private:
-  std::shared_ptr<Callable> ptr_;
-};
-
-template <typename Callable, typename Res, typename... Args>
-std::function<Res(Args...)> MakeSharedCallable(Callable c) {
-  return std::function<Res(Args...)>(SharedCallable<Callable, Res, Args...>(c));
-}
-
-template <typename Callable, typename Res, typename... Args>
-std::function<Res(Args...)> MakeSharedCallable(std::shared_ptr<Callable> ptr) {
-  return std::function<Res(Args...)>(SharedCallable<Callable, Res, Args...>(ptr));
-}
-
 }  // namespace internal
 }  // namespace arrow

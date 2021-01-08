@@ -327,7 +327,10 @@ class ARROW_MUST_USE_TYPE Future {
 
   /// \brief Producer API: instantiate a valid Future
   ///
-  /// The Future's state is initialized with PENDING.
+  /// The Future's state is initialized with PENDING.  If you are creating a future with
+  /// this method you must ensure that future is eventually completed (with success or
+  /// failure).  Creating a future, returning it, and never completing the future can lead
+  /// to memory leaks (for example, see Loop).
   static Future Make() {
     Future fut;
     fut.impl_ = FutureImpl::Make();
@@ -647,12 +650,28 @@ Future<BreakValueType> Loop(Iterate iterate) {
         return break_fut.MarkFinished(std::move(maybe_break));
       }
 
-      // Potentially add a while loop here to help relieve stack depth
-      auto control_fut = iterate();
-      control_fut.AddCallback(std::move(*this));
+      while (true) {
+        auto control_fut = iterate();
+        // We don't want to AddCallback on a finished future because that will lead to
+        // recursion and potential stack overflow
+        if (control_fut.is_finished()) {
+          const Result<Control>& next_control = control_fut.result();
+          if (!next_control.ok() || next_control->IsBreak()) {
+            Result<BreakValueType> next_break = next_control.Map(Control::MoveBreakValue);
+            return break_fut.MarkFinished(std::move(next_break));
+          }
+        } else {
+          return control_fut.AddCallback(std::move(*this));
+        }
+      }
     }
 
     Iterate iterate;
+    // If the future returned by control_fut is never completed then we will be hanging on
+    // to break_fut forever even if the listener has given up listening on it.  Instead we
+    // rely on the fact that a producer (the caller of Future<>::Make) is always
+    // responsible for completing the futures they create.
+    // TODO: Could avoid this kind of situation with "future abandonment" similar to mesos
     Future<BreakValueType> break_fut;
   };
 

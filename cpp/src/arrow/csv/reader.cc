@@ -188,10 +188,11 @@ class SerialBlockReader : public BlockReader {
       std::shared_ptr<Buffer> first_buffer) {
     auto block_reader =
         std::make_shared<SerialBlockReader>(std::move(chunker), first_buffer);
-    auto block_reader_fn =
-        internal::MakeSharedCallable<SerialBlockReader,
-                                     TransformFlow<util::optional<CSVBlock>>,
-                                     std::shared_ptr<Buffer>>(block_reader);
+    // Wrap shared pointer in callable
+    Transformer<std::shared_ptr<Buffer>, util::optional<CSVBlock>> block_reader_fn =
+        [block_reader](std::shared_ptr<Buffer> buf) {
+          return (*block_reader)(std::move(buf));
+        };
     return MakeTransformedIterator(std::move(buffer_iterator), block_reader_fn);
   }
 
@@ -243,10 +244,9 @@ class ThreadedBlockReader : public BlockReader {
       std::shared_ptr<Buffer> first_buffer) {
     auto block_reader =
         std::make_shared<ThreadedBlockReader>(std::move(chunker), first_buffer);
-    auto block_reader_fn =
-        internal::MakeSharedCallable<ThreadedBlockReader,
-                                     TransformFlow<util::optional<CSVBlock>>,
-                                     std::shared_ptr<Buffer>>(block_reader);
+    // Wrap shared pointer in callable
+    Transformer<std::shared_ptr<Buffer>, util::optional<CSVBlock>> block_reader_fn =
+        [block_reader](std::shared_ptr<Buffer> next) { return (*block_reader)(next); };
     return MakeTransformedIterator(std::move(buffer_iterator), block_reader_fn);
   }
 
@@ -255,10 +255,9 @@ class ThreadedBlockReader : public BlockReader {
       std::unique_ptr<Chunker> chunker, std::shared_ptr<Buffer> first_buffer) {
     auto block_reader =
         std::make_shared<ThreadedBlockReader>(std::move(chunker), first_buffer);
-    auto block_reader_fn =
-        internal::MakeSharedCallable<ThreadedBlockReader,
-                                     TransformFlow<util::optional<CSVBlock>>,
-                                     std::shared_ptr<Buffer>>(block_reader);
+    // Wrap shared pointer in callable
+    Transformer<std::shared_ptr<Buffer>, util::optional<CSVBlock>> block_reader_fn =
+        [block_reader](std::shared_ptr<Buffer> next) { return (*block_reader)(next); };
     return TransformAsyncGenerator(buffer_generator, block_reader_fn);
   }
 

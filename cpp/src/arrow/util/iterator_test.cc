@@ -322,6 +322,27 @@ TEST(TestAsyncUtil, CompleteBackgroundStressTest) {
   }
 }
 
+TEST(TestAsyncUtil, StackOverflow) {
+  int counter = 0;
+  AsyncGenerator<TestInt> generator = [&counter]() {
+    if (counter < 1000000) {
+      return Future<TestInt>::MakeFinished(counter++);
+    } else {
+      return Future<TestInt>::MakeFinished(IterationTraits<TestInt>::End());
+    }
+  };
+  Transformer<TestInt, TestInt> discard = [](TestInt next) -> TransformFlow<TestInt> {
+    return TransformSkip();
+  };
+  auto transformed = TransformAsyncGenerator(generator, discard);
+  auto collected_future = CollectAsyncGenerator(transformed);
+  ASSERT_TRUE(collected_future.Wait(5));
+  if (collected_future.is_finished()) {
+    ASSERT_OK_AND_ASSIGN(auto collected, collected_future.result());
+    ASSERT_EQ(0, collected.size());
+  }
+}
+
 TEST(TestAsyncUtil, Visit) {
   auto generator = AsyncVectorIt({1, 2, 3});
   auto sum = std::make_shared<unsigned int>();
