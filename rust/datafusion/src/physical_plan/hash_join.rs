@@ -20,7 +20,7 @@
 
 use ahash::RandomState;
 use arrow::{
-    array::{ArrayRef, UInt64Builder},
+    array::{ArrayRef, BooleanArray, LargeStringArray, UInt64Builder},
     compute,
 };
 use arrow::{
@@ -198,6 +198,8 @@ impl ExecutionPlan for HashJoinExec {
     }
 
     async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
+        let on_left = self.on.iter().map(|on| on.0.clone()).collect::<Vec<_>>();
+
         // we only want to compute the build side once
         let left_data = {
             let mut build_side = self.build_side.lock().await;
@@ -210,12 +212,11 @@ impl ExecutionPlan for HashJoinExec {
                     let merge = MergeExec::new(self.left.clone());
                     let stream = merge.execute(0).await?;
 
-                    let on_left =
-                        self.on.iter().map(|on| on.0.clone()).collect::<Vec<_>>();
                     // This operation performs 2 steps at once:
                     // 1. creates a [JoinHashMap] of all batches from the stream
                     // 2. stores the batches in a vector.
-                    let initial = (JoinHashMap::with_hasher(IdHashBuilder{}), Vec::new(), 0);
+                    let initial =
+                        (JoinHashMap::with_hasher(IdHashBuilder {}), Vec::new(), 0);
                     let (hashmap, batches, num_rows) = stream
                         .try_fold(initial, |mut acc, batch| async {
                             let hash = &mut acc.0;
@@ -264,6 +265,7 @@ impl ExecutionPlan for HashJoinExec {
         let column_indices = self.column_indices_from_schema()?;
         Ok(Box::pin(HashJoinStream {
             schema: self.schema.clone(),
+            on_left,
             on_right,
             join_type: self.join_type,
             left_data,
@@ -311,6 +313,8 @@ fn update_hash(
 struct HashJoinStream {
     /// Input schema
     schema: Arc<Schema>,
+    /// columns from the left
+    on_left: Vec<String>,
     /// columns from the right used to compute the hash
     on_right: Vec<String>,
     /// type of the join
@@ -352,7 +356,7 @@ fn build_batch_from_indices(
     right: &RecordBatch,
     left_indices: UInt64Array,
     right_indices: UInt32Array,
-    column_indices: &Vec<ColumnIndex>,
+    column_indices: &[ColumnIndex],
 ) -> ArrowResult<RecordBatch> {
     // build the columns of the new [RecordBatch]:
     // 1. pick whether the column is from the left or right
@@ -449,15 +453,22 @@ pub(crate) fn create_key(
 fn build_batch(
     batch: &RecordBatch,
     left_data: &JoinLeftData,
+    on_left: &[String],
     on_right: &[String],
     join_type: JoinType,
     schema: &Schema,
-    column_indices: &Vec<ColumnIndex>,
+    column_indices: &[ColumnIndex],
     random_state: &RandomState,
 ) -> ArrowResult<RecordBatch> {
-    let (left_indices, right_indices) =
-        build_join_indexes(&left_data.0, &batch, join_type, on_right, random_state)
-            .unwrap();
+    let (left_indices, right_indices) = build_join_indexes(
+        &left_data,
+        &batch,
+        join_type,
+        on_left,
+        on_right,
+        random_state,
+    )
+    .unwrap();
 
     build_batch_from_indices(
         schema,
@@ -497,9 +508,10 @@ fn build_batch(
 // (1, 1)     (1, 1)
 // (1, 0)     (1, 2)
 fn build_join_indexes(
-    left: &JoinHashMap,
+    left_data: &JoinLeftData,
     right: &RecordBatch,
     join_type: JoinType,
+    left_on: &[String],
     right_on: &[String],
     random_state: &RandomState,
 ) -> Result<(UInt64Array, UInt32Array)> {
@@ -507,8 +519,17 @@ fn build_join_indexes(
         .iter()
         .map(|name| Ok(col(name).evaluate(right)?.into_array(right.num_rows())))
         .collect::<Result<Vec<_>>>()?;
+    let left_join_values = left_on
+        .iter()
+        .map(|name| {
+            Ok(col(name)
+                .evaluate(&left_data.1)?
+                .into_array(left_data.1.num_rows()))
+        })
+        .collect::<Result<Vec<_>>>()?;
 
     let hash_values = create_hashes(&keys_values, &random_state)?;
+    let left = &left_data.0;
 
     let mut left_indices = UInt64Builder::new(0);
     let mut right_indices = UInt32Builder::new(0);
@@ -522,8 +543,7 @@ fn build_join_indexes(
                 // for every item on the left and right we check if it matches
                 if let Some(indices) = left.get(hash_value) {
                     for &i in indices {
-                        // TODO: collision check
-                        if true {
+                        if is_eq(i as usize, row, &left_join_values, &keys_values)? {
                             left_indices.append_value(i)?;
                             right_indices.append_value(row as u32)?;
                         }
@@ -545,7 +565,7 @@ fn build_join_indexes(
                 if let Some(indices) = left.get(hash_value) {
                     for &i in indices {
                         // Collision check
-                        if true {
+                        if is_eq(i as usize, row, &left_join_values, &keys_values)? {
                             left_indices.append_value(i)?;
                             right_indices.append_value(row as u32)?;
                             is_visited.insert(i);
@@ -555,7 +575,7 @@ fn build_join_indexes(
             }
             // Add the remaining left rows to the result set with None on the right side
             for (_, indices) in left {
-                for i in indices {
+                for i in indices.iter() {
                     if !is_visited.contains(i) {
                         left_indices.append_slice(&indices)?;
                         right_indices.append_null()?;
@@ -570,7 +590,7 @@ fn build_join_indexes(
                 match left.get(hash_value) {
                     Some(indices) => {
                         for &i in indices {
-                            if true {
+                            if is_eq(i as usize, row, &left_join_values, &keys_values)? {
                                 left_indices.append_value(i)?;
                                 right_indices.append_value(row as u32)?;
                             }
@@ -588,7 +608,7 @@ fn build_join_indexes(
     }
 }
 use core::hash::BuildHasher;
- 
+
 /// `Hasher` that returns the same `u64` value as a hash, to avoid re-hashing
 /// it when inserting/indexing or regrowing the `HashMap`
 struct IdHasher {
@@ -624,6 +644,129 @@ impl BuildHasher for IdHashBuilder {
 fn combine_hashes(l: u64, r: u64) -> u64 {
     let hash = (17 * 37u64).overflowing_add(l).0;
     hash.overflowing_mul(37).0.overflowing_add(r).0
+}
+
+fn is_eq(
+    left: usize,
+    right: usize,
+    left_arrays: &[ArrayRef],
+    right_arrays: &[ArrayRef],
+) -> Result<bool> {
+    let mut err = None;
+    let res = left_arrays
+        .iter()
+        .zip(right_arrays)
+        .all(|(l, r)| match l.data_type() {
+            DataType::Null => true,
+            DataType::Boolean => {
+                l.as_any()
+                    .downcast_ref::<BooleanArray>()
+                    .unwrap()
+                    .value(left)
+                    == r.as_any()
+                        .downcast_ref::<BooleanArray>()
+                        .unwrap()
+                        .value(right)
+            }
+            DataType::Int8 => {
+                l.as_any().downcast_ref::<Int8Array>().unwrap().value(left)
+                    == r.as_any().downcast_ref::<Int8Array>().unwrap().value(right)
+            }
+            DataType::Int16 => {
+                l.as_any().downcast_ref::<Int16Array>().unwrap().value(left)
+                    == r.as_any()
+                        .downcast_ref::<Int16Array>()
+                        .unwrap()
+                        .value(right)
+            }
+            DataType::Int32 => {
+                l.as_any().downcast_ref::<Int32Array>().unwrap().value(left)
+                    == r.as_any()
+                        .downcast_ref::<Int32Array>()
+                        .unwrap()
+                        .value(right)
+            }
+            DataType::Int64 => {
+                l.as_any().downcast_ref::<Int64Array>().unwrap().value(left)
+                    == r.as_any()
+                        .downcast_ref::<Int64Array>()
+                        .unwrap()
+                        .value(right)
+            }
+            DataType::UInt8 => {
+                l.as_any().downcast_ref::<UInt8Array>().unwrap().value(left)
+                    == r.as_any()
+                        .downcast_ref::<UInt8Array>()
+                        .unwrap()
+                        .value(right)
+            }
+            DataType::UInt16 => {
+                l.as_any()
+                    .downcast_ref::<UInt16Array>()
+                    .unwrap()
+                    .value(left)
+                    == r.as_any()
+                        .downcast_ref::<UInt16Array>()
+                        .unwrap()
+                        .value(right)
+            }
+            DataType::UInt32 => {
+                l.as_any()
+                    .downcast_ref::<UInt32Array>()
+                    .unwrap()
+                    .value(left)
+                    == r.as_any()
+                        .downcast_ref::<UInt32Array>()
+                        .unwrap()
+                        .value(right)
+            }
+            DataType::UInt64 => {
+                l.as_any()
+                    .downcast_ref::<UInt64Array>()
+                    .unwrap()
+                    .value(left)
+                    == r.as_any()
+                        .downcast_ref::<UInt64Array>()
+                        .unwrap()
+                        .value(right)
+            }
+            DataType::Timestamp(_, None) => {
+                l.as_any().downcast_ref::<Int64Array>().unwrap().value(left)
+                    == r.as_any()
+                        .downcast_ref::<Int64Array>()
+                        .unwrap()
+                        .value(right)
+            }
+            DataType::Utf8 => {
+                l.as_any()
+                    .downcast_ref::<StringArray>()
+                    .unwrap()
+                    .value(left)
+                    == r.as_any()
+                        .downcast_ref::<StringArray>()
+                        .unwrap()
+                        .value(right)
+            }
+            DataType::LargeUtf8 => {
+                l.as_any()
+                    .downcast_ref::<LargeStringArray>()
+                    .unwrap()
+                    .value(left)
+                    == r.as_any()
+                        .downcast_ref::<LargeStringArray>()
+                        .unwrap()
+                        .value(right)
+            }
+            _ => {
+                // This is internal because we should have caught this before.
+                err = Some(Err(DataFusionError::Internal(
+                    "Unsupported data type in hasher".to_string(),
+                )));
+                false
+            }
+        });
+
+    err.unwrap_or(Ok(res))
 }
 
 /// Creates hash values for every
@@ -738,7 +881,7 @@ fn create_hashes<'a>(
             _ => {
                 // This is internal because we should have caught this before.
                 return Err(DataFusionError::Internal(
-                    "Unsupported GROUP BY data type".to_string(),
+                    "Unsupported data type in hasher".to_string(),
                 ));
             }
         }
@@ -761,6 +904,7 @@ impl Stream for HashJoinStream {
                     let result = build_batch(
                         &batch,
                         &self.left_data,
+                        &self.on_left,
                         &self.on_right,
                         self.join_type,
                         &self.schema,
