@@ -81,7 +81,7 @@ pub struct HashJoinExec {
     /// Build-side
     build_side: Arc<Mutex<Option<JoinLeftData>>>,
 
-    random_state: Arc<RandomState>,
+    random_state: RandomState,
 }
 
 /// Information about the index and placement (left or right) of the columns
@@ -127,7 +127,7 @@ impl HashJoinExec {
             join_type: *join_type,
             schema,
             build_side: Arc::new(Mutex::new(None)),
-            random_state: Arc::new(random_state),
+            random_state: random_state,
         })
     }
 
@@ -331,7 +331,8 @@ struct HashJoinStream {
     num_output_rows: usize,
     /// total time for joining probe-side batches to the build-side batches
     join_time: usize,
-    random_state: Arc<RandomState>,
+    /// Random state used for hashing initialization
+    random_state: RandomState,
 }
 
 impl RecordBatchStream for HashJoinStream {
@@ -587,7 +588,9 @@ fn build_join_indexes(
     }
 }
 use core::hash::BuildHasher;
-
+ 
+/// `Hasher` that returns the same `u64` value as a hash, to avoid re-hashing
+/// it when inserting/indexing or regrowing the `HashMap`
 struct IdHasher {
     hash: u64,
 }
@@ -617,7 +620,7 @@ impl BuildHasher for IdHashBuilder {
     }
 }
 
-// Simple function to combine two hashes
+// Combines two hashes into one hash
 fn combine_hashes(l: u64, r: u64) -> u64 {
     let hash = (17 * 37u64).overflowing_add(l).0;
     hash.overflowing_mul(37).0.overflowing_add(r).0
