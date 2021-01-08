@@ -196,7 +196,15 @@ int64_t RVectorVisitor<int64_t>::GetValue(double x) {
 
 class RConverter : public Converter<SEXP, RConversionOptions> {
  public:
-  virtual Status Append(SEXP) { return Status::Invalid("not using Append()"); }
+  virtual Status Append(SEXP) { return Status::Invalid("Append"); }
+
+  virtual Status Extend(SEXP values, int64_t size) {
+    return AppendRange(values, 0, size);
+  }
+
+  virtual Status ExtendMasked(SEXP values, SEXP mask, int64_t size) {
+    return AppendRange(values, 0, size);
+  }
 
   virtual Status AppendRange(SEXP x, R_xlen_t start, R_xlen_t size) {
     RVectorType rtype = GetVectorType(x);
@@ -946,7 +954,7 @@ std::shared_ptr<arrow::Array> vec_to_arrow(SEXP x, SEXP s_type) {
   // otherwise go through the converter api
   auto converter = ValueOrStop(MakeConverter<RConverter, RConverterTrait>(
       options.type, options, gc_memory_pool()));
-  StopIfNotOk(converter->AppendRange(x, 0, options.size));
+  StopIfNotOk(converter->Extend(x, options.size));
   return ValueOrStop(converter->ToArray());
 }
 
