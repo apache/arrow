@@ -18,6 +18,7 @@
 #include "arrow/dataset/rados.h"
 
 #include <iostream>
+#include <vector>
 
 namespace arrow {
 namespace dataset {
@@ -34,6 +35,16 @@ int IoCtxWrapper::read(const std::string& oid, librados::bufferlist& bl, size_t 
 int IoCtxWrapper::exec(const std::string& oid, const char* cls, const char* method,
                        librados::bufferlist& in, librados::bufferlist& out) {
   return this->ioCtx->exec(oid, cls, method, in, out);
+}
+
+std::vector<std::string> IoCtxWrapper::list() {
+  std::vector<std::string> oids;
+  librados::NObjectIterator begin = this->ioCtx->nobjects_begin();
+  librados::NObjectIterator end = this->ioCtx->nobjects_end();
+  for (; begin != end; begin++) {
+    oids.push_back(begin->get_oid());
+  }
+  return oids;
 }
 
 int RadosWrapper::init2(const char* const name, const char* const clustername,

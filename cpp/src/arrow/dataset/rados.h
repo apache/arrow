@@ -55,6 +55,8 @@ class ARROW_DS_EXPORT IoCtxInterface {
   virtual int exec(const std::string& oid, const char* cls, const char* method,
                    librados::bufferlist& in, librados::bufferlist& out) = 0;
 
+  virtual std::vector<std::string> list() = 0;
+
  private:
   friend class RadosWrapper;
   /// \brief Set the `librados::IoCtx` instance inside a IoCtxInterface instance.
@@ -70,6 +72,7 @@ class ARROW_DS_EXPORT IoCtxWrapper : public IoCtxInterface {
            uint64_t offset) override;
   int exec(const std::string& oid, const char* cls, const char* method,
            librados::bufferlist& in, librados::bufferlist& out) override;
+  std::vector<std::string> list() override;
 
  private:
   void setIoCtx(librados::IoCtx* ioCtx_) override { *ioCtx = *ioCtx_; }

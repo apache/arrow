@@ -93,6 +93,7 @@ class ARROW_DS_EXPORT MockIoCtx : public IoCtxInterface {
   MOCK_METHOD5(exec, int(const std::string& oid, const char* cls, const char* method,
                          librados::bufferlist& in, librados::bufferlist& out));
   MOCK_METHOD1(setIoCtx, void(librados::IoCtx* ioCtx_));
+  MOCK_METHOD0(list, std::vector<std::string>());
 
  private:
   Status setup() {
@@ -108,6 +109,8 @@ class ARROW_DS_EXPORT MockIoCtx : public IoCtxInterface {
 
     EXPECT_CALL(*this, exec(testing::_, testing::_, testing::_, testing::_, testing::_))
         .WillRepeatedly(DoAll(testing::SetArgReferee<4>(result), testing::Return(0)));
+    EXPECT_CALL(*this, list())
+        .WillOnce(testing::Return(std::vector<std::string>{"sample"}));
     return Status::OK();
   }
 };
@@ -193,22 +196,25 @@ TEST_F(TestRadosDataset, GetFragments) {
 
   SetSchema({field("f1", int64()), field("f2", int64())});
 
+  auto cluster = std::make_shared<RadosCluster>("test-pool", "/etc/ceph/ceph.conf");
+  auto mock_rados_interface = new MockRados();
+  auto mock_ioctx_interface = new MockIoCtx();
+  cluster->rados_interface_ = mock_rados_interface;
+  cluster->io_ctx_interface_ = mock_ioctx_interface;
+
   RadosObjectVector object_vector{std::make_shared<RadosObject>("object.1"),
                                   std::make_shared<RadosObject>("object.2"),
                                   std::make_shared<RadosObject>("object.3")};
 
+  RadosFragmentVector fragments;
+  for (int i = 0; i < 3; i++) {
+    fragments.push_back(
+        std::make_shared<RadosFragment>(schema_, object_vector[i], cluster));
+  }
+
   auto batch = generate_test_record_batch();
   auto reader = ConstantArrayGenerator::Repeat(kNumberBatches, batch);
-
-  auto cluster = std::make_shared<RadosCluster>("test-pool", "/etc/ceph/ceph.conf");
-
-  auto mock_rados_interface = new MockRados();
-  auto mock_ioctx_interface = new MockIoCtx();
-
-  cluster->rados_interface_ = mock_rados_interface;
-  cluster->io_ctx_interface_ = mock_ioctx_interface;
-
-  auto dataset = std::make_shared<RadosDataset>(schema_, object_vector, cluster);
+  auto dataset = RadosDataset::Make(schema_, fragments, cluster).ValueOrDie();
 
   AssertDatasetEquals(reader.get(), dataset.get());
 }
@@ -216,18 +222,22 @@ TEST_F(TestRadosDataset, GetFragments) {
 TEST_F(TestRadosDataset, ReplaceSchema) {
   SetSchema({field("i32", int32()), field("f64", float64())});
 
-  RadosObjectVector object_vector{std::make_shared<RadosObject>("object.1"),
-                                  std::make_shared<RadosObject>("object.2")};
-
   auto cluster = std::make_shared<RadosCluster>("test-pool", "/etc/ceph/ceph.conf");
-
   auto mock_rados_interface = new MockRados();
   auto mock_ioctx_interface = new MockIoCtx();
-
   cluster->rados_interface_ = mock_rados_interface;
   cluster->io_ctx_interface_ = mock_ioctx_interface;
 
-  auto dataset = std::make_shared<RadosDataset>(schema_, object_vector, cluster);
+  RadosObjectVector object_vector{std::make_shared<RadosObject>("object.1"),
+                                  std::make_shared<RadosObject>("object.2")};
+
+  RadosFragmentVector fragments;
+  for (int i = 0; i < 2; i++) {
+    fragments.push_back(
+        std::make_shared<RadosFragment>(schema_, object_vector[i], cluster));
+  }
+
+  auto dataset = RadosDataset::Make(schema_, fragments, cluster).ValueOrDie();
 
   // drop field
   ASSERT_OK(dataset->ReplaceSchema(schema({field("i32", int32())})).status());
@@ -291,22 +301,25 @@ TEST_F(TestRadosDataset, EndToEnd) {
 
   SetSchema({field("f1", int64()), field("f2", int64())});
 
+  auto cluster = std::make_shared<RadosCluster>("test-pool", "/etc/ceph/ceph.conf");
+  auto mock_rados_interface = new MockRados();
+  auto mock_ioctx_interface = new MockIoCtx();
+  cluster->rados_interface_ = mock_rados_interface;
+  cluster->io_ctx_interface_ = mock_ioctx_interface;
+
   RadosObjectVector object_vector{std::make_shared<RadosObject>("object.1"),
                                   std::make_shared<RadosObject>("object.2"),
                                   std::make_shared<RadosObject>("object.3")};
+  RadosFragmentVector fragments;
+  for (int i = 0; i < 3; i++) {
+    fragments.push_back(
+        std::make_shared<RadosFragment>(schema_, object_vector[i], cluster));
+  }
 
   auto batch = generate_test_record_batch();
   auto reader = ConstantArrayGenerator::Repeat(kNumberBatches, batch);
 
-  auto cluster = std::make_shared<RadosCluster>("test-pool", "/etc/ceph/ceph.conf");
-
-  auto mock_rados_interface = new MockRados();
-  auto mock_ioctx_interface = new MockIoCtx();
-
-  cluster->rados_interface_ = mock_rados_interface;
-  cluster->io_ctx_interface_ = mock_ioctx_interface;
-
-  auto dataset = std::make_shared<RadosDataset>(schema_, object_vector, cluster);
+  auto dataset = RadosDataset::Make(schema_, fragments, cluster).ValueOrDie();
   auto context = std::make_shared<ScanContext>();
   auto builder = std::make_shared<ScannerBuilder>(dataset, context);
   auto scanner = builder->Finish().ValueOrDie();
@@ -315,6 +328,7 @@ TEST_F(TestRadosDataset, EndToEnd) {
   reader->ReadAll(&table);
 
   auto table_ = scanner->ToTable().ValueOrDie();
+
   ASSERT_TRUE(table->Equals(*table_));
 }
 
