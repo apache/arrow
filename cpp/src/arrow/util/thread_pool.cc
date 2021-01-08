@@ -47,7 +47,7 @@ struct ThreadPool::State {
   std::list<std::thread> workers_;
   // Trashcan for finished threads
   std::vector<std::thread> finished_workers_;
-  std::deque<std::function<void()>> pending_tasks_;
+  std::deque<FnOnce<void()>> pending_tasks_;
 
   // Desired number of threads
   int desired_capacity_ = 0;
@@ -84,10 +84,10 @@ static void WorkerLoop(std::shared_ptr<ThreadPool::State> state,
         break;
       }
       {
-        std::function<void()> task = std::move(state->pending_tasks_.front());
+        FnOnce<void()> task = std::move(state->pending_tasks_.front());
         state->pending_tasks_.pop_front();
         lock.unlock();
-        task();
+        std::move(task)();
       }
       lock.lock();
     }
@@ -228,7 +228,7 @@ void ThreadPool::LaunchWorkersUnlocked(int threads) {
   }
 }
 
-Status ThreadPool::SpawnReal(TaskHints hints, std::function<void()> task) {
+Status ThreadPool::SpawnReal(TaskHints hints, FnOnce<void()> task) {
   {
     ProtectAgainstFork();
     std::lock_guard<std::mutex> lock(state_->mutex_);
