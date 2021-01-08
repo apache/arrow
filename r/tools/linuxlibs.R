@@ -301,8 +301,12 @@ build_libarrow <- function(src_dir, dst_dir) {
   options(.arrow.cleanup = c(getOption(".arrow.cleanup"), build_dir))
 
   R_CMD_config <- function(var) {
-    # cf. tools::Rcmd, introduced R 3.3
-    system2(file.path(R.home("bin"), "R"), c("CMD", "config", var), stdout = TRUE)
+    if (getRversion() < 3.4) {
+      # var names were called CXX1X instead of CXX11
+      var <- sub("^CXX11", "CXX1X", var)
+    }
+    # tools::Rcmd introduced R 3.3
+    tools::Rcmd(paste("config", var), stdout = TRUE)
   }
   env_var_list <- c(
     SOURCE_DIR = src_dir,
@@ -339,7 +343,7 @@ ensure_cmake <- function() {
   if (is.null(cmake)) {
     # If not found, download it
     cat("**** cmake\n")
-    CMAKE_VERSION <- Sys.getenv("CMAKE_VERSION", "3.18.1")
+    CMAKE_VERSION <- Sys.getenv("CMAKE_VERSION", "3.19.2")
     cmake_binary_url <- paste0(
       "https://github.com/Kitware/CMake/releases/download/v", CMAKE_VERSION,
       "/cmake-", CMAKE_VERSION, "-Linux-x86_64.tar.gz"
