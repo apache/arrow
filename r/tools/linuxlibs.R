@@ -22,8 +22,8 @@ dst_dir <- paste0("libarrow/arrow-", VERSION)
 arrow_repo <- "https://dl.bintray.com/ursalabs/arrow-r/libarrow/"
 
 if (getRversion() < 3.4 && is.null(getOption("download.file.method"))) {
-  # default method doesn't work on R 3.3; default changed to libcurl in 3.4
-  options(download.file.method = "libcurl")
+  # default method doesn't work on R 3.3, nor does libcurl
+  options(download.file.method = "wget")
 }
 
 options(.arrow.cleanup = character()) # To collect dirs to rm on exit
