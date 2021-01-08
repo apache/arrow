@@ -518,26 +518,28 @@ impl<'a> SparseMatrixIndexCSX<'a> {
     }
     /// indptrBuffer stores the location and size of indptr array that
     /// represents the range of the rows.
-    /// The i-th row spans from indptr[i] to indptr[i+1] in the data.
+    /// The i-th row spans from `indptr[i]` to `indptr[i+1]` in the data.
     /// The length of this array is 1 + (the number of rows), and the type
     /// of index value is long.
     ///
     /// For example, let X be the following 6x4 matrix:
     ///
+    /// ```
     ///   X := [[0, 1, 2, 0],
     ///         [0, 0, 3, 0],
     ///         [0, 4, 0, 5],
     ///         [0, 0, 0, 0],
     ///         [6, 0, 7, 8],
     ///         [0, 9, 0, 0]].
-    ///
+    /// ```
     /// The array of non-zero values in X is:
-    ///
+    /// ```
     ///   values(X) = [1, 2, 3, 4, 5, 6, 7, 8, 9].
-    ///
+    /// ```
     /// And the indptr of X is:
-    ///
+    /// ```
     ///   indptr(X) = [0, 2, 3, 5, 5, 8, 10].
+    /// ```
     #[inline]
     pub fn indptrBuffer(&self) -> &'a Buffer {
         self._tab
@@ -559,9 +561,9 @@ impl<'a> SparseMatrixIndexCSX<'a> {
     /// The type of index value is long.
     ///
     /// For example, the indices of the above X is:
-    ///
+    /// ```
     ///   indices(X) = [1, 2, 2, 1, 3, 0, 2, 3, 1].
-    ///
+    /// ```
     /// Note that the indices are sorted in lexicographical order for each row.
     #[inline]
     pub fn indicesBuffer(&self) -> &'a Buffer {
@@ -750,7 +752,7 @@ impl<'a> SparseTensorIndexCSF<'a> {
     pub const VT_AXISORDER: flatbuffers::VOffsetT = 12;
 
     /// CSF is a generalization of compressed sparse row (CSR) index.
-    /// See [smith2017knl]: http://shaden.io/pub-files/smith2017knl.pdf
+    /// See \[smith2017knl\]: http://shaden.io/pub-files/smith2017knl.pdf
     ///
     /// CSF index recursively compresses each dimension of a tensor into a set
     /// of prefix trees. Each path from a root to leaf forms one tensor
@@ -759,7 +761,7 @@ impl<'a> SparseTensorIndexCSF<'a> {
     ///
     /// For example, let X be a 2x3x4x5 tensor and let it have the following
     /// 8 non-zero values:
-    ///
+    /// ```
     ///   X[0, 0, 0, 1] := 1
     ///   X[0, 0, 0, 2] := 2
     ///   X[0, 1, 0, 0] := 3
@@ -768,7 +770,7 @@ impl<'a> SparseTensorIndexCSF<'a> {
     ///   X[1, 1, 1, 0] := 6
     ///   X[1, 1, 1, 1] := 7
     ///   X[1, 1, 1, 2] := 8
-    ///
+    /// ```
     /// As a prefix tree this would be represented as:
     ///
     /// ```text
@@ -792,18 +794,18 @@ impl<'a> SparseTensorIndexCSF<'a> {
     }
     /// indptrBuffers stores the sparsity structure.
     /// Each two consecutive dimensions in a tensor correspond to a buffer in
-    /// indptrBuffers. A pair of consecutive values at indptrBuffers[dim][i]
-    /// and indptrBuffers[dim][i + 1] signify a range of nodes in
-    /// indicesBuffers[dim + 1] who are children of indicesBuffers[dim][i] node.
+    /// indptrBuffers. A pair of consecutive values at `indptrBuffers[dim][i]`
+    /// and `indptrBuffers[dim][i + 1]` signify a range of nodes in
+    /// `indicesBuffers[dim + 1]` who are children of `indicesBuffers[dim][i]` node.
     ///
     /// For example, the indptrBuffers for the above X is:
-    ///
+    /// ```
     ///   indptrBuffer(X) = [
     ///                       [0, 2, 3],
     ///                       [0, 1, 3, 4],
     ///                       [0, 2, 4, 5, 8]
     ///                     ].
-    ///
+    /// ```
     #[inline]
     pub fn indptrBuffers(&self) -> &'a [Buffer] {
         self._tab
@@ -827,14 +829,14 @@ impl<'a> SparseTensorIndexCSF<'a> {
     /// indicesBuffers stores values of nodes.
     /// Each tensor dimension corresponds to a buffer in indicesBuffers.
     /// For example, the indicesBuffers for the above X is:
-    ///
+    /// ```
     ///   indicesBuffer(X) = [
     ///                        [0, 1],
     ///                        [0, 1, 1],
     ///                        [0, 0, 1, 1],
     ///                        [1, 2, 0, 2, 0, 0, 1, 2]
     ///                      ].
-    ///
+    /// ```
     #[inline]
     pub fn indicesBuffers(&self) -> &'a [Buffer] {
         self._tab
@@ -848,9 +850,9 @@ impl<'a> SparseTensorIndexCSF<'a> {
     /// axisOrder stores the sequence in which dimensions were traversed to
     /// produce the prefix tree.
     /// For example, the axisOrder for the above X is:
-    ///
+    /// ```
     ///   axisOrder(X) = [0, 1, 2, 3].
-    ///
+    /// ```
     #[inline]
     pub fn axisOrder(&self) -> flatbuffers::Vector<'a, i32> {
         self._tab

@@ -21,8 +21,8 @@
 //! One interface maps C ABI to native Rust types, i.e. convert c-pointers, c_char, to native rust.
 //! This is handled by [FFI_ArrowSchema] and [FFI_ArrowArray].
 //!
-//! The second interface maps native Rust types to the Rust-specific implementation of Arrow such as `format` to [Datatype],
-//! `Buffer`, etc. This is handled by [ArrowArray].
+//! The second interface maps native Rust types to the Rust-specific implementation of Arrow such as `format` to `Datatype`,
+//! `Buffer`, etc. This is handled by `ArrowArray`.
 //!
 //! ```rust
 //! # use std::sync::Arc;

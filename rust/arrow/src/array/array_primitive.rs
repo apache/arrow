@@ -49,7 +49,7 @@ pub struct PrimitiveArray<T: ArrowPrimitiveType> {
     /// Pointer to the value array. The lifetime of this must be <= to the value buffer
     /// stored in `data`, so it's safe to store.
     /// # Safety
-    /// raw_values must have a value equivalent to data.buffers()[0].raw_data()
+    /// raw_values must have a value equivalent to `data.buffers()[0].raw_data()`
     /// raw_values must have alignment for type T::NativeType
     raw_values: RawPtrBox<T::Native>,
 }
