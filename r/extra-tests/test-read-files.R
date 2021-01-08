@@ -115,6 +115,7 @@ test_that("Can read the file (parquet)", {
 })
 
 test_that("Can see the metadata (stream)", {
+  skip_if_version_less_than("2.0.0", "Version 1.0.1 can't read new version metadata.")
   df <- read_ipc_stream(stream_file)
 
   expect_s3_class(df, "tbl")
