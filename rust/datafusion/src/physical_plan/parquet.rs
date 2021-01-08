@@ -60,11 +60,11 @@ pub struct ParquetExec {
 ///
 /// In the future it would be good to support subsets of files based on ranges of row groups
 /// so that we can better parallelize reads of large files across available cores (see
-/// https://issues.apache.org/jira/browse/ARROW-10995).
+/// [ARROW-10995](https://issues.apache.org/jira/browse/ARROW-10995)).
 ///
 /// We may also want to support reading Parquet files that are partitioned based on a key and
 /// in this case we would want this partition struct to represent multiple files for a given
-/// partition key (see https://issues.apache.org/jira/browse/ARROW-11019).
+/// partition key (see [ARROW-11019](https://issues.apache.org/jira/browse/ARROW-11019)).
 #[derive(Debug, Clone)]
 pub struct ParquetPartition {
     /// The Parquet filename for this partition

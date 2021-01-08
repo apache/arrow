@@ -147,4 +147,6 @@ done
 popd
 cargo +stable fmt -- src/ipc/gen/*
 
-echo "DONE! please run cargo doc and fix possible warnings!"
+echo "DONE!"
+echo "Please run 'cargo doc' and 'cargo test' with nightly and stable, "
+echo "and fix possible errors or warnings!"

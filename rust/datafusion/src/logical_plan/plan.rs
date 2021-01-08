@@ -213,7 +213,7 @@ pub enum Partitioning {
     RoundRobinBatch(usize),
     /// Allocate rows based on a hash of one of more expressions and the specified number
     /// of partitions.
-    /// This partitioning scheme is not yet fully supported. See https://issues.apache.org/jira/browse/ARROW-11011
+    /// This partitioning scheme is not yet fully supported. See <https://issues.apache.org/jira/browse/ARROW-11011>
     Hash(Vec<Expr>, usize),
 }
 
@@ -248,7 +248,7 @@ pub trait PlanVisitor {
     /// Invoked on a logical plan before any of its child inputs have been
     /// visited. If Ok(true) is returned, the recursion continues. If
     /// Err(..) or Ok(false) are returned, the recursion stops
-    /// immedately and the error, if any, is returned to `accept`
+    /// immediately and the error, if any, is returned to `accept`
     fn pre_visit(&mut self, plan: &LogicalPlan)
         -> std::result::Result<bool, Self::Error>;
 
@@ -835,9 +835,9 @@ mod tests {
         }
     }
 
-    /// test earliy stopping in pre-visit
+    /// test early stopping in pre-visit
     #[test]
-    fn early_stoping_pre_visit() {
+    fn early_stopping_pre_visit() {
         let mut visitor = StoppingVisitor {
             return_false_from_pre_in: OptionalCounter::new(2),
             ..Default::default()
@@ -853,7 +853,7 @@ mod tests {
     }
 
     #[test]
-    fn early_stoping_post_visit() {
+    fn early_stopping_post_visit() {
         let mut visitor = StoppingVisitor {
             return_false_from_post_in: OptionalCounter::new(1),
             ..Default::default()

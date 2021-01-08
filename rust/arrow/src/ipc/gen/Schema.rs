@@ -1594,7 +1594,7 @@ pub enum MapOffset {}
 /// not enforced.
 ///
 /// Map
-/// ```
+/// ```text
 ///   - child[0] entries: Struct
 ///     - child[0] key: K
 ///     - child[1] value: V
