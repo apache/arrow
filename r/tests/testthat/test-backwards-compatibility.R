@@ -32,6 +32,7 @@
 # quit()/exit
 
 test_that("reading a known Parquet file to dataframe with 2.0.0", {
+  skip_if_not_available("snappy")
   pq_file <- test_path("golden-files/data-arrow_2.0.0.parquet")
 
   df <- read_parquet(pq_file)
@@ -60,6 +61,7 @@ test_that("reading a known Parquet file to dataframe with 2.0.0", {
 })
 
 test_that("reading a known Parquet file to dataframe with 1.0.1", {
+  skip_if_not_available("snappy")
   pq_file <- test_path("golden-files/data-arrow_1.0.1.parquet")
 
   df <- read_parquet(pq_file)
@@ -88,3 +90,5 @@ test_that("reading a known Parquet file to dataframe with 1.0.1", {
   )
   expect_null(attributes(df$d))
 })
+
+# TODO: feather, streams(?)
