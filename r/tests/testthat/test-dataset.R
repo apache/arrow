@@ -303,11 +303,54 @@ test_that("Other text delimited dataset", {
       filter(integer > 6) %>%
       summarize(mean = mean(integer))
   )
+})
 
-  # Now with readr option spelling (and omitting format = "text")
-  ds3 <- open_dataset(tsv_dir, partitioning = "part", delim = "\t")
+test_that("readr parse options", {
+  arrow_opts <- names(formals(CsvParseOptions$create))
+  readr_opts <- names(formals(readr_to_csv_parse_options))
+
+  # Arrow and readr options are mutually exclusive
+  expect_equal(
+    intersect(arrow_opts, readr_opts),
+    character(0)
+  )
+
+  # With unsupported readr parse options
+  # (remove this after ARROW-8631)
+  if (!"na" %in% readr_opts) {
+    expect_error(
+      open_dataset(tsv_dir, partitioning = "part", delim = "\t", na = "\\N"),
+      "Unsupported"
+    )
+  }
+
+  # With both Arrow and readr parse options (disallowed)
+  expect_error(
+    open_dataset(
+      tsv_dir,
+      partitioning = "part",
+      format = "text",
+      quote = "\"",
+      quoting = TRUE
+    ),
+    "either"
+  )
+
+  # With ambiguous partial option names (disallowed)
+  expect_error(
+    open_dataset(
+      tsv_dir,
+      partitioning = "part",
+      format = "text",
+      quo = "\"",
+    ),
+    "Ambiguous"
+  )
+
+  # With only readr parse options (and omitting format = "text")
+  ds1 <- open_dataset(tsv_dir, partitioning = "part", delim = "\t")
   expect_equivalent(
-    ds3 %>%
+    ds1 %>%
       select(string = chr, integer = int, part) %>%
       filter(integer > 6 & part == 5) %>%
       collect() %>%
