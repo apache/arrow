@@ -235,21 +235,21 @@ pub enum SparseTensorIndexCOOOffset {}
 ///
 /// For example, let X be a 2x3x4x5 tensor, and it has the following
 /// 6 non-zero values:
-///
+/// ```text
 ///   X[0, 1, 2, 0] := 1
 ///   X[1, 1, 2, 3] := 2
 ///   X[0, 2, 1, 0] := 3
 ///   X[0, 1, 3, 0] := 4
 ///   X[0, 1, 2, 1] := 5
 ///   X[1, 2, 0, 4] := 6
-///
+/// ```
 /// In COO format, the index matrix of X is the following 4x6 matrix:
-///
+/// ```text
 ///   [[0, 0, 0, 0, 1, 1],
 ///    [1, 1, 1, 2, 1, 2],
 ///    [2, 2, 3, 1, 2, 0],
 ///    [0, 1, 0, 0, 3, 4]]
-///
+/// ```
 /// When isCanonical is true, the indices is sorted in lexicographical order
 /// (row-major order), and it does not have duplicated entries.  Otherwise,
 /// the indices may not be sorted, or may have duplicated entries.
@@ -523,7 +523,6 @@ impl<'a> SparseMatrixIndexCSX<'a> {
     /// of index value is long.
     ///
     /// For example, let X be the following 6x4 matrix:
-    ///
     /// ```text
     ///   X := [[0, 1, 2, 0],
     ///         [0, 0, 3, 0],
@@ -560,7 +559,7 @@ impl<'a> SparseMatrixIndexCSX<'a> {
     /// contains the column indices of the corresponding non-zero values.
     /// The type of index value is long.
     ///
-    /// For example, the indices of the above X is
+    /// For example, the indices of the above X is:
     /// ```text
     ///   indices(X) = [1, 2, 2, 1, 3, 0, 2, 3, 1].
     /// ```
@@ -772,7 +771,6 @@ impl<'a> SparseTensorIndexCSF<'a> {
     ///   X[1, 1, 1, 2] := 8
     /// ```
     /// As a prefix tree this would be represented as:
-    ///
     /// ```text
     ///         0          1
     ///        / \         |

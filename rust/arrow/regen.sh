@@ -54,6 +54,11 @@ echo "run: bazel build :flatc ..."
 bazel build :flatc
 popd
 
+FB_PATCH="rust/arrow/format-0ed34c83.patch"
+echo"Patch flatbuffer files with ${FB_PATCH} for cargo doc"
+echo "NOTE: the patch MAY need update in case of changes in format/*.fbs"
+git apply rust/arrow/format-5504ee4.patch
+
 # Execute the code generation:
 $FLATC --filename-suffix "" --rust -o rust/arrow/src/ipc/gen/ format/*.fbs
 
@@ -97,7 +102,6 @@ names=("File" "Message" "Schema" "SparseTensor" "Tensor")
 
 # Remove all generated lines we don't need
 for f in `ls *.rs`; do
-
     if [[ $f == "mod.rs" ]]; then
         continue
     fi
