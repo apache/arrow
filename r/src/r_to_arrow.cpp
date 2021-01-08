@@ -345,8 +345,8 @@ class RPrimitiveConverter<
 
   template <typename r_value_type>
   Status AppendRangeSameTypeNotALTREP(SEXP x, R_xlen_t start, R_xlen_t size) {
-    const r_value_type* p = reinterpret_cast<const r_value_type*>(DATAPTR_RO(x)) + start;
-    const r_value_type* p_end = p + size;
+    auto p = reinterpret_cast<const r_value_type*>(DATAPTR_RO(x)) + start;
+    auto p_end = p + size;
 
     auto first_na = std::find_if(p, p_end, is_NA<r_value_type>);
 
@@ -865,7 +865,7 @@ std::shared_ptr<Array> MakeSimpleArray(SEXP x) {
   using value_type = typename arrow::TypeTraits<Type>::ArrayType::value_type;
   RVector vec(x);
   auto n = vec.size();
-  auto p_vec_start = reinterpret_cast<value_type*>(DATAPTR(vec));
+  auto p_vec_start = reinterpret_cast<const value_type*>(DATAPTR_RO(vec));
   auto p_vec_end = p_vec_start + n;
   std::vector<std::shared_ptr<Buffer>> buffers{nullptr,
                                                std::make_shared<RBuffer<RVector>>(vec)};
