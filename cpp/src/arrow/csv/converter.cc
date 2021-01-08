@@ -434,7 +434,7 @@ class PrimitiveConverter : public ConcreteConverter {
       if (decoder_.IsNull(data, size, quoted /* quoted */)) {
         return builder.AppendNull();
       }
-      value_type value;
+      value_type value{};
       RETURN_NOT_OK(decoder_.Decode(data, size, quoted, &value));
       builder.UnsafeAppend(value);
       return Status::OK();
@@ -480,7 +480,7 @@ class TypedDictionaryConverter : public ConcreteDictionaryConverter {
       if (ARROW_PREDICT_FALSE(builder.dictionary_length() > max_cardinality_)) {
         return Status::IndexError("Dictionary length exceeded max cardinality");
       }
-      value_type value;
+      value_type value{};
       RETURN_NOT_OK(decoder_.Decode(data, size, quoted, &value));
       return builder.Append(value);
     };
