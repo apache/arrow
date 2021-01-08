@@ -300,6 +300,10 @@ class DockerCompose(Command):
                     v = "{}:{}".format(v['source'], v['target'])
                 args.extend(['-v', v])
 
+            # infer whether an interactive shell is desired or not
+            if command in ['cmd.exe', 'bash', 'sh', 'powershell']:
+                args.append('-it')
+
             # get the actual docker image name instead of the compose service
             # name which we refer as image in general
             args.append(service['image'])
@@ -308,9 +312,6 @@ class DockerCompose(Command):
             if command is not None:
                 args.append(command)
             else:
-                # infer whether an interactive shell is desired or not
-                if command in ['cmd.exe', 'bash', 'sh', 'powershell']:
-                    args.append('-it')
                 # replace whitespaces from the preformatted compose command
                 cmd = shlex.split(service.get('command', ''))
                 cmd = [re.sub(r"\s+", " ", token) for token in cmd]

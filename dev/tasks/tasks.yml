@@ -524,7 +524,13 @@ tasks:
     artifacts:
       - pyarrow-{no_rc_version}-cp38-cp38m-win_amd64.whl
 
-  # TODO(kszucs): add python 3.9
+  wheel-windows-cp39m:
+    ci: github
+    template: python-wheels/github.windows.yml
+    params:
+      python_version: 3.9
+    artifacts:
+      - pyarrow-{no_rc_version}-cp39-cp39m-win_amd64.whl
 
   ############################ Python sdist ####################################
 
