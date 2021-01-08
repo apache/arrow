@@ -806,9 +806,7 @@ struct RConverterTrait<StructType> {
 class RStructConverter : public StructConverter<RConverter, RConverterTrait> {
  public:
   Status Extend(SEXP x, int64_t size) override {
-    // this specifically does not use this->Reserve() because
-    // children_[i]->Extend() below will reserve the additional capacity
-    RETURN_NOT_OK(this->builder_->Reserve(size));
+    RETURN_NOT_OK(this->Reserve(size));
 
     R_xlen_t n_columns = XLENGTH(x);
     if (!Rf_inherits(x, "data.frame")) {
