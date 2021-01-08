@@ -105,7 +105,7 @@ CsvFileFormat$create <- function(..., opts = csv_file_format_parse_options(...))
 
 csv_file_format_parse_options <- function(...) {
   # Support both the readr spelling of options and the arrow spelling
-  readr_opts <- c("delim", "quote", "escape_double", "escape_backslash", "skip_empty_rows")
+  readr_opts <- names(formals(readr_to_csv_parse_options))
   if (any(readr_opts %in% names(list(...)))) {
     readr_to_csv_parse_options(...)
   } else {
