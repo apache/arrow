@@ -412,7 +412,7 @@ class S3FSWrapper(DaskFileSystem):
         directories = set()
         files = set()
 
-        for key in list(self.fs._ls(path, refresh=refresh)):
+        for key in list(self.fs.ls(path, refresh=refresh)):
             path = key['Key']
             if key['StorageClass'] == 'DIRECTORY':
                 directories.add(path)
