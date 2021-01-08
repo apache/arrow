@@ -37,6 +37,7 @@ import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.ipc.message.FBSerializables;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -67,6 +68,9 @@ public class Schema {
     }
     throw new IllegalArgumentException(String.format("field %s not found in %s", name, fields));
   }
+
+  static final String METADATA_KEY = "key";
+  static final String METADATA_VALUE = "value";
 
   private static final ObjectMapper mapper = new ObjectMapper();
   private static final ObjectWriter writer = mapper.writerWithDefaultPrettyPrinter();
@@ -133,17 +137,37 @@ public class Schema {
 
   static Map<String, String> convertMetadata(List<Map<String, String>> metadata) {
     return (metadata == null) ? null : metadata.stream()
-        .map(e -> new AbstractMap.SimpleImmutableEntry<>(e.get("key"), e.get("value")))
+        .map(e -> new AbstractMap.SimpleImmutableEntry<>(e.get(METADATA_KEY), e.get(METADATA_VALUE)))
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+  }
+
+  static List<Map<String, String>> convertMetadata(Map<String, String> metadata) {
+    return (metadata == null) ? null : metadata.entrySet()
+        .stream()
+        .map(Schema::convertEntryToKeyValueMap)
+        .collect(Collectors.toList());
+  }
+
+  private static Map<String, String> convertEntryToKeyValueMap(Map.Entry<String, String> entry) {
+    Map<String, String> map = new HashMap<>(2);
+    map.put(METADATA_KEY, entry.getKey());
+    map.put(METADATA_VALUE, entry.getValue());
+    return Collections.unmodifiableMap(map);
   }
 
   public List<Field> getFields() {
     return fields;
   }
 
-  @JsonInclude(Include.NON_EMPTY)
+  @JsonIgnore
   public Map<String, String> getCustomMetadata() {
     return metadata;
+  }
+
+  @JsonProperty("metadata")
+  @JsonInclude(Include.NON_EMPTY)
+  List<Map<String, String>> getCustomMetadataForJson() {
+    return convertMetadata(getCustomMetadata());
   }
 
   /**
