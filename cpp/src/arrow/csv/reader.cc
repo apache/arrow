@@ -62,8 +62,7 @@ class InputStream;
 
 namespace csv {
 
-using internal::GetCpuThreadPool;
-using internal::ThreadPool;
+using internal::Executor;
 
 struct ConversionSchema {
   struct Column {
@@ -825,7 +824,7 @@ class ThreadedTableReader : public BaseTableReader {
 
   ThreadedTableReader(MemoryPool* pool, std::shared_ptr<io::InputStream> input,
                       const ReadOptions& read_options, const ParseOptions& parse_options,
-                      const ConvertOptions& convert_options, ThreadPool* thread_pool)
+                      const ConvertOptions& convert_options, Executor* thread_pool)
       : BaseTableReader(pool, input, read_options, parse_options, convert_options),
         thread_pool_(thread_pool) {}
 
@@ -886,7 +885,7 @@ class ThreadedTableReader : public BaseTableReader {
   }
 
  protected:
-  ThreadPool* thread_pool_;
+  Executor* thread_pool_;
   Iterator<std::shared_ptr<Buffer>> buffer_iterator_;
 };
 
@@ -899,7 +898,7 @@ class AsyncThreadedTableReader
   AsyncThreadedTableReader(MemoryPool* pool, std::shared_ptr<io::InputStream> input,
                            const ReadOptions& read_options,
                            const ParseOptions& parse_options,
-                           const ConvertOptions& convert_options, ThreadPool* thread_pool)
+                           const ConvertOptions& convert_options, Executor* thread_pool)
       : BaseTableReader(pool, input, read_options, parse_options, convert_options),
         thread_pool_(thread_pool) {}
 
@@ -976,7 +975,7 @@ class AsyncThreadedTableReader
     });
   }
 
-  ThreadPool* thread_pool_;
+  Executor* thread_pool_;
   AsyncGenerator<std::shared_ptr<Buffer>> buffer_generator_;
 };
 
@@ -984,17 +983,19 @@ class AsyncThreadedTableReader
 // Factory functions
 
 Result<std::shared_ptr<TableReader>> TableReader::Make(
-    MemoryPool* pool, std::shared_ptr<io::InputStream> input,
-    const ReadOptions& read_options, const ParseOptions& parse_options,
-    const ConvertOptions& convert_options) {
+    MemoryPool* pool, io::AsyncContext async_context,
+    std::shared_ptr<io::InputStream> input, const ReadOptions& read_options,
+    const ParseOptions& parse_options, const ConvertOptions& convert_options) {
   std::shared_ptr<BaseTableReader> reader;
   if (read_options.use_threads) {
     if (read_options.legacy_blocking_reads) {
-      reader = std::make_shared<ThreadedTableReader>(
-          pool, input, read_options, parse_options, convert_options, GetCpuThreadPool());
+      reader =
+          std::make_shared<ThreadedTableReader>(pool, input, read_options, parse_options,
+                                                convert_options, async_context.executor);
     } else {
-      reader = std::make_shared<AsyncThreadedTableReader>(
-          pool, input, read_options, parse_options, convert_options, GetCpuThreadPool());
+      reader = std::make_shared<AsyncThreadedTableReader>(pool, input, read_options,
+                                                          parse_options, convert_options,
+                                                          async_context.executor);
     }
   } else {
     reader = std::make_shared<SerialTableReader>(pool, input, read_options, parse_options,

@@ -20,6 +20,7 @@
 #include <memory>
 
 #include "arrow/csv/options.h"  // IWYU pragma: keep
+#include "arrow/io/interfaces.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/type.h"
@@ -46,6 +47,7 @@ class ARROW_EXPORT TableReader {
 
   /// Create a TableReader instance
   static Result<std::shared_ptr<TableReader>> Make(MemoryPool* pool,
+                                                   io::AsyncContext async_context,
                                                    std::shared_ptr<io::InputStream> input,
                                                    const ReadOptions&,
                                                    const ParseOptions&,

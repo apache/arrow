@@ -89,8 +89,9 @@ void TestNestedParallelism(
 
 TEST(SerialReaderTests, Stress) {
   auto task_factory = [](std::shared_ptr<io::InputStream> input_stream) {
-    return TableReader::Make(default_memory_pool(), input_stream, ReadOptions::Defaults(),
-                             ParseOptions::Defaults(), ConvertOptions::Defaults());
+    return TableReader::Make(default_memory_pool(), io::AsyncContext(), input_stream,
+                             ReadOptions::Defaults(), ParseOptions::Defaults(),
+                             ConvertOptions::Defaults());
   };
   StressTableReader(task_factory);
 }
@@ -98,67 +99,71 @@ TEST(SerialReaderTests, Stress) {
 TEST(SerialReaderTests, NestedParallelism) {
   ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::ThreadPool::Make(1));
   auto task_factory = [](std::shared_ptr<io::InputStream> input_stream) {
-    return TableReader::Make(default_memory_pool(), input_stream, ReadOptions::Defaults(),
-                             ParseOptions::Defaults(), ConvertOptions::Defaults());
+    return TableReader::Make(default_memory_pool(), io::AsyncContext(), input_stream,
+                             ReadOptions::Defaults(), ParseOptions::Defaults(),
+                             ConvertOptions::Defaults());
   };
   TestNestedParallelism(thread_pool, task_factory);
 }
 
-// Temporarily disabled until a way to shove the thread pool into the reader is devised
-// TEST(ThreadedReaderTests, Stress) {
-//   ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::ThreadPool::Make(1));
-//   auto task_factory = [&thread_pool](std::shared_ptr<io::InputStream> input_stream)
-//       -> Result<std::shared_ptr<TableReader>> {
-//     auto table_reader = std::make_shared<ThreadedTableReader>(
-//         default_memory_pool(), input_stream, ReadOptions::Defaults(),
-//         ParseOptions::Defaults(), ConvertOptions::Defaults(), thread_pool.get());
-//     RETURN_NOT_OK(table_reader->Init());
-//     return table_reader;
-//   };
-//   StressTableReader(task_factory);
-// }
+TEST(ThreadedReaderTests, Stress) {
+  ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::ThreadPool::Make(1));
+  auto task_factory = [&thread_pool](std::shared_ptr<io::InputStream> input_stream)
+      -> Result<std::shared_ptr<TableReader>> {
+    ReadOptions read_options = ReadOptions::Defaults();
+    read_options.use_threads = true;
+    read_options.legacy_blocking_reads = true;
+    auto table_reader = TableReader::Make(
+        default_memory_pool(), io::AsyncContext(thread_pool.get()), input_stream,
+        read_options, ParseOptions::Defaults(), ConvertOptions::Defaults());
+    return table_reader;
+  };
+  StressTableReader(task_factory);
+}
 
 // Simulates deadlock that exists with ThreadedReaderTests
 // TEST(ThreadedReaderTests, NestedParallelism) {
 //   ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::ThreadPool::Make(1));
 //   auto task_factory = [&thread_pool](std::shared_ptr<io::InputStream> input_stream)
 //       -> Result<std::shared_ptr<TableReader>> {
-//     auto table_reader = std::make_shared<ThreadedTableReader>(
-//         default_memory_pool(), input_stream, ReadOptions::Defaults(),
-//         ParseOptions::Defaults(), ConvertOptions::Defaults(), thread_pool.get());
-//     RETURN_NOT_OK(table_reader->Init());
+//     ReadOptions read_options = ReadOptions::Defaults();
+//     read_options.use_threads = true;
+//     read_options.legacy_blocking_reads = true;
+//     auto table_reader = TableReader::Make(
+//         default_memory_pool(), io::AsyncContext(thread_pool.get()), input_stream,
+//         read_options, ParseOptions::Defaults(), ConvertOptions::Defaults());
 //     return table_reader;
 //   };
 //   TestNestedParallelism(thread_pool, task_factory);
 // }
 
-// Temporarily disabled until a way to shove the thread pool into the reader is devised
-// TEST(AsyncReaderTests, Stress) {
-//   ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::ThreadPool::Make(1));
-//   auto task_factory = [&thread_pool](std::shared_ptr<io::InputStream> input_stream)
-//       -> Result<std::shared_ptr<TableReader>> {
-//     auto table_reader = std::make_shared<AsyncThreadedTableReader>(
-//         default_memory_pool(), input_stream, ReadOptions::Defaults(),
-//         ParseOptions::Defaults(), ConvertOptions::Defaults(), thread_pool.get());
-//     RETURN_NOT_OK(table_reader->Init());
-//     return table_reader;
-//   };
-//   StressTableReader(task_factory);
-// }
+TEST(AsyncReaderTests, Stress) {
+  ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::ThreadPool::Make(1));
+  auto task_factory = [&thread_pool](std::shared_ptr<io::InputStream> input_stream)
+      -> Result<std::shared_ptr<TableReader>> {
+    ReadOptions read_options = ReadOptions::Defaults();
+    read_options.use_threads = true;
+    auto table_reader = TableReader::Make(
+        default_memory_pool(), io::AsyncContext(thread_pool.get()), input_stream,
+        read_options, ParseOptions::Defaults(), ConvertOptions::Defaults());
+    return table_reader;
+  };
+  StressTableReader(task_factory);
+}
 
-// Temporarily disabled until a way to shove the thread pool into the reader is devised
-// TEST(AsyncReaderTests, NestedParallelism) {
-//   ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::ThreadPool::Make(1));
-//   auto task_factory = [&thread_pool](std::shared_ptr<io::InputStream> input_stream)
-//       -> Result<std::shared_ptr<TableReader>> {
-//     auto table_reader = std::make_shared<AsyncThreadedTableReader>(
-//         default_memory_pool(), input_stream, ReadOptions::Defaults(),
-//         ParseOptions::Defaults(), ConvertOptions::Defaults(), thread_pool.get());
-//     RETURN_NOT_OK(table_reader->Init());
-//     return table_reader;
-//   };
-//   TestNestedParallelism(thread_pool, task_factory);
-// }
+TEST(AsyncReaderTests, NestedParallelism) {
+  ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::ThreadPool::Make(1));
+  auto task_factory = [&thread_pool](std::shared_ptr<io::InputStream> input_stream)
+      -> Result<std::shared_ptr<TableReader>> {
+    ReadOptions read_options = ReadOptions::Defaults();
+    read_options.use_threads = true;
+    auto table_reader = TableReader::Make(
+        default_memory_pool(), io::AsyncContext(thread_pool.get()), input_stream,
+        read_options, ParseOptions::Defaults(), ConvertOptions::Defaults());
+    return table_reader;
+  };
+  TestNestedParallelism(thread_pool, task_factory);
+}
 
 }  // namespace csv
 }  // namespace arrow

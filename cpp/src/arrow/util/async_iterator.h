@@ -220,7 +220,7 @@ class BackgroundIterator {
 /// thread
 template <typename T>
 static Result<AsyncGenerator<T>> MakeBackgroundIterator(Iterator<T> iterator,
-                                                        internal::ThreadPool* executor) {
+                                                        internal::Executor* executor) {
   auto background_iterator =
       std::make_shared<BackgroundIterator<T>>(std::move(iterator), executor);
   return [background_iterator]() { return (*background_iterator)(); };

@@ -1592,6 +1592,7 @@ garrow_csv_reader_new(GArrowInputStream *input,
 
   auto arrow_reader =
     arrow::csv::TableReader::Make(arrow::default_memory_pool(),
+                                  arrow::io::AsyncContext(),
                                   arrow_input,
                                   read_options,
                                   parse_options,

@@ -125,7 +125,7 @@ struct ARROW_EXPORT ReadOptions {
   /// by an environment variable?  At the moment I am leaving this flag here as it makes
   /// it easier to benchmark and compare while reviewing the PR. Whether to use blocking
   /// reads or asynchronous reads
-  bool legacy_blocking_reads = true;
+  bool legacy_blocking_reads = false;
   /// Block size we request from the IO layer; also determines the size of
   /// chunks when use_threads is true
   int32_t block_size = 1 << 20;  // 1 MB
