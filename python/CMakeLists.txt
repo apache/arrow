@@ -367,12 +367,9 @@ if(PYARROW_BUNDLE_ARROW_CPP)
   endif()
 
   if(MSVC)
-    # TODO(kszucs): consider to bundle zlib instead of linking it statically
     # TODO(kszucs): locate msvcp140.dll in a portable fashion and bundle it
-    # find_package(ZLIB)
     bundle_arrow_import_lib(ARROW_IMPORT_LIB)
     bundle_arrow_import_lib(ARROW_PYTHON_IMPORT_LIB)
-    # bundle_arrow_dependency(zlib)
   endif()
 endif()
 
