@@ -43,7 +43,7 @@ jobs:
       R_ORG: "rstudio"
       R_IMAGE: "r-base"
       R_TAG: "{{ MATRIX }}-bionic"
-      ARROW_R_DEV: "FALSE"
+      ARROW_R_DEV: "TRUE"
     steps:
       - name: Checkout Arrow
         run: |
