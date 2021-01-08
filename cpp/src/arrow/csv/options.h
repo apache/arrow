@@ -119,9 +119,12 @@ struct ARROW_EXPORT ReadOptions {
 
   /// Whether to use the global CPU thread pool
   bool use_threads = true;
-  // TODO: This needs to propagate to python and cglib?  I'll need some help understanding
-  // that flow
-  /// Whether to use blocking reads or asynchronous reads
+  /// TODO: This will come out before this gets merged in.  There is not much point in
+  /// prompting the user because AsyncThreadedTableReader should be better in all
+  /// situations.  Do we want to completely remove ThreadedTableReader?  Leave it in gated
+  /// by an environment variable?  At the moment I am leaving this flag here as it makes
+  /// it easier to benchmark and compare while reviewing the PR. Whether to use blocking
+  /// reads or asynchronous reads
   bool legacy_blocking_reads = true;
   /// Block size we request from the IO layer; also determines the size of
   /// chunks when use_threads is true
