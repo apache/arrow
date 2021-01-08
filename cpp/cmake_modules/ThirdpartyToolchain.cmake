@@ -284,7 +284,7 @@ if(NOT ARROW_COMPUTE)
   # utf8proc is only potentially used in kernels for now
   set(ARROW_WITH_UTF8PROC OFF)
 endif()
-if((NOT ARROW_COMPUTE) AND (NOT ARROW_GANDIVA))
+if((NOT ARROW_COMPUTE) AND (NOT ARROW_GANDIVA) AND (NOT ARROW_WITH_GRPC))
   set(ARROW_WITH_RE2 OFF)
 endif()
 
@@ -1328,14 +1328,10 @@ macro(build_protobuf)
   message("Building Protocol Buffers from source")
   set(PROTOBUF_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/protobuf_ep-install")
   set(PROTOBUF_INCLUDE_DIR "${PROTOBUF_PREFIX}/include")
-  set(
-    PROTOBUF_STATIC_LIB
-    "${PROTOBUF_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}protobuf${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
-  set(
-    PROTOC_STATIC_LIB
-    "${PROTOBUF_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}protoc${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
+  # Newer protobuf releases always have a lib prefix independent from CMAKE_STATIC_LIBRARY_PREFIX
+  set(PROTOBUF_STATIC_LIB
+      "${PROTOBUF_PREFIX}/lib/libprotobuf${CMAKE_STATIC_LIBRARY_SUFFIX}")
+  set(PROTOC_STATIC_LIB "${PROTOBUF_PREFIX}/lib/libprotoc${CMAKE_STATIC_LIBRARY_SUFFIX}")
   set(Protobuf_PROTOC_LIBRARY "${PROTOC_STATIC_LIB}")
   set(PROTOBUF_COMPILER "${PROTOBUF_PREFIX}/bin/protoc")
 
@@ -1367,7 +1363,11 @@ macro(build_protobuf)
         -DCMAKE_INSTALL_LIBDIR=lib
         "-DCMAKE_INSTALL_PREFIX=${PROTOBUF_PREFIX}"
         -Dprotobuf_BUILD_TESTS=OFF
+        -Dprotobuf_MSVC_STATIC_RUNTIME=${ARROW_USE_STATIC_CRT}
         -Dprotobuf_DEBUG_POSTFIX=)
+    if(MSVC AND NOT ARROW_USE_STATIC_CRT)
+      list(APPEND PROTOBUF_CMAKE_ARGS "-Dprotobuf_MSVC_STATIC_RUNTIME=OFF")
+    endif()
     if(ZLIB_ROOT)
       list(APPEND PROTOBUF_CMAKE_ARGS "-DZLIB_ROOT=${ZLIB_ROOT}")
     endif()
@@ -2127,6 +2127,10 @@ macro(build_re2)
 
   add_dependencies(toolchain re2_ep)
   add_dependencies(re2::re2 re2_ep)
+  set(RE2_VENDORED TRUE)
+  # Set values so that FindRE2 finds this too
+  set(RE2_LIB ${RE2_STATIC_LIB})
+  set(RE2_INCLUDE_DIR "${RE2_PREFIX}/include")
 
   list(APPEND ARROW_BUNDLED_STATIC_LIBS re2::re2)
 endmacro()
@@ -2334,10 +2338,20 @@ macro(build_grpc)
   # Abseil libraries gRPC depends on
   set(_ABSL_LIBS
       bad_optional_access
+      base
+      cord
+      graphcycles_internal
       int128
+      malloc_internal
       raw_logging_internal
+      spinlock_wait
+      stacktrace
+      status
       str_format_internal
       strings
+      strings_internal
+      symbolize
+      synchronization
       throw_delegate
       time
       time_zone)
@@ -2382,7 +2396,7 @@ macro(build_grpc)
   set(
     GRPC_STATIC_LIBRARY_UPB
     "${GRPC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}upb${CMAKE_STATIC_LIBRARY_SUFFIX}")
-  set(GRPC_CPP_PLUGIN "${GRPC_PREFIX}/bin/grpc_cpp_plugin")
+  set(GRPC_CPP_PLUGIN "${GRPC_PREFIX}/bin/grpc_cpp_plugin${CMAKE_EXECUTABLE_SUFFIX}")
 
   set(GRPC_CMAKE_PREFIX)
 
@@ -2419,15 +2433,6 @@ macro(build_grpc)
   set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${ZLIB_ROOT}")
   set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${ABSL_PREFIX}")
 
-  if(APPLE)
-    # gRPC on MacOS will fail to build due to thread local variables.
-    # While the issue is for Bazel builds, CMake is also affected.
-    # https://github.com/grpc/grpc/issues/13856
-    set(GRPC_CMAKE_CXX_FLAGS "${EP_CXX_FLAGS} -DGRPC_BAZEL_BUILD")
-  else()
-    set(GRPC_CMAKE_CXX_FLAGS "${EP_CXX_FLAGS}")
-  endif()
-
   if(RAPIDJSON_VENDORED)
     add_dependencies(grpc_dependencies rapidjson_ep)
   endif()
@@ -2438,17 +2443,32 @@ macro(build_grpc)
   set(GRPC_CMAKE_ARGS
       "${EP_COMMON_CMAKE_ARGS}"
       -DCMAKE_PREFIX_PATH='${GRPC_PREFIX_PATH_ALT_SEP}'
-      -DgRPC_BUILD_CSHARP_EXT=OFF
       -DgRPC_ABSL_PROVIDER=package
+      -DgRPC_BUILD_CSHARP_EXT=OFF
+      -DgRPC_BUILD_GRPC_CSHARP_PLUGIN=OFF
+      -DgRPC_BUILD_GRPC_NODE_PLUGIN=OFF
+      -DgRPC_BUILD_GRPC_OBJECTIVE_C_PLUGIN=OFF
+      -DgRPC_BUILD_GRPC_PHP_PLUGIN=OFF
+      -DgRPC_BUILD_GRPC_PYTHON_PLUGIN=OFF
+      -DgRPC_BUILD_GRPC_RUBY_PLUGIN=OFF
+      -DgRPC_BUILD_TESTS=OFF
       -DgRPC_CARES_PROVIDER=package
       -DgRPC_GFLAGS_PROVIDER=package
+      -DgRPC_MSVC_STATIC_RUNTIME=${ARROW_USE_STATIC_CRT}
       -DgRPC_PROTOBUF_PROVIDER=package
+      -DgRPC_PROTOBUF_PACKAGE_TYPE=CONFIG
+      -DgRPC_RE2_PROVIDER=package
       -DgRPC_SSL_PROVIDER=package
       -DgRPC_ZLIB_PROVIDER=package
-      -DCMAKE_CXX_FLAGS=${GRPC_CMAKE_CXX_FLAGS}
+      -DgRPC_MSVC_STATIC_RUNTIME=${ARROW_USE_STATIC_CRT}
       -DCMAKE_INSTALL_PREFIX=${GRPC_PREFIX}
       -DCMAKE_INSTALL_LIBDIR=lib
       -DBUILD_SHARED_LIBS=OFF)
+  if(RE2_VENDORED)
+    list(APPEND GRPC_CMAKE_ARGS -Dre2_ROOT=${RE2_PREFIX}
+                -DCMAKE_POLICY_DEFAULT_CMP0074=NEW)
+    add_dependencies(grpc_dependencies re2_ep)
+  endif()
   if(OPENSSL_ROOT_DIR)
     list(APPEND GRPC_CMAKE_ARGS -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR})
   endif()
