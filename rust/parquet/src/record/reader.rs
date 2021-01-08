@@ -346,7 +346,7 @@ impl Reader {
     /// Returns true if repeated type is an element type for the list.
     /// Used to determine legacy list types.
     /// This method is copied from Spark Parquet reader and is based on the reference:
-    /// https://github.com/apache/parquet-format/blob/master/LogicalTypes.md
+    /// <https://github.com/apache/parquet-format/blob/master/LogicalTypes.md>
     ///   #backward-compatibility-rules
     fn is_element_type(repeated_type: &Type) -> bool {
         // For legacy 2-level list types with primitive element type, e.g.:

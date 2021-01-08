@@ -25,7 +25,7 @@ use crate::util::{
 
 /// Rle/Bit-Packing Hybrid Encoding
 /// The grammar for this encoding looks like the following (copied verbatim
-/// from https://github.com/Parquet/parquet-format/blob/master/Encodings.md):
+/// from <https://github.com/Parquet/parquet-format/blob/master/Encodings.md>):
 ///
 /// rle-bit-packed-hybrid: <length> <encoded-data>
 /// length := length of the <encoded-data> in bytes stored as 4 bytes little endian

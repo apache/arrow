@@ -37,7 +37,7 @@
 //! We use an eager approach that increments definition levels where incrementable, and decrements
 //! if a value being checked is null.
 //!
-//! \[1\] [parquet-format#nested-encoding]<https://github.com/apache/parquet-format#nested-encoding>
+//! \[1\] [parquet-format#nested-encoding](https://github.com/apache/parquet-format#nested-encoding)
 
 use arrow::array::{Array, ArrayRef, StructArray};
 use arrow::datatypes::{DataType, Field};
