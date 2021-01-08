@@ -18,6 +18,7 @@
 //! Defines the join plan for executing partitions in parallel and then joining the results
 //! into a set of partitions.
 
+use ahash::RandomState;
 use arrow::{
     array::{ArrayRef, UInt64Builder},
     compute,
@@ -55,13 +56,12 @@ use crate::error::{DataFusionError, Result};
 
 use super::{ExecutionPlan, Partitioning, RecordBatchStream, SendableRecordBatchStream};
 use crate::physical_plan::coalesce_batches::concat_batches;
-use ahash::RandomState;
 use log::debug;
 
 // Maps ["on" value] -> [list of indices with this key's value]
 // E.g. [1, 2] -> [(0, 3), (1, 6), (0, 8)] indicates that (column1, column2) = [1, 2] is true
 // for rows 3 and 8 from batch 0 and row 6 from batch 1.
-type JoinHashMap = HashMap<u64, Vec<u64>, RandomState>;
+type JoinHashMap = HashMap<u64, Vec<u64>, IdHashBuilder>;
 type JoinLeftData = Arc<(JoinHashMap, RecordBatch)>;
 
 /// join execution plan executes partitions in parallel and combines them into a set of
@@ -215,7 +215,7 @@ impl ExecutionPlan for HashJoinExec {
                     // This operation performs 2 steps at once:
                     // 1. creates a [JoinHashMap] of all batches from the stream
                     // 2. stores the batches in a vector.
-                    let initial = (JoinHashMap::default(), Vec::new(), 0);
+                    let initial = (JoinHashMap::with_hasher(IdHashBuilder{}), Vec::new(), 0);
                     let (hashmap, batches, num_rows) = stream
                         .try_fold(initial, |mut acc, batch| async {
                             let hash = &mut acc.0;
@@ -300,7 +300,7 @@ fn update_hash(
     // insert hashes to key of the hashmap
     for (row, hash_value) in hash_values.iter().enumerate() {
         hash.raw_entry_mut()
-            .from_key(hash_value)
+            .from_key_hashed_nocheck(*hash_value, hash_value)
             .and_modify(|_, v| v.push((row + offset) as u64))
             .or_insert_with(|| (*hash_value, vec![(row + offset) as u64]));
     }
@@ -587,6 +587,35 @@ fn build_join_indexes(
     }
 }
 use core::hash::BuildHasher;
+
+struct IdHasher {
+    hash: u64,
+}
+
+impl Hasher for IdHasher {
+    fn finish(&self) -> u64 {
+        self.hash
+    }
+
+    fn write_u64(&mut self, i: u64) {
+        self.hash = i;
+    }
+
+    fn write(&mut self, _bytes: &[u8]) {
+        unreachable!("IdHasher should only be used for u64 keys")
+    }
+}
+
+#[derive(Debug)]
+struct IdHashBuilder {}
+
+impl BuildHasher for IdHashBuilder {
+    type Hasher = IdHasher;
+
+    fn build_hasher(&self) -> Self::Hasher {
+        IdHasher { hash: 0 }
+    }
+}
 
 // Simple function to combine two hashes
 fn combine_hashes(l: u64, r: u64) -> u64 {
