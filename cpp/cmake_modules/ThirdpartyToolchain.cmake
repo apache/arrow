@@ -2433,15 +2433,6 @@ macro(build_grpc)
   set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${ZLIB_ROOT}")
   set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${ABSL_PREFIX}")
 
-  if(APPLE)
-    # gRPC on MacOS will fail to build due to thread local variables.
-    # While the issue is for Bazel builds, CMake is also affected.
-    # https://github.com/grpc/grpc/issues/13856
-    set(GRPC_CMAKE_CXX_FLAGS "${EP_CXX_FLAGS} -DGRPC_BAZEL_BUILD")
-  else()
-    set(GRPC_CMAKE_CXX_FLAGS "${EP_CXX_FLAGS}")
-  endif()
-
   if(RAPIDJSON_VENDORED)
     add_dependencies(grpc_dependencies rapidjson_ep)
   endif()
@@ -2470,7 +2461,6 @@ macro(build_grpc)
       -DgRPC_SSL_PROVIDER=package
       -DgRPC_ZLIB_PROVIDER=package
       -DgRPC_MSVC_STATIC_RUNTIME=${ARROW_USE_STATIC_CRT}
-      -DCMAKE_CXX_FLAGS=${GRPC_CMAKE_CXX_FLAGS}
       -DCMAKE_INSTALL_PREFIX=${GRPC_PREFIX}
       -DCMAKE_INSTALL_LIBDIR=lib
       -DBUILD_SHARED_LIBS=OFF)
