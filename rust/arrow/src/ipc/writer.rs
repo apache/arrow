@@ -33,6 +33,7 @@ use crate::ipc;
 use crate::record_batch::RecordBatch;
 use crate::util::bit_util;
 
+use ipc::compression::{get_codec, Codec};
 use ipc::CONTINUATION_MARKER;
 
 /// IPC write options used to control the behaviour of the writer
@@ -52,6 +53,13 @@ pub struct IpcWriteOptions {
     /// version 2.0.0: V4, with legacy format enabled
     /// version 3.0.0: V5
     metadata_version: ipc::MetadataVersion,
+    /// Compression type to use.
+    ///
+    /// Compression is currently only supported when writing metadata version V5, though
+    /// it might be possible to read non-legacy V4 buffers that are compressed.
+    /// The compression formats supported as of v3.0.0 of the library are:
+    /// - LZ4_FRAME
+    compression_type: Option<ipc::CompressionType>,
 }
 
 impl IpcWriteOptions {
@@ -60,6 +68,7 @@ impl IpcWriteOptions {
         alignment: usize,
         write_legacy_ipc_format: bool,
         metadata_version: ipc::MetadataVersion,
+        compression_type: Option<ipc::CompressionType>,
     ) -> Result<Self> {
         if alignment == 0 || alignment % 8 != 0 {
             return Err(ArrowError::InvalidArgumentError(
@@ -72,24 +81,32 @@ impl IpcWriteOptions {
             | ipc::MetadataVersion::V3 => Err(ArrowError::InvalidArgumentError(
                 "Writing IPC metadata version 3 and lower not supported".to_string(),
             )),
-            ipc::MetadataVersion::V4 => Ok(Self {
-                alignment,
-                write_legacy_ipc_format,
-                metadata_version,
-            }),
+            ipc::MetadataVersion::V4 => {
+                if compression_type.is_some() {
+                    return Err(ArrowError::InvalidArgumentError(
+                        "Writing IPC metadata version 4 with compressed buffers is currently not supported".to_string()
+                    ));
+                }
+                Ok(Self {
+                    alignment,
+                    write_legacy_ipc_format,
+                    metadata_version,
+                    compression_type,
+                })
+            }
             ipc::MetadataVersion::V5 => {
                 if write_legacy_ipc_format {
-                    Err(ArrowError::InvalidArgumentError(
+                    return Err(ArrowError::InvalidArgumentError(
                         "Legacy IPC format only supported on metadata version 4"
                             .to_string(),
-                    ))
-                } else {
-                    Ok(Self {
-                        alignment,
-                        write_legacy_ipc_format,
-                        metadata_version,
-                    })
+                    ));
                 }
+                Ok(Self {
+                    alignment,
+                    write_legacy_ipc_format,
+                    metadata_version,
+                    compression_type,
+                })
             }
             z => panic!("Unsupported ipc::MetadataVersion {:?}", z),
         }
@@ -102,6 +119,7 @@ impl Default for IpcWriteOptions {
             alignment: 8,
             write_legacy_ipc_format: false,
             metadata_version: ipc::MetadataVersion::V5,
+            compression_type: None,
         }
     }
 }
@@ -147,6 +165,9 @@ impl IpcDataGenerator {
         let schema = batch.schema();
         let mut encoded_dictionaries = Vec::with_capacity(schema.fields().len());
 
+        let codec = get_codec(write_options.compression_type)?;
+        let codec_ref = codec.as_ref();
+
         for (i, field) in schema.fields().iter().enumerate() {
             let column = batch.column(i);
 
@@ -164,12 +185,13 @@ impl IpcDataGenerator {
                         dict_id,
                         dict_values,
                         write_options,
-                    ));
+                        codec_ref,
+                    )?);
                 }
             }
         }
 
-        let encoded_message = self.record_batch_to_bytes(batch, write_options);
+        let encoded_message = self.record_batch_to_bytes(batch, write_options)?;
 
         Ok((encoded_dictionaries, encoded_message))
     }
@@ -180,13 +202,14 @@ impl IpcDataGenerator {
         &self,
         batch: &RecordBatch,
         write_options: &IpcWriteOptions,
-    ) -> EncodedData {
+    ) -> Result<EncodedData> {
         let mut fbb = FlatBufferBuilder::new();
 
         let mut nodes: Vec<ipc::FieldNode> = vec![];
         let mut buffers: Vec<ipc::Buffer> = vec![];
         let mut arrow_data: Vec<u8> = vec![];
         let mut offset = 0;
+        let codec = get_codec(write_options.compression_type)?;
         for array in batch.columns() {
             let array_data = array.data();
             offset = write_array_data(
@@ -197,18 +220,32 @@ impl IpcDataGenerator {
                 offset,
                 array.len(),
                 array.null_count(),
-            );
+                codec.as_ref(),
+            )?;
         }
 
         // write data
         let buffers = fbb.create_vector(&buffers);
         let nodes = fbb.create_vector(&nodes);
+        let compression = {
+            if let Some(compression_type) = &write_options.compression_type {
+                let mut c = ipc::BodyCompressionBuilder::new(&mut fbb);
+                c.add_method(ipc::BodyCompressionMethod::BUFFER);
+                c.add_codec(*compression_type);
+                Some(c.finish())
+            } else {
+                None
+            }
+        };
 
         let root = {
             let mut batch_builder = ipc::RecordBatchBuilder::new(&mut fbb);
             batch_builder.add_length(batch.num_rows() as i64);
             batch_builder.add_nodes(nodes);
             batch_builder.add_buffers(buffers);
+            if let Some(c) = compression {
+                batch_builder.add_compression(c);
+            }
             let b = batch_builder.finish();
             b.as_union_value()
         };
@@ -222,10 +259,10 @@ impl IpcDataGenerator {
         fbb.finish(root, None);
         let finished_data = fbb.finished_data();
 
-        EncodedData {
+        Ok(EncodedData {
             ipc_message: finished_data.to_vec(),
             arrow_data,
-        }
+        })
     }
 
     /// Write dictionary values into two sets of bytes, one for the header (ipc::Message) and the
@@ -235,7 +272,8 @@ impl IpcDataGenerator {
         dict_id: i64,
         array_data: &ArrayDataRef,
         write_options: &IpcWriteOptions,
-    ) -> EncodedData {
+        codec: Option<&Codec>,
+    ) -> Result<EncodedData> {
         let mut fbb = FlatBufferBuilder::new();
 
         let mut nodes: Vec<ipc::FieldNode> = vec![];
@@ -250,7 +288,8 @@ impl IpcDataGenerator {
             0,
             array_data.len(),
             array_data.null_count(),
-        );
+            codec,
+        )?;
 
         // write data
         let buffers = fbb.create_vector(&buffers);
@@ -283,10 +322,10 @@ impl IpcDataGenerator {
         fbb.finish(root, None);
         let finished_data = fbb.finished_data();
 
-        EncodedData {
+        Ok(EncodedData {
             ipc_message: finished_data.to_vec(),
             arrow_data,
-        }
+        })
     }
 }
 
@@ -662,6 +701,7 @@ fn write_continuation<W: Write>(
 }
 
 /// Write array data to a vector of bytes
+#[allow(clippy::clippy::too_many_arguments)]
 fn write_array_data(
     array_data: &ArrayDataRef,
     mut buffers: &mut Vec<ipc::Buffer>,
@@ -670,7 +710,8 @@ fn write_array_data(
     offset: i64,
     num_rows: usize,
     null_count: usize,
-) -> i64 {
+    codec: Option<&Codec>,
+) -> Result<i64> {
     let mut offset = offset;
     nodes.push(ipc::FieldNode::new(num_rows as i64, null_count as i64));
     // NullArray does not have any buffers, thus the null buffer is not generated
@@ -687,16 +728,17 @@ fn write_array_data(
             Some(buffer) => buffer.clone(),
         };
 
-        offset = write_buffer(&null_buffer, &mut buffers, &mut arrow_data, offset);
+        offset =
+            write_buffer(&null_buffer, &mut buffers, &mut arrow_data, offset, codec)?;
     }
 
-    array_data.buffers().iter().for_each(|buffer| {
-        offset = write_buffer(buffer, &mut buffers, &mut arrow_data, offset);
-    });
+    for buffer in array_data.buffers() {
+        offset = write_buffer(buffer, &mut buffers, &mut arrow_data, offset, codec)?;
+    }
 
     if !matches!(array_data.data_type(), DataType::Dictionary(_, _)) {
         // recursively write out nested structures
-        array_data.child_data().iter().for_each(|data_ref| {
+        for data_ref in array_data.child_data() {
             // write the nested data (e.g list data)
             offset = write_array_data(
                 data_ref,
@@ -706,11 +748,12 @@ fn write_array_data(
                 offset,
                 data_ref.len(),
                 data_ref.null_count(),
-            );
-        });
+                codec,
+            )?;
+        }
     }
 
-    offset
+    Ok(offset)
 }
 
 /// Write a buffer to a vector of bytes, and add its ipc::Buffer to a vector
@@ -719,15 +762,24 @@ fn write_buffer(
     buffers: &mut Vec<ipc::Buffer>,
     arrow_data: &mut Vec<u8>,
     offset: i64,
-) -> i64 {
-    let len = buffer.len();
+    codec: Option<&Codec>,
+) -> Result<i64> {
+    let mut compressed = Vec::new();
+    let buf_slice = match codec {
+        Some(codec) => {
+            codec.compress(buffer.as_slice(), &mut compressed)?;
+            compressed.as_slice()
+        }
+        None => buffer.as_slice(),
+    };
+    let len = buf_slice.len();
     let pad_len = pad_to_8(len as u32);
     let total_len: i64 = (len + pad_len) as i64;
     // assert_eq!(len % 8, 0, "Buffer width not a multiple of 8 bytes");
     buffers.push(ipc::Buffer::new(offset, total_len));
-    arrow_data.extend_from_slice(buffer.as_slice());
+    arrow_data.extend_from_slice(buf_slice);
     arrow_data.extend_from_slice(&vec![0u8; pad_len][..]);
-    offset + total_len
+    Ok(offset + total_len)
 }
 
 /// Calculate an 8-byte boundary and return the number of bytes needed to pad to 8 bytes
@@ -850,19 +902,19 @@ mod tests {
     #[test]
     fn test_write_null_file_v4() {
         write_null_file(
-            IpcWriteOptions::try_new(8, false, MetadataVersion::V4).unwrap(),
+            IpcWriteOptions::try_new(8, false, MetadataVersion::V4, None).unwrap(),
             "v4_a8",
         );
         write_null_file(
-            IpcWriteOptions::try_new(8, true, MetadataVersion::V4).unwrap(),
+            IpcWriteOptions::try_new(8, true, MetadataVersion::V4, None).unwrap(),
             "v4_a8l",
         );
         write_null_file(
-            IpcWriteOptions::try_new(64, false, MetadataVersion::V4).unwrap(),
+            IpcWriteOptions::try_new(64, false, MetadataVersion::V4, None).unwrap(),
             "v4_a64",
         );
         write_null_file(
-            IpcWriteOptions::try_new(64, true, MetadataVersion::V4).unwrap(),
+            IpcWriteOptions::try_new(64, true, MetadataVersion::V4, None).unwrap(),
             "v4_a64l",
         );
     }
@@ -870,13 +922,58 @@ mod tests {
     #[test]
     fn test_write_null_file_v5() {
         write_null_file(
-            IpcWriteOptions::try_new(8, false, MetadataVersion::V5).unwrap(),
+            IpcWriteOptions::try_new(8, false, MetadataVersion::V5, None).unwrap(),
             "v5_a8",
         );
         write_null_file(
-            IpcWriteOptions::try_new(64, false, MetadataVersion::V5).unwrap(),
+            IpcWriteOptions::try_new(64, false, MetadataVersion::V5, None).unwrap(),
             "v5_a64",
         );
+    }
+
+    #[test]
+    fn test_write_file_v5_compressed() {
+        let testdata = crate::util::test_util::arrow_test_data();
+        let file = File::open(format!(
+            "{}/arrow-ipc-stream/integration/1.0.0-littleendian/generated_primitive.arrow_file",
+            testdata
+        )).unwrap();
+        let options = IpcWriteOptions::try_new(
+            64,
+            false,
+            MetadataVersion::V5,
+            Some(ipc::CompressionType::LZ4_FRAME),
+        )
+        .unwrap();
+        let reader = FileReader::try_new(file).unwrap();
+        let filepath = "target/debug/testdata/primitive_lz4.arrow_file";
+        let file = File::create(&filepath).unwrap();
+        let mut writer =
+            FileWriter::try_new_with_options(file, &reader.schema(), options).unwrap();
+        let batches = reader.collect::<Result<Vec<RecordBatch>>>().unwrap();
+        for b in &batches {
+            writer.write(b).unwrap();
+        }
+        // close writer
+        writer.finish().unwrap();
+
+        // read written
+        let file = File::open(&filepath).unwrap();
+        let reader = FileReader::try_new(file).unwrap();
+        let decompressed_batches = reader.collect::<Result<Vec<RecordBatch>>>().unwrap();
+        assert_eq!(batches.len(), decompressed_batches.len());
+        for (a, b) in batches.iter().zip(decompressed_batches) {
+            assert_eq!(a.schema(), b.schema());
+            assert_eq!(a.num_columns(), b.num_columns());
+            assert_eq!(a.num_rows(), b.num_rows());
+            a.columns()
+                .iter()
+                .zip(b.columns())
+                .for_each(|(a_col, b_col)| {
+                    println!("A: {:?}, \nB: {:?}", a_col, b_col);
+                    assert_eq!(a_col, b_col);
+                });
+        }
     }
 
     #[test]
@@ -1020,7 +1117,8 @@ mod tests {
                 .unwrap();
                 // write IPC version 5
                 let options =
-                    IpcWriteOptions::try_new(8, false, ipc::MetadataVersion::V5).unwrap();
+                    IpcWriteOptions::try_new(8, false, ipc::MetadataVersion::V5, None)
+                        .unwrap();
                 let mut writer =
                     FileWriter::try_new_with_options(file, &reader.schema(), options)
                         .unwrap();
@@ -1083,7 +1181,8 @@ mod tests {
                 ))
                 .unwrap();
                 let options =
-                    IpcWriteOptions::try_new(8, false, ipc::MetadataVersion::V5).unwrap();
+                    IpcWriteOptions::try_new(8, false, ipc::MetadataVersion::V5, None)
+                        .unwrap();
                 let mut writer =
                     StreamWriter::try_new_with_options(file, &reader.schema(), options)
                         .unwrap();

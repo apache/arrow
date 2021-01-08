@@ -32,15 +32,24 @@ use crate::error::{ArrowError, Result};
 use crate::ipc;
 use crate::record_batch::{RecordBatch, RecordBatchReader};
 
+use ipc::compression::{get_codec, Codec};
 use ipc::CONTINUATION_MARKER;
 use DataType::*;
 
 /// Read a buffer based on offset and length
-fn read_buffer(buf: &ipc::Buffer, a_data: &[u8]) -> Buffer {
+fn read_buffer(buf: &ipc::Buffer, a_data: &[u8], codec: Option<&Codec>) -> Buffer {
     let start_offset = buf.offset() as usize;
     let end_offset = start_offset + buf.length() as usize;
     let buf_data = &a_data[start_offset..end_offset];
-    Buffer::from(&buf_data)
+    // decompress the buffer if it is compressed
+    match codec {
+        Some(codec) => {
+            let mut buf = Vec::new();
+            codec.decompress(buf_data, &mut buf).unwrap();
+            Buffer::from(buf)
+        }
+        None => Buffer::from(&buf_data),
+    }
 }
 
 /// Coordinates reading arrays based on data types.
@@ -52,6 +61,7 @@ fn read_buffer(buf: &ipc::Buffer, a_data: &[u8]) -> Buffer {
 ///     - check if the bit width of non-64-bit numbers is 64, and
 ///     - read the buffer as 64-bit (signed integer or float), and
 ///     - cast the 64-bit array to the appropriate data type
+#[allow(clippy::clippy::too_many_arguments)]
 fn create_array(
     nodes: &[ipc::FieldNode],
     data_type: &DataType,
@@ -60,6 +70,7 @@ fn create_array(
     dictionaries: &[Option<ArrayRef>],
     mut node_index: usize,
     mut buffer_index: usize,
+    codec: Option<&Codec>,
 ) -> (ArrayRef, usize, usize) {
     use DataType::*;
     let array = match data_type {
@@ -69,7 +80,7 @@ fn create_array(
                 data_type,
                 buffers[buffer_index..buffer_index + 3]
                     .iter()
-                    .map(|buf| read_buffer(buf, data))
+                    .map(|buf| read_buffer(buf, data, codec))
                     .collect(),
             );
             node_index += 1;
@@ -82,7 +93,7 @@ fn create_array(
                 data_type,
                 buffers[buffer_index..buffer_index + 2]
                     .iter()
-                    .map(|buf| read_buffer(buf, data))
+                    .map(|buf| read_buffer(buf, data, codec))
                     .collect(),
             );
             node_index += 1;
@@ -93,7 +104,7 @@ fn create_array(
             let list_node = &nodes[node_index];
             let list_buffers: Vec<Buffer> = buffers[buffer_index..buffer_index + 2]
                 .iter()
-                .map(|buf| read_buffer(buf, data))
+                .map(|buf| read_buffer(buf, data, codec))
                 .collect();
             node_index += 1;
             buffer_index += 2;
@@ -105,6 +116,7 @@ fn create_array(
                 dictionaries,
                 node_index,
                 buffer_index,
+                codec,
             );
             node_index = triple.1;
             buffer_index = triple.2;
@@ -115,7 +127,7 @@ fn create_array(
             let list_node = &nodes[node_index];
             let list_buffers: Vec<Buffer> = buffers[buffer_index..=buffer_index]
                 .iter()
-                .map(|buf| read_buffer(buf, data))
+                .map(|buf| read_buffer(buf, data, codec))
                 .collect();
             node_index += 1;
             buffer_index += 1;
@@ -127,6 +139,7 @@ fn create_array(
                 dictionaries,
                 node_index,
                 buffer_index,
+                codec,
             );
             node_index = triple.1;
             buffer_index = triple.2;
@@ -135,7 +148,7 @@ fn create_array(
         }
         Struct(struct_fields) => {
             let struct_node = &nodes[node_index];
-            let null_buffer: Buffer = read_buffer(&buffers[buffer_index], data);
+            let null_buffer: Buffer = read_buffer(&buffers[buffer_index], data, codec);
             node_index += 1;
             buffer_index += 1;
 
@@ -152,6 +165,7 @@ fn create_array(
                     dictionaries,
                     node_index,
                     buffer_index,
+                    codec,
                 );
                 node_index = triple.1;
                 buffer_index = triple.2;
@@ -171,7 +185,7 @@ fn create_array(
             let index_node = &nodes[node_index];
             let index_buffers: Vec<Buffer> = buffers[buffer_index..buffer_index + 2]
                 .iter()
-                .map(|buf| read_buffer(buf, data))
+                .map(|buf| read_buffer(buf, data, codec))
                 .collect();
             let value_array = dictionaries[node_index].clone().unwrap();
             node_index += 1;
@@ -200,7 +214,7 @@ fn create_array(
                 data_type,
                 buffers[buffer_index..buffer_index + 2]
                     .iter()
-                    .map(|buf| read_buffer(buf, data))
+                    .map(|buf| read_buffer(buf, data, codec))
                     .collect(),
             );
             node_index += 1;
@@ -424,6 +438,20 @@ pub fn read_record_batch(
     let mut node_index = 0;
     let mut arrays = vec![];
 
+    let codec: Option<Codec> = match batch.compression() {
+        Some(body_compression) => {
+            let method = body_compression.method();
+            if ipc::BodyCompressionMethod::BUFFER != method {
+                return Err(ArrowError::IoError(format!(
+                    "Encountered unsupported body compression method: {:?}",
+                    method
+                )));
+            }
+            get_codec(Some(body_compression.codec()))?
+        }
+        None => None,
+    };
+
     // keep track of index as lists require more than one node
     for field in schema.fields() {
         let triple = create_array(
@@ -434,6 +462,7 @@ pub fn read_record_batch(
             dictionaries,
             node_index,
             buffer_index,
+            codec.as_ref(),
         );
         node_index = triple.1;
         buffer_index = triple.2;

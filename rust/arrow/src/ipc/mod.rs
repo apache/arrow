@@ -18,6 +18,7 @@
 // TODO: (vcq): Protobuf codegen is not generating Debug impls.
 #![allow(missing_debug_implementations)]
 
+pub mod compression;
 pub mod convert;
 pub mod reader;
 pub mod writer;
