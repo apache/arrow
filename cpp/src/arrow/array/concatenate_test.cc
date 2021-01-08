@@ -226,16 +226,72 @@ TEST_F(ConcatenateTest, DictionaryType) {
 }
 
 TEST_F(ConcatenateTest, DictionaryTypeDifferentDictionaries) {
-  auto dict_type = dictionary(uint8(), utf8());
-  auto dict_one = DictArrayFromJSON(dict_type, "[1, 2, null, 3, 0]",
-                                    "[\"A0\", \"A1\", \"A2\", \"A3\"]");
-  auto dict_two = DictArrayFromJSON(dict_type, "[null, 4, 2, 1]",
-                                    "[\"B0\", \"B1\", \"B2\", \"B3\", \"B4\"]");
-  auto concat_expected = DictArrayFromJSON(
-      dict_type, "[1, 2, null, 3, 0, null, 8, 6, 5]",
-      "[\"A0\", \"A1\", \"A2\", \"A3\", \"B0\", \"B1\", \"B2\", \"B3\", \"B4\"]");
-  ASSERT_OK_AND_ASSIGN(auto concat_actual, Concatenate({dict_one, dict_two}));
-  AssertArraysEqual(*concat_expected, *concat_actual);
+  {
+    auto dict_type = dictionary(uint8(), utf8());
+    auto dict_one = DictArrayFromJSON(dict_type, "[1, 2, null, 3, 0]",
+                                      "[\"A0\", \"A1\", \"A2\", \"A3\"]");
+    auto dict_two = DictArrayFromJSON(dict_type, "[null, 4, 2, 1]",
+                                      "[\"B0\", \"B1\", \"B2\", \"B3\", \"B4\"]");
+    auto concat_expected = DictArrayFromJSON(
+        dict_type, "[1, 2, null, 3, 0, null, 8, 6, 5]",
+        "[\"A0\", \"A1\", \"A2\", \"A3\", \"B0\", \"B1\", \"B2\", \"B3\", \"B4\"]");
+    ASSERT_OK_AND_ASSIGN(auto concat_actual, Concatenate({dict_one, dict_two}));
+    AssertArraysEqual(*concat_expected, *concat_actual);
+  }
+  {
+    const int SIZE = 500;
+    auto dict_type = dictionary(uint16(), utf8());
+
+    UInt16Builder index_builder;
+    UInt16Builder expected_index_builder;
+    ASSERT_OK(index_builder.Reserve(SIZE));
+    ASSERT_OK(expected_index_builder.Reserve(SIZE * 2));
+    for (auto i = 0; i < SIZE; i++) {
+      index_builder.UnsafeAppend(i);
+      expected_index_builder.UnsafeAppend(i);
+    }
+    for (auto i = SIZE; i < 2 * SIZE; i++) {
+      expected_index_builder.UnsafeAppend(i);
+    }
+    ASSERT_OK_AND_ASSIGN(auto indices, index_builder.Finish());
+    ASSERT_OK_AND_ASSIGN(auto expected_indices, expected_index_builder.Finish());
+
+    // Creates three dictionaries.  The first maps i->"{i}" the second maps i->"{500+i}",
+    // each for 500 values and the third maps i->"{i}" but for 1000 values.
+    // The first and second concatenated should end up equaling the third.  All strings
+    // are padded to length 8 so we can know the size ahead of time.
+    StringBuilder values_one_builder;
+    StringBuilder values_two_builder;
+    StringBuilder expected_values_builder;
+    ASSERT_OK(values_one_builder.Resize(SIZE));
+    ASSERT_OK(values_two_builder.Resize(SIZE));
+    ASSERT_OK(expected_values_builder.Resize(SIZE * 2));
+    ASSERT_OK(values_one_builder.ReserveData(8 * SIZE));
+    ASSERT_OK(values_two_builder.ReserveData(8 * SIZE));
+    ASSERT_OK(expected_values_builder.ReserveData(8 * SIZE * 2));
+    for (auto i = 0; i < SIZE; i++) {
+      auto i_str = std::to_string(i);
+      auto padded = i_str.insert(0, 8 - i_str.length(), '0');
+      values_one_builder.UnsafeAppend(padded);
+      expected_values_builder.UnsafeAppend(padded);
+    }
+    for (auto i = SIZE; i < 2 * SIZE; i++) {
+      auto i_str = std::to_string(i);
+      auto padded = i_str.insert(0, 8 - i_str.length(), '0');
+      values_two_builder.UnsafeAppend(padded);
+      expected_values_builder.UnsafeAppend(padded);
+    }
+    ASSERT_OK_AND_ASSIGN(auto dictionary_one, values_one_builder.Finish());
+    ASSERT_OK_AND_ASSIGN(auto dictionary_two, values_two_builder.Finish());
+    ASSERT_OK_AND_ASSIGN(auto expected_dictionary, expected_values_builder.Finish());
+
+    auto one = std::make_shared<DictionaryArray>(dict_type, indices, dictionary_one);
+    auto two = std::make_shared<DictionaryArray>(dict_type, indices, dictionary_two);
+    auto expected = std::make_shared<DictionaryArray>(dict_type, expected_indices,
+                                                      expected_dictionary);
+    ASSERT_OK_AND_ASSIGN(auto combined, Concatenate({one, two}));
+    AssertArraysEqual(*combined, *expected);
+  }
 }
 
 TEST_F(ConcatenateTest, DictionaryTypePartialOverlapDictionaries) {

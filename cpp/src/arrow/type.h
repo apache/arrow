@@ -1368,7 +1368,7 @@ class ARROW_EXPORT DictionaryUnifier {
   virtual Status GetResult(std::shared_ptr<DataType>* out_type,
                            std::shared_ptr<Array>* out_dict) = 0;
 
-  /// \brief Return a result DictionaryType with the given index type.  If
+  /// \brief Return a unified dictionary with the given index type.  If
   /// the index type is not large enough then an invalid status will be returned.
   /// The unifier cannot be used after this is called
   virtual Status GetResultWithIndexType(std::shared_ptr<DataType> index_type,

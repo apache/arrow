@@ -36,6 +36,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/int_util.h"
 #include "arrow/util/int_util_internal.h"
 #include "arrow/util/logging.h"
 #include "arrow/visitor_inline.h"
@@ -44,6 +45,7 @@ namespace arrow {
 
 using internal::SafeSignedAdd;
 
+namespace {
 /// offset, length pair for representing a Range of a buffer or array
 struct Range {
   int64_t offset = -1, length = 0;
@@ -66,8 +68,8 @@ struct Bitmap {
 };
 
 // Allocate a buffer and concatenate bitmaps into it.
-static Status ConcatenateBitmaps(const std::vector<Bitmap>& bitmaps, MemoryPool* pool,
-                                 std::shared_ptr<Buffer>* out) {
+Status ConcatenateBitmaps(const std::vector<Bitmap>& bitmaps, MemoryPool* pool,
+                          std::shared_ptr<Buffer>* out) {
   int64_t out_length = 0;
   for (const auto& bitmap : bitmaps) {
     if (internal::AddWithOverflow(out_length, bitmap.range.length, &out_length)) {
@@ -94,15 +96,15 @@ static Status ConcatenateBitmaps(const std::vector<Bitmap>& bitmaps, MemoryPool*
 // Write offsets in src into dst, adjusting them such that first_offset
 // will be the first offset written.
 template <typename Offset>
-static Status PutOffsets(const std::shared_ptr<Buffer>& src, Offset first_offset,
-                         Offset* dst, Range* values_range);
+Status PutOffsets(const std::shared_ptr<Buffer>& src, Offset first_offset, Offset* dst,
+                  Range* values_range);
 
 // Concatenate buffers holding offsets into a single buffer of offsets,
 // also computing the ranges of values spanned by each buffer of offsets.
 template <typename Offset>
-static Status ConcatenateOffsets(const BufferVector& buffers, MemoryPool* pool,
-                                 std::shared_ptr<Buffer>* out,
-                                 std::vector<Range>* values_ranges) {
+Status ConcatenateOffsets(const BufferVector& buffers, MemoryPool* pool,
+                          std::shared_ptr<Buffer>* out,
+                          std::vector<Range>* values_ranges) {
   values_ranges->resize(buffers.size());
 
   // allocate output buffer
@@ -130,8 +132,8 @@ static Status ConcatenateOffsets(const BufferVector& buffers, MemoryPool* pool,
 }
 
 template <typename Offset>
-static Status PutOffsets(const std::shared_ptr<Buffer>& src, Offset first_offset,
-                         Offset* dst, Range* values_range) {
+Status PutOffsets(const std::shared_ptr<Buffer>& src, Offset first_offset, Offset* dst,
+                  Range* values_range) {
   if (src->size() == 0) {
     // It's allowed to have an empty offsets buffer for a 0-length array
     // (see Array::Validate)
@@ -164,8 +166,7 @@ static Status PutOffsets(const std::shared_ptr<Buffer>& src, Offset first_offset
 }
 
 struct DictionaryConcatenate {
-  DictionaryConcatenate(BufferVector& index_buffers,
-                        std::vector<std::shared_ptr<Buffer>>& index_lookup,
+  DictionaryConcatenate(BufferVector& index_buffers, BufferVector& index_lookup,
                         MemoryPool* pool)
       : out_(nullptr),
         index_buffers_(index_buffers),
@@ -184,22 +185,21 @@ struct DictionaryConcatenate {
       out_length += buffer->size();
     }
     ARROW_ASSIGN_OR_RAISE(out_, AllocateBuffer(out_length, pool_));
-    auto out_data = out_->mutable_data();
+    CType* out_data = reinterpret_cast<CType*>(out_->mutable_data());
     for (size_t i = 0; i < index_buffers_.size(); i++) {
-      auto buffer = index_buffers_[i];
+      const auto& buffer = index_buffers_[i];
+      auto size = buffer->size() / sizeof(CType);
       auto old_indices = reinterpret_cast<const CType*>(buffer->data());
-      auto indices_map = reinterpret_cast<int32_t*>(index_lookup_[i]->mutable_data());
-      for (int64_t j = 0; j < buffer->size(); j++) {
-        out_data[j] = indices_map[old_indices[j]];
-      }
-      out_data += buffer->size();
+      auto indices_map = reinterpret_cast<const int32_t*>(index_lookup_[i]->data());
+      internal::TransposeInts(old_indices, out_data, size, indices_map);
+      out_data += size;
     }
     return Status::OK();
   }
 
   std::shared_ptr<Buffer> out_;
-  BufferVector& index_buffers_;
-  std::vector<std::shared_ptr<Buffer>>& index_lookup_;
+  const BufferVector& index_buffers_;
+  const BufferVector& index_lookup_;
   MemoryPool* pool_;
 };
 
@@ -324,12 +324,11 @@ class ConcatenateImpl {
       }
     }
 
+    ARROW_ASSIGN_OR_RAISE(auto index_buffers, Buffers(1, *fixed));
     if (dictionaries_same) {
       out_->dictionary = in_[0]->dictionary;
-      ARROW_ASSIGN_OR_RAISE(auto index_buffers, Buffers(1, *fixed));
       return ConcatenateBuffers(index_buffers, pool_).Value(&out_->buffers[1]);
     } else {
-      ARROW_ASSIGN_OR_RAISE(auto index_buffers, Buffers(1, *fixed));
       ARROW_ASSIGN_OR_RAISE(auto index_lookup, UnifyDictionaries(d));
       DictionaryConcatenate concatenate(index_buffers, index_lookup, pool_);
       RETURN_NOT_OK(VisitTypeInline(*d.index_type(), &concatenate));
@@ -475,6 +474,8 @@ class ConcatenateImpl {
   MemoryPool* pool_;
   std::shared_ptr<ArrayData> out_;
 };
+
+}  // namespace
 
 Result<std::shared_ptr<Array>> Concatenate(const ArrayVector& arrays, MemoryPool* pool) {
   if (arrays.size() == 0) {
