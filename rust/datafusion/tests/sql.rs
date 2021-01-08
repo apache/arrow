@@ -1853,3 +1853,89 @@ async fn string_expressions() -> Result<()> {
     assert_eq!(expected, actual);
     Ok(())
 }
+
+#[tokio::test]
+async fn in_list_array() -> Result<()> {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv_by_sql(&mut ctx).await;
+    let sql = "SELECT
+            c1 IN ('a', 'c') AS utf8_in_true
+            ,c1 IN ('x', 'y') AS utf8_in_false
+            ,c1 NOT IN ('x', 'y') AS utf8_not_in_true
+            ,c1 NOT IN ('a', 'c') AS utf8_not_in_false
+            ,CAST(CAST(c1 AS int) AS varchar) IN ('a', 'c') AS utf8_in_null
+        FROM aggregate_test_100 WHERE c12 < 0.05";
+    let actual = execute(&mut ctx, sql).await;
+    let expected = vec![
+        vec!["true", "false", "true", "false", "NULL"],
+        vec!["true", "false", "true", "false", "NULL"],
+        vec!["true", "false", "true", "false", "NULL"],
+        vec!["false", "false", "true", "true", "NULL"],
+        vec!["false", "false", "true", "true", "NULL"],
+        vec!["false", "false", "true", "true", "NULL"],
+        vec!["false", "false", "true", "true", "NULL"],
+    ];
+    assert_eq!(expected, actual);
+    Ok(())
+}
+
+#[tokio::test]
+async fn in_list_scalar() -> Result<()> {
+    let mut ctx = ExecutionContext::new();
+    let sql = "SELECT
+        'a' IN ('a','b') AS utf8_in_true
+        ,'c' IN ('a','b') AS utf8_in_false
+        ,'c' NOT IN ('a','b') AS utf8_not_in_true
+        ,'a' NOT IN ('a','b') AS utf8_not_in_false
+        ,NULL IN ('a','b') AS utf8_in_null
+        ,NULL NOT IN ('a','b') AS utf8_not_in_null
+        ,'a' IN ('a','b',NULL) AS utf8_in_null_true
+        ,'c' IN ('a','b',NULL) AS utf8_in_null_null
+        ,'a' NOT IN ('a','b',NULL) AS utf8_not_in_null_false
+        ,'c' NOT IN ('a','b',NULL) AS utf8_not_in_null_null
+
+        ,0 IN (0,1,2) AS int64_in_true
+        ,3 IN (0,1,2) AS int64_in_false
+        ,3 NOT IN (0,1,2) AS int64_not_in_true
+        ,0 NOT IN (0,1,2) AS int64_not_in_false
+        ,NULL IN (0,1,2) AS int64_in_null
+        ,NULL NOT IN (0,1,2) AS int64_not_in_null
+        ,0 IN (0,1,2,NULL) AS int64_in_null_true
+        ,3 IN (0,1,2,NULL) AS int64_in_null_null
+        ,0 NOT IN (0,1,2,NULL) AS int64_not_in_null_false
+        ,3 NOT IN (0,1,2,NULL) AS int64_not_in_null_null
+
+        ,0.0 IN (0.0,0.1,0.2) AS float64_in_true
+        ,0.3 IN (0.0,0.1,0.2) AS float64_in_false
+        ,0.3 NOT IN (0.0,0.1,0.2) AS float64_not_in_true
+        ,0.0 NOT IN (0.0,0.1,0.2) AS float64_not_in_false
+        ,NULL IN (0.0,0.1,0.2) AS float64_in_null
+        ,NULL NOT IN (0.0,0.1,0.2) AS float64_not_in_null
+        ,0.0 IN (0.0,0.1,0.2,NULL) AS float64_in_null_true
+        ,0.3 IN (0.0,0.1,0.2,NULL) AS float64_in_null_null
+        ,0.0 NOT IN (0.0,0.1,0.2,NULL) AS float64_not_in_null_false
+        ,0.3 NOT IN (0.0,0.1,0.2,NULL) AS float64_not_in_null_null
+
+        ,'1' IN ('a','b',1) AS utf8_cast_in_true
+        ,'2' IN ('a','b',1) AS utf8_cast_in_false
+        ,'2' NOT IN ('a','b',1) AS utf8_cast_not_in_true
+        ,'1' NOT IN ('a','b',1) AS utf8_cast_not_in_false
+        ,NULL IN ('a','b',1) AS utf8_cast_in_null
+        ,NULL NOT IN ('a','b',1) AS utf8_cast_not_in_null
+        ,'1' IN ('a','b',NULL,1) AS utf8_cast_in_null_true
+        ,'2' IN ('a','b',NULL,1) AS utf8_cast_in_null_null
+        ,'1' NOT IN ('a','b',NULL,1) AS utf8_cast_not_in_null_false
+        ,'2' NOT IN ('a','b',NULL,1) AS utf8_cast_not_in_null_null
+    ";
+    let actual = execute(&mut ctx, sql).await;
+
+    let expected = vec![vec![
+        "true", "false", "true", "false", "NULL", "NULL", "true", "NULL", "false",
+        "NULL", "true", "false", "true", "false", "NULL", "NULL", "true", "NULL",
+        "false", "NULL", "true", "false", "true", "false", "NULL", "NULL", "true",
+        "NULL", "false", "NULL", "true", "false", "true", "false", "NULL", "NULL",
+        "true", "NULL", "false", "NULL",
+    ]];
+    assert_eq!(expected, actual);
+    Ok(())
+}

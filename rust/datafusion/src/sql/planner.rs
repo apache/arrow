@@ -759,6 +759,23 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                 high: Box::new(self.sql_expr_to_logical_expr(&high)?),
             }),
 
+            SQLExpr::InList {
+                ref expr,
+                ref list,
+                ref negated,
+            } => {
+                let list_expr = list
+                    .iter()
+                    .map(|e| self.sql_expr_to_logical_expr(e))
+                    .collect::<Result<Vec<_>>>()?;
+
+                Ok(Expr::InList {
+                    expr: Box::new(self.sql_expr_to_logical_expr(&expr)?),
+                    list: list_expr,
+                    negated: *negated,
+                })
+            }
+
             SQLExpr::BinaryOp {
                 ref left,
                 ref op,

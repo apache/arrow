@@ -36,8 +36,8 @@ pub use display::display_schema;
 pub use expr::{
     abs, acos, and, array, asin, atan, avg, binary_expr, case, ceil, col, concat, cos,
     count, count_distinct, create_udaf, create_udf, exp, exprlist_to_fields, floor,
-    length, lit, ln, log10, log2, lower, ltrim, max, min, or, round, rtrim, signum, sin,
-    sqrt, sum, tan, trim, trunc, upper, when, Expr, Literal,
+    in_list, length, lit, ln, log10, log2, lower, ltrim, max, min, or, round, rtrim,
+    signum, sin, sqrt, sum, tan, trim, trunc, upper, when, Expr, Literal,
 };
 pub use extension::UserDefinedLogicalNode;
 pub use operators::Operator;
