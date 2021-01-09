@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <R_ext/Rdynload.h>  // for R_GetCCallable
 #include <Rdefines.h>
-#include <R_ext/Rdynload.h> // for R_GetCCallable
 
 namespace vctrs {
 struct vctrs_api_ptrs_t {
