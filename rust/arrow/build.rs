@@ -21,5 +21,6 @@ fn main() {
     // Setup cfg aliases
     cfg_aliases! {
         simd_x86: { all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd") },
+        simd_aarch64: { all(target_arch = "aarch64", feature = "simd") },
     }
 }
