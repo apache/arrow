@@ -27,8 +27,8 @@ use std::{
 };
 
 use super::{
-    expressions, planner::DefaultPhysicalPlanner, ColumnarValue, PhysicalExpr,
-    RecordBatchStream, SendableRecordBatchStream,
+    planner::DefaultPhysicalPlanner, ColumnarValue, PhysicalExpr, RecordBatchStream,
+    SendableRecordBatchStream,
 };
 use crate::physical_plan::ExecutionPlan;
 use crate::physical_plan::{common, Partitioning};
@@ -38,7 +38,6 @@ use crate::{
     logical_plan::{Expr, Operator},
     optimizer::utils,
     prelude::ExecutionConfig,
-    scalar::ScalarValue,
 };
 use arrow::error::{ArrowError, Result as ArrowResult};
 use arrow::record_batch::RecordBatch;
@@ -76,7 +75,7 @@ pub struct ParquetExec {
     /// Statistics for the data set (sum of statistics for all partitions)
     statistics: Statistics,
     /// Optional predicate builder
-    predicate_builder: Option<PredicateExpressionBuilder>,
+    predicate_builder: Option<RowGroupPredicateBuilder>,
 }
 
 /// Represents one partition of a Parquet data set and this currently means one Parquet file.
@@ -188,7 +187,7 @@ impl ParquetExec {
         }
         let schema = schemas[0].clone();
         let predicate_builder = predicate.and_then(|predicate_expr| {
-            PredicateExpressionBuilder::try_new(&predicate_expr, schema.clone()).ok()
+            RowGroupPredicateBuilder::try_new(&predicate_expr, schema.clone()).ok()
         });
 
         Ok(Self::new(
@@ -205,7 +204,7 @@ impl ParquetExec {
         partitions: Vec<ParquetPartition>,
         schema: Schema,
         projection: Option<Vec<usize>>,
-        predicate_builder: Option<PredicateExpressionBuilder>,
+        predicate_builder: Option<RowGroupPredicateBuilder>,
         batch_size: usize,
     ) -> Self {
         let projection = match projection {
@@ -254,20 +253,45 @@ impl ParquetExec {
 
 #[derive(Debug, Clone)]
 /// Predicate builder used for generating of predicate functions, used to filter row group metadata
-pub struct PredicateExpressionBuilder {
+pub struct RowGroupPredicateBuilder {
     parquet_schema: Schema,
     predicate_expr: Arc<dyn PhysicalExpr>,
     stat_column_req: Vec<(String, StatisticsType, Field)>,
 }
 
-impl PredicateExpressionBuilder {
+impl RowGroupPredicateBuilder {
     /// Try to create a new instance of PredicateExpressionBuilder
     pub fn try_new(expr: &Expr, parquet_schema: Schema) -> Result<Self> {
         // build predicate expression once
         let mut stat_column_req = Vec::<(String, StatisticsType, Field)>::new();
-        let predicate_expr =
+        let logical_predicate_expr =
             build_predicate_expression(expr, &parquet_schema, &mut stat_column_req)?;
-
+        // println!(
+        //     "RowGroupPredicateBuilder::try_new, logical_predicate_expr: {:?}",
+        //     logical_predicate_expr
+        // );
+        // build physical predicate expression
+        let stat_fields = stat_column_req
+            .iter()
+            .map(|(_, _, f)| f.clone())
+            .collect::<Vec<_>>();
+        let stat_schema = Schema::new(stat_fields);
+        let execution_context_state = ExecutionContextState {
+            datasources: HashMap::new(),
+            scalar_functions: HashMap::new(),
+            var_provider: HashMap::new(),
+            aggregate_functions: HashMap::new(),
+            config: ExecutionConfig::new(),
+        };
+        let predicate_expr = DefaultPhysicalPlanner::default().create_physical_expr(
+            &logical_predicate_expr,
+            &stat_schema,
+            &execution_context_state,
+        )?;
+        // println!(
+        //     "RowGroupPredicateBuilder::try_new, predicate_expr: {:?}",
+        //     predicate_expr
+        // );
         Ok(Self {
             parquet_schema,
             predicate_expr,
@@ -343,17 +367,16 @@ fn build_row_group_record_batch(
         .map_err(|err| DataFusionError::Plan(err.to_string()))
 }
 
-struct PhysicalExpressionBuilder<'a> {
+struct StatisticsExpressionBuilder<'a> {
     column_name: String,
     column_expr: &'a Expr,
     scalar_expr: &'a Expr,
     parquet_field: &'a Field,
-    statistics_fields: Vec<Field>,
     stat_column_req: &'a mut Vec<(String, StatisticsType, Field)>,
     reverse_operator: bool,
 }
 
-impl<'a> PhysicalExpressionBuilder<'a> {
+impl<'a> StatisticsExpressionBuilder<'a> {
     fn try_new(
         left: &'a Expr,
         right: &'a Expr,
@@ -393,7 +416,6 @@ impl<'a> PhysicalExpressionBuilder<'a> {
             column_expr,
             scalar_expr,
             parquet_field: field,
-            statistics_fields: Vec::new(),
             stat_column_req,
             reverse_operator,
         })
@@ -413,17 +435,17 @@ impl<'a> PhysicalExpressionBuilder<'a> {
         }
     }
 
-    fn column_expr(&self) -> &Expr {
-        self.column_expr
-    }
+    // fn column_expr(&self) -> &Expr {
+    //     self.column_expr
+    // }
 
     fn scalar_expr(&self) -> &Expr {
         self.scalar_expr
     }
 
-    fn column_name(&self) -> &String {
-        &self.column_name
-    }
+    // fn column_name(&self) -> &String {
+    //     &self.column_name
+    // }
 
     fn is_stat_column_missing(&self, statistics_type: StatisticsType) -> bool {
         self.stat_column_req
@@ -433,168 +455,36 @@ impl<'a> PhysicalExpressionBuilder<'a> {
             == 0
     }
 
-    fn add_min_column(&mut self) -> String {
-        let min_field = Field::new(
-            format!("{}_min", self.column_name).as_str(),
+    fn stat_column_expr(
+        &mut self,
+        stat_type: StatisticsType,
+        suffix: &str,
+    ) -> Result<Expr> {
+        let stat_column_name = format!("{}_{}", self.column_name, suffix);
+        let stat_field = Field::new(
+            stat_column_name.as_str(),
             self.parquet_field.data_type().clone(),
             self.parquet_field.is_nullable(),
         );
-        let min_column_name = min_field.name().clone();
-        self.statistics_fields.push(min_field.clone());
-        if self.is_stat_column_missing(StatisticsType::Min) {
+        if self.is_stat_column_missing(stat_type) {
             // only add statistics column if not previously added
-            self.stat_column_req.push((
-                self.column_name.to_string(),
-                StatisticsType::Min,
-                min_field,
-            ));
+            self.stat_column_req
+                .push((self.column_name.clone(), stat_type, stat_field));
         }
-        min_column_name
-    }
-
-    fn add_max_column(&mut self) -> String {
-        let max_field = Field::new(
-            format!("{}_max", self.column_name).as_str(),
-            self.parquet_field.data_type().clone(),
-            self.parquet_field.is_nullable(),
-        );
-        let max_column_name = max_field.name().clone();
-        self.statistics_fields.push(max_field.clone());
-        if self.is_stat_column_missing(StatisticsType::Max) {
-            // only add statistics column if not previously added
-            self.stat_column_req.push((
-                self.column_name.to_string(),
-                StatisticsType::Max,
-                max_field,
-            ));
-        }
-        max_column_name
-    }
-
-    fn build(&self, statistics_expr: &Expr) -> Result<Arc<dyn PhysicalExpr>> {
-        let execution_context_state = ExecutionContextState {
-            datasources: HashMap::new(),
-            scalar_functions: HashMap::new(),
-            var_provider: HashMap::new(),
-            aggregate_functions: HashMap::new(),
-            config: ExecutionConfig::new(),
-        };
-        let schema = Schema::new(self.statistics_fields.clone());
-        DefaultPhysicalPlanner::default().create_physical_expr(
-            statistics_expr,
-            &schema,
-            &execution_context_state,
+        rewrite_column_expr(
+            self.column_expr,
+            self.column_name.as_str(),
+            stat_column_name.as_str(),
         )
     }
-}
 
-/// Translate logical filter expression into parquet statistics physical filter expression
-fn build_predicate_expression(
-    expr: &Expr,
-    parquet_schema: &Schema,
-    stat_column_req: &mut Vec<(String, StatisticsType, Field)>,
-) -> Result<Arc<dyn PhysicalExpr>> {
-    // predicate expression can only be a binary expression
-    let (left, op, right) = match expr {
-        Expr::BinaryExpr { left, op, right } => (left, *op, right),
-        _ => {
-            return Ok(expressions::lit(ScalarValue::Boolean(Some(true))));
-        }
-    };
-
-    if op == Operator::And || op == Operator::Or {
-        let left_expr =
-            build_predicate_expression(left, parquet_schema, stat_column_req)?;
-        let right_expr =
-            build_predicate_expression(right, parquet_schema, stat_column_req)?;
-        let stat_fields = stat_column_req
-            .iter()
-            .map(|(_, _, f)| f.clone())
-            .collect::<Vec<_>>();
-        let stat_schema = Schema::new(stat_fields);
-        let result = expressions::binary(left_expr, op.clone(), right_expr, &stat_schema);
-        return result;
+    fn min_column_expr(&mut self) -> Result<Expr> {
+        self.stat_column_expr(StatisticsType::Min, "min")
     }
 
-    let mut expr_builder = match PhysicalExpressionBuilder::try_new(
-        left,
-        right,
-        parquet_schema,
-        stat_column_req,
-    ) {
-        Ok(builder) => builder,
-        // allow partial failure in predicate expression generation
-        // this can still produce a useful predicate when multiple conditions are joined using AND
-        Err(_) => {
-            return Ok(expressions::lit(ScalarValue::Boolean(Some(true))));
-        }
-    };
-    let corrected_op = expr_builder.correct_operator(op);
-    let statistics_expr = match corrected_op {
-        Operator::Eq => {
-            let min_column_name = expr_builder.add_min_column();
-            let max_column_name = expr_builder.add_max_column();
-            // column = literal => (min, max) = literal => min <= literal && literal <= max
-            // (column / 2) = 4 => (column_min / 2) <= 4 && 4 <= (column_max / 2)
-            expr_builder
-                .scalar_expr()
-                .gt_eq(rewrite_column_expr(
-                    expr_builder.column_expr(),
-                    expr_builder.column_name(),
-                    min_column_name.as_str(),
-                )?)
-                .and(expr_builder.scalar_expr().lt_eq(rewrite_column_expr(
-                    expr_builder.column_expr(),
-                    expr_builder.column_name(),
-                    max_column_name.as_str(),
-                )?))
-        }
-        Operator::Gt => {
-            let max_column_name = expr_builder.add_max_column();
-            // column > literal => (min, max) > literal => max > literal
-            rewrite_column_expr(
-                expr_builder.column_expr(),
-                expr_builder.column_name(),
-                max_column_name.as_str(),
-            )?
-            .gt(expr_builder.scalar_expr().clone())
-        }
-        Operator::GtEq => {
-            // column >= literal => (min, max) >= literal => max >= literal
-            let max_column_name = expr_builder.add_max_column();
-            rewrite_column_expr(
-                expr_builder.column_expr(),
-                expr_builder.column_name(),
-                max_column_name.as_str(),
-            )?
-            .gt_eq(expr_builder.scalar_expr().clone())
-        }
-        Operator::Lt => {
-            // column < literal => (min, max) < literal => min < literal
-            let min_column_name = expr_builder.add_min_column();
-            rewrite_column_expr(
-                expr_builder.column_expr(),
-                expr_builder.column_name(),
-                min_column_name.as_str(),
-            )?
-            .lt(expr_builder.scalar_expr().clone())
-        }
-        Operator::LtEq => {
-            // column <= literal => (min, max) <= literal => min <= literal
-            let min_column_name = expr_builder.add_min_column();
-            rewrite_column_expr(
-                expr_builder.column_expr(),
-                expr_builder.column_name(),
-                min_column_name.as_str(),
-            )?
-            .lt_eq(expr_builder.scalar_expr().clone())
-        }
-        // other expressions are not supported
-        _ => {
-            return Ok(expressions::lit(ScalarValue::Boolean(Some(true))));
-        }
-    };
-    expr_builder.build(&statistics_expr)
+    fn max_column_expr(&mut self) -> Result<Expr> {
+        self.stat_column_expr(StatisticsType::Max, "max")
+    }
 }
 
 /// replaces a column with an old name with a new name in an expression
@@ -615,6 +505,84 @@ fn rewrite_column_expr(
         }
     }
     utils::rewrite_expression(&expr, &expressions)
+}
+
+/// Translate logical filter expression into parquet statistics physical filter expression
+fn build_predicate_expression(
+    expr: &Expr,
+    parquet_schema: &Schema,
+    stat_column_req: &mut Vec<(String, StatisticsType, Field)>,
+) -> Result<Expr> {
+    use crate::logical_plan;
+    // predicate expression can only be a binary expression
+    let (left, op, right) = match expr {
+        Expr::BinaryExpr { left, op, right } => (left, *op, right),
+        _ => {
+            return Ok(logical_plan::lit(true));
+        }
+    };
+
+    if op == Operator::And || op == Operator::Or {
+        let left_expr =
+            build_predicate_expression(left, parquet_schema, stat_column_req)?;
+        let right_expr =
+            build_predicate_expression(right, parquet_schema, stat_column_req)?;
+        return Ok(logical_plan::binary_expr(left_expr, op, right_expr));
+    }
+
+    let expr_builder = StatisticsExpressionBuilder::try_new(
+        left,
+        right,
+        parquet_schema,
+        stat_column_req,
+    );
+    let mut expr_builder = match expr_builder {
+        Ok(builder) => builder,
+        // allow partial failure in predicate expression generation
+        // this can still produce a useful predicate when multiple conditions are joined using AND
+        Err(_) => {
+            return Ok(logical_plan::lit(true));
+        }
+    };
+    let corrected_op = expr_builder.correct_operator(op);
+    let statistics_expr = match corrected_op {
+        Operator::Eq => {
+            // column = literal => (min, max) = literal => min <= literal && literal <= max
+            // (column / 2) = 4 => (column_min / 2) <= 4 && 4 <= (column_max / 2)
+            let min_column_expr = expr_builder.min_column_expr()?;
+            let max_column_expr = expr_builder.max_column_expr()?;
+            min_column_expr
+                .lt_eq(expr_builder.scalar_expr().clone())
+                .and(expr_builder.scalar_expr().lt_eq(max_column_expr))
+        }
+        Operator::Gt => {
+            // column > literal => (min, max) > literal => max > literal
+            expr_builder
+                .max_column_expr()?
+                .gt(expr_builder.scalar_expr().clone())
+        }
+        Operator::GtEq => {
+            // column >= literal => (min, max) >= literal => max >= literal
+            expr_builder
+                .max_column_expr()?
+                .gt_eq(expr_builder.scalar_expr().clone())
+        }
+        Operator::Lt => {
+            // column < literal => (min, max) < literal => min < literal
+            expr_builder
+                .min_column_expr()?
+                .lt(expr_builder.scalar_expr().clone())
+        }
+        Operator::LtEq => {
+            // column <= literal => (min, max) <= literal => min <= literal
+            expr_builder
+                .min_column_expr()?
+                .lt_eq(expr_builder.scalar_expr().clone())
+        }
+        // other expressions are not supported
+        _ => logical_plan::lit(true),
+    };
+    Ok(statistics_expr)
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -803,7 +771,7 @@ fn send_result(
 fn read_files(
     filenames: &[String],
     projection: &[usize],
-    predicate_builder: &Option<PredicateExpressionBuilder>,
+    predicate_builder: &Option<RowGroupPredicateBuilder>,
     batch_size: usize,
     response_tx: Sender<Option<ArrowResult<RecordBatch>>>,
 ) -> Result<()> {
@@ -959,7 +927,7 @@ mod tests {
     }
 
     #[test]
-    fn build_statistics_array_test() -> Result<()> {
+    fn build_statistics_array_test() {
         // build row group metadata array
         let s1 = ParquetStatistics::int32(None, Some(10), None, 0, false);
         let s2 = ParquetStatistics::int32(Some(2), Some(20), None, 0, false);
@@ -983,6 +951,169 @@ mod tests {
             .unwrap();
         let int32_vec = int32_array.into_iter().collect::<Vec<_>>();
         assert_eq!(int32_vec, vec![None, Some(20), Some(30)]);
+    }
+
+    #[test]
+    fn row_group_predicate_eq() -> Result<()> {
+        use crate::logical_plan::{col, lit};
+        let schema = Schema::new(vec![Field::new("c1", DataType::Int32, false)]);
+        let expected_expr = "#c1_min LtEq Int32(1) And Int32(1) LtEq #c1_max";
+
+        // test column on the left
+        let expr = col("c1").eq(lit(1));
+        let predicate_expr = build_predicate_expression(&expr, &schema, &mut vec![])?;
+        assert_eq!(format!("{:?}", predicate_expr), expected_expr);
+
+        // test column on the right
+        let expr = lit(1).eq(col("c1"));
+        let predicate_expr = build_predicate_expression(&expr, &schema, &mut vec![])?;
+        assert_eq!(format!("{:?}", predicate_expr), expected_expr);
+
+        Ok(())
+    }
+
+    #[test]
+    fn row_group_predicate_gt() -> Result<()> {
+        use crate::logical_plan::{col, lit};
+        let schema = Schema::new(vec![Field::new("c1", DataType::Int32, false)]);
+        let expected_expr = "#c1_max Gt Int32(1)";
+
+        // test column on the left
+        let expr = col("c1").gt(lit(1));
+        let predicate_expr = build_predicate_expression(&expr, &schema, &mut vec![])?;
+        assert_eq!(format!("{:?}", predicate_expr), expected_expr);
+
+        // test column on the right
+        let expr = lit(1).lt(col("c1"));
+        let predicate_expr = build_predicate_expression(&expr, &schema, &mut vec![])?;
+        assert_eq!(format!("{:?}", predicate_expr), expected_expr);
+
+        Ok(())
+    }
+
+    #[test]
+    fn row_group_predicate_gt_eq() -> Result<()> {
+        use crate::logical_plan::{col, lit};
+        let schema = Schema::new(vec![Field::new("c1", DataType::Int32, false)]);
+        let expected_expr = "#c1_max GtEq Int32(1)";
+
+        // test column on the left
+        let expr = col("c1").gt_eq(lit(1));
+        let predicate_expr = build_predicate_expression(&expr, &schema, &mut vec![])?;
+        assert_eq!(format!("{:?}", predicate_expr), expected_expr);
+        // test column on the right
+        let expr = lit(1).lt_eq(col("c1"));
+        let predicate_expr = build_predicate_expression(&expr, &schema, &mut vec![])?;
+        assert_eq!(format!("{:?}", predicate_expr), expected_expr);
+
+        Ok(())
+    }
+
+    #[test]
+    fn row_group_predicate_lt() -> Result<()> {
+        use crate::logical_plan::{col, lit};
+        let schema = Schema::new(vec![Field::new("c1", DataType::Int32, false)]);
+        let expected_expr = "#c1_min Lt Int32(1)";
+
+        // test column on the left
+        let expr = col("c1").lt(lit(1));
+        let predicate_expr = build_predicate_expression(&expr, &schema, &mut vec![])?;
+        assert_eq!(format!("{:?}", predicate_expr), expected_expr);
+
+        // test column on the right
+        let expr = lit(1).gt(col("c1"));
+        let predicate_expr = build_predicate_expression(&expr, &schema, &mut vec![])?;
+        assert_eq!(format!("{:?}", predicate_expr), expected_expr);
+
+        Ok(())
+    }
+
+    #[test]
+    fn row_group_predicate_lt_eq() -> Result<()> {
+        use crate::logical_plan::{col, lit};
+        let schema = Schema::new(vec![Field::new("c1", DataType::Int32, false)]);
+        let expected_expr = "#c1_min LtEq Int32(1)";
+
+        // test column on the left
+        let expr = col("c1").lt_eq(lit(1));
+        let predicate_expr = build_predicate_expression(&expr, &schema, &mut vec![])?;
+        assert_eq!(format!("{:?}", predicate_expr), expected_expr);
+        // test column on the right
+        let expr = lit(1).gt_eq(col("c1"));
+        let predicate_expr = build_predicate_expression(&expr, &schema, &mut vec![])?;
+        assert_eq!(format!("{:?}", predicate_expr), expected_expr);
+
+        Ok(())
+    }
+
+    #[test]
+    fn row_group_predicate_and() -> Result<()> {
+        use crate::logical_plan::{col, lit};
+        let schema = Schema::new(vec![
+            Field::new("c1", DataType::Int32, false),
+            Field::new("c2", DataType::Int32, false),
+            Field::new("c3", DataType::Int32, false),
+        ]);
+        // test AND operator joining supported c1 < 1 expression and unsupported c2 > c3 expression
+        let expr = col("c1").lt(lit(1)).and(col("c2").lt(col("c3")));
+        let expected_expr = "#c1_min Lt Int32(1) And Boolean(true)";
+        let predicate_expr = build_predicate_expression(&expr, &schema, &mut vec![])?;
+        assert_eq!(format!("{:?}", predicate_expr), expected_expr);
+
+        Ok(())
+    }
+
+    #[test]
+    fn row_group_predicate_or() -> Result<()> {
+        use crate::logical_plan::{col, lit};
+        let schema = Schema::new(vec![
+            Field::new("c1", DataType::Int32, false),
+            Field::new("c2", DataType::Int32, false),
+        ]);
+        // test OR operator joining supported c1 < 1 expression and unsupported c2 % 2 expression
+        let expr = col("c1").lt(lit(1)).or(col("c2").modulus(lit(2)));
+        let expected_expr = "#c1_min Lt Int32(1) Or Boolean(true)";
+        let predicate_expr = build_predicate_expression(&expr, &schema, &mut vec![])?;
+        assert_eq!(format!("{:?}", predicate_expr), expected_expr);
+
+        Ok(())
+    }
+
+    #[test]
+    fn row_group_predicate_stat_column_req() -> Result<()> {
+        use crate::logical_plan::{col, lit};
+        let schema = Schema::new(vec![
+            Field::new("c1", DataType::Int32, false),
+            Field::new("c2", DataType::Int32, false),
+        ]);
+        let mut stat_column_req = vec![];
+        // c1 < 1 and (c2 = 2 or c2 = 3)
+        let expr = col("c1")
+            .lt(lit(1))
+            .and(col("c2").eq(lit(2)).or(col("c2").eq(lit(3))));
+        let expected_expr = "#c1_min Lt Int32(1) And #c2_min LtEq Int32(2) And Int32(2) LtEq #c2_max Or #c2_min LtEq Int32(3) And Int32(3) LtEq #c2_max";
+        let predicate_expr =
+            build_predicate_expression(&expr, &schema, &mut stat_column_req)?;
+        assert_eq!(format!("{:?}", predicate_expr), expected_expr);
+        // c1 < 1 should add c1_min
+        let c1_min_field = Field::new("c1_min", DataType::Int32, false);
+        assert_eq!(
+            stat_column_req[0],
+            ("c1".to_owned(), StatisticsType::Min, c1_min_field)
+        );
+        // c2 = 2 should add c2_min and c2_max
+        let c2_min_field = Field::new("c2_min", DataType::Int32, false);
+        assert_eq!(
+            stat_column_req[1],
+            ("c2".to_owned(), StatisticsType::Min, c2_min_field)
+        );
+        let c2_max_field = Field::new("c2_max", DataType::Int32, false);
+        assert_eq!(
+            stat_column_req[2],
+            ("c2".to_owned(), StatisticsType::Max, c2_max_field)
+        );
+        // c2 = 3 shouldn't add any new statistics fields
+        assert_eq!(stat_column_req.len(), 3);
 
         Ok(())
     }
