@@ -26,16 +26,10 @@ on:
 
 jobs:
   build:
-    name: "Build wheel for Windows"
-    runs-on: windows-2016
-    env:
-      ARCH: "x64"
-      GENERATOR: Visual Studio 15 2017
-      PYTHON_VERSION: "{{ python_version }}"
-      PYARROW_VERSION: {{ arrow.no_rc_version }}
+    name: "Build sdist"
+    runs-on: ubuntu-20.04
     steps:
       - name: Checkout Arrow
-        shell: bash
         run: |
           git clone --no-checkout {{ arrow.remote }} arrow
           git -C arrow config core.symlinks true
@@ -43,41 +37,38 @@ jobs:
           git -C arrow checkout FETCH_HEAD
           git -C arrow submodule update --init --recursive
       - name: Fetch Submodules and Tags
-        shell: bash
         run: cd arrow && ci/scripts/util_checkout.sh
+      - name: Free Up Disk Space
+        shell: bash
+        run: arrow/ci/scripts/util_cleanup.sh
       - uses: actions/setup-python@v2
-        with:
-          python-version: "{{ python_version }}"
-      - name: Set up Miniconda
-        shell: bash
+      - name: Setup Archery
+        run: pip install -e arrow/dev/archery[docker]
+      - name: Build sdist
         run: |
-          echo "c:\\Miniconda\\condabin" >> $GITHUB_PATH
-      - name: Build wheel
-        shell: bash
-        run: |
-          arrow/dev/tasks/python-wheels/win-build.bat
-      - name: Prepare artifacts
-        # the artifacts must be uploaded from a directory relative to the build root
-        shell: bash
-        run: |
-          mv arrow/python/dist/ wheels/
+          archery docker run python-sdist
+          {% if arrow.branch == 'master' %}
+          archery docker push python-sdist || :
+          {% endif %}
+        env:
+          PYARROW_VERSION: {{ arrow.no_rc_version }}
+      - name: Test sdist
+        run: archery docker run ubuntu-python-sdist-test
+        env:
+          PYARROW_VERSION: {{ arrow.no_rc_version }}
       {% if arrow.branch == 'master' %}
       - name: Upload to gemfury
-        shell: bash
         run: |
-          conda.bat install -y curl
-          WHEEL_PATH=$(echo wheels/*.whl)
-          curl.exe \
-            -F "package=@${WHEEL_PATH}" \
+          SDIST_PATH=$(echo arrow/python/dist/*.tar.gz)
+          curl \
+            -F "package=@${SDIST_PATH}" \
             "https://${CROSSBOW_GEMFURY_TOKEN}@push.fury.io/${CROSSBOW_GEMFURY_ORG}/"
         env:
           CROSSBOW_GEMFURY_ORG: {{ '${{ secrets.CROSSBOW_GEMFURY_ORG }}' }}
           CROSSBOW_GEMFURY_TOKEN: {{ '${{ secrets.CROSSBOW_GEMFURY_TOKEN }}' }}
       {% endif %}
-      - name: Set up Crossbow
-        shell: bash
-        run: |
-          pip install --requirement arrow/dev/tasks/requirements-crossbow.txt
+      - name: Setup Crossbow
+        run: pip install --requirement arrow/dev/tasks/requirements-crossbow.txt
       - name: Upload artifacts
         shell: bash
         run: |
@@ -85,7 +76,7 @@ jobs:
             --queue-path . \
             --queue-remote {{ queue_remote_url }} \
             upload-artifacts \
-            --pattern "wheels/*.whl" \
+            --pattern "arrow/python/dist/*.tar.gz" \
             --sha {{ task.branch }} \
             --tag {{ task.tag }}
         env:
