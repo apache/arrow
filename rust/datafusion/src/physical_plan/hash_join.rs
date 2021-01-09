@@ -58,9 +58,9 @@ use super::{ExecutionPlan, Partitioning, RecordBatchStream, SendableRecordBatchS
 use crate::physical_plan::coalesce_batches::concat_batches;
 use log::debug;
 
-// Maps ["on" value] -> [list of indices with this key's value]
-// E.g. [1, 2] -> [(0, 3), (1, 6), (0, 8)] indicates that (column1, column2) = [1, 2] is true
-// for rows 3 and 8 from batch 0 and row 6 from batch 1.
+// Maps a `u64` hash value based on the left ["on" values] to a list of indices with this key's value.
+// E.g. [1, 2] -> [3, 6, 8] indicates that the column values map to rows 3, 6 and 8
+// As the key is a hash value, we need to check possible hash collisions in the probe stage
 type JoinHashMap = HashMap<u64, Vec<u64>, IdHashBuilder>;
 type JoinLeftData = Arc<(JoinHashMap, RecordBatch)>;
 
@@ -80,7 +80,7 @@ pub struct HashJoinExec {
     schema: SchemaRef,
     /// Build-side
     build_side: Arc<Mutex<Option<JoinLeftData>>>,
-
+    /// Shares the `RandomState` for the hashing algorithm
     random_state: RandomState,
 }
 
@@ -541,10 +541,13 @@ fn build_join_indexes(
             for (row, hash_value) in hash_values.iter().enumerate() {
                 // Get the hash and find it in the build index
 
-                // for every item on the left and right we check if it matches
+                // For every item on the left and right we check if it matches
+                // This possibly contains rows with hash collisions,
+                // So we have to check here whether rows are equal or not
                 if let Some(indices) = left.get(hash_value) {
                     for &i in indices {
-                        if is_eq(i as usize, row, &left_join_values, &keys_values)? {
+                        // Check hash collisions
+                        if equal_rows(i as usize, row, &left_join_values, &keys_values)? {
                             left_indices.append_value(i)?;
                             right_indices.append_value(row as u32)?;
                         }
@@ -566,7 +569,7 @@ fn build_join_indexes(
                 if let Some(indices) = left.get(hash_value) {
                     for &i in indices {
                         // Collision check
-                        if is_eq(i as usize, row, &left_join_values, &keys_values)? {
+                        if equal_rows(i as usize, row, &left_join_values, &keys_values)? {
                             left_indices.append_value(i)?;
                             right_indices.append_value(row as u32)?;
                             is_visited.insert(i);
@@ -591,7 +594,7 @@ fn build_join_indexes(
                 match left.get(hash_value) {
                     Some(indices) => {
                         for &i in indices {
-                            if is_eq(i as usize, row, &left_join_values, &keys_values)? {
+                            if equal_rows(i as usize, row, &left_join_values, &keys_values)? {
                                 left_indices.append_value(i)?;
                                 right_indices.append_value(row as u32)?;
                             }
@@ -647,7 +650,8 @@ fn combine_hashes(l: u64, r: u64) -> u64 {
     hash.overflowing_mul(37).0.overflowing_add(r).0
 }
 
-fn is_eq(
+/// Left and right row have equal values
+fn equal_rows(
     left: usize,
     right: usize,
     left_arrays: &[ArrayRef],
