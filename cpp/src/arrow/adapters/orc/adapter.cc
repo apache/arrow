@@ -508,8 +508,7 @@ class ArrowOutputStream : public liborc::OutputStream {
 class ORCFileWriter::Impl {
  public:
   Status Open(const std::shared_ptr<Schema>& schema,
-              const std::shared_ptr<io::OutputStream>& output_stream,
-              const std::shared_ptr<ORCWriterOptions>& options) {
+              const std::shared_ptr<io::OutputStream>& output_stream) {
     orc_options_ = std::make_shared<liborc::WriterOptions>();
     outStream_ = ORC_UNIQUE_PTR<liborc::OutputStream>(
         static_cast<liborc::OutputStream*>(new ArrowOutputStream(output_stream)));
@@ -520,13 +519,12 @@ class ORCFileWriter::Impl {
       return Status::IOError(e.what());
     }
     schema_ = schema;
-    options_ = options;
     num_cols_ = schema->num_fields();
     return Status::OK();
   }
   Status Write(const std::shared_ptr<Table> table) {
     int64_t numRows = table->num_rows();
-    int64_t batch_size = static_cast<int64_t>(options_->get_batch_size());
+    int64_t batch_size = 1024;  // Doesn't matter what it is
     std::vector<int64_t> arrowIndexOffset(num_cols_, 0);
     std::vector<int> arrowChunkOffset(num_cols_, 0);
     ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer_->createRowBatch(batch_size);
@@ -550,7 +548,6 @@ class ORCFileWriter::Impl {
 
  private:
   ORC_UNIQUE_PTR<liborc::Writer> writer_;
-  std::shared_ptr<ORCWriterOptions> options_;
   std::shared_ptr<liborc::WriterOptions> orc_options_;
   std::shared_ptr<Schema> schema_;
   ORC_UNIQUE_PTR<liborc::OutputStream> outStream_;
@@ -564,10 +561,9 @@ ORCFileWriter::ORCFileWriter() { impl_.reset(new ORCFileWriter::Impl()); }
 
 Status ORCFileWriter::Open(const std::shared_ptr<Schema>& schema,
                            const std::shared_ptr<io::OutputStream>& output_stream,
-                           const std::shared_ptr<ORCWriterOptions>& options,
                            std::unique_ptr<ORCFileWriter>* writer) {
   auto result = std::unique_ptr<ORCFileWriter>(new ORCFileWriter());
-  ORC_THROW_NOT_OK(result->impl_->Open(schema, output_stream, options));
+  ORC_THROW_NOT_OK(result->impl_->Open(schema, output_stream));
   *writer = std::move(result);
   return Status::OK();
 }

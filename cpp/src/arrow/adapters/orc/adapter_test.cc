@@ -76,8 +76,7 @@ class MemoryOutputStream : public liborc::OutputStream {
 class ORCMemWriter {
  public:
   Status Open(const std::shared_ptr<Schema>& schema,
-              ORC_UNIQUE_PTR<liborc::OutputStream>& outStream,
-              const std::shared_ptr<adapters::orc::ORCWriterOptions>& options) {
+              ORC_UNIQUE_PTR<liborc::OutputStream>& outStream) {
     orc_options_ = std::make_shared<liborc::WriterOptions>();
     outStream_ = std::move(outStream);
     ARROW_EXPECT_OK(adapters::orc::GetORCType(schema.get(), &orcSchema_));
@@ -87,14 +86,13 @@ class ORCMemWriter {
       return Status::IOError(e.what());
     }
     schema_ = schema;
-    options_ = options;
     num_cols_ = schema->num_fields();
     return Status::OK();
   }
 
   Status Write(const std::shared_ptr<Table> table) {
     int64_t numRows = table->num_rows();
-    int64_t batch_size = static_cast<int64_t>(options_->get_batch_size());
+    int64_t batch_size = 1024;  // Doesn't matter what it is
     std::vector<int64_t> arrowIndexOffset(num_cols_, 0);
     std::vector<int> arrowChunkOffset(num_cols_, 0);
     ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer_->createRowBatch(batch_size);
@@ -119,7 +117,6 @@ class ORCMemWriter {
   liborc::OutputStream* ReleaseOutStream() { return outStream_.release(); }
 
   ORC_UNIQUE_PTR<liborc::Writer> writer_;
-  std::shared_ptr<adapters::orc::ORCWriterOptions> options_;
   std::shared_ptr<liborc::WriterOptions> orc_options_;
   std::shared_ptr<Schema> schema_;
   ORC_UNIQUE_PTR<liborc::OutputStream> outStream_;
@@ -250,7 +247,6 @@ TEST(TestAdapterWriteGeneral, writeZeroRows) {
 
   int64_t numRows = 0;
   int64_t numCols = xFields.size();
-  uint64_t batchSize = 1078;
 
   ArrayBuilderVector builders(numCols, NULLPTR);
   builders[0] =
@@ -284,14 +280,12 @@ TEST(TestAdapterWriteGeneral, writeZeroRows) {
 
   std::shared_ptr<Table> table = Table::Make(sharedPtrSchema, cv);
 
-  std::shared_ptr<adapters::orc::ORCWriterOptions> options =
-      std::make_shared<adapters::orc::ORCWriterOptions>(batchSize);
   std::unique_ptr<ORCMemWriter> writer =
       std::unique_ptr<ORCMemWriter>(new ORCMemWriter());
   std::unique_ptr<liborc::OutputStream> out_stream =
       std::unique_ptr<liborc::OutputStream>(static_cast<liborc::OutputStream*>(
           new MemoryOutputStream(DEFAULT_SMALL_MEM_STREAM_SIZE / 16)));
-  ARROW_EXPECT_OK(writer->Open(sharedPtrSchema, out_stream, options));
+  ARROW_EXPECT_OK(writer->Open(sharedPtrSchema, out_stream));
   ARROW_EXPECT_OK(writer->Write(table));
   auto output_mem_stream = static_cast<MemoryOutputStream*>(writer->ReleaseOutStream());
   std::shared_ptr<io::RandomAccessFile> in_stream(
@@ -332,7 +326,6 @@ TEST(TestAdapterWriteGeneral, writeChunkless) {
 
   int64_t numRows = 0;
   int64_t numCols = xFields.size();
-  uint64_t batchSize = 2048;
 
   ChunkedArrayVector cv;
   cv.reserve(numCols);
@@ -346,14 +339,12 @@ TEST(TestAdapterWriteGeneral, writeChunkless) {
   std::shared_ptr<Table> table = Table::Make(sharedPtrSchema, cv);
 
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  std::shared_ptr<adapters::orc::ORCWriterOptions> options =
-      std::make_shared<adapters::orc::ORCWriterOptions>(batchSize);
   std::unique_ptr<ORCMemWriter> writer =
       std::unique_ptr<ORCMemWriter>(new ORCMemWriter());
   std::unique_ptr<liborc::OutputStream> out_stream =
       std::unique_ptr<liborc::OutputStream>(static_cast<liborc::OutputStream*>(
           new MemoryOutputStream(DEFAULT_SMALL_MEM_STREAM_SIZE / 16)));
-  ARROW_EXPECT_OK(writer->Open(sharedPtrSchema, out_stream, options));
+  ARROW_EXPECT_OK(writer->Open(sharedPtrSchema, out_stream));
   ARROW_EXPECT_OK(writer->Write(table));
   auto output_mem_stream = static_cast<MemoryOutputStream*>(writer->ReleaseOutStream());
   std::shared_ptr<io::RandomAccessFile> in_stream(
@@ -386,7 +377,6 @@ TEST(TestAdapterWriteGeneral, writeAllNulls) {
 
   int64_t numRows = 10000;
   int64_t numCols = xFields.size();
-  uint64_t batchSize = 10000;
 
   ArrayBuilderMatrix builders(numCols, ArrayBuilderVector(5, NULLPTR));
 
@@ -436,14 +426,12 @@ TEST(TestAdapterWriteGeneral, writeAllNulls) {
 
   std::shared_ptr<Table> table = Table::Make(sharedPtrSchema, cv);
 
-  std::shared_ptr<adapters::orc::ORCWriterOptions> options =
-      std::make_shared<adapters::orc::ORCWriterOptions>(batchSize);
   std::unique_ptr<ORCMemWriter> writer =
       std::unique_ptr<ORCMemWriter>(new ORCMemWriter());
   std::unique_ptr<liborc::OutputStream> out_stream =
       std::unique_ptr<liborc::OutputStream>(static_cast<liborc::OutputStream*>(
           new MemoryOutputStream(DEFAULT_SMALL_MEM_STREAM_SIZE)));
-  ARROW_EXPECT_OK(writer->Open(sharedPtrSchema, out_stream, options));
+  ARROW_EXPECT_OK(writer->Open(sharedPtrSchema, out_stream));
   ARROW_EXPECT_OK(writer->Write(table));
   auto output_mem_stream = static_cast<MemoryOutputStream*>(writer->ReleaseOutStream());
   std::shared_ptr<io::RandomAccessFile> in_stream(
@@ -476,7 +464,6 @@ TEST(TestAdapterWriteGeneral, writeNoNulls) {
 
   int64_t numRows = 10000;
   int64_t numCols = xFields.size();
-  uint64_t batchSize = 1025;
 
   ArrayBuilderMatrix builders(numCols, ArrayBuilderVector(5, NULLPTR));
 
@@ -571,15 +558,12 @@ TEST(TestAdapterWriteGeneral, writeNoNulls) {
   }
   std::shared_ptr<Table> table = Table::Make(sharedPtrSchema, cv);
 
-  std::shared_ptr<adapters::orc::ORCWriterOptions> options =
-      std::make_shared<adapters::orc::ORCWriterOptions>(batchSize);
-
   std::unique_ptr<ORCMemWriter> writer =
       std::unique_ptr<ORCMemWriter>(new ORCMemWriter());
   std::unique_ptr<liborc::OutputStream> out_stream =
       std::unique_ptr<liborc::OutputStream>(static_cast<liborc::OutputStream*>(
           new MemoryOutputStream(2 * DEFAULT_SMALL_MEM_STREAM_SIZE)));
-  ARROW_EXPECT_OK(writer->Open(sharedPtrSchema, out_stream, options));
+  ARROW_EXPECT_OK(writer->Open(sharedPtrSchema, out_stream));
   ARROW_EXPECT_OK(writer->Write(table));
   auto output_mem_stream = static_cast<MemoryOutputStream*>(writer->ReleaseOutStream());
   std::shared_ptr<io::RandomAccessFile> in_stream(
@@ -612,7 +596,6 @@ TEST(TestAdapterWriteGeneral, writeMixed) {
 
   int64_t numRows = 10000;
   int64_t numCols = xFields.size();
-  uint64_t batchSize = 1;
 
   ArrayBuilderMatrix builders(numCols, ArrayBuilderVector(5, NULLPTR));
 
@@ -753,14 +736,12 @@ TEST(TestAdapterWriteGeneral, writeMixed) {
   }
   std::shared_ptr<Table> table = Table::Make(sharedPtrSchema, cv);
 
-  std::shared_ptr<adapters::orc::ORCWriterOptions> options =
-      std::make_shared<adapters::orc::ORCWriterOptions>(batchSize);
   std::unique_ptr<ORCMemWriter> writer =
       std::unique_ptr<ORCMemWriter>(new ORCMemWriter());
   std::unique_ptr<liborc::OutputStream> out_stream =
       std::unique_ptr<liborc::OutputStream>(static_cast<liborc::OutputStream*>(
           new MemoryOutputStream(DEFAULT_SMALL_MEM_STREAM_SIZE)));
-  ARROW_EXPECT_OK(writer->Open(sharedPtrSchema, out_stream, options));
+  ARROW_EXPECT_OK(writer->Open(sharedPtrSchema, out_stream));
   ARROW_EXPECT_OK(writer->Write(table));
   auto output_mem_stream = static_cast<MemoryOutputStream*>(writer->ReleaseOutStream());
   std::shared_ptr<io::RandomAccessFile> in_stream(
@@ -787,7 +768,6 @@ TEST(TestAdapterWriteFloat, writeAllNulls) {
 
   int64_t numRows = 10000;
   int64_t numCols = xFields.size();
-  uint64_t batchSize = 700;
 
   ArrayBuilderMatrix builders(numCols, ArrayBuilderVector(5, NULLPTR));
 
@@ -817,14 +797,12 @@ TEST(TestAdapterWriteFloat, writeAllNulls) {
   }
   std::shared_ptr<Table> table = Table::Make(sharedPtrSchema, cv);
 
-  std::shared_ptr<adapters::orc::ORCWriterOptions> options =
-      std::make_shared<adapters::orc::ORCWriterOptions>(batchSize);
   std::unique_ptr<ORCMemWriter> writer =
       std::unique_ptr<ORCMemWriter>(new ORCMemWriter());
   std::unique_ptr<liborc::OutputStream> out_stream =
       std::unique_ptr<liborc::OutputStream>(static_cast<liborc::OutputStream*>(
           new MemoryOutputStream(DEFAULT_SMALL_MEM_STREAM_SIZE)));
-  ARROW_EXPECT_OK(writer->Open(sharedPtrSchema, out_stream, options));
+  ARROW_EXPECT_OK(writer->Open(sharedPtrSchema, out_stream));
   ARROW_EXPECT_OK(writer->Write(table));
   auto output_mem_stream = static_cast<MemoryOutputStream*>(writer->ReleaseOutStream());
   std::shared_ptr<io::RandomAccessFile> in_stream(
@@ -864,7 +842,6 @@ TEST(TestAdapterWriteFloat, writeNoNulls) {
 
   int64_t numRows = 10000;
   int64_t numCols = xFields.size();
-  uint64_t batchSize = 16384;
   ArrayBuilderMatrix builders(numCols, ArrayBuilderVector(5, NULLPTR));
 
   for (int i = 0; i < 5; i++) {
@@ -898,14 +875,12 @@ TEST(TestAdapterWriteFloat, writeNoNulls) {
   }
   std::shared_ptr<Table> table = Table::Make(sharedPtrSchema, cv);
 
-  std::shared_ptr<adapters::orc::ORCWriterOptions> options =
-      std::make_shared<adapters::orc::ORCWriterOptions>(batchSize);
   std::unique_ptr<ORCMemWriter> writer =
       std::unique_ptr<ORCMemWriter>(new ORCMemWriter());
   std::unique_ptr<liborc::OutputStream> out_stream =
       std::unique_ptr<liborc::OutputStream>(static_cast<liborc::OutputStream*>(
           new MemoryOutputStream(DEFAULT_SMALL_MEM_STREAM_SIZE)));
-  ARROW_EXPECT_OK(writer->Open(sharedPtrSchema, out_stream, options));
+  ARROW_EXPECT_OK(writer->Open(sharedPtrSchema, out_stream));
   ARROW_EXPECT_OK(writer->Write(table));
   auto output_mem_stream = static_cast<MemoryOutputStream*>(writer->ReleaseOutStream());
   std::shared_ptr<io::RandomAccessFile> in_stream(
@@ -945,7 +920,6 @@ TEST(TestAdapterWriteFloat, writeMixed) {
 
   int64_t numRows = 10000;
   int64_t numCols = xFields.size();
-  uint64_t batchSize = 16384;
 
   ArrayBuilderMatrix builders(numCols, ArrayBuilderVector(5, NULLPTR));
 
@@ -994,14 +968,12 @@ TEST(TestAdapterWriteFloat, writeMixed) {
   }
   std::shared_ptr<Table> table = Table::Make(sharedPtrSchema, cv);
 
-  std::shared_ptr<adapters::orc::ORCWriterOptions> options =
-      std::make_shared<adapters::orc::ORCWriterOptions>(batchSize);
   std::unique_ptr<ORCMemWriter> writer =
       std::unique_ptr<ORCMemWriter>(new ORCMemWriter());
   std::unique_ptr<liborc::OutputStream> out_stream =
       std::unique_ptr<liborc::OutputStream>(static_cast<liborc::OutputStream*>(
           new MemoryOutputStream(DEFAULT_SMALL_MEM_STREAM_SIZE)));
-  ARROW_EXPECT_OK(writer->Open(sharedPtrSchema, out_stream, options));
+  ARROW_EXPECT_OK(writer->Open(sharedPtrSchema, out_stream));
   ARROW_EXPECT_OK(writer->Write(table));
   auto output_mem_stream = static_cast<MemoryOutputStream*>(writer->ReleaseOutStream());
   std::shared_ptr<io::RandomAccessFile> in_stream(
@@ -1060,7 +1032,6 @@ TEST(TestAdapterWriteConvert, writeZeroRows) {
 
   int64_t numRows = 0;
   int64_t numCols = xFieldsIn.size();
-  uint64_t batchSize = 803;
 
   ArrayBuilderVector buildersIn(numCols, NULLPTR), buildersOut(numCols, NULLPTR);
   buildersIn[0] =
@@ -1110,14 +1081,12 @@ TEST(TestAdapterWriteConvert, writeZeroRows) {
   std::shared_ptr<Table> tableIn = Table::Make(sharedPtrSchemaIn, cvIn),
                          tableOut = Table::Make(sharedPtrSchemaOut, cvOut);
 
-  std::shared_ptr<adapters::orc::ORCWriterOptions> options =
-      std::make_shared<adapters::orc::ORCWriterOptions>(batchSize);
   std::unique_ptr<ORCMemWriter> writer =
       std::unique_ptr<ORCMemWriter>(new ORCMemWriter());
   std::unique_ptr<liborc::OutputStream> out_stream =
       std::unique_ptr<liborc::OutputStream>(static_cast<liborc::OutputStream*>(
           new MemoryOutputStream(DEFAULT_SMALL_MEM_STREAM_SIZE / 16)));
-  ARROW_EXPECT_OK(writer->Open(sharedPtrSchemaIn, out_stream, options));
+  ARROW_EXPECT_OK(writer->Open(sharedPtrSchemaIn, out_stream));
   ARROW_EXPECT_OK(writer->Write(tableIn));
   auto output_mem_stream = static_cast<MemoryOutputStream*>(writer->ReleaseOutStream());
   std::shared_ptr<io::RandomAccessFile> in_stream(
@@ -1164,7 +1133,6 @@ TEST(TestAdapterWriteConvert, writeChunkless) {
 
   int64_t numRows = 0;
   int64_t numCols = xFieldsIn.size();
-  uint64_t batchSize = 2000;
 
   ChunkedArrayVector cvIn, cvOut;
   cvIn.reserve(numCols);
@@ -1181,14 +1149,12 @@ TEST(TestAdapterWriteConvert, writeChunkless) {
   std::shared_ptr<Table> tableIn = Table::Make(sharedPtrSchemaIn, cvIn),
                          tableOut = Table::Make(sharedPtrSchemaOut, cvOut);
 
-  std::shared_ptr<adapters::orc::ORCWriterOptions> options =
-      std::make_shared<adapters::orc::ORCWriterOptions>(batchSize);
   std::unique_ptr<ORCMemWriter> writer =
       std::unique_ptr<ORCMemWriter>(new ORCMemWriter());
   std::unique_ptr<liborc::OutputStream> out_stream =
       std::unique_ptr<liborc::OutputStream>(static_cast<liborc::OutputStream*>(
           new MemoryOutputStream(DEFAULT_SMALL_MEM_STREAM_SIZE / 16)));
-  ARROW_EXPECT_OK(writer->Open(sharedPtrSchemaIn, out_stream, options));
+  ARROW_EXPECT_OK(writer->Open(sharedPtrSchemaIn, out_stream));
   ARROW_EXPECT_OK(writer->Write(tableIn));
   auto output_mem_stream = static_cast<MemoryOutputStream*>(writer->ReleaseOutStream());
   std::shared_ptr<io::RandomAccessFile> in_stream(
@@ -1228,7 +1194,6 @@ TEST(TestAdapterWriteConvert, writeAllNulls) {
 
   int64_t numRows = 10000;
   int64_t numCols = xFieldsIn.size();
-  uint64_t batchSize = 500;
 
   ArrayBuilderMatrix buildersIn(numCols, ArrayBuilderVector(5, NULLPTR));
   ArrayBuilderVector buildersOut(numCols, NULLPTR);
@@ -1294,14 +1259,12 @@ TEST(TestAdapterWriteConvert, writeAllNulls) {
   std::shared_ptr<Table> tableIn = Table::Make(sharedPtrSchemaIn, cvIn),
                          tableOut = Table::Make(sharedPtrSchemaOut, cvOut);
 
-  std::shared_ptr<adapters::orc::ORCWriterOptions> options =
-      std::make_shared<adapters::orc::ORCWriterOptions>(batchSize);
   std::unique_ptr<ORCMemWriter> writer =
       std::unique_ptr<ORCMemWriter>(new ORCMemWriter());
   std::unique_ptr<liborc::OutputStream> out_stream =
       std::unique_ptr<liborc::OutputStream>(static_cast<liborc::OutputStream*>(
           new MemoryOutputStream(DEFAULT_SMALL_MEM_STREAM_SIZE)));
-  ARROW_EXPECT_OK(writer->Open(sharedPtrSchemaIn, out_stream, options));
+  ARROW_EXPECT_OK(writer->Open(sharedPtrSchemaIn, out_stream));
   ARROW_EXPECT_OK(writer->Write(tableIn));
   auto output_mem_stream = static_cast<MemoryOutputStream*>(writer->ReleaseOutStream());
   std::shared_ptr<io::RandomAccessFile> in_stream(
@@ -1341,7 +1304,6 @@ TEST(TestAdapterWriteConvert, writeNoNulls) {
 
   int64_t numRows = 10000;
   int64_t numCols = xFieldsIn.size();
-  uint64_t batchSize = 2001;
 
   ArrayBuilderMatrix buildersIn(numCols, ArrayBuilderVector(5, NULLPTR));
   ArrayBuilderVector buildersOut(numCols, NULLPTR);
@@ -1445,14 +1407,12 @@ TEST(TestAdapterWriteConvert, writeNoNulls) {
   std::shared_ptr<Table> tableIn = Table::Make(sharedPtrSchemaIn, cvIn),
                          tableOut = Table::Make(sharedPtrSchemaOut, cvOut);
 
-  std::shared_ptr<adapters::orc::ORCWriterOptions> options =
-      std::make_shared<adapters::orc::ORCWriterOptions>(batchSize);
   std::unique_ptr<ORCMemWriter> writer =
       std::unique_ptr<ORCMemWriter>(new ORCMemWriter());
   std::unique_ptr<liborc::OutputStream> out_stream =
       std::unique_ptr<liborc::OutputStream>(static_cast<liborc::OutputStream*>(
           new MemoryOutputStream(DEFAULT_SMALL_MEM_STREAM_SIZE)));
-  ARROW_EXPECT_OK(writer->Open(sharedPtrSchemaIn, out_stream, options));
+  ARROW_EXPECT_OK(writer->Open(sharedPtrSchemaIn, out_stream));
   ARROW_EXPECT_OK(writer->Write(tableIn));
   auto output_mem_stream = static_cast<MemoryOutputStream*>(writer->ReleaseOutStream());
   std::shared_ptr<io::RandomAccessFile> in_stream(
@@ -1492,7 +1452,6 @@ TEST(TestAdapterWriteConvert, writeMixed) {
 
   int64_t numRows = 10000;
   int64_t numCols = xFieldsIn.size();
-  uint64_t batchSize = 2001;
 
   ArrayBuilderMatrix buildersIn(numCols, ArrayBuilderVector(5, NULLPTR));
   ArrayBuilderVector buildersOut(numCols, NULLPTR);
@@ -1638,14 +1597,12 @@ TEST(TestAdapterWriteConvert, writeMixed) {
   std::shared_ptr<Table> tableIn = Table::Make(sharedPtrSchemaIn, cvIn),
                          tableOut = Table::Make(sharedPtrSchemaOut, cvOut);
 
-  std::shared_ptr<adapters::orc::ORCWriterOptions> options =
-      std::make_shared<adapters::orc::ORCWriterOptions>(batchSize);
   std::unique_ptr<ORCMemWriter> writer =
       std::unique_ptr<ORCMemWriter>(new ORCMemWriter());
   std::unique_ptr<liborc::OutputStream> out_stream =
       std::unique_ptr<liborc::OutputStream>(static_cast<liborc::OutputStream*>(
           new MemoryOutputStream(DEFAULT_SMALL_MEM_STREAM_SIZE)));
-  ARROW_EXPECT_OK(writer->Open(sharedPtrSchemaIn, out_stream, options));
+  ARROW_EXPECT_OK(writer->Open(sharedPtrSchemaIn, out_stream));
   ARROW_EXPECT_OK(writer->Write(tableIn));
   auto output_mem_stream = static_cast<MemoryOutputStream*>(writer->ReleaseOutStream());
   std::shared_ptr<io::RandomAccessFile> in_stream(
@@ -1687,7 +1644,6 @@ TEST(TestAdapterWriteNested, writeZeroRows) {
 
   int64_t numRows = 0;
   int64_t numCols = xFieldsIn.size();
-  uint64_t batchSize = 16;
 
   StringBuilder builder01In, keysBuilder4In, itemsBuilder4In;
   Int32Builder builder02In, valuesBuilder1In, offsetsBuilder1In, valuesBuilder2In,
@@ -1799,14 +1755,12 @@ TEST(TestAdapterWriteNested, writeZeroRows) {
 
   std::shared_ptr<Table> tableOut = Table::Make(sharedPtrSchemaOut, cvOut);
 
-  std::shared_ptr<adapters::orc::ORCWriterOptions> options =
-      std::make_shared<adapters::orc::ORCWriterOptions>(batchSize);
   std::unique_ptr<ORCMemWriter> writer =
       std::unique_ptr<ORCMemWriter>(new ORCMemWriter());
   std::unique_ptr<liborc::OutputStream> out_stream =
       std::unique_ptr<liborc::OutputStream>(static_cast<liborc::OutputStream*>(
           new MemoryOutputStream(DEFAULT_SMALL_MEM_STREAM_SIZE)));
-  ARROW_EXPECT_OK(writer->Open(sharedPtrSchemaIn, out_stream, options));
+  ARROW_EXPECT_OK(writer->Open(sharedPtrSchemaIn, out_stream));
   ARROW_EXPECT_OK(writer->Write(tableIn));
   auto output_mem_stream = static_cast<MemoryOutputStream*>(writer->ReleaseOutStream());
   std::shared_ptr<io::RandomAccessFile> in_stream(
@@ -1835,7 +1789,6 @@ TEST(TestAdapterWriteNested, writeMixedListStruct) {
   int64_t numRows = 10000;
   int64_t numCols = xFields.size();
   int64_t numCols0 = xFields0.size();
-  uint64_t batchSize = 1024;
 
   //#0 struct<a:string,b:int>
   ArrayBuilderMatrix builders0(numCols0, ArrayBuilderVector(5, NULLPTR));
@@ -2005,17 +1958,15 @@ TEST(TestAdapterWriteNested, writeMixedListStruct) {
 
   std::shared_ptr<ChunkedArray> carray1 = std::make_shared<ChunkedArray>(av1);
 
-  ChunkedArrayVector cv{carray0, carray1};  //, carray1};
+  ChunkedArrayVector cv{carray0, carray1};
   std::shared_ptr<Table> table = Table::Make(sharedPtrSchema, cv);
 
-  std::shared_ptr<adapters::orc::ORCWriterOptions> options =
-      std::make_shared<adapters::orc::ORCWriterOptions>(batchSize);
   std::unique_ptr<ORCMemWriter> writer =
       std::unique_ptr<ORCMemWriter>(new ORCMemWriter());
   std::unique_ptr<liborc::OutputStream> out_stream =
       std::unique_ptr<liborc::OutputStream>(static_cast<liborc::OutputStream*>(
           new MemoryOutputStream(DEFAULT_SMALL_MEM_STREAM_SIZE)));
-  ARROW_EXPECT_OK(writer->Open(sharedPtrSchema, out_stream, options));
+  ARROW_EXPECT_OK(writer->Open(sharedPtrSchema, out_stream));
   ARROW_EXPECT_OK(writer->Write(table));
   auto output_mem_stream = static_cast<MemoryOutputStream*>(writer->ReleaseOutStream());
   std::shared_ptr<io::RandomAccessFile> in_stream(
@@ -2046,7 +1997,6 @@ TEST(TestAdapterWriteNested, writeMixedConvert) {
 
   int64_t numRows = 10000;
   int64_t numCols = xFieldsIn.size();
-  uint64_t batchSize = 1024;
 
   ArrayBuilderVector valuesBuilders0In(5, NULLPTR), offsetsBuilders0In(3, NULLPTR),
       valuesBuilders1In(5, NULLPTR), keysBuilders2In(5, NULLPTR),
@@ -2346,14 +2296,12 @@ TEST(TestAdapterWriteNested, writeMixedConvert) {
   std::shared_ptr<Table> tableIn = Table::Make(sharedPtrSchemaIn, cvIn),
                          tableOut = Table::Make(sharedPtrSchemaOut, cvOut);
 
-  std::shared_ptr<adapters::orc::ORCWriterOptions> options =
-      std::make_shared<adapters::orc::ORCWriterOptions>(batchSize);
   std::unique_ptr<ORCMemWriter> writer =
       std::unique_ptr<ORCMemWriter>(new ORCMemWriter());
   std::unique_ptr<liborc::OutputStream> out_stream =
       std::unique_ptr<liborc::OutputStream>(static_cast<liborc::OutputStream*>(
           new MemoryOutputStream(DEFAULT_SMALL_MEM_STREAM_SIZE)));
-  ARROW_EXPECT_OK(writer->Open(sharedPtrSchemaIn, out_stream, options));
+  ARROW_EXPECT_OK(writer->Open(sharedPtrSchemaIn, out_stream));
   ARROW_EXPECT_OK(writer->Write(tableIn));
   auto output_mem_stream = static_cast<MemoryOutputStream*>(writer->ReleaseOutStream());
   std::shared_ptr<io::RandomAccessFile> in_stream(
@@ -2381,7 +2329,6 @@ TEST(TestAdapterWriteNested, writeMixedListOfStruct) {
   int64_t numListElememts = numRows * 2;
   int64_t numCols = xFields.size();
   int64_t numCols0 = (xFields[0]->type()->field(0)->type()->fields()).size();
-  uint64_t batchSize = 2000;
 
   //#0 list<struct<a:int>>
   ArrayBuilderMatrix builders0(numCols0, ArrayBuilderVector(5, NULLPTR));
@@ -2509,14 +2456,12 @@ TEST(TestAdapterWriteNested, writeMixedListOfStruct) {
   ChunkedArrayVector cv{carray0};
   std::shared_ptr<Table> table = Table::Make(sharedPtrSchema, cv);
 
-  std::shared_ptr<adapters::orc::ORCWriterOptions> options =
-      std::make_shared<adapters::orc::ORCWriterOptions>(batchSize);
   std::unique_ptr<ORCMemWriter> writer =
       std::unique_ptr<ORCMemWriter>(new ORCMemWriter());
   std::unique_ptr<liborc::OutputStream> out_stream =
       std::unique_ptr<liborc::OutputStream>(static_cast<liborc::OutputStream*>(
           new MemoryOutputStream(DEFAULT_SMALL_MEM_STREAM_SIZE)));
-  ARROW_EXPECT_OK(writer->Open(sharedPtrSchema, out_stream, options));
+  ARROW_EXPECT_OK(writer->Open(sharedPtrSchema, out_stream));
   ARROW_EXPECT_OK(writer->Write(table));
   auto output_mem_stream = static_cast<MemoryOutputStream*>(writer->ReleaseOutStream());
   std::shared_ptr<io::RandomAccessFile> in_stream(
@@ -2551,7 +2496,6 @@ TEST(TestAdapterWriteNested, writeMixedStructStruct) {
   int64_t numCols00 = (xFields[0]->type()->field(0)->type()->fields()).size();
   auto sharedPtrArrowType00 = xFields[0]->type()->field(0)->type();
   auto sharedPtrArrowType0 = xFields[0]->type();
-  uint64_t batchSize = 1;
 
   ArrayBuilderMatrix builders(numCols00, ArrayBuilderVector(5, NULLPTR));
 
@@ -2732,14 +2676,12 @@ TEST(TestAdapterWriteNested, writeMixedStructStruct) {
 
   std::shared_ptr<Table> table = Table::Make(sharedPtrSchema, cv);
 
-  std::shared_ptr<adapters::orc::ORCWriterOptions> options =
-      std::make_shared<adapters::orc::ORCWriterOptions>(batchSize);
   std::unique_ptr<ORCMemWriter> writer =
       std::unique_ptr<ORCMemWriter>(new ORCMemWriter());
   std::unique_ptr<liborc::OutputStream> out_stream =
       std::unique_ptr<liborc::OutputStream>(static_cast<liborc::OutputStream*>(
           new MemoryOutputStream(DEFAULT_SMALL_MEM_STREAM_SIZE * 5)));
-  ARROW_EXPECT_OK(writer->Open(sharedPtrSchema, out_stream, options));
+  ARROW_EXPECT_OK(writer->Open(sharedPtrSchema, out_stream));
   ARROW_EXPECT_OK(writer->Write(table));
   auto output_mem_stream = static_cast<MemoryOutputStream*>(writer->ReleaseOutStream());
   std::shared_ptr<io::RandomAccessFile> in_stream(

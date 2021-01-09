@@ -146,17 +146,6 @@ class ARROW_EXPORT ORCFileReader {
   ORCFileReader();
 };
 
-class ARROW_EXPORT ORCWriterOptions {
- public:
-  uint64_t batch_size_;
-  explicit ORCWriterOptions(uint64_t batch_size) : batch_size_(batch_size) {}
-  Status set_batch_size(uint64_t batch_size) {
-    batch_size_ = batch_size;
-    return Status::OK();
-  }
-  uint64_t get_batch_size() { return batch_size_; }
-};
-
 /// \class ORCFileWriter
 /// \brief Write an Arrow Table or RecordBatch to an ORC file.
 class ARROW_EXPORT ORCFileWriter {
@@ -166,12 +155,10 @@ class ARROW_EXPORT ORCFileWriter {
   ///
   /// \param[in] schema of the Arrow table
   /// \param[in] output_stream the io::OutputStream to write into
-  /// \param[in] options ORC writer options
   /// \param[out] writer the returned writer object
   /// \return Status
   static Status Open(const std::shared_ptr<Schema>& schema,
                      const std::shared_ptr<io::OutputStream>& output_stream,
-                     const std::shared_ptr<ORCWriterOptions>& options,
                      std::unique_ptr<ORCFileWriter>* writer);
 
   /// \brief Write a table
