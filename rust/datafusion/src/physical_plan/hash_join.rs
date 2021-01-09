@@ -771,10 +771,7 @@ fn is_eq(
 }
 
 /// Creates hash values for every
-fn create_hashes(
-    arrays: &[ArrayRef],
-    random_state: &RandomState,
-) -> Result<Vec<u64>> {
+fn create_hashes(arrays: &[ArrayRef], random_state: &RandomState) -> Result<Vec<u64>> {
     let rows = arrays[0].len();
     let mut hashes = vec![0; rows];
 
