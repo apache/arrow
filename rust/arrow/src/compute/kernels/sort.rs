@@ -41,7 +41,9 @@ pub fn sort(values: &ArrayRef, options: Option<SortOptions>) -> Result<ArrayRef>
     take(values.as_ref(), &indices, None)
 }
 
-// sorts f32 in IEEE 754 total ordering
+// implements comparison using IEEE 754 total ordering for f32
+// Original implementation from https://doc.rust-lang.org/std/primitive.f64.html#method.total_cmp
+// TODO to change to use std when it becomes stable
 fn total_cmp_32(l: f32, r: f32) -> std::cmp::Ordering {
     let mut left = l.to_bits() as i32;
     let mut right = r.to_bits() as i32;
@@ -52,7 +54,9 @@ fn total_cmp_32(l: f32, r: f32) -> std::cmp::Ordering {
     left.cmp(&right)
 }
 
-// sorts f64 in IEEE 754 total ordering
+// implements comparison using IEEE 754 total ordering for f64
+// Original implementation from https://doc.rust-lang.org/std/primitive.f64.html#method.total_cmp
+// TODO to change to use std when it becomes stable
 fn total_cmp_64(l: f64, r: f64) -> std::cmp::Ordering {
     let mut left = l.to_bits() as i64;
     let mut right = r.to_bits() as i64;
