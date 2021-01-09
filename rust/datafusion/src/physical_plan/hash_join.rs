@@ -127,7 +127,7 @@ impl HashJoinExec {
             join_type: *join_type,
             schema,
             build_side: Arc::new(Mutex::new(None)),
-            random_state: random_state,
+            random_state,
         })
     }
 
@@ -450,6 +450,7 @@ pub(crate) fn create_key(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn build_batch(
     batch: &RecordBatch,
     left_data: &JoinLeftData,
@@ -770,7 +771,7 @@ fn is_eq(
 }
 
 /// Creates hash values for every
-fn create_hashes<'a>(
+fn create_hashes(
     arrays: &[ArrayRef],
     random_state: &RandomState,
 ) -> Result<Vec<u64>> {
