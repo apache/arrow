@@ -259,7 +259,8 @@ class ArrowMessage implements AutoCloseable {
       ArrowBuf body = null;
       ArrowBuf appMetadata = null;
       while (stream.available() > 0) {
-        int tag = readRawVarint32(stream);
+        int tag = readRawVarint32WithEOFCheck(stream);
+
         switch (tag) {
 
           case DESCRIPTOR_TAG: {
@@ -330,6 +331,23 @@ class ArrowMessage implements AutoCloseable {
       throw new RuntimeException(ioe);
     }
 
+  }
+
+  /**
+   * Get first byte with EOF check, it is especially needed when using grpc compression.
+   * InflaterInputStream need another read to change reachEOF after all bytes has been read.
+   *
+   * @param is InputStream
+   * @return -1 if stream is not available, otherwise it will return the actual value.
+   * @throws IOException Read first byte failed.
+   */
+  private static int readRawVarint32WithEOFCheck(InputStream is) throws IOException {
+    int firstByte = is.read();
+    if (is.available() <= 0) {
+      return -1;
+    } else {
+      return CodedInputStream.readRawVarint32(firstByte, is);
+    }
   }
 
   private static int readRawVarint32(InputStream is) throws IOException {
