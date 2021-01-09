@@ -154,6 +154,18 @@ for (comp in c("lz4", "uncompressed", "zstd")) {
     )
     expect_null(attributes(df$d))
   })
+
+  test_that("reading a known Feather file to dataframe with 0.17.0", {
+    skip_if_not_available(comp)
+    feather_file <- test_path(paste0("golden-files/data-arrow_0.17.0_", comp,".feather"))
+
+    if (comp %in% c("lz4", "zstd")) {
+      # there is a case mis-match with versions 0.17.0 and before for the codec names
+      expect_error(df <- read_feather(feather_file), "Unrecognized compression type:")
+    } else {
+      expect_error(df <- read_feather(feather_file), NA)
+    }
+  })
 }
 
 # TODO: streams(?)

@@ -29,7 +29,7 @@ test_that("Can read the file (parquet)", {
 })
 
 ### Parquet
-test_that("Can see the metadata (feather)", {
+test_that("Can see the metadata (parquet)", {
   skip_if_version_less_than("2.0.0", "Version 1.0.1 can't read new version metadata.")
 
   df <- read_parquet(pq_file)
@@ -104,7 +104,7 @@ for (comp in c("lz4", "uncompressed", "zstd")) {
   })
 }
 
-test_that(paste0("Can read feather version 1"), {
+test_that("Can read feather version 1", {
   feather_v1_file <- "files/ex_data_v1.feather"
 
   df <- read_feather(feather_v1_file)
