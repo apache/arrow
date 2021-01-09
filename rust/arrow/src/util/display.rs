@@ -55,7 +55,7 @@ macro_rules! make_string_hex {
             let mut tmp = "".to_string();
 
             for character in array.value($row) {
-                tmp += &format!("{:X?}", character);
+                tmp += &format!("{:02x}", character);
             }
 
             tmp

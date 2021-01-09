@@ -25,8 +25,7 @@ use sha2::{
 
 use crate::error::{DataFusionError, Result};
 use arrow::array::{
-    ArrayRef, BinaryBuilder, GenericBinaryArray, GenericStringArray,
-    StringOffsetSizeTrait,
+    ArrayRef, GenericBinaryArray, GenericStringArray, StringOffsetSizeTrait,
 };
 
 fn md5_process(input: &str) -> String {
@@ -94,15 +93,8 @@ macro_rules! crypto_unary_binary_function {
                 .downcast_ref::<GenericStringArray<T>>()
                 .unwrap();
 
-            let mut builder = BinaryBuilder::new(args.len());
-
-            for value in array.iter() {
-                builder
-                    .append_value($FUNC(value.unwrap()).as_slice())
-                    .unwrap();
-            }
-
-            Ok(builder.finish())
+            // first map is the iterator, second is for the `Option<_>`
+            Ok(array.iter().map(|x| x.map(|x| $FUNC(x))).collect())
         }
     };
 }
