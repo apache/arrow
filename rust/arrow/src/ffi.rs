@@ -21,8 +21,8 @@
 //! One interface maps C ABI to native Rust types, i.e. convert c-pointers, c_char, to native rust.
 //! This is handled by [FFI_ArrowSchema] and [FFI_ArrowArray].
 //!
-//! The second interface maps native Rust types to the Rust-specific implementation of Arrow such as `format` to [Datatype],
-//! `Buffer`, etc. This is handled by [ArrowArray].
+//! The second interface maps native Rust types to the Rust-specific implementation of Arrow such as `format` to `Datatype`,
+//! `Buffer`, etc. This is handled by `ArrowArray`.
 //!
 //! ```rust
 //! # use std::sync::Arc;
@@ -91,7 +91,7 @@ use crate::error::{ArrowError, Result};
 use crate::util::bit_util;
 
 /// ABI-compatible struct for `ArrowSchema` from C Data Interface
-/// See https://arrow.apache.org/docs/format/CDataInterface.html#structure-definitions
+/// See <https://arrow.apache.org/docs/format/CDataInterface.html#structure-definitions>
 /// This was created by bindgen
 #[repr(C)]
 #[derive(Debug)]
@@ -120,7 +120,7 @@ unsafe extern "C" fn release_schema(schema: *mut FFI_ArrowSchema) {
 impl FFI_ArrowSchema {
     /// create a new [FFI_ArrowSchema] from a format.
     fn new(format: &str) -> FFI_ArrowSchema {
-        // https://arrow.apache.org/docs/format/CDataInterface.html#c.ArrowSchema
+        // <https://arrow.apache.org/docs/format/CDataInterface.html#c.ArrowSchema>
         FFI_ArrowSchema {
             format: CString::new(format).unwrap().into_raw(),
             name: std::ptr::null_mut(),
@@ -303,7 +303,7 @@ fn bit_width(data_type: &DataType, i: usize) -> Result<usize> {
 }
 
 /// ABI-compatible struct for ArrowArray from C Data Interface
-/// See https://arrow.apache.org/docs/format/CDataInterface.html#structure-definitions
+/// See <https://arrow.apache.org/docs/format/CDataInterface.html#structure-definitions>
 /// This was created by bindgen
 #[repr(C)]
 #[derive(Debug)]
