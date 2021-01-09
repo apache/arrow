@@ -125,11 +125,14 @@ impl FlightService for FlightServiceImpl {
                 let mut batches: Vec<Result<FlightData, Status>> = results
                     .iter()
                     .flat_map(|batch| {
-                        let flight_data =
+                        let (flight_dictionaries, flight_batch) =
                             arrow_flight::utils::flight_data_from_arrow_batch(
                                 batch, &options,
                             );
-                        flight_data.into_iter().map(Ok)
+                        flight_dictionaries
+                            .into_iter()
+                            .chain(std::iter::once(flight_batch))
+                            .map(Ok)
                     })
                     .collect();
 
