@@ -81,6 +81,26 @@ impl CsvFile {
             statistics: Statistics::default(),
         })
     }
+
+    /// Get the path for the CSV file(s) represented by this CsvFile instance
+    pub fn path(&self) -> &str {
+        &self.path
+    }
+
+    /// Determine whether the CSV file(s) represented by this CsvFile instance have a header row
+    pub fn has_header(&self) -> bool {
+        self.has_header
+    }
+
+    /// Get the delimiter for the CSV file(s) represented by this CsvFile instance
+    pub fn delimiter(&self) -> u8 {
+        self.delimiter
+    }
+
+    /// Get the file extension for the CSV file(s) represented by this CsvFile instance
+    pub fn file_extension(&self) -> &str {
+        &self.file_extension
+    }
 }
 
 impl TableProvider for CsvFile {
