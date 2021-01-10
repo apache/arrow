@@ -81,11 +81,6 @@ impl ProjectionExec {
         &self.expr
     }
 
-    /// The schema once the projection has been applied to the input
-    pub fn schema(&self) -> SchemaRef {
-        self.schema.clone()
-    }
-
     /// The input plan
     pub fn input(&self) -> &Arc<dyn ExecutionPlan> {
         &self.input

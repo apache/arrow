@@ -149,11 +149,6 @@ impl HashAggregateExec {
     pub fn input(&self) -> &Arc<dyn ExecutionPlan> {
         &self.input
     }
-
-    /// Schema after the aggregate is applied
-    pub fn schema(&self) -> SchemaRef {
-        self.schema.clone()
-    }
 }
 
 #[async_trait]

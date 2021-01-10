@@ -209,11 +209,6 @@ impl ParquetExec {
         &self.partitions
     }
 
-    /// Schema after projection is applied
-    pub fn schema(&self) -> SchemaRef {
-        self.schema.clone()
-    }
-
     /// Projection for which columns to load
     pub fn projection(&self) -> &[usize] {
         &self.projection

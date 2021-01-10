@@ -178,11 +178,6 @@ impl CsvExec {
         &self.filenames
     }
 
-    /// Schema representing the CSV file
-    pub fn schema(&self) -> SchemaRef {
-        self.schema.clone()
-    }
-
     /// Does the CSV file have a header?
     pub fn has_header(&self) -> bool {
         self.has_header
@@ -201,11 +196,6 @@ impl CsvExec {
     /// Optional projection for which columns to load
     pub fn projection(&self) -> Option<&Vec<usize>> {
         self.projection.as_ref()
-    }
-
-    /// Schema after the projection has been applied
-    pub fn projected_schema(&self) -> SchemaRef {
-        self.projected_schema.clone()
     }
 
     /// Batch size
