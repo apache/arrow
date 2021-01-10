@@ -26,16 +26,25 @@ use super::{RecordBatchStream, SendableRecordBatchStream};
 use crate::error::{DataFusionError, Result};
 
 use array::{
-    BooleanArray, Float32Array, Float64Array, Int16Array, Int32Array, Int64Array,
-    Int8Array, LargeStringArray, StringArray, UInt16Array, UInt32Array, UInt64Array,
+    ArrayData, BooleanArray, Date32Array, DecimalArray, Float32Array, Float64Array,
+    Int16Array, Int32Array, Int64Array, Int8Array, LargeStringArray, StringArray,
+    Time32MillisecondArray, Time32SecondArray, UInt16Array, UInt32Array, UInt64Array,
     UInt8Array,
 };
-use arrow::datatypes::{DataType, SchemaRef};
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::RecordBatch;
 use arrow::{
     array::{self, ArrayRef},
     datatypes::Schema,
+};
+use arrow::{
+    array::{
+        Date64Array, Time64MicrosecondArray, Time64NanosecondArray,
+        TimestampMicrosecondArray, TimestampMillisecondArray, TimestampNanosecondArray,
+        TimestampSecondArray,
+    },
+    buffer::Buffer,
+    datatypes::{DataType, SchemaRef, TimeUnit},
 };
 use futures::{Stream, TryStreamExt};
 
@@ -157,6 +166,67 @@ pub fn create_batch_empty(schema: &Schema) -> ArrowResult<RecordBatch> {
             DataType::Boolean => {
                 Ok(Arc::new(BooleanArray::from(vec![] as Vec<bool>)) as ArrayRef)
             }
+            DataType::Decimal(scale, precision) => {
+                let array_data =
+                    ArrayData::builder(DataType::Decimal(*scale, *precision))
+                        .len(0)
+                        .add_buffer(Buffer::from(&[]))
+                        .build();
+
+                Ok(Arc::new(DecimalArray::from(array_data)) as ArrayRef)
+            }
+            DataType::Timestamp(TimeUnit::Nanosecond, tz) => Ok(Arc::new(
+                TimestampNanosecondArray::from_vec(vec![] as Vec<i64>, tz.clone()),
+            )
+                as ArrayRef),
+            DataType::Timestamp(TimeUnit::Microsecond, tz) => Ok(Arc::new(
+                TimestampMicrosecondArray::from_vec(vec![] as Vec<i64>, tz.clone()),
+            )
+                as ArrayRef),
+            DataType::Timestamp(TimeUnit::Millisecond, tz) => Ok(Arc::new(
+                TimestampMillisecondArray::from_vec(vec![] as Vec<i64>, tz.clone()),
+            )
+                as ArrayRef),
+            DataType::Timestamp(TimeUnit::Second, tz) => Ok(Arc::new(
+                TimestampSecondArray::from_vec(vec![] as Vec<i64>, tz.clone()),
+            ) as ArrayRef),
+            DataType::Date32(_) => {
+                Ok(Arc::new(Date32Array::from(vec![] as Vec<i32>)) as ArrayRef)
+            }
+            DataType::Date64(_) => {
+                Ok(Arc::new(Date64Array::from(vec![] as Vec<i64>)) as ArrayRef)
+            }
+            DataType::Time32(unit) => match unit {
+                TimeUnit::Second => {
+                    Ok(Arc::new(Time32SecondArray::from(vec![] as Vec<i32>)) as ArrayRef)
+                }
+                TimeUnit::Millisecond => {
+                    Ok(Arc::new(Time32MillisecondArray::from(vec![] as Vec<i32>))
+                        as ArrayRef)
+                }
+                TimeUnit::Microsecond | TimeUnit::Nanosecond => {
+                    Err(DataFusionError::NotImplemented(format!(
+                        "Cannot convert datatype {:?} to array",
+                        f.data_type()
+                    )))
+                }
+            },
+            DataType::Time64(unit) => match unit {
+                TimeUnit::Second | TimeUnit::Millisecond => {
+                    Err(DataFusionError::NotImplemented(format!(
+                        "Cannot convert datatype {:?} to array",
+                        f.data_type()
+                    )))
+                }
+                TimeUnit::Microsecond => {
+                    Ok(Arc::new(Time64MicrosecondArray::from(vec![] as Vec<i64>))
+                        as ArrayRef)
+                }
+                TimeUnit::Nanosecond => {
+                    Ok(Arc::new(Time64NanosecondArray::from(vec![] as Vec<i64>))
+                        as ArrayRef)
+                }
+            },
             _ => Err(DataFusionError::NotImplemented(format!(
                 "Cannot convert datatype {:?} to array",
                 f.data_type()
