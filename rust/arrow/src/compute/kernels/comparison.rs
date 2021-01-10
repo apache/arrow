@@ -711,7 +711,7 @@ where
         };
     let not_both_null_bitmap = not_both_null_bit_buffer.as_slice();
 
-    let mut bool_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
+    let mut bool_buf = MutableBuffer::from_len_zeroed(num_bytes);
     let bool_slice = bool_buf.as_slice_mut();
 
     // if both array slots are valid, check if list contains primitive
@@ -766,7 +766,7 @@ where
         };
     let not_both_null_bitmap = not_both_null_bit_buffer.as_slice();
 
-    let mut bool_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
+    let mut bool_buf = MutableBuffer::from_len_zeroed(num_bytes);
     let bool_slice = &mut bool_buf;
 
     for i in 0..left_len {

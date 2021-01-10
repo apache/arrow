@@ -737,11 +737,32 @@ impl MutableBuffer {
         }
     }
 
+    /// Allocates a new [MutableBuffer] with `len` and capacity to be at least `len` where
+    /// all bytes are guaranteed to be `0u8`.
+    /// # Example
+    /// ```
+    /// # use arrow::buffer::{Buffer, MutableBuffer};
+    /// let mut buffer = MutableBuffer::from_len_zeroed(127);
+    /// assert_eq!(buffer.len(), 127);
+    /// assert!(buffer.capacity() >= 127);
+    /// let data = buffer.as_slice_mut();
+    /// assert_eq!(data[126], 0u8);
+    /// ```
+    pub fn from_len_zeroed(len: usize) -> Self {
+        let new_capacity = bit_util::round_upto_multiple_of_64(len);
+        let ptr = memory::allocate_aligned_zeroed(new_capacity);
+        Self {
+            data: ptr,
+            len,
+            capacity: new_capacity,
+        }
+    }
+
     /// creates a new [MutableBuffer] with capacity and length capable of holding `len` bits.
     /// This is useful to create a buffer for packed bitmaps.
     pub fn new_null(len: usize) -> Self {
         let num_bytes = bit_util::ceil(len, 8);
-        MutableBuffer::new(num_bytes).with_bitset(num_bytes, false)
+        MutableBuffer::from_len_zeroed(num_bytes)
     }
 
     /// Set the bits in the range of `[0, end)` to 0 (if `val` is false), or 1 (if `val`
@@ -806,6 +827,9 @@ impl MutableBuffer {
     /// buffer.resize(253, 2); // allocates for the first time
     /// assert_eq!(buffer.as_slice()[252], 2u8);
     /// ```
+    // For performance reasons, this must be inlined so that the `if` is executed inside the caller, and not as an extra call that just
+    // exits.
+    #[inline(always)]
     pub fn resize(&mut self, new_len: usize, value: u8) {
         if new_len > self.len {
             let diff = new_len - self.len;

@@ -344,7 +344,7 @@ where
     let data_len = indices.len();
 
     let num_byte = bit_util::ceil(data_len, 8);
-    let mut val_buf = MutableBuffer::new(num_byte).with_bitset(num_byte, false);
+    let mut val_buf = MutableBuffer::from_len_zeroed(num_byte);
 
     let val_slice = val_buf.as_slice_mut();
 

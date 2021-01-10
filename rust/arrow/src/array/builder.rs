@@ -293,7 +293,7 @@ impl BooleanBufferBuilder {
     #[inline]
     pub fn new(capacity: usize) -> Self {
         let byte_capacity = bit_util::ceil(capacity, 8);
-        let buffer = MutableBuffer::new(byte_capacity).with_bitset(byte_capacity, false);
+        let buffer = MutableBuffer::from_len_zeroed(byte_capacity);
         Self { buffer, len: 0 }
     }
 

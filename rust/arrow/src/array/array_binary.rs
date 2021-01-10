@@ -368,7 +368,7 @@ impl From<Vec<Option<Vec<u8>>>> for FixedSizeBinaryArray {
             .all(|item| item.len() == size));
 
         let num_bytes = bit_util::ceil(len, 8);
-        let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
+        let mut null_buf = MutableBuffer::from_len_zeroed(num_bytes);
         let null_slice = null_buf.as_slice_mut();
 
         data.iter().enumerate().for_each(|(i, entry)| {

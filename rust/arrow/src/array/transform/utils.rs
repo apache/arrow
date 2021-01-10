@@ -19,7 +19,7 @@ use crate::{array::OffsetSizeTrait, buffer::MutableBuffer, util::bit_util};
 
 /// extends the `buffer` to be able to hold `len` bits, setting all bits of the new size to zero.
 #[inline]
-pub(super) fn reserve_for_bits(buffer: &mut MutableBuffer, len: usize) {
+pub(super) fn resize_for_bits(buffer: &mut MutableBuffer, len: usize) {
     let needed_bytes = bit_util::ceil(len, 8);
     if buffer.len() < needed_bytes {
         buffer.resize(needed_bytes, 0);

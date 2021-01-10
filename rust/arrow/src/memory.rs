@@ -141,6 +141,9 @@ const BYPASS_PTR: NonNull<u8> = unsafe { NonNull::new_unchecked(ALIGNMENT as *mu
 // If this number is not zero after all objects have been `drop`, there is a memory leak
 pub static mut ALLOCATIONS: AtomicIsize = AtomicIsize::new(0);
 
+/// Allocates a cache-aligned memory region of `size` bytes with uninitialized values.
+/// This is more performant than using [allocate_aligned_zeroed] when all bytes will have
+/// an unknown or non-zero value and is semantically similar to `malloc`.
 pub fn allocate_aligned(size: usize) -> NonNull<u8> {
     unsafe {
         if size == 0 {
@@ -153,6 +156,26 @@ pub fn allocate_aligned(size: usize) -> NonNull<u8> {
 
             let layout = Layout::from_size_align_unchecked(size, ALIGNMENT);
             let raw_ptr = std::alloc::alloc(layout);
+            NonNull::new(raw_ptr).unwrap_or_else(|| handle_alloc_error(layout))
+        }
+    }
+}
+
+/// Allocates a cache-aligned memory region of `size` bytes with `0u8` on all of them.
+/// This is more performant than using [allocate_aligned] and setting all bytes to zero
+/// and is semantically similar to `calloc`.
+pub fn allocate_aligned_zeroed(size: usize) -> NonNull<u8> {
+    unsafe {
+        if size == 0 {
+            // In a perfect world, there is no need to request zero size allocation.
+            // Currently, passing zero sized layout to alloc is UB.
+            // This will dodge allocator api for any type.
+            BYPASS_PTR
+        } else {
+            ALLOCATIONS.fetch_add(size as isize, std::sync::atomic::Ordering::SeqCst);
+
+            let layout = Layout::from_size_align_unchecked(size, ALIGNMENT);
+            let raw_ptr = std::alloc::alloc_zeroed(layout);
             NonNull::new(raw_ptr).unwrap_or_else(|| handle_alloc_error(layout))
         }
     }

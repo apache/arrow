@@ -866,13 +866,13 @@ impl Decoder {
         let list_len = rows.len();
         let num_list_bytes = bit_util::ceil(list_len, 8);
         let mut offsets = Vec::with_capacity(list_len + 1);
-        let mut list_nulls =
-            MutableBuffer::new(num_list_bytes).with_bitset(num_list_bytes, false);
+        let mut list_nulls = MutableBuffer::from_len_zeroed(num_list_bytes);
+        let list_nulls = list_nulls.as_slice_mut();
         offsets.push(cur_offset);
         rows.iter().enumerate().for_each(|(i, v)| {
             if let Value::Array(a) = v {
                 cur_offset += OffsetSize::from_usize(a.len()).unwrap();
-                bit_util::set_bit(list_nulls.as_slice_mut(), i);
+                bit_util::set_bit(list_nulls, i);
             } else if let Value::Null = v {
                 // value is null, not incremented
             } else {
@@ -885,8 +885,7 @@ impl Decoder {
             DataType::Null => NullArray::new(valid_len).data(),
             DataType::Boolean => {
                 let num_bytes = bit_util::ceil(valid_len, 8);
-                let mut bool_values =
-                    MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
+                let mut bool_values = MutableBuffer::from_len_zeroed(num_bytes);
                 let mut bool_nulls =
                     MutableBuffer::new(num_bytes).with_bitset(num_bytes, true);
                 let mut curr_index = 0;
@@ -962,8 +961,7 @@ impl Decoder {
                 // extract list values, with non-lists converted to Value::Null
                 let len = rows.len();
                 let num_bytes = bit_util::ceil(len, 8);
-                let mut null_buffer =
-                    MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
+                let mut null_buffer = MutableBuffer::from_len_zeroed(num_bytes);
                 let mut struct_index = 0;
                 let rows: Vec<Value> = rows
                     .iter()
@@ -1164,8 +1162,7 @@ impl Decoder {
                     DataType::Struct(fields) => {
                         let len = rows.len();
                         let num_bytes = bit_util::ceil(len, 8);
-                        let mut null_buffer =
-                            MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
+                        let mut null_buffer = MutableBuffer::from_len_zeroed(num_bytes);
                         let struct_rows = rows
                             .iter()
                             .enumerate()
