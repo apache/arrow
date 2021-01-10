@@ -18,9 +18,14 @@
 [package]
 name = "parquet_derive_test"
 version = "3.0.0-SNAPSHOT"
+license = "Apache-2.0"
+description = "Integration test package for parquet-derive"
+homepage = "https://github.com/apache/arrow"
+repository = "https://github.com/apache/arrow"
 authors = ["Apache Arrow <dev@arrow.apache.org>"]
 keywords = [ "parquet" ]
 edition = "2018"
+publish = false
 
 [dependencies]
 parquet = { path = "../parquet", version = "3.0.0-SNAPSHOT" }

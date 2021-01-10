@@ -18,8 +18,13 @@
 [package]
 name = "parquet_derive"
 version = "3.0.0-SNAPSHOT"
+license = "Apache-2.0"
+description = "Derive macros for the Rust implementation of Apache Parquet"
+homepage = "https://github.com/apache/arrow"
+repository = "https://github.com/apache/arrow"
 authors = ["Apache Arrow <dev@arrow.apache.org>"]
 keywords = [ "parquet" ]
+readme = "README.md"
 edition = "2018"
 
 [lib]
