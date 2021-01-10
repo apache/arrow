@@ -59,7 +59,7 @@ use crate::physical_plan::coalesce_batches::concat_batches;
 use log::debug;
 
 // Maps a `u64` hash value based on the left ["on" values] to a list of indices with this key's value.
-// E.g. [1, 2] -> [3, 6, 8] indicates that the column values map to rows 3, 6 and 8
+// E.g. 1 -> [3, 6, 8] indicates that the column values map to rows 3, 6 and 8 for hash value 1
 // As the key is a hash value, we need to check possible hash collisions in the probe stage
 type JoinHashMap = HashMap<u64, Vec<u64>, IdHashBuilder>;
 type JoinLeftData = Arc<(JoinHashMap, RecordBatch)>;
@@ -581,6 +581,20 @@ fn combine_hashes(l: u64, r: u64) -> u64 {
     hash.overflowing_mul(37).0.overflowing_add(r).0
 }
 
+macro_rules! equal_rows_elem {
+    ($array_type:ident, $l: ident, $r: ident, $left: ident, $right: ident) => {
+        $l.as_any()
+            .downcast_ref::<$array_type>()
+            .unwrap()
+            .value($left)
+            == $r
+                .as_any()
+                .downcast_ref::<$array_type>()
+                .unwrap()
+                .value($right)
+    };
+}
+
 /// Left and right row have equal values
 fn equal_rows(
     left: usize,
@@ -595,103 +609,40 @@ fn equal_rows(
         .all(|(l, r)| match l.data_type() {
             DataType::Null => true,
             DataType::Boolean => {
-                l.as_any()
-                    .downcast_ref::<BooleanArray>()
-                    .unwrap()
-                    .value(left)
-                    == r.as_any()
-                        .downcast_ref::<BooleanArray>()
-                        .unwrap()
-                        .value(right)
+                equal_rows_elem!(BooleanArray, l, r, left, right)
             }
             DataType::Int8 => {
-                l.as_any().downcast_ref::<Int8Array>().unwrap().value(left)
-                    == r.as_any().downcast_ref::<Int8Array>().unwrap().value(right)
+                equal_rows_elem!(Int8Array, l, r, left, right)
             }
             DataType::Int16 => {
-                l.as_any().downcast_ref::<Int16Array>().unwrap().value(left)
-                    == r.as_any()
-                        .downcast_ref::<Int16Array>()
-                        .unwrap()
-                        .value(right)
+                equal_rows_elem!(Int16Array, l, r, left, right)
             }
             DataType::Int32 => {
-                l.as_any().downcast_ref::<Int32Array>().unwrap().value(left)
-                    == r.as_any()
-                        .downcast_ref::<Int32Array>()
-                        .unwrap()
-                        .value(right)
+                equal_rows_elem!(Int32Array, l, r, left, right)
             }
             DataType::Int64 => {
-                l.as_any().downcast_ref::<Int64Array>().unwrap().value(left)
-                    == r.as_any()
-                        .downcast_ref::<Int64Array>()
-                        .unwrap()
-                        .value(right)
+                equal_rows_elem!(Int64Array, l, r, left, right)
             }
             DataType::UInt8 => {
-                l.as_any().downcast_ref::<UInt8Array>().unwrap().value(left)
-                    == r.as_any()
-                        .downcast_ref::<UInt8Array>()
-                        .unwrap()
-                        .value(right)
+                equal_rows_elem!(UInt8Array, l, r, left, right)
             }
             DataType::UInt16 => {
-                l.as_any()
-                    .downcast_ref::<UInt16Array>()
-                    .unwrap()
-                    .value(left)
-                    == r.as_any()
-                        .downcast_ref::<UInt16Array>()
-                        .unwrap()
-                        .value(right)
+                equal_rows_elem!(UInt16Array, l, r, left, right)
             }
             DataType::UInt32 => {
-                l.as_any()
-                    .downcast_ref::<UInt32Array>()
-                    .unwrap()
-                    .value(left)
-                    == r.as_any()
-                        .downcast_ref::<UInt32Array>()
-                        .unwrap()
-                        .value(right)
+                equal_rows_elem!(UInt32Array, l, r, left, right)
             }
             DataType::UInt64 => {
-                l.as_any()
-                    .downcast_ref::<UInt64Array>()
-                    .unwrap()
-                    .value(left)
-                    == r.as_any()
-                        .downcast_ref::<UInt64Array>()
-                        .unwrap()
-                        .value(right)
+                equal_rows_elem!(UInt64Array, l, r, left, right)
             }
             DataType::Timestamp(_, None) => {
-                l.as_any().downcast_ref::<Int64Array>().unwrap().value(left)
-                    == r.as_any()
-                        .downcast_ref::<Int64Array>()
-                        .unwrap()
-                        .value(right)
+                equal_rows_elem!(Int64Array, l, r, left, right)
             }
             DataType::Utf8 => {
-                l.as_any()
-                    .downcast_ref::<StringArray>()
-                    .unwrap()
-                    .value(left)
-                    == r.as_any()
-                        .downcast_ref::<StringArray>()
-                        .unwrap()
-                        .value(right)
+                equal_rows_elem!(StringArray, l, r, left, right)
             }
             DataType::LargeUtf8 => {
-                l.as_any()
-                    .downcast_ref::<LargeStringArray>()
-                    .unwrap()
-                    .value(left)
-                    == r.as_any()
-                        .downcast_ref::<LargeStringArray>()
-                        .unwrap()
-                        .value(right)
+                equal_rows_elem!(LargeStringArray, l, r, left, right)
             }
             _ => {
                 // This is internal because we should have caught this before.
