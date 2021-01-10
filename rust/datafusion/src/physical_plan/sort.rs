@@ -65,6 +65,16 @@ impl SortExec {
             concurrency,
         })
     }
+
+    /// Input schema
+    pub fn input(&self) -> &Arc<dyn ExecutionPlan> {
+        &self.input
+    }
+
+    /// Sort expressions
+    pub fn expr(&self) -> &[PhysicalSortExpr] {
+        &self.expr
+    }
 }
 
 #[async_trait]

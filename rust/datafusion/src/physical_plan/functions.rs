@@ -47,7 +47,7 @@ use arrow::{
     record_batch::RecordBatch,
 };
 use fmt::{Debug, Formatter};
-use std::{fmt, str::FromStr, sync::Arc};
+use std::{any::Any, fmt, str::FromStr, sync::Arc};
 
 /// A function's signature, which defines the function's supported argument types.
 #[derive(Debug, Clone, PartialEq)]
@@ -465,6 +465,26 @@ impl ScalarFunctionExpr {
             return_type: return_type.clone(),
         }
     }
+
+    /// Get the scalar function implementation
+    pub fn fun(&self) -> &ScalarFunctionImplementation {
+        &self.fun
+    }
+
+    /// The name for this expression
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Input arguments
+    pub fn args(&self) -> &[Arc<dyn PhysicalExpr>] {
+        &self.args
+    }
+
+    /// Data type produced by this expression
+    pub fn return_type(&self) -> &DataType {
+        &self.return_type
+    }
 }
 
 impl fmt::Display for ScalarFunctionExpr {
@@ -483,6 +503,11 @@ impl fmt::Display for ScalarFunctionExpr {
 }
 
 impl PhysicalExpr for ScalarFunctionExpr {
+    /// Return a reference to Any that can be used for downcasting
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn data_type(&self, _input_schema: &Schema) -> Result<DataType> {
         Ok(self.return_type.clone())
     }
