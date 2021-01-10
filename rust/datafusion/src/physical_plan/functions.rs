@@ -465,6 +465,22 @@ impl ScalarFunctionExpr {
             return_type: return_type.clone(),
         }
     }
+
+    pub fn fun(&self) -> &ScalarFunctionImplementation {
+        &self.fun
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn args(&self) -> &[Arc<dyn PhysicalExpr>] {
+        &self.args
+    }
+
+    pub fn return_type(&self) -> &DataType {
+        &self.return_type
+    }
 }
 
 impl fmt::Display for ScalarFunctionExpr {

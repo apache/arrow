@@ -63,6 +63,16 @@ impl FilterExec {
             ))),
         }
     }
+
+    /// The expression to filter on. This expression must evaluate to a boolean value.
+    pub fn predicate(&self) -> &Arc<dyn PhysicalExpr> {
+        &self.predicate
+    }
+
+    /// The input plan
+    pub fn input(&self) -> &Arc<dyn ExecutionPlan> {
+        &self.input
+    }
 }
 
 #[async_trait]

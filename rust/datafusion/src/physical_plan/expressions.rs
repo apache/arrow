@@ -77,6 +77,11 @@ impl Column {
             name: name.to_owned(),
         }
     }
+
+    /// Get the column name
+    pub fn name(&self) -> &str {
+        &self.name
+    }
 }
 
 impl fmt::Display for Column {
@@ -1154,6 +1159,21 @@ impl BinaryExpr {
     ) -> Self {
         Self { left, op, right }
     }
+
+    /// Get the left side of the binary expression
+    pub fn left(&self) -> &dyn PhysicalExpr {
+        self.left.as_ref()
+    }
+
+    /// Get the right side of the binary expression
+    pub fn right(&self) -> &dyn PhysicalExpr {
+        self.right.as_ref()
+    }
+
+    /// Get the operator for this binary expression
+    pub fn op(&self) -> &Operator {
+        &self.op
+    }
 }
 
 impl fmt::Display for BinaryExpr {
@@ -1615,6 +1635,7 @@ pub static SUPPORTED_NULLIF_TYPES: &[DataType] = &[
 /// Not expression
 #[derive(Debug)]
 pub struct NotExpr {
+    /// Input expression
     arg: Arc<dyn PhysicalExpr>,
 }
 
@@ -1622,6 +1643,11 @@ impl NotExpr {
     /// Create new not expression
     pub fn new(arg: Arc<dyn PhysicalExpr>) -> Self {
         Self { arg }
+    }
+
+    /// Get the input expression
+    pub fn arg(&self) -> &dyn PhysicalExpr {
+        self.arg.as_ref()
     }
 }
 
@@ -1691,6 +1717,7 @@ pub fn not(
 /// Negative expression
 #[derive(Debug)]
 pub struct NegativeExpr {
+    /// Input expression
     arg: Arc<dyn PhysicalExpr>,
 }
 
@@ -1698,6 +1725,11 @@ impl NegativeExpr {
     /// Create new not expression
     pub fn new(arg: Arc<dyn PhysicalExpr>) -> Self {
         Self { arg }
+    }
+
+    /// Get the input expression
+    pub fn arg(&self) -> &dyn PhysicalExpr {
+        self.arg.as_ref()
     }
 }
 
@@ -1767,6 +1799,7 @@ pub fn negative(
 /// IS NULL expression
 #[derive(Debug)]
 pub struct IsNullExpr {
+    /// Input expression
     arg: Arc<dyn PhysicalExpr>,
 }
 
@@ -1774,6 +1807,11 @@ impl IsNullExpr {
     /// Create new not expression
     pub fn new(arg: Arc<dyn PhysicalExpr>) -> Self {
         Self { arg }
+    }
+
+    /// Get the input expression
+    pub fn arg(&self) -> &dyn PhysicalExpr {
+        self.arg.as_ref()
     }
 }
 
@@ -1812,6 +1850,7 @@ pub fn is_null(arg: Arc<dyn PhysicalExpr>) -> Result<Arc<dyn PhysicalExpr>> {
 /// IS NULL expression
 #[derive(Debug)]
 pub struct IsNotNullExpr {
+    /// The input expression
     arg: Arc<dyn PhysicalExpr>,
 }
 
@@ -1819,6 +1858,11 @@ impl IsNotNullExpr {
     /// Create new not expression
     pub fn new(arg: Arc<dyn PhysicalExpr>) -> Self {
         Self { arg }
+    }
+
+    /// Get the input expression
+    pub fn arg(&self) -> &dyn PhysicalExpr {
+        self.arg.as_ref()
     }
 }
 
@@ -1915,6 +1959,21 @@ impl CaseExpr {
                 else_expr,
             })
         }
+    }
+
+    /// Optional base expression that can be compared to literal values in the "when" expressions
+    pub fn expr(&self) -> &Option<Arc<dyn PhysicalExpr>> {
+        &self.expr
+    }
+
+    /// One or more when/then expressions
+    pub fn when_then_expr(&self) -> &[(Arc<dyn PhysicalExpr>, Arc<dyn PhysicalExpr>)] {
+        &self.when_then_expr
+    }
+
+    /// Optional "else" expression
+    pub fn else_expr(&self) -> &Option<Arc<dyn PhysicalExpr>> {
+        &self.else_expr
     }
 }
 
@@ -2271,6 +2330,23 @@ pub struct CastExpr {
     cast_type: DataType,
 }
 
+impl CastExpr {
+    /// Create a new CastExpr
+    pub fn new(expr: Arc<dyn PhysicalExpr>, cast_type: DataType) -> Self {
+        Self { expr, cast_type }
+    }
+
+    /// The expression to cast
+    pub fn expr(&self) -> &dyn PhysicalExpr {
+        self.expr.as_ref()
+    }
+
+    /// The data type to cast to
+    pub fn cast_type(&self) -> &DataType {
+        &self.cast_type
+    }
+}
+
 /// Determine if a DataType is signed numeric or not
 pub fn is_signed_numeric(dt: &DataType) -> bool {
     matches!(
@@ -2341,7 +2417,7 @@ pub fn cast(
     if expr_type == cast_type {
         Ok(expr.clone())
     } else if can_cast_types(&expr_type, &cast_type) {
-        Ok(Arc::new(CastExpr { expr, cast_type }))
+        Ok(Arc::new(CastExpr::new(expr, cast_type)))
     } else {
         Err(DataFusionError::Internal(format!(
             "Unsupported CAST from {:?} to {:?}",
@@ -2360,6 +2436,11 @@ impl Literal {
     /// Create a literal value expression
     pub fn new(value: ScalarValue) -> Self {
         Self { value }
+    }
+
+    /// Get the scalar value
+    pub fn value(&self) -> &ScalarValue {
+        &self.value
     }
 }
 
@@ -2493,6 +2574,18 @@ impl InListExpr {
             list,
             negated,
         }
+    }
+
+    pub fn expr(&self) -> &dyn PhysicalExpr {
+        self.expr.as_ref()
+    }
+
+    pub fn list(&self) -> &[Arc<dyn PhysicalExpr>] {
+        &self.list
+    }
+
+    pub fn negated(&self) -> bool {
+        self.negated
     }
 
     /// Compare for specific utf8 types
