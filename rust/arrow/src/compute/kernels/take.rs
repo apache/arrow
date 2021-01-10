@@ -275,8 +275,8 @@ where
 {
     let data_len = indices.len();
 
-    let mut buffer = MutableBuffer::new(data_len * std::mem::size_of::<T::Native>());
-    buffer.resize(data_len * std::mem::size_of::<T::Native>(), 0);
+    let mut buffer =
+        MutableBuffer::from_len_zeroed(data_len * std::mem::size_of::<T::Native>());
     let data = buffer.typed_data_mut();
 
     let nulls;
@@ -420,8 +420,7 @@ where
     let data_len = indices.len();
 
     let bytes_offset = (data_len + 1) * std::mem::size_of::<OffsetSize>();
-    let mut offsets_buffer = MutableBuffer::new(bytes_offset);
-    offsets_buffer.resize(bytes_offset, 0);
+    let mut offsets_buffer = MutableBuffer::from_len_zeroed(bytes_offset);
 
     let offsets = offsets_buffer.typed_data_mut();
     let mut values = Vec::with_capacity(bytes_offset);

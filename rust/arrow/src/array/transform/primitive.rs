@@ -28,7 +28,7 @@ pub(super) fn build_extend<T: ArrowNativeType>(array: &ArrayData) -> Extend {
             mutable
                 .buffer1
                 .extend_from_slice(&values[start..start + len]);
-        }
+        },
     )
 }
 

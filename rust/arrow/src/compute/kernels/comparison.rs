@@ -48,8 +48,7 @@ macro_rules! compare_op {
             combine_option_bitmap($left.data_ref(), $right.data_ref(), $left.len())?;
 
         let byte_capacity = bit_util::ceil($left.len(), 8);
-        let mut buffer = MutableBuffer::new(byte_capacity);
-        buffer.resize(byte_capacity, 0);
+        let mut buffer = MutableBuffer::from_len_zeroed(byte_capacity);
         let data = buffer.as_mut_ptr();
 
         for i in 0..$left.len() {
@@ -80,8 +79,7 @@ macro_rules! compare_op_scalar {
         let null_bit_buffer = $left.data().null_buffer().cloned();
 
         let byte_capacity = bit_util::ceil($left.len(), 8);
-        let mut buffer = MutableBuffer::new(byte_capacity);
-        buffer.resize(byte_capacity, 0);
+        let mut buffer = MutableBuffer::from_len_zeroed(byte_capacity);
         let data = buffer.as_mut_ptr();
 
         for i in 0..$left.len() {
