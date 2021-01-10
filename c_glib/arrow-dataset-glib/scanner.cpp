@@ -35,7 +35,7 @@ G_BEGIN_DECLS
  * SECTION: scanner
  * @section_id: scanner
  * @title: Scanner classes
- * @include: arrow-dataset-glib/arrow-glib.h
+ * @include: arrow-dataset-glib/arrow-dataset-glib.h
  *
  * #GADScanContext is a class for a scan context.
  *
