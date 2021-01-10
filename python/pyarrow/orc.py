@@ -148,6 +148,7 @@ class ORCFile:
         include_indices = self._select_indices(columns)
         return self.reader.read(include_indices=include_indices)
 
+
 class ORCWriter:
     """
     Writer interface for a single ORC file
@@ -165,6 +166,7 @@ class ORCWriter:
 
     def write(self, table):
         self.writer.write(table)
+
 
 def write_table(where, table):
     writer = ORCWriter(where, table.schema)

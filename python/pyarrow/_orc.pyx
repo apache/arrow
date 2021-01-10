@@ -118,7 +118,7 @@ cdef class ORCWriter(_Weakrefable):
         object source
         unique_ptr[ORCFileWriter] writer
         shared_ptr[CSchema] sp_arrow_schema
-    
+
     def open(self, object schema, object source):
         cdef:
             shared_ptr[COutputStream] rd_handle
@@ -127,9 +127,9 @@ cdef class ORCWriter(_Weakrefable):
         self.sp_arrow_schema = pyarrow_unwrap_schema(schema)
 
         get_writer(source, &rd_handle)
-        
+
         with nogil:
-            check_status(ORCFileWriter.Open(self.sp_arrow_schema, rd_handle, 
+            check_status(ORCFileWriter.Open(self.sp_arrow_schema, rd_handle,
                                             &self.writer))
 
     def write(self, object table):
