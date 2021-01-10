@@ -180,23 +180,33 @@ fn is_like_pattern(c: char) -> bool {
 
 pub fn like_utf8_scalar(left: &StringArray, right: &str) -> Result<BooleanArray> {
     let null_bit_buffer = left.data().null_buffer().cloned();
-    let mut result = BooleanBufferBuilder::new(left.len());
+    let bytes = bit_util::ceil(left.len(), 8);
+    let mut bool_buf = MutableBuffer::from_len_zeroed(bytes);
+    let bool_slice = bool_buf.as_slice_mut();
 
     if !right.contains(is_like_pattern) {
         // fast path, can use equals
         for i in 0..left.len() {
-            result.append(left.value(i) == right);
+            if left.value(i) == right {
+                bit_util::set_bit(bool_slice, i);
+            }
         }
     } else if right.ends_with('%') && !right[..right.len() - 1].contains(is_like_pattern)
     {
         // fast path, can use starts_with
+        let starts_with = &right[..right.len() - 1];
         for i in 0..left.len() {
-            result.append(left.value(i).starts_with(&right[..right.len() - 1]));
+            if left.value(i).starts_with(starts_with) {
+                bit_util::set_bit(bool_slice, i);
+            }
         }
     } else if right.starts_with('%') && !right[1..].contains(is_like_pattern) {
         // fast path, can use ends_with
+        let ends_with = &right[1..];
         for i in 0..left.len() {
-            result.append(left.value(i).ends_with(&right[1..]));
+            if left.value(i).ends_with(ends_with) {
+                bit_util::set_bit(bool_slice, i);
+            }
         }
     } else {
         let re_pattern = right.replace("%", ".*").replace("_", ".");
@@ -209,7 +219,9 @@ pub fn like_utf8_scalar(left: &StringArray, right: &str) -> Result<BooleanArray>
 
         for i in 0..left.len() {
             let haystack = left.value(i);
-            result.append(re.is_match(haystack));
+            if re.is_match(haystack) {
+                bit_util::set_bit(bool_slice, i);
+            }
         }
     };
 
@@ -219,7 +231,7 @@ pub fn like_utf8_scalar(left: &StringArray, right: &str) -> Result<BooleanArray>
         None,
         null_bit_buffer,
         0,
-        vec![result.finish()],
+        vec![bool_buf.into()],
         vec![],
     );
     Ok(BooleanArray::from(Arc::new(data)))
