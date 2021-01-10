@@ -93,7 +93,7 @@ This library currently supports the following SQL constructs:
 
 ## Supported Functions
 
-DataFusion implements a subset of the [PostgreSQL SQL dialect](https://www.postgresql.org/docs/current/functions.html) where possible. We explicitly choose a single dialect to maximize interoperability with other tools and allow reuse of the PostgreSQL documents and tutorials as much as possible.
+DataFusion strives to implement a subset of the [PostgreSQL SQL dialect](https://www.postgresql.org/docs/current/functions.html) where possible. We explicitly choose a single dialect to maximize interoperability with other tools and allow reuse of the PostgreSQL documents and tutorials as much as possible.
 
 Currently, only a subset of the PosgreSQL dialect is implemented, and we will document any deviations.
 
