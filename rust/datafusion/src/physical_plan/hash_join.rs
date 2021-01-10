@@ -705,7 +705,19 @@ fn equal_rows(
     err.unwrap_or(Ok(res))
 }
 
-/// Creates hash values for every
+macro_rules! hash_array {
+    ($array_type:ident, $column: ident, $f: ident, $hashes: ident, $random_state: ident) => {
+        let array = $column.as_any().downcast_ref::<$array_type>().unwrap();
+
+        for (i, hash) in $hashes.iter_mut().enumerate() {
+            let mut hasher = $random_state.build_hasher();
+            hasher.$f(array.value(i));
+            *hash = combine_hashes(hasher.finish(), *hash);
+        }
+    };
+}
+
+/// Creates hash values for every element in the row based on the values in the columns
 fn create_hashes(arrays: &[ArrayRef], random_state: &RandomState) -> Result<Vec<u64>> {
     let rows = arrays[0].len();
     let mut hashes = vec![0; rows];
@@ -713,95 +725,46 @@ fn create_hashes(arrays: &[ArrayRef], random_state: &RandomState) -> Result<Vec<
     for col in arrays {
         match col.data_type() {
             DataType::UInt8 => {
-                let array = col.as_any().downcast_ref::<UInt8Array>().unwrap();
-
-                for (i, hash) in hashes.iter_mut().enumerate() {
-                    let mut hasher = random_state.build_hasher();
-                    hasher.write_u8(array.value(i));
-                    *hash = combine_hashes(hasher.finish(), *hash);
-                }
+                hash_array!(UInt8Array, col, write_u8, hashes, random_state);
             }
             DataType::UInt16 => {
-                let array = col.as_any().downcast_ref::<UInt16Array>().unwrap();
-
-                for (i, hash) in hashes.iter_mut().enumerate() {
-                    let mut hasher = random_state.build_hasher();
-                    hasher.write_u16(array.value(i));
-                    *hash = combine_hashes(hasher.finish(), *hash);
-                }
+                hash_array!(UInt16Array, col, write_u16, hashes, random_state);
             }
             DataType::UInt32 => {
-                let array = col.as_any().downcast_ref::<UInt32Array>().unwrap();
-
-                for (i, hash) in hashes.iter_mut().enumerate() {
-                    let mut hasher = random_state.build_hasher();
-                    hasher.write_u32(array.value(i));
-                    *hash = combine_hashes(hasher.finish(), *hash);
-                }
+                hash_array!(UInt32Array, col, write_u32, hashes, random_state);
             }
             DataType::UInt64 => {
-                let array = col.as_any().downcast_ref::<UInt64Array>().unwrap();
-
-                for (i, hash) in hashes.iter_mut().enumerate() {
-                    let mut hasher = random_state.build_hasher();
-                    hasher.write_u64(array.value(i));
-                    *hash = combine_hashes(hasher.finish(), *hash);
-                }
+                hash_array!(UInt64Array, col, write_u64, hashes, random_state);
             }
             DataType::Int8 => {
-                let array = col.as_any().downcast_ref::<Int8Array>().unwrap();
-
-                for (i, hash) in hashes.iter_mut().enumerate() {
-                    let mut hasher = random_state.build_hasher();
-                    hasher.write_i8(array.value(i));
-                    *hash = combine_hashes(hasher.finish(), *hash);
-                }
+                hash_array!(Int8Array, col, write_i8, hashes, random_state);
             }
             DataType::Int16 => {
-                let array = col.as_any().downcast_ref::<Int16Array>().unwrap();
-                for (i, hash) in hashes.iter_mut().enumerate() {
-                    let mut hasher = random_state.build_hasher();
-                    hasher.write_i16(array.value(i));
-                    *hash = combine_hashes(hasher.finish(), *hash);
-                }
+                hash_array!(Int16Array, col, write_i16, hashes, random_state);
             }
             DataType::Int32 => {
-                let array = col.as_any().downcast_ref::<Int32Array>().unwrap();
-                for (i, hash) in hashes.iter_mut().enumerate() {
-                    let mut hasher = random_state.build_hasher();
-                    hasher.write_i32(array.value(i));
-                    *hash = combine_hashes(hasher.finish(), *hash);
-                }
+                hash_array!(Int32Array, col, write_i32, hashes, random_state);
             }
             DataType::Int64 => {
-                let array = col.as_any().downcast_ref::<Int64Array>().unwrap();
-                for (i, hash) in hashes.iter_mut().enumerate() {
-                    let mut hasher = random_state.build_hasher();
-                    hasher.write_i64(array.value(i));
-                    *hash = combine_hashes(hasher.finish(), *hash);
-                }
+                hash_array!(Int64Array, col, write_i64, hashes, random_state);
             }
             DataType::Timestamp(TimeUnit::Microsecond, None) => {
-                let array = col
-                    .as_any()
-                    .downcast_ref::<TimestampMicrosecondArray>()
-                    .unwrap();
-                for (i, hash) in hashes.iter_mut().enumerate() {
-                    let mut hasher = random_state.build_hasher();
-                    hasher.write_i64(array.value(i));
-                    *hash = combine_hashes(hasher.finish(), *hash);
-                }
+                hash_array!(
+                    TimestampMicrosecondArray,
+                    col,
+                    write_i64,
+                    hashes,
+                    random_state
+                );
             }
             DataType::Timestamp(TimeUnit::Nanosecond, None) => {
-                let array = col
-                    .as_any()
-                    .downcast_ref::<TimestampNanosecondArray>()
-                    .unwrap();
-                for (i, hash) in hashes.iter_mut().enumerate() {
-                    let mut hasher = random_state.build_hasher();
-                    hasher.write_i64(array.value(i));
-                    *hash = combine_hashes(hasher.finish(), *hash);
-                }
+                hash_array!(
+                    TimestampNanosecondArray,
+                    col,
+                    write_i64,
+                    hashes,
+                    random_state
+                );
             }
             DataType::Utf8 => {
                 let array = col.as_any().downcast_ref::<StringArray>().unwrap();
