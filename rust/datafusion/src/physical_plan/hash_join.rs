@@ -594,7 +594,12 @@ fn build_join_indexes(
                 match left.get(hash_value) {
                     Some(indices) => {
                         for &i in indices {
-                            if equal_rows(i as usize, row, &left_join_values, &keys_values)? {
+                            if equal_rows(
+                                i as usize,
+                                row,
+                                &left_join_values,
+                                &keys_values,
+                            )? {
                                 left_indices.append_value(i)?;
                                 right_indices.append_value(row as u32)?;
                             }
@@ -940,7 +945,6 @@ impl Stream for HashJoinStream {
 
 #[cfg(test)]
 mod tests {
-
     use crate::{
         physical_plan::{common, memory::MemoryExec},
         test::{build_table_i32, columns, format_batch},
@@ -1221,6 +1225,55 @@ mod tests {
         let expected = vec!["1,7,10,4,70", "2,8,20,5,80", "NULL,NULL,30,6,90"];
 
         assert_same_rows(&result, &expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn join_with_hash_collision() -> Result<()> {
+        let mut hashmap_left = HashMap::with_hasher(IdHashBuilder {});
+        let left = build_table_i32(
+            ("a", &vec![10, 20]),
+            ("x", &vec![100, 200]),
+            ("y", &vec![200, 300]),
+        );
+
+        let random_state = RandomState::new();
+
+        let hashes = create_hashes(&[left.columns()[0].clone()], &random_state)?;
+
+        // Create hash collisions
+        hashmap_left.insert(hashes[0], vec![0, 1]);
+        hashmap_left.insert(hashes[1], vec![0, 1]);
+
+        let right = build_table_i32(
+            ("a", &vec![10, 20]),
+            ("b", &vec![0, 0]),
+            ("c", &vec![30, 40]),
+        );
+
+        let left_data = JoinLeftData::new((hashmap_left, left));
+        let (l, r) = build_join_indexes(
+            &left_data,
+            &right,
+            JoinType::Inner,
+            &["a".to_string()],
+            &["a".to_string()],
+            &random_state,
+        )?;
+
+        let mut left_ids = UInt64Builder::new(0);
+        left_ids.append_value(0)?;
+        left_ids.append_value(1)?;
+
+        let mut right_ids = UInt32Builder::new(0);
+
+        right_ids.append_value(0)?;
+        right_ids.append_value(1)?;
+
+        assert_eq!(left_ids.finish(), l);
+
+        assert_eq!(right_ids.finish(), r);
 
         Ok(())
     }
