@@ -17,6 +17,7 @@
 
 //! Defines physical expressions that can evaluated at runtime during query execution
 
+use std::any::Any;
 use std::convert::TryFrom;
 use std::fmt;
 use std::sync::Arc;
@@ -91,6 +92,11 @@ impl fmt::Display for Column {
 }
 
 impl PhysicalExpr for Column {
+    /// Return a reference to Any that can be used for downcasting
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     /// Get the data type of this expression, given the schema of the input
     fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
         Ok(input_schema
@@ -1419,6 +1425,11 @@ fn binary_cast(
 }
 
 impl PhysicalExpr for BinaryExpr {
+    /// Return a reference to Any that can be used for downcasting
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
         binary_operator_data_type(
             &self.left.data_type(input_schema)?,
@@ -1658,6 +1669,11 @@ impl fmt::Display for NotExpr {
 }
 
 impl PhysicalExpr for NotExpr {
+    /// Return a reference to Any that can be used for downcasting
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn data_type(&self, _input_schema: &Schema) -> Result<DataType> {
         Ok(DataType::Boolean)
     }
@@ -1740,6 +1756,11 @@ impl fmt::Display for NegativeExpr {
 }
 
 impl PhysicalExpr for NegativeExpr {
+    /// Return a reference to Any that can be used for downcasting
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
         self.arg.data_type(input_schema)
     }
@@ -1821,6 +1842,11 @@ impl fmt::Display for IsNullExpr {
     }
 }
 impl PhysicalExpr for IsNullExpr {
+    /// Return a reference to Any that can be used for downcasting
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn data_type(&self, _input_schema: &Schema) -> Result<DataType> {
         Ok(DataType::Boolean)
     }
@@ -1871,7 +1897,13 @@ impl fmt::Display for IsNotNullExpr {
         write!(f, "{} IS NOT NULL", self.arg)
     }
 }
+
 impl PhysicalExpr for IsNotNullExpr {
+    /// Return a reference to Any that can be used for downcasting
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn data_type(&self, _input_schema: &Schema) -> Result<DataType> {
         Ok(DataType::Boolean)
     }
@@ -2288,6 +2320,11 @@ impl CaseExpr {
 }
 
 impl PhysicalExpr for CaseExpr {
+    /// Return a reference to Any that can be used for downcasting
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
         self.when_then_expr[0].1.data_type(input_schema)
     }
@@ -2379,6 +2416,11 @@ impl fmt::Display for CastExpr {
 }
 
 impl PhysicalExpr for CastExpr {
+    /// Return a reference to Any that can be used for downcasting
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn data_type(&self, _input_schema: &Schema) -> Result<DataType> {
         Ok(self.cast_type.clone())
     }
@@ -2451,6 +2493,11 @@ impl fmt::Display for Literal {
 }
 
 impl PhysicalExpr for Literal {
+    /// Return a reference to Any that can be used for downcasting
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn data_type(&self, _input_schema: &Schema) -> Result<DataType> {
         Ok(self.value.get_datatype())
     }
@@ -2667,6 +2714,11 @@ impl fmt::Display for InListExpr {
 }
 
 impl PhysicalExpr for InListExpr {
+    /// Return a reference to Any that can be used for downcasting
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn data_type(&self, _input_schema: &Schema) -> Result<DataType> {
         Ok(DataType::Boolean)
     }
