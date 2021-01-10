@@ -170,6 +170,29 @@ public class UnionFixedSizeListWriter extends AbstractFieldWriter {
   }
 
   @Override
+  public MapWriter map() {
+    return writer;
+  }
+
+  @Override
+  public MapWriter map(String name) {
+    MapWriter mapWriter = writer.map(name);
+    return mapWriter;
+  }
+
+  @Override
+  public MapWriter map(boolean keysSorted) {
+    writer.map(keysSorted);
+    return writer;
+  }
+
+  @Override
+  public MapWriter map(String name, boolean keysSorted) {
+    MapWriter mapWriter = writer.map(name, keysSorted);
+    return mapWriter;
+  }
+
+  @Override
   public void startList() {
     int start = vector.startNewValue(idx());
     writer.setPosition(start);

@@ -129,6 +129,18 @@ public class DenseUnionReader extends AbstractFieldReader {
     return listReader;
   }
 
+  private UnionMapReader mapReader;
+
+  private FieldReader getMap(byte typeId) {
+    UnionMapReader mapReader = (UnionMapReader) readers[typeId];
+    if (mapReader == null) {
+      mapReader = new UnionMapReader((MapVector) data.getVectorByType(typeId));
+      mapReader.setPosition(idx());
+      readers[typeId] = mapReader;
+    }
+    return mapReader;
+  }
+
   @Override
   public java.util.Iterator<String> iterator() {
     throw new UnsupportedOperationException();

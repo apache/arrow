@@ -33,6 +33,7 @@ import org.apache.arrow.vector.complex.impl.UnionMapReader;
 import org.apache.arrow.vector.complex.impl.UnionMapWriter;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
+import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.FieldType;
@@ -609,6 +610,423 @@ public class TestMapVector {
       assertEquals(new Long(25), list.get(0));
       assertEquals(new Long(30), list.get(1));
       assertEquals(new Long(35), list.get(2));
+
+      /* check underlying bitVector */
+      assertFalse(mapVector.isNull(0));
+      assertFalse(mapVector.isNull(1));
+
+      /* check underlying offsets */
+      final ArrowBuf offsetBuffer = mapVector.getOffsetBuffer();
+
+      /* mapVector has 2 entries at index 0 and 3 entries at index 1 */
+      assertEquals(0, offsetBuffer.getInt(0 * MapVector.OFFSET_WIDTH));
+      assertEquals(2, offsetBuffer.getInt(1 * MapVector.OFFSET_WIDTH));
+      assertEquals(5, offsetBuffer.getInt(2 * MapVector.OFFSET_WIDTH));
+    }
+  }
+
+  @Test
+  public void testMapWithMapValue() throws Exception {
+    try (MapVector mapVector = MapVector.empty("sourceVector", allocator, false)) {
+
+      UnionMapWriter mapWriter = mapVector.getWriter();
+      MapWriter valueWriter;
+
+      // we are essentially writing Map<Long, Map<Long, Long>>
+
+      mapWriter.setPosition(0);
+      mapWriter.startMap();
+
+      mapWriter.startEntry();
+      mapWriter.key().bigInt().writeBigInt(1);
+      valueWriter = mapWriter.value().map(false);
+      valueWriter.startMap();
+      valueWriter.startEntry();
+      valueWriter.key().bigInt().writeBigInt(50);
+      valueWriter.value().bigInt().writeBigInt(100);
+      valueWriter.endEntry();
+      valueWriter.startEntry();
+      valueWriter.key().bigInt().writeBigInt(200);
+      valueWriter.value().bigInt().writeBigInt(400);
+      valueWriter.endEntry();
+      valueWriter.endMap();
+      mapWriter.endEntry();
+
+      mapWriter.startEntry();
+      mapWriter.key().bigInt().writeBigInt(2);
+      valueWriter = mapWriter.value().map(false);
+      valueWriter.startMap();
+      valueWriter.startEntry();
+      valueWriter.key().bigInt().writeBigInt(75);
+      valueWriter.value().bigInt().writeBigInt(175);
+      valueWriter.endEntry();
+      valueWriter.startEntry();
+      valueWriter.key().bigInt().writeBigInt(150);
+      valueWriter.value().bigInt().writeBigInt(250);
+      valueWriter.endEntry();
+      valueWriter.endMap();
+      mapWriter.endEntry();
+
+      mapWriter.endMap();
+
+      /* write one or more maps at index 1 */
+      mapWriter.setPosition(1);
+      mapWriter.startMap();
+
+      mapWriter.startEntry();
+      mapWriter.key().bigInt().writeBigInt(3);
+      valueWriter = mapWriter.value().map(true);
+      valueWriter.startMap();
+      valueWriter.startEntry();
+      valueWriter.key().bigInt().writeBigInt(10);
+      valueWriter.value().bigInt().writeBigInt(20);
+      valueWriter.endEntry();
+      valueWriter.endMap();
+      mapWriter.endEntry();
+
+      mapWriter.startEntry();
+      mapWriter.key().bigInt().writeBigInt(4);
+      valueWriter = mapWriter.value().map(false);
+      valueWriter.startMap();
+      valueWriter.startEntry();
+      valueWriter.key().bigInt().writeBigInt(15);
+      valueWriter.value().bigInt().writeBigInt(20);
+      valueWriter.endEntry();
+      valueWriter.endMap();
+      mapWriter.endEntry();
+
+      mapWriter.startEntry();
+      mapWriter.key().bigInt().writeBigInt(5);
+      valueWriter = mapWriter.value().map(false);
+      valueWriter.startMap();
+      valueWriter.startEntry();
+      valueWriter.key().bigInt().writeBigInt(25);
+      valueWriter.value().bigInt().writeBigInt(30);
+      valueWriter.endEntry();
+      valueWriter.startEntry();
+      valueWriter.key().bigInt().writeBigInt(35);
+      valueWriter.endEntry();
+      valueWriter.endMap();
+      mapWriter.endEntry();
+
+      mapWriter.endMap();
+
+      assertEquals(1, mapVector.getLastSet());
+
+      mapWriter.setValueCount(2);
+
+      assertEquals(2, mapVector.getValueCount());
+
+      // Get mapVector element at index 0
+      Object result = mapVector.getObject(0);
+      ArrayList<?> resultSet = (ArrayList<?>) result;
+
+      // 2 map entries at index 0
+      assertEquals(2, resultSet.size());
+
+      // First Map entry
+      Map<?, ?> resultStruct = (Map<?, ?>) resultSet.get(0);
+      assertEquals(1L, getResultKey(resultStruct));
+      ArrayList<Map<?, ?>> list = (ArrayList<Map<?, ?>>) getResultValue(resultStruct);
+      assertEquals(2, list.size()); // value is a list of 2 two maps
+      Map<?, ?> innerMap = list.get(0);
+      assertEquals(50L, getResultKey(innerMap));
+      assertEquals(100L, getResultValue(innerMap));
+      innerMap = list.get(1);
+      assertEquals(200L, getResultKey(innerMap));
+      assertEquals(400L, getResultValue(innerMap));
+
+      // Second Map entry
+      resultStruct = (Map<?, ?>) resultSet.get(1);
+      assertEquals(2L, getResultKey(resultStruct));
+      list = (ArrayList<Map<?, ?>>) getResultValue(resultStruct);
+      assertEquals(2, list.size()); // value is a list of two maps
+      innerMap = list.get(0);
+      assertEquals(75L, getResultKey(innerMap));
+      assertEquals(175L, getResultValue(innerMap));
+      innerMap = list.get(1);
+      assertEquals(150L, getResultKey(innerMap));
+      assertEquals(250L, getResultValue(innerMap));
+
+      // Get mapVector element at index 1
+      result = mapVector.getObject(1);
+      resultSet = (ArrayList<?>) result;
+
+      // 3 map entries at index 1
+      assertEquals(3, resultSet.size());
+
+      // First Map entry
+      resultStruct = (Map<?, ?>) resultSet.get(0);
+      assertEquals(3L, getResultKey(resultStruct));
+      list = (ArrayList<Map<?, ?>>) getResultValue(resultStruct);
+      assertEquals(1, list.size()); // value is a list of maps with 1 element
+      innerMap = list.get(0);
+      assertEquals(10L, getResultKey(innerMap));
+      assertEquals(20L, getResultValue(innerMap));
+
+      // Second Map entry
+      resultStruct = (Map<?, ?>) resultSet.get(1);
+      assertEquals(4L, getResultKey(resultStruct));
+      list = (ArrayList<Map<?, ?>>) getResultValue(resultStruct);
+      assertEquals(1, list.size()); // value is a list of maps with 1 element
+      innerMap = list.get(0);
+      assertEquals(15L, getResultKey(innerMap));
+      assertEquals(20L, getResultValue(innerMap));
+
+      // Third Map entry
+      resultStruct = (Map<?, ?>) resultSet.get(2);
+      assertEquals(5L, getResultKey(resultStruct));
+      list = (ArrayList<Map<?, ?>>) getResultValue(resultStruct);
+      assertEquals(2, list.size()); // value is a list of maps with 2 elements
+      innerMap = list.get(0);
+      assertEquals(25L, getResultKey(innerMap));
+      assertEquals(30L, getResultValue(innerMap));
+      innerMap = list.get(1);
+      assertEquals(35L, getResultKey(innerMap));
+      assertNull(innerMap.get(MapVector.VALUE_NAME));
+
+      /* check underlying bitVector */
+      assertFalse(mapVector.isNull(0));
+      assertFalse(mapVector.isNull(1));
+
+      /* check underlying offsets */
+      final ArrowBuf offsetBuffer = mapVector.getOffsetBuffer();
+
+      /* mapVector has 2 entries at index 0 and 3 entries at index 1 */
+      assertEquals(0, offsetBuffer.getInt(0 * MapVector.OFFSET_WIDTH));
+      assertEquals(2, offsetBuffer.getInt(1 * MapVector.OFFSET_WIDTH));
+      assertEquals(5, offsetBuffer.getInt(2 * MapVector.OFFSET_WIDTH));
+    }
+  }
+
+  @Test
+  public void testMapWithMapKeyAndMapValue() throws Exception {
+    try (MapVector mapVector = MapVector.empty("sourceVector", allocator, false)) {
+
+      UnionMapWriter mapWriter = mapVector.getWriter();
+      MapWriter keyWriter;
+      MapWriter valueWriter;
+
+      // we are essentially writing Map<Map<Integer, Integer>, Map<Long, Long>>
+
+      mapWriter.setPosition(0);
+      mapWriter.startMap();
+
+      mapWriter.startEntry();
+      keyWriter = mapWriter.key().map(false);
+      keyWriter.startMap();
+      keyWriter.startEntry();
+      keyWriter.key().integer().writeInt(5);
+      keyWriter.value().integer().writeInt(10);
+      keyWriter.endEntry();
+      keyWriter.startEntry();
+      keyWriter.key().integer().writeInt(20);
+      keyWriter.value().integer().writeInt(40);
+      keyWriter.endEntry();
+      keyWriter.endMap();
+      valueWriter = mapWriter.value().map(false);
+      valueWriter.startMap();
+      valueWriter.startEntry();
+      valueWriter.key().bigInt().writeBigInt(50);
+      valueWriter.value().bigInt().writeBigInt(100);
+      valueWriter.endEntry();
+      valueWriter.startEntry();
+      valueWriter.key().bigInt().writeBigInt(200);
+      valueWriter.value().bigInt().writeBigInt(400);
+      valueWriter.endEntry();
+      valueWriter.endMap();
+      mapWriter.endEntry();
+
+      mapWriter.startEntry();
+      keyWriter = mapWriter.key().map(false);
+      keyWriter.startMap();
+      keyWriter.startEntry();
+      keyWriter.key().integer().writeInt(50);
+      keyWriter.value().integer().writeInt(100);
+      keyWriter.endEntry();
+      keyWriter.endMap();
+      valueWriter = mapWriter.value().map(false);
+      valueWriter.startMap();
+      valueWriter.startEntry();
+      valueWriter.key().bigInt().writeBigInt(75);
+      valueWriter.value().bigInt().writeBigInt(175);
+      valueWriter.endEntry();
+      valueWriter.startEntry();
+      valueWriter.key().bigInt().writeBigInt(150);
+      valueWriter.value().bigInt().writeBigInt(250);
+      valueWriter.endEntry();
+      valueWriter.endMap();
+      mapWriter.endEntry();
+
+      mapWriter.endMap();
+
+      /* write one or more maps at index 1 */
+      mapWriter.setPosition(1);
+      mapWriter.startMap();
+
+      mapWriter.startEntry();
+      keyWriter = mapWriter.key().map(false);
+      keyWriter.startMap();
+      keyWriter.startEntry();
+      keyWriter.key().integer().writeInt(1);
+      keyWriter.value().integer().writeInt(2);
+      keyWriter.endEntry();
+      keyWriter.endMap();
+      valueWriter = mapWriter.value().map(true);
+      valueWriter.startMap();
+      valueWriter.startEntry();
+      valueWriter.key().bigInt().writeBigInt(10);
+      valueWriter.value().bigInt().writeBigInt(20);
+      valueWriter.endEntry();
+      valueWriter.endMap();
+      mapWriter.endEntry();
+
+      mapWriter.startEntry();
+      keyWriter = mapWriter.key().map(false);
+      keyWriter.startMap();
+      keyWriter.startEntry();
+      keyWriter.key().integer().writeInt(30);
+      keyWriter.value().integer().writeInt(40);
+      keyWriter.endEntry();
+      keyWriter.endMap();
+      valueWriter = mapWriter.value().map(false);
+      valueWriter.startMap();
+      valueWriter.startEntry();
+      valueWriter.key().bigInt().writeBigInt(15);
+      valueWriter.value().bigInt().writeBigInt(20);
+      valueWriter.endEntry();
+      valueWriter.endMap();
+      mapWriter.endEntry();
+
+      mapWriter.startEntry();
+      keyWriter = mapWriter.key().map(false);
+      keyWriter.startMap();
+      keyWriter.startEntry();
+      keyWriter.key().integer().writeInt(50);
+      keyWriter.value().integer().writeInt(60);
+      keyWriter.endEntry();
+      keyWriter.startEntry();
+      keyWriter.key().integer().writeInt(70);
+      keyWriter.endEntry();
+      keyWriter.endMap();
+      valueWriter = mapWriter.value().map(false);
+      valueWriter.startMap();
+      valueWriter.startEntry();
+      valueWriter.key().bigInt().writeBigInt(25);
+      valueWriter.value().bigInt().writeBigInt(30);
+      valueWriter.endEntry();
+      valueWriter.startEntry();
+      valueWriter.key().bigInt().writeBigInt(35);
+      valueWriter.endEntry();
+      valueWriter.endMap();
+      mapWriter.endEntry();
+
+      mapWriter.endMap();
+
+      assertEquals(1, mapVector.getLastSet());
+
+      mapWriter.setValueCount(2);
+
+      assertEquals(2, mapVector.getValueCount());
+
+      // Get mapVector element at index 0
+      Object result = mapVector.getObject(0);
+      ArrayList<?> resultSet = (ArrayList<?>) result;
+
+      // 2 map entries at index 0
+      assertEquals(2, resultSet.size());
+
+      // First Map entry
+      Map<?, ArrayList<Map<?, ?>>> resultStruct = (Map<?, ArrayList<Map<?, ?>>>) resultSet.get(0);
+      ArrayList<Map<?, ?>> list = getResultKey(resultStruct);
+      assertEquals(2, list.size()); // key is a list of 2 two maps
+      Map<?, ?> innerMap = list.get(0);
+      assertEquals(5, getResultKey(innerMap));
+      assertEquals(10, getResultValue(innerMap));
+      innerMap = list.get(1);
+      assertEquals(20, getResultKey(innerMap));
+      assertEquals(40, getResultValue(innerMap));
+
+      list = getResultValue(resultStruct);
+      assertEquals(2, list.size()); // value is a list of 2 two maps
+      innerMap = list.get(0);
+      assertEquals(50L, getResultKey(innerMap));
+      assertEquals(100L, getResultValue(innerMap));
+      innerMap = list.get(1);
+      assertEquals(200L, getResultKey(innerMap));
+      assertEquals(400L, getResultValue(innerMap));
+
+      // Second Map entry
+      resultStruct = (Map<?, ArrayList<Map<?, ?>>>) resultSet.get(1);
+      list = getResultKey(resultStruct);
+      assertEquals(1, list.size()); // key is a list of 1 two map
+      innerMap = list.get(0);
+      assertEquals(50, getResultKey(innerMap));
+      assertEquals(100, getResultValue(innerMap));
+
+      list = getResultValue(resultStruct);
+      assertEquals(2, list.size()); // value is a list of two maps
+      innerMap = list.get(0);
+      assertEquals(75L, getResultKey(innerMap));
+      assertEquals(175L, getResultValue(innerMap));
+      innerMap = list.get(1);
+      assertEquals(150L, getResultKey(innerMap));
+      assertEquals(250L, getResultValue(innerMap));
+
+      // Get mapVector element at index 1
+      result = mapVector.getObject(1);
+      resultSet = (ArrayList<?>) result;
+
+      // 3 map entries at index 1
+      assertEquals(3, resultSet.size());
+
+      // First Map entry
+      resultStruct = (Map<?, ArrayList<Map<?, ?>>>) resultSet.get(0);
+      list = getResultKey(resultStruct);
+      assertEquals(1, list.size()); // key is a list of 1 map
+      innerMap = list.get(0);
+      assertEquals(1, getResultKey(innerMap));
+      assertEquals(2, getResultValue(innerMap));
+
+      list = getResultValue(resultStruct);
+      assertEquals(1, list.size()); // value is a list of maps with 1 element
+      innerMap = list.get(0);
+      assertEquals(10L, getResultKey(innerMap));
+      assertEquals(20L, getResultValue(innerMap));
+
+      // Second Map entry
+      resultStruct = (Map<?, ArrayList<Map<?, ?>>>) resultSet.get(1);
+      list = getResultKey(resultStruct);
+      assertEquals(1, list.size()); // key is a list of 1 map
+      innerMap = list.get(0);
+      assertEquals(30, getResultKey(innerMap));
+      assertEquals(40, getResultValue(innerMap));
+
+      list = getResultValue(resultStruct);
+      assertEquals(1, list.size()); // value is a list of maps with 1 element
+      innerMap = list.get(0);
+      assertEquals(15L, getResultKey(innerMap));
+      assertEquals(20L, getResultValue(innerMap));
+
+      // Third Map entry
+      resultStruct = (Map<?, ArrayList<Map<?, ?>>>) resultSet.get(2);
+      list = getResultKey(resultStruct);
+      assertEquals(2, list.size()); // key is a list of two maps
+      innerMap = list.get(0);
+      assertEquals(50, getResultKey(innerMap));
+      assertEquals(60, getResultValue(innerMap));
+      innerMap = list.get(1);
+      assertEquals(70, getResultKey(innerMap));
+      assertNull(innerMap.get(MapVector.VALUE_NAME));
+
+      list = getResultValue(resultStruct);
+      assertEquals(2, list.size()); // value is a list of maps with 2 elements
+      innerMap = list.get(0);
+      assertEquals(25L, getResultKey(innerMap));
+      assertEquals(30L, getResultValue(innerMap));
+      innerMap = list.get(1);
+      assertEquals(35L, getResultKey(innerMap));
+      assertNull(innerMap.get(MapVector.VALUE_NAME));
 
       /* check underlying bitVector */
       assertFalse(mapVector.isNull(0));

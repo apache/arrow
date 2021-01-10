@@ -342,6 +342,22 @@ public class DenseUnionVector implements FieldVector {
     return listVector;
   }
 
+  public MapVector getMap(byte typeId) {
+    MapVector mapVector = typeId < 0 ? null : (MapVector) childVectors[typeId];
+    if (mapVector == null) {
+      int vectorCount = internalStruct.size();
+      mapVector = addOrGet(typeId, MinorType.MAP, MapVector.class);
+      if (internalStruct.size() > vectorCount) {
+        mapVector.allocateNew();
+        childVectors[typeId] = mapVector;
+        if (callBack != null) {
+          callBack.doWork();
+        }
+      }
+    }
+    return mapVector;
+  }
+
   public byte getTypeId(int index) {
     return typeBuffer.getByte(index * TYPE_WIDTH);
   }

@@ -84,6 +84,8 @@ public class UnionReader extends AbstractFieldReader {
       return (FieldReader) getStruct();
     case LIST:
       return (FieldReader) getList();
+    case MAP:
+      return (FieldReader) getMap();
     <#list vv.types as type>
       <#list type.minor as minor>
         <#assign name = minor.class?cap_first />
@@ -119,6 +121,17 @@ public class UnionReader extends AbstractFieldReader {
       readers[MinorType.LIST.ordinal()] = listReader;
     }
     return listReader;
+  }
+
+  private UnionMapReader mapReader;
+
+  private FieldReader getMap() {
+    if (mapReader == null) {
+      mapReader = new UnionMapReader(data.getMap());
+      mapReader.setPosition(idx());
+      readers[MinorType.MAP.ordinal()] = mapReader;
+    }
+    return mapReader;
   }
 
   @Override
