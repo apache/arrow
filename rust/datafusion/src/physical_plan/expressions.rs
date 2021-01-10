@@ -1972,8 +1972,8 @@ impl CaseExpr {
     }
 
     /// Optional "else" expression
-    pub fn else_expr(&self) -> &Option<Arc<dyn PhysicalExpr>> {
-        &self.else_expr
+    pub fn else_expr(&self) -> Option<&Arc<dyn PhysicalExpr>> {
+        self.else_expr.as_ref()
     }
 }
 
