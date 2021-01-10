@@ -163,3 +163,15 @@ def test_orcfile_empty(datadir):
         ]))),
     ])
     assert table.schema == expected_schema
+
+
+def test_orcfile_readwrite():
+    from pyarrow import orc
+    buffer_output_stream = pa.BufferOutputStream()
+    a = pa.array([1, None, 3, None])
+    b = pa.array([None, 'Arrow', None, 'ORC'])
+    table = pa.table({"int64": a, "utf8": b})
+    orc.write_table(buffer_output_stream, table)
+    buffer_reader = pa.BufferReader(buffer_output_stream.getvalue())
+    outputTable = orc.ORCFile(buffer_reader).read()
+    assert table.equals(outputTable)
