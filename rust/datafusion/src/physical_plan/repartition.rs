@@ -53,6 +53,18 @@ pub struct RepartitionExec {
     channels: Arc<Mutex<Vec<(Sender<MaybeBatch>, Receiver<MaybeBatch>)>>>,
 }
 
+impl RepartitionExec {
+    /// Input execution plan
+    pub fn input(&self) -> &Arc<dyn ExecutionPlan> {
+        &self.input
+    }
+
+    /// Partitioning scheme to use
+    pub fn partitioning(&self) -> &Partitioning {
+        &self.partitioning
+    }
+}
+
 #[async_trait]
 impl ExecutionPlan for RepartitionExec {
     /// Return a reference to Any that can be used for downcasting

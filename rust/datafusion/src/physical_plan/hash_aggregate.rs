@@ -124,6 +124,26 @@ impl HashAggregateExec {
             schema,
         })
     }
+
+    pub fn mode(&self) -> &AggregateMode {
+        &self.mode
+    }
+
+    pub fn group_expr(&self) -> &[(Arc<dyn PhysicalExpr>, String)] {
+        &self.group_expr
+    }
+
+    pub fn aggr_expr(&self) -> &[Arc<dyn AggregateExpr>] {
+        &self.aggr_expr
+    }
+
+    pub fn input(&self) -> &Arc<dyn ExecutionPlan> {
+        &self.input
+    }
+
+    pub fn schema(&self) -> SchemaRef {
+        self.schema.clone()
+    }
 }
 
 #[async_trait]

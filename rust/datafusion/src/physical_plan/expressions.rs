@@ -1161,13 +1161,13 @@ impl BinaryExpr {
     }
 
     /// Get the left side of the binary expression
-    pub fn left(&self) -> &dyn PhysicalExpr {
-        self.left.as_ref()
+    pub fn left(&self) -> &Arc<dyn PhysicalExpr> {
+        &self.left
     }
 
     /// Get the right side of the binary expression
-    pub fn right(&self) -> &dyn PhysicalExpr {
-        self.right.as_ref()
+    pub fn right(&self) -> &Arc<dyn PhysicalExpr> {
+        &self.right
     }
 
     /// Get the operator for this binary expression
@@ -1646,8 +1646,8 @@ impl NotExpr {
     }
 
     /// Get the input expression
-    pub fn arg(&self) -> &dyn PhysicalExpr {
-        self.arg.as_ref()
+    pub fn arg(&self) -> &Arc<dyn PhysicalExpr> {
+        &self.arg
     }
 }
 
@@ -1728,8 +1728,8 @@ impl NegativeExpr {
     }
 
     /// Get the input expression
-    pub fn arg(&self) -> &dyn PhysicalExpr {
-        self.arg.as_ref()
+    pub fn arg(&self) -> &Arc<dyn PhysicalExpr> {
+        &self.arg
     }
 }
 
@@ -1810,8 +1810,8 @@ impl IsNullExpr {
     }
 
     /// Get the input expression
-    pub fn arg(&self) -> &dyn PhysicalExpr {
-        self.arg.as_ref()
+    pub fn arg(&self) -> &Arc<dyn PhysicalExpr> {
+        &self.arg
     }
 }
 
@@ -1861,8 +1861,8 @@ impl IsNotNullExpr {
     }
 
     /// Get the input expression
-    pub fn arg(&self) -> &dyn PhysicalExpr {
-        self.arg.as_ref()
+    pub fn arg(&self) -> &Arc<dyn PhysicalExpr> {
+        &self.arg
     }
 }
 
@@ -2337,8 +2337,8 @@ impl CastExpr {
     }
 
     /// The expression to cast
-    pub fn expr(&self) -> &dyn PhysicalExpr {
-        self.expr.as_ref()
+    pub fn expr(&self) -> &Arc<dyn PhysicalExpr> {
+        &self.expr
     }
 
     /// The data type to cast to
@@ -2576,8 +2576,8 @@ impl InListExpr {
         }
     }
 
-    pub fn expr(&self) -> &dyn PhysicalExpr {
-        self.expr.as_ref()
+    pub fn expr(&self) -> &Arc<dyn PhysicalExpr> {
+        &self.expr
     }
 
     pub fn list(&self) -> &[Arc<dyn PhysicalExpr>] {

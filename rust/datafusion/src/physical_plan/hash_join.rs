@@ -126,6 +126,31 @@ impl HashJoinExec {
         })
     }
 
+    /// left (build) side which gets hashed
+    pub fn left(&self) -> &Arc<dyn ExecutionPlan> {
+        &self.left
+    }
+
+    /// right (probe) side which are filtered by the hash table
+    pub fn right(&self) -> &Arc<dyn ExecutionPlan> {
+        &self.right
+    }
+
+    /// Set of common columns used to join on
+    pub fn on(&self) -> &[(String, String)] {
+        &self.on
+    }
+
+    /// How the join is performed
+    pub fn join_type(&self) -> &JoinType {
+        &self.join_type
+    }
+
+    /// The schema once the join is applied
+    pub fn schema(&self) -> SchemaRef {
+        self.schema.clone()
+    }
+
     /// Calculates column indices and left/right placement on input / output schemas and jointype
     fn column_indices_from_schema(&self) -> ArrowResult<Vec<ColumnIndex>> {
         let (primary_is_left, primary_schema, secondary_schema) = match self.join_type {

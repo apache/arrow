@@ -54,6 +54,16 @@ impl CoalesceBatchesExec {
             target_batch_size,
         }
     }
+
+    /// The input plan
+    pub fn input(&self) -> &Arc<dyn ExecutionPlan> {
+        &self.input
+    }
+
+    /// Minimum number of rows for coalesces batches
+    pub fn target_batch_size(&self) -> usize {
+        self.target_batch_size
+    }
 }
 
 #[async_trait]
