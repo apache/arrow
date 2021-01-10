@@ -2576,14 +2576,17 @@ impl InListExpr {
         }
     }
 
+    /// Input expression
     pub fn expr(&self) -> &Arc<dyn PhysicalExpr> {
         &self.expr
     }
 
+    /// List to search in
     pub fn list(&self) -> &[Arc<dyn PhysicalExpr>] {
         &self.list
     }
 
+    /// Is this negated e.g. NOT IN LIST
     pub fn negated(&self) -> bool {
         self.negated
     }

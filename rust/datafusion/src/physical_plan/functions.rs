@@ -466,18 +466,22 @@ impl ScalarFunctionExpr {
         }
     }
 
+    /// Get the scalar function implementation
     pub fn fun(&self) -> &ScalarFunctionImplementation {
         &self.fun
     }
 
+    /// The name for this expression
     pub fn name(&self) -> &str {
         &self.name
     }
 
+    /// Input arguments
     pub fn args(&self) -> &[Arc<dyn PhysicalExpr>] {
         &self.args
     }
 
+    /// Data type produced by this expression
     pub fn return_type(&self) -> &DataType {
         &self.return_type
     }
