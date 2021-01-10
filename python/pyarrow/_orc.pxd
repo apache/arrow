@@ -26,7 +26,7 @@ from pyarrow.includes.libarrow cimport (CArray, CSchema, CStatus,
                                         CKeyValueMetadata,
                                         CRecordBatch,
                                         CTable,
-                                        CRandomAccessFile, COutputStream,
+                                        CRandomAccessFile, COutputStream, 
                                         TimeUnit)
 
 
@@ -51,3 +51,11 @@ cdef extern from "arrow/adapters/orc/adapter.h" \
         int64_t NumberOfStripes()
 
         int64_t NumberOfRows()
+
+    cdef cppclass ORCFileWriter:
+        @staticmethod
+        CStatus Open(const shared_ptr[CSchema]& schema, 
+                     const shared_ptr[COutputStream]& out_stream,
+                     unique_ptr[ORCFileWriter]* writer)
+
+        CStatus Write(const shared_ptr[CTable] table)

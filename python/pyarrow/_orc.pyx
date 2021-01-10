@@ -29,7 +29,10 @@ from pyarrow.lib cimport (check_status, _Weakrefable,
                           pyarrow_wrap_batch,
                           RecordBatch,
                           pyarrow_wrap_table,
-                          get_reader)
+                          pyarrow_unwrap_schema,
+                          pyarrow_unwrap_table,
+                          get_reader,
+                          get_writer)
 
 
 cdef class ORCReader(_Weakrefable):
@@ -109,3 +112,31 @@ cdef class ORCReader(_Weakrefable):
                 check_status(deref(self.reader).Read(indices, &sp_table))
 
         return pyarrow_wrap_table(sp_table)
+
+cdef class ORCWriter(_Weakrefable):
+    cdef:
+        object source
+        unique_ptr[ORCFileWriter] writer
+        shared_ptr[CSchema] sp_arrow_schema
+    
+    def open(self, object schema, object source):
+        cdef:
+            shared_ptr[COutputStream] rd_handle
+
+        self.source = source
+        self.sp_arrow_schema = pyarrow_unwrap_schema(schema)
+
+        get_writer(source, &rd_handle)
+        
+        with nogil:
+            check_status(ORCFileWriter.Open(self.sp_arrow_schema, rd_handle, 
+                                            &self.writer))
+
+    def write(self, object table):
+        cdef:
+            shared_ptr[CTable] sp_table
+
+        sp_table = pyarrow_unwrap_table(table)
+
+        with nogil:
+            check_status(deref(self.writer).Write(sp_table))
