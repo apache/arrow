@@ -35,7 +35,7 @@ if %PYTHON_VERSION% == 3.6 (
 
 @rem create conda environment for compiling
 call conda.bat create -n wheel-build -q -y -c conda-forge ^
-    cmake ninja pkg-config numpy=%NUMPY_VERSION% ^
+    cmake ninja pkg-config numpy=%NUMPY_VERSION% libopenssl-static ^
     vs2015_runtime%VS_VERSION% ^
     python=%PYTHON_VERSION% || exit /B
 
