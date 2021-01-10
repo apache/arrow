@@ -282,5 +282,3 @@ if [ ${PREPARE_DEB_PACKAGE_NAMES} -gt 0 ]; then
     cd -
   fi
 fi
-
-echo "Finish staging binary artifacts by running: dev/release/01-perform.sh"
