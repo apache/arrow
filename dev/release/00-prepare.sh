@@ -214,31 +214,6 @@ if [ ${PREPARE_VERSION_PRE_TAG} -gt 0 ]; then
   git commit -m "[Release] Update versions for ${version}"
 fi
 
-#if [ ${PREPARE_TAG} -gt 0 ]; then
-#  profile=arrow-jni # this includes components which depend on arrow cpp.
-#  pushd "${SOURCE_DIR}/../../java"
-#  git submodule update --init --recursive
-#  cpp_dir="${PWD}/../cpp"
-#  cpp_build_dir=$(mktemp -d -t "apache-arrow-cpp.XXXXX")
-#  pushd ${cpp_build_dir}
-#  cmake \
-#    -DARROW_GANDIVA=ON \
-#    -DARROW_GANDIVA_JAVA=ON \
-#    -DARROW_JNI=ON \
-#    -DARROW_ORC=ON \
-#    -DCMAKE_BUILD_TYPE=release \
-#    -G Ninja \
-#    "${cpp_dir}"
-#  ninja
-#  popd
-#  mvn clean
-#  mvn test
-#    -Darrow.cpp.build.dir=${cpp_build_dir}/release \
-#    -P ${profile}
-#  rm -rf ${cpp_build_dir}
-#  popd
-#fi
-
 ############################## Post-Tag Commits #############################
 
 if [ ${PREPARE_VERSION_POST_TAG} -gt 0 ]; then
