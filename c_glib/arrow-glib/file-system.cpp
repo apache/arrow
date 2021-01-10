@@ -22,6 +22,7 @@
 #include <arrow-glib/error.hpp>
 #include <arrow-glib/file-system.hpp>
 #include <arrow-glib/input-stream.hpp>
+#include <arrow-glib/local-file-system.h>
 #include <arrow-glib/output-stream.hpp>
 
 G_BEGIN_DECLS
@@ -44,6 +45,13 @@ G_BEGIN_DECLS
  *
  * #GArrowSlowFileSystem is a delegator to another file system.
  * This inserts latencies at various points.
+ *
+ * #GArrowMockFileSystem is a class for mock file system that holds
+ * its contents in memory.
+ *
+ * #GArrowHDFSFileSystem is a class for HDFS-backed file system.
+ *
+ * #GArrowS3FileSystem is a class for S3-backed file system.
  */
 
 /* arrow::fs::FileInfo */
@@ -614,6 +622,34 @@ garrow_file_system_class_init(GArrowFileSystemClass *klass)
                               static_cast<GParamFlags>(G_PARAM_WRITABLE |
                                                        G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_FILE_SYSTEM, spec);
+}
+
+/**
+ * garrow_file_system_create:
+ * @uri: An URI to specify file system with options. If you only have an
+ *   absolute path, g_filename_to_uri() will help you.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * This is a factory function to create a specific #GArrowFileSystem
+ * object.
+ *
+ * Returns: (nullable) (transfer full): The newly created file system
+ *   that is an object of a subclass of #GArrowFileSystem.
+ *
+ * Since: 3.0.0
+ */
+GArrowFileSystem *
+garrow_file_system_create(const gchar *uri, GError **error)
+{
+  auto arrow_file_system_result = arrow::fs::FileSystemFromUri(uri);
+  if (garrow::check(error,
+                    arrow_file_system_result,
+                    "[file-system][create]")) {
+    auto arrow_file_system = *arrow_file_system_result;
+    return garrow_file_system_new_raw(&arrow_file_system);
+  } else {
+    return NULL;
+  }
 }
 
 /**
@@ -1297,6 +1333,52 @@ garrow_slow_file_system_new_average_latency_and_seed(GArrowFileSystem *base_file
                                          base_file_system);
 }
 
+
+G_DEFINE_TYPE(GArrowMockFileSystem,
+              garrow_mock_file_system,
+              GARROW_TYPE_FILE_SYSTEM)
+
+static void
+garrow_mock_file_system_init(GArrowMockFileSystem *file_system)
+{
+}
+
+static void
+garrow_mock_file_system_class_init(GArrowMockFileSystemClass *klass)
+{
+}
+
+
+G_DEFINE_TYPE(GArrowHDFSFileSystem,
+              garrow_hdfs_file_system,
+              GARROW_TYPE_FILE_SYSTEM)
+
+static void
+garrow_hdfs_file_system_init(GArrowHDFSFileSystem *file_system)
+{
+}
+
+static void
+garrow_hdfs_file_system_class_init(GArrowHDFSFileSystemClass *klass)
+{
+}
+
+
+G_DEFINE_TYPE(GArrowS3FileSystem,
+              garrow_s3_file_system,
+              GARROW_TYPE_FILE_SYSTEM)
+
+static void
+garrow_s3_file_system_init(GArrowS3FileSystem *file_system)
+{
+}
+
+static void
+garrow_s3_file_system_class_init(GArrowS3FileSystemClass *klass)
+{
+}
+
+
 G_END_DECLS
 
 GArrowFileInfo *
@@ -1312,6 +1394,28 @@ garrow_file_info_get_raw(GArrowFileInfo *file_info)
 {
   auto priv = GARROW_FILE_INFO_GET_PRIVATE(file_info);
   return &(priv->file_info);
+}
+
+GArrowFileSystem *
+garrow_file_system_new_raw(
+  std::shared_ptr<arrow::fs::FileSystem> *arrow_file_system)
+{
+  const auto &type_name = (*arrow_file_system)->type_name();
+
+  GType file_system_type = GARROW_TYPE_FILE_SYSTEM;
+  if (type_name == "local") {
+    file_system_type = GARROW_TYPE_LOCAL_FILE_SYSTEM;
+  } else if (type_name == "hdfs") {
+    file_system_type = GARROW_TYPE_HDFS_FILE_SYSTEM;
+  } else if (type_name == "s3") {
+    file_system_type = GARROW_TYPE_S3_FILE_SYSTEM;
+  } else if (type_name == "mock") {
+    file_system_type = GARROW_TYPE_MOCK_FILE_SYSTEM;
+  }
+
+  return GARROW_FILE_SYSTEM(g_object_new(file_system_type,
+                                         "file-system", arrow_file_system,
+                                         NULL));
 }
 
 std::shared_ptr<arrow::fs::FileSystem>
