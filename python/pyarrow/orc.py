@@ -157,7 +157,9 @@ class ORCWriter:
     ----------
     where : str or pyarrow.io.NativeFile
         Writable target. For passing Python file objects or byte buffers,
-        see pyarrow.io.PythonFileInterface or pyarrow.io.BufferReader.
+        see pyarrow.io.PythonFileInterface or pyarrow.io.FixedSizeBufferWriter.
+    schema : pyarrow.lib.Schema
+        Schema of the table to be written into the ORC file
     """
 
     def __init__(self, where, schema):
@@ -165,9 +167,29 @@ class ORCWriter:
         self.writer.open(schema, where)
 
     def write(self, table):
+        """
+        Write the table into an ORC file. The schema of the table must
+        be equal to the schema used when opening the ORC file.
+
+        Parameters
+        ----------
+        schema : pyarrow.lib.Table
+            The table to be written into the ORC file
+        """
         self.writer.write(table)
 
 
 def write_table(where, table):
+    """
+    Write a table into an ORC file
+
+    Parameters
+    ----------
+    where : str or pyarrow.io.NativeFile
+        Writable target. For passing Python file objects or byte buffers,
+        see pyarrow.io.PythonFileInterface or pyarrow.io.FixedSizeBufferWriter.
+    table : pyarrow.lib.Table
+        The table to be written into the ORC file
+    """
     writer = ORCWriter(where, table.schema)
     writer.write(table)
