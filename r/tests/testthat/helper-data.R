@@ -34,12 +34,11 @@ example_with_metadata <- tibble::tibble(
   ),
   d = "four"
 )
-# TODO: collect top-level dataset metadata
-# https://issues.apache.org/jira/browse/ARROW-9271
-# attr(example_with_metadata, "top_level") <- list(
-#   field_one = 12,
-#   field_two = "more stuff"
-# )
+
+attr(example_with_metadata, "top_level") <- list(
+  field_one = 12,
+  field_two = "more stuff"
+)
 
 haven_data <- tibble::tibble(
   num = structure(c(5.1, 4.9),

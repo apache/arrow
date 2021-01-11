@@ -1752,6 +1752,10 @@ tasks:
     template: r/github.linux.cran.yml
     params:
       MATRIX: "${{ matrix.r_image }}"
+      
+  test-r-version-compatibility:
+    ci: github
+    template: r/github.linux.version.compatibility.yml
 
   test-r-versions:
     ci: github
