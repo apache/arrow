@@ -586,7 +586,7 @@ services:
     volumes: *fedora-volumes
     command: *python-command
 
-  ############################### Python ######################################
+  ############################ Python sdist ###################################
 
   python-sdist:
     # Usage:
