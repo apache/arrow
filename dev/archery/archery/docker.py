@@ -110,7 +110,7 @@ class ComposeConfig:
         compose = Command('docker-compose')
         args = ['--file', str(config_path), 'config']
         result = compose.run(*args, env=self.env, check=False,
-                             stderr=subprocess.PIPE,  stdout=subprocess.PIPE)
+                             stderr=subprocess.PIPE, stdout=subprocess.PIPE)
 
         if result.returncode != 0:
             # strip the intro line of docker-compose errors
