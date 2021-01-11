@@ -161,10 +161,9 @@ for (comp in c("lz4", "uncompressed", "zstd")) {
 
     if (comp %in% c("lz4", "zstd")) {
       # there is a case mis-match with versions 0.17.0 and before for the codec names
-      expect_error(df <- read_feather(feather_file), "Unrecognized compression type:")
-    } else {
-      expect_error(df <- read_feather(feather_file), NA)
+      skip("ARROW-11163 will re-enable this compatibility")
     }
+    expect_error(df <- read_feather(feather_file), NA)
   })
 }
 
