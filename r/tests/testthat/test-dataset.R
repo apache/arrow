@@ -309,7 +309,10 @@ test_that("readr parse options", {
   arrow_opts <- names(formals(CsvParseOptions$create))
   readr_opts <- names(formals(readr_to_csv_parse_options))
 
-  # Arrow and readr options are mutually exclusive
+  # Arrow and readr parse options must be mutually exclusive, or else the code
+  # in `csv_file_format_parse_options()` will error or behave incorrectly. A
+  # failure of this test indicates that these two sets of option names are not
+  # mutually exclusive.
   expect_equal(
     intersect(arrow_opts, readr_opts),
     character(0)
