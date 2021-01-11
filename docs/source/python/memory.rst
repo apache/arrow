@@ -83,16 +83,16 @@ Memory Pools
 ------------
 
 All memory allocations and deallocations (like ``malloc`` and ``free`` in C)
-are tracked in an instance of ``arrow::MemoryPool``. This means that we can
+are tracked in an instance of :class:`MemoryPool`. This means that we can
 then precisely track amount of memory that has been allocated:
 
 .. ipython:: python
 
    pa.total_allocated_bytes()
 
-PyArrow uses a default built-in memory pool, but in the future there may be
-additional memory pools (and subpools) to choose from. Let's allocate
-a resizable ``Buffer`` from the default pool:
+PyArrow uses a default built-in memory pool, but depending on how Arrow
+was built, there may be additional memory pools to choose from. Let's
+allocate a resizable :class:`Buffer` from the default pool:
 
 .. ipython:: python
 

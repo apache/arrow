@@ -127,6 +127,44 @@ def logging_memory_pool(MemoryPool parent):
     return out
 
 
+def system_memory_pool():
+    """
+    Return a memory pool based on the C malloc heap.
+    """
+    cdef:
+        MemoryPool pool = MemoryPool.__new__(MemoryPool)
+    pool.init(c_system_memory_pool())
+    return pool
+
+
+def jemalloc_memory_pool():
+    """
+    Return a memory pool based on the jemalloc heap.
+
+    NotImplemented is raised if this Arrow build does not enable jemalloc.
+    """
+    cdef:
+        CMemoryPool* c_pool
+        MemoryPool pool = MemoryPool.__new__(MemoryPool)
+    check_status(c_jemalloc_memory_pool(&c_pool))
+    pool.init(c_pool)
+    return pool
+
+
+def mimalloc_memory_pool():
+    """
+    Return a memory pool based on the mimalloc heap.
+
+    NotImplemented is raised if this Arrow build does not enable mimalloc.
+    """
+    cdef:
+        CMemoryPool* c_pool
+        MemoryPool pool = MemoryPool.__new__(MemoryPool)
+    check_status(c_mimalloc_memory_pool(&c_pool))
+    pool.init(c_pool)
+    return pool
+
+
 def set_memory_pool(MemoryPool pool):
     c_set_default_memory_pool(pool.pool)
 
