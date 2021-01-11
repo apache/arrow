@@ -1814,6 +1814,11 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CPartitionNthOptions(int64_t pivot)
         int64_t pivot
 
+    cdef cppclass CProjectOptions \
+            "arrow::compute::ProjectOptions"(CFunctionOptions):
+        CProjectOptions(vector[c_string] field_names)
+        vector[c_string] field_names
+
     ctypedef enum CSortOrder" arrow::compute::SortOrder":
         CSortOrder_Ascending \
             "arrow::compute::SortOrder::Ascending"
