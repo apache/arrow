@@ -15,8 +15,28 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# cli
 click
-gitpython
+
+# bot, crossbow
+github3.py
+jinja2
+jira
+pygit2
 pygithub
 ruamel.yaml
+setuptools_scm
+toolz
+
+# benchmark
+pandas
+
+# docker
+python-dotenv
+#ruamel.yaml
+
+# release
+gitpython
+#jinja2
+#jira
 semver
