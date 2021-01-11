@@ -646,31 +646,5 @@ TEST(GroupTest, GroupOnDictionary) {
   ])");
 }
 
-TEST(GroupTest, UniqueRowsOverflow) {
-  constexpr int64_t kOverflowAt = std::numeric_limits<int16_t>::max();
-
-  Int64Builder builder;
-  for (int64_t i = 0; i < kOverflowAt - 1; ++i) {
-    ASSERT_OK(builder.Append(i));
-  }
-
-  {
-    ASSERT_OK_AND_ASSIGN(auto column, builder.Finish());
-    ASSERT_OK_AND_ASSIGN(auto by, StructArray::Make({column}, {""}));
-    ASSERT_OK(MakeGroupings(*by));
-  }
-
-  builder.Reset();
-  for (int64_t i = 0; i < kOverflowAt; ++i) {
-    ASSERT_OK(builder.Append(i));
-  }
-
-  {
-    ASSERT_OK_AND_ASSIGN(auto column, builder.Finish());
-    ASSERT_OK_AND_ASSIGN(auto by, StructArray::Make({column}, {""}));
-    ASSERT_RAISES(CapacityError, MakeGroupings(*by));
-  }
-}
-
 }  // namespace dataset
 }  // namespace arrow
