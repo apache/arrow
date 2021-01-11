@@ -956,6 +956,12 @@ impl<T: ArrowNativeType> ToByteSlice for T {
     }
 }
 
+impl fmt::Display for DataType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 impl DataType {
     /// Parse a data type from a JSON representation
     pub(crate) fn from(json: &Value) -> Result<DataType> {
