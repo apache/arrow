@@ -28,7 +28,7 @@ SET VS_VERSION=
 if %PYTHON_VERSION% == 3.6 (
     @rem When using this variable do not quote it because in batch files
     @rem quotes are included when rendered.
-    SET VS_VERSION="<14.16"
+    SET VS_VERSION=">=14.0,<14.16"
 ) else if %PYTHON_VERSION% == 3.9 (
     SET NUMPY_VERSION=1.19.5
 )
