@@ -244,7 +244,7 @@ def actions(ctx):
 
 
 @actions.group()
-@click.option('--crossbow', '-c', default='ursa-labs/crossbow',
+@click.option('--crossbow', '-c', default='ursacomputing/crossbow',
               help='Crossbow repository on github to use')
 @click.pass_obj
 def crossbow(obj, crossbow):

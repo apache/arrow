@@ -710,7 +710,7 @@ services:
     shm_size: 2G
     volumes:
       - .:/arrow:delegated
-    command: /arrow/ci/scripts/wheel_manylinux_test.sh
+    command: /arrow/ci/scripts/python_wheel_manylinux_test.sh
 
   python-wheel-windows-vs2017:
     image: ${REPO}:python-${PYTHON}-wheel-windows-vs2017
