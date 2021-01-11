@@ -290,16 +290,18 @@ Result<Datum> KleeneAndNot(const Datum& left, const Datum& right,
 /// \brief IsIn returns true for each element of `values` that is contained in
 /// `value_set`
 ///
-/// If null occurs in left, if null count in right is not 0,
-/// it returns true, else returns null.
+/// Behaviour of nulls is governed by SetLookupOptions::skip_nulls.
 ///
 /// \param[in] values array-like input to look up in value_set
-/// \param[in] value_set either Array or ChunkedArray
+/// \param[in] options SetLookupOptions
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting datum
 ///
 /// \since 1.0.0
 /// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> IsIn(const Datum& values, const SetLookupOptions& options,
+                   ExecContext* ctx = NULLPTR);
 ARROW_EXPORT
 Result<Datum> IsIn(const Datum& values, const Datum& value_set,
                    ExecContext* ctx = NULLPTR);
@@ -312,18 +314,18 @@ Result<Datum> IsIn(const Datum& values, const Datum& value_set,
 /// For example given values = [99, 42, 3, null] and
 /// value_set = [3, 3, 99], the output will be = [1, null, 0, null]
 ///
-/// Note: Null in the values is considered to match
-/// a null in the value_set array. For example given
-/// values = [99, 42, 3, null] and value_set = [3, 99, null],
-/// the output will be = [1, null, 0, 2]
+/// Behaviour of nulls is governed by SetLookupOptions::skip_nulls.
 ///
 /// \param[in] values array-like input
-/// \param[in] value_set either Array or ChunkedArray
+/// \param[in] options SetLookupOptions
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting datum
 ///
 /// \since 1.0.0
 /// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> IndexIn(const Datum& values, const SetLookupOptions& options,
+                      ExecContext* ctx = NULLPTR);
 ARROW_EXPORT
 Result<Datum> IndexIn(const Datum& values, const Datum& value_set,
                       ExecContext* ctx = NULLPTR);
