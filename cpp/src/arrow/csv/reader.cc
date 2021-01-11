@@ -109,7 +109,7 @@ class CSVBufferIterator {
     return TransformAsyncGenerator(std::move(buffer_iterator), fn);
   }
 
-  TransformFlow<std::shared_ptr<Buffer>> operator()(std::shared_ptr<Buffer> buf) {
+  Result<TransformFlow<std::shared_ptr<Buffer>>> operator()(std::shared_ptr<Buffer> buf) {
     if (buf == nullptr) {
       // EOF
       return TransformFinish();
@@ -195,7 +195,7 @@ class SerialBlockReader : public BlockReader {
     return MakeTransformedIterator(std::move(buffer_iterator), block_reader_fn);
   }
 
-  TransformFlow<util::optional<CSVBlock>> operator()(
+  Result<TransformFlow<util::optional<CSVBlock>>> operator()(
       std::shared_ptr<Buffer> next_buffer) {
     if (buffer_ == nullptr) {
       return TransformFinish();
@@ -260,7 +260,7 @@ class ThreadedBlockReader : public BlockReader {
     return TransformAsyncGenerator(buffer_generator, block_reader_fn);
   }
 
-  TransformFlow<util::optional<CSVBlock>> operator()(
+  Result<TransformFlow<util::optional<CSVBlock>>> operator()(
       std::shared_ptr<Buffer> next_buffer) {
     if (buffer_ == nullptr) {
       // EOF

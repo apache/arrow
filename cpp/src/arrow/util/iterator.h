@@ -36,13 +36,6 @@
 
 namespace arrow {
 
-namespace detail {
-
-template <typename Signature>
-using result_of_t = typename std::result_of<Signature>::type;
-
-}  // namespace detail
-
 template <typename T>
 class Iterator;
 
@@ -201,23 +194,17 @@ struct TransformFlow {
   TransformFlow(YieldValueType value, bool ready_for_next)
       : finished_(false),
         ready_for_next_(ready_for_next),
-        status_(),
         yield_value_(std::move(value)) {}
   TransformFlow(bool finished, bool ready_for_next)
-      : finished_(finished), ready_for_next_(ready_for_next), status_(), yield_value_() {}
-  TransformFlow(Status s)  // NOLINT runtime/explicit
-      : finished_(true), ready_for_next_(false), status_(s), yield_value_() {}
+      : finished_(finished), ready_for_next_(ready_for_next), yield_value_() {}
 
   bool HasValue() const { return yield_value_.has_value(); }
   bool Finished() const { return finished_; }
-  Status status() const { return status_; }
-  bool Ok() const { return status_.ok(); }
   bool ReadyForNext() const { return ready_for_next_; }
   T Value() const { return *yield_value_; }
 
-  bool finished_;
-  bool ready_for_next_;
-  Status status_;
+  bool finished_ = false;
+  bool ready_for_next_ = false;
   util::optional<YieldValueType> yield_value_;
 };
 
@@ -241,7 +228,7 @@ TransformFlow<T> TransformYield(T value = {}, bool ready_for_next = true) {
 }
 
 template <typename T, typename V>
-using Transformer = std::function<TransformFlow<V>(T)>;
+using Transformer = std::function<Result<TransformFlow<V>>(T)>;
 
 template <typename T, typename V>
 class TransformIterator {
@@ -252,17 +239,22 @@ class TransformIterator {
         last_value_(),
         finished_() {}
 
-  util::optional<Result<V>> Pump() {
-    while (!finished_ && last_value_.has_value()) {
-      TransformFlow<V> next = transformer_(*last_value_);
+  // Calls the transform function on the current value.  Can return in several ways
+  // * If the next value is requested (e.g. skip) it will return an empty optional
+  // * If an invalid status is encountered that will be returned
+  // * If finished it will return IterationTraits<V>::End()
+  // * If a value is returned by the transformer that will be returned
+  Result<util::optional<V>> Pump() {
+    if (!finished_ && last_value_.has_value()) {
+      ARROW_ASSIGN_OR_RAISE(TransformFlow<V> next, transformer_(*last_value_));
       if (next.ReadyForNext()) {
+        if (*last_value_ == IterationTraits<T>::End()) {
+          finished_ = true;
+        }
         last_value_.reset();
       }
       if (next.Finished()) {
         finished_ = true;
-      }
-      if (!next.Ok()) {
-        return next.status();
       }
       if (next.HasValue()) {
         return next.Value();
@@ -276,7 +268,7 @@ class TransformIterator {
 
   Result<V> Next() {
     while (!finished_) {
-      util::optional<Result<V>> next = Pump();
+      ARROW_ASSIGN_OR_RAISE(util::optional<V> next, Pump());
       if (next.has_value()) {
         return *next;
       }
@@ -289,9 +281,22 @@ class TransformIterator {
   Iterator<T> it_;
   Transformer<T, V> transformer_;
   util::optional<T> last_value_;
-  bool finished_;
+  bool finished_ = false;
 };
 
+/// Transforms an iterator according to a transformer.  The transformer will be called on
+/// each element of the source iterator and for each call it can yield a value, skip, or
+/// finish the iteration.  When yielding a value the transformer can choose to consume the
+/// source item (the default, ready_for_next = true) or to keep it and it will be called
+/// again on the same value.
+///
+/// This is essentially a more generic form of the map operation that can return 0, 1, or
+/// many values for each of the source items.
+///
+/// The transformer will be exposed to the end of the source sequence
+/// (IterationTraits::End) in case it needs to return some penultimate item(s).
+///
+/// Any invalid status returned by the transformer will be returned immediately.
 template <typename T, typename V>
 Iterator<V> MakeTransformedIterator(Iterator<T> it, Transformer<T, V> op) {
   return Iterator<V>(TransformIterator<T, V>(std::move(it), std::move(op)));

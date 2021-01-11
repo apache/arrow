@@ -71,12 +71,13 @@ template <typename T, typename V>
 class TransformingGenerator {
  public:
   explicit TransformingGenerator(AsyncGenerator<T> generator,
-                                 std::function<TransformFlow<V>(T)> transformer)
+                                 Transformer<T, V> transformer)
       : finished_(), last_value_(), generator_(generator), transformer_(transformer) {}
 
-  util::optional<V> Pump() {
-    while (!finished_ && last_value_.has_value()) {
-      TransformFlow<V> next = transformer_(*last_value_);
+  // See comment on TransformingIterator::Pump
+  Result<util::optional<V>> Pump() {
+    if (!finished_ && last_value_.has_value()) {
+      ARROW_ASSIGN_OR_RAISE(TransformFlow<V> next, transformer_(*last_value_));
       if (next.ReadyForNext()) {
         if (*last_value_ == IterationTraits<T>::End()) {
           finished_ = true;
@@ -98,7 +99,11 @@ class TransformingGenerator {
 
   Future<V> operator()() {
     while (true) {
-      auto maybe_next = Pump();
+      auto maybe_next_result = Pump();
+      if (!maybe_next_result.ok()) {
+        return Future<V>::MakeFinished(maybe_next_result.status());
+      }
+      auto maybe_next = maybe_next_result.ValueUnsafe();
       if (maybe_next.has_value()) {
         return Future<V>::MakeFinished(*maybe_next);
       }
@@ -134,6 +139,10 @@ class TransformingGenerator {
   Transformer<T, V> transformer_;
 };
 
+/// Transforms an async generator using a transformer function.  The transform function
+/// here behaves exactly the same as the transform function in MakeTransformedIterator and
+/// you can safely use the same transform function to transform both synchronous and
+/// asynchronous streams.
 template <typename T, typename V>
 AsyncGenerator<V> TransformAsyncGenerator(AsyncGenerator<T> generator,
                                           Transformer<T, V> transformer) {
