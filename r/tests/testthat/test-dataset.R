@@ -417,7 +417,7 @@ test_that("filter() with is.na()", {
   )
 })
 
-test_that("filter() with is.na()", {
+test_that("filter() with is.nan()", {
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
   expect_equivalent(
     ds %>%
