@@ -225,6 +225,133 @@ TEST_F(ConcatenateTest, DictionaryType) {
   });
 }
 
+TEST_F(ConcatenateTest, DictionaryTypeDifferentDictionaries) {
+  {
+    auto dict_type = dictionary(uint8(), utf8());
+    auto dict_one = DictArrayFromJSON(dict_type, "[1, 2, null, 3, 0]",
+                                      "[\"A0\", \"A1\", \"A2\", \"A3\"]");
+    auto dict_two = DictArrayFromJSON(dict_type, "[null, 4, 2, 1]",
+                                      "[\"B0\", \"B1\", \"B2\", \"B3\", \"B4\"]");
+    auto concat_expected = DictArrayFromJSON(
+        dict_type, "[1, 2, null, 3, 0, null, 8, 6, 5]",
+        "[\"A0\", \"A1\", \"A2\", \"A3\", \"B0\", \"B1\", \"B2\", \"B3\", \"B4\"]");
+    ASSERT_OK_AND_ASSIGN(auto concat_actual, Concatenate({dict_one, dict_two}));
+    AssertArraysEqual(*concat_expected, *concat_actual);
+  }
+  {
+    const int SIZE = 500;
+    auto dict_type = dictionary(uint16(), utf8());
+
+    UInt16Builder index_builder;
+    UInt16Builder expected_index_builder;
+    ASSERT_OK(index_builder.Reserve(SIZE));
+    ASSERT_OK(expected_index_builder.Reserve(SIZE * 2));
+    for (auto i = 0; i < SIZE; i++) {
+      index_builder.UnsafeAppend(i);
+      expected_index_builder.UnsafeAppend(i);
+    }
+    for (auto i = SIZE; i < 2 * SIZE; i++) {
+      expected_index_builder.UnsafeAppend(i);
+    }
+    ASSERT_OK_AND_ASSIGN(auto indices, index_builder.Finish());
+    ASSERT_OK_AND_ASSIGN(auto expected_indices, expected_index_builder.Finish());
+
+    // Creates three dictionaries.  The first maps i->"{i}" the second maps i->"{500+i}",
+    // each for 500 values and the third maps i->"{i}" but for 1000 values.
+    // The first and second concatenated should end up equaling the third.  All strings
+    // are padded to length 8 so we can know the size ahead of time.
+    StringBuilder values_one_builder;
+    StringBuilder values_two_builder;
+    ASSERT_OK(values_one_builder.Resize(SIZE));
+    ASSERT_OK(values_two_builder.Resize(SIZE));
+    ASSERT_OK(values_one_builder.ReserveData(8 * SIZE));
+    ASSERT_OK(values_two_builder.ReserveData(8 * SIZE));
+    for (auto i = 0; i < SIZE; i++) {
+      auto i_str = std::to_string(i);
+      auto padded = i_str.insert(0, 8 - i_str.length(), '0');
+      values_one_builder.UnsafeAppend(padded);
+      auto upper_i_str = std::to_string(i + SIZE);
+      auto upper_padded = upper_i_str.insert(0, 8 - i_str.length(), '0');
+      values_two_builder.UnsafeAppend(upper_padded);
+    }
+    ASSERT_OK_AND_ASSIGN(auto dictionary_one, values_one_builder.Finish());
+    ASSERT_OK_AND_ASSIGN(auto dictionary_two, values_two_builder.Finish());
+    ASSERT_OK_AND_ASSIGN(auto expected_dictionary,
+                         Concatenate({dictionary_one, dictionary_two}))
+
+    auto one = std::make_shared<DictionaryArray>(dict_type, indices, dictionary_one);
+    auto two = std::make_shared<DictionaryArray>(dict_type, indices, dictionary_two);
+    auto expected = std::make_shared<DictionaryArray>(dict_type, expected_indices,
+                                                      expected_dictionary);
+    ASSERT_OK_AND_ASSIGN(auto combined, Concatenate({one, two}));
+    AssertArraysEqual(*combined, *expected);
+  }
+}
+
+TEST_F(ConcatenateTest, DictionaryTypePartialOverlapDictionaries) {
+  auto dict_type = dictionary(uint8(), utf8());
+  auto dict_one = DictArrayFromJSON(dict_type, "[1, 2, null, 3, 0]",
+                                    "[\"A0\", \"A1\", \"C2\", \"C3\"]");
+  auto dict_two = DictArrayFromJSON(dict_type, "[null, 4, 2, 1]",
+                                    "[\"B0\", \"B1\", \"C2\", \"C3\", \"B4\"]");
+  auto concat_expected =
+      DictArrayFromJSON(dict_type, "[1, 2, null, 3, 0, null, 6, 2, 5]",
+                        "[\"A0\", \"A1\", \"C2\", \"C3\", \"B0\", \"B1\", \"B4\"]");
+  ASSERT_OK_AND_ASSIGN(auto concat_actual, Concatenate({dict_one, dict_two}));
+  AssertArraysEqual(*concat_expected, *concat_actual);
+}
+
+TEST_F(ConcatenateTest, DictionaryTypeDifferentSizeIndex) {
+  auto dict_type = dictionary(uint8(), utf8());
+  auto bigger_dict_type = dictionary(uint16(), utf8());
+  auto dict_one = DictArrayFromJSON(dict_type, "[0]", "[\"A0\"]");
+  auto dict_two = DictArrayFromJSON(bigger_dict_type, "[0]", "[\"B0\"]");
+  ASSERT_RAISES(Invalid, Concatenate({dict_one, dict_two}).status());
+}
+
+TEST_F(ConcatenateTest, DictionaryTypeCantUnifyNullInDictionary) {
+  auto dict_type = dictionary(uint8(), utf8());
+  auto dict_one = DictArrayFromJSON(dict_type, "[0, 1]", "[null, \"A\"]");
+  auto dict_two = DictArrayFromJSON(dict_type, "[0, 1]", "[null, \"B\"]");
+  ASSERT_RAISES(Invalid, Concatenate({dict_one, dict_two}).status());
+}
+
+TEST_F(ConcatenateTest, DictionaryTypeEnlargedIndices) {
+  auto size = std::numeric_limits<uint8_t>::max() + 1;
+  auto dict_type = dictionary(uint8(), uint16());
+
+  UInt8Builder index_builder;
+  ASSERT_OK(index_builder.Reserve(size));
+  for (auto i = 0; i < size; i++) {
+    index_builder.UnsafeAppend(i);
+  }
+  ASSERT_OK_AND_ASSIGN(auto indices, index_builder.Finish());
+
+  UInt16Builder values_builder;
+  ASSERT_OK(values_builder.Reserve(size));
+  UInt16Builder values_builder_two;
+  ASSERT_OK(values_builder_two.Reserve(size));
+  for (auto i = 0; i < size; i++) {
+    values_builder.UnsafeAppend(i);
+    values_builder_two.UnsafeAppend(i + size);
+  }
+  ASSERT_OK_AND_ASSIGN(auto dictionary_one, values_builder.Finish());
+  ASSERT_OK_AND_ASSIGN(auto dictionary_two, values_builder_two.Finish());
+
+  auto dict_one = std::make_shared<DictionaryArray>(dict_type, indices, dictionary_one);
+  auto dict_two = std::make_shared<DictionaryArray>(dict_type, indices, dictionary_two);
+  ASSERT_RAISES(Invalid, Concatenate({dict_one, dict_two}).status());
+
+  auto bigger_dict_type = dictionary(uint16(), uint16());
+
+  auto bigger_one =
+      std::make_shared<DictionaryArray>(bigger_dict_type, dictionary_one, dictionary_one);
+  auto bigger_two =
+      std::make_shared<DictionaryArray>(bigger_dict_type, dictionary_one, dictionary_two);
+  ASSERT_OK_AND_ASSIGN(auto combined, Concatenate({bigger_one, bigger_two}));
+  ASSERT_EQ(size * 2, combined->length());
+}
+
 TEST_F(ConcatenateTest, DISABLED_UnionType) {
   // sparse mode
   Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
