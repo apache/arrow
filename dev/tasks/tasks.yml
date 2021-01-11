@@ -53,7 +53,7 @@ groups:
     - wheel-*
     - debian-*
     - ubuntu-*
-    - centos-*-
+    - centos-*
     - python-sdist
     - nuget
 
@@ -130,7 +130,7 @@ groups:
     - test-*
     - example-*
     - wheel-*
-    - sdist
+    - python-sdist
 
 tasks:
   # arbitrary_task_name:
