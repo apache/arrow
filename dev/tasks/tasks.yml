@@ -48,6 +48,15 @@ groups:
   homebrew:
     - homebrew-*
 
+  packaging:
+    - conda-*
+    - wheel-*
+    - debian-*
+    - ubuntu-*
+    - centos-*-
+    - python-sdist
+    - nuget
+
   ############################# Testing tasks #################################
 
   test:
@@ -613,7 +622,7 @@ tasks:
 
   ############################ Python sdist ####################################
 
-  sdist:
+  python-sdist:
     ci: github
     template: python-sdist/github.yml
     artifacts:
