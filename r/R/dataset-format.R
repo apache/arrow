@@ -42,7 +42,9 @@
 #'
 #'   `format = "text"`: see [CsvReadOptions]. Note that you can specify them either
 #'   with the Arrow C++ library naming ("delimiter", "quoting", etc.) or the
-#'   `readr`-style naming used in [read_csv_arrow()] ("delim", "quote", etc.)
+#'   `readr`-style naming used in [read_csv_arrow()] ("delim", "quote", etc.).
+#'   Not all `readr` options are currently supported; please file an issue if
+#'   you encounter one that `arrow` should support.
 #'
 #' It returns the appropriate subclass of `FileFormat` (e.g. `ParquetFileFormat`)
 #' @rdname FileFormat
