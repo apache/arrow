@@ -222,7 +222,7 @@ Building ListVector
 
 A :class:`ListVector` is a vector that holds a list of values for each index. Working with one you need to handle the same steps as mentioned above (create > allocate > mutate > set value count > access > clear), but the details of how you accomplish this are slightly different since you need to both create the vector and set the list of values for each index.
 
-For example, the code below shows how to build a :class:`ListVector` of int's using the writer :class:`UnionListWriter`. We build a vector from 0 to 10 and each index contains a list with increasing values [[0, 0, 0, 0, 0], [0, 1, 2, 3, 4], [0, 2, 4, 6, 8], …, [0, 9, 18, 27, 36]].
+For example, the code below shows how to build a :class:`ListVector` of int's using the writer :class:`UnionListWriter`. We build a vector from 0 to 9 and each index contains a list with increasing values [[0, 0, 0, 0, 0], [0, 1, 2, 3, 4], [0, 2, 4, 6, 8], …, [0, 9, 18, 27, 36]].
 
 .. code-block:: Java
   
