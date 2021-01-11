@@ -95,38 +95,30 @@ constexpr char kDefaultBackendEnvVar[] = "ARROW_DEFAULT_MEMORY_POOL";
 
 enum class MemoryPoolBackend : uint8_t { System, Jemalloc, Mimalloc };
 
-std::string BackendName(MemoryPoolBackend backend) {
-  switch (backend) {
-    case MemoryPoolBackend::System:
-      return "system";
-    case MemoryPoolBackend::Jemalloc:
-      return "jemalloc";
-    case MemoryPoolBackend::Mimalloc:
-      return "mimalloc";
-    default:
-      return "";  // XXX unreachable
-  }
-}
+struct SupportedBackend {
+  const char* name;
+  MemoryPoolBackend backend;
+};
 
-std::vector<MemoryPoolBackend> SupportedBackends() {
-  std::vector<MemoryPoolBackend> backends = {
+std::vector<SupportedBackend> SupportedBackends() {
+  std::vector<SupportedBackend> backends = {
 #ifdef ARROW_JEMALLOC
-      MemoryPoolBackend::Jemalloc,
+      {"jemalloc", MemoryPoolBackend::Jemalloc},
 #endif
 #ifdef ARROW_MIMALLOC
-      MemoryPoolBackend::Mimalloc,
+      {"mimalloc", MemoryPoolBackend::Mimalloc},
 #endif
-      MemoryPoolBackend::System};
+      {"system", MemoryPoolBackend::System}};
   return backends;
 }
 
-const std::vector<MemoryPoolBackend> supported_backends = SupportedBackends();
+const std::vector<SupportedBackend> supported_backends = SupportedBackends();
 
 util::optional<MemoryPoolBackend> UserSelectedBackend() {
   auto unsupported_backend = [](const std::string& name) {
     std::vector<std::string> supported;
     for (const auto backend : supported_backends) {
-      supported.push_back("'" + BackendName(backend) + "'");
+      supported.push_back(std::string("'") + backend.name + "'");
     }
     ARROW_LOG(WARNING) << "Unsupported backend '" << name << "' specified in "
                        << kDefaultBackendEnvVar << " (supported backends are "
@@ -139,24 +131,16 @@ util::optional<MemoryPoolBackend> UserSelectedBackend() {
   }
   const auto name = *std::move(maybe_name);
   if (name.empty()) {
+    // An empty environment variable is considered missing
     return {};
-  } else if (name == "system") {
-    return MemoryPoolBackend::System;
-  } else if (name == "jemalloc") {
-#ifdef ARROW_JEMALLOC
-    return MemoryPoolBackend::Jemalloc;
-#else
-    unsupported_backend(name);
-#endif
-  } else if (name == "mimalloc") {
-#ifdef ARROW_MIMALLOC
-    return MemoryPoolBackend::Mimalloc;
-#else
-    unsupported_backend(name);
-#endif
-  } else {
-    unsupported_backend(name);
   }
+  const auto found =
+      std::find_if(supported_backends.begin(), supported_backends.end(),
+                   [&](const SupportedBackend& backend) { return name == backend.name; });
+  if (found != supported_backends.end()) {
+    return found->backend;
+  }
+  unsupported_backend(name);
   return {};
 }
 
@@ -498,8 +482,6 @@ Status mimalloc_memory_pool(MemoryPool** out) {
   return Status::NotImplemented("This Arrow build does not enable mimalloc");
 #endif
 }
-
-static std::unique_ptr<MemoryPool> default_pool = MemoryPool::CreateDefault();
 
 MemoryPool* default_memory_pool() {
   auto backend = DefaultBackend();

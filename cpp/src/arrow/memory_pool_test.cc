@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <algorithm>
 #include <cstdint>
 
 #include <gtest/gtest.h>
@@ -84,6 +85,22 @@ INSTANTIATE_TYPED_TEST_SUITE_P(Jemalloc, TestMemoryPool, JemallocMemoryPoolFacto
 #ifdef ARROW_MIMALLOC
 INSTANTIATE_TYPED_TEST_SUITE_P(Mimalloc, TestMemoryPool, MimallocMemoryPoolFactory);
 #endif
+
+TEST(DefaultMemoryPool, Identity) {
+  // The default memory pool is pointer-identical to one of the backend-specific pools.
+  MemoryPool* pool = default_memory_pool();
+  std::vector<MemoryPool*> specific_pools = {system_memory_pool()};
+#ifdef ARROW_JEMALLOC
+  specific_pools.push_back(nullptr);
+  ASSERT_OK(jemalloc_memory_pool(&specific_pools.back()));
+#endif
+#ifdef ARROW_MIMALLOC
+  specific_pools.push_back(nullptr);
+  ASSERT_OK(mimalloc_memory_pool(&specific_pools.back()));
+#endif
+  ASSERT_NE(std::find(specific_pools.begin(), specific_pools.end(), pool),
+            specific_pools.end());
+}
 
 // Death tests and valgrind are known to not play well 100% of the time. See
 // googletest documentation
