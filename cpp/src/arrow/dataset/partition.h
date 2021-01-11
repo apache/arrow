@@ -310,8 +310,8 @@ class ARROW_DS_EXPORT PartitioningOrFactory {
 ARROW_DS_EXPORT
 Result<std::shared_ptr<StructArray>> MakeGroupings(const StructArray& by);
 
-/// \brief Produce a ListArray whose slots are slices of `array` which correspond to the
-/// provided groupings.
+/// \brief Produce a ListArray whose slots are selections of `array` which correspond to
+/// the provided groupings.
 ///
 /// For example,
 ///   ApplyGroupings([[0, 1, 4], [2, 3], [5]], [

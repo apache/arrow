@@ -238,7 +238,7 @@ std::vector<KeyValuePartitioning::Key> DirectoryPartitioning::ParseKeys(
 
 inline util::optional<int> NextValid(const ScalarVector& values, int first_null) {
   auto it = std::find_if(values.begin() + first_null + 1, values.end(),
-                         [](const std::shared_ptr<Scalar> v) { return v != nullptr; });
+                         [](const std::shared_ptr<Scalar>& v) { return v != nullptr; });
 
   if (it == values.end()) {
     return util::nullopt;
@@ -569,8 +569,6 @@ inline Result<std::shared_ptr<Buffer>> CountsToOffsets(
 // since no Writers accept a selection vector.
 class StructDictionary {
  public:
-  static constexpr int32_t kMaxGroups = std::numeric_limits<int16_t>::max();
-
   struct Encoded {
     std::shared_ptr<Int32Array> indices;
     std::shared_ptr<StructDictionary> dictionary;
@@ -635,11 +633,9 @@ class StructDictionary {
     dictionaries_.push_back(dict_column->dictionary());
     ARROW_ASSIGN_OR_RAISE(auto indices, compute::Cast(*dict_column->indices(), int32()));
 
-    auto dictionary_size = static_cast<int32_t>(dictionaries_.back()->length());
-
     if (*fused_indices == nullptr) {
       *fused_indices = checked_pointer_cast<Int32Array>(std::move(indices));
-      return IncreaseSizeBy(dictionary_size);
+      return IncreaseSize();
     }
 
     // It's useful to think about the case where each of dictionaries_ has size 10.
@@ -653,7 +649,7 @@ class StructDictionary {
                           compute::Add(new_fused_indices, *fused_indices));
 
     *fused_indices = checked_pointer_cast<Int32Array>(new_fused_indices.make_array());
-    return IncreaseSizeBy(dictionary_size);
+    return IncreaseSize();
   }
 
   // expand a fused code into component dict codes, order is in order of addition
@@ -687,8 +683,10 @@ class StructDictionary {
     return Status::OK();
   }
 
-  Status IncreaseSizeBy(int32_t factor) {
-    if (internal::MultiplyWithOverflow(size_, factor, &size_) || size_ >= kMaxGroups) {
+  Status IncreaseSize() {
+    auto factor = static_cast<int32_t>(dictionaries_.back()->length());
+
+    if (internal::MultiplyWithOverflow(size_, factor, &size_)) {
       return Status::CapacityError("Max groups exceeded");
     }
     return Status::OK();
