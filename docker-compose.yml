@@ -138,93 +138,16 @@ volumes:
     name: ${ARCH}-debian-${DEBIAN}-rust
   maven-cache:
     name: maven-cache
-  wheel-manylinux1-ccache:
-    name: centos-python-manylinux1-ccache
-  wheel-manylinux2010-ccache:
-    name: centos-python-manylinux2010-ccache
-  wheel-manylinux2014-ccache:
-    name: centos-python-manylinux2014-ccache
-  wheel-windows-clcache:
-    name: windows-wheel-clcache
+  python-wheel-manylinux1-ccache:
+    name: python-wheel-manylinux1-ccache
+  python-wheel-manylinux2010-ccache:
+    name: python-wheel-manylinux2010-ccache
+  python-wheel-manylinux2014-ccache:
+    name: python-wheel-manylinux2014-ccache
+  python-wheel-windows-clcache:
+    name: python-wheel-windows-clcache
 
 services:
-
-  # See available versions at:
-  #    https://quay.io/repository/pypa/manylinux2010_x86_64?tab=tags
-  python-wheel-manylinux-2010:
-    image: ${REPO}:python-${PYTHON}-wheel-manylinux-2010
-    build:
-      args:
-        base: quay.io/pypa/manylinux2010_x86_64:2020-12-03-912b0de
-        vcpkg: ${VCPKG}
-        python: ${PYTHON}
-      context: .
-      dockerfile: ci/docker/wheel-manylinux-201x.dockerfile
-      cache_from:
-        - ${REPO}:python-${PYTHON}-wheel-manylinux-2010
-    environment:
-      <<: *ccache
-      MANYLINUX_VERSION: 2010
-    volumes:
-      - .:/arrow:delegated
-      - ${DOCKER_VOLUME_PREFIX}wheel-manylinux2010-ccache:/ccache:delegated
-    command: /arrow/ci/scripts/wheel_manylinux_build.sh
-
-  # See available versions at:
-  #    https://quay.io/repository/pypa/manylinux2014_x86_64?tab=tags
-  python-wheel-manylinux-2014:
-    image: ${REPO}:python-${PYTHON}-wheel-manylinux-2014
-    build:
-      args:
-        base:  quay.io/pypa/manylinux2014_x86_64:2020-11-11-bc8ce45
-        vcpkg: ${VCPKG}
-        python: ${PYTHON}
-      context: .
-      dockerfile: ci/docker/wheel-manylinux-201x.dockerfile
-      cache_from:
-        - ${REPO}:python-${PYTHON}-wheel-manylinux-2014
-    environment:
-      <<: *ccache
-      MANYLINUX_VERSION: 2014
-    volumes:
-      - .:/arrow:delegated
-      - ${DOCKER_VOLUME_PREFIX}wheel-manylinux2014-ccache:/ccache:delegated
-    command: /arrow/ci/scripts/wheel_manylinux_build.sh
-
-  python-wheel-manylinux-test:
-    image: python:${PYTHON}
-    shm_size: 2G
-    volumes:
-      - .:/arrow:delegated
-    command: /arrow/ci/scripts/wheel_manylinux_test.sh
-
-  python-wheel-windows-vs2017:
-    image: ${REPO}:python-${PYTHON}-wheel-windows-vs2017
-    build:
-      args:
-        vcpkg: ${VCPKG}
-        python: ${PYTHON}
-      context: .
-      dockerfile: ci/docker/wheel-windows-vs2017.dockerfile
-      # This should make the pushed images reusable, but the image gets rebuilt
-      # no matter
-      # cache_from:
-      #   - mcr.microsoft.com/windows/servercore:ltsc2019
-      #   - ${REPO}:wheel-windows-vs2017
-    volumes:
-      - "${DOCKER_VOLUME_PREFIX}wheel-windows-clcache:C:/clcache"
-      - type: bind
-        source: .
-        target: "C:/arrow"
-    command: arrow\\ci\\scripts\\wheel_windows_build.bat
-
-  python-wheel-windows-test:
-    image: python:${PYTHON}-windowsservercore-1809
-    volumes:
-      - type: bind
-        source: .
-        target: "C:/arrow"
-    command: arrow\\ci\\scripts\\wheel_windows_test.bat
 
   ################################# C++ #######################################
   # Release build:
@@ -737,6 +660,85 @@ services:
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_sdist_test.sh /arrow"
+
+  ############################ Python wheels ##################################
+
+  # See available versions at:
+  #    https://quay.io/repository/pypa/manylinux2010_x86_64?tab=tags
+  python-wheel-manylinux-2010:
+    image: ${REPO}:python-${PYTHON}-wheel-manylinux-2010
+    build:
+      args:
+        base: quay.io/pypa/manylinux2010_x86_64:2020-12-03-912b0de
+        vcpkg: ${VCPKG}
+        python: ${PYTHON}
+      context: .
+      dockerfile: ci/docker/python-wheel-manylinux-201x.dockerfile
+      cache_from:
+        - ${REPO}:python-${PYTHON}-wheel-manylinux-2010
+    environment:
+      <<: *ccache
+      MANYLINUX_VERSION: 2010
+    volumes:
+      - .:/arrow:delegated
+      - ${DOCKER_VOLUME_PREFIX}python-wheel-manylinux2010-ccache:/ccache:delegated
+    command: /arrow/ci/scripts/python_wheel_manylinux_build.sh
+
+  # See available versions at:
+  #    https://quay.io/repository/pypa/manylinux2014_x86_64?tab=tags
+  python-wheel-manylinux-2014:
+    image: ${REPO}:python-${PYTHON}-wheel-manylinux-2014
+    build:
+      args:
+        base:  quay.io/pypa/manylinux2014_x86_64:2020-11-11-bc8ce45
+        vcpkg: ${VCPKG}
+        python: ${PYTHON}
+      context: .
+      dockerfile: ci/docker/python-wheel-manylinux-201x.dockerfile
+      cache_from:
+        - ${REPO}:python-${PYTHON}-wheel-manylinux-2014
+    environment:
+      <<: *ccache
+      MANYLINUX_VERSION: 2014
+    volumes:
+      - .:/arrow:delegated
+      - ${DOCKER_VOLUME_PREFIX}python-wheel-manylinux2014-ccache:/ccache:delegated
+    command: /arrow/ci/scripts/python_wheel_manylinux_build.sh
+
+  python-wheel-manylinux-test:
+    image: python:${PYTHON}
+    shm_size: 2G
+    volumes:
+      - .:/arrow:delegated
+    command: /arrow/ci/scripts/wheel_manylinux_test.sh
+
+  python-wheel-windows-vs2017:
+    image: ${REPO}:python-${PYTHON}-wheel-windows-vs2017
+    build:
+      args:
+        vcpkg: ${VCPKG}
+        python: ${PYTHON}
+      context: .
+      dockerfile: ci/docker/python-wheel-windows-vs2017.dockerfile
+      # This should make the pushed images reusable, but the image gets rebuilt
+      # no matter
+      # cache_from:
+      #   - mcr.microsoft.com/windows/servercore:ltsc2019
+      #   - ${REPO}:wheel-windows-vs2017
+    volumes:
+      - "${DOCKER_VOLUME_PREFIX}python-wheel-windows-clcache:C:/clcache"
+      - type: bind
+        source: .
+        target: "C:/arrow"
+    command: arrow\\ci\\scripts\\python_wheel_windows_build.bat
+
+  python-wheel-windows-test:
+    image: python:${PYTHON}-windowsservercore-1809
+    volumes:
+      - type: bind
+        source: .
+        target: "C:/arrow"
+    command: arrow\\ci\\scripts\\python_wheel_windows_test.bat
 
   ##############################  Integration #################################
 
