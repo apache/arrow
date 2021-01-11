@@ -159,10 +159,6 @@ for (comp in c("lz4", "uncompressed", "zstd")) {
     skip_if_not_available(comp)
     feather_file <- test_path(paste0("golden-files/data-arrow_0.17.0_", comp,".feather"))
 
-    if (comp %in% c("lz4", "zstd")) {
-      # there is a case mis-match with versions 0.17.0 and before for the codec names
-      skip("ARROW-11163 will re-enable this compatibility")
-    }
     expect_error(df <- read_feather(feather_file), NA)
   })
 }
