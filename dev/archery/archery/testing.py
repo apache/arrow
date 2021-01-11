@@ -55,6 +55,12 @@ def _ensure_mock_call_object(obj, **kwargs):
         raise TypeError(obj)
 
 
+class SuccessfulSubprocessResult:
+
+    def check_returncode(self):
+        return
+
+
 @contextmanager
 def assert_subprocess_calls(expected_commands_or_calls, **kwargs):
     calls = [
@@ -62,6 +68,7 @@ def assert_subprocess_calls(expected_commands_or_calls, **kwargs):
         for obj in expected_commands_or_calls
     ]
     with mock.patch('subprocess.run', autospec=True) as run:
+        run.return_value = SuccessfulSubprocessResult()
         yield run
         run.assert_has_calls(calls)
 

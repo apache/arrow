@@ -460,7 +460,7 @@ def test_image_with_gpu(arrow_compose_path):
 
     expected_calls = [
         [
-            "run", "--rm", "-it", "--gpus", "all",
+            "run", "--rm", "--gpus", "all",
             "-e", "CUDA_ENV=1",
             "-e", "OTHER_ENV=2",
             "-v", "/host:/container:rw",
