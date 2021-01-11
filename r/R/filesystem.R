@@ -418,10 +418,12 @@ SubTreeFileSystem$create <- function(base_path, base_fs = NULL) {
 `$.SubTreeFileSystem` <- function(x, name, ...) {
   # This is to allow delegating methods/properties to the base_fs
   assert_that(is.string(name))
-  if (name %in% ls(x)) {
+  if (name %in% ls(envir = x)) {
     get(name, x)
-  } else {
+  } else if (name %in% ls(envir = x$base_fs)) {
     get(name, x$base_fs)
+  } else {
+    NULL
   }
 }
 
