@@ -649,26 +649,27 @@ Future<BreakValueType> Loop(Iterate iterate) {
   auto break_fut = Future<BreakValueType>::Make();
 
   struct Callback {
-    void operator()(const Result<Control>& maybe_control) && {
+    bool CheckForTermination(const Result<Control>& maybe_control) {
       if (!maybe_control.ok() || maybe_control->IsBreak()) {
         Result<BreakValueType> maybe_break = maybe_control.Map(Control::MoveBreakValue);
-        return break_fut.MarkFinished(std::move(maybe_break));
+        break_fut.MarkFinished(std::move(maybe_break));
+        return true;
       }
+      return false;
+    }
 
-      while (true) {
-        auto control_fut = iterate();
-        // We don't want to AddCallback on a finished future because that will lead to
-        // recursion and potential stack overflow
-        if (control_fut.is_finished()) {
-          const Result<Control>& next_control = control_fut.result();
-          if (!next_control.ok() || next_control->IsBreak()) {
-            Result<BreakValueType> next_break = next_control.Map(Control::MoveBreakValue);
-            return break_fut.MarkFinished(std::move(next_break));
-          }
-        } else {
-          return control_fut.AddCallback(std::move(*this));
-        }
+    void operator()(const Result<Control>& maybe_control) && {
+      if (CheckForTermination(maybe_control)) return;
+
+      auto control_fut = iterate();
+      while (control_fut.is_finished()) {
+        // There's no need to AddCallback on a finished future; we can CheckForTermination
+        // now. This also avoids recursion and potential stack overflow.
+        if (CheckForTermination(control_fut.result())) return;
+
+        control_fut = iterate();
       }
+      control_fut.AddCallback(std::move(*this));
     }
 
     Iterate iterate;
