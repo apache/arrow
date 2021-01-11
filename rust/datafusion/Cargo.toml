@@ -61,6 +61,8 @@ futures = "0.3"
 pin-project-lite= "^0.2.0"
 tokio = { version = "0.2", features = ["macros", "blocking", "rt-core", "rt-threaded", "sync"] }
 log = "^0.4"
+md-5 = "^0.9.1"
+sha2 = "^0.9.1"
 
 [dev-dependencies]
 rand = "0.8"

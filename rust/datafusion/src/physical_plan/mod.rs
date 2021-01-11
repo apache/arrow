@@ -273,6 +273,7 @@ pub mod aggregates;
 pub mod array_expressions;
 pub mod coalesce_batches;
 pub mod common;
+pub mod crypto_expressions;
 pub mod csv;
 pub mod datetime_expressions;
 pub mod distinct_expressions;

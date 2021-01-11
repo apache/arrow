@@ -1855,6 +1855,43 @@ async fn string_expressions() -> Result<()> {
 }
 
 #[tokio::test]
+async fn crypto_expressions() -> Result<()> {
+    let mut ctx = ExecutionContext::new();
+    let sql = "SELECT
+        md5('tom') AS md5_tom,
+        md5('') AS md5_empty_str,
+        md5(null) AS md5_null,
+        sha224('tom') AS sha224_tom,
+        sha224('') AS sha224_empty_str,
+        sha224(null) AS sha224_null,
+        sha256('tom') AS sha256_tom,
+        sha256('') AS sha256_empty_str,
+        sha384('tom') AS sha348_tom,
+        sha384('') AS sha384_empty_str,
+        sha512('tom') AS sha512_tom,
+        sha512('') AS sha512_empty_str
+    ";
+    let actual = execute(&mut ctx, sql).await;
+
+    let expected = vec![vec![
+        "34b7da764b21d298ef307d04d8152dc5",
+        "d41d8cd98f00b204e9800998ecf8427e",
+        "NULL",
+        "0bf6cb62649c42a9ae3876ab6f6d92ad36cb5414e495f8873292be4d",
+        "d14a028c2a3a2bc9476102bb288234c415a2b01f828ea62ac5b3e42f",
+        "NULL",
+        "e1608f75c5d7813f3d4031cb30bfb786507d98137538ff8e128a6ff74e84e643",
+        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "096f5b68aa77848e4fdf5c1c0b350de2dbfad60ffd7c25d9ea07c6c19b8a4d55a9187eb117c557883f58c16dfac3e343",
+        "38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b",
+        "6e1b9b3fe840680e37051f7ad5e959d6f39ad0f8885d855166f55c659469d3c8b78118c44a2a49c72ddb481cd6d8731034e11cc030070ba843a90b3495cb8d3e",
+        "cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e"
+    ]];
+    assert_eq!(expected, actual);
+    Ok(())
+}
+
+#[tokio::test]
 async fn in_list_array() -> Result<()> {
     let mut ctx = ExecutionContext::new();
     register_aggregate_csv_by_sql(&mut ctx).await;

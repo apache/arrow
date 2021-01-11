@@ -35,6 +35,7 @@ use super::{
 };
 use crate::error::{DataFusionError, Result};
 use crate::physical_plan::array_expressions;
+use crate::physical_plan::crypto_expressions;
 use crate::physical_plan::datetime_expressions;
 use crate::physical_plan::expressions::{nullif_func, SUPPORTED_NULLIF_TYPES};
 use crate::physical_plan::math_expressions;
@@ -136,6 +137,16 @@ pub enum BuiltinScalarFunction {
     NullIf,
     /// Date truncate
     DateTrunc,
+    /// MD5
+    MD5,
+    /// SHA224
+    SHA224,
+    /// SHA256,
+    SHA256,
+    /// SHA384
+    SHA384,
+    /// SHA512,
+    SHA512,
 }
 
 impl fmt::Display for BuiltinScalarFunction {
@@ -179,6 +190,11 @@ impl FromStr for BuiltinScalarFunction {
             "date_trunc" => BuiltinScalarFunction::DateTrunc,
             "array" => BuiltinScalarFunction::Array,
             "nullif" => BuiltinScalarFunction::NullIf,
+            "md5" => BuiltinScalarFunction::MD5,
+            "sha224" => BuiltinScalarFunction::SHA224,
+            "sha256" => BuiltinScalarFunction::SHA256,
+            "sha384" => BuiltinScalarFunction::SHA384,
+            "sha512" => BuiltinScalarFunction::SHA512,
             _ => {
                 return Err(DataFusionError::Plan(format!(
                     "There is no built-in function named {}",
@@ -288,6 +304,56 @@ pub fn return_type(
             let coerced_types = data_types(arg_types, &signature(fun));
             coerced_types.map(|typs| typs[0].clone())
         }
+        BuiltinScalarFunction::MD5 => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::LargeUtf8,
+            DataType::Utf8 => DataType::Utf8,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The md5 function can only accept strings.".to_string(),
+                ));
+            }
+        }),
+        BuiltinScalarFunction::SHA224 => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::Binary,
+            DataType::Utf8 => DataType::Binary,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The sha224 function can only accept strings.".to_string(),
+                ));
+            }
+        }),
+        BuiltinScalarFunction::SHA256 => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::Binary,
+            DataType::Utf8 => DataType::Binary,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The sha256 function can only accept strings.".to_string(),
+                ));
+            }
+        }),
+        BuiltinScalarFunction::SHA384 => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::Binary,
+            DataType::Utf8 => DataType::Binary,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The sha384 function can only accept strings.".to_string(),
+                ));
+            }
+        }),
+        BuiltinScalarFunction::SHA512 => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::Binary,
+            DataType::Utf8 => DataType::Binary,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The sha512 function can only accept strings.".to_string(),
+                ));
+            }
+        }),
         _ => Ok(DataType::Float64),
     }
 }
@@ -318,6 +384,46 @@ pub fn create_physical_expr(
         BuiltinScalarFunction::Abs => math_expressions::abs,
         BuiltinScalarFunction::Signum => math_expressions::signum,
         BuiltinScalarFunction::NullIf => nullif_func,
+        BuiltinScalarFunction::MD5 => |args| match args[0].data_type() {
+            DataType::Utf8 => Ok(Arc::new(crypto_expressions::md5::<i32>(args)?)),
+            DataType::LargeUtf8 => Ok(Arc::new(crypto_expressions::md5::<i64>(args)?)),
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function md5",
+                other,
+            ))),
+        },
+        BuiltinScalarFunction::SHA224 => |args| match args[0].data_type() {
+            DataType::Utf8 => Ok(Arc::new(crypto_expressions::sha224::<i32>(args)?)),
+            DataType::LargeUtf8 => Ok(Arc::new(crypto_expressions::sha224::<i64>(args)?)),
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function sha224",
+                other,
+            ))),
+        },
+        BuiltinScalarFunction::SHA256 => |args| match args[0].data_type() {
+            DataType::Utf8 => Ok(Arc::new(crypto_expressions::sha256::<i32>(args)?)),
+            DataType::LargeUtf8 => Ok(Arc::new(crypto_expressions::sha256::<i64>(args)?)),
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function sha256",
+                other,
+            ))),
+        },
+        BuiltinScalarFunction::SHA384 => |args| match args[0].data_type() {
+            DataType::Utf8 => Ok(Arc::new(crypto_expressions::sha384::<i32>(args)?)),
+            DataType::LargeUtf8 => Ok(Arc::new(crypto_expressions::sha384::<i64>(args)?)),
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function sha384",
+                other,
+            ))),
+        },
+        BuiltinScalarFunction::SHA512 => |args| match args[0].data_type() {
+            DataType::Utf8 => Ok(Arc::new(crypto_expressions::sha512::<i32>(args)?)),
+            DataType::LargeUtf8 => Ok(Arc::new(crypto_expressions::sha512::<i64>(args)?)),
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function sha512",
+                other,
+            ))),
+        },
         BuiltinScalarFunction::Length => |args| Ok(length(args[0].as_ref())?),
         BuiltinScalarFunction::Concat => {
             |args| Ok(Arc::new(string_expressions::concatenate(args)?))
@@ -392,23 +498,18 @@ fn signature(fun: &BuiltinScalarFunction) -> Signature {
 
     // for now, the list is small, as we do not have many built-in functions.
     match fun {
-        BuiltinScalarFunction::Length => {
-            Signature::Uniform(1, vec![DataType::Utf8, DataType::LargeUtf8])
-        }
         BuiltinScalarFunction::Concat => Signature::Variadic(vec![DataType::Utf8]),
-        BuiltinScalarFunction::Lower => {
-            Signature::Uniform(1, vec![DataType::Utf8, DataType::LargeUtf8])
-        }
-        BuiltinScalarFunction::Upper => {
-            Signature::Uniform(1, vec![DataType::Utf8, DataType::LargeUtf8])
-        }
-        BuiltinScalarFunction::Trim => {
-            Signature::Uniform(1, vec![DataType::Utf8, DataType::LargeUtf8])
-        }
-        BuiltinScalarFunction::Ltrim => {
-            Signature::Uniform(1, vec![DataType::Utf8, DataType::LargeUtf8])
-        }
-        BuiltinScalarFunction::Rtrim => {
+        BuiltinScalarFunction::Upper
+        | BuiltinScalarFunction::Lower
+        | BuiltinScalarFunction::Length
+        | BuiltinScalarFunction::Trim
+        | BuiltinScalarFunction::Ltrim
+        | BuiltinScalarFunction::Rtrim
+        | BuiltinScalarFunction::MD5
+        | BuiltinScalarFunction::SHA224
+        | BuiltinScalarFunction::SHA256
+        | BuiltinScalarFunction::SHA384
+        | BuiltinScalarFunction::SHA512 => {
             Signature::Uniform(1, vec![DataType::Utf8, DataType::LargeUtf8])
         }
         BuiltinScalarFunction::ToTimestamp => Signature::Uniform(1, vec![DataType::Utf8]),

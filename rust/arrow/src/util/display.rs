@@ -44,6 +44,27 @@ macro_rules! make_string {
     }};
 }
 
+// It's not possible to do array.value($row).to_string() for &[u8], let's format it as hex
+macro_rules! make_string_hex {
+    ($array_type:ty, $column: ident, $row: ident) => {{
+        let array = $column.as_any().downcast_ref::<$array_type>().unwrap();
+
+        let s = if array.is_null($row) {
+            "".to_string()
+        } else {
+            let mut tmp = "".to_string();
+
+            for character in array.value($row) {
+                tmp += &format!("{:02x}", character);
+            }
+
+            tmp
+        };
+
+        Ok(s)
+    }};
+}
+
 macro_rules! make_string_from_list {
     ($column: ident, $row: ident) => {{
         let list = $column
@@ -67,6 +88,9 @@ macro_rules! make_string_from_list {
 pub fn array_value_to_string(column: &array::ArrayRef, row: usize) -> Result<String> {
     match column.data_type() {
         DataType::Utf8 => make_string!(array::StringArray, column, row),
+        DataType::LargeUtf8 => make_string!(array::LargeStringArray, column, row),
+        DataType::Binary => make_string_hex!(array::BinaryArray, column, row),
+        DataType::LargeBinary => make_string_hex!(array::LargeBinaryArray, column, row),
         DataType::Boolean => make_string!(array::BooleanArray, column, row),
         DataType::Int8 => make_string!(array::Int8Array, column, row),
         DataType::Int16 => make_string!(array::Int16Array, column, row),
