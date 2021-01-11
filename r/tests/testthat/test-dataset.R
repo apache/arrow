@@ -318,14 +318,11 @@ test_that("readr parse options", {
     character(0)
   )
 
-  # With not yet supported readr parse options
-  # (remove this after ARROW-8631)
-  if (!"na" %in% readr_opts) {
-    expect_error(
-      open_dataset(tsv_dir, partitioning = "part", delim = "\t", na = "\\N"),
-      "supported"
-    )
-  }
+  # With not yet supported readr parse options (ARROW-8631)
+  expect_error(
+    open_dataset(tsv_dir, partitioning = "part", delim = "\t", na = "\\N"),
+    "supported"
+  )
 
   # With unrecognized (garbage) parse options
   expect_error(
