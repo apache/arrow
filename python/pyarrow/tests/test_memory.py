@@ -16,9 +16,18 @@
 # under the License.
 
 import contextlib
+import os
+import subprocess
+import sys
 import weakref
 
 import pyarrow as pa
+
+
+possible_backends = ["system", "jemalloc", "mimalloc"]
+
+should_have_jemalloc = sys.platform == "linux"
+should_have_mimalloc = sys.platform == "win32"
 
 
 @contextlib.contextmanager
@@ -88,3 +97,39 @@ def test_set_memory_pool():
         assert pool.bytes_allocated() == allocated_before
     finally:
         pa.set_memory_pool(old_pool)
+
+
+def test_default_backend_name():
+    pool = pa.default_memory_pool()
+    assert pool.backend_name in possible_backends
+
+
+def check_env_var(name, expected, *, expect_warning=False):
+    code = f"""if 1:
+        import pyarrow as pa
+
+        pool = pa.default_memory_pool()
+        assert pool.backend_name in {expected!r}, pool.backend_name
+        """
+    env = dict(os.environ)
+    env['ARROW_DEFAULT_MEMORY_POOL'] = name
+    res = subprocess.run([sys.executable, "-c", code], env=env,
+                         universal_newlines=True, stderr=subprocess.PIPE)
+    if res.returncode != 0:
+        print(res.stderr, file=sys.stderr)
+        res.check_returncode()  # fail
+    errlines = res.stderr.splitlines()
+    if expect_warning:
+        assert len(errlines) == 1
+        assert f"Unsupported backend '{name}'" in errlines[0]
+    else:
+        assert len(errlines) == 0
+
+
+def test_env_var():
+    check_env_var("system", ["system"])
+    if should_have_jemalloc:
+        check_env_var("jemalloc", ["jemalloc"])
+    if should_have_mimalloc:
+        check_env_var("mimalloc", ["mimalloc"])
+    check_env_var("nonexistent", possible_backends, expect_warning=True)

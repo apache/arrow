@@ -162,6 +162,7 @@ services:
       <<: *ccache
       ARROW_BUILD_BENCHMARKS: "ON"
       ARROW_ENABLE_TIMING_TESTS:  # inherit
+      ARROW_MIMALLOC: "ON"
       ARROW_USE_LD_GOLD: "ON"
       ARROW_USE_PRECOMPILED_HEADERS: "ON"
     volumes: &conda-volumes
@@ -223,6 +224,7 @@ services:
     environment:
       <<: *ccache
       ARROW_ENABLE_TIMING_TESTS:  # inherit
+      ARROW_MIMALLOC: "ON"
     volumes: &debian-volumes
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_DIRECTORY:-.docker}/${ARCH}-debian-${DEBIAN}-ccache:/ccache:delegated
@@ -254,6 +256,7 @@ services:
     environment:
       <<: *ccache
       ARROW_ENABLE_TIMING_TESTS:  # inherit
+      ARROW_MIMALLOC: "ON"
     volumes: &ubuntu-volumes
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_DIRECTORY:-.docker}/${ARCH}-ubuntu-${UBUNTU}-ccache:/ccache:delegated
@@ -344,6 +347,7 @@ services:
     environment:
       <<: *ccache
       ARROW_ENABLE_TIMING_TESTS:  # inherit
+      ARROW_MIMALLOC: "ON"
     volumes: &fedora-volumes
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_DIRECTORY:-.docker}/${ARCH}-fedora-${FEDORA}-ccache:/ccache:delegated
