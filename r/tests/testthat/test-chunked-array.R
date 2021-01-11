@@ -122,8 +122,9 @@ test_that("ChunkedArray handles NA", {
 })
 
 test_that("ChunkedArray handles NaN", {
-  data <- list(as.double(1:10), c(NaN, 2:10), c(1:3, NaN, 5L))
+  data <- list(as.numeric(1:10), c(NaN, 2:10), c(1:3, NaN, 5L))
   x <- chunked_array(!!!data)
+
   expect_equal(x$type, float64())
   expect_equal(x$num_chunks, 3L)
   expect_equal(length(x), 25L)
