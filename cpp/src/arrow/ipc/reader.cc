@@ -49,6 +49,7 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/parallel.h"
+#include "arrow/util/string.h"
 #include "arrow/util/ubsan.h"
 #include "arrow/visitor_inline.h"
 
@@ -535,8 +536,9 @@ Status GetCompressionExperimental(const flatbuf::Message* message,
     RETURN_NOT_OK(internal::GetKeyValueMetadata(message->custom_metadata(), &metadata));
     int index = metadata->FindKey("ARROW:experimental_compression");
     if (index != -1) {
-      ARROW_ASSIGN_OR_RAISE(*out,
-                            util::Codec::GetCompressionType(metadata->value(index)));
+      // Arrow 0.17 stored string in upper case, internal utils now require lower case
+      auto name = arrow::internal::AsciiToLower(metadata->value(index));
+      ARROW_ASSIGN_OR_RAISE(*out, util::Codec::GetCompressionType(name));
     }
     return internal::CheckCompressionSupported(*out);
   }
