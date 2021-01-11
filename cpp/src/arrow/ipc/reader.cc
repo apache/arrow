@@ -52,6 +52,7 @@
 #include "arrow/util/string.h"
 #include "arrow/util/ubsan.h"
 #include "arrow/visitor_inline.h"
+
 #include "generated/File_generated.h"  // IWYU pragma: export
 #include "generated/Message_generated.h"
 #include "generated/Schema_generated.h"
