@@ -286,9 +286,15 @@ get_path_and_filesystem <- function(x, filesystem = NULL) {
     }
     FileSystem$from_uri(x)
   } else {
+    fs <- filesystem %||% LocalFileSystem$create()
+    path <- ifelse(
+      inherits(fs, "LocalFileSystem"),
+      clean_path_abs(x),
+      clean_path_rel(x)
+    )
     list(
-      fs = filesystem %||% LocalFileSystem$create(),
-      path = clean_path_abs(x)
+      fs = fs,
+      path = path
     )
   }
 }
