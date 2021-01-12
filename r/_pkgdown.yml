@@ -145,9 +145,8 @@ reference:
   - codec_is_available
 - title: Configuration
   contents:
+  - arrow_info
   - cpu_count
-- title: Installation helpers
-  contents:
   - arrow_available
   - install_arrow
   - install_pyarrow

@@ -87,6 +87,19 @@ const char* je_arrow_malloc_conf =
 #endif  // ARROW_JEMALLOC
 
 namespace arrow {
+
+std::vector<std::string> SupportedBackendNames() {
+  std::vector<std::string> backends = {
+#ifdef ARROW_JEMALLOC
+      "jemalloc",
+#endif
+#ifdef ARROW_MIMALLOC
+      "mimalloc",
+#endif
+      "system"};
+  return backends;
+}
+
 namespace {
 
 constexpr size_t kAlignment = 64;

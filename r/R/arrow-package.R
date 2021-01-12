@@ -76,6 +76,39 @@ option_use_threads <- function() {
   !is_false(getOption("arrow.use_threads"))
 }
 
+#' Report information on the package's capabilities
+#'
+#' This function summarizes a number of build-time configurations and run-time
+#' settings for the Arrow package. It may be useful for diagnostics.
+#' @return A list including version information, boolean "capabilities", and
+#' statistics from Arrow's memory allocator.
+#' @export
+#' @importFrom utils packageVersion
+arrow_info <- function() {
+  opts <- options()
+  out <- list(
+    version = packageVersion("arrow"),
+    libarrow = arrow_available(),
+    options = opts[grep("^arrow.", names(opts))]
+  )
+  if (out$libarrow) {
+    pool <- default_memory_pool()
+    out <- c(out, list(
+      capabilities = c(
+        s3 = arrow_with_s3(),
+        vapply(tolower(names(CompressionType)[-1]), codec_is_available, logical(1))
+      ),
+      memory_pool = list(
+        backend_name = pool$backend_name,
+        bytes_allocated = pool$bytes_allocated,
+        max_memory = pool$max_memory,
+        available_backends = supported_memory_backends()
+      )
+    ))
+  }
+  out
+}
+
 #' @include enums.R
 ArrowObject <- R6Class("ArrowObject",
   public = list(
