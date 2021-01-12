@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 #
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
@@ -17,10 +17,28 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -eux
+set -e
+set -o pipefail
 
-pacman \
-  --noconfirm \
-  --sync \
-  --sysupgrade \
-  --sysupgrade
+SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+if [ "$#" -ne 2 ]; then
+  echo "Usage: $0 <version> <rc-num>"
+  exit
+fi
+
+version=$1
+rc=$2
+
+tmp=$(mktemp -d -t "arrow-post-python.XXXXX")
+${PYTHON:-python} \
+  "${SOURCE_DIR}/download_rc_binaries.py" \
+  ${version} \
+  ${rc} \
+  --dest="${tmp}" \
+  --package_type=python
+twine upload ${tmp}/python-rc/${version}-rc${rc}/*.{whl,tar.gz}
+rm -rf "${tmp}"
+
+echo "Success! The released PyPI packages are available here:"
+echo "  https://pypi.org/project/pyarrow/${version}"

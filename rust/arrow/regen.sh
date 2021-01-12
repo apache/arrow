@@ -54,8 +54,16 @@ echo "run: bazel build :flatc ..."
 bazel build :flatc
 popd
 
+FB_PATCH="rust/arrow/format-0ed34c83.patch"
+echo "Patch flatbuffer files with ${FB_PATCH} for cargo doc"
+echo "NOTE: the patch MAY need update in case of changes in format/*.fbs"
+git apply --check ${FB_PATCH} && git apply ${FB_PATCH}
+
 # Execute the code generation:
 $FLATC --filename-suffix "" --rust -o rust/arrow/src/ipc/gen/ format/*.fbs
+
+# Reset changes to format/
+git checkout -- format
 
 # Now the files are wrongly named so we have to change that.
 popd
@@ -97,7 +105,6 @@ names=("File" "Message" "Schema" "SparseTensor" "Tensor")
 
 # Remove all generated lines we don't need
 for f in `ls *.rs`; do
-
     if [[ $f == "mod.rs" ]]; then
         continue
     fi
@@ -147,17 +154,6 @@ done
 popd
 cargo +stable fmt -- src/ipc/gen/*
 
-echo "=== TIPS ==="
-echo "Let's manually fix rustdoc of SparseTensorIndexCSF::indptrType:"
-echo 'prepend the tree with ```text, and append the tree with ```'
-cat <<TREE_EOF
-    /// \`\`\`text
-    ///         0          1
-    ///        / \         |
-    ///       0   1        1
-    ///      /   / \       |
-    ///     0   0   1      1
-    ///    /|  /|   |    /| |
-    ///   1 2 0 2   0   0 1 2
-    /// \`\`\`
-TREE_EOF
+echo "DONE!"
+echo "Please run 'cargo doc' and 'cargo test' with nightly and stable, "
+echo "and fix possible errors or warnings!"

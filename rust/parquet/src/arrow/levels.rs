@@ -20,12 +20,12 @@
 //! Contains the algorithm for computing definition and repetition levels.
 //! The algorithm works by tracking the slots of an array that should ultimately be populated when
 //! writing to Parquet.
-//! Parquet achieves nesting through definition levels and repetition levels [1].
+//! Parquet achieves nesting through definition levels and repetition levels \[1\].
 //! Definition levels specify how many optional fields in the part for the column are defined.
 //! Repetition levels specify at what repeated field (list) in the path a column is defined.
 //!
 //! In a nested data structure such as `a.b.c`, one can see levels as defining whether a record is
-//! defined at `a`, `a.b`, or `a.b.c`. Optional fields are nullable fields, thus if all 3 fiedls
+//! defined at `a`, `a.b`, or `a.b.c`. Optional fields are nullable fields, thus if all 3 fields
 //! are nullable, the maximum definition will be = 3.
 //!
 //! The algorithm in this module computes the necessary information to enable the writer to keep
@@ -37,13 +37,13 @@
 //! We use an eager approach that increments definition levels where incrementable, and decrements
 //! if a value being checked is null.
 //!
-//! [1] https://github.com/apache/parquet-format#nested-encoding
+//! \[1\] [parquet-format#nested-encoding](https://github.com/apache/parquet-format#nested-encoding)
 
 use arrow::array::{Array, ArrayRef, StructArray};
 use arrow::datatypes::{DataType, Field};
 use arrow::record_batch::RecordBatch;
 
-/// Keeps track of the level information per array that is needed to write an Arrow aray to Parquet.
+/// Keeps track of the level information per array that is needed to write an Arrow array to Parquet.
 ///
 /// When a nested schema is traversed, intermediate [LevelInfo] structs are created to track
 /// the state of parent arrays. When a primitive Arrow array is encountered, a final [LevelInfo]

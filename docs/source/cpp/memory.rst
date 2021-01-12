@@ -121,8 +121,21 @@ goes through the regular C++ allocators.
 Default Memory Pool
 -------------------
 
-Depending on how Arrow was compiled, the default memory pool may use the
-standard C ``malloc`` allocator, or a `jemalloc <http://jemalloc.net/>`_ heap.
+The default memory pool depends on how Arrow C++ was compiled:
+
+- if enabled at compile time, a `jemalloc <http://jemalloc.net/>`_ heap;
+- otherwise, if enabled at compile time, a
+  `mimalloc <https://github.com/microsoft/mimalloc>`_ heap;
+- otherwise, the C library ``malloc`` heap.
+
+Overriding the Default Memory Pool
+----------------------------------
+
+One can override the above selection algorithm by setting the
+``ARROW_DEFAULT_MEMORY_POOL`` environment variable to one of the following
+values: ``jemalloc``, ``mimalloc`` or ``system``.  This variable is inspected
+once when Arrow C++ is loaded in memory (for example when the Arrow C++ DLL
+is loaded).
 
 STL Integration
 ---------------

@@ -39,7 +39,7 @@ pub enum DataFusionError {
     ParquetError(ParquetError),
     /// Error associated to I/O operations and associated traits.
     IoError(io::Error),
-    /// Error returned when SQL is syntatically incorrect.
+    /// Error returned when SQL is syntactically incorrect.
     SQL(ParserError),
     /// Error returned on a branch that we know it is possible
     /// but to which we still have no implementation for.
@@ -59,7 +59,7 @@ pub enum DataFusionError {
 }
 
 impl DataFusionError {
-    /// Wraps this [DataFusionError] as an [Arrow::error::ArrowError].
+    /// Wraps this [DataFusionError] as an [arrow::error::ArrowError].
     pub fn into_arrow_external_error(self) -> ArrowError {
         ArrowError::from_external_error(Box::new(self))
     }

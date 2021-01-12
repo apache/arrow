@@ -43,6 +43,7 @@
 * `write_parquet()` can now write RecordBatches
 * Reading a Table from a RecordBatchStreamReader containing 0 batches no longer crashes
 * `readr`'s `problems` attribute is removed when converting to Arrow RecordBatch and table to prevent large amounts of metadata from accumulating inadvertently [ARROW-10624](https://issues.apache.org/jira/browse/ARROW-10624)
+* Fixed reading of compressed Feather files written with Arrow 0.17 [ARROW-10850](https://issues.apache.org/jira/browse/ARROW-10850)
 
 ## Packaging and installation
 

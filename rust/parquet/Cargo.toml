@@ -29,7 +29,9 @@ build = "build.rs"
 edition = "2018"
 
 [dependencies]
-parquet-format = "2.6.1"
+# update note: pin `parquet-format` to specific version until it does not break at minor
+# version, see ARROW-11187.
+parquet-format = "~2.6.1"
 byteorder = "1"
 thrift = "0.13"
 snap = { version = "1.0", optional = true }
@@ -40,7 +42,7 @@ zstd = { version = "0.6", optional = true }
 chrono = "0.4"
 num-bigint = "0.3"
 arrow = { path = "../arrow", version = "3.0.0-SNAPSHOT", optional = true }
-base64 = { version = "*", optional = true }
+base64 = { version = "0.12", optional = true }
 
 [dev-dependencies]
 rand = "0.8"

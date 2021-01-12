@@ -370,21 +370,15 @@ def benchmark_common_options(cmd):
         click.option("--cmake-extras", type=str, multiple=True,
                      help="Extra flags/options to pass to cmake invocation. "
                      "Can be stacked"),
-    ]
-
-    cmd = cpp_toolchain_options(cmd)
-    return _apply_options(cmd, options)
-
-
-def benchmark_filter_options(cmd):
-    options = [
         click.option("--suite-filter", metavar="<regex>", show_default=True,
                      type=str, default=None,
                      help="Regex filtering benchmark suites."),
         click.option("--benchmark-filter", metavar="<regex>",
                      show_default=True, type=str, default=None,
-                     help="Regex filtering benchmarks.")
+                     help="Regex filtering benchmarks."),
     ]
+
+    cmd = cpp_toolchain_options(cmd)
     return _apply_options(cmd, options)
 
 
@@ -414,10 +408,12 @@ def benchmark_list(ctx, rev_or_path, src, preserve, output, cmake_extras,
 @click.argument("rev_or_path", metavar="[<rev_or_path>]",
                 default="WORKSPACE", required=False)
 @benchmark_common_options
-@benchmark_filter_options
+@click.option("--repetitions", type=int, default=1, show_default=True,
+              help=("Number of repetitions of each benchmark. Increasing "
+                    "may improve result precision."))
 @click.pass_context
 def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
-                  suite_filter, benchmark_filter, **kwargs):
+                  suite_filter, benchmark_filter, repetitions, **kwargs):
     """ Run benchmark suite.
 
     This command will run the benchmark suite for a single build. This is
@@ -428,7 +424,7 @@ def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
 
     When a commit is referenced, a local clone of the arrow sources (specified
     via --src) is performed and the proper branch is created. This is done in
-    a temporary directory which can be left intact with the `---preserve` flag.
+    a temporary directory which can be left intact with the `--preserve` flag.
 
     The special token "WORKSPACE" is reserved to specify the current git
     workspace. This imply that no clone will be performed.
@@ -458,6 +454,7 @@ def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
 
         runner_base = BenchmarkRunner.from_rev_or_path(
             src, root, rev_or_path, conf,
+            repetitions=repetitions,
             suite_filter=suite_filter, benchmark_filter=benchmark_filter)
 
         json.dump(runner_base, output, cls=JsonEncoder)
@@ -465,21 +462,22 @@ def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
 
 @benchmark.command(name="diff", short_help="Compare benchmark suites")
 @benchmark_common_options
-@benchmark_filter_options
 @click.option("--threshold", type=float, default=DEFAULT_THRESHOLD,
               show_default=True,
               help="Regression failure threshold in percentage.")
 @click.option("--repetitions", type=int, default=1, show_default=True,
               help=("Number of repetitions of each benchmark. Increasing "
                     "may improve result precision."))
+@click.option("--no-counters", type=BOOL, default=False, is_flag=True,
+              help="Hide counters field in diff report.")
 @click.argument("contender", metavar="[<contender>",
                 default=ArrowSources.WORKSPACE, required=False)
 @click.argument("baseline", metavar="[<baseline>]]", default="origin/master",
                 required=False)
 @click.pass_context
 def benchmark_diff(ctx, src, preserve, output, cmake_extras,
-                   suite_filter, benchmark_filter,
-                   repetitions, threshold, contender, baseline, **kwargs):
+                   suite_filter, benchmark_filter, repetitions, no_counters,
+                   threshold, contender, baseline, **kwargs):
     """Compare (diff) benchmark runs.
 
     This command acts like git-diff but for benchmark results.
@@ -495,7 +493,7 @@ def benchmark_diff(ctx, src, preserve, output, cmake_extras,
 
     When a commit is referenced, a local clone of the arrow sources (specified
     via --src) is performed and the proper branch is created. This is done in
-    a temporary directory which can be left intact with the `---preserve` flag.
+    a temporary directory which can be left intact with the `--preserve` flag.
 
     The special token "WORKSPACE" is reserved to specify the current git
     workspace. This imply that no clone will be performed.
@@ -572,7 +570,8 @@ def benchmark_diff(ctx, src, preserve, output, cmake_extras,
 
         # TODO(kszucs): test that the output is properly formatted jsonlines
         comparisons_json = _get_comparisons_as_json(runner_comp.comparisons)
-        formatted = _format_comparisons_with_pandas(comparisons_json)
+        formatted = _format_comparisons_with_pandas(comparisons_json,
+                                                    no_counters)
         output.write(formatted)
         output.write('\n')
 
@@ -586,14 +585,29 @@ def _get_comparisons_as_json(comparisons):
     return buf.getvalue()
 
 
-def _format_comparisons_with_pandas(comparisons_json):
+def _format_comparisons_with_pandas(comparisons_json, no_counters):
     import pandas as pd
     df = pd.read_json(StringIO(comparisons_json), lines=True)
     # parse change % so we can sort by it
     df['change %'] = df.pop('change').str[:-1].map(float)
-    df = df[['benchmark', 'baseline', 'contender', 'change %', 'counters']]
-    df = df.sort_values(by='change %', ascending=False)
-    return df.to_string()
+    first_regression = len(df) - df['regression'].sum()
+
+    fields = ['benchmark', 'baseline', 'contender', 'change %']
+    if not no_counters:
+        fields += ['counters']
+
+    df = df[fields].sort_values(by='change %', ascending=False)
+
+    def labelled(title, df):
+        if len(df) == 0:
+            return ''
+        title += ': ({})'.format(len(df))
+        df_str = df.to_string(index=False)
+        bar = '-' * df_str.index('\n')
+        return '\n'.join([bar, title, bar, df_str])
+
+    return '\n\n'.join([labelled('Non-regressions', df[:first_regression]),
+                        labelled('Regressions', df[first_regression:])])
 
 
 # ----------------------------------------------------------------------

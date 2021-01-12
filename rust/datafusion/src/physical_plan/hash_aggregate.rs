@@ -64,10 +64,15 @@ pub enum AggregateMode {
 /// Hash aggregate execution plan
 #[derive(Debug)]
 pub struct HashAggregateExec {
+    /// Aggregation mode (full, partial)
     mode: AggregateMode,
+    /// Grouping expressions
     group_expr: Vec<(Arc<dyn PhysicalExpr>, String)>,
+    /// Aggregate expressions
     aggr_expr: Vec<Arc<dyn AggregateExpr>>,
+    /// Input plan
     input: Arc<dyn ExecutionPlan>,
+    /// Schema after the aggregate is applied
     schema: SchemaRef,
 }
 
@@ -123,6 +128,26 @@ impl HashAggregateExec {
             input,
             schema,
         })
+    }
+
+    /// Aggregation mode (full, partial)
+    pub fn mode(&self) -> &AggregateMode {
+        &self.mode
+    }
+
+    /// Grouping expressions
+    pub fn group_expr(&self) -> &[(Arc<dyn PhysicalExpr>, String)] {
+        &self.group_expr
+    }
+
+    /// Aggregate expressions
+    pub fn aggr_expr(&self) -> &[Arc<dyn AggregateExpr>] {
+        &self.aggr_expr
+    }
+
+    /// Input plan
+    pub fn input(&self) -> &Arc<dyn ExecutionPlan> {
+        &self.input
     }
 }
 
@@ -330,7 +355,13 @@ fn group_aggregate_batch(
 }
 
 /// Create a key `Vec<u8>` that is used as key for the hashmap
-fn create_key(group_by_keys: &[ArrayRef], row: usize, vec: &mut Vec<u8>) -> Result<()> {
+
+/// Create a key `Vec<u8>` that is used as key for the hashmap
+pub(crate) fn create_key(
+    group_by_keys: &[ArrayRef],
+    row: usize,
+    vec: &mut Vec<u8>,
+) -> Result<()> {
     vec.clear();
     for col in group_by_keys {
         match col.data_type() {
@@ -390,9 +421,10 @@ fn create_key(group_by_keys: &[ArrayRef], row: usize, vec: &mut Vec<u8>) -> Resu
             }
             _ => {
                 // This is internal because we should have caught this before.
-                return Err(DataFusionError::Internal(
-                    "Unsupported GROUP BY data type".to_string(),
-                ));
+                return Err(DataFusionError::Internal(format!(
+                    "Unsupported GROUP BY for {}",
+                    col.data_type(),
+                )));
             }
         }
     }
@@ -873,9 +905,10 @@ pub(crate) fn create_group_by_values(
             }
             _ => {
                 // This is internal because we should have caught this before.
-                return Err(DataFusionError::Internal(
-                    "Unsupported GROUP BY data type".to_string(),
-                ));
+                return Err(DataFusionError::Internal(format!(
+                    "Unsupported GROUP BY for {}",
+                    col.data_type(),
+                )));
             }
         }
     }

@@ -303,11 +303,65 @@ test_that("Other text delimited dataset", {
       filter(integer > 6) %>%
       summarize(mean = mean(integer))
   )
+})
 
-  # Now with readr option spelling (and omitting format = "text")
-  ds3 <- open_dataset(tsv_dir, partitioning = "part", delim = "\t")
+test_that("readr parse options", {
+  arrow_opts <- names(formals(CsvParseOptions$create))
+  readr_opts <- names(formals(readr_to_csv_parse_options))
+
+  # Arrow and readr parse options must be mutually exclusive, or else the code
+  # in `csv_file_format_parse_options()` will error or behave incorrectly. A
+  # failure of this test indicates that these two sets of option names are not
+  # mutually exclusive.
+  expect_equal(
+    intersect(arrow_opts, readr_opts),
+    character(0)
+  )
+
+  # With not yet supported readr parse options (ARROW-8631)
+  expect_error(
+    open_dataset(tsv_dir, partitioning = "part", delim = "\t", na = "\\N"),
+    "supported"
+  )
+
+  # With unrecognized (garbage) parse options
+  expect_error(
+    open_dataset(
+      tsv_dir,
+      partitioning = "part",
+      format = "text",
+      asdfg = "\\"
+    ),
+    "Unrecognized"
+  )
+
+  # With both Arrow and readr parse options (disallowed)
+  expect_error(
+    open_dataset(
+      tsv_dir,
+      partitioning = "part",
+      format = "text",
+      quote = "\"",
+      quoting = TRUE
+    ),
+    "either"
+  )
+
+  # With ambiguous partial option names (disallowed)
+  expect_error(
+    open_dataset(
+      tsv_dir,
+      partitioning = "part",
+      format = "text",
+      quo = "\"",
+    ),
+    "Ambiguous"
+  )
+
+  # With only readr parse options (and omitting format = "text")
+  ds1 <- open_dataset(tsv_dir, partitioning = "part", delim = "\t")
   expect_equivalent(
-    ds3 %>%
+    ds1 %>%
       select(string = chr, integer = int, part) %>%
       filter(integer > 6 & part == 5) %>%
       collect() %>%

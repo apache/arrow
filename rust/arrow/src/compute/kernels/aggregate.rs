@@ -68,7 +68,7 @@ fn min_max_string<T: StringOffsetSizeTrait, F: Fn(&str, &str) -> bool>(
 
 /// Returns the minimum value in the array, according to the natural order.
 /// For floating point arrays any NaN values are considered to be greater than any other non-null value
-#[cfg(not(simd_x86))]
+#[cfg(not(simd))]
 pub fn min<T>(array: &PrimitiveArray<T>) -> Option<T::Native>
 where
     T: ArrowNumericType,
@@ -79,7 +79,7 @@ where
 
 /// Returns the maximum value in the array, according to the natural order.
 /// For floating point arrays any NaN values are considered to be greater than any other non-null value
-#[cfg(not(simd_x86))]
+#[cfg(not(simd))]
 pub fn max<T>(array: &PrimitiveArray<T>) -> Option<T::Native>
 where
     T: ArrowNumericType,
@@ -190,7 +190,7 @@ pub fn max_boolean(array: &BooleanArray) -> Option<bool> {
 /// Returns the sum of values in the array.
 ///
 /// Returns `None` if the array is empty or only contains null values.
-#[cfg(not(simd_x86))]
+#[cfg(not(simd))]
 pub fn sum<T>(array: &PrimitiveArray<T>) -> Option<T::Native>
 where
     T: ArrowNumericType,
@@ -244,7 +244,7 @@ where
     }
 }
 
-#[cfg(simd_x86)]
+#[cfg(simd)]
 mod simd {
     use super::is_nan;
     use crate::array::{Array, PrimitiveArray};
@@ -589,7 +589,7 @@ mod simd {
 /// Returns the sum of values in the array.
 ///
 /// Returns `None` if the array is empty or only contains null values.
-#[cfg(simd_x86)]
+#[cfg(simd)]
 pub fn sum<T: ArrowNumericType>(array: &PrimitiveArray<T>) -> Option<T::Native>
 where
     T::Native: Add<Output = T::Native>,
@@ -599,7 +599,7 @@ where
     simd::simd_aggregation::<T, SumAggregate<T>>(&array)
 }
 
-#[cfg(simd_x86)]
+#[cfg(simd)]
 /// Returns the minimum value in the array, according to the natural order.
 /// For floating point arrays any NaN values are considered to be greater than any other non-null value
 pub fn min<T: ArrowNumericType>(array: &PrimitiveArray<T>) -> Option<T::Native>
@@ -611,7 +611,7 @@ where
     simd::simd_aggregation::<T, MinAggregate<T>>(&array)
 }
 
-#[cfg(simd_x86)]
+#[cfg(simd)]
 /// Returns the maximum value in the array, according to the natural order.
 /// For floating point arrays any NaN values are considered to be greater than any other non-null value
 pub fn max<T: ArrowNumericType>(array: &PrimitiveArray<T>) -> Option<T::Native>

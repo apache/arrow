@@ -210,19 +210,18 @@ jobs:
         uses: actions/setup-ruby@v1
         with:
           ruby-version: ${{ matrix.ruby-version }}
-      - name: Upgrade MSYS2 (phase1)
+      - name: Upgrade MSYS2
         run: |
-          ridk exec bash ci\scripts\msys2_system_upgrade_phase1.sh
+          ridk exec bash ci\scripts\msys2_system_upgrade.sh
           taskkill /F /FI "MODULES eq msys-2.0.dll"
-      - name: Upgrade MSYS2 (phase2)
+      - name: Clean MSYS2
         run: |
-          ridk exec bash ci\scripts\msys2_system_upgrade_phase2.sh
-          taskkill /F /FI "MODULES eq msys-2.0.dll"
+          ridk exec bash ci\scripts\msys2_system_clean.sh
       - name: Setup MSYS2
         run: |
           ridk exec bash ci\scripts\msys2_setup.sh ruby
       - name: Cache ccache
-        uses: actions/cache@v1
+        uses: actions/cache@v2
         with:
           path: ccache
           key: ruby-ccache-mingw${{ matrix.mingw-n-bits }}-${{ hashFiles('cpp/**') }}
@@ -241,6 +240,16 @@ jobs:
           $build_dir = "$(ridk exec cygpath --unix "$(Get-Location)\build")"
           $ErrorActionPreference = "Continue"
           ridk exec bash ci\scripts\c_glib_build.sh "${source_dir}" "${build_dir}"
+      - name: RubyGems info
+        id: rubygems-info
+        run: |
+          Write-Output "::set-output name=gem-dir::$(ridk exec gem env gemdir)"
+      - name: Cache RubyGems
+        uses: actions/cache@v2
+        with:
+          path: ${{ steps.rubygems-info.outputs.gem-dir }}
+          key: ruby-rubygems-mingw${{ matrix.mingw-n-bits }}-${{ hashFiles('**/Gemfile', 'ruby/*/*.gemspec') }}
+          restore-keys: ruby-rubygems-mingw${{ matrix.mingw-n-bits }}-
       - name: Install test dependencies
         run: |
           bundle install --gemfile c_glib\Gemfile

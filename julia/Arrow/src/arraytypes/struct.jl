@@ -81,6 +81,11 @@ function arrowvector(::StructType, x, i, nl, fi, de, ded, meta; kw...)
     len = length(x)
     validity = ValidityBitmap(x)
     T = Base.nonmissingtype(eltype(x))
+    if ArrowTypes.structtype(T) === ArrowTypes.STRUCT
+        meta = meta === nothing ? Dict{String, String}() : meta
+        ArrowTypes.registertype!(T, T)
+        ArrowTypes.getarrowtype!(meta, T)
+    end
     data = Tuple(arrowvector(ToStruct(x, j), i, nl + 1, j, de, ded, nothing; kw...) for j = 1:fieldcount(T))
     return Struct{eltype(x), typeof(data)}(validity, data, len, meta)
 end

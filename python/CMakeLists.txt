@@ -496,8 +496,6 @@ if(PYARROW_BUILD_FLIGHT)
     if(MSVC)
       bundle_arrow_import_lib(ARROW_FLIGHT_IMPORT_LIB)
       bundle_arrow_import_lib(ARROW_PYTHON_FLIGHT_IMPORT_LIB)
-      bundle_arrow_dependency(cares)
-      bundle_arrow_dependency(libprotobuf)
       # XXX Hardcoded library names because CMake is too stupid to give us
       # the shared library paths.
       # https://gitlab.kitware.com/cmake/cmake/issues/16210

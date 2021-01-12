@@ -24,8 +24,12 @@
 #include <limits>
 #include <memory>
 
+#include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"  // IWYU pragma: keep
+#include "arrow/util/optional.h"
+#include "arrow/util/string.h"
 
 #ifdef ARROW_JEMALLOC
 // Needed to support jemalloc 3 and 4
@@ -83,10 +87,78 @@ const char* je_arrow_malloc_conf =
 #endif  // ARROW_JEMALLOC
 
 namespace arrow {
+namespace {
 
 constexpr size_t kAlignment = 64;
 
-namespace {
+constexpr char kDefaultBackendEnvVar[] = "ARROW_DEFAULT_MEMORY_POOL";
+
+enum class MemoryPoolBackend : uint8_t { System, Jemalloc, Mimalloc };
+
+struct SupportedBackend {
+  const char* name;
+  MemoryPoolBackend backend;
+};
+
+std::vector<SupportedBackend> SupportedBackends() {
+  std::vector<SupportedBackend> backends = {
+#ifdef ARROW_JEMALLOC
+      {"jemalloc", MemoryPoolBackend::Jemalloc},
+#endif
+#ifdef ARROW_MIMALLOC
+      {"mimalloc", MemoryPoolBackend::Mimalloc},
+#endif
+      {"system", MemoryPoolBackend::System}};
+  return backends;
+}
+
+const std::vector<SupportedBackend> supported_backends = SupportedBackends();
+
+util::optional<MemoryPoolBackend> UserSelectedBackend() {
+  auto unsupported_backend = [](const std::string& name) {
+    std::vector<std::string> supported;
+    for (const auto backend : supported_backends) {
+      supported.push_back(std::string("'") + backend.name + "'");
+    }
+    ARROW_LOG(WARNING) << "Unsupported backend '" << name << "' specified in "
+                       << kDefaultBackendEnvVar << " (supported backends are "
+                       << internal::JoinStrings(supported, ", ") << ")";
+  };
+
+  auto maybe_name = internal::GetEnvVar(kDefaultBackendEnvVar);
+  if (!maybe_name.ok()) {
+    return {};
+  }
+  const auto name = *std::move(maybe_name);
+  if (name.empty()) {
+    // An empty environment variable is considered missing
+    return {};
+  }
+  const auto found =
+      std::find_if(supported_backends.begin(), supported_backends.end(),
+                   [&](const SupportedBackend& backend) { return name == backend.name; });
+  if (found != supported_backends.end()) {
+    return found->backend;
+  }
+  unsupported_backend(name);
+  return {};
+}
+
+const util::optional<MemoryPoolBackend> user_selected_backend = UserSelectedBackend();
+
+MemoryPoolBackend DefaultBackend() {
+  auto backend = user_selected_backend;
+  if (backend.has_value()) {
+    return backend.value();
+  }
+#ifdef ARROW_JEMALLOC
+  return MemoryPoolBackend::Jemalloc;
+#elif defined(ARROW_MIMALLOC)
+  return MemoryPoolBackend::Mimalloc;
+#else
+  return MemoryPoolBackend::System;
+#endif
+}
 
 // A static piece of memory for 0-size allocations, so as to return
 // an aligned non-null pointer.
@@ -364,16 +436,23 @@ class MimallocMemoryPool : public BaseMemoryPoolImpl<MimallocAllocator> {
 };
 #endif
 
-#ifdef ARROW_JEMALLOC
-using DefaultMemoryPool = JemallocMemoryPool;
-#elif defined(ARROW_MIMALLOC)
-using DefaultMemoryPool = MimallocMemoryPool;
-#else
-using DefaultMemoryPool = SystemMemoryPool;
-#endif
-
 std::unique_ptr<MemoryPool> MemoryPool::CreateDefault() {
-  return std::unique_ptr<MemoryPool>(new DefaultMemoryPool);
+  auto backend = DefaultBackend();
+  switch (backend) {
+    case MemoryPoolBackend::System:
+      return std::unique_ptr<MemoryPool>(new SystemMemoryPool);
+#ifdef ARROW_JEMALLOC
+    case MemoryPoolBackend::Jemalloc:
+      return std::unique_ptr<MemoryPool>(new JemallocMemoryPool);
+#endif
+#ifdef ARROW_MIMALLOC
+    case MemoryPoolBackend::Mimalloc:
+      return std::unique_ptr<MemoryPool>(new MimallocMemoryPool);
+#endif
+    default:
+      ARROW_LOG(FATAL) << "Internal error: cannot create default memory pool";
+      return nullptr;
+  }
 }
 
 static SystemMemoryPool system_pool;
@@ -405,13 +484,22 @@ Status mimalloc_memory_pool(MemoryPool** out) {
 }
 
 MemoryPool* default_memory_pool() {
+  auto backend = DefaultBackend();
+  switch (backend) {
+    case MemoryPoolBackend::System:
+      return &system_pool;
 #ifdef ARROW_JEMALLOC
-  return &jemalloc_pool;
-#elif defined(ARROW_MIMALLOC)
-  return &mimalloc_pool;
-#else
-  return &system_pool;
+    case MemoryPoolBackend::Jemalloc:
+      return &jemalloc_pool;
 #endif
+#ifdef ARROW_MIMALLOC
+    case MemoryPoolBackend::Mimalloc:
+      return &mimalloc_pool;
+#endif
+    default:
+      ARROW_LOG(FATAL) << "Internal error: cannot create default memory pool";
+      return nullptr;
+  }
 }
 
 #define RETURN_IF_JEMALLOC_ERROR(ERR)                  \

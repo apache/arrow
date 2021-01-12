@@ -316,8 +316,7 @@ bool Expression::IsScalarExpression() const {
     return lit->is_scalar();
   }
 
-  // FIXME handle case where a list's item field is referenced
-  if (auto ref = field_ref()) return true;
+  if (field_ref()) return true;
 
   auto call = CallNotNull(*this);
 
@@ -364,10 +363,6 @@ bool Expression::IsSatisfiable() const {
     if (lit->is_scalar() && lit->type()->id() == Type::BOOL) {
       return lit->scalar_as<BooleanScalar>().value;
     }
-  }
-
-  if (auto ref = field_ref()) {
-    return true;
   }
 
   return true;
@@ -656,7 +651,7 @@ util::optional<compute::NullHandling::type> GetNullHandling(
 }  // namespace
 
 std::vector<FieldRef> FieldsInExpression(const Expression& expr) {
-  if (auto lit = expr.literal()) return {};
+  if (expr.literal()) return {};
 
   if (auto ref = expr.field_ref()) {
     return {*ref};
@@ -901,19 +896,13 @@ Result<Expression> Canonicalize(Expression expr, compute::ExecContext* exec_cont
           if (call->arguments[0].literal() && !call->arguments[1].literal()) {
             // ensure that literals are on comparisons' RHS
             auto flipped_call = *call;
-            flipped_call.function_name =
-                Comparison::GetName(Comparison::GetFlipped(*cmp));
-            // look up the flipped kernel
-            // TODO extract a helper for use here and in Bind
-            ARROW_ASSIGN_OR_RAISE(
-                auto function,
-                exec_context->func_registry()->GetFunction(flipped_call.function_name));
-
-            auto descrs = GetDescriptors(flipped_call.arguments);
-            ARROW_ASSIGN_OR_RAISE(flipped_call.kernel, function->DispatchExact(descrs));
 
             std::swap(flipped_call.arguments[0], flipped_call.arguments[1]);
-            return Expression(std::move(flipped_call));
+            flipped_call.function_name =
+                Comparison::GetName(Comparison::GetFlipped(*cmp));
+
+            return BindNonRecursive(flipped_call, std::move(flipped_call.arguments),
+                                    /*insert_implicit_casts=*/false, exec_context);
           }
         }
 

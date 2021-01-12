@@ -278,6 +278,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CMemoryPool" arrow::MemoryPool":
         int64_t bytes_allocated()
         int64_t max_memory()
+        c_string backend_name()
 
     cdef cppclass CLoggingMemoryPool" arrow::LoggingMemoryPool"(CMemoryPool):
         CLoggingMemoryPool(CMemoryPool*)
@@ -317,6 +318,11 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         const int64_t size, CMemoryPool* pool)
 
     cdef CMemoryPool* c_default_memory_pool" arrow::default_memory_pool"()
+    cdef CMemoryPool* c_system_memory_pool" arrow::system_memory_pool"()
+    cdef CStatus c_jemalloc_memory_pool" arrow::jemalloc_memory_pool"(
+        CMemoryPool** out)
+    cdef CStatus c_mimalloc_memory_pool" arrow::mimalloc_memory_pool"(
+        CMemoryPool** out)
 
     CStatus c_jemalloc_set_decay_ms" arrow::jemalloc_set_decay_ms"(int ms)
 
@@ -1812,6 +1818,11 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
             "arrow::compute::PartitionNthOptions"(CFunctionOptions):
         CPartitionNthOptions(int64_t pivot)
         int64_t pivot
+
+    cdef cppclass CProjectOptions \
+            "arrow::compute::ProjectOptions"(CFunctionOptions):
+        CProjectOptions(vector[c_string] field_names)
+        vector[c_string] field_names
 
     ctypedef enum CSortOrder" arrow::compute::SortOrder":
         CSortOrder_Ascending \

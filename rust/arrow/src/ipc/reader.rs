@@ -445,7 +445,7 @@ pub fn read_record_batch(
 
 /// Read the dictionary from the buffer and provided metadata,
 /// updating the `dictionaries_by_field` with the resulting dictionary
-fn read_dictionary(
+pub fn read_dictionary(
     buf: &[u8],
     batch: ipc::DictionaryBatch,
     schema: &Schema,
