@@ -35,6 +35,8 @@
 * Large string types can now be written to Parquet files
 * The [pronouns `.data` and `.env`](https://rlang.r-lib.org/reference/tidyeval-data.html) are now fully supported in Arrow `dplyr` pipelines.
 * Option `arrow.skip_nul` (default `FALSE`, as in `base::scan()`) allows conversion of Arrow string (`utf8()`) type data containing embedded nul `\0` characters to R. If set to `TRUE`, nuls will be stripped and a warning is emitted if any are found.
+* `arrow_info()` for an overview of various run-time and build-time Arrow configurations, useful for debugging
+* Set environment variable `ARROW_DEFAULT_MEMORY_POOL` before loading the Arrow package to change memory allocators. Windows packages are built with "mimalloc"; most others have "jemalloc". These are used by default if they were built, and they're generally much faster than the system malloc, but sometimes it is useful to turn them off for debugging purposes. To disable them, set `ARROW_DEFAULT_MEMORY_POOL=system`.
 
 ## Bug fixes
 
