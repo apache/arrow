@@ -86,7 +86,7 @@ std::string MemoryPool__backend_name(const std::shared_ptr<arrow::MemoryPool>& p
 
 // [[arrow::export]]
 std::vector<std::string> supported_memory_backends() {
-  return arrow::SupportedBackendNames();
+  return arrow::SupportedMemoryBackendNames();
 }
 
 #endif

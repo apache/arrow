@@ -88,18 +88,6 @@ const char* je_arrow_malloc_conf =
 
 namespace arrow {
 
-std::vector<std::string> SupportedBackendNames() {
-  std::vector<std::string> backends = {
-#ifdef ARROW_JEMALLOC
-      "jemalloc",
-#endif
-#ifdef ARROW_MIMALLOC
-      "mimalloc",
-#endif
-      "system"};
-  return backends;
-}
-
 namespace {
 
 constexpr size_t kAlignment = 64;
@@ -634,5 +622,13 @@ int64_t ProxyMemoryPool::bytes_allocated() const { return impl_->bytes_allocated
 int64_t ProxyMemoryPool::max_memory() const { return impl_->max_memory(); }
 
 std::string ProxyMemoryPool::backend_name() const { return impl_->backend_name(); }
+
+std::vector<std::string> SupportedMemoryBackendNames() {
+  std::vector<std::string> supported;
+  for (const auto backend : supported_backends) {
+    supported.push_back(backend.name);
+  }
+  return supported;
+}
 
 }  // namespace arrow
