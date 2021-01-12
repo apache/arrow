@@ -110,12 +110,14 @@ x-hierarchy:
     - ubuntu-lint
     - ubuntu-python:
       - ubuntu-docs
+    - ubuntu-python-sdist-test
     - ubuntu-r
   - ubuntu-cuda-cpp:
     - ubuntu-cuda-python
   - ubuntu-csharp
   - ubuntu-cpp-sanitizer
   - ubuntu-r-sanitizer
+  - python-sdist
   - r
   # helper services
   - impala
@@ -587,6 +589,53 @@ services:
       <<: *ccache
     volumes: *fedora-volumes
     command: *python-command
+
+  ############################ Python sdist ###################################
+
+  python-sdist:
+    # Usage:
+    #   docker-compose build python-sdist
+    #   docker-compose run --rm python-sdist
+    # Parameters:
+    #   PYARROW_VERSION: The pyarrow version for sdist such as "3.0.0"
+    image: ${REPO}:python-sdist
+    build:
+      context: .
+      dockerfile: ci/docker/python-sdist.dockerfile
+      cache_from:
+        - ${REPO}:python-sdist
+    environment:
+      PYARROW_VERSION: ${PYARROW_VERSION:-}
+    volumes:
+      - .:/arrow:delegated
+    command: /arrow/ci/scripts/python_sdist_build.sh /arrow
+
+  ubuntu-python-sdist-test:
+    # Usage:
+    #   docker-compose build ubuntu-cpp
+    #   docker-compose build ubuntu-python-sdist-test
+    #   docker-compose run --rm ubuntu-python-sdist-test
+    # Parameters:
+    #   ARCH: amd64, arm64v8, ...
+    #   PYARROW_VERSION: The test target pyarrow version such as "3.0.0"
+    #   UBUNTU: 16.04, 18.04, 20.04
+    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
+    build:
+      context: .
+      dockerfile: ci/docker/linux-apt-python-3.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
+      args:
+        base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
+    shm_size: *shm-size
+    environment:
+      <<: *ccache
+      PYARROW_VERSION: ${PYARROW_VERSION:-}
+    volumes: *ubuntu-volumes
+    command: >
+      /bin/bash -c "
+        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/python_sdist_test.sh /arrow"
 
   ##############################  Integration #################################
 

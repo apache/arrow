@@ -48,6 +48,15 @@ groups:
   homebrew:
     - homebrew-*
 
+  packaging:
+    - conda-*
+    - wheel-*
+    - debian-*
+    - ubuntu-*
+    - centos-*
+    - python-sdist
+    - nuget
+
   ############################# Testing tasks #################################
 
   test:
@@ -121,6 +130,7 @@ groups:
     - test-*
     - example-*
     - wheel-*
+    - python-sdist
 
 tasks:
   # arbitrary_task_name:
@@ -609,6 +619,14 @@ tasks:
       python_version: 3.8
     artifacts:
       - pyarrow-{no_rc_version}-cp38-cp38-win_amd64.whl
+
+  ############################ Python sdist ####################################
+
+  python-sdist:
+    ci: github
+    template: python-sdist/github.yml
+    artifacts:
+      - pyarrow-{no_rc_version}.tar.gz
 
   ############################## Linux PKGS ####################################
 

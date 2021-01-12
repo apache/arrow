@@ -123,7 +123,7 @@ cmake -G "${CMAKE_GENERATOR:-Ninja}" \
       -DPARQUET_REQUIRE_ENCRYPTION=${PARQUET_REQUIRE_ENCRYPTION:-ON} \
       -DProtobuf_SOURCE=${Protobuf_SOURCE:-} \
       -DRapidJSON_SOURCE=${RapidJSON_SOURCE:-} \
-      -DRE2_SOURCE=${RE2_SOURCE:-} \
+      -Dre2_SOURCE=${re2_SOURCE:-} \
       -DSnappy_SOURCE=${Snappy_SOURCE:-} \
       -DThrift_SOURCE=${Thrift_SOURCE:-} \
       -Dutf8proc_SOURCE=${utf8proc_SOURCE:-} \
