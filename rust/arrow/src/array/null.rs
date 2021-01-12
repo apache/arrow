@@ -52,6 +52,12 @@ impl NullArray {
         let array_data = ArrayData::builder(DataType::Null).len(length).build();
         NullArray::from(array_data)
     }
+
+    /// Create a new null array of the specified length and type
+    pub fn new_with_type(length: usize, data_type: DataType) -> Self {
+        let array_data = ArrayData::builder(data_type).len(length).build();
+        NullArray::from(array_data)
+    }
 }
 
 impl Array for NullArray {

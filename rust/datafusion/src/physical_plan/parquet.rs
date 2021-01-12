@@ -592,13 +592,10 @@ enum StatisticsType {
 }
 
 fn build_null_array(data_type: &DataType, length: usize) -> ArrayRef {
-    let mut null_bitmap_builder = BooleanBufferBuilder::new(length);
-    null_bitmap_builder.append_n(length, false);
-    let array_data = ArrayData::builder(data_type.clone())
-        .len(length)
-        .null_bit_buffer(null_bitmap_builder.finish())
-        .build();
-    make_array(array_data)
+    Arc::new(arrow::array::NullArray::new_with_type(
+        length,
+        data_type.clone(),
+    ))
 }
 
 fn build_statistics_array(
@@ -607,11 +604,6 @@ fn build_statistics_array(
     data_type: &DataType,
 ) -> ArrayRef {
     let statistics_count = statistics.len();
-    // this should be handled by the condition below
-    // if statistics_count < 1 {
-    //     return build_null_array(data_type, 0);
-    // }
-
     let first_group_stats = statistics.iter().find(|s| s.is_some());
     let first_group_stats = if let Some(Some(statistics)) = first_group_stats {
         // found first row group with statistics defined
@@ -856,8 +848,10 @@ impl RecordBatchStream for ParquetStream {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use arrow::array::Int32Array;
+    use arrow::array::{Int32Array, StringArray};
     use futures::StreamExt;
+    use parquet::basic::Type as PhysicalType;
+    use parquet::schema::types::SchemaDescPtr;
 
     #[test]
     fn test_split_files() {
@@ -927,7 +921,7 @@ mod tests {
     }
 
     #[test]
-    fn build_statistics_array_test() {
+    fn build_statistics_array_int32() {
         // build row group metadata array
         let s1 = ParquetStatistics::int32(None, Some(10), None, 0, false);
         let s2 = ParquetStatistics::int32(Some(2), Some(20), None, 0, false);
@@ -950,7 +944,86 @@ mod tests {
             .downcast_ref::<Int32Array>()
             .unwrap();
         let int32_vec = int32_array.into_iter().collect::<Vec<_>>();
+        // here the first max value is None and not the Some(10) value which was actually set
+        // because the min value is None
         assert_eq!(int32_vec, vec![None, Some(20), Some(30)]);
+    }
+
+    #[test]
+    fn build_statistics_array_utf8() {
+        // build row group metadata array
+        let s1 = ParquetStatistics::byte_array(None, Some("10".into()), None, 0, false);
+        let s2 = ParquetStatistics::byte_array(
+            Some("2".into()),
+            Some("20".into()),
+            None,
+            0,
+            false,
+        );
+        let s3 = ParquetStatistics::byte_array(
+            Some("3".into()),
+            Some("30".into()),
+            None,
+            0,
+            false,
+        );
+        let statistics = vec![Some(&s1), Some(&s2), Some(&s3)];
+
+        let statistics_array =
+            build_statistics_array(&statistics, StatisticsType::Min, &DataType::Utf8);
+        let string_array = statistics_array
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .unwrap();
+        let string_vec = string_array.into_iter().collect::<Vec<_>>();
+        assert_eq!(string_vec, vec![None, Some("2"), Some("3")]);
+
+        let statistics_array =
+            build_statistics_array(&statistics, StatisticsType::Max, &DataType::Utf8);
+        let string_array = statistics_array
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .unwrap();
+        let string_vec = string_array.into_iter().collect::<Vec<_>>();
+        // here the first max value is None and not the Some("10") value which was actually set
+        // because the min value is None
+        assert_eq!(string_vec, vec![None, Some("20"), Some("30")]);
+    }
+
+    #[test]
+    fn build_statistics_array_empty_stats() {
+        let data_type = DataType::Int32;
+        let statistics = vec![];
+        let statistics_array =
+            build_statistics_array(&statistics, StatisticsType::Min, &data_type);
+        assert_eq!(statistics_array.len(), 0);
+
+        let statistics = vec![None, None];
+        let statistics_array =
+            build_statistics_array(&statistics, StatisticsType::Min, &data_type);
+        assert_eq!(statistics_array.len(), statistics.len());
+        assert_eq!(statistics_array.data_type(), &data_type);
+        for i in 0..statistics_array.len() {
+            assert_eq!(statistics_array.is_null(i), true);
+            assert_eq!(statistics_array.is_valid(i), false);
+        }
+    }
+
+    #[test]
+    fn build_statistics_array_unsupported_type() {
+        // boolean is not currently a supported type for statistics
+        let s1 = ParquetStatistics::boolean(Some(false), Some(true), None, 0, false);
+        let s2 = ParquetStatistics::boolean(Some(false), Some(true), None, 0, false);
+        let statistics = vec![Some(&s1), Some(&s2)];
+        let data_type = DataType::Boolean;
+        let statistics_array =
+            build_statistics_array(&statistics, StatisticsType::Min, &data_type);
+        assert_eq!(statistics_array.len(), statistics.len());
+        assert_eq!(statistics_array.data_type(), &data_type);
+        for i in 0..statistics_array.len() {
+            assert_eq!(statistics_array.is_null(i), true);
+            assert_eq!(statistics_array.is_valid(i), false);
+        }
     }
 
     #[test]
@@ -1116,5 +1189,177 @@ mod tests {
         assert_eq!(stat_column_req.len(), 3);
 
         Ok(())
+    }
+
+    #[test]
+    fn row_group_predicate_builder_simple_expr() -> Result<()> {
+        use crate::logical_plan::{col, lit};
+        // int > 1 => c1_max > 1
+        let expr = col("c1").gt(lit(15));
+        let schema = Schema::new(vec![Field::new("c1", DataType::Int32, false)]);
+        let predicate_builder = RowGroupPredicateBuilder::try_new(&expr, schema)?;
+
+        let schema_descr = get_test_schema_descr(vec![("c1", PhysicalType::INT32)]);
+        let rgm1 = get_row_group_meta_data(
+            &schema_descr,
+            vec![ParquetStatistics::int32(Some(1), Some(10), None, 0, false)],
+        );
+        let rgm2 = get_row_group_meta_data(
+            &schema_descr,
+            vec![ParquetStatistics::int32(Some(11), Some(20), None, 0, false)],
+        );
+        let row_group_metadata = vec![rgm1, rgm2];
+        let row_group_predicate =
+            predicate_builder.build_row_group_predicate(&row_group_metadata);
+        let row_group_filter = row_group_metadata
+            .iter()
+            .enumerate()
+            .map(|(i, g)| row_group_predicate(g, i))
+            .collect::<Vec<_>>();
+        assert_eq!(row_group_filter, vec![false, true]);
+
+        Ok(())
+    }
+
+    #[test]
+    fn row_group_predicate_builder_partial_expr() -> Result<()> {
+        use crate::logical_plan::{col, lit};
+        // test row group predicate with partially supported expression
+        // int > 1 and int % 2 => c1_max > 1 and true
+        let expr = col("c1").gt(lit(15)).and(col("c2").modulus(lit(2)));
+        let schema = Schema::new(vec![
+            Field::new("c1", DataType::Int32, false),
+            Field::new("c2", DataType::Int32, false),
+        ]);
+        let predicate_builder = RowGroupPredicateBuilder::try_new(&expr, schema.clone())?;
+
+        let schema_descr = get_test_schema_descr(vec![
+            ("c1", PhysicalType::INT32),
+            ("c2", PhysicalType::INT32),
+        ]);
+        let rgm1 = get_row_group_meta_data(
+            &schema_descr,
+            vec![
+                ParquetStatistics::int32(Some(1), Some(10), None, 0, false),
+                ParquetStatistics::int32(Some(1), Some(10), None, 0, false),
+            ],
+        );
+        let rgm2 = get_row_group_meta_data(
+            &schema_descr,
+            vec![
+                ParquetStatistics::int32(Some(11), Some(20), None, 0, false),
+                ParquetStatistics::int32(Some(11), Some(20), None, 0, false),
+            ],
+        );
+        let row_group_metadata = vec![rgm1, rgm2];
+        let row_group_predicate =
+            predicate_builder.build_row_group_predicate(&row_group_metadata);
+        let row_group_filter = row_group_metadata
+            .iter()
+            .enumerate()
+            .map(|(i, g)| row_group_predicate(g, i))
+            .collect::<Vec<_>>();
+        // the first row group is still filtered out because the predicate expression can be partially evaluated
+        // when conditions are joined using AND
+        assert_eq!(row_group_filter, vec![false, true]);
+
+        // if conditions in predicate are joined with OR and an unsupported expression is used
+        // this bypasses the entire predicate expression and no row groups are filtered out
+        let expr = col("c1").gt(lit(15)).or(col("c2").modulus(lit(2)));
+        let predicate_builder = RowGroupPredicateBuilder::try_new(&expr, schema.clone())?;
+        let row_group_predicate =
+            predicate_builder.build_row_group_predicate(&row_group_metadata);
+        let row_group_filter = row_group_metadata
+            .iter()
+            .enumerate()
+            .map(|(i, g)| row_group_predicate(g, i))
+            .collect::<Vec<_>>();
+        assert_eq!(row_group_filter, vec![true, true]);
+
+        Ok(())
+    }
+
+    #[test]
+    fn row_group_predicate_builder_unsupported_type() -> Result<()> {
+        use crate::logical_plan::{col, lit};
+        // test row group predicate with unsupported statistics type (boolean)
+        // where a null array is generated for some statistics columns
+        // int > 1 and bool = true => c1_max > 1 and null
+        let expr = col("c1").gt(lit(15)).and(col("c2").eq(lit(true)));
+        let schema = Schema::new(vec![
+            Field::new("c1", DataType::Int32, false),
+            Field::new("c2", DataType::Boolean, false),
+        ]);
+        let predicate_builder = RowGroupPredicateBuilder::try_new(&expr, schema.clone())?;
+
+        let schema_descr = get_test_schema_descr(vec![
+            ("c1", PhysicalType::INT32),
+            ("c2", PhysicalType::BOOLEAN),
+        ]);
+        let rgm1 = get_row_group_meta_data(
+            &schema_descr,
+            vec![
+                ParquetStatistics::int32(Some(1), Some(10), None, 0, false),
+                ParquetStatistics::boolean(Some(false), Some(true), None, 0, false),
+            ],
+        );
+        let rgm2 = get_row_group_meta_data(
+            &schema_descr,
+            vec![
+                ParquetStatistics::int32(Some(11), Some(20), None, 0, false),
+                ParquetStatistics::boolean(Some(false), Some(true), None, 0, false),
+            ],
+        );
+        let row_group_metadata = vec![rgm1, rgm2];
+        let row_group_predicate =
+            predicate_builder.build_row_group_predicate(&row_group_metadata);
+        let row_group_filter = row_group_metadata
+            .iter()
+            .enumerate()
+            .map(|(i, g)| row_group_predicate(g, i))
+            .collect::<Vec<_>>();
+        // no row group is filtered out because the predicate expression can't be evaluated
+        // when a null array is generated for a statistics column,
+        // because the null values propagate to the end result, making the predicate result undefined
+        assert_eq!(row_group_filter, vec![true, true]);
+
+        Ok(())
+    }
+
+    fn get_row_group_meta_data(
+        schema_descr: &SchemaDescPtr,
+        column_statistics: Vec<ParquetStatistics>,
+    ) -> RowGroupMetaData {
+        use parquet::file::metadata::ColumnChunkMetaData;
+        let mut columns = vec![];
+        for (i, s) in column_statistics.iter().enumerate() {
+            let column = ColumnChunkMetaData::builder(schema_descr.column(i))
+                .set_statistics(s.clone())
+                .build()
+                .unwrap();
+            columns.push(column);
+        }
+        RowGroupMetaData::builder(schema_descr.clone())
+            .set_num_rows(1000)
+            .set_total_byte_size(2000)
+            .set_column_metadata(columns)
+            .build()
+            .unwrap()
+    }
+
+    fn get_test_schema_descr(fields: Vec<(&str, PhysicalType)>) -> SchemaDescPtr {
+        use parquet::schema::types::{SchemaDescriptor, Type as SchemaType};
+        let mut schema_fields = fields
+            .iter()
+            .map(|(n, t)| {
+                Arc::new(SchemaType::primitive_type_builder(n, *t).build().unwrap())
+            })
+            .collect::<Vec<_>>();
+        let schema = SchemaType::group_type_builder("schema")
+            .with_fields(&mut schema_fields)
+            .build()
+            .unwrap();
+
+        Arc::new(SchemaDescriptor::new(Arc::new(schema)))
     }
 }
