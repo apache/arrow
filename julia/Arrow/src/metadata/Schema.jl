@@ -242,7 +242,7 @@ struct Decimal <: FlatBuffers.Table
     pos::Base.Int
 end
 
-Base.propertynames(x::Decimal) = (:precision, :scale)
+Base.propertynames(x::Decimal) = (:precision, :scale, :bitWidth)
 
 function Base.getproperty(x::Decimal, field::Symbol)
     if field === :precision
@@ -253,13 +253,18 @@ function Base.getproperty(x::Decimal, field::Symbol)
         o = FlatBuffers.offset(x, 6)
         o != 0 && return FlatBuffers.get(x, o + FlatBuffers.pos(x), Int32)
         return Int32(0)
+    elseif field === :bitWidth
+        o = FlatBuffers.offset(x, 8)
+        o != 0 && return FlatBuffers.get(x, o + FlatBuffers.pos(x), Int32)
+        return Int32(128)
     end
     return nothing
 end
 
-decimalStart(b::FlatBuffers.Builder) = FlatBuffers.startobject!(b, 2)
+decimalStart(b::FlatBuffers.Builder) = FlatBuffers.startobject!(b, 3)
 decimalAddPrecision(b::FlatBuffers.Builder, precision::Int32) = FlatBuffers.prependslot!(b, 0, precision, 0)
 decimalAddScale(b::FlatBuffers.Builder, scale::Int32) = FlatBuffers.prependslot!(b, 1, scale, 0)
+decimalAddBitWidth(b::FlatBuffers.Builder, bitWidth::Int32) = FlatBuffers.prependslot!(b, 2, bitWidth, Int32(128))
 decimalEnd(b::FlatBuffers.Builder) = FlatBuffers.endobject!(b)
 
 FlatBuffers.@scopedenum DateUnit::Int16 DAY MILLISECOND

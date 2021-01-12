@@ -69,9 +69,9 @@ struct Decimal <: Type
     scale::Int32
 end
 
-Type(::Base.Type{Arrow.Decimal{P, S}}) where {P, S} = Decimal("decimal", P, S)
+Type(::Base.Type{Arrow.Decimal{P, S, T}}) where {P, S, T} = Decimal("decimal", P, S)
 StructTypes.StructType(::Base.Type{Decimal}) = StructTypes.Struct()
-juliatype(f, x::Decimal) = Arrow.Decimal{x.precision, x.scale}
+juliatype(f, x::Decimal) = Arrow.Decimal{x.precision, x.scale, Int128}
 
 mutable struct Timestamp <: Type
     name::String

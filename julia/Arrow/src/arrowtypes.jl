@@ -20,6 +20,8 @@ in order to signal how they should be serialized in the arrow format.
 """
 module ArrowTypes
 
+using UUIDs
+
 export ArrowType, NullType, PrimitiveType, BoolType, ListType, FixedSizeListType, MapType, StructType, UnionType, DictEncodedType
 
 abstract type ArrowType end
@@ -41,6 +43,14 @@ struct PrimitiveType <: ArrowType end
 
 ArrowType(::Type{<:Integer}) = PrimitiveType()
 ArrowType(::Type{<:AbstractFloat}) = PrimitiveType()
+
+arrowconvert(::Type{UInt128}, u::UUID) = UInt128(u)
+arrowconvert(::Type{UUID}, u::UInt128) = UUID(u)
+
+# This method is included as a deprecation path to allow reading Arrow files that may have
+# been written before Arrow.jl defined its own UUID <-> UInt128 mapping (in which case
+# a struct-based fallback `JuliaLang.UUID` extension type may have been utilized)
+arrowconvert(::Type{UUID}, u::NamedTuple{(:value,),Tuple{UInt128}}) = UUID(u.value)
 
 struct BoolType <: ArrowType end
 ArrowType(::Type{Bool}) = BoolType()
@@ -115,6 +125,7 @@ default(::Type{NamedTuple{names, types}}) where {names, types} = NamedTuple{name
 const JULIA_TO_ARROW_TYPE_MAPPING = Dict{Type, Tuple{String, Type}}(
     Char => ("JuliaLang.Char", UInt32),
     Symbol => ("JuliaLang.Symbol", String),
+    UUID => ("JuliaLang.UUID", UInt128),
 )
 
 istyperegistered(::Type{T}) where {T} = haskey(JULIA_TO_ARROW_TYPE_MAPPING, T)
@@ -129,13 +140,15 @@ end
 const ARROW_TO_JULIA_TYPE_MAPPING = Dict{String, Tuple{Type, Type}}(
     "JuliaLang.Char" => (Char, UInt32),
     "JuliaLang.Symbol" => (Symbol, String),
+    "JuliaLang.UUID" => (UUID, UInt128),
 )
 
-function extensiontype(meta)
+function extensiontype(f, meta)
     if haskey(meta, "ARROW:extension:name")
         typename = meta["ARROW:extension:name"]
         if haskey(ARROW_TO_JULIA_TYPE_MAPPING, typename)
-            return ARROW_TO_JULIA_TYPE_MAPPING[typename][1]
+            T = ARROW_TO_JULIA_TYPE_MAPPING[typename][1]
+            return f.nullable ? Union{T, Missing} : T
         else
             @warn "unsupported ARROW:extension:name type: \"$typename\""
         end

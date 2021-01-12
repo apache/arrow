@@ -96,7 +96,7 @@ end
 
 struct Array{T, S, TT} <: AbstractVector{T}
     _tab::TT
-    pos::UOffsetT
+    pos::Int64
     data::Vector{S}
 end
 

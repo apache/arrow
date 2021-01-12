@@ -43,7 +43,7 @@ function juliaeltype(f::Meta.Field, meta::Dict{String, String}, convert::Bool)
     TT = juliaeltype(f, convert)
     !convert && return TT
     T = finaljuliatype(TT)
-    TTT = ArrowTypes.extensiontype(meta)
+    TTT = ArrowTypes.extensiontype(f, meta)
     return something(TTT, T)
 end
 
@@ -134,24 +134,25 @@ function arrowtype(b, ::Type{Bool})
     return Meta.Bool, Meta.boolEnd(b), nothing
 end
 
-struct Decimal{P, S}
-    value::Int128
+struct Decimal{P, S, T}
+    value::T # only Int128 or Int256
 end
 
-Base.zero(::Type{Decimal{P, S}}) where {P, S} = Decimal{P, S}(Int128(0))
-==(a::Decimal{P, S}, b::Decimal{P, S}) where {P, S} = ==(a.value, b.value)
-Base.isequal(a::Decimal{P, S}, b::Decimal{P, S}) where {P, S} = isequal(a.value, b.value)
+Base.zero(::Type{Decimal{P, S, T}}) where {P, S, T} = Decimal{P, S, T}(T(0))
+==(a::Decimal{P, S, T}, b::Decimal{P, S, T}) where {P, S, T} = ==(a.value, b.value)
+Base.isequal(a::Decimal{P, S, T}, b::Decimal{P, S, T}) where {P, S, T} = isequal(a.value, b.value)
 
 function juliaeltype(f::Meta.Field, x::Meta.Decimal, convert)
-    return Decimal{x.precision, x.scale}
+    return Decimal{x.precision, x.scale, x.bitWidth == 256 ? Int256 : Int128}
 end
 
 ArrowTypes.ArrowType(::Type{<:Decimal}) = PrimitiveType()
 
-function arrowtype(b, ::Type{Decimal{P, S}}) where {P, S}
+function arrowtype(b, ::Type{Decimal{P, S, T}}) where {P, S, T}
     Meta.decimalStart(b)
     Meta.decimalAddPrecision(b, Int32(P))
     Meta.decimalAddScale(b, Int32(S))
+    Meta.decimalAddBitWidth(b, Int32(T == Int256 ? 256 : 128))
     return Meta.Decimal, Meta.decimalEnd(b), nothing
 end
 
@@ -171,7 +172,6 @@ bitwidth(x::Meta.DateUnit) = x == Meta.DateUnit.DAY ? Int32 : Int64
 Date{Meta.DateUnit.DAY}(days) = Date{Meta.DateUnit.DAY, Int32}(Int32(days))
 Date{Meta.DateUnit.MILLISECOND}(ms) = Date{Meta.DateUnit.MILLISECOND, Int64}(Int64(ms))
 const DATE = Date{Meta.DateUnit.DAY, Int32}
-const DATETIME = Date{Meta.DateUnit.MILLISECOND, Int64}
 
 juliaeltype(f::Meta.Field, x::Meta.Date, convert) = Date{x.unit, bitwidth(x.unit)}
 finaljuliatype(::Type{Date{Meta.DateUnit.DAY, Int32}}) = Dates.Date
@@ -227,11 +227,18 @@ function juliaeltype(f::Meta.Field, x::Meta.Timestamp, convert)
     return Timestamp{x.unit, x.timezone === nothing ? nothing : Symbol(x.timezone)}
 end
 
-finaljuliatype(::Type{<:Timestamp}) = ZonedDateTime
+const DATETIME = Timestamp{Meta.TimeUnit.MILLISECOND, nothing}
+
+finaljuliatype(::Type{Timestamp{U, TZ}}) where {U, TZ} = ZonedDateTime
+finaljuliatype(::Type{Timestamp{U, nothing}}) where {U} = DateTime
 Base.convert(::Type{ZonedDateTime}, x::Timestamp{U, TZ}) where {U, TZ} =
     ZonedDateTime(Dates.DateTime(Dates.UTM(Int64(Dates.toms(periodtype(U)(x.x)) + UNIX_EPOCH_DATETIME))), TimeZone(String(TZ)))
+Base.convert(::Type{DateTime}, x::Timestamp{U, nothing}) where {U} =
+    Dates.DateTime(Dates.UTM(Int64(Dates.toms(periodtype(U)(x.x)) + UNIX_EPOCH_DATETIME)))
 Base.convert(::Type{Timestamp{Meta.TimeUnit.MILLISECOND, TZ}}, x::ZonedDateTime) where {TZ} =
-    Timestamp{Meta.TimeUnit.MILLISECOND, TZ}(Int64(Dates.value(DateTime(x, Local)) - UNIX_EPOCH_DATETIME))
+    Timestamp{Meta.TimeUnit.MILLISECOND, TZ}(Int64(Dates.value(DateTime(x)) - UNIX_EPOCH_DATETIME))
+Base.convert(::Type{Timestamp{Meta.TimeUnit.MILLISECOND, nothing}}, x::DateTime) =
+    Timestamp{Meta.TimeUnit.MILLISECOND, nothing}(Int64(Dates.value(x) - UNIX_EPOCH_DATETIME))
 
 function arrowtype(b, ::Type{Timestamp{U, TZ}}) where {U, TZ}
     tz = TZ !== nothing ? FlatBuffers.createstring!(b, String(TZ)) : FlatBuffers.UOffsetT(0)
@@ -386,7 +393,7 @@ end
 
 # Unions
 function juliaeltype(f::Meta.Field, u::Meta.Union, convert)
-    return UnionT{u.mode, u.typeIds !== nothing ? Tuple(u.typeIds) : u.typeIds, Tuple{(juliaeltype(x, buildmetadata(x), convert) for x in f.children)...}}
+    return Union{(juliaeltype(x, buildmetadata(x), convert) for x in f.children)...}
 end
 
 arrowtype(b, x::Union{DenseUnion{TT, S}, SparseUnion{TT, S}}) where {TT, S} = arrowtype(b, TT, x)
