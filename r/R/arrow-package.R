@@ -89,7 +89,7 @@ arrow_info <- function() {
   out <- list(
     version = packageVersion("arrow"),
     libarrow = arrow_available(),
-    options = opts[grep("^arrow.", names(opts))]
+    options = opts[grep("^arrow\\.", names(opts))]
   )
   if (out$libarrow) {
     pool <- default_memory_pool()
