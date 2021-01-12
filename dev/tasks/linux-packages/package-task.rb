@@ -445,7 +445,7 @@ RELEASE=#{@rpm_release}
       cd(yum_dir) do
         distribution, version, architecture = target.split("-", 3)
         os = "#{distribution}-#{version}"
-        docker_run(os, architecture, console: true)
+        docker_run(os, architecture, console: console)
       end
     end
   end
