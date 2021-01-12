@@ -125,16 +125,19 @@ TYPED_TEST(TestIsInKernelPrimitive, IsIn) {
   CheckIsIn(type, "[]", "[]", "[]");
 }
 
-TEST_F(TestIsInKernel, Null) {
+TEST_F(TestIsInKernel, NullType) {
   auto type = null();
 
   CheckIsIn(type, "[null, null, null]", "[null]", "[true, true, true]");
   CheckIsIn(type, "[null, null, null]", "[]", "[false, false, false]");
   CheckIsIn(type, "[]", "[]", "[]");
+
+  CheckIsIn(type, "[null, null]", "[null]", "[false, false]", /*skip_nulls=*/true);
+  CheckIsIn(type, "[null, null]", "[]", "[false, false]", /*skip_nulls=*/true);
 }
 
 TEST_F(TestIsInKernel, TimeTimestamp) {
-  for (const auto type :
+  for (const auto& type :
        {time32(TimeUnit::SECOND), time64(TimeUnit::NANO), timestamp(TimeUnit::MICRO)}) {
     CheckIsIn(type, "[1, null, 5, 1, 2]", "[2, 1, null]",
               "[true, true, false, true, true]", /*skip_nulls=*/false);
@@ -352,15 +355,13 @@ TYPED_TEST(TestIndexInKernelPrimitive, SkipNulls) {
 }
 
 TEST_F(TestIndexInKernel, NullType) {
-  // XXX should skip_nulls have an influence here?
-
-  CheckIndexIn(null(), "[null, null, null]", "[null, null]", "[0, 0, 0]");
-
+  CheckIndexIn(null(), "[null, null, null]", "[null]", "[0, 0, 0]");
   CheckIndexIn(null(), "[null, null, null]", "[]", "[null, null, null]");
-
   CheckIndexIn(null(), "[]", "[null, null]", "[]");
-
   CheckIndexIn(null(), "[]", "[]", "[]");
+
+  CheckIndexIn(null(), "[null, null]", "[null]", "[null, null]", /*skip_nulls=*/true);
+  CheckIndexIn(null(), "[null, null]", "[]", "[null, null]", /*skip_nulls=*/true);
 }
 
 TEST_F(TestIndexInKernel, TimeTimestamp) {

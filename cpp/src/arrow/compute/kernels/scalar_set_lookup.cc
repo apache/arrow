@@ -180,10 +180,12 @@ struct IndexInVisitor {
   IndexInVisitor(KernelContext* ctx, const ArrayData& data, Datum* out)
       : ctx(ctx), data(data), out(out), builder(ctx->exec_context()->memory_pool()) {}
 
-  Status Visit(const DataType&) {
+  Status Visit(const DataType& type) {
+    DCHECK_EQ(type.id(), Type::NA);
     const auto& state = checked_cast<const SetLookupState<NullType>&>(*ctx->state());
     if (data.length != 0) {
-      if (state.value_set_has_null) {
+      // skip_nulls is honored for consistency with other types
+      if (state.value_set_has_null && !state.options.skip_nulls) {
         RETURN_NOT_OK(this->builder.Reserve(data.length));
         for (int64_t i = 0; i < data.length; ++i) {
           this->builder.UnsafeAppend(0);
@@ -276,11 +278,12 @@ struct IsInVisitor {
   IsInVisitor(KernelContext* ctx, const ArrayData& data, Datum* out)
       : ctx(ctx), data(data), out(out) {}
 
-  Status Visit(const DataType&) {
+  Status Visit(const DataType& type) {
+    DCHECK_EQ(type.id(), Type::NA);
     const auto& state = checked_cast<const SetLookupState<NullType>&>(*ctx->state());
-    // XXX should skip_nulls be taken into account?
     ArrayData* output = out->mutable_array();
-    if (state.value_set_has_null) {
+    // skip_nulls is honored for consistency with other types
+    if (state.value_set_has_null && !state.options.skip_nulls) {
       BitUtil::SetBitsTo(output->buffers[1]->mutable_data(), output->offset,
                          output->length, true);
     } else {
