@@ -264,10 +264,26 @@ ArrayKernelExec NumericEqualTypesBinary(detail::GetTypeId get_id) {
   }
 }
 
+struct ArithmeticFunction : ScalarFunction {
+  using ScalarFunction::ScalarFunction;
+
+  Result<const Kernel*> DispatchBest(std::vector<ValueDescr>* values) const override {
+    EnsureDictionaryDecoded(values);
+
+    if (auto type = CommonNumeric(*values)) {
+      for (auto& descr : *values) {
+        descr.type = type;
+      }
+    }
+
+    return DispatchExact(*values);
+  }
+};
+
 template <typename Op>
 std::shared_ptr<ScalarFunction> MakeArithmeticFunction(std::string name,
                                                        const FunctionDoc* doc) {
-  auto func = std::make_shared<ScalarFunction>(name, Arity::Binary(), doc);
+  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Binary(), doc);
   for (const auto& ty : NumericTypes()) {
     auto exec = NumericEqualTypesBinary<ScalarBinaryEqualTypes, Op>(ty);
     DCHECK_OK(func->AddKernel({ty, ty}, ty, exec));
@@ -280,7 +296,7 @@ std::shared_ptr<ScalarFunction> MakeArithmeticFunction(std::string name,
 template <typename Op>
 std::shared_ptr<ScalarFunction> MakeArithmeticFunctionNotNull(std::string name,
                                                               const FunctionDoc* doc) {
-  auto func = std::make_shared<ScalarFunction>(name, Arity::Binary(), doc);
+  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Binary(), doc);
   for (const auto& ty : NumericTypes()) {
     auto exec = NumericEqualTypesBinary<ScalarBinaryNotNullEqualTypes, Op>(ty);
     DCHECK_OK(func->AddKernel({ty, ty}, ty, exec));

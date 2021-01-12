@@ -72,10 +72,26 @@ void AddGenericCompare(const std::shared_ptr<DataType>& ty, ScalarFunction* func
                       applicator::ScalarBinaryEqualTypes<BooleanType, InType, Op>::Exec));
 }
 
+struct CompareFunction : ScalarFunction {
+  using ScalarFunction::ScalarFunction;
+
+  Result<const Kernel*> DispatchBest(std::vector<ValueDescr>* values) const override {
+    EnsureDictionaryDecoded(values);
+
+    if (auto type = CommonNumeric(*values)) {
+      for (auto& descr : *values) {
+        descr.type = type;
+      }
+    }
+
+    return DispatchExact(*values);
+  }
+};
+
 template <typename Op>
 std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name,
                                                     const FunctionDoc* doc) {
-  auto func = std::make_shared<ScalarFunction>(name, Arity::Binary(), doc);
+  auto func = std::make_shared<CompareFunction>(name, Arity::Binary(), doc);
 
   DCHECK_OK(func->AddKernel(
       {boolean(), boolean()}, boolean(),
@@ -136,7 +152,7 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name,
 std::shared_ptr<ScalarFunction> MakeFlippedFunction(std::string name,
                                                     const ScalarFunction& func,
                                                     const FunctionDoc* doc) {
-  auto flipped_func = std::make_shared<ScalarFunction>(name, Arity::Binary(), doc);
+  auto flipped_func = std::make_shared<CompareFunction>(name, Arity::Binary(), doc);
   for (const ScalarKernel* kernel : func.kernels()) {
     ScalarKernel flipped_kernel = *kernel;
     flipped_kernel.exec = MakeFlippedBinaryExec(kernel->exec);

@@ -162,7 +162,15 @@ class ARROW_EXPORT Function {
   ///
   /// NB: This function is overridden in CastFunction.
   virtual Result<const Kernel*> DispatchExact(
-      const std::vector<ValueDescr>& values) const = 0;
+      const std::vector<ValueDescr>& values) const;
+
+  /// \brief Return a best-match kernel that can execute the function given the argument
+  /// types, after implicit casts are applied.
+  ///
+  /// \param[in,out] values Argument types. An element may be modified to indicate that
+  /// the returned kernel only approximately matches the input value descriptors; callers
+  /// are responsible for casting inputs to the type and shape required by the kernel.
+  virtual Result<const Kernel*> DispatchBest(std::vector<ValueDescr>* values) const;
 
   /// \brief Execute the function eagerly with the passed input arguments with
   /// kernel dispatch, batch iteration, and memory allocation details taken
@@ -249,9 +257,6 @@ class ARROW_EXPORT ScalarFunction : public detail::FunctionImpl<ScalarKernel> {
   /// \brief Add a kernel (function implementation). Returns error if the
   /// kernel's signature does not match the function's arity.
   Status AddKernel(ScalarKernel kernel);
-
-  Result<const Kernel*> DispatchExact(
-      const std::vector<ValueDescr>& values) const override;
 };
 
 /// \brief A function that executes general array operations that may yield
@@ -276,9 +281,6 @@ class ARROW_EXPORT VectorFunction : public detail::FunctionImpl<VectorKernel> {
   /// \brief Add a kernel (function implementation). Returns error if the
   /// kernel's signature does not match the function's arity.
   Status AddKernel(VectorKernel kernel);
-
-  Result<const Kernel*> DispatchExact(
-      const std::vector<ValueDescr>& values) const override;
 };
 
 class ARROW_EXPORT ScalarAggregateFunction
@@ -294,9 +296,6 @@ class ARROW_EXPORT ScalarAggregateFunction
   /// \brief Add a kernel (function implementation). Returns error if the
   /// kernel's signature does not match the function's arity.
   Status AddKernel(ScalarAggregateKernel kernel);
-
-  Result<const Kernel*> DispatchExact(
-      const std::vector<ValueDescr>& values) const override;
 };
 
 /// \brief A function that dispatches to other functions. Must implement
@@ -310,10 +309,6 @@ class ARROW_EXPORT MetaFunction : public Function {
 
   Result<Datum> Execute(const std::vector<Datum>& args, const FunctionOptions* options,
                         ExecContext* ctx) const override;
-
-  Result<const Kernel*> DispatchExact(const std::vector<ValueDescr>&) const override {
-    return Status::NotImplemented("DispatchExact for a MetaFunction's Kernels");
-  }
 
  protected:
   virtual Result<Datum> ExecuteImpl(const std::vector<Datum>& args,

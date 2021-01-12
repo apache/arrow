@@ -179,6 +179,37 @@ Result<ValueDescr> FirstType(KernelContext*, const std::vector<ValueDescr>& desc
   return descrs[0];
 }
 
+std::shared_ptr<DataType> CommonNumeric(const std::vector<ValueDescr>& descrs) {
+  for (const auto& descr : descrs) {
+    auto id = descr.type->id();
+    if (!is_floating(id) && !is_integer(id)) {
+      // a common numeric type is only possible if all types are numeric
+      return nullptr;
+    }
+  }
+  for (const auto& descr : descrs) {
+    if (descr.type->id() == Type::DOUBLE) return float64();
+  }
+  for (const auto& descr : descrs) {
+    if (descr.type->id() == Type::FLOAT) return float32();
+  }
+
+  bool at_least_one_signed = false;
+  int max_width = 0;
+
+  for (const auto& descr : descrs) {
+    at_least_one_signed |= is_signed_integer(descr.type->id());
+    max_width =
+        std::max(max_width, checked_cast<const IntegerType&>(*descr.type).bit_width());
+  }
+
+  if (max_width == 64) return at_least_one_signed ? int64() : uint64();
+  if (max_width == 32) return at_least_one_signed ? int32() : uint32();
+  if (max_width == 16) return at_least_one_signed ? int16() : uint16();
+  DCHECK_EQ(max_width, 8);
+  return at_least_one_signed ? int8() : uint8();
+}
+
 }  // namespace internal
 }  // namespace compute
 }  // namespace arrow

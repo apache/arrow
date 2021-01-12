@@ -306,7 +306,7 @@ size_t Expression::hash() const {
 }
 
 bool Expression::IsBound() const {
-  if (descr().type == nullptr) return false;
+  if (type() == nullptr) return false;
 
   if (auto call = this->call()) {
     if (call->kernel == nullptr) return false;
@@ -359,7 +359,7 @@ bool Expression::IsNullLiteral() const {
 }
 
 bool Expression::IsSatisfiable() const {
-  if (descr().type && descr().type->id() == Type::NA) {
+  if (type() && type()->id() == Type::NA) {
     return false;
   }
 
@@ -426,7 +426,7 @@ Result<Expression> BindNonRecursive(const Expression::Call& call,
 }
 
 Status MaybeInsertCast(std::shared_ptr<DataType> to_type, Expression* expr) {
-  if (expr->descr().type->Equals(to_type)) {
+  if (expr->type()->Equals(to_type)) {
     return Status::OK();
   }
 
@@ -454,22 +454,22 @@ Status InsertImplicitCasts(Expression::Call* call) {
 
   if (IsSameTypesBinary(call->function_name)) {
     for (auto&& argument : call->arguments) {
-      if (auto value_type = GetDictionaryValueType(argument.descr().type)) {
+      if (auto value_type = GetDictionaryValueType(argument.type())) {
         RETURN_NOT_OK(MaybeInsertCast(std::move(value_type), &argument));
       }
     }
 
     if (call->arguments[0].descr().shape == ValueDescr::SCALAR) {
       // argument 0 is scalar so casting is cheap
-      return MaybeInsertCast(call->arguments[1].descr().type, &call->arguments[0]);
+      return MaybeInsertCast(call->arguments[1].type(), &call->arguments[0]);
     }
 
     // cast argument 1 unconditionally
-    return MaybeInsertCast(call->arguments[0].descr().type, &call->arguments[1]);
+    return MaybeInsertCast(call->arguments[0].type(), &call->arguments[1]);
   }
 
   if (auto options = GetSetLookupOptions(*call)) {
-    if (auto value_type = GetDictionaryValueType(call->arguments[0].descr().type)) {
+    if (auto value_type = GetDictionaryValueType(call->arguments[0].type())) {
       // DICTIONARY input is not supported; decode it.
       RETURN_NOT_OK(MaybeInsertCast(std::move(value_type), &call->arguments[0]));
     }
@@ -482,12 +482,12 @@ Status InsertImplicitCasts(Expression::Call* call) {
       call->options = std::move(new_options);
     }
 
-    if (!options->value_set.type()->Equals(call->arguments[0].descr().type)) {
+    if (!options->value_set.type()->Equals(call->arguments[0].type())) {
       // The value_set is assumed smaller than inputs, casting it should be cheaper.
       auto new_options = std::make_shared<compute::SetLookupOptions>(*options);
-      ARROW_ASSIGN_OR_RAISE(new_options->value_set,
-                            compute::Cast(std::move(new_options->value_set),
-                                          call->arguments[0].descr().type));
+      ARROW_ASSIGN_OR_RAISE(
+          new_options->value_set,
+          compute::Cast(std::move(new_options->value_set), call->arguments[0].type()));
       options = new_options.get();
       call->options = std::move(new_options);
     }
@@ -595,8 +595,8 @@ Result<Datum> ExecuteScalarExpression(const Expression& expr, const Datum& input
       // Refernced field was present but didn't have the expected type.
       // Should we just error here? For now, pay dispatch cost and just cast.
       ARROW_ASSIGN_OR_RAISE(
-          field, compute::Cast(field, expr.descr().type, compute::CastOptions::Safe(),
-                               exec_context));
+          field,
+          compute::Cast(field, expr.type(), compute::CastOptions::Safe(), exec_context));
     }
 
     return field;
@@ -803,8 +803,7 @@ Result<Expression> ReplaceFieldsWithKnownValues(
         if (auto ref = expr.field_ref()) {
           auto it = known_values.find(*ref);
           if (it != known_values.end()) {
-            ARROW_ASSIGN_OR_RAISE(Datum lit,
-                                  compute::Cast(it->second, expr.descr().type));
+            ARROW_ASSIGN_OR_RAISE(Datum lit, compute::Cast(it->second, expr.type()));
             return literal(std::move(lit));
           }
         }

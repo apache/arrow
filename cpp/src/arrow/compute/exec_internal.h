@@ -132,6 +132,11 @@ class ARROW_EXPORT KernelExecutor {
 ARROW_EXPORT
 Status PropagateNulls(KernelContext* ctx, const ExecBatch& batch, ArrayData* out);
 
+/// \brief Look up a kernel in a function. If no Kernel is found, nullptr is returned.
+ARROW_EXPORT
+const Kernel* DispatchExactImpl(const Function* func,
+                                const std::vector<ValueDescr>& values);
+
 }  // namespace detail
 }  // namespace compute
 }  // namespace arrow

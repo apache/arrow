@@ -27,6 +27,9 @@
 #include "arrow/util/cpu_info.h"
 
 namespace arrow {
+
+using internal::checked_cast;
+
 namespace compute {
 
 static const FunctionDoc kEmptyFunctionDoc{};
@@ -44,8 +47,30 @@ Status Function::CheckArity(int passed_num_args) const {
   return Status::OK();
 }
 
-template <typename DescrType>
-std::string FormatArgTypes(const std::vector<DescrType>& descrs) {
+namespace {
+
+Status ValidateDispatch(const Function* func, const std::vector<ValueDescr>& values) {
+  if (func->kind() == Function::META) {
+    return Status::NotImplemented("Dispatch for a MetaFunction's Kernels");
+  }
+
+  const int passed_num_args = static_cast<int>(values.size());
+  const Arity arity = func->arity();
+
+  if (arity.is_varargs && passed_num_args < arity.num_args) {
+    return Status::Invalid("VarArgs function needs at least ", arity.num_args,
+                           " arguments but passed only ", passed_num_args);
+  }
+
+  if (!arity.is_varargs && passed_num_args != arity.num_args) {
+    return Status::Invalid("Function accepts ", arity.num_args, " arguments but passed ",
+                           passed_num_args);
+  }
+
+  return Status::OK();
+}
+
+Status NoMatchingKernel(const Function* func, const std::vector<ValueDescr>& descrs) {
   std::stringstream ss;
   ss << "(";
   for (size_t i = 0; i < descrs.size(); ++i) {
@@ -55,28 +80,20 @@ std::string FormatArgTypes(const std::vector<DescrType>& descrs) {
     ss << descrs[i].ToString();
   }
   ss << ")";
-  return ss.str();
+
+  return Status::NotImplemented("Function ", func->name(),
+                                " has no kernel matching input types ", ss.str());
 }
 
-template <typename KernelType, typename DescrType>
-Result<const KernelType*> DispatchExactImpl(const Function& func,
-                                            const std::vector<KernelType>& kernels,
-                                            const std::vector<DescrType>& values) {
-  const int passed_num_args = static_cast<int>(values.size());
-  const KernelType* kernel_matches[SimdLevel::MAX] = {NULL};
+template <typename KernelType>
+const KernelType* DispatchExactImpl(const std::vector<KernelType*>& kernels,
+                                    const std::vector<ValueDescr>& values) {
+  const KernelType* kernel_matches[SimdLevel::MAX] = {nullptr};
 
   // Validate arity
-  const Arity arity = func.arity();
-  if (arity.is_varargs && passed_num_args < arity.num_args) {
-    return Status::Invalid("VarArgs function needs at least ", arity.num_args,
-                           " arguments but passed only ", passed_num_args);
-  } else if (!arity.is_varargs && passed_num_args != arity.num_args) {
-    return Status::Invalid("Function accepts ", arity.num_args, " arguments but passed ",
-                           passed_num_args);
-  }
   for (const auto& kernel : kernels) {
-    if (kernel.signature->MatchesInputs(values)) {
-      kernel_matches[kernel.simd_level] = &kernel;
+    if (kernel->signature->MatchesInputs(values)) {
+      kernel_matches[kernel->simd_level] = kernel;
     }
   }
 
@@ -102,9 +119,51 @@ Result<const KernelType*> DispatchExactImpl(const Function& func,
     return kernel_matches[SimdLevel::NONE];
   }
 
-  return Status::NotImplemented("Function ", func.name(),
-                                " has no kernel matching input types ",
-                                FormatArgTypes(values));
+  return nullptr;
+}
+
+const Kernel* DispatchExactImpl(const Function* func,
+                                const std::vector<ValueDescr>& values) {
+  if (func->kind() == Function::SCALAR) {
+    return DispatchExactImpl(checked_cast<const ScalarFunction*>(func)->kernels(),
+                             values);
+  }
+
+  if (func->kind() == Function::VECTOR) {
+    return DispatchExactImpl(checked_cast<const VectorFunction*>(func)->kernels(),
+                             values);
+  }
+
+  if (func->kind() == Function::SCALAR_AGGREGATE) {
+    return DispatchExactImpl(
+        checked_cast<const ScalarAggregateFunction*>(func)->kernels(), values);
+  }
+
+  return nullptr;
+}
+
+}  // namespace
+
+Result<const Kernel*> Function::DispatchExact(
+    const std::vector<ValueDescr>& values) const {
+  RETURN_NOT_OK(ValidateDispatch(this, values));
+
+  if (auto kernel = DispatchExactImpl(this, values)) {
+    return kernel;
+  }
+  return NoMatchingKernel(this, values);
+}
+
+Result<const Kernel*> Function::DispatchBest(std::vector<ValueDescr>* values) const {
+  RETURN_NOT_OK(ValidateDispatch(this, *values));
+
+  // first try for an exact match
+  if (auto kernel = DispatchExactImpl(this, *values)) {
+    return kernel;
+  }
+
+  // XXX permit generic conversions here, for example dict -> decoded, null -> any?
+  return DispatchExact(*values);
 }
 
 Result<Datum> Function::Execute(const std::vector<Datum>& args,
@@ -187,11 +246,6 @@ Status ScalarFunction::AddKernel(ScalarKernel kernel) {
   return Status::OK();
 }
 
-Result<const Kernel*> ScalarFunction::DispatchExact(
-    const std::vector<ValueDescr>& values) const {
-  return DispatchExactImpl(*this, kernels_, values);
-}
-
 Status VectorFunction::AddKernel(std::vector<InputType> in_types, OutputType out_type,
                                  ArrayKernelExec exec, KernelInit init) {
   RETURN_NOT_OK(CheckArity(static_cast<int>(in_types.size())));
@@ -214,11 +268,6 @@ Status VectorFunction::AddKernel(VectorKernel kernel) {
   return Status::OK();
 }
 
-Result<const Kernel*> VectorFunction::DispatchExact(
-    const std::vector<ValueDescr>& values) const {
-  return DispatchExactImpl(*this, kernels_, values);
-}
-
 Status ScalarAggregateFunction::AddKernel(ScalarAggregateKernel kernel) {
   RETURN_NOT_OK(CheckArity(static_cast<int>(kernel.signature->in_types().size())));
   if (arity_.is_varargs && !kernel.signature->is_varargs()) {
@@ -226,11 +275,6 @@ Status ScalarAggregateFunction::AddKernel(ScalarAggregateKernel kernel) {
   }
   kernels_.emplace_back(std::move(kernel));
   return Status::OK();
-}
-
-Result<const Kernel*> ScalarAggregateFunction::DispatchExact(
-    const std::vector<ValueDescr>& values) const {
-  return DispatchExactImpl(*this, kernels_, values);
 }
 
 Result<Datum> MetaFunction::Execute(const std::vector<Datum>& args,

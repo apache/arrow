@@ -67,7 +67,7 @@ class TestBinaryArithmetic : public TestBase {
   using BinaryFunction = std::function<Result<Datum>(const Datum&, const Datum&,
                                                      ArithmeticOptions, ExecContext*)>;
 
-  void SetUp() { options_.check_overflow = false; }
+  void SetUp() override { options_.check_overflow = false; }
 
   std::shared_ptr<Scalar> MakeNullScalar() {
     return arrow::MakeNullScalar(type_singleton());
@@ -635,6 +635,25 @@ TYPED_TEST(TestBinaryArithmeticFloating, Mul) {
   this->AssertBinop(Multiply, "[null, 2.0]", -1.5f, "[null, -3.0]");
   this->AssertBinop(Multiply, "[0.0, 2.0]", this->MakeNullScalar(), "[null, null]");
   this->AssertBinop(Multiply, "[null, 2.0]", this->MakeNullScalar(), "[null, null]");
+}
+
+TEST(TestBinaryArithmetic, DispatchBest) {
+  for (std::string name : {"add", "subtract", "multiply", "divide"}) {
+    for (std::string suffix : {"", "_checked"}) {
+      name += suffix;
+
+      CheckDispatchBest(name, {int32(), int32()}, {int32(), int32()});
+      CheckDispatchBest(name, {int32(), int16()}, {int32(), int32()});
+      CheckDispatchBest(name, {int32(), float32()}, {float32(), float32()});
+      CheckDispatchBest(name, {float32(), int64()}, {float32(), float32()});
+      CheckDispatchBest(name, {float64(), int32()}, {float64(), float64()});
+
+      CheckDispatchBest(name, {dictionary(int8(), float64()), float64()},
+                        {float64(), float64()});
+      CheckDispatchBest(name, {dictionary(int8(), float64()), int16()},
+                        {float64(), float64()});
+    }
+  }
 }
 
 }  // namespace compute

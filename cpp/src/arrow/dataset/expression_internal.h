@@ -214,26 +214,10 @@ inline std::shared_ptr<DataType> GetDictionaryValueType(
   return nullptr;
 }
 
-inline Status EnsureNotDictionary(ValueDescr* descr) {
-  if (auto value_type = GetDictionaryValueType(descr->type)) {
-    descr->type = std::move(value_type);
-  }
-  return Status::OK();
-}
-
 inline Status EnsureNotDictionary(Datum* datum) {
   if (datum->type()->id() == Type::DICTIONARY) {
     const auto& type = checked_cast<const DictionaryType&>(*datum->type()).value_type();
     ARROW_ASSIGN_OR_RAISE(*datum, compute::Cast(*datum, type));
-  }
-  return Status::OK();
-}
-
-inline Status EnsureNotDictionary(Expression::Call* call) {
-  if (auto options = GetSetLookupOptions(*call)) {
-    auto new_options = *options;
-    RETURN_NOT_OK(EnsureNotDictionary(&new_options.value_set));
-    call->options.reset(new compute::SetLookupOptions(std::move(new_options)));
   }
   return Status::OK();
 }
