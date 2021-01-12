@@ -1363,7 +1363,6 @@ macro(build_protobuf)
         -DCMAKE_INSTALL_LIBDIR=lib
         "-DCMAKE_INSTALL_PREFIX=${PROTOBUF_PREFIX}"
         -Dprotobuf_BUILD_TESTS=OFF
-        -Dprotobuf_MSVC_STATIC_RUNTIME=${ARROW_USE_STATIC_CRT}
         -Dprotobuf_DEBUG_POSTFIX=)
     if(MSVC AND NOT ARROW_USE_STATIC_CRT)
       list(APPEND PROTOBUF_CMAKE_ARGS "-Dprotobuf_MSVC_STATIC_RUNTIME=OFF")
@@ -2411,6 +2410,10 @@ macro(build_grpc)
     add_dependencies(grpc_dependencies gflags_ep)
   endif()
 
+  if(RE2_VENDORED)
+    add_dependencies(grpc_dependencies re2_ep)
+  endif()
+
   add_dependencies(grpc_dependencies ${ARROW_PROTOBUF_LIBPROTOBUF} c-ares::cares
                    ZLIB::ZLIB)
 
@@ -2424,10 +2427,13 @@ macro(build_grpc)
   get_target_property(GRPC_GFLAGS_INCLUDE_DIR ${GFLAGS_LIBRARIES}
                       INTERFACE_INCLUDE_DIRECTORIES)
   get_filename_component(GRPC_GFLAGS_ROOT "${GRPC_GFLAGS_INCLUDE_DIR}" DIRECTORY)
+  get_target_property(GRPC_RE2_INCLUDE_DIR re2::re2 INTERFACE_INCLUDE_DIRECTORIES)
+  get_filename_component(GRPC_RE2_ROOT "${GRPC_RE2_INCLUDE_DIR}" DIRECTORY)
 
   set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${GRPC_PB_ROOT}")
   set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${GRPC_GFLAGS_ROOT}")
   set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${GRPC_CARES_ROOT}")
+  set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${GRPC_RE2_ROOT}")
 
   # ZLIB is never vendored
   set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${ZLIB_ROOT}")
@@ -2460,15 +2466,9 @@ macro(build_grpc)
       -DgRPC_RE2_PROVIDER=package
       -DgRPC_SSL_PROVIDER=package
       -DgRPC_ZLIB_PROVIDER=package
-      -DgRPC_MSVC_STATIC_RUNTIME=${ARROW_USE_STATIC_CRT}
       -DCMAKE_INSTALL_PREFIX=${GRPC_PREFIX}
       -DCMAKE_INSTALL_LIBDIR=lib
       -DBUILD_SHARED_LIBS=OFF)
-  if(RE2_VENDORED)
-    list(APPEND GRPC_CMAKE_ARGS -Dre2_ROOT=${RE2_PREFIX}
-                -DCMAKE_POLICY_DEFAULT_CMP0074=NEW)
-    add_dependencies(grpc_dependencies re2_ep)
-  endif()
   if(OPENSSL_ROOT_DIR)
     list(APPEND GRPC_CMAKE_ARGS -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR})
   endif()

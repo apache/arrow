@@ -21,6 +21,11 @@ override_dh_auto_configure:
 	  ARROW_CUDA=OFF;					\
 	  ARROW_PLASMA=OFF;					\
 	fi;							\
+	if pkg-config --exists re2; then			\
+	  ARROW_RE2_SOURCE=;					\
+	else							\
+	  ARROW_RE2_SOURCE=BUNDLED;				\
+	fi;							\
 	dh_auto_configure					\
 	  --sourcedirectory=cpp					\
 	  --builddirectory=cpp_build				\
@@ -45,7 +50,8 @@ override_dh_auto_configure:
 	  -DCMAKE_UNITY_BUILD=ON				\
 	  -DPARQUET_REQUIRE_ENCRYPTION=ON			\
 	  -DPythonInterp_FIND_VERSION=ON			\
-	  -DPythonInterp_FIND_VERSION_MAJOR=3
+	  -DPythonInterp_FIND_VERSION_MAJOR=3			\
+	  -Dre2_SOURCE=$${ARROW_RE2_SOURCE}
 
 override_dh_auto_build:
 	dh_auto_build				\

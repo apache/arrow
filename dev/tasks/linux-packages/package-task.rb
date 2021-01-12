@@ -122,7 +122,7 @@ class PackageTask
     image
   end
 
-  def docker_run(os, architecture)
+  def docker_run(os, architecture, console: false)
     id = os
     id = "#{id}-#{architecture}" if architecture
     image = docker_image(os, architecture)
@@ -162,7 +162,8 @@ class PackageTask
     build_command_line.concat(docker_build_options(os, architecture))
     run_command_line.concat(docker_run_options(os, architecture))
     build_command_line << docker_context
-    run_command_line.concat([image, "/host/build.sh"])
+    run_command_line << image
+    run_command_line << "/host/build.sh" unless console
 
     sh(*build_command_line)
     sh(*run_command_line)
@@ -288,7 +289,7 @@ class PackageTask
     raise NotImplementedError, message
   end
 
-  def apt_build
+  def apt_build(console: false)
     tmp_dir = "#{apt_dir}/tmp"
     rm_rf(tmp_dir)
     mkdir_p(tmp_dir)
@@ -310,7 +311,7 @@ VERSION=#{@deb_upstream_version}
       cd(apt_dir) do
         distribution, version, architecture = target.split("-", 3)
         os = "#{distribution}-#{version}"
-        docker_run(os, architecture)
+        docker_run(os, architecture, console: console)
       end
     end
   end
@@ -339,6 +340,12 @@ VERSION=#{@deb_upstream_version}
       end
       task :build => build_dependencies do
         apt_build if enable_apt?
+      end
+
+      namespace :build do
+        task :console => build_dependencies do
+          apt_build(console: true) if enable_apt?
+        end
       end
     end
 
@@ -408,7 +415,7 @@ VERSION=#{@deb_upstream_version}
     "#{yum_dir}/#{@rpm_package}.spec.in"
   end
 
-  def yum_build
+  def yum_build(console: false)
     tmp_dir = "#{yum_dir}/tmp"
     rm_rf(tmp_dir)
     mkdir_p(tmp_dir)
@@ -438,7 +445,7 @@ RELEASE=#{@rpm_release}
       cd(yum_dir) do
         distribution, version, architecture = target.split("-", 3)
         os = "#{distribution}-#{version}"
-        docker_run(os, architecture)
+        docker_run(os, architecture, console: console)
       end
     end
   end
@@ -466,6 +473,12 @@ RELEASE=#{@rpm_release}
       end
       task :build => build_dependencies do
         yum_build if enable_yum?
+      end
+
+      namespace :build do
+        task :console => build_dependencies do
+          yum_build(console: true) if enable_yum?
+        end
       end
     end
 
