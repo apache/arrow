@@ -1521,8 +1521,12 @@ class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<Int32Type> {
     auto rand = random::RandomArrayGenerator(0x5487658);
     // set a small value range to exercise input array with equal values
     const auto array = rand.Numeric<Int32Type>(array_size, -100, 200, 0.1);
+
     std::vector<double> quantiles;
     random_real(num_quantiles, 0x5487658, 0.0, 1.0, &quantiles);
+    // make sure to exercise 0 and 1 quantiles
+    *std::min_element(quantiles.begin(), quantiles.end()) = 0;
+    *std::max_element(quantiles.begin(), quantiles.end()) = 1;
 
     this->AssertQuantilesAre(array, QuantileOptions{quantiles},
                              NaiveQuantile(*array, quantiles));
@@ -1574,8 +1578,12 @@ class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<Int32Type> {
           return Datum(input[lower_index + (lower_index & 1)]);
         }
       case QuantileOptions::LINEAR:
-        return Datum(fraction * input[lower_index + 1] +
-                     (1 - fraction) * input[lower_index]);
+        if (fraction == 0) {
+          return Datum(static_cast<double>(input[lower_index]));
+        } else {
+          return Datum(fraction * input[lower_index + 1] +
+                       (1 - fraction) * input[lower_index]);
+        }
       case QuantileOptions::MIDPOINT:
         if (fraction == 0) {
           return Datum(static_cast<double>(input[lower_index]));
