@@ -174,8 +174,9 @@ struct StringTransform {
 
 #ifdef ARROW_WITH_UTF8PROC
 
+// transforms per codepoint
 template <typename Type, typename Derived>
-struct UTF8Transform : StringTransform<Type, Derived> {
+struct StringTransformCodepoint : StringTransform<Type, Derived> {
   using Base = StringTransform<Type, Derived>;
   using offset_type = typename Base::offset_type;
 
@@ -207,7 +208,7 @@ struct UTF8Transform : StringTransform<Type, Derived> {
 };
 
 template <typename Type>
-struct UTF8Upper : UTF8Transform<Type, UTF8Upper<Type>> {
+struct UTF8Upper : StringTransformCodepoint<Type, UTF8Upper<Type>> {
   inline static uint32_t TransformCodepoint(uint32_t codepoint) {
     return codepoint <= kMaxCodepointLookup ? lut_upper_codepoint[codepoint]
                                             : utf8proc_toupper(codepoint);
@@ -215,7 +216,7 @@ struct UTF8Upper : UTF8Transform<Type, UTF8Upper<Type>> {
 };
 
 template <typename Type>
-struct UTF8Lower : UTF8Transform<Type, UTF8Lower<Type>> {
+struct UTF8Lower : StringTransformCodepoint<Type, UTF8Lower<Type>> {
   inline static uint32_t TransformCodepoint(uint32_t codepoint) {
     return codepoint <= kMaxCodepointLookup ? lut_lower_codepoint[codepoint]
                                             : utf8proc_tolower(codepoint);
