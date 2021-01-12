@@ -79,8 +79,8 @@ impl<'a> TensorDim<'a> {
 
 impl flatbuffers::Verifiable for TensorDim<'_> {
     #[inline]
-    fn run_verifier<'o, 'b>(
-        v: &mut flatbuffers::Verifier<'o, 'b>,
+    fn run_verifier(
+        v: &mut flatbuffers::Verifier,
         pos: usize,
     ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
         use flatbuffers::Verifiable;
@@ -474,8 +474,8 @@ impl<'a> Tensor<'a> {
 
 impl flatbuffers::Verifiable for Tensor<'_> {
     #[inline]
-    fn run_verifier<'o, 'b>(
-        v: &mut flatbuffers::Verifier<'o, 'b>,
+    fn run_verifier(
+        v: &mut flatbuffers::Verifier,
         pos: usize,
     ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
         use flatbuffers::Verifiable;
@@ -823,13 +823,13 @@ impl std::fmt::Debug for Tensor<'_> {
     }
 }
 #[inline]
-#[deprecated(since = "1.13", note = "Deprecated in favor of `root_as...` methods.")]
+#[deprecated(since = "2.0.0", note = "Deprecated in favor of `root_as...` methods.")]
 pub fn get_root_as_tensor<'a>(buf: &'a [u8]) -> Tensor<'a> {
     unsafe { flatbuffers::root_unchecked::<Tensor<'a>>(buf) }
 }
 
 #[inline]
-#[deprecated(since = "1.13", note = "Deprecated in favor of `root_as...` methods.")]
+#[deprecated(since = "2.0.0", note = "Deprecated in favor of `root_as...` methods.")]
 pub fn get_size_prefixed_root_as_tensor<'a>(buf: &'a [u8]) -> Tensor<'a> {
     unsafe { flatbuffers::size_prefixed_root_unchecked::<Tensor<'a>>(buf) }
 }
