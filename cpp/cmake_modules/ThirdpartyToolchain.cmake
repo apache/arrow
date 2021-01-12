@@ -2447,10 +2447,8 @@ macro(build_grpc)
     add_dependencies(grpc_dependencies rapidjson_ep)
   endif()
 
-  if(Protobuf_SOURCE STREQUAL "SYSTEM")
-    set(PROTOBUF_PACKAGE_TYPE "MODULE")
-  else()
-    set(PROTOBUF_PACKAGE_TYPE "CONFIG")
+  if(NOT DEFINED gRPC_PROTOBUF_PACKAGE_TYPE)
+    set(gRPC_PROTOBUF_PACKAGE_TYPE "CONFIG")
   endif()
 
   # Yuck, see https://stackoverflow.com/a/45433229/776560
@@ -2472,7 +2470,7 @@ macro(build_grpc)
       -DgRPC_GFLAGS_PROVIDER=package
       -DgRPC_MSVC_STATIC_RUNTIME=${ARROW_USE_STATIC_CRT}
       -DgRPC_PROTOBUF_PROVIDER=package
-      -DgRPC_PROTOBUF_PACKAGE_TYPE=${PROTOBUF_PACKAGE_TYPE}
+      -DgRPC_PROTOBUF_PACKAGE_TYPE=${gRPC_PROTOBUF_PACKAGE_TYPE}
       -DgRPC_RE2_PROVIDER=package
       -DgRPC_SSL_PROVIDER=package
       -DgRPC_ZLIB_PROVIDER=package
