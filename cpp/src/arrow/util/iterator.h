@@ -263,7 +263,7 @@ class TransformIterator {
     if (finished_) {
       return IterationTraits<V>::End();
     }
-    return util::optional<V>();
+    return util::nullopt;
   }
 
   Result<V> Next() {
@@ -284,11 +284,12 @@ class TransformIterator {
   bool finished_ = false;
 };
 
-/// Transforms an iterator according to a transformer.  The transformer will be called on
-/// each element of the source iterator and for each call it can yield a value, skip, or
-/// finish the iteration.  When yielding a value the transformer can choose to consume the
-/// source item (the default, ready_for_next = true) or to keep it and it will be called
-/// again on the same value.
+/// \brief Transforms an iterator according to a transformer, returning a new Iterator.
+///
+/// The transformer will be called on each element of the source iterator and for each
+/// call it can yield a value, skip, or finish the iteration.  When yielding a value the
+/// transformer can choose to consume the source item (the default, ready_for_next = true)
+/// or to keep it and it will be called again on the same value.
 ///
 /// This is essentially a more generic form of the map operation that can return 0, 1, or
 /// many values for each of the source items.

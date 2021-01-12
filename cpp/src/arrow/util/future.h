@@ -561,6 +561,11 @@ inline bool WaitForAll(const std::vector<Future<T>*>& futures,
   return waiter->Wait(seconds);
 }
 
+/// \brief Create a Future which completes when all of `futures` complete.
+///
+/// The future's result is a vector of the results of `futures`.
+/// Note that this future will never be marked "failed"; failed results
+/// will be stored in the result vector alongside successful results.
 template <typename T>
 Future<std::vector<Result<T>>> All(std::vector<Future<T>> futures) {
   struct State {

@@ -94,7 +94,7 @@ class TransformingGenerator {
     if (finished_) {
       return IterationTraits<V>::End();
     }
-    return util::optional<V>();
+    return util::nullopt;
   }
 
   Future<V> operator()() {
@@ -139,10 +139,12 @@ class TransformingGenerator {
   Transformer<T, V> transformer_;
 };
 
-/// Transforms an async generator using a transformer function.  The transform function
-/// here behaves exactly the same as the transform function in MakeTransformedIterator and
-/// you can safely use the same transform function to transform both synchronous and
-/// asynchronous streams.
+/// \brief Transforms an async generator using a transformer function returning a new
+/// AsyncGenerator
+///
+/// The transform function here behaves exactly the same as the transform function in
+/// MakeTransformedIterator and you can safely use the same transform function to
+/// transform both synchronous and asynchronous streams.
 template <typename T, typename V>
 AsyncGenerator<V> TransformAsyncGenerator(AsyncGenerator<T> generator,
                                           Transformer<T, V> transformer) {

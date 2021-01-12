@@ -135,15 +135,12 @@ inline Iterator<TestInt> VectorIt(std::vector<TestInt> v) {
 }
 
 std::function<Future<TestInt>()> AsyncVectorIt(std::vector<TestInt> v) {
-  auto index = std::make_shared<size_t>(0);
-  auto vec = std::make_shared<std::vector<TestInt>>(std::move(v));
-  return [index, vec]() -> Future<TestInt> {
-    if (*index >= vec->size()) {
+  size_t index = 0;
+  return [index, v]() mutable -> Future<TestInt> {
+    if (index >= v.size()) {
       return Future<TestInt>::MakeFinished(IterationTraits<TestInt>::End());
     }
-    auto next = (*vec)[*index];
-    (*index)++;
-    return Future<TestInt>::MakeFinished(next);
+    return Future<TestInt>::MakeFinished(v[index++]);
   };
 }
 
@@ -260,10 +257,10 @@ TEST(TestVectorIterator, RangeForLoop) {
 
 template <typename T>
 Transformer<T, T> MakeFirstN(int n) {
-  auto remaining = std::make_shared<int>(n);
-  return [remaining](T next) -> Result<TransformFlow<T>> {
-    if (*remaining > 0) {
-      *remaining = *remaining - 1;
+  int remaining = n;
+  return [remaining](T next) mutable -> Result<TransformFlow<T>> {
+    if (remaining > 0) {
+      remaining--;
       return TransformYield(next);
     }
     return TransformFinish();
@@ -356,14 +353,14 @@ TEST(TestAsyncUtil, StackOverflow) {
 
 TEST(TestAsyncUtil, Visit) {
   auto generator = AsyncVectorIt({1, 2, 3});
-  auto sum = std::make_shared<unsigned int>();
-  auto sum_future = VisitAsyncGenerator<TestInt>(generator, [sum](TestInt item) {
-    (*sum) += item.value;
+  unsigned int sum = 0;
+  auto sum_future = VisitAsyncGenerator<TestInt>(generator, [&sum](TestInt item) {
+    sum += item.value;
     return Status::OK();
   });
   // Should be superfluous
   sum_future.Wait();
-  ASSERT_EQ(6, *sum);
+  ASSERT_EQ(6, sum);
 }
 
 TEST(TestAsyncUtil, Collect) {
@@ -375,12 +372,12 @@ TEST(TestAsyncUtil, Collect) {
 
 template <typename T>
 Transformer<T, T> MakeRepeatN(int repeat_count) {
-  auto current_repeat = std::make_shared<int>(0);
-  return [repeat_count, current_repeat](T next) -> Result<TransformFlow<T>> {
-    (*current_repeat) += 1;
+  int current_repeat = 0;
+  return [repeat_count, current_repeat](T next) mutable -> Result<TransformFlow<T>> {
+    current_repeat++;
     bool ready_for_next = false;
-    if (*current_repeat == repeat_count) {
-      *current_repeat = 0;
+    if (current_repeat == repeat_count) {
+      current_repeat = 0;
       ready_for_next = true;
     }
     return TransformYield(next, ready_for_next);
@@ -407,9 +404,9 @@ Transformer<T, T> MakeFilter(std::function<bool(T&)> filter) {
 
 template <typename T>
 Transformer<T, T> MakeAbortOnSecond() {
-  auto counter = std::make_shared<int>(0);
-  return [counter](T next) -> Result<TransformFlow<T>> {
-    if ((*counter)++ == 1) {
+  int counter = 0;
+  return [counter](T next) mutable -> Result<TransformFlow<T>> {
+    if (counter++ == 1) {
       return Status::Invalid("X");
     }
     return TransformYield(next);

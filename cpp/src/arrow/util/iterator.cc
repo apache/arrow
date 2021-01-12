@@ -67,8 +67,8 @@ class ReadaheadQueue::Impl : public std::enable_shared_from_this<ReadaheadQueue:
   }
 
   Status PopDone(std::unique_ptr<ReadaheadPromise>* out) {
-    DCHECK_GT(max_readahead_, 0);  // This function has no purpose and should not be
-                                   // called if using the queue unbounded
+    DCHECK_GT(max_readahead_, 0)
+        << "This function should not be called if using the queue unbounded";
     std::unique_lock<std::mutex> lock(mutex_);
     if (please_shutdown_) {
       return Status::Invalid("Shutdown requested");
@@ -85,8 +85,8 @@ class ReadaheadQueue::Impl : public std::enable_shared_from_this<ReadaheadQueue:
   }
 
   Status Pump(std::function<std::unique_ptr<ReadaheadPromise>()> factory) {
-    DCHECK_GT(max_readahead_, 0);  // This function has no purpose and should not be
-                                   // called if using the queue unbounded
+    DCHECK_GT(max_readahead_, 0)
+        << "This function should not be called if using the queue unbounded";
     std::unique_lock<std::mutex> lock(mutex_);
     if (please_shutdown_) {
       return Status::Invalid("Shutdown requested");
