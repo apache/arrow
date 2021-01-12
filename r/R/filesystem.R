@@ -402,6 +402,18 @@ s3_bucket <- function(bucket, ...) {
 #' @rdname FileSystem
 #' @export
 SubTreeFileSystem <- R6Class("SubTreeFileSystem", inherit = FileSystem,
+  public = list(
+    print = function(...) {
+      if (inherits(self$base_fs, "LocalFileSystem")) {
+        cat("SubTreeFileSystem: ", "file://", self$base_path, "\n", sep = "")
+      } else if (inherits(self$base_fs, "S3FileSystem")) {
+        cat("SubTreeFileSystem: ", "s3://", self$base_path, "\n", sep = "")
+      } else {
+        cat("SubTreeFileSystem", "\n", sep = "")
+      }
+      invisible(self)
+    }
+  ),
   active = list(
     base_fs = function() {
       fs___SubTreeFileSystem__base_fs(self)
