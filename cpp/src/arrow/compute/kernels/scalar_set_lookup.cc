@@ -417,8 +417,10 @@ class IndexInMetaBinary : public MetaFunction {
 const FunctionDoc is_in_doc{
     "Find each element in a set of values",
     ("For each element in `values`, return true if it is found in a given\n"
-     "set of values.  The set of values to look for must be given in\n"
-     "SetLookupOptions."),
+     "set of values, false otherwise.\n"
+     "The set of values to look for must be given in SetLookupOptions.\n"
+     "By default, nulls are matched against the value set, this can be\n"
+     "changed in SetLookupOptions."),
     {"values"},
     "SetLookupOptions"};
 
@@ -426,7 +428,9 @@ const FunctionDoc index_in_doc{
     "Return index of each element in a set of values",
     ("For each element in `values`, return its index in a given set of\n"
      "values, or null if it is not found there.\n"
-     "The set of values to look for must be given in SetLookupOptions."),
+     "The set of values to look for must be given in SetLookupOptions.\n"
+     "By default, nulls are matched against the value set, this can be\n"
+     "changed in SetLookupOptions."),
     {"values"},
     "SetLookupOptions"};
 
