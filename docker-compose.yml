@@ -720,8 +720,8 @@ services:
         python: ${PYTHON}
       context: .
       dockerfile: ci/docker/python-wheel-windows-vs2017.dockerfile
-      # This should make the pushed images reusable, but the image gets rebuilt
-      # no matter
+      # This should make the pushed images reusable, but the image gets rebuilt.
+      # Uncomment if no local cache is available.
       # cache_from:
       #   - mcr.microsoft.com/windows/servercore:ltsc2019
       #   - ${REPO}:wheel-windows-vs2017
