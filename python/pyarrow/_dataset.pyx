@@ -1403,6 +1403,25 @@ cdef class PartitioningFactory(_Weakrefable):
         return self.wrapped
 
 
+cdef vector[shared_ptr[CArray]] _partitioning_dictionaries(
+        Schema schema, dictionaries) except *:
+    cdef:
+        vector[shared_ptr[CArray]] c_dictionaries
+
+    dictionaries = list(dictionaries or [])[:len(schema)]
+    while len(dictionaries) < len(schema):
+        dictionaries.append(None)
+
+    for field, dictionary in zip(schema, dictionaries):
+        if (isinstance(field.type, pa.DictionaryType) and
+                dictionary is not None):
+            c_dictionaries.push_back(pyarrow_unwrap_array(dictionary))
+        else:
+            c_dictionaries.push_back(<shared_ptr[CArray]> nullptr)
+
+    return c_dictionaries
+
+
 cdef class DirectoryPartitioning(Partitioning):
     """
     A Partitioning based on a specified Schema.
@@ -1416,6 +1435,11 @@ cdef class DirectoryPartitioning(Partitioning):
     ----------
     schema : Schema
         The schema that describes the partitions present in the file path.
+    dictionaries : List[Array]
+        If the type of any field of `schema` is a dictionary type, the
+        corresponding entry of `dictionaries` must be an array containing
+        every value which may be taken by the corresponding column or an
+        error will be raised in parsing.
 
     Returns
     -------
@@ -1436,14 +1460,10 @@ cdef class DirectoryPartitioning(Partitioning):
     def __init__(self, Schema schema not None, dictionaries=None):
         cdef:
             shared_ptr[CDirectoryPartitioning] c_partitioning
-            vector[shared_ptr[CArray]] c_dictionaries
-
-        for dictionary in dictionaries or []:
-            c_dictionaries.push_back(pyarrow_unwrap_array(dictionary))
 
         c_partitioning = make_shared[CDirectoryPartitioning](
             pyarrow_unwrap_schema(schema),
-            c_dictionaries
+            _partitioning_dictionaries(schema, dictionaries)
         )
         self.init(<shared_ptr[CPartitioning]> c_partitioning)
 
@@ -1513,6 +1533,11 @@ cdef class HivePartitioning(Partitioning):
     ----------
     schema : Schema
         The schema that describes the partitions present in the file path.
+    dictionaries : List[Array]
+        If the type of any field of `schema` is a dictionary type, the
+        corresponding entry of `dictionaries` must be an array containing
+        every value which may be taken by the corresponding column or an
+        error will be raised in parsing.
 
     Returns
     -------
@@ -1534,14 +1559,10 @@ cdef class HivePartitioning(Partitioning):
     def __init__(self, Schema schema not None, dictionaries=None):
         cdef:
             shared_ptr[CHivePartitioning] c_partitioning
-            vector[shared_ptr[CArray]] c_dictionaries
-
-        for dictionary in dictionaries or []:
-            c_dictionaries.push_back(pyarrow_unwrap_array(dictionary))
 
         c_partitioning = make_shared[CHivePartitioning](
             pyarrow_unwrap_schema(schema),
-            c_dictionaries
+            _partitioning_dictionaries(schema, dictionaries)
         )
         self.init(<shared_ptr[CPartitioning]> c_partitioning)
 

@@ -339,7 +339,7 @@ ARROW_DS_EXPORT
 Result<std::shared_ptr<ListArray>> ApplyGroupings(const ListArray& groupings,
                                                   const Array& array);
 
-/// \brief Produce slices of a RecordBatch which correspond to the provided groupings.
+/// \brief Produce selections of a RecordBatch which correspond to the provided groupings.
 ARROW_DS_EXPORT
 Result<RecordBatchVector> ApplyGroupings(const ListArray& groupings,
                                          const std::shared_ptr<RecordBatch>& batch);

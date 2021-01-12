@@ -2330,12 +2330,15 @@ def test_write_dataset_partitioned_dict(tempdir):
         target / "a", target / "a" / "part-0.feather",
         target / "b", target / "b" / "part-1.feather"
     ]
-    partitioning_schema = ds.partitioning(pa.schema([
+    partitioning = ds.partitioning(pa.schema([
         dataset.schema.field('part')]),
         dictionaries=[pa.array(['a', 'b'])])
+    # NB: dictionaries required here since we use partitioning to parse
+    # directories in _check_dataset_roundtrip (not currently required for
+    # the formatting step)
     _check_dataset_roundtrip(
         dataset, str(target), expected_paths, target,
-        partitioning=partitioning_schema)
+        partitioning=partitioning)
 
 
 @pytest.mark.parquet
