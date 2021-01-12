@@ -94,3 +94,16 @@ jobs:
             --tag {{ task.tag }}
         env:
           CROSSBOW_GITHUB_TOKEN: {{ '${{ secrets.CROSSBOW_GITHUB_TOKEN }}' }}
+
+      {% if arrow.branch == 'master' %}
+      - name: Upload to gemfury
+        shell: bash
+        run: |
+          WHEEL_PATH=$(echo wheels/*.whl)
+          curl.exe \
+            -F "package=@${WHEEL_PATH}" \
+            "https://${CROSSBOW_GEMFURY_TOKEN}@push.fury.io/${CROSSBOW_GEMFURY_ORG}/"
+        env:
+          CROSSBOW_GEMFURY_ORG: {{ '${{ secrets.CROSSBOW_GEMFURY_ORG }}' }}
+          CROSSBOW_GEMFURY_TOKEN: {{ '${{ secrets.CROSSBOW_GEMFURY_TOKEN }}' }}
+      {% endif %}
