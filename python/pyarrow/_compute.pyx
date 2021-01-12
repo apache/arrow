@@ -755,7 +755,7 @@ cdef class _SetLookupOptions(FunctionOptions):
     cdef const CFunctionOptions* get_options(self) except NULL:
         return self.set_lookup_options.get()
 
-    def _set_options(self, value_set, c_bool skip_null):
+    def _set_options(self, value_set, c_bool skip_nulls):
         if isinstance(value_set, Array):
             self.valset.reset(new CDatum((<Array> value_set).sp_array))
         elif isinstance(value_set, ChunkedArray):
@@ -768,13 +768,13 @@ cdef class _SetLookupOptions(FunctionOptions):
             raise ValueError('"{}" is not a valid value_set'.format(value_set))
 
         self.set_lookup_options.reset(
-            new CSetLookupOptions(deref(self.valset), skip_null)
+            new CSetLookupOptions(deref(self.valset), skip_nulls)
         )
 
 
 class SetLookupOptions(_SetLookupOptions):
-    def __init__(self, *, value_set, skip_null=False):
-        self._set_options(value_set, skip_null)
+    def __init__(self, *, value_set, skip_nulls=False):
+        self._set_options(value_set, skip_nulls)
 
 
 cdef class _StrptimeOptions(FunctionOptions):

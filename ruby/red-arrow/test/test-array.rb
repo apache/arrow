@@ -160,8 +160,8 @@ class ArrayTest < Test::Unit::TestCase
 
     test("Arrow::ChunkedArray") do
       chunks = [
-        Arrow::Int16Array.new([1, 0]),
-        Arrow::Int16Array.new([1, 0, 3])
+        Arrow::Int16Array.new([1, 4]),
+        Arrow::Int16Array.new([0, 3])
       ]
       right = Arrow::ChunkedArray.new(chunks)
       assert_equal(Arrow::BooleanArray.new([true, true, true, false]),
