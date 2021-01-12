@@ -141,7 +141,7 @@ def jemalloc_memory_pool():
     """
     Return a memory pool based on the jemalloc heap.
 
-    NotImplemented is raised if this Arrow build does not enable jemalloc.
+    NotImplementedError is raised if jemalloc support is not enabled.
     """
     cdef:
         CMemoryPool* c_pool
@@ -155,7 +155,7 @@ def mimalloc_memory_pool():
     """
     Return a memory pool based on the mimalloc heap.
 
-    NotImplemented is raised if this Arrow build does not enable mimalloc.
+    NotImplementedError is raised if mimalloc support is not enabled.
     """
     cdef:
         CMemoryPool* c_pool
