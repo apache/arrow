@@ -31,6 +31,8 @@
 # write_parquet(example_with_metadata, "arrow/r/tests/testthat/golden-files/data-arrow_1.0.1.parquet")
 # quit()/exit
 
+skip_if(getRversion() < "3.5.0", "The serialization format changed in 3.5")
+
 expect_identical_with_metadata <- function(object, expected, ..., top_level = TRUE) {
   attrs_to_keep <- c("names", "class", "row.names")
   if (!top_level) {
