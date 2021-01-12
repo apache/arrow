@@ -225,6 +225,15 @@ def test_date():
             assert s.as_py() == d
 
 
+def test_date_cast():
+    # ARROW-10472 - casting fo scalars doesn't segfault
+    scalar = pa.scalar(datetime.datetime(2012, 1, 1), type=pa.timestamp("us"))
+    expected = datetime.date(2012, 1, 1)
+    for ty in [pa.date32(), pa.date64()]:
+        result = scalar.cast(ty)
+        assert result.as_py() == expected
+
+
 def test_time():
     t1 = datetime.time(18, 0)
     t2 = datetime.time(21, 0)
