@@ -144,7 +144,9 @@ class CppBenchmarkRunner(BenchmarkRunner):
         return CppConfiguration(
             build_type="release", with_tests=False, with_benchmarks=True,
             with_compute=True,
+            with_csv=True,
             with_dataset=True,
+            with_json=True,
             with_parquet=True,
             with_python=False,
             with_brotli=True,
