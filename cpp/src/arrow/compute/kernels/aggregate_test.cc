@@ -1435,9 +1435,6 @@ class TestInt64QuantileKernel : public TestPrimitiveQuantileKernel<ArrowType> {}
 // output type per interplation: linear, lower, higher, nearest, midpoint
 #define O(a, b, c, d, e) \
   { DOUBLE(a), INTYPE(b), INTYPE(c), INTYPE(d), DOUBLE(e) }
-// output type same as input if only 0 and 1 quantiles are calculated
-#define I(a, b, c, d, e) \
-  { INTYPE(a), INTYPE(b), INTYPE(c), INTYPE(d), INTYPE(e) }
 
 TYPED_TEST_SUITE(TestIntegerQuantileKernel, IntegralArrowTypes);
 TYPED_TEST(TestIntegerQuantileKernel, Basics) {
@@ -1452,13 +1449,8 @@ TYPED_TEST(TestIntegerQuantileKernel, Basics) {
                            {O(3, 3, 3, 3, 3), O(8.4, 8, 9, 8, 8.5)});
   this->AssertQuantilesAre("[3, 5, 2, 9, 0, 1, 8]", {1, 0.5},
                            {O(9, 9, 9, 9, 9), O(3, 3, 3, 3, 3)});
-  this->AssertQuantileIs("[3, 5, 2, 9, 0, 1, 8]", 0, I(0, 0, 0, 0, 0));
-  this->AssertQuantileIs("[3, 5, 2, 9, 0, 1, 8]", 1, I(9, 9, 9, 9, 9));
-  this->AssertQuantilesAre("[3, 5, 2, 9, 0, 1, 8]", {1, 0},
-                           {I(9, 9, 9, 9, 9), I(0, 0, 0, 0, 0)});
-  this->AssertQuantilesAre(
-      "[3, 5, 2, 9, 0, 1, 8]", {1, 0, 0, 1},
-      {I(9, 9, 9, 9, 9), I(0, 0, 0, 0, 0), I(0, 0, 0, 0, 0), I(9, 9, 9, 9, 9)});
+  this->AssertQuantileIs("[3, 5, 2, 9, 0, 1, 8]", 0, O(0, 0, 0, 0, 0));
+  this->AssertQuantileIs("[3, 5, 2, 9, 0, 1, 8]", 1, O(9, 9, 9, 9, 9));
 
   this->AssertQuantileIs("[5, null, null, 3, 9, null, 8, 1, 2, 0]", 0.21,
                          O(1.26, 1, 2, 1, 1.5));
@@ -1480,6 +1472,7 @@ TYPED_TEST(TestIntegerQuantileKernel, Basics) {
 #ifndef __MINGW32__
 TYPED_TEST_SUITE(TestFloatingQuantileKernel, RealArrowTypes);
 TYPED_TEST(TestFloatingQuantileKernel, Floats) {
+  // ordered by interpolation method: {linear, lower, higher, nearest, midpoint}
   this->AssertQuantileIs("[-9, 7, Inf, -Inf, 2, 11]", 0.5, O(4.5, 2, 7, 2, 4.5));
   this->AssertQuantileIs("[-9, 7, Inf, -Inf, 2, 11]", 0.1,
                          O(-INFINITY, -INFINITY, -9, -INFINITY, -INFINITY));
@@ -1487,6 +1480,8 @@ TYPED_TEST(TestFloatingQuantileKernel, Floats) {
                          O(INFINITY, 11, INFINITY, 11, INFINITY));
   this->AssertQuantilesAre("[-9, 7, Inf, -Inf, 2, 11]", {0.3, 0.6},
                            {O(-3.5, -9, 2, 2, -3.5), O(7, 7, 7, 7, 7)});
+  this->AssertQuantileIs("[-Inf, Inf]", 0.5,
+                         O(-INFINITY, -INFINITY, INFINITY, -INFINITY, -INFINITY));
 
   this->AssertQuantileIs("[NaN, -9, 7, Inf, null, null, -Inf, NaN, 2, 11]", 0.5,
                          O(4.5, 2, 7, 2, 4.5));
@@ -1518,7 +1513,6 @@ TYPED_TEST(TestInt64QuantileKernel, Int64) {
 #undef INTYPE
 #undef DOUBLE
 #undef O
-#undef I
 
 #ifndef __MINGW32__
 class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<Int32Type> {

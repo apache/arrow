@@ -19,6 +19,7 @@
 
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/kernels/common.h"
+#include "arrow/stl_allocator.h"
 #include "arrow/util/bit_run_reader.h"
 
 namespace arrow {
@@ -35,23 +36,15 @@ using QuantileState = internal::OptionsWrapper<QuantileOptions>;
 // output is at some input data point, not interpolated
 bool IsDataPoint(const QuantileOptions& options) {
   // some interpolation methods return exact data point
-  if (options.interpolation == QuantileOptions::LOWER ||
-      options.interpolation == QuantileOptions::HIGHER ||
-      options.interpolation == QuantileOptions::NEAREST) {
-    return true;
-  }
-  // return exact data point if quantiles only contain 0 or 1 (follow numpy behaviour)
-  for (auto q : options.q) {
-    if (q != 0 && q != 1) {
-      return false;
-    }
-  }
-  return true;
+  return options.interpolation == QuantileOptions::LOWER ||
+         options.interpolation == QuantileOptions::HIGHER ||
+         options.interpolation == QuantileOptions::NEAREST;
 }
 
 template <typename Dummy, typename InType>
 struct QuantileExecutor {
   using CType = typename InType::c_type;
+  using Allocator = arrow::stl::allocator<CType>;
 
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     // validate arguments
@@ -73,7 +66,7 @@ struct QuantileExecutor {
     }
 
     // copy all chunks to a buffer, ignore nulls and nans
-    std::vector<CType> in_buffer;
+    std::vector<CType, Allocator> in_buffer(Allocator(ctx->memory_pool()));
 
     const Datum& datum = batch[0];
     const int64_t in_length = datum.length() - datum.null_count();
@@ -88,9 +81,9 @@ struct QuantileExecutor {
 
       // drop nan
       if (is_floating_type<InType>::value) {
-        const auto& nan_begins = std::partition(in_buffer.begin(), in_buffer.end(),
-                                                [](CType v) { return v == v; });
-        in_buffer.resize(nan_begins - in_buffer.cbegin());
+        const auto& it = std::remove_if(in_buffer.begin(), in_buffer.end(),
+                                        [](CType v) { return v != v; });
+        in_buffer.resize(it - in_buffer.begin());
       }
     }
 
@@ -164,8 +157,8 @@ struct QuantileExecutor {
   }
 
   // return quantile located exactly at some input data point
-  static CType GetQuantileAtDataPoint(std::vector<CType>& in, uint64_t* last_index,
-                                      double q,
+  static CType GetQuantileAtDataPoint(std::vector<CType, Allocator>& in,
+                                      uint64_t* last_index, double q,
                                       enum QuantileOptions::Interpolation interpolation) {
     const double index = (in.size() - 1) * q;
     uint64_t datapoint_index = static_cast<uint64_t>(index);
@@ -204,8 +197,8 @@ struct QuantileExecutor {
   }
 
   // return quantile interpolated from adjacent input data points
-  static double GetQuantileByInterp(std::vector<CType>& in, uint64_t* last_index,
-                                    double q,
+  static double GetQuantileByInterp(std::vector<CType, Allocator>& in,
+                                    uint64_t* last_index, double q,
                                     enum QuantileOptions::Interpolation interpolation) {
     const double index = (in.size() - 1) * q;
     const uint64_t lower_index = static_cast<uint64_t>(index);
