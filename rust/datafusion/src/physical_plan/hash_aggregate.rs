@@ -828,9 +828,10 @@ pub(crate) fn create_group_by_values(
             }
             _ => {
                 // This is internal because we should have caught this before.
-                return Err(DataFusionError::Internal(
-                    "Unsupported GROUP BY data type".to_string(),
-                ));
+                return Err(DataFusionError::Internal(format!(
+                    "Unsupported GROUP BY for {}",
+                    col.data_type(),
+                )));
             }
         }
     }
