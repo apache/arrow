@@ -20,7 +20,13 @@
 set -eux
 
 pacman \
+  --cascade \
   --noconfirm \
-  --sync \
-  --sysupgrade \
-  --sysupgrade
+  --nosave \
+  --recursive \
+  --remove \
+  ${MINGW_PACKAGE_PREFIX}-clang-tools-extra \
+  ${MINGW_PACKAGE_PREFIX}-gcc-ada \
+  ${MINGW_PACKAGE_PREFIX}-gcc-fortran \
+  ${MINGW_PACKAGE_PREFIX}-gcc-libgfortran \
+  ${MINGW_PACKAGE_PREFIX}-gcc-objc
