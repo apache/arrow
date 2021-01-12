@@ -2447,10 +2447,10 @@ macro(build_grpc)
     add_dependencies(grpc_dependencies rapidjson_ep)
   endif()
 
-  if(Protobuf_SOURCE STREQUAL "BUNDLED")
-    set(PROTOBUF_PACKAGE_TYPE "CONFIG")
-  else()
+  if(Protobuf_SOURCE STREQUAL "SYSTEM")
     set(PROTOBUF_PACKAGE_TYPE "MODULE")
+  else()
+    set(PROTOBUF_PACKAGE_TYPE "CONFIG")
   endif()
 
   # Yuck, see https://stackoverflow.com/a/45433229/776560
