@@ -144,7 +144,7 @@ Flight RPC
 | Flight RPC Feature          | C++   | Java  | Go    | JavaScript | C#    | Rust  | Julia |
 |                             |       |       |       |            |       |       |       |
 +=============================+=======+=======+=======+============+=======+=======+=======+
-| gRPC transport              | ✓     | ✓     |       |            | ✓ (1) |  (3)  |       |
+| gRPC transport              | ✓     | ✓     |       |            | ✓ (1) |       |       |
 +-----------------------------+-------+-------+-------+------------+-------+-------+-------+
 | gRPC + TLS transport        | ✓     | ✓     |       |            | ✓     |       |       |
 +-----------------------------+-------+-------+-------+------------+-------+-------+-------+
@@ -161,7 +161,6 @@ Notes:
 
 * \(1) No support for handshake or DoExchange.
 * \(2) Support using AspNetCore authentication handlers.
-* \(3) Flight integration testing for Rust is still ongoing as of version 3.0.0, see ARROW-8853.
 
 .. seealso::
    The :ref:`flight-rpc` specification.
@@ -221,8 +220,8 @@ Third-Party Data Formats
 
 Notes:
 
-* \(1) Nested support read/write support is still ongoing, see ARROW-8421.
-
 * *R* = Read supported
 
 * *W* = Write supported
+
+* \(1) Nested read/write not supported
