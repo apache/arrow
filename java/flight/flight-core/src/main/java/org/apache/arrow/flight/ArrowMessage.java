@@ -334,12 +334,15 @@ class ArrowMessage implements AutoCloseable {
   }
 
   /**
-   * Get first byte with EOF check, it is especially needed when using grpc compression.
-   * InflaterInputStream need another read to change reachEOF after all bytes has been read.
+   * Read a varint32 from the stream, checking for EOF.
+   *
+   * <p>When using gRPC compression, EOF may not be reported by the InflaterInputStream until another read has
+   * been performed. This method checks {@link InputStream#available()} after reading the first byte in order
+   * to handle this case.
    *
    * @param is InputStream
-   * @return -1 if stream is not available, otherwise it will return the actual value.
-   * @throws IOException Read first byte failed.
+   * @return -1 if EOF reached, else the varint32 value.
+   * @throws IOException if an error occurred while reading the stream.
    */
   private static int readRawVarint32WithEOFCheck(InputStream is) throws IOException {
     int firstByte = is.read();
