@@ -42,6 +42,7 @@
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/range.h"
@@ -77,6 +78,8 @@ using arrow::Status;
 using arrow::Table;
 using arrow::TimeUnit;
 using arrow::compute::DictionaryEncode;
+using arrow::internal::checked_cast;
+using arrow::internal::checked_pointer_cast;
 using arrow::io::BufferReader;
 
 using arrow::randint;
@@ -521,6 +524,7 @@ class ParquetIOTestBase : public ::testing::Test {
     ASSERT_EQ(1, chunked_out->num_chunks());
     *out = chunked_out->chunk(0);
     ASSERT_NE(nullptr, out->get());
+    ASSERT_OK((*out)->ValidateFull());
   }
 
   void ReadSingleColumnFileStatistics(std::unique_ptr<FileReader> file_reader,
@@ -643,6 +647,69 @@ class ParquetIOTestBase : public ::testing::Test {
 
   std::shared_ptr<::arrow::io::BufferOutputStream> sink_;
 };
+
+class TestReadDecimals : public ParquetIOTestBase {
+ public:
+  void CheckReadFromByteArrays(const std::shared_ptr<const LogicalType>& logical_type,
+                               const std::vector<std::vector<uint8_t>>& values,
+                               const Array& expected) {
+    std::vector<ByteArray> byte_arrays(values.size());
+    std::transform(values.begin(), values.end(), byte_arrays.begin(),
+                   [](const std::vector<uint8_t>& bytes) {
+                     return ByteArray(static_cast<uint32_t>(bytes.size()), bytes.data());
+                   });
+
+    auto node = PrimitiveNode::Make("decimals", Repetition::REQUIRED, logical_type,
+                                    Type::BYTE_ARRAY);
+    auto schema =
+        GroupNode::Make("schema", Repetition::REQUIRED, std::vector<NodePtr>{node});
+
+    auto file_writer = MakeWriter(checked_pointer_cast<GroupNode>(schema));
+    auto column_writer = file_writer->AppendRowGroup()->NextColumn();
+    auto typed_writer = checked_cast<TypedColumnWriter<ByteArrayType>*>(column_writer);
+    typed_writer->WriteBatch(static_cast<int64_t>(byte_arrays.size()),
+                             /*def_levels=*/nullptr,
+                             /*rep_levels=*/nullptr, byte_arrays.data());
+    column_writer->Close();
+    file_writer->Close();
+
+    ReadAndCheckSingleColumnFile(expected);
+  }
+};
+
+// The Decimal roundtrip tests always go through the FixedLenByteArray path,
+// check the ByteArray case manually.
+
+TEST_F(TestReadDecimals, Decimal128ByteArray) {
+  const std::vector<std::vector<uint8_t>> big_endian_decimals = {
+      // 123456
+      {1, 226, 64},
+      // 987654
+      {15, 18, 6},
+      // -123456
+      {255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 254, 29, 192},
+  };
+
+  auto expected =
+      ArrayFromJSON(::arrow::decimal128(6, 3), R"(["123.456", "987.654", "-123.456"])");
+  CheckReadFromByteArrays(LogicalType::Decimal(6, 3), big_endian_decimals, *expected);
+}
+
+TEST_F(TestReadDecimals, Decimal256ByteArray) {
+  const std::vector<std::vector<uint8_t>> big_endian_decimals = {
+      // 123456
+      {1, 226, 64},
+      // 987654
+      {15, 18, 6},
+      // -123456
+      {255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+       255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 254, 29,  192},
+  };
+
+  auto expected =
+      ArrayFromJSON(::arrow::decimal256(40, 3), R"(["123.456", "987.654", "-123.456"])");
+  CheckReadFromByteArrays(LogicalType::Decimal(40, 3), big_endian_decimals, *expected);
+}
 
 template <typename TestType>
 class TestParquetIO : public ParquetIOTestBase {
