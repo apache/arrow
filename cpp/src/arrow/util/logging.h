@@ -92,33 +92,33 @@ enum class ArrowLogLevel : int {
 // CAUTION: DCHECK_OK() always evaluates its argument, but other DCHECK*() macros
 // only do so in debug mode.
 
-#define ARROW_DCHECK(condition)                     \
+#define ARROW_DCHECK(condition)               \
   while (false) ARROW_IGNORE_EXPR(condition); \
   while (false) ::arrow::util::detail::NullLog()
-#define ARROW_DCHECK_OK(s)    \
-  ARROW_IGNORE_EXPR(s); \
+#define ARROW_DCHECK_OK(s) \
+  ARROW_IGNORE_EXPR(s);    \
   while (false) ::arrow::util::detail::NullLog()
-#define ARROW_DCHECK_EQ(val1, val2)            \
+#define ARROW_DCHECK_EQ(val1, val2)      \
   while (false) ARROW_IGNORE_EXPR(val1); \
   while (false) ARROW_IGNORE_EXPR(val2); \
   while (false) ::arrow::util::detail::NullLog()
-#define ARROW_DCHECK_NE(val1, val2)            \
+#define ARROW_DCHECK_NE(val1, val2)      \
   while (false) ARROW_IGNORE_EXPR(val1); \
   while (false) ARROW_IGNORE_EXPR(val2); \
   while (false) ::arrow::util::detail::NullLog()
-#define ARROW_DCHECK_LE(val1, val2)            \
+#define ARROW_DCHECK_LE(val1, val2)      \
   while (false) ARROW_IGNORE_EXPR(val1); \
   while (false) ARROW_IGNORE_EXPR(val2); \
   while (false) ::arrow::util::detail::NullLog()
-#define ARROW_DCHECK_LT(val1, val2)            \
+#define ARROW_DCHECK_LT(val1, val2)      \
   while (false) ARROW_IGNORE_EXPR(val1); \
   while (false) ARROW_IGNORE_EXPR(val2); \
   while (false) ::arrow::util::detail::NullLog()
-#define ARROW_DCHECK_GE(val1, val2)            \
+#define ARROW_DCHECK_GE(val1, val2)      \
   while (false) ARROW_IGNORE_EXPR(val1); \
   while (false) ARROW_IGNORE_EXPR(val2); \
   while (false) ::arrow::util::detail::NullLog()
-#define ARROW_DCHECK_GT(val1, val2)            \
+#define ARROW_DCHECK_GT(val1, val2)      \
   while (false) ARROW_IGNORE_EXPR(val1); \
   while (false) ARROW_IGNORE_EXPR(val2); \
   while (false) ::arrow::util::detail::NullLog()
