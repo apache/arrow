@@ -46,9 +46,10 @@
 #' - `$column(i)`: Extract an `Array` by integer position from the batch
 #' - `$column_name(i)`: Get a column's name by integer position
 #' - `$names()`: Get all column names (called by `names(batch)`)
+#' - `$RenameColumns(value)`: Set all column names (called by `names(batch) <- value`)
 #' - `$GetColumnByName(name)`: Extract an `Array` by string name
 #' - `$RemoveColumn(i)`: Drops a column from the batch by integer position
-#' - `$selectColumns(indices)`: Return a new record batch with a selection of columns, expressed as 0-based integers.
+#' - `$SelectColumns(indices)`: Return a new record batch with a selection of columns, expressed as 0-based integers.
 #' - `$Slice(offset, length = NULL)`: Create a zero-copy view starting at the
 #'    indicated integer offset and going for the given length, or to the end
 #'    of the table if `NULL`, the default.

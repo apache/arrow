@@ -97,7 +97,7 @@ For the R package, you'll need to enable several features in the C++ library
 using `-D` flags:
 
 ```
-cmake
+cmake \
   -DARROW_COMPUTE=ON \
   -DARROW_CSV=ON \
   -DARROW_DATASET=ON \
@@ -106,6 +106,7 @@ cmake
   -DARROW_JSON=ON \
   -DARROW_PARQUET=ON \
   -DCMAKE_BUILD_TYPE=release \
+  -DARROW_INSTALL_NAME_RPATH=OFF \
   ..
 ```
 
@@ -125,7 +126,6 @@ If you want to enable support for compression libraries, add some or all of thes
 Other flags that may be useful:
 
 * `-DARROW_EXTRA_ERROR_CONTEXT=ON` makes errors coming from the C++ library point to files and line numbers
-* `-DARROW_INSTALL_NAME_RPATH=OFF` may be needed on macOS if there are problems at link time
 * `-DBOOST_SOURCE=BUNDLED`, for example, or any other dependency `*_SOURCE`, if you have a system version of a C++ dependency that doesn't work correctly with Arrow. This tells the build to compile its own version of the dependency from source.
 
 Note that after any change to the C++ library, you must reinstall it and
@@ -161,8 +161,10 @@ If the package fails to install/load with an error like this:
     unable to load shared object '/Users/you/R/00LOCK-r/00new/arrow/libs/arrow.so':
     dlopen(/Users/you/R/00LOCK-r/00new/arrow/libs/arrow.so, 6): Library not loaded: @rpath/libarrow.14.dylib
 
-try setting the environment variable `R_LD_LIBRARY_PATH` to wherever
-Arrow C++ was put in `make install`, e.g. `export
+ensure that `-DARROW_INSTALL_NAME_RPATH=OFF` was passed (this is important on 
+macOS to prevent problems at link time and is a no-op on other platforms). 
+Alternativelly, try setting the environment variable `R_LD_LIBRARY_PATH` to 
+wherever Arrow C++ was put in `make install`, e.g. `export
 R_LD_LIBRARY_PATH=/usr/local/lib`, and retry installing the R package.
 
 When installing from source, if the R and C++ library versions do not
