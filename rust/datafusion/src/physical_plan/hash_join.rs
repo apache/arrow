@@ -19,7 +19,7 @@
 //! into a set of partitions.
 
 use arrow::{
-    array::{ArrayRef, UInt64Builder},
+    array::{ArrayRef, Float32Array, Float64Array, UInt64Builder},
     compute,
 };
 use arrow::{
@@ -393,6 +393,14 @@ pub(crate) fn create_key(
     vec.clear();
     for col in group_by_keys {
         match col.data_type() {
+            DataType::Float32 => {
+                let array = col.as_any().downcast_ref::<Float32Array>().unwrap();
+                vec.extend_from_slice(&array.value(row).to_le_bytes());
+            }
+            DataType::Float64 => {
+                let array = col.as_any().downcast_ref::<Float64Array>().unwrap();
+                vec.extend_from_slice(&array.value(row).to_le_bytes());
+            }
             DataType::UInt8 => {
                 let array = col.as_any().downcast_ref::<UInt8Array>().unwrap();
                 vec.extend_from_slice(&array.value(row).to_le_bytes());
