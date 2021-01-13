@@ -210,7 +210,7 @@ struct QuantileExecutor {
     }
 
     const double lower_value = static_cast<double>(in[lower_index]);
-    if (fraction == 0 || lower_value == -INFINITY) {
+    if (fraction == 0) {
       *last_index = lower_index;
       return lower_value;
     }
@@ -226,9 +226,6 @@ struct QuantileExecutor {
     *last_index = lower_index;
 
     const double higher_value = static_cast<double>(in[higher_index]);
-    if (higher_value == INFINITY) {
-      return INFINITY;
-    }
 
     if (interpolation == QuantileOptions::LINEAR) {
       // more stable than naive linear interpolation

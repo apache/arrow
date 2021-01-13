@@ -1345,19 +1345,20 @@ class TestPrimitiveQuantileKernel : public ::testing::Test {
       ASSERT_EQ(out_array->null_count(), 0);
       ASSERT_EQ(out_array->type(), expected[0][i].type());
 
-      if (out_array->type() == type_singleton()) {
-        const CType* quantiles = out_array->data()->GetValues<CType>(1);
-        for (int64_t j = 0; j < out_array->length(); ++j) {
-          const auto& numeric_scalar =
-              std::static_pointer_cast<NumericScalar<ArrowType>>(expected[j][i].scalar());
-          ASSERT_EQ(quantiles[j], numeric_scalar->value);
-        }
-      } else {
-        ASSERT_EQ(out_array->type(), float64());
+      if (out_array->type() == float64()) {
         const double* quantiles = out_array->data()->GetValues<double>(1);
         for (int64_t j = 0; j < out_array->length(); ++j) {
           const auto& numeric_scalar =
               std::static_pointer_cast<DoubleScalar>(expected[j][i].scalar());
+          ASSERT_TRUE((quantiles[j] == numeric_scalar->value) ||
+                      (std::isnan(quantiles[j]) && std::isnan(numeric_scalar->value)));
+        }
+      } else {
+        ASSERT_EQ(out_array->type(), type_singleton());
+        const CType* quantiles = out_array->data()->GetValues<CType>(1);
+        for (int64_t j = 0; j < out_array->length(); ++j) {
+          const auto& numeric_scalar =
+              std::static_pointer_cast<NumericScalar<ArrowType>>(expected[j][i].scalar());
           ASSERT_EQ(quantiles[j], numeric_scalar->value);
         }
       }
@@ -1480,8 +1481,7 @@ TYPED_TEST(TestFloatingQuantileKernel, Floats) {
                          O(INFINITY, 11, INFINITY, 11, INFINITY));
   this->AssertQuantilesAre("[-9, 7, Inf, -Inf, 2, 11]", {0.3, 0.6},
                            {O(-3.5, -9, 2, 2, -3.5), O(7, 7, 7, 7, 7)});
-  this->AssertQuantileIs("[-Inf, Inf]", 0.5,
-                         O(-INFINITY, -INFINITY, INFINITY, -INFINITY, -INFINITY));
+  this->AssertQuantileIs("[-Inf, Inf]", 0.2, O(NAN, -INFINITY, INFINITY, -INFINITY, NAN));
 
   this->AssertQuantileIs("[NaN, -9, 7, Inf, null, null, -Inf, NaN, 2, 11]", 0.5,
                          O(4.5, 2, 7, 2, 4.5));
