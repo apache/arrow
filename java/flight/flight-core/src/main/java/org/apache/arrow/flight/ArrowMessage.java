@@ -259,26 +259,26 @@ class ArrowMessage implements AutoCloseable {
       ArrowBuf body = null;
       ArrowBuf appMetadata = null;
       while (stream.available() > 0) {
-        int tag = readRawVarint32WithEOFCheck(stream);
+        int tag = readRawVarint32(stream, true);
 
         switch (tag) {
 
           case DESCRIPTOR_TAG: {
-            int size = readRawVarint32(stream);
+            int size = readRawVarint32(stream, false);
             byte[] bytes = new byte[size];
             ByteStreams.readFully(stream, bytes);
             descriptor = FlightDescriptor.parseFrom(bytes);
             break;
           }
           case HEADER_TAG: {
-            int size = readRawVarint32(stream);
+            int size = readRawVarint32(stream, false);
             byte[] bytes = new byte[size];
             ByteStreams.readFully(stream, bytes);
             header = MessageMetadataResult.create(ByteBuffer.wrap(bytes), size);
             break;
           }
           case APP_METADATA_TAG: {
-            int size = readRawVarint32(stream);
+            int size = readRawVarint32(stream, false);
             appMetadata = allocator.buffer(size);
             GetReadableBuffer.readIntoBuffer(stream, appMetadata, size, FAST_PATH);
             break;
@@ -289,7 +289,7 @@ class ArrowMessage implements AutoCloseable {
               body.getReferenceManager().release();
               body = null;
             }
-            int size = readRawVarint32(stream);
+            int size = readRawVarint32(stream, false);
             body = allocator.buffer(size);
             GetReadableBuffer.readIntoBuffer(stream, body, size, FAST_PATH);
             break;
@@ -334,28 +334,26 @@ class ArrowMessage implements AutoCloseable {
   }
 
   /**
-   * Read a varint32 from the stream, checking for EOF.
+   * Read a varint32 from the stream.
    *
    * <p>When using gRPC compression, EOF may not be reported by the InflaterInputStream until another read has
    * been performed. This method checks {@link InputStream#available()} after reading the first byte in order
    * to handle this case.
    *
    * @param is InputStream
+   * @param ignoreEOF If false, throw Exception after reaching EOF, otherwise just ignore it and return -1.
    * @return -1 if EOF reached, else the varint32 value.
    * @throws IOException if an error occurred while reading the stream.
    */
-  private static int readRawVarint32WithEOFCheck(InputStream is) throws IOException {
+  private static int readRawVarint32(InputStream is, boolean ignoreEOF) throws IOException {
     int firstByte = is.read();
-    if (is.available() <= 0) {
-      return -1;
-    } else {
+    if (firstByte >= 0) {
       return CodedInputStream.readRawVarint32(firstByte, is);
+    } else if (ignoreEOF) {
+      return firstByte;
+    } else {
+      throw new IOException("It should not reach EOF here.");
     }
-  }
-
-  private static int readRawVarint32(InputStream is) throws IOException {
-    int firstByte = is.read();
-    return CodedInputStream.readRawVarint32(firstByte, is);
   }
 
   /**
