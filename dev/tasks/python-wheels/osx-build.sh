@@ -71,6 +71,7 @@ function build_wheel {
           -DARROW_GRPC_USE_SHARED=OFF \
           -DARROW_HDFS=ON \
           -DARROW_JEMALLOC=ON \
+          -DARROW_MIMALLOC=ON \
           -DARROW_OPENSSL_USE_SHARED=OFF \
           -DARROW_ORC=OFF \
           -DARROW_PARQUET=ON \
