@@ -4095,7 +4095,7 @@ extern "C" SEXP _arrow_MemoryPool__default(){
 
 // memorypool.cpp
 #if defined(ARROW_R_WITH_ARROW)
-int64_t MemoryPool__bytes_allocated(const std::shared_ptr<arrow::MemoryPool>& pool);
+double MemoryPool__bytes_allocated(const std::shared_ptr<arrow::MemoryPool>& pool);
 extern "C" SEXP _arrow_MemoryPool__bytes_allocated(SEXP pool_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::MemoryPool>&>::type pool(pool_sexp);
@@ -4110,7 +4110,7 @@ extern "C" SEXP _arrow_MemoryPool__bytes_allocated(SEXP pool_sexp){
 
 // memorypool.cpp
 #if defined(ARROW_R_WITH_ARROW)
-int64_t MemoryPool__max_memory(const std::shared_ptr<arrow::MemoryPool>& pool);
+double MemoryPool__max_memory(const std::shared_ptr<arrow::MemoryPool>& pool);
 extern "C" SEXP _arrow_MemoryPool__max_memory(SEXP pool_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::MemoryPool>&>::type pool(pool_sexp);

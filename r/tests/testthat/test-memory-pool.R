@@ -17,8 +17,9 @@
 
 test_that("default_memory_pool and its attributes", {
   pool <- default_memory_pool()
-  expect_is(pool$bytes_allocated, "integer")
-  expect_is(pool$max_memory, "integer")
+  # Not integer bc can be >2gb, so we cast to double
+  expect_is(pool$bytes_allocated, "numeric")
+  expect_is(pool$max_memory, "numeric")
   expect_true(pool$backend_name %in% c("system", "jemalloc", "mimalloc"))
 
   expect_true(all(supported_memory_backends() %in% c("system", "jemalloc", "mimalloc")))
