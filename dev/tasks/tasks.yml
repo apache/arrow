@@ -27,6 +27,9 @@ groups:
   wheel:
     - wheel-*
 
+  wheel-manylinux:
+    - wheel-manylinux*
+
   linux:
     - debian-*
     - ubuntu-*
