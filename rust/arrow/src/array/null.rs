@@ -154,6 +154,15 @@ mod tests {
     }
 
     #[test]
+    fn test_null_array_new_with_type() {
+        let length = 10;
+        let data_type = DataType::Int8;
+        let array = NullArray::new_with_type(length, data_type.clone());
+        assert_eq!(array.len(), length);
+        assert_eq!(array.data_type(), &data_type);
+    }
+
+    #[test]
     fn test_debug_null_array() {
         let array = NullArray::new(1024 * 1024);
         assert_eq!(format!("{:?}", array), "NullArray(1048576)");
