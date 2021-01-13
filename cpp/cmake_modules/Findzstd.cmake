@@ -81,8 +81,7 @@ endif()
 
 find_package_handle_standard_args(zstd REQUIRED_VARS ZSTD_LIB ZSTD_INCLUDE_DIR)
 
-# CMake 3.2 does uppercase the FOUND variable
-if(zstd_FOUND OR ZSTD_FOUND)
+if(zstd_FOUND)
   add_library(zstd::libzstd UNKNOWN IMPORTED)
   set_target_properties(zstd::libzstd
                         PROPERTIES IMPORTED_LOCATION "${ZSTD_LIB}"

@@ -21,5 +21,6 @@ pub mod display;
 pub mod integration_util;
 #[cfg(feature = "prettyprint")]
 pub mod pretty;
+pub(crate) mod serialization;
 pub mod string_writer;
 pub mod test_util;

@@ -1272,6 +1272,10 @@ ImportRecordBatch <- function(array, schema){
     .Call(`_arrow_ImportRecordBatch` , array, schema)
 }
 
+ImportSchema <- function(schema){
+    .Call(`_arrow_ImportSchema` , schema)
+}
+
 allocate_arrow_schema <- function(){
     .Call(`_arrow_allocate_arrow_schema` )
 }
@@ -1408,12 +1412,12 @@ ipc___RecordBatchFileReader__Open <- function(file){
     .Call(`_arrow_ipc___RecordBatchFileReader__Open` , file)
 }
 
-Table__from_RecordBatchFileReader <- function(reader){
-    .Call(`_arrow_Table__from_RecordBatchFileReader` , reader)
+Table__from_RecordBatchReader <- function(reader){
+    .Call(`_arrow_Table__from_RecordBatchReader` , reader)
 }
 
-Table__from_RecordBatchStreamReader <- function(reader){
-    .Call(`_arrow_Table__from_RecordBatchStreamReader` , reader)
+Table__from_RecordBatchFileReader <- function(reader){
+    .Call(`_arrow_Table__from_RecordBatchFileReader` , reader)
 }
 
 ipc___RecordBatchFileReader__batches <- function(reader){

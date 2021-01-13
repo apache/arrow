@@ -21,9 +21,9 @@ use futures::Stream;
 use tonic::transport::Server;
 use tonic::{Request, Response, Status, Streaming};
 
-use datafusion::datasource::parquet::ParquetTable;
 use datafusion::datasource::TableProvider;
 use datafusion::prelude::*;
+use datafusion::{datasource::parquet::ParquetTable, physical_plan::collect};
 
 use arrow_flight::{
     flight_service_server::FlightService, flight_service_server::FlightServiceServer,
@@ -64,7 +64,7 @@ impl FlightService for FlightServiceImpl {
     ) -> Result<Response<SchemaResult>, Status> {
         let request = request.into_inner();
 
-        let table = ParquetTable::try_new(&request.path[0]).unwrap();
+        let table = ParquetTable::try_new(&request.path[0], num_cpus::get()).unwrap();
 
         let options = arrow::ipc::writer::IpcWriteOptions::default();
         let schema_result = arrow_flight::utils::flight_schema_from_arrow_schema(
@@ -87,8 +87,7 @@ impl FlightService for FlightServiceImpl {
                 // create local execution context
                 let mut ctx = ExecutionContext::new();
 
-                let testdata = std::env::var("PARQUET_TEST_DATA")
-                    .expect("PARQUET_TEST_DATA not defined");
+                let testdata = arrow::util::test_util::parquet_test_data();
 
                 // register parquet file with the execution context
                 ctx.register_parquet(
@@ -105,10 +104,8 @@ impl FlightService for FlightServiceImpl {
                     .map_err(|e| to_tonic_err(&e))?;
 
                 // execute the query
-                let results = ctx
-                    .collect(plan.clone())
-                    .await
-                    .map_err(|e| to_tonic_err(&e))?;
+                let results =
+                    collect(plan.clone()).await.map_err(|e| to_tonic_err(&e))?;
                 if results.is_empty() {
                     return Err(Status::internal("There were no results from ticket"));
                 }

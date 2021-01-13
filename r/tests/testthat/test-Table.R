@@ -353,6 +353,12 @@ test_that("table() auto splices (ARROW-5718)", {
   expect_equivalent(as.data.frame(tab3), df)
 })
 
+test_that("Validation when creating table with schema (ARROW-10953)", {
+  tab <- Table$create(data.frame(), schema = schema(a = int32()))
+  skip("This segfaults")
+  expect_identical(dim(as.data.frame(tab)), c(0L, 1L))
+})
+
 test_that("==.Table", {
   tab1 <- Table$create(x = 1:2, y = c("a", "b"))
   tab2 <- Table$create(x = 1:2, y = c("a", "b"))

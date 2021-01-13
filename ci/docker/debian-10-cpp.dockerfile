@@ -54,7 +54,6 @@ RUN apt-get update -y -q && \
         libgflags-dev \
         libgmock-dev \
         libgoogle-glog-dev \
-        libgtest-dev \
         liblz4-dev \
         libre2-dev \
         libsnappy-dev \
@@ -99,6 +98,7 @@ ENV ARROW_BUILD_TESTS=ON \
     CC=gcc \
     CXX=g++ \
     gRPC_SOURCE=BUNDLED \
+    GTest_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \
     PATH=/usr/lib/ccache/:$PATH \
     Protobuf_SOURCE=BUNDLED

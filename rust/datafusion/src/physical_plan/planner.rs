@@ -23,21 +23,23 @@ use super::{aggregates, empty::EmptyExec, expressions::binary, functions, udaf};
 use crate::error::{DataFusionError, Result};
 use crate::execution::context::ExecutionContextState;
 use crate::logical_plan::{
-    DFSchema, Expr, LogicalPlan, Operator, PlanType, StringifiedPlan, TableSource,
-    UserDefinedLogicalNode,
+    DFSchema, Expr, LogicalPlan, Operator, Partitioning as LogicalPartitioning, PlanType,
+    StringifiedPlan, UserDefinedLogicalNode,
 };
+use crate::physical_plan::coalesce_batches::CoalesceBatchesExec;
 use crate::physical_plan::explain::ExplainExec;
 use crate::physical_plan::expressions::{CaseExpr, Column, Literal, PhysicalSortExpr};
 use crate::physical_plan::filter::FilterExec;
 use crate::physical_plan::hash_aggregate::{AggregateMode, HashAggregateExec};
 use crate::physical_plan::hash_join::HashJoinExec;
-use crate::physical_plan::hash_utils;
 use crate::physical_plan::limit::{GlobalLimitExec, LocalLimitExec};
 use crate::physical_plan::merge::MergeExec;
 use crate::physical_plan::projection::ProjectionExec;
+use crate::physical_plan::repartition::RepartitionExec;
 use crate::physical_plan::sort::SortExec;
 use crate::physical_plan::udf;
 use crate::physical_plan::{expressions, Distribution};
+use crate::physical_plan::{hash_utils, Partitioning};
 use crate::physical_plan::{AggregateExpr, ExecutionPlan, PhysicalExpr, PhysicalPlanner};
 use crate::prelude::JoinType;
 use crate::variable::VarType;
@@ -105,10 +107,38 @@ impl DefaultPhysicalPlanner {
             .map(|child| self.optimize_plan(child.clone(), ctx_state))
             .collect::<Result<Vec<_>>>()?;
 
-        if children.len() == 0 {
+        if children.is_empty() {
             // leaf node, children cannot be replaced
             Ok(plan.clone())
         } else {
+            // wrap operators in CoalesceBatches to avoid lots of tiny batches when we have
+            // highly selective filters
+            let plan_any = plan.as_any();
+            //TODO we should do this in a more generic way either by wrapping all operators
+            // or having an API so that operators can declare when their inputs or outputs
+            // need to be wrapped in a coalesce batches operator.
+            // See https://issues.apache.org/jira/browse/ARROW-11068
+            let wrap_in_coalesce = plan_any.downcast_ref::<FilterExec>().is_some()
+                || plan_any.downcast_ref::<HashJoinExec>().is_some()
+                || plan_any.downcast_ref::<RepartitionExec>().is_some();
+
+            //TODO we should also do this for HashAggregateExec but we need to update tests
+            // as part of this work - see https://issues.apache.org/jira/browse/ARROW-11068
+            // || plan_any.downcast_ref::<HashAggregateExec>().is_some();
+
+            let plan = if wrap_in_coalesce {
+                //TODO we should add specific configuration settings for coalescing batches and
+                // we should do that once https://issues.apache.org/jira/browse/ARROW-11059 is
+                // implemented. For now, we choose half the configured batch size to avoid copies
+                // when a small number of rows are removed from a batch
+                let target_batch_size = ctx_state.config.batch_size / 2;
+                Arc::new(CoalesceBatchesExec::new(plan.clone(), target_batch_size))
+            } else {
+                plan.clone()
+            };
+
+            let children = plan.children().clone();
+
             match plan.required_child_distribution() {
                 Distribution::UnspecifiedDistribution => plan.with_new_children(children),
                 Distribution::SinglePartition => plan.with_new_children(
@@ -137,22 +167,11 @@ impl DefaultPhysicalPlanner {
 
         match logical_plan {
             LogicalPlan::TableScan {
-                source, projection, ..
-            } => match source {
-                TableSource::FromContext(table_name) => {
-                    match ctx_state.datasources.get(table_name) {
-                        Some(provider) => provider.scan(projection, batch_size),
-                        _ => Err(DataFusionError::Plan(format!(
-                            "No table named {}. Existing tables: {:?}",
-                            table_name,
-                            ctx_state.datasources.keys().collect::<Vec<_>>(),
-                        ))),
-                    }
-                }
-                TableSource::FromProvider(ref provider) => {
-                    provider.scan(projection, batch_size)
-                }
-            },
+                source,
+                projection,
+                filters,
+                ..
+            } => source.scan(projection, batch_size, filters),
             LogicalPlan::Aggregate {
                 input,
                 group_expr,
@@ -239,6 +258,31 @@ impl DefaultPhysicalPlanner {
                     self.create_physical_expr(predicate, &input_schema, ctx_state)?;
                 Ok(Arc::new(FilterExec::try_new(runtime_expr, input)?))
             }
+            LogicalPlan::Repartition {
+                input,
+                partitioning_scheme,
+            } => {
+                let input = self.create_physical_plan(input, ctx_state)?;
+                let input_schema = input.schema();
+                let physical_partitioning = match partitioning_scheme {
+                    LogicalPartitioning::RoundRobinBatch(n) => {
+                        Partitioning::RoundRobinBatch(*n)
+                    }
+                    LogicalPartitioning::Hash(expr, n) => {
+                        let runtime_expr = expr
+                            .iter()
+                            .map(|e| {
+                                self.create_physical_expr(e, &input_schema, &ctx_state)
+                            })
+                            .collect::<Result<Vec<_>>>()?;
+                        Partitioning::Hash(runtime_expr, *n)
+                    }
+                };
+                Ok(Arc::new(RepartitionExec::try_new(
+                    input,
+                    physical_partitioning,
+                )?))
+            }
             LogicalPlan::Sort { expr, input, .. } => {
                 let input = self.create_physical_plan(input, ctx_state)?;
                 let input_schema = input.as_ref().schema();
@@ -285,6 +329,7 @@ impl DefaultPhysicalPlanner {
                     JoinType::Left => hash_utils::JoinType::Left,
                     JoinType::Right => hash_utils::JoinType::Right,
                 };
+
                 Ok(Arc::new(HashJoinExec::try_new(
                     left,
                     right,
@@ -338,7 +383,7 @@ impl DefaultPhysicalPlanner {
                 let mut stringified_plans = stringified_plans
                     .iter()
                     .filter(|s| s.should_display(*verbose))
-                    .map(|s| s.clone())
+                    .cloned()
                     .collect::<Vec<_>>();
 
                 // add in the physical plan if requested
@@ -653,11 +698,11 @@ mod tests {
     use super::*;
     use crate::logical_plan::{DFField, DFSchema, DFSchemaRef};
     use crate::physical_plan::{csv::CsvReadOptions, expressions, Partitioning};
+    use crate::prelude::ExecutionConfig;
     use crate::{
         logical_plan::{col, lit, sum, LogicalPlanBuilder},
         physical_plan::SendableRecordBatchStream,
     };
-    use crate::{prelude::ExecutionConfig, test::arrow_testdata_path};
     use arrow::datatypes::{DataType, Field, SchemaRef};
     use async_trait::async_trait;
     use fmt::Debug;
@@ -681,7 +726,7 @@ mod tests {
 
     #[test]
     fn test_all_operators() -> Result<()> {
-        let testdata = arrow_testdata_path();
+        let testdata = arrow::util::test_util::arrow_test_data();
         let path = format!("{}/csv/aggregate_test_100.csv", testdata);
 
         let options = CsvReadOptions::new().schema_infer_max_records(100);
@@ -720,7 +765,7 @@ mod tests {
 
     #[test]
     fn test_with_csv_plan() -> Result<()> {
-        let testdata = arrow_testdata_path();
+        let testdata = arrow::util::test_util::arrow_test_data();
         let path = format!("{}/csv/aggregate_test_100.csv", testdata);
 
         let options = CsvReadOptions::new().schema_infer_max_records(100);
@@ -738,7 +783,7 @@ mod tests {
 
     #[test]
     fn errors() -> Result<()> {
-        let testdata = arrow_testdata_path();
+        let testdata = arrow::util::test_util::arrow_test_data();
         let path = format!("{}/csv/aggregate_test_100.csv", testdata);
         let options = CsvReadOptions::new().schema_infer_max_records(100);
 
@@ -782,7 +827,7 @@ mod tests {
 
         let expected_error = "DefaultPhysicalPlanner does not know how to plan NoOp";
         match plan {
-            Ok(_) => assert!(false, "Expected planning failure"),
+            Ok(_) => panic!("Expected planning failure"),
             Err(e) => assert!(
                 e.to_string().contains(expected_error),
                 "Error '{}' did not contain expected error '{}'",
@@ -826,7 +871,7 @@ mod tests {
                 dict_is_ordered: false }\
         ], metadata: {} }";
         match plan {
-            Ok(_) => assert!(false, "Expected planning failure"),
+            Ok(_) => panic!("Expected planning failure"),
             Err(e) => assert!(
                 e.to_string().contains(expected_error),
                 "Error '{}' did not contain expected error '{}'",

@@ -314,7 +314,9 @@ class DoExchangeMessageWriter : public FlightMessageWriter {
       payload.app_metadata = app_metadata;
     }
     RETURN_NOT_OK(ipc::GetRecordBatchPayload(batch, ipc_options_, &payload.ipc_message));
-    return WritePayload(payload);
+    RETURN_NOT_OK(WritePayload(payload));
+    ++stats_.num_record_batches;
+    return Status::OK();
   }
 
   Status Close() override {
@@ -322,12 +324,15 @@ class DoExchangeMessageWriter : public FlightMessageWriter {
     return Status::OK();
   }
 
+  ipc::WriteStats stats() const override { return stats_; }
+
  private:
   Status WritePayload(const FlightPayload& payload) {
     if (!internal::WritePayload(payload, stream_)) {
       // gRPC doesn't give us any way to find what the error was (if any).
       return Status::IOError("Could not write payload to stream");
     }
+    ++stats_.num_messages;
     return Status::OK();
   }
 
@@ -350,6 +355,7 @@ class DoExchangeMessageWriter : public FlightMessageWriter {
       RETURN_NOT_OK(ipc::GetDictionaryPayload(pair.first, pair.second, ipc_options_,
                                               &payload.ipc_message));
       RETURN_NOT_OK(WritePayload(payload));
+      ++stats_.num_dictionary_batches;
     }
     return Status::OK();
   }
@@ -357,6 +363,7 @@ class DoExchangeMessageWriter : public FlightMessageWriter {
   grpc::ServerReaderWriter<pb::FlightData, pb::FlightData>* stream_;
   ::arrow::ipc::IpcWriteOptions ipc_options_;
   ipc::DictionaryFieldMapper mapper_;
+  ipc::WriteStats stats_;
   bool started_ = false;
   bool dictionaries_written_ = false;
 };

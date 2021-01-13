@@ -94,8 +94,6 @@ g++ test.cc `pkg-config --cflags --libs plasma` --std=c++11
 
 Note that multiple clients can be created within the same process.
 
-Note that a `PlasmaClient` object is **not thread safe**.
-
 If the Plasma store is still running, you can now execute the `a.out` executable
 and the store will print something like
 

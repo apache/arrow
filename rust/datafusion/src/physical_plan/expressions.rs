@@ -48,9 +48,9 @@ use arrow::datatypes::{DataType, DateUnit, Schema, TimeUnit};
 use arrow::record_batch::RecordBatch;
 use arrow::{
     array::{
-        ArrayRef, BooleanArray, Date32Array, Float32Array, Float64Array, Int16Array,
-        Int32Array, Int64Array, Int8Array, StringArray, TimestampNanosecondArray,
-        UInt16Array, UInt32Array, UInt64Array, UInt8Array,
+        ArrayRef, BooleanArray, Date32Array, Date64Array, Float32Array, Float64Array,
+        Int16Array, Int32Array, Int64Array, Int8Array, StringArray,
+        TimestampNanosecondArray, UInt16Array, UInt32Array, UInt64Array, UInt8Array,
     },
     datatypes::Field,
 };
@@ -473,10 +473,9 @@ impl Accumulator for AvgAccumulator {
 
     fn evaluate(&self) -> Result<ScalarValue> {
         match self.sum {
-            ScalarValue::Float64(e) => Ok(ScalarValue::Float64(match e {
-                Some(f) => Some(f / self.count as f64),
-                None => None,
-            })),
+            ScalarValue::Float64(e) => {
+                Ok(ScalarValue::Float64(e.map(|f| f / self.count as f64)))
+            }
             _ => Err(DataFusionError::Internal(
                 "Sum should be f64 on average".to_string(),
             )),
@@ -878,81 +877,56 @@ impl AggregateExpr for Count {
 
 #[derive(Debug)]
 struct CountAccumulator {
-    count: ScalarValue,
+    count: u64,
 }
 
 impl CountAccumulator {
     /// new count accumulator
     pub fn new() -> Self {
-        Self {
-            count: ScalarValue::from(0u64),
-        }
-    }
-
-    fn update_from_option(&mut self, delta: &Option<u64>) -> Result<()> {
-        self.count = ScalarValue::UInt64(match (&self.count, delta) {
-            (ScalarValue::UInt64(None), None) => None,
-            (ScalarValue::UInt64(None), Some(rhs)) => Some(rhs.clone()),
-            (ScalarValue::UInt64(Some(lhs)), None) => Some(lhs.clone()),
-            (ScalarValue::UInt64(Some(lhs)), Some(rhs)) => Some(lhs + rhs),
-            _ => {
-                return Err(DataFusionError::Internal(
-                    "Code should not be reached reach".to_string(),
-                ))
-            }
-        });
-        Ok(())
+        Self { count: 0 }
     }
 }
 
 impl Accumulator for CountAccumulator {
     fn update_batch(&mut self, values: &Vec<ArrayRef>) -> Result<()> {
         let array = &values[0];
-        let delta = if array.len() == array.data().null_count() {
-            None
-        } else {
-            Some((array.len() - array.data().null_count()) as u64)
-        };
-        self.update_from_option(&delta)
+        self.count += (array.len() - array.data().null_count()) as u64;
+        Ok(())
     }
 
     fn update(&mut self, values: &Vec<ScalarValue>) -> Result<()> {
         let value = &values[0];
-        self.count = match (&self.count, value.is_null()) {
-            (ScalarValue::UInt64(None), false) => ScalarValue::from(1u64),
-            (ScalarValue::UInt64(Some(count)), false) => ScalarValue::from(count + 1),
-            // value is null => no change in count
-            (e, true) => e.clone(),
-            (_, false) => {
-                return Err(DataFusionError::Internal(
-                    "Count is always of type u64".to_string(),
-                ))
-            }
-        };
+        if !value.is_null() {
+            self.count += 1;
+        }
         Ok(())
     }
 
     fn merge(&mut self, states: &Vec<ScalarValue>) -> Result<()> {
         let count = &states[0];
-        if let ScalarValue::UInt64(delta) = count {
-            self.update_from_option(delta)
+        if let ScalarValue::UInt64(Some(delta)) = count {
+            self.count += *delta;
         } else {
             unreachable!()
         }
+        Ok(())
     }
 
     fn merge_batch(&mut self, states: &Vec<ArrayRef>) -> Result<()> {
         let counts = states[0].as_any().downcast_ref::<UInt64Array>().unwrap();
         let delta = &compute::sum(counts);
-        self.update_from_option(delta)
+        if let Some(d) = delta {
+            self.count += *d;
+        }
+        Ok(())
     }
 
     fn state(&self) -> Result<Vec<ScalarValue>> {
-        Ok(vec![self.count.clone()])
+        Ok(vec![ScalarValue::UInt64(Some(self.count))])
     }
 
     fn evaluate(&self) -> Result<ScalarValue> {
-        Ok(self.count.clone())
+        Ok(ScalarValue::UInt64(Some(self.count)))
     }
 }
 
@@ -1135,6 +1109,9 @@ macro_rules! binary_array_op {
             DataType::Date32(DateUnit::Day) => {
                 compute_op!($LEFT, $RIGHT, $OP, Date32Array)
             }
+            DataType::Date64(DateUnit::Millisecond) => {
+                compute_op!($LEFT, $RIGHT, $OP, Date64Array)
+            }
             other => Err(DataFusionError::Internal(format!(
                 "Unsupported data type {:?}",
                 other
@@ -1227,6 +1204,19 @@ fn string_coercion(lhs_type: &DataType, rhs_type: &DataType) -> Option<DataType>
     }
 }
 
+/// Coercion rules for Temporal columns: the type that both lhs and rhs can be
+/// casted to for the purpose of a date computation
+fn temporal_coercion(lhs_type: &DataType, rhs_type: &DataType) -> Option<DataType> {
+    use arrow::datatypes::DataType::*;
+    match (lhs_type, rhs_type) {
+        (Utf8, Date32(DateUnit::Day)) => Some(Date32(DateUnit::Day)),
+        (Date32(DateUnit::Day), Utf8) => Some(Date32(DateUnit::Day)),
+        (Utf8, Date64(DateUnit::Millisecond)) => Some(Date64(DateUnit::Millisecond)),
+        (Date64(DateUnit::Millisecond), Utf8) => Some(Date64(DateUnit::Millisecond)),
+        _ => None,
+    }
+}
+
 /// Coercion rule for numerical types: The type that both lhs and rhs
 /// can be casted to for numerical calculation, while maintaining
 /// maximum precision
@@ -1288,6 +1278,7 @@ fn eq_coercion(lhs_type: &DataType, rhs_type: &DataType) -> Option<DataType> {
     }
     numerical_coercion(lhs_type, rhs_type)
         .or_else(|| dictionary_coercion(lhs_type, rhs_type))
+        .or_else(|| temporal_coercion(lhs_type, rhs_type))
 }
 
 // coercion rules that assume an ordered set, such as "less than".
@@ -1301,6 +1292,7 @@ fn order_coercion(lhs_type: &DataType, rhs_type: &DataType) -> Option<DataType> 
     numerical_coercion(lhs_type, rhs_type)
         .or_else(|| string_coercion(lhs_type, rhs_type))
         .or_else(|| dictionary_coercion(lhs_type, rhs_type))
+        .or_else(|| temporal_coercion(lhs_type, rhs_type))
 }
 
 /// Coercion rules for all binary operators. Returns the output type
@@ -1638,7 +1630,7 @@ impl fmt::Display for NotExpr {
 
 impl PhysicalExpr for NotExpr {
     fn data_type(&self, _input_schema: &Schema) -> Result<DataType> {
-        return Ok(DataType::Boolean);
+        Ok(DataType::Boolean)
     }
 
     fn nullable(&self, input_schema: &Schema) -> Result<bool> {
@@ -1649,11 +1641,15 @@ impl PhysicalExpr for NotExpr {
         let arg = self.arg.evaluate(batch)?;
         match arg {
             ColumnarValue::Array(array) => {
-                let array = array.as_any().downcast_ref::<BooleanArray>().ok_or(
-                    DataFusionError::Internal(
-                        "boolean_op failed to downcast array".to_owned(),
-                    ),
-                )?;
+                let array =
+                    array
+                        .as_any()
+                        .downcast_ref::<BooleanArray>()
+                        .ok_or_else(|| {
+                            DataFusionError::Internal(
+                                "boolean_op failed to downcast array".to_owned(),
+                            )
+                        })?;
                 Ok(ColumnarValue::Array(Arc::new(
                     arrow::compute::kernels::boolean::not(array)?,
                 )))
@@ -1680,12 +1676,10 @@ pub fn not(
 ) -> Result<Arc<dyn PhysicalExpr>> {
     let data_type = arg.data_type(input_schema)?;
     if data_type != DataType::Boolean {
-        Err(DataFusionError::Internal(
-            format!(
-                "NOT '{:?}' can't be evaluated because the expression's type is {:?}, not boolean",
-                arg, data_type,
-            ),
-        ))
+        Err(DataFusionError::Internal(format!(
+            "NOT '{:?}' can't be evaluated because the expression's type is {:?}, not boolean",
+            arg, data_type,
+        )))
     } else {
         Ok(Arc::new(NotExpr::new(arg)))
     }
@@ -1787,7 +1781,7 @@ impl fmt::Display for IsNullExpr {
 }
 impl PhysicalExpr for IsNullExpr {
     fn data_type(&self, _input_schema: &Schema) -> Result<DataType> {
-        return Ok(DataType::Boolean);
+        Ok(DataType::Boolean)
     }
 
     fn nullable(&self, _input_schema: &Schema) -> Result<bool> {
@@ -1832,7 +1826,7 @@ impl fmt::Display for IsNotNullExpr {
 }
 impl PhysicalExpr for IsNotNullExpr {
     fn data_type(&self, _input_schema: &Schema) -> Result<DataType> {
-        return Ok(DataType::Boolean);
+        Ok(DataType::Boolean)
     }
 
     fn nullable(&self, _input_schema: &Schema) -> Result<bool> {
@@ -1907,7 +1901,7 @@ impl CaseExpr {
         when_then_expr: &[(Arc<dyn PhysicalExpr>, Arc<dyn PhysicalExpr>)],
         else_expr: Option<Arc<dyn PhysicalExpr>>,
     ) -> Result<Self> {
-        if when_then_expr.len() == 0 {
+        if when_then_expr.is_empty() {
             Err(DataFusionError::Execution(
                 "There must be at least one WHEN clause".to_string(),
             ))
@@ -2276,11 +2270,16 @@ pub struct CastExpr {
 
 /// Determine if a DataType is signed numeric or not
 pub fn is_signed_numeric(dt: &DataType) -> bool {
-    match dt {
-        DataType::Int8 | DataType::Int16 | DataType::Int32 | DataType::Int64 => true,
-        DataType::Float16 | DataType::Float32 | DataType::Float64 => true,
-        _ => false,
-    }
+    matches!(
+        dt,
+        DataType::Int8
+            | DataType::Int16
+            | DataType::Int32
+            | DataType::Int64
+            | DataType::Float16
+            | DataType::Float32
+            | DataType::Float64
+    )
 }
 
 /// Determine if a DataType is numeric or not
@@ -2625,6 +2624,54 @@ mod tests {
             DataType::Utf8,
             vec!["%hello%", "%hello%"],
             Operator::Like,
+            BooleanArray,
+            DataType::Boolean,
+            vec![true, false]
+        );
+        test_coercion!(
+            StringArray,
+            DataType::Utf8,
+            vec!["1994-12-13", "1995-01-26"],
+            Date32Array,
+            DataType::Date32(DateUnit::Day),
+            vec![9112, 9156],
+            Operator::Eq,
+            BooleanArray,
+            DataType::Boolean,
+            vec![true, true]
+        );
+        test_coercion!(
+            StringArray,
+            DataType::Utf8,
+            vec!["1994-12-13", "1995-01-26"],
+            Date32Array,
+            DataType::Date32(DateUnit::Day),
+            vec![9113, 9154],
+            Operator::Lt,
+            BooleanArray,
+            DataType::Boolean,
+            vec![true, false]
+        );
+        test_coercion!(
+            StringArray,
+            DataType::Utf8,
+            vec!["1994-12-13T12:34:56", "1995-01-26T01:23:45"],
+            Date64Array,
+            DataType::Date64(DateUnit::Millisecond),
+            vec![787322096000, 791083425000],
+            Operator::Eq,
+            BooleanArray,
+            DataType::Boolean,
+            vec![true, true]
+        );
+        test_coercion!(
+            StringArray,
+            DataType::Utf8,
+            vec!["1994-12-13T12:34:56", "1995-01-26T01:23:45"],
+            Date64Array,
+            DataType::Date64(DateUnit::Millisecond),
+            vec![787322096001, 791083424999],
+            Operator::Lt,
             BooleanArray,
             DataType::Boolean,
             vec![true, false]

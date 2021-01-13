@@ -22,7 +22,8 @@ on:
     types: [synchronize]
 
 jobs:
-  main:
+  label:
+    name: Label
     runs-on: ubuntu-latest
     steps:
       - name: Checks if PR needs rebase

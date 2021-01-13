@@ -18,6 +18,7 @@
 //! via a logical query plan.
 
 use std::{
+    cmp::min,
     fmt::{self, Display},
     sync::Arc,
 };
@@ -32,17 +33,8 @@ use super::expr::Expr;
 use super::extension::UserDefinedLogicalNode;
 use crate::logical_plan::dfschema::DFSchemaRef;
 
-/// Describes the source of the table, either registered on the context or by reference
-#[derive(Clone)]
-pub enum TableSource {
-    /// The source provider is registered in the context with the corresponding name
-    FromContext(String),
-    /// The source provider is passed directly by reference
-    FromProvider(Arc<dyn TableProvider + Send + Sync>),
-}
-
 /// Join type
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum JoinType {
     /// Inner join
     Inner,
@@ -118,18 +110,25 @@ pub enum LogicalPlan {
         /// The output schema, containing fields from the left and right inputs
         schema: DFSchemaRef,
     },
+    /// Repartition the plan based on a partitioning scheme.
+    Repartition {
+        /// The incoming logical plan
+        input: Arc<LogicalPlan>,
+        /// The partitioning scheme
+        partitioning_scheme: Partitioning,
+    },
     /// Produces rows from a table provider by reference or from the context
     TableScan {
-        /// The name of the schema
-        schema_name: String,
+        /// The name of the table
+        table_name: String,
         /// The source of the table
-        source: TableSource,
-        /// The schema of the source data
-        table_schema: SchemaRef,
+        source: Arc<dyn TableProvider + Send + Sync>,
         /// Optional column indices to use as a projection
         projection: Option<Vec<usize>>,
         /// The schema description of the output
         projected_schema: DFSchemaRef,
+        /// Optional expressions to be used as filters by the table provider
+        filters: Vec<Expr>,
     },
     /// Produces no rows: An empty relation with an empty schema
     EmptyRelation {
@@ -190,6 +189,7 @@ impl LogicalPlan {
             LogicalPlan::Aggregate { schema, .. } => &schema,
             LogicalPlan::Sort { input, .. } => input.schema(),
             LogicalPlan::Join { schema, .. } => &schema,
+            LogicalPlan::Repartition { input, .. } => input.schema(),
             LogicalPlan::Limit { input, .. } => input.schema(),
             LogicalPlan::CreateExternalTable { schema, .. } => &schema,
             LogicalPlan::Explain { schema, .. } => &schema,
@@ -204,6 +204,17 @@ impl LogicalPlan {
             Field::new("plan", DataType::Utf8, false),
         ]))
     }
+}
+
+/// Logical partitioning schemes supported by the repartition operator.
+#[derive(Debug, Clone)]
+pub enum Partitioning {
+    /// Allocate batches using a round-robin algorithm and the specified number of partitions
+    RoundRobinBatch(usize),
+    /// Allocate rows based on a hash of one of more expressions and the specified number
+    /// of partitions.
+    /// This partitioning scheme is not yet fully supported. See https://issues.apache.org/jira/browse/ARROW-11011
+    Hash(Vec<Expr>, usize),
 }
 
 /// Trait that implements the [Visitor
@@ -269,6 +280,7 @@ impl LogicalPlan {
         let recurse = match self {
             LogicalPlan::Projection { input, .. } => input.accept(visitor)?,
             LogicalPlan::Filter { input, .. } => input.accept(visitor)?,
+            LogicalPlan::Repartition { input, .. } => input.accept(visitor)?,
             LogicalPlan::Aggregate { input, .. } => input.accept(visitor)?,
             LogicalPlan::Sort { input, .. } => input.accept(visitor)?,
             LogicalPlan::Join { left, right, .. } => {
@@ -318,7 +330,7 @@ impl LogicalPlan {
     /// let schema = Schema::new(vec![
     ///     Field::new("id", DataType::Int32, false),
     /// ]);
-    /// let plan = LogicalPlanBuilder::scan("default", "foo.csv", &schema, None).unwrap()
+    /// let plan = LogicalPlanBuilder::scan_empty("foo.csv", &schema, None).unwrap()
     ///     .filter(col("id").eq(lit(5))).unwrap()
     ///     .build().unwrap();
     ///
@@ -359,7 +371,7 @@ impl LogicalPlan {
     /// let schema = Schema::new(vec![
     ///     Field::new("id", DataType::Int32, false),
     /// ]);
-    /// let plan = LogicalPlanBuilder::scan("default", "foo.csv", &schema, None).unwrap()
+    /// let plan = LogicalPlanBuilder::scan_empty("foo.csv", &schema, None).unwrap()
     ///     .filter(col("id").eq(lit(5))).unwrap()
     ///     .build().unwrap();
     ///
@@ -399,7 +411,7 @@ impl LogicalPlan {
     /// let schema = Schema::new(vec![
     ///     Field::new("id", DataType::Int32, false),
     /// ]);
-    /// let plan = LogicalPlanBuilder::scan("default", "foo.csv", &schema, None).unwrap()
+    /// let plan = LogicalPlanBuilder::scan_empty("foo.csv", &schema, None).unwrap()
     ///     .filter(col("id").eq(lit(5))).unwrap()
     ///     .build().unwrap();
     ///
@@ -458,7 +470,7 @@ impl LogicalPlan {
     /// let schema = Schema::new(vec![
     ///     Field::new("id", DataType::Int32, false),
     /// ]);
-    /// let plan = LogicalPlanBuilder::scan("default", "foo.csv", &schema, None).unwrap()
+    /// let plan = LogicalPlanBuilder::scan_empty("foo.csv", &schema, None).unwrap()
     ///     .build().unwrap();
     ///
     /// // Format using display
@@ -472,22 +484,27 @@ impl LogicalPlan {
         struct Wrapper<'a>(&'a LogicalPlan);
         impl<'a> fmt::Display for Wrapper<'a> {
             fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                match *self.0 {
+                match &*self.0 {
                     LogicalPlan::EmptyRelation { .. } => write!(f, "EmptyRelation"),
                     LogicalPlan::TableScan {
-                        ref source,
+                        ref table_name,
                         ref projection,
+                        ref filters,
                         ..
-                    } => match source {
-                        TableSource::FromContext(table_name) => write!(
+                    } => {
+                        let sep = " ".repeat(min(1, table_name.len()));
+                        write!(
                             f,
-                            "TableScan: {} projection={:?}",
-                            table_name, projection
-                        ),
-                        TableSource::FromProvider(_) => {
-                            write!(f, "TableScan: projection={:?}", projection)
+                            "TableScan: {}{}projection={:?}",
+                            table_name, sep, projection
+                        )?;
+
+                        if !filters.is_empty() {
+                            write!(f, ", filters={:?}", filters)?;
                         }
-                    },
+
+                        Ok(())
+                    }
                     LogicalPlan::Projection { ref expr, .. } => {
                         write!(f, "Projection: ")?;
                         for i in 0..expr.len() {
@@ -526,6 +543,28 @@ impl LogicalPlan {
                             keys.iter().map(|(l, r)| format!("{} = {}", l, r)).collect();
                         write!(f, "Join: {}", join_expr.join(", "))
                     }
+                    LogicalPlan::Repartition {
+                        partitioning_scheme,
+                        ..
+                    } => match partitioning_scheme {
+                        Partitioning::RoundRobinBatch(n) => {
+                            write!(
+                                f,
+                                "Repartition: RoundRobinBatch partition_count={}",
+                                n
+                            )
+                        }
+                        Partitioning::Hash(expr, n) => {
+                            let hash_expr: Vec<String> =
+                                expr.iter().map(|e| format!("{:?}", e)).collect();
+                            write!(
+                                f,
+                                "Repartition: Hash({}) partition_count={}",
+                                hash_expr.join(", "),
+                                n
+                            )
+                        }
+                    },
                     LogicalPlan::Limit { ref n, .. } => write!(f, "Limit: {}", n),
                     LogicalPlan::CreateExternalTable { ref name, .. } => {
                         write!(f, "CreateExternalTable: {:?}", name)
@@ -573,6 +612,7 @@ impl From<&PlanType> for String {
 
 /// Represents some sort of execution plan, in String form
 #[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::rc_buffer)]
 pub struct StringifiedPlan {
     /// An identifier of what type of plan this string represents
     pub plan_type: PlanType,
@@ -613,8 +653,7 @@ mod tests {
     }
 
     fn display_plan() -> LogicalPlan {
-        LogicalPlanBuilder::scan(
-            "default",
+        LogicalPlanBuilder::scan_empty(
             "employee.csv",
             &employee_schema(),
             Some(vec![0, 3]),
@@ -799,8 +838,10 @@ mod tests {
     /// test earliy stopping in pre-visit
     #[test]
     fn early_stoping_pre_visit() {
-        let mut visitor = StoppingVisitor::default();
-        visitor.return_false_from_pre_in = OptionalCounter::new(2);
+        let mut visitor = StoppingVisitor {
+            return_false_from_pre_in: OptionalCounter::new(2),
+            ..Default::default()
+        };
         let plan = test_plan();
         let res = plan.accept(&mut visitor);
         assert!(res.is_ok());
@@ -813,8 +854,10 @@ mod tests {
 
     #[test]
     fn early_stoping_post_visit() {
-        let mut visitor = StoppingVisitor::default();
-        visitor.return_false_from_post_in = OptionalCounter::new(1);
+        let mut visitor = StoppingVisitor {
+            return_false_from_post_in: OptionalCounter::new(1),
+            ..Default::default()
+        };
         let plan = test_plan();
         let res = plan.accept(&mut visitor);
         assert!(res.is_ok());
@@ -868,8 +911,10 @@ mod tests {
 
     #[test]
     fn error_pre_visit() {
-        let mut visitor = ErrorVisitor::default();
-        visitor.return_error_from_pre_in = OptionalCounter::new(2);
+        let mut visitor = ErrorVisitor {
+            return_error_from_pre_in: OptionalCounter::new(2),
+            ..Default::default()
+        };
         let plan = test_plan();
         let res = plan.accept(&mut visitor);
 
@@ -887,8 +932,10 @@ mod tests {
 
     #[test]
     fn error_post_visit() {
-        let mut visitor = ErrorVisitor::default();
-        visitor.return_error_from_post_in = OptionalCounter::new(1);
+        let mut visitor = ErrorVisitor {
+            return_error_from_post_in: OptionalCounter::new(1),
+            ..Default::default()
+        };
         let plan = test_plan();
         let res = plan.accept(&mut visitor);
         if let Err(e) = res {
@@ -911,7 +958,7 @@ mod tests {
     fn test_plan() -> LogicalPlan {
         let schema = Schema::new(vec![Field::new("id", DataType::Int32, false)]);
 
-        LogicalPlanBuilder::scan("default", "employee.csv", &schema, Some(vec![0]))
+        LogicalPlanBuilder::scan_empty("", &schema, Some(vec![0]))
             .unwrap()
             .filter(col("state").eq(lit("CO")))
             .unwrap()

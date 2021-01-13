@@ -119,13 +119,17 @@ class ARROW_EXPORT Array {
   /// Compare if the range of slots specified are equal for the given array and
   /// this array.  end_idx exclusive.  This methods does not bounds check.
   bool RangeEquals(int64_t start_idx, int64_t end_idx, int64_t other_start_idx,
-                   const Array& other) const;
+                   const Array& other,
+                   const EqualOptions& = EqualOptions::Defaults()) const;
   bool RangeEquals(int64_t start_idx, int64_t end_idx, int64_t other_start_idx,
-                   const std::shared_ptr<Array>& other) const;
+                   const std::shared_ptr<Array>& other,
+                   const EqualOptions& = EqualOptions::Defaults()) const;
   bool RangeEquals(const Array& other, int64_t start_idx, int64_t end_idx,
-                   int64_t other_start_idx) const;
+                   int64_t other_start_idx,
+                   const EqualOptions& = EqualOptions::Defaults()) const;
   bool RangeEquals(const std::shared_ptr<Array>& other, int64_t start_idx,
-                   int64_t end_idx, int64_t other_start_idx) const;
+                   int64_t end_idx, int64_t other_start_idx,
+                   const EqualOptions& = EqualOptions::Defaults()) const;
 
   Status Accept(ArrayVisitor* visitor) const;
 

@@ -14,14 +14,12 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-use crate::buffer::Buffer;
 use crate::util::bit_util::ceil;
 use std::fmt::Debug;
 
 #[derive(Debug)]
 pub struct BitChunks<'a> {
-    buffer: &'a Buffer,
-    raw_data: *const u8,
+    buffer: &'a [u8],
     /// offset inside a byte, guaranteed to be between 0 and 7 (inclusive)
     bit_offset: usize,
     /// number of complete u64 chunks
@@ -31,13 +29,11 @@ pub struct BitChunks<'a> {
 }
 
 impl<'a> BitChunks<'a> {
-    pub fn new(buffer: &'a Buffer, offset: usize, len: usize) -> Self {
+    pub fn new(buffer: &'a [u8], offset: usize, len: usize) -> Self {
         assert!(ceil(offset + len, 8) <= buffer.len() * 8);
 
         let byte_offset = offset / 8;
         let bit_offset = offset % 8;
-
-        let raw_data = unsafe { buffer.raw_data().add(byte_offset) };
 
         let chunk_bits = 8 * std::mem::size_of::<u64>();
 
@@ -45,8 +41,7 @@ impl<'a> BitChunks<'a> {
         let remainder_len = len & (chunk_bits - 1);
 
         BitChunks::<'a> {
-            buffer: &buffer,
-            raw_data,
+            buffer: &buffer[byte_offset..],
             bit_offset,
             chunk_len,
             remainder_len,
@@ -56,8 +51,7 @@ impl<'a> BitChunks<'a> {
 
 #[derive(Debug)]
 pub struct BitChunkIterator<'a> {
-    buffer: &'a Buffer,
-    raw_data: *const u8,
+    buffer: &'a [u8],
     bit_offset: usize,
     chunk_len: usize,
     index: usize,
@@ -68,6 +62,12 @@ impl<'a> BitChunks<'a> {
     #[inline]
     pub const fn remainder_len(&self) -> usize {
         self.remainder_len
+    }
+
+    /// Returns the number of chunks
+    #[inline]
+    pub const fn chunk_len(&self) -> usize {
+        self.chunk_len
     }
 
     /// Returns the bitmask of remaining bits
@@ -83,7 +83,8 @@ impl<'a> BitChunks<'a> {
             let byte_len = ceil(bit_len + bit_offset, 8);
             // pointer to remainder bytes after all complete chunks
             let base = unsafe {
-                self.raw_data
+                self.buffer
+                    .as_ptr()
                     .add(self.chunk_len * std::mem::size_of::<u64>())
             };
 
@@ -102,7 +103,6 @@ impl<'a> BitChunks<'a> {
     pub const fn iter(&self) -> BitChunkIterator<'a> {
         BitChunkIterator::<'a> {
             buffer: self.buffer,
-            raw_data: self.raw_data,
             bit_offset: self.bit_offset,
             chunk_len: self.chunk_len,
             index: 0,
@@ -131,7 +131,7 @@ impl Iterator for BitChunkIterator<'_> {
 
         // cast to *const u64 should be fine since we are using read_unaligned below
         #[allow(clippy::cast_ptr_alignment)]
-        let raw_data = self.raw_data as *const u64;
+        let raw_data = self.buffer.as_ptr() as *const u64;
 
         // bit-packed buffers are stored starting with the least-significant byte first
         // so when reading as u64 on a big-endian machine, the bytes need to be swapped

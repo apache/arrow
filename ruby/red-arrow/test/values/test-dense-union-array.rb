@@ -333,6 +333,20 @@ module ValuesDenseUnionArrayTests
     assert_equal(values, target.values)
   end
 
+  def test_decimal256
+    values = [
+      {"0" => BigDecimal("92.92")},
+      {"1" => nil},
+    ]
+    target = build({
+                     type: :decimal256,
+                     precision: 38,
+                     scale: 2,
+                   },
+                   values)
+    assert_equal(values, target.values)
+  end
+
   def test_list
     values = [
       {"0" => [true, nil, false]},

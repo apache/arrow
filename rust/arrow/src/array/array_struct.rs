@@ -154,8 +154,7 @@ impl TryFrom<Vec<(&str, ArrayRef)>> for StructArray {
             .len(len)
             .child_data(child_data);
         if let Some(null_buffer) = null {
-            let null_count = len - null_buffer.count_set_bits();
-            builder = builder.null_count(null_count).null_bit_buffer(null_buffer);
+            builder = builder.null_bit_buffer(null_buffer);
         }
 
         Ok(StructArray::from(builder.build()))
@@ -237,9 +236,9 @@ impl fmt::Debug for StructArray {
     }
 }
 
-impl From<(Vec<(Field, ArrayRef)>, Buffer, usize)> for StructArray {
-    fn from(triple: (Vec<(Field, ArrayRef)>, Buffer, usize)) -> Self {
-        let (field_types, field_values): (Vec<_>, Vec<_>) = triple.0.into_iter().unzip();
+impl From<(Vec<(Field, ArrayRef)>, Buffer)> for StructArray {
+    fn from(pair: (Vec<(Field, ArrayRef)>, Buffer)) -> Self {
+        let (field_types, field_values): (Vec<_>, Vec<_>) = pair.0.into_iter().unzip();
 
         // Check the length of the child arrays
         let length = field_values[0].len();
@@ -257,10 +256,9 @@ impl From<(Vec<(Field, ArrayRef)>, Buffer, usize)> for StructArray {
         }
 
         let data = ArrayData::builder(DataType::Struct(field_types))
-            .null_bit_buffer(triple.1)
+            .null_bit_buffer(pair.1)
             .child_data(field_values.into_iter().map(|a| a.data()).collect())
             .len(length)
-            .null_count(triple.2)
             .build();
         Self::from(data)
     }
@@ -272,27 +270,26 @@ mod tests {
 
     use std::sync::Arc;
 
-    use crate::datatypes::{DataType, Field};
     use crate::{
         array::BooleanArray, array::Float32Array, array::Float64Array, array::Int32Array,
         array::StringArray, bitmap::Bitmap,
+    };
+    use crate::{
+        array::Int64Array,
+        datatypes::{DataType, Field},
     };
     use crate::{buffer::Buffer, datatypes::ToByteSlice};
 
     #[test]
     fn test_struct_array_builder() {
-        let boolean_data = ArrayData::builder(DataType::Boolean)
-            .len(4)
-            .add_buffer(Buffer::from([false, false, true, true].to_byte_slice()))
-            .build();
-        let int_data = ArrayData::builder(DataType::Int64)
-            .len(4)
-            .add_buffer(Buffer::from([42i64, 28, 19, 31].to_byte_slice()))
-            .build();
-        let mut field_types = vec![];
-        field_types.push(Field::new("a", DataType::Boolean, false));
-        field_types.push(Field::new("b", DataType::Int64, false));
-        let struct_array_data = ArrayData::builder(DataType::Struct(field_types))
+        let boolean_data = BooleanArray::from(vec![false, false, true, true]).data();
+        let int_data = Int64Array::from(vec![42, 28, 19, 31]).data();
+
+        let fields = vec![
+            Field::new("a", DataType::Boolean, false),
+            Field::new("b", DataType::Int64, false),
+        ];
+        let struct_array_data = ArrayData::builder(DataType::Struct(fields))
             .len(4)
             .add_child_data(boolean_data.clone())
             .add_child_data(int_data.clone())
@@ -305,27 +302,21 @@ mod tests {
 
     #[test]
     fn test_struct_array_from() {
-        let boolean_data = ArrayData::builder(DataType::Boolean)
-            .len(4)
-            .add_buffer(Buffer::from([12_u8]))
-            .build();
-        let int_data = ArrayData::builder(DataType::Int32)
-            .len(4)
-            .add_buffer(Buffer::from([42, 28, 19, 31].to_byte_slice()))
-            .build();
+        let boolean = Arc::new(BooleanArray::from(vec![false, false, true, true]));
+        let int = Arc::new(Int32Array::from(vec![42, 28, 19, 31]));
+
         let struct_array = StructArray::from(vec![
             (
                 Field::new("b", DataType::Boolean, false),
-                Arc::new(BooleanArray::from(vec![false, false, true, true]))
-                    as Arc<Array>,
+                boolean.clone() as ArrayRef,
             ),
             (
                 Field::new("c", DataType::Int32, false),
-                Arc::new(Int32Array::from(vec![42, 28, 19, 31])),
+                int.clone() as ArrayRef,
             ),
         ]);
-        assert_eq!(boolean_data, struct_array.column(0).data());
-        assert_eq!(int_data, struct_array.column(1).data());
+        assert_eq!(struct_array.column(0).as_ref(), boolean.as_ref());
+        assert_eq!(struct_array.column(1).as_ref(), int.as_ref());
         assert_eq!(4, struct_array.len());
         assert_eq!(0, struct_array.null_count());
         assert_eq!(0, struct_array.offset());
@@ -358,15 +349,13 @@ mod tests {
 
         let expected_string_data = ArrayData::builder(DataType::Utf8)
             .len(4)
-            .null_count(2)
             .null_bit_buffer(Buffer::from(&[9_u8]))
             .add_buffer(Buffer::from(&[0, 3, 3, 3, 7].to_byte_slice()))
-            .add_buffer(Buffer::from("joemark".as_bytes()))
+            .add_buffer(Buffer::from(b"joemark"))
             .build();
 
         let expected_int_data = ArrayData::builder(DataType::Int32)
             .len(4)
-            .null_count(1)
             .null_bit_buffer(Buffer::from(&[11_u8]))
             .add_buffer(Buffer::from(&[1, 2, 0, 4].to_byte_slice()))
             .build();
@@ -388,8 +377,8 @@ mod tests {
         for i in 0..expected_int_data.len() {
             if !expected_int_data.is_null(i) {
                 assert_eq!(
-                    expected_value_buf.data()[i * 4..(i + 1) * 4],
-                    actual_value_buf.data()[i * 4..(i + 1) * 4]
+                    expected_value_buf.as_slice()[i * 4..(i + 1) * 4],
+                    actual_value_buf.as_slice()[i * 4..(i + 1) * 4]
                 );
             }
         }

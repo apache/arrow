@@ -174,7 +174,7 @@ def test_sequence_boolean(seq):
 
 @parametrize_with_iterable_types
 def test_sequence_numpy_boolean(seq):
-    expected = [np.bool(True), None, np.bool(False), None]
+    expected = [np.bool_(True), None, np.bool_(False), None]
     arr = pa.array(seq(expected))
     assert arr.type == pa.bool_()
     assert arr.to_pylist() == [True, None, False, None]

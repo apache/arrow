@@ -19,7 +19,6 @@
 extern crate criterion;
 use criterion::Criterion;
 
-use std::env;
 use std::sync::{Arc, Mutex};
 
 extern crate arrow;
@@ -58,7 +57,7 @@ fn create_context() -> Arc<Mutex<ExecutionContext>> {
         Field::new("c13", DataType::Utf8, false),
     ]));
 
-    let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+    let testdata = arrow::util::test_util::arrow_test_data();
 
     // create CSV data source
     let csv = CsvFile::try_new(
@@ -76,7 +75,7 @@ fn create_context() -> Arc<Mutex<ExecutionContext>> {
 
         // create local execution context
         let mut ctx = ExecutionContext::new();
-        ctx.state.config.concurrency = 1;
+        ctx.state.lock().unwrap().config.concurrency = 1;
         ctx.register_table("aggregate_test_100", Box::new(mem_table));
         ctx_holder.lock().unwrap().push(Arc::new(Mutex::new(ctx)))
     });

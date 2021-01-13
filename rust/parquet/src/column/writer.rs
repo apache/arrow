@@ -16,7 +16,7 @@
 // under the License.
 
 //! Contains column writer API.
-use std::{cmp, collections::VecDeque, convert::TryFrom, sync::Arc};
+use std::{cmp, collections::VecDeque, convert::TryFrom, marker::PhantomData, sync::Arc};
 
 use crate::basic::{Compression, Encoding, PageType, Type};
 use crate::column::page::{CompressedPage, Page, PageWriteSpec, PageWriter};
@@ -196,6 +196,7 @@ pub struct ColumnWriterImpl<T: DataType> {
     def_levels_sink: Vec<i16>,
     rep_levels_sink: Vec<i16>,
     data_pages: VecDeque<CompressedPage>,
+    _phantom: PhantomData<T>,
 }
 
 impl<T: DataType> ColumnWriterImpl<T> {
@@ -209,7 +210,7 @@ impl<T: DataType> ColumnWriterImpl<T> {
 
         // Optionally set dictionary encoder.
         let dict_encoder = if props.dictionary_enabled(descr.path())
-            && Self::has_dictionary_support(&props)
+            && has_dictionary_support(T::get_physical_type(), &props)
         {
             Some(DictEncoder::new(descr.clone(), Arc::new(MemTracker::new())))
         } else {
@@ -224,7 +225,7 @@ impl<T: DataType> ColumnWriterImpl<T> {
             descr.clone(),
             props
                 .encoding(descr.path())
-                .unwrap_or_else(|| Self::fallback_encoding(&props)),
+                .unwrap_or_else(|| fallback_encoding(T::get_physical_type(), &props)),
             Arc::new(MemTracker::new()),
         )
         .unwrap();
@@ -259,6 +260,7 @@ impl<T: DataType> ColumnWriterImpl<T> {
             max_column_value: None,
             num_column_nulls: 0,
             column_distinct_count: None,
+            _phantom: PhantomData,
         }
     }
 
@@ -955,81 +957,33 @@ impl<T: DataType> ColumnWriterImpl<T> {
 /// Trait to define default encoding for types, including whether or not the type
 /// supports dictionary encoding.
 trait EncodingWriteSupport {
-    /// Returns encoding for a column when no other encoding is provided in writer
-    /// properties.
-    fn fallback_encoding(props: &WriterProperties) -> Encoding;
-
     /// Returns true if dictionary is supported for column writer, false otherwise.
     fn has_dictionary_support(props: &WriterProperties) -> bool;
 }
 
-// Basic implementation, always falls back to PLAIN and supports dictionary.
-impl<T: DataType> EncodingWriteSupport for ColumnWriterImpl<T> {
-    default fn fallback_encoding(_props: &WriterProperties) -> Encoding {
-        Encoding::PLAIN
-    }
-
-    default fn has_dictionary_support(_props: &WriterProperties) -> bool {
-        true
+/// Returns encoding for a column when no other encoding is provided in writer properties.
+fn fallback_encoding(kind: Type, props: &WriterProperties) -> Encoding {
+    match (kind, props.writer_version()) {
+        (Type::BOOLEAN, WriterVersion::PARQUET_2_0) => Encoding::RLE,
+        (Type::INT32, WriterVersion::PARQUET_2_0) => Encoding::DELTA_BINARY_PACKED,
+        (Type::INT64, WriterVersion::PARQUET_2_0) => Encoding::DELTA_BINARY_PACKED,
+        (Type::BYTE_ARRAY, WriterVersion::PARQUET_2_0) => Encoding::DELTA_BYTE_ARRAY,
+        (Type::FIXED_LEN_BYTE_ARRAY, WriterVersion::PARQUET_2_0) => {
+            Encoding::DELTA_BYTE_ARRAY
+        }
+        _ => Encoding::PLAIN,
     }
 }
 
-impl EncodingWriteSupport for ColumnWriterImpl<BoolType> {
-    fn fallback_encoding(props: &WriterProperties) -> Encoding {
-        match props.writer_version() {
-            WriterVersion::PARQUET_1_0 => Encoding::PLAIN,
-            WriterVersion::PARQUET_2_0 => Encoding::RLE,
-        }
-    }
-
-    // Boolean column does not support dictionary encoding and should fall back to
-    // whatever fallback encoding is defined.
-    fn has_dictionary_support(_props: &WriterProperties) -> bool {
-        false
-    }
-}
-
-impl EncodingWriteSupport for ColumnWriterImpl<Int32Type> {
-    fn fallback_encoding(props: &WriterProperties) -> Encoding {
-        match props.writer_version() {
-            WriterVersion::PARQUET_1_0 => Encoding::PLAIN,
-            WriterVersion::PARQUET_2_0 => Encoding::DELTA_BINARY_PACKED,
-        }
-    }
-}
-
-impl EncodingWriteSupport for ColumnWriterImpl<Int64Type> {
-    fn fallback_encoding(props: &WriterProperties) -> Encoding {
-        match props.writer_version() {
-            WriterVersion::PARQUET_1_0 => Encoding::PLAIN,
-            WriterVersion::PARQUET_2_0 => Encoding::DELTA_BINARY_PACKED,
-        }
-    }
-}
-
-impl EncodingWriteSupport for ColumnWriterImpl<ByteArrayType> {
-    fn fallback_encoding(props: &WriterProperties) -> Encoding {
-        match props.writer_version() {
-            WriterVersion::PARQUET_1_0 => Encoding::PLAIN,
-            WriterVersion::PARQUET_2_0 => Encoding::DELTA_BYTE_ARRAY,
-        }
-    }
-}
-
-impl EncodingWriteSupport for ColumnWriterImpl<FixedLenByteArrayType> {
-    fn fallback_encoding(props: &WriterProperties) -> Encoding {
-        match props.writer_version() {
-            WriterVersion::PARQUET_1_0 => Encoding::PLAIN,
-            WriterVersion::PARQUET_2_0 => Encoding::DELTA_BYTE_ARRAY,
-        }
-    }
-
-    fn has_dictionary_support(props: &WriterProperties) -> bool {
-        match props.writer_version() {
-            // Dictionary encoding was not enabled in PARQUET 1.0
-            WriterVersion::PARQUET_1_0 => false,
-            WriterVersion::PARQUET_2_0 => true,
-        }
+/// Returns true if dictionary is supported for column writer, false otherwise.
+fn has_dictionary_support(kind: Type, props: &WriterProperties) -> bool {
+    match (kind, props.writer_version()) {
+        // Booleans do not support dict encoding and should use a fallback encoding.
+        (Type::BOOLEAN, _) => false,
+        // Dictionary encoding was not enabled in PARQUET 1.0
+        (Type::FIXED_LEN_BYTE_ARRAY, WriterVersion::PARQUET_1_0) => false,
+        (Type::FIXED_LEN_BYTE_ARRAY, WriterVersion::PARQUET_2_0) => true,
+        _ => true,
     }
 }
 
@@ -1398,28 +1352,28 @@ mod tests {
         check_encoding_write_support::<FixedLenByteArrayType>(
             WriterVersion::PARQUET_1_0,
             true,
-            &[ByteArray::from(vec![1u8])],
+            &[ByteArray::from(vec![1u8]).into()],
             None,
             &[Encoding::PLAIN, Encoding::RLE],
         );
         check_encoding_write_support::<FixedLenByteArrayType>(
             WriterVersion::PARQUET_1_0,
             false,
-            &[ByteArray::from(vec![1u8])],
+            &[ByteArray::from(vec![1u8]).into()],
             None,
             &[Encoding::PLAIN, Encoding::RLE],
         );
         check_encoding_write_support::<FixedLenByteArrayType>(
             WriterVersion::PARQUET_2_0,
             true,
-            &[ByteArray::from(vec![1u8])],
+            &[ByteArray::from(vec![1u8]).into()],
             Some(0),
             &[Encoding::PLAIN, Encoding::RLE_DICTIONARY, Encoding::RLE],
         );
         check_encoding_write_support::<FixedLenByteArrayType>(
             WriterVersion::PARQUET_2_0,
             false,
-            &[ByteArray::from(vec![1u8])],
+            &[ByteArray::from(vec![1u8]).into()],
             None,
             &[Encoding::DELTA_BYTE_ARRAY, Encoding::RLE],
         );

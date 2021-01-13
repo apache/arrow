@@ -442,6 +442,7 @@ def test_list_type():
     ty = pa.list_(pa.int64())
     assert isinstance(ty, pa.ListType)
     assert ty.value_type == pa.int64()
+    assert ty.value_field == pa.field("item", pa.int64(), nullable=True)
 
     with pytest.raises(TypeError):
         pa.list_(None)
@@ -451,6 +452,7 @@ def test_large_list_type():
     ty = pa.large_list(pa.utf8())
     assert isinstance(ty, pa.LargeListType)
     assert ty.value_type == pa.utf8()
+    assert ty.value_field == pa.field("item", pa.utf8(), nullable=True)
 
     with pytest.raises(TypeError):
         pa.large_list(None)
@@ -472,6 +474,7 @@ def test_fixed_size_list_type():
     ty = pa.list_(pa.float64(), 2)
     assert isinstance(ty, pa.FixedSizeListType)
     assert ty.value_type == pa.float64()
+    assert ty.value_field == pa.field("item", pa.float64(), nullable=True)
     assert ty.list_size == 2
 
     with pytest.raises(ValueError):

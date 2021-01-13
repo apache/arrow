@@ -30,7 +30,7 @@ use crate::error::{DataFusionError, Result};
 use crate::physical_plan::{Accumulator, AggregateExpr};
 use crate::physical_plan::{Distribution, ExecutionPlan, Partitioning, PhysicalExpr};
 
-use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
+use arrow::datatypes::{DataType, Field, Schema, SchemaRef, TimeUnit};
 use arrow::error::{ArrowError, Result as ArrowResult};
 use arrow::record_batch::RecordBatch;
 use arrow::{
@@ -49,6 +49,7 @@ use super::{
 use ahash::RandomState;
 use hashbrown::HashMap;
 
+use arrow::array::{TimestampMicrosecondArray, TimestampNanosecondArray};
 use async_trait::async_trait;
 
 /// Hash aggregate modes
@@ -165,7 +166,7 @@ impl ExecutionPlan for HashAggregateExec {
             )))
         } else {
             Ok(Box::pin(GroupedHashAggregateStream::new(
-                self.mode.clone(),
+                self.mode,
                 self.schema.clone(),
                 group_expr,
                 self.aggr_expr.clone(),
@@ -290,11 +291,10 @@ fn group_aggregate_batch(
     // 2.5 clear indices
     accumulators
         .iter_mut()
-        // 2.1
-        .map(|(_, (_, accumulator_set, indices))| {
+        .try_for_each(|(_, (_, accumulator_set, indices))| {
             // 2.2
             accumulator_set
-                .into_iter()
+                .iter_mut()
                 .zip(&aggr_input_values)
                 .map(|(accumulator, aggr_array)| {
                     (
@@ -304,7 +304,7 @@ fn group_aggregate_batch(
                             .map(|array| {
                                 // 2.3
                                 compute::take(
-                                    array,
+                                    array.as_ref(),
                                     &UInt32Array::from(indices.clone()),
                                     None, // None: no index check
                                 )
@@ -313,19 +313,19 @@ fn group_aggregate_batch(
                             .collect::<Vec<ArrayRef>>(),
                     )
                 })
-                // 2.4
-                .map(|(accumulator, values)| match mode {
+                .try_for_each(|(accumulator, values)| match mode {
                     AggregateMode::Partial => accumulator.update_batch(&values),
                     AggregateMode::Final => {
                         // note: the aggregation here is over states, not values, thus the merge
                         accumulator.merge_batch(&values)
                     }
                 })
-                .collect::<Result<()>>()
                 // 2.5
-                .and(Ok(indices.clear()))
-        })
-        .collect::<Result<()>>()?;
+                .and({
+                    indices.clear();
+                    Ok(())
+                })
+        })?;
     Ok(accumulators)
 }
 
@@ -633,7 +633,10 @@ impl RecordBatchStream for HashAggregateStream {
 fn concatenate(arrays: Vec<Vec<ArrayRef>>) -> ArrowResult<Vec<ArrayRef>> {
     (0..arrays[0].len())
         .map(|column| {
-            let array_list = arrays.iter().map(|a| a[column].clone()).collect::<Vec<_>>();
+            let array_list = arrays
+                .iter()
+                .map(|a| a[column].as_ref())
+                .collect::<Vec<_>>();
             compute::concat(&array_list)
         })
         .collect::<ArrowResult<Vec<_>>>()
@@ -670,6 +673,12 @@ fn create_batch_from_map(
                     GroupByScalar::Utf8(str) => {
                         Arc::new(StringArray::from(vec![&***str]))
                     }
+                    GroupByScalar::TimeMicrosecond(n) => {
+                        Arc::new(TimestampMicrosecondArray::from(vec![*n]))
+                    }
+                    GroupByScalar::TimeNanosecond(n) => {
+                        Arc::new(TimestampNanosecondArray::from_vec(vec![*n], None))
+                    }
                 })
                 .collect::<Vec<ArrayRef>>();
 
@@ -684,7 +693,7 @@ fn create_batch_from_map(
         // 4.
         .collect::<ArrowResult<Vec<Vec<ArrayRef>>>>()?;
 
-    let batch = if arrays.len() != 0 {
+    let batch = if !arrays.is_empty() {
         // 5.
         let columns = concatenate(arrays)?;
         RecordBatch::try_new(Arc::new(output_schema.to_owned()), columns)?
@@ -716,8 +725,8 @@ fn finalize_aggregation(
                 .iter()
                 .map(|accumulator| accumulator.state())
                 .map(|value| {
-                    value.and_then(|e| {
-                        Ok(e.iter().map(|v| v.to_array()).collect::<Vec<ArrayRef>>())
+                    value.map(|e| {
+                        e.iter().map(|v| v.to_array()).collect::<Vec<ArrayRef>>()
                     })
                 })
                 .collect::<Result<Vec<_>>>()?;
@@ -727,7 +736,7 @@ fn finalize_aggregation(
             // merge the state to the final value
             accumulators
                 .iter()
-                .map(|accumulator| accumulator.evaluate().and_then(|v| Ok(v.to_array())))
+                .map(|accumulator| accumulator.evaluate().map(|v| v.to_array()))
                 .collect::<Result<Vec<ArrayRef>>>()
         }
     }
@@ -777,6 +786,20 @@ pub(crate) fn create_group_by_values(
             DataType::Utf8 => {
                 let array = col.as_any().downcast_ref::<StringArray>().unwrap();
                 vec[i] = GroupByScalar::Utf8(Box::new(array.value(row).into()))
+            }
+            DataType::Timestamp(TimeUnit::Microsecond, None) => {
+                let array = col
+                    .as_any()
+                    .downcast_ref::<TimestampMicrosecondArray>()
+                    .unwrap();
+                vec[i] = GroupByScalar::TimeMicrosecond(array.value(row))
+            }
+            DataType::Timestamp(TimeUnit::Nanosecond, None) => {
+                let array = col
+                    .as_any()
+                    .downcast_ref::<TimestampNanosecondArray>()
+                    .unwrap();
+                vec[i] = GroupByScalar::TimeNanosecond(array.value(row))
             }
             _ => {
                 // This is internal because we should have caught this before.

@@ -190,7 +190,7 @@ class ARROW_EXPORT Decimal256 : public BasicDecimal256 {
   using BasicDecimal256::BasicDecimal256;
   /// \endcond
 
-  /// \brief constructor creates a Decimal256 from a BasicDecimal128.
+  /// \brief constructor creates a Decimal256 from a BasicDecimal256.
   constexpr Decimal256(const BasicDecimal256& value) noexcept : BasicDecimal256(value) {}
 
   /// \brief Parse the number from a base 10 string representation.
@@ -243,6 +243,11 @@ class ARROW_EXPORT Decimal256 : public BasicDecimal256 {
     ARROW_RETURN_NOT_OK(ToArrowStatus(dstatus));
     return std::move(result);
   }
+
+  /// \brief Convert from a big-endian byte representation. The length must be
+  ///        between 1 and 32.
+  /// \return error status if the length is an invalid value
+  static Result<Decimal256> FromBigEndian(const uint8_t* data, int32_t length);
 
   friend ARROW_EXPORT std::ostream& operator<<(std::ostream& os,
                                                const Decimal256& decimal);

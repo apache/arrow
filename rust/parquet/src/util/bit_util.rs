@@ -21,6 +21,7 @@ use crate::data_type::AsBytes;
 use crate::errors::{ParquetError, Result};
 use crate::util::{bit_packing::unpack32, memory::ByteBufferPtr};
 
+#[inline]
 pub fn from_ne_slice<T: FromBytes>(bs: &[u8]) -> T {
     let mut b = T::Buffer::default();
     {
@@ -124,11 +125,7 @@ where
 /// Returns the ceil of value/divisor
 #[inline]
 pub fn ceil(value: i64, divisor: i64) -> i64 {
-    let mut result = value / divisor;
-    if value % divisor != 0 {
-        result += 1
-    };
-    result
+    value / divisor + ((value % divisor != 0) as i64)
 }
 
 /// Returns ceil(log2(x))
@@ -473,7 +470,6 @@ impl BitReader {
         }
     }
 
-    #[inline]
     pub fn reset(&mut self, buffer: ByteBufferPtr) {
         self.buffer = buffer;
         self.total_bytes = self.buffer.len();
@@ -492,7 +488,6 @@ impl BitReader {
     /// Reads a value of type `T` and of size `num_bits`.
     ///
     /// Returns `None` if there's not enough data available. `Some` otherwise.
-    #[inline]
     pub fn get_value<T: FromBytes>(&mut self, num_bits: usize) -> Option<T> {
         assert!(num_bits <= 64);
         assert!(num_bits <= size_of::<T>() * 8);
@@ -518,7 +513,6 @@ impl BitReader {
         Some(from_ne_slice(v.as_bytes()))
     }
 
-    #[inline]
     pub fn get_batch<T: FromBytes>(&mut self, batch: &mut [T], num_bits: usize) -> usize {
         assert!(num_bits <= 32);
         assert!(num_bits <= size_of::<T>() * 8);
@@ -601,7 +595,6 @@ impl BitReader {
 
     /// Returns `Some` if there's enough bytes left to form a value of `T`.
     /// Otherwise `None`.
-    #[inline]
     pub fn get_aligned<T: FromBytes>(&mut self, num_bytes: usize) -> Option<T> {
         let bytes_read = ceil(self.bit_offset as i64, 8) as usize;
         if self.byte_offset + bytes_read + num_bytes > self.total_bytes {
@@ -627,7 +620,6 @@ impl BitReader {
     /// The encoded int must start at the beginning of a byte.
     ///
     /// Returns `None` if there's not enough bytes in the stream. `Some` otherwise.
-    #[inline]
     pub fn get_vlq_int(&mut self) -> Option<i64> {
         let mut shift = 0;
         let mut v: i64 = 0;
@@ -663,7 +655,6 @@ impl BitReader {
         })
     }
 
-    #[inline]
     fn reload_buffer_values(&mut self) {
         let bytes_to_read = cmp::min(self.total_bytes - self.byte_offset, 8);
         self.buffered_values = read_num_bytes!(

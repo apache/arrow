@@ -664,12 +664,14 @@ class GrpcStreamWriter : public FlightStreamWriter {
     }
     return Status::OK();
   }
+
   Status WriteWithMetadata(const RecordBatch& batch,
                            std::shared_ptr<Buffer> app_metadata) override {
     RETURN_NOT_OK(CheckStarted());
     app_metadata_ = app_metadata;
     return batch_writer_->WriteRecordBatch(batch);
   }
+
   Status DoneWriting() override {
     // Do not CheckStarted - DoneWriting applies to data and metadata
     if (batch_writer_) {
@@ -683,6 +685,7 @@ class GrpcStreamWriter : public FlightStreamWriter {
     }
     return writer_->DoneWriting();
   }
+
   Status Close() override {
     // Do not CheckStarted - Close applies to data and metadata
     if (batch_writer_ && !writer_closed_) {
@@ -696,6 +699,11 @@ class GrpcStreamWriter : public FlightStreamWriter {
       return writer_->Finish(batch_writer_->Close());
     }
     return writer_->Finish(Status::OK());
+  }
+
+  ipc::WriteStats stats() const override {
+    ARROW_CHECK_NE(batch_writer_, nullptr);
+    return batch_writer_->stats();
   }
 
  private:

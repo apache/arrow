@@ -225,6 +225,9 @@ ARROW_TESTING_EXPORT void AssertSchemaNotEqual(const std::shared_ptr<Schema>& lh
                                                const std::shared_ptr<Schema>& rhs,
                                                bool check_metadata = false);
 
+ARROW_TESTING_EXPORT Result<util::optional<std::string>> PrintArrayDiff(
+    const ChunkedArray& expected, const ChunkedArray& actual);
+
 ARROW_TESTING_EXPORT void AssertTablesEqual(const Table& expected, const Table& actual,
                                             bool same_chunk_layout = true,
                                             bool flatten = false);

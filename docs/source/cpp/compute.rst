@@ -23,6 +23,10 @@
 Compute Functions
 =================
 
+.. sidebar:: Contents
+
+   .. contents:: :local:
+
 The generic Compute API
 =======================
 
@@ -134,7 +138,6 @@ Aggregations
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
 | Function name            | Arity      | Input types        | Output type           | Options class                              |
 +==========================+============+====================+=======================+============================================+
-+--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
 | all                      | Unary      | Boolean            | Scalar Boolean        |                                            |
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
 | any                      | Unary      | Boolean            | Scalar Boolean        |                                            |
@@ -450,22 +453,26 @@ Structural transforms
 +==========================+============+================================================+=====================+=========+
 | fill_null                | Binary     | Boolean, Null, Numeric, Temporal, String-like  | Input type          | \(1)    |
 +--------------------------+------------+------------------------------------------------+---------------------+---------+
-| is_null                  | Unary      | Any                                            | Boolean             | \(2)    |
+| is_nan                   | Unary      | Float, Double                                  | Boolean             | \(2)    |
 +--------------------------+------------+------------------------------------------------+---------------------+---------+
-| is_valid                 | Unary      | Any                                            | Boolean             | \(2)    |
+| is_null                  | Unary      | Any                                            | Boolean             | \(3)    |
 +--------------------------+------------+------------------------------------------------+---------------------+---------+
-| list_value_length        | Unary      | List-like                                      | Int32 or Int64      | \(4)    |
+| is_valid                 | Unary      | Any                                            | Boolean             | \(4)    |
++--------------------------+------------+------------------------------------------------+---------------------+---------+
+| list_value_length        | Unary      | List-like                                      | Int32 or Int64      | \(5)    |
 +--------------------------+------------+------------------------------------------------+---------------------+---------+
 
 * \(1) First input must be an array, second input a scalar of the same type.
   Output is an array of the same type as the inputs, and with the same values
   as the first input, except for nulls replaced with the second input value.
 
-* \(2) Output is true iff the corresponding input element is non-null.
+* \(2) Output is true iff the corresponding input element is NaN.
 
 * \(3) Output is true iff the corresponding input element is null.
 
-* \(4) Each output element is the length of the corresponding input element
+* \(4) Output is true iff the corresponding input element is non-null.
+
+* \(5) Each output element is the length of the corresponding input element
   (null if input is null).  Output type is Int32 for List, Int64 for LargeList.
 
 Conversions

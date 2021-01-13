@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <memory>
 #include <tuple>
 #include <type_traits>
 
@@ -52,6 +53,10 @@ struct call_traits {
   static typename std::tuple_element<I, std::tuple<A...>>::type argument_type_impl(
       R (F::*)(A...) const);
 
+  template <std::size_t I, typename F, typename R, typename... A>
+  static typename std::tuple_element<I, std::tuple<A...>>::type argument_type_impl(
+      R (F::*)(A...) &&);
+
   /// bool constant indicating whether F is a callable with more than one possible
   /// signature. Will be true_type for objects which define multiple operator() or which
   /// define a template operator()
@@ -77,6 +82,48 @@ struct call_traits {
   template <typename F, typename T, typename RT = T>
   using enable_if_return =
       typename std::enable_if<std::is_same<return_type<F>, T>::value, RT>;
+};
+
+/// A type erased callable object which may only be invoked once.
+/// It can be constructed from any lambda which matches the provided call signature.
+/// Invoking it results in destruction of the lambda, freeing any state/references
+/// immediately. Invoking a default constructed FnOnce or one which has already been
+/// invoked will segfault.
+template <typename Signature>
+class FnOnce;
+
+template <typename R, typename... A>
+class FnOnce<R(A...)> {
+ public:
+  FnOnce() = default;
+
+  template <typename Fn,
+            typename = typename std::enable_if<std::is_convertible<
+                typename std::result_of<Fn && (A...)>::type, R>::value>::type>
+  FnOnce(Fn fn) : impl_(new FnImpl<Fn>(std::move(fn))) {  // NOLINT runtime/explicit
+  }
+
+  explicit operator bool() const { return impl_ != NULLPTR; }
+
+  R operator()(A... a) && {
+    auto bye = std::move(impl_);
+    return bye->invoke(std::forward<A&&>(a)...);
+  }
+
+ private:
+  struct Impl {
+    virtual ~Impl() = default;
+    virtual R invoke(A&&... a) = 0;
+  };
+
+  template <typename Fn>
+  struct FnImpl : Impl {
+    explicit FnImpl(Fn fn) : fn_(std::move(fn)) {}
+    R invoke(A&&... a) override { return std::move(fn_)(std::forward<A&&>(a)...); }
+    Fn fn_;
+  };
+
+  std::unique_ptr<Impl> impl_;
 };
 
 }  // namespace internal

@@ -19,6 +19,10 @@
 Filesystems
 ===========
 
+.. sidebar:: Contents
+
+   .. contents:: :local:
+
 Interface
 =========
 

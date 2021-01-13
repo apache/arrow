@@ -591,11 +591,11 @@ std::shared_ptr<CastFunction> GetCastToFloating(std::string name) {
   return func;
 }
 
-std::shared_ptr<CastFunction> GetCastToDecimal() {
+std::shared_ptr<CastFunction> GetCastToDecimal128() {
   OutputType sig_out_ty(ResolveOutputFromOptions);
 
-  auto func = std::make_shared<CastFunction>("cast_decimal", Type::DECIMAL);
-  AddCommonCasts(Type::DECIMAL, sig_out_ty, func.get());
+  auto func = std::make_shared<CastFunction>("cast_decimal", Type::DECIMAL128);
+  AddCommonCasts(Type::DECIMAL128, sig_out_ty, func.get());
 
   // Cast from floating point
   DCHECK_OK(func->AddKernel(Type::FLOAT, {float32()}, sig_out_ty,
@@ -606,8 +606,19 @@ std::shared_ptr<CastFunction> GetCastToDecimal() {
   // Cast from other decimal
   auto exec = CastFunctor<Decimal128Type, Decimal128Type>::Exec;
   // We resolve the output type of this kernel from the CastOptions
-  DCHECK_OK(func->AddKernel(Type::DECIMAL, {InputType::Array(Type::DECIMAL)}, sig_out_ty,
-                            exec));
+  DCHECK_OK(func->AddKernel(Type::DECIMAL128, {InputType::Array(Type::DECIMAL128)},
+                            sig_out_ty, exec));
+  return func;
+}
+
+std::shared_ptr<CastFunction> GetCastToDecimal256() {
+  OutputType sig_out_ty(ResolveOutputFromOptions);
+
+  auto func = std::make_shared<CastFunction>("cast_decimal256", Type::DECIMAL256);
+  // Needed for Parquet conversion. Full implementation is ARROW-10606
+  // tracks full implementation.
+  AddCommonCasts(Type::DECIMAL256, sig_out_ty, func.get());
+
   return func;
 }
 
@@ -654,7 +665,8 @@ std::vector<std::shared_ptr<CastFunction>> GetNumericCasts() {
   functions.push_back(GetCastToFloating<FloatType>("cast_float"));
   functions.push_back(GetCastToFloating<DoubleType>("cast_double"));
 
-  functions.push_back(GetCastToDecimal());
+  functions.push_back(GetCastToDecimal128());
+  functions.push_back(GetCastToDecimal256());
 
   return functions;
 }

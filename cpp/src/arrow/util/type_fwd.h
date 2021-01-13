@@ -19,8 +19,15 @@
 
 namespace arrow {
 
-template <typename T>
+namespace detail {
+struct Empty;
+}  // namespace detail
+
+template <typename T = detail::Empty>
 class Future;
+template <typename T = detail::Empty>
+class WeakFuture;
+class FutureWaiter;
 
 class TimestampParser;
 

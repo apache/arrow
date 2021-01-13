@@ -26,6 +26,7 @@ use crate::file::writer::TryClone;
 /// To achieve this, it uses Arc instead of shared references. Indeed reference fields are painfull
 /// because the lack of Generic Associated Type implies that you would require complex lifetime propagation when
 /// returning such a cursor.
+#[allow(clippy::rc_buffer)]
 pub struct SliceableCursor {
     inner: Arc<Vec<u8>>,
     start: u64,

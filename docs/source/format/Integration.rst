@@ -87,7 +87,7 @@ cross-language integration testing purposes.
 This representation is `not canonical <https://lists.apache.org/thread.html/6947fb7666a0f9cc27d9677d2dad0fb5990f9063b7cf3d80af5e270f%40%3Cdev.arrow.apache.org%3E>`_
 but it provides a human-readable way of verifying language implementations.
 
-See `here <https://github.com/apache/arrow/tree/master/integration/data>`_
+See `here <https://github.com/apache/arrow/tree/master/docs/source/format/integration_json_examples>`_
 for some examples of this JSON data.
 
 .. can we check in more examples, e.g. from the generated_*.json test files?

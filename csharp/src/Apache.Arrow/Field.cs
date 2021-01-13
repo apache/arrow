@@ -15,6 +15,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using Apache.Arrow.Types;
 
@@ -34,6 +35,22 @@ namespace Apache.Arrow
 
         public Field(string name, IArrowType dataType, bool nullable,
             IEnumerable<KeyValuePair<string, string>> metadata = default)
+            : this(name, dataType, nullable)
+        {
+            Metadata = metadata?.ToDictionary(kv => kv.Key, kv => kv.Value);
+
+        }
+
+        internal Field(string name, IArrowType dataType, bool nullable,
+            IReadOnlyDictionary<string, string> metadata, bool copyCollections)
+            : this(name, dataType, nullable)
+        {
+            Debug.Assert(copyCollections == false, "This internal constructor is to not copy the collections.");
+
+            Metadata = metadata;
+        }
+
+        private Field(string name, IArrowType dataType, bool nullable)
         {
             if (string.IsNullOrWhiteSpace(name))
             {
@@ -43,7 +60,6 @@ namespace Apache.Arrow
             Name = name;
             DataType = dataType ?? NullType.Default;
             IsNullable = nullable;
-            Metadata = metadata?.ToDictionary(kv => kv.Key, kv => kv.Value);
         }
     }
 }

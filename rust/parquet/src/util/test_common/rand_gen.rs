@@ -36,12 +36,6 @@ pub trait RandGen<T: DataType> {
     }
 }
 
-impl<T: DataType> RandGen<T> for T {
-    default fn gen(_: i32) -> T::T {
-        panic!("Unsupported data type");
-    }
-}
-
 impl RandGen<BoolType> for BoolType {
     fn gen(_: i32) -> bool {
         thread_rng().gen::<bool>()
@@ -86,9 +80,9 @@ impl RandGen<ByteArrayType> for ByteArrayType {
         let mut rng = thread_rng();
         let mut result = ByteArray::new();
         let mut value = vec![];
-        let len = rng.gen_range(0, 128);
+        let len = rng.gen_range(0..128);
         for _ in 0..len {
-            value.push(rng.gen_range(0, 255));
+            value.push(rng.gen_range(0..255));
         }
         result.set_data(ByteBufferPtr::new(value));
         result
@@ -96,15 +90,15 @@ impl RandGen<ByteArrayType> for ByteArrayType {
 }
 
 impl RandGen<FixedLenByteArrayType> for FixedLenByteArrayType {
-    fn gen(len: i32) -> ByteArray {
+    fn gen(len: i32) -> FixedLenByteArray {
         let mut rng = thread_rng();
         let value_len = if len < 0 {
-            rng.gen_range(0, 128)
+            rng.gen_range(0..128)
         } else {
             len as usize
         };
         let value = random_bytes(value_len);
-        ByteArray::from(value)
+        ByteArray::from(value).into()
     }
 }
 
@@ -112,7 +106,7 @@ pub fn random_bytes(n: usize) -> Vec<u8> {
     let mut result = vec![];
     let mut rng = thread_rng();
     for _ in 0..n {
-        result.push(rng.gen_range(0, 255));
+        result.push(rng.gen_range(0..255));
     }
     result
 }
@@ -140,6 +134,6 @@ where
 {
     let mut rng = thread_rng();
     for _ in 0..n {
-        result.push(rng.gen_range(low, high));
+        result.push(rng.gen_range(low..high));
     }
 }

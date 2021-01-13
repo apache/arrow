@@ -75,7 +75,7 @@
 //! assert_eq!(2, array.value(2), "Get the value with index 2");
 //!
 //! assert_eq!(
-//!     array.value_slice(3, 2),
+//!     &array.values()[3..5],
 //!     &[3, 4],
 //!     "Get slice of len 2 starting at idx 3"
 //! )
@@ -179,18 +179,17 @@ pub use self::array_string::StringOffsetSizeTrait;
 
 pub use self::builder::BooleanBufferBuilder;
 pub use self::builder::BufferBuilder;
-pub use self::builder::BufferBuilderTrait;
 
-pub type Int8BufferBuilder = BufferBuilder<Int8Type>;
-pub type Int16BufferBuilder = BufferBuilder<Int16Type>;
-pub type Int32BufferBuilder = BufferBuilder<Int32Type>;
-pub type Int64BufferBuilder = BufferBuilder<Int64Type>;
-pub type UInt8BufferBuilder = BufferBuilder<UInt8Type>;
-pub type UInt16BufferBuilder = BufferBuilder<UInt16Type>;
-pub type UInt32BufferBuilder = BufferBuilder<UInt32Type>;
-pub type UInt64BufferBuilder = BufferBuilder<UInt64Type>;
-pub type Float32BufferBuilder = BufferBuilder<Float32Type>;
-pub type Float64BufferBuilder = BufferBuilder<Float64Type>;
+pub type Int8BufferBuilder = BufferBuilder<i8>;
+pub type Int16BufferBuilder = BufferBuilder<i16>;
+pub type Int32BufferBuilder = BufferBuilder<i32>;
+pub type Int64BufferBuilder = BufferBuilder<i64>;
+pub type UInt8BufferBuilder = BufferBuilder<u8>;
+pub type UInt16BufferBuilder = BufferBuilder<u16>;
+pub type UInt32BufferBuilder = BufferBuilder<u32>;
+pub type UInt64BufferBuilder = BufferBuilder<u64>;
+pub type Float32BufferBuilder = BufferBuilder<f32>;
+pub type Float64BufferBuilder = BufferBuilder<f64>;
 
 pub type TimestampSecondBufferBuilder = BufferBuilder<TimestampSecondType>;
 pub type TimestampMillisecondBufferBuilder = BufferBuilder<TimestampMillisecondType>;
@@ -271,8 +270,8 @@ pub use self::ord::{build_compare, DynComparator};
 // --------------------- Array downcast helper functions ---------------------
 
 pub use self::cast::{
-    as_boolean_array, as_dictionary_array, as_largestring_array, as_null_array,
-    as_primitive_array, as_string_array,
+    as_boolean_array, as_dictionary_array, as_largestring_array, as_list_array,
+    as_null_array, as_primitive_array, as_string_array, as_struct_array,
 };
 
 // ------------------------------ C Data Interface ---------------------------

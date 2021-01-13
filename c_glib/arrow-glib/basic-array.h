@@ -587,6 +587,24 @@ struct _GArrowFixedSizeBinaryArrayClass
   GArrowPrimitiveArrayClass parent_class;
 };
 
+GARROW_AVAILABLE_IN_3_0
+GArrowFixedSizeBinaryArray *
+garrow_fixed_size_binary_array_new(GArrowFixedSizeBinaryDataType *data_type,
+                                   gint64 length,
+                                   GArrowBuffer *data,
+                                   GArrowBuffer *null_bitmap,
+                                   gint64 n_nulls);
+GARROW_AVAILABLE_IN_3_0
+gint32
+garrow_fixed_size_binary_array_get_byte_width(GArrowFixedSizeBinaryArray *array);
+GARROW_AVAILABLE_IN_3_0
+GBytes *
+garrow_fixed_size_binary_array_get_value(GArrowFixedSizeBinaryArray *array,
+                                         gint64 i);
+GARROW_AVAILABLE_IN_3_0
+GBytes *
+garrow_fixed_size_binary_array_get_values_bytes(GArrowFixedSizeBinaryArray *array);
+
 
 #define GARROW_TYPE_DECIMAL128_ARRAY (garrow_decimal128_array_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowDecimal128Array,
@@ -602,6 +620,22 @@ struct _GArrowDecimal128ArrayClass
 gchar *garrow_decimal128_array_format_value(GArrowDecimal128Array *array,
                                             gint64 i);
 GArrowDecimal128 *garrow_decimal128_array_get_value(GArrowDecimal128Array *array,
+                                                    gint64 i);
+
+#define GARROW_TYPE_DECIMAL256_ARRAY (garrow_decimal256_array_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowDecimal256Array,
+                         garrow_decimal256_array,
+                         GARROW,
+                         DECIMAL256_ARRAY,
+                         GArrowFixedSizeBinaryArray)
+struct _GArrowDecimal256ArrayClass
+{
+  GArrowFixedSizeBinaryArrayClass parent_class;
+};
+
+gchar *garrow_decimal256_array_format_value(GArrowDecimal256Array *array,
+                                            gint64 i);
+GArrowDecimal256 *garrow_decimal256_array_get_value(GArrowDecimal256Array *array,
                                                     gint64 i);
 
 G_END_DECLS

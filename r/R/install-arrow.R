@@ -21,6 +21,10 @@
 #' from a nightly development version, or on Linux to try reinstalling with
 #' all necessary C++ dependencies.
 #'
+#' Note that, unlike packages like `tensorflow`, `blogdown`, and others that
+#' require external dependencies, you do not need to run `install_arrow()`
+#' after a successful `arrow` installation.
+#'
 #' @param nightly logical: Should we install a development version of the
 #' package, or should we install from CRAN (the default).
 #' @param binary On Linux, value to set for the environment variable
@@ -33,10 +37,13 @@
 #' See `vignette("install", package = "arrow")` for further details.
 #' @param use_system logical: Should we use `pkg-config` to look for Arrow
 #' system packages? Default is `FALSE`. If `TRUE`, source installation may be
-#' faster, but there is a risk of version mismatch.
+#' faster, but there is a risk of version mismatch. This sets the
+#' `ARROW_USE_PKG_CONFIG` environment variable.
 #' @param minimal logical: If building from source, should we build without
 #' optional dependencies (compression libraries, for example)? Default is
-#' `FALSE`.
+#' `FALSE`. This sets the `LIBARROW_MINIMAL` environment variable.
+#' @param verbose logical: Print more debugging output when installing? Default
+#' is `FALSE`. This sets the `ARROW_R_DEV` environment variable.
 #' @param repos character vector of base URLs of the repositories to install
 #' from (passed to `install.packages()`)
 #' @param ... Additional arguments passed to `install.packages()`
@@ -49,6 +56,7 @@ install_arrow <- function(nightly = FALSE,
                           binary = Sys.getenv("LIBARROW_BINARY", TRUE),
                           use_system = Sys.getenv("ARROW_USE_PKG_CONFIG", FALSE),
                           minimal = Sys.getenv("LIBARROW_MINIMAL", FALSE),
+                          verbose = Sys.getenv("ARROW_R_DEV", FALSE),
                           repos = getOption("repos"),
                           ...) {
   sysname <- tolower(Sys.info()[["sysname"]])
@@ -65,7 +73,8 @@ install_arrow <- function(nightly = FALSE,
       Sys.setenv(
         LIBARROW_DOWNLOAD = "true",
         LIBARROW_BINARY = binary,
-        LIBARRWOW_MINIMAL = minimal,
+        LIBARROW_MINIMAL = minimal,
+        ARROW_R_DEV = verbose,
         ARROW_USE_PKG_CONFIG = use_system
       )
       if (isTRUE(binary)) {

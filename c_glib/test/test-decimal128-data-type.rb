@@ -18,7 +18,7 @@
 class TestDecimal128DataType < Test::Unit::TestCase
   def test_type
     data_type = Arrow::Decimal128DataType.new(2, 0)
-    assert_equal(Arrow::Type::DECIMAL, data_type.id)
+    assert_equal(Arrow::Type::DECIMAL128, data_type.id)
   end
 
   def test_to_s

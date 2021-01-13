@@ -32,6 +32,8 @@ use arrow::{array::ArrayRef, datatypes::Field};
 use async_trait::async_trait;
 use futures::stream::Stream;
 
+use self::merge::MergeExec;
+
 /// Trait for types that stream [arrow::record_batch::RecordBatch]
 pub trait RecordBatchStream: Stream<Item = ArrowResult<RecordBatch>> {
     /// Returns the schema of this `RecordBatchStream`.
@@ -84,10 +86,54 @@ pub trait ExecutionPlan: Debug + Send + Sync {
     async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream>;
 }
 
+/// Execute the [ExecutionPlan] and collect the results in memory
+pub async fn collect(plan: Arc<dyn ExecutionPlan>) -> Result<Vec<RecordBatch>> {
+    match plan.output_partitioning().partition_count() {
+        0 => Ok(vec![]),
+        1 => {
+            let it = plan.execute(0).await?;
+            common::collect(it).await
+        }
+        _ => {
+            // merge into a single partition
+            let plan = MergeExec::new(plan.clone());
+            // MergeExec must produce a single partition
+            assert_eq!(1, plan.output_partitioning().partition_count());
+            common::collect(plan.execute(0).await?).await
+        }
+    }
+}
+
+/// Execute the [ExecutionPlan] and collect the results in memory
+pub async fn collect_partitioned(
+    plan: Arc<dyn ExecutionPlan>,
+) -> Result<Vec<Vec<RecordBatch>>> {
+    match plan.output_partitioning().partition_count() {
+        0 => Ok(vec![]),
+        1 => {
+            let it = plan.execute(0).await?;
+            Ok(vec![common::collect(it).await?])
+        }
+        _ => {
+            let mut partitions = vec![];
+            for i in 0..plan.output_partitioning().partition_count() {
+                partitions.push(common::collect(plan.execute(i).await?).await?)
+            }
+            Ok(partitions)
+        }
+    }
+}
+
 /// Partitioning schemes supported by operators.
 #[derive(Debug, Clone)]
 pub enum Partitioning {
-    /// Unknown partitioning scheme
+    /// Allocate batches using a round-robin algorithm and the specified number of partitions
+    RoundRobinBatch(usize),
+    /// Allocate rows based on a hash of one of more expressions and the specified
+    /// number of partitions
+    /// This partitioning scheme is not yet fully supported. See https://issues.apache.org/jira/browse/ARROW-11011
+    Hash(Vec<Arc<dyn PhysicalExpr>>, usize),
+    /// Unknown partitioning scheme with a known number of partitions
     UnknownPartitioning(usize),
 }
 
@@ -96,6 +142,8 @@ impl Partitioning {
     pub fn partition_count(&self) -> usize {
         use Partitioning::*;
         match self {
+            RoundRobinBatch(n) => *n,
+            Hash(_, n) => *n,
             UnknownPartitioning(n) => *n,
         }
     }
@@ -185,18 +233,16 @@ pub trait Accumulator: Send + Sync + Debug {
 
     /// updates the accumulator's state from a vector of arrays.
     fn update_batch(&mut self, values: &Vec<ArrayRef>) -> Result<()> {
-        if values.len() == 0 {
+        if values.is_empty() {
             return Ok(());
         };
-        (0..values[0].len())
-            .map(|index| {
-                let v = values
-                    .iter()
-                    .map(|array| ScalarValue::try_from_array(array, index))
-                    .collect::<Result<Vec<_>>>()?;
-                self.update(&v)
-            })
-            .collect::<Result<_>>()
+        (0..values[0].len()).try_for_each(|index| {
+            let v = values
+                .iter()
+                .map(|array| ScalarValue::try_from_array(array, index))
+                .collect::<Result<Vec<_>>>()?;
+            self.update(&v)
+        })
     }
 
     /// updates the accumulator's state from a vector of scalars.
@@ -204,18 +250,16 @@ pub trait Accumulator: Send + Sync + Debug {
 
     /// updates the accumulator's state from a vector of states.
     fn merge_batch(&mut self, states: &Vec<ArrayRef>) -> Result<()> {
-        if states.len() == 0 {
+        if states.is_empty() {
             return Ok(());
         };
-        (0..states[0].len())
-            .map(|index| {
-                let v = states
-                    .iter()
-                    .map(|array| ScalarValue::try_from_array(array, index))
-                    .collect::<Result<Vec<_>>>()?;
-                self.merge(&v)
-            })
-            .collect::<Result<_>>()
+        (0..states[0].len()).try_for_each(|index| {
+            let v = states
+                .iter()
+                .map(|array| ScalarValue::try_from_array(array, index))
+                .collect::<Result<Vec<_>>>()?;
+            self.merge(&v)
+        })
     }
 
     /// returns its value based on its current state.
@@ -224,6 +268,7 @@ pub trait Accumulator: Send + Sync + Debug {
 
 pub mod aggregates;
 pub mod array_expressions;
+pub mod coalesce_batches;
 pub mod common;
 pub mod csv;
 pub mod datetime_expressions;
@@ -244,6 +289,7 @@ pub mod merge;
 pub mod parquet;
 pub mod planner;
 pub mod projection;
+pub mod repartition;
 pub mod sort;
 pub mod string_expressions;
 pub mod type_coercion;

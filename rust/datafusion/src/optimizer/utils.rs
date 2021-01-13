@@ -24,7 +24,7 @@ use arrow::datatypes::Schema;
 use super::optimizer::OptimizerRule;
 use crate::error::{DataFusionError, Result};
 use crate::logical_plan::{
-    Expr, LogicalPlan, Operator, PlanType, StringifiedPlan, ToDFSchema,
+    Expr, LogicalPlan, Operator, Partitioning, PlanType, StringifiedPlan, ToDFSchema,
 };
 use crate::prelude::{col, lit};
 use crate::scalar::ScalarValue;
@@ -140,6 +140,13 @@ pub fn expressions(plan: &LogicalPlan) -> Vec<Expr> {
     match plan {
         LogicalPlan::Projection { expr, .. } => expr.clone(),
         LogicalPlan::Filter { predicate, .. } => vec![predicate.clone()],
+        LogicalPlan::Repartition {
+            partitioning_scheme,
+            ..
+        } => match partitioning_scheme {
+            Partitioning::Hash(expr, _) => expr.clone(),
+            _ => vec![],
+        },
         LogicalPlan::Aggregate {
             group_expr,
             aggr_expr,
@@ -168,6 +175,7 @@ pub fn inputs(plan: &LogicalPlan) -> Vec<&LogicalPlan> {
     match plan {
         LogicalPlan::Projection { input, .. } => vec![input],
         LogicalPlan::Filter { input, .. } => vec![input],
+        LogicalPlan::Repartition { input, .. } => vec![input],
         LogicalPlan::Aggregate { input, .. } => vec![input],
         LogicalPlan::Sort { input, .. } => vec![input],
         LogicalPlan::Join { left, right, .. } => vec![left, right],
@@ -197,6 +205,19 @@ pub fn from_plan(
             predicate: expr[0].clone(),
             input: Arc::new(inputs[0].clone()),
         }),
+        LogicalPlan::Repartition {
+            partitioning_scheme,
+            ..
+        } => match partitioning_scheme {
+            Partitioning::RoundRobinBatch(n) => Ok(LogicalPlan::Repartition {
+                partitioning_scheme: Partitioning::RoundRobinBatch(*n),
+                input: Arc::new(inputs[0].clone()),
+            }),
+            Partitioning::Hash(_, n) => Ok(LogicalPlan::Repartition {
+                partitioning_scheme: Partitioning::Hash(expr.to_owned(), *n),
+                input: Arc::new(inputs[0].clone()),
+            }),
+        },
         LogicalPlan::Aggregate {
             group_expr, schema, ..
         } => Ok(LogicalPlan::Aggregate {
@@ -217,7 +238,7 @@ pub fn from_plan(
         } => Ok(LogicalPlan::Join {
             left: Arc::new(inputs[0].clone()),
             right: Arc::new(inputs[1].clone()),
-            join_type: join_type.clone(),
+            join_type: *join_type,
             on: on.clone(),
             schema: schema.clone(),
         }),
@@ -244,12 +265,10 @@ pub fn expr_sub_expressions(expr: &Expr) -> Result<Vec<Expr>> {
         }
         Expr::IsNull(e) => Ok(vec![e.as_ref().to_owned()]),
         Expr::IsNotNull(e) => Ok(vec![e.as_ref().to_owned()]),
-        Expr::ScalarFunction { args, .. } => Ok(args.iter().map(|e| e.clone()).collect()),
-        Expr::ScalarUDF { args, .. } => Ok(args.iter().map(|e| e.clone()).collect()),
-        Expr::AggregateFunction { args, .. } => {
-            Ok(args.iter().map(|e| e.clone()).collect())
-        }
-        Expr::AggregateUDF { args, .. } => Ok(args.iter().map(|e| e.clone()).collect()),
+        Expr::ScalarFunction { args, .. } => Ok(args.clone()),
+        Expr::ScalarUDF { args, .. } => Ok(args.clone()),
+        Expr::AggregateFunction { args, .. } => Ok(args.clone()),
+        Expr::AggregateUDF { args, .. } => Ok(args.clone()),
         Expr::Case {
             expr,
             when_then_expr,
@@ -373,8 +392,8 @@ pub fn rewrite_expression(expr: &Expr, expressions: &Vec<Expr>) -> Result<Expr> 
             asc, nulls_first, ..
         } => Ok(Expr::Sort {
             expr: Box::new(expressions[0].clone()),
-            asc: asc.clone(),
-            nulls_first: nulls_first.clone(),
+            asc: *asc,
+            nulls_first: *nulls_first,
         }),
         Expr::Between { negated, .. } => {
             let expr = Expr::BinaryExpr {
@@ -440,7 +459,7 @@ mod tests {
         }
 
         fn name(&self) -> &str {
-            return "test_optimizer";
+            "test_optimizer"
         }
     }
 
@@ -478,11 +497,7 @@ mod tests {
                 ];
                 assert_eq!(*stringified_plans, expected_stringified_plans);
             }
-            _ => assert!(
-                false,
-                "Expected explain plan but got {:?}",
-                optimized_explain
-            ),
+            _ => panic!("Expected explain plan but got {:?}", optimized_explain),
         }
 
         Ok(())

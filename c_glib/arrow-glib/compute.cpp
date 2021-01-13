@@ -119,7 +119,7 @@ G_BEGIN_DECLS
 /**
  * SECTION: compute
  * @section_id: compute
- * @title: Computation on array
+ * @title: Computation on data
  * @include: arrow-glib/arrow-glib.h
  *
  * #GArrowExecuteContext is a class to customize how to execute a

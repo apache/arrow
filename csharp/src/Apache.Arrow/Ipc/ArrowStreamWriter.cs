@@ -17,6 +17,7 @@ using System;
 using System.Buffers;
 using System.Buffers.Binary;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -442,23 +443,28 @@ namespace Apache.Arrow.Ipc
 
         private protected Offset<Flatbuf.Schema> SerializeSchema(Schema schema)
         {
-            // TODO: Serialize schema metadata
+            // Build metadata
+            VectorOffset metadataVectorOffset = default;
+            if (schema.HasMetadata)
+            {
+                Offset<Flatbuf.KeyValue>[] metadataOffsets = GetMetadataOffsets(schema.Metadata);
+                metadataVectorOffset = Flatbuf.Schema.CreateCustomMetadataVector(Builder, metadataOffsets);
+            }
 
             // Build fields
-
             var fieldOffsets = new Offset<Flatbuf.Field>[schema.Fields.Count];
-
             for (int i = 0; i < fieldOffsets.Length; i++)
             {
                 Field field = schema.GetFieldByIndex(i);
                 StringOffset fieldNameOffset = Builder.CreateString(field.Name);
                 ArrowTypeFlatbufferBuilder.FieldType fieldType = _fieldTypeBuilder.BuildFieldType(field);
 
-                VectorOffset fieldChildrenVectorOffset = Builder.CreateVectorOfTables(GetChildrenFieldOffsets(field));
+                VectorOffset fieldChildrenVectorOffset = GetChildrenFieldOffset(field);
+                VectorOffset fieldMetadataVectorOffset = GetFieldMetadataOffset(field);
 
                 fieldOffsets[i] = Flatbuf.Field.CreateField(Builder,
                     fieldNameOffset, field.IsNullable, fieldType.Type, fieldType.Offset,
-                    default, fieldChildrenVectorOffset, default);
+                    default, fieldChildrenVectorOffset, fieldMetadataVectorOffset);
             }
 
             VectorOffset fieldsVectorOffset = Flatbuf.Schema.CreateFieldsVector(Builder, fieldOffsets);
@@ -468,14 +474,14 @@ namespace Apache.Arrow.Ipc
             Flatbuf.Endianness endianness = BitConverter.IsLittleEndian ? Flatbuf.Endianness.Little : Flatbuf.Endianness.Big;
 
             return Flatbuf.Schema.CreateSchema(
-                Builder, endianness, fieldsVectorOffset);
+                Builder, endianness, fieldsVectorOffset, metadataVectorOffset);
         }
 
-        private protected Offset<Flatbuf.Field>[] GetChildrenFieldOffsets(Field field)
+        private VectorOffset GetChildrenFieldOffset(Field field)
         {
             if (!(field.DataType is NestedType type))
             {
-                return System.Array.Empty<Offset<Flatbuf.Field>>();
+                return default;
             }
 
             int childrenCount = type.Fields.Count;
@@ -486,13 +492,45 @@ namespace Apache.Arrow.Ipc
                 Field childField = type.Fields[i];
                 StringOffset childFieldNameOffset = Builder.CreateString(childField.Name);
                 ArrowTypeFlatbufferBuilder.FieldType childFieldType = _fieldTypeBuilder.BuildFieldType(childField);
-                VectorOffset childFieldChildrenVectorOffset = Builder.CreateVectorOfTables(GetChildrenFieldOffsets(childField));
+
+                VectorOffset childFieldChildrenVectorOffset = GetChildrenFieldOffset(childField);
+                VectorOffset childFieldMetadataVectorOffset = GetFieldMetadataOffset(childField);
 
                 children[i] = Flatbuf.Field.CreateField(Builder,
                     childFieldNameOffset, childField.IsNullable, childFieldType.Type, childFieldType.Offset,
-                    default, childFieldChildrenVectorOffset, default);
+                    default, childFieldChildrenVectorOffset, childFieldMetadataVectorOffset);
             }
-            return children;
+
+            return Builder.CreateVectorOfTables(children);
+        }
+
+        private VectorOffset GetFieldMetadataOffset(Field field)
+        {
+            if (!field.HasMetadata)
+            {
+                return default;
+            }
+
+            Offset<Flatbuf.KeyValue>[] metadataOffsets = GetMetadataOffsets(field.Metadata);
+            return Flatbuf.Field.CreateCustomMetadataVector(Builder, metadataOffsets);
+        }
+
+        private Offset<Flatbuf.KeyValue>[] GetMetadataOffsets(IReadOnlyDictionary<string, string> metadata)
+        {
+            Debug.Assert(metadata != null);
+            Debug.Assert(metadata.Count > 0);
+
+            Offset<Flatbuf.KeyValue>[] metadataOffsets = new Offset<Flatbuf.KeyValue>[metadata.Count];
+            int index = 0;
+            foreach (KeyValuePair<string, string> metadatum in metadata)
+            {
+                StringOffset keyOffset = Builder.CreateString(metadatum.Key);
+                StringOffset valueOffset = Builder.CreateString(metadatum.Value);
+
+                metadataOffsets[index++] = Flatbuf.KeyValue.CreateKeyValue(Builder, keyOffset, valueOffset);
+            }
+
+            return metadataOffsets;
         }
 
         private Offset<Flatbuf.Schema> WriteSchema(Schema schema)

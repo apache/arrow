@@ -18,8 +18,10 @@
 #include "arrow/testing/random.h"
 
 #include <algorithm>
+#include <limits>
 #include <memory>
 #include <random>
+#include <type_traits>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -46,20 +48,48 @@ namespace {
 
 template <typename ValueType, typename DistributionType>
 struct GenerateOptions {
-  GenerateOptions(SeedType seed, ValueType min, ValueType max, double probability)
-      : min_(min), max_(max), seed_(seed), probability_(probability) {}
+  GenerateOptions(SeedType seed, ValueType min, ValueType max, double probability,
+                  double nan_probability = 0.0)
+      : min_(min),
+        max_(max),
+        seed_(seed),
+        probability_(probability),
+        nan_probability_(nan_probability) {}
 
   void GenerateData(uint8_t* buffer, size_t n) {
     GenerateTypedData(reinterpret_cast<ValueType*>(buffer), n);
   }
 
-  void GenerateTypedData(ValueType* data, size_t n) {
+  template <typename V>
+  typename std::enable_if<!std::is_floating_point<V>::value>::type GenerateTypedData(
+      V* data, size_t n) {
+    GenerateTypedDataNoNan(data, n);
+  }
+
+  template <typename V>
+  typename std::enable_if<std::is_floating_point<V>::value>::type GenerateTypedData(
+      V* data, size_t n) {
+    if (nan_probability_ == 0.0) {
+      GenerateTypedDataNoNan(data, n);
+      return;
+    }
+    std::default_random_engine rng(seed_++);
+    DistributionType dist(min_, max_);
+    std::bernoulli_distribution nan_dist(nan_probability_);
+    const ValueType nan_value = std::numeric_limits<ValueType>::quiet_NaN();
+
+    // A static cast is required due to the int16 -> int8 handling.
+    std::generate(data, data + n, [&] {
+      return nan_dist(rng) ? nan_value : static_cast<ValueType>(dist(rng));
+    });
+  }
+
+  void GenerateTypedDataNoNan(ValueType* data, size_t n) {
     std::default_random_engine rng(seed_++);
     DistributionType dist(min_, max_);
 
     // A static cast is required due to the int16 -> int8 handling.
-    std::generate(data, data + n,
-                  [&dist, &rng] { return static_cast<ValueType>(dist(rng)); });
+    std::generate(data, data + n, [&] { return static_cast<ValueType>(dist(rng)); });
   }
 
   void GenerateBitmap(uint8_t* buffer, size_t n, int64_t* null_count) {
@@ -82,6 +112,7 @@ struct GenerateOptions {
   ValueType max_;
   SeedType seed_;
   double probability_;
+  double nan_probability_;
 };
 
 }  // namespace
@@ -170,14 +201,23 @@ PRIMITIVE_RAND_INTEGER_IMPL(Int64, int64_t, Int64Type)
 // Generate 16bit values for half-float
 PRIMITIVE_RAND_INTEGER_IMPL(Float16, int16_t, HalfFloatType)
 
-#define PRIMITIVE_RAND_FLOAT_IMPL(Name, CType, ArrowType) \
-  PRIMITIVE_RAND_IMPL(Name, CType, ArrowType, std::uniform_real_distribution<CType>)
+std::shared_ptr<Array> RandomArrayGenerator::Float32(int64_t size, float min, float max,
+                                                     double null_probability,
+                                                     double nan_probability) {
+  using OptionType = GenerateOptions<float, std::uniform_real_distribution<float>>;
+  OptionType options(seed(), min, max, null_probability, nan_probability);
+  return GenerateNumericArray<FloatType, OptionType>(size, options);
+}
 
-PRIMITIVE_RAND_FLOAT_IMPL(Float32, float, FloatType)
-PRIMITIVE_RAND_FLOAT_IMPL(Float64, double, DoubleType)
+std::shared_ptr<Array> RandomArrayGenerator::Float64(int64_t size, double min, double max,
+                                                     double null_probability,
+                                                     double nan_probability) {
+  using OptionType = GenerateOptions<double, std::uniform_real_distribution<double>>;
+  OptionType options(seed(), min, max, null_probability, nan_probability);
+  return GenerateNumericArray<DoubleType, OptionType>(size, options);
+}
 
 #undef PRIMITIVE_RAND_INTEGER_IMPL
-#undef PRIMITIVE_RAND_FLOAT_IMPL
 #undef PRIMITIVE_RAND_IMPL
 
 template <typename TypeClass>

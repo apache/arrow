@@ -38,63 +38,67 @@ G_BEGIN_DECLS
  * #GArrowDataType is a base class for all data type classes such as
  * #GArrowBooleanDataType.
  *
- * #GArrowNullDataType is a class for null data type.
+ * #GArrowNullDataType is a class for the null data type.
  *
- * #GArrowBooleanDataType is a class for boolean data type.
+ * #GArrowBooleanDataType is a class for the boolean data type.
  *
- * #GArrowInt8DataType is a class for 8-bit integer data type.
+ * #GArrowInt8DataType is a class for the 8-bit integer data type.
  *
- * #GArrowUInt8DataType is a class for 8-bit unsigned integer data type.
+ * #GArrowUInt8DataType is a class for the 8-bit unsigned integer data type.
  *
- * #GArrowInt16DataType is a class for 16-bit integer data type.
+ * #GArrowInt16DataType is a class for the 16-bit integer data type.
  *
- * #GArrowUInt16DataType is a class for 16-bit unsigned integer data type.
+ * #GArrowUInt16DataType is a class for the 16-bit unsigned integer data type.
  *
- * #GArrowInt32DataType is a class for 32-bit integer data type.
+ * #GArrowInt32DataType is a class for the 32-bit integer data type.
  *
- * #GArrowUInt32DataType is a class for 32-bit unsigned integer data type.
+ * #GArrowUInt32DataType is a class for the 32-bit unsigned integer data type.
  *
- * #GArrowInt64DataType is a class for 64-bit integer data type.
+ * #GArrowInt64DataType is a class for the 64-bit integer data type.
  *
- * #GArrowUInt64DataType is a class for 64-bit unsigned integer data type.
+ * #GArrowUInt64DataType is a class for the 64-bit unsigned integer data type.
  *
- * #GArrowFloatDataType is a class for 32-bit floating point data
+ * #GArrowFloatDataType is a class for the 32-bit floating point data
  * type.
  *
- * #GArrowDoubleDataType is a class for 64-bit floating point data
+ * #GArrowDoubleDataType is a class for the 64-bit floating point data
  * type.
  *
- * #GArrowBinaryDataType is a class for binary data type.
+ * #GArrowBinaryDataType is a class for the binary data type.
  *
- * #GArrowLargeBinaryDataType is a class for 64-bit offsets binary data type.
- *
- * #GArrowFixedSizeBinaryDataType is a class for fixed-size binary data type.
- *
- * #GArrowStringDataType is a class for UTF-8 encoded string data
- * type.
- *
- * #GArrowLargeStringDataType is a class for 64-bit offsets UTF-8 encoded string
+ * #GArrowLargeBinaryDataType is a class for the 64-bit offsets binary
  * data type.
  *
+ * #GArrowFixedSizeBinaryDataType is a class for the fixed-size binary
+ * data type.
+ *
+ * #GArrowStringDataType is a class for the UTF-8 encoded string data
+ * type.
+ *
+ * #GArrowLargeStringDataType is a class for the 64-bit offsets UTF-8
+ * encoded string data type.
+ *
  * #GArrowDate32DataType is a class for the number of days since UNIX
- * epoch in 32-bit signed integer data type.
+ * epoch in the 32-bit signed integer data type.
  *
  * #GArrowDate64DataType is a class for the number of milliseconds
- * since UNIX epoch in 64-bit signed integer data type.
+ * since UNIX epoch in the 64-bit signed integer data type.
  *
  * #GArrowTimestampDataType is a class for the number of
  * seconds/milliseconds/microseconds/nanoseconds since UNIX epoch in
- * 64-bit signed integer data type.
+ * the 64-bit signed integer data type.
  *
  * #GArrowTime32DataType is a class for the number of seconds or
- * milliseconds since midnight in 32-bit signed integer data type.
+ * milliseconds since midnight in the 32-bit signed integer data type.
  *
  * #GArrowTime64DataType is a class for the number of microseconds or
- * nanoseconds since midnight in 64-bit signed integer data type.
+ * nanoseconds since midnight in the 64-bit signed integer data type.
  *
- * #GArrowDecimalDataType is a base class for decimal data type.
+ * #GArrowDecimalDataType is a base class for the decimal data types.
  *
- * #GArrowDecimal128DataType is a class for 128-bit decimal data type.
+ * #GArrowDecimal128DataType is a class for the 128-bit decimal data type.
+ *
+ * #GArrowDecimal256DataType is a class for the 256-bit decimal data type.
  */
 
 typedef struct GArrowDataTypePrivate_ {
@@ -1272,6 +1276,19 @@ garrow_decimal128_data_type_class_init(GArrowDecimal128DataTypeClass *klass)
 }
 
 /**
+ * garrow_decimal128_data_type_max_precision:
+ *
+ * Returns: The max precision of 128-bit decimal data type.
+ *
+ * Since: 3.0.0
+ */
+gint32
+garrow_decimal128_data_type_max_precision()
+{
+  return arrow::Decimal128Type::kMaxPrecision;
+}
+
+/**
  * garrow_decimal128_data_type_new:
  * @precision: The precision of decimal data.
  * @scale: The scale of decimal data.
@@ -1284,7 +1301,7 @@ GArrowDecimal128DataType *
 garrow_decimal128_data_type_new(gint32 precision,
                                 gint32 scale)
 {
-  auto arrow_data_type = arrow::decimal(precision, scale);
+  auto arrow_data_type = arrow::decimal128(precision, scale);
 
   auto data_type =
     GARROW_DECIMAL128_DATA_TYPE(g_object_new(GARROW_TYPE_DECIMAL128_DATA_TYPE,
@@ -1292,6 +1309,57 @@ garrow_decimal128_data_type_new(gint32 precision,
                                              NULL));
   return data_type;
 }
+
+
+G_DEFINE_TYPE(GArrowDecimal256DataType,
+              garrow_decimal256_data_type,
+              GARROW_TYPE_DECIMAL_DATA_TYPE)
+
+static void
+garrow_decimal256_data_type_init(GArrowDecimal256DataType *object)
+{
+}
+
+static void
+garrow_decimal256_data_type_class_init(GArrowDecimal256DataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_decimal256_data_type_max_precision:
+ *
+ * Returns: The max precision of 256-bit decimal data type.
+ *
+ * Since: 3.0.0
+ */
+gint32
+garrow_decimal256_data_type_max_precision()
+{
+  return arrow::Decimal256Type::kMaxPrecision;
+}
+
+/**
+ * garrow_decimal256_data_type_new:
+ * @precision: The precision of decimal data.
+ * @scale: The scale of decimal data.
+ *
+ * Returns: The newly created 256-bit decimal data type.
+ *
+ * Since: 3.0.0
+ */
+GArrowDecimal256DataType *
+garrow_decimal256_data_type_new(gint32 precision,
+                                gint32 scale)
+{
+  auto arrow_data_type = arrow::decimal256(precision, scale);
+
+  auto data_type =
+    GARROW_DECIMAL256_DATA_TYPE(g_object_new(GARROW_TYPE_DECIMAL256_DATA_TYPE,
+                                             "data-type", &arrow_data_type,
+                                             NULL));
+  return data_type;
+}
+
 
 G_END_DECLS
 
@@ -1386,8 +1454,11 @@ garrow_data_type_new_raw(std::shared_ptr<arrow::DataType> *arrow_data_type)
   case arrow::Type::type::DICTIONARY:
     type = GARROW_TYPE_DICTIONARY_DATA_TYPE;
     break;
-  case arrow::Type::type::DECIMAL:
+  case arrow::Type::type::DECIMAL128:
     type = GARROW_TYPE_DECIMAL128_DATA_TYPE;
+    break;
+  case arrow::Type::type::DECIMAL256:
+    type = GARROW_TYPE_DECIMAL256_DATA_TYPE;
     break;
   default:
     type = GARROW_TYPE_DATA_TYPE;

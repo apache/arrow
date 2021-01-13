@@ -24,7 +24,7 @@ include(CheckCXXSourceCompiles)
 message(STATUS "System processor: ${CMAKE_SYSTEM_PROCESSOR}")
 
 if(NOT DEFINED ARROW_CPU_FLAG)
-  if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|ARM64")
+  if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|ARM64|arm64")
     set(ARROW_CPU_FLAG "armv8")
   elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "armv7")
     set(ARROW_CPU_FLAG "armv7")

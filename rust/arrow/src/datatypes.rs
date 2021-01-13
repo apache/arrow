@@ -96,7 +96,7 @@ pub enum DataType {
     /// * As used in the Olson time zone database (the "tz database" or
     ///   "tzdata"), such as "America/New_York"
     /// * An absolute time zone offset of the form +XX:XX or -XX:XX, such as +07:30
-    Timestamp(TimeUnit, Option<Arc<String>>),
+    Timestamp(TimeUnit, Option<String>),
     /// A 32-bit date representing the elapsed time since UNIX epoch (1970-01-01)
     /// in days (32 bits).
     Date32(DateUnit),
@@ -209,6 +209,16 @@ pub trait ArrowNativeType:
     fn to_usize(&self) -> Option<usize> {
         None
     }
+
+    /// Convert native type from i32.
+    fn from_i32(_: i32) -> Option<Self> {
+        None
+    }
+
+    /// Convert native type from i64.
+    fn from_i64(_: i64) -> Option<Self> {
+        None
+    }
 }
 
 /// Trait indicating a primitive fixed-width type (bool, ints and floats).
@@ -278,6 +288,11 @@ impl ArrowNativeType for i32 {
     fn to_usize(&self) -> Option<usize> {
         num::ToPrimitive::to_usize(self)
     }
+
+    /// Convert native type from i32.
+    fn from_i32(val: i32) -> Option<Self> {
+        Some(val)
+    }
 }
 
 impl ArrowNativeType for i64 {
@@ -291,6 +306,11 @@ impl ArrowNativeType for i64 {
 
     fn to_usize(&self) -> Option<usize> {
         num::ToPrimitive::to_usize(self)
+    }
+
+    /// Convert native type from i64.
+    fn from_i64(val: i64) -> Option<Self> {
+        Some(val)
     }
 }
 
@@ -522,13 +542,12 @@ where
     /// The number of bits used corresponds to the number of lanes of this type
     fn mask_from_u64(mask: u64) -> Self::SimdMask;
 
+    /// Creates a bitmask from the given SIMD mask.
+    /// Each bit corresponds to one vector lane, starting with the least-significant bit.
+    fn mask_to_u64(mask: &Self::SimdMask) -> u64;
+
     /// Gets the value of a single lane in a SIMD mask
     fn mask_get(mask: &Self::SimdMask, idx: usize) -> bool;
-
-    /// Gets the bitmask for a SimdMask as a byte slice and passes it to the closure used as the action parameter
-    fn bitmask<T>(mask: &Self::SimdMask, action: T)
-    where
-        T: FnMut(&[u8]);
 
     /// Sets the value of a single lane of a SIMD mask
     fn mask_set(mask: Self::SimdMask, idx: usize, value: bool) -> Self::SimdMask;
@@ -695,15 +714,13 @@ macro_rules! make_numeric_type {
             }
 
             #[inline]
-            fn mask_get(mask: &Self::SimdMask, idx: usize) -> bool {
-                unsafe { mask.extract_unchecked(idx) }
+            fn mask_to_u64(mask: &Self::SimdMask) -> u64 {
+                mask.bitmask() as u64
             }
 
-            fn bitmask<T>(mask: &Self::SimdMask, mut action: T)
-            where
-                T: FnMut(&[u8]),
-            {
-                action(mask.bitmask().to_byte_slice());
+            #[inline]
+            fn mask_get(mask: &Self::SimdMask, idx: usize) -> bool {
+                unsafe { mask.extract_unchecked(idx) }
             }
 
             #[inline]
@@ -994,7 +1011,7 @@ impl DataType {
                     };
                     let tz = match map.get("timezone") {
                         None => Ok(None),
-                        Some(VString(tz)) => Ok(Some(Arc::new(tz.to_string()))),
+                        Some(VString(tz)) => Ok(Some(tz.clone())),
                         _ => Err(ArrowError::ParseError(
                             "timezone must be a string".to_string(),
                         )),
@@ -1226,6 +1243,31 @@ impl DataType {
                 | Float64
         )
     }
+
+    /// Compares the datatype with another, ignoring nested field names
+    /// and metadata
+    pub(crate) fn equals_datatype(&self, other: &DataType) -> bool {
+        match (&self, other) {
+            (DataType::List(a), DataType::List(b))
+            | (DataType::LargeList(a), DataType::LargeList(b)) => {
+                a.is_nullable() == b.is_nullable()
+                    && a.data_type().equals_datatype(b.data_type())
+            }
+            (DataType::FixedSizeList(a, a_size), DataType::FixedSizeList(b, b_size)) => {
+                a_size == b_size
+                    && a.is_nullable() == b.is_nullable()
+                    && a.data_type().equals_datatype(b.data_type())
+            }
+            (DataType::Struct(a), DataType::Struct(b)) => {
+                a.len() == b.len()
+                    && a.iter().zip(b).all(|(a, b)| {
+                        a.is_nullable() == b.is_nullable()
+                            && a.data_type().equals_datatype(b.data_type())
+                    })
+            }
+            _ => self == other,
+        }
+    }
 }
 
 impl Field {
@@ -1333,18 +1375,16 @@ impl Field {
                                 ));
                             }
                             match data_type {
-                                    DataType::List(_) => DataType::List(Box::new(
-                                        Self::from(&values[0])?,
-                                    )),
-                                    DataType::LargeList(_) => DataType::LargeList(Box::new(
-                                        Self::from(&values[0])?,
-                                    )),
-                                    DataType::FixedSizeList(_, int) => {
-                                        DataType::FixedSizeList(
-                                            Box::new(Self::from(&values[0])?),
-                                            int,
-                                        )
+                                    DataType::List(_) => {
+                                        DataType::List(Box::new(Self::from(&values[0])?))
                                     }
+                                    DataType::LargeList(_) => {
+                                        DataType::LargeList(Box::new(Self::from(&values[0])?))
+                                    }
+                                    DataType::FixedSizeList(_, int) => DataType::FixedSizeList(
+                                        Box::new(Self::from(&values[0])?),
+                                        int,
+                                    ),
                                     _ => unreachable!(
                                         "Data type should be a list, largelist or fixedsizelist"
                                     ),
@@ -1690,7 +1730,7 @@ impl Schema {
                     }
                 }
             }
-            // merge fileds
+            // merge fields
             for field in &schema.fields {
                 let mut new_field = true;
                 for merged_field in &mut merged.fields {
@@ -1866,6 +1906,54 @@ mod tests {
     use serde_json::Number;
     use serde_json::Value::{Bool, Number as VNumber};
     use std::f32::NAN;
+
+    #[test]
+    fn test_list_datatype_equality() {
+        // tests that list type equality is checked while ignoring list names
+        let list_a = DataType::List(Box::new(Field::new("item", DataType::Int32, true)));
+        let list_b = DataType::List(Box::new(Field::new("array", DataType::Int32, true)));
+        let list_c = DataType::List(Box::new(Field::new("item", DataType::Int32, false)));
+        let list_d = DataType::List(Box::new(Field::new("item", DataType::UInt32, true)));
+        assert!(list_a.equals_datatype(&list_b));
+        assert!(!list_a.equals_datatype(&list_c));
+        assert!(!list_b.equals_datatype(&list_c));
+        assert!(!list_a.equals_datatype(&list_d));
+
+        let list_e =
+            DataType::FixedSizeList(Box::new(Field::new("item", list_a, false)), 3);
+        let list_f =
+            DataType::FixedSizeList(Box::new(Field::new("array", list_b, false)), 3);
+        let list_g = DataType::FixedSizeList(
+            Box::new(Field::new("item", DataType::FixedSizeBinary(3), true)),
+            3,
+        );
+        assert!(list_e.equals_datatype(&list_f));
+        assert!(!list_e.equals_datatype(&list_g));
+        assert!(!list_f.equals_datatype(&list_g));
+
+        let list_h = DataType::Struct(vec![Field::new("f1", list_e, true)]);
+        let list_i = DataType::Struct(vec![Field::new("f1", list_f.clone(), true)]);
+        let list_j = DataType::Struct(vec![Field::new("f1", list_f.clone(), false)]);
+        let list_k = DataType::Struct(vec![
+            Field::new("f1", list_f.clone(), false),
+            Field::new("f2", list_g.clone(), false),
+            Field::new("f3", DataType::Utf8, true),
+        ]);
+        let list_l = DataType::Struct(vec![
+            Field::new("ff1", list_f.clone(), false),
+            Field::new("ff2", list_g.clone(), false),
+            Field::new("ff3", DataType::LargeUtf8, true),
+        ]);
+        let list_m = DataType::Struct(vec![
+            Field::new("ff1", list_f, false),
+            Field::new("ff2", list_g, false),
+            Field::new("ff3", DataType::Utf8, true),
+        ]);
+        assert!(list_h.equals_datatype(&list_i));
+        assert!(!list_h.equals_datatype(&list_j));
+        assert!(!list_k.equals_datatype(&list_l));
+        assert!(list_k.equals_datatype(&list_m));
+    }
 
     #[test]
     fn create_struct_type() {
@@ -2068,17 +2156,14 @@ mod tests {
                 Field::new("c15", DataType::Timestamp(TimeUnit::Second, None), false),
                 Field::new(
                     "c16",
-                    DataType::Timestamp(
-                        TimeUnit::Millisecond,
-                        Some(Arc::new("UTC".to_string())),
-                    ),
+                    DataType::Timestamp(TimeUnit::Millisecond, Some("UTC".to_string())),
                     false,
                 ),
                 Field::new(
                     "c17",
                     DataType::Timestamp(
                         TimeUnit::Microsecond,
-                        Some(Arc::new("Africa/Johannesburg".to_string())),
+                        Some("Africa/Johannesburg".to_string()),
                     ),
                     false,
                 ),

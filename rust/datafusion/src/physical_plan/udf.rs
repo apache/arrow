@@ -56,6 +56,12 @@ impl Debug for ScalarUDF {
     }
 }
 
+impl PartialEq for ScalarUDF {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name && self.signature == other.signature
+    }
+}
+
 impl ScalarUDF {
     /// Create a new ScalarUDF
     pub fn new(

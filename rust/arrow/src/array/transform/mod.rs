@@ -24,6 +24,7 @@ use super::{ArrayData, ArrayDataRef};
 mod boolean;
 mod fixed_binary;
 mod list;
+mod null;
 mod primitive;
 mod structure;
 mod utils;
@@ -46,16 +47,23 @@ struct _MutableArrayData<'a> {
     pub len: usize,
     pub null_buffer: MutableBuffer,
 
-    pub buffers: Vec<MutableBuffer>,
+    // arrow specification only allows up to 3 buffers (2 ignoring the nulls above).
+    // Thus, we place them in the stack to avoid bound checks and greater data locality.
+    pub buffer1: MutableBuffer,
+    pub buffer2: MutableBuffer,
     pub child_data: Vec<MutableArrayData<'a>>,
 }
 
 impl<'a> _MutableArrayData<'a> {
     fn freeze(self, dictionary: Option<ArrayDataRef>) -> ArrayData {
-        let mut buffers = Vec::with_capacity(self.buffers.len());
-        for buffer in self.buffers {
-            buffers.push(buffer.freeze());
-        }
+        let buffers = match self.data_type {
+            DataType::Null | DataType::Struct(_) => vec![],
+            DataType::Utf8
+            | DataType::Binary
+            | DataType::LargeUtf8
+            | DataType::LargeBinary => vec![self.buffer1.into(), self.buffer2.into()],
+            _ => vec![self.buffer1.into()],
+        };
 
         let child_data = match self.data_type {
             DataType::Dictionary(_, _) => vec![dictionary.unwrap()],
@@ -72,7 +80,7 @@ impl<'a> _MutableArrayData<'a> {
             self.len,
             Some(self.null_count),
             if self.null_count > 0 {
-                Some(self.null_buffer.freeze())
+                Some(self.null_buffer.into())
             } else {
                 None
             },
@@ -81,27 +89,15 @@ impl<'a> _MutableArrayData<'a> {
             child_data,
         )
     }
-
-    /// Returns the buffer `buffer` as a slice of type `T`. When the expected buffer is bit-packed,
-    /// the slice is not offset.
-    #[inline]
-    pub(super) fn buffer<T>(&self, buffer: usize) -> &[T] {
-        let values = unsafe { self.buffers[buffer].data().align_to::<T>() };
-        if !values.0.is_empty() || !values.2.is_empty() {
-            // this is unreachable because
-            unreachable!("The buffer is not byte-aligned with its interpretation")
-        };
-        &values.1
-    }
 }
 
 fn build_extend_null_bits(array: &ArrayData, use_nulls: bool) -> ExtendNullBits {
     if let Some(bitmap) = array.null_bitmap() {
-        let bytes = bitmap.bits.data();
+        let bytes = bitmap.bits.as_slice();
         Box::new(move |mutable, start, len| {
             utils::reserve_for_bits(&mut mutable.null_buffer, mutable.len + len);
             mutable.null_count += utils::set_bits(
-                mutable.null_buffer.data_mut(),
+                mutable.null_buffer.as_slice_mut(),
                 bytes,
                 mutable.len,
                 array.offset() + start,
@@ -111,7 +107,7 @@ fn build_extend_null_bits(array: &ArrayData, use_nulls: bool) -> ExtendNullBits 
     } else if use_nulls {
         Box::new(|mutable, _, len| {
             utils::reserve_for_bits(&mut mutable.null_buffer, mutable.len + len);
-            let write_data = mutable.null_buffer.data_mut();
+            let write_data = mutable.null_buffer.as_slice_mut();
             let offset = mutable.len;
             (0..len).for_each(|i| {
                 bit_util::set_bit(write_data, offset + i);
@@ -179,6 +175,7 @@ impl<'a> std::fmt::Debug for MutableArrayData<'a> {
 fn build_extend(array: &ArrayData) -> Extend {
     use crate::datatypes::*;
     match array.data_type() {
+        DataType::Null => null::build_extend(array),
         DataType::Boolean => boolean::build_extend(array),
         DataType::UInt8 => primitive::build_extend::<u8>(array),
         DataType::UInt16 => primitive::build_extend::<u16>(array),
@@ -223,9 +220,7 @@ fn build_extend(array: &ArrayData) -> Extend {
         DataType::FixedSizeBinary(_) => fixed_binary::build_extend(array),
         DataType::Float16 => unreachable!(),
         /*
-        DataType::Null => {}
         DataType::FixedSizeList(_, _) => {}
-        DataType::Struct(_) => {}
         DataType::Union(_) => {}
         */
         _ => todo!("Take and filter operations still not supported for this datatype"),
@@ -235,6 +230,7 @@ fn build_extend(array: &ArrayData) -> Extend {
 fn build_extend_nulls(data_type: &DataType) -> ExtendNulls {
     use crate::datatypes::*;
     Box::new(match data_type {
+        DataType::Null => null::extend_nulls,
         DataType::Boolean => boolean::extend_nulls,
         DataType::UInt8 => primitive::extend_nulls::<u8>,
         DataType::UInt16 => primitive::extend_nulls::<u16>,
@@ -273,7 +269,6 @@ fn build_extend_nulls(data_type: &DataType) -> ExtendNulls {
         DataType::FixedSizeBinary(_) => fixed_binary::extend_nulls,
         DataType::Float16 => unreachable!(),
         /*
-        DataType::Null => {}
         DataType::FixedSizeList(_, _) => {}
         DataType::Union(_) => {}
         */
@@ -298,75 +293,133 @@ impl<'a> MutableArrayData<'a> {
             use_nulls = true;
         };
 
-        let buffers = match &data_type {
+        let empty_buffer = MutableBuffer::new(0);
+        let [buffer1, buffer2] = match &data_type {
+            DataType::Null => [empty_buffer, MutableBuffer::new(0)],
             DataType::Boolean => {
                 let bytes = bit_util::ceil(capacity, 8);
                 let buffer = MutableBuffer::new(bytes).with_bitset(bytes, false);
-                vec![buffer]
+                [buffer, empty_buffer]
             }
-            DataType::UInt8 => vec![MutableBuffer::new(capacity * size_of::<u8>())],
-            DataType::UInt16 => vec![MutableBuffer::new(capacity * size_of::<u16>())],
-            DataType::UInt32 => vec![MutableBuffer::new(capacity * size_of::<u32>())],
-            DataType::UInt64 => vec![MutableBuffer::new(capacity * size_of::<u64>())],
-            DataType::Int8 => vec![MutableBuffer::new(capacity * size_of::<i8>())],
-            DataType::Int16 => vec![MutableBuffer::new(capacity * size_of::<i16>())],
-            DataType::Int32 => vec![MutableBuffer::new(capacity * size_of::<i32>())],
-            DataType::Int64 => vec![MutableBuffer::new(capacity * size_of::<i64>())],
-            DataType::Float32 => vec![MutableBuffer::new(capacity * size_of::<f32>())],
-            DataType::Float64 => vec![MutableBuffer::new(capacity * size_of::<f64>())],
-            DataType::Date32(_) | DataType::Time32(_) => {
-                vec![MutableBuffer::new(capacity * size_of::<i32>())]
+            DataType::UInt8 => {
+                [MutableBuffer::new(capacity * size_of::<u8>()), empty_buffer]
             }
+            DataType::UInt16 => [
+                MutableBuffer::new(capacity * size_of::<u16>()),
+                empty_buffer,
+            ],
+            DataType::UInt32 => [
+                MutableBuffer::new(capacity * size_of::<u32>()),
+                empty_buffer,
+            ],
+            DataType::UInt64 => [
+                MutableBuffer::new(capacity * size_of::<u64>()),
+                empty_buffer,
+            ],
+            DataType::Int8 => {
+                [MutableBuffer::new(capacity * size_of::<i8>()), empty_buffer]
+            }
+            DataType::Int16 => [
+                MutableBuffer::new(capacity * size_of::<i16>()),
+                empty_buffer,
+            ],
+            DataType::Int32 => [
+                MutableBuffer::new(capacity * size_of::<i32>()),
+                empty_buffer,
+            ],
+            DataType::Int64 => [
+                MutableBuffer::new(capacity * size_of::<i64>()),
+                empty_buffer,
+            ],
+            DataType::Float32 => [
+                MutableBuffer::new(capacity * size_of::<f32>()),
+                empty_buffer,
+            ],
+            DataType::Float64 => [
+                MutableBuffer::new(capacity * size_of::<f64>()),
+                empty_buffer,
+            ],
+            DataType::Date32(_) | DataType::Time32(_) => [
+                MutableBuffer::new(capacity * size_of::<i32>()),
+                empty_buffer,
+            ],
             DataType::Date64(_)
             | DataType::Time64(_)
             | DataType::Duration(_)
-            | DataType::Timestamp(_, _) => {
-                vec![MutableBuffer::new(capacity * size_of::<i64>())]
-            }
-            DataType::Interval(IntervalUnit::YearMonth) => {
-                vec![MutableBuffer::new(capacity * size_of::<i32>())]
-            }
-            DataType::Interval(IntervalUnit::DayTime) => {
-                vec![MutableBuffer::new(capacity * size_of::<i64>())]
-            }
+            | DataType::Timestamp(_, _) => [
+                MutableBuffer::new(capacity * size_of::<i64>()),
+                empty_buffer,
+            ],
+            DataType::Interval(IntervalUnit::YearMonth) => [
+                MutableBuffer::new(capacity * size_of::<i32>()),
+                empty_buffer,
+            ],
+            DataType::Interval(IntervalUnit::DayTime) => [
+                MutableBuffer::new(capacity * size_of::<i64>()),
+                empty_buffer,
+            ],
             DataType::Utf8 | DataType::Binary => {
                 let mut buffer = MutableBuffer::new((1 + capacity) * size_of::<i32>());
+                // safety: `unsafe` code assumes that this buffer is initialized with one element
                 buffer.extend_from_slice(&[0i32].to_byte_slice());
-                vec![buffer, MutableBuffer::new(capacity * size_of::<u8>())]
+                [buffer, MutableBuffer::new(capacity * size_of::<u8>())]
             }
             DataType::LargeUtf8 | DataType::LargeBinary => {
                 let mut buffer = MutableBuffer::new((1 + capacity) * size_of::<i64>());
+                // safety: `unsafe` code assumes that this buffer is initialized with one element
                 buffer.extend_from_slice(&[0i64].to_byte_slice());
-                vec![buffer, MutableBuffer::new(capacity * size_of::<u8>())]
+                [buffer, MutableBuffer::new(capacity * size_of::<u8>())]
             }
             DataType::List(_) => {
                 // offset buffer always starts with a zero
                 let mut buffer = MutableBuffer::new((1 + capacity) * size_of::<i32>());
                 buffer.extend_from_slice(0i32.to_byte_slice());
-                vec![buffer]
+                [buffer, empty_buffer]
             }
             DataType::LargeList(_) => {
                 // offset buffer always starts with a zero
                 let mut buffer = MutableBuffer::new((1 + capacity) * size_of::<i64>());
                 buffer.extend_from_slice(&[0i64].to_byte_slice());
-                vec![buffer]
+                [buffer, empty_buffer]
             }
             DataType::FixedSizeBinary(size) => {
-                vec![MutableBuffer::new(capacity * *size as usize)]
+                [MutableBuffer::new(capacity * *size as usize), empty_buffer]
             }
             DataType::Dictionary(child_data_type, _) => match child_data_type.as_ref() {
-                DataType::UInt8 => vec![MutableBuffer::new(capacity * size_of::<u8>())],
-                DataType::UInt16 => vec![MutableBuffer::new(capacity * size_of::<u16>())],
-                DataType::UInt32 => vec![MutableBuffer::new(capacity * size_of::<u32>())],
-                DataType::UInt64 => vec![MutableBuffer::new(capacity * size_of::<u64>())],
-                DataType::Int8 => vec![MutableBuffer::new(capacity * size_of::<i8>())],
-                DataType::Int16 => vec![MutableBuffer::new(capacity * size_of::<i16>())],
-                DataType::Int32 => vec![MutableBuffer::new(capacity * size_of::<i32>())],
-                DataType::Int64 => vec![MutableBuffer::new(capacity * size_of::<i64>())],
+                DataType::UInt8 => {
+                    [MutableBuffer::new(capacity * size_of::<u8>()), empty_buffer]
+                }
+                DataType::UInt16 => [
+                    MutableBuffer::new(capacity * size_of::<u16>()),
+                    empty_buffer,
+                ],
+                DataType::UInt32 => [
+                    MutableBuffer::new(capacity * size_of::<u32>()),
+                    empty_buffer,
+                ],
+                DataType::UInt64 => [
+                    MutableBuffer::new(capacity * size_of::<u64>()),
+                    empty_buffer,
+                ],
+                DataType::Int8 => {
+                    [MutableBuffer::new(capacity * size_of::<i8>()), empty_buffer]
+                }
+                DataType::Int16 => [
+                    MutableBuffer::new(capacity * size_of::<i16>()),
+                    empty_buffer,
+                ],
+                DataType::Int32 => [
+                    MutableBuffer::new(capacity * size_of::<i32>()),
+                    empty_buffer,
+                ],
+                DataType::Int64 => [
+                    MutableBuffer::new(capacity * size_of::<i64>()),
+                    empty_buffer,
+                ],
                 _ => unreachable!(),
             },
             DataType::Float16 => unreachable!(),
-            DataType::Struct(_) => vec![],
+            DataType::Struct(_) => [empty_buffer, MutableBuffer::new(0)],
             _ => {
                 todo!("Take and filter operations still not supported for this datatype")
             }
@@ -443,7 +496,8 @@ impl<'a> MutableArrayData<'a> {
             len: 0,
             null_count: 0,
             null_buffer,
-            buffers,
+            buffer1,
+            buffer2,
             child_data,
         };
         Self {
@@ -486,13 +540,21 @@ mod tests {
 
     use super::*;
 
-    use crate::array::{
-        Array, ArrayDataRef, ArrayRef, BooleanArray, DictionaryArray,
-        FixedSizeBinaryArray, Int16Array, Int16Type, Int32Array, Int64Builder,
-        ListBuilder, PrimitiveBuilder, StringArray, StringDictionaryBuilder, StructArray,
-        UInt8Array,
+    use crate::{
+        array::{
+            Array, ArrayDataRef, ArrayRef, BooleanArray, DictionaryArray,
+            FixedSizeBinaryArray, Int16Array, Int16Type, Int32Array, Int64Array,
+            Int64Builder, ListBuilder, NullArray, PrimitiveBuilder, StringArray,
+            StringDictionaryBuilder, StructArray, UInt8Array,
+        },
+        buffer::Buffer,
+        datatypes::Field,
     };
-    use crate::{array::ListArray, error::Result};
+    use crate::{
+        array::{ListArray, StringBuilder},
+        datatypes::ToByteSlice,
+        error::Result,
+    };
 
     /// tests extending from a primitive array w/ offset nor nulls
     #[test]
@@ -696,6 +758,24 @@ mod tests {
         assert_eq!(result, expected);
     }
 
+    #[test]
+    fn test_null() {
+        let array1 = NullArray::new(10).data();
+        let array2 = NullArray::new(5).data();
+        let arrays = vec![array1.as_ref(), array2.as_ref()];
+
+        let mut mutable = MutableArrayData::new(arrays, false, 0);
+
+        mutable.extend(0, 1, 3);
+        mutable.extend(1, 0, 1);
+
+        let result = mutable.freeze();
+        let result = NullArray::from(Arc::new(result));
+
+        let expected = NullArray::new(3);
+        assert_eq!(result, expected);
+    }
+
     fn create_dictionary_array(values: &[&str], keys: &[Option<&str>]) -> ArrayDataRef {
         let values = StringArray::from(values.to_vec());
         let mut builder = StringDictionaryBuilder::new_with_dictionary(
@@ -867,4 +947,361 @@ mod tests {
         let expected = FixedSizeBinaryArray::from(vec![vec![0, 2], vec![0, 1]]);
         assert_eq!(result, expected);
     }
+
+    #[test]
+    fn test_list_append() -> Result<()> {
+        let mut builder = ListBuilder::<Int64Builder>::new(Int64Builder::new(24));
+        builder.values().append_slice(&[1, 2, 3])?;
+        builder.append(true)?;
+        builder.values().append_slice(&[4, 5])?;
+        builder.append(true)?;
+        builder.values().append_slice(&[6, 7, 8])?;
+        builder.values().append_slice(&[9, 10, 11])?;
+        builder.append(true)?;
+        let a = builder.finish().data();
+
+        let a_builder = Int64Builder::new(24);
+        let mut a_builder = ListBuilder::<Int64Builder>::new(a_builder);
+        a_builder.values().append_slice(&[12, 13])?;
+        a_builder.append(true)?;
+        a_builder.append(true)?;
+        a_builder.values().append_slice(&[14, 15])?;
+        a_builder.append(true)?;
+        let b = a_builder.finish();
+
+        let b = b.data();
+        let c = b.slice(1, 2);
+
+        let mut mutable =
+            MutableArrayData::new(vec![a.as_ref(), b.as_ref(), &c], false, 1);
+        mutable.extend(0, 0, a.len());
+        mutable.extend(1, 0, b.len());
+        mutable.extend(2, 0, c.len());
+
+        let finished = mutable.freeze();
+
+        let expected_int_array = Int64Array::from(vec![
+            Some(1),
+            Some(2),
+            Some(3),
+            Some(4),
+            Some(5),
+            Some(6),
+            Some(7),
+            Some(8),
+            Some(9),
+            Some(10),
+            Some(11),
+            // append first array
+            Some(12),
+            Some(13),
+            Some(14),
+            Some(15),
+            // append second array
+            Some(14),
+            Some(15),
+        ]);
+        let list_value_offsets =
+            Buffer::from(&[0i32, 3, 5, 11, 13, 13, 15, 15, 17].to_byte_slice());
+        let expected_list_data = ArrayData::new(
+            DataType::List(Box::new(Field::new("item", DataType::Int64, true))),
+            8,
+            None,
+            None,
+            0,
+            vec![list_value_offsets],
+            vec![expected_int_array.data()],
+        );
+        assert_eq!(finished, expected_list_data);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_list_nulls_append() -> Result<()> {
+        let mut builder = ListBuilder::<Int64Builder>::new(Int64Builder::new(32));
+        builder.values().append_slice(&[1, 2, 3])?;
+        builder.append(true)?;
+        builder.values().append_slice(&[4, 5])?;
+        builder.append(true)?;
+        builder.append(false)?;
+        builder.values().append_slice(&[6, 7, 8])?;
+        builder.values().append_null()?;
+        builder.values().append_null()?;
+        builder.values().append_slice(&[9, 10, 11])?;
+        builder.append(true)?;
+        let a = builder.finish();
+        let a = a.data();
+
+        let mut builder = ListBuilder::<Int64Builder>::new(Int64Builder::new(32));
+        builder.values().append_slice(&[12, 13])?;
+        builder.append(true)?;
+        builder.append(false)?;
+        builder.append(true)?;
+        builder.values().append_null()?;
+        builder.values().append_null()?;
+        builder.values().append_slice(&[14, 15])?;
+        builder.append(true)?;
+        let b = builder.finish();
+        let b = b.data();
+        let c = b.slice(1, 2);
+        let d = b.slice(2, 2);
+
+        let mut mutable =
+            MutableArrayData::new(vec![a.as_ref(), b.as_ref(), &c, &d], false, 10);
+
+        mutable.extend(0, 0, a.len());
+        mutable.extend(1, 0, b.len());
+        mutable.extend(2, 0, c.len());
+        mutable.extend(3, 0, d.len());
+        let result = mutable.freeze();
+
+        let expected_int_array = Int64Array::from(vec![
+            Some(1),
+            Some(2),
+            Some(3),
+            Some(4),
+            Some(5),
+            Some(6),
+            Some(7),
+            Some(8),
+            None,
+            None,
+            Some(9),
+            Some(10),
+            Some(11),
+            // second array
+            Some(12),
+            Some(13),
+            None,
+            None,
+            Some(14),
+            Some(15),
+            // slice(1, 2) results in no values added
+            None,
+            None,
+            Some(14),
+            Some(15),
+        ]);
+        let list_value_offsets = Buffer::from(
+            &[0, 3, 5, 5, 13, 15, 15, 15, 19, 19, 19, 19, 23].to_byte_slice(),
+        );
+        let expected_list_data = ArrayData::new(
+            DataType::List(Box::new(Field::new("item", DataType::Int64, true))),
+            12,
+            None,
+            Some(Buffer::from(&[0b11011011, 0b1110])),
+            0,
+            vec![list_value_offsets],
+            vec![expected_int_array.data()],
+        );
+        assert_eq!(result, expected_list_data);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_list_of_strings_append() -> Result<()> {
+        // [["alpha", "beta", None]]
+        let mut builder = ListBuilder::new(StringBuilder::new(32));
+        builder.values().append_value("Hello")?;
+        builder.values().append_value("Arrow")?;
+        builder.values().append_null()?;
+        builder.append(true)?;
+        let a = builder.finish().data();
+
+        // [["alpha", "beta"], [None], ["gamma", "delta", None]]
+        let mut builder = ListBuilder::new(StringBuilder::new(32));
+        builder.values().append_value("alpha")?;
+        builder.values().append_value("beta")?;
+        builder.append(true)?;
+        builder.values().append_null()?;
+        builder.append(true)?;
+        builder.values().append_value("gamma")?;
+        builder.values().append_value("delta")?;
+        builder.values().append_null()?;
+        builder.append(true)?;
+        let b = builder.finish().data();
+
+        let mut mutable = MutableArrayData::new(vec![a.as_ref(), b.as_ref()], false, 10);
+
+        mutable.extend(0, 0, a.len());
+        mutable.extend(1, 0, b.len());
+        mutable.extend(1, 1, 3);
+        mutable.extend(1, 0, 0);
+        let result = mutable.freeze();
+
+        let expected_string_array = StringArray::from(vec![
+            // extend a[0..a.len()]
+            // a[0]
+            Some("Hello"),
+            Some("Arrow"),
+            None,
+            // extend b[0..b.len()]
+            // b[0]
+            Some("alpha"),
+            Some("beta"),
+            // b[1]
+            None,
+            // b[2]
+            Some("gamma"),
+            Some("delta"),
+            None,
+            // extend b[1..3]
+            // b[1]
+            None,
+            // b[2]
+            Some("gamma"),
+            Some("delta"),
+            None,
+            // extend b[0..0]
+        ]);
+        let list_value_offsets = Buffer::from(&[0, 3, 5, 6, 9, 10, 13].to_byte_slice());
+        let expected_list_data = ArrayData::new(
+            DataType::List(Box::new(Field::new("item", DataType::Utf8, true))),
+            6,
+            None,
+            None,
+            0,
+            vec![list_value_offsets],
+            vec![expected_string_array.data()],
+        );
+        assert_eq!(result, expected_list_data);
+        Ok(())
+    }
+
+    #[test]
+    fn test_fixed_size_binary_append() -> Result<()> {
+        let a = vec![Some(vec![1, 2]), Some(vec![3, 4]), Some(vec![5, 6])];
+        let a = FixedSizeBinaryArray::from(a).data();
+
+        let b = vec![
+            Some(vec![7, 8]),
+            Some(vec![9, 10]),
+            None,
+            Some(vec![13, 14]),
+            None,
+        ];
+        let b = FixedSizeBinaryArray::from(b).data();
+
+        let mut mutable = MutableArrayData::new(vec![a.as_ref(), b.as_ref()], false, 10);
+
+        mutable.extend(0, 0, a.len());
+        mutable.extend(1, 0, b.len());
+        mutable.extend(1, 1, 4);
+        mutable.extend(1, 2, 3);
+        mutable.extend(1, 5, 5);
+        let result = mutable.freeze();
+
+        let expected = vec![
+            // a
+            Some(vec![1, 2]),
+            Some(vec![3, 4]),
+            Some(vec![5, 6]),
+            // b
+            Some(vec![7, 8]),
+            Some(vec![9, 10]),
+            None,
+            Some(vec![13, 14]),
+            None,
+            // b[1..4]
+            Some(vec![9, 10]),
+            None,
+            Some(vec![13, 14]),
+            // b[2..3]
+            None,
+            // b[4..4]
+        ];
+        let expected = FixedSizeBinaryArray::from(expected).data();
+        assert_eq!(&result, expected.as_ref());
+        Ok(())
+    }
+
+    /*
+    // this is an old test used on a meanwhile removed dead code
+    // that is still useful when `MutableArrayData` supports fixed-size lists.
+    #[test]
+    fn test_fixed_size_list_append() -> Result<()> {
+        let int_builder = UInt16Builder::new(64);
+        let mut builder = FixedSizeListBuilder::<UInt16Builder>::new(int_builder, 2);
+        builder.values().append_slice(&[1, 2])?;
+        builder.append(true)?;
+        builder.values().append_slice(&[3, 4])?;
+        builder.append(false)?;
+        builder.values().append_slice(&[5, 6])?;
+        builder.append(true)?;
+
+        let a_builder = UInt16Builder::new(64);
+        let mut a_builder = FixedSizeListBuilder::<UInt16Builder>::new(a_builder, 2);
+        a_builder.values().append_slice(&[7, 8])?;
+        a_builder.append(true)?;
+        a_builder.values().append_slice(&[9, 10])?;
+        a_builder.append(true)?;
+        a_builder.values().append_slice(&[11, 12])?;
+        a_builder.append(false)?;
+        a_builder.values().append_slice(&[13, 14])?;
+        a_builder.append(true)?;
+        a_builder.values().append_null()?;
+        a_builder.values().append_null()?;
+        a_builder.append(true)?;
+        let a = a_builder.finish();
+
+        // append array
+        builder.append_data(&[
+            a.data(),
+            a.slice(1, 3).data(),
+            a.slice(2, 1).data(),
+            a.slice(5, 0).data(),
+        ])?;
+        let finished = builder.finish();
+
+        let expected_int_array = UInt16Array::from(vec![
+            Some(1),
+            Some(2),
+            Some(3),
+            Some(4),
+            Some(5),
+            Some(6),
+            // append first array
+            Some(7),
+            Some(8),
+            Some(9),
+            Some(10),
+            Some(11),
+            Some(12),
+            Some(13),
+            Some(14),
+            None,
+            None,
+            // append slice(1, 3)
+            Some(9),
+            Some(10),
+            Some(11),
+            Some(12),
+            Some(13),
+            Some(14),
+            // append slice(2, 1)
+            Some(11),
+            Some(12),
+        ]);
+        let expected_list_data = ArrayData::new(
+            DataType::FixedSizeList(
+                Box::new(Field::new("item", DataType::UInt16, true)),
+                2,
+            ),
+            12,
+            None,
+            None,
+            0,
+            vec![],
+            vec![expected_int_array.data()],
+        );
+        let expected_list =
+            FixedSizeListArray::from(Arc::new(expected_list_data) as ArrayDataRef);
+        assert_eq!(&expected_list.values(), &finished.values());
+        assert_eq!(expected_list.len(), finished.len());
+
+        Ok(())
+    }
+    */
 }

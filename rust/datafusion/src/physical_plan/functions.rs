@@ -50,7 +50,7 @@ use fmt::{Debug, Formatter};
 use std::{fmt, str::FromStr, sync::Arc};
 
 /// A function's signature, which defines the function's supported argument types.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Signature {
     /// arbitrary number of arguments of an common type out of a list of valid types
     // A function such as `concat` is `Variadic(vec![DataType::Utf8, DataType::LargeUtf8])`
@@ -61,7 +61,7 @@ pub enum Signature {
     VariadicEqual,
     /// fixed number of arguments of an arbitrary but equal type out of a list of valid types
     // A function of one argument of f64 is `Uniform(1, vec![DataType::Float64])`
-    // A function of two arguments of f64 or f32 is `Uniform(1, vec![DataType::Float32, DataType::Float64])`
+    // A function of one argument of f64 or f32 is `Uniform(1, vec![DataType::Float32, DataType::Float64])`
     Uniform(usize, Vec<DataType>),
     /// exact number of arguments of an exact type
     Exact(Vec<DataType>),
@@ -118,12 +118,20 @@ pub enum BuiltinScalarFunction {
     Length,
     /// concat
     Concat,
+    /// lower
+    Lower,
+    /// upper
+    Upper,
+    /// trim
+    Trim,
     /// to_timestamp
     ToTimestamp,
     /// construct an array from columns
     Array,
     /// SQL NULLIF()
     NullIf,
+    /// Date truncate
+    DateTrunc,
 }
 
 impl fmt::Display for BuiltinScalarFunction {
@@ -155,8 +163,14 @@ impl FromStr for BuiltinScalarFunction {
             "abs" => BuiltinScalarFunction::Abs,
             "signum" => BuiltinScalarFunction::Signum,
             "length" => BuiltinScalarFunction::Length,
+            "char_length" => BuiltinScalarFunction::Length,
+            "character_length" => BuiltinScalarFunction::Length,
             "concat" => BuiltinScalarFunction::Concat,
+            "lower" => BuiltinScalarFunction::Lower,
+            "trim" => BuiltinScalarFunction::Trim,
+            "upper" => BuiltinScalarFunction::Upper,
             "to_timestamp" => BuiltinScalarFunction::ToTimestamp,
+            "date_trunc" => BuiltinScalarFunction::DateTrunc,
             "array" => BuiltinScalarFunction::Array,
             "nullif" => BuiltinScalarFunction::NullIf,
             _ => {
@@ -180,7 +194,7 @@ pub fn return_type(
     // verify that this is a valid set of data types for this function
     data_types(&arg_types, &signature(fun))?;
 
-    if arg_types.len() == 0 {
+    if arg_types.is_empty() {
         // functions currently cannot be evaluated without arguments, as they can't
         // know the number of rows to return.
         return Err(DataFusionError::Plan(format!(
@@ -203,7 +217,40 @@ pub fn return_type(
             }
         }),
         BuiltinScalarFunction::Concat => Ok(DataType::Utf8),
+        BuiltinScalarFunction::Lower => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::LargeUtf8,
+            DataType::Utf8 => DataType::Utf8,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The upper function can only accept strings.".to_string(),
+                ));
+            }
+        }),
+        BuiltinScalarFunction::Trim => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::LargeUtf8,
+            DataType::Utf8 => DataType::Utf8,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The trim function can only accept strings.".to_string(),
+                ));
+            }
+        }),
+        BuiltinScalarFunction::Upper => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::LargeUtf8,
+            DataType::Utf8 => DataType::Utf8,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The upper function can only accept strings.".to_string(),
+                ));
+            }
+        }),
         BuiltinScalarFunction::ToTimestamp => {
+            Ok(DataType::Timestamp(TimeUnit::Nanosecond, None))
+        }
+        BuiltinScalarFunction::DateTrunc => {
             Ok(DataType::Timestamp(TimeUnit::Nanosecond, None))
         }
         BuiltinScalarFunction::Array => Ok(DataType::FixedSizeList(
@@ -249,8 +296,35 @@ pub fn create_physical_expr(
         BuiltinScalarFunction::Concat => {
             |args| Ok(Arc::new(string_expressions::concatenate(args)?))
         }
+        BuiltinScalarFunction::Lower => |args| match args[0].data_type() {
+            DataType::Utf8 => Ok(Arc::new(string_expressions::lower::<i32>(args)?)),
+            DataType::LargeUtf8 => Ok(Arc::new(string_expressions::lower::<i64>(args)?)),
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function lower",
+                other,
+            ))),
+        },
+        BuiltinScalarFunction::Trim => |args| match args[0].data_type() {
+            DataType::Utf8 => Ok(Arc::new(string_expressions::trim::<i32>(args)?)),
+            DataType::LargeUtf8 => Ok(Arc::new(string_expressions::trim::<i64>(args)?)),
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function trim",
+                other,
+            ))),
+        },
+        BuiltinScalarFunction::Upper => |args| match args[0].data_type() {
+            DataType::Utf8 => Ok(Arc::new(string_expressions::upper::<i32>(args)?)),
+            DataType::LargeUtf8 => Ok(Arc::new(string_expressions::upper::<i64>(args)?)),
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function upper",
+                other,
+            ))),
+        },
         BuiltinScalarFunction::ToTimestamp => {
             |args| Ok(Arc::new(datetime_expressions::to_timestamp(args)?))
+        }
+        BuiltinScalarFunction::DateTrunc => {
+            |args| Ok(Arc::new(datetime_expressions::date_trunc(args)?))
         }
         BuiltinScalarFunction::Array => |args| Ok(array_expressions::array(args)?),
     });
@@ -280,7 +354,20 @@ fn signature(fun: &BuiltinScalarFunction) -> Signature {
             Signature::Uniform(1, vec![DataType::Utf8, DataType::LargeUtf8])
         }
         BuiltinScalarFunction::Concat => Signature::Variadic(vec![DataType::Utf8]),
+        BuiltinScalarFunction::Lower => {
+            Signature::Uniform(1, vec![DataType::Utf8, DataType::LargeUtf8])
+        }
+        BuiltinScalarFunction::Upper => {
+            Signature::Uniform(1, vec![DataType::Utf8, DataType::LargeUtf8])
+        }
+        BuiltinScalarFunction::Trim => {
+            Signature::Uniform(1, vec![DataType::Utf8, DataType::LargeUtf8])
+        }
         BuiltinScalarFunction::ToTimestamp => Signature::Uniform(1, vec![DataType::Utf8]),
+        BuiltinScalarFunction::DateTrunc => Signature::Exact(vec![
+            DataType::Utf8,
+            DataType::Timestamp(TimeUnit::Nanosecond, None),
+        ]),
         BuiltinScalarFunction::Array => {
             Signature::Variadic(array_expressions::SUPPORTED_ARRAY_TYPES.to_vec())
         }

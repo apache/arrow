@@ -17,6 +17,8 @@
 
 module Arrow
   class Decimal128DataType
+    MAX_PRECISION = max_precision
+
     alias_method :initialize_raw, :initialize
     private :initialize_raw
 

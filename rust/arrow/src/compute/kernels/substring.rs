@@ -38,7 +38,7 @@ fn generic_substring<OffsetSize: StringOffsetSizeTrait>(
 
     // compute values
     let values = &array.data_ref().buffers()[1];
-    let data = values.data();
+    let data = values.as_slice();
 
     let mut new_values = Vec::new(); // we have no way to estimate how much this will be.
     let mut new_offsets: Vec<OffsetSize> = Vec::with_capacity(array.len() + 1);
@@ -47,23 +47,23 @@ fn generic_substring<OffsetSize: StringOffsetSizeTrait>(
     new_offsets.push(length_so_far);
     (0..array.len()).for_each(|i| {
         // the length of this entry
-        let lenght_i: OffsetSize = offsets[i + 1] - offsets[i];
+        let length_i: OffsetSize = offsets[i + 1] - offsets[i];
         // compute where we should start slicing this entry
         let start = offsets[i]
             + if start >= OffsetSize::zero() {
                 start
             } else {
-                lenght_i + start
+                length_i + start
             };
 
         let start = start.max(offsets[i]).min(offsets[i + 1]);
-        // compute the lenght of the slice
+        // compute the length of the slice
         let length: OffsetSize = length
-            .unwrap_or(lenght_i)
+            .unwrap_or(length_i)
             // .max(0) is not needed as it is guaranteed
             .min(offsets[i + 1] - start); // so we do not go beyond this entry
 
-        length_so_far = length_so_far + length;
+        length_so_far += length;
 
         new_offsets.push(length_so_far);
 

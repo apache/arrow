@@ -41,18 +41,27 @@ flight_connect <- function(host = "localhost", port, scheme = "grpc+tcp") {
 #' Send data to a Flight server
 #'
 #' @param client `pyarrow.flight.FlightClient`, as returned by [flight_connect()]
-#' @param data `data.frame` or [RecordBatch] to upload
+#' @param data `data.frame`, [RecordBatch], or [Table] to upload
 #' @param path string identifier to store the data under
+#' @param overwrite logical: if `path` exists on `client` already, should we
+#' replace it with the contents of `data`? Default is `TRUE`; if `FALSE` and
+#' `path` exists, the function will error.
 #' @return `client`, invisibly.
 #' @export
-push_data <- function(client, data, path) {
-  if (inherits(data, "data.frame")) {
-    data <- record_batch(data)
+flight_put <- function(client, data, path, overwrite = TRUE) {
+  if (!overwrite && flight_path_exists(client, path)) {
+    stop(path, " exists.", call. = FALSE)
   }
-  # TODO: this is only RecordBatch; handle Table
+  if (is.data.frame(data)) {
+    data <- Table$create(data)
+  }
   py_data <- reticulate::r_to_py(data)
   writer <- client$do_put(descriptor_for_path(path), py_data$schema)[[1]]
-  writer$write_batch(py_data)
+  if (inherits(data, "RecordBatch")) {
+    writer$write_batch(py_data)
+  } else {
+    writer$write_table(py_data)
+  }
   writer$close()
   invisible(client)
 }
@@ -60,22 +69,53 @@ push_data <- function(client, data, path) {
 #' Get data from a Flight server
 #'
 #' @param client `pyarrow.flight.FlightClient`, as returned by [flight_connect()]
-#' @param path string identifier under which the data is stored
-#' @return A [RecordBatch]
+#' @param path string identifier under which data is stored
+#' @return A [Table]
 #' @export
 flight_get <- function(client, path) {
+  reader <- flight_reader(client, path)
+  reader$read_all()
+}
+
+# TODO: could use this as a RecordBatch iterator, call $read_chunk() on this
+flight_reader <- function(client, path) {
   info <- client$get_flight_info(descriptor_for_path(path))
   # Hack: assume a single ticket, on the same server as client is already connected
   ticket <- info$endpoints[[1]]$ticket
-  reader <- client$do_get(ticket)
-  # Next hack: assume a single record batch
-  # TODO: read_all() instead? Or read all chunks and build Table in R?
-  chunk <- reader$read_chunk()
-  # Drop $app_metadata and just return the data
-  chunk$data
+  client$do_get(ticket)
 }
 
 descriptor_for_path <- function(path) {
   pa <- reticulate::import("pyarrow")
   pa$flight$FlightDescriptor$for_path(path)
+}
+
+#' See available resources on a Flight server
+#'
+#' @inheritParams flight_get
+#' @return `list_flights()` returns a character vector of paths.
+#' `flight_path_exists()` returns a logical value, the equivalent of `path %in% list_flights()`
+#' @export
+list_flights <- function(client) {
+  generator <- client$list_flights()
+  out <- reticulate::iterate(generator, function(x) as.character(x$descriptor$path[[1]]))
+  out
+}
+
+#' @rdname list_flights
+#' @export
+flight_path_exists <- function(client, path) {
+  it_exists <- tryCatch({
+      client$get_flight_info(descriptor_for_path(path))
+      TRUE
+    },
+    error = function(e) {
+      msg <- conditionMessage(e)
+      if (!any(grepl("ArrowKeyError", msg))) {
+        # Raise an error if this fails for any reason other than not found
+        stop(e)
+      }
+      FALSE
+    }
+  )
 }

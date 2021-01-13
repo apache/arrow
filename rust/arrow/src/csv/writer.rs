@@ -69,11 +69,10 @@ use csv as csv_crate;
 
 use std::io::Write;
 
-use crate::array::*;
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 use crate::record_batch::RecordBatch;
-
+use crate::{array::*, util::serialization::lexical_to_string};
 const DEFAULT_DATE_FORMAT: &str = "%F";
 const DEFAULT_TIME_FORMAT: &str = "%T";
 const DEFAULT_TIMESTAMP_FORMAT: &str = "%FT%H:%M:%S.%9f";
@@ -81,10 +80,10 @@ const DEFAULT_TIMESTAMP_FORMAT: &str = "%FT%H:%M:%S.%9f";
 fn write_primitive_value<T>(array: &ArrayRef, i: usize) -> String
 where
     T: ArrowNumericType,
-    T::Native: std::string::ToString,
+    T::Native: lexical_core::ToLexical,
 {
     let c = array.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
-    c.value(i).to_string()
+    lexical_to_string(c.value(i))
 }
 
 /// A CSV writer
@@ -124,14 +123,18 @@ impl<W: Write> Writer<W> {
     }
 
     /// Convert a record to a string vector
-    fn convert(&self, batch: &RecordBatch, row_index: usize) -> Result<Vec<String>> {
+    fn convert(
+        &self,
+        batch: &RecordBatch,
+        row_index: usize,
+        buffer: &mut [String],
+    ) -> Result<()> {
         // TODO: it'd be more efficient if we could create `record: Vec<&[u8]>
-        let mut record: Vec<String> = Vec::with_capacity(batch.num_columns());
-        for col_index in 0..batch.num_columns() {
+        for (col_index, item) in buffer.iter_mut().enumerate() {
             let col = batch.column(col_index);
             if col.is_null(row_index) {
                 // write an empty value
-                record.push(String::from(""));
+                *item = "".to_string();
                 continue;
             }
             let string = match col.data_type() {
@@ -243,10 +246,9 @@ impl<W: Write> Writer<W> {
                     )));
                 }
             };
-
-            record.push(string);
+            *item = string;
         }
-        Ok(record)
+        Ok(())
     }
 
     /// Write a vector of record batches to a writable object
@@ -265,9 +267,11 @@ impl<W: Write> Writer<W> {
             self.beginning = false;
         }
 
+        let mut buffer = vec!["".to_string(); batch.num_columns()];
+
         for row_index in 0..batch.num_rows() {
-            let record = self.convert(batch, row_index)?;
-            self.writer.write_record(&record[..])?;
+            self.convert(batch, row_index, &mut buffer)?;
+            self.writer.write_record(&buffer)?;
         }
         self.writer.flush()?;
 

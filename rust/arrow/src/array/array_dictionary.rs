@@ -386,7 +386,7 @@ mod tests {
         let keys = array.keys_array();
         assert_eq!(&DataType::Int8, keys.data_type());
         assert_eq!(0, keys.null_count());
-        assert_eq!(&[0, 1, 2, 0], keys.value_slice(0, keys.len()));
+        assert_eq!(&[0, 1, 2, 0], keys.values());
     }
 
     #[test]

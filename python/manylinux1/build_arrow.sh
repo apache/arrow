@@ -62,7 +62,7 @@ export PYARROW_CMAKE_OPTIONS='-DTHRIFT_HOME=/usr -DBoost_NAMESPACE=arrow_boost -
 mkdir -p /io/dist
 
 # Must pass PYTHON_VERSION env variable
-# possible values are: 3.6 3.7 3.8
+# possible values are: 3.6 3.7 3.8 3.9
 
 UNICODE_WIDTH=32  # Dummy value, irrelevant for Python 3
 CPYTHON_PATH="$(cpython_path ${PYTHON_VERSION} ${UNICODE_WIDTH})"

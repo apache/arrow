@@ -39,21 +39,26 @@ constexpr int kMaxNestingDepth = 64;
 
 /// \brief Options for writing Arrow IPC messages
 struct ARROW_EXPORT IpcWriteOptions {
-  // If true, allow field lengths that don't fit in a signed 32-bit int.
-  // Some implementations may not be able to parse such streams.
+  /// \brief If true, allow field lengths that don't fit in a signed 32-bit int.
+  ///
+  /// Some implementations may not be able to parse streams created with this option.
   bool allow_64bit = false;
-  // The maximum permitted schema nesting depth.
+
+  /// \brief The maximum permitted schema nesting depth.
   int max_recursion_depth = kMaxNestingDepth;
 
-  // Write padding after memory buffers to this multiple of
-  // bytes. Generally 8 or 64
+  /// \brief Write padding after memory buffers up to this multiple of bytes.
   int32_t alignment = 8;
 
-  /// \brief Write the pre-0.15.0 encapsulated IPC message format
-  /// consisting of a 4-byte prefix instead of 8 byte
+  /// \brief Write the pre-0.15.0 IPC message format
+  ///
+  /// This legacy format consists of a 4-byte prefix instead of 8-byte.
   bool write_legacy_ipc_format = false;
 
   /// \brief The memory pool to use for allocations made during IPC writing
+  ///
+  /// While Arrow IPC is predominantly zero-copy, it may have to allocate
+  /// memory in some cases (for example if compression is enabled).
   MemoryPool* memory_pool = default_memory_pool();
 
   /// \brief Compression codec to use for record batch body buffers
@@ -64,6 +69,20 @@ struct ARROW_EXPORT IpcWriteOptions {
   /// \brief Use global CPU thread pool to parallelize any computational tasks
   /// like compression
   bool use_threads = true;
+
+  /// \brief Whether to emit dictionary deltas
+  ///
+  /// If false, a changed dictionary for a given field will emit a full
+  /// dictionary replacement.
+  /// If true, a changed dictionary will be compared against the previous
+  /// version. If possible, a dictionary delta will be omitted, otherwise
+  /// a full dictionary replacement.
+  ///
+  /// Default is false to maximize stream compatibility.
+  ///
+  /// Also, note that if a changed dictionary is a nested dictionary,
+  /// then a delta is never emitted, for compatibility with the read path.
+  bool emit_dictionary_deltas = false;
 
   /// \brief Format version to use for IPC messages and their metadata.
   ///
@@ -78,15 +97,22 @@ struct ARROW_EXPORT IpcWriteOptions {
 using IpcOptions = IpcWriteOptions;
 #endif
 
+/// \brief Options for reading Arrow IPC messages
 struct ARROW_EXPORT IpcReadOptions {
-  // The maximum permitted schema nesting depth.
+  /// \brief The maximum permitted schema nesting depth.
   int max_recursion_depth = kMaxNestingDepth;
 
-  /// \brief The memory pool to use for allocations made during IPC writing
+  /// \brief The memory pool to use for allocations made during IPC reading
+  ///
+  /// While Arrow IPC is predominantly zero-copy, it may have to allocate
+  /// memory in some cases (for example if compression is enabled).
   MemoryPool* memory_pool = default_memory_pool();
 
   /// \brief EXPERIMENTAL: Top-level schema fields to include when
-  /// deserializing RecordBatch. If empty, return all deserialized fields
+  /// deserializing RecordBatch.
+  ///
+  /// If empty (the default), return all deserialized fields.
+  /// If non-empty, the values are the indices of fields in the top-level schema.
   std::vector<int> included_fields;
 
   /// \brief Use global CPU thread pool to parallelize any computational tasks

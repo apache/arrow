@@ -32,3 +32,4 @@ datafusion = { path = "../datafusion" }
 structopt = { version = "0.3", default-features = false }
 tokio = { version = "0.2", features = ["macros", "rt-core", "rt-threaded"] }
 futures = "0.3"
+env_logger = "^0.8"

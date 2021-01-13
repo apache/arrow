@@ -197,6 +197,26 @@ TEST(TestFlight, ConnectUri) {
   ASSERT_OK(FlightClient::Connect(location2, &client));
 }
 
+#ifndef _WIN32
+TEST(TestFlight, ConnectUriUnix) {
+  TestServer server("flight-test-server", "/tmp/flight-test.sock");
+  server.Start();
+  ASSERT_TRUE(server.IsRunning());
+
+  std::stringstream ss;
+  ss << "grpc+unix://" << server.unix_sock();
+  std::string uri = ss.str();
+
+  std::unique_ptr<FlightClient> client;
+  Location location1;
+  Location location2;
+  ASSERT_OK(Location::Parse(uri, &location1));
+  ASSERT_OK(Location::Parse(uri, &location2));
+  ASSERT_OK(FlightClient::Connect(location1, &client));
+  ASSERT_OK(FlightClient::Connect(location2, &client));
+}
+#endif
+
 TEST(TestFlight, RoundTripTypes) {
   Ticket ticket{"foo"};
   std::string ticket_serialized;

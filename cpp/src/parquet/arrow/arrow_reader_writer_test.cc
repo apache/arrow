@@ -60,11 +60,14 @@
 
 using arrow::Array;
 using arrow::ArrayData;
+using arrow::ArrayFromJSON;
+using arrow::ArrayVector;
 using arrow::ArrayVisitor;
 using arrow::Buffer;
 using arrow::ChunkedArray;
 using arrow::DataType;
 using arrow::Datum;
+using arrow::DecimalType;
 using arrow::default_memory_pool;
 using arrow::ListArray;
 using arrow::PrimitiveArray;
@@ -158,10 +161,15 @@ std::shared_ptr<const LogicalType> get_logical_type(const DataType& type) {
           static_cast<const ::arrow::DictionaryType&>(type);
       return get_logical_type(*dict_type.value_type());
     }
-    case ArrowId::DECIMAL: {
+    case ArrowId::DECIMAL128: {
       const auto& dec_type = static_cast<const ::arrow::Decimal128Type&>(type);
       return LogicalType::Decimal(dec_type.precision(), dec_type.scale());
     }
+    case ArrowId::DECIMAL256: {
+      const auto& dec_type = static_cast<const ::arrow::Decimal256Type&>(type);
+      return LogicalType::Decimal(dec_type.precision(), dec_type.scale());
+    }
+
     default:
       break;
   }
@@ -193,7 +201,8 @@ ParquetType::type get_physical_type(const DataType& type) {
     case ArrowId::LARGE_STRING:
       return ParquetType::BYTE_ARRAY;
     case ArrowId::FIXED_SIZE_BINARY:
-    case ArrowId::DECIMAL:
+    case ArrowId::DECIMAL128:
+    case ArrowId::DECIMAL256:
       return ParquetType::FIXED_LEN_BYTE_ARRAY;
     case ArrowId::DATE32:
       return ParquetType::INT32;
@@ -456,10 +465,10 @@ static std::shared_ptr<GroupNode> MakeSimpleSchema(const DataType& type,
           byte_width =
               static_cast<const ::arrow::FixedSizeBinaryType&>(values_type).byte_width();
           break;
-        case ::arrow::Type::DECIMAL: {
-          const auto& decimal_type =
-              static_cast<const ::arrow::Decimal128Type&>(values_type);
-          byte_width = ::parquet::internal::DecimalSize(decimal_type.precision());
+        case ::arrow::Type::DECIMAL128:
+        case ::arrow::Type::DECIMAL256: {
+          const auto& decimal_type = static_cast<const DecimalType&>(values_type);
+          byte_width = DecimalType::DecimalSize(decimal_type.precision());
         } break;
         default:
           break;
@@ -468,9 +477,10 @@ static std::shared_ptr<GroupNode> MakeSimpleSchema(const DataType& type,
     case ::arrow::Type::FIXED_SIZE_BINARY:
       byte_width = static_cast<const ::arrow::FixedSizeBinaryType&>(type).byte_width();
       break;
-    case ::arrow::Type::DECIMAL: {
-      const auto& decimal_type = static_cast<const ::arrow::Decimal128Type&>(type);
-      byte_width = ::parquet::internal::DecimalSize(decimal_type.precision());
+    case ::arrow::Type::DECIMAL128:
+    case ::arrow::Type::DECIMAL256: {
+      const auto& decimal_type = static_cast<const DecimalType&>(type);
+      byte_width = DecimalType::DecimalSize(decimal_type.precision());
     } break;
     default:
       break;
@@ -680,7 +690,9 @@ typedef ::testing::Types<
     ::arrow::BinaryType, ::arrow::FixedSizeBinaryType, DecimalWithPrecisionAndScale<1>,
     DecimalWithPrecisionAndScale<5>, DecimalWithPrecisionAndScale<10>,
     DecimalWithPrecisionAndScale<19>, DecimalWithPrecisionAndScale<23>,
-    DecimalWithPrecisionAndScale<27>, DecimalWithPrecisionAndScale<38>>
+    DecimalWithPrecisionAndScale<27>, DecimalWithPrecisionAndScale<38>,
+    Decimal256WithPrecisionAndScale<39>, Decimal256WithPrecisionAndScale<56>,
+    Decimal256WithPrecisionAndScale<76>>
     TestTypes;
 
 TYPED_TEST_SUITE(TestParquetIO, TestTypes);
@@ -2416,6 +2428,55 @@ TEST(TestArrowReadWrite, TableWithDuplicateColumns) {
   ASSERT_NO_FATAL_FAILURE(CheckSimpleRoundtrip(table, table->num_rows()));
 }
 
+TEST(ArrowReadWrite, EmptyStruct) {
+  // ARROW-10928: empty struct type not supported
+  {
+    // Empty struct as only column
+    auto fields = ::arrow::FieldVector{
+        ::arrow::field("structs", ::arrow::struct_(::arrow::FieldVector{}))};
+    auto schema = ::arrow::schema(fields);
+    auto columns = ArrayVector{ArrayFromJSON(fields[0]->type(), "[null, {}]")};
+    auto table = Table::Make(schema, columns);
+
+    auto sink = CreateOutputStream();
+    ASSERT_RAISES(
+        NotImplemented,
+        WriteTable(*table, ::arrow::default_memory_pool(), sink, /*chunk_size=*/1,
+                   default_writer_properties(), default_arrow_writer_properties()));
+  }
+  {
+    // Empty struct as nested column
+    auto fields = ::arrow::FieldVector{::arrow::field(
+        "structs", ::arrow::list(::arrow::struct_(::arrow::FieldVector{})))};
+    auto schema = ::arrow::schema(fields);
+    auto columns =
+        ArrayVector{ArrayFromJSON(fields[0]->type(), "[null, [], [null, {}]]")};
+    auto table = Table::Make(schema, columns);
+
+    auto sink = CreateOutputStream();
+    ASSERT_RAISES(
+        NotImplemented,
+        WriteTable(*table, ::arrow::default_memory_pool(), sink, /*chunk_size=*/1,
+                   default_writer_properties(), default_arrow_writer_properties()));
+  }
+  {
+    // Empty struct along other column
+    auto fields = ::arrow::FieldVector{
+        ::arrow::field("structs", ::arrow::struct_(::arrow::FieldVector{})),
+        ::arrow::field("ints", ::arrow::int32())};
+    auto schema = ::arrow::schema(fields);
+    auto columns = ArrayVector{ArrayFromJSON(fields[0]->type(), "[null, {}]"),
+                               ArrayFromJSON(fields[1]->type(), "[1, 2]")};
+    auto table = Table::Make(schema, columns);
+
+    auto sink = CreateOutputStream();
+    ASSERT_RAISES(
+        NotImplemented,
+        WriteTable(*table, ::arrow::default_memory_pool(), sink, /*chunk_size=*/1,
+                   default_writer_properties(), default_arrow_writer_properties()));
+  }
+}
+
 TEST(ArrowReadWrite, SimpleStructRoundTrip) {
   auto links = field(
       "Links", ::arrow::struct_({field("Backward", ::arrow::int64(), /*nullable=*/true),
@@ -2463,6 +2524,20 @@ TEST(ArrowReadWrite, NestedRequiredField) {
   CheckSimpleRoundtrip(::arrow::Table::Make(::arrow::schema({struct_field}),
                                             {::arrow::MakeArray(struct_data)}),
                        /*row_group_size=*/8);
+}
+
+TEST(ArrowReadWrite, Decimal256) {
+  using ::arrow::Decimal256;
+  using ::arrow::field;
+
+  auto type = ::arrow::decimal256(8, 4);
+
+  const char* json = R"(["1.0000", null, "-1.2345", "-1000.5678", 
+                         "-9999.9999", "9999.9999"])";
+  auto array = ::arrow::ArrayFromJSON(type, json);
+  auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
+  auto props_store_schema = ArrowWriterProperties::Builder().store_schema()->build();
+  CheckSimpleRoundtrip(table, 2, props_store_schema);
 }
 
 TEST(ArrowReadWrite, NestedNullableField) {

@@ -55,13 +55,11 @@ impl DFSchema {
                         field.qualified_name()
                     )));
                 }
-            } else {
-                if !unqualified_names.insert(field.name()) {
-                    return Err(DataFusionError::Plan(format!(
-                        "Schema contains duplicate unqualified field name '{}'",
-                        field.name()
-                    )));
-                }
+            } else if !unqualified_names.insert(field.name()) {
+                return Err(DataFusionError::Plan(format!(
+                    "Schema contains duplicate unqualified field name '{}'",
+                    field.name()
+                )));
             }
         }
 
@@ -217,7 +215,7 @@ impl TryFrom<Schema> for DFSchema {
         Self::new(
             schema
                 .fields()
-                .into_iter()
+                .iter()
                 .map(|f| DFField {
                     field: f.clone(),
                     qualifier: None,

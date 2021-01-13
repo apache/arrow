@@ -33,7 +33,7 @@ pub(crate) fn count_nulls(
     offset: usize,
     len: usize,
 ) -> usize {
-    if let Some(ref buf) = null_bit_buffer {
+    if let Some(buf) = null_bit_buffer {
         len.checked_sub(buf.count_set_bits_offset(offset, len))
             .unwrap()
     } else {
@@ -239,7 +239,7 @@ impl ArrayData {
     /// * the datatype is `Boolean` (it corresponds to a bit-packed buffer where the offset is not applicable)
     #[inline]
     pub(super) fn buffer<T: ArrowNativeType>(&self, buffer: usize) -> &[T] {
-        let values = unsafe { self.buffers[buffer].data().align_to::<T>() };
+        let values = unsafe { self.buffers[buffer].as_slice().align_to::<T>() };
         if !values.0.is_empty() || !values.2.is_empty() {
             panic!("The buffer is not byte-aligned with its interpretation")
         };
@@ -283,12 +283,6 @@ impl ArrayDataBuilder {
     #[inline]
     pub const fn len(mut self, n: usize) -> Self {
         self.len = n;
-        self
-    }
-
-    #[inline]
-    pub const fn null_count(mut self, n: usize) -> Self {
-        self.null_count = Some(n);
         self
     }
 
@@ -343,7 +337,6 @@ mod tests {
 
     use std::sync::Arc;
 
-    use crate::buffer::Buffer;
     use crate::datatypes::ToByteSlice;
     use crate::util::bit_util;
 
@@ -373,9 +366,11 @@ mod tests {
         let b1 = Buffer::from(&v[..]);
         let arr_data = ArrayData::builder(DataType::Int32)
             .len(20)
-            .null_count(10)
             .offset(5)
             .add_buffer(b1)
+            .null_bit_buffer(Buffer::from(vec![
+                0b01011111, 0b10110101, 0b01100011, 0b00011110,
+            ]))
             .add_child_data(child_arr_data.clone())
             .build();
 
@@ -383,7 +378,7 @@ mod tests {
         assert_eq!(10, arr_data.null_count());
         assert_eq!(5, arr_data.offset());
         assert_eq!(1, arr_data.buffers().len());
-        assert_eq!(&[0, 1, 2, 3], arr_data.buffers()[0].data());
+        assert_eq!(&[0, 1, 2, 3], arr_data.buffers()[0].as_slice());
         assert_eq!(1, arr_data.child_data().len());
         assert_eq!(child_arr_data, arr_data.child_data()[0]);
     }
@@ -424,7 +419,7 @@ mod tests {
             .null_bit_buffer(Buffer::from(bit_v))
             .build();
         assert!(arr_data.null_buffer().is_some());
-        assert_eq!(&bit_v, arr_data.null_buffer().unwrap().data());
+        assert_eq!(&bit_v, arr_data.null_buffer().unwrap().as_slice());
     }
 
     #[test]
@@ -455,5 +450,15 @@ mod tests {
         let int_data = ArrayData::builder(DataType::Int32).build();
         let float_data = ArrayData::builder(DataType::Float32).build();
         assert_ne!(int_data, float_data);
+    }
+
+    #[test]
+    fn test_count_nulls() {
+        let null_buffer = Some(Buffer::from(vec![0b00010110, 0b10011111]));
+        let count = count_nulls(null_buffer.as_ref(), 0, 16);
+        assert_eq!(count, 7);
+
+        let count = count_nulls(null_buffer.as_ref(), 4, 8);
+        assert_eq!(count, 3);
     }
 }

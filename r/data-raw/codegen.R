@@ -90,7 +90,7 @@ cpp_functions_definitions <- arrow_exports %>%
     }}
     #else
     extern "C" SEXP _arrow_{name}({sexp_params}){{
-    \tRf_error("Cannot call {name}(). Please use arrow::install_arrow() to install required runtime libraries. ");
+    \tRf_error("Cannot call {name}(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
     }}
     #endif
 
@@ -122,7 +122,7 @@ cpp_classes_finalizers <- map2(names(arrow_classes), arrow_classes, function(nam
   }}
   # else
   extern "C" SEXP _arrow_{name}__Reset(SEXP r6) {{
-    Rf_error("Cannot call _arrow_{name}__Reset(). Please use arrow::install_arrow() to install required runtime libraries. ");
+    Rf_error("Cannot call _arrow_{name}__Reset(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
   }}
   # endif
   ')
