@@ -63,7 +63,6 @@ jobs:
             git \
             openblas \
             openssl@1.1 \
-            protobuf \
             python@3.8 \
             thrift \
             wget
