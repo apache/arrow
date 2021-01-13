@@ -44,6 +44,7 @@
 #' the stream will be left open.
 #' @export
 #' @seealso [RecordBatchWriter] for lower-level access to writing Arrow IPC data.
+#' @seealso [Schema] for information about schemas and metadata handling.
 #' @examples
 #' \donttest{
 #' tf <- tempfile()

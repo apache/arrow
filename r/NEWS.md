@@ -37,6 +37,8 @@
 * Option `arrow.skip_nul` (default `FALSE`, as in `base::scan()`) allows conversion of Arrow string (`utf8()`) type data containing embedded nul `\0` characters to R. If set to `TRUE`, nuls will be stripped and a warning is emitted if any are found.
 * `arrow_info()` for an overview of various run-time and build-time Arrow configurations, useful for debugging
 * Set environment variable `ARROW_DEFAULT_MEMORY_POOL` before loading the Arrow package to change memory allocators. Windows packages are built with `mimalloc`; most others have `jemalloc`. These are used by default if they were built, and they're generally much faster than the system malloc, but sometimes it is useful to turn them off for debugging purposes. To disable them, set `ARROW_DEFAULT_MEMORY_POOL=system`.
+* List columns that have attributes on each element are now also included with the metadata that is saved when creating Arrow tables. This allows `sf` tibbles to faithfully preserved and roundtripped (ARROW-10386)[https://issues.apache.org/jira/browse/ARROW-10386].
+* R metadata that exceeds 100Kb is now compressed before being written to a table; see `schema()` for more details.
 
 ## Bug fixes
 

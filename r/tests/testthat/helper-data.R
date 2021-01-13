@@ -67,3 +67,10 @@ make_big_string <- function() {
   # This creates a character vector that would exceed the capacity of BinaryArray
   rep(purrr::map_chr(2047:2050, ~paste(sample(letters, ., replace = TRUE), collapse = "")), 2^18)
 }
+
+make_string_of_size <- function(size = 1) {
+  purrr::map_chr(1000*size, ~paste(sample(letters, ., replace = TRUE), collapse = ""))
+}
+
+example_with_extra_metadata <- example_with_metadata
+attributes(example_with_extra_metadata$b) <- list(lots = rep(make_string_of_size(1), 100))
