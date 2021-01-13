@@ -66,7 +66,7 @@
 #' - `$schema`
 #' - `$metadata`: Returns the key-value metadata of the `Schema` as a named list.
 #'    Modify or replace by assigning in (`batch$metadata <- new_metadata`).
-#'    All list elements are coerced to string.
+#'    All list elements are coerced to string. See `schema()` for more information.
 #' - `$columns`: Returns a list of `Array`s
 #' @rdname RecordBatch
 #' @name RecordBatch
@@ -273,6 +273,7 @@ as.data.frame.RecordBatch <- function(x, row.names = NULL, optional = FALSE, ...
   df
 }
 
+#' @importFrom utils object.size
 .serialize_arrow_r_metadata <- function(x) {
   assert_is(x, "list")
 

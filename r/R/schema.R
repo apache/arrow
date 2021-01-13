@@ -50,6 +50,34 @@
 #' - `$metadata`: returns the key-value metadata as a named list.
 #'    Modify or replace by assigning in (`sch$metadata <- new_metadata`).
 #'    All list elements are coerced to string.
+#'
+#' @section Metadata:
+#'
+#'   Attributes from the `data.frame` are saved alongside tables so that the
+#'   object can be reconstructed faithfully in R (e.g. with `as.data.frame()`).
+#'   This metadata can be both at the top-level of the `data.frame` (e.g.
+#'   `attributes(df)`) or at the column (e.g. `attributes(df$col_a)`) or element
+#'   level (e.g. `attributes(df[1, "col_a"])`). For example, this allows for
+#'   storing `haven` columns in a table and being able to faithfully re-create
+#'   them when pulled back into R. This metadata is separate from the schema
+#'   (e.g. types of the columns) which is compatible with other Arrow clients.
+#'   The R metadata is only read by R and is ignored by other clients (e.g.
+#'   pyarrow which has its own custom metadata for things like Pandas metadata).
+#'   This metadata is stored (and can be accessed with) `table$metadata$r`.
+#'
+#'   This metadata is saved by serializing R's attribute list structure to a
+#'   serialized string. Because of this, large amounts of metadata can quickly
+#'   increase the size of tables (and therefore the size of tables written to
+#'   parquet or feather files). If the (serialized) metadata exceeds 100Kbs in
+#'   size, it is first compressed before saving. To disable this compression
+#'   (e.g. for tables that are compatible with Arrow versions before 3.0.0 and
+#'   include large amounts of metadata) you can set the option
+#'   `arrow.compress_metadata` to `FALSE`.
+#'
+#'   One exception to storing all metadata: `readr`'s `problems` attribute if it
+#'   exists is not saved with the metadata in order to prevent what are
+#'   sometimes excessively large when serialized.
+#'
 #' @rdname Schema
 #' @name Schema
 #' @examples

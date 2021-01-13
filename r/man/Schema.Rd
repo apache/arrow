@@ -12,22 +12,20 @@ schema(...)
 \item{...}{named list of \link[=data-type]{data types}}
 }
 \description{
-A \code{Schema} is a list of \link{Field}s, which map names to
-Arrow \link[=data-type]{data types}. Create a \code{Schema} when you
-want to convert an R \code{data.frame} to Arrow but don't want to rely on the
-default mapping of R types to Arrow types, such as when you want to choose a
-specific numeric precision, or when creating a \link{Dataset} and you want to
-ensure a specific schema rather than inferring it from the various files.
+A \code{Schema} is a list of \link{Field}s, which map names to Arrow \link[=data-type]{data types}. Create a \code{Schema} when you want to convert an R
+\code{data.frame} to Arrow but don't want to rely on the default mapping of R
+types to Arrow types, such as when you want to choose a specific numeric
+precision, or when creating a \link{Dataset} and you want to ensure a specific
+schema rather than inferring it from the various files.
 
-Many Arrow objects, including \link{Table} and \link{Dataset}, have a \verb{$schema} method
-(active binding) that lets you access their schema.
+Many Arrow objects, including \link{Table} and \link{Dataset}, have a \verb{$schema}
+method (active binding) that lets you access their schema.
 }
 \section{Methods}{
 
 \itemize{
-\item \verb{$ToString()}: convert to a string
-\item \verb{$field(i)}: returns the field at index \code{i} (0-based)
-\item \verb{$GetFieldByName(x)}: returns the field with name \code{x}
+\item \verb{$ToString()}: convert to a string - \verb{$field(i)}: returns the field at
+index \code{i} (0-based) - \verb{$GetFieldByName(x)}: returns the field with name \code{x}
 \item \verb{$WithMetadata(metadata)}: returns a new \code{Schema} with the key-value
 \code{metadata} set. Note that all list elements in \code{metadata} will be coerced
 to \code{character}.
@@ -37,15 +35,43 @@ to \code{character}.
 \section{Active bindings}{
 
 \itemize{
-\item \verb{$names}: returns the field names (called in \code{names(Schema)})
-\item \verb{$num_fields}: returns the number of fields (called in \code{length(Schema)})
-\item \verb{$fields}: returns the list of \code{Field}s in the \code{Schema}, suitable for
-iterating over
-\item \verb{$HasMetadata}: logical: does this \code{Schema} have extra metadata?
-\item \verb{$metadata}: returns the key-value metadata as a named list.
-Modify or replace by assigning in (\code{sch$metadata <- new_metadata}).
-All list elements are coerced to string.
+\item \verb{$names}: returns the field names (called in \code{names(Schema)}) -
+\verb{$num_fields}: returns the number of fields (called in \code{length(Schema)}) -
+\verb{$fields}: returns the list of \code{Field}s in the \code{Schema}, suitable for
+iterating over - \verb{$HasMetadata}: logical: does this \code{Schema} have extra
+metadata? - \verb{$metadata}: returns the key-value metadata as a named list.
+Modify or replace by assigning in (\code{sch$metadata <- new_metadata}). All
+list elements are coerced to string.
 }
+}
+
+\section{Metadata}{
+
+
+Attributes from the \code{data.frame} are saved alongside tables so that the
+object can be reconstructed faithfully in R (e.g. with \code{as.data.frame()}).
+This metadata can be both at the top-level of the \code{data.frame} (e.g.
+\code{attributes(df)}) or at the column (e.g. \code{attributes(df$col_a)}) or element
+level (e.g. \code{attributes(df[1, "col_a"])}). For example, this allows for
+storing \code{haven} columns in a table and being able to faithfully re-create
+them when pulled back into R. This metadata is separate from the schema
+(e.g. types of the columns) which is compatible with other Arrow clients.
+The R metadata is only read by R and is ignored by other clients (e.g.
+pyarrow which has its own custom metadata for things like Pandas metadata).
+This metadata is stored (and can be accessed with) \code{table$metadata$r}.
+
+This metadata is saved by serializing R's attribute list structure to a
+serialized string. Because of this, large amounts of metadata can quickly
+increase the size of tables (and therefore the size of tables written to
+parquet or feather files). If the (serialized) metadata exceeds 100Kbs in
+size, it is first compressed before saving. To disable this compression
+(e.g. for tables that are compatible with Arrow versions before 3.0.0 and
+include large amounts of metadata) you can set the option
+\code{arrow.compress_metadata} to \code{FALSE}.
+
+One exception to storing all metadata: \code{readr}'s \code{problems} attribute if it
+exists is not saved with the metadata in order to prevent what are
+sometimes excessively large when serialized.
 }
 
 \examples{

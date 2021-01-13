@@ -75,7 +75,7 @@
 #' - `$schema`
 #' - `$metadata`: Returns the key-value metadata of the `Schema` as a named list.
 #'    Modify or replace by assigning in (`tab$metadata <- new_metadata`).
-#'    All list elements are coerced to string.
+#'    All list elements are coerced to string. See `schema()` for more information.
 #' - `$columns`: Returns a list of `ChunkedArray`s
 #' @rdname Table
 #' @name Table
