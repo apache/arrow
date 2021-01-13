@@ -816,8 +816,8 @@ mod tests {
     #[test]
     fn test_struct() {
         let strings: ArrayRef = Arc::new(StringArray::from(vec![
-            Some("joe"),
             None,
+            Some("joe"),
             None,
             Some("mark"),
             Some("doe"),
