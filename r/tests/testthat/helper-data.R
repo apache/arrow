@@ -72,3 +72,5 @@ make_string_of_size <- function(size = 1) {
   purrr::map_chr(1000*size, ~paste(sample(letters, ., replace = TRUE), collapse = ""))
 }
 
+example_with_extra_metadata <- example_with_metadata
+attributes(example_with_extra_metadata$b) <- list(lots = rep(make_string_of_size(1), 100))

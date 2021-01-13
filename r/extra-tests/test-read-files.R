@@ -162,4 +162,26 @@ test_that("Can see the metadata (stream)", {
   )
 })
 
+test_that("Can see the extra metadata (parquet)", {
+  pq_file <- "files/ex_data_extra_metadata.parquet"
 
+  df <- read_parquet(pq_file)
+  expect_s3_class(df, "tbl")
+
+  expect_equal(
+    attributes(df),
+    list(
+      names = letters[1:4],
+      row.names = 1L,
+      class = c("tbl_df", "tbl", "data.frame"),
+      top_level = list(
+        field_one = 12,
+        field_two = "more stuff"
+      )
+    )
+  )
+
+  # column-level attributes for the large column.
+  expect_named(attributes(df$b), "lots")
+  expect_length(attributes(df$b)$lots, 100)
+})
