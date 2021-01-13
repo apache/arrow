@@ -67,10 +67,6 @@ jobs:
             image: ubuntu-cpp
             title: AMD64 Ubuntu 18.04 C++
             ubuntu: 18.04
-          - name: amd64-ubuntu-18.04-cpp-cmake32
-            image: ubuntu-cpp-cmake32
-            title: AMD64 Ubuntu 18.04 C++ CMake 3.2
-            ubuntu: 18.04
     env:
       # the defaults here should correspond to the values in .env
       ARCH: 'amd64'
