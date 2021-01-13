@@ -49,7 +49,6 @@ jobs:
           - amd64-fedora-33-cpp
           - amd64-ubuntu-16.04-cpp
           - amd64-ubuntu-18.04-cpp
-          - amd64-ubuntu-18.04-cpp-cmake32
         include:
           - name: amd64-debian-10-cpp
             image: debian-cpp
