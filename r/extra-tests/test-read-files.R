@@ -168,7 +168,8 @@ test_that("Can see the extra metadata (parquet)", {
   if (if_version_less_than("3.0.0")) {
     expect_warning(
       df <- read_parquet(pq_file),
-      "Invalid metadata$r"
+      "Invalid metadata$r",
+      fixed = TRUE
     )
     expect_s3_class(df, "tbl")
   } else {

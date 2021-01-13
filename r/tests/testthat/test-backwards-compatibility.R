@@ -45,6 +45,15 @@ expect_identical_with_metadata <- function(object, expected, ..., top_level = TR
   expect_identical(object, expected, ...)
 }
 
+test_that("reading a known Parquet file to dataframe with 3.0.0", {
+  skip_if_not_available("snappy")
+  pq_file <- test_path("golden-files/data-arrow-extra-meta_3.0.0.parquet")
+
+  df <- read_parquet(pq_file)
+  # this is equivalent to `expect_identical()`
+  expect_identical_with_metadata(df, example_with_extra_metadata)
+})
+
 test_that("reading a known Parquet file to dataframe with 2.0.0", {
   skip_if_not_available("snappy")
   pq_file <- test_path("golden-files/data-arrow_2.0.0.parquet")
