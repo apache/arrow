@@ -111,6 +111,16 @@ test_that("Metadata serialization compression", {
     object.size(large_few),
     object.size(rawToChar(serialize(large_few_strings, NULL, ascii = TRUE)))
   )
+
+  # But we can disable compression
+  op <- options(arrow.compress_metadata = FALSE); on.exit(options(op))
+
+  large_strings <- as.list(rep(make_string_of_size(1), 100))
+  large <- .serialize_arrow_r_metadata(large_strings)
+  expect_equal(
+    object.size(large),
+    object.size(rawToChar(serialize(large_strings, NULL, ascii = TRUE)))
+  )
 })
 
 test_that("RecordBatch metadata", {

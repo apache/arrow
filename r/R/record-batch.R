@@ -282,7 +282,7 @@ as.data.frame.RecordBatch <- function(x, row.names = NULL, optional = FALSE, ...
   out <- serialize(x, NULL, ascii = TRUE)
 
   # if the metadata is over 100 kB, compress
-  if (object.size(out) > 100000) {
+  if (option_compress_metadata() && object.size(out) > 100000) {
     out_comp <- serialize(memCompress(out, type = "gzip"), NULL, ascii = TRUE)
 
     # but ensure that the compression+serialization is effective.
