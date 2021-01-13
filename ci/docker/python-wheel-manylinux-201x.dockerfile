@@ -42,22 +42,23 @@ RUN git clone https://github.com/microsoft/vcpkg /opt/vcpkg && \
     /opt/vcpkg/bootstrap-vcpkg.sh --useSystemBinaries --disableMetrics && \
     ln -s /opt/vcpkg/vcpkg /usr/bin/vcpkg
 
-# Install dependencies from vcpkg
+# Patch ports files as needed
 COPY ci/vcpkg arrow/ci/vcpkg
+RUN cd /opt/vcpkg && patch -p1 -i /arrow/ci/vcpkg/ports.patch
+
 ARG build_type=release
 ENV CMAKE_BUILD_TYPE=${build_type} \
     VCPKG_FORCE_SYSTEM_BINARIES=1 \
     VCPKG_OVERLAY_TRIPLETS=/arrow/ci/vcpkg \
     VCPKG_DEFAULT_TRIPLET=x64-linux-static-${build_type}
 
-# TODO(kszucs): factor out the package enumration to a text file and reuse it
+# TODO(kszucs): factor out the package enumeration to a text file and reuse it
 # from the windows image and potentially in a future macos wheel build
 RUN vcpkg install --clean-after-build \
         abseil \
         aws-sdk-cpp[config,cognito-identity,core,identity-management,s3,sts,transfer] \
         boost-filesystem \
         boost-regex \
-        boost-system \
         brotli \
         bzip2 \
         c-ares \
