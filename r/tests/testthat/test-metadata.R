@@ -86,7 +86,7 @@ test_that("Garbage R metadata doesn't break things", {
 test_that("Metadata serialization compression", {
   # attributes that (when serialized) are just under 100kb are not compressed,
   # and simply serialized
-  strings <- rep(make_string_of_size(1), 98)
+  strings <- as.list(rep(make_string_of_size(1), 98))
   small <- .serialize_arrow_r_metadata(strings)
   expect_equal(
     object.size(small),
@@ -94,7 +94,7 @@ test_that("Metadata serialization compression", {
   )
 
   # Large strings will be compressed
-  large_strings <- rep(make_string_of_size(1), 100)
+  large_strings <- as.list(rep(make_string_of_size(1), 100))
   large <- .serialize_arrow_r_metadata(large_strings)
   expect_lt(
     object.size(large),
@@ -105,7 +105,7 @@ test_that("Metadata serialization compression", {
 
   # However strings where compression + serialization is not effective are no
   # worse than only serialization alone
-  large_few_strings <- rep(make_string_of_size(50), 2)
+  large_few_strings <- as.list(rep(make_string_of_size(50), 2))
   large_few <- .serialize_arrow_r_metadata(large_few_strings)
   expect_equal(
     object.size(large_few),
