@@ -205,7 +205,15 @@ module Helper
     def build_table(columns)
       fields = []
       chunked_arrays = []
-      columns.each do |name, chunked_array|
+      columns.each do |name, data|
+        case data
+        when Arrow::Array
+          chunked_array = Arrow::ChunkedArray.new([data])
+        when Array
+          chunked_array = Arrow::ChunkedArray.new(data)
+        else
+          chunked_array = data
+        end
         fields << Arrow::Field.new(name, chunked_array.value_data_type)
         chunked_arrays << chunked_array
       end

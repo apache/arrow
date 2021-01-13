@@ -19,10 +19,9 @@
 
 #pragma once
 
-#include <arrow-glib/arrow-glib.h>
+#include <arrow/dataset/api.h>
 
 #include <arrow-dataset-glib/dataset-factory.h>
-#include <arrow-dataset-glib/dataset.h>
-#include <arrow-dataset-glib/file-format.h>
-#include <arrow-dataset-glib/fragment.h>
-#include <arrow-dataset-glib/scanner.h>
+
+std::shared_ptr<arrow::dataset::DatasetFactory>
+gadataset_dataset_factory_get_raw(GADatasetDatasetFactory *factory);
