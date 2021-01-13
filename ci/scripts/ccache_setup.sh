@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,8 +17,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-brew "autoconf-archive"
-brew "gobject-introspection"
-brew "gtk-doc"
-brew "libtool"
-brew "meson"
+set -eux
+
+echo "ARROW_USE_CCACHE=ON" >> $GITHUB_ENV
+echo "CCACHE_COMPILERCHECK=content" >> $GITHUB_ENV
+echo "CCACHE_COMPRESS=1" >> $GITHUB_ENV
+echo "CCACHE_COMPRESSLEVEL=6" >> $GITHUB_ENV
+echo "CCACHE_MAXSIZE=500M" >> $GITHUB_ENV
