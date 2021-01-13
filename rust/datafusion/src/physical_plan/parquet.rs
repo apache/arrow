@@ -260,7 +260,10 @@ pub struct RowGroupPredicateBuilder {
 }
 
 impl RowGroupPredicateBuilder {
-    /// Try to create a new instance of PredicateExpressionBuilder
+    /// Try to create a new instance of PredicateExpressionBuilder.  
+    /// This will translate the filter expression into a statistics predicate expression
+    /// (for example (column / 2) = 4 becomes (column_min / 2) <= 4 && 4 <= (column_max / 2)),
+    /// then convert it to a DataFusion PhysicalExpression and cache it for later use by build_row_group_predicate.
     pub fn try_new(expr: &Expr, parquet_schema: Schema) -> Result<Self> {
         // build predicate expression once
         let mut stat_column_req = Vec::<(String, StatisticsType, Field)>::new();
@@ -299,13 +302,18 @@ impl RowGroupPredicateBuilder {
         })
     }
 
-    /// Generate a predicate function used to filter row group metadata
+    /// Generate a predicate function used to filter row group metadata.  
+    /// This function takes a list of all row groups as parameter,
+    /// so that DataFusion's physical expressions can be re-used by
+    /// generating a RecordBatch, containing statistics arrays,
+    /// on which the physical predicate expression is executed to generate a row group filter array.  
+    /// The generated filter array is then used in the returned closure to filter row groups.
     pub fn build_row_group_predicate(
         &self,
         row_group_metadata: &[RowGroupMetaData],
     ) -> Box<dyn Fn(&RowGroupMetaData, usize) -> bool> {
         // build statistics record batch
-        let predicate_result = build_row_group_record_batch(
+        let predicate_result = build_statistics_record_batch(
             row_group_metadata,
             &self.parquet_schema,
             &self.stat_column_req,
@@ -323,6 +331,8 @@ impl RowGroupPredicateBuilder {
 
         let predicate_array = match predicate_result {
             Ok(array) => array,
+            // row group filter array could not be built
+            // return a closure which will not filter out any row groups
             _ => return Box::new(|_r, _i| true),
         };
 
@@ -330,17 +340,24 @@ impl RowGroupPredicateBuilder {
         match predicate_array {
             // return row group predicate function
             Some(array) => {
+                // when the result of the predicate expression for a row group is null / undefined,
+                // e.g. due to missing statistics, this row group can't be filtered out,
+                // so replace with true
                 let predicate_values =
-                    array.iter().map(|x| x.unwrap_or(false)).collect::<Vec<_>>();
+                    array.iter().map(|x| x.unwrap_or(true)).collect::<Vec<_>>();
                 Box::new(move |_, i| predicate_values[i])
             }
             // predicate result is not a BooleanArray
+            // return a closure which will not filter out any row groups
             _ => Box::new(|_r, _i| true),
         }
     }
 }
 
-fn build_row_group_record_batch(
+/// Build a RecordBatch from a list of RowGroupMetadata structs,
+/// creating arrays, one for each statistics column,
+/// as requested in the stat_column_req parameter.
+fn build_statistics_record_batch(
     row_groups: &[RowGroupMetaData],
     parquet_schema: &Schema,
     stat_column_req: &Vec<(String, StatisticsType, Field)>,
@@ -507,7 +524,7 @@ fn rewrite_column_expr(
     utils::rewrite_expression(&expr, &expressions)
 }
 
-/// Translate logical filter expression into parquet statistics physical filter expression
+/// Translate logical filter expression into parquet statistics predicate expression
 fn build_predicate_expression(
     expr: &Expr,
     parquet_schema: &Schema,
@@ -518,6 +535,9 @@ fn build_predicate_expression(
     let (left, op, right) = match expr {
         Expr::BinaryExpr { left, op, right } => (left, *op, right),
         _ => {
+            // unsupported expression - replace with TRUE
+            // this can still be useful when multiple conditions are joined using AND
+            // such as: column > 10 AND TRUE
             return Ok(logical_plan::lit(true));
         }
     };
@@ -1217,6 +1237,38 @@ mod tests {
             .map(|(i, g)| row_group_predicate(g, i))
             .collect::<Vec<_>>();
         assert_eq!(row_group_filter, vec![false, true]);
+
+        Ok(())
+    }
+
+    #[test]
+    fn row_group_predicate_builder_missing_stats() -> Result<()> {
+        use crate::logical_plan::{col, lit};
+        // int > 1 => c1_max > 1
+        let expr = col("c1").gt(lit(15));
+        let schema = Schema::new(vec![Field::new("c1", DataType::Int32, false)]);
+        let predicate_builder = RowGroupPredicateBuilder::try_new(&expr, schema)?;
+
+        let schema_descr = get_test_schema_descr(vec![("c1", PhysicalType::INT32)]);
+        let rgm1 = get_row_group_meta_data(
+            &schema_descr,
+            vec![ParquetStatistics::int32(None, None, None, 0, false)],
+        );
+        let rgm2 = get_row_group_meta_data(
+            &schema_descr,
+            vec![ParquetStatistics::int32(Some(11), Some(20), None, 0, false)],
+        );
+        let row_group_metadata = vec![rgm1, rgm2];
+        let row_group_predicate =
+            predicate_builder.build_row_group_predicate(&row_group_metadata);
+        let row_group_filter = row_group_metadata
+            .iter()
+            .enumerate()
+            .map(|(i, g)| row_group_predicate(g, i))
+            .collect::<Vec<_>>();
+        // missing statistics for first row group mean that the result from the predicate expression
+        // is null / undefined so the first row group can't be filtered out
+        assert_eq!(row_group_filter, vec![true, true]);
 
         Ok(())
     }
