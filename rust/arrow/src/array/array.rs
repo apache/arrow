@@ -399,7 +399,7 @@ mod tests {
         let array = new_empty_array(&DataType::Utf8);
         let a = array.as_any().downcast_ref::<StringArray>().unwrap();
         assert_eq!(a.len(), 0);
-        assert_eq!(a.value_offset(0), 0i32);
+        assert_eq!(a.value_offsets()[0], 0i32);
     }
 
     #[test]
@@ -409,6 +409,6 @@ mod tests {
         let array = new_empty_array(&data_type);
         let a = array.as_any().downcast_ref::<ListArray>().unwrap();
         assert_eq!(a.len(), 0);
-        assert_eq!(a.value_offset(0), 0i32);
+        assert_eq!(a.value_offsets()[0], 0i32);
     }
 }

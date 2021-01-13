@@ -1260,11 +1260,7 @@ mod tests {
         .unwrap();
         assert_eq!(5, b.len());
         let arr = b.as_any().downcast_ref::<ListArray>().unwrap();
-        assert_eq!(0, arr.value_offset(0));
-        assert_eq!(1, arr.value_offset(1));
-        assert_eq!(2, arr.value_offset(2));
-        assert_eq!(3, arr.value_offset(3));
-        assert_eq!(4, arr.value_offset(4));
+        assert_eq!(&[0, 1, 2, 3, 4, 5], arr.value_offsets());
         assert_eq!(1, arr.value_length(0));
         assert_eq!(1, arr.value_length(1));
         assert_eq!(1, arr.value_length(2));
@@ -1291,11 +1287,7 @@ mod tests {
         assert_eq!(5, b.len());
         assert_eq!(1, b.null_count());
         let arr = b.as_any().downcast_ref::<ListArray>().unwrap();
-        assert_eq!(0, arr.value_offset(0));
-        assert_eq!(1, arr.value_offset(1));
-        assert_eq!(2, arr.value_offset(2));
-        assert_eq!(3, arr.value_offset(3));
-        assert_eq!(4, arr.value_offset(4));
+        assert_eq!(&[0, 1, 2, 3, 4, 5], arr.value_offsets());
         assert_eq!(1, arr.value_length(0));
         assert_eq!(1, arr.value_length(1));
         assert_eq!(1, arr.value_length(2));
@@ -1324,10 +1316,7 @@ mod tests {
         assert_eq!(4, b.len());
         assert_eq!(1, b.null_count());
         let arr = b.as_any().downcast_ref::<ListArray>().unwrap();
-        assert_eq!(0, arr.value_offset(0));
-        assert_eq!(1, arr.value_offset(1));
-        assert_eq!(2, arr.value_offset(2));
-        assert_eq!(3, arr.value_offset(3));
+        assert_eq!(&[0, 1, 2, 3, 4], arr.value_offsets());
         assert_eq!(1, arr.value_length(0));
         assert_eq!(1, arr.value_length(1));
         assert_eq!(1, arr.value_length(2));

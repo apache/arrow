@@ -124,8 +124,9 @@ mod tests {
         // Check offset and length for each non-null value.
         let limit_array: &ListArray =
             limit_array.as_any().downcast_ref::<ListArray>().unwrap();
+
         for i in 0..limit_array.len() {
-            let offset = limit_array.value_offset(i);
+            let offset = limit_array.value_offsets()[i];
             let length = limit_array.value_length(i);
             if i % 2 == 0 {
                 assert_eq!(2, length);
