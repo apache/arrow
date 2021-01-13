@@ -4095,7 +4095,7 @@ extern "C" SEXP _arrow_MemoryPool__default(){
 
 // memorypool.cpp
 #if defined(ARROW_R_WITH_ARROW)
-int MemoryPool__bytes_allocated(const std::shared_ptr<arrow::MemoryPool>& pool);
+double MemoryPool__bytes_allocated(const std::shared_ptr<arrow::MemoryPool>& pool);
 extern "C" SEXP _arrow_MemoryPool__bytes_allocated(SEXP pool_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::MemoryPool>&>::type pool(pool_sexp);
@@ -4110,7 +4110,7 @@ extern "C" SEXP _arrow_MemoryPool__bytes_allocated(SEXP pool_sexp){
 
 // memorypool.cpp
 #if defined(ARROW_R_WITH_ARROW)
-int MemoryPool__max_memory(const std::shared_ptr<arrow::MemoryPool>& pool);
+double MemoryPool__max_memory(const std::shared_ptr<arrow::MemoryPool>& pool);
 extern "C" SEXP _arrow_MemoryPool__max_memory(SEXP pool_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::MemoryPool>&>::type pool(pool_sexp);
@@ -4120,6 +4120,35 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_MemoryPool__max_memory(SEXP pool_sexp){
 	Rf_error("Cannot call MemoryPool__max_memory(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// memorypool.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::string MemoryPool__backend_name(const std::shared_ptr<arrow::MemoryPool>& pool);
+extern "C" SEXP _arrow_MemoryPool__backend_name(SEXP pool_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::MemoryPool>&>::type pool(pool_sexp);
+	return cpp11::as_sexp(MemoryPool__backend_name(pool));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_MemoryPool__backend_name(SEXP pool_sexp){
+	Rf_error("Cannot call MemoryPool__backend_name(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// memorypool.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::vector<std::string> supported_memory_backends();
+extern "C" SEXP _arrow_supported_memory_backends(){
+BEGIN_CPP11
+	return cpp11::as_sexp(supported_memory_backends());
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_supported_memory_backends(){
+	Rf_error("Cannot call supported_memory_backends(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -6512,6 +6541,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_MemoryPool__default", (DL_FUNC) &_arrow_MemoryPool__default, 0}, 
 		{ "_arrow_MemoryPool__bytes_allocated", (DL_FUNC) &_arrow_MemoryPool__bytes_allocated, 1}, 
 		{ "_arrow_MemoryPool__max_memory", (DL_FUNC) &_arrow_MemoryPool__max_memory, 1}, 
+		{ "_arrow_MemoryPool__backend_name", (DL_FUNC) &_arrow_MemoryPool__backend_name, 1}, 
+		{ "_arrow_supported_memory_backends", (DL_FUNC) &_arrow_supported_memory_backends, 0}, 
 		{ "_arrow_ipc___Message__body_length", (DL_FUNC) &_arrow_ipc___Message__body_length, 1}, 
 		{ "_arrow_ipc___Message__metadata", (DL_FUNC) &_arrow_ipc___Message__metadata, 1}, 
 		{ "_arrow_ipc___Message__body", (DL_FUNC) &_arrow_ipc___Message__body, 1}, 

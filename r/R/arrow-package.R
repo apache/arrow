@@ -76,6 +76,77 @@ option_use_threads <- function() {
   !is_false(getOption("arrow.use_threads"))
 }
 
+#' Report information on the package's capabilities
+#'
+#' This function summarizes a number of build-time configurations and run-time
+#' settings for the Arrow package. It may be useful for diagnostics.
+#' @return A list including version information, boolean "capabilities", and
+#' statistics from Arrow's memory allocator.
+#' @export
+#' @importFrom utils packageVersion
+arrow_info <- function() {
+  opts <- options()
+  out <- list(
+    version = packageVersion("arrow"),
+    libarrow = arrow_available(),
+    options = opts[grep("^arrow\\.", names(opts))]
+  )
+  if (out$libarrow) {
+    pool <- default_memory_pool()
+    out <- c(out, list(
+      capabilities = c(
+        s3 = arrow_with_s3(),
+        vapply(tolower(names(CompressionType)[-1]), codec_is_available, logical(1))
+      ),
+      memory_pool = list(
+        backend_name = pool$backend_name,
+        bytes_allocated = pool$bytes_allocated,
+        max_memory = pool$max_memory,
+        available_backends = supported_memory_backends()
+      )
+    ))
+  }
+  structure(out, class = "arrow_info")
+}
+
+#' @export
+print.arrow_info <- function(x, ...) {
+  print_key_values <- function(title, vals, ...) {
+    # Make a key-value table for printing, no column names
+    df <- data.frame(vals, stringsAsFactors = FALSE, ...)
+    names(df) <- ""
+
+    cat(title, ":\n", sep = "")
+    print(df)
+    cat("\n")
+  }
+  cat("Arrow package version: ", format(x$version), "\n\n", sep = "")
+  if (x$libarrow) {
+    print_key_values("Capabilities", c(
+      x$capabilities,
+      jemalloc = "jemalloc" %in% x$memory_pool$available_backends,
+      mimalloc = "mimalloc" %in% x$memory_pool$available_backends
+    ))
+
+    if (length(x$options)) {
+      print_key_values("Arrow options()", map_chr(x$options, format))
+    }
+
+    format_bytes <- function(b, units = "auto", digits = 2L, ...) {
+      format(structure(b, class = "object_size"), units = units, digits = digits, ...)
+    }
+    print_key_values("Memory", c(
+      Allocator = x$memory_pool$backend_name,
+      # utils:::format.object_size is not properly vectorized
+      Current = format_bytes(x$memory_pool$bytes_allocated, ...),
+      Max = format_bytes(x$memory_pool$max_memory, ...)
+    ))
+  } else {
+    cat("Arrow C++ library not available\n")
+  }
+  invisible(x)
+}
+
 #' @include enums.R
 ArrowObject <- R6Class("ArrowObject",
   public = list(
