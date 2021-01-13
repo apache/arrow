@@ -23,12 +23,19 @@ FROM abrarov/msvc-2017:2.10.0
 RUN choco install --no-progress -r -y cmake --installargs 'ADD_CMAKE_TO_PATH=System' && \
     choco install --no-progress -r -y gzip wget ninja
 
+# Add unix tools to path
+RUN setx path "%path%;C:\Program Files\Git\usr\bin"
+
 # Install vcpkg
 ARG vcpkg
 RUN git clone https://github.com/Microsoft/vcpkg && \
     git -C vcpkg checkout %vcpkg% && \
     vcpkg\bootstrap-vcpkg.bat -disableMetrics -win64 && \
     setx PATH "%PATH%;C:\vcpkg"
+
+# Patch ports files as needed
+COPY ci/vcpkg arrow/ci/vcpkg
+RUN cd vcpkg && patch -p1 -i C:/arrow/ci/vcpkg/ports.patch
 
 # Configure vcpkg and install dependencies
 # NOTE: use windows batch environment notation for build arguments in RUN
@@ -66,9 +73,6 @@ RUN vcpkg install --clean-after-build \
         utf8proc \
         zlib \
         zstd
-
-# Add unix tools to path
-RUN setx path "%path%;C:\Program Files\Git\usr\bin"
 
 # Remove previous installations of python from the base image
 RUN wmic product where "name like 'python%%'" call uninstall /nointeractive && \
