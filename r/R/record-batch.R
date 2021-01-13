@@ -279,11 +279,29 @@ as.data.frame.RecordBatch <- function(x, row.names = NULL, optional = FALSE, ...
   # drop problems attributes (most likely from readr)
   x[["attributes"]][["problems"]] <- NULL
 
-  rawToChar(serialize(x, NULL, ascii = TRUE))
+  out <- serialize(x, NULL, ascii = TRUE)
+
+  # if the metadata is over 100 kB, compress
+  if (object.size(out) > 100000) {
+    out_comp <- serialize(memCompress(out, type = "gzip"), NULL, ascii = TRUE)
+
+    # but ensure that the compression+serialization is effective.
+    if (object.size(out) > object.size(out_comp)) out <- out_comp
+  }
+
+  rawToChar(out)
 }
 
 .unserialize_arrow_r_metadata <- function(x) {
-  tryCatch(unserialize(charToRaw(x)), error = function(e) {
+  tryCatch({
+    out <- unserialize(charToRaw(x))
+
+    # if this is still raw, try decompressing
+    if (is.raw(out)) {
+      out <- unserialize(memDecompress(out, type = "gzip"))
+    }
+    out
+  }, error = function(e) {
     warning("Invalid metadata$r", call. = FALSE)
     NULL
   })
