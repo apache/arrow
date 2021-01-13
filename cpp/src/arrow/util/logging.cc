@@ -24,9 +24,31 @@
 #include <iostream>
 
 #ifdef ARROW_USE_GLOG
+
 #include <signal.h>
 #include <vector>
+
 #include "glog/logging.h"
+
+// Restore our versions of DCHECK and friends, as GLog defines its own
+#undef DCHECK
+#undef DCHECK_OK
+#undef DCHECK_EQ
+#undef DCHECK_NE
+#undef DCHECK_LE
+#undef DCHECK_LT
+#undef DCHECK_GE
+#undef DCHECK_GT
+
+#define DCHECK ARROW_DCHECK
+#define DCHECK_OK ARROW_DCHECK_OK
+#define DCHECK_EQ ARROW_DCHECK_EQ
+#define DCHECK_NE ARROW_DCHECK_NE
+#define DCHECK_LE ARROW_DCHECK_LE
+#define DCHECK_LT ARROW_DCHECK_LT
+#define DCHECK_GE ARROW_DCHECK_GE
+#define DCHECK_GT ARROW_DCHECK_GT
+
 #endif
 
 namespace arrow {
