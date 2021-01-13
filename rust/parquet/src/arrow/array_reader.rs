@@ -917,8 +917,6 @@ impl<OffsetSize: OffsetSizeTrait> ArrayReader for ListArrayReader<OffsetSize> {
             ));
         }
 
-        let max_def_level = def_levels.iter().max().unwrap();
-
         // Need to remove from the values array the nulls that represent null lists rather than null items
         // null lists have def_level = 0
         let mut null_list_indices: Vec<usize> = Vec::new();
@@ -927,17 +925,10 @@ impl<OffsetSize: OffsetSizeTrait> ArrayReader for ListArrayReader<OffsetSize> {
                 null_list_indices.push(i);
             }
         }
-        dbg!(&null_list_indices);
         let batch_values = match null_list_indices.len() {
             0 => next_batch_array.clone(),
             _ => remove_indices(next_batch_array.clone(), item_type, null_list_indices)?,
         };
-
-        // Determine the minimum level for an empty slot
-
-        // TODO: this won't always be - 2, it depends on the optionality of the list
-        // using - 2 for now with tests.
-        let min_list_def_level = max_def_level - 2;
 
         // null list has def_level = 0
         // empty list has def_level = 1
@@ -945,18 +936,16 @@ impl<OffsetSize: OffsetSizeTrait> ArrayReader for ListArrayReader<OffsetSize> {
         // non-null item has def_level = 3
         // first item in each list has rep_level = 0, subsequent items have rep_level = 1
 
-        let mut offsets: Vec<OffsetSize> = Vec::with_capacity(rep_levels.len() + 1);
+        let mut offsets: Vec<OffsetSize> = Vec::new();
         let mut cur_offset = OffsetSize::zero();
-        rep_levels.iter().zip(def_levels).for_each(|(r, d)| {
-            if *r == 0 {
-                offsets.push(cur_offset);
-                if *d > min_list_def_level {
-                    cur_offset = cur_offset + OffsetSize::one();
-                }
-            } else {
-                cur_offset = cur_offset + OffsetSize::one();
+        for i in 0..rep_levels.len() {
+            if rep_levels[i] == 0 {
+                offsets.push(cur_offset)
             }
-        });
+            if def_levels[i] > 0 {
+                cur_offset += OffsetSize::one();
+            }
+        }
         offsets.push(cur_offset);
 
         let num_bytes = bit_util::ceil(offsets.len(), 8);
@@ -964,7 +953,7 @@ impl<OffsetSize: OffsetSizeTrait> ArrayReader for ListArrayReader<OffsetSize> {
         let null_slice = null_buf.as_slice_mut();
         let mut list_index = 0;
         for i in 0..rep_levels.len() {
-            if rep_levels[i] == 0 && def_levels[i] == *max_def_level {
+            if rep_levels[i] == 0 && def_levels[i] != 0 {
                 bit_util::set_bit(null_slice, list_index);
             }
             if rep_levels[i] == 0 {

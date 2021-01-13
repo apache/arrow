@@ -1207,7 +1207,6 @@ mod tests {
         .add_child_data(a_values.data())
         .build();
 
-        // I think this setup is incorrect because this should pass
         assert_eq!(a_list_data.null_count(), 1);
 
         let a = ListArray::from(a_list_data);
