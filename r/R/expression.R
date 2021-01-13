@@ -111,7 +111,8 @@ cast_array_expression <- function(x, to_type, safe = TRUE, ...) {
 
 .unary_function_map <- list(
   "!" = "invert",
-  "is.na" = "is_null"
+  "is.na" = "is_null",
+  "is.nan" = "is_nan"
 )
 
 .binary_function_map <- list(
