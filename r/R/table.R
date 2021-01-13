@@ -53,6 +53,7 @@
 #'
 #' - `$column(i)`: Extract a `ChunkedArray` by integer position from the table
 #' - `$ColumnNames()`: Get all column names (called by `names(tab)`)
+#' - `$RenameColumns(value)`: Set all column names (called by `names(tab) <- value`)
 #' - `$GetColumnByName(name)`: Extract a `ChunkedArray` by string name
 #' - `$field(i)`: Extract a `Field` from the table schema by integer position
 #' - `$SelectColumns(indices)`: Return new `Table` with specified columns, expressed as 0-based integers.
