@@ -903,7 +903,7 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
    */
   @Override
   public void setIndexDefined(int index) {
-    while (index >= getValidityBufferValueCapacity()) {
+    while (index >= getValueCapacity()) {
       reallocValidityAndOffsetBuffers();
     }
     BitVectorHelper.setBit(validityBuffer, index);
@@ -1056,7 +1056,7 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
    * @param index   position of element
    */
   public void setNull(int index) {
-    while (index >= getValidityBufferValueCapacity()) {
+    while (index >= getValueCapacity()) {
       reallocValidityAndOffsetBuffers();
     }
     BitVectorHelper.unsetBit(validityBuffer, index);
