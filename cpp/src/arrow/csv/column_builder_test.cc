@@ -387,20 +387,17 @@ TEST_F(InferringColumnBuilderTest, SingleChunkDate) {
   auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeSerial();
 
-  std::shared_ptr<ChunkedArray> expected;
-  ChunkedArrayFromVector<Date32Type>(date32(), {{false, true, false}}, {{0, 3, 0}},
-                                     &expected);
-  CheckInferred(tg, {{"", "1970-01-04", "2018-11-13 17:11:10"}}, options, expected);
+  CheckInferred(tg, {{"", "1970-01-04", "NA"}}, options,
+                {ArrayFromJSON(date32(), "[null, 3, null]")});
 }
 
 TEST_F(InferringColumnBuilderTest, MultipleChunkDate) {
   auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeSerial();
 
-  std::shared_ptr<ChunkedArray> expected;
-  ChunkedArrayFromVector<Date32Type>(date32(), {{false}, {true}, {false}},
-                                     {{0}, {3}, {0}}, &expected);
-  CheckInferred(tg, {{""}, {"1970-01-04"}, {"2018-11-13 17:11:10"}}, options, expected);
+  CheckInferred(tg, {{""}, {"1970-01-04"}, {"NA"}}, options,
+                {ArrayFromJSON(date32(), "[null]"), ArrayFromJSON(date32(), "[3]"),
+                 ArrayFromJSON(date32(), "[null]")});
 }
 
 TEST_F(InferringColumnBuilderTest, SingleChunkTimestamp) {
