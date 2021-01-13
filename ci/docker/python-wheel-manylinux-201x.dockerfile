@@ -36,7 +36,7 @@ RUN mkdir /tmp/ninja && \
     rm -rf /tmp/ninja
 
 # Install vcpkg
-ARG vcpkg=a2135fd97e834e83a705b1cff0d91a0e45a0fb00
+ARG vcpkg
 RUN git clone https://github.com/microsoft/vcpkg /opt/vcpkg && \
     git -C /opt/vcpkg checkout ${vcpkg} && \
     /opt/vcpkg/bootstrap-vcpkg.sh --useSystemBinaries --disableMetrics && \

@@ -24,7 +24,7 @@ RUN choco install --no-progress -r -y cmake --installargs 'ADD_CMAKE_TO_PATH=Sys
     choco install --no-progress -r -y gzip wget ninja
 
 # Install vcpkg
-ARG vcpkg=50ea8c0ab7aca3bb9245bba7fc877ad2f2a4464c
+ARG vcpkg
 RUN git clone https://github.com/Microsoft/vcpkg && \
     git -C vcpkg checkout %vcpkg% && \
     vcpkg\bootstrap-vcpkg.bat -disableMetrics -win64 && \
