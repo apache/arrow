@@ -30,6 +30,7 @@ class ApacheArrow < Formula
       -DARROW_FLIGHT=ON
       -DARROW_GANDIVA=ON
       -DARROW_JEMALLOC=ON
+      -DARROW_MIMALLOC=ON
       -DARROW_ORC=ON
       -DARROW_PARQUET=ON
       -DARROW_PLASMA=ON
