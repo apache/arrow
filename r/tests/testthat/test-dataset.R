@@ -422,9 +422,9 @@ test_that("filter() with is.nan()", {
   expect_equivalent(
     ds %>%
       select(part, dbl) %>%
-      filter(!is.nan(dbl), part == 1) %>%
+      filter(!is.nan(dbl), part == 2) %>%
       collect(),
-    tibble(part = 1L, dbl = df1$dbl[!is.nan(df1$dbl)])
+    tibble(part = 2L, dbl = df2$dbl[!is.nan(df2$dbl)])
   )
 })
 
