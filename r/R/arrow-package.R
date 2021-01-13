@@ -106,7 +106,45 @@ arrow_info <- function() {
       )
     ))
   }
-  out
+  structure(out, class = "arrow_info")
+}
+
+#' @export
+print.arrow_info <- function(x, ...) {
+  print_key_values <- function(title, vals, ...) {
+    # Make a key-value table for printing, no column names
+    df <- data.frame(vals, stringsAsFactors = FALSE, ...)
+    names(df) <- ""
+
+    cat(title, ":\n", sep = "")
+    print(df)
+    cat("\n")
+  }
+  cat("Arrow package version: ", format(x$version), "\n\n", sep = "")
+  if (x$libarrow) {
+    print_key_values("Capabilities", c(
+      x$capabilities,
+      jemalloc = "jemalloc" %in% x$memory_pool$available_backends,
+      mimalloc = "mimalloc" %in% x$memory_pool$available_backends
+    ))
+
+    if (length(x$options)) {
+      print_key_values("Arrow options()", map_chr(x$options, format))
+    }
+
+    format_bytes <- function(b, units = "auto", digits = 2L, ...) {
+      format(structure(b, class = "object_size"), units = units, digits = digits, ...)
+    }
+    print_key_values("Memory", c(
+      Allocator = x$memory_pool$backend_name,
+      # utils:::format.object_size is not properly vectorized
+      Current = format_bytes(x$memory_pool$bytes_allocated, ...),
+      Max = format_bytes(x$memory_pool$max_memory, ...)
+    ))
+  } else {
+    cat("Arrow C++ library not available\n")
+  }
+  invisible(x)
 }
 
 #' @include enums.R

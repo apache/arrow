@@ -70,12 +70,12 @@ std::shared_ptr<arrow::MemoryPool> MemoryPool__default() {
 }
 
 // [[arrow::export]]
-int MemoryPool__bytes_allocated(const std::shared_ptr<arrow::MemoryPool>& pool) {
+int64_t MemoryPool__bytes_allocated(const std::shared_ptr<arrow::MemoryPool>& pool) {
   return pool->bytes_allocated();
 }
 
 // [[arrow::export]]
-int MemoryPool__max_memory(const std::shared_ptr<arrow::MemoryPool>& pool) {
+int64_t MemoryPool__max_memory(const std::shared_ptr<arrow::MemoryPool>& pool) {
   return pool->max_memory();
 }
 

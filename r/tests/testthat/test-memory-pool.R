@@ -25,5 +25,8 @@ test_that("default_memory_pool and its attributes", {
 })
 
 test_that("arrow_info()", {
-  expect_is(arrow_info(), "list")
+  expect_is(arrow_info(), "arrow_info")
+  expect_output(print(arrow_info()), "Arrow package version")
+  options(arrow.foo=FALSE)
+  expect_output(print(arrow_info()), "arrow.foo")
 })
