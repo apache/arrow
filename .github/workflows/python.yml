@@ -33,6 +33,7 @@ on:
 
 env:
   DOCKER_BUILDKIT: 0
+  DOCKER_VOLUME_PREFIX: ".docker/"
   COMPOSE_DOCKER_CLI_BUILD: 1
   ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
   ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -50,7 +51,6 @@ jobs:
           - conda-python-3.8-nopandas
           - conda-python-3.6-pandas-0.23
           - conda-python-3.7-pandas-latest
-          - centos-python-3.6-manylinux1
         include:
           - name: conda-python-3.8-nopandas
             cache: conda-python-3.8
@@ -69,10 +69,6 @@ jobs:
             title: AMD64 Conda Python 3.7 Pandas latest
             python: 3.7
             pandas: latest
-          - name: centos-python-3.6-manylinux1
-            cache: manylinux1
-            image: centos-python-manylinux1
-            title: AMD64 CentOS 5.11 Python 3.6 manylinux1
     env:
       PYTHON: ${{ matrix.python || 3.7 }}
       UBUNTU: ${{ matrix.ubuntu || 18.04 }}

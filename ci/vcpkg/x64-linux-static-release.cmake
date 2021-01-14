@@ -1,4 +1,3 @@
-#!/bin/bash -ex
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -16,18 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-export BROTLI_VERSION="1.0.7"
-curl -sL "https://github.com/google/brotli/archive/v${BROTLI_VERSION}.tar.gz" -o brotli-${BROTLI_VERSION}.tar.gz
-tar xf brotli-${BROTLI_VERSION}.tar.gz
-pushd brotli-${BROTLI_VERSION}
-mkdir build
-pushd build
-cmake -DCMAKE_BUILD_TYPE=release \
-    -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
-    -DCMAKE_INSTALL_PREFIX=/usr/local \
-    -GNinja \
-    ..
-ninja install
-popd
-popd
-rm -rf brotli-${BROTLI_VERSION}.tar.gz brotli-${BROTLI_VERSION}
+set(VCPKG_TARGET_ARCHITECTURE x64)
+set(VCPKG_CRT_LINKAGE dynamic)
+set(VCPKG_LIBRARY_LINKAGE static)
+
+set(VCPKG_CMAKE_SYSTEM_NAME Linux)
+
+set(VCPKG_BUILD_TYPE release)

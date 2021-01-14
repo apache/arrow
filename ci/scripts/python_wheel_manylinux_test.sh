@@ -1,5 +1,5 @@
-#!/bin/bash
-
+#!/usr/bin/env bash
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,36 +17,43 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -e
+set -ex
+
+export PYARROW_TEST_CYTHON=OFF
+export PYARROW_TEST_DATASET=ON
+export PYARROW_TEST_GANDIVA=OFF
+export PYARROW_TEST_HDFS=ON
+export PYARROW_TEST_ORC=ON
+export PYARROW_TEST_PANDAS=ON
+export PYARROW_TEST_PARQUET=ON
+export PYARROW_TEST_PLASMA=ON
+export PYARROW_TEST_S3=ON
+export PYARROW_TEST_TENSORFLOW=ON
+export PYARROW_TEST_FLIGHT=ON
 
 export ARROW_TEST_DATA=/arrow/testing/data
-export PYARROW_TEST_CYTHON=OFF
+export PARQUET_TEST_DATA=/arrow/submodules/parquet-testing/data
 
-python --version
-# Install built wheel
-pip install -q /arrow/python/$WHEEL_DIR/dist/*.whl
-# Install test dependencies
-pip install -q -r /arrow/python/requirements-wheel-test.txt
-# Run pyarrow tests
-pytest -rs --pyargs pyarrow
+# Install the built wheels
+pip install /arrow/python/repaired_wheels/*.whl
 
-if [[ "$1" == "--remove-system-libs" ]]; then
-  # Run import tests after removing the bundled dependencies from the system
-  # (be careful not to remove libz.so, required for some Python stdlib modules)
-  echo "Removing the following libraries to fail loudly if they are bundled incorrectly:"
-  ldconfig -p | grep "lib\(bz2\|lz4\|z[^.]\|boost\)" | awk -F'> ' '{print $2}' | sort | xargs rm -v -f
-fi
-
-# Test import and optional dependencies
+# Test that the modules are importable
 python -c "
 import pyarrow
+import pyarrow._hdfs
+import pyarrow._s3fs
 import pyarrow.csv
 import pyarrow.dataset
 import pyarrow.flight
 import pyarrow.fs
-import pyarrow._hdfs
 import pyarrow.json
+import pyarrow.orc
 import pyarrow.parquet
 import pyarrow.plasma
-import pyarrow._s3fs
 "
+
+# Install testing dependencies
+pip install -r /arrow/python/requirements-wheel-test.txt
+
+# Execute unittest
+pytest -v -r s --pyargs pyarrow

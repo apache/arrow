@@ -1,4 +1,3 @@
-#!/bin/bash -ex
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -16,20 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-export RE2_VERSION="2019-08-01"
-NCORES=$(($(grep -c ^processor /proc/cpuinfo) + 1))
+set(VCPKG_TARGET_ARCHITECTURE x64)
+set(VCPKG_CRT_LINKAGE dynamic)
+set(VCPKG_LIBRARY_LINKAGE static)
 
-curl -sL "https://github.com/google/re2/archive/${RE2_VERSION}.tar.gz" -o re2-${RE2_VERSION}.tar.gz
-tar xf re2-${RE2_VERSION}.tar.gz
-pushd re2-${RE2_VERSION}
-
-export CXXFLAGS="-fPIC -O2 ${CXXFLAGS}"
-export CFLAGS="-fPIC -O2 ${CFLAGS}"
-
-# Build shared libraries
-make prefix=/usr/local -j${NCORES} install
-
-popd
-
-# Need to remove shared library to make sure the static library is picked up by Arrow
-rm -rf re2-${RE2_VERSION}.tar.gz re2-${RE2_VERSION} /usr/local/lib/libre2.so*
+set(VCPKG_BUILD_TYPE debug)

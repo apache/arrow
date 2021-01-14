@@ -342,171 +342,75 @@ tasks:
 
   ############################## Wheel Linux ##################################
 
-  wheel-manylinux1-cp36m:
-    ci: azure
-    template: python-wheels/azure.linux.yml
-    params:
-      python_version: 3.6
-      unicode_width: 16
-      wheel_tag: manylinux1
-      wheel_dir: manylinux1
-      test_docker_images:
-        - python:3.6
-      test_remove_system_libs: true
-    artifacts:
-      - pyarrow-{no_rc_version}-cp36-cp36m-manylinux1_x86_64.whl
-
-  wheel-manylinux1-cp37m:
-    ci: azure
-    template: python-wheels/azure.linux.yml
-    params:
-      python_version: 3.7
-      unicode_width: 16
-      wheel_tag: manylinux1
-      wheel_dir: manylinux1
-      test_docker_images:
-        - python:3.7
-      test_remove_system_libs: true
-    artifacts:
-      - pyarrow-{no_rc_version}-cp37-cp37m-manylinux1_x86_64.whl
-
-  wheel-manylinux1-cp38:
-    ci: azure
-    template: python-wheels/azure.linux.yml
-    params:
-      python_version: 3.8
-      unicode_width: 16
-      wheel_tag: manylinux1
-      wheel_dir: manylinux1
-      test_docker_images:
-        - python:3.8
-      test_remove_system_libs: true
-    artifacts:
-      - pyarrow-{no_rc_version}-cp38-cp38-manylinux1_x86_64.whl
-
-  wheel-manylinux1-cp39:
-    ci: azure
-    template: python-wheels/azure.linux.yml
-    params:
-      python_version: 3.9
-      unicode_width: 16
-      wheel_tag: manylinux1
-      wheel_dir: manylinux1
-      test_docker_images:
-        - python:3.9
-      test_remove_system_libs: true
-    artifacts:
-      - pyarrow-{no_rc_version}-cp39-cp39-manylinux1_x86_64.whl
-
   wheel-manylinux2010-cp36m:
-    ci: azure
-    template: python-wheels/azure.linux.yml
+    ci: github
+    template: python-wheels/github.linux.yml
     params:
       python_version: 3.6
-      unicode_width: 16
-      wheel_tag: manylinux2010
-      wheel_dir: manylinux201x
-      test_docker_images:
-        - python:3.6
-      test_remove_system_libs: true
+      manylinux_version: 2010
     artifacts:
       - pyarrow-{no_rc_version}-cp36-cp36m-manylinux2010_x86_64.whl
 
   wheel-manylinux2010-cp37m:
-    ci: azure
-    template: python-wheels/azure.linux.yml
+    ci: github
+    template: python-wheels/github.linux.yml
     params:
       python_version: 3.7
-      unicode_width: 16
-      wheel_tag: manylinux2010
-      wheel_dir: manylinux201x
-      test_docker_images:
-        - python:3.7
-      test_remove_system_libs: true
+      manylinux_version: 2010
     artifacts:
       - pyarrow-{no_rc_version}-cp37-cp37m-manylinux2010_x86_64.whl
 
   wheel-manylinux2010-cp38:
-    ci: azure
-    template: python-wheels/azure.linux.yml
+    ci: github
+    template: python-wheels/github.linux.yml
     params:
       python_version: 3.8
-      unicode_width: 16
-      wheel_tag: manylinux2010
-      wheel_dir: manylinux201x
-      test_docker_images:
-        - python:3.8
-      test_remove_system_libs: true
+      manylinux_version: 2010
     artifacts:
       - pyarrow-{no_rc_version}-cp38-cp38-manylinux2010_x86_64.whl
 
   wheel-manylinux2010-cp39:
-    ci: azure
-    template: python-wheels/azure.linux.yml
+    ci: github
+    template: python-wheels/github.linux.yml
     params:
       python_version: 3.9
-      unicode_width: 16
-      wheel_tag: manylinux2010
-      wheel_dir: manylinux201x
-      test_docker_images:
-        - python:3.9
-      test_remove_system_libs: true
+      manylinux_version: 2010
     artifacts:
       - pyarrow-{no_rc_version}-cp39-cp39-manylinux2010_x86_64.whl
 
   wheel-manylinux2014-cp36m:
-    ci: azure
-    template: python-wheels/azure.linux.yml
+    ci: github
+    template: python-wheels/github.linux.yml
     params:
       python_version: 3.6
-      unicode_width: 16
-      wheel_tag: manylinux2014
-      wheel_dir: manylinux201x
-      test_docker_images:
-        - python:3.6
-      test_remove_system_libs: true
+      manylinux_version: 2014
     artifacts:
       - pyarrow-{no_rc_version}-cp36-cp36m-manylinux2014_x86_64.whl
 
   wheel-manylinux2014-cp37m:
-    ci: azure
-    template: python-wheels/azure.linux.yml
+    ci: github
+    template: python-wheels/github.linux.yml
     params:
       python_version: 3.7
-      unicode_width: 16
-      wheel_tag: manylinux2014
-      wheel_dir: manylinux201x
-      test_docker_images:
-        - python:3.7
-      test_remove_system_libs: true
+      manylinux_version: 2014
     artifacts:
       - pyarrow-{no_rc_version}-cp37-cp37m-manylinux2014_x86_64.whl
 
   wheel-manylinux2014-cp38:
-    ci: azure
-    template: python-wheels/azure.linux.yml
+    ci: github
+    template: python-wheels/github.linux.yml
     params:
       python_version: 3.8
-      unicode_width: 16
-      wheel_tag: manylinux2014
-      wheel_dir: manylinux201x
-      test_docker_images:
-        - python:3.8
-      test_remove_system_libs: true
+      manylinux_version: 2014
     artifacts:
       - pyarrow-{no_rc_version}-cp38-cp38-manylinux2014_x86_64.whl
 
   wheel-manylinux2014-cp39:
-    ci: azure
-    template: python-wheels/azure.linux.yml
+    ci: github
+    template: python-wheels/github.linux.yml
     params:
       python_version: 3.9
-      unicode_width: 16
-      wheel_tag: manylinux2014
-      wheel_dir: manylinux201x
-      test_docker_images:
-        - python:3.9
-      test_remove_system_libs: true
+      manylinux_version: 2014
     artifacts:
       - pyarrow-{no_rc_version}-cp39-cp39-manylinux2014_x86_64.whl
 
@@ -596,29 +500,37 @@ tasks:
 
   ############################## Wheel Windows ################################
 
-  wheel-win-cp36m:
+  wheel-windows-cp36m:
     ci: github
-    template: python-wheels/github.win.yml
+    template: python-wheels/github.windows.yml
     params:
       python_version: 3.6
     artifacts:
       - pyarrow-{no_rc_version}-cp36-cp36m-win_amd64.whl
 
-  wheel-win-cp37m:
+  wheel-windows-cp37m:
     ci: github
-    template: python-wheels/github.win.yml
+    template: python-wheels/github.windows.yml
     params:
       python_version: 3.7
     artifacts:
       - pyarrow-{no_rc_version}-cp37-cp37m-win_amd64.whl
 
-  wheel-win-cp38:
+  wheel-windows-cp38:
     ci: github
-    template: python-wheels/github.win.yml
+    template: python-wheels/github.windows.yml
     params:
       python_version: 3.8
     artifacts:
       - pyarrow-{no_rc_version}-cp38-cp38-win_amd64.whl
+
+  wheel-windows-cp39:
+    ci: github
+    template: python-wheels/github.windows.yml
+    params:
+      python_version: 3.9
+    artifacts:
+      - pyarrow-{no_rc_version}-cp39-cp39-win_amd64.whl
 
   ############################ Python sdist ####################################
 
@@ -1770,7 +1682,7 @@ tasks:
     template: r/github.linux.cran.yml
     params:
       MATRIX: "${{ matrix.r_image }}"
-      
+
   test-r-version-compatibility:
     ci: github
     template: r/github.linux.version.compatibility.yml

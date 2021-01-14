@@ -1,4 +1,3 @@
-#!/bin/bash -e
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -16,8 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-export CMAKE_VERSION=3.18.2.post1
-/opt/python/cp37-cp37m/bin/pip install cmake==${CMAKE_VERSION} ninja
-ln -fs /opt/python/cp37-cp37m/bin/cmake /usr/local/bin/cmake
-ln -fs /opt/python/cp37-cp37m/bin/ninja /usr/local/bin/ninja
-strip /opt/_internal/cpython-3.*/lib/python3.7/site-packages/cmake/data/bin/*
+set(VCPKG_TARGET_ARCHITECTURE x64)
+set(VCPKG_CRT_LINKAGE dynamic)
+set(VCPKG_LIBRARY_LINKAGE static)
+
+set(VCPKG_CMAKE_SYSTEM_NAME Linux)
+
+set(VCPKG_BUILD_TYPE debug)

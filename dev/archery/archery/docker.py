@@ -47,39 +47,46 @@ class UndefinedImage(Exception):
     pass
 
 
-class Docker(Command):
+class ComposeConfig:
 
-    def __init__(self, docker_bin=None):
-        self.bin = default_bin(docker_bin, "docker")
-
-
-class DockerCompose(Command):
-
-    def __init__(self, config_path, dotenv_path=None, compose_bin=None,
-                 params=None):
-        self.bin = default_bin(compose_bin, 'docker-compose')
-
-        self.config_path = _ensure_path(config_path)
+    def __init__(self, config_path, dotenv_path, compose_bin, params=None):
+        config_path = _ensure_path(config_path)
         if dotenv_path:
-            self.dotenv_path = _ensure_path(dotenv_path)
+            dotenv_path = _ensure_path(dotenv_path)
         else:
-            self.dotenv_path = self.config_path.parent / '.env'
+            dotenv_path = config_path.parent / '.env'
+        self._read_env(dotenv_path, params)
+        self._read_config(config_path, compose_bin)
 
-        self._read_env(params)
-        self._read_config()
+    def _read_env(self, dotenv_path, params):
+        """
+        Read .env and merge it with explicitly passed parameters.
+        """
+        self.dotenv = dotenv_values(str(dotenv_path))
+        if params is None:
+            self.params = {}
+        else:
+            self.params = {k: v for k, v in params.items() if k in self.dotenv}
 
-    def _read_config(self):
+        # forward the process' environment variables
+        self.env = os.environ.copy()
+        # set the defaults from the dotenv files
+        self.env.update(self.dotenv)
+        # override the defaults passed as parameters
+        self.env.update(self.params)
+
+    def _read_config(self, config_path, compose_bin):
         """
         Validate and read the docker-compose.yml
         """
         yaml = YAML()
-        with self.config_path.open() as fp:
+        with config_path.open() as fp:
             config = yaml.load(fp)
 
         services = config['services'].keys()
-        self.nodes = dict(flatten(config.get('x-hierarchy', {})))
+        self.hierarchy = dict(flatten(config.get('x-hierarchy', {})))
         self.with_gpus = config.get('x-with-gpus', [])
-        nodes = self.nodes.keys()
+        nodes = self.hierarchy.keys()
         errors = []
 
         for name in self.with_gpus:
@@ -100,13 +107,14 @@ class DockerCompose(Command):
             )
 
         # trigger docker-compose's own validation
-        result = self._execute_compose('config', check=False,
-                                       stderr=subprocess.PIPE,
-                                       stdout=subprocess.PIPE)
+        compose = Command('docker-compose')
+        args = ['--file', str(config_path), 'config']
+        result = compose.run(*args, env=self.env, check=False,
+                             stderr=subprocess.PIPE, stdout=subprocess.PIPE)
 
         if result.returncode != 0:
             # strip the intro line of docker-compose errors
-            errors += result.stderr.decode().splitlines()[1:]
+            errors += result.stderr.decode().splitlines()
 
         if errors:
             msg = '\n'.join([' - {}'.format(msg) for msg in errors])
@@ -115,34 +123,48 @@ class DockerCompose(Command):
             )
 
         rendered_config = StringIO(result.stdout.decode())
+        self.path = config_path
         self.config = yaml.load(rendered_config)
 
-    def _read_env(self, params):
-        """
-        Read .env and merge it with explicitly passed parameters.
-        """
-        self.dotenv = dotenv_values(str(self.dotenv_path))
-        if params is None:
-            self.params = {}
-        else:
-            self.params = {k: v for k, v in params.items() if k in self.dotenv}
+    def get(self, service_name):
+        try:
+            service = self.config['services'][service_name]
+        except KeyError:
+            raise UndefinedImage(service_name)
+        service['name'] = service_name
+        service['need_gpu'] = service_name in self.with_gpus
+        service['ancestors'] = self.hierarchy[service_name]
+        return service
 
-        # forward the process' environment variables
-        self._compose_env = os.environ.copy()
-        # set the defaults from the dotenv files
-        self._compose_env.update(self.dotenv)
-        # override the defaults passed as parameters
-        self._compose_env.update(self.params)
+    def __getitem__(self, service_name):
+        return self.get(service_name)
 
-    def _validate_image(self, name):
-        if name not in self.nodes:
-            raise UndefinedImage(name)
+
+class Docker(Command):
+
+    def __init__(self, docker_bin=None):
+        self.bin = default_bin(docker_bin, "docker")
+
+
+class DockerCompose(Command):
+
+    def __init__(self, config_path, dotenv_path=None, compose_bin=None,
+                 params=None):
+        compose_bin = default_bin(compose_bin, 'docker-compose')
+        self.config = ComposeConfig(config_path, dotenv_path, compose_bin,
+                                    params)
+        self.bin = compose_bin
+        self.pull_memory = set()
+
+    def clear_pull_memory(self):
+        self.pull_memory = set()
 
     def _execute_compose(self, *args, **kwargs):
         # execute as a docker compose command
         try:
-            return super().run('--file', str(self.config_path), *args,
-                               env=self._compose_env, **kwargs)
+            result = super().run('--file', str(self.config.path), *args,
+                                 env=self.config.env, **kwargs)
+            result.check_returncode()
         except subprocess.CalledProcessError as e:
             def formatdict(d, template):
                 return '\n'.join(
@@ -158,15 +180,18 @@ class DockerCompose(Command):
                 msg.format(
                     cmd=' '.join(e.cmd),
                     code=e.returncode,
-                    dotenv=formatdict(self.dotenv, template='  {}: {}'),
-                    params=formatdict(self.params, template='  export {}={}')
+                    dotenv=formatdict(self.config.dotenv, template='  {}: {}'),
+                    params=formatdict(
+                        self.config.params, template='  export {}={}'
+                    )
                 )
             )
 
     def _execute_docker(self, *args, **kwargs):
         # execute as a plain docker cli command
         try:
-            return Docker().run(*args, **kwargs)
+            result = Docker().run(*args, **kwargs)
+            result.check_returncode()
         except subprocess.CalledProcessError as e:
             raise RuntimeError(
                 "{} exited with non-zero exit code {}".format(
@@ -174,41 +199,75 @@ class DockerCompose(Command):
                 )
             )
 
-    def pull(self, image, pull_leaf=True):
-        self._validate_image(image)
+    def pull(self, service_name, pull_leaf=True, using_docker=False):
+        def _pull(service):
+            args = ['pull']
+            if service['image'] in self.pull_memory:
+                return
 
-        for ancestor in self.nodes[image]:
-            self._execute_compose('pull', '--ignore-pull-failures', ancestor)
-
-        if pull_leaf:
-            self._execute_compose('pull', '--ignore-pull-failures', image)
-
-    def build(self, image, use_cache=True, use_leaf_cache=True):
-        self._validate_image(image)
-
-        for ancestor in self.nodes[image]:
-            if use_cache:
-                self._execute_compose('build', ancestor)
+            if using_docker:
+                try:
+                    self._execute_docker(*args, service['image'])
+                except Exception as e:
+                    # better --ignore-pull-failures handling
+                    print(e)
             else:
-                self._execute_compose('build', '--no-cache', ancestor)
+                args.append('--ignore-pull-failures')
+                self._execute_compose(*args, service['name'])
 
-        if use_cache and use_leaf_cache:
-            self._execute_compose('build', image)
-        else:
-            self._execute_compose('build', '--no-cache', image)
+            self.pull_memory.add(service['image'])
 
-    def run(self, image, command=None, *, env=None, force_pull=False,
-            force_build=False, use_cache=True, use_leaf_cache=True,
-            volumes=None, build_only=False, user=None):
-        self._validate_image(image)
+        service = self.config.get(service_name)
+        for ancestor in service['ancestors']:
+            _pull(self.config.get(ancestor))
+        if pull_leaf:
+            _pull(service)
 
-        if force_pull:
-            self.pull(image, pull_leaf=use_leaf_cache)
-        if force_build:
-            self.build(image, use_cache=use_cache,
-                       use_leaf_cache=use_leaf_cache)
-        if build_only:
-            return
+    def build(self, service_name, use_cache=True, use_leaf_cache=True,
+              using_docker=False):
+        def _build(service, use_cache):
+            args = ['build']
+            cache_from = list(service.get('build', {}).get('cache_from', []))
+            if use_cache:
+                for image in cache_from:
+                    if image not in self.pull_memory:
+                        try:
+                            self._execute_docker('pull', image)
+                        except Exception as e:
+                            print(e)
+                        finally:
+                            self.pull_memory.add(image)
+            else:
+                args.append('--no-cache')
+
+            if using_docker:
+                if 'build' not in service:
+                    # nothing to do
+                    return
+                # better for caching
+                for k, v in service['build'].get('args', {}).items():
+                    args.extend(['--build-arg', '{}={}'.format(k, v)])
+                for img in cache_from:
+                    args.append('--cache-from="{}"'.format(img))
+                args.extend([
+                    '-f', service['build']['dockerfile'],
+                    '-t', service['image'],
+                    service['build'].get('context', '.')
+                ])
+                self._execute_docker(*args)
+            else:
+                self._execute_compose(*args, service['name'])
+
+        service = self.config.get(service_name)
+        # build ancestor services
+        for ancestor in service['ancestors']:
+            _build(self.config.get(ancestor), use_cache=use_cache)
+        # build the leaf/target service
+        _build(service, use_cache=use_cache and use_leaf_cache)
+
+    def run(self, service_name, command=None, *, env=None, volumes=None,
+            user=None, using_docker=False):
+        service = self.config.get(service_name)
 
         args = []
         if user is not None:
@@ -222,58 +281,73 @@ class DockerCompose(Command):
             for volume in volumes:
                 args.extend(['--volume', volume])
 
-        if image in self.with_gpus:
-            # rendered compose configuration for the image
-            cc = self.config['services'][image]
-
+        if using_docker or service['need_gpu']:
             # use gpus, requires docker>=19.03
-            args.extend(['--gpus', 'all'])
+            if service['need_gpu']:
+                args.extend(['--gpus', 'all'])
+
+            if service.get('shm_size'):
+                args.extend(['--shm-size', service['shm_size']])
 
             # append env variables from the compose conf
-            for k, v in cc.get('environment', {}).items():
+            for k, v in service.get('environment', {}).items():
                 args.extend(['-e', '{}={}'.format(k, v)])
 
             # append volumes from the compose conf
-            for v in cc.get('volumes', []):
+            for v in service.get('volumes', []):
+                if not isinstance(v, str):
+                    # if not the compact string volume definition
+                    v = "{}:{}".format(v['source'], v['target'])
                 args.extend(['-v', v])
+
+            # infer whether an interactive shell is desired or not
+            if command in ['cmd.exe', 'bash', 'sh', 'powershell']:
+                args.append('-it')
 
             # get the actual docker image name instead of the compose service
             # name which we refer as image in general
-            args.append(cc['image'])
+            args.append(service['image'])
 
             # add command from compose if it wasn't overridden
             if command is not None:
                 args.append(command)
             else:
                 # replace whitespaces from the preformatted compose command
-                cmd = shlex.split(cc.get('command', ''))
+                cmd = shlex.split(service.get('command', ''))
                 cmd = [re.sub(r"\s+", " ", token) for token in cmd]
                 if cmd:
                     args.extend(cmd)
 
             # execute as a plain docker cli command
-            return self._execute_docker('run', '--rm', '-it', *args)
-
-        # execute as a docker-compose command
-        args.append(image)
-        if command is not None:
-            args.append(command)
-        self._execute_compose('run', '--rm', *args)
-
-    def push(self, image, user, password):
-        self._validate_image(image)
-        try:
-            # TODO(kszucs): have an option for a prompt
-            Docker().run('login', '-u', user, '-p', password)
-        except subprocess.CalledProcessError:
-            # hide credentials
-            msg = ('Failed to push `{}`, check the passed credentials'
-                   .format(image))
-            raise RuntimeError(msg) from None
+            self._execute_docker('run', '--rm', *args)
         else:
-            for ancestor in self.nodes[image]:
-                self._execute_compose('push', ancestor)
-            self._execute_compose('push', image)
+            # execute as a docker-compose command
+            args.append(service_name)
+            if command is not None:
+                args.append(command)
+            self._execute_compose('run', '--rm', *args)
+
+    def push(self, service_name, user=None, password=None, using_docker=False):
+        def _push(service):
+            if using_docker:
+                return self._execute_docker('push', service['image'])
+            else:
+                return self._execute_compose('push', service['name'])
+
+        if user is not None:
+            try:
+                # TODO(kszucs): have an option for a prompt
+                self._execute_docker('login', '-u', user, '-p', password)
+            except subprocess.CalledProcessError:
+                # hide credentials
+                msg = ('Failed to push `{}`, check the passed credentials'
+                       .format(service_name))
+                raise RuntimeError(msg) from None
+
+        service = self.config.get(service_name)
+        for ancestor in service['ancestors']:
+            _push(self.config.get(ancestor))
+        _push(service)
 
     def images(self):
-        return sorted(self.nodes.keys())
+        return sorted(self.config.hierarchy.keys())
