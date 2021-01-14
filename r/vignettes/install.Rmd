@@ -334,9 +334,9 @@ By default, these are all unset. All boolean variables are case-insensitive.
   Use this if you want to avoid compiling the C++ library, which may be slow
   and resource-intensive, and ensure that you only use a prebuilt binary.
 * `LIBARROW_MINIMAL`: If set to `false`, the build script
-  will enable some optional features, including compression libraries and the
-  `jemalloc` memory allocator. This will increase the source build time but
-  results in a more fully functional library.
+  will enable some optional features, including compression libraries, S3 
+  support, and additional alternative memory allocators. This will increase the
+  source build time but results in a more fully functional library.
 * `NOT_CRAN`: If this variable is set to `true`, as the `devtools` package does,
   the build script will set `LIBARROW_BINARY=true` and `LIBARROW_MINIMAL=false`
   unless those environment variables are already set. This provides for a more

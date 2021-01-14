@@ -112,9 +112,11 @@ cmake \
 
 where `..` is the path to the `cpp/` directory when you're in `cpp/build`.
 
-If you want to enable support for compression libraries, add some or all of these:
+To enable optional features including S3 support, an alternative memory allocator, and additional compression libraries, add some or all of these flags:
 
 ```
+  -DARROW_S3=ON \
+  -DARROW_MIMALLOC=ON \
   -DARROW_WITH_BROTLI=ON \
   -DARROW_WITH_BZ2=ON \
   -DARROW_WITH_LZ4=ON \
