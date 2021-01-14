@@ -392,14 +392,9 @@ cmake_version <- function(cmd = "cmake") {
 with_s3_support <- function(env_vars) {
   arrow_s3 <- toupper(Sys.getenv("ARROW_S3")) == "ON" || tolower(Sys.getenv("LIBARROW_MINIMAL")) == "false"
   if (arrow_s3) {
-    # User wants S3 support. Let's make sure they're not on gcc < 4.9
+    # User wants S3 support. If they're using gcc, let's make sure the version is >= 4.9
     # and make sure that we have curl and openssl system libs
-    info <- system(paste("export", env_vars, "&& $CMAKE --system-information"), intern = TRUE)
-    info <- grep("^[A-Z_]* .*$", info, value = TRUE)
-    vals <- as.list(sub('^.*? "?(.*?)"?$', "\\1", info))
-    names(vals) <- sub("^(.*?) .*$", "\\1", info)
-    if (vals[["CMAKE_CXX_COMPILER_ID"]] == "GNU" &&
-        package_version(vals[["CMAKE_CXX_COMPILER_VERSION"]]) < 4.9) {
+    if (isTRUE(cmake_gcc_version(env_vars) < "4.9")) {
       cat("**** S3 support not available for gcc < 4.9; building with ARROW_S3=OFF\n")
       arrow_s3 <- FALSE
     } else if (!cmake_find_package("CURL", NULL, env_vars)) {
@@ -416,18 +411,31 @@ with_s3_support <- function(env_vars) {
 with_mimalloc <- function(env_vars) {
   arrow_mimalloc <- toupper(Sys.getenv("ARROW_MIMALLOC")) == "ON" || tolower(Sys.getenv("LIBARROW_MINIMAL")) == "false"
   if (arrow_mimalloc) {
-  # User wants mimalloc. Let's make sure they're not on gcc < 4.9
-    info <- system(paste("export", env_vars, "&& $CMAKE --system-information"), intern = TRUE)
-    info <- grep("^[A-Z_]* .*$", info, value = TRUE)
-    vals <- as.list(sub('^.*? "?(.*?)"?$', "\\1", info))
-    names(vals) <- sub("^(.*?) .*$", "\\1", info)
-    if (vals[["CMAKE_CXX_COMPILER_ID"]] == "GNU" &&
-        package_version(vals[["CMAKE_CXX_COMPILER_VERSION"]]) < 4.9) {
+  # User wants mimalloc. If they're using gcc, let's make sure the version is >= 4.9
+    if (isTRUE(cmake_gcc_version(env_vars) < "4.9")) {
       cat("**** mimalloc support not available for gcc < 4.9; building with ARROW_MIMALLOC=OFF\n")
       arrow_mimalloc <- FALSE
     }
   }
   paste(env_vars, ifelse(arrow_mimalloc, "ARROW_MIMALLOC=ON", "ARROW_MIMALLOC=OFF"))
+}
+
+cmake_gcc_version <- function(env_vars) {
+  # This function returns NA if using a non-gcc compiler
+  # Always enclose calls to it in isTRUE() or isFALSE()
+  vals <- cmake_cxx_compiler_vars(env_vars)
+  if (!identical(vals[["CMAKE_CXX_COMPILER_ID"]], "GNU")) {
+    return(NA)
+  }
+  package_version(vals[["CMAKE_CXX_COMPILER_VERSION"]])
+}
+
+cmake_cxx_compiler_vars <- function(env_vars) {
+  info <- system(paste("export", env_vars, "&& $CMAKE --system-information"), intern = TRUE)
+  info <- grep("^[A-Z_]* .*$", info, value = TRUE)
+  vals <- as.list(sub('^.*? "?(.*?)"?$', "\\1", info))
+  names(vals) <- sub("^(.*?) .*$", "\\1", info)
+  vals[grepl("^CMAKE_CXX_COMPILER_?", names(vals))]
 }
 
 cmake_find_package <- function(pkg, version = NULL, env_vars) {
