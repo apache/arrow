@@ -321,6 +321,7 @@ build_libarrow <- function(src_dir, dst_dir) {
   )
   env_vars <- paste0(names(env_var_list), '="', env_var_list, '"', collapse = " ")
   env_vars <- with_s3_support(env_vars)
+  env_vars <- with_mimalloc(env_vars)
   cat("**** arrow", ifelse(quietly, "", paste("with", env_vars)), "\n")
   status <- system(
     paste(env_vars, "inst/build_arrow_static.sh"),
@@ -410,6 +411,23 @@ with_s3_support <- function(env_vars) {
     }
   }
   paste(env_vars, ifelse(arrow_s3, "ARROW_S3=ON", "ARROW_S3=OFF"))
+}
+
+with_mimalloc <- function(env_vars) {
+  arrow_mimalloc <- toupper(Sys.getenv("ARROW_MIMALLOC")) == "ON" || tolower(Sys.getenv("LIBARROW_MINIMAL")) == "false"
+  if (arrow_mimalloc) {
+  # User wants mimalloc. Let's make sure they're not on gcc < 4.9
+    info <- system(paste("export", env_vars, "&& $CMAKE --system-information"), intern = TRUE)
+    info <- grep("^[A-Z_]* .*$", info, value = TRUE)
+    vals <- as.list(sub('^.*? "?(.*?)"?$', "\\1", info))
+    names(vals) <- sub("^(.*?) .*$", "\\1", info)
+    if (vals[["CMAKE_CXX_COMPILER_ID"]] == "GNU" &&
+        package_version(vals[["CMAKE_CXX_COMPILER_VERSION"]]) < 4.9) {
+      cat("**** mimalloc support not available for gcc < 4.9; building with ARROW_MIMALLOC=OFF\n")
+      arrow_mimalloc <- FALSE
+    }
+  }
+  paste(env_vars, ifelse(arrow_mimalloc, "ARROW_MIMALLOC=ON", "ARROW_MIMALLOC=OFF"))
 }
 
 cmake_find_package <- function(pkg, version = NULL, env_vars) {
