@@ -509,7 +509,7 @@ def test_filters_invalid_column(tempdir, use_legacy_dataset):
 
     _generate_partition_directories(fs, base_path, partition_spec, df)
 
-    msg = "Field named 'non_existent_column' not found"
+    msg = r"No match for FieldRef.Name\(non_existent_column\)"
     with pytest.raises(ValueError, match=msg):
         pq.ParquetDataset(base_path, filesystem=fs,
                           filters=[('non_existent_column', '<', 3), ],

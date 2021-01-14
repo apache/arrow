@@ -104,6 +104,11 @@ struct _GArrowFileSystemClass
   GObjectClass parent_class;
 };
 
+GARROW_AVAILABLE_IN_3_0
+GArrowFileSystem *
+garrow_file_system_create(const gchar *uri,
+                          GError **error);
+
 GARROW_AVAILABLE_IN_0_17
 gchar *garrow_file_system_get_type_name(GArrowFileSystem *file_system);
 
@@ -236,5 +241,43 @@ GArrowSlowFileSystem *
 garrow_slow_file_system_new_average_latency_and_seed(GArrowFileSystem *base_file_system,
                                                      gdouble average_latency,
                                                      gint32 seed);
+
+
+
+#define GARROW_TYPE_MOCK_FILE_SYSTEM (garrow_mock_file_system_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowMockFileSystem,
+                         garrow_mock_file_system,
+                         GARROW,
+                         MOCK_FILE_SYSTEM,
+                         GArrowFileSystem)
+struct _GArrowMockFileSystemClass
+{
+  GArrowFileSystemClass parent_class;
+};
+
+
+#define GARROW_TYPE_HDFS_FILE_SYSTEM (garrow_hdfs_file_system_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowHDFSFileSystem,
+                         garrow_hdfs_file_system,
+                         GARROW,
+                         HDFS_FILE_SYSTEM,
+                         GArrowFileSystem)
+struct _GArrowHDFSFileSystemClass
+{
+  GArrowFileSystemClass parent_class;
+};
+
+
+#define GARROW_TYPE_S3_FILE_SYSTEM (garrow_s3_file_system_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowS3FileSystem,
+                         garrow_s3_file_system,
+                         GARROW,
+                         S3_FILE_SYSTEM,
+                         GArrowFileSystem)
+struct _GArrowS3FileSystemClass
+{
+  GArrowFileSystemClass parent_class;
+};
+
 
 G_END_DECLS

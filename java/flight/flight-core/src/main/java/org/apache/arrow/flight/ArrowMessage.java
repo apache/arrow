@@ -297,7 +297,34 @@ class ArrowMessage implements AutoCloseable {
             // ignore unknown fields.
         }
       }
-
+      // Protobuf implementations can omit empty fields, such as body; for some message types, like RecordBatch,
+      // this will fail later as we still expect an empty buffer. In those cases only, fill in an empty buffer here -
+      // in other cases, like Schema, having an unexpected empty buffer will also cause failures.
+      // We don't fill in defaults for fields like header, for which there is no reasonable default, or for appMetadata
+      // or descriptor, which are intended to be empty in some cases.
+      if (header != null) {
+        switch (HeaderType.getHeader(header.headerType())) {
+          case SCHEMA:
+            // Ignore 0-length buffers in case a Protobuf implementation wrote it out
+            if (body != null && body.capacity() == 0) {
+              body.close();
+              body = null;
+            }
+            break;
+          case DICTIONARY_BATCH:
+          case RECORD_BATCH:
+            // A Protobuf implementation can skip 0-length bodies, so ensure we fill it in here
+            if (body == null) {
+              body = allocator.getEmpty();
+            }
+            break;
+          case NONE:
+          case TENSOR:
+          default:
+            // Do nothing
+            break;
+        }
+      }
       return new ArrowMessage(descriptor, header, appMetadata, body);
     } catch (Exception ioe) {
       throw new RuntimeException(ioe);

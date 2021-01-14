@@ -38,7 +38,7 @@ class GcMemoryPool : public arrow::MemoryPool {
 
   int64_t max_memory() const override { return pool_->max_memory(); }
 
-  std::string backend_name() const override { return pool_->backend_name() + "-gc"; }
+  std::string backend_name() const override { return pool_->backend_name(); }
 
  private:
   template <typename Call>
@@ -70,13 +70,23 @@ std::shared_ptr<arrow::MemoryPool> MemoryPool__default() {
 }
 
 // [[arrow::export]]
-int MemoryPool__bytes_allocated(const std::shared_ptr<arrow::MemoryPool>& pool) {
+double MemoryPool__bytes_allocated(const std::shared_ptr<arrow::MemoryPool>& pool) {
   return pool->bytes_allocated();
 }
 
 // [[arrow::export]]
-int MemoryPool__max_memory(const std::shared_ptr<arrow::MemoryPool>& pool) {
+double MemoryPool__max_memory(const std::shared_ptr<arrow::MemoryPool>& pool) {
   return pool->max_memory();
+}
+
+// [[arrow::export]]
+std::string MemoryPool__backend_name(const std::shared_ptr<arrow::MemoryPool>& pool) {
+  return pool->backend_name();
+}
+
+// [[arrow::export]]
+std::vector<std::string> supported_memory_backends() {
+  return arrow::SupportedMemoryBackendNames();
 }
 
 #endif

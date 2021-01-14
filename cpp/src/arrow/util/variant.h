@@ -389,6 +389,22 @@ U& get(Variant<T...>& v) {
   return *v.template get<U>();
 }
 
+/// \brief Get a const pointer to the value held by the variant
+///
+/// If the type given as template argument doesn't match, a nullptr is returned.
+template <typename U, typename... T>
+const U* get_if(const Variant<T...>* v) {
+  return v->template get<U>();
+}
+
+/// \brief Get a pointer to the value held by the variant
+///
+/// If the type given as template argument doesn't match, a nullptr is returned.
+template <typename U, typename... T>
+U* get_if(Variant<T...>* v) {
+  return v->template get<U>();
+}
+
 namespace detail {
 
 template <typename... T>

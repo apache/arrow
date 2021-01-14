@@ -168,6 +168,41 @@ impl CsvExec {
         })
     }
 
+    /// Path to directory containing partitioned CSV files with the same schema
+    pub fn path(&self) -> &str {
+        &self.path
+    }
+
+    /// The individual files under path
+    pub fn filenames(&self) -> &[String] {
+        &self.filenames
+    }
+
+    /// Does the CSV file have a header?
+    pub fn has_header(&self) -> bool {
+        self.has_header
+    }
+
+    /// An optional column delimiter. Defaults to `b','`
+    pub fn delimiter(&self) -> Option<&u8> {
+        self.delimiter.as_ref()
+    }
+
+    /// File extension
+    pub fn file_extension(&self) -> &str {
+        &self.file_extension
+    }
+
+    /// Optional projection for which columns to load
+    pub fn projection(&self) -> Option<&Vec<usize>> {
+        self.projection.as_ref()
+    }
+
+    /// Batch size
+    pub fn batch_size(&self) -> usize {
+        self.batch_size
+    }
+
     /// Infer schema for given CSV dataset
     pub fn try_infer_schema(
         filenames: &[String],

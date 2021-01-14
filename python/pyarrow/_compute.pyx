@@ -665,6 +665,26 @@ class PartitionNthOptions(_PartitionNthOptions):
         self._set_options(pivot)
 
 
+cdef class _ProjectOptions(FunctionOptions):
+    cdef:
+        unique_ptr[CProjectOptions] project_options
+
+    cdef const CFunctionOptions* get_options(self) except NULL:
+        return self.project_options.get()
+
+    def _set_options(self, field_names):
+        cdef:
+            vector[c_string] c_field_names
+        for n in field_names:
+            c_field_names.push_back(tobytes(n))
+        self.project_options.reset(new CProjectOptions(field_names))
+
+
+class ProjectOptions(_ProjectOptions):
+    def __init__(self, field_names):
+        self._set_options(field_names)
+
+
 cdef class _MinMaxOptions(FunctionOptions):
     cdef:
         CMinMaxOptions min_max_options
@@ -735,7 +755,7 @@ cdef class _SetLookupOptions(FunctionOptions):
     cdef const CFunctionOptions* get_options(self) except NULL:
         return self.set_lookup_options.get()
 
-    def _set_options(self, value_set, c_bool skip_null):
+    def _set_options(self, value_set, c_bool skip_nulls):
         if isinstance(value_set, Array):
             self.valset.reset(new CDatum((<Array> value_set).sp_array))
         elif isinstance(value_set, ChunkedArray):
@@ -748,13 +768,13 @@ cdef class _SetLookupOptions(FunctionOptions):
             raise ValueError('"{}" is not a valid value_set'.format(value_set))
 
         self.set_lookup_options.reset(
-            new CSetLookupOptions(deref(self.valset), skip_null)
+            new CSetLookupOptions(deref(self.valset), skip_nulls)
         )
 
 
 class SetLookupOptions(_SetLookupOptions):
-    def __init__(self, *, value_set, skip_null=False):
-        self._set_options(value_set, skip_null)
+    def __init__(self, *, value_set, skip_nulls=False):
+        self._set_options(value_set, skip_nulls)
 
 
 cdef class _StrptimeOptions(FunctionOptions):
@@ -835,3 +855,61 @@ cdef class _SplitPatternOptions(FunctionOptions):
 class SplitPatternOptions(_SplitPatternOptions):
     def __init__(self, *, pattern, max_splits=-1, reverse=False):
         self._set_options(pattern, max_splits, reverse)
+
+
+cdef class _ArraySortOptions(FunctionOptions):
+    cdef:
+        CArraySortOptions array_sort_options
+
+    cdef const CFunctionOptions* get_options(self) except NULL:
+        return &self.array_sort_options
+
+    def _set_options(self, order):
+        if order == "ascending":
+            self.array_sort_options.order = CSortOrder_Ascending
+        elif order == "descending":
+            self.array_sort_options.order = CSortOrder_Descending
+        else:
+            raise ValueError(
+                "{!r} is not a valid order".format(order)
+            )
+
+
+class ArraySortOptions(_ArraySortOptions):
+    def __init__(self, *, order='ascending'):
+        self._set_options(order)
+
+
+cdef class _SortOptions(FunctionOptions):
+    cdef:
+        CSortOptions sort_options
+
+    cdef const CFunctionOptions* get_options(self) except NULL:
+        return &self.sort_options
+
+    def _set_options(self, sort_keys):
+        cdef:
+            vector[CSortKey] c_sort_keys
+            c_string c_name
+            CSortOrder c_order
+
+        for name, order in sort_keys:
+            if order == "ascending":
+                c_order = CSortOrder_Ascending
+            elif order == "descending":
+                c_order = CSortOrder_Descending
+            else:
+                raise ValueError(
+                    "{!r} is not a valid order".format(order)
+                )
+            c_name = tobytes(name)
+            c_sort_keys.push_back(CSortKey(c_name, c_order))
+
+        self.sort_options.sort_keys = c_sort_keys
+
+
+class SortOptions(_SortOptions):
+    def __init__(self, sort_keys=None):
+        if sort_keys is None:
+            sort_keys = []
+        self._set_options(sort_keys)

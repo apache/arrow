@@ -34,12 +34,11 @@ example_with_metadata <- tibble::tibble(
   ),
   d = "four"
 )
-# TODO: collect top-level dataset metadata
-# https://issues.apache.org/jira/browse/ARROW-9271
-# attr(example_with_metadata, "top_level") <- list(
-#   field_one = 12,
-#   field_two = "more stuff"
-# )
+
+attr(example_with_metadata, "top_level") <- list(
+  field_one = 12,
+  field_two = "more stuff"
+)
 
 haven_data <- tibble::tibble(
   num = structure(c(5.1, 4.9),
@@ -68,3 +67,10 @@ make_big_string <- function() {
   # This creates a character vector that would exceed the capacity of BinaryArray
   rep(purrr::map_chr(2047:2050, ~paste(sample(letters, ., replace = TRUE), collapse = "")), 2^18)
 }
+
+make_string_of_size <- function(size = 1) {
+  purrr::map_chr(1000*size, ~paste(sample(letters, ., replace = TRUE), collapse = ""))
+}
+
+example_with_extra_metadata <- example_with_metadata
+attributes(example_with_extra_metadata$b) <- list(lots = rep(make_string_of_size(1), 100))

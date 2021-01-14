@@ -55,6 +55,11 @@ impl MergeExec {
     pub fn new(input: Arc<dyn ExecutionPlan>) -> Self {
         MergeExec { input }
     }
+
+    /// Input execution plan
+    pub fn input(&self) -> &Arc<dyn ExecutionPlan> {
+        &self.input
+    }
 }
 
 #[async_trait]

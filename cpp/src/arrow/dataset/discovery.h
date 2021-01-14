@@ -90,9 +90,9 @@ class ARROW_DS_EXPORT DatasetFactory {
   virtual Result<std::shared_ptr<Dataset>> Finish(FinishOptions options) = 0;
 
   /// \brief Optional root partition for the resulting Dataset.
-  const std::shared_ptr<Expression>& root_partition() const { return root_partition_; }
-  Status SetRootPartition(std::shared_ptr<Expression> partition) {
-    root_partition_ = partition;
+  const Expression& root_partition() const { return root_partition_; }
+  Status SetRootPartition(Expression partition) {
+    root_partition_ = std::move(partition);
     return Status::OK();
   }
 
@@ -101,7 +101,7 @@ class ARROW_DS_EXPORT DatasetFactory {
  protected:
   DatasetFactory();
 
-  std::shared_ptr<Expression> root_partition_;
+  Expression root_partition_;
 };
 
 /// \brief DatasetFactory provides a way to inspect/discover a Dataset's

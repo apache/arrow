@@ -18,16 +18,19 @@
 # under the License.
 
 sources = files(
+  'file-format.cpp',
   'scanner.cpp',
 )
 
 c_headers = files(
   'arrow-dataset-glib.h',
+  'file-format.h',
   'scanner.h',
 )
 
 cpp_headers = files(
   'arrow-dataset-glib.hpp',
+  'file-format.hpp',
   'scanner.hpp',
 )
 

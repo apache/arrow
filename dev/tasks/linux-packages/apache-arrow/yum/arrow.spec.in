@@ -36,6 +36,7 @@
 
 %define use_flight (%{_centos_ver} >= 8)
 %define use_gandiva (%{_centos_ver} >= 8 && %{_arch} != "aarch64")
+%define use_mimalloc (%{_centos_ver} >= 8)
 %define use_ninja (%{_centos_ver} >= 8)
 # TODO: Enable this. This works on local but is fragile on GitHub Actions and
 # Travis CI.
@@ -115,6 +116,9 @@ cd cpp/build
 %endif
 %if %{use_gandiva}
   -DARROW_GANDIVA=ON \
+%endif
+%if %{use_mimalloc}
+  -DARROW_MIMALLOC=ON \
 %endif
   -DARROW_ORC=ON \
   -DARROW_PARQUET=ON \

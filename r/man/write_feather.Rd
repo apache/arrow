@@ -56,4 +56,6 @@ write_feather(mtcars, tf)
 }
 \seealso{
 \link{RecordBatchWriter} for lower-level access to writing Arrow IPC data.
+
+\link{Schema} for information about schemas and metadata handling.
 }

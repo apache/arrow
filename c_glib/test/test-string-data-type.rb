@@ -21,6 +21,11 @@ class TestStringDataType < Test::Unit::TestCase
     assert_equal(Arrow::Type::STRING, data_type.id)
   end
 
+  def test_name
+    data_type = Arrow::StringDataType.new
+    assert_equal("utf8", data_type.name)
+  end
+
   def test_to_s
     data_type = Arrow::StringDataType.new
     assert_equal("string", data_type.to_s)

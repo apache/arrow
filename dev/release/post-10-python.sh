@@ -1,3 +1,5 @@
+#!/bin/bash
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,19 +17,28 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: PR rebase needed labeler
-on:
-  push:
-  pull_request_target:
-    types: [synchronize]
+set -e
+set -o pipefail
 
-jobs:
-  label:
-    name: Label
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checks if PR needs rebase
-        uses: eps1lon/actions-label-merge-conflict@releases/2.x
-        with:
-          dirtyLabel: "needs-rebase"
-          repoToken: "${{ secrets.GITHUB_TOKEN }}"
+SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+if [ "$#" -ne 2 ]; then
+  echo "Usage: $0 <version> <rc-num>"
+  exit
+fi
+
+version=$1
+rc=$2
+
+tmp=$(mktemp -d -t "arrow-post-python.XXXXX")
+${PYTHON:-python} \
+  "${SOURCE_DIR}/download_rc_binaries.py" \
+  ${version} \
+  ${rc} \
+  --dest="${tmp}" \
+  --package_type=python
+twine upload ${tmp}/python-rc/${version}-rc${rc}/*.{whl,tar.gz}
+rm -rf "${tmp}"
+
+echo "Success! The released PyPI packages are available here:"
+echo "  https://pypi.org/project/pyarrow/${version}"

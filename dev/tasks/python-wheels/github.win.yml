@@ -77,15 +77,7 @@ jobs:
       - name: Set up Crossbow
         shell: bash
         run: |
-          pip install \
-            click \
-            github3.py \
-            jinja2 \
-            jira \
-            pygit2 \
-            ruamel.yaml \
-            setuptools_scm \
-            toolz
+          pip install --requirement arrow/dev/tasks/requirements-crossbow.txt
       - name: Upload artifacts
         shell: bash
         run: |

@@ -271,9 +271,15 @@ public class Field {
     return children;
   }
 
-  @JsonInclude(Include.NON_EMPTY)
+  @JsonIgnore
   public Map<String, String> getMetadata() {
     return fieldType.getMetadata();
+  }
+
+  @JsonProperty("metadata")
+  @JsonInclude(Include.NON_EMPTY)
+  List<Map<String, String>> getMetadataForJson() {
+    return convertMetadata(getMetadata());
   }
 
   @Override

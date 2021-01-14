@@ -15,19 +15,28 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: PR labeler
-on:
-  pull_request_target:
-    types: [opened, reopened]
+library(arrow)
 
-jobs:
-  label:
-    name: Label
-    runs-on: ubuntu-latest
-    steps:
-    - name: Assign Github labels
-      uses: actions/labeler@2.2.0
-      with:
-        repo-token: ${{ secrets.GITHUB_TOKEN }}
-        configuration-path: .github/workflows/dev_labeler/labeler.yml
-        sync-labels: true
+if (!dir.exists("extra-tests/files")) {
+  dir.create("extra-tests/files")
+}
+
+source("tests/testthat/helper-data.R")
+
+write_parquet(example_with_metadata, "extra-tests/files/ex_data.parquet")
+
+for (comp in c("lz4", "uncompressed", "zstd")) {
+  if(!codec_is_available(comp)) break
+
+  name <- paste0("extra-tests/files/ex_data_", comp, ".feather")
+  write_feather(example_with_metadata, name, compression = comp)
+}
+
+example_with_metadata_v1 <- example_with_metadata
+example_with_metadata_v1$c <- NULL
+write_feather(example_with_metadata_v1, "extra-tests/files/ex_data_v1.feather", version = 1)
+
+write_ipc_stream(example_with_metadata, "extra-tests/files/ex_data.stream")
+
+write_parquet(example_with_extra_metadata, "extra-tests/files/ex_data_extra_metadata.parquet")
+

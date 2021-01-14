@@ -126,22 +126,40 @@ jobs:
       - name: Fetch Submodules and Tags
         shell: bash
         run: ci/scripts/util_checkout.sh
-      - name: Install Dependencies
+      - name: Install Homebrew Dependencies
         shell: bash
         run: |
           rm -f /usr/local/bin/2to3
           brew update --preinstall
+          brew unlink gcc@8 gcc@9
           brew bundle --file=cpp/Brewfile
           brew bundle --file=c_glib/Brewfile
+      - name: Install Ruby Dependencies
+        run: |
+          export MAKEFLAGS="-j$(sysctl -n hw.ncpu)"
           bundle install --gemfile c_glib/Gemfile
           bundle install --gemfile ruby/Gemfile
           for ruby_package_gemfile in ruby/*/Gemfile; do \
             bundle install --gemfile ${ruby_package_gemfile}
           done
-      - name: Build
-        shell: bash
+      - name: Setup ccache
+        run: |
+          ci/scripts/ccache_setup.sh
+      - name: ccache info
+        id: ccache-info
+        run: |
+          echo "::set-output name=cache-dir::$(ccache --get-config cache_dir)"
+      - name: Cache ccache
+        uses: actions/cache@v2
+        with:
+          path: ${{ steps.ccache-info.outputs.cache-dir }}
+          key: ruby-ccache-macos-${{ hashFiles('cpp/**') }}
+          restore-keys: ruby-ccache-macos-
+      - name: Build C++
         run: |
           ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
+      - name: Build GLib
+        run: |
           ci/scripts/c_glib_build.sh $(pwd) $(pwd)/build
       - name: Test GLib
         shell: bash
@@ -209,19 +227,18 @@ jobs:
         uses: actions/setup-ruby@v1
         with:
           ruby-version: ${{ matrix.ruby-version }}
-      - name: Upgrade MSYS2 (phase1)
+      - name: Upgrade MSYS2
         run: |
-          ridk exec bash ci\scripts\msys2_system_upgrade_phase1.sh
+          ridk exec bash ci\scripts\msys2_system_upgrade.sh
           taskkill /F /FI "MODULES eq msys-2.0.dll"
-      - name: Upgrade MSYS2 (phase2)
+      - name: Clean MSYS2
         run: |
-          ridk exec bash ci\scripts\msys2_system_upgrade_phase2.sh
-          taskkill /F /FI "MODULES eq msys-2.0.dll"
+          ridk exec bash ci\scripts\msys2_system_clean.sh
       - name: Setup MSYS2
         run: |
           ridk exec bash ci\scripts\msys2_setup.sh ruby
       - name: Cache ccache
-        uses: actions/cache@v1
+        uses: actions/cache@v2
         with:
           path: ccache
           key: ruby-ccache-mingw${{ matrix.mingw-n-bits }}-${{ hashFiles('cpp/**') }}
@@ -240,6 +257,16 @@ jobs:
           $build_dir = "$(ridk exec cygpath --unix "$(Get-Location)\build")"
           $ErrorActionPreference = "Continue"
           ridk exec bash ci\scripts\c_glib_build.sh "${source_dir}" "${build_dir}"
+      - name: RubyGems info
+        id: rubygems-info
+        run: |
+          Write-Output "::set-output name=gem-dir::$(ridk exec gem env gemdir)"
+      - name: Cache RubyGems
+        uses: actions/cache@v2
+        with:
+          path: ${{ steps.rubygems-info.outputs.gem-dir }}
+          key: ruby-rubygems-mingw${{ matrix.mingw-n-bits }}-${{ hashFiles('**/Gemfile', 'ruby/*/*.gemspec') }}
+          restore-keys: ruby-rubygems-mingw${{ matrix.mingw-n-bits }}-
       - name: Install test dependencies
         run: |
           bundle install --gemfile c_glib\Gemfile

@@ -42,3 +42,7 @@ if [[ "$(uname -s)" == "Linux" ]]; then
 fi
 
 popd
+
+pushd ${build_dir}
+example/extension-type
+popd

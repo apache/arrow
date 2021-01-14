@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <R_ext/Rdynload.h>  // for R_GetCCallable
 #include <Rdefines.h>
 
 namespace vctrs {

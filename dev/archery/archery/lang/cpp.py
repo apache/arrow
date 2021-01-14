@@ -42,6 +42,7 @@ class CppConfiguration:
                  cc=None, cxx=None, cxx_flags=None,
                  build_type=None, warn_level=None,
                  cpp_package_prefix=None, install_prefix=None, use_conda=None,
+                 build_static=False, build_shared=True,
                  # tests & examples
                  with_tests=None, with_benchmarks=None, with_examples=None,
                  with_integration=None,
@@ -73,6 +74,8 @@ class CppConfiguration:
         self._install_prefix = install_prefix
         self._package_prefix = cpp_package_prefix
         self._use_conda = use_conda
+        self.build_static = build_static
+        self.build_shared = build_shared
 
         self.with_tests = with_tests
         self.with_benchmarks = with_benchmarks
@@ -173,6 +176,7 @@ class CppConfiguration:
 
         yield ("CMAKE_EXPORT_COMPILE_COMMANDS", truthifier(True))
         yield ("CMAKE_BUILD_TYPE", self.build_type)
+        yield ("CMAKE_UNITY_BUILD", True)
 
         if not self.with_lint_only:
             yield ("BUILD_WARNING_LEVEL",
@@ -188,6 +192,9 @@ class CppConfiguration:
         if self._package_prefix is not None:
             yield ("ARROW_DEPENDENCY_SOURCE", "SYSTEM")
             yield ("ARROW_PACKAGE_PREFIX", self._package_prefix)
+
+        yield ("ARROW_BUILD_STATIC", truthifier(self.build_static))
+        yield ("ARROW_BUILD_SHARED", truthifier(self.build_shared))
 
         # Tests and benchmarks
         yield ("ARROW_BUILD_TESTS", truthifier(self.with_tests))

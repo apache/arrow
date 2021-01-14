@@ -158,6 +158,15 @@ pub enum Expr {
         /// List of expressions to feed to the functions as arguments
         args: Vec<Expr>,
     },
+    /// Returns whether the list contains the expr value.
+    InList {
+        /// The expression to compare
+        expr: Box<Expr>,
+        /// A list of values to compare against
+        list: Vec<Expr>,
+        /// Whether the expression is negated
+        negated: bool,
+    },
     /// Represents a reference to all fields in a schema.
     Wildcard,
 }
@@ -224,6 +233,7 @@ impl Expr {
             ),
             Expr::Sort { ref expr, .. } => expr.get_type(schema),
             Expr::Between { .. } => Ok(DataType::Boolean),
+            Expr::InList { .. } => Ok(DataType::Boolean),
             Expr::Wildcard => Err(DataFusionError::Internal(
                 "Wildcard expressions are not valid in a logical query plan".to_owned(),
             )),
@@ -278,6 +288,7 @@ impl Expr {
             } => Ok(left.nullable(input_schema)? || right.nullable(input_schema)?),
             Expr::Sort { ref expr, .. } => expr.nullable(input_schema),
             Expr::Between { ref expr, .. } => expr.nullable(input_schema),
+            Expr::InList { ref expr, .. } => expr.nullable(input_schema),
             Expr::Wildcard => Err(DataFusionError::Internal(
                 "Wildcard expressions are not valid in a logical query plan".to_owned(),
             )),
@@ -387,6 +398,15 @@ impl Expr {
     /// Alias
     pub fn alias(&self, name: &str) -> Expr {
         Expr::Alias(Box::new(self.clone()), name.to_owned())
+    }
+
+    /// InList
+    pub fn in_list(&self, list: Vec<Expr>, negated: bool) -> Expr {
+        Expr::InList {
+            expr: Box::new(self.clone()),
+            list,
+            negated,
+        }
     }
 
     /// Create a sort expression from an existing expression.
@@ -579,6 +599,15 @@ pub fn count_distinct(expr: Expr) -> Expr {
     }
 }
 
+/// Create an in_list expression
+pub fn in_list(expr: Expr, list: Vec<Expr>, negated: bool) -> Expr {
+    Expr::InList {
+        expr: Box::new(expr),
+        list,
+        negated,
+    }
+}
+
 /// Whether it can be represented as a literal expression
 pub trait Literal {
     /// convert the value to a Literal expression
@@ -658,7 +687,14 @@ unary_scalar_expr!(Log2, log2);
 unary_scalar_expr!(Log10, log10);
 unary_scalar_expr!(Lower, lower);
 unary_scalar_expr!(Trim, trim);
+unary_scalar_expr!(Ltrim, ltrim);
+unary_scalar_expr!(Rtrim, rtrim);
 unary_scalar_expr!(Upper, upper);
+unary_scalar_expr!(MD5, md5);
+unary_scalar_expr!(SHA224, sha224);
+unary_scalar_expr!(SHA256, sha256);
+unary_scalar_expr!(SHA384, sha384);
+unary_scalar_expr!(SHA512, sha512);
 
 /// returns the length of a string in bytes
 pub fn length(e: Expr) -> Expr {
@@ -812,6 +848,17 @@ impl fmt::Debug for Expr {
                     write!(f, "{:?} BETWEEN {:?} AND {:?}", expr, low, high)
                 }
             }
+            Expr::InList {
+                expr,
+                list,
+                negated,
+            } => {
+                if *negated {
+                    write!(f, "{:?} NOT IN ({:?})", expr, list)
+                } else {
+                    write!(f, "{:?} IN ({:?})", expr, list)
+                }
+            }
             Expr::Wildcard => write!(f, "*"),
         }
     }
@@ -903,6 +950,19 @@ fn create_name(e: &Expr, input_schema: &DFSchema) -> Result<String> {
                 names.push(create_name(e, input_schema)?);
             }
             Ok(format!("{}({})", fun.name, names.join(",")))
+        }
+        Expr::InList {
+            expr,
+            list,
+            negated,
+        } => {
+            let expr = create_name(expr, input_schema)?;
+            let list = list.iter().map(|expr| create_name(expr, input_schema));
+            if *negated {
+                Ok(format!("{:?} NOT IN ({:?})", expr, list))
+            } else {
+                Ok(format!("{:?} IN ({:?})", expr, list))
+            }
         }
         other => Err(DataFusionError::NotImplemented(format!(
             "Physical plan does not support logical expression {:?}",

@@ -16,6 +16,8 @@
 .. under the License.
 
 .. currentmodule:: pyarrow
+.. highlight:: python
+
 .. _io:
 
 ========================
@@ -83,16 +85,14 @@ Memory Pools
 ------------
 
 All memory allocations and deallocations (like ``malloc`` and ``free`` in C)
-are tracked in an instance of ``arrow::MemoryPool``. This means that we can
+are tracked in an instance of :class:`MemoryPool`. This means that we can
 then precisely track amount of memory that has been allocated:
 
 .. ipython:: python
 
    pa.total_allocated_bytes()
 
-PyArrow uses a default built-in memory pool, but in the future there may be
-additional memory pools (and subpools) to choose from. Let's allocate
-a resizable ``Buffer`` from the default pool:
+Let's allocate a resizable :class:`Buffer` from the default pool:
 
 .. ipython:: python
 
@@ -108,6 +108,17 @@ the buffer is garbaged-collected, all of the memory is freed:
 
    buf = None
    pa.total_allocated_bytes()
+
+Besides the default built-in memory pool, there may be additional memory pools
+to choose (such as `mimalloc <https://github.com/microsoft/mimalloc>`_)
+from depending on how Arrow was built.  One can get the backend
+name for a memory pool::
+
+   >>> pa.default_memory_pool().backend_name
+   'jemalloc'
+
+.. seealso::
+   :ref:`API documentation for memory pools <api.memory_pool>`.
 
 .. seealso::
    On-GPU buffers using Arrow's optional :doc:`CUDA integration <cuda>`.

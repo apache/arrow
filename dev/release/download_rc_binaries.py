@@ -135,11 +135,15 @@ ARROW_PACKAGE_TYPES = ['centos', 'debian', 'nuget', 'python', 'ubuntu']
 
 
 def download_rc_binaries(version, rc_number, re_match=None, dest=None,
-                         num_parallel=None):
+                         num_parallel=None, target_package_type=None):
     bintray = Bintray()
 
     version_string = '{}-rc{}'.format(version, rc_number)
-    for package_type in ARROW_PACKAGE_TYPES:
+    if target_package_type:
+        package_types = [target_package_type]
+    else:
+        package_types = ARROW_PACKAGE_TYPES
+    for package_type in package_types:
         files = bintray.get_file_list('{}-rc'.format(package_type),
                                       version_string)
         bintray.download_files(files, re_match=re_match, dest=dest,
@@ -160,7 +164,10 @@ if __name__ == '__main__':
                         help='The output folder for the downloaded files')
     parser.add_argument('--num_parallel', type=int, default=8,
                         help='The number of concurrent downloads to do')
+    parser.add_argument('--package_type', type=str, default=None,
+                        help='The package type to be downloaded')
     args = parser.parse_args()
 
     download_rc_binaries(args.version, args.rc_number, dest=args.dest,
-                         re_match=args.regexp, num_parallel=args.num_parallel)
+                         re_match=args.regexp, num_parallel=args.num_parallel,
+                         target_package_type=args.package_type)

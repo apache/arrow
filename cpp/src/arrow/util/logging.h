@@ -92,33 +92,33 @@ enum class ArrowLogLevel : int {
 // CAUTION: DCHECK_OK() always evaluates its argument, but other DCHECK*() macros
 // only do so in debug mode.
 
-#define DCHECK(condition)                     \
+#define ARROW_DCHECK(condition)               \
   while (false) ARROW_IGNORE_EXPR(condition); \
   while (false) ::arrow::util::detail::NullLog()
-#define DCHECK_OK(s)    \
-  ARROW_IGNORE_EXPR(s); \
+#define ARROW_DCHECK_OK(s) \
+  ARROW_IGNORE_EXPR(s);    \
   while (false) ::arrow::util::detail::NullLog()
-#define DCHECK_EQ(val1, val2)            \
+#define ARROW_DCHECK_EQ(val1, val2)      \
   while (false) ARROW_IGNORE_EXPR(val1); \
   while (false) ARROW_IGNORE_EXPR(val2); \
   while (false) ::arrow::util::detail::NullLog()
-#define DCHECK_NE(val1, val2)            \
+#define ARROW_DCHECK_NE(val1, val2)      \
   while (false) ARROW_IGNORE_EXPR(val1); \
   while (false) ARROW_IGNORE_EXPR(val2); \
   while (false) ::arrow::util::detail::NullLog()
-#define DCHECK_LE(val1, val2)            \
+#define ARROW_DCHECK_LE(val1, val2)      \
   while (false) ARROW_IGNORE_EXPR(val1); \
   while (false) ARROW_IGNORE_EXPR(val2); \
   while (false) ::arrow::util::detail::NullLog()
-#define DCHECK_LT(val1, val2)            \
+#define ARROW_DCHECK_LT(val1, val2)      \
   while (false) ARROW_IGNORE_EXPR(val1); \
   while (false) ARROW_IGNORE_EXPR(val2); \
   while (false) ::arrow::util::detail::NullLog()
-#define DCHECK_GE(val1, val2)            \
+#define ARROW_DCHECK_GE(val1, val2)      \
   while (false) ARROW_IGNORE_EXPR(val1); \
   while (false) ARROW_IGNORE_EXPR(val2); \
   while (false) ::arrow::util::detail::NullLog()
-#define DCHECK_GT(val1, val2)            \
+#define ARROW_DCHECK_GT(val1, val2)      \
   while (false) ARROW_IGNORE_EXPR(val1); \
   while (false) ARROW_IGNORE_EXPR(val2); \
   while (false) ::arrow::util::detail::NullLog()
@@ -126,16 +126,25 @@ enum class ArrowLogLevel : int {
 #else
 #define ARROW_DFATAL ::arrow::util::ArrowLogLevel::ARROW_FATAL
 
-#define DCHECK ARROW_CHECK
-#define DCHECK_OK ARROW_CHECK_OK
-#define DCHECK_EQ ARROW_CHECK_EQ
-#define DCHECK_NE ARROW_CHECK_NE
-#define DCHECK_LE ARROW_CHECK_LE
-#define DCHECK_LT ARROW_CHECK_LT
-#define DCHECK_GE ARROW_CHECK_GE
-#define DCHECK_GT ARROW_CHECK_GT
+#define ARROW_DCHECK ARROW_CHECK
+#define ARROW_DCHECK_OK ARROW_CHECK_OK
+#define ARROW_DCHECK_EQ ARROW_CHECK_EQ
+#define ARROW_DCHECK_NE ARROW_CHECK_NE
+#define ARROW_DCHECK_LE ARROW_CHECK_LE
+#define ARROW_DCHECK_LT ARROW_CHECK_LT
+#define ARROW_DCHECK_GE ARROW_CHECK_GE
+#define ARROW_DCHECK_GT ARROW_CHECK_GT
 
 #endif  // NDEBUG
+
+#define DCHECK ARROW_DCHECK
+#define DCHECK_OK ARROW_DCHECK_OK
+#define DCHECK_EQ ARROW_DCHECK_EQ
+#define DCHECK_NE ARROW_DCHECK_NE
+#define DCHECK_LE ARROW_DCHECK_LE
+#define DCHECK_LT ARROW_DCHECK_LT
+#define DCHECK_GE ARROW_DCHECK_GE
+#define DCHECK_GT ARROW_DCHECK_GT
 
 // This code is adapted from
 // https://github.com/ray-project/ray/blob/master/src/ray/util/logging.h.

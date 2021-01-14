@@ -1594,10 +1594,11 @@ pub enum MapOffset {}
 /// not enforced.
 ///
 /// Map
+/// ```text
 ///   - child[0] entries: Struct
 ///     - child[0] key: K
 ///     - child[1] value: V
-///
+/// ```
 /// Neither the "entries" field nor the "key" field may be nullable.
 ///
 /// The metadata is structured so that Arrow systems without special handling
@@ -1703,7 +1704,7 @@ pub enum UnionOffset {}
 /// A union is a complex type with children in Field
 /// By default ids in the type vector refer to the offsets in the children
 /// optionally typeIds provides an indirection between the child offset and the type id
-/// for each child typeIds[offset] is the id used in the type vector
+/// for each child `typeIds[offset]` is the id used in the type vector
 pub struct Union<'a> {
     pub _tab: flatbuffers::Table<'a>,
 }

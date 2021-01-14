@@ -102,6 +102,13 @@ pub fn expr_to_column_names(expr: &Expr, accum: &mut HashSet<String>) -> Result<
             expr_to_column_names(high, accum)?;
             Ok(())
         }
+        Expr::InList { expr, list, .. } => {
+            expr_to_column_names(expr, accum)?;
+            for list_expr in list {
+                expr_to_column_names(list_expr, accum)?;
+            }
+            Ok(())
+        }
         Expr::Wildcard => Err(DataFusionError::Internal(
             "Wildcard expressions are not valid in a logical query plan".to_owned(),
         )),
@@ -305,6 +312,13 @@ pub fn expr_sub_expressions(expr: &Expr) -> Result<Vec<Expr>> {
             low.as_ref().to_owned(),
             high.as_ref().to_owned(),
         ]),
+        Expr::InList { expr, list, .. } => {
+            let mut expr_list: Vec<Expr> = vec![expr.as_ref().to_owned()];
+            for list_expr in list {
+                expr_list.push(list_expr.to_owned());
+            }
+            Ok(expr_list)
+        }
         Expr::Wildcard { .. } => Err(DataFusionError::Internal(
             "Wildcard expressions are not valid in a logical query plan".to_owned(),
         )),
@@ -416,6 +430,7 @@ pub fn rewrite_expression(expr: &Expr, expressions: &Vec<Expr>) -> Result<Expr> 
                 Ok(expr)
             }
         }
+        Expr::InList { .. } => Ok(expr.clone()),
         Expr::Wildcard { .. } => Err(DataFusionError::Internal(
             "Wildcard expressions are not valid in a logical query plan".to_owned(),
         )),

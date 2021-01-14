@@ -82,11 +82,11 @@ pub struct ParquetExec {
 ///
 /// In the future it would be good to support subsets of files based on ranges of row groups
 /// so that we can better parallelize reads of large files across available cores (see
-/// https://issues.apache.org/jira/browse/ARROW-10995).
+/// [ARROW-10995](https://issues.apache.org/jira/browse/ARROW-10995)).
 ///
 /// We may also want to support reading Parquet files that are partitioned based on a key and
 /// in this case we would want this partition struct to represent multiple files for a given
-/// partition key (see https://issues.apache.org/jira/browse/ARROW-11019).
+/// partition key (see [ARROW-11019](https://issues.apache.org/jira/browse/ARROW-11019)).
 #[derive(Debug, Clone)]
 pub struct ParquetPartition {
     /// The Parquet filename for this partition
@@ -245,7 +245,34 @@ impl ParquetExec {
         }
     }
 
-    /// Provide access to the statistics
+    /// Parquet partitions to read
+    pub fn partitions(&self) -> &[ParquetPartition] {
+        &self.partitions
+    }
+
+    /// Projection for which columns to load
+    pub fn projection(&self) -> &[usize] {
+        &self.projection
+    }
+
+    /// Batch size
+    pub fn batch_size(&self) -> usize {
+        self.batch_size
+    }
+
+    /// Statistics for the data set (sum of statistics for all partitions)
+    pub fn statistics(&self) -> &Statistics {
+        &self.statistics
+    }
+}
+
+impl ParquetPartition {
+    /// The Parquet filename for this partition
+    pub fn filenames(&self) -> &[String] {
+        &self.filenames
+    }
+
+    /// Statistics for this partition
     pub fn statistics(&self) -> &Statistics {
         &self.statistics
     }

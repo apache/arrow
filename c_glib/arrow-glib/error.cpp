@@ -88,9 +88,51 @@ garrow_error_from_status(const arrow::Status &status)
   }
 }
 
+arrow::StatusCode
+garrow_error_to_status_code(GError *error,
+                            arrow::StatusCode default_code)
+{
+  if (error->domain != GARROW_ERROR) {
+    return default_code;
+  }
+
+  switch (error->code) {
+  case GARROW_ERROR_OUT_OF_MEMORY:
+    return arrow::StatusCode::OutOfMemory;
+  case GARROW_ERROR_KEY:
+    return arrow::StatusCode::KeyError;
+  case GARROW_ERROR_TYPE:
+    return arrow::StatusCode::TypeError;
+  case GARROW_ERROR_INVALID:
+    return arrow::StatusCode::Invalid;
+  case GARROW_ERROR_IO:
+    return arrow::StatusCode::IOError;
+  case GARROW_ERROR_CAPACITY:
+    return arrow::StatusCode::CapacityError;
+  case GARROW_ERROR_INDEX:
+    return arrow::StatusCode::IndexError;
+  case GARROW_ERROR_UNKNOWN:
+    return arrow::StatusCode::UnknownError;
+  case GARROW_ERROR_NOT_IMPLEMENTED:
+    return arrow::StatusCode::NotImplemented;
+  case GARROW_ERROR_SERIALIZATION:
+    return arrow::StatusCode::SerializationError;
+  case GARROW_ERROR_CODE_GENERATION:
+    return arrow::StatusCode::CodeGenError;
+  case GARROW_ERROR_EXPRESSION_VALIDATION:
+    return arrow::StatusCode::ExpressionValidationError;
+  case GARROW_ERROR_EXECUTION:
+    return arrow::StatusCode::ExecutionError;
+  case GARROW_ERROR_ALREADY_EXISTS:
+    return arrow::StatusCode::AlreadyExists;
+  default:
+    return default_code;
+  }
+}
+
 arrow::Status
 garrow_error_to_status(GError *error,
-                       arrow::StatusCode code,
+                       arrow::StatusCode default_code,
                        const char *context)
 {
   std::stringstream message;
@@ -98,6 +140,7 @@ garrow_error_to_status(GError *error,
   message << "(" << error->code << "): ";
   message << error->message;
   g_error_free(error);
+  auto code = garrow_error_to_status_code(error, default_code);
   return arrow::Status(code, message.str());
 }
 

@@ -24,6 +24,7 @@ authors = ["Apache Arrow <dev@arrow.apache.org>"]
 homepage = "https://github.com/apache/arrow"
 repository = "https://github.com/apache/arrow"
 license = "Apache-2.0"
+publish = false
 
 [dependencies]
 arrow = { path = "../arrow" }

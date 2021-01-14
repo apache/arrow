@@ -275,6 +275,7 @@ make_valid_version <- function(version, valid_versions = valid_parquet_version) 
 #' "snappy" for the `compression` argument.
 #'
 #' @seealso [write_parquet]
+#' @seealso [Schema] for information about schemas and metadata handling.
 #'
 #' @export
 ParquetWriterProperties <- R6Class("ParquetWriterProperties", inherit = ArrowObject)

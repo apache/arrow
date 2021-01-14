@@ -347,7 +347,9 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
             description="Authenticate using the BasicAuth protobuf."),
         Scenario(
             "middleware",
-            description="Ensure headers are propagated via middleware."),
+            description="Ensure headers are propagated via middleware.",
+            skip={"Rust"}   # TODO(ARROW-10961): tonic upgrade needed
+        ),
     ]
 
     runner = IntegrationRunner(json_files, flight_scenarios, testers, **kwargs)

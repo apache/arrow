@@ -31,6 +31,10 @@ class TestDictionaryDataType < Test::Unit::TestCase
     assert_equal(Arrow::Type::DICTIONARY, @data_type.id)
   end
 
+  def test_name
+    assert_equal("dictionary", @data_type.name)
+  end
+
   def test_to_s
     assert_equal("dictionary<values=string, indices=int32, ordered=1>",
                  @data_type.to_s)

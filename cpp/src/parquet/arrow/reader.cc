@@ -322,6 +322,10 @@ class FileReaderImpl : public FileReader {
     reader_properties_.set_use_threads(use_threads);
   }
 
+  void set_batch_size(int64_t batch_size) override {
+    reader_properties_.set_batch_size(batch_size);
+  }
+
   const ArrowReaderProperties& properties() const override { return reader_properties_; }
 
   const SchemaManifest& manifest() const override { return manifest_; }

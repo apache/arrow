@@ -360,6 +360,20 @@ mod tests {
         let b_slice = b.slice(3, 4);
         assert_eq!(equal(&a_slice, &b_slice), false);
         assert_eq!(equal(&b_slice, &a_slice), false);
+
+        // Test the optimization cases where null_count == 0 and starts at 0 and len >= size_of(u8)
+
+        // Elements fill in `u8`'s exactly.
+        let mut vector = vec![false, false, true, true, true, true, true, true];
+        let a = BooleanArray::from(vector.clone()).data();
+        let b = BooleanArray::from(vector.clone()).data();
+        test_equal(a.as_ref(), b.as_ref(), true);
+
+        // Elements fill in `u8`s + suffix bits.
+        vector.push(true);
+        let a = BooleanArray::from(vector.clone()).data();
+        let b = BooleanArray::from(vector).data();
+        test_equal(a.as_ref(), b.as_ref(), true);
     }
 
     #[test]

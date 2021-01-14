@@ -153,10 +153,25 @@ fn substring(array: PyObject, start: i64, py: Python) -> PyResult<PyObject> {
     to_py(array, py)
 }
 
+/// Returns the concatenate
+#[pyfunction]
+fn concatenate(array: PyObject, py: Python) -> PyResult<PyObject> {
+    // import
+    let array = to_rust(array, py)?;
+
+    // concat
+    let array = kernels::concat::concat(&[array.as_ref(), array.as_ref()])
+        .map_err(|e| PyO3ArrowError::from(e))?;
+
+    // export
+    to_py(array, py)
+}
+
 #[pymodule]
 fn arrow_pyarrow_integration_testing(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(double))?;
     m.add_wrapped(wrap_pyfunction!(double_py))?;
     m.add_wrapped(wrap_pyfunction!(substring))?;
+    m.add_wrapped(wrap_pyfunction!(concatenate))?;
     Ok(())
 }

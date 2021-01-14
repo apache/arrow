@@ -22,7 +22,6 @@
 #endif
 
 #include <cstdint>
-#include <functional>
 #include <memory>
 #include <type_traits>
 #include <utility>
@@ -120,7 +119,7 @@ class ARROW_EXPORT Executor {
   Executor() = default;
 
   // Subclassing API
-  virtual Status SpawnReal(TaskHints hints, std::function<void()> task) = 0;
+  virtual Status SpawnReal(TaskHints hints, FnOnce<void()> task) = 0;
 };
 
 // An Executor implementation spawning tasks in FIFO manner on a fixed-size
@@ -167,7 +166,7 @@ class ARROW_EXPORT ThreadPool : public Executor {
 
   ThreadPool();
 
-  Status SpawnReal(TaskHints hints, std::function<void()> task) override;
+  Status SpawnReal(TaskHints hints, FnOnce<void()> task) override;
 
   // Collect finished worker threads, making sure the OS threads have exited
   void CollectFinishedWorkersUnlocked();

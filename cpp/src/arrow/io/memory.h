@@ -145,7 +145,7 @@ class ARROW_EXPORT FixedSizeBufferWriter : public WritableFile {
 class ARROW_EXPORT BufferReader
     : public internal::RandomAccessFileConcurrencyWrapper<BufferReader> {
  public:
-  explicit BufferReader(const std::shared_ptr<Buffer>& buffer);
+  explicit BufferReader(std::shared_ptr<Buffer> buffer);
   explicit BufferReader(const Buffer& buffer);
   BufferReader(const uint8_t* data, int64_t size);
 

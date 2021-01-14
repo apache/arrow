@@ -52,6 +52,11 @@ impl ParquetTable {
             max_concurrency,
         })
     }
+
+    /// Get the path for the Parquet file(s) represented by this ParquetTable instance
+    pub fn path(&self) -> &str {
+        &self.path
+    }
 }
 
 impl TableProvider for ParquetTable {

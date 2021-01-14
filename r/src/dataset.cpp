@@ -312,10 +312,7 @@ void dataset___ScannerBuilder__Project(const std::shared_ptr<ds::ScannerBuilder>
 // [[arrow::export]]
 void dataset___ScannerBuilder__Filter(const std::shared_ptr<ds::ScannerBuilder>& sb,
                                       const std::shared_ptr<ds::Expression>& expr) {
-  // Expressions converted from R's expressions are typed with R's native type,
-  // i.e. double, int64_t and bool.
-  auto cast_filter = ValueOrStop(InsertImplicitCasts(*expr, *sb->schema()));
-  StopIfNotOk(sb->Filter(cast_filter));
+  StopIfNotOk(sb->Filter(*expr));
 }
 
 // [[arrow::export]]

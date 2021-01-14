@@ -24,7 +24,7 @@ use crate::ipc;
 use flatbuffers::{
     FlatBufferBuilder, ForwardsUOffset, UnionWIPOffset, Vector, WIPOffset,
 };
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use DataType::*;
 
@@ -72,7 +72,7 @@ pub fn schema_to_fb_offset<'a>(
 /// Convert an IPC Field to Arrow Field
 impl<'a> From<ipc::Field<'a>> for Field {
     fn from(field: ipc::Field) -> Field {
-        if let Some(dictionary) = field.dictionary() {
+        let mut arrow_field = if let Some(dictionary) = field.dictionary() {
             Field::new_dict(
                 field.name().unwrap(),
                 get_data_type(field, true),
@@ -86,7 +86,21 @@ impl<'a> From<ipc::Field<'a>> for Field {
                 get_data_type(field, true),
                 field.nullable(),
             )
+        };
+
+        let mut metadata = None;
+        if let Some(list) = field.custom_metadata() {
+            let mut metadata_map = BTreeMap::default();
+            for kv in list {
+                if let (Some(k), Some(v)) = (kv.key(), kv.value()) {
+                    metadata_map.insert(k.to_string(), v.to_string());
+                }
+            }
+            metadata = Some(metadata_map);
         }
+
+        arrow_field.set_metadata(metadata);
+        arrow_field
     }
 }
 
@@ -313,6 +327,23 @@ pub(crate) fn build_field<'a>(
     fbb: &mut FlatBufferBuilder<'a>,
     field: &Field,
 ) -> WIPOffset<ipc::Field<'a>> {
+    // Optional custom metadata.
+    let mut fb_metadata = None;
+    if let Some(metadata) = field.metadata() {
+        if !metadata.is_empty() {
+            let mut kv_vec = vec![];
+            for (k, v) in metadata {
+                let kv_args = ipc::KeyValueArgs {
+                    key: Some(fbb.create_string(k.as_str())),
+                    value: Some(fbb.create_string(v.as_str())),
+                };
+                let kv_offset = ipc::KeyValue::create(fbb, &kv_args);
+                kv_vec.push(kv_offset);
+            }
+            fb_metadata = Some(fbb.create_vector(&kv_vec));
+        }
+    };
+
     let fb_field_name = fbb.create_string(field.name().as_str());
     let field_type = get_fb_field_type(field.data_type(), field.is_nullable(), fbb);
 
@@ -343,6 +374,11 @@ pub(crate) fn build_field<'a>(
         Some(children) => field_builder.add_children(children),
     };
     field_builder.add_type_(field_type.type_);
+
+    if let Some(fb_metadata) = fb_metadata {
+        field_builder.add_custom_metadata(fb_metadata);
+    }
+
     field_builder.finish()
 }
 
@@ -655,9 +691,17 @@ mod tests {
             .iter()
             .cloned()
             .collect();
+        let field_md: BTreeMap<String, String> = [("k".to_string(), "v".to_string())]
+            .iter()
+            .cloned()
+            .collect();
         let schema = Schema::new_with_metadata(
             vec![
-                Field::new("uint8", DataType::UInt8, false),
+                {
+                    let mut f = Field::new("uint8", DataType::UInt8, false);
+                    f.set_metadata(Some(field_md));
+                    f
+                },
                 Field::new("uint16", DataType::UInt16, true),
                 Field::new("uint32", DataType::UInt32, false),
                 Field::new("uint64", DataType::UInt64, true),

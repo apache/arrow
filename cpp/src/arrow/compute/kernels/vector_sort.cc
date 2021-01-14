@@ -1526,6 +1526,8 @@ class MultipleKeyTableSorter : public TypeVisitor {
 // ----------------------------------------------------------------------
 // Top-level sort functions
 
+const auto kDefaultSortOptions = SortOptions::Defaults();
+
 const FunctionDoc sort_indices_doc(
     "Return the indices that would sort an array, record batch or table",
     ("This function computes an array of indices that define a stable sort\n"
@@ -1538,7 +1540,8 @@ const FunctionDoc sort_indices_doc(
 class SortIndicesMetaFunction : public MetaFunction {
  public:
   SortIndicesMetaFunction()
-      : MetaFunction("sort_indices", Arity::Unary(), &sort_indices_doc) {}
+      : MetaFunction("sort_indices", Arity::Unary(), &sort_indices_doc,
+                     &kDefaultSortOptions) {}
 
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options,
@@ -1682,6 +1685,8 @@ class SortIndicesMetaFunction : public MetaFunction {
   }
 };
 
+const auto kDefaultArraySortOptions = ArraySortOptions::Defaults();
+
 const FunctionDoc array_sort_indices_doc(
     "Return the indices that would sort an array",
     ("This function computes an array of indices that define a stable sort\n"
@@ -1717,7 +1722,8 @@ void RegisterVectorSort(FunctionRegistry* registry) {
   base.null_handling = NullHandling::OUTPUT_NOT_NULL;
 
   auto array_sort_indices = std::make_shared<VectorFunction>(
-      "array_sort_indices", Arity::Unary(), &array_sort_indices_doc);
+      "array_sort_indices", Arity::Unary(), &array_sort_indices_doc,
+      &kDefaultArraySortOptions);
   base.init = ArraySortIndicesState::Init;
   AddSortingKernels<ArraySortIndices>(base, array_sort_indices.get());
   DCHECK_OK(registry->AddFunction(std::move(array_sort_indices)));
