@@ -21,11 +21,11 @@
 use ahash::RandomState;
 use arrow::{
     array::{
-        ArrayRef, BooleanArray, LargeStringArray,
-        UInt64Builder, TimestampMicrosecondArray, TimestampNanosecondArray, UInt32Builder
+        ArrayRef, BooleanArray, LargeStringArray, TimestampMicrosecondArray,
+        TimestampNanosecondArray, UInt32Builder, UInt64Builder,
     },
     compute,
-    datatypes::TimeUnit
+    datatypes::TimeUnit,
 };
 use std::time::Instant;
 use std::{any::Any, collections::HashSet};
