@@ -349,7 +349,7 @@ tasks:
       python_version: 3.6
       manylinux_version: 2010
     artifacts:
-      - pyarrow-{no_rc_version}-cp36-cp36m-manylinux2014_x86_64.whl
+      - pyarrow-{no_rc_version}-cp36-cp36m-manylinux2010_x86_64.whl
 
   wheel-manylinux2010-cp37m:
     ci: github
@@ -516,21 +516,21 @@ tasks:
     artifacts:
       - pyarrow-{no_rc_version}-cp37-cp37m-win_amd64.whl
 
-  wheel-windows-cp38m:
+  wheel-windows-cp38:
     ci: github
     template: python-wheels/github.windows.yml
     params:
       python_version: 3.8
     artifacts:
-      - pyarrow-{no_rc_version}-cp38-cp38m-win_amd64.whl
+      - pyarrow-{no_rc_version}-cp38-cp38-win_amd64.whl
 
-  wheel-windows-cp39m:
+  wheel-windows-cp39:
     ci: github
     template: python-wheels/github.windows.yml
     params:
       python_version: 3.9
     artifacts:
-      - pyarrow-{no_rc_version}-cp39-cp39m-win_amd64.whl
+      - pyarrow-{no_rc_version}-cp39-cp39-win_amd64.whl
 
   ############################ Python sdist ####################################
 
@@ -1682,7 +1682,7 @@ tasks:
     template: r/github.linux.cran.yml
     params:
       MATRIX: "${{ matrix.r_image }}"
-      
+
   test-r-version-compatibility:
     ci: github
     template: r/github.linux.version.compatibility.yml
