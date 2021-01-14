@@ -1326,6 +1326,7 @@ endif()
 
 macro(build_protobuf)
   message("Building Protocol Buffers from source")
+  set(PROTOBUF_VENDORED TRUE)
   set(PROTOBUF_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/protobuf_ep-install")
   set(PROTOBUF_INCLUDE_DIR "${PROTOBUF_PREFIX}/include")
   # Newer protobuf releases always have a lib prefix independent from CMAKE_STATIC_LIBRARY_PREFIX
@@ -2447,10 +2448,6 @@ macro(build_grpc)
     add_dependencies(grpc_dependencies rapidjson_ep)
   endif()
 
-  if(NOT DEFINED gRPC_PROTOBUF_PACKAGE_TYPE)
-    set(gRPC_PROTOBUF_PACKAGE_TYPE "CONFIG")
-  endif()
-
   # Yuck, see https://stackoverflow.com/a/45433229/776560
   string(REPLACE ";" "|" GRPC_PREFIX_PATH_ALT_SEP "${GRPC_CMAKE_PREFIX}")
 
@@ -2470,13 +2467,15 @@ macro(build_grpc)
       -DgRPC_GFLAGS_PROVIDER=package
       -DgRPC_MSVC_STATIC_RUNTIME=${ARROW_USE_STATIC_CRT}
       -DgRPC_PROTOBUF_PROVIDER=package
-      -DgRPC_PROTOBUF_PACKAGE_TYPE=${gRPC_PROTOBUF_PACKAGE_TYPE}
       -DgRPC_RE2_PROVIDER=package
       -DgRPC_SSL_PROVIDER=package
       -DgRPC_ZLIB_PROVIDER=package
       -DCMAKE_INSTALL_PREFIX=${GRPC_PREFIX}
       -DCMAKE_INSTALL_LIBDIR=lib
       -DBUILD_SHARED_LIBS=OFF)
+  if(PROTOBUF_VENDORED)
+    list(APPEND GRPC_CMAKE_ARGS -DgRPC_PROTOBUF_PACKAGE_TYPE=CONFIG)
+  endif()
   if(OPENSSL_ROOT_DIR)
     list(APPEND GRPC_CMAKE_ARGS -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR})
   endif()

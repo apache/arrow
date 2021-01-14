@@ -92,7 +92,6 @@ function build_wheel {
           -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
           -DMAKE=make \
           -DProtobuf_SOURCE=SYSTEM \
-          -DgRPC_PROTOBUF_PACKAGE_TYPE=SYSTEM \
           ..
     make -j$(sysctl -n hw.logicalcpu)
     make install
