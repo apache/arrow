@@ -20,16 +20,12 @@
 
 use ahash::RandomState;
 use arrow::{
-<<<<<<< HEAD
-    array::{ArrayRef, BooleanArray, LargeStringArray, UInt64Builder},
-=======
-    array::{ArrayRef, Float32Array, Float64Array, UInt64Builder},
->>>>>>> upstream/master
+    array::{
+        ArrayRef, BooleanArray, LargeStringArray,
+        UInt64Builder, TimestampMicrosecondArray, TimestampNanosecondArray, UInt32Builder
+    },
     compute,
-};
-use arrow::{
-    array::{TimestampMicrosecondArray, TimestampNanosecondArray, UInt32Builder},
-    datatypes::TimeUnit,
+    datatypes::TimeUnit
 };
 use std::time::Instant;
 use std::{any::Any, collections::HashSet};
