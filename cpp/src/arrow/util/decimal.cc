@@ -842,8 +842,8 @@ Status DecimalAnyWidth<width>::ToArrowStatus(DecimalStatus dstatus) const {
   return arrow::ToArrowStatus(dstatus, width);
 }
 
-template class DecimalAnyWidth<16>;
-template class DecimalAnyWidth<32>;
-template class DecimalAnyWidth<64>;
+template class ARROW_EXPORT DecimalAnyWidth<16>;
+template class ARROW_EXPORT DecimalAnyWidth<32>;
+template class ARROW_EXPORT DecimalAnyWidth<64>;
 
 }  // namespace arrow

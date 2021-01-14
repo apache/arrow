@@ -338,7 +338,7 @@ ARROW_EXPORT BasicDecimal256 operator/(const BasicDecimal256& left,
 
 
 template<uint32_t width>
-class BasicDecimalAnyWidth {
+class ARROW_EXPORT BasicDecimalAnyWidth {
  public:
   using ValueType = typename IntTypes<width>::signed_type;
   /// \brief Empty constructor creates a BasicDecimal256 with a value of 0.

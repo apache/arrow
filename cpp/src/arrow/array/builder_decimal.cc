@@ -72,10 +72,10 @@ Status BaseDecimalBuilder<width>::FinishInternal(std::shared_ptr<ArrayData>* out
   return Status::OK();
 }
 
-template class BaseDecimalBuilder<16>;
-template class BaseDecimalBuilder<32>;
-template class BaseDecimalBuilder<64>;
-template class BaseDecimalBuilder<128>;
-template class BaseDecimalBuilder<256>;
+template class ARROW_EXPORT BaseDecimalBuilder<16>;
+template class ARROW_EXPORT BaseDecimalBuilder<32>;
+template class ARROW_EXPORT BaseDecimalBuilder<64>;
+template class ARROW_EXPORT BaseDecimalBuilder<128>;
+template class ARROW_EXPORT BaseDecimalBuilder<256>;
 
 }  // namespace arrow

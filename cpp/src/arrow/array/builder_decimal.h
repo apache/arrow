@@ -31,7 +31,7 @@
 namespace arrow {
 
 template<uint32_t width>
-class BaseDecimalBuilder : public FixedSizeBinaryBuilder {
+class ARROW_EXPORT BaseDecimalBuilder : public FixedSizeBinaryBuilder {
 public:
   using TypeClass = typename DecimalTypeTraits<width>::TypeClass;
   using ArrayType = typename DecimalTypeTraits<width>::ArrayType;

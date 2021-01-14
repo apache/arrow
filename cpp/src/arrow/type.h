@@ -895,7 +895,7 @@ class ARROW_EXPORT DecimalType : public FixedSizeBinaryType {
 
 /// \brief Template type class for decimal data
 template<uint32_t width>
-class BaseDecimalType : public DecimalType {
+class ARROW_EXPORT BaseDecimalType : public DecimalType {
  public:
   static constexpr const char* type_name() { return DecimalMeta<width>::name; }
 

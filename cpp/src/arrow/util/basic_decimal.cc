@@ -1245,8 +1245,8 @@ BasicDecimalAnyWidth<width> BasicDecimalAnyWidth<width>::IncreaseScaleBy(int32_t
   return (*this) * ScaleMultipliersAnyWidth<width>::value[increase_by];
 }
 
-template class BasicDecimalAnyWidth<64>;
-template class BasicDecimalAnyWidth<32>;
-template class BasicDecimalAnyWidth<16>;
+template class ARROW_EXPORT BasicDecimalAnyWidth<64>;
+template class ARROW_EXPORT BasicDecimalAnyWidth<32>;
+template class ARROW_EXPORT BasicDecimalAnyWidth<16>;
 
 }  // namespace arrow
