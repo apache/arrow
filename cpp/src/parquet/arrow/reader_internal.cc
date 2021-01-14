@@ -413,7 +413,7 @@ struct DecimalConverter<DecimalArrayType, FLBAType> {
 
     // The byte width of each decimal value
     const int32_t type_length =
-        static_cast<const ::arrow::DecimalType&>(*type).byte_width();
+        checked_cast<const ::arrow::DecimalType&>(*type).byte_width();
 
     // number of elements in the entire array
     const int64_t length = fixed_size_binary_array.length();
@@ -462,10 +462,10 @@ struct DecimalConverter<DecimalArrayType, ByteArrayType> {
   static inline Status ConvertToDecimal(const Array& array,
                                         const std::shared_ptr<DataType>& type,
                                         MemoryPool* pool, std::shared_ptr<Array>* out) {
-    const auto& binary_array = static_cast<const ::arrow::BinaryArray&>(array);
+    const auto& binary_array = checked_cast<const ::arrow::BinaryArray&>(array);
     const int64_t length = binary_array.length();
 
-    const auto& decimal_type = static_cast<const ::arrow::Decimal128Type&>(*type);
+    const auto& decimal_type = checked_cast<const ::arrow::DecimalType&>(*type);
     const int64_t type_length = decimal_type.byte_width();
 
     ARROW_ASSIGN_OR_RAISE(auto data, ::arrow::AllocateBuffer(length * type_length, pool));
@@ -481,7 +481,7 @@ struct DecimalConverter<DecimalArrayType, ByteArrayType> {
       const uint8_t* record_loc = binary_array.GetValue(i, &record_len);
 
       if (record_len < 0 || record_len > type_length) {
-        return Status::Invalid("Invalid BYTE_ARRAY length for Decimal128");
+        return Status::Invalid("Invalid BYTE_ARRAY length for ", type->ToString());
       }
 
       auto out_ptr_view = reinterpret_cast<uint64_t*>(out_ptr);
@@ -531,7 +531,7 @@ static Status DecimalIntegerTransfer(RecordReader* reader, MemoryPool* pool,
 
   const auto values = reinterpret_cast<const ElementType*>(reader->values());
 
-  const auto& decimal_type = static_cast<const ::arrow::DecimalType&>(*type);
+  const auto& decimal_type = checked_cast<const ::arrow::DecimalType&>(*type);
   const int64_t type_length = decimal_type.byte_width();
 
   ARROW_ASSIGN_OR_RAISE(auto data, ::arrow::AllocateBuffer(length * type_length, pool));
@@ -557,10 +557,10 @@ static Status DecimalIntegerTransfer(RecordReader* reader, MemoryPool* pool,
   return Status::OK();
 }
 
-/// \brief Convert an arrow::BinaryArray to an arrow::Decimal128Array
+/// \brief Convert an arrow::BinaryArray to an arrow::Decimal{128,256}Array
 /// We do this by:
 /// 1. Creating an arrow::BinaryArray from the RecordReader's builder
-/// 2. Allocating a buffer for the arrow::Decimal128Array
+/// 2. Allocating a buffer for the arrow::Decimal{128,256}Array
 /// 3. Converting the big-endian bytes in each BinaryArray entry to two integers
 ///    representing the high and low bits of each decimal value.
 template <typename DecimalArrayType, typename ParquetType>
@@ -677,7 +677,7 @@ Status TransferColumnData(RecordReader* reader, std::shared_ptr<DataType> value_
 
     case ::arrow::Type::TIMESTAMP: {
       const ::arrow::TimestampType& timestamp_type =
-          static_cast<::arrow::TimestampType&>(*value_type);
+          checked_cast<::arrow::TimestampType&>(*value_type);
       switch (timestamp_type.unit()) {
         case ::arrow::TimeUnit::MILLI:
         case ::arrow::TimeUnit::MICRO: {

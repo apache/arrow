@@ -3874,7 +3874,11 @@ def test_array_protocol_pandas_extension_types(monkeypatch):
 def _Int64Dtype__from_arrow__(self, array):
     # for test only deal with single chunk for now
     # TODO: do we require handling of chunked arrays in the protocol?
-    arr = array.chunk(0)
+    if isinstance(array, pa.Array):
+        arr = array
+    else:
+        # ChunkedArray - here only deal with a single chunk for the test
+        arr = array.chunk(0)
     buflist = arr.buffers()
     data = np.frombuffer(buflist[-1], dtype='int64')[
         arr.offset:arr.offset + len(arr)]

@@ -126,7 +126,7 @@ jobs:
       - name: Fetch Submodules and Tags
         shell: bash
         run: ci/scripts/util_checkout.sh
-      - name: Install Dependencies
+      - name: Install Homebrew Dependencies
         shell: bash
         run: |
           rm -f /usr/local/bin/2to3
@@ -134,15 +134,32 @@ jobs:
           brew unlink gcc@8 gcc@9
           brew bundle --file=cpp/Brewfile
           brew bundle --file=c_glib/Brewfile
+      - name: Install Ruby Dependencies
+        run: |
+          export MAKEFLAGS="-j$(sysctl -n hw.ncpu)"
           bundle install --gemfile c_glib/Gemfile
           bundle install --gemfile ruby/Gemfile
           for ruby_package_gemfile in ruby/*/Gemfile; do \
             bundle install --gemfile ${ruby_package_gemfile}
           done
-      - name: Build
-        shell: bash
+      - name: Setup ccache
+        run: |
+          ci/scripts/ccache_setup.sh
+      - name: ccache info
+        id: ccache-info
+        run: |
+          echo "::set-output name=cache-dir::$(ccache --get-config cache_dir)"
+      - name: Cache ccache
+        uses: actions/cache@v2
+        with:
+          path: ${{ steps.ccache-info.outputs.cache-dir }}
+          key: ruby-ccache-macos-${{ hashFiles('cpp/**') }}
+          restore-keys: ruby-ccache-macos-
+      - name: Build C++
         run: |
           ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
+      - name: Build GLib
+        run: |
           ci/scripts/c_glib_build.sh $(pwd) $(pwd)/build
       - name: Test GLib
         shell: bash

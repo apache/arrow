@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,28 +17,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-library(arrow)
+set -eux
 
-if (!dir.exists("extra-tests/files")) {
-  dir.create("extra-tests/files")
-}
-
-source("tests/testthat/helper-data.R")
-
-write_parquet(example_with_metadata, "extra-tests/files/ex_data.parquet")
-
-for (comp in c("lz4", "uncompressed", "zstd")) {
-  if(!codec_is_available(comp)) break
-
-  name <- paste0("extra-tests/files/ex_data_", comp, ".feather")
-  write_feather(example_with_metadata, name, compression = comp)
-}
-
-example_with_metadata_v1 <- example_with_metadata
-example_with_metadata_v1$c <- NULL
-write_feather(example_with_metadata_v1, "extra-tests/files/ex_data_v1.feather", version = 1)
-
-write_ipc_stream(example_with_metadata, "extra-tests/files/ex_data.stream")
-
-write_parquet(example_with_extra_metadata, "extra-tests/files/ex_data_extra_metadata.parquet")
-
+echo "ARROW_USE_CCACHE=ON" >> $GITHUB_ENV
+echo "CCACHE_COMPILERCHECK=content" >> $GITHUB_ENV
+echo "CCACHE_COMPRESS=1" >> $GITHUB_ENV
+echo "CCACHE_COMPRESSLEVEL=6" >> $GITHUB_ENV
+echo "CCACHE_MAXSIZE=500M" >> $GITHUB_ENV

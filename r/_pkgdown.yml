@@ -85,7 +85,7 @@ reference:
 - title: C++ reader/writer interface
   contents:
   - ParquetFileReader
-  - ParquetReaderProperties
+  - ParquetArrowReaderProperties
   - ParquetFileWriter
   - ParquetWriterProperties
   - FeatherReader
@@ -143,11 +143,17 @@ reference:
   - compression
   - Codec
   - codec_is_available
+- title: Computation
+  contents:
+  - match_arrow
 - title: Configuration
   contents:
+  - arrow_info
   - cpu_count
-- title: Installation helpers
-  contents:
   - arrow_available
   - install_arrow
   - install_pyarrow
+
+repo:
+  url:
+    source: https://github.com/apache/arrow/blob/master/r/

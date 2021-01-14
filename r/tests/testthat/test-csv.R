@@ -19,6 +19,8 @@ context("CsvTableReader")
 
 # Not all types round trip via CSV 100% identical by default
 tbl <- example_data[, c("dbl", "lgl", "false", "chr")]
+# Add a date to test its parsing
+tbl$date <- Sys.Date() + 1:10
 
 test_that("Can read csv file", {
   tf <- tempfile()

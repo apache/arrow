@@ -1109,3 +1109,36 @@ def test_sort_indices_table():
 
     with pytest.raises(ValueError, match="not a valid order"):
         pc.sort_indices(table, sort_keys=[("a", "nonscending")])
+
+
+def test_is_in():
+    arr = pa.array([1, 2, None, 1, 2, 3])
+
+    result = pc.is_in(arr, value_set=pa.array([1, 3, None]))
+    assert result.to_pylist() == [True, False, True, True, False, True]
+
+    result = pc.is_in(arr, value_set=pa.array([1, 3, None]), skip_nulls=True)
+    assert result.to_pylist() == [True, False, False, True, False, True]
+
+    result = pc.is_in(arr, value_set=pa.array([1, 3]))
+    assert result.to_pylist() == [True, False, False, True, False, True]
+
+    result = pc.is_in(arr, value_set=pa.array([1, 3]), skip_nulls=True)
+    assert result.to_pylist() == [True, False, False, True, False, True]
+
+
+def test_index_in():
+    arr = pa.array([1, 2, None, 1, 2, 3])
+
+    result = pc.index_in(arr, value_set=pa.array([1, 3, None]))
+    assert result.to_pylist() == [0, None, 2, 0, None, 1]
+
+    result = pc.index_in(arr, value_set=pa.array([1, 3, None]),
+                         skip_nulls=True)
+    assert result.to_pylist() == [0, None, None, 0, None, 1]
+
+    result = pc.index_in(arr, value_set=pa.array([1, 3]))
+    assert result.to_pylist() == [0, None, None, 0, None, 1]
+
+    result = pc.index_in(arr, value_set=pa.array([1, 3]), skip_nulls=True)
+    assert result.to_pylist() == [0, None, None, 0, None, 1]

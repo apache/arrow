@@ -20,9 +20,9 @@ add_custom_target(arrow_flight)
 arrow_install_all_headers("arrow/flight")
 
 set(ARROW_FLIGHT_STATIC_LINK_LIBS
+    gRPC::grpc++
     ${ABSL_LIBRARIES}
     ${ARROW_PROTOBUF_LIBPROTOBUF}
-    gRPC::grpc++
     c-ares::cares
     ZLIB::ZLIB)
 

@@ -2350,6 +2350,10 @@ macro(build_grpc)
       strings
       strings_internal
       symbolize
+      # symbolize depends on debugging_internal
+      debugging_internal
+      # debugging_internal depends on demangle_internal
+      demangle_internal
       synchronization
       throw_delegate
       time

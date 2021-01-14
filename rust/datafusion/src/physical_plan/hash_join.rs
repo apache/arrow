@@ -20,7 +20,11 @@
 
 use ahash::RandomState;
 use arrow::{
+<<<<<<< HEAD
     array::{ArrayRef, BooleanArray, LargeStringArray, UInt64Builder},
+=======
+    array::{ArrayRef, Float32Array, Float64Array, UInt64Builder},
+>>>>>>> upstream/master
     compute,
 };
 use arrow::{

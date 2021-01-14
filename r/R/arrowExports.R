@@ -1056,6 +1056,14 @@ MemoryPool__max_memory <- function(pool){
     .Call(`_arrow_MemoryPool__max_memory` , pool)
 }
 
+MemoryPool__backend_name <- function(pool){
+    .Call(`_arrow_MemoryPool__backend_name` , pool)
+}
+
+supported_memory_backends <- function(){
+    .Call(`_arrow_supported_memory_backends` )
+}
+
 ipc___Message__body_length <- function(message){
     .Call(`_arrow_ipc___Message__body_length` , message)
 }

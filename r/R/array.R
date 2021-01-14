@@ -248,6 +248,9 @@ length.Array <- function(x) x$length()
 is.na.Array <- function(x) call_function("is_null", x)
 
 #' @export
+is.nan.Array <- function(x) call_function("is_nan", x)
+
+#' @export
 as.vector.Array <- function(x, mode) x$as_vector()
 
 filter_rows <- function(x, i, keep_na = TRUE, ...) {

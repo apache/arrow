@@ -35,8 +35,8 @@ use arrow::error::{ArrowError, Result as ArrowResult};
 use arrow::record_batch::RecordBatch;
 use arrow::{
     array::{
-        ArrayRef, Int16Array, Int32Array, Int64Array, Int8Array, StringArray,
-        UInt16Array, UInt32Array, UInt64Array, UInt8Array,
+        ArrayRef, Float32Array, Float64Array, Int16Array, Int32Array, Int64Array,
+        Int8Array, StringArray, UInt16Array, UInt32Array, UInt64Array, UInt8Array,
     },
     compute,
 };
@@ -48,6 +48,7 @@ use super::{
 };
 use ahash::RandomState;
 use hashbrown::HashMap;
+use ordered_float::OrderedFloat;
 
 use arrow::array::{TimestampMicrosecondArray, TimestampNanosecondArray};
 use async_trait::async_trait;
@@ -355,8 +356,6 @@ fn group_aggregate_batch(
 }
 
 /// Create a key `Vec<u8>` that is used as key for the hashmap
-
-/// Create a key `Vec<u8>` that is used as key for the hashmap
 pub(crate) fn create_key(
     group_by_keys: &[ArrayRef],
     row: usize,
@@ -365,6 +364,14 @@ pub(crate) fn create_key(
     vec.clear();
     for col in group_by_keys {
         match col.data_type() {
+            DataType::Float32 => {
+                let array = col.as_any().downcast_ref::<Float32Array>().unwrap();
+                vec.extend_from_slice(&array.value(row).to_le_bytes());
+            }
+            DataType::Float64 => {
+                let array = col.as_any().downcast_ref::<Float64Array>().unwrap();
+                vec.extend_from_slice(&array.value(row).to_le_bytes());
+            }
             DataType::UInt8 => {
                 let array = col.as_any().downcast_ref::<UInt8Array>().unwrap();
                 vec.extend_from_slice(&array.value(row).to_le_bytes());
@@ -762,6 +769,14 @@ fn create_batch_from_map(
             // 2.
             let mut groups = (0..num_group_expr)
                 .map(|i| match &group_by_values[i] {
+                    GroupByScalar::Float32(n) => {
+                        Arc::new(Float32Array::from(vec![(*n).into()] as Vec<f32>))
+                            as ArrayRef
+                    }
+                    GroupByScalar::Float64(n) => {
+                        Arc::new(Float64Array::from(vec![(*n).into()] as Vec<f64>))
+                            as ArrayRef
+                    }
                     GroupByScalar::Int8(n) => {
                         Arc::new(Int8Array::from(vec![*n])) as ArrayRef
                     }
@@ -853,6 +868,14 @@ pub(crate) fn create_group_by_values(
     for i in 0..group_by_keys.len() {
         let col = &group_by_keys[i];
         match col.data_type() {
+            DataType::Float32 => {
+                let array = col.as_any().downcast_ref::<Float32Array>().unwrap();
+                vec[i] = GroupByScalar::Float32(OrderedFloat::from(array.value(row)))
+            }
+            DataType::Float64 => {
+                let array = col.as_any().downcast_ref::<Float64Array>().unwrap();
+                vec[i] = GroupByScalar::Float64(OrderedFloat::from(array.value(row)))
+            }
             DataType::UInt8 => {
                 let array = col.as_any().downcast_ref::<UInt8Array>().unwrap();
                 vec[i] = GroupByScalar::UInt8(array.value(row))

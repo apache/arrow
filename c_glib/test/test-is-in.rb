@@ -29,20 +29,20 @@ class TestIsIn < Test::Unit::TestCase
     def test_null_in_left
       left = build_int16_array([1, 0, nil, 2])
       right = build_int16_array([2, 0, 3])
-      assert_equal(build_boolean_array([false, true, nil, true]),
+      assert_equal(build_boolean_array([false, true, false, true]),
                    left.is_in(right))
     end
 
     def test_null_in_right
       left = build_int16_array([1, 0, 1, 2])
-      right = build_int16_array([2, 0, nil, 2, 0])
+      right = build_int16_array([2, 0, nil])
       assert_equal(build_boolean_array([false, true, false, true]),
                    left.is_in(right))
     end
 
     def test_null_in_both
       left = build_int16_array([1, 0, nil, 2])
-      right = build_int16_array([2, 0, nil, 2, 0, nil])
+      right = build_int16_array([2, 0, nil])
       assert_equal(build_boolean_array([false, true, true, true]),
                    left.is_in(right))
     end
@@ -52,8 +52,8 @@ class TestIsIn < Test::Unit::TestCase
     def test_no_null
       left = build_int16_array([1, 0, 1, 2])
       chunks = [
-        build_int16_array([1, 0]),
-        build_int16_array([1, 0, 3])
+        build_int16_array([1, 4]),
+        build_int16_array([3, 0])
       ]
       right = Arrow::ChunkedArray.new(chunks)
       assert_equal(build_boolean_array([true, true, true, false]),
@@ -63,19 +63,19 @@ class TestIsIn < Test::Unit::TestCase
     def test_null_in_left
       left = build_int16_array([1, 0, nil, 2])
       chunks = [
-        build_int16_array([2, 0, 3]),
-        build_int16_array([3, 0, 2, 2])
+        build_int16_array([2, 0]),
+        build_int16_array([3, 4])
       ]
       right = Arrow::ChunkedArray.new(chunks)
-      assert_equal(build_boolean_array([false, true, nil, true]),
+      assert_equal(build_boolean_array([false, true, false, true]),
                    left.is_in_chunked_array(right))
     end
 
     def test_null_in_right
       left = build_int16_array([1, 0, 1, 2])
       chunks = [
-        build_int16_array([2, 0, nil, 2, 0]),
-        build_int16_array([2, 3, nil])
+        build_int16_array([2, 0]),
+        build_int16_array([3, nil])
       ]
       right = Arrow::ChunkedArray.new(chunks)
       assert_equal(build_boolean_array([false, true, false, true]),
@@ -85,8 +85,8 @@ class TestIsIn < Test::Unit::TestCase
     def test_null_in_both
       left = build_int16_array([1, 0, nil, 2])
       chunks = [
-        build_int16_array([2, 0, nil, 2, 0, nil]),
-        build_int16_array([2, 3, nil])
+        build_int16_array([2, 0]),
+        build_int16_array([3, nil])
       ]
       right = Arrow::ChunkedArray.new(chunks)
       assert_equal(build_boolean_array([false, true, true, true]),

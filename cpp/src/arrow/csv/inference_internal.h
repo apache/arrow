@@ -31,6 +31,7 @@ enum class InferKind {
   Integer,
   Boolean,
   Real,
+  Date,
   Timestamp,
   TextDict,
   BinaryDict,
@@ -56,6 +57,8 @@ class InferStatus {
       case InferKind::Integer:
         return SetKind(InferKind::Boolean);
       case InferKind::Boolean:
+        return SetKind(InferKind::Date);
+      case InferKind::Date:
         return SetKind(InferKind::Timestamp);
       case InferKind::Timestamp:
         return SetKind(InferKind::Real);
@@ -106,6 +109,8 @@ class InferStatus {
         return make_converter(int64());
       case InferKind::Boolean:
         return make_converter(boolean());
+      case InferKind::Date:
+        return make_converter(date32());
       case InferKind::Timestamp:
         // We don't support parsing second fractions for now
         return make_converter(timestamp(TimeUnit::SECOND));

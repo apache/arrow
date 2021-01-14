@@ -15,28 +15,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
-library(arrow)
+test_that("default_memory_pool and its attributes", {
+  pool <- default_memory_pool()
+  # Not integer bc can be >2gb, so we cast to double
+  expect_is(pool$bytes_allocated, "numeric")
+  expect_is(pool$max_memory, "numeric")
+  expect_true(pool$backend_name %in% c("system", "jemalloc", "mimalloc"))
 
-if (!dir.exists("extra-tests/files")) {
-  dir.create("extra-tests/files")
-}
+  expect_true(all(supported_memory_backends() %in% c("system", "jemalloc", "mimalloc")))
+})
 
-source("tests/testthat/helper-data.R")
-
-write_parquet(example_with_metadata, "extra-tests/files/ex_data.parquet")
-
-for (comp in c("lz4", "uncompressed", "zstd")) {
-  if(!codec_is_available(comp)) break
-
-  name <- paste0("extra-tests/files/ex_data_", comp, ".feather")
-  write_feather(example_with_metadata, name, compression = comp)
-}
-
-example_with_metadata_v1 <- example_with_metadata
-example_with_metadata_v1$c <- NULL
-write_feather(example_with_metadata_v1, "extra-tests/files/ex_data_v1.feather", version = 1)
-
-write_ipc_stream(example_with_metadata, "extra-tests/files/ex_data.stream")
-
-write_parquet(example_with_extra_metadata, "extra-tests/files/ex_data_extra_metadata.parquet")
-
+test_that("arrow_info()", {
+  expect_is(arrow_info(), "arrow_info")
+  expect_output(print(arrow_info()), "Arrow package version")
+  options(arrow.foo=FALSE)
+  expect_output(print(arrow_info()), "arrow.foo")
+})

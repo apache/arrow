@@ -103,7 +103,7 @@ PyObject* DecimalFromString(PyObject* decimal_constructor,
   DCHECK_NE(string_bytes, nullptr);
 
   return PyObject_CallFunction(decimal_constructor, const_cast<char*>("s#"), string_bytes,
-                               string_size);
+                               static_cast<Py_ssize_t>(string_size));
 }
 
 namespace {

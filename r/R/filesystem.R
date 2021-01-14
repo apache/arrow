@@ -286,9 +286,15 @@ get_path_and_filesystem <- function(x, filesystem = NULL) {
     }
     FileSystem$from_uri(x)
   } else {
+    fs <- filesystem %||% LocalFileSystem$create()
+    path <- ifelse(
+      inherits(fs, "LocalFileSystem"),
+      clean_path_abs(x),
+      clean_path_rel(x)
+    )
     list(
-      fs = filesystem %||% LocalFileSystem$create(),
-      path = clean_path_abs(x)
+      fs = fs,
+      path = path
     )
   }
 }
@@ -402,6 +408,18 @@ s3_bucket <- function(bucket, ...) {
 #' @rdname FileSystem
 #' @export
 SubTreeFileSystem <- R6Class("SubTreeFileSystem", inherit = FileSystem,
+  public = list(
+    print = function(...) {
+      if (inherits(self$base_fs, "LocalFileSystem")) {
+        cat("SubTreeFileSystem: ", "file://", self$base_path, "\n", sep = "")
+      } else if (inherits(self$base_fs, "S3FileSystem")) {
+        cat("SubTreeFileSystem: ", "s3://", self$base_path, "\n", sep = "")
+      } else {
+        cat("SubTreeFileSystem", "\n", sep = "")
+      }
+      invisible(self)
+    }
+  ),
   active = list(
     base_fs = function() {
       fs___SubTreeFileSystem__base_fs(self)
