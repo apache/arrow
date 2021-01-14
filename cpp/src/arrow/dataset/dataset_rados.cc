@@ -37,6 +37,9 @@ namespace dataset {
 
 Result<ScanTaskIterator> RadosFragment::Scan(std::shared_ptr<ScanOptions> options,
                                              std::shared_ptr<ScanContext> context) {
+  options->format = format_;
+  options->partition_expression = partition_expression_;
+
   ScanTaskVector v{std::make_shared<RadosScanTask>(
       std::move(options), std::move(context), std::move(object_), std::move(cluster_))};
   return MakeVectorIterator(v);
@@ -76,25 +79,49 @@ Result<std::shared_ptr<DatasetFactory>> RadosDatasetFactory::Make(
 
 Result<std::vector<std::shared_ptr<Schema>>> RadosDatasetFactory::InspectSchemas(
     InspectOptions options) {
+  std::string object_id = objects_[0]->id();
   librados::bufferlist in, out;
-  int e = cluster_->io_ctx_interface_->exec(objects_[0]->id(),
-                                            cluster_->cls_name_.c_str(), "read", in, out);
-  if (e != 0) {
-    return Status::ExecutionError("call to exec() returned non-zero exit code.");
+  int e;
+
+  switch (options_.format_) {
+    case 1:
+      e = cluster_->io_ctx_interface_->exec(object_id, cluster_->cls_name_.c_str(),
+                                            "read_ipc_schema", in, out);
+      if (e != 0) {
+        return Status::ExecutionError("call to exec() returned non-zero exit code.");
+      }
+      break;
+
+    case 2:
+      e = cluster_->io_ctx_interface_->exec(object_id, cluster_->cls_name_.c_str(),
+                                            "read_parquet_schema", in, out);
+      if (e != 0) {
+        return Status::ExecutionError("call to exec() returned non-zero exit code.");
+      }
+      break;
+
+    default:
+      break;
   }
 
-  /// Deserialize the result Table from the `out` bufferlist.
-  std::shared_ptr<Table> table;
   std::vector<std::shared_ptr<Schema>> schemas;
-  ARROW_RETURN_NOT_OK(deserialize_table_from_bufferlist(&table, out));
-  schemas.push_back(table->schema());
+  ipc::DictionaryMemo empty_memo;
+  io::BufferReader schema_reader((uint8_t*)out.c_str(), out.length());
+  ARROW_ASSIGN_OR_RAISE(auto schema, ipc::ReadSchema(&schema_reader, &empty_memo));
+  schemas.push_back(schema);
+
+  auto partition_schema = options_.partitioning.partitioning()->schema();
+  schemas.push_back(partition_schema);
+
   return schemas;
 }
 
 Result<std::shared_ptr<Dataset>> RadosDatasetFactory::Finish(FinishOptions options) {
   InspectOptions inspect_options_;
-  ARROW_ASSIGN_OR_RAISE(auto schemas_, InspectSchemas(inspect_options_));
-  auto schema = schemas_[0];
+
+  // basically, these two lines make up of Inspect()
+  ARROW_ASSIGN_OR_RAISE(auto schema_vector, InspectSchemas(inspect_options_));
+  ARROW_ASSIGN_OR_RAISE(auto schema, UnifySchemas(schema_vector));
 
   std::shared_ptr<Partitioning> partitioning = options_.partitioning.partitioning();
   if (partitioning == nullptr) {
@@ -106,8 +133,8 @@ Result<std::shared_ptr<Dataset>> RadosDatasetFactory::Finish(FinishOptions optio
   for (auto& object : objects_) {
     auto fixed_path = StripPrefixAndFilename(object->id(), options_.partition_base_dir);
     ARROW_ASSIGN_OR_RAISE(auto partition, partitioning->Parse(fixed_path));
-    fragments.push_back(
-        std::make_shared<RadosFragment>(schema, object, cluster_, partition));
+    fragments.push_back(std::make_shared<RadosFragment>(schema, object, cluster_,
+                                                        options_.format_, partition));
   }
   return RadosDataset::Make(schema, fragments, cluster_);
 }
@@ -165,7 +192,9 @@ Status RadosDataset::Write(RecordBatchVector& batches, RadosDatasetFactoryOption
   ARROW_ASSIGN_OR_RAISE(auto table, Table::FromRecordBatches(batches));
 
   librados::bufferlist in, out;
-  RETURN_NOT_OK(serialize_table_to_bufferlist(table, in));
+
+  if (options.format_ == 1) RETURN_NOT_OK(SerializeTableToIPCStream(table, in));
+  if (options.format_ == 2) RETURN_NOT_OK(SerializeTableToParquetStream(table, in));
 
   auto cluster =
       std::make_shared<RadosCluster>(options.pool_name_, options.ceph_config_path_);
@@ -196,8 +225,9 @@ Result<RecordBatchIterator> RadosScanTask::Execute() {
 
   /// Serialize the filter Expression and projection Schema into
   /// a librados bufferlist.
-  ARROW_RETURN_NOT_OK(serialize_scan_request_to_bufferlist(
-      options_->filter, options_->projector.schema(), in));
+  ARROW_RETURN_NOT_OK(SerializeScanRequestToBufferlist(
+      options_->filter, options_->partition_expression, options_->projector.schema(),
+      options_->format, in));
 
   /// Trigger a CLS function and pass the serialized operations
   /// down to the storage. The resultant Table will be available inside the `out`
@@ -205,12 +235,13 @@ Result<RecordBatchIterator> RadosScanTask::Execute() {
   int e = cluster_->io_ctx_interface_->exec(object_->id(), cluster_->cls_name_.c_str(),
                                             "scan", in, out);
   if (e != 0) {
-    return Status::ExecutionError("call to exec() returned non-zero exit code.");
+    return Status::ExecutionError(
+        "call to exec() in RadosScanTask::Execute() returned non-zero exit code.");
   }
 
   /// Deserialize the result Table from the `out` bufferlist.
   std::shared_ptr<Table> result_table;
-  ARROW_RETURN_NOT_OK(deserialize_table_from_bufferlist(&result_table, out));
+  ARROW_RETURN_NOT_OK(DeserializeTableFromBufferlist(&result_table, out));
 
   /// Verify whether the Schema of the resultant Table is what was asked for,
   if (!options_->schema()->Equals(*(result_table->schema()))) {

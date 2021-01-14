@@ -63,7 +63,13 @@ class ARROW_DS_EXPORT ScanOptions {
   std::shared_ptr<ScanOptions> ReplaceSchema(std::shared_ptr<Schema> schema) const;
 
   // Filter
-  Expression filter = literal(true);
+  std::shared_ptr<Expression> filter = scalar(true);
+
+  // Partition expression
+  std::shared_ptr<Expression> partition_expression = scalar(true);
+
+  // Evaluator for Filter
+  std::shared_ptr<ExpressionEvaluator> evaluator;
 
   // Schema to which record batches will be reconciled
   const std::shared_ptr<Schema>& schema() const { return projector.schema(); }
@@ -89,6 +95,9 @@ class ARROW_DS_EXPORT ScanOptions {
   // This is used by Fragments implementation to apply the column
   // sub-selection optimization.
   std::vector<std::string> MaterializedFields() const;
+
+  // The file format (ipc/parquet)
+  int64_t format;
 
  private:
   explicit ScanOptions(std::shared_ptr<Schema> schema);

@@ -102,7 +102,7 @@ class ARROW_DS_EXPORT MockIoCtx : public IoCtxInterface {
     // Generate a random table and write it to a bufferlist
     librados::bufferlist result;
     auto table = generate_test_table();
-    serialize_table_to_bufferlist(table, result);
+    SerializeTableToIPCStream(table, result);
 
     EXPECT_CALL(*this, read(testing::_, testing::_, testing::_, testing::_))
         .WillOnce(DoAll(testing::SetArgReferee<1>(result), testing::Return(0)));
@@ -184,7 +184,7 @@ TEST_F(TestRadosFragment, Scan) {
   cluster->rados_interface_ = mock_rados_interface;
   cluster->io_ctx_interface_ = mock_ioctx_interface;
 
-  RadosFragment fragment(schema_, object, cluster);
+  RadosFragment fragment(schema_, object, cluster, 1);
 
   AssertFragmentEquals(reader.get(), &fragment, 4);
 }
@@ -209,7 +209,7 @@ TEST_F(TestRadosDataset, GetFragments) {
   RadosFragmentVector fragments;
   for (int i = 0; i < 3; i++) {
     fragments.push_back(
-        std::make_shared<RadosFragment>(schema_, object_vector[i], cluster));
+        std::make_shared<RadosFragment>(schema_, object_vector[i], cluster, 1));
   }
 
   auto batch = generate_test_record_batch();
@@ -234,7 +234,7 @@ TEST_F(TestRadosDataset, ReplaceSchema) {
   RadosFragmentVector fragments;
   for (int i = 0; i < 2; i++) {
     fragments.push_back(
-        std::make_shared<RadosFragment>(schema_, object_vector[i], cluster));
+        std::make_shared<RadosFragment>(schema_, object_vector[i], cluster, 1));
   }
 
   auto dataset = RadosDataset::Make(schema_, fragments, cluster).ValueOrDie();
@@ -271,27 +271,32 @@ TEST_F(TestRadosDataset, IntToCharAndCharToInt) {
 
 TEST_F(TestRadosDataset, SerializeDeserializeScanRequest) {
   auto filter = std::make_shared<OrExpression>("b"_ == 3 or "b"_ == 4);
+  auto partition_expr = std::make_shared<OrExpression>("c"_ == 10 or "c"_ == 12);
   auto schema = arrow::schema({field("i32", int32()), field("f64", float64())});
   librados::bufferlist bl;
-  serialize_scan_request_to_bufferlist(filter, schema, bl);
+  SerializeScanRequestToBufferlist(filter, partition_expr, schema, 2, bl);
 
   librados::bufferlist bl__ = std::move(bl);
   std::shared_ptr<Expression> filter__;
+  std::shared_ptr<Expression> partition_expr__;
   std::shared_ptr<Schema> schema__;
-  deserialize_scan_request_from_bufferlist(&filter__, &schema__, bl__);
+  int64_t format__;
+  DeserializeScanRequestFromBufferlist(&filter__, &partition_expr__, &schema__, &format__,
+                                       bl__);
 
   ASSERT_TRUE(filter__->Equals(*filter));
+  ASSERT_TRUE(partition_expr__->Equals(*partition_expr));
   ASSERT_TRUE(schema__->Equals(schema));
 }
 
 TEST_F(TestRadosDataset, SerializeDeserializeTable) {
   auto table = generate_test_table();
   librados::bufferlist bl;
-  serialize_table_to_bufferlist(table, bl);
+  SerializeTableToIPCStream(table, bl);
 
   librados::bufferlist bl__(bl);
   std::shared_ptr<Table> table__;
-  deserialize_table_from_bufferlist(&table__, bl__);
+  DeserializeTableFromBufferlist(&table__, bl__);
 
   ASSERT_TRUE(table__->Equals(*table));
 }
@@ -313,7 +318,7 @@ TEST_F(TestRadosDataset, EndToEnd) {
   RadosFragmentVector fragments;
   for (int i = 0; i < 3; i++) {
     fragments.push_back(
-        std::make_shared<RadosFragment>(schema_, object_vector[i], cluster));
+        std::make_shared<RadosFragment>(schema_, object_vector[i], cluster, 1));
   }
 
   auto batch = generate_test_record_batch();
