@@ -346,6 +346,48 @@ async fn csv_query_group_by_int_min_max() -> Result<()> {
 }
 
 #[tokio::test]
+async fn csv_query_group_by_float32() -> Result<()> {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_floats_csv(&mut ctx)?;
+
+    let sql =
+        "SELECT COUNT(*) as cnt, c1 FROM aggregate_floats GROUP BY c1 ORDER BY cnt DESC";
+    let actual = execute(&mut ctx, sql).await;
+
+    let expected = vec![
+        vec!["5", "0.00005"],
+        vec!["4", "0.00004"],
+        vec!["3", "0.00003"],
+        vec!["2", "0.00002"],
+        vec!["1", "0.00001"],
+    ];
+    assert_eq!(expected, actual);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn csv_query_group_by_float64() -> Result<()> {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_floats_csv(&mut ctx)?;
+
+    let sql =
+        "SELECT COUNT(*) as cnt, c2 FROM aggregate_floats GROUP BY c2 ORDER BY cnt DESC";
+    let actual = execute(&mut ctx, sql).await;
+
+    let expected = vec![
+        vec!["5", "0.000000000005"],
+        vec!["4", "0.000000000004"],
+        vec!["3", "0.000000000003"],
+        vec!["2", "0.000000000002"],
+        vec!["1", "0.000000000001"],
+    ];
+    assert_eq!(expected, actual);
+
+    Ok(())
+}
+
+#[tokio::test]
 async fn csv_query_group_by_two_columns() -> Result<()> {
     let mut ctx = ExecutionContext::new();
     register_aggregate_csv(&mut ctx)?;
@@ -1320,6 +1362,21 @@ fn register_aggregate_csv(ctx: &mut ExecutionContext) -> Result<()> {
     ctx.register_csv(
         "aggregate_test_100",
         &format!("{}/csv/aggregate_test_100.csv", testdata),
+        CsvReadOptions::new().schema(&schema),
+    )?;
+    Ok(())
+}
+
+fn register_aggregate_floats_csv(ctx: &mut ExecutionContext) -> Result<()> {
+    // It's not possible to use aggregate_test_100, not enought similar values to test grouping on floats
+    let schema = Arc::new(Schema::new(vec![
+        Field::new("c1", DataType::Float32, false),
+        Field::new("c2", DataType::Float64, false),
+    ]));
+
+    ctx.register_csv(
+        "aggregate_floats",
+        "tests/aggregate_floats.csv",
         CsvReadOptions::new().schema(&schema),
     )?;
     Ok(())
