@@ -73,7 +73,7 @@ make_random_string_of_size <- function(size = 1) {
 }
 
 make_string_of_size <- function(size = 1) {
-  purrr::map_chr(1000*size, ~paste(rep(letters, length = .), collapse = ""))
+  paste(rep(letters, length = 1000*size), collapse = "")
 }
 
 example_with_extra_metadata <- example_with_metadata
