@@ -556,6 +556,7 @@ struct ReadaheadIteratorPromise : ReadaheadPromise {
 
   void End() override {
     // No need to do anything for the synchronous case.  No one is waiting on this
+    // called_ = true;
   }
 
   Iterator<T>* it_;

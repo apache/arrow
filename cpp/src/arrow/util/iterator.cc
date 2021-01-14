@@ -130,13 +130,17 @@ class ReadaheadQueue::Impl : public std::enable_shared_from_this<ReadaheadQueue:
         todo_.pop_front();
         lock.unlock();
         if (promise->Call()) {
-          // If this happens then the underlying stream is finished.  The owner of this
-          // queue should no longer be adding things to todo_ so we can safely iterate it
-          // unlocked here
+          // If the call finished then we should purge the remaining TODO items, marking
+          // them finished
+          lock.lock();
+          std::deque<std::unique_ptr<ReadaheadPromise>> to_clear(std::move(todo_));
+          // While the async iterator doesn't use todo_ anymore after it hits a finish the
+          // sync iterator might still due to timing so leave it valid
+          todo_.clear();
+          lock.unlock();
           for (auto&& promise : todo_) {
             promise->End();
           }
-          todo_.clear();
         }
         lock.lock();
         if (max_readahead_ > 0) {
