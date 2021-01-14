@@ -138,7 +138,7 @@ class ReadaheadQueue::Impl : public std::enable_shared_from_this<ReadaheadQueue:
           // sync iterator might still due to timing so leave it valid
           todo_.clear();
           lock.unlock();
-          for (auto&& promise : todo_) {
+          for (auto&& promise : to_clear) {
             promise->End();
           }
         }
