@@ -263,7 +263,7 @@ Result<Datum> Variance(const Datum& value,
 /// \param[in] ctx the function execution context, optional
 /// \return resulting datum as an array
 ///
-/// \since 3.0.0
+/// \since 4.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> Quantile(const Datum& value,
