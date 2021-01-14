@@ -468,6 +468,28 @@ TEST(TestCompareKernel, DispatchBest) {
   }
 }
 
+TEST(TestCompareKernel, GreaterWithImplicitCasts) {
+  CheckScalarBinary("greater", ArrayFromJSON(int32(), "[0, 1, 2, null]"),
+                    ArrayFromJSON(float64(), "[0.5, 1.0, 1.5, 2.0]"),
+                    ArrayFromJSON(boolean(), "[false, false, true, null]"));
+
+  CheckScalarBinary("greater", ArrayFromJSON(int8(), "[-16, 0, 16, null]"),
+                    ArrayFromJSON(uint32(), "[3, 4, 5, 7]"),
+                    ArrayFromJSON(boolean(), "[false, false, true, null]"));
+
+  CheckScalarBinary("greater",
+                    ArrayFromJSON(dictionary(int32(), int32()), "[0, 1, 2, null]"),
+                    ArrayFromJSON(uint32(), "[3, 4, 5, 7]"),
+                    ArrayFromJSON(boolean(), "[false, false, false, null]"));
+
+  // Not currently implemented since it would invoke a double implicit cast:
+  // dictionary(int32, int8) -> int8 -> int32
+  //  CheckScalarBinary("greater", ArrayFromJSON(dictionary(int32(), int8()), "[0, 1, 2,
+  //  null]"),
+  //                    ArrayFromJSON(uint32(), "[3, 4, 5, 7]"),
+  //                    ArrayFromJSON(boolean(), "[false, false, false, null]"));
+}
+
 class TestStringCompareKernel : public ::testing::Test {};
 
 TEST_F(TestStringCompareKernel, SimpleCompareArrayScalar) {

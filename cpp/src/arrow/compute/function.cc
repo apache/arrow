@@ -21,6 +21,7 @@
 #include <memory>
 #include <sstream>
 
+#include "arrow/compute/cast.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec_internal.h"
 #include "arrow/datum.h"
@@ -166,15 +167,18 @@ Result<const Kernel*> Function::DispatchBest(std::vector<ValueDescr>* values) co
   return DispatchExact(*values);
 }
 
-Result<Datum> Function::Execute(const std::vector<Datum>& args,
+Result<Datum> Function::Execute(const std::vector<Datum>& original_args,
                                 const FunctionOptions* options, ExecContext* ctx) const {
   if (options == nullptr) {
     options = default_options();
   }
   if (ctx == nullptr) {
     ExecContext default_ctx;
-    return Execute(args, options, &default_ctx);
+    return Execute(original_args, options, &default_ctx);
   }
+  // make a local copy to accommodate implicit casts
+  auto args = original_args;
+
   // type-check Datum arguments here. Really we'd like to avoid this as much as
   // possible
   RETURN_NOT_OK(detail::CheckAllValues(args));
@@ -183,7 +187,18 @@ Result<Datum> Function::Execute(const std::vector<Datum>& args,
     inputs[i] = args[i].descr();
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto kernel, DispatchExact(inputs));
+  ARROW_ASSIGN_OR_RAISE(auto kernel, DispatchBest(&inputs));
+  for (size_t i = 0; i != args.size(); ++i) {
+    if (inputs[i] != args[i].descr()) {
+      if (inputs[i].shape != args[i].shape()) {
+        return Status::NotImplemented(
+            "Automatic broadcasting of scalars to arrays for function ", name());
+      }
+
+      ARROW_ASSIGN_OR_RAISE(args[i], Cast(args[i], inputs[i].type));
+    }
+  }
+
   std::unique_ptr<KernelState> state;
 
   KernelContext kernel_ctx{ctx};

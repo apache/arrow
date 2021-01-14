@@ -656,5 +656,26 @@ TEST(TestBinaryArithmetic, DispatchBest) {
   }
 }
 
+TEST(TestBinaryArithmetic, AddWithImplicitCasts) {
+  CheckScalarBinary("add", ArrayFromJSON(int32(), "[0, 1, 2, null]"),
+                    ArrayFromJSON(float64(), "[0.25, 0.5, 0.75, 1.0]"),
+                    ArrayFromJSON(float64(), "[0.25, 1.5, 2.75, null]"));
+
+  CheckScalarBinary("add", ArrayFromJSON(int8(), "[-16, 0, 16, null]"),
+                    ArrayFromJSON(uint32(), "[3, 4, 5, 7]"),
+                    ArrayFromJSON(int32(), "[-13, 4, 21, null]"));
+
+  CheckScalarBinary("add", ArrayFromJSON(dictionary(int32(), int32()), "[0, 1, 2, null]"),
+                    ArrayFromJSON(uint32(), "[3, 4, 5, 7]"),
+                    ArrayFromJSON(int32(), "[3, 5, 7, null]"));
+
+  // Not currently implemented since it would invoke a double implicit cast:
+  // dictionary(int32, int8) -> int8 -> int32
+  //  CheckScalarBinary("add", ArrayFromJSON(dictionary(int32(), int8()), "[0, 1, 2,
+  //  null]"),
+  //                    ArrayFromJSON(uint32(), "[3, 4, 5, 7]"),
+  //                    ArrayFromJSON(int32(), "[3, 5, 7, null]"));
+}
+
 }  // namespace compute
 }  // namespace arrow
