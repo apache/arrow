@@ -18,22 +18,34 @@
 ARG base
 FROM ${base}
 
-RUN yum install -y git flex curl autoconf zip ccache wget
+RUN yum install -y git flex curl autoconf zip wget
 
 # Install CMake
 ARG cmake=3.19.2
-RUN wget https://github.com/Kitware/CMake/releases/download/v${cmake}/cmake-${cmake}-Linux-x86_64.tar.gz -O - | \
+RUN wget -q https://github.com/Kitware/CMake/releases/download/v${cmake}/cmake-${cmake}-Linux-x86_64.tar.gz -O - | \
     tar -xzf - --directory /usr/local --strip-components=1
 
 # Install Ninja
 ARG ninja=1.10.2
 RUN mkdir /tmp/ninja && \
-    wget https://github.com/ninja-build/ninja/archive/v1.10.2.tar.gz -O - | \
+    wget -q https://github.com/ninja-build/ninja/archive/v${ninja}.tar.gz -O - | \
     tar -xzf - --directory /tmp/ninja --strip-components=1 && \
     cd /tmp/ninja && \
     ./configure.py --bootstrap && \
     mv ninja /usr/local/bin && \
     rm -rf /tmp/ninja
+
+# Install ccache
+ARG ccache=4.1
+RUN mkdir /tmp/ccache && \
+    wget -q https://github.com/ccache/ccache/archive/v${ccache}.tar.gz -O - | \
+    tar -xzf - --directory /tmp/ccache --strip-components=1 && \
+    cd /tmp/ccache && \
+    mkdir build && \
+    cd build && \
+    cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DZSTD_FROM_INTERNET=ON .. && \
+    ninja install && \
+    rm -rf /tmp/ccache
 
 # Install vcpkg
 ARG vcpkg
