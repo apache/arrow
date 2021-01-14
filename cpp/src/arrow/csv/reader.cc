@@ -914,8 +914,11 @@ class AsyncThreadedTableReader
     ARROW_ASSIGN_OR_RAISE(auto istream_it,
                           io::MakeInputStreamIterator(input_, read_options_.block_size));
 
-    ARROW_ASSIGN_OR_RAISE(auto rh_it,
+    ARROW_ASSIGN_OR_RAISE(auto bg_it,
                           MakeBackgroundIterator(std::move(istream_it), thread_pool_));
+
+    int32_t block_queue_size = thread_pool_->GetCapacity();
+    auto rh_it = AddReadahead(bg_it, block_queue_size);
     buffer_generator_ = CSVBufferIterator::MakeAsync(std::move(rh_it));
     return Status::OK();
   }

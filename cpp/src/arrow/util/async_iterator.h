@@ -16,6 +16,8 @@
 // under the License.
 
 #pragma once
+#include <queue>
+
 #include "arrow/util/functional.h"
 #include "arrow/util/future.h"
 #include "arrow/util/iterator.h"
@@ -139,6 +141,57 @@ class TransformingGenerator {
   Transformer<T, V> transformer_;
 };
 
+template <typename T>
+static std::function<void(const Result<T>&)> MakeCallback(
+    std::shared_ptr<bool> finished) {
+  return [finished](const Result<T>& next_result) {
+    if (!next_result.ok()) {
+      *finished = true;
+    } else {
+      auto next = *next_result;
+      *finished = (next == IterationTraits<T>::End());
+    }
+  };
+}
+
+template <typename T>
+AsyncGenerator<T> AddReadahead(AsyncGenerator<T> source_generator, int max_readahead) {
+  // Using a shared_ptr instead of a lambda capture here because it's possible that
+  // the inner mark_finished_if_done outlives the outer lambda
+  auto finished = std::make_shared<bool>(false);
+  auto mark_finished_if_done = [finished](const Result<T>& next_result) {
+    if (!next_result.ok()) {
+      *finished = true;
+    } else {
+      auto next = *next_result;
+      *finished = (next == IterationTraits<T>::End());
+    }
+  };
+
+  std::queue<Future<T>> readahead_queue;
+  return [=]() mutable -> Future<T> {
+    if (readahead_queue.empty()) {
+      // This is the first request, let's pump the underlying queue
+      for (int i = 0; i < max_readahead; i++) {
+        auto next = source_generator();
+        next.AddCallback(mark_finished_if_done);
+        readahead_queue.push(std::move(next));
+      }
+    }
+    // Pop one and add one
+    auto result = readahead_queue.front();
+    readahead_queue.pop();
+    if (*finished) {
+      readahead_queue.push(Future<T>::MakeFinished(IterationTraits<T>::End()));
+    } else {
+      auto back_of_queue = source_generator();
+      back_of_queue.AddCallback(mark_finished_if_done);
+      readahead_queue.push(std::move(back_of_queue));
+    }
+    return result;
+  };
+}
+
 /// \brief Transforms an async generator using a transformer function returning a new
 /// AsyncGenerator
 ///
@@ -159,15 +212,17 @@ struct BackgroundIteratorPromise : ReadaheadPromise {
 
   explicit BackgroundIteratorPromise(Iterator<T>* it) : it_(it) {}
 
-  void Call() override {
-    assert(!called_);
-    out_.MarkFinished(it_->Next());
-    called_ = true;
+  bool Call() override {
+    auto next = it_->Next();
+    auto finished = next == IterationTraits<T>::End();
+    out_.MarkFinished(std::move(next));
+    return finished;
   }
+
+  void End() override { out_.MarkFinished(IterationTraits<T>::End()); }
 
   Iterator<T>* it_;
   Future<T> out_ = Future<T>::Make();
-  bool called_ = false;
 };
 
 }  // namespace detail

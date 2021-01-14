@@ -263,9 +263,7 @@ void TestFinishNotSticky(std::function<std::shared_ptr<TaskGroup>()> factory) {
     std::condition_variable cv;
     task_group->Append([&m, &cv, &ready] {
       std::unique_lock<std::mutex> lk(m);
-      // std::cout << "Waiting" << std::endl;
       cv.wait(lk, [&ready] { return ready.load(); });
-      // std::cout << "Done Waiting" << std::endl;
       return Status::OK();
     });
 

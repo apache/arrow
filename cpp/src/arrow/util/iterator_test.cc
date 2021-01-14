@@ -300,6 +300,43 @@ TEST(TestAsyncUtil, Background) {
   ASSERT_EQ(expected, *future.result());
 }
 
+struct SlowEmptyIterator {
+  Result<TestInt> Next() {
+    if (called_) {
+      return Status::Invalid("Should not have been called twice");
+    }
+    SleepFor(0.1);
+    return IterationTraits<TestInt>::End();
+  }
+
+ private:
+  bool called_ = false;
+};
+
+TEST(TestAsyncUtil, BackgroundRepeatEnd) {
+  // Ensure that the background iterator properly fulfills the asyncgenerator contract
+  // and can be called after it ends.
+  auto iterator = Iterator<TestInt>(SlowEmptyIterator());
+  ASSERT_OK_AND_ASSIGN(
+      auto background_iter,
+      MakeBackgroundIterator(std::move(iterator), internal::GetCpuThreadPool()));
+
+  auto one = background_iter();
+  auto two = background_iter();
+
+  ASSERT_TRUE(one.Wait(0.5));
+
+  if (one.is_finished()) {
+    ASSERT_EQ(IterationTraits<TestInt>::End(), *one.result());
+  }
+
+  ASSERT_TRUE(two.Wait(0.5));
+  ASSERT_TRUE(two.is_finished());
+  if (two.is_finished()) {
+    ASSERT_EQ(IterationTraits<TestInt>::End(), *two.result());
+  }
+}
+
 TEST(TestAsyncUtil, SynchronousFinish) {
   AsyncGenerator<TestInt> generator = []() {
     return Future<TestInt>::MakeFinished(IterationTraits<TestInt>::End());
@@ -442,6 +479,44 @@ TEST(TestAsyncIteratorTransform, SkipSome) {
   auto filter = MakeFilter<TestInt>([](TestInt& t) { return t.value != 2; });
   auto filtered = TransformAsyncGenerator(std::move(original), filter);
   AssertAsyncGeneratorMatch({1, 3}, std::move(filtered));
+}
+
+TEST(TestAsyncUtil, ReadaheadFailed) {
+  auto source = []() -> Future<TestInt> {
+    return Future<TestInt>::MakeFinished(Status::Invalid("X"));
+  };
+  auto readahead = AddReadahead<TestInt>(source, 10);
+  auto next = readahead();
+  ASSERT_EQ(Status::Invalid("X"), next.status());
+}
+
+TEST(TestAsyncUtil, Readahead) {
+  int num_delivered = 0;
+  auto source = [&num_delivered]() {
+    if (num_delivered < 5) {
+      return Future<TestInt>::MakeFinished(num_delivered++);
+    } else {
+      return Future<TestInt>::MakeFinished(IterationTraits<TestInt>::End());
+    }
+  };
+  auto readahead = AddReadahead<TestInt>(source, 10);
+  // Should not pump until first item requested
+  ASSERT_EQ(0, num_delivered);
+
+  auto first = readahead();
+  // At this point the pumping should have happened
+  ASSERT_EQ(5, num_delivered);
+  ASSERT_EQ(0, first.result()->value);
+
+  // Read the rest
+  for (int i = 0; i < 4; i++) {
+    auto next = readahead();
+    ASSERT_EQ(i + 1, next.result()->value);
+  }
+
+  // Next should be end
+  auto last = readahead();
+  ASSERT_EQ(IterationTraits<TestInt>::End(), last.result()->value);
 }
 
 TEST(TestFunctionIterator, RangeForLoop) {

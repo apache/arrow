@@ -536,7 +536,9 @@ namespace detail {
 // A type-erased promise object for ReadaheadQueue.
 struct ARROW_EXPORT ReadaheadPromise {
   virtual ~ReadaheadPromise();
-  virtual void Call() = 0;
+  virtual bool Call() = 0;
+  // Called on any remaining promises when the queue hits the end of the source iterator
+  virtual void End() = 0;
 };
 
 template <typename T>
@@ -545,10 +547,15 @@ struct ReadaheadIteratorPromise : ReadaheadPromise {
 
   explicit ReadaheadIteratorPromise(Iterator<T>* it) : it_(it) {}
 
-  void Call() override {
+  bool Call() override {
     assert(!called_);
     out_ = it_->Next();
     called_ = true;
+    return out_ == IterationTraits<T>::End();
+  }
+
+  void End() override {
+    // No need to do anything for the synchronous case.  No one is waiting on this
   }
 
   Iterator<T>* it_;

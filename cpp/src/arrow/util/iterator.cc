@@ -129,7 +129,15 @@ class ReadaheadQueue::Impl : public std::enable_shared_from_this<ReadaheadQueue:
         auto promise = std::move(todo_.front());
         todo_.pop_front();
         lock.unlock();
-        promise->Call();
+        if (promise->Call()) {
+          // If this happens then the underlying stream is finished.  The owner of this
+          // queue should no longer be adding things to todo_ so we can safely iterate it
+          // unlocked here
+          for (auto&& promise : todo_) {
+            promise->End();
+          }
+          todo_.clear();
+        }
         lock.lock();
         if (max_readahead_ > 0) {
           done_.push_back(std::move(promise));

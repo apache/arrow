@@ -379,7 +379,7 @@ class ARROW_MUST_USE_TYPE Future {
   /// In this example `fut` falls out of scope but is not destroyed because it holds a
   /// cyclic reference to itself through the callback.
   template <typename OnComplete>
-  void AddCallback(OnComplete&& on_complete) const {
+  void AddCallback(OnComplete on_complete) const {
     struct Callback {
       void operator()() && {
         auto self = weak_self.get();
@@ -393,8 +393,7 @@ class ARROW_MUST_USE_TYPE Future {
     // We know impl_ will not be dangling when invoking callbacks because at least one
     // thread will be waiting for MarkFinished to return. Thus it's safe to keep a
     // weak reference to impl_ here
-    impl_->AddCallback(
-        Callback{WeakFuture<T>(*this), std::forward<OnComplete>(on_complete)});
+    impl_->AddCallback(Callback{WeakFuture<T>(*this), std::move(on_complete)});
   }
 
   /// \brief Consumer API: Register a continuation to run when this future completes
@@ -432,7 +431,7 @@ class ARROW_MUST_USE_TYPE Future {
   template <typename OnSuccess, typename OnFailure,
             typename ContinuedFuture =
                 detail::ContinueFuture::ForSignature<OnSuccess && (const T&)>>
-  ContinuedFuture Then(OnSuccess&& on_success, OnFailure&& on_failure) const {
+  ContinuedFuture Then(OnSuccess on_success, OnFailure on_failure) const {
     static_assert(
         std::is_same<detail::ContinueFuture::ForSignature<OnFailure && (const Status&)>,
                      ContinuedFuture>::value,

@@ -971,9 +971,64 @@ TEST(FutureLoopTest, EmptyLoop) {
   }
 }
 
+class MoveTrackingCallable {
+ public:
+  MoveTrackingCallable() {
+    // std::cout << "CONSTRUCT" << std::endl;
+  }
+  ~MoveTrackingCallable() {
+    valid_ = false;
+    // std::cout << "DESTRUCT" << std::endl;
+  }
+  MoveTrackingCallable(const MoveTrackingCallable& other) {
+    // std::cout << "COPY CONSTRUCT" << std::endl;
+  }
+  MoveTrackingCallable(MoveTrackingCallable&& other) {
+    other.valid_ = false;
+    // std::cout << "MOVE CONSTRUCT" << std::endl;
+  }
+  MoveTrackingCallable& operator=(const MoveTrackingCallable& other) {
+    // std::cout << "COPY ASSIGN" << std::endl;
+    return *this;
+  }
+  MoveTrackingCallable& operator=(MoveTrackingCallable&& other) {
+    other.valid_ = false;
+    // std::cout << "MOVE ASSIGN" << std::endl;
+    return *this;
+  }
+
+  Status operator()(...) {
+    // std::cout << "TRIGGER" << std::endl;
+    if (valid_) {
+      return Status::OK();
+    } else {
+      return Status::Invalid("Invalid callback triggered");
+    }
+  }
+
+ private:
+  bool valid_ = true;
+};
+
+TEST(FutureCompletionTest, ReuseCallback) {
+  auto fut = Future<>::Make();
+
+  Future<> continuation;
+  {
+    MoveTrackingCallable callback;
+    continuation = fut.Then(callback);
+  }
+
+  fut.MarkFinished(Status::OK());
+
+  ASSERT_TRUE(continuation.is_finished());
+  if (continuation.is_finished()) {
+    ASSERT_OK(continuation.status());
+  }
+}
+
 TEST(FutureSyncTest, Foo) {
   {
-    // MarkFinished(Foo)
     auto fut = Future<Foo>::Make();
     AssertNotFinished(fut);
     fut.MarkFinished(Foo(42));
