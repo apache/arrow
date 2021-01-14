@@ -69,6 +69,14 @@ class HadoopFileSystem::Impl {
   HdfsOptions options() const { return options_; }
 
   Result<FileInfo> GetFileInfo(const std::string& path) {
+    // It has unfortunately been a frequent logic error to pass URIs down
+    // to GetFileInfo (e.g. ARROW-10264).  Unlike other filesystems, HDFS
+    // silently accepts URIs but returns different results than if given the
+    // equivalent in-filesystem paths.  Instead of raising cryptic errors
+    // later, notify the underlying problem immediately.
+    if (path.substr(0, 5) == "hdfs:") {
+      return Status::Invalid("GetFileInfo must not be passed a URI, got: ", path);
+    }
     FileInfo info;
     io::HdfsPathInfo path_info;
     auto status = client_->GetPathInfo(path, &path_info);
@@ -118,6 +126,11 @@ class HadoopFileSystem::Impl {
   }
 
   Result<std::vector<FileInfo>> GetFileInfo(const FileSelector& select) {
+    // See GetFileInfo(const std::string&) above.
+    if (select.base_dir.substr(0, 5) == "hdfs:") {
+      return Status::Invalid("FileSelector.base_dir must not be a URI, got: ",
+                             select.base_dir);
+    }
     std::vector<FileInfo> results;
 
     std::string wd;
