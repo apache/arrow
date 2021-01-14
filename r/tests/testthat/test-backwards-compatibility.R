@@ -50,7 +50,15 @@ test_that("reading a known Parquet file to dataframe with 3.0.0", {
   pq_file <- test_path("golden-files/data-arrow-extra-meta_3.0.0.parquet")
 
   df <- read_parquet(pq_file)
-  # this is equivalent to `expect_identical()`
+
+  # test the shape (but not the contents of) the column-level attributes for the
+  # large column since those are random and seed changes will make them different
+  expect_named(attributes(df$b), "lots")
+  expect_length(attributes(df$b)$lots, 100)
+
+  # and then check that the the rest of the metadata is the same too
+  attributes(df$b) <- NULL
+  attributes(example_with_extra_metadata$b) <- NULL
   expect_identical_with_metadata(df, example_with_extra_metadata)
 })
 
