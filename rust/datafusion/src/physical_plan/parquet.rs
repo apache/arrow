@@ -1345,7 +1345,7 @@ mod tests {
         // if conditions in predicate are joined with OR and an unsupported expression is used
         // this bypasses the entire predicate expression and no row groups are filtered out
         let expr = col("c1").gt(lit(15)).or(col("c2").modulus(lit(2)));
-        let predicate_builder = RowGroupPredicateBuilder::try_new(&expr, schema.clone())?;
+        let predicate_builder = RowGroupPredicateBuilder::try_new(&expr, schema)?;
         let row_group_predicate =
             predicate_builder.build_row_group_predicate(&row_group_metadata);
         let row_group_filter = row_group_metadata
@@ -1369,7 +1369,7 @@ mod tests {
             Field::new("c1", DataType::Int32, false),
             Field::new("c2", DataType::Boolean, false),
         ]);
-        let predicate_builder = RowGroupPredicateBuilder::try_new(&expr, schema.clone())?;
+        let predicate_builder = RowGroupPredicateBuilder::try_new(&expr, schema)?;
 
         let schema_descr = get_test_schema_descr(vec![
             ("c1", PhysicalType::INT32),
