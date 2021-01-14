@@ -138,8 +138,6 @@ volumes:
     name: ${ARCH}-debian-${DEBIAN}-rust
   maven-cache:
     name: maven-cache
-  python-wheel-manylinux1-ccache:
-    name: python-wheel-manylinux1-ccache
   python-wheel-manylinux2010-ccache:
     name: python-wheel-manylinux2010-ccache
   python-wheel-manylinux2014-ccache:
