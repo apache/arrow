@@ -490,19 +490,19 @@ class BaseTestCSVRead:
 
     def test_simple_timestamps(self):
         # Infer a timestamp column
-        rows = b"a,b\n1970,1970-01-01\n1989,1989-07-14\n"
+        rows = b"a,b\n1970,1970-01-01 00:00:00\n1989,1989-07-14 01:00:00\n"
         table = self.read_bytes(rows)
         schema = pa.schema([('a', pa.int64()),
                             ('b', pa.timestamp('s'))])
         assert table.schema == schema
         assert table.to_pydict() == {
             'a': [1970, 1989],
-            'b': [datetime(1970, 1, 1), datetime(1989, 7, 14)],
+            'b': [datetime(1970, 1, 1), datetime(1989, 7, 14, 1)],
         }
 
     def test_timestamp_parsers(self):
         # Infer timestamps with custom parsers
-        rows = b"a,b\n1970/01/01,1980-01-01\n1970/01/02,1980-01-02\n"
+        rows = b"a,b\n1970/01/01,1980-01-01 00\n1970/01/02,1980-01-02 00\n"
         opts = ConvertOptions()
 
         table = self.read_bytes(rows, convert_options=opts)
@@ -521,7 +521,7 @@ class BaseTestCSVRead:
         assert table.schema == schema
         assert table.to_pydict() == {
             'a': [datetime(1970, 1, 1), datetime(1970, 1, 2)],
-            'b': ['1980-01-01', '1980-01-02'],
+            'b': ['1980-01-01 00', '1980-01-02 00'],
         }
 
         opts.timestamp_parsers = ['%Y/%m/%d', ISO8601]
@@ -535,15 +535,15 @@ class BaseTestCSVRead:
         }
 
     def test_dates(self):
-        # Dates are inferred as timestamps by default
+        # Dates are inferred as date32 by default
         rows = b"a,b\n1970-01-01,1970-01-02\n1971-01-01,1971-01-02\n"
         table = self.read_bytes(rows)
-        schema = pa.schema([('a', pa.timestamp('s')),
-                            ('b', pa.timestamp('s'))])
+        schema = pa.schema([('a', pa.date32()),
+                            ('b', pa.date32())])
         assert table.schema == schema
         assert table.to_pydict() == {
-            'a': [datetime(1970, 1, 1), datetime(1971, 1, 1)],
-            'b': [datetime(1970, 1, 2), datetime(1971, 1, 2)],
+            'a': [date(1970, 1, 1), date(1971, 1, 1)],
+            'b': [date(1970, 1, 2), date(1971, 1, 2)],
         }
 
         # Can ask for date types explicitly
@@ -556,6 +556,18 @@ class BaseTestCSVRead:
         assert table.to_pydict() == {
             'a': [date(1970, 1, 1), date(1971, 1, 1)],
             'b': [date(1970, 1, 2), date(1971, 1, 2)],
+        }
+
+        # Can ask for timestamp types explicitly
+        opts = ConvertOptions()
+        opts.column_types = {'a': pa.timestamp('s'), 'b': pa.timestamp('ms')}
+        table = self.read_bytes(rows, convert_options=opts)
+        schema = pa.schema([('a', pa.timestamp('s')),
+                            ('b', pa.timestamp('ms'))])
+        assert table.schema == schema
+        assert table.to_pydict() == {
+            'a': [datetime(1970, 1, 1), datetime(1971, 1, 1)],
+            'b': [datetime(1970, 1, 2), datetime(1971, 1, 2)],
         }
 
     def test_auto_dict_encode(self):
