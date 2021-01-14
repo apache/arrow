@@ -122,6 +122,11 @@ def partitioning(schema=None, field_names=None, flavor=None,
     flavor : str, default None
         The default is DirectoryPartitioning. Specify ``flavor="hive"`` for
         a HivePartitioning.
+    dictionaries : List[Array]
+        If the type of any field of `schema` is a dictionary type, the
+        corresponding entry of `dictionaries` must be an array containing
+        every value which may be taken by the corresponding column or an
+        error will be raised in parsing.
 
     Returns
     -------
