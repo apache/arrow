@@ -901,7 +901,7 @@ services:
       ARROW_R_DEV: ${ARROW_R_DEV}
       # To test for CRAN release, delete ^^ these two env vars so we download the Apache release
       ARROW_USE_PKG_CONFIG: "false"
-      DEVTOOLSET_VERSION: ${DEVTOOLSET_VERSION}
+      devtoolset_version: ${DEVTOOLSET_VERSION}
     volumes:
       - .:/arrow:delegated
     command: >
