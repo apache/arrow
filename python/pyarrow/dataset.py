@@ -306,7 +306,7 @@ def _ensure_single_source(path, filesystem=None):
         If an URI is passed, then its path component will act as a prefix for
         the file paths.
 
-   Returns
+    Returns
     -------
     (FileSystem, list of str or fs.Selector)
         File system object and either a single item list pointing to a file or
