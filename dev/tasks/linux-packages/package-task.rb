@@ -136,10 +136,16 @@ class PackageTask
       "docker",
       "run",
       "--rm",
-      "--tty",
+      "--log-driver", "none",
       "--volume", "#{Dir.pwd}:/host:rw",
     ]
-    run_command_line << "--interactive" if $stdin.tty?
+    if $stdin.tty?
+      run_command_line << "--interactive"
+      run_command_line << "--tty"
+    else
+      run_command_line.concat(["--attach", "STDOUT"])
+      run_command_line.concat(["--attach", "STDERR"])
+    end
     build_dir = ENV["BUILD_DIR"]
     if build_dir
       build_dir = "#{File.expand_path(build_dir)}/#{id}"
