@@ -36,13 +36,13 @@ namespace dataset {
 
 class ARROW_DS_EXPORT RadosDatasetFactoryOptions : public FileSystemFactoryOptions {
  public:
-  std::string pool_name_;
-  std::string user_name_;
-  std::string cluster_name_;
-  std::string ceph_config_path_;
-  uint64_t flags_;
-  std::string cls_name_;
-  int64_t format_ = 2;
+  std::string pool_name;
+  std::string user_name;
+  std::string cluster_name;
+  std::string ceph_config_path;
+  uint64_t flags;
+  std::string cls_name;
+  int64_t format = 2;
 };
 
 /// \brief An abstraction to encapsulate information about a
@@ -79,8 +79,8 @@ class ARROW_DS_EXPORT RadosCluster {
     flags_ = 0;
     ceph_config_path_ = ceph_config_path;
     cls_name_ = "arrow";
-    rados_interface_ = new RadosWrapper();
-    io_ctx_interface_ = new IoCtxWrapper();
+    rados = new RadosWrapper();
+    ioCtx = new IoCtxWrapper();
   }
 
   Status Connect();
@@ -94,8 +94,8 @@ class ARROW_DS_EXPORT RadosCluster {
   uint64_t flags_;
   std::string cls_name_;
 
-  RadosInterface* rados_interface_;
-  IoCtxInterface* io_ctx_interface_;
+  RadosInterface* rados;
+  IoCtxInterface* ioCtx;
 };
 
 /// \brief A Fragment that maps to an object stored in the Ceph object store.
@@ -107,6 +107,7 @@ class ARROW_DS_EXPORT RadosFragment : public Fragment {
   /// to which this Fragment maps to.
   /// \param[in] object the RadosObject that this Fragment wraps.
   /// \param[in] cluster the connection information to the RADOS interface.
+  /// \param[in] format the fileformat in which data is stored inside an object.
   /// \param[in] partition_expression the partition expression associated with this
   /// fragment.
   RadosFragment(std::shared_ptr<Schema> schema, std::shared_ptr<RadosObject> object,

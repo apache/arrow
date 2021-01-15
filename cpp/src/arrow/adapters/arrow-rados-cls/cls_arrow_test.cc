@@ -108,12 +108,12 @@ std::shared_ptr<arrow::dataset::RadosCluster> CreateTestClusterHandle() {
 arrow::dataset::RadosDatasetFactoryOptions CreateTestRadosFactoryOptions() {
   auto cluster = CreateTestClusterHandle();
   arrow::dataset::RadosDatasetFactoryOptions factory_options;
-  factory_options.ceph_config_path_ = cluster->ceph_config_path_;
-  factory_options.cls_name_ = cluster->cls_name_;
-  factory_options.cluster_name_ = cluster->cluster_name_;
-  factory_options.flags_ = cluster->flags_;
-  factory_options.pool_name_ = cluster->pool_name_;
-  factory_options.user_name_ = cluster->user_name_;
+  factory_options.ceph_config_path = cluster->ceph_config_path_;
+  factory_options.cls_name = cluster->cls_name_;
+  factory_options.cluster_name = cluster->cluster_name_;
+  factory_options.flags = cluster->flags_;
+  factory_options.pool_name = cluster->pool_name_;
+  factory_options.user_name = cluster->user_name_;
   return factory_options;
 }
 
@@ -122,7 +122,7 @@ TEST(TestClsSDK, WriteAndScanTableIPC) {
   auto table = CreateTestTable();
   auto object = CreateTestObject("test.obj.1");
   auto factory_options = CreateTestRadosFactoryOptions();
-  factory_options.format_ = 1;
+  factory_options.format = 1;
 
   /// Write the Fragment.
   arrow::dataset::RadosDataset::Write(batches, factory_options, object->id());
@@ -151,7 +151,7 @@ TEST(TestClsSDK, WriteAndScanTableParquet) {
   auto table = CreateTestTable();
   auto object = CreateTestObject("test.obj.1");
   auto factory_options = CreateTestRadosFactoryOptions();
-  factory_options.format_ = 2;
+  factory_options.format = 2;
 
   /// Write the Fragment.
   arrow::dataset::RadosDataset::Write(batches, factory_options, object->id());
@@ -180,7 +180,7 @@ TEST(TestClsSDK, ProjectionIPC) {
   auto table = CreateTestTable();
   auto object = CreateTestObject("test.obj.2");
   auto factory_options = CreateTestRadosFactoryOptions();
-  factory_options.format_ = 1;
+  factory_options.format = 1;
 
   /// Write the Fragment.
   arrow::dataset::RadosDataset::Write(batches, factory_options, object->id());
@@ -212,7 +212,7 @@ TEST(TestClsSDK, ProjectionParquet) {
   auto table = CreateTestTable();
   auto object = CreateTestObject("test.obj.2");
   auto factory_options = CreateTestRadosFactoryOptions();
-  factory_options.format_ = 2;
+  factory_options.format = 2;
 
   /// Write the Fragment.
   arrow::dataset::RadosDataset::Write(batches, factory_options, object->id());
@@ -244,7 +244,7 @@ TEST(TestClsSDK, SelectionIPC) {
   auto table = CreateTestTable();
   auto object = CreateTestObject("test.obj.3");
   auto factory_options = CreateTestRadosFactoryOptions();
-  factory_options.format_ = 1;
+  factory_options.format = 1;
 
   /// Write the Fragment.
   arrow::dataset::RadosDataset::Write(batches, factory_options, object->id());
@@ -274,7 +274,7 @@ TEST(TestClsSDK, SelectionParquet) {
   auto table = CreateTestTable();
   auto object = CreateTestObject("test.obj.3");
   auto factory_options = CreateTestRadosFactoryOptions();
-  factory_options.format_ = 2;
+  factory_options.format = 2;
 
   /// Write the Fragment.
   arrow::dataset::RadosDataset::Write(batches, factory_options, object->id());
@@ -302,7 +302,7 @@ TEST(TestClsSDK, SelectionParquet) {
 TEST(TestClsSDK, EndToEndIPC) {
   auto batches = CreateTestRecordBatches();
   auto factory_options = CreateTestRadosFactoryOptions();
-  factory_options.format_ = 1;
+  factory_options.format = 1;
 
   /// Prepare RecordBatches and Write the fragments.
   for (int i = 0; i < 4; i++) {
@@ -349,7 +349,7 @@ TEST(TestClsSDK, EndToEndIPC) {
 TEST(TestClsSDK, EndToEndParquet) {
   auto batches = CreateTestRecordBatches();
   auto factory_options = CreateTestRadosFactoryOptions();
-  factory_options.format_ = 1;
+  factory_options.format = 1;
 
   /// Prepare RecordBatches and Write the fragments.
   for (int i = 0; i < 4; i++) {
@@ -396,7 +396,7 @@ TEST(TestClsSDK, EndToEndParquet) {
 TEST(TestClsSDK, EndToEndWithPartitioning) {
   auto batches = CreateTestRecordBatches();
   auto factory_options = CreateTestRadosFactoryOptions();
-  factory_options.format_ = 2;
+  factory_options.format = 2;
 
   factory_options.partition_base_dir = "nyc/";
   factory_options.partitioning = std::make_shared<arrow::dataset::HivePartitioning>(

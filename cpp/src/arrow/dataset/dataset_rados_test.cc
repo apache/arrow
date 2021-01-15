@@ -157,8 +157,8 @@ TEST_F(TestRadosScanTask, Execute) {
   auto mock_rados_interface = new MockRados();
   auto mock_ioctx_interface = new MockIoCtx();
 
-  cluster->rados_interface_ = mock_rados_interface;
-  cluster->io_ctx_interface_ = mock_ioctx_interface;
+  cluster->rados = mock_rados_interface;
+  cluster->ioCtx = mock_ioctx_interface;
 
   std::shared_ptr<RadosScanTask> task = std::make_shared<RadosScanTask>(
       options_, ctx_, std::move(object), std::move(cluster));
@@ -181,8 +181,8 @@ TEST_F(TestRadosFragment, Scan) {
   auto mock_rados_interface = new MockRados();
   auto mock_ioctx_interface = new MockIoCtx();
 
-  cluster->rados_interface_ = mock_rados_interface;
-  cluster->io_ctx_interface_ = mock_ioctx_interface;
+  cluster->rados = mock_rados_interface;
+  cluster->ioCtx = mock_ioctx_interface;
 
   RadosFragment fragment(schema_, object, cluster, 1);
 
@@ -199,8 +199,8 @@ TEST_F(TestRadosDataset, GetFragments) {
   auto cluster = std::make_shared<RadosCluster>("test-pool", "/etc/ceph/ceph.conf");
   auto mock_rados_interface = new MockRados();
   auto mock_ioctx_interface = new MockIoCtx();
-  cluster->rados_interface_ = mock_rados_interface;
-  cluster->io_ctx_interface_ = mock_ioctx_interface;
+  cluster->rados = mock_rados_interface;
+  cluster->ioCtx = mock_ioctx_interface;
 
   RadosObjectVector object_vector{std::make_shared<RadosObject>("object.1"),
                                   std::make_shared<RadosObject>("object.2"),
@@ -225,8 +225,8 @@ TEST_F(TestRadosDataset, ReplaceSchema) {
   auto cluster = std::make_shared<RadosCluster>("test-pool", "/etc/ceph/ceph.conf");
   auto mock_rados_interface = new MockRados();
   auto mock_ioctx_interface = new MockIoCtx();
-  cluster->rados_interface_ = mock_rados_interface;
-  cluster->io_ctx_interface_ = mock_ioctx_interface;
+  cluster->rados = mock_rados_interface;
+  cluster->ioCtx = mock_ioctx_interface;
 
   RadosObjectVector object_vector{std::make_shared<RadosObject>("object.1"),
                                   std::make_shared<RadosObject>("object.2")};
@@ -309,8 +309,8 @@ TEST_F(TestRadosDataset, EndToEnd) {
   auto cluster = std::make_shared<RadosCluster>("test-pool", "/etc/ceph/ceph.conf");
   auto mock_rados_interface = new MockRados();
   auto mock_ioctx_interface = new MockIoCtx();
-  cluster->rados_interface_ = mock_rados_interface;
-  cluster->io_ctx_interface_ = mock_ioctx_interface;
+  cluster->rados = mock_rados_interface;
+  cluster->ioCtx = mock_ioctx_interface;
 
   RadosObjectVector object_vector{std::make_shared<RadosObject>("object.1"),
                                   std::make_shared<RadosObject>("object.2"),

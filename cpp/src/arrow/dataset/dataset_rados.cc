@@ -52,7 +52,7 @@ Result<std::shared_ptr<Schema>> RadosFragment::ReadPhysicalSchemaImpl() {
 Result<std::shared_ptr<DatasetFactory>> RadosDatasetFactory::Make(
     RadosDatasetFactoryOptions options, RadosObjectVector objects) {
   auto cluster =
-      std::make_shared<RadosCluster>(options.pool_name_, options.ceph_config_path_);
+      std::make_shared<RadosCluster>(options.pool_name, options.ceph_config_path);
   cluster->Connect();
 
   RadosObjectVector discovered_objects;
@@ -60,7 +60,7 @@ Result<std::shared_ptr<DatasetFactory>> RadosDatasetFactory::Make(
   if (objects.size() > 0) {
     discovered_objects = objects;
   } else {
-    auto objects = cluster->io_ctx_interface_->list();
+    auto objects = cluster->ioCtx->list();
 
     for (auto& object_id : objects) {
       if (fs::internal::IsAncestorOf(options.partition_base_dir, object_id)) {
@@ -81,27 +81,24 @@ Result<std::vector<std::shared_ptr<Schema>>> RadosDatasetFactory::InspectSchemas
     InspectOptions options) {
   std::string object_id = objects_[0]->id();
   librados::bufferlist in, out;
-  int e;
+  std::string cls_fn = "read_parquet_schema";
 
-  switch (options_.format_) {
+  switch (options_.format) {
     case 1:
-      e = cluster_->io_ctx_interface_->exec(object_id, cluster_->cls_name_.c_str(),
-                                            "read_ipc_schema", in, out);
-      if (e != 0) {
-        return Status::ExecutionError("call to exec() returned non-zero exit code.");
-      }
+      cls_fn = "read_ipc_schema";
       break;
 
     case 2:
-      e = cluster_->io_ctx_interface_->exec(object_id, cluster_->cls_name_.c_str(),
-                                            "read_parquet_schema", in, out);
-      if (e != 0) {
-        return Status::ExecutionError("call to exec() returned non-zero exit code.");
-      }
+      cls_fn = "read_parquet_schema";
       break;
 
     default:
       break;
+  }
+
+  if (cluster_->ioCtx->exec(object_id, cluster_->cls_name_.c_str(), cls_fn.c_str(), in,
+                            out)) {
+    return Status::ExecutionError("call to %s failed", cls_fn);
   }
 
   std::vector<std::shared_ptr<Schema>> schemas;
@@ -117,11 +114,8 @@ Result<std::vector<std::shared_ptr<Schema>>> RadosDatasetFactory::InspectSchemas
 }
 
 Result<std::shared_ptr<Dataset>> RadosDatasetFactory::Finish(FinishOptions options) {
-  InspectOptions inspect_options_;
-
-  // basically, these two lines make up of Inspect()
-  ARROW_ASSIGN_OR_RAISE(auto schema_vector, InspectSchemas(inspect_options_));
-  ARROW_ASSIGN_OR_RAISE(auto schema, UnifySchemas(schema_vector));
+  InspectOptions inspect_options;
+  ARROW_ASSIGN_OR_RAISE(auto schema, Inspect(inspect_options));
 
   std::shared_ptr<Partitioning> partitioning = options_.partitioning.partitioning();
   if (partitioning == nullptr) {
@@ -134,43 +128,30 @@ Result<std::shared_ptr<Dataset>> RadosDatasetFactory::Finish(FinishOptions optio
     auto fixed_path = StripPrefixAndFilename(object->id(), options_.partition_base_dir);
     ARROW_ASSIGN_OR_RAISE(auto partition, partitioning->Parse(fixed_path));
     fragments.push_back(std::make_shared<RadosFragment>(schema, object, cluster_,
-                                                        options_.format_, partition));
+                                                        options_.format, partition));
   }
   return RadosDataset::Make(schema, fragments, cluster_);
 }
 
 Status RadosCluster::Connect() {
-  int e;
-  /// Initialize the cluster handle.
-  e = rados_interface_->init2(user_name_.c_str(), cluster_name_.c_str(), flags_);
-  if (e != 0) {
+  if (rados->init2(user_name_.c_str(), cluster_name_.c_str(), flags_))
     return Status::ExecutionError("call to init2() returned non-zero exit code.");
-  }
 
-  /// Read the Ceph config file.
-  e = rados_interface_->conf_read_file(ceph_config_path_.c_str());
-  if (e != 0) {
+  if (rados->conf_read_file(ceph_config_path_.c_str()))
     return Status::ExecutionError(
         "call to conf_read_file() returned non-zero exit code.");
-  }
 
-  /// Connect to the Ceph cluster.
-  e = rados_interface_->connect();
-  if (e != 0) {
+  if (rados->connect())
     return Status::ExecutionError("call to connect() returned non-zero exit code.");
-  }
 
-  /// Initialize the I/O context to start doing I/O operations on objects.
-  e = rados_interface_->ioctx_create(pool_name_.c_str(), io_ctx_interface_);
-  if (e != 0) {
+  if (rados->ioctx_create(pool_name_.c_str(), ioCtx))
     return Status::ExecutionError("call to ioctx_create() returned non-zero exit code.");
-  }
 
   return Status::OK();
 }
 
 Status RadosCluster::Disconnect() {
-  rados_interface_->shutdown();
+  rados->shutdown();
   return Status::OK();
 }
 
@@ -193,16 +174,14 @@ Status RadosDataset::Write(RecordBatchVector& batches, RadosDatasetFactoryOption
 
   librados::bufferlist in, out;
 
-  if (options.format_ == 1) RETURN_NOT_OK(SerializeTableToIPCStream(table, in));
-  if (options.format_ == 2) RETURN_NOT_OK(SerializeTableToParquetStream(table, in));
+  if (options.format == 1) RETURN_NOT_OK(SerializeTableToIPCStream(table, in));
+  if (options.format == 2) RETURN_NOT_OK(SerializeTableToParquetStream(table, in));
 
   auto cluster =
-      std::make_shared<RadosCluster>(options.pool_name_, options.ceph_config_path_);
+      std::make_shared<RadosCluster>(options.pool_name, options.ceph_config_path);
   cluster->Connect();
 
-  int e = cluster->io_ctx_interface_->exec(object_id, cluster->cls_name_.c_str(), "write",
-                                           in, out);
-  if (e != 0) {
+  if (cluster->ioCtx->exec(object_id, cluster->cls_name_.c_str(), "write", in, out)) {
     return Status::ExecutionError(
         "call to exec() in RadosDataset::Write() returned non-zero exit code.");
   }
@@ -223,34 +202,25 @@ FragmentIterator RadosDataset::GetFragmentsImpl(std::shared_ptr<Expression> pred
 Result<RecordBatchIterator> RadosScanTask::Execute() {
   librados::bufferlist in, out;
 
-  /// Serialize the filter Expression and projection Schema into
-  /// a librados bufferlist.
   ARROW_RETURN_NOT_OK(SerializeScanRequestToBufferlist(
       options_->filter, options_->partition_expression, options_->projector.schema(),
       options_->format, in));
 
-  /// Trigger a CLS function and pass the serialized operations
-  /// down to the storage. The resultant Table will be available inside the `out`
-  /// bufferlist subsequently.
-  int e = cluster_->io_ctx_interface_->exec(object_->id(), cluster_->cls_name_.c_str(),
-                                            "scan", in, out);
-  if (e != 0) {
+  if (cluster_->ioCtx->exec(object_->id(), cluster_->cls_name_.c_str(), "scan", in,
+                            out)) {
     return Status::ExecutionError(
         "call to exec() in RadosScanTask::Execute() returned non-zero exit code.");
   }
 
-  /// Deserialize the result Table from the `out` bufferlist.
   std::shared_ptr<Table> result_table;
   ARROW_RETURN_NOT_OK(DeserializeTableFromBufferlist(&result_table, out));
 
-  /// Verify whether the Schema of the resultant Table is what was asked for,
   if (!options_->schema()->Equals(*(result_table->schema()))) {
     return Status::Invalid(
         "the schema of the result table doesn't match the schema of the requested "
         "projection.");
   }
 
-  /// Read the result Table into a RecordBatchVector to return to the RadosScanTask
   auto table_reader = std::make_shared<TableBatchReader>(*result_table);
   RecordBatchVector batches;
   ARROW_RETURN_NOT_OK(table_reader->ReadAll(&batches));
