@@ -446,10 +446,37 @@ mod tests {
     }
 
     #[test]
-    fn test_equality() {
-        let int_data = ArrayData::builder(DataType::Int32).build();
-        let float_data = ArrayData::builder(DataType::Float32).build();
-        assert_ne!(int_data, float_data);
+    //#[should_panic(expected = "index out of bounds: the len is 0 but the index is 0")]
+    fn test_slice_equality() {
+        let mut bit_v: [u8; 1] = [0; 1];
+        bit_util::set_bit(&mut bit_v, 1);
+        let data = ArrayData::builder(DataType::Int32)
+            .len(2)
+            .null_bit_buffer(Buffer::from(bit_v))
+            .build();
+        let data_slice = data.slice(1, 1);
+
+        let mut bit_v: [u8; 1] = [0; 1];
+        bit_util::set_bit(&mut bit_v, 0);
+        let arc_data = ArrayData::builder(DataType::Int32)
+            .len(1)
+            .null_bit_buffer(Buffer::from(bit_v))
+            .build();
+        let expected = arc_data.as_ref();
+
+        // thread 'array::data::tests::test_slice_equality' panicked at 'index out of bounds:
+        // the len is 0 but the index is 0', arrow/src/array/equal/primitive.rs:36:23
+        assert_eq!(&data_slice, expected);
+
+        // I've got some background messages from the following PRs:
+        // - https://github.com/apache/arrow/pull/8200
+        // - https://github.com/apache/arrow/pull/8541
+        // - https://github.com/apache/arrow/pull/8590
+        //
+        // My thoughts:
+        // 1. don't clone all data, because it may be great waste when the length is far
+        //    smaller than the total data length (think about 1 vs 10k).
+        // 2. construct buffers from logic data.
     }
 
     #[test]

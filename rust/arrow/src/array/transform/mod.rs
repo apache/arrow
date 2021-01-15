@@ -816,7 +816,7 @@ mod tests {
     #[test]
     fn array_bug_1() {
         let strings: ArrayRef = Arc::new(StringArray::from(vec![None, Some("b")]));
-        // Array::slice() is not bug-free
+        // ArrayData::slice() is not bug-free
         let strings_slice = strings.slice(1, 1);
         let strings2: ArrayRef = Arc::new(StringArray::from(vec![Some("b")]));
 
@@ -833,7 +833,7 @@ mod tests {
     fn array_bug_2() {
         let strings: ArrayRef =
             Arc::new(StringArray::from(vec![Some("a"), None, Some("b")]));
-        // Array::slice() is not bug-free
+        // ArrayData::slice() is not bug-free
         let strings_slice = strings.slice(2, 1);
         let strings2: ArrayRef = Arc::new(StringArray::from(vec![Some("b")]));
 
