@@ -602,17 +602,16 @@ fn combine_hashes(l: u64, r: u64) -> u64 {
 }
 
 macro_rules! equal_rows_elem {
-    ($array_type:ident, $l: ident, $r: ident, $left: ident, $right: ident) => {
-        $l.as_any()
-            .downcast_ref::<$array_type>()
-            .unwrap()
-            .value($left)
-            == $r
-                .as_any()
-                .downcast_ref::<$array_type>()
-                .unwrap()
-                .value($right)
-    };
+    ($array_type:ident, $l: ident, $r: ident, $left: ident, $right: ident) => {{
+        let left_array = $l.as_any().downcast_ref::<$array_type>().unwrap();
+        let right_array = $r.as_any().downcast_ref::<$array_type>().unwrap();
+
+        match (left_array.is_null($left), left_array.is_null($right)) {
+            (true, true) => true,
+            (false, false) => left_array.value($left) == right_array.value($right),
+            _ => false
+        }
+    }};
 }
 
 /// Left and right row have equal values
@@ -679,11 +678,20 @@ fn equal_rows(
 macro_rules! hash_array {
     ($array_type:ident, $column: ident, $f: ident, $hashes: ident, $random_state: ident) => {
         let array = $column.as_any().downcast_ref::<$array_type>().unwrap();
-
-        for (i, hash) in $hashes.iter_mut().enumerate() {
-            let mut hasher = $random_state.build_hasher();
-            hasher.$f(array.value(i));
-            *hash = combine_hashes(hasher.finish(), *hash);
+        if array.null_count() == 0 {
+            for (i, hash) in $hashes.iter_mut().enumerate() {
+                let mut hasher = $random_state.build_hasher();
+                hasher.$f(array.value(i));
+                *hash = combine_hashes(hasher.finish(), *hash);
+            }
+        } else {
+            for (i, hash) in $hashes.iter_mut().enumerate() {
+                let mut hasher = $random_state.build_hasher();
+                if !array.is_null(i) {
+                    hasher.$f(array.value(i));
+                    *hash = combine_hashes(hasher.finish(), *hash);
+                }
+            }
         }
     };
 }
