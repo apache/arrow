@@ -49,6 +49,8 @@ public class TestCompressionCodec {
 
   private BufferAllocator allocator;
 
+  private final int vectorLength;
+
   @Before
   public void init() {
     allocator = new RootAllocator(Integer.MAX_VALUE);
@@ -59,20 +61,23 @@ public class TestCompressionCodec {
     allocator.close();
   }
 
-  public TestCompressionCodec(String name, CompressionCodec codec) {
+  public TestCompressionCodec(String name, int vectorLength, CompressionCodec codec) {
     this.codec = codec;
+    this.vectorLength = vectorLength;
   }
 
-  @Parameterized.Parameters(name = "codec = {0}")
+  @Parameterized.Parameters(name = "codec = {0}, length = {1}")
   public static Collection<Object[]> getCodecs() {
     List<Object[]> params = new ArrayList<>();
 
-    CompressionCodec dumbCodec = NoCompressionCodec.INSTANCE;
-    params.add(new Object[] {dumbCodec.getCodecName(), dumbCodec});
+    int[] lengths = new int[] {10, 100, 1000};
+    for (int len : lengths) {
+      CompressionCodec dumbCodec = NoCompressionCodec.INSTANCE;
+      params.add(new Object[]{dumbCodec.getCodecName(), len, dumbCodec});
 
-    CompressionCodec lz4Codec = new Lz4CompressionCodec();
-    params.add(new Object[] {lz4Codec.getCodecName(), lz4Codec});
-
+      CompressionCodec lz4Codec = new Lz4CompressionCodec();
+      params.add(new Object[]{lz4Codec.getCodecName(), len, lz4Codec});
+    }
     return params;
   }
 
@@ -94,19 +99,17 @@ public class TestCompressionCodec {
 
   @Test
   public void testCompressFixedWidthBuffers() throws Exception {
-    final int vecLen = 1000;
-
     // prepare vector to compress
     IntVector origVec = new IntVector("vec", allocator);
-    origVec.allocateNew(vecLen);
-    for (int i = 0; i < vecLen; i++) {
+    origVec.allocateNew(vectorLength);
+    for (int i = 0; i < vectorLength; i++) {
       if (i % 10 == 0) {
         origVec.setNull(i);
       } else {
         origVec.set(i, i);
       }
     }
-    origVec.setValueCount(vecLen);
+    origVec.setValueCount(vectorLength);
     int nullCount = origVec.getNullCount();
 
     // compress & decompress
@@ -118,11 +121,11 @@ public class TestCompressionCodec {
 
     // orchestrate new vector
     IntVector newVec = new IntVector("new vec", allocator);
-    newVec.loadFieldBuffers(new ArrowFieldNode(vecLen, nullCount), decompressedBuffers);
+    newVec.loadFieldBuffers(new ArrowFieldNode(vectorLength, nullCount), decompressedBuffers);
 
     // verify new vector
-    assertEquals(vecLen, newVec.getValueCount());
-    for (int i = 0; i < vecLen; i++) {
+    assertEquals(vectorLength, newVec.getValueCount());
+    for (int i = 0; i < vectorLength; i++) {
       if (i % 10 == 0) {
         assertTrue(newVec.isNull(i));
       } else {
@@ -136,19 +139,17 @@ public class TestCompressionCodec {
 
   @Test
   public void testCompressVariableWidthBuffers() throws Exception {
-    final int vecLen = 1000;
-
     // prepare vector to compress
     VarCharVector origVec = new VarCharVector("vec", allocator);
     origVec.allocateNew();
-    for (int i = 0; i < vecLen; i++) {
+    for (int i = 0; i < vectorLength; i++) {
       if (i % 10 == 0) {
         origVec.setNull(i);
       } else {
         origVec.setSafe(i, String.valueOf(i).getBytes());
       }
     }
-    origVec.setValueCount(vecLen);
+    origVec.setValueCount(vectorLength);
     int nullCount = origVec.getNullCount();
 
     // compress & decompress
@@ -160,11 +161,11 @@ public class TestCompressionCodec {
 
     // orchestrate new vector
     VarCharVector newVec = new VarCharVector("new vec", allocator);
-    newVec.loadFieldBuffers(new ArrowFieldNode(vecLen, nullCount), decompressedBuffers);
+    newVec.loadFieldBuffers(new ArrowFieldNode(vectorLength, nullCount), decompressedBuffers);
 
     // verify new vector
-    assertEquals(vecLen, newVec.getValueCount());
-    for (int i = 0; i < vecLen; i++) {
+    assertEquals(vectorLength, newVec.getValueCount());
+    for (int i = 0; i < vectorLength; i++) {
       if (i % 10 == 0) {
         assertTrue(newVec.isNull(i));
       } else {
@@ -178,13 +179,12 @@ public class TestCompressionCodec {
 
   @Test
   public void testEmptyBuffer() throws Exception {
-    final int vecLength = 10;
     final VarBinaryVector origVec = new VarBinaryVector("vec", allocator);
 
-    origVec.allocateNew(vecLength);
+    origVec.allocateNew(vectorLength);
 
     // Do not set any values (all missing)
-    origVec.setValueCount(vecLength);
+    origVec.setValueCount(vectorLength);
 
     final List<ArrowBuf> origBuffers = origVec.getFieldBuffers();
     final List<ArrowBuf> compressedBuffers = compressBuffers(origBuffers);
@@ -192,11 +192,11 @@ public class TestCompressionCodec {
 
     // orchestrate new vector
     VarBinaryVector newVec = new VarBinaryVector("new vec", allocator);
-    newVec.loadFieldBuffers(new ArrowFieldNode(vecLength, vecLength), decompressedBuffers);
+    newVec.loadFieldBuffers(new ArrowFieldNode(vectorLength, vectorLength), decompressedBuffers);
 
     // verify new vector
-    assertEquals(vecLength, newVec.getValueCount());
-    for (int i = 0; i < vecLength; i++) {
+    assertEquals(vectorLength, newVec.getValueCount());
+    for (int i = 0; i < vectorLength; i++) {
       assertTrue(newVec.isNull(i));
     }
 

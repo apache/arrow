@@ -19,12 +19,21 @@ package org.apache.arrow.vector.compression;
 
 import org.apache.arrow.flatbuf.BodyCompressionMethod;
 import org.apache.arrow.flatbuf.CompressionType;
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.vector.ipc.message.ArrowBodyCompression;
 
 /**
  * Utilities for data compression/decompression.
  */
 public class CompressionUtil {
+
+  static final long SIZE_OF_UNCOMPRESSED_LENGTH = 8L;
+
+  /**
+   * Special flag to indicate no compression.
+   * (e.g. when the compressed buffer has a larger size.)
+   */
+  static final long NO_COMPRESSION_LENGTH = -1L;
 
   private CompressionUtil() {
   }
@@ -58,5 +67,21 @@ public class CompressionUtil {
       default:
         throw new IllegalArgumentException("Compression type not supported: " + compressionType);
     }
+  }
+
+  /**
+   * Process compression by compressing the buffer as is.
+   */
+  public static void compressRawBuffer(ArrowBuf inputBuffer, ArrowBuf compressedBuffer) {
+    compressedBuffer.setLong(0, NO_COMPRESSION_LENGTH);
+    compressedBuffer.setBytes(SIZE_OF_UNCOMPRESSED_LENGTH, inputBuffer, 0, inputBuffer.writerIndex());
+  }
+
+  /**
+   * Process decompression by decompressing the buffer as is.
+   */
+  public static ArrowBuf decompressRawBuffer(ArrowBuf inputBuffer) {
+    return inputBuffer.slice(SIZE_OF_UNCOMPRESSED_LENGTH,
+        inputBuffer.writerIndex() - SIZE_OF_UNCOMPRESSED_LENGTH);
   }
 }
