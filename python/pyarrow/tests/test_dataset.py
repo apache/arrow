@@ -2317,6 +2317,32 @@ def test_write_dataset_partitioned(tempdir):
 
 @pytest.mark.parquet
 @pytest.mark.pandas
+def test_write_dataset_partitioned_dict(tempdir):
+    directory = tempdir / "partitioned"
+    _ = _create_parquet_dataset_partitioned(directory)
+
+    # directory partitioning, dictionary partition columns
+    dataset = ds.dataset(
+        directory,
+        partitioning=ds.HivePartitioning.discover(infer_dictionary=True))
+    target = tempdir / 'partitioned-dir-target'
+    expected_paths = [
+        target / "a", target / "a" / "part-0.feather",
+        target / "b", target / "b" / "part-1.feather"
+    ]
+    partitioning = ds.partitioning(pa.schema([
+        dataset.schema.field('part')]),
+        dictionaries={'part': pa.array(['a', 'b'])})
+    # NB: dictionaries required here since we use partitioning to parse
+    # directories in _check_dataset_roundtrip (not currently required for
+    # the formatting step)
+    _check_dataset_roundtrip(
+        dataset, str(target), expected_paths, target,
+        partitioning=partitioning)
+
+
+@pytest.mark.parquet
+@pytest.mark.pandas
 def test_write_dataset_use_threads(tempdir):
     directory = tempdir / "partitioned"
     _ = _create_parquet_dataset_partitioned(directory)
@@ -2410,6 +2436,30 @@ def test_write_table_multiple_fragments(tempdir):
     assert ds.dataset(base_dir, format="ipc").to_table().equals(
         pa.concat_tables([table]*2)
     )
+
+
+def test_write_table_partitioned_dict(tempdir):
+    # ensure writing table partitioned on a dictionary column works without
+    # specifying the dictionary values explicitly
+    table = pa.table([
+        pa.array(range(20)),
+        pa.array(np.repeat(['a', 'b'], 10)).dictionary_encode(),
+    ], names=['col', 'part'])
+
+    partitioning = ds.partitioning(table.select(["part"]).schema)
+
+    base_dir = tempdir / "dataset"
+    ds.write_dataset(
+        table, base_dir, format="feather", partitioning=partitioning
+    )
+
+    # check roundtrip
+    partitioning_read = ds.DirectoryPartitioning.discover(
+        ["part"], infer_dictionary=True)
+    result = ds.dataset(
+        base_dir, format="ipc", partitioning=partitioning_read
+    ).to_table()
+    assert result.equals(table)
 
 
 @pytest.mark.parquet
