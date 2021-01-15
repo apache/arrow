@@ -156,6 +156,14 @@ class PackageTask
       build_command_line.concat(["--build-arg", "DEBUG=yes"])
       run_command_line.concat(["--env", "DEBUG=yes"])
     end
+    pass_through_env_names = [
+      "DEB_BUILD_OPTIONS"
+    ]
+    pass_through_env_names.each do |name|
+      value = ENV[name]
+      next unless value
+      run_command_line.concat(["--env", "#{name}=#{value}"])
+    end
     if File.exist?(File.join(id, "Dockerfile"))
       docker_context = id
     else

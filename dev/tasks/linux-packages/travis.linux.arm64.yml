@@ -51,7 +51,12 @@ script:
   - rake version:update
   - |
     rake docker:pull || :
-  - stdbuf --output=0 rake BUILD_DIR=build {{ build_task }}
+  - |
+    stdbuf --output=0 \
+      rake \
+        BUILD_DIR=build \
+        DEB_BUILD_OPTIONS=parallel=8 \
+        {{ build_task }}
   - sudo rm -rf */*/build
   - popd
 
