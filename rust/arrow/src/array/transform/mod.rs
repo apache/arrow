@@ -814,6 +814,63 @@ mod tests {
     }
 
     #[test]
+    fn array_bug_1() {
+        let strings: ArrayRef = Arc::new(StringArray::from(vec![None, Some("b")]));
+        // Array::slice() is not bug-free
+        let strings_slice = strings.slice(1, 1);
+        let strings2: ArrayRef = Arc::new(StringArray::from(vec![Some("b")]));
+
+        assert_eq!(
+            &strings2,
+            &strings_slice,
+            "\n##1: {:?}\n##2: {:?}",
+            strings2.data(),
+            strings_slice.data()
+        );
+    }
+
+    #[test]
+    fn array_bug_2() {
+        let strings: ArrayRef =
+            Arc::new(StringArray::from(vec![Some("a"), None, Some("b")]));
+        // Array::slice() is not bug-free
+        let strings_slice = strings.slice(2, 1);
+        let strings2: ArrayRef = Arc::new(StringArray::from(vec![Some("b")]));
+
+        assert_eq!(
+            &strings2,
+            &strings_slice,
+            "\n##1: {:?}\n##2: {:?}",
+            strings2.data(),
+            strings_slice.data()
+        );
+    }
+
+    #[test]
+    fn struct_array_bug() {
+        let strings: ArrayRef = Arc::new(StringArray::from(vec![
+            Some("joe"),
+            None,
+            None,
+            Some("mark"),
+            Some("doe"),
+        ]));
+
+        let array = StructArray::try_from(vec![("f1", strings.clone())])
+            .unwrap()
+            .data();
+        let arrays = vec![array.as_ref()];
+        let mut mutable = MutableArrayData::new(arrays, false, 0);
+
+        mutable.extend(0, 1, 3);
+        let data = mutable.freeze();
+        let array = StructArray::from(Arc::new(data));
+
+        let expected = StructArray::try_from(vec![("f1", strings.slice(1, 2))]).unwrap();
+        assert_eq!(array, expected)
+    }
+
+    #[test]
     fn test_struct() {
         let strings: ArrayRef = Arc::new(StringArray::from(vec![
             None,
