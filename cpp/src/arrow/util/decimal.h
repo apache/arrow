@@ -317,16 +317,4 @@ class ARROW_EXPORT DecimalAnyWidth : public BasicDecimalAnyWidth<width> {
   Status ToArrowStatus(DecimalStatus dstatus) const;
 };
 
-// class ARROW_EXPORT Decimal16 : DecimalAnyWidth<16> {
-//   using DecimalAnyWidth<16>::DecimalAnyWidth;
-// };
-
-// class ARROW_EXPORT Decimal32 : DecimalAnyWidth<32> {
-//   using DecimalAnyWidth<32>::DecimalAnyWidth;
-// };
-
-// class ARROW_EXPORT Decimal64 : DecimalAnyWidth<64> {
-//   using DecimalAnyWidth<64>::DecimalAnyWidth;
-// };
-
 }  // namespace arrow

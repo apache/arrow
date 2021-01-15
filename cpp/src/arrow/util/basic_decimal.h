@@ -339,6 +339,7 @@ ARROW_EXPORT BasicDecimal256 operator/(const BasicDecimal256& left,
 template <uint32_t width>
 class ARROW_EXPORT BasicDecimalAnyWidth {
  public:
+  static constexpr int bit_width = width;
   using ValueType = typename IntTypes<width>::signed_type;
   /// \brief Empty constructor creates a BasicDecimal with a value of 0.
   constexpr BasicDecimalAnyWidth() noexcept : value(0) {}
@@ -354,15 +355,15 @@ class ARROW_EXPORT BasicDecimalAnyWidth {
   constexpr BasicDecimalAnyWidth(T value) noexcept
       : value(static_cast<ValueType>(value)) {}
 
+  /// \brief Create a BasicDecimal from an array of bytes. Bytes are assumed to be in
+  /// native-endian byte order.
+  explicit BasicDecimalAnyWidth(const uint8_t* bytes);
+
   /// \brief Upcast BasicDecimal with less widths
   template <uint32_t _width,
             typename = typename std::enable_if<_width <= width, void>::type>
   constexpr BasicDecimalAnyWidth(const BasicDecimalAnyWidth<_width>& other) noexcept
       : value(static_cast<ValueType>(other.Value())) {}
-
-  /// \brief Create a BasicDecimal from an array of bytes. Bytes are assumed to be in
-  /// native-endian byte order.
-  explicit BasicDecimalAnyWidth(const uint8_t* bytes);
 
   /// \brief Negate the current value (in-place)
   BasicDecimalAnyWidth& Negate();
@@ -373,6 +374,17 @@ class ARROW_EXPORT BasicDecimalAnyWidth {
   /// \brief Absolute value
   static BasicDecimalAnyWidth Abs(const BasicDecimalAnyWidth& left);
 
+  /// Divide this number by right and return the result.
+  ///
+  /// This operation is not destructive.
+  /// The answer rounds to zero. Signs work like:
+  ///   21 /  5 ->  4,  1
+  ///  -21 /  5 -> -4, -1
+  ///   21 / -5 -> -4,  1
+  ///  -21 / -5 ->  4, -1
+  /// \param[in] divisor the number to divide by
+  /// \param[out] result the quotient
+  /// \param[out] remainder the remainder after the division
   DecimalStatus Divide(const BasicDecimalAnyWidth& divisor, BasicDecimalAnyWidth* result,
                        BasicDecimalAnyWidth* remainder) const;
 

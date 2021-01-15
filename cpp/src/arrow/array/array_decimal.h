@@ -45,6 +45,6 @@ class ARROW_EXPORT BaseDecimalArray : public FixedSizeBinaryArray {
 };
 
 // Backward compatibility
-using DecimalArray = Decimal128Array;
+using DecimalArray = BaseDecimalArray<128>;
 
 }  // namespace arrow

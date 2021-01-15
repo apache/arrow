@@ -1186,8 +1186,11 @@ DecimalStatus BasicDecimalAnyWidth<width>::Divide(const BasicDecimalAnyWidth& di
   bool dividen_was_negative = Sign() == -1;
   bool divisor_was_negative = divisor.Sign() == -1;
 
-  *result = value / divisor.value;
-  *remainder = value % divisor.value;
+  BasicDecimalAnyWidth<width> dividen_abs = BasicDecimalAnyWidth<width>::Abs(*this);
+  BasicDecimalAnyWidth<width> divisor_abs = BasicDecimalAnyWidth<width>::Abs(divisor);
+
+  *result = dividen_abs.value / divisor_abs.value;
+  *remainder = dividen_abs.value % divisor_abs.value;
 
   FixDivisionSigns(result, remainder, dividen_was_negative, divisor_was_negative);
   return DecimalStatus::kSuccess;

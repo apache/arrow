@@ -933,12 +933,6 @@ void TestDecimalDictionaryBuilderDoubleTableSize(
   ASSERT_TRUE(expected.Equals(result));
 }
 
-// TEST(TestDecimal64DictionaryBuilder, DoubleTableSize) {
-//   const auto& decimal_type = arrow::decimal64(18, 0);
-//   Decimal64Builder decimal_builder(decimal_type);
-//   TestDecimalDictionaryBuilderDoubleTableSize(decimal_type, decimal_builder);
-// }
-
 TEST(TestDecimal128DictionaryBuilder, DoubleTableSize) {
   const auto& decimal_type = arrow::decimal128(21, 0);
   Decimal128Builder decimal_builder(decimal_type);

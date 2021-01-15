@@ -63,6 +63,6 @@ class ARROW_EXPORT BaseDecimalBuilder : public FixedSizeBinaryBuilder {
 };
 
 // Backward compatibility
-using DecimalBuilder = Decimal128Builder;
+using DecimalBuilder = BaseDecimalBuilder<128>;
 
 }  // namespace arrow

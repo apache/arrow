@@ -1729,20 +1729,20 @@ const std::vector<std::pair<std::string, std::function<T(T, T)>>>
 TYPED_TEST(DecimalAnyWidthTest, BinaryOperations) {
   using ValueType = typename arrow::DecimalAnyWidthTest_BinaryOperations_Test<
       gtest_TypeParam_>::TypeParam::ValueType;
-  using ArrowValueType = typename arrow::CTypeTraits<ValueType>::ArrowType;
 
   auto DecimalFns = DecimalAnyWidthBinaryParams<TypeParam>::value;
   auto NumericFns = DecimalAnyWidthBinaryParams<int64_t>::value;
 
   for (size_t i = 0; i < DecimalFns.size(); i++) {
-    for (auto x : GetRandomNumbers<ArrowValueType>(8)) {
-      for (auto y : GetRandomNumbers<ArrowValueType>(8)) {
+    for (ValueType x : GetRandomNumbers<Int16Type>(8)) {
+      for (ValueType y : GetRandomNumbers<Int16Type>(8)) {
         TypeParam d1(x), d2(y);
-        auto result = DecimalFns[i].second(d1, d2);
-        auto reference = static_cast<ValueType>(NumericFns[i].second(x, y));
+        TypeParam result = DecimalFns[i].second(d1, d2);
+        ValueType reference = static_cast<ValueType>(NumericFns[i].second(x, y));
         ASSERT_EQ(reference, result)
-            << d1 << " " << DecimalFns[i].first << " " << d2 << " "
-            << " != " << result;
+            << "(" << x << " " << DecimalFns[i].first << " " << y << " = " << reference
+            << ") != (" << d1 << " " << DecimalFns[i].first << " " << d2 << " = "
+            << result << ")";
       }
     }
   }
