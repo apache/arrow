@@ -609,7 +609,7 @@ macro_rules! equal_rows_elem {
         match (left_array.is_null($left), left_array.is_null($right)) {
             (true, true) => true,
             (false, false) => left_array.value($left) == right_array.value($right),
-            _ => false
+            _ => false,
         }
     }};
 }
