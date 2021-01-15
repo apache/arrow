@@ -1408,11 +1408,11 @@ cdef vector[shared_ptr[CArray]] _partitioning_dictionaries(
     cdef:
         vector[shared_ptr[CArray]] c_dictionaries
 
-    dictionaries = list(dictionaries or [])[:len(schema)]
-    while len(dictionaries) < len(schema):
-        dictionaries.append(None)
+    dictionaries = dictionaries or {}
 
-    for field, dictionary in zip(schema, dictionaries):
+    for field in schema:
+        dictionary = dictionaries.get(field.name)
+
         if (isinstance(field.type, pa.DictionaryType) and
                 dictionary is not None):
             c_dictionaries.push_back(pyarrow_unwrap_array(dictionary))
@@ -1435,7 +1435,7 @@ cdef class DirectoryPartitioning(Partitioning):
     ----------
     schema : Schema
         The schema that describes the partitions present in the file path.
-    dictionaries : List[Array]
+    dictionaries : Dict[str, Array]
         If the type of any field of `schema` is a dictionary type, the
         corresponding entry of `dictionaries` must be an array containing
         every value which may be taken by the corresponding column or an
@@ -1533,7 +1533,7 @@ cdef class HivePartitioning(Partitioning):
     ----------
     schema : Schema
         The schema that describes the partitions present in the file path.
-    dictionaries : List[Array]
+    dictionaries : Dict[str, Array]
         If the type of any field of `schema` is a dictionary type, the
         corresponding entry of `dictionaries` must be an array containing
         every value which may be taken by the corresponding column or an
@@ -2305,6 +2305,7 @@ def _filesystemdataset_write(
     Schema schema not None, FileSystem filesystem not None,
     Partitioning partitioning not None,
     FileWriteOptions file_options not None, bint use_threads,
+    int max_partitions,
 ):
     """
     CFileSystemDataset.Write wrapper
@@ -2318,6 +2319,7 @@ def _filesystemdataset_write(
     c_options.filesystem = filesystem.unwrap()
     c_options.base_dir = tobytes(_stringify_path(base_dir))
     c_options.partitioning = partitioning.unwrap()
+    c_options.max_partitions = max_partitions
     c_options.basename_template = tobytes(basename_template)
 
     if isinstance(data, Dataset):

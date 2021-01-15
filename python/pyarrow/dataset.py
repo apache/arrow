@@ -641,7 +641,8 @@ def _ensure_write_partitioning(scheme):
 
 def write_dataset(data, base_dir, basename_template=None, format=None,
                   partitioning=None, schema=None,
-                  filesystem=None, file_options=None, use_threads=True):
+                  filesystem=None, file_options=None, use_threads=True,
+                  max_partitions=None):
     """
     Write a dataset to a given format and partitioning.
 
@@ -674,6 +675,8 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
     use_threads : bool, default True
         Write files in parallel. If enabled, then maximum parallelism will be
         used determined by the number of available CPU cores.
+    max_partitions : int, default 1024
+        Maximum number of partitions any batch may be written into.
     """
     from pyarrow.fs import LocalFileSystem, _ensure_filesystem
 
@@ -706,6 +709,9 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
     if basename_template is None:
         basename_template = "part-{i}." + format.default_extname
 
+    if max_partitions is None:
+        max_partitions = 1024
+
     partitioning = _ensure_write_partitioning(partitioning)
 
     if filesystem is None:
@@ -717,4 +723,5 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
     _filesystemdataset_write(
         data, base_dir, basename_template, schema,
         filesystem, partitioning, file_options, use_threads,
+        max_partitions
     )

@@ -313,7 +313,7 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
         ARROW_ASSIGN_OR_RAISE(auto groups, write_options.partitioning->Partition(batch));
         batch.reset();  // drop to hopefully conserve memory
 
-        if (static_cast<int>(groups.batches.size()) > write_options.max_partitions) {
+        if (groups.batches.size() > static_cast<size_t>(write_options.max_partitions)) {
           return Status::Invalid("Fragment would be written into ", groups.batches.size(),
                                  " partitions. This exceeds the maximum of ",
                                  write_options.max_partitions);

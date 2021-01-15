@@ -213,6 +213,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         shared_ptr[CFileSystem] filesystem
         c_string base_dir
         shared_ptr[CPartitioning] partitioning
+        int max_partitions
         c_string basename_template
 
     cdef cppclass CFileSystemDataset \

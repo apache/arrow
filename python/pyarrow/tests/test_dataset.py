@@ -2332,7 +2332,7 @@ def test_write_dataset_partitioned_dict(tempdir):
     ]
     partitioning = ds.partitioning(pa.schema([
         dataset.schema.field('part')]),
-        dictionaries=[pa.array(['a', 'b'])])
+        dictionaries={'part': pa.array(['a', 'b'])})
     # NB: dictionaries required here since we use partitioning to parse
     # directories in _check_dataset_roundtrip (not currently required for
     # the formatting step)
