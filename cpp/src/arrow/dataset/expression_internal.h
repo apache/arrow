@@ -109,6 +109,40 @@ struct Comparison {
     return less.scalar_as<BooleanScalar>().value ? LESS : GREATER;
   }
 
+  static const Expression& StripOrderPreservingCasts(const Expression& expr) {
+    auto call = expr.call();
+    if (!call) return expr;
+    if (call->function_name != "cast") return expr;
+
+    const Expression& from = call->arguments[0];
+
+    auto from_id = from.type()->id();
+    auto to_id = expr.type()->id();
+
+    if (is_floating(to_id)) {
+      if (is_integer(from_id) || is_floating(from_id)) {
+        return StripOrderPreservingCasts(from);
+      }
+      return expr;
+    }
+
+    if (is_unsigned_integer(to_id)) {
+      if (is_unsigned_integer(from_id) && bit_width(to_id) >= bit_width(from_id)) {
+        return StripOrderPreservingCasts(from);
+      }
+      return expr;
+    }
+
+    if (is_signed_integer(to_id)) {
+      if (is_integer(from_id) && bit_width(to_id) >= bit_width(from_id)) {
+        return StripOrderPreservingCasts(from);
+      }
+      return expr;
+    }
+
+    return expr;
+  }
+
   static type GetFlipped(type op) {
     switch (op) {
       case NA:
@@ -182,14 +216,6 @@ inline bool IsSetLookup(const std::string& function) {
   return function == "is_in" || function == "index_in";
 }
 
-inline bool IsSameTypesBinary(const std::string& function) {
-  if (Comparison::Get(function)) return true;
-
-  static std::unordered_set<std::string> set{"add", "subtract", "multiply", "divide"};
-
-  return set.find(function) != set.end();
-}
-
 inline const compute::SetLookupOptions* GetSetLookupOptions(
     const Expression::Call& call) {
   if (!IsSetLookup(call.function_name)) return nullptr;
@@ -204,22 +230,6 @@ inline const compute::ProjectOptions* GetProjectOptions(const Expression::Call& 
 inline const compute::StrptimeOptions* GetStrptimeOptions(const Expression::Call& call) {
   if (call.function_name != "strptime") return nullptr;
   return checked_cast<const compute::StrptimeOptions*>(call.options.get());
-}
-
-inline std::shared_ptr<DataType> GetDictionaryValueType(
-    const std::shared_ptr<DataType>& type) {
-  if (type && type->id() == Type::DICTIONARY) {
-    return checked_cast<const DictionaryType&>(*type).value_type();
-  }
-  return nullptr;
-}
-
-inline Status EnsureNotDictionary(Datum* datum) {
-  if (datum->type()->id() == Type::DICTIONARY) {
-    const auto& type = checked_cast<const DictionaryType&>(*datum->type()).value_type();
-    ARROW_ASSIGN_OR_RAISE(*datum, compute::Cast(*datum, type));
-  }
-  return Status::OK();
 }
 
 /// A helper for unboxing an Expression composed of associative function calls.

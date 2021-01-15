@@ -198,9 +198,9 @@ std::shared_ptr<DataType> CommonNumeric(const std::vector<ValueDescr>& descrs) {
   int max_width = 0;
 
   for (const auto& descr : descrs) {
-    at_least_one_signed |= is_signed_integer(descr.type->id());
-    max_width =
-        std::max(max_width, checked_cast<const IntegerType&>(*descr.type).bit_width());
+    auto id = descr.type->id();
+    at_least_one_signed |= is_signed_integer(id);
+    max_width = std::max(bit_width(id), max_width);
   }
 
   if (max_width == 64) return at_least_one_signed ? int64() : uint64();

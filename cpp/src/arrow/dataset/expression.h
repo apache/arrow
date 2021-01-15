@@ -50,8 +50,8 @@ class ARROW_DS_EXPORT Expression {
     std::shared_ptr<std::atomic<size_t>> hash;
 
     // post-Bind properties:
-    const compute::Kernel* kernel = NULLPTR;
     std::shared_ptr<compute::Function> function;
+    const compute::Kernel* kernel = NULLPTR;
     std::shared_ptr<compute::KernelState> kernel_state;
     ValueDescr descr;
   };

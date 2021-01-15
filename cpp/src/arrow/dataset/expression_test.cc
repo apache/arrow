@@ -68,6 +68,8 @@ void ExpectResultsEqual(Actual&& actual, Expected&& expected) {
   }
 }
 
+const auto no_change = util::nullopt;
+
 TEST(ExpressionUtils, Comparison) {
   auto Expect = [](Result<std::string> expected, Datum l, Datum r) {
     ExpectResultsEqual(Comparison::Execute(l, r).Map(Comparison::GetName), expected);
@@ -91,6 +93,51 @@ TEST(ExpressionUtils, Comparison) {
   Expect("na", null, one);
   // cast RHS to LHS type; "hello" is not convertible to int
   Expect(parse_failure, null, str);
+}
+
+TEST(ExpressionUtils, StripOrderPreservingCasts) {
+  auto Expect = [](Expression expr, util::optional<Expression> expected_stripped) {
+    ASSERT_OK_AND_ASSIGN(expr, expr.Bind(*kBoringSchema));
+    if (!expected_stripped) {
+      expected_stripped = expr;
+    } else {
+      ASSERT_OK_AND_ASSIGN(expected_stripped, expected_stripped->Bind(*kBoringSchema));
+    }
+    EXPECT_EQ(Comparison::StripOrderPreservingCasts(expr), *expected_stripped);
+  };
+
+  // Casting int to float preserves ordering.
+  // For example, let
+  //   a = 3, b = 2, assert(a > b)
+  // After injecting a cast to float, this ordering still holds
+  //   float(a) == 3.0, float(b) == 2.0, assert(float(a) > float(b))
+  Expect(cast(field_ref("i32"), float32()), field_ref("i32"));
+
+  // Casting an integral type to a wider integral type preserves ordering.
+  Expect(cast(field_ref("i32"), int64()), field_ref("i32"));
+  Expect(cast(field_ref("i32"), int32()), field_ref("i32"));
+  Expect(cast(field_ref("i32"), int16()), no_change);
+  Expect(cast(field_ref("i32"), int8()), no_change);
+
+  Expect(cast(field_ref("u32"), uint64()), field_ref("u32"));
+  Expect(cast(field_ref("u32"), uint32()), field_ref("u32"));
+  Expect(cast(field_ref("u32"), uint16()), no_change);
+  Expect(cast(field_ref("u32"), uint8()), no_change);
+
+  // Casting float to int can affect ordering.
+  // For example, let
+  //   a = 3.5, b = 3.0, assert(a > b)
+  // After injecting a cast to integer, this ordering may no longer hold
+  //   int(a) == 3, int(b) == 3, assert(!(int(a) > int(b)))
+  Expect(cast(field_ref("f32"), int32()), no_change);
+
+  // casting any float type to another preserves ordering
+  Expect(cast(field_ref("f32"), float64()), field_ref("f32"));
+  Expect(cast(field_ref("f64"), float32()), field_ref("f64"));
+
+  // casting signed integer to unsigned can alter ordering
+  Expect(cast(field_ref("i32"), uint32()), no_change);
+  Expect(cast(field_ref("i32"), uint64()), no_change);
 }
 
 TEST(Expression, ToString) {
@@ -307,8 +354,6 @@ void ExpectBindsTo(Expression expr, util::optional<Expression> expected,
   }
 }
 
-const auto no_change = util::nullopt;
-
 TEST(Expression, BindFieldRef) {
   // an unbound field_ref does not have the output ValueDescr set
   auto expr = field_ref("alpha");
@@ -342,42 +387,44 @@ TEST(Expression, BindCall) {
   ExpectBindsTo(expr, no_change, &expr);
   EXPECT_EQ(expr.descr(), ValueDescr::Array(int32()));
 
-  // literal(3) may be safely cast to float32, so binding this expr casts that literal:
   ExpectBindsTo(call("add", {field_ref("f32"), literal(3)}),
                 call("add", {field_ref("f32"), literal(3.0F)}));
 
-  // literal(3.5) may not be safely cast to int32, so binding this expr fails:
-  ASSERT_RAISES(Invalid,
-                call("add", {field_ref("i32"), literal(3.5)}).Bind(*kBoringSchema));
+  ExpectBindsTo(call("add", {field_ref("i32"), literal(3.5F)}),
+                call("add", {cast(field_ref("i32"), float32()), literal(3.5F)}));
 }
 
 TEST(Expression, BindWithImplicitCasts) {
   for (auto cmp : {equal, not_equal, less, less_equal, greater, greater_equal}) {
-    // cast arguments to same type
+    // cast arguments to common numeric type
+    ExpectBindsTo(cmp(field_ref("i64"), field_ref("i32")),
+                  cmp(field_ref("i64"), cast(field_ref("i32"), int64())));
+
+    ExpectBindsTo(cmp(field_ref("i64"), field_ref("f32")),
+                  cmp(cast(field_ref("i64"), float32()), field_ref("f32")));
+
     ExpectBindsTo(cmp(field_ref("i32"), field_ref("i64")),
-                  cmp(field_ref("i32"), cast(field_ref("i64"), int32())));
-    // NB: RHS is cast unless LHS is scalar.
+                  cmp(cast(field_ref("i32"), int64()), field_ref("i64")));
+
+    ExpectBindsTo(cmp(field_ref("i8"), field_ref("u32")),
+                  cmp(cast(field_ref("i8"), int32()), cast(field_ref("u32"), int32())));
 
     // cast dictionary to value type
     ExpectBindsTo(cmp(field_ref("dict_str"), field_ref("str")),
                   cmp(cast(field_ref("dict_str"), utf8()), field_ref("str")));
   }
 
-  // scalars are directly cast when possible:
-  auto ts_scalar = MakeScalar("1990-10-23")->CastTo(timestamp(TimeUnit::NANO));
-  ExpectBindsTo(equal(field_ref("ts_ns"), literal("1990-10-23")),
-                equal(field_ref("ts_ns"), literal(*ts_scalar)));
-
-  // cast value_set to argument type
   auto Opts = [](std::shared_ptr<DataType> type) {
     return compute::SetLookupOptions{ArrayFromJSON(type, R"(["a"])")};
   };
+
+  // cast value_set to argument type
   ExpectBindsTo(call("is_in", {field_ref("str")}, Opts(binary())),
                 call("is_in", {field_ref("str")}, Opts(utf8())));
 
-  // dictionary decode set then cast to argument type
-  ExpectBindsTo(call("is_in", {field_ref("str")}, Opts(dictionary(int32(), binary()))),
-                call("is_in", {field_ref("str")}, Opts(utf8())));
+  // cast dictionary to value type
+  ExpectBindsTo(call("is_in", {field_ref("dict_str")}, Opts(utf8())),
+                call("is_in", {cast(field_ref("dict_str"), utf8())}, Opts(utf8())));
 }
 
 TEST(Expression, BindNestedCall) {
@@ -518,16 +565,6 @@ TEST(Expression, ExecuteDictionaryTransparent) {
     {"a": "hi", "b": "hi"},
     {"a": "",   "b": ""},
     {"a": "hi", "b": "hello"}
-  ])"));
-
-  Datum dict_set = ArrayFromJSON(dictionary(int32(), utf8()), R"(["a"])");
-  AssertExecute(call("is_in", {field_ref("a")},
-                     compute::SetLookupOptions{dict_set,
-                                               /*skip_nulls=*/false}),
-                ArrayFromJSON(struct_({field("a", utf8())}), R"([
-    {"a": "a"},
-    {"a": "good"},
-    {"a": null}
   ])"));
 }
 
@@ -874,6 +911,12 @@ TEST(Expression, SingleComparisonGuarantees) {
       .WithGuarantee(equal(i32, literal(5)))
       .Expect(false);
 
+  Simplify{
+      equal(i32, literal(0.5)),
+  }
+      .WithGuarantee(greater_equal(i32, literal(1)))
+      .Expect(false);
+
   // no simplification possible:
   Simplify{
       not_equal(i32, literal(3)),
@@ -949,27 +992,26 @@ TEST(Expression, SimplifyWithGuarantee) {
       .WithGuarantee(and_(greater_equal(field_ref("i32"), literal(0)),
                           less_equal(field_ref("i32"), literal(1))))
       .Expect(equal(field_ref("i32"), literal(0)));
-  Simplify{
-      or_(equal(field_ref("f32"), literal("0")), equal(field_ref("i32"), literal(3)))}
+
+  Simplify{or_(equal(field_ref("f32"), literal(0)), equal(field_ref("i32"), literal(3)))}
       .WithGuarantee(greater(field_ref("f32"), literal(0.0)))
       .Expect(equal(field_ref("i32"), literal(3)));
 
   // simplification can see through implicit casts
-  Simplify{or_({equal(field_ref("f32"), literal("0")),
-                call("is_in", {field_ref("i64")},
-                     compute::SetLookupOptions{
-                         ArrayFromJSON(dictionary(int32(), int32()), "[1,2,3]"), true})})}
-      .WithGuarantee(greater(field_ref("f32"), literal(0.0)))
+  Simplify{
+      or_({equal(field_ref("f32"), literal(0)),
+           call("is_in", {field_ref("i64")},
+                compute::SetLookupOptions{ArrayFromJSON(int32(), "[1,2,3]"), true})})}
+      .WithGuarantee(greater(field_ref("f32"), literal(0.F)))
       .Expect(call("is_in", {field_ref("i64")},
                    compute::SetLookupOptions{ArrayFromJSON(int64(), "[1,2,3]"), true}));
 }
 
 TEST(Expression, SimplifyThenExecute) {
   auto filter =
-      or_({equal(field_ref("f32"), literal("0")),
+      or_({equal(field_ref("f32"), literal(0)),
            call("is_in", {field_ref("i64")},
-                compute::SetLookupOptions{
-                    ArrayFromJSON(dictionary(int32(), int32()), "[1,2,3]"), true})});
+                compute::SetLookupOptions{ArrayFromJSON(int32(), "[1,2,3]"), true})});
 
   ASSERT_OK_AND_ASSIGN(filter, filter.Bind(*kBoringSchema));
   auto guarantee = greater(field_ref("f32"), literal(0.0));
