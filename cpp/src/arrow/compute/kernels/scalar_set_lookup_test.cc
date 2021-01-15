@@ -587,5 +587,19 @@ TEST_F(TestIndexInKernel, ChunkedArrayInvoke) {
   CheckIndexInChunked(input, value_set, expected, /*skip_nulls=*/true);
 }
 
+TEST(TestSetLookup, DispatchBest) {
+  for (std::string name : {"is_in", "index_in"}) {
+    CheckDispatchBest(name, {int32()}, {int32()});
+    CheckDispatchBest(name, {dictionary(int32(), utf8())}, {utf8()});
+  }
+}
+
+TEST(TestSetLookup, IsInWithImplicitCasts) {
+  SetLookupOptions opts{ArrayFromJSON(utf8(), R"(["b", "d"])")};
+  CheckScalarUnary("is_in",
+                   ArrayFromJSON(dictionary(int32(), utf8()), R"(["a", "b", "c", null])"),
+                   ArrayFromJSON(boolean(), "[0, 1, 0, null]"), &opts);
+}
+
 }  // namespace compute
 }  // namespace arrow

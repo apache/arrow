@@ -414,6 +414,15 @@ class IndexInMetaBinary : public MetaFunction {
   }
 };
 
+struct SetLookupFunction : ScalarFunction {
+  using ScalarFunction::ScalarFunction;
+
+  Result<const Kernel*> DispatchBest(std::vector<ValueDescr>* values) const override {
+    EnsureDictionaryDecoded(values);
+    return DispatchExact(*values);
+  }
+};
+
 const FunctionDoc is_in_doc{
     "Find each element in a set of values",
     ("For each element in `values`, return true if it is found in a given\n"
@@ -443,7 +452,7 @@ void RegisterScalarSetLookup(FunctionRegistry* registry) {
     isin_base.init = InitSetLookup;
     isin_base.exec = TrivialScalarUnaryAsArraysExec(ExecIsIn);
     isin_base.null_handling = NullHandling::OUTPUT_NOT_NULL;
-    auto is_in = std::make_shared<ScalarFunction>("is_in", Arity::Unary(), &is_in_doc);
+    auto is_in = std::make_shared<SetLookupFunction>("is_in", Arity::Unary(), &is_in_doc);
 
     AddBasicSetLookupKernels(isin_base, /*output_type=*/boolean(), is_in.get());
 
@@ -462,7 +471,7 @@ void RegisterScalarSetLookup(FunctionRegistry* registry) {
     index_in_base.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
     index_in_base.mem_allocation = MemAllocation::NO_PREALLOCATE;
     auto index_in =
-        std::make_shared<ScalarFunction>("index_in", Arity::Unary(), &index_in_doc);
+        std::make_shared<SetLookupFunction>("index_in", Arity::Unary(), &index_in_doc);
 
     AddBasicSetLookupKernels(index_in_base, /*output_type=*/int32(), index_in.get());
 
