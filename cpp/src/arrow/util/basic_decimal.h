@@ -341,10 +341,10 @@ template<uint32_t width>
 class ARROW_EXPORT BasicDecimalAnyWidth {
  public:
   using ValueType = typename IntTypes<width>::signed_type;
-  /// \brief Empty constructor creates a BasicDecimal256 with a value of 0.
+  /// \brief Empty constructor creates a BasicDecimal with a value of 0.
   constexpr BasicDecimalAnyWidth() noexcept : value(0) {}
 
-  /// \brief Convert any integer value into a BasicDecimal256.
+  /// \brief Convert any integer value into a BasicDecimal.
   template <typename T,
             typename = typename std::enable_if<
                 std::is_integral<T>::value && 
@@ -359,7 +359,7 @@ class ARROW_EXPORT BasicDecimalAnyWidth {
   constexpr BasicDecimalAnyWidth(const BasicDecimalAnyWidth<_width>& other) noexcept
       : value(static_cast<ValueType>(other.Value())) {}
 
-  /// \brief Create a BasicDecimal256 from an array of bytes. Bytes are assumed to be in
+  /// \brief Create a BasicDecimal from an array of bytes. Bytes are assumed to be in
   /// native-endian byte order.
   explicit BasicDecimalAnyWidth(const uint8_t* bytes);
 
@@ -375,14 +375,14 @@ class ARROW_EXPORT BasicDecimalAnyWidth {
   DecimalStatus Divide(const BasicDecimalAnyWidth& divisor, BasicDecimalAnyWidth* result,
                        BasicDecimalAnyWidth* remainder) const;
                       
-  // \brief Scale multiplier for given scale value.
+  /// \brief Scale multiplier for given scale value.
   static BasicDecimalAnyWidth GetScaleMultiplier(int32_t scale);
 
   /// \brief Return the raw bytes of the value in native-endian byte order.
   std::array<uint8_t, (width >> 3)> ToBytes() const;
   void ToBytes(uint8_t* out) const;
 
-  /// \brief Convert BasicDecimal128 from one scale to another
+  /// \brief Convert BasicDecimal from one scale to another
   DecimalStatus Rescale(int32_t original_scale, int32_t new_scale,
                         BasicDecimalAnyWidth* out) const;
 

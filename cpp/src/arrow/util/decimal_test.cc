@@ -1735,21 +1735,19 @@ TYPED_TEST(DecimalAnyWidthTest, BinaryOperations) {
   using ArrowValueType = typename arrow::CTypeTraits<ValueType>::ArrowType;
 
   auto DecimalFns = DecimalAnyWidthBinaryParams<TypeParam>::value;
-  auto NumericFns = DecimalAnyWidthBinaryParams<ValueType>::value;
+  auto NumericFns = DecimalAnyWidthBinaryParams<int64_t>::value;
 
   for (size_t i = 0; i < DecimalFns.size(); i++){
     for (auto x : GetRandomNumbers<ArrowValueType>(8)) {
       for (auto y : GetRandomNumbers<ArrowValueType>(8)) {
         TypeParam d1(x), d2(y);
-        ASSERT_EQ(NumericFns[i].second(x, y), DecimalFns[i].second(d1, d2))
-        << d1 << DecimalFns[i].first << " " << d2 << " " << " != " << NumericFns[i].second(x, y);
+        auto result = DecimalFns[i].second(d1, d2);
+        auto reference = static_cast<ValueType>(NumericFns[i].second(x, y));
+        ASSERT_EQ(reference, result)
+        << d1 << " " << DecimalFns[i].first << " " << d2 << " " << " != " << result;
       }
     }
   }
 }
-
-
-
-
 
 }  // namespace arrow
