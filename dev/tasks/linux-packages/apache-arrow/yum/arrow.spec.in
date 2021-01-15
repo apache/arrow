@@ -143,7 +143,7 @@ cd cpp/build
 %endif
 
 %if %{use_ninja}
-ninja
+ninja %{?_smp_mflags}
 %else
 make %{?_smp_mflags}
 %endif
@@ -159,7 +159,7 @@ meson setup build \
   -Darrow_cpp_build_dir=../cpp/build \
   -Darrow_cpp_build_type=$cpp_build_type \
   -Dgtk_doc=true
-LD_LIBRARY_PATH=$PWD/../cpp/build/$cpp_build_type ninja -C build
+LD_LIBRARY_PATH=$PWD/../cpp/build/$cpp_build_type ninja -C build %{?_smp_mflags}
 %else
 ./autogen.sh
 %configure \

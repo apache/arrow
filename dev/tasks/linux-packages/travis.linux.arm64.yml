@@ -56,6 +56,7 @@ script:
       rake \
         BUILD_DIR=build \
         DEB_BUILD_OPTIONS=parallel=8 \
+        RPM_BUILD_NCPUS=8 \
         {{ build_task }}
   - sudo rm -rf */*/build
   - popd

@@ -157,7 +157,8 @@ class PackageTask
       run_command_line.concat(["--env", "DEBUG=yes"])
     end
     pass_through_env_names = [
-      "DEB_BUILD_OPTIONS"
+      "DEB_BUILD_OPTIONS",
+      "RPM_BUILD_NCPUS",
     ]
     pass_through_env_names.each do |name|
       value = ENV[name]
