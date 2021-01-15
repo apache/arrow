@@ -145,16 +145,16 @@ struct StructScalar;
 
 class DecimalType;
 
-template<uint32_t width>
+template <uint32_t width>
 class DecimalAnyWidth;
 
-template<uint32_t width>
+template <uint32_t width>
 class BaseDecimalArray;
 
-template<uint32_t width>
+template <uint32_t width>
 class BaseDecimalBuilder;
 
-template<uint32_t width>
+template <uint32_t width>
 struct BaseDecimalScalar;
 
 using Decimal16 = DecimalAnyWidth<16>;
@@ -163,11 +163,11 @@ using Decimal64 = DecimalAnyWidth<64>;
 class Decimal128;
 class Decimal256;
 
-#define DECIMAL_DECL(width)                                \
-class Decimal##width##Type;                                \
-using Decimal##width##Array = BaseDecimalArray<width>;     \
-using Decimal##width##Builder = BaseDecimalBuilder<width>; \
-using Decimal##width##Scalar = BaseDecimalScalar<width>;
+#define DECIMAL_DECL(width)                                  \
+  class Decimal##width##Type;                                \
+  using Decimal##width##Array = BaseDecimalArray<width>;     \
+  using Decimal##width##Builder = BaseDecimalBuilder<width>; \
+  using Decimal##width##Scalar = BaseDecimalScalar<width>;
 
 DECIMAL_DECL(16)
 DECIMAL_DECL(32)
@@ -176,7 +176,6 @@ DECIMAL_DECL(128)
 DECIMAL_DECL(256)
 
 #undef DECIMAL_DECL
-
 
 struct UnionMode {
   enum type { SPARSE, DENSE };

@@ -546,7 +546,7 @@ class ArrayWriter {
     }
   }
 
-  template<uint32_t width>
+  template <uint32_t width>
   void WriteDataValues(const BaseDecimalArray<width>& arr) {
     static const char null_string[] = "0";
     for (int64_t i = 0; i < arr.length(); ++i) {
@@ -864,7 +864,7 @@ Status GetDecimal(const RjObject& json_type, std::shared_ptr<DataType>* type) {
       break;
     default:
       return Status::Invalid("Only 128 bit and 256 Decimals are supported. Received",
-                          bit_width);
+                             bit_width);
   }
 
   return Status::OK();

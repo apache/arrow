@@ -2408,17 +2408,19 @@ class DecimalTest : public ::testing::TestWithParam<int> {
   }
 
   void InitNoNullsTest(int32_t precision) {
-    std::vector<DecimalValue> draw = {DecimalValue(1), DecimalValue(-2), DecimalValue(2389),
-                                      DecimalValue(4), DecimalValue(-12348)};
+    std::vector<DecimalValue> draw = {DecimalValue(1), DecimalValue(-2),
+                                      DecimalValue(2389), DecimalValue(4),
+                                      DecimalValue(-12348)};
     std::vector<uint8_t> valid_bytes = {true, true, true, true, true};
     this->TestCreate(precision, draw, valid_bytes, 0);
     this->TestCreate(precision, draw, valid_bytes, 2);
   }
 
-  void InitWithNullsTest(int32_t precision, std::string big_value, std::string big_negate_value) {
+  void InitWithNullsTest(int32_t precision, std::string big_value,
+                         std::string big_negate_value) {
     std::vector<DecimalValue> draw = {DecimalValue(1), DecimalValue(2),  DecimalValue(-1),
-                                     DecimalValue(4), DecimalValue(-1), DecimalValue(1),
-                                     DecimalValue(2)};
+                                      DecimalValue(4), DecimalValue(-1), DecimalValue(1),
+                                      DecimalValue(2)};
     DecimalValue big;
     ASSERT_OK_AND_ASSIGN(big, DecimalValue::FromString(big_value));
     draw.push_back(big);
@@ -2542,10 +2544,11 @@ TEST_P(Decimal256Test, NoNulls) {
 
 TEST_P(Decimal256Test, WithNulls) {
   int32_t precision = GetParam();
-  this->InitWithNullsTest(precision, "578960446186580977117854925043439539266."
-                                     "34992332820282019728792003956564819967",
-                                     "-578960446186580977117854925043439539266."
-                                     "34992332820282019728792003956564819968");
+  this->InitWithNullsTest(precision,
+                          "578960446186580977117854925043439539266."
+                          "34992332820282019728792003956564819967",
+                          "-578960446186580977117854925043439539266."
+                          "34992332820282019728792003956564819968");
 }
 
 INSTANTIATE_TEST_SUITE_P(Decimal256Test, Decimal256Test,

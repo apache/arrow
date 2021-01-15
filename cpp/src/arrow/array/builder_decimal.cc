@@ -35,32 +35,32 @@ class MemoryPool;
 // ----------------------------------------------------------------------
 // BaseDecimalBuilder
 
-template<uint32_t width>
+template <uint32_t width>
 BaseDecimalBuilder<width>::BaseDecimalBuilder(const std::shared_ptr<DataType>& type,
-                                     MemoryPool* pool)
+                                              MemoryPool* pool)
     : FixedSizeBinaryBuilder(type, pool),
       decimal_type_(internal::checked_pointer_cast<TypeClass>(type)) {}
 
-template<uint32_t width>
+template <uint32_t width>
 Status BaseDecimalBuilder<width>::Append(ValueType value) {
   RETURN_NOT_OK(FixedSizeBinaryBuilder::Reserve(1));
   UnsafeAppend(value);
   return Status::OK();
 }
 
-template<uint32_t width>
+template <uint32_t width>
 void BaseDecimalBuilder<width>::UnsafeAppend(ValueType value) {
   value.ToBytes(GetMutableValue(length()));
   byte_builder_.UnsafeAdvance((width >> 3));
   UnsafeAppendToBitmap(true);
 }
 
-template<uint32_t width>
+template <uint32_t width>
 void BaseDecimalBuilder<width>::UnsafeAppend(util::string_view value) {
   FixedSizeBinaryBuilder::UnsafeAppend(value);
 }
 
-template<uint32_t width>
+template <uint32_t width>
 Status BaseDecimalBuilder<width>::FinishInternal(std::shared_ptr<ArrayData>* out) {
   std::shared_ptr<Buffer> data;
   RETURN_NOT_OK(byte_builder_.Finish(&data));

@@ -284,15 +284,14 @@ struct TypeTraits<HalfFloatType> {
   static inline std::shared_ptr<DataType> type_singleton() { return float16(); }
 };
 
-
-#define DECIMAL_TYPE_TRAITS_DEF(width)             \
-template <>                                        \
-struct TypeTraits<Decimal##width##Type> {          \
-  using ArrayType = Decimal##width##Array;         \
-  using BuilderType = Decimal##width##Builder;     \
-  using ScalarType = Decimal##width##Scalar;       \
-  constexpr static bool is_parameter_free = false; \
-};
+#define DECIMAL_TYPE_TRAITS_DEF(width)               \
+  template <>                                        \
+  struct TypeTraits<Decimal##width##Type> {          \
+    using ArrayType = Decimal##width##Array;         \
+    using BuilderType = Decimal##width##Builder;     \
+    using ScalarType = Decimal##width##Scalar;       \
+    constexpr static bool is_parameter_free = false; \
+  };
 
 DECIMAL_TYPE_TRAITS_DEF(16)
 DECIMAL_TYPE_TRAITS_DEF(32)

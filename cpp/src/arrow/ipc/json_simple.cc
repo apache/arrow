@@ -332,9 +332,11 @@ class DecimalConverter final
   const DecimalSubtype* decimal_type_;
 };
 
-#define DECL_DECIMAL_CONVERTER(width)                                                                  \
-template <typename BuilderType = typename TypeTraits<Decimal##width##Type>::BuilderType>               \
-using Decimal##width##Converter = DecimalConverter<Decimal##width##Type, Decimal##width, BuilderType>;
+#define DECL_DECIMAL_CONVERTER(width)                                   \
+  template <typename BuilderType =                                      \
+                typename TypeTraits<Decimal##width##Type>::BuilderType> \
+  using Decimal##width##Converter =                                     \
+      DecimalConverter<Decimal##width##Type, Decimal##width, BuilderType>;
 
 DECL_DECIMAL_CONVERTER(16)
 DECL_DECIMAL_CONVERTER(32)

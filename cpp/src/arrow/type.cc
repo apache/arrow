@@ -35,6 +35,7 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/decimal_type_traits.h"
 #include "arrow/util/hash_util.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/key_value_metadata.h"
@@ -42,7 +43,6 @@
 #include "arrow/util/make_unique.h"
 #include "arrow/util/range.h"
 #include "arrow/util/vector.h"
-#include "arrow/util/decimal_type_traits.h"
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
@@ -806,16 +806,16 @@ int32_t DecimalType::DecimalSize(int32_t precision) {
 // ----------------------------------------------------------------------
 // Decimal type
 
-
-template<uint32_t width>
+template <uint32_t width>
 BaseDecimalType<width>::BaseDecimalType(int32_t precision, int32_t scale)
     : DecimalType(DecimalTypeTraits<width>::Id, (width >> 3), precision, scale) {
   ARROW_CHECK_GE(precision, kMinPrecision);
   ARROW_CHECK_LE(precision, kMaxPrecision);
 }
 
-template<uint32_t width>
-Result<std::shared_ptr<DataType>> BaseDecimalType<width>::Make(int32_t precision, int32_t scale) {
+template <uint32_t width>
+Result<std::shared_ptr<DataType>> BaseDecimalType<width>::Make(int32_t precision,
+                                                               int32_t scale) {
   if (precision < kMinPrecision || precision > kMaxPrecision) {
     return Status::Invalid("Decimal precision out of range: ", precision);
   }
@@ -2212,7 +2212,7 @@ std::shared_ptr<DataType> decimal256(int32_t precision, int32_t scale) {
   return std::make_shared<Decimal256Type>(precision, scale);
 }
 
-template<uint32_t width>
+template <uint32_t width>
 std::string BaseDecimalType<width>::ToString() const {
   std::stringstream s;
   s << type_name() << "(" << precision_ << ", " << scale_ << ")";

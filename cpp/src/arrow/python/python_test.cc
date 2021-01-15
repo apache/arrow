@@ -360,11 +360,11 @@ TEST_F(DecimalTest, FromPythonDecimalRescaleNotTruncateable) {
   // We fail when truncating values that would lose data if cast to a decimal type with
   // lower scale
   DecimalTestFromPythonDecimalRescale<Decimal16>(::arrow::decimal16(5, 2),
-                                                  this->CreatePythonDecimal("1.001"), {});
+                                                 this->CreatePythonDecimal("1.001"), {});
   DecimalTestFromPythonDecimalRescale<Decimal32>(::arrow::decimal32(10, 2),
-                                                  this->CreatePythonDecimal("1.001"), {});
+                                                 this->CreatePythonDecimal("1.001"), {});
   DecimalTestFromPythonDecimalRescale<Decimal64>(::arrow::decimal64(10, 2),
-                                                  this->CreatePythonDecimal("1.001"), {});
+                                                 this->CreatePythonDecimal("1.001"), {});
   DecimalTestFromPythonDecimalRescale<Decimal128>(::arrow::decimal128(10, 2),
                                                   this->CreatePythonDecimal("1.001"), {});
   DecimalTestFromPythonDecimalRescale<Decimal256>(::arrow::decimal256(10, 2),
@@ -374,12 +374,12 @@ TEST_F(DecimalTest, FromPythonDecimalRescaleNotTruncateable) {
 TEST_F(DecimalTest, FromPythonDecimalRescaleTruncateable) {
   // We allow truncation of values that do not lose precision when dividing by 10 * the
   // difference between the scales, e.g., 1.000 -> 1.00
-  DecimalTestFromPythonDecimalRescale<Decimal16>(
-      ::arrow::decimal16(5, 2), this->CreatePythonDecimal("1.000"), 100);
-  DecimalTestFromPythonDecimalRescale<Decimal32>(
-      ::arrow::decimal32(10, 2), this->CreatePythonDecimal("1.000"), 100);
-  DecimalTestFromPythonDecimalRescale<Decimal64>(
-      ::arrow::decimal64(10, 2), this->CreatePythonDecimal("1.000"), 100);
+  DecimalTestFromPythonDecimalRescale<Decimal16>(::arrow::decimal16(5, 2),
+                                                 this->CreatePythonDecimal("1.000"), 100);
+  DecimalTestFromPythonDecimalRescale<Decimal32>(::arrow::decimal32(10, 2),
+                                                 this->CreatePythonDecimal("1.000"), 100);
+  DecimalTestFromPythonDecimalRescale<Decimal64>(::arrow::decimal64(10, 2),
+                                                 this->CreatePythonDecimal("1.000"), 100);
   DecimalTestFromPythonDecimalRescale<Decimal128>(
       ::arrow::decimal128(10, 2), this->CreatePythonDecimal("1.000"), 100);
   DecimalTestFromPythonDecimalRescale<Decimal256>(
@@ -399,9 +399,11 @@ TEST_F(DecimalTest, FromPythonNegativeDecimalRescale) {
       ::arrow::decimal256(10, 9), this->CreatePythonDecimal("-1.000"), -1000000000);
 }
 
-template<typename T>
+template <typename T>
 class DecimalTestConversion : public testing::Test {};
-using DecimalTypes = ::testing::Types<DecimalTypeTraits<16>, DecimalTypeTraits<32>, DecimalTypeTraits<64>, DecimalTypeTraits<128>, DecimalTypeTraits<256>>; 
+using DecimalTypes =
+    ::testing::Types<DecimalTypeTraits<16>, DecimalTypeTraits<32>, DecimalTypeTraits<64>,
+                     DecimalTypeTraits<128>, DecimalTypeTraits<256>>;
 
 TYPED_TEST_SUITE(DecimalTestConversion, DecimalTypes);
 

@@ -21,19 +21,19 @@
 
 namespace arrow {
 
-template<uint32_t width>
+template <uint32_t width>
 struct DecimalTypeTraits;
 
-#define DECIMAL_TYPE_TRAITS_DECL(width)                  \
-template<>                                               \
-struct DecimalTypeTraits<width> {                        \
-  static constexpr Type::type Id = Type::DECIMAL##width; \
-  using ArrayType = Decimal##width##Array;               \
-  using BuilderType = Decimal##width##Builder;           \
-  using ScalarType = Decimal##width##Scalar;             \
-  using TypeClass = Decimal##width##Type;                \
-  using ValueType = Decimal##width;                      \
-};
+#define DECIMAL_TYPE_TRAITS_DECL(width)                    \
+  template <>                                              \
+  struct DecimalTypeTraits<width> {                        \
+    static constexpr Type::type Id = Type::DECIMAL##width; \
+    using ArrayType = Decimal##width##Array;               \
+    using BuilderType = Decimal##width##Builder;           \
+    using ScalarType = Decimal##width##Scalar;             \
+    using TypeClass = Decimal##width##Type;                \
+    using ValueType = Decimal##width;                      \
+  };
 
 DECIMAL_TYPE_TRAITS_DECL(16)
 DECIMAL_TYPE_TRAITS_DECL(32)

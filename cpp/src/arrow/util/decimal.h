@@ -258,11 +258,9 @@ class ARROW_EXPORT Decimal256 : public BasicDecimal256 {
   Status ToArrowStatus(DecimalStatus dstatus) const;
 };
 
-
-template<uint32_t width>
+template <uint32_t width>
 class ARROW_EXPORT DecimalAnyWidth : public BasicDecimalAnyWidth<width> {
-  public:
-
+ public:
   using _DecimalType = typename DecimalTypeTraits<width>::ValueType;
   using ValueType = typename BasicDecimalAnyWidth<width>::ValueType;
 
@@ -272,7 +270,8 @@ class ARROW_EXPORT DecimalAnyWidth : public BasicDecimalAnyWidth<width> {
   /// \endcond
 
   /// \brief constructor creates a Decimal256 from a BasicDecimal128.
-  constexpr DecimalAnyWidth(const BasicDecimalAnyWidth<width>& value) noexcept : BasicDecimalAnyWidth<width>(value) {}
+  constexpr DecimalAnyWidth(const BasicDecimalAnyWidth<width>& value) noexcept
+      : BasicDecimalAnyWidth<width>(value) {}
 
   /// \brief Parse the number from a base 10 string representation.
   explicit DecimalAnyWidth(const std::string& value);
@@ -308,8 +307,7 @@ class ARROW_EXPORT DecimalAnyWidth : public BasicDecimalAnyWidth<width> {
     return std::move(out);
   }
 
-  friend std::ostream& operator<<(std::ostream& os,
-                                               const DecimalAnyWidth& decimal) {
+  friend std::ostream& operator<<(std::ostream& os, const DecimalAnyWidth& decimal) {
     os << decimal.ToIntegerString();
     return os;
   }

@@ -23,16 +23,16 @@
 #include "arrow/array/builder_base.h"
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/data.h"
-#include "arrow/util/decimal_type_traits.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
+#include "arrow/util/decimal_type_traits.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 
-template<uint32_t width>
+template <uint32_t width>
 class ARROW_EXPORT BaseDecimalBuilder : public FixedSizeBinaryBuilder {
-public:
+ public:
   using TypeClass = typename DecimalTypeTraits<width>::TypeClass;
   using ArrayType = typename DecimalTypeTraits<width>::ArrayType;
   using ValueType = typename DecimalTypeTraits<width>::ValueType;

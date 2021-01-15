@@ -21,35 +21,34 @@
 
 namespace arrow {
 
-template<uint32_t width>
+template <uint32_t width>
 struct ScaleMultipliersAnyWidth {};
 
 #define DECL_ANY_SCALE_MULTIPLIERS(width)                           \
-template<>                                                          \
-struct ScaleMultipliersAnyWidth<width> {                            \
-  static const int##width##_t value[];                              \
-};                                                                  \
-const int##width##_t ScaleMultipliersAnyWidth<width>::value[] = {   \
-  int##width##_t(1LL),                                              \
-  int##width##_t(10LL),                                             \
-  int##width##_t(100LL),                                            \
-  int##width##_t(1000LL),                                           \
-  int##width##_t(10000LL),                                          \
-  int##width##_t(100000LL),                                         \
-  int##width##_t(1000000LL),                                        \
-  int##width##_t(10000000LL),                                       \
-  int##width##_t(100000000LL),                                      \
-  int##width##_t(1000000000LL),                                     \
-  int##width##_t(10000000000LL),                                    \
-  int##width##_t(100000000000LL),                                   \
-  int##width##_t(1000000000000LL),                                  \
-  int##width##_t(10000000000000LL),                                 \
-  int##width##_t(100000000000000LL),                                \
-  int##width##_t(1000000000000000LL),                               \
-  int##width##_t(10000000000000000LL),                              \
-  int##width##_t(100000000000000000LL),                             \
-  int##width##_t(1000000000000000000LL)                             \
-}; 
+  template <>                                                       \
+  struct ScaleMultipliersAnyWidth<width> {                          \
+    static const int##width##_t value[];                            \
+  };                                                                \
+  const int##width##_t ScaleMultipliersAnyWidth<width>::value[] = { \
+      int##width##_t(1LL),                                          \
+      int##width##_t(10LL),                                         \
+      int##width##_t(100LL),                                        \
+      int##width##_t(1000LL),                                       \
+      int##width##_t(10000LL),                                      \
+      int##width##_t(100000LL),                                     \
+      int##width##_t(1000000LL),                                    \
+      int##width##_t(10000000LL),                                   \
+      int##width##_t(100000000LL),                                  \
+      int##width##_t(1000000000LL),                                 \
+      int##width##_t(10000000000LL),                                \
+      int##width##_t(100000000000LL),                               \
+      int##width##_t(1000000000000LL),                              \
+      int##width##_t(10000000000000LL),                             \
+      int##width##_t(100000000000000LL),                            \
+      int##width##_t(1000000000000000LL),                           \
+      int##width##_t(10000000000000000LL),                          \
+      int##width##_t(100000000000000000LL),                         \
+      int##width##_t(1000000000000000000LL)};
 
 DECL_ANY_SCALE_MULTIPLIERS(16)
 DECL_ANY_SCALE_MULTIPLIERS(32)
@@ -98,7 +97,6 @@ static const BasicDecimal128 ScaleMultipliers128[] = {
     BasicDecimal128(542101086242752217LL, 68739955140067328ULL),
     BasicDecimal128(5421010862427522170LL, 687399551400673280ULL)};
 
-
 static const BasicDecimal128 ScaleMultipliersHalf128[] = {
     BasicDecimal128(0ULL),
     BasicDecimal128(5ULL),
@@ -140,4 +138,4 @@ static const BasicDecimal128 ScaleMultipliersHalf128[] = {
     BasicDecimal128(271050543121376108LL, 9257742014424809472ULL),
     BasicDecimal128(2710505431213761085LL, 343699775700336640ULL)};
 
-} // namespace arrow
+}  // namespace arrow

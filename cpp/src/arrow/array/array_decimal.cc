@@ -32,14 +32,13 @@ namespace arrow {
 
 using internal::checked_cast;
 
-
-template<uint32_t width>
+template <uint32_t width>
 BaseDecimalArray<width>::BaseDecimalArray(const std::shared_ptr<ArrayData>& data)
     : FixedSizeBinaryArray(data) {
   ARROW_CHECK_EQ(data->type->id(), DecimalTypeTraits<width>::Id);
 }
 
-template<uint32_t width>
+template <uint32_t width>
 std::string BaseDecimalArray<width>::FormatValue(int64_t i) const {
   const auto& type_ = checked_cast<const TypeClass&>(*type());
   const ValueType value(GetValue(i));

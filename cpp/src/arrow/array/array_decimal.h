@@ -22,15 +22,15 @@
 #include <string>
 
 #include "arrow/array/array_binary.h"
-#include "arrow/util/decimal_type_traits.h"
 #include "arrow/array/data.h"
 #include "arrow/type.h"
+#include "arrow/util/decimal_type_traits.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 
 /// Template Array class for decimal data
-template<uint32_t width>
+template <uint32_t width>
 class ARROW_EXPORT BaseDecimalArray : public FixedSizeBinaryArray {
  public:
   using TypeClass = typename DecimalTypeTraits<width>::TypeClass;
@@ -46,6 +46,5 @@ class ARROW_EXPORT BaseDecimalArray : public FixedSizeBinaryArray {
 
 // Backward compatibility
 using DecimalArray = Decimal128Array;
-
 
 }  // namespace arrow

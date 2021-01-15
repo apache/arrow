@@ -329,10 +329,11 @@ TYPED_TEST(TestRealScalar, StructOf) { this->TestStructOf(); }
 
 TYPED_TEST(TestRealScalar, ListOf) { this->TestListOf(); }
 
-
-template<typename T>
+template <typename T>
 class TestDecimalScalar : public testing::Test {};
-using DecimalTypes = ::testing::Types<DecimalTypeTraits<16>, DecimalTypeTraits<32>, DecimalTypeTraits<64>, DecimalTypeTraits<128>, DecimalTypeTraits<256>>; 
+using DecimalTypes =
+    ::testing::Types<DecimalTypeTraits<16>, DecimalTypeTraits<32>, DecimalTypeTraits<64>,
+                     DecimalTypeTraits<128>, DecimalTypeTraits<256>>;
 
 TYPED_TEST_SUITE(TestDecimalScalar, DecimalTypes);
 

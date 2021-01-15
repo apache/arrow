@@ -30,10 +30,10 @@
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"  // IWYU pragma: export
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/decimal_meta.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/variant.h"
 #include "arrow/util/visibility.h"
-#include "arrow/util/decimal_meta.h"
 #include "arrow/visitor.h"  // IWYU pragma: keep
 
 namespace arrow {
@@ -894,7 +894,7 @@ class ARROW_EXPORT DecimalType : public FixedSizeBinaryType {
 };
 
 /// \brief Template type class for decimal data
-template<uint32_t width>
+template <uint32_t width>
 class ARROW_EXPORT BaseDecimalType : public DecimalType {
  public:
   static constexpr const char* type_name() { return DecimalMeta<width>::name; }
@@ -915,35 +915,35 @@ class ARROW_EXPORT BaseDecimalType : public DecimalType {
 
 /// \brief Concrete type class for decimal 16-bit data
 class ARROW_EXPORT Decimal16Type : public BaseDecimalType<16> {
-public:
+ public:
   static constexpr Type::type type_id = Type::DECIMAL16;
   using BaseDecimalType<16>::BaseDecimalType;
 };
 
 /// \brief Concrete type class for decimal 32-bit data
 class ARROW_EXPORT Decimal32Type : public BaseDecimalType<32> {
-public:
+ public:
   static constexpr Type::type type_id = Type::DECIMAL32;
   using BaseDecimalType<32>::BaseDecimalType;
 };
 
 /// \brief Concrete type class for decimal 64-bit data
 class ARROW_EXPORT Decimal64Type : public BaseDecimalType<64> {
-public:
+ public:
   static constexpr Type::type type_id = Type::DECIMAL64;
   using BaseDecimalType<64>::BaseDecimalType;
 };
 
 /// \brief Concrete type class for decimal 128-bit data
 class ARROW_EXPORT Decimal128Type : public BaseDecimalType<128> {
-public:
+ public:
   static constexpr Type::type type_id = Type::DECIMAL128;
   using BaseDecimalType<128>::BaseDecimalType;
 };
 
 /// \brief Concrete type class for decimal 256-bit data
 class ARROW_EXPORT Decimal256Type : public BaseDecimalType<256> {
-public:
+ public:
   static constexpr Type::type type_id = Type::DECIMAL256;
   using BaseDecimalType<256>::BaseDecimalType;
 };

@@ -340,7 +340,7 @@ struct ARROW_EXPORT DurationScalar : public TemporalScalar<DurationType> {
   using TemporalScalar<DurationType>::TemporalScalar;
 };
 
-template<uint32_t width>
+template <uint32_t width>
 struct BaseDecimalScalar : public Scalar {
   using Scalar::Scalar;
   using TypeClass = typename DecimalTypeTraits<width>::TypeClass;

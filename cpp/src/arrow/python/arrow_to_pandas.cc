@@ -1024,7 +1024,9 @@ struct ObjectWriterVisitor {
   }
 
   template <typename Type>
-  enable_if_t<(is_base_binary_type<Type>::value || is_fixed_size_binary_type<Type>::value) && !is_decimal_type<Type>::value,
+  enable_if_t<(is_base_binary_type<Type>::value ||
+               is_fixed_size_binary_type<Type>::value) &&
+                  !is_decimal_type<Type>::value,
               Status>
   Visit(const Type& type) {
     auto WrapValue = [](const util::string_view& view, PyObject** out) {
@@ -1106,7 +1108,8 @@ struct ObjectWriterVisitor {
     PyObject* decimal_constructor = Decimal.obj();
 
     for (int c = 0; c < data.num_chunks(); c++) {
-      const auto& arr = checked_cast<const arrow::BaseDecimalArray<width>&>(*data.chunk(c));
+      const auto& arr =
+          checked_cast<const arrow::BaseDecimalArray<width>&>(*data.chunk(c));
 
       for (int64_t i = 0; i < arr.length(); ++i) {
         if (arr.IsNull(i)) {

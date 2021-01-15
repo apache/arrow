@@ -28,10 +28,10 @@
 #include <string>
 
 #include "arrow/util/bit_util.h"
+#include "arrow/util/decimal_meta.h"
+#include "arrow/util/decimal_scale_multipliers.h"
 #include "arrow/util/int128_internal.h"
 #include "arrow/util/int_util_internal.h"
-#include "arrow/util/decimal_scale_multipliers.h"
-#include "arrow/util/decimal_meta.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 
@@ -40,7 +40,6 @@ namespace arrow {
 using internal::SafeLeftShift;
 using internal::SafeSignedAdd;
 using internal::SafeSignedMultiply;
-
 
 static const BasicDecimal256 ScaleMultipliersDecimal256[] = {
     BasicDecimal256({1ULL, 0ULL, 0ULL, 0ULL}),
@@ -1119,59 +1118,67 @@ BasicDecimal256 operator/(const BasicDecimal256& left, const BasicDecimal256& ri
 
 /// BasicDecimalAnyWidth
 
-template<uint32_t width>
+template <uint32_t width>
 BasicDecimalAnyWidth<width>::BasicDecimalAnyWidth(const uint8_t* bytes) {
   DCHECK_NE(bytes, nullptr);
   value = *(reinterpret_cast<const ValueType*>(bytes));
-};
+}
 
-template<uint32_t width>
-BasicDecimalAnyWidth<width>& BasicDecimalAnyWidth<width>::operator+=(const BasicDecimalAnyWidth<width>& right) {
+template <uint32_t width>
+BasicDecimalAnyWidth<width>& BasicDecimalAnyWidth<width>::operator+=(
+    const BasicDecimalAnyWidth<width>& right) {
   value = SafeSignedAdd<ValueType>(value, right.value);
   return *this;
 }
 
-template<uint32_t width>
-BasicDecimalAnyWidth<width>& BasicDecimalAnyWidth<width>::operator-=(const BasicDecimalAnyWidth<width>& right) {
+template <uint32_t width>
+BasicDecimalAnyWidth<width>& BasicDecimalAnyWidth<width>::operator-=(
+    const BasicDecimalAnyWidth<width>& right) {
   value -= right.value;
   return *this;
 }
 
-template<uint32_t width>
-BasicDecimalAnyWidth<width>& BasicDecimalAnyWidth<width>::operator*=(const BasicDecimalAnyWidth<width>& right) {
-  value = value * right.value;
+template <uint32_t width>
+BasicDecimalAnyWidth<width>& BasicDecimalAnyWidth<width>::operator*=(
+    const BasicDecimalAnyWidth<width>& right) {
+  value = SafeSignedMultiply<ValueType>(value, right.value);
   return *this;
 }
 
-template<uint32_t width>
-BasicDecimalAnyWidth<width>& BasicDecimalAnyWidth<width>::operator/=(const BasicDecimalAnyWidth<width>& right) {
+template <uint32_t width>
+BasicDecimalAnyWidth<width>& BasicDecimalAnyWidth<width>::operator/=(
+    const BasicDecimalAnyWidth<width>& right) {
   BasicDecimalAnyWidth<width> remainder;
   auto s = Divide(right, this, &remainder);
   DCHECK_EQ(s, DecimalStatus::kSuccess);
   return *this;
 }
 
-template<uint32_t width>
-BasicDecimalAnyWidth<width>& BasicDecimalAnyWidth<width>::operator%=(const BasicDecimalAnyWidth<width>& right) {
+template <uint32_t width>
+BasicDecimalAnyWidth<width>& BasicDecimalAnyWidth<width>::operator%=(
+    const BasicDecimalAnyWidth<width>& right) {
   BasicDecimalAnyWidth<width> result;
   auto s = Divide(right, &result, this);
   DCHECK_EQ(s, DecimalStatus::kSuccess);
   return *this;
 }
 
+template <uint32_t width>
+BasicDecimalAnyWidth<width>& BasicDecimalAnyWidth<width>::Abs() {
+  return *this < 0 ? Negate() : *this;
+}
 
-template<uint32_t width>
-BasicDecimalAnyWidth<width>& BasicDecimalAnyWidth<width>::Abs() { return *this < 0 ? Negate() : *this; }
-
-template<uint32_t width>
-BasicDecimalAnyWidth<width> BasicDecimalAnyWidth<width>::Abs(const BasicDecimalAnyWidth<width>& in) {
+template <uint32_t width>
+BasicDecimalAnyWidth<width> BasicDecimalAnyWidth<width>::Abs(
+    const BasicDecimalAnyWidth<width>& in) {
   BasicDecimalAnyWidth<width> result(in);
   return result.Abs();
 }
 
-template<uint32_t width>
-DecimalStatus BasicDecimalAnyWidth<width>::Divide(const BasicDecimalAnyWidth& divisor, BasicDecimalAnyWidth* result,
-                       BasicDecimalAnyWidth* remainder) const {
+template <uint32_t width>
+DecimalStatus BasicDecimalAnyWidth<width>::Divide(const BasicDecimalAnyWidth& divisor,
+                                                  BasicDecimalAnyWidth* result,
+                                                  BasicDecimalAnyWidth* remainder) const {
   if (divisor.value == 0) {
     return DecimalStatus::kDivideByZero;
   }
@@ -1186,49 +1193,52 @@ DecimalStatus BasicDecimalAnyWidth<width>::Divide(const BasicDecimalAnyWidth& di
   return DecimalStatus::kSuccess;
 }
 
-template<uint32_t width>
-BasicDecimalAnyWidth<width> BasicDecimalAnyWidth<width>::GetScaleMultiplier(int32_t scale) {
+template <uint32_t width>
+BasicDecimalAnyWidth<width> BasicDecimalAnyWidth<width>::GetScaleMultiplier(
+    int32_t scale) {
   DCHECK_GE(scale, 0);
   DCHECK_LE(scale, DecimalMeta<width>::max_precision);
 
   return BasicDecimalAnyWidth<width>(ScaleMultipliersAnyWidth<width>::value[scale]);
 }
 
-template<uint32_t width>
+template <uint32_t width>
 std::array<uint8_t, (width >> 3)> BasicDecimalAnyWidth<width>::ToBytes() const {
   std::array<uint8_t, (width >> 3)> out{{0}};
   ToBytes(out.data());
   return out;
 }
 
-template<uint32_t width>
+template <uint32_t width>
 void BasicDecimalAnyWidth<width>::ToBytes(uint8_t* out) const {
   DCHECK_NE(out, nullptr);
   reinterpret_cast<ValueType*>(out)[0] = value;
 }
 
-template<uint32_t width>
-BasicDecimalAnyWidth<width>& BasicDecimalAnyWidth<width>::Negate() { 
-  value = - value;
+template <uint32_t width>
+BasicDecimalAnyWidth<width>& BasicDecimalAnyWidth<width>::Negate() {
+  value = -value;
   return *this;
 }
 
-template<uint32_t width>
-DecimalStatus BasicDecimalAnyWidth<width>::Rescale(int32_t original_scale, int32_t new_scale,
-                      BasicDecimalAnyWidth<width>* out) const {
+template <uint32_t width>
+DecimalStatus BasicDecimalAnyWidth<width>::Rescale(
+    int32_t original_scale, int32_t new_scale, BasicDecimalAnyWidth<width>* out) const {
   return DecimalRescale(*this, original_scale, new_scale, out);
 }
 
-template<uint32_t width>
+template <uint32_t width>
 bool BasicDecimalAnyWidth<width>::FitsInPrecision(int32_t precision) const {
   DCHECK_GT(precision, 0);
   DCHECK_LE(precision, DecimalMeta<width>::max_precision);
-  return BasicDecimalAnyWidth<width>::Abs(*this) < ScaleMultipliersAnyWidth<width>::value[precision];
+  return BasicDecimalAnyWidth<width>::Abs(*this) <
+         ScaleMultipliersAnyWidth<width>::value[precision];
 }
 
-template<uint32_t width>
-void BasicDecimalAnyWidth<width>::GetWholeAndFraction(int scale, BasicDecimalAnyWidth<width>* whole,
-                                          BasicDecimalAnyWidth<width>* fraction) const {
+template <uint32_t width>
+void BasicDecimalAnyWidth<width>::GetWholeAndFraction(
+    int scale, BasicDecimalAnyWidth<width>* whole,
+    BasicDecimalAnyWidth<width>* fraction) const {
   DCHECK_GE(scale, 0);
   DCHECK_LE(scale, DecimalMeta<width>::max_precision);
 
@@ -1237,8 +1247,9 @@ void BasicDecimalAnyWidth<width>::GetWholeAndFraction(int scale, BasicDecimalAny
   DCHECK_EQ(s, DecimalStatus::kSuccess);
 }
 
-template<uint32_t width>
-BasicDecimalAnyWidth<width> BasicDecimalAnyWidth<width>::IncreaseScaleBy(int32_t increase_by) const {
+template <uint32_t width>
+BasicDecimalAnyWidth<width> BasicDecimalAnyWidth<width>::IncreaseScaleBy(
+    int32_t increase_by) const {
   DCHECK_GE(increase_by, 0);
   DCHECK_LE(increase_by, DecimalMeta<width>::max_precision);
 

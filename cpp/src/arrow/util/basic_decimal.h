@@ -23,10 +23,10 @@
 #include <string>
 #include <type_traits>
 
+#include "arrow/util/decimal_meta.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/type_traits.h"
 #include "arrow/util/visibility.h"
-#include "arrow/util/decimal_meta.h"
 
 namespace arrow {
 
@@ -37,7 +37,7 @@ enum class DecimalStatus {
   kRescaleDataLoss,
 };
 
-template<uint32_t width>
+template <uint32_t width>
 class BasicDecimalAnyWidth;
 
 /// Represents a signed 128-bit integer in two's complement.
@@ -336,8 +336,7 @@ ARROW_EXPORT BasicDecimal256 operator*(const BasicDecimal256& left,
 ARROW_EXPORT BasicDecimal256 operator/(const BasicDecimal256& left,
                                        const BasicDecimal256& right);
 
-
-template<uint32_t width>
+template <uint32_t width>
 class ARROW_EXPORT BasicDecimalAnyWidth {
  public:
   using ValueType = typename IntTypes<width>::signed_type;
@@ -346,13 +345,15 @@ class ARROW_EXPORT BasicDecimalAnyWidth {
 
   /// \brief Convert any integer value into a BasicDecimal.
   template <typename T,
-            typename = typename std::enable_if<
-                std::is_integral<T>::value && 
-                ((sizeof(T) < sizeof(ValueType)) || ((sizeof(T) == sizeof(ValueType)) && std::is_signed<T>::value)
-                || std::is_same<T, int>::value), T>::type>
+            typename = typename std::enable_if<std::is_integral<T>::value &&
+                                                   ((sizeof(T) < sizeof(ValueType)) ||
+                                                    ((sizeof(T) == sizeof(ValueType)) &&
+                                                     std::is_signed<T>::value) ||
+                                                    std::is_same<T, int>::value),
+                                               T>::type>
   constexpr BasicDecimalAnyWidth(T value) noexcept
       : value(static_cast<ValueType>(value)) {}
-  
+
   /// \brief Upcast BasicDecimal with less widths
   template <uint32_t _width,
             typename = typename std::enable_if<_width <= width, void>::type>
@@ -374,7 +375,7 @@ class ARROW_EXPORT BasicDecimalAnyWidth {
 
   DecimalStatus Divide(const BasicDecimalAnyWidth& divisor, BasicDecimalAnyWidth* result,
                        BasicDecimalAnyWidth* remainder) const;
-                      
+
   /// \brief Scale multiplier for given scale value.
   static BasicDecimalAnyWidth GetScaleMultiplier(int32_t scale);
 
@@ -399,15 +400,15 @@ class ARROW_EXPORT BasicDecimalAnyWidth {
   /// \brief separate the integer and fractional parts for the given scale.
   void GetWholeAndFraction(int32_t scale, BasicDecimalAnyWidth* whole,
                            BasicDecimalAnyWidth* fraction) const;
-  
+
   /// \brief Scale up.
   BasicDecimalAnyWidth IncreaseScaleBy(int32_t increase_by) const;
 
-  BasicDecimalAnyWidth& operator +=(const BasicDecimalAnyWidth&);
-  BasicDecimalAnyWidth& operator -=(const BasicDecimalAnyWidth&);
-  BasicDecimalAnyWidth& operator *=(const BasicDecimalAnyWidth&);
-  BasicDecimalAnyWidth& operator /=(const BasicDecimalAnyWidth&);
-  BasicDecimalAnyWidth& operator %=(const BasicDecimalAnyWidth&);
+  BasicDecimalAnyWidth& operator+=(const BasicDecimalAnyWidth&);
+  BasicDecimalAnyWidth& operator-=(const BasicDecimalAnyWidth&);
+  BasicDecimalAnyWidth& operator*=(const BasicDecimalAnyWidth&);
+  BasicDecimalAnyWidth& operator/=(const BasicDecimalAnyWidth&);
+  BasicDecimalAnyWidth& operator%=(const BasicDecimalAnyWidth&);
 
   friend bool operator==(const BasicDecimalAnyWidth& left,
                          const BasicDecimalAnyWidth& right) {
@@ -444,30 +445,31 @@ class ARROW_EXPORT BasicDecimalAnyWidth {
     BasicDecimalAnyWidth result(left);
     result += right;
     return result;
-  };
+  }
 
   friend BasicDecimalAnyWidth operator-(const BasicDecimalAnyWidth& left,
                                         const BasicDecimalAnyWidth& right) {
     BasicDecimalAnyWidth result(left);
     result -= right;
     return result;
-  };
+  }
 
   friend BasicDecimalAnyWidth operator*(const BasicDecimalAnyWidth& left,
                                         const BasicDecimalAnyWidth& right) {
     BasicDecimalAnyWidth result(left);
     result *= right;
     return result;
-  };
+  }
 
   friend BasicDecimalAnyWidth operator/(const BasicDecimalAnyWidth& left,
                                         const BasicDecimalAnyWidth& right) {
     BasicDecimalAnyWidth result = left;
     result /= right;
     return result;
-  };
+  }
 
-  friend BasicDecimalAnyWidth operator%(const BasicDecimalAnyWidth& left, const BasicDecimalAnyWidth& right) {
+  friend BasicDecimalAnyWidth operator%(const BasicDecimalAnyWidth& left,
+                                        const BasicDecimalAnyWidth& right) {
     BasicDecimalAnyWidth result = left;
     result %= right;
     return result;
@@ -476,7 +478,6 @@ class ARROW_EXPORT BasicDecimalAnyWidth {
  private:
   ValueType value;
 };
-
 
 using BasicDecimal64 = BasicDecimalAnyWidth<64>;
 using BasicDecimal32 = BasicDecimalAnyWidth<32>;

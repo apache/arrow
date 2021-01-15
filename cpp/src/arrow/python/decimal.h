@@ -24,7 +24,7 @@
 
 namespace arrow {
 
-template<uint32_t width>
+template <uint32_t width>
 class DecimalAnyWidth;
 
 using Decimal16 = DecimalAnyWidth<16>;

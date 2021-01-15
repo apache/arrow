@@ -19,12 +19,12 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <functional>
 #include <ostream>
 #include <sstream>
 #include <string>
 #include <tuple>
 #include <vector>
-#include <functional>
 
 #include <gtest/gtest.h>
 #include <boost/multiprecision/cpp_int.hpp>
@@ -1567,20 +1567,19 @@ TEST_P(Decimal256ToStringTest, ToString) {
 INSTANTIATE_TEST_SUITE_P(Decimal256ToStringTest, Decimal256ToStringTest,
                          ::testing::ValuesIn(kToStringTestData));
 
-
 // DecimalAnyWidth
 
 template <typename T>
-class DecimalAnyWidthTest : public ::testing::Test { };
+class DecimalAnyWidthTest : public ::testing::Test {};
 
 template <typename T>
-class Decimal16Test : public ::testing::Test { };
+class Decimal16Test : public ::testing::Test {};
 
 template <typename T>
-class Decimal32Test : public ::testing::Test { };
+class Decimal32Test : public ::testing::Test {};
 
 template <typename T>
-class Decimal64Test : public ::testing::Test { };
+class Decimal64Test : public ::testing::Test {};
 
 using DecimalTypes = ::testing::Types<Decimal16, Decimal32, Decimal64>;
 
@@ -1592,12 +1591,11 @@ struct DecimalFromStringParams {
 };
 
 static const std::vector<DecimalFromStringParams> DecimalFromStringParamsList = {
-  {"1234", 1234, 0, 4},
-  {"12.34", 1234, 2, 4},
-  {"+12.34", 1234, 2, 4},
-  {"-12.34", -1234, 2, 4},
-  {".0000", 0, 4, 4}
-};
+    {"1234", 1234, 0, 4},
+    {"12.34", 1234, 2, 4},
+    {"+12.34", 1234, 2, 4},
+    {"-12.34", -1234, 2, 4},
+    {".0000", 0, 4, 4}};
 
 TYPED_TEST_SUITE(DecimalAnyWidthTest, DecimalTypes);
 
@@ -1619,16 +1617,14 @@ TYPED_TEST(DecimalAnyWidthTest, FromBool) {
   ASSERT_EQ(TypeParam(1), TypeParam(true));
 }
 
-using Decimal16Types =
-    ::testing::Types<char, unsigned char, short, int>;
+using Decimal16Types = ::testing::Types<char, unsigned char, short, int>;  // NOLINT
 
 using Decimal32Types =
-    ::testing::Types<char, unsigned char, short, unsigned short, int>;
+    ::testing::Types<char, unsigned char, short, unsigned short, int>;  // NOLINT
 
 using Decimal64Types =
-    ::testing::Types<char, unsigned char, short, unsigned short,
-                     int, unsigned int, long, long long
-                     >;
+    ::testing::Types<char, unsigned char, short, unsigned short, int,  // NOLINT
+                     unsigned int, long, long long>;                   // NOLINT
 
 TYPED_TEST_SUITE(Decimal16Test, Decimal16Types);
 
@@ -1647,8 +1643,7 @@ TYPED_TEST(Decimal16Test, Decimal16Types) {
 
     Decimal16 min_value_d(min_value);
     ASSERT_EQ(static_cast<int16_t>(min_value), min_value_d);
-  }
-  else {
+  } else {
     Decimal16 max_value_d(max_value);
     ASSERT_EQ(max_value, max_value_d);
 
@@ -1691,12 +1686,12 @@ TYPED_TEST(Decimal64Test, Decimal64Types) {
   ASSERT_EQ(min_value, min_value_d);
 }
 
-static const std::vector<int16_t> DecimalAnyWidthValues = { -2, -1, 0, 1, 2};
+static const std::vector<int16_t> DecimalAnyWidthValues = {-2, -1, 0, 1, 2};
 
 TYPED_TEST(DecimalAnyWidthTest, ComparatorTest) {
-  for (size_t i=0; i<DecimalAnyWidthValues.size(); i++){
+  for (size_t i = 0; i < DecimalAnyWidthValues.size(); i++) {
     TypeParam d1(DecimalAnyWidthValues[i]);
-    for (size_t j=0; j<DecimalAnyWidthValues.size(); j++){
+    for (size_t j = 0; j < DecimalAnyWidthValues.size(); j++) {
       TypeParam d2(DecimalAnyWidthValues[j]);
 
       ASSERT_EQ(i == j, d1 == d2);
@@ -1716,35 +1711,38 @@ TYPED_TEST(DecimalAnyWidthTest, UpCast) {
   ASSERT_EQ(d, d64);
 }
 
-template<typename T>
+template <typename T>
 struct DecimalAnyWidthBinaryParams {
   static const std::vector<std::pair<std::string, std::function<T(T, T)>>> value;
 };
 
-template<typename T>
-const std::vector<std::pair<std::string, std::function<T(T, T)>>> DecimalAnyWidthBinaryParams<T>::value = {
-  {"+", [](T x, T y) -> T { return x + y;} },
-  {"-", [](T x, T y) -> T { return x - y;} },
-  {"*", [](T x, T y) -> T { return x * y;} },
-  {"/", [](T x, T y) -> T { return y == 0? 0 : x / y;} },
-  {"%", [](T x, T y) -> T { return y == 0? 0 : x % y;} },
+template <typename T>
+const std::vector<std::pair<std::string, std::function<T(T, T)>>>
+    DecimalAnyWidthBinaryParams<T>::value = {
+        {"+", [](T x, T y) -> T { return x + y; }},
+        {"-", [](T x, T y) -> T { return x - y; }},
+        {"*", [](T x, T y) -> T { return x * y; }},
+        {"/", [](T x, T y) -> T { return y == 0 ? 0 : x / y; }},
+        {"%", [](T x, T y) -> T { return y == 0 ? 0 : x % y; }},
 };
 
 TYPED_TEST(DecimalAnyWidthTest, BinaryOperations) {
-  using ValueType = typename arrow::DecimalAnyWidthTest_BinaryOperations_Test<gtest_TypeParam_>::TypeParam::ValueType;
+  using ValueType = typename arrow::DecimalAnyWidthTest_BinaryOperations_Test<
+      gtest_TypeParam_>::TypeParam::ValueType;
   using ArrowValueType = typename arrow::CTypeTraits<ValueType>::ArrowType;
 
   auto DecimalFns = DecimalAnyWidthBinaryParams<TypeParam>::value;
   auto NumericFns = DecimalAnyWidthBinaryParams<int64_t>::value;
 
-  for (size_t i = 0; i < DecimalFns.size(); i++){
+  for (size_t i = 0; i < DecimalFns.size(); i++) {
     for (auto x : GetRandomNumbers<ArrowValueType>(8)) {
       for (auto y : GetRandomNumbers<ArrowValueType>(8)) {
         TypeParam d1(x), d2(y);
         auto result = DecimalFns[i].second(d1, d2);
         auto reference = static_cast<ValueType>(NumericFns[i].second(x, y));
         ASSERT_EQ(reference, result)
-        << d1 << " " << DecimalFns[i].first << " " << d2 << " " << " != " << result;
+            << d1 << " " << DecimalFns[i].first << " " << d2 << " "
+            << " != " << result;
       }
     }
   }

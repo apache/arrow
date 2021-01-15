@@ -171,8 +171,7 @@ Status DecimalFromPythonDecimal(PyObject* python_decimal, const DecimalType& arr
   return InternalDecimalFromPythonDecimal(python_decimal, arrow_type, out);
 }
 
-Status DecimalFromPyObject(PyObject* obj, const DecimalType& arrow_type,
-                           Decimal16* out) {
+Status DecimalFromPyObject(PyObject* obj, const DecimalType& arrow_type, Decimal16* out) {
   return InternalDecimalFromPyObject(obj, arrow_type, out);
 }
 
@@ -181,8 +180,7 @@ Status DecimalFromPythonDecimal(PyObject* python_decimal, const DecimalType& arr
   return InternalDecimalFromPythonDecimal(python_decimal, arrow_type, out);
 }
 
-Status DecimalFromPyObject(PyObject* obj, const DecimalType& arrow_type,
-                           Decimal32* out) {
+Status DecimalFromPyObject(PyObject* obj, const DecimalType& arrow_type, Decimal32* out) {
   return InternalDecimalFromPyObject(obj, arrow_type, out);
 }
 
@@ -191,8 +189,7 @@ Status DecimalFromPythonDecimal(PyObject* python_decimal, const DecimalType& arr
   return InternalDecimalFromPythonDecimal(python_decimal, arrow_type, out);
 }
 
-Status DecimalFromPyObject(PyObject* obj, const DecimalType& arrow_type,
-                           Decimal64* out) {
+Status DecimalFromPyObject(PyObject* obj, const DecimalType& arrow_type, Decimal64* out) {
   return InternalDecimalFromPyObject(obj, arrow_type, out);
 }
 

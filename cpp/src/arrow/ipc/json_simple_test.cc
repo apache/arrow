@@ -501,7 +501,9 @@ TEST(TestFixedSizeBinary, Dictionary) {
 
 template <typename T>
 class TestDecimal : public testing::Test {};
-using DecimalTypes = ::testing::Types<DecimalTypeTraits<16>, DecimalTypeTraits<32>, DecimalTypeTraits<64>, DecimalTypeTraits<128>, DecimalTypeTraits<256>>; 
+using DecimalTypes =
+    ::testing::Types<DecimalTypeTraits<16>, DecimalTypeTraits<32>, DecimalTypeTraits<64>,
+                     DecimalTypeTraits<128>, DecimalTypeTraits<256>>;
 
 TYPED_TEST_SUITE(TestDecimal, DecimalTypes);
 
@@ -559,8 +561,7 @@ TYPED_TEST(TestDecimal, Errors) {
 TYPED_TEST(TestDecimal, Dictionary) {
   using TypeClass = typename TypeParam::TypeClass;
   auto type = std::make_shared<TypeClass>(5, 2);
-  AssertJSONDictArray(int32(), type,
-                      R"(["123.45", "-78.90", "-78.90", null, "123.45"])",
+  AssertJSONDictArray(int32(), type, R"(["123.45", "-78.90", "-78.90", null, "123.45"])",
                       /*indices=*/"[0, 1, 1, null, 0]",
                       /*values=*/R"(["123.45", "-78.90"])");
 }

@@ -464,8 +464,8 @@ inline Status ToArrowStatus(DecimalStatus dstatus, int num_bits) {
 }
 
 Status FromStringToArray(const util::string_view& s, DecimalComponents& dec,
-                         uint64_t* out, int32_t array_size,
-                         int32_t* precision, int32_t* scale) {
+                         uint64_t* out, int32_t array_size, int32_t* precision,
+                         int32_t* scale) {
   if (s.empty()) {
     return Status::Invalid("Empty string cannot be converted to decimal");
   }
@@ -497,8 +497,7 @@ Status FromStringToArray(const util::string_view& s, DecimalComponents& dec,
 
   if (out != nullptr) {
     ShiftAndAdd(dec.whole_digits, out, array_size);
-    ShiftAndAdd(dec.fractional_digits, out,
-                array_size);
+    ShiftAndAdd(dec.fractional_digits, out, array_size);
   }
 
   return Status::OK();
@@ -511,13 +510,15 @@ Status Decimal128::FromString(const util::string_view& s, Decimal128* out,
   std::array<uint64_t, 2> little_endian_array = {0, 0};
   DecimalComponents dec;
 
-  auto status = FromStringToArray(s, dec, little_endian_array.data(), 2, precision, scale);
+  auto status =
+      FromStringToArray(s, dec, little_endian_array.data(), 2, precision, scale);
   if (status != Status::OK()) {
     return status;
   }
 
   if (out != nullptr) {
-    *out = Decimal128(static_cast<int64_t>(little_endian_array[1]), little_endian_array[0]);
+    *out =
+        Decimal128(static_cast<int64_t>(little_endian_array[1]), little_endian_array[0]);
 
     if (scale != nullptr && *scale < 0) {
       *out *= GetScaleMultiplier(-*scale);
@@ -666,7 +667,8 @@ Status Decimal256::FromString(const util::string_view& s, Decimal256* out,
   std::array<uint64_t, 4> little_endian_array = {0, 0, 0, 0};
   DecimalComponents dec;
 
-  auto status = FromStringToArray(s, dec, little_endian_array.data(), 4, precision, scale);
+  auto status =
+      FromStringToArray(s, dec, little_endian_array.data(), 4, precision, scale);
   if (status != Status::OK()) {
     return status;
   }
@@ -756,32 +758,34 @@ std::ostream& operator<<(std::ostream& os, const Decimal256& decimal) {
   return os;
 }
 
-template<uint32_t width>
+template <uint32_t width>
 DecimalAnyWidth<width>::DecimalAnyWidth(const std::string& str) : DecimalAnyWidth() {
   *this = DecimalAnyWidth<width>::FromString(str).ValueOrDie();
 }
 
-template<uint32_t width>
+template <uint32_t width>
 std::string DecimalAnyWidth<width>::ToIntegerString() const {
   std::stringstream ss;
   ss << this->Value();
   return ss.str();
 }
 
-template<uint32_t width>
+template <uint32_t width>
 std::string DecimalAnyWidth<width>::ToString(int32_t scale) const {
   std::string str(ToIntegerString());
   AdjustIntegerStringWithScale(scale, &str);
   return str;
 }
 
-template<uint32_t width>
-Status DecimalAnyWidth<width>::FromString(const util::string_view& s, DecimalAnyWidth<width>* out,
-                              int32_t* precision, int32_t* scale) {
+template <uint32_t width>
+Status DecimalAnyWidth<width>::FromString(const util::string_view& s,
+                                          DecimalAnyWidth<width>* out, int32_t* precision,
+                                          int32_t* scale) {
   std::array<uint64_t, 1> little_endian_array = {0};
   DecimalComponents dec;
 
-  auto status = FromStringToArray(s, dec, little_endian_array.data(), 1, precision, scale);
+  auto status =
+      FromStringToArray(s, dec, little_endian_array.data(), 1, precision, scale);
   if (status != Status::OK()) {
     return status;
   }
@@ -808,36 +812,40 @@ Status DecimalAnyWidth<width>::FromString(const util::string_view& s, DecimalAny
   return status;
 }
 
-template<uint32_t width>
-Status DecimalAnyWidth<width>::FromString(const std::string& s, DecimalAnyWidth<width>* out, int32_t* precision,
-                              int32_t* scale) {
+template <uint32_t width>
+Status DecimalAnyWidth<width>::FromString(const std::string& s,
+                                          DecimalAnyWidth<width>* out, int32_t* precision,
+                                          int32_t* scale) {
   return FromString(util::string_view(s), out, precision, scale);
 }
 
-template<uint32_t width>
-Status DecimalAnyWidth<width>::FromString(const char* s, DecimalAnyWidth<width>* out, int32_t* precision,
-                              int32_t* scale) {
+template <uint32_t width>
+Status DecimalAnyWidth<width>::FromString(const char* s, DecimalAnyWidth<width>* out,
+                                          int32_t* precision, int32_t* scale) {
   return FromString(util::string_view(s), out, precision, scale);
 }
 
-template<uint32_t width>
-Result<typename DecimalAnyWidth<width>::_DecimalType> DecimalAnyWidth<width>::FromString(const util::string_view& s) {
+template <uint32_t width>
+Result<typename DecimalAnyWidth<width>::_DecimalType> DecimalAnyWidth<width>::FromString(
+    const util::string_view& s) {
   _DecimalType out;
   RETURN_NOT_OK(FromString(s, &out, nullptr, nullptr));
   return std::move(out);
 }
 
-template<uint32_t width>
-Result<typename DecimalAnyWidth<width>::_DecimalType> DecimalAnyWidth<width>::FromString(const std::string& s) {
+template <uint32_t width>
+Result<typename DecimalAnyWidth<width>::_DecimalType> DecimalAnyWidth<width>::FromString(
+    const std::string& s) {
   return FromString(util::string_view(s));
 }
 
-template<uint32_t width>
-Result<typename DecimalAnyWidth<width>::_DecimalType> DecimalAnyWidth<width>::FromString(const char* s) {
+template <uint32_t width>
+Result<typename DecimalAnyWidth<width>::_DecimalType> DecimalAnyWidth<width>::FromString(
+    const char* s) {
   return FromString(util::string_view(s));
 }
 
-template<uint32_t width>
+template <uint32_t width>
 Status DecimalAnyWidth<width>::ToArrowStatus(DecimalStatus dstatus) const {
   return arrow::ToArrowStatus(dstatus, width);
 }
