@@ -814,6 +814,7 @@ mod tests {
     }
 
     #[test]
+    // should fail with assert error: not equal.
     fn array_bug_1() {
         let strings: ArrayRef = Arc::new(StringArray::from(vec![None, Some("b")]));
         // ArrayData::slice() is not bug-free
@@ -830,6 +831,7 @@ mod tests {
     }
 
     #[test]
+    // should fail with panic: index out of range.
     fn array_bug_2() {
         let strings: ArrayRef =
             Arc::new(StringArray::from(vec![Some("a"), None, Some("b")]));
@@ -844,6 +846,29 @@ mod tests {
             strings2.data(),
             strings_slice.data()
         );
+    }
+
+    // should pass.
+    #[test]
+    fn array_bug_3() {
+        let strings: ArrayRef =
+            Arc::new(StringArray::from(vec![Some("a"), None, Some("b")]));
+
+        // use copy_range(), see bellow.
+        let strings_slice = copy_range(&strings, 2, 1);
+        let strings2: ArrayRef = Arc::new(StringArray::from(vec![Some("b")]));
+
+        // failed: index out of range
+        assert_eq!(&strings2, &strings_slice);
+    }
+
+    fn copy_range(array_ref: &ArrayRef, offset: usize, length: usize) -> ArrayRef {
+        let data_ref = array_ref.data();
+        let arrays = vec![&*data_ref];
+        let mut mutable = MutableArrayData::new(arrays, false, length);
+        mutable.extend(0, offset, offset + length);
+        let new_array = mutable.freeze();
+        crate::array::make_array(Arc::new(new_array))
     }
 
     #[test]
