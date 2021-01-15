@@ -6229,30 +6229,32 @@ extern "C" SEXP _arrow_SetCpuThreadPoolCapacity(SEXP threads_sexp){
 }
 #endif
 
-# if defined(ARROW_R_WITH_ARROW)
+#if defined(ARROW_R_WITH_ARROW)
 extern "C" SEXP _arrow_Table__Reset(SEXP r6) {
-  BEGIN_CPP11
-  arrow::r::r6_reset_pointer<arrow::Table>(r6);
-  END_CPP11
-  return R_NilValue;
+BEGIN_CPP11
+arrow::r::r6_reset_pointer<arrow::Table>(r6);
+END_CPP11
+return R_NilValue;
 }
-# else
-extern "C" SEXP _arrow_Table__Reset(SEXP r6) {
-  Rf_error("Cannot call _arrow_Table__Reset(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+#else
+extern "C" SEXP _arrow_Table__Reset(SEXP r6){
+	Rf_error("Cannot call Table(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
-# endif
-# if defined(ARROW_R_WITH_ARROW)
+#endif
+
+#if defined(ARROW_R_WITH_ARROW)
 extern "C" SEXP _arrow_RecordBatch__Reset(SEXP r6) {
-  BEGIN_CPP11
-  arrow::r::r6_reset_pointer<arrow::RecordBatch>(r6);
-  END_CPP11
-  return R_NilValue;
+BEGIN_CPP11
+arrow::r::r6_reset_pointer<arrow::RecordBatch>(r6);
+END_CPP11
+return R_NilValue;
 }
-# else
-extern "C" SEXP _arrow_RecordBatch__Reset(SEXP r6) {
-  Rf_error("Cannot call _arrow_RecordBatch__Reset(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+#else
+extern "C" SEXP _arrow_RecordBatch__Reset(SEXP r6){
+	Rf_error("Cannot call RecordBatch(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
-# endif
+#endif
+
 
 extern "C" SEXP _arrow_available() {
 return Rf_ScalarLogical(

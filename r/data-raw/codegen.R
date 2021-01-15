@@ -113,30 +113,46 @@ arrow_classes <- c(
   "RecordBatch" = "arrow::RecordBatch"
 )
 
+# This takes a cpp11 C wrapper and conditionally makes it available based on
+# a feature decoration
+ifdef_wrap <- function(cpp11_wrapped, name, sexp_signature, decoration) {
+  # TODO: uncomment this to remove the arrow-without-arrow wrapping
+  # if (identical(decoration, "arrow")) {
+  #   return(cpp11_wrapped)
+  # }
+  glue('
+  #if defined(ARROW_R_WITH_{toupper(decoration)})
+  {cpp11_wrapped}
+  #else
+  extern "C" SEXP {sexp_signature}{{
+  \tRf_error("Cannot call {name}(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+  }}
+  #endif
+  \n')
+}
+
 cpp_functions_definitions <- arrow_exports %>%
   select(name, return_type, args, file, line, decoration) %>%
-  pmap_chr(function(name, return_type, args, file, line, decoration){
-    glue::glue('
-    // {basename(file)}
-    #if defined(ARROW_R_WITH_{toupper(decoration)})
-    {return_type} {name}({real_params});
-    extern "C" SEXP _arrow_{name}({sexp_params}){{
-    BEGIN_CPP11
-    {input_params}{return_line}{wrap_call(name, return_type, args)}
-    END_CPP11
-    }}
-    #else
-    extern "C" SEXP _arrow_{name}({sexp_params}){{
-    \tRf_error("Cannot call {name}(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-    }}
-    #endif
-
-    ',
+  pmap_chr(function(name, return_type, args, file, line, decoration) {
+    sexp_params <- glue_collapse_data(args, "SEXP {name}_sexp")
+    sexp_signature <- glue('_arrow_{name}({sexp_params})')
+    cpp11_wrapped <- glue('
+      {return_type} {name}({real_params});
+      extern "C" SEXP {sexp_signature}{{
+      BEGIN_CPP11
+      {input_params}{return_line}{wrap_call(name, return_type, args)}
+      END_CPP11
+      }}',
       sep = "\n",
       real_params = glue_collapse_data(args, "{type} {name}"),
-      sexp_params = glue_collapse_data(args, "SEXP {name}_sexp"),
       input_params = glue_collapse_data(args, "\tarrow::r::Input<{type}>::type {name}({name}_sexp);", sep = "\n"),
-      return_line = if(nrow(args)) "\n" else ""
+      return_line = if(nrow(args)) "\n" else "")
+
+    glue::glue('
+    // {basename(file)}
+    {ifdef_wrap(cpp11_wrapped, name, sexp_signature, decoration)}
+    ',
+      sep = "\n",
     )
   }) %>%
   glue_collapse(sep = "\n")
@@ -149,20 +165,15 @@ cpp_functions_registration <- arrow_exports %>%
   glue_collapse(sep = "\n")
 
 cpp_classes_finalizers <- map2(names(arrow_classes), arrow_classes, function(name, class) {
-  glue('
-  # if defined(ARROW_R_WITH_ARROW)
-  extern "C" SEXP _arrow_{name}__Reset(SEXP r6) {{
+  sexp_signature <- glue('_arrow_{name}__Reset(SEXP r6)')
+  cpp11_wrapped <- glue('
+    extern "C" SEXP {sexp_signature} {{
     BEGIN_CPP11
     arrow::r::r6_reset_pointer<{class}>(r6);
     END_CPP11
     return R_NilValue;
-  }}
-  # else
-  extern "C" SEXP _arrow_{name}__Reset(SEXP r6) {{
-    Rf_error("Cannot call _arrow_{name}__Reset(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-  }}
-  # endif
-  ')
+    }}')
+  ifdef_wrap(cpp11_wrapped, name, sexp_signature, "arrow")
 }) %>%
   glue_collapse(sep = "\n")
 
