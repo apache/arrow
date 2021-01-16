@@ -106,7 +106,11 @@ impl MemTable {
     }
 
     /// Create a mem table by reading from another data source
-    pub async fn load(t: &dyn TableProvider, batch_size: usize) -> Result<Self> {
+    pub async fn load(
+        t: &dyn TableProvider,
+        batch_size: usize,
+        output_partitions: Option<usize>,
+    ) -> Result<Self> {
         let schema = t.schema();
         let exec = t.scan(&None, batch_size, &[])?;
         let partition_count = exec.output_partitioning().partition_count();
@@ -131,22 +135,28 @@ impl MemTable {
         }
 
         let exec = MemoryExec::try_new(&data, schema.clone(), None)?;
-        let exec =
-            RepartitionExec::try_new(Arc::new(exec), Partitioning::RoundRobinBatch(16))?;
 
-        // execute and collect results
-        let mut output_partitions = vec![];
-        for i in 0..exec.output_partitioning().partition_count() {
-            // execute this *output* partition and collect all batches
-            let mut stream = exec.execute(i).await?;
-            let mut batches = vec![];
-            while let Some(result) = stream.next().await {
-                batches.push(result?);
+        if let Some(num_partitions) = output_partitions {
+            let exec = RepartitionExec::try_new(
+                Arc::new(exec),
+                Partitioning::RoundRobinBatch(num_partitions),
+            )?;
+
+            // execute and collect results
+            let mut output_partitions = vec![];
+            for i in 0..exec.output_partitioning().partition_count() {
+                // execute this *output* partition and collect all batches
+                let mut stream = exec.execute(i).await?;
+                let mut batches = vec![];
+                while let Some(result) = stream.next().await {
+                    batches.push(result?);
+                }
+                output_partitions.push(batches);
             }
-            output_partitions.push(batches);
-        }
 
-        MemTable::try_new(schema.clone(), output_partitions)
+            return MemTable::try_new(schema.clone(), output_partitions);
+        }
+        MemTable::try_new(schema.clone(), data)
     }
 }
 
