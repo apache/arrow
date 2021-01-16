@@ -631,8 +631,8 @@ IMPORT_TESTS
 }
 
 test_linux_wheels() {
-  local py_arches="3.5m 3.6m 3.7m 3.8 3.9"
-  local manylinuxes="1 2010 2014"
+  local py_arches="3.6m 3.7m 3.8 3.9"
+  local manylinuxes="2010 2014"
 
   for py_arch in ${py_arches}; do
     local env=_verify_wheel-${py_arch}
