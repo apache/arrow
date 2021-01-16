@@ -199,11 +199,18 @@ pub struct Field {
     metadata: Option<BTreeMap<String, String>>,
 }
 
-pub trait ArrowNativeType:
-    fmt::Debug + Send + Sync + Copy + PartialOrd + FromStr + Default + 'static
-{
+/// Trait declaring any type that is serializable to JSON. This includes all primitive types (bool, i32, etc.).
+pub trait JsonSerializable: 'static {
     fn into_json_value(self) -> Option<Value>;
+}
 
+/// Trait expressing a Rust type that has the same in-memory representation
+/// as Arrow. This includes `i16`, `f32`, but excludes `bool` (which in arrow is represented in bits).
+/// In little endian machines, types that implement [`ArrowNativeType`] can be memcopied to arrow buffers
+/// as is.
+pub trait ArrowNativeType:
+    fmt::Debug + Send + Sync + Copy + PartialOrd + FromStr + Default + JsonSerializable
+{
     /// Convert native type from usize.
     fn from_usize(_: usize) -> Option<Self> {
         None
@@ -225,7 +232,8 @@ pub trait ArrowNativeType:
     }
 }
 
-/// Trait indicating a primitive fixed-width type (bool, ints and floats).
+/// Trait bridging the dynamic-typed nature of Arrow (via [`DataType`]) with the
+/// static-typed nature of rust types ([`ArrowNativeType`]) for all types that implement [`ArrowNativeType`].
 pub trait ArrowPrimitiveType: 'static {
     /// Corresponding Rust native type for the primitive type.
     type Native: ArrowNativeType;
@@ -246,31 +254,35 @@ pub trait ArrowPrimitiveType: 'static {
     }
 }
 
-impl ArrowNativeType for bool {
+impl JsonSerializable for bool {
+    fn into_json_value(self) -> Option<Value> {
+        Some(self.into())
+    }
+}
+
+impl JsonSerializable for i8 {
     fn into_json_value(self) -> Option<Value> {
         Some(self.into())
     }
 }
 
 impl ArrowNativeType for i8 {
-    fn into_json_value(self) -> Option<Value> {
-        Some(VNumber(Number::from(self)))
-    }
-
     fn from_usize(v: usize) -> Option<Self> {
         num::FromPrimitive::from_usize(v)
     }
 
     fn to_usize(&self) -> Option<usize> {
         num::ToPrimitive::to_usize(self)
+    }
+}
+
+impl JsonSerializable for i16 {
+    fn into_json_value(self) -> Option<Value> {
+        Some(self.into())
     }
 }
 
 impl ArrowNativeType for i16 {
-    fn into_json_value(self) -> Option<Value> {
-        Some(VNumber(Number::from(self)))
-    }
-
     fn from_usize(v: usize) -> Option<Self> {
         num::FromPrimitive::from_usize(v)
     }
@@ -280,11 +292,13 @@ impl ArrowNativeType for i16 {
     }
 }
 
-impl ArrowNativeType for i32 {
+impl JsonSerializable for i32 {
     fn into_json_value(self) -> Option<Value> {
-        Some(VNumber(Number::from(self)))
+        Some(self.into())
     }
+}
 
+impl ArrowNativeType for i32 {
     fn from_usize(v: usize) -> Option<Self> {
         num::FromPrimitive::from_usize(v)
     }
@@ -299,11 +313,13 @@ impl ArrowNativeType for i32 {
     }
 }
 
-impl ArrowNativeType for i64 {
+impl JsonSerializable for i64 {
     fn into_json_value(self) -> Option<Value> {
         Some(VNumber(Number::from(self)))
     }
+}
 
+impl ArrowNativeType for i64 {
     fn from_usize(v: usize) -> Option<Self> {
         num::FromPrimitive::from_usize(v)
     }
@@ -318,53 +334,61 @@ impl ArrowNativeType for i64 {
     }
 }
 
-impl ArrowNativeType for u8 {
+impl JsonSerializable for u8 {
     fn into_json_value(self) -> Option<Value> {
-        Some(VNumber(Number::from(self)))
+        Some(self.into())
     }
+}
 
+impl ArrowNativeType for u8 {
     fn from_usize(v: usize) -> Option<Self> {
         num::FromPrimitive::from_usize(v)
     }
 
     fn to_usize(&self) -> Option<usize> {
         num::ToPrimitive::to_usize(self)
+    }
+}
+
+impl JsonSerializable for u16 {
+    fn into_json_value(self) -> Option<Value> {
+        Some(self.into())
     }
 }
 
 impl ArrowNativeType for u16 {
-    fn into_json_value(self) -> Option<Value> {
-        Some(VNumber(Number::from(self)))
-    }
-
     fn from_usize(v: usize) -> Option<Self> {
         num::FromPrimitive::from_usize(v)
     }
 
     fn to_usize(&self) -> Option<usize> {
         num::ToPrimitive::to_usize(self)
+    }
+}
+
+impl JsonSerializable for u32 {
+    fn into_json_value(self) -> Option<Value> {
+        Some(self.into())
     }
 }
 
 impl ArrowNativeType for u32 {
-    fn into_json_value(self) -> Option<Value> {
-        Some(VNumber(Number::from(self)))
-    }
-
     fn from_usize(v: usize) -> Option<Self> {
         num::FromPrimitive::from_usize(v)
     }
 
     fn to_usize(&self) -> Option<usize> {
         num::ToPrimitive::to_usize(self)
+    }
+}
+
+impl JsonSerializable for u64 {
+    fn into_json_value(self) -> Option<Value> {
+        Some(self.into())
     }
 }
 
 impl ArrowNativeType for u64 {
-    fn into_json_value(self) -> Option<Value> {
-        Some(VNumber(Number::from(self)))
-    }
-
     fn from_usize(v: usize) -> Option<Self> {
         num::FromPrimitive::from_usize(v)
     }
@@ -374,17 +398,20 @@ impl ArrowNativeType for u64 {
     }
 }
 
-impl ArrowNativeType for f32 {
+impl JsonSerializable for f32 {
     fn into_json_value(self) -> Option<Value> {
         Number::from_f64(f64::round(self as f64 * 1000.0) / 1000.0).map(VNumber)
     }
 }
 
-impl ArrowNativeType for f64 {
+impl JsonSerializable for f64 {
     fn into_json_value(self) -> Option<Value> {
         Number::from_f64(self).map(VNumber)
     }
 }
+
+impl ArrowNativeType for f32 {}
+impl ArrowNativeType for f64 {}
 
 // BooleanType is special: its bit-width is not the size of the primitive type, and its `index`
 // operation assumes bit-packing.

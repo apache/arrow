@@ -449,12 +449,10 @@ impl ArrowJsonBatch {
                     for i in 0..col.len() {
                         if col.is_null(i) {
                             validity.push(1);
-                            data.push(
-                                Int8Type::default_value().into_json_value().unwrap(),
-                            );
+                            data.push(0i8.into());
                         } else {
                             validity.push(0);
-                            data.push(col.value(i).into_json_value().unwrap());
+                            data.push(col.value(i).into());
                         }
                     }
 

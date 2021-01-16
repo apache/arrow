@@ -385,7 +385,7 @@ where
 }
 
 // insert valid and nan values in the correct order depending on the descending flag
-fn insert_valid_values<T: ArrowNativeType>(
+fn insert_valid_values<T>(
     result_slice: &mut [u32],
     offset: usize,
     valids: Vec<(u32, T)>,
