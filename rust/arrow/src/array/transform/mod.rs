@@ -896,6 +896,26 @@ mod tests {
     }
 
     #[test]
+    fn test_struct_bug_2() {
+        let ints: ArrayRef = Arc::new(Int32Array::from(vec![Some(1), Some(2), Some(3)]));
+
+        let array = StructArray::try_from(vec![("f1", ints.clone())])
+            .unwrap()
+            .data();
+
+        let arrays = vec![array.as_ref()];
+        let mut mutable = MutableArrayData::new(arrays, false, 0);
+
+        mutable.extend(0, 1, 3);
+        let data = mutable.freeze();
+        let array = StructArray::from(Arc::new(data));
+
+        let expected = StructArray::try_from(vec![("f1", ints.slice(1, 2))]).unwrap();
+
+        assert_eq!(array, expected);
+    }
+
+    #[test]
     fn test_struct() {
         let strings: ArrayRef = Arc::new(StringArray::from(vec![
             None,

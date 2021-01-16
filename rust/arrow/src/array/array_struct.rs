@@ -123,11 +123,11 @@ impl TryFrom<Vec<(&str, ArrayRef)>> for StructArray {
                 len = Some(child_datum_len)
             }
             child_data.push(child_datum.clone());
-            fields.push(Field::new(
-                field_name,
-                array.data_type().clone(),
-                child_datum.null_buffer().is_some(),
-            ));
+            let null_buffer = child_datum.null_buffer();
+            // A field is nullable if the null buffer is Some and not all bits are set.
+            let nullable = null_buffer.is_some()
+                && null_buffer.unwrap().count_set_bits() < child_datum.len();
+            fields.push(Field::new(field_name, array.data_type().clone(), nullable));
 
             if let Some(child_null_buffer) = child_datum.null_buffer() {
                 let child_datum_offset = child_datum.offset();
@@ -485,7 +485,7 @@ mod tests {
         let sliced_array = struct_array.slice(2, 3);
         let sliced_array = sliced_array.as_any().downcast_ref::<StructArray>().unwrap();
         assert_eq!(3, sliced_array.len());
-        assert_eq!(2, sliced_array.offset());
+        assert_eq!(0, sliced_array.offset());
         assert_eq!(1, sliced_array.null_count());
         assert!(sliced_array.is_valid(0));
         assert!(sliced_array.is_null(1));
@@ -494,7 +494,7 @@ mod tests {
         let sliced_c0 = sliced_array.column(0);
         let sliced_c0 = sliced_c0.as_any().downcast_ref::<BooleanArray>().unwrap();
         assert_eq!(3, sliced_c0.len());
-        assert_eq!(2, sliced_c0.offset());
+        assert_eq!(0, sliced_c0.offset());
         assert!(sliced_c0.is_null(0));
         assert!(sliced_c0.is_null(1));
         assert!(sliced_c0.is_valid(2));
@@ -503,7 +503,7 @@ mod tests {
         let sliced_c1 = sliced_array.column(1);
         let sliced_c1 = sliced_c1.as_any().downcast_ref::<Int32Array>().unwrap();
         assert_eq!(3, sliced_c1.len());
-        assert_eq!(2, sliced_c1.offset());
+        assert_eq!(0, sliced_c1.offset());
         assert!(sliced_c1.is_valid(0));
         assert_eq!(42, sliced_c1.value(0));
         assert!(sliced_c1.is_null(1));

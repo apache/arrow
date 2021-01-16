@@ -144,7 +144,7 @@ mod tests {
         let array2 = array1.slice(8, 16);
         assert_eq!(array2.len(), 16);
         assert_eq!(array2.null_count(), 16);
-        assert_eq!(array2.offset(), 8);
+        assert_eq!(array2.offset(), 0);
     }
 
     #[test]

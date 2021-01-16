@@ -1225,7 +1225,7 @@ mod tests {
         let array = Arc::new(a) as ArrayRef;
         assert_eq!(0, array.offset());
         let array = array.slice(2, 3);
-        assert_eq!(2, array.offset());
+        assert_eq!(0, array.offset());
         let b = cast(&array, &DataType::UInt8).unwrap();
         assert_eq!(3, b.len());
         assert_eq!(0, b.offset());

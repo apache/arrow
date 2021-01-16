@@ -580,11 +580,11 @@ mod tests {
 
         let sliced_array = list_array.slice(1, 6);
         assert_eq!(6, sliced_array.len());
-        assert_eq!(1, sliced_array.offset());
+        assert_eq!(0, sliced_array.offset());
         assert_eq!(3, sliced_array.null_count());
 
         for i in 0..sliced_array.len() {
-            if bit_util::get_bit(&null_bits, sliced_array.offset() + i) {
+            if bit_util::get_bit(&null_bits, 1 + i) {
                 assert!(sliced_array.is_valid(i));
             } else {
                 assert!(sliced_array.is_null(i));
@@ -594,11 +594,11 @@ mod tests {
         // Check offset and length for each non-null value.
         let sliced_list_array =
             sliced_array.as_any().downcast_ref::<ListArray>().unwrap();
-        assert_eq!(2, sliced_list_array.value_offset(2));
+        assert_eq!(0, sliced_list_array.value_offset(2));
         assert_eq!(2, sliced_list_array.value_length(2));
-        assert_eq!(4, sliced_list_array.value_offset(3));
+        assert_eq!(2, sliced_list_array.value_offset(3));
         assert_eq!(2, sliced_list_array.value_length(3));
-        assert_eq!(6, sliced_list_array.value_offset(5));
+        assert_eq!(4, sliced_list_array.value_offset(5));
         assert_eq!(3, sliced_list_array.value_length(5));
     }
 
@@ -645,11 +645,11 @@ mod tests {
 
         let sliced_array = list_array.slice(1, 6);
         assert_eq!(6, sliced_array.len());
-        assert_eq!(1, sliced_array.offset());
+        assert_eq!(0, sliced_array.offset());
         assert_eq!(3, sliced_array.null_count());
 
         for i in 0..sliced_array.len() {
-            if bit_util::get_bit(&null_bits, sliced_array.offset() + i) {
+            if bit_util::get_bit(&null_bits, 1 + i) {
                 assert!(sliced_array.is_valid(i));
             } else {
                 assert!(sliced_array.is_null(i));
@@ -661,11 +661,11 @@ mod tests {
             .as_any()
             .downcast_ref::<LargeListArray>()
             .unwrap();
-        assert_eq!(2, sliced_list_array.value_offset(2));
+        assert_eq!(0, sliced_list_array.value_offset(2));
         assert_eq!(2, sliced_list_array.value_length(2));
-        assert_eq!(4, sliced_list_array.value_offset(3));
+        assert_eq!(2, sliced_list_array.value_offset(3));
         assert_eq!(2, sliced_list_array.value_length(3));
-        assert_eq!(6, sliced_list_array.value_offset(5));
+        assert_eq!(4, sliced_list_array.value_offset(5));
         assert_eq!(3, sliced_list_array.value_length(5));
     }
 

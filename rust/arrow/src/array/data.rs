@@ -25,7 +25,7 @@ use crate::buffer::Buffer;
 use crate::datatypes::DataType;
 use crate::{bitmap::Bitmap, datatypes::ArrowNativeType};
 
-use super::equal::equal;
+use super::{equal::equal, MutableArrayData};
 
 #[inline]
 pub(crate) fn count_nulls(
@@ -219,17 +219,17 @@ impl ArrayData {
     ///
     /// Panics if `offset + length > self.len()`.
     pub fn slice(&self, offset: usize, length: usize) -> ArrayData {
+        self.copy_range(offset, length)
+    }
+
+    fn copy_range(&self, offset: usize, length: usize) -> ArrayData {
         assert!((offset + length) <= self.len());
 
-        let mut new_data = self.clone();
-
-        new_data.len = length;
-        new_data.offset = offset + self.offset;
-
-        new_data.null_count =
-            count_nulls(new_data.null_buffer(), new_data.offset, new_data.len);
-
-        new_data
+        let new_data = self.clone();
+        let arrays = vec![&new_data];
+        let mut mutable = MutableArrayData::new(arrays, false, length);
+        mutable.extend(0, offset, offset + length);
+        mutable.freeze()
     }
 
     /// Returns the `buffer` as a slice of type `T` starting at self.offset
@@ -428,20 +428,22 @@ mod tests {
         bit_util::set_bit(&mut bit_v, 0);
         bit_util::set_bit(&mut bit_v, 3);
         bit_util::set_bit(&mut bit_v, 10);
+        let data_vec = vec![0_u8; 64]; // align to 64 bytes
         let data = ArrayData::builder(DataType::Int32)
             .len(16)
             .null_bit_buffer(Buffer::from(bit_v))
+            .add_buffer(Buffer::from(data_vec))
             .build();
         let data = data.as_ref();
         let new_data = data.slice(1, 15);
         assert_eq!(data.len() - 1, new_data.len());
-        assert_eq!(1, new_data.offset());
+        assert_eq!(0, new_data.offset());
         assert_eq!(data.null_count(), new_data.null_count());
 
         // slice of a slice (removes one null)
         let new_data = new_data.slice(1, 14);
         assert_eq!(data.len() - 2, new_data.len());
-        assert_eq!(2, new_data.offset());
+        assert_eq!(0, new_data.offset());
         assert_eq!(data.null_count() - 1, new_data.null_count());
     }
 

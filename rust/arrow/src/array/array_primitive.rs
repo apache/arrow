@@ -673,7 +673,7 @@ mod tests {
 
         let arr2 = arr.slice(2, 5);
         assert_eq!(5, arr2.len());
-        assert_eq!(2, arr2.offset());
+        assert_eq!(0, arr2.offset());
         assert_eq!(1, arr2.null_count());
 
         for i in 0..arr2.len() {
@@ -683,7 +683,7 @@ mod tests {
 
         let arr3 = arr2.slice(2, 3);
         assert_eq!(3, arr3.len());
-        assert_eq!(4, arr3.offset());
+        assert_eq!(0, arr3.offset());
         assert_eq!(0, arr3.null_count());
 
         let int_arr = arr3.as_any().downcast_ref::<Int32Array>().unwrap();
@@ -713,7 +713,7 @@ mod tests {
 
         let arr2 = arr.slice(3, 5);
         assert_eq!(5, arr2.len());
-        assert_eq!(3, arr2.offset());
+        assert_eq!(0, arr2.offset());
         assert_eq!(1, arr2.null_count());
 
         let bool_arr = arr2.as_any().downcast_ref::<BooleanArray>().unwrap();
