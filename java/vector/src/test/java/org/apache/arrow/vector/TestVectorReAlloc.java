@@ -17,7 +17,7 @@
 
 package org.apache.arrow.vector;
 
-import static org.junit.Assert.*;
+import  static org.junit.Assert.*;
 
 import java.nio.charset.StandardCharsets;
 
@@ -157,7 +157,7 @@ public class TestVectorReAlloc {
     BaseVariableWidthVector v1 = new VarCharVector("var1", allocator);
     v1.setInitialCapacity(512);
     v1.allocateNew();
-    long numNullValues1 = v1.getOffsetBuffer().capacity() / v1.OFFSET_WIDTH + 1;
+    long numNullValues1 = v1.getValueCapacity() + 1;
     for (int i = 0; i < numNullValues1; i++) {
       v1.setNull(i);
     }
@@ -166,7 +166,7 @@ public class TestVectorReAlloc {
     BaseLargeVariableWidthVector v2 = new LargeVarCharVector("var2", allocator);
     v2.setInitialCapacity(512);
     v2.allocateNew();
-    long numNullValues2 = v2.getOffsetBuffer().capacity() / v2.OFFSET_WIDTH + 1;
+    long numNullValues2 = v2.getValueCapacity() + 1;
     for (int i = 0; i < numNullValues2; i++) {
       v2.setNull(i);
     }
