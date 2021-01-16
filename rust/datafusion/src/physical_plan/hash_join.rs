@@ -597,8 +597,8 @@ impl BuildHasher for IdHashBuilder {
 
 // Combines two hashes into one hash
 fn combine_hashes(l: u64, r: u64) -> u64 {
-    let hash = (17 * 37u64).overflowing_add(l).0;
-    hash.overflowing_mul(37).0.overflowing_add(r).0
+    let hash = (17 * 37u64).wrapping_add(l);
+    hash.wrapping_mul(37).wrapping_add(r)
 }
 
 macro_rules! equal_rows_elem {
