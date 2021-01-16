@@ -1597,6 +1597,7 @@ mod tests {
                 path: PathBuf::from(path.to_string()),
                 file_format: "tbl".to_string(),
                 mem_table: false,
+                partitions: 16,
             };
             let actual = benchmark(opt).await?;
 
