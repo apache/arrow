@@ -43,8 +43,8 @@ use arrow::{
 use pin_project_lite::pin_project;
 
 use super::{
-    common, expressions::Column, group_scalar::GroupByScalar, RecordBatchStream,
-    SendableRecordBatchStream,
+    common, expressions::Column, group_scalar::GroupByScalar, hash_join::create_hashes,
+    hash_join::IdHashBuilder, RecordBatchStream, SendableRecordBatchStream,
 };
 use ahash::RandomState;
 use hashbrown::HashMap;
@@ -75,6 +75,8 @@ pub struct HashAggregateExec {
     input: Arc<dyn ExecutionPlan>,
     /// Schema after the aggregate is applied
     schema: SchemaRef,
+    /// Shares the `RandomState` for the hashing algorithm
+    random_state: RandomState,
 }
 
 fn create_schema(
@@ -128,6 +130,7 @@ impl HashAggregateExec {
             aggr_expr,
             input,
             schema,
+            random_state: RandomState::new(),
         })
     }
 
@@ -189,6 +192,7 @@ impl ExecutionPlan for HashAggregateExec {
                 self.schema.clone(),
                 self.aggr_expr.clone(),
                 input,
+                self.random_state.clone(),
             )))
         } else {
             Ok(Box::pin(GroupedHashAggregateStream::new(
@@ -197,6 +201,7 @@ impl ExecutionPlan for HashAggregateExec {
                 group_expr,
                 self.aggr_expr.clone(),
                 input,
+                self.random_state.clone(),
             )))
         }
     }
@@ -250,6 +255,7 @@ pin_project! {
         #[pin]
         output: futures::channel::oneshot::Receiver<ArrowResult<RecordBatch>>,
         finished: bool,
+        random_state: RandomState
     }
 }
 
@@ -260,6 +266,7 @@ fn group_aggregate_batch(
     batch: RecordBatch,
     mut accumulators: Accumulators,
     aggregate_expressions: &Vec<Vec<Arc<dyn PhysicalExpr>>>,
+    random_state: &RandomState,
 ) -> Result<Accumulators> {
     // evaluate the grouping expressions
     let group_values = evaluate(group_expr, &batch)?;
@@ -279,8 +286,6 @@ fn group_aggregate_batch(
 
     let mut group_by_values = group_by_values.into_boxed_slice();
 
-    let mut key = Vec::with_capacity(group_values.len());
-
     // 1.1 construct the key from the group values
     // 1.2 construct the mapping key if it does not exist
     // 1.3 add the row' index to `indices`
@@ -288,14 +293,13 @@ fn group_aggregate_batch(
     // Make sure we can create the accumulators or otherwise return an error
     create_accumulators(aggr_expr).map_err(DataFusionError::into_arrow_external_error)?;
 
-    for row in 0..batch.num_rows() {
-        // 1.1
-        create_key(&group_values, row, &mut key)
-            .map_err(DataFusionError::into_arrow_external_error)?;
+    let hashes = create_hashes(&group_values, &random_state)?;
 
+    for (row, hash) in hashes.iter().enumerate() {
+        // 1.1
         accumulators
             .raw_entry_mut()
-            .from_key(&key)
+            .from_key_hashed_nocheck(*hash, hash)
             // 1.3
             .and_modify(|_, (_, _, v)| v.push(row as u32))
             // 1.2
@@ -304,7 +308,7 @@ fn group_aggregate_batch(
                 let accumulator_set = create_accumulators(aggr_expr).unwrap();
                 let _ = create_group_by_values(&group_values, row, &mut group_by_values);
                 (
-                    key.clone(),
+                    *hash,
                     (group_by_values.clone(), accumulator_set, vec![row as u32]),
                 )
             });
@@ -355,95 +359,13 @@ fn group_aggregate_batch(
     Ok(accumulators)
 }
 
-/// Create a key `Vec<u8>` that is used as key for the hashmap
-pub(crate) fn create_key(
-    group_by_keys: &[ArrayRef],
-    row: usize,
-    vec: &mut Vec<u8>,
-) -> Result<()> {
-    vec.clear();
-    for col in group_by_keys {
-        match col.data_type() {
-            DataType::Float32 => {
-                let array = col.as_any().downcast_ref::<Float32Array>().unwrap();
-                vec.extend_from_slice(&array.value(row).to_le_bytes());
-            }
-            DataType::Float64 => {
-                let array = col.as_any().downcast_ref::<Float64Array>().unwrap();
-                vec.extend_from_slice(&array.value(row).to_le_bytes());
-            }
-            DataType::UInt8 => {
-                let array = col.as_any().downcast_ref::<UInt8Array>().unwrap();
-                vec.extend_from_slice(&array.value(row).to_le_bytes());
-            }
-            DataType::UInt16 => {
-                let array = col.as_any().downcast_ref::<UInt16Array>().unwrap();
-                vec.extend_from_slice(&array.value(row).to_le_bytes());
-            }
-            DataType::UInt32 => {
-                let array = col.as_any().downcast_ref::<UInt32Array>().unwrap();
-                vec.extend_from_slice(&array.value(row).to_le_bytes());
-            }
-            DataType::UInt64 => {
-                let array = col.as_any().downcast_ref::<UInt64Array>().unwrap();
-                vec.extend_from_slice(&array.value(row).to_le_bytes());
-            }
-            DataType::Int8 => {
-                let array = col.as_any().downcast_ref::<Int8Array>().unwrap();
-                vec.extend_from_slice(&array.value(row).to_le_bytes());
-            }
-            DataType::Int16 => {
-                let array = col.as_any().downcast_ref::<Int16Array>().unwrap();
-                vec.extend(array.value(row).to_le_bytes().iter());
-            }
-            DataType::Int32 => {
-                let array = col.as_any().downcast_ref::<Int32Array>().unwrap();
-                vec.extend_from_slice(&array.value(row).to_le_bytes());
-            }
-            DataType::Int64 => {
-                let array = col.as_any().downcast_ref::<Int64Array>().unwrap();
-                vec.extend_from_slice(&array.value(row).to_le_bytes());
-            }
-            DataType::Timestamp(TimeUnit::Microsecond, None) => {
-                let array = col
-                    .as_any()
-                    .downcast_ref::<TimestampMicrosecondArray>()
-                    .unwrap();
-                vec.extend_from_slice(&array.value(row).to_le_bytes());
-            }
-            DataType::Timestamp(TimeUnit::Nanosecond, None) => {
-                let array = col
-                    .as_any()
-                    .downcast_ref::<TimestampNanosecondArray>()
-                    .unwrap();
-                vec.extend_from_slice(&array.value(row).to_le_bytes());
-            }
-            DataType::Utf8 => {
-                let array = col.as_any().downcast_ref::<StringArray>().unwrap();
-                let value = array.value(row);
-                // store the size
-                vec.extend_from_slice(&value.len().to_le_bytes());
-                // store the string value
-                vec.extend_from_slice(value.as_bytes());
-            }
-            _ => {
-                // This is internal because we should have caught this before.
-                return Err(DataFusionError::Internal(format!(
-                    "Unsupported GROUP BY for {}",
-                    col.data_type(),
-                )));
-            }
-        }
-    }
-    Ok(())
-}
-
 async fn compute_grouped_hash_aggregate(
     mode: AggregateMode,
     schema: SchemaRef,
     group_expr: Vec<Arc<dyn PhysicalExpr>>,
     aggr_expr: Vec<Arc<dyn AggregateExpr>>,
     mut input: SendableRecordBatchStream,
+    random_state: &RandomState,
 ) -> ArrowResult<RecordBatch> {
     // the expressions to evaluate the batch, one vec of expressions per aggregation
     let aggregate_expressions = aggregate_expressions(&aggr_expr, &mode)
@@ -453,10 +375,9 @@ async fn compute_grouped_hash_aggregate(
     // * the indexes are updated at each row
     // * the accumulators are updated at the end of each batch
     // * the indexes are `clear`ed at the end of each batch
-    //let mut accumulators: Accumulators = FnvHashMap::default();
 
     // iterate over all input batches and update the accumulators
-    let mut accumulators = Accumulators::default();
+    let mut accumulators = Accumulators::with_hasher(IdHashBuilder {});
     while let Some(batch) = input.next().await {
         let batch = batch?;
         accumulators = group_aggregate_batch(
@@ -466,6 +387,7 @@ async fn compute_grouped_hash_aggregate(
             batch,
             accumulators,
             &aggregate_expressions,
+            random_state,
         )
         .map_err(DataFusionError::into_arrow_external_error)?;
     }
@@ -481,10 +403,12 @@ impl GroupedHashAggregateStream {
         group_expr: Vec<Arc<dyn PhysicalExpr>>,
         aggr_expr: Vec<Arc<dyn AggregateExpr>>,
         input: SendableRecordBatchStream,
+        random_state: RandomState,
     ) -> Self {
         let (tx, rx) = futures::channel::oneshot::channel();
 
         let schema_clone = schema.clone();
+        let rs = random_state.clone();
         tokio::spawn(async move {
             let result = compute_grouped_hash_aggregate(
                 mode,
@@ -492,6 +416,7 @@ impl GroupedHashAggregateStream {
                 group_expr,
                 aggr_expr,
                 input,
+                &rs,
             )
             .await;
             tx.send(result)
@@ -501,13 +426,14 @@ impl GroupedHashAggregateStream {
             schema,
             output: rx,
             finished: false,
+            random_state: random_state.clone(),
         }
     }
 }
 
 type AccumulatorSet = Vec<Box<dyn Accumulator>>;
 type Accumulators =
-    HashMap<Vec<u8>, (Box<[GroupByScalar]>, AccumulatorSet, Vec<u32>), RandomState>;
+    HashMap<u64, (Box<[GroupByScalar]>, AccumulatorSet, Vec<u32>), IdHashBuilder>;
 
 impl Stream for GroupedHashAggregateStream {
     type Item = ArrowResult<RecordBatch>;
@@ -607,6 +533,7 @@ pin_project! {
         #[pin]
         output: futures::channel::oneshot::Receiver<ArrowResult<RecordBatch>>,
         finished: bool,
+        random_state: RandomState
     }
 }
 
@@ -645,6 +572,7 @@ impl HashAggregateStream {
         schema: SchemaRef,
         aggr_expr: Vec<Arc<dyn AggregateExpr>>,
         input: SendableRecordBatchStream,
+        random_state: RandomState,
     ) -> Self {
         let (tx, rx) = futures::channel::oneshot::channel();
 
@@ -659,6 +587,7 @@ impl HashAggregateStream {
             schema,
             output: rx,
             finished: false,
+            random_state,
         }
     }
 }

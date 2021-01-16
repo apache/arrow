@@ -566,7 +566,7 @@ use core::hash::BuildHasher;
 
 /// `Hasher` that returns the same `u64` value as a hash, to avoid re-hashing
 /// it when inserting/indexing or regrowing the `HashMap`
-struct IdHasher {
+pub(crate) struct IdHasher {
     hash: u64,
 }
 
@@ -585,10 +585,10 @@ impl Hasher for IdHasher {
 }
 
 #[derive(Debug)]
-struct IdHashBuilder {}
+pub(crate) struct IdHashBuilder {}
 
 impl BuildHasher for IdHashBuilder {
-    type Hasher = IdHasher;
+     type Hasher = IdHasher;
 
     fn build_hasher(&self) -> Self::Hasher {
         IdHasher { hash: 0 }
@@ -697,7 +697,7 @@ macro_rules! hash_array {
 }
 
 /// Creates hash values for every element in the row based on the values in the columns
-fn create_hashes(arrays: &[ArrayRef], random_state: &RandomState) -> Result<Vec<u64>> {
+pub(crate) fn create_hashes(arrays: &[ArrayRef], random_state: &RandomState) -> Result<Vec<u64>> {
     let rows = arrays[0].len();
     let mut hashes = vec![0; rows];
 
