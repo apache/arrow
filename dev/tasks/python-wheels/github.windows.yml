@@ -95,7 +95,7 @@ jobs:
       - name: Upload to gemfury
         shell: bash
         run: |
-          WHEEL_PATH=$(echo wheels/*.whl)
+          WHEEL_PATH=$(echo arrow/python/dist/*.whl)
           curl.exe \
             -F "package=@${WHEEL_PATH}" \
             "https://${CROSSBOW_GEMFURY_TOKEN}@push.fury.io/${CROSSBOW_GEMFURY_ORG}/"
