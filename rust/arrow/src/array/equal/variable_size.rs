@@ -60,9 +60,9 @@ pub(super) fn variable_sized_equal<T: OffsetSizeTrait>(
     let lhs_offsets = lhs.buffer::<T>(0);
     let rhs_offsets = rhs.buffer::<T>(0);
 
-    // these are bytes, and thus the offset does not need to be multiplied
-    let lhs_values = &lhs.buffers()[1].as_slice()[lhs.offset()..];
-    let rhs_values = &rhs.buffers()[1].as_slice()[rhs.offset()..];
+    // the offsets of the `ArrayData` are ignored as they are only applied to the offset buffer.
+    let lhs_values = lhs.buffers()[1].as_slice();
+    let rhs_values = rhs.buffers()[1].as_slice();
 
     let lhs_null_count = count_nulls(lhs_nulls, lhs_start, len);
     let rhs_null_count = count_nulls(rhs_nulls, rhs_start, len);

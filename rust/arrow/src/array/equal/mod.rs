@@ -542,6 +542,15 @@ mod tests {
     }
 
     #[test]
+    fn test_string_offset() {
+        let a = StringArray::from(vec![Some("a"), None, Some("b")]).data();
+        let a = a.slice(2, 1);
+        let b = StringArray::from(vec![Some("b")]).data();
+
+        test_equal(&a, b.as_ref(), true);
+    }
+
+    #[test]
     fn test_null() {
         let a = NullArray::new(2).data();
         let b = NullArray::new(2).data();
