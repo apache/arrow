@@ -205,7 +205,8 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
   }
 
   /**
-   * Get the current value capacity for the vector.
+   * Get the current capacity which does not exceed either validity buffer or offset buffer.
+   * Note: Here the `getValueCapacity` has no relationship with the value buffer.
    * @return number of elements that vector can hold.
    */
   @Override
@@ -941,6 +942,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    */
   @Override
   public void setIndexDefined(int index) {
+    // We need to check and realloc both validity and offset buffer
     while (index >= getValueCapacity()) {
       reallocValidityAndOffsetBuffers();
     }
@@ -1094,6 +1096,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    * @param index   position of element
    */
   public void setNull(int index) {
+    // We need to check and realloc both validity and offset buffer
     while (index >= getValueCapacity()) {
       reallocValidityAndOffsetBuffers();
     }
