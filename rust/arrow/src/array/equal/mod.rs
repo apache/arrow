@@ -562,6 +562,28 @@ mod tests {
         test_equal(a.as_ref(), b.as_ref(), false);
     }
 
+    #[test]
+    // Code created by @alamb, copied from https://github.com/apache/arrow/pull/9211
+    fn test_string_offset_larger() {
+        let a =
+            StringArray::from(vec![Some("a"), None, Some("b"), None, Some("c")]).data();
+        let b = StringArray::from(vec![None, Some("b"), None, Some("c")]).data();
+
+        test_equal(&a.slice(2, 2), &b.slice(0, 2), false);
+        test_equal(&a.slice(2, 2), &b.slice(1, 2), true);
+        test_equal(&a.slice(2, 2), &b.slice(2, 2), false);
+    }
+
+    #[test]
+    // Code created by @jhorstman copied from https://issues.apache.org/jira/browse/ARROW-11267
+    fn test_list_different_offsets() {
+        let a = create_list_array(&[Some(&[0, 0]), Some(&[1, 2]), Some(&[3, 4])]);
+        let b = create_list_array(&[Some(&[1, 2]), Some(&[3, 4]), Some(&[5, 6])]);
+        let a_slice = a.slice(1, 2);
+        let b_slice = b.slice(0, 2);
+        test_equal(&a_slice, &b_slice, true);
+    }
+
     // Test the case where null_count > 0
     #[test]
     fn test_list_null() {
