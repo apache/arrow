@@ -116,10 +116,10 @@ arrow_classes <- c(
 # This takes a cpp11 C wrapper and conditionally makes it available based on
 # a feature decoration
 ifdef_wrap <- function(cpp11_wrapped, name, sexp_signature, decoration) {
-  # TODO: uncomment this to remove the arrow-without-arrow wrapping
-  # if (identical(decoration, "arrow")) {
-  #   return(cpp11_wrapped)
-  # }
+  if (identical(decoration, "arrow")) {
+    # Arrow is now required
+    return(cpp11_wrapped)
+  }
   glue('
   #if defined(ARROW_R_WITH_{toupper(decoration)})
   {cpp11_wrapped}
