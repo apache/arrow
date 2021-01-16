@@ -19,6 +19,7 @@
 //! queried by DataFusion. This allows data to be pre-loaded into memory and then
 //! repeatedly queried without incurring additional file I/O overhead.
 
+use futures::StreamExt;
 use log::debug;
 use std::any::Any;
 use std::sync::Arc;
@@ -26,13 +27,16 @@ use std::sync::Arc;
 use arrow::datatypes::{Field, Schema, SchemaRef};
 use arrow::record_batch::RecordBatch;
 
-use crate::datasource::datasource::Statistics;
 use crate::datasource::TableProvider;
 use crate::error::{DataFusionError, Result};
 use crate::logical_plan::Expr;
 use crate::physical_plan::common;
 use crate::physical_plan::memory::MemoryExec;
 use crate::physical_plan::ExecutionPlan;
+use crate::{
+    datasource::datasource::Statistics,
+    physical_plan::{repartition::RepartitionExec, Partitioning},
+};
 
 use super::datasource::ColumnStatistics;
 
@@ -126,7 +130,23 @@ impl MemTable {
             data.push(result);
         }
 
-        MemTable::try_new(schema.clone(), data)
+        let exec = MemoryExec::try_new(&data, schema.clone(), None)?;
+        let exec =
+            RepartitionExec::try_new(Arc::new(exec), Partitioning::RoundRobinBatch(16))?;
+
+        // execute and collect results
+        let mut output_partitions = vec![];
+        for i in 0..exec.output_partitioning().partition_count() {
+            // execute this *output* partition and collect all batches
+            let mut stream = exec.execute(i).await?;
+            let mut batches = vec![];
+            while let Some(result) = stream.next().await {
+                batches.push(result?);
+            }
+            output_partitions.push(batches);
+        }
+
+        MemTable::try_new(schema.clone(), output_partitions)
     }
 }
 
