@@ -224,9 +224,7 @@ impl ArrayData {
 
     fn copy_range(&self, offset: usize, length: usize) -> ArrayData {
         assert!((offset + length) <= self.len());
-
-        let new_data = self.clone();
-        let arrays = vec![&new_data];
+        let arrays = vec![self];
         let mut mutable = MutableArrayData::new(arrays, false, length);
         mutable.extend(0, offset, offset + length);
         mutable.freeze()
