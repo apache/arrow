@@ -29,10 +29,13 @@ use std::sync::Arc;
 use arrow::datatypes::{DataType, DateUnit, Field, IntervalUnit, Schema, TimeUnit};
 use arrow::ipc::writer;
 
-use crate::basic::{LogicalType, Repetition, Type as PhysicalType};
 use crate::errors::{ParquetError::ArrowError, Result};
 use crate::file::{metadata::KeyValue, properties::WriterProperties};
 use crate::schema::types::{ColumnDescriptor, SchemaDescriptor, Type, TypePtr};
+use crate::{
+    basic::{LogicalType, Repetition, Type as PhysicalType},
+    errors::ParquetError,
+};
 
 /// Convert Parquet schema to Arrow schema including optional metadata.
 /// Attempts to decode any existing Arrow schema metadata, falling back
@@ -684,10 +687,10 @@ impl ParquetTypeConverter<'_> {
     /// Converts a parquet group type to arrow struct.
     fn to_struct(&self) -> Result<Option<DataType>> {
         match self.schema {
-            Type::PrimitiveType { .. } => panic!(
+            Type::PrimitiveType { .. } => Err(ParquetError::General(format!(
                 "{:?} is a struct type, and can't be processed as primitive.",
                 self.schema
-            ),
+            ))),
             Type::GroupType {
                 basic_info: _,
                 fields,
@@ -714,10 +717,10 @@ impl ParquetTypeConverter<'_> {
     /// [parquet doc](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md).
     fn to_list(&self) -> Result<Option<DataType>> {
         match self.schema {
-            Type::PrimitiveType { .. } => panic!(
+            Type::PrimitiveType { .. } => Err(ParquetError::General(format!(
                 "{:?} is a list type and can't be processed as primitive.",
                 self.schema
-            ),
+            ))),
             Type::GroupType {
                 basic_info: _,
                 fields,
@@ -757,12 +760,26 @@ impl ParquetTypeConverter<'_> {
                     }
                 };
 
+                // Check that the name of the list child is "list", in which case we
+                // get the child nullability and name (normally "element") from the nested
+                // group type.
+                // Without this step, the child incorrectly inherits the parent's optionality
+                let (list_item_name, item_is_optional) = match &item_converter.schema {
+                    Type::GroupType { basic_info, fields }
+                        if basic_info.name() == "list" && fields.len() == 1 =>
+                    {
+                        let field = fields.first().unwrap();
+                        (field.name(), field.is_optional())
+                    }
+                    _ => (list_item.name(), list_item.is_optional()),
+                };
+
                 item_type.map(|opt| {
                     opt.map(|dt| {
                         DataType::List(Box::new(Field::new(
-                            list_item.name(),
+                            list_item_name,
                             dt,
-                            list_item.is_optional(),
+                            item_is_optional,
                         )))
                     })
                 })
@@ -939,7 +956,7 @@ mod tests {
         {
             arrow_fields.push(Field::new(
                 "my_list",
-                DataType::List(Box::new(Field::new("list", DataType::Utf8, true))),
+                DataType::List(Box::new(Field::new("element", DataType::Utf8, true))),
                 false,
             ));
         }
@@ -953,7 +970,7 @@ mod tests {
         {
             arrow_fields.push(Field::new(
                 "my_list",
-                DataType::List(Box::new(Field::new("list", DataType::Utf8, true))),
+                DataType::List(Box::new(Field::new("element", DataType::Utf8, false))),
                 true,
             ));
         }
@@ -972,10 +989,10 @@ mod tests {
         // }
         {
             let arrow_inner_list =
-                DataType::List(Box::new(Field::new("list", DataType::Int32, true)));
+                DataType::List(Box::new(Field::new("element", DataType::Int32, false)));
             arrow_fields.push(Field::new(
                 "array_of_arrays",
-                DataType::List(Box::new(Field::new("list", arrow_inner_list, true))),
+                DataType::List(Box::new(Field::new("element", arrow_inner_list, false))),
                 true,
             ));
         }
@@ -1066,6 +1083,85 @@ mod tests {
                 "name",
                 DataType::List(Box::new(Field::new("name", DataType::Int32, true))),
                 true,
+            ));
+        }
+
+        let parquet_group_type = parse_message_type(message_type).unwrap();
+
+        let parquet_schema = SchemaDescriptor::new(Arc::new(parquet_group_type));
+        let converted_arrow_schema =
+            parquet_to_arrow_schema(&parquet_schema, &None).unwrap();
+        let converted_fields = converted_arrow_schema.fields();
+
+        assert_eq!(arrow_fields.len(), converted_fields.len());
+        for i in 0..arrow_fields.len() {
+            assert_eq!(arrow_fields[i], converted_fields[i]);
+        }
+    }
+
+    #[test]
+    fn test_parquet_list_nullable() {
+        let mut arrow_fields = Vec::new();
+
+        let message_type = "
+        message test_schema {
+          REQUIRED GROUP my_list1 (LIST) {
+            REPEATED GROUP list {
+              OPTIONAL BINARY element (UTF8);
+            }
+          }
+          OPTIONAL GROUP my_list2 (LIST) {
+            REPEATED GROUP list {
+              REQUIRED BINARY element (UTF8);
+            }
+          }
+          REQUIRED GROUP my_list3 (LIST) {
+            REPEATED GROUP list {
+              REQUIRED BINARY element (UTF8);
+            }
+          }
+        }
+        ";
+
+        // // List<String> (list non-null, elements nullable)
+        // required group my_list1 (LIST) {
+        //   repeated group list {
+        //     optional binary element (UTF8);
+        //   }
+        // }
+        {
+            arrow_fields.push(Field::new(
+                "my_list1",
+                DataType::List(Box::new(Field::new("element", DataType::Utf8, true))),
+                false,
+            ));
+        }
+
+        // // List<String> (list nullable, elements non-null)
+        // optional group my_list2 (LIST) {
+        //   repeated group list {
+        //     required binary element (UTF8);
+        //   }
+        // }
+        {
+            arrow_fields.push(Field::new(
+                "my_list2",
+                DataType::List(Box::new(Field::new("element", DataType::Utf8, false))),
+                true,
+            ));
+        }
+
+        // // List<String> (list non-null, elements non-null)
+        // repeated group my_list3 (LIST) {
+        //   repeated group list {
+        //     required binary element (UTF8);
+        //   }
+        // }
+        {
+            arrow_fields.push(Field::new(
+                "my_list3",
+                DataType::List(Box::new(Field::new("element", DataType::Utf8, false))),
+                false,
             ));
         }
 
