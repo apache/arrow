@@ -418,7 +418,7 @@ test_js() {
       PROFILE=/dev/null bash
     [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
-    nvm install node
+    nvm install --lts
   fi
 
   npm install
