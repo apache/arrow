@@ -27,9 +27,7 @@ use std::sync::Arc;
 
 use num::{One, Zero};
 
-use crate::buffer::Buffer;
-#[cfg(feature = "simd")]
-use crate::buffer::MutableBuffer;
+use crate::buffer::{Buffer, MutableBuffer};
 use crate::compute::util::combine_option_bitmap;
 use crate::datatypes;
 use crate::datatypes::ArrowNumericType;
@@ -51,11 +49,14 @@ where
     T::Native: Neg<Output = T::Native>,
     F: Fn(T::Native) -> T::Native,
 {
-    let values = array
-        .values()
-        .iter()
-        .map(|v| op(*v))
-        .collect::<Vec<T::Native>>();
+    let values = array.values().iter().map(|v| op(*v));
+    let mut buffer = MutableBuffer::new(0);
+    // JUSTIFICATION
+    //  Benefit
+    //      ~30% speedup
+    //  Soundness
+    //      `windows` is an iterator with a known size.
+    unsafe { buffer.extend_from_trusted_len_iter(values) };
 
     let data = ArrayData::new(
         T::DATA_TYPE,
@@ -63,7 +64,7 @@ where
         None,
         array.data_ref().null_buffer().cloned(),
         0,
-        vec![Buffer::from_slice_ref(&values)],
+        vec![buffer.into()],
         vec![],
     );
     Ok(PrimitiveArray::<T>::from(Arc::new(data)))
@@ -147,8 +148,9 @@ where
         .values()
         .iter()
         .zip(right.values().iter())
-        .map(|(l, r)| op(*l, *r))
-        .collect::<Vec<T::Native>>();
+        .map(|(l, r)| op(*l, *r));
+    let mut buffer = MutableBuffer::new(0);
+    unsafe { buffer.extend_from_trusted_len_iter(values) };
 
     let data = ArrayData::new(
         T::DATA_TYPE,
@@ -156,7 +158,7 @@ where
         None,
         null_bit_buffer,
         0,
-        vec![Buffer::from_slice_ref(&values)],
+        vec![buffer.into()],
         vec![],
     );
     Ok(PrimitiveArray::<T>::from(Arc::new(data)))
