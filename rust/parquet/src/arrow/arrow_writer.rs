@@ -662,21 +662,15 @@ mod tests {
         );
         let struct_field_e = Field::new(
             "e",
-            DataType::Struct(vec![
-                struct_field_f.clone(),
-                struct_field_g.clone(),
-            ]),
+            DataType::Struct(vec![struct_field_f.clone(), struct_field_g.clone()]),
             true,
         );
         let schema = Schema::new(vec![
-            // Field::new("a", DataType::Int32, false),
-            // Field::new("b", DataType::Int32, true),
+            Field::new("a", DataType::Int32, false),
+            Field::new("b", DataType::Int32, true),
             Field::new(
                 "c",
-                DataType::Struct(vec![
-                    struct_field_d.clone(),
-                    struct_field_e.clone(),
-                ]),
+                DataType::Struct(vec![struct_field_d.clone(), struct_field_e.clone()]),
                 true, // NB: this test fails if value is false. Why?
             ),
         ]);
@@ -699,7 +693,7 @@ mod tests {
             .len(5)
             .add_buffer(g_value_offsets)
             .add_child_data(g_value.data())
-            // .null_bit_buffer(Buffer::from(vec![0b00011011]))
+            // .null_bit_buffer(Buffer::from(vec![0b00011011])) // TODO: add to test after resolving other issues
             .build();
         let g = ListArray::from(g_list_data);
 
@@ -716,11 +710,7 @@ mod tests {
         // build a record batch
         let batch = RecordBatch::try_new(
             Arc::new(schema),
-            vec![
-                // Arc::new(a),
-                // Arc::new(b),
-                Arc::new(c),
-            ],
+            vec![Arc::new(a), Arc::new(b), Arc::new(c)],
         )
         .unwrap();
 
