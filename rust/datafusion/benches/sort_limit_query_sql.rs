@@ -32,7 +32,7 @@ use datafusion::execution::context::ExecutionContext;
 use tokio::runtime::Runtime;
 
 fn query(ctx: Arc<Mutex<ExecutionContext>>, sql: &str) {
-    let mut rt = Runtime::new().unwrap();
+    let rt = Runtime::new().unwrap();
 
     // execute the query
     let df = ctx.lock().unwrap().sql(&sql).unwrap();
@@ -66,7 +66,7 @@ fn create_context() -> Arc<Mutex<ExecutionContext>> {
     )
     .unwrap();
 
-    let mut rt = Runtime::new().unwrap();
+    let rt = Runtime::new().unwrap();
 
     let ctx_holder: Arc<Mutex<Vec<Arc<Mutex<ExecutionContext>>>>> =
         Arc::new(Mutex::new(vec![]));
