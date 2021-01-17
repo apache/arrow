@@ -16,6 +16,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// +build !noasm
+
 package math
 
 func initUint64Go() {
