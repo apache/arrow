@@ -17,9 +17,9 @@
 
 use std::collections::HashMap;
 use std::convert::TryFrom;
+use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::Arc;
-use std::net::SocketAddr;
 
 use arrow::{
     array::ArrayRef,
@@ -52,10 +52,7 @@ pub async fn scenario_setup(port: &str) -> Result {
     };
     let svc = FlightServiceServer::new(service);
 
-    Server::builder()
-        .add_service(svc)
-        .serve(addr)
-        .await?;
+    Server::builder().add_service(svc).serve(addr).await?;
 
     Ok(())
 }
