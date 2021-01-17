@@ -1902,7 +1902,9 @@ if(ARROW_WITH_RAPIDJSON)
                      HAVE_ALT
                      TRUE
                      REQUIRED_VERSION
-                     ${ARROW_RAPIDJSON_REQUIRED_VERSION})
+                     ${ARROW_RAPIDJSON_REQUIRED_VERSION}
+                     IS_RUNTIME_DEPENDENCY
+                     FALSE)
 
   if(RapidJSON_INCLUDE_DIR)
     set(RAPIDJSON_INCLUDE_DIR "${RapidJSON_INCLUDE_DIR}")
