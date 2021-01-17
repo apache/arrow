@@ -88,10 +88,7 @@ impl<W: 'static + ParquetWriter> ArrowWriter<W> {
         // compute the definition and repetition levels of the batch
         let batch_level = LevelInfo::new_from_batch(batch);
         let mut row_group_writer = self.writer.next_row_group()?;
-        for (array, field) in batch
-            .columns()
-            .iter()
-            .zip(batch.schema().fields()) {
+        for (array, field) in batch.columns().iter().zip(batch.schema().fields()) {
             let mut levels = batch_level.calculate_array_levels(array, field, 1);
             write_leaves(&mut row_group_writer, array, &mut levels)?;
         }
