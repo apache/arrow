@@ -437,6 +437,13 @@ mod tests {
                 (2, 1),
                 true,
             ),
+            (
+                vec![Some(1), None, Some(2), None, Some(3)],
+                (2, 2),
+                vec![None, Some(2), None, Some(3)],
+                (1, 2),
+                true,
+            ),
         ];
 
         for (lhs, slice_lhs, rhs, slice_rhs, expected) in cases {
@@ -548,6 +555,17 @@ mod tests {
         let b = StringArray::from(vec![Some("b")]).data();
 
         test_equal(&a, b.as_ref(), true);
+    }
+
+    #[test]
+    fn test_string_offset_larger() {
+        let a =
+            StringArray::from(vec![Some("a"), None, Some("b"), None, Some("c")]).data();
+        let b = StringArray::from(vec![None, Some("b"), None, Some("c")]).data();
+
+        test_equal(&a.slice(2, 2), &b.slice(0, 2), false);
+        test_equal(&a.slice(2, 2), &b.slice(1, 2), true);
+        test_equal(&a.slice(2, 2), &b.slice(2, 2), false);
     }
 
     #[test]

@@ -88,10 +88,10 @@ pub(super) fn variable_sized_equal<T: OffsetSizeTrait>(
 
             // the null bits can still be `None`, so we don't unwrap
             let lhs_is_null = !lhs_nulls
-                .map(|v| get_bit(v.as_slice(), lhs_pos))
+                .map(|v| get_bit(v.as_slice(), lhs.offset() + lhs_pos))
                 .unwrap_or(false);
             let rhs_is_null = !rhs_nulls
-                .map(|v| get_bit(v.as_slice(), rhs_pos))
+                .map(|v| get_bit(v.as_slice(), rhs.offset() + rhs_pos))
                 .unwrap_or(false);
 
             lhs_is_null
