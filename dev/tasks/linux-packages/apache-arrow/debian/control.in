@@ -14,7 +14,6 @@ Build-Depends:
   libbrotli-dev,
   libbz2-dev,
   libcurl4-openssl-dev,
-  libgflags-dev,
   libgirepository1.0-dev,
   libgoogle-glog-dev,
   libgtest-dev,
