@@ -15,27 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use std::net::SocketAddr;
-
 use arrow_flight::{FlightEndpoint, Location, Ticket};
-use tokio::net::TcpListener;
 
 pub mod auth_basic_proto;
 pub mod integration_test;
 pub mod middleware;
-
-type Error = Box<dyn std::error::Error + Send + Sync + 'static>;
-type Result<T = (), E = Error> = std::result::Result<T, E>;
-
-pub async fn listen_on(port: &str) -> Result<(TcpListener, SocketAddr)> {
-    let addr: SocketAddr = format!("0.0.0.0:{}", port).parse()?;
-
-    let listener = TcpListener::bind(addr).await?;
-    let addr = listener.local_addr()?;
-    println!("Server listening on localhost:{}", addr.port());
-
-    Ok((listener, addr))
-}
 
 pub fn endpoint(ticket: &str, location_uri: impl Into<String>) -> FlightEndpoint {
     FlightEndpoint {

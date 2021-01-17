@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+use std::net::SocketAddr;
 use std::pin::Pin;
 
 use arrow_flight::{
@@ -32,15 +33,11 @@ type Error = Box<dyn std::error::Error + Send + Sync + 'static>;
 type Result<T = (), E = Error> = std::result::Result<T, E>;
 
 pub async fn scenario_setup(port: &str) -> Result {
-    let (mut listener, _) = super::listen_on(port).await?;
-
     let service = MiddlewareScenarioImpl {};
     let svc = FlightServiceServer::new(service);
+    let addr: SocketAddr = format!("0.0.0.0:{}", port).parse()?;
 
-    Server::builder()
-        .add_service(svc)
-        .serve_with_incoming(listener.incoming())
-        .await?;
+    Server::builder().add_service(svc).serve(addr).await?;
     Ok(())
 }
 

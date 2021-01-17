@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::Arc;
 
@@ -28,7 +29,6 @@ use tokio::sync::Mutex;
 use tonic::{
     metadata::MetadataMap, transport::Server, Request, Response, Status, Streaming,
 };
-
 type TonicStream<T> = Pin<Box<dyn Stream<Item = T> + Send + Sync + 'static>>;
 
 type Error = Box<dyn std::error::Error + Send + Sync + 'static>;
@@ -39,19 +39,15 @@ use prost::Message;
 use crate::{AUTH_PASSWORD, AUTH_USERNAME};
 
 pub async fn scenario_setup(port: &str) -> Result {
-    let (mut listener, _) = super::listen_on(port).await?;
-
     let service = AuthBasicProtoScenarioImpl {
         username: AUTH_USERNAME.into(),
         password: AUTH_PASSWORD.into(),
         peer_identity: Arc::new(Mutex::new(None)),
     };
     let svc = FlightServiceServer::new(service);
+    let addr: SocketAddr = format!("0.0.0.0:{}", port).parse()?;
 
-    Server::builder()
-        .add_service(svc)
-        .serve_with_incoming(listener.incoming())
-        .await?;
+    Server::builder().add_service(svc).serve(addr).await?;
     Ok(())
 }
 

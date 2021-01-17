@@ -19,6 +19,7 @@ use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::pin::Pin;
 use std::sync::Arc;
+use std::net::SocketAddr;
 
 use arrow::{
     array::ArrayRef,
@@ -43,7 +44,7 @@ type Error = Box<dyn std::error::Error + Send + Sync + 'static>;
 type Result<T = (), E = Error> = std::result::Result<T, E>;
 
 pub async fn scenario_setup(port: &str) -> Result {
-    let (mut listener, addr) = super::listen_on(port).await?;
+    let addr: SocketAddr = format!("0.0.0.0:{}", port).parse()?;
 
     let service = FlightServiceImpl {
         server_location: format!("grpc+tcp://{}", addr),
@@ -53,7 +54,7 @@ pub async fn scenario_setup(port: &str) -> Result {
 
     Server::builder()
         .add_service(svc)
-        .serve_with_incoming(listener.incoming())
+        .serve(addr)
         .await?;
 
     Ok(())
