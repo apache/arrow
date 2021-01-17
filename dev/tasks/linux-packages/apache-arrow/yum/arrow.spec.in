@@ -234,8 +234,10 @@ This package contains the libraries for Apache Arrow C++.
 Summary:	Libraries and header files for Apache Arrow C++
 License:	Apache-2.0
 Requires:	%{name}-libs = %{version}-%{release}
+Requires:	boost%{boost_version}-devel
 Requires:	brotli-devel
 Requires:	bzip2-devel
+Requires:	gflags-devel
 Requires:	libzstd-devel
 Requires:	lz4-devel
 Requires:	openssl-devel
