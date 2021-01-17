@@ -57,21 +57,53 @@ build_array_expression <- function(.Generic, e1, e2, ...) {
   if (.Generic %in% names(.unary_function_map)) {
     expr <- array_expression(.unary_function_map[[.Generic]], e1)
   } else {
-    e1 <- .wrap_arrow(e1, .Generic, e2$type)
-    e2 <- .wrap_arrow(e2, .Generic, e1$type)
+    e1 <- .wrap_arrow(e1, .Generic)
+    e2 <- .wrap_arrow(e2, .Generic)
+
+    # In Arrow, "divide" is one function, which does integer division on
+    # integer inputs and floating-point division on floats
+    if (.Generic == "/") {
+      # TODO: omg so many ways it's wrong to assume these types
+      e1 <- cast_array_expression(e1, float64())
+      e2 <- cast_array_expression(e2, float64())
+    } else if (.Generic == "%/%") {
+      # In R, integer division works like floor(float division)
+      out <- build_array_expression("/", e1, e2)
+      return(cast_array_expression(out, int32(), allow_float_truncate = TRUE))
+    } else if (.Generic == "%%") {
+      # {e1 - e2 * ( e1 %/% e2 )}
+      # ^^^ form doesn't work because Ops.Array evaluates eagerly,
+      # but we can build that up
+      quotient <- build_array_expression("%/%", e1, e2)
+      # this cast is to ensure that the result of this and e1 are the same
+      # (autocasting only applies to scalars)
+      base <- cast_array_expression(quotient * e2, e1$type)
+      return(build_array_expression("-", e1, base))
+    }
+
     expr <- array_expression(.binary_function_map[[.Generic]], e1, e2, ...)
   }
   expr
 }
 
-.wrap_arrow <- function(arg, fun, type) {
+cast_array_expression <- function(x, to_type, safe = TRUE, ...) {
+  opts <- list(
+    to_type = to_type,
+    allow_int_overflow = !safe,
+    allow_time_truncate = !safe,
+    allow_float_truncate = !safe
+  )
+  array_expression("cast", x, options = modifyList(opts, list(...)))
+}
+
+.wrap_arrow <- function(arg, fun) {
   if (!inherits(arg, c("ArrowObject", "array_expression"))) {
     # TODO: Array$create if lengths are equal?
     # TODO: these kernels should autocast like the dataset ones do (e.g. int vs. float)
     if (fun == "%in%") {
-      arg <- Array$create(arg, type = type)
+      arg <- Array$create(arg)
     } else {
-      arg <- Scalar$create(arg, type = type)
+      arg <- Scalar$create(arg)
     }
   }
   arg
@@ -79,7 +111,8 @@ build_array_expression <- function(.Generic, e1, e2, ...) {
 
 .unary_function_map <- list(
   "!" = "invert",
-  "is.na" = "is_null"
+  "is.na" = "is_null",
+  "is.nan" = "is_nan"
 )
 
 .binary_function_map <- list(
@@ -91,6 +124,15 @@ build_array_expression <- function(.Generic, e1, e2, ...) {
   "<=" = "less_equal",
   "&" = "and_kleene",
   "|" = "or_kleene",
+  "+" = "add_checked",
+  "-" = "subtract_checked",
+  "*" = "multiply_checked",
+  "/" = "divide_checked",
+  "%/%" = "divide_checked",
+  # we don't actually use divide_checked with `%%`, rather it is rewritten to
+  # use %/% above.
+  "%%" = "divide_checked",
+  # TODO: "^"  (ARROW-11070)
   "%in%" = "is_in_meta_binary"
 )
 
@@ -104,6 +146,16 @@ eval_array_expression <- function(x) {
       a
     }
   })
+  if (length(x$args) == 2L) {
+    # Insert implicit casts
+    if (inherits(x$args[[1]], "Scalar")) {
+      x$args[[1]] <- x$args[[1]]$cast(x$args[[2]]$type)
+    } else if (inherits(x$args[[2]], "Scalar")) {
+      x$args[[2]] <- x$args[[2]]$cast(x$args[[1]]$type)
+    } else if (x$fun == "is_in_meta_binary" && inherits(x$args[[2]], "Array")) {
+      x$args[[2]] <- x$args[[2]]$cast(x$args[[1]]$type)
+    }
+  }
   call_function(x$fun, args = x$args, options = x$options %||% empty_named_list())
 }
 
@@ -153,104 +205,86 @@ print.array_expression <- function(x, ...) {
 #' `Expression$field_ref(name)` is used to construct an `Expression` which
 #' evaluates to the named column in the `Dataset` against which it is evaluated.
 #'
-#' `Expression$compare(OP, e1, e2)` takes two `Expression` operands, constructing
-#' an `Expression` which will evaluate these operands then compare them with the
-#' relation specified by OP (e.g. "==", "!=", ">", etc.) For example, to filter
-#' down to rows where the column named "alpha" is less than 5:
-#' `Expression$compare("<", Expression$field_ref("alpha"), Expression$scalar(5))`
-#'
-#' `Expression$and(e1, e2)`, `Expression$or(e1, e2)`, and `Expression$not(e1)`
-#' construct an `Expression` combining their arguments with Boolean operators.
-#'
-#' `Expression$is_valid(x)` is essentially (an inversion of) `is.na()` for `Expression`s.
-#'
-#' `Expression$in_(x, set)` evaluates x and returns whether or not it is a member of the set.
+#' `Expression$create(function_name, ..., options)` builds a function-call
+#' `Expression` containing one or more `Expression`s.
 #' @name Expression
 #' @rdname Expression
 #' @export
 Expression <- R6Class("Expression", inherit = ArrowObject,
   public = list(
-    ToString = function() dataset___expr__ToString(self)
+    ToString = function() dataset___expr__ToString(self),
+    cast = function(to_type, safe = TRUE, ...) {
+      opts <- list(
+        to_type = to_type,
+        allow_int_overflow = !safe,
+        allow_time_truncate = !safe,
+        allow_float_truncate = !safe
+      )
+      Expression$create("cast", self, options = modifyList(opts, list(...)))
+    }
   )
 )
-
+Expression$create <- function(function_name,
+                              ...,
+                              args = list(...),
+                              options = empty_named_list()) {
+  assert_that(is.string(function_name))
+  dataset___expr__call(function_name, args, options)
+}
 Expression$field_ref <- function(name) {
-  assert_is(name, "character")
-  assert_that(length(name) == 1)
+  assert_that(is.string(name))
   dataset___expr__field_ref(name)
 }
 Expression$scalar <- function(x) {
   dataset___expr__scalar(Scalar$create(x))
 }
-Expression$compare <- function(OP, e1, e2) {
-  comp_func <- comparison_function_map[[OP]]
-  if (is.null(comp_func)) {
-    stop(OP, " is not a supported comparison function", call. = FALSE)
-  }
-  comp_func(e1, e2)
-}
 
-comparison_function_map <- list(
-  "==" = dataset___expr__equal,
-  "!=" = dataset___expr__not_equal,
-  ">" = dataset___expr__greater,
-  ">=" = dataset___expr__greater_equal,
-  "<" = dataset___expr__less,
-  "<=" = dataset___expr__less_equal
-)
-Expression$in_ <- function(x, set) {
-  dataset___expr__in(x, Array$create(set))
-}
-Expression$and <- function(e1, e2) {
-  dataset___expr__and(e1, e2)
-}
-Expression$or <- function(e1, e2) {
-  dataset___expr__or(e1, e2)
-}
-Expression$not <- function(e1) {
-  dataset___expr__not(e1)
-}
-Expression$is_valid <- function(e1) {
-  dataset___expr__is_valid(e1)
+build_dataset_expression <- function(.Generic, e1, e2, ...) {
+  if (.Generic %in% names(.unary_function_map)) {
+    expr <- Expression$create(.unary_function_map[[.Generic]], e1)
+  } else if (.Generic == "%in%") {
+    # Special-case %in%, which is different from the Array function name
+    expr <- Expression$create("is_in", e1,
+      options = list(
+        value_set = Array$create(e2),
+        skip_nulls = TRUE
+      )
+    )
+  } else {
+    if (!inherits(e1, "Expression")) {
+      e1 <- Expression$scalar(e1)
+    }
+    if (!inherits(e2, "Expression")) {
+      e2 <- Expression$scalar(e2)
+    }
+
+    # In Arrow, "divide" is one function, which does integer division on
+    # integer inputs and floating-point division on floats
+    if (.Generic == "/") {
+      # TODO: omg so many ways it's wrong to assume these types
+      e1 <- e1$cast(float64())
+      e2 <- e2$cast(float64())
+    } else if (.Generic == "%/%") {
+      # In R, integer division works like floor(float division)
+      out <- build_dataset_expression("/", e1, e2)
+      return(out$cast(int32(), allow_float_truncate = TRUE))
+    } else if (.Generic == "%%") {
+      return(e1 - e2 * ( e1 %/% e2 ))
+    }
+
+    expr <- Expression$create(.binary_function_map[[.Generic]], e1, e2, ...)
+  }
+  expr
 }
 
 #' @export
 Ops.Expression <- function(e1, e2) {
   if (.Generic == "!") {
-    return(Expression$not(e1))
-  }
-  make_expression(.Generic, e1, e2)
-}
-
-make_expression <- function(operator, e1, e2) {
-  if (operator == "%in%") {
-    # In doesn't take Scalar, it takes Array
-    return(Expression$in_(e1, e2))
-  }
-
-  # Handle unary functions before touching e2
-  if (operator == "is.na") {
-    return(is.na(e1))
-  }
-  if (operator == "!") {
-    return(Expression$not(e1))
-  }
-
-  # Check for non-expressions and convert to Expressions
-  if (!inherits(e1, "Expression")) {
-    e1 <- Expression$scalar(e1)
-  }
-  if (!inherits(e2, "Expression")) {
-    e2 <- Expression$scalar(e2)
-  }
-  if (operator == "&") {
-    Expression$and(e1, e2)
-  } else if (operator == "|") {
-    Expression$or(e1, e2)
+    build_dataset_expression(.Generic, e1)
   } else {
-    Expression$compare(operator, e1, e2)
+    build_dataset_expression(.Generic, e1, e2)
   }
 }
 
 #' @export
-is.na.Expression <- function(x) !Expression$is_valid(x)
+is.na.Expression <- function(x) Expression$create("is_null", x)

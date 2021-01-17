@@ -25,6 +25,10 @@ class TestFixedSizeBinaryDataType < Test::Unit::TestCase
     assert_equal(Arrow::Type::FIXED_SIZE_BINARY, @data_type.id)
   end
 
+  def test_name
+    assert_equal("fixed_size_binary", @data_type.name)
+  end
+
   def test_to_s
     assert_equal("fixed_size_binary[10]", @data_type.to_s)
   end

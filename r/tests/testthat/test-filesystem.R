@@ -84,6 +84,10 @@ test_that("SubTreeFilesystem", {
   expect_is(st_fs, "SubTreeFileSystem")
   expect_is(st_fs, "FileSystem")
   expect_is(st_fs$base_fs, "LocalFileSystem")
+  expect_identical(
+    capture.output(print(st_fs)),
+    paste0("SubTreeFileSystem: ", "file://", st_fs$base_path)
+  )
 
   # FIXME windows has a trailing slash for one but not the other
   # expect_identical(normalizePath(st_fs$base_path), normalizePath(td))
@@ -142,6 +146,10 @@ test_that("SubTreeFileSystem$create() with URI", {
   skip_if_not_available("s3")
   fs <- SubTreeFileSystem$create("s3://ursa-labs-taxi-data")
   expect_is(fs, "SubTreeFileSystem")
+  expect_identical(
+    capture.output(print(fs)),
+    "SubTreeFileSystem: s3://ursa-labs-taxi-data/"
+  )
 })
 
 test_that("S3FileSystem", {
@@ -158,6 +166,10 @@ test_that("s3_bucket", {
   expect_is(bucket, "SubTreeFileSystem")
   expect_is(bucket$base_fs, "S3FileSystem")
   expect_identical(bucket$region, "us-west-2")
+  expect_identical(
+    capture.output(print(bucket)),
+    "SubTreeFileSystem: s3://ursa-labs-r-test/"
+  )
   skip_on_os("windows") # FIXME
   expect_identical(bucket$base_path, "ursa-labs-r-test/")
 })

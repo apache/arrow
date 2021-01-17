@@ -68,6 +68,9 @@ Datum::Datum(int64_t value) : value(std::make_shared<Int64Scalar>(value)) {}
 Datum::Datum(uint64_t value) : value(std::make_shared<UInt64Scalar>(value)) {}
 Datum::Datum(float value) : value(std::make_shared<FloatScalar>(value)) {}
 Datum::Datum(double value) : value(std::make_shared<DoubleScalar>(value)) {}
+Datum::Datum(std::string value)
+    : value(std::make_shared<StringScalar>(std::move(value))) {}
+Datum::Datum(const char* value) : value(std::make_shared<StringScalar>(value)) {}
 
 Datum::Datum(const ChunkedArray& value)
     : value(std::make_shared<ChunkedArray>(value.chunks(), value.type())) {}
@@ -86,12 +89,24 @@ std::shared_ptr<Array> Datum::make_array() const {
 std::shared_ptr<DataType> Datum::type() const {
   if (this->kind() == Datum::ARRAY) {
     return util::get<std::shared_ptr<ArrayData>>(this->value)->type;
-  } else if (this->kind() == Datum::CHUNKED_ARRAY) {
+  }
+  if (this->kind() == Datum::CHUNKED_ARRAY) {
     return util::get<std::shared_ptr<ChunkedArray>>(this->value)->type();
-  } else if (this->kind() == Datum::SCALAR) {
+  }
+  if (this->kind() == Datum::SCALAR) {
     return util::get<std::shared_ptr<Scalar>>(this->value)->type;
   }
-  return NULLPTR;
+  return nullptr;
+}
+
+std::shared_ptr<Schema> Datum::schema() const {
+  if (this->kind() == Datum::RECORD_BATCH) {
+    return util::get<std::shared_ptr<RecordBatch>>(this->value)->schema();
+  }
+  if (this->kind() == Datum::TABLE) {
+    return util::get<std::shared_ptr<Table>>(this->value)->schema();
+  }
+  return nullptr;
 }
 
 int64_t Datum::length() const {
@@ -196,6 +211,8 @@ static std::string FormatValueDescr(const ValueDescr& descr) {
 
 std::string ValueDescr::ToString() const { return FormatValueDescr(*this); }
 
+void PrintTo(const ValueDescr& descr, std::ostream* os) { *os << descr.ToString(); }
+
 std::string Datum::ToString() const {
   switch (this->kind()) {
     case Datum::NONE:
@@ -236,6 +253,19 @@ ValueDescr::Shape GetBroadcastShape(const std::vector<ValueDescr>& args) {
     }
   }
   return ValueDescr::SCALAR;
+}
+
+void PrintTo(const Datum& datum, std::ostream* os) {
+  switch (datum.kind()) {
+    case Datum::SCALAR:
+      *os << datum.scalar()->ToString();
+      break;
+    case Datum::ARRAY:
+      *os << datum.make_array()->ToString();
+      break;
+    default:
+      *os << datum.ToString();
+  }
 }
 
 }  // namespace arrow

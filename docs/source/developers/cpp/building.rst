@@ -250,24 +250,28 @@ Build Dependency Management
 
 The build system supports a number of third-party dependencies
 
-  * ``BOOST``: for cross-platform support
-  * ``BROTLI``: for data compression
-  * ``Snappy``: for data compression
-  * ``gflags``: for command line utilities (formerly Googleflags)
-  * ``glog``: for logging
-  * ``Thrift``: Apache Thrift, for data serialization
-  * ``Protobuf``: Google Protocol Buffers, for data serialization
-  * ``GTEST``: Googletest, for testing
+  * ``AWSSDK``: for S3 support, requires system cURL even we use the
+    ``BUNDLE`` method described below
   * ``benchmark``: Google benchmark, for testing
-  * ``RapidJSON``: for data serialization
-  * ``ZLIB``: for data compression
+  * ``Boost``: for cross-platform support
+  * ``Brotli``: for data compression
   * ``BZip2``: for data compression
-  * ``LZ4``: for data compression
-  * ``ZSTD``: for data compression
-  * ``RE2``: for regular expressions
-  * ``gRPC``: for remote procedure calls
   * ``c-ares``: a dependency of gRPC
+  * ``gflags``: for command line utilities (formerly Googleflags)
+  * ``GLOG``: for logging
+  * ``gRPC``: for remote procedure calls
+  * ``GTest``: Googletest, for testing
   * ``LLVM``: a dependency of Gandiva
+  * ``Lz4``: for data compression
+  * ``ORC``: for Apache ORC format support
+  * ``re2``: for compute kernels and Gandiva, a dependency of gRPC
+  * ``Protobuf``: Google Protocol Buffers, for data serialization
+  * ``RapidJSON``: for data serialization
+  * ``Snappy``: for data compression
+  * ``Thrift``: Apache Thrift, for data serialization
+  * ``utf8proc``: for compute kernels
+  * ``ZLIB``: for data compression
+  * ``zstd``: for data compression
 
 The CMake option ``ARROW_DEPENDENCY_SOURCE`` is a global option that instructs
 the build system how to resolve each dependency. There are a few options:

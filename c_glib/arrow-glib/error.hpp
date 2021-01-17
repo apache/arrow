@@ -27,8 +27,11 @@ gboolean garrow_error_check(GError **error,
                             const arrow::Status &status,
                             const char *context);
 GArrowError garrow_error_from_status(const arrow::Status &status);
+arrow::StatusCode
+garrow_error_to_status_code(GError *error,
+                            arrow::StatusCode default_code);
 arrow::Status garrow_error_to_status(GError *error,
-                                     arrow::StatusCode code,
+                                     arrow::StatusCode default_code,
                                      const char *context);
 
 namespace garrow {

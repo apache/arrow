@@ -248,7 +248,7 @@ filter_mask <- function(.data) {
   if (query_on_dataset(.data)) {
     comp_func <- function(operator) {
       force(operator)
-      function(e1, e2) make_expression(operator, e1, e2)
+      function(e1, e2) build_dataset_expression(operator, e1, e2)
     }
     var_binder <- function(x) Expression$field_ref(x)
   } else {

@@ -70,8 +70,8 @@
 //!
 //! ## Memory and Buffers
 //!
-//! Data in [`Array`](array::Array) is stored in [`ArrayData`](array::data::ArrayData), that in turn
-//! is a collection of other [`ArrayData`](array::data::ArrayData) and [`Buffers`](buffer::Buffer).
+//! Data in [`Array`](array::Array) is stored in [`ArrayData`](array::ArrayData), that in turn
+//! is a collection of other [`ArrayData`](array::ArrayData) and [`Buffers`](buffer::Buffer).
 //! [`Buffers`](buffer::Buffer) is the central struct that array implementations use keep allocated memory and pointers.
 //! The [`MutableBuffer`](buffer::MutableBuffer) is the mutable counter-part of[`Buffer`](buffer::Buffer).
 //! These are the lowest abstractions of this crate, and are used throughout the crate to
@@ -90,7 +90,7 @@
 //! ## Compute
 //!
 //! This crate offers many operations (called kernels) to operate on `Array`s, that you can find at [compute::kernels].
-//! It has both vertial and horizontal operations, and some of them have an SIMD implementation.
+//! It has both vertical and horizontal operations, and some of them have an SIMD implementation.
 //!
 //! ## Status
 //!

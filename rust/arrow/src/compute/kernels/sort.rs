@@ -32,7 +32,7 @@ use TimeUnit::*;
 /// Sort the `ArrayRef` using `SortOptions`.
 ///
 /// Performs a stable sort on values and indices. Nulls are ordered according to the `nulls_first` flag in `options`.
-/// For floating point arrays any NaN values are considered to be greater than any other non-null value.
+/// Floats are sorted using IEEE 754 totalOrder
 ///
 /// Returns an `ArrowError::ComputeError(String)` if the array type is either unsupported by `sort_to_indices` or `take`.
 ///
@@ -41,40 +41,37 @@ pub fn sort(values: &ArrayRef, options: Option<SortOptions>) -> Result<ArrayRef>
     take(values.as_ref(), &indices, None)
 }
 
-// partition indices into non-NaN and NaN
-fn partition_nan<T: ArrowPrimitiveType>(
-    array: &ArrayRef,
-    v: Vec<u32>,
-) -> (Vec<u32>, Vec<u32>) {
-    // partition by nan for float types
-    if matches!(T::DATA_TYPE, DataType::Float32) {
-        // T::Native has no `is_nan` and thus we need to downcast
-        let array = array
-            .as_any()
-            .downcast_ref::<Float32Array>()
-            .expect("Unable to downcast array");
-        let has_nan = v.iter().any(|index| array.value(*index as usize).is_nan());
-        if has_nan {
-            v.into_iter()
-                .partition(|index| !array.value(*index as usize).is_nan())
-        } else {
-            (v, vec![])
-        }
-    } else if matches!(T::DATA_TYPE, DataType::Float64) {
-        let array = array
-            .as_any()
-            .downcast_ref::<Float64Array>()
-            .expect("Unable to downcast array");
-        let has_nan = v.iter().any(|index| array.value(*index as usize).is_nan());
-        if has_nan {
-            v.into_iter()
-                .partition(|index| !array.value(*index as usize).is_nan())
-        } else {
-            (v, vec![])
-        }
-    } else {
-        unreachable!("Partition by nan is only applicable to float types")
-    }
+// implements comparison using IEEE 754 total ordering for f32
+// Original implementation from https://doc.rust-lang.org/std/primitive.f64.html#method.total_cmp
+// TODO to change to use std when it becomes stable
+fn total_cmp_32(l: f32, r: f32) -> std::cmp::Ordering {
+    let mut left = l.to_bits() as i32;
+    let mut right = r.to_bits() as i32;
+
+    left ^= (((left >> 31) as u32) >> 1) as i32;
+    right ^= (((right >> 31) as u32) >> 1) as i32;
+
+    left.cmp(&right)
+}
+
+// implements comparison using IEEE 754 total ordering for f64
+// Original implementation from https://doc.rust-lang.org/std/primitive.f64.html#method.total_cmp
+// TODO to change to use std when it becomes stable
+fn total_cmp_64(l: f64, r: f64) -> std::cmp::Ordering {
+    let mut left = l.to_bits() as i64;
+    let mut right = r.to_bits() as i64;
+
+    left ^= (((left >> 63) as u64) >> 1) as i64;
+    right ^= (((right >> 63) as u64) >> 1) as i64;
+
+    left.cmp(&right)
+}
+
+fn cmp<T>(l: T, r: T) -> std::cmp::Ordering
+where
+    T: Ord,
+{
+    l.cmp(&r)
 }
 
 // partition indices into valid and null indices
@@ -95,69 +92,67 @@ pub fn sort_to_indices(
 
     match values.data_type() {
         DataType::Boolean => sort_boolean(values, v, n, &options),
-        DataType::Int8 => sort_primitive::<Int8Type>(values, v, n, vec![], &options),
-        DataType::Int16 => sort_primitive::<Int16Type>(values, v, n, vec![], &options),
-        DataType::Int32 => sort_primitive::<Int32Type>(values, v, n, vec![], &options),
-        DataType::Int64 => sort_primitive::<Int64Type>(values, v, n, vec![], &options),
-        DataType::UInt8 => sort_primitive::<UInt8Type>(values, v, n, vec![], &options),
-        DataType::UInt16 => sort_primitive::<UInt16Type>(values, v, n, vec![], &options),
-        DataType::UInt32 => sort_primitive::<UInt32Type>(values, v, n, vec![], &options),
-        DataType::UInt64 => sort_primitive::<UInt64Type>(values, v, n, vec![], &options),
+        DataType::Int8 => sort_primitive::<Int8Type, _>(values, v, n, cmp, &options),
+        DataType::Int16 => sort_primitive::<Int16Type, _>(values, v, n, cmp, &options),
+        DataType::Int32 => sort_primitive::<Int32Type, _>(values, v, n, cmp, &options),
+        DataType::Int64 => sort_primitive::<Int64Type, _>(values, v, n, cmp, &options),
+        DataType::UInt8 => sort_primitive::<UInt8Type, _>(values, v, n, cmp, &options),
+        DataType::UInt16 => sort_primitive::<UInt16Type, _>(values, v, n, cmp, &options),
+        DataType::UInt32 => sort_primitive::<UInt32Type, _>(values, v, n, cmp, &options),
+        DataType::UInt64 => sort_primitive::<UInt64Type, _>(values, v, n, cmp, &options),
         DataType::Float32 => {
-            let (v, nan) = partition_nan::<Float32Type>(values, v);
-            sort_primitive::<Float32Type>(values, v, n, nan, &options)
+            sort_primitive::<Float32Type, _>(values, v, n, total_cmp_32, &options)
         }
         DataType::Float64 => {
-            let (v, nan) = partition_nan::<Float64Type>(values, v);
-            sort_primitive::<Float64Type>(values, v, n, nan, &options)
+            sort_primitive::<Float64Type, _>(values, v, n, total_cmp_64, &options)
         }
         DataType::Date32(_) => {
-            sort_primitive::<Date32Type>(values, v, n, vec![], &options)
+            sort_primitive::<Date32Type, _>(values, v, n, cmp, &options)
         }
         DataType::Date64(_) => {
-            sort_primitive::<Date64Type>(values, v, n, vec![], &options)
+            sort_primitive::<Date64Type, _>(values, v, n, cmp, &options)
         }
         DataType::Time32(Second) => {
-            sort_primitive::<Time32SecondType>(values, v, n, vec![], &options)
+            sort_primitive::<Time32SecondType, _>(values, v, n, cmp, &options)
         }
         DataType::Time32(Millisecond) => {
-            sort_primitive::<Time32MillisecondType>(values, v, n, vec![], &options)
+            sort_primitive::<Time32MillisecondType, _>(values, v, n, cmp, &options)
         }
         DataType::Time64(Microsecond) => {
-            sort_primitive::<Time64MicrosecondType>(values, v, n, vec![], &options)
+            sort_primitive::<Time64MicrosecondType, _>(values, v, n, cmp, &options)
         }
         DataType::Time64(Nanosecond) => {
-            sort_primitive::<Time64NanosecondType>(values, v, n, vec![], &options)
+            sort_primitive::<Time64NanosecondType, _>(values, v, n, cmp, &options)
         }
         DataType::Timestamp(Second, _) => {
-            sort_primitive::<TimestampSecondType>(values, v, n, vec![], &options)
+            sort_primitive::<TimestampSecondType, _>(values, v, n, cmp, &options)
         }
         DataType::Timestamp(Millisecond, _) => {
-            sort_primitive::<TimestampMillisecondType>(values, v, n, vec![], &options)
+            sort_primitive::<TimestampMillisecondType, _>(values, v, n, cmp, &options)
         }
         DataType::Timestamp(Microsecond, _) => {
-            sort_primitive::<TimestampMicrosecondType>(values, v, n, vec![], &options)
+            sort_primitive::<TimestampMicrosecondType, _>(values, v, n, cmp, &options)
         }
         DataType::Timestamp(Nanosecond, _) => {
-            sort_primitive::<TimestampNanosecondType>(values, v, n, vec![], &options)
+            sort_primitive::<TimestampNanosecondType, _>(values, v, n, cmp, &options)
         }
         DataType::Interval(IntervalUnit::YearMonth) => {
-            sort_primitive::<IntervalYearMonthType>(values, v, n, vec![], &options)
+            sort_primitive::<IntervalYearMonthType, _>(values, v, n, cmp, &options)
         }
         DataType::Interval(IntervalUnit::DayTime) => {
-            sort_primitive::<IntervalDayTimeType>(values, v, n, vec![], &options)
+            sort_primitive::<IntervalDayTimeType, _>(values, v, n, cmp, &options)
         }
         DataType::Duration(TimeUnit::Second) => {
-            sort_primitive::<DurationSecondType>(values, v, n, vec![], &options)
+            sort_primitive::<DurationSecondType, _>(values, v, n, cmp, &options)
         }
         DataType::Duration(TimeUnit::Millisecond) => {
-            sort_primitive::<DurationMillisecondType>(values, v, n, vec![], &options)
+            sort_primitive::<DurationMillisecondType, _>(values, v, n, cmp, &options)
         }
         DataType::Duration(TimeUnit::Microsecond) => {
-            sort_primitive::<DurationMicrosecondType>(values, v, n, vec![], &options)
+            sort_primitive::<DurationMicrosecondType, _>(values, v, n, cmp, &options)
         }
         DataType::Duration(TimeUnit::Nanosecond) => {
-            sort_primitive::<DurationNanosecondType>(values, v, n, vec![], &options)
+            sort_primitive::<DurationNanosecondType, _>(values, v, n, cmp, &options)
         }
         DataType::Utf8 => sort_string(values, v, n, &options),
         DataType::List(field) => match field.data_type() {
@@ -304,10 +299,10 @@ fn sort_boolean(
 
     if options.nulls_first {
         result_slice[0..nulls_len].copy_from_slice(&nulls);
-        insert_valid_and_nan_values(result_slice, nulls_len, valids, vec![], descending);
+        insert_valid_values(result_slice, nulls_len, valids);
     } else {
         // nulls last
-        insert_valid_and_nan_values(result_slice, 0, valids, vec![], descending);
+        insert_valid_values(result_slice, 0, valids);
         result_slice[valids_len..].copy_from_slice(nulls.as_slice())
     }
 
@@ -325,16 +320,17 @@ fn sort_boolean(
 }
 
 /// Sort primitive values
-fn sort_primitive<T>(
+fn sort_primitive<T, F>(
     values: &ArrayRef,
     value_indices: Vec<u32>,
     null_indices: Vec<u32>,
-    nan_indices: Vec<u32>,
+    cmp: F,
     options: &SortOptions,
 ) -> Result<UInt32Array>
 where
     T: ArrowPrimitiveType,
     T::Native: std::cmp::PartialOrd,
+    F: Fn(T::Native, T::Native) -> std::cmp::Ordering,
 {
     let values = as_primitive_array::<T>(values);
     let descending = options.descending;
@@ -346,18 +342,15 @@ where
         .collect::<Vec<(u32, T::Native)>>();
 
     let mut nulls = null_indices;
-    let mut nans = nan_indices;
 
     let valids_len = valids.len();
     let nulls_len = nulls.len();
-    let nans_len = nans.len();
 
     if !descending {
-        valids.sort_by(|a, b| a.1.partial_cmp(&b.1).expect("unexpected NaN"));
+        valids.sort_by(|a, b| cmp(a.1, b.1));
     } else {
-        valids.sort_by(|a, b| a.1.partial_cmp(&b.1).expect("unexpected NaN").reverse());
+        valids.sort_by(|a, b| cmp(a.1, b.1).reverse());
         // reverse to keep a stable ordering
-        nans.reverse();
         nulls.reverse();
     }
 
@@ -367,15 +360,15 @@ where
     result.resize(values.len() * std::mem::size_of::<u32>());
     let result_slice: &mut [u32] = result.typed_data_mut();
 
-    debug_assert_eq!(result_slice.len(), nulls_len + nans_len + valids_len);
+    debug_assert_eq!(result_slice.len(), nulls_len + valids_len);
 
     if options.nulls_first {
         result_slice[0..nulls_len].copy_from_slice(&nulls);
-        insert_valid_and_nan_values(result_slice, nulls_len, valids, nans, descending);
+        insert_valid_values(result_slice, nulls_len, valids);
     } else {
         // nulls last
-        insert_valid_and_nan_values(result_slice, 0, valids, nans, descending);
-        result_slice[valids_len + nans_len..].copy_from_slice(nulls.as_slice())
+        insert_valid_values(result_slice, 0, valids);
+        result_slice[valids_len..].copy_from_slice(nulls.as_slice())
     }
 
     let result_data = Arc::new(ArrayData::new(
@@ -392,15 +385,12 @@ where
 }
 
 // insert valid and nan values in the correct order depending on the descending flag
-fn insert_valid_and_nan_values<T: ArrowNativeType>(
+fn insert_valid_values<T: ArrowNativeType>(
     result_slice: &mut [u32],
     offset: usize,
     valids: Vec<(u32, T)>,
-    nans: Vec<u32>,
-    descending: bool,
 ) {
     let valids_len = valids.len();
-    let nans_len = nans.len();
 
     // helper to append the index part of the valid tuples
     let append_valids = move |dst_slice: &mut [u32]| {
@@ -411,19 +401,7 @@ fn insert_valid_and_nan_values<T: ArrowNativeType>(
             .for_each(|(dst, src)| *dst = src.0)
     };
 
-    // NaNs are considered greater than all number which means
-    // for descending order they come before valid numbers
-    // for ascending order they come after valid numbers
-    if descending {
-        result_slice[offset..offset + nans_len].copy_from_slice(nans.as_slice());
-        append_valids(
-            &mut result_slice[offset + nans_len..offset + nans_len + valids_len],
-        );
-    } else {
-        append_valids(&mut result_slice[offset..offset + valids_len]);
-        result_slice[offset + valids_len..offset + valids_len + nans_len]
-            .copy_from_slice(nans.as_slice());
-    }
+    append_valids(&mut result_slice[offset..offset + valids_len]);
 }
 
 /// Sort strings

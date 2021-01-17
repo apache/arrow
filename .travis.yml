@@ -77,13 +77,15 @@ jobs:
         ARCH: s390x
         ARROW_CI_MODULES: "CPP"
         DOCKER_IMAGE_ID: ubuntu-cpp
-        # Can't use CMAKE_UNITIFY_BUILD=ON because of compiler crash.
+        # Can't use CMAKE_UNITY_BUILD=ON because of compiler crash.
+        # Can't enable ARROW_MIMALLOC because of failures in memory pool tests.
         # Can't enable ARROW_S3 because compiler is killed while compiling
         # aws-sdk-cpp.
         DOCKER_RUN_ARGS: >-
           "
           -e ARROW_BUILD_STATIC=OFF
           -e ARROW_FLIGHT=ON
+          -e ARROW_MIMALLOC=OFF
           -e ARROW_ORC=OFF
           -e ARROW_PARQUET=OFF
           -e ARROW_S3=OFF

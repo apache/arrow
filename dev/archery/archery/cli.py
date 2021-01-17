@@ -370,21 +370,15 @@ def benchmark_common_options(cmd):
         click.option("--cmake-extras", type=str, multiple=True,
                      help="Extra flags/options to pass to cmake invocation. "
                      "Can be stacked"),
-    ]
-
-    cmd = cpp_toolchain_options(cmd)
-    return _apply_options(cmd, options)
-
-
-def benchmark_filter_options(cmd):
-    options = [
         click.option("--suite-filter", metavar="<regex>", show_default=True,
                      type=str, default=None,
                      help="Regex filtering benchmark suites."),
         click.option("--benchmark-filter", metavar="<regex>",
                      show_default=True, type=str, default=None,
-                     help="Regex filtering benchmarks.")
+                     help="Regex filtering benchmarks."),
     ]
+
+    cmd = cpp_toolchain_options(cmd)
     return _apply_options(cmd, options)
 
 
@@ -414,10 +408,12 @@ def benchmark_list(ctx, rev_or_path, src, preserve, output, cmake_extras,
 @click.argument("rev_or_path", metavar="[<rev_or_path>]",
                 default="WORKSPACE", required=False)
 @benchmark_common_options
-@benchmark_filter_options
+@click.option("--repetitions", type=int, default=1, show_default=True,
+              help=("Number of repetitions of each benchmark. Increasing "
+                    "may improve result precision."))
 @click.pass_context
 def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
-                  suite_filter, benchmark_filter, **kwargs):
+                  suite_filter, benchmark_filter, repetitions, **kwargs):
     """ Run benchmark suite.
 
     This command will run the benchmark suite for a single build. This is
@@ -428,7 +424,7 @@ def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
 
     When a commit is referenced, a local clone of the arrow sources (specified
     via --src) is performed and the proper branch is created. This is done in
-    a temporary directory which can be left intact with the `---preserve` flag.
+    a temporary directory which can be left intact with the `--preserve` flag.
 
     The special token "WORKSPACE" is reserved to specify the current git
     workspace. This imply that no clone will be performed.
@@ -458,6 +454,7 @@ def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
 
         runner_base = BenchmarkRunner.from_rev_or_path(
             src, root, rev_or_path, conf,
+            repetitions=repetitions,
             suite_filter=suite_filter, benchmark_filter=benchmark_filter)
 
         json.dump(runner_base, output, cls=JsonEncoder)
@@ -465,21 +462,22 @@ def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
 
 @benchmark.command(name="diff", short_help="Compare benchmark suites")
 @benchmark_common_options
-@benchmark_filter_options
 @click.option("--threshold", type=float, default=DEFAULT_THRESHOLD,
               show_default=True,
               help="Regression failure threshold in percentage.")
 @click.option("--repetitions", type=int, default=1, show_default=True,
               help=("Number of repetitions of each benchmark. Increasing "
                     "may improve result precision."))
+@click.option("--no-counters", type=BOOL, default=False, is_flag=True,
+              help="Hide counters field in diff report.")
 @click.argument("contender", metavar="[<contender>",
                 default=ArrowSources.WORKSPACE, required=False)
 @click.argument("baseline", metavar="[<baseline>]]", default="origin/master",
                 required=False)
 @click.pass_context
 def benchmark_diff(ctx, src, preserve, output, cmake_extras,
-                   suite_filter, benchmark_filter,
-                   repetitions, threshold, contender, baseline, **kwargs):
+                   suite_filter, benchmark_filter, repetitions, no_counters,
+                   threshold, contender, baseline, **kwargs):
     """Compare (diff) benchmark runs.
 
     This command acts like git-diff but for benchmark results.
@@ -495,7 +493,7 @@ def benchmark_diff(ctx, src, preserve, output, cmake_extras,
 
     When a commit is referenced, a local clone of the arrow sources (specified
     via --src) is performed and the proper branch is created. This is done in
-    a temporary directory which can be left intact with the `---preserve` flag.
+    a temporary directory which can be left intact with the `--preserve` flag.
 
     The special token "WORKSPACE" is reserved to specify the current git
     workspace. This imply that no clone will be performed.
@@ -572,7 +570,8 @@ def benchmark_diff(ctx, src, preserve, output, cmake_extras,
 
         # TODO(kszucs): test that the output is properly formatted jsonlines
         comparisons_json = _get_comparisons_as_json(runner_comp.comparisons)
-        formatted = _format_comparisons_with_pandas(comparisons_json)
+        formatted = _format_comparisons_with_pandas(comparisons_json,
+                                                    no_counters)
         output.write(formatted)
         output.write('\n')
 
@@ -586,14 +585,29 @@ def _get_comparisons_as_json(comparisons):
     return buf.getvalue()
 
 
-def _format_comparisons_with_pandas(comparisons_json):
+def _format_comparisons_with_pandas(comparisons_json, no_counters):
     import pandas as pd
     df = pd.read_json(StringIO(comparisons_json), lines=True)
     # parse change % so we can sort by it
     df['change %'] = df.pop('change').str[:-1].map(float)
-    df = df[['benchmark', 'baseline', 'contender', 'change %', 'counters']]
-    df = df.sort_values(by='change %', ascending=False)
-    return df.to_string()
+    first_regression = len(df) - df['regression'].sum()
+
+    fields = ['benchmark', 'baseline', 'contender', 'change %']
+    if not no_counters:
+        fields += ['counters']
+
+    df = df[fields].sort_values(by='change %', ascending=False)
+
+    def labelled(title, df):
+        if len(df) == 0:
+            return ''
+        title += ': ({})'.format(len(df))
+        df_str = df.to_string(index=False)
+        bar = '-' * df_str.index('\n')
+        return '\n'.join([bar, title, bar, df_str])
+
+    return '\n\n'.join([labelled('Non-regressions', df[:first_regression]),
+                        labelled('Regressions', df[first_regression:])])
 
 
 # ----------------------------------------------------------------------
@@ -693,12 +707,32 @@ def trigger_bot(event_name, event_payload, arrow_token, crossbow_token):
     bot.handle(event_name, event_payload)
 
 
+def _mock_compose_calls(compose):
+    from types import MethodType
+    from subprocess import CompletedProcess
+
+    def _mock(compose, executable):
+        def _execute(self, *args, **kwargs):
+            params = ['{}={}'.format(k, v)
+                      for k, v in self.config.params.items()]
+            command = ' '.join(params + [executable] + list(args))
+            click.echo(command)
+            return CompletedProcess([], 0)
+        return MethodType(_execute, compose)
+
+    compose._execute_docker = _mock(compose, executable='docker')
+    compose._execute_compose = _mock(compose, executable='docker-compose')
+
+
 @archery.group('docker')
 @click.option("--src", metavar="<arrow_src>", default=None,
               callback=validate_arrow_sources,
               help="Specify Arrow source directory.")
+@click.option('--dry-run/--execute', default=False,
+              help="Display the docker-compose commands instead of executing "
+                   "them.")
 @click.pass_obj
-def docker_compose(obj, src):
+def docker_compose(obj, src, dry_run):
     """Interact with docker-compose based builds."""
     from .docker import DockerCompose
 
@@ -711,7 +745,51 @@ def docker_compose(obj, src):
 
     # take the docker-compose parameters like PYTHON, PANDAS, UBUNTU from the
     # environment variables to keep the usage similar to docker-compose
-    obj['compose'] = DockerCompose(config_path, params=os.environ)
+    compose = DockerCompose(config_path, params=os.environ)
+    if dry_run:
+        _mock_compose_calls(compose)
+    obj['compose'] = compose
+
+
+@docker_compose.command('build')
+@click.argument('image')
+@click.option('--force-pull/--no-pull', default=True,
+              help="Whether to force pull the image and its ancestor images")
+@click.option('--using-docker-cli', default=False, is_flag=True,
+              envvar='ARCHERY_USE_DOCKER_CLI',
+              help="Use docker CLI directly for building instead of calling "
+                   "docker-compose. This may help to reuse cached layers.")
+@click.option('--use-cache/--no-cache', default=True,
+              help="Whether to use cache when building the image and its "
+                   "ancestor images")
+@click.option('--use-leaf-cache/--no-leaf-cache', default=True,
+              help="Whether to use cache when building only the (leaf) image "
+                   "passed as the argument. To disable caching for both the "
+                   "image and its ancestors use --no-cache option.")
+@click.pass_obj
+def docker_compose_build(obj, image, *, force_pull, using_docker_cli,
+                         use_cache, use_leaf_cache):
+    """
+    Execute docker-compose builds.
+    """
+    from .docker import UndefinedImage
+
+    compose = obj['compose']
+
+    try:
+        if force_pull:
+            compose.pull(image, pull_leaf=use_leaf_cache,
+                         using_docker=using_docker_cli)
+        compose.build(image, use_cache=use_cache,
+                      use_leaf_cache=use_leaf_cache,
+                      using_docker=using_docker_cli)
+    except UndefinedImage as e:
+        raise click.ClickException(
+            "There is no service/image defined in docker-compose.yml with "
+            "name: {}".format(str(e))
+        )
+    except RuntimeError as e:
+        raise click.ClickException(str(e))
 
 
 @docker_compose.command('run')
@@ -727,6 +805,10 @@ def docker_compose(obj, src):
               help="Whether to force build the image and its ancestor images")
 @click.option('--build-only', default=False, is_flag=True,
               help="Pull and/or build the image, but do not run it")
+@click.option('--using-docker-cli', default=False, is_flag=True,
+              envvar='ARCHERY_USE_DOCKER_CLI',
+              help="Use docker CLI directly for building instead of calling "
+                   "docker-compose. This may help to reuse cached layers.")
 @click.option('--use-cache/--no-cache', default=True,
               help="Whether to use cache when building the image and its "
                    "ancestor images")
@@ -734,15 +816,12 @@ def docker_compose(obj, src):
               help="Whether to use cache when building only the (leaf) image "
                    "passed as the argument. To disable caching for both the "
                    "image and its ancestors use --no-cache option.")
-@click.option('--dry-run/--execute', default=False,
-              help="Display the docker-compose commands instead of executing "
-                   "them.")
 @click.option('--volume', '-v', multiple=True,
               help="Set volume within the container")
 @click.pass_obj
 def docker_compose_run(obj, image, command, *, env, user, force_pull,
-                       force_build, build_only, use_cache, use_leaf_cache,
-                       dry_run, volume):
+                       force_build, build_only, using_docker_cli, use_cache,
+                       use_leaf_cache, volume):
     """Execute docker-compose builds.
 
     To see the available builds run `archery docker images`.
@@ -777,28 +856,23 @@ def docker_compose_run(obj, image, command, *, env, user, force_pull,
 
     compose = obj['compose']
 
-    if dry_run:
-        from types import MethodType
-
-        def _print_command(self, *args, **kwargs):
-            params = ['{}={}'.format(k, v) for k, v in self.params.items()]
-            command = ' '.join(params + ['docker-compose'] + list(args))
-            click.echo(command)
-
-        compose._execute_compose = MethodType(_print_command, compose)
-
     env = dict(kv.split('=', 1) for kv in env)
     try:
+        if force_pull:
+            compose.pull(image, pull_leaf=use_leaf_cache,
+                         using_docker=using_docker_cli)
+        if force_build:
+            compose.build(image, use_cache=use_cache,
+                          use_leaf_cache=use_leaf_cache,
+                          using_docker=using_docker_cli)
+        if build_only:
+            return
         compose.run(
             image,
             command=command,
             env=env,
             user=user,
-            force_pull=force_pull,
-            force_build=force_build,
-            build_only=build_only,
-            use_cache=use_cache,
-            use_leaf_cache=use_leaf_cache,
+            using_docker=using_docker_cli,
             volumes=volume
         )
     except UndefinedImage as e:
@@ -812,16 +886,20 @@ def docker_compose_run(obj, image, command, *, env, user, force_pull,
 
 @docker_compose.command('push')
 @click.argument('image')
-@click.option('--user', '-u', required=True, envvar='ARCHERY_DOCKER_USER',
+@click.option('--user', '-u', required=False, envvar='ARCHERY_DOCKER_USER',
               help='Docker repository username')
-@click.option('--password', '-p', required=True,
+@click.option('--password', '-p', required=False,
               envvar='ARCHERY_DOCKER_PASSWORD',
               help='Docker repository password')
+@click.option('--using-docker-cli', default=False, is_flag=True,
+              help="Use docker CLI directly for building instead of calling "
+                   "docker-compose. This may help to reuse cached layers.")
 @click.pass_obj
-def docker_compose_push(obj, image, user, password):
+def docker_compose_push(obj, image, user, password, using_docker_cli):
     """Push the generated docker-compose image."""
     compose = obj['compose']
-    compose.push(image, user=user, password=password)
+    compose.push(image, user=user, password=password,
+                 using_docker=using_docker_cli)
 
 
 @docker_compose.command('images')

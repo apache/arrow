@@ -53,6 +53,18 @@ pub struct RepartitionExec {
     channels: Arc<Mutex<Vec<(Sender<MaybeBatch>, Receiver<MaybeBatch>)>>>,
 }
 
+impl RepartitionExec {
+    /// Input execution plan
+    pub fn input(&self) -> &Arc<dyn ExecutionPlan> {
+        &self.input
+    }
+
+    /// Partitioning scheme to use
+    pub fn partitioning(&self) -> &Partitioning {
+        &self.partitioning
+    }
+}
+
 #[async_trait]
 impl ExecutionPlan for RepartitionExec {
     /// Return a reference to Any that can be used for downcasting
@@ -138,8 +150,8 @@ impl ExecutionPlan for RepartitionExec {
                     }
 
                     // notify each output partition that this input partition has no more data
-                    for i in 0..num_output_partitions {
-                        let tx = &mut channels[i].0;
+                    for channel in channels.iter_mut().take(num_output_partitions) {
+                        let tx = &mut channel.0;
                         tx.send(None)
                             .map_err(|e| DataFusionError::Execution(e.to_string()))?;
                     }

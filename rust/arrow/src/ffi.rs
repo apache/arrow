@@ -21,8 +21,8 @@
 //! One interface maps C ABI to native Rust types, i.e. convert c-pointers, c_char, to native rust.
 //! This is handled by [FFI_ArrowSchema] and [FFI_ArrowArray].
 //!
-//! The second interface maps native Rust types to the Rust-specific implementation of Arrow such as `format` to [Datatype],
-//! `Buffer`, etc. This is handled by [ArrowArray].
+//! The second interface maps native Rust types to the Rust-specific implementation of Arrow such as `format` to `Datatype`,
+//! `Buffer`, etc. This is handled by `ArrowArray`.
 //!
 //! ```rust
 //! # use std::sync::Arc;
@@ -86,12 +86,12 @@ use std::{
 };
 
 use crate::buffer::Buffer;
-use crate::datatypes::DataType;
+use crate::datatypes::{DataType, DateUnit, TimeUnit};
 use crate::error::{ArrowError, Result};
 use crate::util::bit_util;
 
 /// ABI-compatible struct for `ArrowSchema` from C Data Interface
-/// See https://arrow.apache.org/docs/format/CDataInterface.html#structure-definitions
+/// See <https://arrow.apache.org/docs/format/CDataInterface.html#structure-definitions>
 /// This was created by bindgen
 #[repr(C)]
 #[derive(Debug)]
@@ -120,7 +120,7 @@ unsafe extern "C" fn release_schema(schema: *mut FFI_ArrowSchema) {
 impl FFI_ArrowSchema {
     /// create a new [FFI_ArrowSchema] from a format.
     fn new(format: &str) -> FFI_ArrowSchema {
-        // https://arrow.apache.org/docs/format/CDataInterface.html#c.ArrowSchema
+        // <https://arrow.apache.org/docs/format/CDataInterface.html#c.ArrowSchema>
         FFI_ArrowSchema {
             format: CString::new(format).unwrap().into_raw(),
             name: std::ptr::null_mut(),
@@ -187,6 +187,12 @@ fn to_datatype(format: &str) -> Result<DataType> {
         "Z" => DataType::LargeBinary,
         "u" => DataType::Utf8,
         "U" => DataType::LargeUtf8,
+        "tdD" => DataType::Date32(DateUnit::Day),
+        "tdm" => DataType::Date64(DateUnit::Millisecond),
+        "tts" => DataType::Time32(TimeUnit::Second),
+        "ttm" => DataType::Time32(TimeUnit::Millisecond),
+        "ttu" => DataType::Time64(TimeUnit::Microsecond),
+        "ttn" => DataType::Time64(TimeUnit::Nanosecond),
         _ => {
             return Err(ArrowError::CDataInterface(
                 "The datatype \"{}\" is still not supported in Rust implementation"
@@ -216,6 +222,12 @@ fn from_datatype(datatype: &DataType) -> Result<String> {
         DataType::LargeBinary => "Z",
         DataType::Utf8 => "u",
         DataType::LargeUtf8 => "U",
+        DataType::Date32(DateUnit::Day) => "tdD",
+        DataType::Date64(DateUnit::Millisecond) => "tdm",
+        DataType::Time32(TimeUnit::Second) => "tts",
+        DataType::Time32(TimeUnit::Millisecond) => "ttm",
+        DataType::Time64(TimeUnit::Microsecond) => "ttu",
+        DataType::Time64(TimeUnit::Nanosecond) => "ttn",
         z => {
             return Err(ArrowError::CDataInterface(format!(
                 "The datatype \"{:?}\" is still not supported in Rust implementation",
@@ -240,8 +252,8 @@ fn bit_width(data_type: &DataType, i: usize) -> Result<usize> {
         (DataType::UInt64, 1) => size_of::<u64>() * 8,
         (DataType::Int8, 1) => size_of::<i8>() * 8,
         (DataType::Int16, 1) => size_of::<i16>() * 8,
-        (DataType::Int32, 1) => size_of::<i32>() * 8,
-        (DataType::Int64, 1) => size_of::<i64>() * 8,
+        (DataType::Int32, 1) | (DataType::Date32(_), 1) | (DataType::Time32(_), 1) => size_of::<i32>() * 8,
+        (DataType::Int64, 1) | (DataType::Date64(_), 1) | (DataType::Time64(_), 1) => size_of::<i64>() * 8,
         (DataType::Float32, 1) => size_of::<f32>() * 8,
         (DataType::Float64, 1) => size_of::<f64>() * 8,
         // primitive types have a single buffer
@@ -252,8 +264,8 @@ fn bit_width(data_type: &DataType, i: usize) -> Result<usize> {
         (DataType::UInt64, _) |
         (DataType::Int8, _) |
         (DataType::Int16, _) |
-        (DataType::Int32, _) |
-        (DataType::Int64, _) |
+        (DataType::Int32, _) | (DataType::Date32(_), _) | (DataType::Time32(_), _) |
+        (DataType::Int64, _) | (DataType::Date64(_), _) | (DataType::Time64(_), _) |
         (DataType::Float32, _) |
         (DataType::Float64, _) => {
             return Err(ArrowError::CDataInterface(format!(
@@ -291,7 +303,7 @@ fn bit_width(data_type: &DataType, i: usize) -> Result<usize> {
 }
 
 /// ABI-compatible struct for ArrowArray from C Data Interface
-/// See https://arrow.apache.org/docs/format/CDataInterface.html#structure-definitions
+/// See <https://arrow.apache.org/docs/format/CDataInterface.html#structure-definitions>
 /// This was created by bindgen
 #[repr(C)]
 #[derive(Debug)]
@@ -627,6 +639,7 @@ mod tests {
     use crate::array::{
         make_array, Array, ArrayData, BinaryOffsetSizeTrait, BooleanArray,
         GenericBinaryArray, GenericStringArray, Int32Array, StringOffsetSizeTrait,
+        Time32MillisecondArray,
     };
     use crate::compute::kernels;
     use std::convert::TryFrom;
@@ -765,6 +778,42 @@ mod tests {
         assert_eq!(
             array,
             BooleanArray::from(vec![None, Some(false), Some(true)])
+        );
+
+        // (drop/release)
+        Ok(())
+    }
+
+    #[test]
+    fn test_time32() -> Result<()> {
+        // create an array natively
+        let array = Time32MillisecondArray::from(vec![None, Some(1), Some(2)]);
+
+        // export it
+        let array = ArrowArray::try_from(array.data().as_ref().clone())?;
+
+        // (simulate consumer) import it
+        let data = Arc::new(ArrayData::try_from(array)?);
+        let array = make_array(data);
+
+        // perform some operation
+        let array = kernels::concat::concat(&[array.as_ref(), array.as_ref()]).unwrap();
+        let array = array
+            .as_any()
+            .downcast_ref::<Time32MillisecondArray>()
+            .unwrap();
+
+        // verify
+        assert_eq!(
+            array,
+            &Time32MillisecondArray::from(vec![
+                None,
+                Some(1),
+                Some(2),
+                None,
+                Some(1),
+                Some(2)
+            ])
         );
 
         // (drop/release)

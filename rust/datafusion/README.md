@@ -91,6 +91,13 @@ This library currently supports the following SQL constructs:
 * `GROUP BY` together with one of the following aggregations: `MIN`, `MAX`, `COUNT`, `SUM`, `AVG`
 * `ORDER BY` together with an expression and optional `ASC` or `DESC` and also optional `NULLS FIRST` or `NULLS LAST`
 
+## Supported Functions
+
+DataFusion strives to implement a subset of the [PostgreSQL SQL dialect](https://www.postgresql.org/docs/current/functions.html) where possible. We explicitly choose a single dialect to maximize interoperability with other tools and allow reuse of the PostgreSQL documents and tutorials as much as possible.
+
+Currently, only a subset of the PosgreSQL dialect is implemented, and we will document any deviations.
+
+
 ## Supported Data Types
 
 DataFusion uses Arrow, and thus the Arrow type system, for query

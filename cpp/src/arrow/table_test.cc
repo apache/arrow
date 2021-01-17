@@ -222,7 +222,23 @@ TEST_F(TestTable, FromRecordBatchesZeroLength) {
   ASSERT_TRUE(result->schema()->Equals(*schema_));
 }
 
-TEST_F(TestTable, CombineChunksEmptyTable) {
+TEST_F(TestTable, CombineChunksZeroColumn) {
+  // ARROW-11232
+  auto record_batch = RecordBatch::Make(schema({}), /*num_rows=*/10,
+                                        std::vector<std::shared_ptr<Array>>{});
+
+  ASSERT_OK_AND_ASSIGN(
+      auto table,
+      Table::FromRecordBatches(record_batch->schema(), {record_batch, record_batch}));
+  ASSERT_EQ(20, table->num_rows());
+
+  ASSERT_OK_AND_ASSIGN(auto combined, table->CombineChunks());
+
+  EXPECT_EQ(20, combined->num_rows());
+  EXPECT_TRUE(combined->Equals(*table));
+}
+
+TEST_F(TestTable, CombineChunksZeroRow) {
   MakeExample1(10);
 
   ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatches(schema_, {}));

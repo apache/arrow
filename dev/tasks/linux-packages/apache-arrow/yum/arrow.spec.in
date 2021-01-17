@@ -36,6 +36,7 @@
 
 %define use_flight (%{_centos_ver} >= 8)
 %define use_gandiva (%{_centos_ver} >= 8 && %{_arch} != "aarch64")
+%define use_mimalloc (%{_centos_ver} >= 8)
 %define use_ninja (%{_centos_ver} >= 8)
 # TODO: Enable this. This works on local but is fragile on GitHub Actions and
 # Travis CI.
@@ -116,6 +117,9 @@ cd cpp/build
 %if %{use_gandiva}
   -DARROW_GANDIVA=ON \
 %endif
+%if %{use_mimalloc}
+  -DARROW_MIMALLOC=ON \
+%endif
   -DARROW_ORC=ON \
   -DARROW_PARQUET=ON \
   -DARROW_PLASMA=ON \
@@ -139,7 +143,7 @@ cd cpp/build
 %endif
 
 %if %{use_ninja}
-ninja
+ninja %{?_smp_mflags}
 %else
 make %{?_smp_mflags}
 %endif
@@ -155,7 +159,7 @@ meson setup build \
   -Darrow_cpp_build_dir=../cpp/build \
   -Darrow_cpp_build_type=$cpp_build_type \
   -Dgtk_doc=true
-LD_LIBRARY_PATH=$PWD/../cpp/build/$cpp_build_type ninja -C build
+LD_LIBRARY_PATH=$PWD/../cpp/build/$cpp_build_type ninja -C build %{?_smp_mflags}
 %else
 ./autogen.sh
 %configure \
@@ -230,8 +234,10 @@ This package contains the libraries for Apache Arrow C++.
 Summary:	Libraries and header files for Apache Arrow C++
 License:	Apache-2.0
 Requires:	%{name}-libs = %{version}-%{release}
+Requires:	boost%{boost_version}-devel
 Requires:	brotli-devel
 Requires:	bzip2-devel
+Requires:	gflags-devel
 Requires:	libzstd-devel
 Requires:	lz4-devel
 Requires:	openssl-devel

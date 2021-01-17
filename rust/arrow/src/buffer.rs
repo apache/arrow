@@ -254,7 +254,7 @@ impl std::ops::Deref for Buffer {
 /// and the `scalar_op` gets applied to remaining bytes.
 /// Contrary to the non-simd version `bitwise_bin_op_helper`, the offset and length is specified in bytes
 /// and this version does not support operations starting at arbitrary bit offsets.
-#[cfg(simd_x86)]
+#[cfg(simd)]
 fn bitwise_bin_op_simd_helper<F_SIMD, F_SCALAR>(
     left: &Buffer,
     left_offset: usize,
@@ -303,7 +303,7 @@ where
 /// and the `scalar_op` gets applied to remaining bytes.
 /// Contrary to the non-simd version `bitwise_unary_op_helper`, the offset and length is specified in bytes
 /// and this version does not support operations starting at arbitrary bit offsets.
-#[cfg(simd_x86)]
+#[cfg(simd)]
 fn bitwise_unary_op_simd_helper<F_SIMD, F_SCALAR>(
     left: &Buffer,
     left_offset: usize,
@@ -468,7 +468,7 @@ pub(super) fn buffer_bin_and(
     }
 }
 
-#[cfg(simd_x86)]
+#[cfg(simd)]
 pub(super) fn buffer_bin_and(
     left: &Buffer,
     left_offset_in_bits: usize,
@@ -579,7 +579,7 @@ pub(super) fn buffer_bin_or(
     }
 }
 
-#[cfg(simd_x86)]
+#[cfg(simd)]
 pub(super) fn buffer_bin_or(
     left: &Buffer,
     left_offset_in_bits: usize,
@@ -636,7 +636,7 @@ pub(super) fn buffer_unary_not(
     len_in_bits: usize,
 ) -> Buffer {
     // SIMD implementation if available and byte-aligned
-    #[cfg(simd_x86)]
+    #[cfg(simd)]
     if offset_in_bits % 8 == 0 && len_in_bits % 8 == 0 {
         return bitwise_unary_op_simd_helper(
             &left,

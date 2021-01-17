@@ -83,7 +83,11 @@ def test_exported_functions():
     functions = exported_functions
     assert len(functions) >= 10
     for func in functions:
-        args = [object()] * func.__arrow_compute_function__['arity']
+        arity = func.__arrow_compute_function__['arity']
+        if arity is Ellipsis:
+            args = [object()] * 3
+        else:
+            args = [object()] * arity
         with pytest.raises(TypeError,
                            match="Got unexpected argument type "
                                  "<class 'object'> for compute function"):
@@ -172,7 +176,8 @@ def test_function_attributes():
         kernels = func.kernels
         assert func.num_kernels == len(kernels)
         assert all(isinstance(ker, pc.Kernel) for ker in kernels)
-        assert func.arity >= 1  # no varargs functions for now
+        if func.arity is not Ellipsis:
+            assert func.arity >= 1
         repr(func)
         for ker in kernels:
             repr(ker)
@@ -402,7 +407,7 @@ def test_generated_docstrings():
             If not passed, will allocate memory from the default memory pool.
         options : pyarrow.compute.MinMaxOptions, optional
             Parameters altering compute function semantics
-        **kwargs: optional
+        **kwargs : optional
             Parameters for MinMaxOptions constructor.  Either `options`
             or `**kwargs` can be passed, but not both at the same time.
         """)
@@ -1056,3 +1061,84 @@ def test_partition_nth():
                for i in range(pivot))
     assert all(data[indices[i]] >= data[indices[pivot]]
                for i in range(pivot, len(data)))
+
+
+def test_array_sort_indices():
+    arr = pa.array([1, 2, None, 0])
+    result = pc.array_sort_indices(arr)
+    assert result.to_pylist() == [3, 0, 1, 2]
+    result = pc.array_sort_indices(arr, order="ascending")
+    assert result.to_pylist() == [3, 0, 1, 2]
+    result = pc.array_sort_indices(arr, order="descending")
+    assert result.to_pylist() == [1, 0, 3, 2]
+
+    with pytest.raises(ValueError, match="not a valid order"):
+        pc.array_sort_indices(arr, order="nonscending")
+
+
+def test_sort_indices_array():
+    arr = pa.array([1, 2, None, 0])
+    result = pc.sort_indices(arr)
+    assert result.to_pylist() == [3, 0, 1, 2]
+    result = pc.sort_indices(arr, sort_keys=[("dummy", "ascending")])
+    assert result.to_pylist() == [3, 0, 1, 2]
+    result = pc.sort_indices(arr, sort_keys=[("dummy", "descending")])
+    assert result.to_pylist() == [1, 0, 3, 2]
+    result = pc.sort_indices(
+        arr, options=pc.SortOptions(sort_keys=[("dummy", "descending")])
+    )
+    assert result.to_pylist() == [1, 0, 3, 2]
+
+
+def test_sort_indices_table():
+    table = pa.table({"a": [1, 1, 0], "b": [1, 0, 1]})
+
+    result = pc.sort_indices(table, sort_keys=[("a", "ascending")])
+    assert result.to_pylist() == [2, 0, 1]
+
+    result = pc.sort_indices(
+        table, sort_keys=[("a", "ascending"), ("b", "ascending")]
+    )
+    assert result.to_pylist() == [2, 1, 0]
+
+    with pytest.raises(ValueError, match="Must specify one or more sort keys"):
+        pc.sort_indices(table)
+
+    with pytest.raises(ValueError, match="Nonexistent sort key column"):
+        pc.sort_indices(table, sort_keys=[("unknown", "ascending")])
+
+    with pytest.raises(ValueError, match="not a valid order"):
+        pc.sort_indices(table, sort_keys=[("a", "nonscending")])
+
+
+def test_is_in():
+    arr = pa.array([1, 2, None, 1, 2, 3])
+
+    result = pc.is_in(arr, value_set=pa.array([1, 3, None]))
+    assert result.to_pylist() == [True, False, True, True, False, True]
+
+    result = pc.is_in(arr, value_set=pa.array([1, 3, None]), skip_nulls=True)
+    assert result.to_pylist() == [True, False, False, True, False, True]
+
+    result = pc.is_in(arr, value_set=pa.array([1, 3]))
+    assert result.to_pylist() == [True, False, False, True, False, True]
+
+    result = pc.is_in(arr, value_set=pa.array([1, 3]), skip_nulls=True)
+    assert result.to_pylist() == [True, False, False, True, False, True]
+
+
+def test_index_in():
+    arr = pa.array([1, 2, None, 1, 2, 3])
+
+    result = pc.index_in(arr, value_set=pa.array([1, 3, None]))
+    assert result.to_pylist() == [0, None, 2, 0, None, 1]
+
+    result = pc.index_in(arr, value_set=pa.array([1, 3, None]),
+                         skip_nulls=True)
+    assert result.to_pylist() == [0, None, None, 0, None, 1]
+
+    result = pc.index_in(arr, value_set=pa.array([1, 3]))
+    assert result.to_pylist() == [0, None, None, 0, None, 1]
+
+    result = pc.index_in(arr, value_set=pa.array([1, 3]), skip_nulls=True)
+    assert result.to_pylist() == [0, None, None, 0, None, 1]

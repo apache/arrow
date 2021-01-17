@@ -19,16 +19,16 @@ use crate::array::{data::count_nulls, ArrayData};
 use crate::buffer::Buffer;
 use crate::util::bit_util::get_bit;
 
-use super::utils::equal_bits;
+use super::utils::{equal_bits, equal_len};
 
 pub(super) fn boolean_equal(
     lhs: &ArrayData,
     rhs: &ArrayData,
     lhs_nulls: Option<&Buffer>,
     rhs_nulls: Option<&Buffer>,
-    lhs_start: usize,
-    rhs_start: usize,
-    len: usize,
+    mut lhs_start: usize,
+    mut rhs_start: usize,
+    mut len: usize,
 ) -> bool {
     let lhs_values = lhs.buffers()[0].as_slice();
     let rhs_values = rhs.buffers()[0].as_slice();
@@ -37,18 +37,40 @@ pub(super) fn boolean_equal(
     let rhs_null_count = count_nulls(rhs_nulls, rhs_start, len);
 
     if lhs_null_count == 0 && rhs_null_count == 0 {
-        (0..len).all(|i| {
-            let lhs_pos = lhs_start + i;
-            let rhs_pos = rhs_start + i;
+        // Optimize performance for starting offset at u8 boundary.
+        if lhs_start % 8 == 0 && rhs_start % 8 == 0 {
+            let quot = len / 8;
+            if quot > 0
+                && !equal_len(
+                    lhs_values,
+                    rhs_values,
+                    lhs_start / 8 + lhs.offset(),
+                    rhs_start / 8 + rhs.offset(),
+                    quot,
+                )
+            {
+                return false;
+            }
 
-            equal_bits(
-                lhs_values,
-                rhs_values,
-                lhs_pos + lhs.offset(),
-                rhs_pos + rhs.offset(),
-                1,
-            )
-        })
+            // Calculate for suffix bits.
+            let rem = len % 8;
+            if rem == 0 {
+                return true;
+            } else {
+                let aligned_bits = len - rem;
+                lhs_start += aligned_bits;
+                rhs_start += aligned_bits;
+                len = rem
+            }
+        }
+
+        equal_bits(
+            lhs_values,
+            rhs_values,
+            lhs_start + lhs.offset(),
+            rhs_start + rhs.offset(),
+            len,
+        )
     } else {
         // get a ref of the null buffer bytes, to use in testing for nullness
         let lhs_null_bytes = lhs_nulls.as_ref().unwrap().as_slice();

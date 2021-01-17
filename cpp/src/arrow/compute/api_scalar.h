@@ -70,7 +70,7 @@ struct ARROW_EXPORT SplitPatternOptions : public SplitOptions {
 
 /// Options for IsIn and IndexIn functions
 struct ARROW_EXPORT SetLookupOptions : public FunctionOptions {
-  explicit SetLookupOptions(Datum value_set, bool skip_nulls)
+  explicit SetLookupOptions(Datum value_set, bool skip_nulls = false)
       : value_set(std::move(value_set)), skip_nulls(skip_nulls) {}
 
   /// The set of values to look up input values into.
@@ -86,7 +86,7 @@ struct ARROW_EXPORT SetLookupOptions : public FunctionOptions {
 
 struct ARROW_EXPORT StrptimeOptions : public FunctionOptions {
   explicit StrptimeOptions(std::string format, TimeUnit::type unit)
-      : format(format), unit(unit) {}
+      : format(std::move(format)), unit(unit) {}
 
   std::string format;
   TimeUnit::type unit;
@@ -105,6 +105,13 @@ struct CompareOptions : public FunctionOptions {
   explicit CompareOptions(CompareOperator op) : op(op) {}
 
   enum CompareOperator op;
+};
+
+struct ARROW_EXPORT ProjectOptions : public FunctionOptions {
+  explicit ProjectOptions(std::vector<std::string> n) : field_names(std::move(n)) {}
+
+  /// Names for wrapped columns
+  std::vector<std::string> field_names;
 };
 
 /// @}
@@ -283,16 +290,18 @@ Result<Datum> KleeneAndNot(const Datum& left, const Datum& right,
 /// \brief IsIn returns true for each element of `values` that is contained in
 /// `value_set`
 ///
-/// If null occurs in left, if null count in right is not 0,
-/// it returns true, else returns null.
+/// Behaviour of nulls is governed by SetLookupOptions::skip_nulls.
 ///
 /// \param[in] values array-like input to look up in value_set
-/// \param[in] value_set either Array or ChunkedArray
+/// \param[in] options SetLookupOptions
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting datum
 ///
 /// \since 1.0.0
 /// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> IsIn(const Datum& values, const SetLookupOptions& options,
+                   ExecContext* ctx = NULLPTR);
 ARROW_EXPORT
 Result<Datum> IsIn(const Datum& values, const Datum& value_set,
                    ExecContext* ctx = NULLPTR);
@@ -305,18 +314,18 @@ Result<Datum> IsIn(const Datum& values, const Datum& value_set,
 /// For example given values = [99, 42, 3, null] and
 /// value_set = [3, 3, 99], the output will be = [1, null, 0, null]
 ///
-/// Note: Null in the values is considered to match
-/// a null in the value_set array. For example given
-/// values = [99, 42, 3, null] and value_set = [3, 99, null],
-/// the output will be = [1, null, 0, 2]
+/// Behaviour of nulls is governed by SetLookupOptions::skip_nulls.
 ///
 /// \param[in] values array-like input
-/// \param[in] value_set either Array or ChunkedArray
+/// \param[in] options SetLookupOptions
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting datum
 ///
 /// \since 1.0.0
 /// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> IndexIn(const Datum& values, const SetLookupOptions& options,
+                      ExecContext* ctx = NULLPTR);
 ARROW_EXPORT
 Result<Datum> IndexIn(const Datum& values, const Datum& value_set,
                       ExecContext* ctx = NULLPTR);

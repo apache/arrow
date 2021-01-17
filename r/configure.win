@@ -39,8 +39,9 @@ if [ -d "windows/arrow-$VERSION" ]; then
 else
   # It's possible that the version of the libarrow binary is not identical to the
   # R version, e.g. if the R build is a patch release, so find what the dir is
-  # actually called:
-  RWINLIB="../windows/$(ls windows/ | grep ^arrow-)"
+  # actually called. If there is more than one version present, use the one
+  # with the highest version:
+  RWINLIB="../windows/$(ls windows/ | grep ^arrow- | tail -n 1)"
 fi
 OPENSSL_LIBS="-lcrypto -lcrypt32"
 MIMALLOC_LIBS="-lbcrypt -lpsapi"

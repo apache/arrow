@@ -44,9 +44,12 @@ function writearray(io::IO, ::Type{T}, col) where {T}
         end
     else
         n = 0
+        data = Vector{UInt8}(undef, sizeof(col))
+        buf = IOBuffer(data; write=true)
         for x in col
-            n += Base.write(io, coalesce(x, ArrowTypes.default(T)))
+            n += Base.write(buf, coalesce(x, ArrowTypes.default(T)))
         end
+        n = Base.write(io, take!(buf))
     end
     return n
 end

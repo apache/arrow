@@ -14,10 +14,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-using Test, Arrow, Tables, Dates, PooledArrays, TimeZones
+using Test, Arrow, Tables, Dates, PooledArrays, TimeZones, UUIDs
 
 include(joinpath(dirname(pathof(Arrow)), "../test/testtables.jl"))
 include(joinpath(dirname(pathof(Arrow)), "../test/integrationtest.jl"))
+include(joinpath(dirname(pathof(Arrow)), "../test/dates.jl"))
+
+struct CustomStruct
+    x::Int
+    y::Float64
+    z::String
+end
 
 @testset "Arrow" begin
 
@@ -156,6 +163,55 @@ io = IOBuffer()
 Arrow.write(io, t)
 seekstart(io)
 tt = Arrow.Table(io)
+
+# 60: unequal column lengths
+io = IOBuffer()
+@test_throws ArgumentError Arrow.write(io, (a = Int[], b = ["asd"], c=collect(1:100)))
+
+# nullability of custom extension types
+t = (a=['a', missing],)
+io = IOBuffer()
+Arrow.write(io, t)
+seekstart(io)
+tt = Arrow.Table(io)
+@test isequal(tt.a, ['a', missing])
+
+# automatic custom struct serialization/deserialization
+t = (col1=[CustomStruct(1, 2.3, "hey"), CustomStruct(4, 5.6, "there")],)
+io = IOBuffer()
+Arrow.write(io, t)
+seekstart(io)
+tt = Arrow.Table(io)
+@test length(tt) == length(t)
+@test all(isequal.(values(t), values(tt)))
+
+# 76
+t = (col1=NamedTuple{(:a,),Tuple{Union{Int,String}}}[(a=1,), (a="x",)],)
+io = IOBuffer()
+Arrow.write(io, t)
+seekstart(io)
+tt = Arrow.Table(io)
+@test length(tt) == length(t)
+@test all(isequal.(values(t), values(tt)))
+
+# 89 - test deprecation path for old UUID autoconversion
+u = 0x6036fcbd20664bd8a65cdfa25434513f
+@test Arrow.ArrowTypes.arrowconvert(UUID, (value=u,)) === UUID(u)
+
+# 98
+t = (a = [Nanosecond(0), Nanosecond(1)], b = [uuid4(), uuid4()], c = [missing, Nanosecond(1)])
+io = IOBuffer()
+Arrow.write(io, t)
+seekstart(io)
+tt = Arrow.Table(io)
+@test copy(tt.a) isa Vector{Nanosecond}
+@test copy(tt.b) isa Vector{UUID}
+@test copy(tt.c) isa Vector{Union{Missing,Nanosecond}}
+
+# copy on DictEncoding w/ missing values
+x = PooledArray(["hey", missing])
+x2 = Arrow.toarrowvector(x)
+@test isequal(copy(x2), x)
 
 end # @testset "misc"
 

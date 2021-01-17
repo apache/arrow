@@ -142,7 +142,9 @@ test_apt() {
                 "ubuntu:bionic" \
                 "arm64v8/ubuntu:bionic" \
                 "ubuntu:focal" \
-                "arm64v8/ubuntu:focal"; do \
+                "arm64v8/ubuntu:focal" \
+                "ubuntu:groovy" \
+                "arm64v8/ubuntu:groovy"; do \
     case "${target}" in
       arm64v8/*)
         if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
@@ -412,7 +414,8 @@ test_js() {
   if [ "${INSTALL_NODE}" -gt 0 ]; then
     export NVM_DIR="`pwd`/.nvm"
     mkdir -p $NVM_DIR
-    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.35.3/install.sh | bash
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.35.3/install.sh | \
+      PROFILE=/dev/null bash
     [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
     nvm install node
@@ -631,8 +634,8 @@ IMPORT_TESTS
 }
 
 test_linux_wheels() {
-  local py_arches="3.5m 3.6m 3.7m 3.8 3.9"
-  local manylinuxes="1 2010 2014"
+  local py_arches="3.6m 3.7m 3.8 3.9"
+  local manylinuxes="2010 2014"
 
   for py_arch in ${py_arches}; do
     local env=_verify_wheel-${py_arch}
@@ -656,7 +659,7 @@ test_linux_wheels() {
 }
 
 test_macos_wheels() {
-  local py_arches="3.5m 3.6m 3.7m 3.8"
+  local py_arches="3.5m 3.6m 3.7m 3.8 3.9"
 
   for py_arch in ${py_arches}; do
     local env=_verify_wheel-${py_arch}

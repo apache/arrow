@@ -18,10 +18,10 @@
 //! Execution plan for reading Parquet files
 
 use std::any::Any;
+use std::fmt;
 use std::fs::File;
 use std::sync::Arc;
 use std::task::{Context, Poll};
-use std::{fmt, thread};
 
 use super::{RecordBatchStream, SendableRecordBatchStream};
 use crate::error::{DataFusionError, Result};
@@ -35,6 +35,7 @@ use parquet::file::reader::SerializedFileReader;
 use crossbeam::channel::{bounded, Receiver, RecvError, Sender};
 use fmt::Debug;
 use parquet::arrow::{ArrowReader, ParquetFileArrowReader};
+use tokio::task;
 
 use crate::datasource::datasource::Statistics;
 use async_trait::async_trait;
@@ -59,11 +60,11 @@ pub struct ParquetExec {
 ///
 /// In the future it would be good to support subsets of files based on ranges of row groups
 /// so that we can better parallelize reads of large files across available cores (see
-/// https://issues.apache.org/jira/browse/ARROW-10995).
+/// [ARROW-10995](https://issues.apache.org/jira/browse/ARROW-10995)).
 ///
 /// We may also want to support reading Parquet files that are partitioned based on a key and
 /// in this case we would want this partition struct to represent multiple files for a given
-/// partition key (see https://issues.apache.org/jira/browse/ARROW-11019).
+/// partition key (see [ARROW-11019](https://issues.apache.org/jira/browse/ARROW-11019)).
 #[derive(Debug, Clone)]
 pub struct ParquetPartition {
     /// The Parquet filename for this partition
@@ -203,7 +204,34 @@ impl ParquetExec {
         }
     }
 
-    /// Provide access to the statistics
+    /// Parquet partitions to read
+    pub fn partitions(&self) -> &[ParquetPartition] {
+        &self.partitions
+    }
+
+    /// Projection for which columns to load
+    pub fn projection(&self) -> &[usize] {
+        &self.projection
+    }
+
+    /// Batch size
+    pub fn batch_size(&self) -> usize {
+        self.batch_size
+    }
+
+    /// Statistics for the data set (sum of statistics for all partitions)
+    pub fn statistics(&self) -> &Statistics {
+        &self.statistics
+    }
+}
+
+impl ParquetPartition {
+    /// The Parquet filename for this partition
+    pub fn filenames(&self) -> &[String] {
+        &self.filenames
+    }
+
+    /// Statistics for this partition
     pub fn statistics(&self) -> &Statistics {
         &self.statistics
     }
@@ -256,13 +284,8 @@ impl ExecutionPlan for ParquetExec {
         let projection = self.projection.clone();
         let batch_size = self.batch_size;
 
-        thread::spawn(move || {
-            if let Err(e) = read_files(
-                &filenames,
-                projection.clone(),
-                batch_size,
-                response_tx.clone(),
-            ) {
+        task::spawn_blocking(move || {
+            if let Err(e) = read_files(&filenames, &projection, batch_size, response_tx) {
                 println!("Parquet reader thread terminated due to error: {:?}", e);
             }
         });
@@ -286,7 +309,7 @@ fn send_result(
 
 fn read_files(
     filenames: &[String],
-    projection: Vec<usize>,
+    projection: &[usize],
     batch_size: usize,
     response_tx: Sender<Option<ArrowResult<RecordBatch>>>,
 ) -> Result<()> {
@@ -294,8 +317,8 @@ fn read_files(
         let file = File::open(&filename)?;
         let file_reader = Arc::new(SerializedFileReader::new(file)?);
         let mut arrow_reader = ParquetFileArrowReader::new(file_reader);
-        let mut batch_reader =
-            arrow_reader.get_record_reader_by_columns(projection.clone(), batch_size)?;
+        let mut batch_reader = arrow_reader
+            .get_record_reader_by_columns(projection.to_owned(), batch_size)?;
         loop {
             match batch_reader.next() {
                 Some(Ok(batch)) => {

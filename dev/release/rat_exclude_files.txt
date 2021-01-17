@@ -10,6 +10,7 @@
 .github/ISSUE_TEMPLATE/question.md
 ci/etc/rprofile
 ci/etc/*.patch
+ci/vcpkg/*.patch
 CHANGELOG.md
 cpp/CHANGELOG_PARQUET.md
 cpp/src/arrow/io/mman.h
@@ -164,6 +165,7 @@ dev/tasks/linux-packages/apache-arrow/debian/plasma-store-server.install
 dev/tasks/linux-packages/apache-arrow/debian/rules
 dev/tasks/linux-packages/apache-arrow/debian/source/format
 dev/tasks/linux-packages/apache-arrow/debian/watch
+dev/tasks/requirements*.txt
 dev/tasks/conda-recipes/*
 docs/requirements.txt
 go/arrow/flight/Flight_grpc.pb.go

@@ -15,13 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/csv/column_builder.h"
+
+#include <gtest/gtest.h>
+
 #include <memory>
 #include <string>
 #include <vector>
 
-#include <gtest/gtest.h>
-
-#include "arrow/csv/column_builder.h"
 #include "arrow/csv/options.h"
 #include "arrow/csv/test_common.h"
 #include "arrow/memory_pool.h"
@@ -380,6 +381,23 @@ TEST_F(InferringColumnBuilderTest, MultipleChunkReal) {
   CheckInferred(tg, {{""}, {"008"}, {"NaN", "12.5"}}, options,
                 {ArrayFromJSON(float64(), "[null]"), ArrayFromJSON(float64(), "[8.0]"),
                  ArrayFromJSON(float64(), "[null, 12.5]")});
+}
+
+TEST_F(InferringColumnBuilderTest, SingleChunkDate) {
+  auto options = ConvertOptions::Defaults();
+  auto tg = TaskGroup::MakeSerial();
+
+  CheckInferred(tg, {{"", "1970-01-04", "NA"}}, options,
+                {ArrayFromJSON(date32(), "[null, 3, null]")});
+}
+
+TEST_F(InferringColumnBuilderTest, MultipleChunkDate) {
+  auto options = ConvertOptions::Defaults();
+  auto tg = TaskGroup::MakeSerial();
+
+  CheckInferred(tg, {{""}, {"1970-01-04"}, {"NA"}}, options,
+                {ArrayFromJSON(date32(), "[null]"), ArrayFromJSON(date32(), "[3]"),
+                 ArrayFromJSON(date32(), "[null]")});
 }
 
 TEST_F(InferringColumnBuilderTest, SingleChunkTimestamp) {

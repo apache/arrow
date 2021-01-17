@@ -22,7 +22,6 @@
 #include <vector>
 
 #include "arrow/dataset/dataset_internal.h"
-#include "arrow/dataset/filter.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
@@ -160,6 +159,10 @@ class TestParquetFileFormat : public ArrowParquetWriterMixin {
     return Batches(std::move(scan_task_it));
   }
 
+  void SetFilter(Expression filter) {
+    ASSERT_OK_AND_ASSIGN(opts_->filter, filter.Bind(*schema_));
+  }
+
   std::shared_ptr<RecordBatch> SingleBatch(Fragment* fragment) {
     auto batches = IteratorToVector(Batches(fragment));
     EXPECT_EQ(batches.size(), 1);
@@ -187,10 +190,11 @@ class TestParquetFileFormat : public ArrowParquetWriterMixin {
   }
 
   void CountRowGroupsInFragment(const std::shared_ptr<Fragment>& fragment,
-                                std::vector<int> expected_row_groups,
-                                const Expression& filter) {
+                                std::vector<int> expected_row_groups, Expression filter) {
+    schema_ = opts_->schema();
+    ASSERT_OK_AND_ASSIGN(auto bound, filter.Bind(*schema_));
     auto parquet_fragment = checked_pointer_cast<ParquetFileFragment>(fragment);
-    ASSERT_OK_AND_ASSIGN(auto fragments, parquet_fragment->SplitByRowGroup(filter.Copy()))
+    ASSERT_OK_AND_ASSIGN(auto fragments, parquet_fragment->SplitByRowGroup(bound))
 
     EXPECT_EQ(fragments.size(), expected_row_groups.size());
     for (size_t i = 0; i < fragments.size(); i++) {
@@ -214,6 +218,7 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReader) {
   auto source = GetFileSource(reader.get());
 
   opts_ = ScanOptions::Make(reader->schema());
+  SetFilter(literal(true));
   ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
 
   int64_t row_count = 0;
@@ -233,6 +238,7 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReaderDictEncoded) {
   auto source = GetFileSource(reader.get());
 
   opts_ = ScanOptions::Make(reader->schema());
+  SetFilter(literal(true));
 
   format_->reader_options.dict_columns = {"utf8"};
   ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
@@ -275,7 +281,7 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReaderProjected) {
 
   opts_ = ScanOptions::Make(schema_);
   opts_->projector = RecordBatchProjector(SchemaFromColumnNames(schema_, {"f64"}));
-  opts_->filter = equal(field_ref("i32"), scalar(0));
+  SetFilter(equal(field_ref("i32"), literal(0)));
 
   // NB: projector is applied by the scanner; FileFragment does not evaluate it so
   // we will not drop "i32" even though it is not in the projector's schema
@@ -311,7 +317,7 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReaderProjectedMissingCols) {
   schema_ = reader->schema();
   opts_ = ScanOptions::Make(schema_);
   opts_->projector = RecordBatchProjector(SchemaFromColumnNames(schema_, {"f64"}));
-  opts_->filter = equal(field_ref("i32"), scalar(0));
+  SetFilter(equal(field_ref("i32"), literal(0)));
 
   auto readers = {reader.get(), reader_without_i32.get(), reader_without_f64.get()};
   for (auto reader : readers) {
@@ -404,34 +410,37 @@ TEST_F(TestParquetFileFormat, PredicatePushdown) {
   auto source = GetFileSource(reader.get());
 
   opts_ = ScanOptions::Make(reader->schema());
+  schema_ = reader->schema();
   ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
 
-  opts_->filter = scalar(true);
+  SetFilter(literal(true));
   CountRowsAndBatchesInScan(fragment, kTotalNumRows, kNumRowGroups);
 
   for (int64_t i = 1; i <= kNumRowGroups; i++) {
-    opts_->filter = ("i64"_ == int64_t(i)).Copy();
+    SetFilter(equal(field_ref("i64"), literal(i)));
     CountRowsAndBatchesInScan(fragment, i, 1);
   }
 
   // Out of bound filters should skip all RowGroups.
-  opts_->filter = scalar(false);
+  SetFilter(literal(false));
   CountRowsAndBatchesInScan(fragment, 0, 0);
-  opts_->filter = ("i64"_ == int64_t(kNumRowGroups + 1)).Copy();
+  SetFilter(equal(field_ref("i64"), literal<int64_t>(kNumRowGroups + 1)));
   CountRowsAndBatchesInScan(fragment, 0, 0);
-  opts_->filter = ("i64"_ == int64_t(-1)).Copy();
+  SetFilter(equal(field_ref("i64"), literal<int64_t>(-1)));
   CountRowsAndBatchesInScan(fragment, 0, 0);
   // No rows match 1 and 2.
-  opts_->filter = ("i64"_ == int64_t(1) and "u8"_ == uint8_t(2)).Copy();
+  SetFilter(and_(equal(field_ref("i64"), literal<int64_t>(1)),
+                 equal(field_ref("u8"), literal<uint8_t>(2))));
   CountRowsAndBatchesInScan(fragment, 0, 0);
 
-  opts_->filter = ("i64"_ == int64_t(2) or "i64"_ == int64_t(4)).Copy();
+  SetFilter(or_(equal(field_ref("i64"), literal<int64_t>(2)),
+                equal(field_ref("i64"), literal<int64_t>(4))));
   CountRowsAndBatchesInScan(fragment, 2 + 4, 2);
 
-  opts_->filter = ("i64"_ < int64_t(6)).Copy();
+  SetFilter(less(field_ref("i64"), literal<int64_t>(6)));
   CountRowsAndBatchesInScan(fragment, 5 * (5 + 1) / 2, 5);
 
-  opts_->filter = ("i64"_ >= int64_t(6)).Copy();
+  SetFilter(greater_equal(field_ref("i64"), literal<int64_t>(6)));
   CountRowsAndBatchesInScan(fragment, kTotalNumRows - (5 * (5 + 1) / 2),
                             kNumRowGroups - 5);
 }
@@ -446,36 +455,45 @@ TEST_F(TestParquetFileFormat, PredicatePushdownRowGroupFragments) {
   ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
 
   auto all_row_groups = internal::Iota(static_cast<int>(kNumRowGroups));
-  CountRowGroupsInFragment(fragment, all_row_groups, *scalar(true));
-  CountRowGroupsInFragment(fragment, all_row_groups, "not here"_ == 0);
+  CountRowGroupsInFragment(fragment, all_row_groups, literal(true));
+
+  // FIXME this is only meaningful if "not here" is a virtual column
+  // CountRowGroupsInFragment(fragment, all_row_groups, "not here"_ == 0);
 
   for (int i = 0; i < kNumRowGroups; ++i) {
-    CountRowGroupsInFragment(fragment, {i}, "i64"_ == int64_t(i + 1));
+    CountRowGroupsInFragment(fragment, {i}, equal(field_ref("i64"), literal(i + 1)));
   }
 
   // Out of bound filters should skip all RowGroups.
-  CountRowGroupsInFragment(fragment, {}, *scalar(false));
-  CountRowGroupsInFragment(fragment, {}, "i64"_ == int64_t(kNumRowGroups + 1));
-  CountRowGroupsInFragment(fragment, {}, "i64"_ == int64_t(-1));
+  CountRowGroupsInFragment(fragment, {}, literal(false));
+  CountRowGroupsInFragment(fragment, {},
+                           equal(field_ref("i64"), literal(kNumRowGroups + 1)));
+  CountRowGroupsInFragment(fragment, {}, equal(field_ref("i64"), literal(-1)));
 
   // No rows match 1 and 2.
-  CountRowGroupsInFragment(fragment, {}, "i64"_ == int64_t(1) and "u8"_ == uint8_t(2));
-  CountRowGroupsInFragment(fragment, {}, "i64"_ == int64_t(2) and "i64"_ == int64_t(4));
+  CountRowGroupsInFragment(
+      fragment, {},
+      and_(equal(field_ref("i64"), literal(1)), equal(field_ref("u8"), literal(2))));
+  CountRowGroupsInFragment(
+      fragment, {},
+      and_(equal(field_ref("i64"), literal(2)), equal(field_ref("i64"), literal(4))));
 
-  CountRowGroupsInFragment(fragment, {1, 3},
-                           "i64"_ == int64_t(2) or "i64"_ == int64_t(4));
+  CountRowGroupsInFragment(
+      fragment, {1, 3},
+      or_(equal(field_ref("i64"), literal(2)), equal(field_ref("i64"), literal(4))));
 
   // TODO(bkietz): better Assume support for InExpression
   // auto set = ArrayFromJSON(int64(), "[2, 4]");
-  // CountRowGroupsInFragment(fragment, {1, 3}, "i64"_.In(set));
+  // CountRowGroupsInFragment(fragment, {1, 3}, field_ref("i64").In(set));
 
-  CountRowGroupsInFragment(fragment, {0, 1, 2, 3, 4}, "i64"_ < int64_t(6));
+  CountRowGroupsInFragment(fragment, {0, 1, 2, 3, 4}, less(field_ref("i64"), literal(6)));
 
   CountRowGroupsInFragment(fragment, internal::Iota(5, static_cast<int>(kNumRowGroups)),
-                           "i64"_ >= int64_t(6));
+                           greater_equal(field_ref("i64"), literal(6)));
 
   CountRowGroupsInFragment(fragment, {5, 6},
-                           "i64"_ >= int64_t(6) and "i64"_ < int64_t(8));
+                           and_(greater_equal(field_ref("i64"), literal(6)),
+                                less(field_ref("i64"), literal(8))));
 }
 
 TEST_F(TestParquetFileFormat, PredicatePushdownRowGroupFragmentsUsingStringColumn) {
@@ -492,7 +510,7 @@ TEST_F(TestParquetFileFormat, PredicatePushdownRowGroupFragmentsUsingStringColum
   opts_ = ScanOptions::Make(reader.schema());
   ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
 
-  CountRowGroupsInFragment(fragment, {0, 3}, "x"_ == "a");
+  CountRowGroupsInFragment(fragment, {0, 3}, equal(field_ref("x"), literal("a")));
 }
 
 TEST_F(TestParquetFileFormat, ExplicitRowGroupSelection) {
@@ -503,10 +521,12 @@ TEST_F(TestParquetFileFormat, ExplicitRowGroupSelection) {
   auto source = GetFileSource(reader.get());
 
   opts_ = ScanOptions::Make(reader->schema());
+  schema_ = reader->schema();
+  SetFilter(literal(true));
 
   auto row_groups_fragment = [&](std::vector<int> row_groups) {
     EXPECT_OK_AND_ASSIGN(auto fragment,
-                         format_->MakeFragment(*source, scalar(true),
+                         format_->MakeFragment(*source, literal(true),
                                                /*physical_schema=*/nullptr, row_groups));
     return fragment;
   };
@@ -514,7 +534,7 @@ TEST_F(TestParquetFileFormat, ExplicitRowGroupSelection) {
   // select all row groups
   EXPECT_OK_AND_ASSIGN(
       auto all_row_groups_fragment,
-      format_->MakeFragment(*source, scalar(true))
+      format_->MakeFragment(*source, literal(true))
           .Map([](std::shared_ptr<FileFragment> f) {
             return internal::checked_pointer_cast<ParquetFileFragment>(f);
           }));
@@ -532,17 +552,17 @@ TEST_F(TestParquetFileFormat, ExplicitRowGroupSelection) {
 
   for (int i = 0; i < kNumRowGroups; ++i) {
     // conflicting selection/filter
-    opts_->filter = ("i64"_ == int64_t(i)).Copy();
+    SetFilter(equal(field_ref("i64"), literal(i)));
     CountRowsAndBatchesInScan(row_groups_fragment({i}), 0, 0);
   }
 
   for (int i = 0; i < kNumRowGroups; ++i) {
     // identical selection/filter
-    opts_->filter = ("i64"_ == int64_t(i + 1)).Copy();
+    SetFilter(equal(field_ref("i64"), literal(i + 1)));
     CountRowsAndBatchesInScan(row_groups_fragment({i}), i + 1, 1);
   }
 
-  opts_->filter = ("i64"_ > int64_t(3)).Copy();
+  SetFilter(greater(field_ref("i64"), literal(3)));
   CountRowsAndBatchesInScan(row_groups_fragment({2, 3, 4, 5}), 4 + 5 + 6, 3);
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(

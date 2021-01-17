@@ -363,8 +363,8 @@ class PrepareTest < Test::Unit::TestCase
                      path: "rust/parquet_derive_test/Cargo.toml",
                      hunks: [
                        ["-version = \"#{@snapshot_version}\"",
-                        "+version = \"#{@release_version}\"",
-                        "-parquet = { path = \"../parquet\", version = \"#{@snapshot_version}\" }",
+                        "+version = \"#{@release_version}\""],
+                       ["-parquet = { path = \"../parquet\", version = \"#{@snapshot_version}\" }",
                         "-parquet_derive = { path = \"../parquet_derive\", version = \"#{@snapshot_version}\" }",
                         "+parquet = { path = \"../parquet\", version = \"#{@release_version}\" }",
                         "+parquet_derive = { path = \"../parquet_derive\", version = \"#{@release_version}\" }"],
@@ -610,8 +610,8 @@ class PrepareTest < Test::Unit::TestCase
                      path: "rust/parquet_derive_test/Cargo.toml",
                      hunks: [
                        ["-version = \"#{@release_version}\"",
-                        "+version = \"#{@next_snapshot_version}\"",
-                        "-parquet = { path = \"../parquet\", version = \"#{@release_version}\" }",
+                        "+version = \"#{@next_snapshot_version}\""],
+                       ["-parquet = { path = \"../parquet\", version = \"#{@release_version}\" }",
                         "-parquet_derive = { path = \"../parquet_derive\", version = \"#{@release_version}\" }",
                         "+parquet = { path = \"../parquet\", version = \"#{@next_snapshot_version}\" }",
                         "+parquet_derive = { path = \"../parquet_derive\", version = \"#{@next_snapshot_version}\" }"],

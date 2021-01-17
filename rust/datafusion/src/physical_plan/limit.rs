@@ -57,6 +57,16 @@ impl GlobalLimitExec {
             concurrency,
         }
     }
+
+    /// Input execution plan
+    pub fn input(&self) -> &Arc<dyn ExecutionPlan> {
+        &self.input
+    }
+
+    /// Maximum number of rows to return
+    pub fn limit(&self) -> usize {
+        self.limit
+    }
 }
 
 #[async_trait]
@@ -123,7 +133,9 @@ impl ExecutionPlan for GlobalLimitExec {
 /// LocalLimitExec applies a limit to a single partition
 #[derive(Debug)]
 pub struct LocalLimitExec {
+    /// Input execution plan
     input: Arc<dyn ExecutionPlan>,
+    /// Maximum number of rows to return
     limit: usize,
 }
 
@@ -131,6 +143,16 @@ impl LocalLimitExec {
     /// Create a new LocalLimitExec partition
     pub fn new(input: Arc<dyn ExecutionPlan>, limit: usize) -> Self {
         Self { input, limit }
+    }
+
+    /// Input execution plan
+    pub fn input(&self) -> &Arc<dyn ExecutionPlan> {
+        &self.input
+    }
+
+    /// Maximum number of rows to return
+    pub fn limit(&self) -> usize {
+        self.limit
     }
 }
 

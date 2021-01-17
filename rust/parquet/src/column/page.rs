@@ -93,7 +93,7 @@ impl Page {
         }
     }
 
-    /// Returns optional [`Statistics`](crate::file::metadata::Statistics).
+    /// Returns optional [`Statistics`](crate::file::statistics::Statistics).
     pub fn statistics(&self) -> Option<&Statistics> {
         match self {
             Page::DataPage { ref statistics, .. } => statistics.as_ref(),

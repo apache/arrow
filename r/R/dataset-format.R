@@ -42,7 +42,9 @@
 #'
 #'   `format = "text"`: see [CsvReadOptions]. Note that you can specify them either
 #'   with the Arrow C++ library naming ("delimiter", "quoting", etc.) or the
-#'   `readr`-style naming used in [read_csv_arrow()] ("delim", "quote", etc.)
+#'   `readr`-style naming used in [read_csv_arrow()] ("delim", "quote", etc.).
+#'   Not all `readr` options are currently supported; please file an issue if
+#'   you encounter one that `arrow` should support.
 #'
 #' It returns the appropriate subclass of `FileFormat` (e.g. `ParquetFileFormat`)
 #' @rdname FileFormat
@@ -103,13 +105,67 @@ CsvFileFormat$create <- function(..., opts = csv_file_format_parse_options(...))
   dataset___CsvFileFormat__Make(opts)
 }
 
+# Support both readr-style option names and Arrow C++ option names
 csv_file_format_parse_options <- function(...) {
-  # Support both the readr spelling of options and the arrow spelling
-  readr_opts <- c("delim", "quote", "escape_double", "escape_backslash", "skip_empty_rows")
-  if (any(readr_opts %in% names(list(...)))) {
-    readr_to_csv_parse_options(...)
+  opt_names <- names(list(...))
+  # Catch any readr-style options specified with full option names that are
+  # supported by read_delim_arrow() (and its wrappers) but are not yet
+  # supported here
+  unsup_readr_opts <- setdiff(
+    names(formals(read_delim_arrow)),
+    names(formals(readr_to_csv_parse_options))
+  )
+  is_unsup_opt <- opt_names %in% unsup_readr_opts
+  unsup_opts <- opt_names[is_unsup_opt]
+  if (length(unsup_opts)) {
+    stop(
+      "The following ",
+      ngettext(length(unsup_opts), "option is ", "options are "),
+      "supported in \"read_delim_arrow\" functions ",
+      "but not yet supported here: ",
+      oxford_paste(unsup_opts),
+      call. = FALSE
+    )
+  }
+  # Catch any options with full or partial names that do not match any of the
+  # recognized Arrow C++ option names or readr-style option names
+  arrow_opts <- names(formals(CsvParseOptions$create))
+  readr_opts <- names(formals(readr_to_csv_parse_options))
+  is_arrow_opt <- !is.na(pmatch(opt_names, arrow_opts))
+  is_readr_opt <- !is.na(pmatch(opt_names, readr_opts))
+  unrec_opts <- opt_names[!is_arrow_opt & !is_readr_opt]
+  if (length(unrec_opts)) {
+    stop(
+      "Unrecognized ",
+      ngettext(length(unrec_opts), "option", "options"),
+      ": ",
+      oxford_paste(unrec_opts),
+      call. = FALSE
+    )
+  }
+  # Catch options with ambiguous partial names (such as "del") that make it
+  # unclear whether the user is specifying Arrow C++ options ("delimiter") or
+  # readr-style options ("delim")
+  is_ambig_opt <- is.na(pmatch(opt_names, c(arrow_opts, readr_opts)))
+  ambig_opts <- opt_names[is_ambig_opt]
+  if (length(ambig_opts)) {
+    stop("Ambiguous ",
+         ngettext(length(ambig_opts), "option", "options"),
+         ": ",
+         oxford_paste(ambig_opts),
+         ". Use full argument names",
+         call. = FALSE)
+  }
+  if (any(is_readr_opt)) {
+    # Catch cases when the user specifies a mix of Arrow C++ options and
+    # readr-style options
+    if (!all(is_readr_opt)) {
+      stop("Use either Arrow parse options or readr parse options, not both",
+           call. = FALSE)
+    }
+    readr_to_csv_parse_options(...) # all options have readr-style names
   } else {
-    CsvParseOptions$create(...)
+    CsvParseOptions$create(...) # all options have Arrow C++ names
   }
 }
 

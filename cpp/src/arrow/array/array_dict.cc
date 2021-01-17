@@ -29,6 +29,7 @@
 #include "arrow/array/dict_internal.h"
 #include "arrow/array/util.h"
 #include "arrow/buffer.h"
+#include "arrow/datum.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
@@ -196,6 +197,23 @@ class DictionaryUnifierImpl : public DictionaryUnifier {
     }
     // Build unified dictionary type with the right index type
     *out_type = arrow::dictionary(index_type, value_type_);
+
+    // Build unified dictionary array
+    std::shared_ptr<ArrayData> data;
+    RETURN_NOT_OK(DictTraits::GetDictionaryArrayData(pool_, value_type_, memo_table_,
+                                                     0 /* start_offset */, &data));
+    *out_dict = MakeArray(data);
+    return Status::OK();
+  }
+
+  Status GetResultWithIndexType(std::shared_ptr<DataType> index_type,
+                                std::shared_ptr<Array>* out_dict) override {
+    int64_t dict_length = memo_table_.size();
+    if (!internal::IntegersCanFit(Datum(dict_length), *index_type).ok()) {
+      return Status::Invalid(
+          "These dictionaries cannot be combined.  The unified dictionary requires a "
+          "larger index type.");
+    }
 
     // Build unified dictionary array
     std::shared_ptr<ArrayData> data;

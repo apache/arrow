@@ -55,7 +55,7 @@ class TestScanner : public DatasetFixtureMixin {
     // structures of the scanner, i.e. Scanner[Dataset[ScanTask[RecordBatch]]]
     AssertScannerEquals(expected.get(), &scanner);
   }
-};  // namespace dataset
+};
 
 constexpr int64_t TestScanner::kNumberChildDatasets;
 constexpr int64_t TestScanner::kNumberBatches;
@@ -88,8 +88,7 @@ TEST_F(TestScanner, FilteredScan) {
                                                  value += 1.0;
                                                }));
 
-  options_->filter = ("f64"_ > 0.0).Copy();
-  options_->evaluator = std::make_shared<TreeEvaluator>();
+  SetFilter(greater(field_ref("f64"), literal(0.0)));
 
   auto batch = RecordBatch::Make(schema_, f64->length(), {f64});
 
@@ -148,7 +147,7 @@ TEST_F(TestScanner, ToTable) {
 }
 
 class TestScannerBuilder : public ::testing::Test {
-  void SetUp() {
+  void SetUp() override {
     DatasetVector sources;
 
     schema_ = schema({
@@ -163,7 +162,7 @@ class TestScannerBuilder : public ::testing::Test {
   }
 
  protected:
-  std::shared_ptr<ScanContext> ctx_;
+  std::shared_ptr<ScanContext> ctx_ = std::make_shared<ScanContext>();
   std::shared_ptr<Schema> schema_;
   std::shared_ptr<Dataset> dataset_;
 };
@@ -184,14 +183,18 @@ TEST_F(TestScannerBuilder, TestProject) {
 TEST_F(TestScannerBuilder, TestFilter) {
   ScannerBuilder builder(dataset_, ctx_);
 
-  ASSERT_OK(builder.Filter(scalar(true)));
-  ASSERT_OK(builder.Filter("i64"_ == int64_t(10)));
-  ASSERT_OK(builder.Filter("i64"_ == int64_t(10) || "b"_ == true));
+  ASSERT_OK(builder.Filter(literal(true)));
+  ASSERT_OK(builder.Filter(equal(field_ref("i64"), literal<int64_t>(10))));
+  ASSERT_OK(builder.Filter(or_(equal(field_ref("i64"), literal<int64_t>(10)),
+                               equal(field_ref("b"), literal(true)))));
 
-  ASSERT_RAISES(TypeError, builder.Filter("i64"_ == int32_t(10)));
-  ASSERT_RAISES(Invalid, builder.Filter("not_a_column"_ == true));
+  ASSERT_OK(builder.Filter(equal(field_ref("i64"), literal<double>(10))));
+
+  ASSERT_RAISES(Invalid, builder.Filter(equal(field_ref("not_a_column"), literal(true))));
+
   ASSERT_RAISES(Invalid,
-                builder.Filter("i64"_ == int64_t(10) || "not_a_column"_ == true));
+                builder.Filter(or_(equal(field_ref("i64"), literal<int64_t>(10)),
+                                   equal(field_ref("not_a_column"), literal(true)))));
 }
 
 using testing::ElementsAre;
@@ -204,7 +207,7 @@ TEST(ScanOptions, TestMaterializedFields) {
   auto opts = ScanOptions::Make(schema({}));
   EXPECT_THAT(opts->MaterializedFields(), IsEmpty());
 
-  opts->filter = ("i32"_ == 10).Copy();
+  opts->filter = equal(field_ref("i32"), literal(10));
   EXPECT_THAT(opts->MaterializedFields(), ElementsAre("i32"));
 
   opts = ScanOptions::Make(schema({i32, i64}));
@@ -213,10 +216,10 @@ TEST(ScanOptions, TestMaterializedFields) {
   opts = opts->ReplaceSchema(schema({i32}));
   EXPECT_THAT(opts->MaterializedFields(), ElementsAre("i32"));
 
-  opts->filter = ("i32"_ == 10).Copy();
+  opts->filter = equal(field_ref("i32"), literal(10));
   EXPECT_THAT(opts->MaterializedFields(), ElementsAre("i32", "i32"));
 
-  opts->filter = ("i64"_ == 10).Copy();
+  opts->filter = equal(field_ref("i64"), literal(10));
   EXPECT_THAT(opts->MaterializedFields(), ElementsAre("i32", "i64"));
 }
 

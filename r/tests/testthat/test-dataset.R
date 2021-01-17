@@ -44,7 +44,7 @@ df1 <- tibble(
 second_date <- lubridate::ymd_hms("2017-03-09 07:01:02")
 df2 <- tibble(
   int = 101:110,
-  dbl = as.numeric(51:60),
+  dbl = c(as.numeric(51:59), NaN),
   lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
   chr = letters[10:1],
   fct = factor(LETTERS[10:1]),
@@ -303,11 +303,65 @@ test_that("Other text delimited dataset", {
       filter(integer > 6) %>%
       summarize(mean = mean(integer))
   )
+})
 
-  # Now with readr option spelling (and omitting format = "text")
-  ds3 <- open_dataset(tsv_dir, partitioning = "part", delim = "\t")
+test_that("readr parse options", {
+  arrow_opts <- names(formals(CsvParseOptions$create))
+  readr_opts <- names(formals(readr_to_csv_parse_options))
+
+  # Arrow and readr parse options must be mutually exclusive, or else the code
+  # in `csv_file_format_parse_options()` will error or behave incorrectly. A
+  # failure of this test indicates that these two sets of option names are not
+  # mutually exclusive.
+  expect_equal(
+    intersect(arrow_opts, readr_opts),
+    character(0)
+  )
+
+  # With not yet supported readr parse options (ARROW-8631)
+  expect_error(
+    open_dataset(tsv_dir, partitioning = "part", delim = "\t", na = "\\N"),
+    "supported"
+  )
+
+  # With unrecognized (garbage) parse options
+  expect_error(
+    open_dataset(
+      tsv_dir,
+      partitioning = "part",
+      format = "text",
+      asdfg = "\\"
+    ),
+    "Unrecognized"
+  )
+
+  # With both Arrow and readr parse options (disallowed)
+  expect_error(
+    open_dataset(
+      tsv_dir,
+      partitioning = "part",
+      format = "text",
+      quote = "\"",
+      quoting = TRUE
+    ),
+    "either"
+  )
+
+  # With ambiguous partial option names (disallowed)
+  expect_error(
+    open_dataset(
+      tsv_dir,
+      partitioning = "part",
+      format = "text",
+      quo = "\"",
+    ),
+    "Ambiguous"
+  )
+
+  # With only readr parse options (and omitting format = "text")
+  ds1 <- open_dataset(tsv_dir, partitioning = "part", delim = "\t")
   expect_equivalent(
-    ds3 %>%
+    ds1 %>%
       select(string = chr, integer = int, part) %>%
       filter(integer > 6 & part == 5) %>%
       collect() %>%
@@ -417,6 +471,17 @@ test_that("filter() with is.na()", {
   )
 })
 
+test_that("filter() with is.nan()", {
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
+  expect_equivalent(
+    ds %>%
+      select(part, dbl) %>%
+      filter(!is.nan(dbl), part == 2) %>%
+      collect(),
+    tibble(part = 2L, dbl = df2$dbl[!is.nan(df2$dbl)])
+  )
+})
+
 test_that("filter() with %in%", {
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
   expect_equivalent(
@@ -523,12 +588,119 @@ test_that("filter() on date32 columns", {
   )
 })
 
+test_that("filter() with expressions", {
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
+  expect_is(ds$format, "ParquetFileFormat")
+  expect_is(ds$filesystem, "LocalFileSystem")
+  expect_is(ds, "Dataset")
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl) %>%
+      filter(dbl * 2 > 14 & dbl - 50 < 3L) %>%
+      collect() %>%
+      arrange(dbl),
+    rbind(
+      df1[8:10, c("chr", "dbl")],
+      df2[1:2, c("chr", "dbl")]
+    )
+  )
+
+  # check division's special casing.
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl) %>%
+      filter(dbl / 2 > 3.5 & dbl < 53) %>%
+      collect() %>%
+      arrange(dbl),
+    rbind(
+      df1[8:10, c("chr", "dbl")],
+      df2[1:2, c("chr", "dbl")]
+    )
+  )
+
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl, int) %>%
+      filter(int %/% 2L > 3 & dbl < 53) %>%
+      collect() %>%
+      arrange(dbl),
+    rbind(
+      df1[8:10, c("chr", "dbl", "int")],
+      df2[1:2, c("chr", "dbl", "int")]
+    )
+  )
+
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl, int) %>%
+      filter(int %/% 2 > 3 & dbl < 53) %>%
+      collect() %>%
+      arrange(dbl),
+    rbind(
+      df1[8:10, c("chr", "dbl", "int")],
+      df2[1:2, c("chr", "dbl", "int")]
+    )
+  )
+
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl, int) %>%
+      filter(int %% 2L > 0 & dbl < 53) %>%
+      collect() %>%
+      arrange(dbl),
+    rbind(
+      df1[c(1, 3, 5, 7, 9), c("chr", "dbl", "int")],
+      df2[1, c("chr", "dbl", "int")]
+    )
+  )
+
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl, int) %>%
+      filter(int %% 2L > 0 & dbl < 53) %>%
+      collect() %>%
+      arrange(dbl),
+    rbind(
+      df1[c(1, 3, 5, 7, 9), c("chr", "dbl", "int")],
+      df2[1, c("chr", "dbl", "int")]
+    )
+  )
+
+  skip("Implicit casts aren't being inserted everywhere they need to be (ARROW-8919)")
+  # Error: NotImplemented: Function multiply_checked has no kernel matching input types (scalar[double], array[int32])
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl, int) %>%
+      filter(int %% 2 > 0 & dbl < 53) %>%
+      collect() %>%
+      arrange(dbl),
+    rbind(
+      df1[c(1, 3, 5, 7, 9), c("chr", "dbl", "int")],
+      df2[1, c("chr", "dbl", "int")]
+    )
+  )
+
+  skip("Implicit casts are only inserted for scalars (ARROW-8919)")
+  # Error: NotImplemented: Function add_checked has no kernel matching input types (array[double], array[int32])
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl, int) %>%
+      filter(dbl + int > 15 & dbl < 53L) %>%
+      collect() %>%
+      arrange(dbl),
+    rbind(
+      df1[8:10, c("chr", "dbl", "int")],
+      df2[1:2, c("chr", "dbl", "int")]
+    )
+  )
+})
+
 test_that("filter scalar validation doesn't crash (ARROW-7772)", {
   expect_error(
     ds %>%
       filter(int == "fff", part == 1) %>%
       collect(),
-    "error parsing 'fff' as scalar of type int32"
+    "Failed to parse string: 'fff' as a scalar of type int32"
   )
 })
 
@@ -683,7 +855,7 @@ test_that("Dataset and query print methods", {
       "lgl: bool",
       "integer: int32",
       "",
-      "* Filter: (int == 6:double)",
+      "* Filter: (int == 6)",
       "* Grouped by lgl",
       "See $.data for the source Arrow object",
       sep = "\n"

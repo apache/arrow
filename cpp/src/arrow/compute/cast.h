@@ -42,15 +42,7 @@ class ExecContext;
 /// @{
 
 struct ARROW_EXPORT CastOptions : public FunctionOptions {
-  CastOptions()
-      : allow_int_overflow(false),
-        allow_time_truncate(false),
-        allow_time_overflow(false),
-        allow_decimal_truncate(false),
-        allow_float_truncate(false),
-        allow_invalid_utf8(false) {}
-
-  explicit CastOptions(bool safe)
+  explicit CastOptions(bool safe = true)
       : allow_int_overflow(!safe),
         allow_time_truncate(!safe),
         allow_time_overflow(!safe),
@@ -58,9 +50,17 @@ struct ARROW_EXPORT CastOptions : public FunctionOptions {
         allow_float_truncate(!safe),
         allow_invalid_utf8(!safe) {}
 
-  static CastOptions Safe() { return CastOptions(true); }
+  static CastOptions Safe(std::shared_ptr<DataType> to_type = NULLPTR) {
+    CastOptions safe(true);
+    safe.to_type = std::move(to_type);
+    return safe;
+  }
 
-  static CastOptions Unsafe() { return CastOptions(false); }
+  static CastOptions Unsafe(std::shared_ptr<DataType> to_type = NULLPTR) {
+    CastOptions unsafe(false);
+    unsafe.to_type = std::move(to_type);
+    return unsafe;
+  }
 
   // Type being casted to. May be passed separate to eager function
   // compute::Cast
@@ -83,7 +83,7 @@ struct ARROW_EXPORT CastOptions : public FunctionOptions {
 class CastFunction : public ScalarFunction {
  public:
   CastFunction(std::string name, Type::type out_type);
-  ~CastFunction();
+  ~CastFunction() override;
 
   Type::type out_type_id() const;
 

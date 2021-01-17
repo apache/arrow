@@ -63,3 +63,18 @@ class TestCase(unittest.TestCase):
         del b
         # No leak of C++ memory
         self.assertEqual(old_allocated, pyarrow.total_allocated_bytes())
+
+    def test_time32_python(self):
+        """
+        Python -> Rust -> Python
+        """
+        old_allocated = pyarrow.total_allocated_bytes()
+        a = pyarrow.array([None, 1, 2], pyarrow.time32('s'))
+        b = arrow_pyarrow_integration_testing.concatenate(a)
+        expected = pyarrow.array([None, 1, 2] + [None, 1, 2], pyarrow.time32('s'))
+        self.assertEqual(b, expected)
+        del a
+        del b
+        del expected
+        # No leak of C++ memory
+        self.assertEqual(old_allocated, pyarrow.total_allocated_bytes())

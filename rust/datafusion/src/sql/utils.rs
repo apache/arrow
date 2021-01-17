@@ -100,6 +100,20 @@ where
                 matches.extend(find_exprs_in_expr(right.as_ref(), test_fn));
                 matches
             }
+            Expr::InList {
+                expr: nested_expr,
+                list,
+                ..
+            } => {
+                let mut matches = vec![];
+                matches.extend(find_exprs_in_expr(nested_expr.as_ref(), test_fn));
+                matches.extend(
+                    list.iter()
+                        .flat_map(|expr| find_exprs_in_expr(expr, test_fn))
+                        .collect::<Vec<Expr>>(),
+                );
+                matches
+            }
             Expr::Case {
                 expr: case_expr_opt,
                 when_then_expr,
@@ -276,6 +290,18 @@ where
                 negated: *negated,
                 low: Box::new(clone_with_replacement(&**low, replacement_fn)?),
                 high: Box::new(clone_with_replacement(&**high, replacement_fn)?),
+            }),
+            Expr::InList {
+                expr: nested_expr,
+                list,
+                negated,
+            } => Ok(Expr::InList {
+                expr: Box::new(clone_with_replacement(&**nested_expr, replacement_fn)?),
+                list: list
+                    .iter()
+                    .map(|e| clone_with_replacement(e, replacement_fn))
+                    .collect::<Result<Vec<Expr>>>()?,
+                negated: *negated,
             }),
             Expr::BinaryExpr { left, right, op } => Ok(Expr::BinaryExpr {
                 left: Box::new(clone_with_replacement(&**left, replacement_fn)?),

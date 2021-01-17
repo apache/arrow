@@ -21,6 +21,11 @@ class TestBinaryDataType < Test::Unit::TestCase
     assert_equal(Arrow::Type::BINARY, data_type.id)
   end
 
+  def test_name
+    data_type = Arrow::BinaryDataType.new
+    assert_equal("binary", data_type.name)
+  end
+
   def test_to_s
     data_type = Arrow::BinaryDataType.new
     assert_equal("binary", data_type.to_s)

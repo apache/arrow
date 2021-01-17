@@ -89,3 +89,5 @@ macro_rules! string_unary_function {
 string_unary_function!(lower, to_ascii_lowercase);
 string_unary_function!(upper, to_ascii_uppercase);
 string_unary_function!(trim, trim);
+string_unary_function!(ltrim, trim_start);
+string_unary_function!(rtrim, trim_end);

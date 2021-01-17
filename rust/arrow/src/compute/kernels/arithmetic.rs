@@ -35,9 +35,9 @@ use crate::datatypes;
 use crate::datatypes::{ArrowNumericType, ToByteSlice};
 use crate::error::{ArrowError, Result};
 use crate::{array::*, util::bit_util};
-#[cfg(simd_x86)]
+#[cfg(simd)]
 use std::borrow::BorrowMut;
-#[cfg(simd_x86)]
+#[cfg(simd)]
 use std::slice::{ChunksExact, ChunksExactMut};
 
 /// Helper function to perform math lambda function on values from single array of signed numeric
@@ -70,7 +70,7 @@ where
 }
 
 /// SIMD vectorized version of `signed_unary_math_op` above.
-#[cfg(simd_x86)]
+#[cfg(simd)]
 fn simd_signed_unary_math_op<T, SIMD_OP, SCALAR_OP>(
     array: &PrimitiveArray<T>,
     simd_op: SIMD_OP,
@@ -227,7 +227,7 @@ where
 }
 
 /// SIMD vectorized version of `math_op` above.
-#[cfg(simd_x86)]
+#[cfg(simd)]
 fn simd_math_op<T, SIMD_OP, SCALAR_OP>(
     left: &PrimitiveArray<T>,
     right: &PrimitiveArray<T>,
@@ -292,7 +292,7 @@ where
 /// SIMD vectorized implementation of `left / right`.
 /// If any of the lanes marked as valid in `valid_mask` are `0` then an `ArrowError::DivideByZero`
 /// is returned. The contents of no-valid lanes are undefined.
-#[cfg(simd_x86)]
+#[cfg(simd)]
 #[inline]
 fn simd_checked_divide<T: ArrowNumericType>(
     valid_mask: Option<u64>,
@@ -325,7 +325,7 @@ where
 
 /// Scalar implementation of `left / right` for the remainder elements after complete chunks have been processed using SIMD.
 /// If any of the values marked as valid in `valid_mask` are `0` then an `ArrowError::DivideByZero` is returned.
-#[cfg(simd_x86)]
+#[cfg(simd)]
 #[inline]
 fn simd_checked_divide_remainder<T: ArrowNumericType>(
     valid_mask: Option<u64>,
@@ -360,7 +360,7 @@ where
 /// SIMD vectorized version of `divide`, the divide kernel needs it's own implementation as there
 /// is a need to handle situations where a divide by `0` occurs.  This is complicated by `NULL`
 /// slots and padding.
-#[cfg(simd_x86)]
+#[cfg(simd)]
 fn simd_divide<T>(
     left: &PrimitiveArray<T>,
     right: &PrimitiveArray<T>,
@@ -490,9 +490,9 @@ where
         + Div<Output = T::Native>
         + Zero,
 {
-    #[cfg(simd_x86)]
+    #[cfg(simd)]
     return simd_math_op(&left, &right, |a, b| a + b, |a, b| a + b);
-    #[cfg(not(simd_x86))]
+    #[cfg(not(simd))]
     return math_op(left, right, |a, b| a + b);
 }
 
@@ -510,9 +510,9 @@ where
         + Div<Output = T::Native>
         + Zero,
 {
-    #[cfg(simd_x86)]
+    #[cfg(simd)]
     return simd_math_op(&left, &right, |a, b| a - b, |a, b| a - b);
-    #[cfg(not(simd_x86))]
+    #[cfg(not(simd))]
     return math_op(left, right, |a, b| a - b);
 }
 
@@ -522,9 +522,9 @@ where
     T: datatypes::ArrowSignedNumericType,
     T::Native: Neg<Output = T::Native>,
 {
-    #[cfg(simd_x86)]
+    #[cfg(simd)]
     return simd_signed_unary_math_op(array, |x| -x, |x| -x);
-    #[cfg(not(simd_x86))]
+    #[cfg(not(simd))]
     return signed_unary_math_op(array, |x| -x);
 }
 
@@ -542,9 +542,9 @@ where
         + Div<Output = T::Native>
         + Zero,
 {
-    #[cfg(simd_x86)]
+    #[cfg(simd)]
     return simd_math_op(&left, &right, |a, b| a * b, |a, b| a * b);
-    #[cfg(not(simd_x86))]
+    #[cfg(not(simd))]
     return math_op(left, right, |a, b| a * b);
 }
 
@@ -564,9 +564,9 @@ where
         + Zero
         + One,
 {
-    #[cfg(simd_x86)]
+    #[cfg(simd)]
     return simd_divide(&left, &right);
-    #[cfg(not(simd_x86))]
+    #[cfg(not(simd))]
     return math_divide(&left, &right);
 }
 

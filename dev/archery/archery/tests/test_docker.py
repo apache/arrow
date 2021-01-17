@@ -41,17 +41,17 @@ x-hierarchy:
 
 services:
   foo:
-    image: dummy
+    image: org/foo
   sub-sub-foo:
-    image: dummy
+    image: org/sub-sub-foo
   another-sub-sub-foo:
-    image: dummy
+    image: org/another-sub-sub-foo
   bar:
-    image: dummy
+    image: org/bar
   sub-bar:
-    image: dummy
+    image: org/sub-bar
   baz:
-    image: dummy
+    image: org/baz
 """
 
 missing_node_compose_yml = """
@@ -67,19 +67,19 @@ x-hierarchy:
 
 services:
   foo:
-    image: dummy
+    image: org/foo
   sub-foo:
-    image: dummy
+    image: org/sub-foo
   sub-sub-foo:
-    image: dummy
+    image: org/sub-foo-foo
   another-sub-sub-foo:
-    image: dummy
+    image: org/another-sub-sub-foo
   bar:
-    image: dummy
+    image: org/bar
   sub-bar:
-    image: dummy
+    image: org/sub-bar
   baz:
-    image: dummy
+    image: org/baz
 """
 
 ok_compose_yml = """
@@ -96,19 +96,19 @@ x-hierarchy:
 
 services:
   foo:
-    image: dummy
+    image: org/foo
   sub-foo:
-    image: dummy
+    image: org/sub-foo
   sub-sub-foo:
-    image: dummy
+    image: org/sub-sub-foo
   another-sub-sub-foo:
-    image: dummy
+    image: org/another-sub-sub-foo
   bar:
-    image: dummy
+    image: org/bar
   sub-bar:
-    image: dummy
+    image: org/sub-bar
   baz:
-    image: dummy
+    image: org/baz
 """
 
 arrow_compose_yml = """
@@ -130,23 +130,23 @@ x-hierarchy:
 
 services:
   conda-cpp:
-    image: dummy
+    image: org/conda-cpp
   conda-python:
-    image: dummy
+    image: org/conda-python
   conda-python-pandas:
-    image: dummy
+    image: org/conda-python-pandas
   conda-python-dask:
-    image: dummy
+    image: org/conda-python-dask
   ubuntu-cpp:
-    image: dummy
+    image: org/ubuntu-cpp
   ubuntu-cpp-cmake32:
-    image: dummy
+    image: org/ubuntu-cpp-cmake32
   ubuntu-c-glib:
-    image: dummy
+    image: org/ubuntu-c-glib
   ubuntu-ruby:
-    image: dummy
+    image: org/ubuntu-ruby
   ubuntu-cuda:
-    image: dummy-cuda
+    image: org/ubuntu-cuda
     environment:
       CUDA_ENV: 1
       OTHER_ENV: 2
@@ -217,7 +217,7 @@ def assert_docker_calls(compose, expected_args):
 
 
 def assert_compose_calls(compose, expected_args, env=mock.ANY):
-    base_command = ['docker-compose', '--file', str(compose.config_path)]
+    base_command = ['docker-compose', '--file', str(compose.config.path)]
     expected_commands = []
     for args in expected_args:
         if isinstance(args, str):
@@ -235,8 +235,8 @@ def test_compose_default_params_and_env(arrow_compose_path):
         UBUNTU='18.04',
         DASK='master'
     ))
-    assert compose.dotenv == arrow_compose_env
-    assert compose.params == {
+    assert compose.config.dotenv == arrow_compose_env
+    assert compose.config.params == {
         'UBUNTU': '18.04',
         'DASK': 'master',
     }
@@ -267,6 +267,7 @@ def test_compose_pull(arrow_compose_path):
         "pull --ignore-pull-failures conda-cpp",
     ]
     with assert_compose_calls(compose, expected_calls):
+        compose.clear_pull_memory()
         compose.pull('conda-cpp')
 
     expected_calls = [
@@ -275,6 +276,7 @@ def test_compose_pull(arrow_compose_path):
         "pull --ignore-pull-failures conda-python-pandas"
     ]
     with assert_compose_calls(compose, expected_calls):
+        compose.clear_pull_memory()
         compose.pull('conda-python-pandas')
 
     expected_calls = [
@@ -282,6 +284,7 @@ def test_compose_pull(arrow_compose_path):
         "pull --ignore-pull-failures conda-python",
     ]
     with assert_compose_calls(compose, expected_calls):
+        compose.clear_pull_memory()
         compose.pull('conda-python-pandas', pull_leaf=False)
 
 
@@ -293,6 +296,7 @@ def test_compose_pull_params(arrow_compose_path):
     compose = DockerCompose(arrow_compose_path, params=dict(UBUNTU='18.04'))
     expected_env = PartialEnv(PYTHON='3.6', PANDAS='latest')
     with assert_compose_calls(compose, expected_calls, env=expected_env):
+        compose.clear_pull_memory()
         compose.pull('conda-python-pandas', pull_leaf=False)
 
 
@@ -419,57 +423,6 @@ def test_compose_run(arrow_compose_path):
         compose.run('conda-python', volumes=volumes)
 
 
-def test_compose_run_force_pull_and_build(arrow_compose_path):
-    compose = DockerCompose(arrow_compose_path)
-
-    expected_calls = [
-        "pull --ignore-pull-failures conda-cpp",
-        format_run("conda-cpp")
-    ]
-    with assert_compose_calls(compose, expected_calls):
-        compose.run('conda-cpp', force_pull=True)
-
-    expected_calls = [
-        "build conda-cpp",
-        format_run("conda-cpp")
-    ]
-    with assert_compose_calls(compose, expected_calls):
-        compose.run('conda-cpp', force_build=True)
-
-    expected_calls = [
-        "pull --ignore-pull-failures conda-cpp",
-        "build conda-cpp",
-        format_run("conda-cpp")
-    ]
-    with assert_compose_calls(compose, expected_calls):
-        compose.run('conda-cpp', force_pull=True, force_build=True)
-
-    expected_calls = [
-        "pull --ignore-pull-failures conda-cpp",
-        "pull --ignore-pull-failures conda-python",
-        "pull --ignore-pull-failures conda-python-pandas",
-        "build conda-cpp",
-        "build conda-python",
-        "build conda-python-pandas",
-        format_run("conda-python-pandas bash")
-    ]
-    with assert_compose_calls(compose, expected_calls):
-        compose.run('conda-python-pandas', command='bash', force_build=True,
-                    force_pull=True)
-
-    expected_calls = [
-        "pull --ignore-pull-failures conda-cpp",
-        "pull --ignore-pull-failures conda-python",
-        "build conda-cpp",
-        "build conda-python",
-        "build --no-cache conda-python-pandas",
-        format_run("conda-python-pandas bash")
-    ]
-    with assert_compose_calls(compose, expected_calls):
-        compose.run('conda-python-pandas', command='bash', force_build=True,
-                    force_pull=True, use_leaf_cache=False)
-
-
 def test_compose_push(arrow_compose_path):
     compose = DockerCompose(arrow_compose_path, params=dict(PYTHON='3.8'))
     expected_env = PartialEnv(PYTHON="3.8")
@@ -478,7 +431,7 @@ def test_compose_push(arrow_compose_path):
     ]
     for image in ["conda-cpp", "conda-python", "conda-python-pandas"]:
         expected_calls.append(
-            mock.call(["docker-compose", "--file", str(compose.config_path),
+            mock.call(["docker-compose", "--file", str(compose.config.path),
                        "push", image], check=True, env=expected_env)
         )
     with assert_subprocess_calls(expected_calls):
@@ -507,16 +460,16 @@ def test_image_with_gpu(arrow_compose_path):
 
     expected_calls = [
         [
-            "run", "--rm", "-it", "--gpus", "all",
+            "run", "--rm", "--gpus", "all",
             "-e", "CUDA_ENV=1",
             "-e", "OTHER_ENV=2",
             "-v", "/host:/container:rw",
-            "dummy-cuda",
+            "org/ubuntu-cuda",
             "/bin/bash", "-c", "echo 1 > /tmp/dummy && cat /tmp/dummy"
         ]
     ]
     with assert_docker_calls(compose, expected_calls):
-        compose.run('ubuntu-cuda', force_pull=False, force_build=False)
+        compose.run('ubuntu-cuda')
 
 
 def test_listing_images(arrow_compose_path):

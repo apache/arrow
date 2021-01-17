@@ -92,8 +92,9 @@ Status ParseHexValue(const char* data, uint8_t* out) {
 
 namespace internal {
 
-std::string JoinStrings(const std::vector<util::string_view>& strings,
-                        util::string_view delimiter) {
+template <typename StringLike>
+static std::string JoinStringLikes(const std::vector<StringLike>& strings,
+                                   util::string_view delimiter) {
   if (strings.size() == 0) {
     return "";
   }
@@ -105,7 +106,17 @@ std::string JoinStrings(const std::vector<util::string_view>& strings,
   return out;
 }
 
-constexpr bool IsWhitespace(char c) { return c == ' ' || c == '\t'; }
+std::string JoinStrings(const std::vector<util::string_view>& strings,
+                        util::string_view delimiter) {
+  return JoinStringLikes(strings, delimiter);
+}
+
+std::string JoinStrings(const std::vector<std::string>& strings,
+                        util::string_view delimiter) {
+  return JoinStringLikes(strings, delimiter);
+}
+
+static constexpr bool IsWhitespace(char c) { return c == ' ' || c == '\t'; }
 
 std::string TrimString(std::string value) {
   size_t ltrim_chars = 0;
