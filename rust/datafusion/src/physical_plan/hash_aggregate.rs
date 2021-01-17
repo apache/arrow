@@ -358,7 +358,6 @@ fn group_aggregate_batch(
                     accumulator.merge_batch(&values)
                 }
             })
-            // 2.5
             .and({
                 indices.clear();
                 Ok(())
