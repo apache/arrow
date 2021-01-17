@@ -319,7 +319,7 @@ fn group_aggregate_batch(
             });
     }
 
-    // 2.1 for each key
+    // 2.1 for each key in this batch
     // 2.2 for each aggregation
     // 2.3 `take` from each of its arrays the keys' values
     // 2.4 update / merge the accumulator with the values
@@ -355,6 +355,7 @@ fn group_aggregate_batch(
                     accumulator.merge_batch(&values)
                 }
             })
+            // 2.5
             .and({
                 indices.clear();
                 Ok(())
