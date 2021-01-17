@@ -91,11 +91,9 @@ apt install -y -V \
   cmake \
   g++ \
   git
-git clone \
-  --branch apache-arrow-${version} \
-  --depth 1 \
-  https://github.com/apache/arrow.git
-pushd arrow/cpp/examples/minimal_build
+mkdir -p build
+cp -a /arrow/cpp/examples/minimal_build build
+pushd build/minimal_build
 cmake .
 make -j$(nproc)
 ./arrow_example
