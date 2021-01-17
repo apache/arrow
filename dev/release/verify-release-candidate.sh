@@ -142,7 +142,9 @@ test_apt() {
                 "ubuntu:bionic" \
                 "arm64v8/ubuntu:bionic" \
                 "ubuntu:focal" \
-                "arm64v8/ubuntu:focal"; do \
+                "arm64v8/ubuntu:focal" \
+                "ubuntu:groovy" \
+                "arm64v8/ubuntu:groovy"; do \
     case "${target}" in
       arm64v8/*)
         if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
