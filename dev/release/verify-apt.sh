@@ -50,6 +50,7 @@ fi
 
 have_flight=yes
 have_plasma=yes
+workaround_missing_packages=()
 case "${distribution}-${code_name}" in
   debian-buster)
     sed \
@@ -59,6 +60,7 @@ case "${distribution}-${code_name}" in
     ;;
   ubuntu-xenial)
     have_flight=no
+    workaround_missing_packages+=(libprotobuf-dev)
     ;;
 esac
 if [ "$(arch)" = "aarch64" ]; then
@@ -90,7 +92,8 @@ apt install -y -V libarrow-glib-dev=${deb_version}
 apt install -y -V \
   cmake \
   g++ \
-  git
+  git \
+  ${workaround_missing_packages[@]}
 mkdir -p build
 cp -a /arrow/cpp/examples/minimal_build build
 pushd build/minimal_build
