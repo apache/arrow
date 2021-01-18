@@ -1692,7 +1692,7 @@ mod tests {
 
     #[test]
     fn test_cast_f32_to_decimal() {
-        let a = Float32Array::from(vec![10000.52, 17890.499]);
+        let a = Float32Array::from(vec![10_000.52, 17_890.499]);
         let array = Arc::new(a) as ArrayRef;
         let b = cast(&array, &DataType::Decimal(10, 2)).unwrap();
         let c = b.as_any().downcast_ref::<DecimalArray>().unwrap();
@@ -1702,7 +1702,7 @@ mod tests {
 
     #[test]
     fn test_cast_f64_to_decimal() {
-        let a = Float64Array::from(vec![10000.52, 17890.499]);
+        let a = Float64Array::from(vec![10_000.52, 17_890.499]);
         let array = Arc::new(a) as ArrayRef;
         let b = cast(&array, &DataType::Decimal(10, 2)).unwrap();
         let c = b.as_any().downcast_ref::<DecimalArray>().unwrap();
