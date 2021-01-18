@@ -41,19 +41,14 @@ set PYTHON=3.6
 
 @rem Using call with conda.bat seems necessary to avoid terminating the batch
 @rem script execution
-call conda create -p %_VERIFICATION_CONDA_ENV% ^
-    --no-shortcuts -f -q -y python=%PYTHON% ^
+call conda create --no-shortcuts -c conda-forge -f -q -y -p %_VERIFICATION_CONDA_ENV% ^
+    --file=ci\conda_env_cpp.yml ^
+    --file=ci\conda_env_python.yml ^
+    git ^
+    python=%PYTHON% ^
     || exit /B 1
 
 call activate %_VERIFICATION_CONDA_ENV% || exit /B 1
-
-call conda install -y ^
-     --no-shortcuts ^
-     python=3.7 ^
-     git ^
-     --file=ci\conda_env_cpp.yml ^
-     --file=ci\conda_env_python.yml ^
-     -c conda-forge || exit /B 1
 
 set GENERATOR=Visual Studio 15 2017 Win64
 set CONFIGURATION=release
@@ -127,7 +122,7 @@ set PYARROW_WITH_FLIGHT=1
 set PYARROW_WITH_PARQUET=1
 set PYARROW_WITH_DATASET=1
 python setup.py build_ext --inplace --bundle-arrow-cpp bdist_wheel || exit /B 1
-py.test pyarrow -v -s --enable-parquet || exit /B 1
+pytest pyarrow -v -s --enable-parquet || exit /B 1
 
 popd
 
