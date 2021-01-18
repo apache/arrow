@@ -925,7 +925,7 @@ impl<OffsetSize: OffsetSizeTrait> ArrayReader for ListArrayReader<OffsetSize> {
         // Where n is the max definition level of the list's parent.
         // If a Parquet schema's only leaf is the list, then n = 0.
 
-        // TODO: add a test case with a non-nullable child, check if max is 3
+        // TODO: ARROW-10391 - add a test case with a non-nullable child, check if max is 3
         let list_field_type = match self.get_data_type() {
             ArrowType::List(field)
             | ArrowType::FixedSizeList(field, _)
@@ -937,11 +937,11 @@ impl<OffsetSize: OffsetSizeTrait> ArrayReader for ListArrayReader<OffsetSize> {
         };
         let max_list_def_range = if list_field_type.is_nullable() { 3 } else { 2 };
         let max_list_definition = *(def_levels.iter().max().unwrap());
-        // TODO: will convert this into a Result error later
-        debug_assert!(
-            max_list_definition >= max_list_def_range,
-            "Lift definition max less than range"
-        );
+        // TODO: ARROW-10391 - Find a reliable way of validating deeply-nested lists
+        // debug_assert!(
+        //     max_list_definition >= max_list_def_range,
+        //     "Lift definition max less than range"
+        // );
         let list_null_def = max_list_definition - max_list_def_range;
         let list_empty_def = max_list_definition - 1;
         let mut null_list_indices: Vec<usize> = Vec::new();
@@ -972,8 +972,6 @@ impl<OffsetSize: OffsetSizeTrait> ArrayReader for ListArrayReader<OffsetSize> {
             }
         }
         offsets.push(cur_offset);
-
-        dbg!(&batch_values);
 
         let num_bytes = bit_util::ceil(offsets.len(), 8);
         let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);

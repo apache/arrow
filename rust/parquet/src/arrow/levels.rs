@@ -59,16 +59,15 @@ pub(crate) struct LevelInfo {
     pub repetition: Option<Vec<i16>>,
     /// Array's offsets, 64-bit is used to accommodate large offset arrays
     pub array_offsets: Vec<i64>,
-    /// Array's validity mask
+    /// Array's logical validity mask, whcih gets unpacked for list children.
+    /// If the parent of an array is null, all children are logically treated as
+    /// null. This mask keeps track of that.
     ///
-    /// While this looks like `definition_mask`, they serve different purposes.
-    /// This mask is for the immediate array, while the `definition_mask` tracks
-    /// the cumulative effect of all masks from the root (batch) to the current array.
+    /// TODO: Convert to an Arrow Buffer after ARROW-10766 is merged.
     pub array_mask: Vec<bool>,
-    /// The maximum definition at this level, 1 at the record batch
+    /// The maximum definition at this level, 0 at the record batch
     pub max_definition: i16,
-    /// Whether this array or any of its parents is a list, in which case the
-    /// `definition_mask` would be used to index correctly into list children.
+    /// Whether this array or any of its parents is a list
     pub is_list: bool,
     /// Whether the current array is nullable (affects definition levels)
     pub is_nullable: bool,
@@ -100,59 +99,6 @@ impl LevelInfo {
     /// Compute nested levels of the Arrow array, recursing into lists and structs.
     ///
     /// Returns a list of `LevelInfo`, where each level is for nested primitive arrays.
-    ///
-    /// The algorithm works by eagerly incrementing non-null values, and decrementing
-    /// when a value is null.
-    ///
-    /// *Examples:*
-    ///
-    /// A record batch always starts at a populated definition = level 1.
-    /// When a batch only has a primitive, i.e. `<batch<primitive[a]>>, column `a`
-    /// can only have a maximum level of 1 if it is not null.
-    /// If it is null, we decrement by 1, such that the null slots will = level 0.
-    ///
-    /// If a batch has nested arrays (list, struct, union, etc.), then the incrementing
-    /// takes place.
-    /// A `<batch<struct[a]<primitive[b]>>` will have up to 2 levels (if nullable).
-    /// When calculating levels for `a`, we start with level 1 from the batch,
-    /// then if the struct slot is not empty, we increment by 1, such that we'd have `[2, 2, 2]`
-    /// if all 3 slots are not null.
-    /// If there is an empty slot, we decrement, leaving us with `[2, 0 (1-1), 2]` as the
-    /// null slot effectively means that no record is populated for the row altogether.
-    ///
-    /// When we encounter `b` which is primitive, we check if the supplied definition levels
-    /// equal the maximum level (i.e. level = 2). If the level < 2, then the parent of the
-    /// primitive (`a`) is already null, and `b` is kept as null.
-    /// If the level == 2, then we check if `b`'s slot is null, decrementing if it is null.
-    /// Thus we could have a final definition as: `[2, 0, 1]` indicating that only the first
-    /// slot is populated for `a.b`, the second one is all null, and only `a` has a value on the last.
-    ///
-    /// If expressed as JSON, this would be:
-    ///
-    /// ```json
-    /// {"a": {"b": 1}}
-    /// {"a": null}
-    /// {"a": {"b": null}}
-    /// ```
-    ///
-    /// *Lists*
-    ///
-    /// TODO
-    ///
-    /// *Non-nullable arrays*
-    ///
-    /// If an array is non-nullable, this is accounted for when converting the Arrow schema to a
-    /// Parquet schema.
-    /// When dealing with `<batch<primitive[_]>>` there is no issue, as the maximum
-    /// level will always be = 1.
-    ///
-    /// When dealing with nested types, the logic becomes a bit complicated.
-    /// A non-nullable struct; `<batch<struct{non-null}[a]<primitive[b]>>>` will only
-    /// have 1 maximum level, where 0 means `b` is null, and 1 means `b` is not null.
-    ///
-    /// We account for the above by checking if the `Field` is nullable, and adjusting
-    /// the `level` variable to determine which level the next child should increment or
-    /// decrement from.
     pub(crate) fn calculate_array_levels(
         &self,
         array: &ArrayRef,
@@ -196,7 +142,7 @@ impl LevelInfo {
                 // we return a vector of 1 value to represent the primitive
                 // it is safe to inherit the parent level's repetition, but we have to calculate
                 // the child's own definition levels
-                vec![self.calculate_list_child_levels(
+                vec![self.calculate_child_levels(
                     array_offsets,
                     array_mask,
                     false,
@@ -213,9 +159,7 @@ impl LevelInfo {
                 let (child_offsets, child_mask) =
                     Self::get_array_offsets_and_masks(&child_array);
 
-                // TODO: (21-12-2020), I got a thought that this might be duplicating
-                // what the primitive levels do. Does it make sense to calculate both?
-                let list_level = self.calculate_list_child_levels(
+                let list_level = self.calculate_child_levels(
                     array_offsets,
                     array_mask,
                     true,
@@ -250,7 +194,7 @@ impl LevelInfo {
                     | DataType::Utf8
                     | DataType::LargeUtf8
                     | DataType::Dictionary(_, _) => {
-                        vec![list_level.calculate_list_child_levels(
+                        vec![list_level.calculate_child_levels(
                             child_offsets,
                             child_mask,
                             false,
@@ -275,7 +219,7 @@ impl LevelInfo {
                     .as_any()
                     .downcast_ref::<StructArray>()
                     .expect("Unable to get struct array");
-                let struct_level = self.calculate_list_child_levels(
+                let struct_level = self.calculate_child_levels(
                     array_offsets,
                     array_mask,
                     false,
@@ -299,7 +243,7 @@ impl LevelInfo {
                 // - "Writing DictionaryArray with nested dictionary type not yet supported"
                 // - "Writing DictionaryArray with null encoded in dictionary type not yet supported"
                 // vec![self.get_primitive_def_levels(array, field, array_mask)]
-                vec![self.calculate_list_child_levels(
+                vec![self.calculate_child_levels(
                     array_offsets,
                     array_mask,
                     false,
@@ -309,8 +253,46 @@ impl LevelInfo {
         }
     }
 
-    /// This is the actual algorithm that computes the levels based on the array's characteristics.
-    fn calculate_list_child_levels(
+    /// Calculate child/leaf array levels.
+    ///
+    /// The algorithm works by incrementing definitions of array values based on whether:
+    /// - a value is optional or required (is_nullable)
+    /// - a list value is repeated + optional or required (is_list)
+    ///
+    /// *Examples:*
+    ///
+    /// A record batch always starts at a populated definition = level 0.
+    /// When a batch only has a primitive, i.e. `<batch<primitive[a]>>, column `a`
+    /// can only have a maximum level of 1 if it is not null.
+    /// If it is not null, we increment by 1, such that the null slots will = level 1.
+    /// The above applies to types that have no repetition (anything not a list or map).
+    ///
+    /// If a batch has lists, then we increment by up to 2 levels:
+    /// - 1 level for the list
+    /// - 1 level if the list itself is nullable
+    ///
+    /// A list's child then gets incremented using the above rules.
+    ///
+    /// A special case is when at the root of the schema. We always increment the
+    /// level regardless of whether the child is nullable or not. If we do not do
+    /// this, we could have a non-nullable array having a definition of 0.
+    ///
+    /// *Examples*
+    ///
+    /// A batch with only a primitive that's non-nullable. `<primitive[required]>`:
+    /// * We don't increment the definition level as the array is not optional.
+    /// * This would leave us with a definition of 0, so the special case applies.
+    /// * The definition level becomes 1.
+    ///
+    /// A batch with only a primitive that's nullable. `<primitive[optional]>`:
+    /// * The definition level becomes 1, as we increment it once.
+    ///
+    /// A batch with a single non-nullable list (both list and child not null):
+    /// * We calculate the level twice, for the list, and for the child.
+    /// * At the list, the level becomes 1, where 0 indicates that the list is
+    ///  empty, and 1 says it's not (determined through offsets).
+    /// * At the primitive level
+    fn calculate_child_levels(
         &self,
         // we use 64-bit offsets to also accommodate large arrays
         array_offsets: Vec<i64>,
@@ -385,9 +367,6 @@ impl LevelInfo {
                 let mut nulls_seen = 0;
 
                 self.array_offsets.windows(2).for_each(|w| {
-                    // we have _ conditions
-                    // 1. parent is non-null, and has 1 slot (struct-like)
-                    // 2.
                     let start = w[0] as usize;
                     let end = w[1] as usize;
                     let parent_len = end - start;
@@ -545,7 +524,6 @@ impl LevelInfo {
                                 definition.push(*def);
                                 repetition.push(0);
                                 merged_array_mask.push(child_mask);
-                                todo!("TODO: this block currently has no test coverage");
                             }
                             (true, _) => {
                                 (child_from..child_to).for_each(|child_index| {
@@ -733,7 +711,7 @@ mod tests {
         let array_mask = vec![true, true];
 
         // calculate level1 levels
-        let levels = parent_levels.calculate_list_child_levels(
+        let levels = parent_levels.calculate_child_levels(
             array_offsets.clone(),
             array_mask,
             true,
@@ -764,7 +742,7 @@ mod tests {
         let parent_levels = levels;
         let array_offsets = vec![0, 3, 7, 8, 10];
         let array_mask = vec![true, true, true, true];
-        let levels = parent_levels.calculate_list_child_levels(
+        let levels = parent_levels.calculate_child_levels(
             array_offsets.clone(),
             array_mask,
             true,
@@ -804,7 +782,7 @@ mod tests {
         let array_offsets: Vec<i64> = (0..=10).collect();
         let array_mask = vec![true; 10];
 
-        let levels = parent_levels.calculate_list_child_levels(
+        let levels = parent_levels.calculate_child_levels(
             array_offsets.clone(),
             array_mask.clone(),
             false,
@@ -837,7 +815,7 @@ mod tests {
         let array_offsets: Vec<i64> = (0..=5).collect();
         let array_mask = vec![true, false, true, true, false];
 
-        let levels = parent_levels.calculate_list_child_levels(
+        let levels = parent_levels.calculate_child_levels(
             array_offsets.clone(),
             array_mask.clone(),
             false,
@@ -871,7 +849,7 @@ mod tests {
         let array_offsets = vec![0, 2, 2, 4, 8, 11];
         let array_mask = vec![true, false, true, true, true];
 
-        let levels = parent_levels.calculate_list_child_levels(
+        let levels = parent_levels.calculate_child_levels(
             array_offsets.clone(),
             array_mask,
             true,
@@ -932,7 +910,7 @@ mod tests {
         let array_offsets = vec![0, 2, 2, 4, 8, 11];
         let array_mask = vec![true, false, true, true, true];
 
-        let levels = parent_levels.calculate_list_child_levels(
+        let levels = parent_levels.calculate_child_levels(
             array_offsets.clone(),
             array_mask,
             true,
@@ -969,9 +947,9 @@ mod tests {
         let array_mask = vec![
             true, true, true, true, true, true, true, true, true, true, true,
         ];
-        let levels = nested_parent_levels.calculate_list_child_levels(
+        let levels = nested_parent_levels.calculate_child_levels(
             array_offsets.clone(),
-            array_mask.clone(),
+            array_mask,
             true,
             true,
         );
@@ -1002,7 +980,6 @@ mod tests {
             definition: vec![
                 0, 0, 0, 0, 1, 0, 0, 0, 0, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
             ],
-            // TODO: this doesn't feel right, needs some validation
             repetition: Some(vec![
                 0, 2, 1, 2, 0, 0, 2, 1, 2, 0, 2, 1, 2, 1, 2, 1, 2, 0, 2, 1, 2, 1, 2,
             ]),
@@ -1050,7 +1027,7 @@ mod tests {
         let array_offsets = vec![0, 1, 4, 6, 8];
         let array_mask = vec![false, true, true, true];
 
-        let levels = parent_levels.calculate_list_child_levels(
+        let levels = parent_levels.calculate_child_levels(
             array_offsets.clone(),
             array_mask,
             true,
@@ -1090,7 +1067,7 @@ mod tests {
         let array_offsets = vec![0, 1, 2, 4, 4, 7, 11, 11, 16];
         // logically, the fist slot of the mask is false
         let array_mask = vec![true, true, true, false, true, true, true, true];
-        let levels = nested_parent_levels.calculate_list_child_levels(
+        let levels = nested_parent_levels.calculate_child_levels(
             array_offsets.clone(),
             array_mask,
             true,
@@ -1162,7 +1139,7 @@ mod tests {
             is_nullable: true,
         };
         let b_levels =
-            a_levels.calculate_list_child_levels(b_offsets.clone(), b_mask, false, true);
+            a_levels.calculate_child_levels(b_offsets.clone(), b_mask, false, true);
         assert_eq!(&b_expected_levels, &b_levels);
 
         // c's offset and mask
@@ -1178,8 +1155,7 @@ mod tests {
             is_list: false,
             is_nullable: true,
         };
-        let c_levels =
-            b_levels.calculate_list_child_levels(c_offsets, c_mask, false, true);
+        let c_levels = b_levels.calculate_child_levels(c_offsets, c_mask, false, true);
         assert_eq!(&c_expected_levels, &c_levels);
     }
 

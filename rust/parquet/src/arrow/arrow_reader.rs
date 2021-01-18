@@ -25,13 +25,10 @@ use crate::arrow::schema::{
 use crate::errors::{ParquetError, Result};
 use crate::file::metadata::ParquetMetaData;
 use crate::file::reader::FileReader;
+use arrow::datatypes::{DataType as ArrowType, Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
 use arrow::{array::StructArray, error::ArrowError};
-use arrow::{
-    datatypes::{DataType as ArrowType, Schema, SchemaRef},
-    record_batch::RecordBatchOptions,
-};
 use std::sync::Arc;
 
 /// Arrow reader api.
@@ -187,15 +184,7 @@ impl Iterator for ParquetRecordBatchReader {
                 match struct_array {
                     Err(err) => Some(Err(err)),
                     Ok(e) => {
-                        let options = RecordBatchOptions {
-                            match_field_names: false,
-                        };
-                        // TODO: this is a teporary measure to reduce test failure noise
-                        match RecordBatch::try_new_with_options(
-                            self.schema.clone(),
-                            e.columns_ref(),
-                            &options,
-                        ) {
+                        match RecordBatch::try_new(self.schema.clone(), e.columns_ref()) {
                             Err(err) => Some(Err(err)),
                             Ok(record_batch) => {
                                 if record_batch.num_rows() > 0 {
