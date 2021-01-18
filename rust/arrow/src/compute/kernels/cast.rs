@@ -38,6 +38,8 @@
 use std::str;
 use std::sync::Arc;
 
+use num::ToPrimitive;
+
 use crate::compute::kernels::arithmetic::{divide, multiply};
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
@@ -794,6 +796,30 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
                 }
             }
         }
+        (Int16, Decimal(precision, scale)) => {
+            cast_int_to_decimal::<Int16Type>(array, *precision, *scale)
+        }
+        (Int32, Decimal(precision, scale)) => {
+            cast_int_to_decimal::<Int32Type>(array, *precision, *scale)
+        }
+        (Int64, Decimal(precision, scale)) => {
+            cast_int_to_decimal::<Int64Type>(array, *precision, *scale)
+        }
+        (UInt16, Decimal(precision, scale)) => {
+            cast_int_to_decimal::<UInt16Type>(array, *precision, *scale)
+        }
+        (UInt32, Decimal(precision, scale)) => {
+            cast_int_to_decimal::<UInt32Type>(array, *precision, *scale)
+        }
+        (UInt64, Decimal(precision, scale)) => {
+            cast_int_to_decimal::<UInt64Type>(array, *precision, *scale)
+        }
+        (Float32, Decimal(precision, scale)) => {
+            cast_float_to_decimal::<Float32Type>(array, *precision, *scale)
+        }
+        (Float64, Decimal(precision, scale)) => {
+            cast_float_to_decimal::<Float64Type>(array, *precision, *scale)
+        }
 
         // null to primitive/flat types
         (Null, Int32) => Ok(Arc::new(Int32Array::from(vec![None; array.len()]))),
@@ -1187,6 +1213,64 @@ where
     Ok(Arc::new(b.finish()))
 }
 
+fn cast_int_to_decimal<TO>(
+    array: &ArrayRef,
+    precision: usize,
+    scale: usize,
+) -> Result<ArrayRef>
+where
+    TO: ArrowNumericType,
+    TO::Native: num::ToPrimitive,
+{
+    let values = array.as_any().downcast_ref::<PrimitiveArray<TO>>().unwrap();
+
+    let mut builder = DecimalBuilder::new(values.len(), precision, scale);
+    let scaling = i128::pow(10, scale as u32);
+
+    for maybe_value in values.iter() {
+        match maybe_value {
+            Some(v) => {
+                let v_as_int = v.to_i128().ok_or(ArrowError::ComputeError(format!(
+                    "Expected integer but got {:?}",
+                    v
+                )))?;
+                builder.append_value(v_as_int * scaling)?
+            }
+            None => builder.append_null()?,
+        };
+    }
+    Ok(Arc::new(builder.finish()))
+}
+
+fn cast_float_to_decimal<TO>(
+    array: &ArrayRef,
+    precision: usize,
+    scale: usize,
+) -> Result<ArrayRef>
+where
+    TO: ArrowNumericType,
+    TO::Native: num::ToPrimitive,
+{
+    let values = array.as_any().downcast_ref::<PrimitiveArray<TO>>().unwrap();
+
+    let mut builder = DecimalBuilder::new(values.len(), precision, scale);
+    let scaling = 10.0_f64.powi(scale as i32);
+
+    for maybe_value in values.iter() {
+        match maybe_value {
+            Some(v) => {
+                let v_as_float = v.to_f64().ok_or(ArrowError::ComputeError(format!(
+                    "Expected float but got {:?}",
+                    v
+                )))?;
+                builder.append_value((v_as_float * scaling).round() as i128)?
+            }
+            None => builder.append_null()?,
+        };
+    }
+    Ok(Arc::new(builder.finish()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1569,6 +1653,63 @@ mod tests {
         assert_eq!(864000003, c.value(0));
         assert_eq!(1545696002, c.value(1));
         assert!(c.is_null(2));
+    }
+
+    #[test]
+    fn test_cast_int32_to_decimal() {
+        let a = Int32Array::from(vec![10000, 17890]);
+        let array = Arc::new(a) as ArrayRef;
+        let b = cast(&array, &DataType::Decimal(10, 2)).unwrap();
+        let c = b.as_any().downcast_ref::<DecimalArray>().unwrap();
+        assert_eq!(1000000, c.value(0));
+        assert_eq!(1789000, c.value(1));
+    }
+
+    #[test]
+    fn test_cast_int64_to_decimal() {
+        let a = Int64Array::from(vec![10000, 17890]);
+        let array = Arc::new(a) as ArrayRef;
+        let b = cast(&array, &DataType::Decimal(10, 2)).unwrap();
+        let c = b.as_any().downcast_ref::<DecimalArray>().unwrap();
+        assert_eq!(1000000, c.value(0));
+        assert_eq!(1789000, c.value(1));
+    }
+
+    #[test]
+    fn test_cast_uint64_to_decimal() {
+        let a = UInt64Array::from(vec![10000, 17890]);
+        let array = Arc::new(a) as ArrayRef;
+        let b = cast(&array, &DataType::Decimal(10, 2)).unwrap();
+        let c = b.as_any().downcast_ref::<DecimalArray>().unwrap();
+        assert_eq!(1000000, c.value(0));
+        assert_eq!(1789000, c.value(1));
+    }
+
+    #[test]
+    fn test_cast_int64_to_decimal_exceeds_precision() {
+        let a = Int64Array::from(vec![10000, 17890]);
+        let array = Arc::new(a) as ArrayRef;
+        assert!(cast(&array, &DataType::Decimal(5, 2)).is_err());
+    }
+
+    #[test]
+    fn test_cast_f32_to_decimal() {
+        let a = Float32Array::from(vec![10000.52, 17890.499]);
+        let array = Arc::new(a) as ArrayRef;
+        let b = cast(&array, &DataType::Decimal(10, 2)).unwrap();
+        let c = b.as_any().downcast_ref::<DecimalArray>().unwrap();
+        assert_eq!(1000052, c.value(0));
+        assert_eq!(1789050, c.value(1));
+    }
+
+    #[test]
+    fn test_cast_f64_to_decimal() {
+        let a = Float64Array::from(vec![10000.52, 17890.499]);
+        let array = Arc::new(a) as ArrayRef;
+        let b = cast(&array, &DataType::Decimal(10, 2)).unwrap();
+        let c = b.as_any().downcast_ref::<DecimalArray>().unwrap();
+        assert_eq!(1000052, c.value(0));
+        assert_eq!(1789050, c.value(1));
     }
 
     #[test]

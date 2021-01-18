@@ -952,6 +952,7 @@ pub struct DecimalBuilder {
     builder: FixedSizeListBuilder<UInt8Builder>,
     precision: usize,
     scale: usize,
+    max_value: i128,
 }
 
 impl<OffsetSize: BinaryOffsetSizeTrait> ArrayBuilder
@@ -1221,10 +1222,12 @@ impl DecimalBuilder {
     pub fn new(capacity: usize, precision: usize, scale: usize) -> Self {
         let values_builder = UInt8Builder::new(capacity);
         let byte_width = 16;
+        let max_value = i128::pow(10, precision as u32) - 1;
         Self {
             builder: FixedSizeListBuilder::new(values_builder, byte_width),
             precision,
             scale,
+            max_value,
         }
     }
 
@@ -1233,6 +1236,12 @@ impl DecimalBuilder {
     /// Automatically calls the `append` method to delimit the slice appended in as a
     /// distinct array element.
     pub fn append_value(&mut self, value: i128) -> Result<()> {
+        if value > self.max_value || value < -self.max_value {
+            return Err(ArrowError::InvalidArgumentError(format!(
+                "Value {} does not fit in decimal with precision {}",
+                value, self.precision
+            )));
+        }
         let value_as_bytes = Self::from_i128_to_fixed_size_bytes(
             value,
             self.builder.value_length() as usize,
@@ -2770,6 +2779,21 @@ mod tests {
         assert_eq!(1, decimal_array.null_count());
         assert_eq!(32, decimal_array.value_offset(2));
         assert_eq!(16, decimal_array.value_length());
+    }
+
+    #[test]
+    fn test_decimal_builder_fails_for_values_beyond_precision() {
+        let mut builder = DecimalBuilder::new(30, 5, 2);
+
+        builder.append_value(99999).unwrap();
+        assert!(builder.append_value(100000).is_err());
+        builder.append_value(-99999).unwrap();
+        assert!(builder.append_value(-100000).is_err());
+        let decimal_array: DecimalArray = builder.finish();
+
+        assert_eq!(&DataType::Decimal(5, 2), decimal_array.data_type());
+        assert_eq!(2, decimal_array.len());
+        assert_eq!(0, decimal_array.null_count());
     }
 
     #[test]
