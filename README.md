@@ -27,6 +27,7 @@
 
 ## Powering In-Memory Analytics
 
+
 Apache Arrow is a development platform for in-memory analytics. It contains a
 set of technologies that enable big data systems to process and move data fast.
 
