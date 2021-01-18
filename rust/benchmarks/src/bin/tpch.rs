@@ -67,7 +67,7 @@ struct BenchmarkOpt {
     #[structopt(short = "m", long = "mem-table")]
     mem_table: bool,
 
-    /// Number of partitions to use when using MemTable
+    /// Number of partitions to create when using MemTable as input
     #[structopt(short = "n", long = "partitions", default_value = "8")]
     partitions: usize,
 }
