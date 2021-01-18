@@ -75,24 +75,25 @@ call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\Common7\Tool
 @rem generator used
 
 cmake -G "%GENERATOR%" ^
-      -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
-      -DARROW_BUILD_STATIC=OFF ^
       -DARROW_BOOST_USE_SHARED=ON ^
+      -DARROW_BUILD_STATIC=OFF ^
       -DARROW_BUILD_TESTS=ON ^
-      -DGTest_SOURCE=BUNDLED ^
-      -DCMAKE_BUILD_TYPE=%CONFIGURATION% ^
-      -DCMAKE_UNITY_BUILD=ON ^
       -DARROW_CXXFLAGS="/MP" ^
+      -DARROW_DATASET=ON ^
+      -DARROW_FLIGHT=ON ^
+      -DARROW_MIMALLOC=ON ^
+      -DARROW_PARQUET=ON ^
+      -DARROW_PYTHON=ON ^
+      -DARROW_WITH_BROTLI=ON ^
       -DARROW_WITH_BZ2=ON ^
-      -DARROW_WITH_ZLIB=ON ^
-      -DARROW_WITH_ZSTD=ON ^
       -DARROW_WITH_LZ4=ON ^
       -DARROW_WITH_SNAPPY=ON ^
-      -DARROW_WITH_BROTLI=ON ^
-      -DARROW_FLIGHT=ON ^
-      -DARROW_PYTHON=ON ^
-      -DARROW_DATASET=ON ^
-      -DARROW_PARQUET=ON ^
+      -DARROW_WITH_ZLIB=ON ^
+      -DARROW_WITH_ZSTD=ON ^
+      -DCMAKE_BUILD_TYPE=%CONFIGURATION% ^
+      -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
+      -DCMAKE_UNITY_BUILD=ON ^
+      -DGTest_SOURCE=BUNDLED ^
       ..  || exit /B
 
 cmake --build . --target INSTALL --config Release || exit /B 1
