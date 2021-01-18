@@ -243,7 +243,7 @@ mod tests {
     use arrow::datatypes::{DataType, Field, Schema};
     use arrow::record_batch::RecordBatch;
 
-    #[tokio::test(threaded_scheduler)]
+    #[tokio::test(flavor = "multi_thread")]
     async fn one_to_many_round_robin() -> Result<()> {
         // define input partitions
         let schema = test_schema();
@@ -263,7 +263,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test(threaded_scheduler)]
+    #[tokio::test(flavor = "multi_thread")]
     async fn many_to_one_round_robin() -> Result<()> {
         // define input partitions
         let schema = test_schema();
@@ -280,7 +280,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test(threaded_scheduler)]
+    #[tokio::test(flavor = "multi_thread")]
     async fn many_to_many_round_robin() -> Result<()> {
         // define input partitions
         let schema = test_schema();

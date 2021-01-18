@@ -235,7 +235,7 @@ mod tests {
     use arrow::array::UInt32Array;
     use arrow::datatypes::{DataType, Field, Schema};
 
-    #[tokio::test(threaded_scheduler)]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_concat_batches() -> Result<()> {
         let schema = test_schema();
         let partition = create_vec_batches(&schema, 10)?;

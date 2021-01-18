@@ -25,6 +25,7 @@ use arrow_flight::{
 };
 use futures::{channel::mpsc, sink::SinkExt, Stream, StreamExt};
 use tokio::sync::Mutex;
+use tokio_stream::wrappers::TcpListenerStream;
 use tonic::{
     metadata::MetadataMap, transport::Server, Request, Response, Status, Streaming,
 };
@@ -39,7 +40,7 @@ use prost::Message;
 use crate::{AUTH_PASSWORD, AUTH_USERNAME};
 
 pub async fn scenario_setup(port: &str) -> Result {
-    let (mut listener, _) = super::listen_on(port).await?;
+    let (listener, _) = super::listen_on(port).await?;
 
     let service = AuthBasicProtoScenarioImpl {
         username: AUTH_USERNAME.into(),
@@ -50,7 +51,7 @@ pub async fn scenario_setup(port: &str) -> Result {
 
     Server::builder()
         .add_service(svc)
-        .serve_with_incoming(listener.incoming())
+        .serve_with_incoming(TcpListenerStream::new(listener))
         .await?;
     Ok(())
 }

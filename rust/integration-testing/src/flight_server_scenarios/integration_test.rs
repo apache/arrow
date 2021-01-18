@@ -35,6 +35,7 @@ use arrow_flight::{
 };
 use futures::{channel::mpsc, sink::SinkExt, Stream, StreamExt};
 use tokio::sync::Mutex;
+use tokio_stream::wrappers::TcpListenerStream;
 use tonic::{transport::Server, Request, Response, Status, Streaming};
 
 type TonicStream<T> = Pin<Box<dyn Stream<Item = T> + Send + Sync + 'static>>;
@@ -43,7 +44,7 @@ type Error = Box<dyn std::error::Error + Send + Sync + 'static>;
 type Result<T = (), E = Error> = std::result::Result<T, E>;
 
 pub async fn scenario_setup(port: &str) -> Result {
-    let (mut listener, addr) = super::listen_on(port).await?;
+    let (listener, addr) = super::listen_on(port).await?;
 
     let service = FlightServiceImpl {
         server_location: format!("grpc+tcp://{}", addr),
@@ -53,7 +54,7 @@ pub async fn scenario_setup(port: &str) -> Result {
 
     Server::builder()
         .add_service(svc)
-        .serve_with_incoming(listener.incoming())
+        .serve_with_incoming(TcpListenerStream::new(listener))
         .await?;
 
     Ok(())

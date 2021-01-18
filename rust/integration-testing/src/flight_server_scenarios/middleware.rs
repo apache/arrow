@@ -24,6 +24,7 @@ use arrow_flight::{
     PutResult, SchemaResult, Ticket,
 };
 use futures::Stream;
+use tokio_stream::wrappers::TcpListenerStream;
 use tonic::{transport::Server, Request, Response, Status, Streaming};
 
 type TonicStream<T> = Pin<Box<dyn Stream<Item = T> + Send + Sync + 'static>>;
@@ -32,14 +33,14 @@ type Error = Box<dyn std::error::Error + Send + Sync + 'static>;
 type Result<T = (), E = Error> = std::result::Result<T, E>;
 
 pub async fn scenario_setup(port: &str) -> Result {
-    let (mut listener, _) = super::listen_on(port).await?;
+    let (listener, _) = super::listen_on(port).await?;
 
     let service = MiddlewareScenarioImpl {};
     let svc = FlightServiceServer::new(service);
 
     Server::builder()
         .add_service(svc)
-        .serve_with_incoming(listener.incoming())
+        .serve_with_incoming(TcpListenerStream::new(listener))
         .await?;
     Ok(())
 }
