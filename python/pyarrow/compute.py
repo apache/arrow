@@ -44,6 +44,7 @@ from pyarrow._compute import (  # noqa
     VarianceOptions,
     ArraySortOptions,
     SortOptions,
+    QuantileOptions,
     # Functions
     function_registry,
     call_function,
