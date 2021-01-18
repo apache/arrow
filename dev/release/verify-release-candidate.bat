@@ -107,9 +107,10 @@ git clone https://github.com/apache/arrow-testing.git %_VERIFICATION_DIR%\arrow-
 set ARROW_TEST_DATA=%_VERIFICATION_DIR%\arrow-testing\data
 
 @rem Needed so python-test.exe works
+set PYTHONPATH_ORIGINAL=%PYTHONPATH%
 set PYTHONPATH=%CONDA_PREFIX%\Lib;%CONDA_PREFIX%\Lib\site-packages;%CONDA_PREFIX%\DLLs;%CONDA_PREFIX%;%PYTHONPATH%
-
 ctest -VV  || exit /B 1
+set PYTHONPATH=%PYTHONPATH_ORIGINAL%
 popd
 
 @rem Build and import pyarrow
