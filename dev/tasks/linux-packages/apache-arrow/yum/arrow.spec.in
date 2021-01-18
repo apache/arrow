@@ -234,10 +234,8 @@ This package contains the libraries for Apache Arrow C++.
 Summary:	Libraries and header files for Apache Arrow C++
 License:	Apache-2.0
 Requires:	%{name}-libs = %{version}-%{release}
-Requires:	boost%{boost_version}-devel
 Requires:	brotli-devel
 Requires:	bzip2-devel
-Requires:	gflags-devel
 Requires:	libzstd-devel
 Requires:	lz4-devel
 Requires:	openssl-devel
@@ -268,11 +266,13 @@ Libraries and header files for Apache Arrow C++.
 %{_libdir}/cmake/arrow/ArrowConfig*.cmake
 %{_libdir}/cmake/arrow/ArrowOptions.cmake
 %{_libdir}/cmake/arrow/ArrowTargets*.cmake
-%{_libdir}/cmake/arrow/Find*Alt.cmake
 %{_libdir}/cmake/arrow/FindArrow.cmake
 %{_libdir}/cmake/arrow/FindBrotli.cmake
 %{_libdir}/cmake/arrow/FindLz4.cmake
 %{_libdir}/cmake/arrow/FindSnappy.cmake
+%if %{have_re2}
+%{_libdir}/cmake/arrow/Findre2Alt.cmake
+%endif
 %if %{have_utf8proc}
 %{_libdir}/cmake/arrow/Findutf8proc.cmake
 %endif
