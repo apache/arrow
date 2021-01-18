@@ -1230,10 +1230,9 @@ where
     for maybe_value in values.iter() {
         match maybe_value {
             Some(v) => {
-                let v_as_int = v.to_i128().ok_or(ArrowError::ComputeError(format!(
-                    "Expected integer but got {:?}",
-                    v
-                )))?;
+                let v_as_int = v.to_i128().ok_or_else(|| {
+                    ArrowError::ComputeError(format!("Expected integer but got {:?}", v))
+                })?;
                 builder.append_value(v_as_int * scaling)?
             }
             None => builder.append_null()?,
@@ -1259,10 +1258,9 @@ where
     for maybe_value in values.iter() {
         match maybe_value {
             Some(v) => {
-                let v_as_float = v.to_f64().ok_or(ArrowError::ComputeError(format!(
-                    "Expected float but got {:?}",
-                    v
-                )))?;
+                let v_as_float = v.to_f64().ok_or_else(|| {
+                    ArrowError::ComputeError(format!("Expected float but got {:?}", v))
+                })?;
                 builder.append_value((v_as_float * scaling).round() as i128)?
             }
             None => builder.append_null()?,
