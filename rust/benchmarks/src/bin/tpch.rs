@@ -33,6 +33,10 @@ use parquet::basic::Compression;
 use parquet::file::properties::WriterProperties;
 use structopt::StructOpt;
 
+#[cfg(feature = "snmalloc")]
+#[global_allocator]
+static ALLOC: snmalloc_rs::SnMalloc = snmalloc_rs::SnMalloc;
+
 #[derive(Debug, StructOpt)]
 struct BenchmarkOpt {
     /// Query number
