@@ -226,6 +226,37 @@ jobs:
           cd rust
           cargo clippy --all-targets --workspace -- -D warnings -A clippy::redundant_field_names
 
+  miri-checks:
+    name: Miri Checks
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [amd64]
+        rust: [stable]
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-miri-${{ hashFiles('**/Cargo.lock') }}
+      - name: Install
+        uses: actions-rs/toolchain@v1
+        with:
+          components: rustfmt
+      - name: Run Miri Checks
+        env:
+          RUST_BACKTRACE: full
+          RUST_LOG: 'trace'
+        run: |
+          rustup component add miri rustfmt
+          cd rust
+          cargo miri setup
+          cargo clean
+          cargo miri test
+
   coverage:
     name: Coverage
     runs-on: ubuntu-latest
