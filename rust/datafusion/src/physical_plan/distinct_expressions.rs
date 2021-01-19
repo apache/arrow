@@ -132,9 +132,10 @@ impl Accumulator for DistinctCountAccumulator {
             .iter()
             .map(|state| match state {
                 ScalarValue::List(Some(values), _) => Ok(values),
-                _ => Err(DataFusionError::Internal(
-                    "Unexpected accumulator state".to_string(),
-                )),
+                _ => Err(DataFusionError::Internal(format!(
+                    "Unexpected accumulator state {:?}",
+                    state
+                ))),
             })
             .collect::<Result<Vec<_>>>()?;
 
