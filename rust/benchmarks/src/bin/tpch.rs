@@ -70,6 +70,10 @@ struct BenchmarkOpt {
     /// Load the data into a MemTable before executing the query
     #[structopt(short = "m", long = "mem-table")]
     mem_table: bool,
+
+    /// Number of partitions to create when using MemTable as input
+    #[structopt(short = "n", long = "partitions", default_value = "8")]
+    partitions: usize,
 }
 
 #[derive(Debug, StructOpt)]
@@ -138,8 +142,12 @@ async fn benchmark(opt: BenchmarkOpt) -> Result<Vec<arrow::record_batch::RecordB
             println!("Loading table '{}' into memory", table);
             let start = Instant::now();
 
-            let memtable =
-                MemTable::load(table_provider.as_ref(), opt.batch_size).await?;
+            let memtable = MemTable::load(
+                table_provider.as_ref(),
+                opt.batch_size,
+                Some(opt.partitions),
+            )
+            .await?;
             println!(
                 "Loaded table '{}' into memory in {} ms",
                 table,
@@ -1593,6 +1601,7 @@ mod tests {
                 path: PathBuf::from(path.to_string()),
                 file_format: "tbl".to_string(),
                 mem_table: false,
+                partitions: 16,
             };
             let actual = benchmark(opt).await?;
 
