@@ -15,31 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use crate::array::ArrayData;
+#include <memory>
 
-use super::{
-    Extend, _MutableArrayData,
-    utils::{resize_for_bits, set_bits},
-};
+#include "arrow/ipc/reader.h"
+#include "arrow/status.h"
+#include "arrow/util/macros.h"
 
-pub(super) fn build_extend(array: &ArrayData) -> Extend {
-    let values = array.buffers()[0].as_slice();
-    Box::new(
-        move |mutable: &mut _MutableArrayData, _, start: usize, len: usize| {
-            let buffer = &mut mutable.buffer1;
-            resize_for_bits(buffer, mutable.len + len);
-            set_bits(
-                &mut buffer.as_slice_mut(),
-                values,
-                mutable.len,
-                array.offset() + start,
-                len,
-            );
-        },
-    )
-}
-
-pub(super) fn extend_nulls(mutable: &mut _MutableArrayData, len: usize) {
-    let buffer = &mut mutable.buffer1;
-    resize_for_bits(buffer, mutable.len + len);
+extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
+  auto status =
+      arrow::ipc::internal::FuzzIpcTensorStream(data, static_cast<int64_t>(size));
+  ARROW_UNUSED(status);
+  return 0;
 }

@@ -387,6 +387,53 @@ String transforms
 * \(3) Each UTF8-encoded character in the input is converted to lowercase or
   uppercase.
 
+
+String trimming
+~~~~~~~~~~~~~~~
+
+These functions trim off characters on both sides (trim), or the left (ltrim) or right side (rtrim).
+
++--------------------------+------------+-------------------------+---------------------+----------------------------------------+---------+
+| Function name            | Arity      | Input types             | Output type         | Options class                          | Notes   |
++==========================+============+=========================+=====================+========================================+=========+
+| ascii_ltrim              | Unary      | String-like             | String-like         | :struct:`TrimOptions`                  | \(1)    |
++--------------------------+------------+-------------------------+---------------------+----------------------------------------+---------+
+| ascii_ltrim_whitespace   | Unary      | String-like             | String-like         |                                        | \(2)    |
++--------------------------+------------+-------------------------+---------------------+----------------------------------------+---------+
+| ascii_rtrim              | Unary      | String-like             | String-like         | :struct:`TrimOptions`                  | \(1)    |
++--------------------------+------------+-------------------------+---------------------+----------------------------------------+---------+
+| ascii_rtrim_whitespace   | Unary      | String-like             | String-like         |                                        | \(2)    |
++--------------------------+------------+-------------------------+---------------------+----------------------------------------+---------+
+| ascii_trim               | Unary      | String-like             | String-like         | :struct:`TrimOptions`                  | \(1)    |
++--------------------------+------------+-------------------------+---------------------+----------------------------------------+---------+
+| ascii_trim_whitespace    | Unary      | String-like             | String-like         |                                        | \(2)    |
++--------------------------+------------+-------------------------+---------------------+----------------------------------------+---------+
+| utf8_ltrim               | Unary      | String-like             | String-like         | :struct:`TrimOptions`                  | \(3)    |
++--------------------------+------------+-------------------------+---------------------+----------------------------------------+---------+
+| utf8_ltrim_whitespace    | Unary      | String-like             | String-like         |                                        | \(4)    |
++--------------------------+------------+-------------------------+---------------------+----------------------------------------+---------+
+| utf8_rtrim               | Unary      | String-like             | String-like         | :struct:`TrimOptions`                  | \(3)    |
++--------------------------+------------+-------------------------+---------------------+----------------------------------------+---------+
+| utf8_rtrim_whitespace    | Unary      | String-like             | String-like         |                                        | \(4)    |
++--------------------------+------------+-------------------------+---------------------+----------------------------------------+---------+
+| utf8_trim                | Unary      | String-like             | String-like         | :struct:`TrimOptions`                  | \(3)    |
++--------------------------+------------+-------------------------+---------------------+----------------------------------------+---------+
+| utf8_trim_whitespace     | Unary      | String-like             | String-like         |                                        | \(4)    |
++--------------------------+------------+-------------------------+---------------------+----------------------------------------+---------+
+
+* \(1) Only characters specified in :member:`TrimOptions::characters` will be
+trimmed off. Both the input string as the `characters` argument are interepreted
+as ASCII characters.
+
+* \(2) Only trim off ASCII whitespace characters (``'\t'``, ``'\n'``, ``'\v'``,
+``'\f'``, ``'\r'``  and ``' '``).
+
+* \(3) Only characters specified in :member:`TrimOptions::characters` will be
+trimmed off.
+
+* \(4) Only trim off Unicode whitespace characters.
+
+
 Containment tests
 ~~~~~~~~~~~~~~~~~
 

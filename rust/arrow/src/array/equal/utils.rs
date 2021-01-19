@@ -120,8 +120,7 @@ pub(super) fn child_logical_null_buffer(
             let len = *len as usize;
             let array_offset = parent_data.offset();
             let bitmap_len = bit_util::ceil(parent_len * len, 8);
-            let mut buffer =
-                MutableBuffer::new(bitmap_len).with_bitset(bitmap_len, false);
+            let mut buffer = MutableBuffer::from_len_zeroed(bitmap_len);
             let mut null_slice = buffer.as_slice_mut();
             (array_offset..parent_len + array_offset).for_each(|index| {
                 let start = index * len;
@@ -168,9 +167,7 @@ pub(super) fn child_logical_null_buffer(
         DataType::Dictionary(_, _) => {
             unimplemented!("Logical equality not yet implemented for nested dictionaries")
         }
-        data_type => {
-            panic!("Data type {:?} is not a supported nested type", data_type)
-        }
+        data_type => panic!("Data type {:?} is not a supported nested type", data_type),
     }
 }
 

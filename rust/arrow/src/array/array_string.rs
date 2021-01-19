@@ -24,8 +24,8 @@ use super::{
     array::print_long_array, raw_pointer::RawPtrBox, Array, ArrayData, ArrayDataRef,
     GenericListArray, GenericStringIter, OffsetSizeTrait,
 };
+use crate::buffer::Buffer;
 use crate::util::bit_util;
-use crate::{buffer::Buffer, datatypes::ToByteSlice};
 use crate::{buffer::MutableBuffer, datatypes::DataType};
 
 /// Like OffsetSizeTrait, but specialized for Strings
@@ -128,11 +128,11 @@ impl<OffsetSize: StringOffsetSizeTrait> GenericStringArray<OffsetSize> {
         let mut values = MutableBuffer::new(0);
 
         let mut length_so_far = OffsetSize::zero();
-        offsets.extend_from_slice(length_so_far.to_byte_slice());
+        offsets.push(length_so_far);
 
         for s in &v {
             length_so_far += OffsetSize::from_usize(s.len()).unwrap();
-            offsets.extend_from_slice(length_so_far.to_byte_slice());
+            offsets.push(length_so_far);
             values.extend_from_slice(s.as_bytes());
         }
         let array_data = ArrayData::builder(OffsetSize::DATA_TYPE)
@@ -164,7 +164,7 @@ where
         let mut null_buf = MutableBuffer::new_null(data_len);
         let null_slice = null_buf.as_slice_mut();
         let mut length_so_far = OffsetSize::zero();
-        offsets.extend_from_slice(length_so_far.to_byte_slice());
+        offsets.push(length_so_far);
 
         for (i, s) in iter.enumerate() {
             if let Some(s) = s {
@@ -177,7 +177,7 @@ where
             } else {
                 values.extend_from_slice(b"");
             }
-            offsets.extend_from_slice(length_so_far.to_byte_slice());
+            offsets.push(length_so_far);
         }
 
         let array_data = ArrayData::builder(OffsetSize::DATA_TYPE)
@@ -386,8 +386,8 @@ mod tests {
         let offsets: [i32; 4] = [0, 5, 5, 12];
         let array_data = ArrayData::builder(DataType::Utf8)
             .len(3)
-            .add_buffer(Buffer::from(offsets.to_byte_slice()))
-            .add_buffer(Buffer::from(&values[..]))
+            .add_buffer(Buffer::from_slice_ref(&offsets))
+            .add_buffer(Buffer::from_slice_ref(&values))
             .build();
         let string_array = StringArray::from(array_data);
         string_array.value(4);

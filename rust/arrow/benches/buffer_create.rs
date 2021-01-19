@@ -33,8 +33,7 @@ fn mutable_buffer(data: &[Vec<u32>], capacity: usize) -> Buffer {
     criterion::black_box({
         let mut result = MutableBuffer::new(capacity);
 
-        data.iter()
-            .for_each(|vec| result.extend_from_slice(vec.to_byte_slice()));
+        data.iter().for_each(|vec| result.extend_from_slice(vec));
 
         result.into()
     })

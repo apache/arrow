@@ -95,8 +95,8 @@ class ARROW_EXPORT Executor {
   Result<FutureType> Submit(TaskHints hints, Function&& func, Args&&... args) {
     auto future = FutureType::Make();
 
-    auto task = std::bind(::arrow::detail::Continue, future, std::forward<Function>(func),
-                          std::forward<Args>(args)...);
+    auto task = std::bind(::arrow::detail::ContinueFuture{}, future,
+                          std::forward<Function>(func), std::forward<Args>(args)...);
     ARROW_RETURN_NOT_OK(SpawnReal(hints, std::move(task)));
 
     return future;

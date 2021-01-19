@@ -22,13 +22,12 @@ use crate::{array::ArrayData, datatypes::ArrowNativeType};
 use super::{Extend, _MutableArrayData};
 
 pub(super) fn build_extend<T: ArrowNativeType>(array: &ArrayData) -> Extend {
-    let values = &array.buffers()[0].as_slice()[array.offset() * size_of::<T>()..];
+    let values = array.buffer::<T>(0);
     Box::new(
         move |mutable: &mut _MutableArrayData, _, start: usize, len: usize| {
-            let start = start * size_of::<T>();
-            let len = len * size_of::<T>();
-            let bytes = &values[start..start + len];
-            mutable.buffer1.extend_from_slice(bytes);
+            mutable
+                .buffer1
+                .extend_from_slice(&values[start..start + len]);
         },
     )
 }

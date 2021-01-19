@@ -313,7 +313,7 @@ test_csharp() {
       fi
     fi
   else
-    local dotnet_version=2.2.300
+    local dotnet_version=3.1.405
     local dotnet_platform=
     case "$(uname)" in
       Linux)
@@ -418,7 +418,7 @@ test_js() {
       PROFILE=/dev/null bash
     [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
-    nvm install node
+    nvm install --lts
   fi
 
   npm install
@@ -659,7 +659,7 @@ test_linux_wheels() {
 }
 
 test_macos_wheels() {
-  local py_arches="3.5m 3.6m 3.7m 3.8 3.9"
+  local py_arches="3.6m 3.7m 3.8 3.9"
 
   for py_arch in ${py_arches}; do
     local env=_verify_wheel-${py_arch}

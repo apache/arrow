@@ -898,7 +898,8 @@ if(ARROW_BOOST_REQUIRED)
                      REQUIRED_VERSION
                      ${ARROW_BOOST_REQUIRED_VERSION}
                      IS_RUNTIME_DEPENDENCY
-                     ${ARROW_BOOST_REQUIRE_LIBRARY})
+                     # libarrow.so doesn't depend on libboost*.
+                     FALSE)
 
   if(TARGET Boost::system)
     set(BOOST_SYSTEM_LIBRARY Boost::system)
@@ -1220,7 +1221,9 @@ if(ARROW_NEED_GFLAGS)
                      HAVE_ALT
                      TRUE
                      REQUIRED_VERSION
-                     ${ARROW_GFLAGS_REQUIRED_VERSION})
+                     ${ARROW_GFLAGS_REQUIRED_VERSION}
+                     IS_RUNTIME_DEPENDENCY
+                     FALSE)
   # TODO: Don't use global includes but rather target_include_directories
   include_directories(SYSTEM ${GFLAGS_INCLUDE_DIR})
 

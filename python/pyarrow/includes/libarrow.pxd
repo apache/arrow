@@ -1735,6 +1735,11 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CMatchSubstringOptions(c_string pattern)
         c_string pattern
 
+    cdef cppclass CTrimOptions \
+            "arrow::compute::TrimOptions"(CFunctionOptions):
+        CTrimOptions(c_string characters)
+        c_string characters
+
     cdef cppclass CSplitOptions \
             "arrow::compute::SplitOptions"(CFunctionOptions):
         CSplitOptions(int64_t max_splits, c_bool reverse)
