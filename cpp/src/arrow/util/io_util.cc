@@ -1519,7 +1519,7 @@ Result<std::unique_ptr<TemporaryDir>> TemporaryDir::Make(const std::string& pref
   for (const auto& base_dir : base_dirs) {
     ARROW_ASSIGN_OR_RAISE(auto ptr, TryCreatingDirectory(base_dir));
     if (ptr) {
-      return ptr;
+      return std::move(ptr);
     }
     // Cannot create in this directory, try the next one
   }
