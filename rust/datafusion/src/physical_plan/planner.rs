@@ -475,7 +475,7 @@ impl DefaultPhysicalPlanner {
             Expr::BinaryExpr { left, op, right } => {
                 let lhs = self.create_physical_expr(left, input_schema, ctx_state)?;
                 let rhs = self.create_physical_expr(right, input_schema, ctx_state)?;
-                binary(lhs, op.clone(), rhs, input_schema)
+                binary(lhs, *op, rhs, input_schema)
             }
             Expr::Case {
                 expr,
