@@ -235,6 +235,8 @@ jobs:
         rust: [stable]
     steps:
       - uses: actions/checkout@v2
+        with:
+          submodules: true
       - uses: actions/cache@v2
         with:
           path: |
@@ -242,16 +244,17 @@ jobs:
             ~/.cargo/git
             target
           key: ${{ runner.os }}-cargo-miri-${{ hashFiles('**/Cargo.lock') }}
-      - name: Install
-        uses: actions-rs/toolchain@v1
-        with:
-          components: rustfmt
+      - name: Setup Rust toolchain
+        run: |
+          rustup toolchain install ${{ matrix.rust }}
+          rustup default ${{ matrix.rust }}
+          rustup component add rustfmt clippy miri
       - name: Run Miri Checks
         env:
           RUST_BACKTRACE: full
           RUST_LOG: 'trace'
         run: |
-          rustup component add miri rustfmt
+          export MIRIFLAGS="-Zmiri-disable-isolation"
           cd rust
           cargo miri setup
           cargo clean
