@@ -1755,6 +1755,7 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
     cdef cppclass CCastOptions" arrow::compute::CastOptions"(CFunctionOptions):
         CCastOptions()
         CCastOptions(c_bool safe)
+        CCastOptions(CCastOptions&& options)
 
         @staticmethod
         CCastOptions Safe()
@@ -1783,6 +1784,7 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CTakeOptions \
             " arrow::compute::TakeOptions"(CFunctionOptions):
+        CTakeOptions(c_bool boundscheck)
         c_bool boundscheck
 
     cdef cppclass CStrptimeOptions \
@@ -1791,6 +1793,7 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CVarianceOptions \
             "arrow::compute::VarianceOptions"(CFunctionOptions):
+        CVarianceOptions(int ddof)
         int ddof
 
     enum CMinMaxMode \
@@ -1800,13 +1803,15 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CMinMaxMode_EMIT_NULL \
             "arrow::compute::MinMaxOptions::EMIT_NULL"
 
-    cdef cppclass CModeOptions \
-            "arrow::compute::ModeOptions"(CFunctionOptions):
-        int64_t n
-
     cdef cppclass CMinMaxOptions \
             "arrow::compute::MinMaxOptions"(CFunctionOptions):
+        CMinMaxOptions(CMinMaxMode null_handling)
         CMinMaxMode null_handling
+
+    cdef cppclass CModeOptions \
+            "arrow::compute::ModeOptions"(CFunctionOptions):
+        CModeOptions(int64_t n)
+        int64_t n
 
     enum CCountMode \
             "arrow::compute::CountOptions::Mode":
@@ -1817,6 +1822,7 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CCountOptions \
             "arrow::compute::CountOptions"(CFunctionOptions):
+        CCountOptions(CCountMode count_mode)
         CCountMode count_mode
 
     cdef cppclass CPartitionNthOptions \
@@ -1837,6 +1843,7 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CArraySortOptions \
             "arrow::compute::ArraySortOptions"(CFunctionOptions):
+        CArraySortOptions(CSortOrder order)
         CSortOrder order
 
     cdef cppclass CSortKey" arrow::compute::SortKey":
@@ -1846,6 +1853,7 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CSortOptions \
             "arrow::compute::SortOptions"(CFunctionOptions):
+        CSortOptions(vector[CSortKey] sort_keys)
         vector[CSortKey] sort_keys
 
     enum CQuantileInterp \
@@ -1858,6 +1866,7 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CQuantileOptions \
             "arrow::compute::QuantileOptions"(CFunctionOptions):
+        CQuantileOptions(vector[double] q, CQuantileInterp interpolation)
         vector[double] q
         CQuantileInterp interpolation
 
