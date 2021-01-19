@@ -91,6 +91,7 @@ x-hierarchy:
       - conda-python-turbodbc
       - conda-python-kartothek
       - conda-python-spark
+      - conda-python-spark-pyarrow-only
   - debian-cpp:
     - debian-c-glib:
       - debian-ruby
