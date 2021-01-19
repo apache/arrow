@@ -1610,6 +1610,14 @@ Result<SignalHandler> SetSignalHandler(int signum, const SignalHandler& handler)
 
 namespace {
 
+int64_t GetPid() {
+#ifdef _WIN32
+  return GetCurrentProcessId();
+#else
+  return getpid();
+#endif
+}
+
 std::mt19937_64 GetSeedGenerator() {
   // Initialize Mersenne Twister PRNG with a true random seed.
   // Make sure to mix in process id to minimize risks of clashes when parallel testing.
@@ -1619,12 +1627,12 @@ std::mt19937_64 GetSeedGenerator() {
   const uint8_t dummy = 0;
   ARROW_UNUSED(dummy);
   std::mt19937_64 seed_gen(reinterpret_cast<uintptr_t>(&dummy) ^
-                           static_cast<uintptr_t>(getpid()));
+                           static_cast<uintptr_t>(GetPid()));
 #else
   std::random_device true_random;
   std::mt19937_64 seed_gen(static_cast<uint64_t>(true_random()) ^
                            (static_cast<uint64_t>(true_random()) << 32) ^
-                           (static_cast<uint64_t>(getpid()) << 17));
+                           (static_cast<uint64_t>(GetPid()) << 17));
 #endif
   return seed_gen;
 }
