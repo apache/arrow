@@ -94,7 +94,7 @@ struct StringTransform {
   using offset_type = typename Type::offset_type;
   using ArrayType = typename TypeTraits<Type>::ArrayType;
 
-  static int64_t MaxCodepoints(offset_type input_ncodeunits) { return input_ncodeunits; }
+  static int64_t MaxCodeunits(offset_type input_ncodeunits) { return input_ncodeunits; }
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     Derived().Execute(ctx, batch, out);
   }
@@ -107,7 +107,7 @@ struct StringTransform {
       offset_type input_ncodeunits = input_boxed.total_values_length();
       offset_type input_nstrings = static_cast<offset_type>(input.length);
 
-      int64_t output_ncodeunits_max = Derived::MaxCodepoints(input_ncodeunits);
+      int64_t output_ncodeunits_max = Derived::MaxCodeunits(input_ncodeunits);
       if (output_ncodeunits_max > std::numeric_limits<offset_type>::max()) {
         ctx->SetStatus(Status::CapacityError(
             "Result might not fit in a 32bit utf8 array, convert to large_utf8"));
@@ -148,7 +148,7 @@ struct StringTransform {
         result->is_valid = true;
         offset_type data_nbytes = static_cast<offset_type>(input.value->size());
 
-        int64_t output_ncodeunits_max = Derived::MaxCodepoints(data_nbytes);
+        int64_t output_ncodeunits_max = Derived::MaxCodeunits(data_nbytes);
         if (output_ncodeunits_max > std::numeric_limits<offset_type>::max()) {
           ctx->SetStatus(Status::CapacityError(
               "Result might not fit in a 32bit utf8 array, convert to large_utf8"));
@@ -191,14 +191,13 @@ struct StringTransformCodepoint : StringTransform<Type, Derived> {
     *output_written = static_cast<offset_type>(output - output_start);
     return true;
   }
-  static int64_t MaxCodepoints(offset_type input_ncodeunits) {
+  static int64_t MaxCodeunits(offset_type input_ncodeunits) {
     // Section 5.18 of the Unicode spec claim that the number of codepoints for case
     // mapping can grow by a factor of 3. This means grow by a factor of 3 in bytes
     // However, since we don't support all casings (SpecialCasing.txt) the growth
-    // is actually only at max 3/2 (as covered by the unittest).
+    // in bytes iss actually only at max 3/2 (as covered by the unittest).
     // Note that rounding down the 3/2 is ok, since only codepoints encoded by
     // two code units (even) can grow to 3 code units.
-
     return static_cast<int64_t>(input_ncodeunits) * 3 / 2;
   }
   void Execute(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
