@@ -43,6 +43,10 @@ ${OUT}/arrow-ipc-generate-fuzz-corpus -file ${CORPUS_DIR}
 ${ARROW_CPP}/build-support/fuzzing/pack_corpus.py ${CORPUS_DIR} ${OUT}/arrow-ipc-file-fuzz_seed_corpus.zip
 
 rm -rf ${CORPUS_DIR}
+${OUT}/arrow-ipc-generate-tensor-fuzz-corpus -stream ${CORPUS_DIR}
+${ARROW_CPP}/build-support/fuzzing/pack_corpus.py ${CORPUS_DIR} ${OUT}/arrow-ipc-tensor-stream-fuzz_seed_corpus.zip
+
+rm -rf ${CORPUS_DIR}
 ${OUT}/parquet-arrow-generate-fuzz-corpus ${CORPUS_DIR}
 cp ${ARROW_CPP}/submodules/parquet-testing/data/*.parquet ${CORPUS_DIR}
 ${ARROW_CPP}/build-support/fuzzing/pack_corpus.py ${CORPUS_DIR} ${OUT}/parquet-arrow-fuzz_seed_corpus.zip

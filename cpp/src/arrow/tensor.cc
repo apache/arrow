@@ -59,11 +59,9 @@ void ComputeRowMajorStrides(const FixedWidthType& type, const std::vector<int64_
   }
 }
 
-}  // namespace internal
-
-static void ComputeColumnMajorStrides(const FixedWidthType& type,
-                                      const std::vector<int64_t>& shape,
-                                      std::vector<int64_t>* strides) {
+void ComputeColumnMajorStrides(const FixedWidthType& type,
+                               const std::vector<int64_t>& shape,
+                               std::vector<int64_t>* strides) {
   const int byte_width = internal::GetByteWidth(type);
   int64_t total = byte_width;
   for (int64_t dimsize : shape) {
@@ -77,6 +75,8 @@ static void ComputeColumnMajorStrides(const FixedWidthType& type,
     total *= dimsize;
   }
 }
+
+}  // namespace internal
 
 namespace {
 
@@ -94,7 +94,7 @@ inline bool IsTensorStridesColumnMajor(const std::shared_ptr<DataType>& type,
                                        const std::vector<int64_t>& strides) {
   std::vector<int64_t> f_strides;
   const auto& fw_type = checked_cast<const FixedWidthType&>(*type);
-  ComputeColumnMajorStrides(fw_type, shape, &f_strides);
+  internal::ComputeColumnMajorStrides(fw_type, shape, &f_strides);
   return strides == f_strides;
 }
 
