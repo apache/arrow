@@ -57,9 +57,9 @@ fn main() {
         process::exit(1);
     }
 
-    for filename in args {
-        let path = Path::new(&filename);
-        let file = File::open(&path).unwrap();
+    for filename in &args[1..] {
+        let path = Path::new(filename);
+        let file = File::open(path).unwrap();
         let parquet_reader = SerializedFileReader::new(file).unwrap();
         let row_group_metadata = parquet_reader.metadata().row_groups();
         let mut total_num_rows = 0;
