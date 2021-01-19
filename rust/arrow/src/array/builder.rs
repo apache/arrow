@@ -1854,9 +1854,47 @@ where
     }
 }
 
-/// Array builder for `DictionaryArray`. For example to map a set of byte indices
-/// to f32 values. Note that the use of a `HashMap` here will not scale to very large
+/// Array builder for `DictionaryArray` that stores Strings. For example to map a set of byte indices
+/// to String values. Note that the use of a `HashMap` here will not scale to very large
 /// arrays or result in an ordered dictionary.
+///
+/// ```
+/// use arrow::{
+///   array::{
+///     Int8Array, StringArray,
+///     PrimitiveBuilder, StringBuilder, StringDictionaryBuilder,
+///   },
+///   datatypes::Int8Type,
+/// };
+///
+/// // Create a dictionary array indexed by bytes whose values are Strings.
+/// // It can thus hold up to 256 distinct string values.
+///
+/// let key_builder = PrimitiveBuilder::<Int8Type>::new(100);
+/// let value_builder = StringBuilder::new(100);
+/// let mut builder = StringDictionaryBuilder::new(key_builder, value_builder);
+///
+/// // The builder builds the dictionary value by value
+/// builder.append("abc").unwrap();
+/// builder.append_null().unwrap();
+/// builder.append("def").unwrap();
+/// builder.append("def").unwrap();
+/// builder.append("abc").unwrap();
+/// let array = builder.finish();
+///
+/// assert_eq!(
+///   array.keys(),
+///   &Int8Array::from(vec![Some(0), None, Some(1), Some(1), Some(0)])
+/// );
+///
+/// // Values are polymorphic and so require a downcast.
+/// let av = array.values();
+/// let ava: &StringArray = av.as_any().downcast_ref::<StringArray>().unwrap();
+///
+/// assert_eq!(ava.value(0), "abc");
+/// assert_eq!(ava.value(1), "def");
+///
+/// ```
 #[derive(Debug)]
 pub struct StringDictionaryBuilder<K>
 where
