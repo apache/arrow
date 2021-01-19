@@ -634,6 +634,8 @@ tasks:
       - apache-arrow_{no_rc_version}-1.dsc
       - apache-arrow_{no_rc_version}.orig.tar.gz
       - gir1.2-arrow-1.0_{no_rc_version}-1_[a-z0-9]+.deb
+      - gir1.2-arrow-dataset-1.0_{no_rc_version}-1_[a-z0-9]+.deb
+      - gir1.2-gandiva-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
@@ -745,6 +747,8 @@ tasks:
       - apache-arrow_{no_rc_version}-1.dsc
       - apache-arrow_{no_rc_version}.orig.tar.gz
       - gir1.2-arrow-1.0_{no_rc_version}-1_[a-z0-9]+.deb
+      - gir1.2-arrow-dataset-1.0_{no_rc_version}-1_[a-z0-9]+.deb
+      - gir1.2-gandiva-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
@@ -847,6 +851,8 @@ tasks:
       - apache-arrow_{no_rc_version}-1.dsc
       - apache-arrow_{no_rc_version}.orig.tar.gz
       - gir1.2-arrow-1.0_{no_rc_version}-1_[a-z0-9]+.deb
+      - gir1.2-arrow-dataset-1.0_{no_rc_version}-1_[a-z0-9]+.deb
+      - gir1.2-gandiva-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
@@ -951,6 +957,8 @@ tasks:
       - apache-arrow_{no_rc_version}-1.dsc
       - apache-arrow_{no_rc_version}.orig.tar.gz
       - gir1.2-arrow-1.0_{no_rc_version}-1_[a-z0-9]+.deb
+      - gir1.2-arrow-dataset-1.0_{no_rc_version}-1_[a-z0-9]+.deb
+      - gir1.2-gandiva-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
@@ -1055,6 +1063,7 @@ tasks:
       - apache-arrow_{no_rc_version}-1.dsc
       - apache-arrow_{no_rc_version}.orig.tar.gz
       - gir1.2-arrow-1.0_{no_rc_version}-1_[a-z0-9]+.deb
+      - gir1.2-arrow-dataset-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-gandiva-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
