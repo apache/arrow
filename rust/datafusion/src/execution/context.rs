@@ -854,6 +854,19 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn sort_empty() -> Result<()> {
+        // The predicate on this query purposely generates no results
+        let results = execute(
+            "SELECT c1, c2 FROM test WHERE c1 > 100000 ORDER BY c1 DESC, c2 ASC",
+            4,
+        )
+        .await
+        .unwrap();
+        assert_eq!(results.len(), 0);
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn aggregate() -> Result<()> {
         let results = execute("SELECT SUM(c1), SUM(c2) FROM test", 4).await?;
         assert_eq!(results.len(), 1);
@@ -863,6 +876,24 @@ mod tests {
         assert_eq!(field_names(batch), vec!["SUM(c1)", "SUM(c2)"]);
 
         let expected: Vec<&str> = vec!["60,220"];
+        let mut rows = test::format_batch(&batch);
+        rows.sort();
+        assert_eq!(rows, expected);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn aggregate_empty() -> Result<()> {
+        // The predicate on this query purposely generates no results
+        let results = execute("SELECT SUM(c1), SUM(c2) FROM test where c1 > 100000", 4)
+            .await
+            .unwrap();
+
+        assert_eq!(results.len(), 1);
+        let batch = &results[0];
+
+        let expected: Vec<&str> = vec!["NULL,NULL"];
         let mut rows = test::format_batch(&batch);
         rows.sort();
         assert_eq!(rows, expected);
