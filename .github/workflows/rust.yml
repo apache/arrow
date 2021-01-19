@@ -232,7 +232,7 @@ jobs:
     strategy:
       matrix:
         arch: [amd64]
-        rust: [stable]
+        rust: [nightly-2021-01-19]
     steps:
       - uses: actions/checkout@v2
         with:
