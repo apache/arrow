@@ -313,7 +313,7 @@ test_csharp() {
       fi
     fi
   else
-    local dotnet_version=2.2.300
+    local dotnet_version=3.1.405
     local dotnet_platform=
     case "$(uname)" in
       Linux)
