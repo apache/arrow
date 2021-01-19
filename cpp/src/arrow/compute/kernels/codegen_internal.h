@@ -126,6 +126,35 @@ struct OptionsWrapper : public KernelState {
   OptionsType options;
 };
 
+/// KernelState adapter for when the state is an instance constructed with the
+/// KernelContext and the FunctionOptions as argument
+template <typename StateType, typename OptionsType>
+struct KernelStateFromFunctionOptions : public KernelState {
+  explicit KernelStateFromFunctionOptions(KernelContext* ctx, OptionsType state)
+      : state(StateType(ctx, std::move(state))) {}
+
+  static std::unique_ptr<KernelState> Init(KernelContext* ctx,
+                                           const KernelInitArgs& args) {
+    if (auto options = static_cast<const OptionsType*>(args.options)) {
+      return ::arrow::internal::make_unique<KernelStateFromFunctionOptions>(ctx,
+                                                                            *options);
+    }
+
+    ctx->SetStatus(
+        Status::Invalid("Attempted to initialize KernelState from null FunctionOptions"));
+    return NULLPTR;
+  }
+
+  static const StateType& Get(const KernelState& state) {
+    return ::arrow::internal::checked_cast<const KernelStateFromFunctionOptions&>(state)
+        .state;
+  }
+
+  static const StateType& Get(KernelContext* ctx) { return Get(*ctx->state()); }
+
+  StateType state;
+};
+
 // ----------------------------------------------------------------------
 // Input and output value type definitions
 

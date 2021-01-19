@@ -274,6 +274,24 @@ def test_match_substring():
     assert expected.equals(result)
 
 
+def test_trim():
+    # \u3000 is unicode whitespace
+    arr = pa.array([" foo", None, " \u3000foo bar \t"])
+    result = pc.utf8_trim_whitespace(arr)
+    expected = pa.array(["foo", None, "foo bar"])
+    assert expected.equals(result)
+
+    arr = pa.array([" foo", None, " \u3000foo bar \t"])
+    result = pc.ascii_trim_whitespace(arr)
+    expected = pa.array(["foo", None, "\u3000foo bar"])
+    assert expected.equals(result)
+
+    arr = pa.array([" foo", None, " \u3000foo bar \t"])
+    result = pc.utf8_trim(arr, characters=' f\u3000')
+    expected = pa.array(["oo", None, "oo bar \t"])
+    assert expected.equals(result)
+
+
 def test_split_pattern():
     arr = pa.array(["-foo---bar--", "---foo---b"])
     result = pc.split_pattern(arr, pattern="---")
