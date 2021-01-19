@@ -22,6 +22,7 @@
 
 set -e
 
+
 SOURCE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 CPP_BUILD_SUPPORT=$SOURCE_DIR/../cpp/build-support
 
