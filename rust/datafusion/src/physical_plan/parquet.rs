@@ -370,7 +370,8 @@ impl RowGroupPredicateBuilder {
                 // when the result of the predicate expression for a row group is null / undefined,
                 // e.g. due to missing statistics, this row group can't be filtered out,
                 // so replace with true
-                let predicate_values = array.iter().map(|x| x.unwrap_or(true)).collect::<Vec<_>>();
+                let predicate_values =
+                    array.iter().map(|x| x.unwrap_or(true)).collect::<Vec<_>>();
                 Box::new(move |_, i| predicate_values[i])
             }
             // predicate result is not a BooleanArray
@@ -396,14 +397,18 @@ fn build_statistics_record_batch(
                 .iter()
                 .map(|g| g.column(column_index).statistics())
                 .collect::<Vec<_>>();
-            let array =
-                build_statistics_array(&statistics, *statistics_type, stat_field.data_type());
+            let array = build_statistics_array(
+                &statistics,
+                *statistics_type,
+                stat_field.data_type(),
+            );
             fields.push(stat_field.clone());
             arrays.push(array);
         }
     }
     let schema = Arc::new(Schema::new(fields));
-    RecordBatch::try_new(schema, arrays).map_err(|err| DataFusionError::Plan(err.to_string()))
+    RecordBatch::try_new(schema, arrays)
+        .map_err(|err| DataFusionError::Plan(err.to_string()))
 }
 
 struct StatisticsExpressionBuilder<'a> {
@@ -434,7 +439,8 @@ impl<'a> StatisticsExpressionBuilder<'a> {
                 _ => {
                     // if more than one column used in expression - not supported
                     return Err(DataFusionError::Plan(
-                        "Multi-column expressions are not currently supported".to_string(),
+                        "Multi-column expressions are not currently supported"
+                            .to_string(),
                     ));
                 }
             };
@@ -493,7 +499,11 @@ impl<'a> StatisticsExpressionBuilder<'a> {
             == 0
     }
 
-    fn stat_column_expr(&mut self, stat_type: StatisticsType, suffix: &str) -> Result<Expr> {
+    fn stat_column_expr(
+        &mut self,
+        stat_type: StatisticsType,
+        suffix: &str,
+    ) -> Result<Expr> {
         let stat_column_name = format!("{}_{}", self.column_name, suffix);
         let stat_field = Field::new(
             stat_column_name.as_str(),
@@ -522,7 +532,11 @@ impl<'a> StatisticsExpressionBuilder<'a> {
 }
 
 /// replaces a column with an old name with a new name in an expression
-fn rewrite_column_expr(expr: &Expr, column_old_name: &str, column_new_name: &str) -> Result<Expr> {
+fn rewrite_column_expr(
+    expr: &Expr,
+    column_old_name: &str,
+    column_new_name: &str,
+) -> Result<Expr> {
     let expressions = utils::expr_sub_expressions(&expr)?;
     let expressions = expressions
         .iter()
@@ -556,13 +570,19 @@ fn build_predicate_expression(
     };
 
     if op == Operator::And || op == Operator::Or {
-        let left_expr = build_predicate_expression(left, parquet_schema, stat_column_req)?;
-        let right_expr = build_predicate_expression(right, parquet_schema, stat_column_req)?;
+        let left_expr =
+            build_predicate_expression(left, parquet_schema, stat_column_req)?;
+        let right_expr =
+            build_predicate_expression(right, parquet_schema, stat_column_req)?;
         return Ok(logical_plan::binary_expr(left_expr, op, right_expr));
     }
 
-    let expr_builder =
-        StatisticsExpressionBuilder::try_new(left, right, parquet_schema, stat_column_req);
+    let expr_builder = StatisticsExpressionBuilder::try_new(
+        left,
+        right,
+        parquet_schema,
+        stat_column_req,
+    );
     let mut expr_builder = match expr_builder {
         Ok(builder) => builder,
         // allow partial failure in predicate expression generation
@@ -645,7 +665,9 @@ fn build_statistics_array(
         ParquetStatistics::Int64(_) => (std::mem::size_of::<i64>(), DataType::Int64),
         ParquetStatistics::Float(_) => (std::mem::size_of::<f32>(), DataType::Float32),
         ParquetStatistics::Double(_) => (std::mem::size_of::<f64>(), DataType::Float64),
-        ParquetStatistics::ByteArray(_) if data_type == &DataType::Utf8 => (0, DataType::Utf8),
+        ParquetStatistics::ByteArray(_) if data_type == &DataType::Utf8 => {
+            (0, DataType::Utf8)
+        }
         _ => {
             // type of statistics not supported
             return build_null_array(data_type, statistics_count);
@@ -665,7 +687,8 @@ fn build_statistics_array(
             .clone()
             .map(|x| x.map(|b| b.len()).unwrap_or(0))
             .sum();
-        let mut builder = arrow::array::StringBuilder::with_capacity(statistics_count, data_size);
+        let mut builder =
+            arrow::array::StringBuilder::with_capacity(statistics_count, data_size);
         let string_statistics =
             statistics.map(|x| x.and_then(|bytes| std::str::from_utf8(bytes).ok()));
         for maybe_string in string_statistics {
@@ -795,13 +818,13 @@ fn read_files(
         let file = File::open(&filename)?;
         let mut file_reader = SerializedFileReader::new(file)?;
         if let Some(predicate_builder) = predicate_builder {
-            let row_group_predicate =
-                predicate_builder.build_row_group_predicate(file_reader.metadata().row_groups());
+            let row_group_predicate = predicate_builder
+                .build_row_group_predicate(file_reader.metadata().row_groups());
             file_reader.filter_row_groups(&row_group_predicate);
         }
         let mut arrow_reader = ParquetFileArrowReader::new(Arc::new(file_reader));
-        let mut batch_reader =
-            arrow_reader.get_record_reader_by_columns(projection.to_owned(), batch_size)?;
+        let mut batch_reader = arrow_reader
+            .get_record_reader_by_columns(projection.to_owned(), batch_size)?;
         loop {
             match batch_reader.next() {
                 Some(Ok(batch)) => {
@@ -812,8 +835,11 @@ fn read_files(
                     break;
                 }
                 Some(Err(e)) => {
-                    let err_msg =
-                        format!("Error reading batch from {}: {}", filename, e.to_string());
+                    let err_msg = format!(
+                        "Error reading batch from {}: {}",
+                        filename,
+                        e.to_string()
+                    );
                     // send error to operator
                     send_result(
                         &response_tx,
@@ -848,7 +874,10 @@ struct ParquetStream {
 impl Stream for ParquetStream {
     type Item = ArrowResult<RecordBatch>;
 
-    fn poll_next(self: std::pin::Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    fn poll_next(
+        self: std::pin::Pin<&mut Self>,
+        _: &mut Context<'_>,
+    ) -> Poll<Option<Self::Item>> {
         match self.response_rx.recv() {
             Ok(batch) => Poll::Ready(batch),
             // RecvError means receiver has exited and closed the channel
@@ -922,7 +951,8 @@ mod tests {
         assert_eq!(3, batch.num_columns());
 
         let schema = batch.schema();
-        let field_names: Vec<&str> = schema.fields().iter().map(|f| f.name().as_str()).collect();
+        let field_names: Vec<&str> =
+            schema.fields().iter().map(|f| f.name().as_str()).collect();
         assert_eq!(vec!["id", "bool_col", "tinyint_col"], field_names);
 
         let batch = results.next().await;
@@ -970,8 +1000,20 @@ mod tests {
     fn build_statistics_array_utf8() {
         // build row group metadata array
         let s1 = ParquetStatistics::byte_array(None, Some("10".into()), None, 0, false);
-        let s2 = ParquetStatistics::byte_array(Some("2".into()), Some("20".into()), None, 0, false);
-        let s3 = ParquetStatistics::byte_array(Some("3".into()), Some("30".into()), None, 0, false);
+        let s2 = ParquetStatistics::byte_array(
+            Some("2".into()),
+            Some("20".into()),
+            None,
+            0,
+            false,
+        );
+        let s3 = ParquetStatistics::byte_array(
+            Some("3".into()),
+            Some("30".into()),
+            None,
+            0,
+            false,
+        );
         let statistics = vec![Some(&s1), Some(&s2), Some(&s3)];
 
         let statistics_array =
@@ -999,11 +1041,13 @@ mod tests {
     fn build_statistics_array_empty_stats() {
         let data_type = DataType::Int32;
         let statistics = vec![];
-        let statistics_array = build_statistics_array(&statistics, StatisticsType::Min, &data_type);
+        let statistics_array =
+            build_statistics_array(&statistics, StatisticsType::Min, &data_type);
         assert_eq!(statistics_array.len(), 0);
 
         let statistics = vec![None, None];
-        let statistics_array = build_statistics_array(&statistics, StatisticsType::Min, &data_type);
+        let statistics_array =
+            build_statistics_array(&statistics, StatisticsType::Min, &data_type);
         assert_eq!(statistics_array.len(), statistics.len());
         assert_eq!(statistics_array.data_type(), &data_type);
         for i in 0..statistics_array.len() {
@@ -1019,7 +1063,8 @@ mod tests {
         let s2 = ParquetStatistics::boolean(Some(false), Some(true), None, 0, false);
         let statistics = vec![Some(&s1), Some(&s2)];
         let data_type = DataType::Boolean;
-        let statistics_array = build_statistics_array(&statistics, StatisticsType::Min, &data_type);
+        let statistics_array =
+            build_statistics_array(&statistics, StatisticsType::Min, &data_type);
         assert_eq!(statistics_array.len(), statistics.len());
         assert_eq!(statistics_array.data_type(), &data_type);
         for i in 0..statistics_array.len() {
@@ -1167,7 +1212,8 @@ mod tests {
             .lt(lit(1))
             .and(col("c2").eq(lit(2)).or(col("c2").eq(lit(3))));
         let expected_expr = "#c1_min Lt Int32(1) And #c2_min LtEq Int32(2) And Int32(2) LtEq #c2_max Or #c2_min LtEq Int32(3) And Int32(3) LtEq #c2_max";
-        let predicate_expr = build_predicate_expression(&expr, &schema, &mut stat_column_req)?;
+        let predicate_expr =
+            build_predicate_expression(&expr, &schema, &mut stat_column_req)?;
         assert_eq!(format!("{:?}", predicate_expr), expected_expr);
         // c1 < 1 should add c1_min
         let c1_min_field = Field::new("c1_min", DataType::Int32, false);
@@ -1210,7 +1256,8 @@ mod tests {
             vec![ParquetStatistics::int32(Some(11), Some(20), None, 0, false)],
         );
         let row_group_metadata = vec![rgm1, rgm2];
-        let row_group_predicate = predicate_builder.build_row_group_predicate(&row_group_metadata);
+        let row_group_predicate =
+            predicate_builder.build_row_group_predicate(&row_group_metadata);
         let row_group_filter = row_group_metadata
             .iter()
             .enumerate()
@@ -1239,7 +1286,8 @@ mod tests {
             vec![ParquetStatistics::int32(Some(11), Some(20), None, 0, false)],
         );
         let row_group_metadata = vec![rgm1, rgm2];
-        let row_group_predicate = predicate_builder.build_row_group_predicate(&row_group_metadata);
+        let row_group_predicate =
+            predicate_builder.build_row_group_predicate(&row_group_metadata);
         let row_group_filter = row_group_metadata
             .iter()
             .enumerate()
@@ -1283,7 +1331,8 @@ mod tests {
             ],
         );
         let row_group_metadata = vec![rgm1, rgm2];
-        let row_group_predicate = predicate_builder.build_row_group_predicate(&row_group_metadata);
+        let row_group_predicate =
+            predicate_builder.build_row_group_predicate(&row_group_metadata);
         let row_group_filter = row_group_metadata
             .iter()
             .enumerate()
@@ -1297,7 +1346,8 @@ mod tests {
         // this bypasses the entire predicate expression and no row groups are filtered out
         let expr = col("c1").gt(lit(15)).or(col("c2").modulus(lit(2)));
         let predicate_builder = RowGroupPredicateBuilder::try_new(&expr, schema)?;
-        let row_group_predicate = predicate_builder.build_row_group_predicate(&row_group_metadata);
+        let row_group_predicate =
+            predicate_builder.build_row_group_predicate(&row_group_metadata);
         let row_group_filter = row_group_metadata
             .iter()
             .enumerate()
@@ -1340,7 +1390,8 @@ mod tests {
             ],
         );
         let row_group_metadata = vec![rgm1, rgm2];
-        let row_group_predicate = predicate_builder.build_row_group_predicate(&row_group_metadata);
+        let row_group_predicate =
+            predicate_builder.build_row_group_predicate(&row_group_metadata);
         let row_group_filter = row_group_metadata
             .iter()
             .enumerate()
@@ -1379,7 +1430,9 @@ mod tests {
         use parquet::schema::types::{SchemaDescriptor, Type as SchemaType};
         let mut schema_fields = fields
             .iter()
-            .map(|(n, t)| Arc::new(SchemaType::primitive_type_builder(n, *t).build().unwrap()))
+            .map(|(n, t)| {
+                Arc::new(SchemaType::primitive_type_builder(n, *t).build().unwrap())
+            })
             .collect::<Vec<_>>();
         let schema = SchemaType::group_type_builder("schema")
             .with_fields(&mut schema_fields)
