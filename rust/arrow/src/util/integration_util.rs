@@ -885,7 +885,7 @@ mod tests {
         let utf8s = StringArray::from(vec![Some("aa"), None, Some("bbb")]);
 
         let value_data = Int32Array::from(vec![None, Some(2), None, None]);
-        let value_offsets = Buffer::from(&[0, 3, 4, 4].to_byte_slice());
+        let value_offsets = Buffer::from_slice_ref(&[0, 3, 4, 4]);
         let list_data_type =
             DataType::List(Box::new(Field::new("item", DataType::Int32, true)));
         let list_data = ArrayData::builder(list_data_type)

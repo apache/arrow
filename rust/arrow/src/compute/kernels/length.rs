@@ -17,7 +17,6 @@
 
 //! Defines kernel for length of a string array
 
-use crate::datatypes::ToByteSlice;
 use crate::{array::*, buffer::Buffer};
 use crate::{
     datatypes::DataType,
@@ -53,7 +52,7 @@ where
         None,
         null_bit_buffer,
         0,
-        vec![Buffer::from(lengths.to_byte_slice())],
+        vec![Buffer::from_slice_ref(&lengths)],
         vec![],
     );
     Ok(make_array(Arc::new(data)))

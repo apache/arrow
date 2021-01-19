@@ -95,7 +95,7 @@ fn build_extend_null_bits(array: &ArrayData, use_nulls: bool) -> ExtendNullBits 
     if let Some(bitmap) = array.null_bitmap() {
         let bytes = bitmap.bits.as_slice();
         Box::new(move |mutable, start, len| {
-            utils::reserve_for_bits(&mut mutable.null_buffer, mutable.len + len);
+            utils::resize_for_bits(&mut mutable.null_buffer, mutable.len + len);
             mutable.null_count += utils::set_bits(
                 mutable.null_buffer.as_slice_mut(),
                 bytes,
@@ -106,7 +106,7 @@ fn build_extend_null_bits(array: &ArrayData, use_nulls: bool) -> ExtendNullBits 
         })
     } else if use_nulls {
         Box::new(|mutable, _, len| {
-            utils::reserve_for_bits(&mut mutable.null_buffer, mutable.len + len);
+            utils::resize_for_bits(&mut mutable.null_buffer, mutable.len + len);
             let write_data = mutable.null_buffer.as_slice_mut();
             let offset = mutable.len;
             (0..len).for_each(|i| {
@@ -298,7 +298,7 @@ impl<'a> MutableArrayData<'a> {
             DataType::Null => [empty_buffer, MutableBuffer::new(0)],
             DataType::Boolean => {
                 let bytes = bit_util::ceil(capacity, 8);
-                let buffer = MutableBuffer::new(bytes).with_bitset(bytes, false);
+                let buffer = MutableBuffer::from_len_zeroed(bytes);
                 [buffer, empty_buffer]
             }
             DataType::UInt8 => {
@@ -361,25 +361,25 @@ impl<'a> MutableArrayData<'a> {
             DataType::Utf8 | DataType::Binary => {
                 let mut buffer = MutableBuffer::new((1 + capacity) * size_of::<i32>());
                 // safety: `unsafe` code assumes that this buffer is initialized with one element
-                buffer.extend_from_slice(&[0i32].to_byte_slice());
+                buffer.push(0i32);
                 [buffer, MutableBuffer::new(capacity * size_of::<u8>())]
             }
             DataType::LargeUtf8 | DataType::LargeBinary => {
                 let mut buffer = MutableBuffer::new((1 + capacity) * size_of::<i64>());
                 // safety: `unsafe` code assumes that this buffer is initialized with one element
-                buffer.extend_from_slice(&[0i64].to_byte_slice());
+                buffer.push(0i64);
                 [buffer, MutableBuffer::new(capacity * size_of::<u8>())]
             }
             DataType::List(_) => {
                 // offset buffer always starts with a zero
                 let mut buffer = MutableBuffer::new((1 + capacity) * size_of::<i32>());
-                buffer.extend_from_slice(0i32.to_byte_slice());
+                buffer.push(0i32);
                 [buffer, empty_buffer]
             }
             DataType::LargeList(_) => {
                 // offset buffer always starts with a zero
                 let mut buffer = MutableBuffer::new((1 + capacity) * size_of::<i64>());
-                buffer.extend_from_slice(&[0i64].to_byte_slice());
+                buffer.push(0i64);
                 [buffer, empty_buffer]
             }
             DataType::FixedSizeBinary(size) => {
@@ -487,7 +487,7 @@ impl<'a> MutableArrayData<'a> {
             .collect();
 
         let null_bytes = bit_util::ceil(capacity, 8);
-        let null_buffer = MutableBuffer::new(null_bytes).with_bitset(null_bytes, false);
+        let null_buffer = MutableBuffer::from_len_zeroed(null_bytes);
 
         let extend_values = arrays.iter().map(|array| build_extend(array)).collect();
 
@@ -552,7 +552,6 @@ mod tests {
     };
     use crate::{
         array::{ListArray, StringBuilder},
-        datatypes::ToByteSlice,
         error::Result,
     };
 
@@ -1002,7 +1001,7 @@ mod tests {
             Some(15),
         ]);
         let list_value_offsets =
-            Buffer::from(&[0i32, 3, 5, 11, 13, 13, 15, 15, 17].to_byte_slice());
+            Buffer::from_slice_ref(&[0i32, 3, 5, 11, 13, 13, 15, 15, 17]);
         let expected_list_data = ArrayData::new(
             DataType::List(Box::new(Field::new("item", DataType::Int64, true))),
             8,
@@ -1083,9 +1082,8 @@ mod tests {
             Some(14),
             Some(15),
         ]);
-        let list_value_offsets = Buffer::from(
-            &[0, 3, 5, 5, 13, 15, 15, 15, 19, 19, 19, 19, 23].to_byte_slice(),
-        );
+        let list_value_offsets =
+            Buffer::from_slice_ref(&[0, 3, 5, 5, 13, 15, 15, 15, 19, 19, 19, 19, 23]);
         let expected_list_data = ArrayData::new(
             DataType::List(Box::new(Field::new("item", DataType::Int64, true))),
             12,
@@ -1156,7 +1154,7 @@ mod tests {
             None,
             // extend b[0..0]
         ]);
-        let list_value_offsets = Buffer::from(&[0, 3, 5, 6, 9, 10, 13].to_byte_slice());
+        let list_value_offsets = Buffer::from_slice_ref(&[0, 3, 5, 6, 9, 10, 13]);
         let expected_list_data = ArrayData::new(
             DataType::List(Box::new(Field::new("item", DataType::Utf8, true))),
             6,
