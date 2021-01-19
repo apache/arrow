@@ -41,8 +41,8 @@ use arrow::error::{ArrowError, Result as ArrowResult};
 use arrow::record_batch::RecordBatch;
 use arrow::{
     array::{
-        ArrayRef, Float32Array, Float64Array, Int16Array, Int32Array, Int64Array, Int8Array,
-        StringArray, UInt16Array, UInt32Array, UInt64Array, UInt8Array,
+        ArrayRef, Float32Array, Float64Array, Int16Array, Int32Array, Int64Array,
+        Int8Array, StringArray, UInt16Array, UInt32Array, UInt64Array, UInt8Array,
     },
     compute,
 };
@@ -394,7 +394,11 @@ fn group_aggregate_batch(
 }
 
 /// Create a key `Vec<u8>` that is used as key for the hashmap
-pub(crate) fn create_key(group_by_keys: &[ArrayRef], row: usize, vec: &mut Vec<u8>) -> Result<()> {
+pub(crate) fn create_key(
+    group_by_keys: &[ArrayRef],
+    row: usize,
+    vec: &mut Vec<u8>,
+) -> Result<()> {
     vec.clear();
     for col in group_by_keys {
         match col.data_type() {
@@ -520,9 +524,14 @@ impl GroupedHashAggregateStream {
 
         let schema_clone = schema.clone();
         tokio::spawn(async move {
-            let result =
-                compute_grouped_hash_aggregate(mode, schema_clone, group_expr, aggr_expr, input)
-                    .await;
+            let result = compute_grouped_hash_aggregate(
+                mode,
+                schema_clone,
+                group_expr,
+                aggr_expr,
+                input,
+            )
+            .await;
             tx.send(result)
         });
 
@@ -535,12 +544,16 @@ impl GroupedHashAggregateStream {
 }
 
 type AccumulatorSet = Vec<Box<dyn Accumulator>>;
-type Accumulators = HashMap<Vec<u8>, (Box<[GroupByScalar]>, AccumulatorSet, Vec<u32>), RandomState>;
+type Accumulators =
+    HashMap<Vec<u8>, (Box<[GroupByScalar]>, AccumulatorSet, Vec<u32>), RandomState>;
 
 impl Stream for GroupedHashAggregateStream {
     type Item = ArrowResult<RecordBatch>;
 
-    fn poll_next(self: std::pin::Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    fn poll_next(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Option<Self::Item>> {
         if self.finished {
             return Poll::Ready(None);
         }
@@ -572,7 +585,10 @@ impl RecordBatchStream for GroupedHashAggregateStream {
 }
 
 /// Evaluates expressions against a record batch.
-fn evaluate(expr: &Vec<Arc<dyn PhysicalExpr>>, batch: &RecordBatch) -> Result<Vec<ArrayRef>> {
+fn evaluate(
+    expr: &Vec<Arc<dyn PhysicalExpr>>,
+    batch: &RecordBatch,
+) -> Result<Vec<ArrayRef>> {
     expr.iter()
         .map(|expr| expr.evaluate(&batch))
         .map(|r| r.map(|v| v.into_array(batch.num_rows())))
@@ -590,7 +606,9 @@ fn evaluate_many(
 }
 
 /// uses `state_fields` to build a vec of expressions required to merge the AggregateExpr' accumulator's state.
-fn merge_expressions(expr: &Arc<dyn AggregateExpr>) -> Result<Vec<Arc<dyn PhysicalExpr>>> {
+fn merge_expressions(
+    expr: &Arc<dyn AggregateExpr>,
+) -> Result<Vec<Arc<dyn PhysicalExpr>>> {
     Ok(expr
         .state_fields()?
         .iter()
@@ -610,7 +628,9 @@ fn aggregate_expressions(
     mode: &AggregateMode,
 ) -> Result<Vec<Vec<Arc<dyn PhysicalExpr>>>> {
     match mode {
-        AggregateMode::Partial => Ok(aggr_expr.iter().map(|agg| agg.expressions()).collect()),
+        AggregateMode::Partial => {
+            Ok(aggr_expr.iter().map(|agg| agg.expressions()).collect())
+        }
         // in this mode, we build the merge expressions of the aggregation
         AggregateMode::Final => Ok(aggr_expr
             .iter()
@@ -634,8 +654,8 @@ async fn compute_hash_aggregate(
     aggr_expr: Vec<Arc<dyn AggregateExpr>>,
     mut input: SendableRecordBatchStream,
 ) -> ArrowResult<RecordBatch> {
-    let mut accumulators =
-        create_accumulators(&aggr_expr).map_err(DataFusionError::into_arrow_external_error)?;
+    let mut accumulators = create_accumulators(&aggr_expr)
+        .map_err(DataFusionError::into_arrow_external_error)?;
 
     let expressions = aggregate_expressions(&aggr_expr, &mode)
         .map_err(DataFusionError::into_arrow_external_error)?;
@@ -668,7 +688,8 @@ impl HashAggregateStream {
 
         let schema_clone = schema.clone();
         tokio::spawn(async move {
-            let result = compute_hash_aggregate(mode, schema_clone, aggr_expr, input).await;
+            let result =
+                compute_hash_aggregate(mode, schema_clone, aggr_expr, input).await;
             tx.send(result)
         });
 
@@ -719,7 +740,10 @@ fn aggregate_batch(
 impl Stream for HashAggregateStream {
     type Item = ArrowResult<RecordBatch>;
 
-    fn poll_next(self: std::pin::Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    fn poll_next(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Option<Self::Item>> {
         if self.finished {
             return Poll::Ready(None);
         }
@@ -784,12 +808,16 @@ fn create_batch_from_map(
             let mut groups = (0..num_group_expr)
                 .map(|i| match &group_by_values[i] {
                     GroupByScalar::Float32(n) => {
-                        Arc::new(Float32Array::from(vec![(*n).into()] as Vec<f32>)) as ArrayRef
+                        Arc::new(Float32Array::from(vec![(*n).into()] as Vec<f32>))
+                            as ArrayRef
                     }
                     GroupByScalar::Float64(n) => {
-                        Arc::new(Float64Array::from(vec![(*n).into()] as Vec<f64>)) as ArrayRef
+                        Arc::new(Float64Array::from(vec![(*n).into()] as Vec<f64>))
+                            as ArrayRef
                     }
-                    GroupByScalar::Int8(n) => Arc::new(Int8Array::from(vec![*n])) as ArrayRef,
+                    GroupByScalar::Int8(n) => {
+                        Arc::new(Int8Array::from(vec![*n])) as ArrayRef
+                    }
                     GroupByScalar::Int16(n) => Arc::new(Int16Array::from(vec![*n])),
                     GroupByScalar::Int32(n) => Arc::new(Int32Array::from(vec![*n])),
                     GroupByScalar::Int64(n) => Arc::new(Int64Array::from(vec![*n])),
@@ -797,7 +825,9 @@ fn create_batch_from_map(
                     GroupByScalar::UInt16(n) => Arc::new(UInt16Array::from(vec![*n])),
                     GroupByScalar::UInt32(n) => Arc::new(UInt32Array::from(vec![*n])),
                     GroupByScalar::UInt64(n) => Arc::new(UInt64Array::from(vec![*n])),
-                    GroupByScalar::Utf8(str) => Arc::new(StringArray::from(vec![&***str])),
+                    GroupByScalar::Utf8(str) => {
+                        Arc::new(StringArray::from(vec![&***str]))
+                    }
                     GroupByScalar::TimeMicrosecond(n) => {
                         Arc::new(TimestampMicrosecondArray::from(vec![*n]))
                     }
@@ -828,7 +858,9 @@ fn create_batch_from_map(
     Ok(batch)
 }
 
-fn create_accumulators(aggr_expr: &Vec<Arc<dyn AggregateExpr>>) -> Result<AccumulatorSet> {
+fn create_accumulators(
+    aggr_expr: &Vec<Arc<dyn AggregateExpr>>,
+) -> Result<AccumulatorSet> {
     aggr_expr
         .iter()
         .map(|expr| expr.create_accumulator())
@@ -848,7 +880,9 @@ fn finalize_aggregation(
                 .iter()
                 .map(|accumulator| accumulator.state())
                 .map(|value| {
-                    value.map(|e| e.iter().map(|v| v.to_array()).collect::<Vec<ArrayRef>>())
+                    value.map(|e| {
+                        e.iter().map(|v| v.to_array()).collect::<Vec<ArrayRef>>()
+                    })
                 })
                 .collect::<Result<Vec<_>>>()?;
             Ok(a.iter().flatten().cloned().collect::<Vec<_>>())
@@ -987,7 +1021,8 @@ mod tests {
 
     /// build the aggregates on the data from some_data() and check the results
     async fn check_aggregates(input: Arc<dyn ExecutionPlan>) -> Result<()> {
-        let groups: Vec<(Arc<dyn PhysicalExpr>, String)> = vec![(col("a"), "a".to_string())];
+        let groups: Vec<(Arc<dyn PhysicalExpr>, String)> =
+            vec![(col("a"), "a".to_string())];
 
         let aggregates: Vec<Arc<dyn AggregateExpr>> = vec![Arc::new(Avg::new(
             col("b"),
@@ -1135,14 +1170,16 @@ mod tests {
 
     #[tokio::test]
     async fn aggregate_source_not_yielding() -> Result<()> {
-        let input: Arc<dyn ExecutionPlan> = Arc::new(TestYieldingExec { yield_first: false });
+        let input: Arc<dyn ExecutionPlan> =
+            Arc::new(TestYieldingExec { yield_first: false });
 
         check_aggregates(input).await
     }
 
     #[tokio::test]
     async fn aggregate_source_with_yielding() -> Result<()> {
-        let input: Arc<dyn ExecutionPlan> = Arc::new(TestYieldingExec { yield_first: true });
+        let input: Arc<dyn ExecutionPlan> =
+            Arc::new(TestYieldingExec { yield_first: true });
 
         check_aggregates(input).await
     }
