@@ -41,49 +41,22 @@ Status Function::CheckArity(int passed_num_args) const {
   if (arity_.is_varargs && passed_num_args < arity_.num_args) {
     return Status::Invalid("VarArgs function needs at least ", arity_.num_args,
                            " arguments but kernel accepts only ", passed_num_args);
-  } else if (!arity_.is_varargs && passed_num_args != arity_.num_args) {
+  }
+
+  if (!arity_.is_varargs && passed_num_args != arity_.num_args) {
     return Status::Invalid("Function accepts ", arity_.num_args,
                            " arguments but kernel accepts ", passed_num_args);
   }
-  return Status::OK();
-}
-
-namespace {
-
-Status ValidateDispatch(const Function* func, const std::vector<ValueDescr>& values) {
-  if (func->kind() == Function::META) {
-    return Status::NotImplemented("Dispatch for a MetaFunction's Kernels");
-  }
-
-  const int passed_num_args = static_cast<int>(values.size());
-  const Arity arity = func->arity();
-
-  if (arity.is_varargs && passed_num_args < arity.num_args) {
-    return Status::Invalid("VarArgs function needs at least ", arity.num_args,
-                           " arguments but passed only ", passed_num_args);
-  }
-
-  if (!arity.is_varargs && passed_num_args != arity.num_args) {
-    return Status::Invalid("Function accepts ", arity.num_args, " arguments but passed ",
-                           passed_num_args);
-  }
 
   return Status::OK();
 }
+
+namespace detail {
 
 Status NoMatchingKernel(const Function* func, const std::vector<ValueDescr>& descrs) {
-  std::stringstream ss;
-  ss << "(";
-  for (size_t i = 0; i < descrs.size(); ++i) {
-    if (i > 0) {
-      ss << ", ";
-    }
-    ss << descrs[i].ToString();
-  }
-  ss << ")";
-
   return Status::NotImplemented("Function ", func->name(),
-                                " has no kernel matching input types ", ss.str());
+                                " has no kernel matching input types ",
+                                ValueDescr::ToString(descrs));
 }
 
 template <typename KernelType>
@@ -143,23 +116,29 @@ const Kernel* DispatchExactImpl(const Function* func,
   return nullptr;
 }
 
-}  // namespace
+}  // namespace detail
 
 Result<const Kernel*> Function::DispatchExact(
     const std::vector<ValueDescr>& values) const {
-  RETURN_NOT_OK(ValidateDispatch(this, values));
+  if (kind_ == Function::META) {
+    return Status::NotImplemented("Dispatch for a MetaFunction's Kernels");
+  }
+  RETURN_NOT_OK(CheckArity(static_cast<int>(values.size())));
 
-  if (auto kernel = DispatchExactImpl(this, values)) {
+  if (auto kernel = detail::DispatchExactImpl(this, values)) {
     return kernel;
   }
-  return NoMatchingKernel(this, values);
+  return detail::NoMatchingKernel(this, values);
 }
 
 Result<const Kernel*> Function::DispatchBest(std::vector<ValueDescr>* values) const {
-  RETURN_NOT_OK(ValidateDispatch(this, *values));
+  if (kind_ == Function::META) {
+    return Status::NotImplemented("Dispatch for a MetaFunction's Kernels");
+  }
+  RETURN_NOT_OK(CheckArity(static_cast<int>(values->size())));
 
   // first try for an exact match
-  if (auto kernel = DispatchExactImpl(this, *values)) {
+  if (auto kernel = detail::DispatchExactImpl(this, *values)) {
     return kernel;
   }
 

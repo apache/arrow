@@ -1186,14 +1186,13 @@ ArrayKernelExec GenerateTemporal(detail::GetTypeId get_id) {
 // END of kernel generator-dispatchers
 // ----------------------------------------------------------------------
 
-inline void EnsureDictionaryDecoded(std::vector<ValueDescr>* descrs) {
-  for (ValueDescr& descr : *descrs) {
-    if (descr.type->id() == Type::DICTIONARY) {
-      descr.type = checked_cast<const DictionaryType&>(*descr.type).value_type();
-    }
-  }
-}
+ARROW_EXPORT
+void EnsureDictionaryDecoded(std::vector<ValueDescr>* descrs);
 
+ARROW_EXPORT
+void ReplaceNullWithOtherType(std::vector<ValueDescr>* descrs);
+
+ARROW_EXPORT
 std::shared_ptr<DataType> CommonNumeric(const std::vector<ValueDescr>& descrs);
 
 }  // namespace internal

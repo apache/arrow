@@ -455,15 +455,25 @@ TEST(TestCompareKernel, DispatchBest) {
   for (std::string name :
        {"equal", "not_equal", "less", "less_equal", "greater", "greater_equal"}) {
     CheckDispatchBest(name, {int32(), int32()}, {int32(), int32()});
+
+    CheckDispatchBest(name, {int32(), null()}, {int32(), int32()});
+
+    CheckDispatchBest(name, {null(), int32()}, {int32(), int32()});
+
     CheckDispatchBest(name, {int32(), int16()}, {int32(), int32()});
+
     CheckDispatchBest(name, {int32(), float32()}, {float32(), float32()});
+
     CheckDispatchBest(name, {float32(), int64()}, {float32(), float32()});
+
     CheckDispatchBest(name, {float64(), int32()}, {float64(), float64()});
 
     CheckDispatchBest(name, {dictionary(int8(), float64()), float64()},
                       {float64(), float64()});
+
     CheckDispatchBest(name, {dictionary(int8(), float64()), int16()},
                       {float64(), float64()});
+
     CheckDispatchBest(name, {dictionary(int8(), utf8()), utf8()}, {utf8(), utf8()});
   }
 }
@@ -481,6 +491,10 @@ TEST(TestCompareKernel, GreaterWithImplicitCasts) {
                     ArrayFromJSON(dictionary(int32(), int32()), "[0, 1, 2, null]"),
                     ArrayFromJSON(uint32(), "[3, 4, 5, 7]"),
                     ArrayFromJSON(boolean(), "[false, false, false, null]"));
+
+  CheckScalarBinary("greater", ArrayFromJSON(int32(), "[0, 1, 2, null]"),
+                    std::make_shared<NullArray>(4),
+                    ArrayFromJSON(boolean(), "[null, null, null, null]"));
 
   // Not currently implemented since it would invoke a double implicit cast:
   // dictionary(int32, int8) -> int8 -> int32

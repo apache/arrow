@@ -179,6 +179,28 @@ Result<ValueDescr> FirstType(KernelContext*, const std::vector<ValueDescr>& desc
   return descrs[0];
 }
 
+void EnsureDictionaryDecoded(std::vector<ValueDescr>* descrs) {
+  for (ValueDescr& descr : *descrs) {
+    if (descr.type->id() == Type::DICTIONARY) {
+      descr.type = checked_cast<const DictionaryType&>(*descr.type).value_type();
+    }
+  }
+}
+
+void ReplaceNullWithOtherType(std::vector<ValueDescr>* descrs) {
+  DCHECK_EQ(descrs->size(), 2);
+
+  if (descrs->at(0).type->id() == Type::NA) {
+    descrs->at(0).type = descrs->at(1).type;
+    return;
+  }
+
+  if (descrs->at(1).type->id() == Type::NA) {
+    descrs->at(1).type = descrs->at(0).type;
+    return;
+  }
+}
+
 std::shared_ptr<DataType> CommonNumeric(const std::vector<ValueDescr>& descrs) {
   for (const auto& descr : descrs) {
     auto id = descr.type->id();

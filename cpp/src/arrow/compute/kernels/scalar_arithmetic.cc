@@ -268,7 +268,10 @@ struct ArithmeticFunction : ScalarFunction {
   using ScalarFunction::ScalarFunction;
 
   Result<const Kernel*> DispatchBest(std::vector<ValueDescr>* values) const override {
+    RETURN_NOT_OK(CheckArity(static_cast<int>(values->size())));
+
     EnsureDictionaryDecoded(values);
+    ReplaceNullWithOtherType(values);
 
     if (auto type = CommonNumeric(*values)) {
       for (auto& descr : *values) {
@@ -276,7 +279,10 @@ struct ArithmeticFunction : ScalarFunction {
       }
     }
 
-    return DispatchExact(*values);
+    if (auto kernel = arrow::compute::detail::DispatchExactImpl(this, *values)) {
+      return kernel;
+    }
+    return arrow::compute::detail::NoMatchingKernel(this, *values);
   }
 };
 
