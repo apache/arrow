@@ -949,10 +949,10 @@ cdef class _QuantileOptions(FunctionOptions):
         }
         if interp not in interp_dict:
             raise ValueError(
-                '{!r} is not a valid null_handling'
+                '{!r} is not a valid interpolation'
                 .format(interp))
         self.quantile_options.interpolation = interp_dict[interp]
-        self.quantile_options.q= quantiles
+        self.quantile_options.q = quantiles
 
 
 class QuantileOptions(_QuantileOptions):

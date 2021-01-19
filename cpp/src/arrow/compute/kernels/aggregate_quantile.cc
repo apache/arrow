@@ -265,18 +265,21 @@ void AddQuantileKernels(VectorFunction* func) {
 }
 
 const FunctionDoc quantile_doc{
-    "Return an array of quantiles of a numeric array or chunked array",
+    "Compute an array of quantiles of a numeric array or chunked array",
     ("By default, 0.5 quantile (median) is returned.\n"
-     "If quantile lies between two data points, an interpolated value is "
+     "If quantile lies between two data points, an interpolated value is\n"
      "returned based on selected interpolation method.\n"
-     "Nulls and NaNs are ignored. Return empty array if no valid data points."),
+     "Nulls and NaNs are ignored.\n"
+     "An empty array is returned if there is no valid data point."),
     {"array"},
     "QuantileOptions"};
 
 }  // namespace
 
 void RegisterScalarAggregateQuantile(FunctionRegistry* registry) {
-  auto func = std::make_shared<VectorFunction>("quantile", Arity::Unary(), &quantile_doc);
+  static QuantileOptions default_options;
+  auto func = std::make_shared<VectorFunction>("quantile", Arity::Unary(), &quantile_doc,
+                                               &default_options);
   AddQuantileKernels(func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }

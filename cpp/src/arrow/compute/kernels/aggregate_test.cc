@@ -1335,8 +1335,8 @@ class TestPrimitiveQuantileKernel : public ::testing::Test {
                           const std::vector<std::vector<Datum>>& expected) {
     ASSERT_EQ(options.q.size(), expected.size());
 
-    for (size_t i = 0; i < this->interpolations.size(); ++i) {
-      options.interpolation = this->interpolations[i];
+    for (size_t i = 0; i < this->interpolations_.size(); ++i) {
+      options.interpolation = this->interpolations_[i];
 
       ASSERT_OK_AND_ASSIGN(Datum out, Quantile(array, options));
       const auto& out_array = out.make_array();
@@ -1397,7 +1397,7 @@ class TestPrimitiveQuantileKernel : public ::testing::Test {
 
   void AssertQuantilesEmpty(const Datum& array, const std::vector<double>& q) {
     QuantileOptions options{q};
-    for (auto interpolation : this->interpolations) {
+    for (auto interpolation : this->interpolations_) {
       options.interpolation = interpolation;
       ASSERT_OK_AND_ASSIGN(Datum out, Quantile(array, options));
       ASSERT_OK(out.make_array()->ValidateFull());
@@ -1417,7 +1417,8 @@ class TestPrimitiveQuantileKernel : public ::testing::Test {
   }
 
   std::shared_ptr<DataType> type_singleton() { return Traits::type_singleton(); }
-  std::vector<enum QuantileOptions::Interpolation> interpolations{
+
+  std::vector<enum QuantileOptions::Interpolation> interpolations_{
       QuantileOptions::LINEAR, QuantileOptions::LOWER, QuantileOptions::HIGHER,
       QuantileOptions::NEAREST, QuantileOptions::MIDPOINT};
 };
@@ -1548,9 +1549,9 @@ class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<Int32Type> {
     std::sort(input.begin(), input.end());
 
     std::vector<std::vector<Datum>> output(quantiles.size(),
-                                           std::vector<Datum>(interpolations.size()));
-    for (uint64_t i = 0; i < interpolations.size(); ++i) {
-      const auto interp = interpolations[i];
+                                           std::vector<Datum>(interpolations_.size()));
+    for (uint64_t i = 0; i < interpolations_.size(); ++i) {
+      const auto interp = interpolations_[i];
       for (uint64_t j = 0; j < quantiles.size(); ++j) {
         output[j][i] = GetQuantile(input, quantiles[j], interp);
       }
