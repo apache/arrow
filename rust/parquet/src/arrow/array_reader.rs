@@ -435,15 +435,10 @@ where
     }
 
     fn next_batch(&mut self, batch_size: usize) -> Result<ArrayRef> {
-        // Try to initialized column reader
+        // Try to initialize column reader
         if self.column_reader.is_none() {
-            let init_result = self.next_column_reader()?;
-            if !init_result {
-                return Err(general_err!("No page left!"));
-            }
+            self.next_column_reader()?;
         }
-
-        assert!(self.column_reader.is_some());
 
         let mut data_buffer: Vec<T::T> = Vec::with_capacity(batch_size);
         data_buffer.resize_with(batch_size, T::T::default);
@@ -466,7 +461,7 @@ where
 
         let mut num_read = 0;
 
-        while num_read < batch_size {
+        while self.column_reader.is_some() && num_read < batch_size {
             let num_to_read = batch_size - num_read;
             let cur_data_buf = &mut data_buffer[num_read..];
             let cur_def_levels_buf =
@@ -2125,6 +2120,37 @@ mod tests {
                 array_reader.get_rep_levels()
             );
         }
+    }
+
+    #[test]
+    fn test_complex_array_reader_no_pages() {
+        let message_type = "
+        message test_schema {
+            REPEATED Group test_mid {
+                OPTIONAL BYTE_ARRAY leaf (UTF8);
+            }
+        }
+        ";
+        let schema = parse_message_type(message_type)
+            .map(|t| Arc::new(SchemaDescriptor::new(Arc::new(t))))
+            .unwrap();
+        let column_desc = schema.column(0);
+        let pages: Vec<Vec<Page>> = Vec::new();
+        let page_iterator = InMemoryPageIterator::new(schema, column_desc.clone(), pages);
+
+        let converter = Utf8Converter::new(Utf8ArrayConverter {});
+        let mut array_reader =
+            ComplexObjectArrayReader::<ByteArrayType, Utf8Converter>::new(
+                Box::new(page_iterator),
+                column_desc,
+                converter,
+                None,
+            )
+            .unwrap();
+
+        let values_per_page = 100; // this value is arbitrary in this test - the result should always be an array of 0 length
+        let array = array_reader.next_batch(values_per_page).unwrap();
+        assert_eq!(array.len(), 0);
     }
 
     #[test]
