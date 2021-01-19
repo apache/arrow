@@ -450,7 +450,8 @@ void RegisterScalarSetLookup(FunctionRegistry* registry) {
   {
     ScalarKernel isin_base;
     isin_base.init = InitSetLookup;
-    isin_base.exec = TrivialScalarUnaryAsArraysExec(ExecIsIn);
+    isin_base.exec =
+        TrivialScalarUnaryAsArraysExec(ExecIsIn, NullHandling::OUTPUT_NOT_NULL);
     isin_base.null_handling = NullHandling::OUTPUT_NOT_NULL;
     auto is_in = std::make_shared<SetLookupFunction>("is_in", Arity::Unary(), &is_in_doc);
 
@@ -467,7 +468,8 @@ void RegisterScalarSetLookup(FunctionRegistry* registry) {
   {
     ScalarKernel index_in_base;
     index_in_base.init = InitSetLookup;
-    index_in_base.exec = TrivialScalarUnaryAsArraysExec(ExecIndexIn);
+    index_in_base.exec = TrivialScalarUnaryAsArraysExec(
+        ExecIndexIn, NullHandling::COMPUTED_NO_PREALLOCATE);
     index_in_base.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
     index_in_base.mem_allocation = MemAllocation::NO_PREALLOCATE;
     auto index_in =

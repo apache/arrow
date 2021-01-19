@@ -595,10 +595,10 @@ TEST(TestSetLookup, DispatchBest) {
 }
 
 TEST(TestSetLookup, IsInWithImplicitCasts) {
-  SetLookupOptions opts{ArrayFromJSON(utf8(), R"(["b", "d"])")};
+  SetLookupOptions opts{ArrayFromJSON(utf8(), R"(["b", null])")};
   CheckScalarUnary("is_in",
                    ArrayFromJSON(dictionary(int32(), utf8()), R"(["a", "b", "c", null])"),
-                   ArrayFromJSON(boolean(), "[0, 1, 0, null]"), &opts);
+                   ArrayFromJSON(boolean(), "[0, 1, 0, 1]"), &opts);
 }
 
 }  // namespace compute
