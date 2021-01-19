@@ -71,6 +71,16 @@ static void SplitPattern(benchmark::State& state) {
   UnaryStringBenchmark(state, "split_pattern", &options);
 }
 
+static void TrimSingleAscii(benchmark::State& state) {
+  TrimOptions options("a");
+  UnaryStringBenchmark(state, "ascii_trim", &options);
+}
+
+static void TrimManyAscii(benchmark::State& state) {
+  TrimOptions options("abcdefgABCDEFG");
+  UnaryStringBenchmark(state, "ascii_trim", &options);
+}
+
 #ifdef ARROW_WITH_UTF8PROC
 static void Utf8Upper(benchmark::State& state) {
   UnaryStringBenchmark(state, "utf8_upper");
@@ -83,6 +93,15 @@ static void Utf8Lower(benchmark::State& state) {
 static void IsAlphaNumericUnicode(benchmark::State& state) {
   UnaryStringBenchmark(state, "utf8_is_alnum");
 }
+static void TrimSingleUtf8(benchmark::State& state) {
+  TrimOptions options("a");
+  UnaryStringBenchmark(state, "utf8_trim", &options);
+}
+
+static void TrimManyUtf8(benchmark::State& state) {
+  TrimOptions options("abcdefgABCDEFG");
+  UnaryStringBenchmark(state, "utf8_trim", &options);
+}
 #endif
 
 BENCHMARK(AsciiLower);
@@ -90,10 +109,14 @@ BENCHMARK(AsciiUpper);
 BENCHMARK(IsAlphaNumericAscii);
 BENCHMARK(MatchSubstring);
 BENCHMARK(SplitPattern);
+BENCHMARK(TrimSingleAscii);
+BENCHMARK(TrimManyAscii);
 #ifdef ARROW_WITH_UTF8PROC
 BENCHMARK(Utf8Lower);
 BENCHMARK(Utf8Upper);
 BENCHMARK(IsAlphaNumericUnicode);
+BENCHMARK(TrimSingleUtf8);
+BENCHMARK(TrimManyUtf8);
 #endif
 
 }  // namespace compute
