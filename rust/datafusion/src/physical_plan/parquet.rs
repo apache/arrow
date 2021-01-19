@@ -709,7 +709,7 @@ fn build_statistics_array(
             data_buffer.extend_from_slice(stat_data);
         } else {
             bitmap_builder.append(false);
-            data_buffer.resize(data_buffer.len() + data_size);
+            data_buffer.resize(data_buffer.len() + data_size, 0);
             null_count += 1;
         }
     }
