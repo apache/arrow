@@ -18,32 +18,31 @@
 test_that("Addition", {
   a <- Array$create(c(1:4, NA_integer_))
   expect_type_equal(a, int32())
-  expect_type_equal(a + 4, int32())
-  expect_equal(a + 4, Array$create(c(5:8, NA_integer_)))
-  expect_identical(as.vector(a + 4), c(5:8, NA_integer_))
+  expect_type_equal(a + 4L, int32())
+  expect_type_equal(a + 4, float64())
+  expect_equal(a + 4L, Array$create(c(5:8, NA_integer_)))
+  expect_identical(as.vector(a + 4L), c(5:8, NA_integer_))
   expect_equal(a + 4L, Array$create(c(5:8, NA_integer_)))
   expect_vector(a + 4L, c(5:8, NA_integer_))
   expect_equal(a + NA_integer_, Array$create(rep(NA_integer_, 5)))
 
-  # overflow errors — this is slightly different from R's `NA` coercion when
-  # overflowing, but better than the alternative of silently restarting
-  casted <- a$cast(int8())
-  expect_error(casted + 127)
-  expect_error(casted + 200)
+  a8 <- a$cast(int8())
+  expect_type_equal(a8 + Scalar$create(1, int8()), int8())
+  expect_type_equal(a8 + 127L, int32())
+  expect_type_equal(a8 + 200L, int32())
 
-  skip("autocasting should happen in compute kernels; R workaround fails on this ARROW-8919")
   expect_type_equal(a + 4.1, float64())
   expect_equal(a + 4.1, Array$create(c(5.1, 6.1, 7.1, 8.1, NA_real_)))
 })
 
 test_that("Subtraction", {
   a <- Array$create(c(1:4, NA_integer_))
-  expect_equal(a - 3, Array$create(c(-2:1, NA_integer_)))
+  expect_equal(a - 3L, Array$create(c(-2:1, NA_integer_)))
 })
 
 test_that("Multiplication", {
   a <- Array$create(c(1:4, NA_integer_))
-  expect_equal(a * 2, Array$create(c(1:4 * 2L, NA_integer_)))
+  expect_equal(a * 2L, Array$create(c(1:4 * 2L, NA_integer_)))
 })
 
 test_that("Division", {

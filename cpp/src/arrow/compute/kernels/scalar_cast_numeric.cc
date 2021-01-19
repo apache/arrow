@@ -62,7 +62,7 @@ Status CheckFloatTruncation(const Datum& input, const Datum& output) {
     return is_valid && static_cast<InT>(out_val) != in_val;
   };
   auto GetErrorMessage = [&](InT val) {
-    return Status::Invalid("Float value ", val, " was truncated converting to",
+    return Status::Invalid("Float value ", val, " was truncated converting to ",
                            *output.type());
   };
 
