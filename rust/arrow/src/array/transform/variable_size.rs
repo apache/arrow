@@ -18,7 +18,6 @@
 use crate::{
     array::{ArrayData, OffsetSizeTrait},
     buffer::MutableBuffer,
-    datatypes::ToByteSlice,
 };
 
 use super::{
@@ -72,8 +71,7 @@ pub(super) fn build_extend<T: OffsetSizeTrait>(array: &ArrayData) -> Extend {
                 let mut last_offset: T = unsafe { get_last_offset(offset_buffer) };
 
                 // nulls present: append item by item, ignoring null entries
-                offset_buffer
-                    .reserve(offset_buffer.len() + len * std::mem::size_of::<T>());
+                offset_buffer.reserve(len * std::mem::size_of::<T>());
 
                 (start..start + len).for_each(|i| {
                     if array.is_valid(i) {
@@ -89,7 +87,7 @@ pub(super) fn build_extend<T: OffsetSizeTrait>(array: &ArrayData) -> Extend {
                         values_buffer.extend_from_slice(bytes);
                     }
                     // offsets are always present
-                    offset_buffer.extend_from_slice(last_offset.to_byte_slice());
+                    offset_buffer.push(last_offset);
                 })
             },
         )
@@ -105,6 +103,5 @@ pub(super) fn extend_nulls<T: OffsetSizeTrait>(
     // this is safe due to how offset is built. See details on `get_last_offset`
     let last_offset: T = unsafe { get_last_offset(offset_buffer) };
 
-    let offsets = vec![last_offset; len];
-    offset_buffer.extend_from_slice(offsets.to_byte_slice());
+    (0..len).for_each(|_| offset_buffer.push(last_offset))
 }

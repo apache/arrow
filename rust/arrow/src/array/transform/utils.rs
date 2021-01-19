@@ -15,16 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use crate::{
-    array::OffsetSizeTrait, buffer::MutableBuffer, datatypes::ToByteSlice, util::bit_util,
-};
+use crate::{array::OffsetSizeTrait, buffer::MutableBuffer, util::bit_util};
 
 /// extends the `buffer` to be able to hold `len` bits, setting all bits of the new size to zero.
 #[inline]
-pub(super) fn reserve_for_bits(buffer: &mut MutableBuffer, len: usize) {
+pub(super) fn resize_for_bits(buffer: &mut MutableBuffer, len: usize) {
     let needed_bytes = bit_util::ceil(len, 8);
     if buffer.len() < needed_bytes {
-        buffer.extend(needed_bytes - buffer.len());
+        buffer.resize(needed_bytes, 0);
     }
 }
 
@@ -53,12 +51,12 @@ pub(super) fn extend_offsets<T: OffsetSizeTrait>(
     mut last_offset: T,
     offsets: &[T],
 ) {
-    buffer.reserve(buffer.len() + offsets.len() * std::mem::size_of::<T>());
+    buffer.reserve(offsets.len() * std::mem::size_of::<T>());
     offsets.windows(2).for_each(|offsets| {
         // compute the new offset
         let length = offsets[1] - offsets[0];
         last_offset += length;
-        buffer.extend_from_slice(last_offset.to_byte_slice());
+        buffer.push(last_offset);
     });
 }
 

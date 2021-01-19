@@ -36,10 +36,7 @@ impl<T> RawPtrBox<T> {
     /// * `ptr` is not aligned to a slice of type `T`. This is guaranteed if it was built from a slice of type `T`.
     pub(super) unsafe fn new(ptr: *const u8) -> Self {
         let ptr = NonNull::new(ptr as *mut u8).expect("Pointer cannot be null");
-        assert!(
-            memory::is_aligned(ptr, std::mem::align_of::<T>()),
-            "memory is not aligned"
-        );
+        assert!(memory::is_ptr_aligned::<T>(ptr), "memory is not aligned");
         Self { ptr: ptr.cast() }
     }
 
@@ -50,3 +47,15 @@ impl<T> RawPtrBox<T> {
 
 unsafe impl<T> Send for RawPtrBox<T> {}
 unsafe impl<T> Sync for RawPtrBox<T> {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[should_panic(expected = "memory is not aligned")]
+    fn test_primitive_array_alignment() {
+        let bytes = vec![0u8, 1u8];
+        unsafe { RawPtrBox::<u64>::new(bytes.as_ptr().offset(1)) };
+    }
+}

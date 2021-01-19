@@ -275,8 +275,8 @@ where
 {
     let data_len = indices.len();
 
-    let mut buffer = MutableBuffer::new(data_len * std::mem::size_of::<T::Native>());
-    buffer.resize(data_len * std::mem::size_of::<T::Native>());
+    let mut buffer =
+        MutableBuffer::from_len_zeroed(data_len * std::mem::size_of::<T::Native>());
     let data = buffer.typed_data_mut();
 
     let nulls;
@@ -344,7 +344,7 @@ where
     let data_len = indices.len();
 
     let num_byte = bit_util::ceil(data_len, 8);
-    let mut val_buf = MutableBuffer::new(num_byte).with_bitset(num_byte, false);
+    let mut val_buf = MutableBuffer::from_len_zeroed(num_byte);
 
     let val_slice = val_buf.as_slice_mut();
 
@@ -420,8 +420,7 @@ where
     let data_len = indices.len();
 
     let bytes_offset = (data_len + 1) * std::mem::size_of::<OffsetSize>();
-    let mut offsets_buffer = MutableBuffer::new(bytes_offset);
-    offsets_buffer.resize(bytes_offset);
+    let mut offsets_buffer = MutableBuffer::from_len_zeroed(bytes_offset);
 
     let offsets = offsets_buffer.typed_data_mut();
     let mut values = Vec::with_capacity(bytes_offset);
@@ -559,7 +558,7 @@ where
             },
         );
     }
-    let value_offsets = Buffer::from(offsets[..].to_byte_slice());
+    let value_offsets = Buffer::from_slice_ref(&offsets);
     // create a new list with taken data and computed null information
     let list_data = ArrayDataBuilder::new(values.data_type().clone())
         .len(indices.len())
@@ -966,7 +965,7 @@ mod tests {
             let value_data = Int32Array::from(vec![0, 0, 0, -1, -2, -1, 2, 3]).data();
             // Construct offsets
             let value_offsets: [$offset_type; 4] = [0, 3, 6, 8];
-            let value_offsets = Buffer::from(&value_offsets.to_byte_slice());
+            let value_offsets = Buffer::from_slice_ref(&value_offsets);
             // Construct a list array from the above two
             let list_data_type = DataType::$list_data_type(Box::new(Field::new(
                 "item",
@@ -1004,7 +1003,7 @@ mod tests {
             .data();
             // construct offsets
             let expected_offsets: [$offset_type; 6] = [0, 2, 2, 5, 7, 10];
-            let expected_offsets = Buffer::from(&expected_offsets.to_byte_slice());
+            let expected_offsets = Buffer::from_slice_ref(&expected_offsets);
             // construct list array from the two
             let expected_list_data = ArrayData::builder(list_data_type)
                 .len(5)
@@ -1038,7 +1037,7 @@ mod tests {
             .data();
             // Construct offsets
             let value_offsets: [$offset_type; 5] = [0, 3, 6, 7, 9];
-            let value_offsets = Buffer::from(&value_offsets.to_byte_slice());
+            let value_offsets = Buffer::from_slice_ref(&value_offsets);
             // Construct a list array from the above two
             let list_data_type = DataType::$list_data_type(Box::new(Field::new(
                 "item",
@@ -1076,7 +1075,7 @@ mod tests {
             .data();
             // construct offsets
             let expected_offsets: [$offset_type; 6] = [0, 1, 1, 4, 6, 9];
-            let expected_offsets = Buffer::from(&expected_offsets.to_byte_slice());
+            let expected_offsets = Buffer::from_slice_ref(&expected_offsets);
             // construct list array from the two
             let expected_list_data = ArrayData::builder(list_data_type)
                 .len(5)
@@ -1109,7 +1108,7 @@ mod tests {
             .data();
             // Construct offsets
             let value_offsets: [$offset_type; 5] = [0, 3, 6, 6, 8];
-            let value_offsets = Buffer::from(&value_offsets.to_byte_slice());
+            let value_offsets = Buffer::from_slice_ref(&value_offsets);
             // Construct a list array from the above two
             let list_data_type = DataType::$list_data_type(Box::new(Field::new(
                 "item",
@@ -1146,7 +1145,7 @@ mod tests {
             .data();
             // construct offsets
             let expected_offsets: [$offset_type; 6] = [0, 0, 0, 3, 5, 8];
-            let expected_offsets = Buffer::from(&expected_offsets.to_byte_slice());
+            let expected_offsets = Buffer::from_slice_ref(&expected_offsets);
             // construct list array from the two
             let mut null_bits: [u8; 1] = [0; 1];
             bit_util::set_bit(&mut null_bits, 2);
@@ -1277,7 +1276,7 @@ mod tests {
         // Construct a value array, [[0,0,0], [-1,-2,-1], [2,3]]
         let value_data = Int32Array::from(vec![0, 0, 0, -1, -2, -1, 2, 3]).data();
         // Construct offsets
-        let value_offsets = Buffer::from(&[0, 3, 6, 8].to_byte_slice());
+        let value_offsets = Buffer::from_slice_ref(&[0, 3, 6, 8]);
         // Construct a list array from the above two
         let list_data_type =
             DataType::List(Box::new(Field::new("item", DataType::Int32, false)));

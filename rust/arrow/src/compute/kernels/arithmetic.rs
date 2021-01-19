@@ -32,7 +32,7 @@ use crate::buffer::Buffer;
 use crate::buffer::MutableBuffer;
 use crate::compute::util::combine_option_bitmap;
 use crate::datatypes;
-use crate::datatypes::{ArrowNumericType, ToByteSlice};
+use crate::datatypes::ArrowNumericType;
 use crate::error::{ArrowError, Result};
 use crate::{array::*, util::bit_util};
 #[cfg(simd)]
@@ -63,7 +63,7 @@ where
         None,
         array.data_ref().null_buffer().cloned(),
         0,
-        vec![Buffer::from(values.to_byte_slice())],
+        vec![Buffer::from_slice_ref(&values)],
         vec![],
     );
     Ok(PrimitiveArray::<T>::from(Arc::new(data)))
@@ -156,7 +156,7 @@ where
         None,
         null_bit_buffer,
         0,
-        vec![Buffer::from(values.to_byte_slice())],
+        vec![Buffer::from_slice_ref(&values)],
         vec![],
     );
     Ok(PrimitiveArray::<T>::from(Arc::new(data)))
@@ -220,7 +220,7 @@ where
         None,
         null_bit_buffer,
         0,
-        vec![Buffer::from(values.to_byte_slice())],
+        vec![Buffer::from_slice_ref(&values)],
         vec![],
     );
     Ok(PrimitiveArray::<T>::from(Arc::new(data)))

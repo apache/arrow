@@ -156,16 +156,3 @@ impl Debug for Bytes {
         write!(f, " }}")
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_dealloc_native() {
-        let capacity = 5;
-        let a = memory::allocate_aligned(capacity);
-        // create Bytes and release it. This will make `a` be an invalid pointer, but it is defined behavior
-        unsafe { Bytes::new(a, 3, Deallocation::Native(capacity)) };
-    }
-}
