@@ -1019,7 +1019,7 @@ enable_if_t<std::is_integral<CValueType>::value && std::is_signed<CValueType>::v
             void>
 FillRandomData(CValueType* data, size_t n, SeedType seed) {
   FillRandomData<CValueType, SeedType, std::uniform_int_distribution<CValueType>>(
-      data, n, 0, 1000, seed);
+      data, n, -1000, 1000, seed);
 }
 
 template <typename CValueType, typename SeedType>
@@ -1027,7 +1027,7 @@ enable_if_t<std::is_integral<CValueType>::value && std::is_unsigned<CValueType>:
             void>
 FillRandomData(CValueType* data, size_t n, SeedType seed) {
   FillRandomData<CValueType, SeedType, std::uniform_int_distribution<CValueType>>(
-      data, n, -1000, 1000, seed);
+      data, n, 0, 1000, seed);
 }
 
 template <typename CValueType, typename SeedType>
