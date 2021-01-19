@@ -1747,6 +1747,23 @@ Status FuzzIpcFile(const uint8_t* data, int64_t size) {
   return Status::OK();
 }
 
+Status FuzzIpcTensorStream(const uint8_t* data, int64_t size) {
+  auto buffer = std::make_shared<Buffer>(data, size);
+  io::BufferReader buffer_reader(buffer);
+
+  std::shared_ptr<Tensor> tensor;
+
+  while (true) {
+    ARROW_ASSIGN_OR_RAISE(tensor, ReadTensor(&buffer_reader));
+    if (tensor == nullptr) {
+      break;
+    }
+    RETURN_NOT_OK(tensor->Validate());
+  }
+
+  return Status::OK();
+}
+
 }  // namespace internal
 }  // namespace ipc
 }  // namespace arrow
