@@ -923,19 +923,15 @@ std::shared_ptr<arrow::Array> Array__from_vector_reuse_memory(SEXP x) {
   cpp11::stop("Unreachable: you might need to fix can_reuse_memory()");
 }
 
-std::shared_ptr<arrow::Array> vec_to_arrow(SEXP x, SEXP s_type) {
+std::shared_ptr<arrow::Array> vec_to_arrow(SEXP x, const std::shared_ptr<arrow::DataType>& type, bool type_inferred) {
   // short circuit if `x` is already an Array
   if (Rf_inherits(x, "Array")) {
     return cpp11::as_cpp<std::shared_ptr<arrow::Array>>(x);
   }
 
   RConversionOptions options;
-  options.strict = !Rf_isNull(s_type);
-  if (options.strict) {
-    options.type = cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(s_type);
-  } else {
-    options.type = arrow::r::InferArrowType(x);
-  }
+  options.strict = !type_inferred;
+  options.type = type;
   options.size = vctrs::short_vec_size(x);
 
   // maybe short circuit when zero-copy is possible
@@ -956,7 +952,14 @@ std::shared_ptr<arrow::Array> vec_to_arrow(SEXP x, SEXP s_type) {
 // [[arrow::export]]
 SEXP vec_to_arrow(SEXP x, SEXP s_type) {
   if (Rf_inherits(x, "Array")) return x;
-  return cpp11::to_r6(arrow::r::vec_to_arrow(x, s_type));
+  bool type_inferred = Rf_isNull(s_type);
+  std::shared_ptr<arrow::DataType> type;
+  if (type_inferred) {
+    type = cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(s_type);
+  } else {
+    type = type = arrow::r::InferArrowType(x);
+  }
+  return cpp11::to_r6(arrow::r::vec_to_arrow(x, type, type_inferred));
 }
 
 #endif

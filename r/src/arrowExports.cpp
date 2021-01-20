@@ -2782,7 +2782,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_vec_to_arrow(SEXP x_sexp, SEXP s_type_sexp){
-	Rf_error("Cannot call vec_to_arrow(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call vec_to_arrow(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 // recordbatch.cpp
