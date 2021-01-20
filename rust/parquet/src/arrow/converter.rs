@@ -22,7 +22,6 @@ use arrow::array::{
     IntervalDayTimeArray, IntervalDayTimeBuilder, IntervalYearMonthArray,
     IntervalYearMonthBuilder, LargeBinaryBuilder, LargeStringBuilder, PrimitiveBuilder,
     PrimitiveDictionaryBuilder, StringBuilder, StringDictionaryBuilder,
-    TimestampNanosecondBuilder,
 };
 use arrow::compute::cast;
 use std::convert::{From, TryInto};
@@ -168,19 +167,19 @@ impl Converter<Vec<Option<FixedLenByteArray>>, IntervalDayTimeArray>
     }
 }
 
-pub struct Int96ArrayConverter {}
+pub struct Int96ArrayConverter {
+    pub timezone: Option<String>,
+}
 
 impl Converter<Vec<Option<Int96>>, TimestampNanosecondArray> for Int96ArrayConverter {
     fn convert(&self, source: Vec<Option<Int96>>) -> Result<TimestampNanosecondArray> {
-        let mut builder = TimestampNanosecondBuilder::new(source.len());
-        for v in source {
-            match v {
-                Some(array) => builder.append_value(array.to_i64() * 1000000),
-                None => builder.append_null(),
-            }?
-        }
-
-        Ok(builder.finish())
+        Ok(TimestampNanosecondArray::from_opt_vec(
+            source
+                .into_iter()
+                .map(|int96| int96.map(|val| val.to_i64() * 1_000_000))
+                .collect(),
+            self.timezone.clone(),
+        ))
     }
 }
 
