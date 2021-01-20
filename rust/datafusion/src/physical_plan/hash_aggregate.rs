@@ -347,7 +347,6 @@ fn group_aggregate_batch(
                     .unwrap()
                 })
                 .collect()
-            // 2.3
         })
         .collect();
 

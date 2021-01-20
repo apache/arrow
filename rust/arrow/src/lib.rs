@@ -147,7 +147,7 @@ pub mod error;
 pub mod ffi;
 pub mod ipc;
 pub mod json;
-mod memory;
+pub mod memory;
 pub mod record_batch;
 pub mod tensor;
 pub mod util;
