@@ -1002,32 +1002,29 @@ impl MutableBuffer {
         mut iterator: I,
     ) {
         let size = std::mem::size_of::<T>();
+        let (lower, _) = iterator.size_hint();
+        let additional = lower * size;
+        self.reserve(additional);
 
         // this is necessary because of https://github.com/rust-lang/rust/issues/32155
-        let (mut ptr, mut capacity, mut len) = (self.data, self.capacity, self.len);
-        let mut dst = unsafe { ptr.as_ptr().add(len) as *mut T };
+        let mut len = SetLenOnDrop::new(&mut self.len);
+        let mut dst = unsafe { self.data.as_ptr().add(len.local_len) as *mut T };
+        let capacity = self.capacity;
 
-        while let Some(item) = iterator.next() {
-            if len + size >= capacity {
-                let (lower, _) = iterator.size_hint();
-                let additional = (lower + 1) * size;
-                let (new_ptr, new_capacity) =
-                    unsafe { reallocate(ptr, capacity, len + additional) };
-                ptr = new_ptr;
-                capacity = new_capacity;
-                // pointer may have moved. Update it.
-                dst = unsafe { ptr.as_ptr().add(len) as *mut T };
+        while len.local_len + size <= capacity {
+            if let Some(item) = iterator.next() {
+                unsafe {
+                    std::ptr::write(dst, item);
+                    dst = dst.add(1);
+                }
+                len.local_len += size;
+            } else {
+                break;
             }
-            unsafe {
-                std::ptr::write(dst, item);
-                dst = dst.add(1);
-            }
-            len += size;
         }
+        drop(len);
 
-        self.data = ptr;
-        self.capacity = capacity;
-        self.len = len;
+        iterator.for_each(|item| self.push(item));
     }
 
     /// Creates a [`MutableBuffer`] from an [`ExactSizeIterator`] with a trusted len.
@@ -1127,6 +1124,25 @@ impl PartialEq for MutableBuffer {
 
 unsafe impl Sync for MutableBuffer {}
 unsafe impl Send for MutableBuffer {}
+
+struct SetLenOnDrop<'a> {
+    len: &'a mut usize,
+    local_len: usize,
+}
+
+impl<'a> SetLenOnDrop<'a> {
+    #[inline]
+    fn new(len: &'a mut usize) -> Self {
+        SetLenOnDrop { local_len: *len, len }
+    }
+}
+
+impl Drop for SetLenOnDrop<'_> {
+    #[inline]
+    fn drop(&mut self) {
+        *self.len = self.local_len;
+    }
+}
 
 #[cfg(test)]
 mod tests {
