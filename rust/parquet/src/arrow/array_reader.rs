@@ -1389,12 +1389,13 @@ impl<'a> TypeVisitor<Option<Box<dyn ArrayReader>>, &'a ArrayReaderBuilderContext
         let item_reader_type = item_reader.get_data_type().clone();
 
         match item_reader_type {
-            ArrowType::FixedSizeList(_, _) | ArrowType::Dictionary(_, _) => {
-                Err(ArrowError(format!(
-                    "reading List({:?}) into arrow not supported yet",
-                    item_type
-                )))
-            }
+            ArrowType::List(_)
+            | ArrowType::FixedSizeList(_, _)
+            | ArrowType::Struct(_)
+            | ArrowType::Dictionary(_, _) => Err(ArrowError(format!(
+                "reading List({:?}) into arrow not supported yet",
+                item_type
+            ))),
             _ => {
                 let arrow_type = self
                     .arrow_schema

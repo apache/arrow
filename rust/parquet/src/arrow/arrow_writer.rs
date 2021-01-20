@@ -215,9 +215,8 @@ fn write_leaf(
                 .as_any()
                 .downcast_ref::<arrow_array::Int32Array>()
                 .expect("Unable to get int32 array");
-            let slice = get_numeric_array_slice::<Int32Type, _>(&array, &indices);
             typed.write_batch(
-                slice.as_slice(),
+                get_numeric_array_slice::<Int32Type, _>(&array, &indices).as_slice(),
                 Some(levels.definition.as_slice()),
                 levels.repetition.as_deref(),
             )?
