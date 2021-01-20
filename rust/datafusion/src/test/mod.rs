@@ -175,7 +175,7 @@ macro_rules! assert_batches_eq {
 
         let formatted = arrow::util::pretty::pretty_format_batches($CHUNKS).unwrap();
 
-        let actual_lines: Vec<&str> = formatted.trim().split('\n').collect();
+        let actual_lines: Vec<&str> = formatted.trim().lines().collect();
 
         assert_eq!(
             expected_lines, actual_lines,
@@ -208,8 +208,9 @@ macro_rules! assert_batches_sorted_eq {
         }
 
         let formatted = arrow::util::pretty::pretty_format_batches($CHUNKS).unwrap();
+        // fix for windows: \r\n -->
 
-        let mut actual_lines: Vec<&str> = formatted.trim().split('\n').collect();
+        let mut actual_lines: Vec<&str> = formatted.trim().lines().collect();
 
         // sort except for header + footer
         let num_lines = actual_lines.len();
