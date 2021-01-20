@@ -1498,7 +1498,18 @@ impl<'a> ArrayReaderBuilder {
                 arrow_type,
             )?)),
             PhysicalType::INT96 => {
-                let converter = Int96Converter::new(Int96ArrayConverter {});
+                // get the optional timezone information from arrow type
+                let timezone = arrow_type
+                    .as_ref()
+                    .map(|data_type| {
+                        if let ArrowType::Timestamp(_, tz) = data_type {
+                            tz.clone()
+                        } else {
+                            None
+                        }
+                    })
+                    .flatten();
+                let converter = Int96Converter::new(Int96ArrayConverter { timezone });
                 Ok(Box::new(ComplexObjectArrayReader::<
                     Int96Type,
                     Int96Converter,
