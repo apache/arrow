@@ -423,8 +423,8 @@ impl Expr {
         }
     }
 
-    /// Performs a depth first depth first walk of an expression and
-    /// its children, calling `visitor.pre_visit` and
+    /// Performs a depth first walk of an expression and
+    /// its children, calling [`ExpressionVisitor::pre_visit`] and
     /// `visitor.post_visit`.
     ///
     /// Implements the [visitor pattern](https://en.wikipedia.org/wiki/Visitor_pattern) to
@@ -540,7 +540,7 @@ pub enum Recursion<V: ExpressionVisitor> {
 }
 
 /// Encode the traversal of an expression tree. When passed to
-/// `visit_expression`, `ExpressionVisitor::visit` is invoked
+/// `Expr::accept`, `ExpressionVisitor::visit` is invoked
 /// recursively on all nodes of an expression tree. See the comments
 /// on `Expr::accept` for details on its use
 pub trait ExpressionVisitor: Sized {
