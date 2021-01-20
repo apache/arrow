@@ -1008,7 +1008,7 @@ impl MutableBuffer {
         let mut dst = unsafe { ptr.as_ptr().add(len) as *mut T };
 
         while let Some(item) = iterator.next() {
-            if len >= capacity {
+            if len + size >= capacity {
                 let (lower, _) = iterator.size_hint();
                 let additional = (lower + 1) * size;
                 let (new_ptr, new_capacity) =
@@ -1035,7 +1035,8 @@ impl MutableBuffer {
     /// # Example
     /// ```
     /// # use arrow::buffer::MutableBuffer;
-    /// let iter = vec![1u32].iter().map(|x| x * 2);
+    /// let v = vec![1u32];
+    /// let iter = v.iter().map(|x| x * 2);
     /// let mut buffer = MutableBuffer::new(0);
     /// unsafe { buffer.extend_from_trusted_len_iter(iter) };
     /// assert_eq!(buffer.len(), 4) // u32 has 4 bytes
