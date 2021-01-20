@@ -31,8 +31,15 @@ use array::{
     Time32MillisecondArray, Time32SecondArray, UInt16Array, UInt32Array, UInt64Array,
     UInt8Array,
 };
-use arrow::error::Result as ArrowResult;
 use arrow::record_batch::RecordBatch;
+use arrow::{
+    array::PrimitiveBuilder,
+    datatypes::{
+        ArrowPrimitiveType, Int16Type, Int32Type, Int64Type, Int8Type, UInt16Type,
+        UInt32Type, UInt64Type, UInt8Type,
+    },
+    error::Result as ArrowResult,
+};
 use arrow::{
     array::{self, ArrayRef},
     datatypes::Schema,
@@ -121,130 +128,138 @@ pub fn build_file_list(dir: &str, filenames: &mut Vec<String>, ext: &str) -> Res
     Ok(())
 }
 
-/// creates an empty record batch.
+/// Creates an empty (0 row) record batch with the specified schema
 pub fn create_batch_empty(schema: &Schema) -> ArrowResult<RecordBatch> {
     let columns = schema
         .fields()
         .iter()
-        .map(|f| match f.data_type() {
-            DataType::Float32 => {
-                Ok(Arc::new(Float32Array::from(vec![] as Vec<f32>)) as ArrayRef)
-            }
-            DataType::Float64 => {
-                Ok(Arc::new(Float64Array::from(vec![] as Vec<f64>)) as ArrayRef)
-            }
-            DataType::Int64 => {
-                Ok(Arc::new(Int64Array::from(vec![] as Vec<i64>)) as ArrayRef)
-            }
-            DataType::Int32 => {
-                Ok(Arc::new(Int32Array::from(vec![] as Vec<i32>)) as ArrayRef)
-            }
-            DataType::Int16 => {
-                Ok(Arc::new(Int16Array::from(vec![] as Vec<i16>)) as ArrayRef)
-            }
-            DataType::Int8 => {
-                Ok(Arc::new(Int8Array::from(vec![] as Vec<i8>)) as ArrayRef)
-            }
-            DataType::UInt64 => {
-                Ok(Arc::new(UInt64Array::from(vec![] as Vec<u64>)) as ArrayRef)
-            }
-            DataType::UInt32 => {
-                Ok(Arc::new(UInt32Array::from(vec![] as Vec<u32>)) as ArrayRef)
-            }
-            DataType::UInt16 => {
-                Ok(Arc::new(UInt16Array::from(vec![] as Vec<u16>)) as ArrayRef)
-            }
-            DataType::UInt8 => {
-                Ok(Arc::new(UInt8Array::from(vec![] as Vec<u8>)) as ArrayRef)
-            }
-            DataType::Utf8 => {
-                Ok(Arc::new(StringArray::from(vec![] as Vec<&str>)) as ArrayRef)
-            }
-            DataType::LargeUtf8 => {
-                Ok(Arc::new(LargeStringArray::from(vec![] as Vec<&str>)) as ArrayRef)
-            }
-            DataType::Boolean => {
-                Ok(Arc::new(BooleanArray::from(vec![] as Vec<bool>)) as ArrayRef)
-            }
-            DataType::Decimal(scale, precision) => {
-                let array_data =
-                    ArrayData::builder(DataType::Decimal(*scale, *precision))
-                        .len(0)
-                        .add_buffer(Buffer::from(&[]))
-                        .build();
-
-                Ok(Arc::new(DecimalArray::from(array_data)) as ArrayRef)
-            }
-            DataType::Timestamp(TimeUnit::Nanosecond, tz) => Ok(Arc::new(
-                TimestampNanosecondArray::from_vec(vec![] as Vec<i64>, tz.clone()),
-            )
-                as ArrayRef),
-            DataType::Timestamp(TimeUnit::Microsecond, tz) => Ok(Arc::new(
-                TimestampMicrosecondArray::from_vec(vec![] as Vec<i64>, tz.clone()),
-            )
-                as ArrayRef),
-            DataType::Timestamp(TimeUnit::Millisecond, tz) => Ok(Arc::new(
-                TimestampMillisecondArray::from_vec(vec![] as Vec<i64>, tz.clone()),
-            )
-                as ArrayRef),
-            DataType::Timestamp(TimeUnit::Second, tz) => Ok(Arc::new(
-                TimestampSecondArray::from_vec(vec![] as Vec<i64>, tz.clone()),
-            ) as ArrayRef),
-            DataType::Date32(_) => {
-                Ok(Arc::new(Date32Array::from(vec![] as Vec<i32>)) as ArrayRef)
-            }
-            DataType::Date64(_) => {
-                Ok(Arc::new(Date64Array::from(vec![] as Vec<i64>)) as ArrayRef)
-            }
-            DataType::Time32(unit) => match unit {
-                TimeUnit::Second => {
-                    Ok(Arc::new(Time32SecondArray::from(vec![] as Vec<i32>)) as ArrayRef)
-                }
-                TimeUnit::Millisecond => {
-                    Ok(Arc::new(Time32MillisecondArray::from(vec![] as Vec<i32>))
-                        as ArrayRef)
-                }
-                TimeUnit::Microsecond | TimeUnit::Nanosecond => {
-                    Err(DataFusionError::NotImplemented(format!(
-                        "Cannot convert datatype {:?} to array",
-                        f.data_type()
-                    )))
-                }
-            },
-            DataType::Time64(unit) => match unit {
-                TimeUnit::Second | TimeUnit::Millisecond => {
-                    Err(DataFusionError::NotImplemented(format!(
-                        "Cannot convert datatype {:?} to array",
-                        f.data_type()
-                    )))
-                }
-                TimeUnit::Microsecond => {
-                    Ok(Arc::new(Time64MicrosecondArray::from(vec![] as Vec<i64>))
-                        as ArrayRef)
-                }
-                TimeUnit::Nanosecond => {
-                    Ok(Arc::new(Time64NanosecondArray::from(vec![] as Vec<i64>))
-                        as ArrayRef)
-                }
-            },
-            DataType::List(nested_type) => Ok(build_empty_list_array::<i32>(
-                nested_type.data_type().clone(),
-            )?),
-            DataType::LargeList(nested_type) => Ok(build_empty_list_array::<i64>(
-                nested_type.data_type().clone(),
-            )?),
-            DataType::FixedSizeList(nested_type, _) => Ok(
-                build_empty_fixed_size_list_array(nested_type.data_type().clone())?,
-            ),
-            _ => Err(DataFusionError::NotImplemented(format!(
-                "Cannot convert datatype {:?} to array",
-                f.data_type()
-            ))),
-        })
+        .map(|f| create_empty_array(f.data_type()))
         .collect::<Result<_>>()
         .map_err(DataFusionError::into_arrow_external_error)?;
 
     RecordBatch::try_new(Arc::new(schema.to_owned()), columns)
+}
+
+fn create_empty_array(data_type: &DataType) -> Result<ArrayRef> {
+    match data_type {
+        DataType::Float32 => {
+            Ok(Arc::new(Float32Array::from(vec![] as Vec<f32>)) as ArrayRef)
+        }
+        DataType::Float64 => {
+            Ok(Arc::new(Float64Array::from(vec![] as Vec<f64>)) as ArrayRef)
+        }
+        DataType::Int64 => Ok(Arc::new(Int64Array::from(vec![] as Vec<i64>)) as ArrayRef),
+        DataType::Int32 => Ok(Arc::new(Int32Array::from(vec![] as Vec<i32>)) as ArrayRef),
+        DataType::Int16 => Ok(Arc::new(Int16Array::from(vec![] as Vec<i16>)) as ArrayRef),
+        DataType::Int8 => Ok(Arc::new(Int8Array::from(vec![] as Vec<i8>)) as ArrayRef),
+        DataType::UInt64 => {
+            Ok(Arc::new(UInt64Array::from(vec![] as Vec<u64>)) as ArrayRef)
+        }
+        DataType::UInt32 => {
+            Ok(Arc::new(UInt32Array::from(vec![] as Vec<u32>)) as ArrayRef)
+        }
+        DataType::UInt16 => {
+            Ok(Arc::new(UInt16Array::from(vec![] as Vec<u16>)) as ArrayRef)
+        }
+        DataType::UInt8 => Ok(Arc::new(UInt8Array::from(vec![] as Vec<u8>)) as ArrayRef),
+        DataType::Utf8 => {
+            Ok(Arc::new(StringArray::from(vec![] as Vec<&str>)) as ArrayRef)
+        }
+        DataType::LargeUtf8 => {
+            Ok(Arc::new(LargeStringArray::from(vec![] as Vec<&str>)) as ArrayRef)
+        }
+        DataType::Boolean => {
+            Ok(Arc::new(BooleanArray::from(vec![] as Vec<bool>)) as ArrayRef)
+        }
+        DataType::Decimal(scale, precision) => {
+            let array_data = ArrayData::builder(DataType::Decimal(*scale, *precision))
+                .len(0)
+                .add_buffer(Buffer::from(&[]))
+                .build();
+            Ok(Arc::new(DecimalArray::from(array_data)) as ArrayRef)
+        }
+        DataType::Timestamp(TimeUnit::Nanosecond, tz) => Ok(Arc::new(
+            TimestampNanosecondArray::from_vec(vec![] as Vec<i64>, tz.clone()),
+        ) as ArrayRef),
+        DataType::Timestamp(TimeUnit::Microsecond, tz) => Ok(Arc::new(
+            TimestampMicrosecondArray::from_vec(vec![] as Vec<i64>, tz.clone()),
+        ) as ArrayRef),
+        DataType::Timestamp(TimeUnit::Millisecond, tz) => Ok(Arc::new(
+            TimestampMillisecondArray::from_vec(vec![] as Vec<i64>, tz.clone()),
+        ) as ArrayRef),
+        DataType::Timestamp(TimeUnit::Second, tz) => Ok(Arc::new(
+            TimestampSecondArray::from_vec(vec![] as Vec<i64>, tz.clone()),
+        ) as ArrayRef),
+        DataType::Date32(_) => {
+            Ok(Arc::new(Date32Array::from(vec![] as Vec<i32>)) as ArrayRef)
+        }
+        DataType::Date64(_) => {
+            Ok(Arc::new(Date64Array::from(vec![] as Vec<i64>)) as ArrayRef)
+        }
+        DataType::Time32(unit) => match unit {
+            TimeUnit::Second => {
+                Ok(Arc::new(Time32SecondArray::from(vec![] as Vec<i32>)) as ArrayRef)
+            }
+            TimeUnit::Millisecond => {
+                Ok(Arc::new(Time32MillisecondArray::from(vec![] as Vec<i32>))
+                    as ArrayRef)
+            }
+            TimeUnit::Microsecond | TimeUnit::Nanosecond => {
+                Err(DataFusionError::NotImplemented(format!(
+                    "Cannot convert datatype {:?} to array",
+                    data_type
+                )))
+            }
+        },
+        DataType::Time64(unit) => match unit {
+            TimeUnit::Second | TimeUnit::Millisecond => {
+                Err(DataFusionError::NotImplemented(format!(
+                    "Cannot convert datatype {:?} to array",
+                    data_type
+                )))
+            }
+            TimeUnit::Microsecond => {
+                Ok(Arc::new(Time64MicrosecondArray::from(vec![] as Vec<i64>))
+                    as ArrayRef)
+            }
+            TimeUnit::Nanosecond => {
+                Ok(Arc::new(Time64NanosecondArray::from(vec![] as Vec<i64>)) as ArrayRef)
+            }
+        },
+        DataType::List(nested_type) => Ok(build_empty_list_array::<i32>(
+            nested_type.data_type().clone(),
+        )?),
+        DataType::LargeList(nested_type) => Ok(build_empty_list_array::<i64>(
+            nested_type.data_type().clone(),
+        )?),
+        DataType::FixedSizeList(nested_type, _) => Ok(build_empty_fixed_size_list_array(
+            nested_type.data_type().clone(),
+        )?),
+        DataType::Dictionary(key_type, value_type) => match key_type.as_ref() {
+            DataType::UInt8 => build_empty_dictionary::<UInt8Type>(value_type),
+            DataType::UInt16 => build_empty_dictionary::<UInt16Type>(value_type),
+            DataType::UInt32 => build_empty_dictionary::<UInt32Type>(value_type),
+            DataType::UInt64 => build_empty_dictionary::<UInt64Type>(value_type),
+            DataType::Int8 => build_empty_dictionary::<Int8Type>(value_type),
+            DataType::Int16 => build_empty_dictionary::<Int16Type>(value_type),
+            DataType::Int32 => build_empty_dictionary::<Int32Type>(value_type),
+            DataType::Int64 => build_empty_dictionary::<Int64Type>(value_type),
+            _ => unreachable!(),
+        },
+        _ => Err(DataFusionError::NotImplemented(format!(
+            "Creating empty array for type {:?} is not yet implemented",
+            data_type
+        ))),
+    }
+}
+
+fn build_empty_dictionary<T: ArrowPrimitiveType>(
+    value_type: &DataType,
+) -> Result<ArrayRef> {
+    let values: ArrayRef = create_empty_array(value_type)?;
+    let mut keys_builder: PrimitiveBuilder<T> = PrimitiveBuilder::new(0);
+    let dict_array = keys_builder.finish_dict(values);
+    Ok(Arc::new(dict_array))
 }
 
 #[cfg(test)]
@@ -254,41 +269,51 @@ mod tests {
 
     #[test]
     fn test_create_batch_empty() {
+        use DataType::*;
+
         let schema = Schema::new(vec![
-            Field::new("c1", DataType::Utf8, false),
-            Field::new("c2", DataType::UInt32, false),
-            Field::new("c3", DataType::Int8, false),
-            Field::new("c4", DataType::Int16, false),
-            Field::new("c5", DataType::Int32, false),
-            Field::new("c6", DataType::Int64, false),
-            Field::new("c7", DataType::UInt8, false),
-            Field::new("c8", DataType::UInt16, false),
-            Field::new("c9", DataType::UInt32, false),
-            Field::new("c10", DataType::UInt64, false),
-            Field::new("c11", DataType::Float32, false),
-            Field::new("c12", DataType::Float64, false),
-            Field::new("c13", DataType::Utf8, false),
-            Field::new("c14", DataType::Decimal(10, 10), false),
-            Field::new("c15", DataType::Timestamp(TimeUnit::Second, None), false),
+            Field::new("c1", Utf8, false),
+            Field::new("c2", UInt32, false),
+            Field::new("c3", Int8, false),
+            Field::new("c4", Int16, false),
+            Field::new("c5", Int32, false),
+            Field::new("c6", Int64, false),
+            Field::new("c7", UInt8, false),
+            Field::new("c8", UInt16, false),
+            Field::new("c9", UInt32, false),
+            Field::new("c10", UInt64, false),
+            Field::new("c11", Float32, false),
+            Field::new("c12", Float64, false),
+            Field::new("c13", Utf8, false),
+            Field::new("c14", Decimal(10, 10), false),
+            Field::new("c15", Timestamp(TimeUnit::Second, None), false),
+            Field::new("c16", Timestamp(TimeUnit::Microsecond, None), false),
+            Field::new("c17", Timestamp(TimeUnit::Millisecond, None), false),
+            Field::new("c18", Timestamp(TimeUnit::Nanosecond, None), false),
+            Field::new("c19", Boolean, false),
+            Field::new("20", Dictionary(Box::new(UInt8), Box::new(Utf8)), false),
+            Field::new("21", Dictionary(Box::new(UInt16), Box::new(Utf8)), false),
+            Field::new("22", Dictionary(Box::new(UInt32), Box::new(Utf8)), false),
+            Field::new("23", Dictionary(Box::new(UInt64), Box::new(Utf8)), false),
+            Field::new("24", Dictionary(Box::new(Int8), Box::new(Utf8)), false),
+            Field::new("25", Dictionary(Box::new(Int16), Box::new(Utf8)), false),
+            Field::new("26", Dictionary(Box::new(Int32), Box::new(Utf8)), false),
+            Field::new("27", Dictionary(Box::new(Int64), Box::new(Utf8)), false),
+            // try non string dictionary
+            Field::new("28", Dictionary(Box::new(UInt8), Box::new(Int64)), false),
             Field::new(
-                "c16",
-                DataType::Timestamp(TimeUnit::Microsecond, None),
+                "29",
+                Dictionary(Box::new(UInt8), Box::new(LargeUtf8)),
                 false,
             ),
-            Field::new(
-                "c17",
-                DataType::Timestamp(TimeUnit::Millisecond, None),
-                false,
-            ),
-            Field::new(
-                "c18",
-                DataType::Timestamp(TimeUnit::Nanosecond, None),
-                false,
-            ),
-            Field::new("c19", DataType::Boolean, false),
         ]);
 
         let batch = create_batch_empty(&schema).unwrap();
-        assert_eq!(batch.columns().len(), 19);
+        assert_eq!(batch.columns().len(), 29);
+        assert_eq!(batch.num_rows(), 0);
+
+        for (i, array) in batch.columns().iter().enumerate() {
+            assert_eq!(array.len(), 0, "Array[{}] was zero length", i);
+        }
     }
 }
