@@ -92,7 +92,9 @@ std::shared_ptr<arrow::Array> Array__from_vector(
     SEXP x, const std::shared_ptr<arrow::DataType>& type, bool type_inferred);
 
 void inspect(SEXP obj);
-std::shared_ptr<arrow::Array> vec_to_arrow(SEXP x, const std::shared_ptr<arrow::DataType>& type, bool type_inferred);
+std::shared_ptr<arrow::Array> vec_to_arrow(SEXP x,
+                                           const std::shared_ptr<arrow::DataType>& type,
+                                           bool type_inferred);
 
 // the integer64 sentinel
 constexpr int64_t NA_INT64 = std::numeric_limits<int64_t>::min();

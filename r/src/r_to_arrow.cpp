@@ -613,6 +613,27 @@ class RPrimitiveConverter<T, enable_if_t<is_decimal_type<T>::value>>
   }
 };
 
+Status check_binary(SEXP x, int64_t size) {
+  RVectorType rtype = GetVectorType(x);
+  switch (rtype) {
+    case BINARY:
+      break;
+    case LIST: {
+      // check this is a list of raw vectors
+      const SEXP* p_x = VECTOR_PTR_RO(x);
+      for (R_xlen_t i = 0; i < size; i++, ++p_x) {
+        if (TYPEOF(*p_x) != RAWSXP) {
+          return Status::Invalid("invalid R type to convert to binary");
+        }
+      }
+      break;
+    }
+    default:
+      return Status::Invalid("invalid R type to convert to binary");
+  }
+  return Status::OK();
+}
+
 template <typename T>
 class RPrimitiveConverter<T, enable_if_binary<T>>
     : public PrimitiveConverter<T, RConverter> {
@@ -621,11 +642,7 @@ class RPrimitiveConverter<T, enable_if_binary<T>>
 
   Status Extend(SEXP x, int64_t size) override {
     RETURN_NOT_OK(this->Reserve(size));
-
-    RVectorType rtype = GetVectorType(x);
-    if (rtype != BINARY) {
-      return Status::Invalid("invalid R type to convert to binary");
-    }
+    RETURN_NOT_OK(check_binary(x, size));
 
     auto append_value = [this](SEXP raw) {
       R_xlen_t n = XLENGTH(raw);
@@ -647,12 +664,7 @@ class RPrimitiveConverter<T, enable_if_t<std::is_same<T, FixedSizeBinaryType>::v
  public:
   Status Extend(SEXP x, int64_t size) override {
     RETURN_NOT_OK(this->Reserve(size));
-
-    RVectorType rtype = GetVectorType(x);
-    // TODO: handle STRSXP
-    if (rtype != BINARY) {
-      return Status::Invalid("invalid R type to convert to binary");
-    }
+    RETURN_NOT_OK(check_binary(x, size));
 
     auto append_value = [this](SEXP raw) {
       R_xlen_t n = XLENGTH(raw);
@@ -923,7 +935,9 @@ std::shared_ptr<arrow::Array> Array__from_vector_reuse_memory(SEXP x) {
   cpp11::stop("Unreachable: you might need to fix can_reuse_memory()");
 }
 
-std::shared_ptr<arrow::Array> vec_to_arrow(SEXP x, const std::shared_ptr<arrow::DataType>& type, bool type_inferred) {
+std::shared_ptr<arrow::Array> vec_to_arrow(SEXP x,
+                                           const std::shared_ptr<arrow::DataType>& type,
+                                           bool type_inferred) {
   // short circuit if `x` is already an Array
   if (Rf_inherits(x, "Array")) {
     return cpp11::as_cpp<std::shared_ptr<arrow::Array>>(x);

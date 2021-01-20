@@ -18,8 +18,6 @@
 #include "./arrow_types.h"
 #if defined(ARROW_R_WITH_ARROW)
 
-#include <type_traits>
-
 #include <arrow/array.h>
 #include <arrow/builder.h>
 #include <arrow/datum.h>
@@ -29,6 +27,8 @@
 #include <arrow/util/int_util.h>
 #include <arrow/util/parallel.h>
 #include <arrow/util/task_group.h>
+
+#include <type_traits>
 
 namespace arrow {
 
