@@ -109,14 +109,16 @@ jobs:
           export CARGO_HOME="/github/home/.cargo"
           export CARGO_TARGET_DIR="/github/home/target"
           cd rust
-          # run tests on all workspace members
-          cargo test --all --features=prettyprint
+          # run tests on all workspace members with default feature list
+          cargo test
           # test datafusion examples
           cd datafusion
           cargo run --example csv_sql
           cargo run --example parquet_sql
           cd ..
           cd arrow
+          # re-run tests on arrow workspace with additional features
+          cargo test --features=prettyprint
           cargo run --example builders
           cargo run --example dynamic_types
           cargo run --example read_csv
