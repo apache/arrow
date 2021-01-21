@@ -66,6 +66,7 @@ add_arrow_compute_test(internals_test
                        registry_test.cc)
 
 add_arrow_benchmark(function_benchmark PREFIX "arrow-compute")
+add_arrow_benchmark(internals_benchmark PREFIX "arrow-compute")
 
 add_subdirectory(kernels)
 
