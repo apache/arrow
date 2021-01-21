@@ -930,3 +930,33 @@ class SortOptions(_SortOptions):
         if sort_keys is None:
             sort_keys = []
         self._set_options(sort_keys)
+
+
+cdef class _QuantileOptions(FunctionOptions):
+    cdef:
+        CQuantileOptions quantile_options
+
+    cdef const CFunctionOptions* get_options(self) except NULL:
+        return &self.quantile_options
+
+    def _set_options(self, quantiles, interp):
+        interp_dict = {
+            'linear': CQuantileInterp_LINEAR,
+            'lower': CQuantileInterp_LOWER,
+            'higher': CQuantileInterp_HIGHER,
+            'nearest': CQuantileInterp_NEAREST,
+            'midpoint': CQuantileInterp_MIDPOINT,
+        }
+        if interp not in interp_dict:
+            raise ValueError(
+                '{!r} is not a valid interpolation'
+                .format(interp))
+        self.quantile_options.interpolation = interp_dict[interp]
+        self.quantile_options.q = quantiles
+
+
+class QuantileOptions(_QuantileOptions):
+    def __init__(self, *, q=0.5, interpolation='linear'):
+        if not isinstance(q, (list, tuple, np.ndarray)):
+            q = [q]
+        self._set_options(q, interpolation)
