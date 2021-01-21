@@ -217,6 +217,55 @@ to be declared is that writer/reader is not as efficient as direct access
       }
     }
 
+Building ListVector
+==================
+
+A :class:`ListVector` is a vector that holds a list of values for each index. Working with one you need to handle the same steps as mentioned above (create > allocate > mutate > set value count > access > clear), but the details of how you accomplish this are slightly different since you need to both create the vector and set the list of values for each index.
+
+For example, the code below shows how to build a :class:`ListVector` of int's using the writer :class:`UnionListWriter`. We build a vector from 0 to 9 and each index contains a list with values [[0, 0, 0, 0, 0], [0, 1, 2, 3, 4], [0, 2, 4, 6, 8], …, [0, 9, 18, 27, 36]]. List values can be added in any order so writing a list such as [3, 1, 2] would be just as valid.
+
+.. code-block:: Java
+  
+  try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+    ListVector listVector = ListVector.empty("vector", allocator)) {
+    UnionListWriter writer = listVector.getWriter();
+    for (int i = 0; i < 10; i++) {
+       writer.startList();
+       writer.setPosition(i);
+       for (int j = 0; j < 5; j++) {
+           writer.writeInt(j * i);
+       }
+       writer.setValueCount(5);
+       writer.endList();
+    }
+    listVector.setValueCount(10);
+  }    
+
+:class:`ListVector` values can be accessed either through the get API or through the reader class :class:`UnionListReader`. To read all the values, first enumerate through the indexes, and then enumerate through the inner list values.
+
+.. code-block:: Java
+
+  // access via get API
+  for (int i = 0; i < listVector.getValueCount(); i++) {
+     if (!listVector.isNull(i)) {
+         ArrayList<Integer> elements = (ArrayList<Integer>) listVector.getObject(i);
+         for (Integer element : elements) {
+             System.out.println(element);
+         }
+     }
+  }
+
+  // access via reader
+  UnionListReader reader = listVector.getReader();
+  for (int i = 0; i < listVector.getValueCount(); i++) {
+     reader.setPosition(i);
+     while (reader.next()) {
+         IntReader intReader = reader.reader();
+         if (intReader.isSet()) {
+             System.out.println(intReader.readInteger());
+         }
+     }
+  }
 
 Slicing
 =======
@@ -235,4 +284,3 @@ referring to some logical sub-sequence of the data through :class:`TransferPair`
     tp.splitAndTransfer(0, 5);
     IntVector sliced = (IntVector) tp.getTo();
     // In this case, the vector values are [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] and the sliceVector values are [0, 1, 2, 3, 4].
-

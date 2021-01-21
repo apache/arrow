@@ -1349,9 +1349,9 @@ Status GetTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>* type
     return Status::IOError("Header-type of flatbuffer-encoded Message is not Tensor.");
   }
 
-  int ndim = static_cast<int>(tensor->shape()->size());
+  flatbuffers::uoffset_t ndim = tensor->shape()->size();
 
-  for (int i = 0; i < ndim; ++i) {
+  for (flatbuffers::uoffset_t i = 0; i < ndim; ++i) {
     auto dim = tensor->shape()->Get(i);
 
     shape->push_back(dim->size());
@@ -1359,7 +1359,12 @@ Status GetTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>* type
   }
 
   if (tensor->strides() && tensor->strides()->size() > 0) {
-    for (int i = 0; i < ndim; ++i) {
+    if (tensor->strides()->size() != ndim) {
+      return Status::IOError(
+          "The sizes of shape and strides in a tensor are mismatched.");
+    }
+
+    for (decltype(ndim) i = 0; i < ndim; ++i) {
       strides->push_back(tensor->strides()->Get(i));
     }
   }

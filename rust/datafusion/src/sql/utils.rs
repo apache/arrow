@@ -305,7 +305,7 @@ where
             }),
             Expr::BinaryExpr { left, right, op } => Ok(Expr::BinaryExpr {
                 left: Box::new(clone_with_replacement(&**left, replacement_fn)?),
-                op: op.clone(),
+                op: *op,
                 right: Box::new(clone_with_replacement(&**right, replacement_fn)?),
             }),
             Expr::Case {

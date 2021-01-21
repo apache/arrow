@@ -54,7 +54,7 @@ struct is_future<Future<T>> : std::true_type {};
 template <typename Signature>
 using result_of_t = typename std::result_of<Signature>::type;
 
-constexpr struct ContinueFuture {
+struct ContinueFuture {
   template <typename Return>
   struct ForReturnImpl;
 
@@ -99,7 +99,7 @@ constexpr struct ContinueFuture {
 
     signal_to_complete_next.AddCallback(MarkNextFinished{std::move(next)});
   }
-} Continue;
+};
 
 template <>
 struct ContinueFuture::ForReturnImpl<void> {
@@ -438,13 +438,14 @@ class ARROW_MUST_USE_TYPE Future {
 
     struct Callback {
       void operator()(const Result<T>& result) && {
+        detail::ContinueFuture continue_future;
         if (ARROW_PREDICT_TRUE(result.ok())) {
           // move on_failure to a(n immediately destroyed) temporary to free its resources
           ARROW_UNUSED(OnFailure(std::move(on_failure)));
-          detail::Continue(std::move(next), std::move(on_success), result.ValueOrDie());
+          continue_future(std::move(next), std::move(on_success), result.ValueOrDie());
         } else {
           ARROW_UNUSED(OnSuccess(std::move(on_success)));
-          detail::Continue(std::move(next), std::move(on_failure), result.status());
+          continue_future(std::move(next), std::move(on_failure), result.status());
         }
       }
 

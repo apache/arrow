@@ -182,7 +182,10 @@ class ArrowSources:
         cwd = Path.cwd()
 
         # Implicit via current file
-        this = Path(__file__).parents[4]
+        try:
+            this = Path(__file__).parents[4]
+        except IndexError:
+            this = None
 
         # Implicit via git repository (if archery is installed system wide)
         try:

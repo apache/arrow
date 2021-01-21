@@ -27,8 +27,8 @@ use super::{
     array::print_long_array, raw_pointer::RawPtrBox, Array, ArrayData, ArrayDataRef,
     FixedSizeListArray, GenericBinaryIter, GenericListArray, OffsetSizeTrait,
 };
+use crate::buffer::Buffer;
 use crate::util::bit_util;
-use crate::{buffer::Buffer, datatypes::ToByteSlice};
 use crate::{buffer::MutableBuffer, datatypes::DataType};
 
 /// Like OffsetSizeTrait, but specialized for Binary
@@ -110,8 +110,8 @@ impl<OffsetSize: BinaryOffsetSizeTrait> GenericBinaryArray<OffsetSize> {
         }
         let array_data = ArrayData::builder(OffsetSize::DATA_TYPE)
             .len(v.len())
-            .add_buffer(Buffer::from(offsets.to_byte_slice()))
-            .add_buffer(Buffer::from(&values[..]))
+            .add_buffer(Buffer::from_slice_ref(&offsets))
+            .add_buffer(Buffer::from_slice_ref(&values))
             .build();
         GenericBinaryArray::<OffsetSize>::from(array_data)
     }
@@ -245,8 +245,8 @@ where
 
         let array_data = ArrayData::builder(OffsetSize::DATA_TYPE)
             .len(data_len)
-            .add_buffer(Buffer::from(offsets.to_byte_slice()))
-            .add_buffer(Buffer::from(&values[..]))
+            .add_buffer(Buffer::from_slice_ref(&offsets))
+            .add_buffer(Buffer::from_slice_ref(&values))
             .null_bit_buffer(null_buf.into())
             .build();
         Self::from(array_data)
@@ -368,7 +368,7 @@ impl From<Vec<Option<Vec<u8>>>> for FixedSizeBinaryArray {
             .all(|item| item.len() == size));
 
         let num_bytes = bit_util::ceil(len, 8);
-        let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
+        let mut null_buf = MutableBuffer::from_len_zeroed(num_bytes);
         let null_slice = null_buf.as_slice_mut();
 
         data.iter().enumerate().for_each(|(i, entry)| {
@@ -641,8 +641,8 @@ mod tests {
         // Array data: ["hello", "", "parquet"]
         let array_data = ArrayData::builder(DataType::Binary)
             .len(3)
-            .add_buffer(Buffer::from(offsets.to_byte_slice()))
-            .add_buffer(Buffer::from(&values[..]))
+            .add_buffer(Buffer::from_slice_ref(&offsets))
+            .add_buffer(Buffer::from_slice_ref(&values))
             .build();
         let binary_array = BinaryArray::from(array_data);
         assert_eq!(3, binary_array.len());
@@ -664,8 +664,8 @@ mod tests {
         let array_data = ArrayData::builder(DataType::Binary)
             .len(4)
             .offset(1)
-            .add_buffer(Buffer::from(offsets.to_byte_slice()))
-            .add_buffer(Buffer::from(&values[..]))
+            .add_buffer(Buffer::from_slice_ref(&offsets))
+            .add_buffer(Buffer::from_slice_ref(&values))
             .build();
         let binary_array = BinaryArray::from(array_data);
         assert_eq!(
@@ -688,8 +688,8 @@ mod tests {
         // Array data: ["hello", "", "parquet"]
         let array_data = ArrayData::builder(DataType::LargeBinary)
             .len(3)
-            .add_buffer(Buffer::from(offsets.to_byte_slice()))
-            .add_buffer(Buffer::from(&values[..]))
+            .add_buffer(Buffer::from_slice_ref(&offsets))
+            .add_buffer(Buffer::from_slice_ref(&values))
             .build();
         let binary_array = LargeBinaryArray::from(array_data);
         assert_eq!(3, binary_array.len());
@@ -711,8 +711,8 @@ mod tests {
         let array_data = ArrayData::builder(DataType::LargeBinary)
             .len(4)
             .offset(1)
-            .add_buffer(Buffer::from(offsets.to_byte_slice()))
-            .add_buffer(Buffer::from(&values[..]))
+            .add_buffer(Buffer::from_slice_ref(&offsets))
+            .add_buffer(Buffer::from_slice_ref(&values))
             .build();
         let binary_array = LargeBinaryArray::from(array_data);
         assert_eq!(
@@ -739,14 +739,14 @@ mod tests {
         // Array data: ["hello", "", "parquet"]
         let array_data1 = ArrayData::builder(DataType::Binary)
             .len(3)
-            .add_buffer(Buffer::from(offsets.to_byte_slice()))
-            .add_buffer(Buffer::from(&values[..]))
+            .add_buffer(Buffer::from_slice_ref(&offsets))
+            .add_buffer(Buffer::from_slice_ref(&values))
             .build();
         let binary_array1 = BinaryArray::from(array_data1);
 
         let array_data2 = ArrayData::builder(DataType::Binary)
             .len(3)
-            .add_buffer(Buffer::from(offsets.to_byte_slice()))
+            .add_buffer(Buffer::from_slice_ref(&offsets))
             .add_child_data(values_data)
             .build();
         let list_array = ListArray::from(array_data2);
@@ -778,14 +778,14 @@ mod tests {
         // Array data: ["hello", "", "parquet"]
         let array_data1 = ArrayData::builder(DataType::LargeBinary)
             .len(3)
-            .add_buffer(Buffer::from(offsets.to_byte_slice()))
-            .add_buffer(Buffer::from(&values[..]))
+            .add_buffer(Buffer::from_slice_ref(&offsets))
+            .add_buffer(Buffer::from_slice_ref(&values))
             .build();
         let binary_array1 = LargeBinaryArray::from(array_data1);
 
         let array_data2 = ArrayData::builder(DataType::Binary)
             .len(3)
-            .add_buffer(Buffer::from(offsets.to_byte_slice()))
+            .add_buffer(Buffer::from_slice_ref(&offsets))
             .add_child_data(values_data)
             .build();
         let list_array = LargeListArray::from(array_data2);
@@ -838,13 +838,13 @@ mod tests {
         let values: [u32; 12] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
         let values_data = ArrayData::builder(DataType::UInt32)
             .len(12)
-            .add_buffer(Buffer::from(values[..].to_byte_slice()))
+            .add_buffer(Buffer::from_slice_ref(&values))
             .build();
         let offsets: [i32; 4] = [0, 5, 5, 12];
 
         let array_data = ArrayData::builder(DataType::Utf8)
             .len(3)
-            .add_buffer(Buffer::from(offsets.to_byte_slice()))
+            .add_buffer(Buffer::from_slice_ref(&offsets))
             .add_child_data(values_data)
             .build();
         let list_array = ListArray::from(array_data);
@@ -860,14 +860,14 @@ mod tests {
         let values: [u32; 12] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
         let values_data = ArrayData::builder(DataType::UInt32)
             .len(12)
-            .add_buffer(Buffer::from(values[..].to_byte_slice()))
+            .add_buffer(Buffer::from_slice_ref(&values))
             .add_child_data(ArrayData::builder(DataType::Boolean).build())
             .build();
         let offsets: [i32; 4] = [0, 5, 5, 12];
 
         let array_data = ArrayData::builder(DataType::Utf8)
             .len(3)
-            .add_buffer(Buffer::from(offsets.to_byte_slice()))
+            .add_buffer(Buffer::from_slice_ref(&offsets))
             .add_child_data(values_data)
             .build();
         let list_array = ListArray::from(array_data);
@@ -934,7 +934,7 @@ mod tests {
         let values: [u32; 12] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
         let values_data = ArrayData::builder(DataType::UInt32)
             .len(12)
-            .add_buffer(Buffer::from(values[..].to_byte_slice()))
+            .add_buffer(Buffer::from_slice_ref(&values))
             .add_child_data(ArrayData::builder(DataType::Boolean).build())
             .build();
 
@@ -957,8 +957,8 @@ mod tests {
         let offsets: [i32; 4] = [0, 5, 5, 12];
         let array_data = ArrayData::builder(DataType::Binary)
             .len(3)
-            .add_buffer(Buffer::from(offsets.to_byte_slice()))
-            .add_buffer(Buffer::from(&values[..]))
+            .add_buffer(Buffer::from_slice_ref(&offsets))
+            .add_buffer(Buffer::from_slice_ref(&values))
             .build();
         let binary_array = BinaryArray::from(array_data);
         binary_array.value(4);

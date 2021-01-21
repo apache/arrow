@@ -40,7 +40,7 @@ fi
 distribution=$(. /etc/os-release && echo "${ID}")
 distribution_version=$(. /etc/os-release && echo "${VERSION_ID}")
 
-cmake_pakcage=cmake
+cmake_package=cmake
 cmake_command=cmake
 have_flight=yes
 have_gandiva=yes
@@ -49,7 +49,7 @@ have_parquet=yes
 install_command="dnf install -y --enablerepo=powertools"
 case "${distribution}-${distribution_version}" in
   centos-7)
-    cmake_pakcage=cmake3
+    cmake_package=cmake3
     cmake_command=cmake3
     have_flight=no
     have_gandiva=no
@@ -82,11 +82,9 @@ ${install_command} \
   gcc-c++ \
   git \
   make
-git clone \
-  --branch apache-arrow-${version} \
-  --depth 1 \
-  https://github.com/apache/arrow.git
-pushd arrow/cpp/examples/minimal_build
+mkdir -p build
+cp -a /arrow/cpp/examples/minimal_build build
+pushd build/minimal_build
 ${cmake_command} .
 make -j$(nproc)
 ./arrow_example

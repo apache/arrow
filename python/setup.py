@@ -385,17 +385,6 @@ class build_ext(_build_ext):
                 build_prefix, build_lib,
                 "{}_regex".format(self.boost_namespace),
                 implib_required=False)
-        if sys.platform == 'win32':
-            # zlib uses zlib.dll for Windows
-            zlib_lib_name = 'zlib'
-            move_shared_libs(build_prefix, build_lib, zlib_lib_name,
-                             implib_required=False)
-            if self.with_flight:
-                # DLL dependencies for gRPC / Flight
-                for lib_name in ['libcrypto-1_1-x64',
-                                 'libssl-1_1-x64']:
-                    move_shared_libs(build_prefix, build_lib, lib_name,
-                                     implib_required=False)
 
     def _bundle_cython_cpp(self, name, lib_path):
         cpp_generated_path = self.get_ext_generated_cpp_source(name)

@@ -367,10 +367,9 @@ if(PYARROW_BUNDLE_ARROW_CPP)
   endif()
 
   if(MSVC)
-    find_package(ZLIB)
+    # TODO(kszucs): locate msvcp140.dll in a portable fashion and bundle it
     bundle_arrow_import_lib(ARROW_IMPORT_LIB)
     bundle_arrow_import_lib(ARROW_PYTHON_IMPORT_LIB)
-    bundle_arrow_dependency(zlib)
   endif()
 endif()
 
@@ -499,8 +498,8 @@ if(PYARROW_BUILD_FLIGHT)
       # XXX Hardcoded library names because CMake is too stupid to give us
       # the shared library paths.
       # https://gitlab.kitware.com/cmake/cmake/issues/16210
-      bundle_arrow_dependency(libcrypto-1_1-x64)
-      bundle_arrow_dependency(libssl-1_1-x64)
+      # bundle_arrow_dependency(libcrypto-1_1-x64)
+      # bundle_arrow_dependency(libssl-1_1-x64)
     endif()
   endif()
 

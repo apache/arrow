@@ -68,6 +68,11 @@ std::string non_hadoop_lz4_compressed() {
   return data_file("non_hadoop_lz4_compressed.parquet");
 }
 
+// Larger data compressed using custom Hadoop LZ4 format (several frames)
+std::string hadoop_lz4_compressed_larger() {
+  return data_file("hadoop_lz4_compressed_larger.parquet");
+}
+
 // TODO: Assert on definition and repetition levels
 template <typename DType, typename ValueType>
 void AssertColumnValues(std::shared_ptr<TypedColumnReader<DType>> col, int64_t batch_size,
@@ -553,6 +558,33 @@ TEST_P(TestCodec, FileMetadataAndValues) {
 INSTANTIATE_TEST_SUITE_P(Lz4CodecTests, TestCodec,
                          ::testing::Values(hadoop_lz4_compressed(),
                                            non_hadoop_lz4_compressed()));
+
+TEST(TestLz4HadoopCodec, TestSeveralFrames) {
+  // ARROW-9177: Hadoop can compress a data block in several LZ4 "frames"
+  auto file = ParquetFileReader::OpenFile(hadoop_lz4_compressed_larger());
+  auto group = file->RowGroup(0);
+
+  const int64_t kNumRows = 10000;
+
+  ASSERT_EQ(kNumRows, file->metadata()->num_rows());
+  ASSERT_EQ(1, file->metadata()->num_columns());
+  ASSERT_EQ(1, file->metadata()->num_row_groups());
+  ASSERT_EQ(kNumRows, group->metadata()->num_rows());
+
+  // column 0 ("a")
+  auto col = checked_pointer_cast<ByteArrayReader>(group->Column(0));
+
+  std::vector<ByteArray> values(kNumRows);
+  int64_t values_read;
+  auto levels_read =
+      col->ReadBatch(kNumRows, nullptr, nullptr, values.data(), &values_read);
+  ASSERT_EQ(kNumRows, levels_read);
+  ASSERT_EQ(kNumRows, values_read);
+  ASSERT_EQ(values[0], ByteArray("c7ce6bef-d5b0-4863-b199-8ea8c7fb117b"));
+  ASSERT_EQ(values[1], ByteArray("e8fb9197-cb9f-4118-b67f-fbfa65f61843"));
+  ASSERT_EQ(values[kNumRows - 2], ByteArray("ab52a0cc-c6bb-4d61-8a8f-166dc4b8b13c"));
+  ASSERT_EQ(values[kNumRows - 1], ByteArray("85440778-460a-41ac-aa2e-ac3ee41696bf"));
+}
 #endif
 
 }  // namespace parquet

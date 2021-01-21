@@ -588,7 +588,7 @@ impl Hasher for IdHasher {
 pub(crate) struct IdHashBuilder {}
 
 impl BuildHasher for IdHashBuilder {
-     type Hasher = IdHasher;
+    type Hasher = IdHasher;
 
     fn build_hasher(&self) -> Self::Hasher {
         IdHasher { hash: 0 }
@@ -697,7 +697,10 @@ macro_rules! hash_array {
 }
 
 /// Creates hash values for every element in the row based on the values in the columns
-pub(crate) fn create_hashes(arrays: &[ArrayRef], random_state: &RandomState) -> Result<Vec<u64>> {
+pub(crate) fn create_hashes(
+    arrays: &[ArrayRef],
+    random_state: &RandomState,
+) -> Result<Vec<u64>> {
     let rows = arrays[0].len();
     let mut hashes = vec![0; rows];
 

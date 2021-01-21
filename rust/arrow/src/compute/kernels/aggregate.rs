@@ -810,7 +810,6 @@ mod tests {
     fn test_primitive_min_max_float_all_nans_non_null() {
         let a: Float64Array = (0..100).map(|_| Some(f64::NAN)).collect();
         assert!(max(&a).unwrap().is_nan());
-        dbg!(min(&a));
         assert!(min(&a).unwrap().is_nan());
     }
 

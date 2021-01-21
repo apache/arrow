@@ -105,7 +105,7 @@ test_that("Metadata serialization compression", {
 
   # However strings where compression + serialization is not effective are no
   # worse than only serialization alone
-  large_few_strings <- as.list(rep(make_string_of_size(50), 2))
+  large_few_strings <- as.list(rep(make_random_string_of_size(50), 2))
   large_few <- .serialize_arrow_r_metadata(large_few_strings)
   expect_equal(
     object.size(large_few),

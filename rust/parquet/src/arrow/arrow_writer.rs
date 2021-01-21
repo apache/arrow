@@ -86,25 +86,11 @@ impl<W: 'static + ParquetWriter> ArrowWriter<W> {
             ));
         }
         // compute the definition and repetition levels of the batch
-        let mut levels = vec![];
         let batch_level = LevelInfo::new_from_batch(batch);
-        batch
-            .columns()
-            .iter()
-            .zip(batch.schema().fields())
-            .for_each(|(array, field)| {
-                let mut array_levels =
-                    batch_level.calculate_array_levels(array, field, 1);
-                levels.append(&mut array_levels);
-            });
-        // reverse levels so we can use Vec::pop(&mut self)
-        levels.reverse();
-
         let mut row_group_writer = self.writer.next_row_group()?;
-
-        // write leaves
-        for column in batch.columns() {
-            write_leaves(&mut row_group_writer, column, &mut levels)?;
+        for (array, field) in batch.columns().iter().zip(batch.schema().fields()) {
+            let mut levels = batch_level.calculate_array_levels(array, field, 1);
+            write_leaves(&mut row_group_writer, array, &mut levels)?;
         }
 
         self.writer.close_row_group(row_group_writer)

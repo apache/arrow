@@ -163,8 +163,8 @@ impl<Ptr: Borrow<Option<bool>>> FromIterator<Ptr> for BooleanArray {
         let data_len = data_len.expect("Iterator must be sized"); // panic if no upper bound.
 
         let num_bytes = bit_util::ceil(data_len, 8);
-        let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
-        let mut val_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
+        let mut null_buf = MutableBuffer::from_len_zeroed(num_bytes);
+        let mut val_buf = MutableBuffer::from_len_zeroed(num_bytes);
 
         let data = val_buf.as_slice_mut();
 

@@ -68,8 +68,12 @@ make_big_string <- function() {
   rep(purrr::map_chr(2047:2050, ~paste(sample(letters, ., replace = TRUE), collapse = "")), 2^18)
 }
 
-make_string_of_size <- function(size = 1) {
+make_random_string_of_size <- function(size = 1) {
   purrr::map_chr(1000*size, ~paste(sample(letters, ., replace = TRUE), collapse = ""))
+}
+
+make_string_of_size <- function(size = 1) {
+  paste(rep(letters, length = 1000*size), collapse = "")
 }
 
 example_with_extra_metadata <- example_with_metadata

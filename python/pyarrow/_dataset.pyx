@@ -1403,6 +1403,25 @@ cdef class PartitioningFactory(_Weakrefable):
         return self.wrapped
 
 
+cdef vector[shared_ptr[CArray]] _partitioning_dictionaries(
+        Schema schema, dictionaries) except *:
+    cdef:
+        vector[shared_ptr[CArray]] c_dictionaries
+
+    dictionaries = dictionaries or {}
+
+    for field in schema:
+        dictionary = dictionaries.get(field.name)
+
+        if (isinstance(field.type, pa.DictionaryType) and
+                dictionary is not None):
+            c_dictionaries.push_back(pyarrow_unwrap_array(dictionary))
+        else:
+            c_dictionaries.push_back(<shared_ptr[CArray]> nullptr)
+
+    return c_dictionaries
+
+
 cdef class DirectoryPartitioning(Partitioning):
     """
     A Partitioning based on a specified Schema.
@@ -1416,6 +1435,11 @@ cdef class DirectoryPartitioning(Partitioning):
     ----------
     schema : Schema
         The schema that describes the partitions present in the file path.
+    dictionaries : Dict[str, Array]
+        If the type of any field of `schema` is a dictionary type, the
+        corresponding entry of `dictionaries` must be an array containing
+        every value which may be taken by the corresponding column or an
+        error will be raised in parsing.
 
     Returns
     -------
@@ -1433,12 +1457,15 @@ cdef class DirectoryPartitioning(Partitioning):
     cdef:
         CDirectoryPartitioning* directory_partitioning
 
-    def __init__(self, Schema schema not None):
-        cdef shared_ptr[CDirectoryPartitioning] partitioning
-        partitioning = make_shared[CDirectoryPartitioning](
-            pyarrow_unwrap_schema(schema)
+    def __init__(self, Schema schema not None, dictionaries=None):
+        cdef:
+            shared_ptr[CDirectoryPartitioning] c_partitioning
+
+        c_partitioning = make_shared[CDirectoryPartitioning](
+            pyarrow_unwrap_schema(schema),
+            _partitioning_dictionaries(schema, dictionaries)
         )
-        self.init(<shared_ptr[CPartitioning]> partitioning)
+        self.init(<shared_ptr[CPartitioning]> c_partitioning)
 
     cdef init(self, const shared_ptr[CPartitioning]& sp):
         Partitioning.init(self, sp)
@@ -1506,6 +1533,11 @@ cdef class HivePartitioning(Partitioning):
     ----------
     schema : Schema
         The schema that describes the partitions present in the file path.
+    dictionaries : Dict[str, Array]
+        If the type of any field of `schema` is a dictionary type, the
+        corresponding entry of `dictionaries` must be an array containing
+        every value which may be taken by the corresponding column or an
+        error will be raised in parsing.
 
     Returns
     -------
@@ -1524,12 +1556,15 @@ cdef class HivePartitioning(Partitioning):
     cdef:
         CHivePartitioning* hive_partitioning
 
-    def __init__(self, Schema schema not None):
-        cdef shared_ptr[CHivePartitioning] partitioning
-        partitioning = make_shared[CHivePartitioning](
-            pyarrow_unwrap_schema(schema)
+    def __init__(self, Schema schema not None, dictionaries=None):
+        cdef:
+            shared_ptr[CHivePartitioning] c_partitioning
+
+        c_partitioning = make_shared[CHivePartitioning](
+            pyarrow_unwrap_schema(schema),
+            _partitioning_dictionaries(schema, dictionaries)
         )
-        self.init(<shared_ptr[CPartitioning]> partitioning)
+        self.init(<shared_ptr[CPartitioning]> c_partitioning)
 
     cdef init(self, const shared_ptr[CPartitioning]& sp):
         Partitioning.init(self, sp)
@@ -2270,6 +2305,7 @@ def _filesystemdataset_write(
     Schema schema not None, FileSystem filesystem not None,
     Partitioning partitioning not None,
     FileWriteOptions file_options not None, bint use_threads,
+    int max_partitions,
 ):
     """
     CFileSystemDataset.Write wrapper
@@ -2283,6 +2319,7 @@ def _filesystemdataset_write(
     c_options.filesystem = filesystem.unwrap()
     c_options.base_dir = tobytes(_stringify_path(base_dir))
     c_options.partitioning = partitioning.unwrap()
+    c_options.max_partitions = max_partitions
     c_options.basename_template = tobytes(basename_template)
 
     if isinstance(data, Dataset):

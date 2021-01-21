@@ -898,7 +898,8 @@ if(ARROW_BOOST_REQUIRED)
                      REQUIRED_VERSION
                      ${ARROW_BOOST_REQUIRED_VERSION}
                      IS_RUNTIME_DEPENDENCY
-                     ${ARROW_BOOST_REQUIRE_LIBRARY})
+                     # libarrow.so doesn't depend on libboost*.
+                     FALSE)
 
   if(TARGET Boost::system)
     set(BOOST_SYSTEM_LIBRARY Boost::system)
@@ -1220,7 +1221,9 @@ if(ARROW_NEED_GFLAGS)
                      HAVE_ALT
                      TRUE
                      REQUIRED_VERSION
-                     ${ARROW_GFLAGS_REQUIRED_VERSION})
+                     ${ARROW_GFLAGS_REQUIRED_VERSION}
+                     IS_RUNTIME_DEPENDENCY
+                     FALSE)
   # TODO: Don't use global includes but rather target_include_directories
   include_directories(SYSTEM ${GFLAGS_INCLUDE_DIR})
 
@@ -1326,6 +1329,7 @@ endif()
 
 macro(build_protobuf)
   message("Building Protocol Buffers from source")
+  set(PROTOBUF_VENDORED TRUE)
   set(PROTOBUF_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/protobuf_ep-install")
   set(PROTOBUF_INCLUDE_DIR "${PROTOBUF_PREFIX}/include")
   # Newer protobuf releases always have a lib prefix independent from CMAKE_STATIC_LIBRARY_PREFIX
@@ -1901,7 +1905,9 @@ if(ARROW_WITH_RAPIDJSON)
                      HAVE_ALT
                      TRUE
                      REQUIRED_VERSION
-                     ${ARROW_RAPIDJSON_REQUIRED_VERSION})
+                     ${ARROW_RAPIDJSON_REQUIRED_VERSION}
+                     IS_RUNTIME_DEPENDENCY
+                     FALSE)
 
   if(RapidJSON_INCLUDE_DIR)
     set(RAPIDJSON_INCLUDE_DIR "${RapidJSON_INCLUDE_DIR}")
@@ -2466,13 +2472,15 @@ macro(build_grpc)
       -DgRPC_GFLAGS_PROVIDER=package
       -DgRPC_MSVC_STATIC_RUNTIME=${ARROW_USE_STATIC_CRT}
       -DgRPC_PROTOBUF_PROVIDER=package
-      -DgRPC_PROTOBUF_PACKAGE_TYPE=CONFIG
       -DgRPC_RE2_PROVIDER=package
       -DgRPC_SSL_PROVIDER=package
       -DgRPC_ZLIB_PROVIDER=package
       -DCMAKE_INSTALL_PREFIX=${GRPC_PREFIX}
       -DCMAKE_INSTALL_LIBDIR=lib
       -DBUILD_SHARED_LIBS=OFF)
+  if(PROTOBUF_VENDORED)
+    list(APPEND GRPC_CMAKE_ARGS -DgRPC_PROTOBUF_PACKAGE_TYPE=CONFIG)
+  endif()
   if(OPENSSL_ROOT_DIR)
     list(APPEND GRPC_CMAKE_ARGS -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR})
   endif()

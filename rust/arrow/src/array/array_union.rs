@@ -344,7 +344,7 @@ mod tests {
 
     use crate::array::*;
     use crate::buffer::Buffer;
-    use crate::datatypes::{DataType, Field, ToByteSlice};
+    use crate::datatypes::{DataType, Field};
 
     #[test]
     fn test_dense_i32() {
@@ -365,7 +365,7 @@ mod tests {
         // Check type ids
         assert_eq!(
             union.data().buffers()[0],
-            Buffer::from(&expected_type_ids.to_byte_slice())
+            Buffer::from_slice_ref(&expected_type_ids)
         );
         for (i, id) in expected_type_ids.iter().enumerate() {
             assert_eq!(id, &union.type_id(i));
@@ -374,7 +374,7 @@ mod tests {
         // Check offsets
         assert_eq!(
             union.data().buffers()[1],
-            Buffer::from(expected_value_offsets.to_byte_slice())
+            Buffer::from_slice_ref(&expected_value_offsets)
         );
         for (i, id) in expected_value_offsets.iter().enumerate() {
             assert_eq!(&union.value_offset(i), id);
@@ -383,15 +383,15 @@ mod tests {
         // Check data
         assert_eq!(
             union.data().child_data()[0].buffers()[0],
-            Buffer::from([1_i32, 4, 6].to_byte_slice())
+            Buffer::from_slice_ref(&[1_i32, 4, 6])
         );
         assert_eq!(
             union.data().child_data()[1].buffers()[0],
-            Buffer::from([2_i32, 7].to_byte_slice())
+            Buffer::from_slice_ref(&[2_i32, 7])
         );
         assert_eq!(
             union.data().child_data()[2].buffers()[0],
-            Buffer::from([3_i32, 5].to_byte_slice()),
+            Buffer::from_slice_ref(&[3_i32, 5]),
         );
 
         assert_eq!(expected_array_values.len(), union.len());
@@ -559,8 +559,8 @@ mod tests {
         let type_ids = [1_i8, 0, 0, 2, 0, 1];
         let value_offsets = [0_i32, 0, 1, 0, 2, 1];
 
-        let type_id_buffer = Buffer::from(&type_ids.to_byte_slice());
-        let value_offsets_buffer = Buffer::from(value_offsets.to_byte_slice());
+        let type_id_buffer = Buffer::from_slice_ref(&type_ids);
+        let value_offsets_buffer = Buffer::from_slice_ref(&value_offsets);
 
         let mut children: Vec<(Field, Arc<Array>)> = Vec::new();
         children.push((
@@ -581,17 +581,14 @@ mod tests {
         .unwrap();
 
         // Check type ids
-        assert_eq!(
-            Buffer::from(&type_ids.to_byte_slice()),
-            array.data().buffers()[0]
-        );
+        assert_eq!(Buffer::from_slice_ref(&type_ids), array.data().buffers()[0]);
         for (i, id) in type_ids.iter().enumerate() {
             assert_eq!(id, &array.type_id(i));
         }
 
         // Check offsets
         assert_eq!(
-            Buffer::from(value_offsets.to_byte_slice()),
+            Buffer::from_slice_ref(&value_offsets),
             array.data().buffers()[1]
         );
         for (i, id) in value_offsets.iter().enumerate() {
@@ -659,7 +656,7 @@ mod tests {
 
         // Check type ids
         assert_eq!(
-            Buffer::from(&expected_type_ids.to_byte_slice()),
+            Buffer::from_slice_ref(&expected_type_ids),
             union.data().buffers()[0]
         );
         for (i, id) in expected_type_ids.iter().enumerate() {
@@ -672,14 +669,14 @@ mod tests {
         // Check data
         assert_eq!(
             union.data().child_data()[0].buffers()[0],
-            Buffer::from([1_i32, 0, 0, 4, 0, 6, 0].to_byte_slice()),
+            Buffer::from_slice_ref(&[1_i32, 0, 0, 4, 0, 6, 0]),
         );
         assert_eq!(
-            Buffer::from([0_i32, 2_i32, 0, 0, 0, 0, 7].to_byte_slice()),
+            Buffer::from_slice_ref(&[0_i32, 2_i32, 0, 0, 0, 0, 7]),
             union.data().child_data()[1].buffers()[0]
         );
         assert_eq!(
-            Buffer::from([0_i32, 0, 3_i32, 0, 5, 0, 0].to_byte_slice()),
+            Buffer::from_slice_ref(&[0_i32, 0, 3_i32, 0, 5, 0, 0]),
             union.data().child_data()[2].buffers()[0]
         );
 
@@ -708,7 +705,7 @@ mod tests {
 
         // Check type ids
         assert_eq!(
-            Buffer::from(&expected_type_ids.to_byte_slice()),
+            Buffer::from_slice_ref(&expected_type_ids),
             union.data().buffers()[0]
         );
         for (i, id) in expected_type_ids.iter().enumerate() {
@@ -770,7 +767,7 @@ mod tests {
 
         // Check type ids
         assert_eq!(
-            Buffer::from(&expected_type_ids.to_byte_slice()),
+            Buffer::from_slice_ref(&expected_type_ids),
             union.data().buffers()[0]
         );
         for (i, id) in expected_type_ids.iter().enumerate() {

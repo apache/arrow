@@ -32,6 +32,7 @@
 #include "arrow/filesystem/path_util.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/range.h"
 
 namespace arrow {
 using internal::checked_pointer_cast;
@@ -150,6 +151,16 @@ TEST_F(TestPartitioning, DirectoryPartitioningFormat) {
   AssertFormatError<StatusCode::TypeError>(
       and_(equal(field_ref("alpha"), literal("0.0")),
            equal(field_ref("beta"), literal("hello"))));
+}
+
+TEST_F(TestPartitioning, DirectoryPartitioningFormatDictionary) {
+  auto dictionary = ArrayFromJSON(utf8(), R"(["hello", "world"])");
+  partitioning_ = std::make_shared<DirectoryPartitioning>(schema({DictStr("alpha")}),
+                                                          ArrayVector{dictionary});
+  written_schema_ = partitioning_->schema();
+
+  ASSERT_OK_AND_ASSIGN(auto dict_hello, MakeScalar("hello")->CastTo(DictStr("")->type()));
+  AssertFormat(equal(field_ref("alpha"), literal(dict_hello)), "hello");
 }
 
 TEST_F(TestPartitioning, DirectoryPartitioningWithTemporal) {
@@ -549,12 +560,14 @@ void AssertGrouping(const FieldVector& by_fields, const std::string& batch_json,
                                     }));
 
   ASSERT_OK_AND_ASSIGN(auto groupings_and_values, MakeGroupings(*by));
+  ASSERT_OK(groupings_and_values->ValidateFull());
 
   auto groupings =
       checked_pointer_cast<ListArray>(groupings_and_values->GetFieldByName("groupings"));
 
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> grouped_ids,
                        ApplyGroupings(*groupings, *batch->GetColumnByName("id")));
+  ASSERT_OK(grouped_ids->ValidateFull());
 
   ArrayVector columns =
       checked_cast<const StructArray&>(*groupings_and_values->GetFieldByName("values"))
@@ -562,12 +575,60 @@ void AssertGrouping(const FieldVector& by_fields, const std::string& batch_json,
   columns.push_back(grouped_ids);
 
   ASSERT_OK_AND_ASSIGN(auto actual, StructArray::Make(columns, fields_with_ids));
+  ASSERT_OK(actual->ValidateFull());
 
   AssertArraysEqual(*expected, *actual, /*verbose=*/true);
 }
 
 TEST(GroupTest, Basics) {
   AssertGrouping({field("a", utf8()), field("b", int32())}, R"([
+    {"a": "ex",  "b": 0, "id": 0},
+    {"a": "ex",  "b": 0, "id": 1},
+    {"a": "why", "b": 0, "id": 2},
+    {"a": "ex",  "b": 1, "id": 3},
+    {"a": "why", "b": 0, "id": 4},
+    {"a": "ex",  "b": 1, "id": 5},
+    {"a": "ex",  "b": 0, "id": 6},
+    {"a": "why", "b": 1, "id": 7}
+  ])",
+                 R"([
+    {"a": "ex",  "b": 0, "ids": [0, 1, 6]},
+    {"a": "why", "b": 0, "ids": [2, 4]},
+    {"a": "ex",  "b": 1, "ids": [3, 5]},
+    {"a": "why", "b": 1, "ids": [7]}
+  ])");
+}
+
+TEST(GroupTest, WithNulls) {
+  auto has_nulls = checked_pointer_cast<StructArray>(
+      ArrayFromJSON(struct_({field("a", utf8()), field("b", int32())}), R"([
+    {"a": "ex",  "b": 0},
+    {"a": null,  "b": 0},
+    {"a": "why", "b": 0},
+    {"a": "ex",  "b": 1},
+    {"a": "why", "b": 0},
+    {"a": "ex",  "b": 1},
+    {"a": "ex",  "b": 0},
+    {"a": "why", "b": null}
+  ])"));
+  ASSERT_RAISES(NotImplemented, MakeGroupings(*has_nulls));
+
+  has_nulls = checked_pointer_cast<StructArray>(
+      ArrayFromJSON(struct_({field("a", utf8()), field("b", int32())}), R"([
+    {"a": "ex",  "b": 0},
+    null,
+    {"a": "why", "b": 0},
+    {"a": "ex",  "b": 1},
+    {"a": "why", "b": 0},
+    {"a": "ex",  "b": 1},
+    {"a": "ex",  "b": 0},
+    null
+  ])"));
+  ASSERT_RAISES(Invalid, MakeGroupings(*has_nulls));
+}
+
+TEST(GroupTest, GroupOnDictionary) {
+  AssertGrouping({field("a", dictionary(int32(), utf8())), field("b", int32())}, R"([
     {"a": "ex",  "b": 0, "id": 0},
     {"a": "ex",  "b": 0, "id": 1},
     {"a": "why", "b": 0, "id": 2},

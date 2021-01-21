@@ -24,10 +24,10 @@ use std::sync::Arc;
 use std::vec::Vec;
 
 use arrow::array::{
-    Array, ArrayData, ArrayDataBuilder, ArrayDataRef, ArrayRef, BinaryArray,
-    BinaryBuilder, BooleanArray, BooleanBufferBuilder, DecimalBuilder,
-    FixedSizeBinaryArray, FixedSizeBinaryBuilder, GenericListArray, Int16BufferBuilder,
-    Int32Array, Int64Array, ListBuilder, OffsetSizeTrait, PrimitiveArray,
+    build_empty_list_array, Array, ArrayData, ArrayDataBuilder, ArrayDataRef, ArrayRef,
+    BinaryArray, BinaryBuilder, BooleanArray, BooleanBufferBuilder, BooleanBuilder,
+    DecimalBuilder, FixedSizeBinaryArray, FixedSizeBinaryBuilder, GenericListArray,
+    Int16BufferBuilder, Int32Array, Int64Array, OffsetSizeTrait, PrimitiveArray,
     PrimitiveBuilder, StringArray, StringBuilder, StructArray,
 };
 use arrow::buffer::{Buffer, MutableBuffer};
@@ -435,15 +435,10 @@ where
     }
 
     fn next_batch(&mut self, batch_size: usize) -> Result<ArrayRef> {
-        // Try to initialized column reader
+        // Try to initialize column reader
         if self.column_reader.is_none() {
-            let init_result = self.next_column_reader()?;
-            if !init_result {
-                return Err(general_err!("No page left!"));
-            }
+            self.next_column_reader()?;
         }
-
-        assert!(self.column_reader.is_some());
 
         let mut data_buffer: Vec<T::T> = Vec::with_capacity(batch_size);
         data_buffer.resize_with(batch_size, T::T::default);
@@ -466,7 +461,7 @@ where
 
         let mut num_read = 0;
 
-        while num_read < batch_size {
+        while self.column_reader.is_some() && num_read < batch_size {
             let num_to_read = batch_size - num_read;
             let cur_data_buf = &mut data_buffer[num_read..];
             let cur_def_levels_buf =
@@ -629,105 +624,6 @@ impl<OffsetSize: OffsetSizeTrait> ListArrayReader<OffsetSize> {
     }
 }
 
-macro_rules! build_empty_list_array_with_primitive_items {
-    ($item_type:ident) => {{
-        let values_builder = PrimitiveBuilder::<$item_type>::new(0);
-        let mut builder = ListBuilder::new(values_builder);
-        let empty_list_array = builder.finish();
-        Ok(Arc::new(empty_list_array))
-    }};
-}
-
-macro_rules! build_empty_list_array_with_non_primitive_items {
-    ($builder:ident) => {{
-        let values_builder = $builder::new(0);
-        let mut builder = ListBuilder::new(values_builder);
-        let empty_list_array = builder.finish();
-        Ok(Arc::new(empty_list_array))
-    }};
-}
-
-fn build_empty_list_array(item_type: ArrowType) -> Result<ArrayRef> {
-    match item_type {
-        ArrowType::UInt8 => build_empty_list_array_with_primitive_items!(ArrowUInt8Type),
-        ArrowType::UInt16 => {
-            build_empty_list_array_with_primitive_items!(ArrowUInt16Type)
-        }
-        ArrowType::UInt32 => {
-            build_empty_list_array_with_primitive_items!(ArrowUInt32Type)
-        }
-        ArrowType::UInt64 => {
-            build_empty_list_array_with_primitive_items!(ArrowUInt64Type)
-        }
-        ArrowType::Int8 => build_empty_list_array_with_primitive_items!(ArrowInt8Type),
-        ArrowType::Int16 => build_empty_list_array_with_primitive_items!(ArrowInt16Type),
-        ArrowType::Int32 => build_empty_list_array_with_primitive_items!(ArrowInt32Type),
-        ArrowType::Int64 => build_empty_list_array_with_primitive_items!(ArrowInt64Type),
-        ArrowType::Float32 => {
-            build_empty_list_array_with_primitive_items!(ArrowFloat32Type)
-        }
-        ArrowType::Float64 => {
-            build_empty_list_array_with_primitive_items!(ArrowFloat64Type)
-        }
-        ArrowType::Boolean => {
-            //build_empty_list_array_with_primitive_items!(ArrowBooleanType)
-            todo!()
-        }
-        ArrowType::Date32(_) => {
-            build_empty_list_array_with_primitive_items!(ArrowDate32Type)
-        }
-        ArrowType::Date64(_) => {
-            build_empty_list_array_with_primitive_items!(ArrowDate64Type)
-        }
-        ArrowType::Time32(ArrowTimeUnit::Second) => {
-            build_empty_list_array_with_primitive_items!(ArrowTime32SecondType)
-        }
-        ArrowType::Time32(ArrowTimeUnit::Millisecond) => {
-            build_empty_list_array_with_primitive_items!(ArrowTime32MillisecondType)
-        }
-        ArrowType::Time64(ArrowTimeUnit::Microsecond) => {
-            build_empty_list_array_with_primitive_items!(ArrowTime64MicrosecondType)
-        }
-        ArrowType::Time64(ArrowTimeUnit::Nanosecond) => {
-            build_empty_list_array_with_primitive_items!(ArrowTime64NanosecondType)
-        }
-        ArrowType::Duration(ArrowTimeUnit::Second) => {
-            build_empty_list_array_with_primitive_items!(ArrowDurationSecondType)
-        }
-        ArrowType::Duration(ArrowTimeUnit::Millisecond) => {
-            build_empty_list_array_with_primitive_items!(ArrowDurationMillisecondType)
-        }
-        ArrowType::Duration(ArrowTimeUnit::Microsecond) => {
-            build_empty_list_array_with_primitive_items!(ArrowDurationMicrosecondType)
-        }
-        ArrowType::Duration(ArrowTimeUnit::Nanosecond) => {
-            build_empty_list_array_with_primitive_items!(ArrowDurationNanosecondType)
-        }
-        ArrowType::Timestamp(ArrowTimeUnit::Second, _) => {
-            build_empty_list_array_with_primitive_items!(ArrowTimestampSecondType)
-        }
-        ArrowType::Timestamp(ArrowTimeUnit::Millisecond, _) => {
-            build_empty_list_array_with_primitive_items!(ArrowTimestampMillisecondType)
-        }
-        ArrowType::Timestamp(ArrowTimeUnit::Microsecond, _) => {
-            build_empty_list_array_with_primitive_items!(ArrowTimestampMicrosecondType)
-        }
-        ArrowType::Timestamp(ArrowTimeUnit::Nanosecond, _) => {
-            build_empty_list_array_with_primitive_items!(ArrowTimestampNanosecondType)
-        }
-        ArrowType::Utf8 => {
-            build_empty_list_array_with_non_primitive_items!(StringBuilder)
-        }
-        ArrowType::Binary => {
-            build_empty_list_array_with_non_primitive_items!(BinaryBuilder)
-        }
-        _ => Err(ParquetError::General(format!(
-            "ListArray of type List({:?}) is not supported by array_reader",
-            item_type
-        ))),
-    }
-}
-
 macro_rules! remove_primitive_array_indices {
     ($arr: expr, $item_type:ty, $indices:expr) => {{
         let array_data = match $arr.as_any().downcast_ref::<PrimitiveArray<$item_type>>() {
@@ -816,8 +712,12 @@ fn remove_indices(
             remove_primitive_array_indices!(arr, ArrowFloat64Type, indices)
         }
         ArrowType::Boolean => {
-            todo!()
-            //remove_primitive_array_indices!(arr, ArrowBooleanType, indices)
+            remove_array_indices_custom_builder!(
+                arr,
+                BooleanArray,
+                BooleanBuilder,
+                indices
+            )
         }
         ArrowType::Date32(_) => {
             remove_primitive_array_indices!(arr, ArrowDate32Type, indices)
@@ -898,7 +798,8 @@ impl<OffsetSize: OffsetSizeTrait> ArrayReader for ListArrayReader<OffsetSize> {
         let item_type = self.item_reader.get_data_type().clone();
 
         if next_batch_array.len() == 0 {
-            return build_empty_list_array(item_type);
+            return build_empty_list_array::<i32>(item_type)
+                .map_err(|err| ParquetError::General(err.to_string()));
         }
         let def_levels = self
             .item_reader
@@ -1079,7 +980,7 @@ impl ArrayReader for StructArrayReader {
         // calculate struct def level data
         let buffer_size = children_array_len * size_of::<i16>();
         let mut def_level_data_buffer = MutableBuffer::new(buffer_size);
-        def_level_data_buffer.resize(buffer_size);
+        def_level_data_buffer.resize(buffer_size, 0);
 
         let def_level_data = def_level_data_buffer.typed_data_mut();
 
@@ -1503,7 +1404,18 @@ impl<'a> ArrayReaderBuilder {
                 arrow_type,
             )?)),
             PhysicalType::INT96 => {
-                let converter = Int96Converter::new(Int96ArrayConverter {});
+                // get the optional timezone information from arrow type
+                let timezone = arrow_type
+                    .as_ref()
+                    .map(|data_type| {
+                        if let ArrowType::Timestamp(_, tz) = data_type {
+                            tz.clone()
+                        } else {
+                            None
+                        }
+                    })
+                    .flatten();
+                let converter = Int96Converter::new(Int96ArrayConverter { timezone });
                 Ok(Box::new(ComplexObjectArrayReader::<
                     Int96Type,
                     Int96Converter,
@@ -2125,6 +2037,37 @@ mod tests {
                 array_reader.get_rep_levels()
             );
         }
+    }
+
+    #[test]
+    fn test_complex_array_reader_no_pages() {
+        let message_type = "
+        message test_schema {
+            REPEATED Group test_mid {
+                OPTIONAL BYTE_ARRAY leaf (UTF8);
+            }
+        }
+        ";
+        let schema = parse_message_type(message_type)
+            .map(|t| Arc::new(SchemaDescriptor::new(Arc::new(t))))
+            .unwrap();
+        let column_desc = schema.column(0);
+        let pages: Vec<Vec<Page>> = Vec::new();
+        let page_iterator = InMemoryPageIterator::new(schema, column_desc.clone(), pages);
+
+        let converter = Utf8Converter::new(Utf8ArrayConverter {});
+        let mut array_reader =
+            ComplexObjectArrayReader::<ByteArrayType, Utf8Converter>::new(
+                Box::new(page_iterator),
+                column_desc,
+                converter,
+                None,
+            )
+            .unwrap();
+
+        let values_per_page = 100; // this value is arbitrary in this test - the result should always be an array of 0 length
+        let array = array_reader.next_batch(values_per_page).unwrap();
+        assert_eq!(array.len(), 0);
     }
 
     #[test]

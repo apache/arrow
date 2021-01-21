@@ -60,6 +60,11 @@ void ComputeRowMajorStrides(const FixedWidthType& type, const std::vector<int64_
                             std::vector<int64_t>* strides);
 
 ARROW_EXPORT
+void ComputeColumnMajorStrides(const FixedWidthType& type,
+                               const std::vector<int64_t>& shape,
+                               std::vector<int64_t>* strides);
+
+ARROW_EXPORT
 bool IsTensorStridesContiguous(const std::shared_ptr<DataType>& type,
                                const std::vector<int64_t>& shape,
                                const std::vector<int64_t>& strides);
@@ -172,6 +177,10 @@ class ARROW_EXPORT Tensor {
     const int64_t offset = CalculateValueOffset(index);
     const c_type* ptr = reinterpret_cast<const c_type*>(raw_data() + offset);
     return *ptr;
+  }
+
+  Status Validate() const {
+    return internal::ValidateTensorParameters(type_, data_, shape_, strides_, dim_names_);
   }
 
  protected:

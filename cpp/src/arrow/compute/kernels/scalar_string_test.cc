@@ -429,6 +429,66 @@ TYPED_TEST(TestStringKernels, StrptimeDoesNotProvideDefaultOptions) {
 }
 
 #ifdef ARROW_WITH_UTF8PROC
+
+TYPED_TEST(TestStringKernels, TrimWhitespaceUTF8) {
+  // \xe2\x80\x88 is punctuation space
+  this->CheckUnary("utf8_trim_whitespace",
+                   "[\" \\tfoo\", null, \"bar  \", \" \xe2\x80\x88 foo bar \"]",
+                   this->type(), "[\"foo\", null, \"bar\", \"foo bar\"]");
+  this->CheckUnary("utf8_rtrim_whitespace",
+                   "[\" \\tfoo\", null, \"bar  \", \" \xe2\x80\x88 foo bar \"]",
+                   this->type(),
+                   "[\" \\tfoo\", null, \"bar\", \" \xe2\x80\x88 foo bar\"]");
+  this->CheckUnary("utf8_ltrim_whitespace",
+                   "[\" \\tfoo\", null, \"bar  \", \" \xe2\x80\x88 foo bar \"]",
+                   this->type(), "[\"foo\", null, \"bar  \", \"foo bar \"]");
+}
+
+TYPED_TEST(TestStringKernels, TrimUTF8) {
+  TrimOptions options{"ȺA"};
+  this->CheckUnary("utf8_trim", "[\"ȺȺfooȺAȺ\", null, \"barȺAȺ\", \"ȺAȺfooȺAȺbarA\"]",
+                   this->type(), "[\"foo\", null, \"bar\", \"fooȺAȺbar\"]", &options);
+  this->CheckUnary("utf8_ltrim", "[\"ȺȺfooȺAȺ\", null, \"barȺAȺ\", \"ȺAȺfooȺAȺbarA\"]",
+                   this->type(), "[\"fooȺAȺ\", null, \"barȺAȺ\", \"fooȺAȺbarA\"]",
+                   &options);
+  this->CheckUnary("utf8_rtrim", "[\"ȺȺfooȺAȺ\", null, \"barȺAȺ\", \"ȺAȺfooȺAȺbarA\"]",
+                   this->type(), "[\"ȺȺfoo\", null, \"bar\", \"ȺAȺfooȺAȺbar\"]",
+                   &options);
+
+  TrimOptions options_invalid{"ɑa\xFFɑ"};
+  auto input = ArrayFromJSON(this->type(), "[\"foo\"]");
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("Invalid UTF8"),
+                                  CallFunction("utf8_trim", {input}, &options_invalid));
+}
+#endif
+
+TYPED_TEST(TestStringKernels, TrimWhitespaceAscii) {
+  // \xe2\x80\x88 is punctuation space
+  this->CheckUnary("ascii_trim_whitespace",
+                   "[\" \\tfoo\", null, \"bar  \", \" \xe2\x80\x88 foo bar \"]",
+                   this->type(), "[\"foo\", null, \"bar\", \"\xe2\x80\x88 foo bar\"]");
+  this->CheckUnary("ascii_rtrim_whitespace",
+                   "[\" \\tfoo\", null, \"bar  \", \" \xe2\x80\x88 foo bar \"]",
+                   this->type(),
+                   "[\" \\tfoo\", null, \"bar\", \" \xe2\x80\x88 foo bar\"]");
+  this->CheckUnary("ascii_ltrim_whitespace",
+                   "[\" \\tfoo\", null, \"bar  \", \" \xe2\x80\x88 foo bar \"]",
+                   this->type(), "[\"foo\", null, \"bar  \", \"\xe2\x80\x88 foo bar \"]");
+}
+
+TYPED_TEST(TestStringKernels, TrimAscii) {
+  TrimOptions options{"BA"};
+  this->CheckUnary("ascii_trim", "[\"BBfooBAB\", null, \"barBAB\", \"BABfooBABbarA\"]",
+                   this->type(), "[\"foo\", null, \"bar\", \"fooBABbar\"]", &options);
+  this->CheckUnary("ascii_ltrim", "[\"BBfooBAB\", null, \"barBAB\", \"BABfooBABbarA\"]",
+                   this->type(), "[\"fooBAB\", null, \"barBAB\", \"fooBABbarA\"]",
+                   &options);
+  this->CheckUnary("ascii_rtrim", "[\"BBfooBAB\", null, \"barBAB\", \"BABfooBABbarA\"]",
+                   this->type(), "[\"BBfoo\", null, \"bar\", \"BABfooBABbar\"]",
+                   &options);
+}
+
+#ifdef ARROW_WITH_UTF8PROC
 TEST(TestStringKernels, UnicodeLibraryAssumptions) {
   uint8_t output[4];
   for (utf8proc_int32_t codepoint = 0x100; codepoint < 0x110000; codepoint++) {

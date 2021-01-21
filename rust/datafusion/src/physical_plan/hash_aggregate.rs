@@ -294,6 +294,8 @@ fn group_aggregate_batch(
     create_accumulators(aggr_expr).map_err(DataFusionError::into_arrow_external_error)?;
 
     let hashes = create_hashes(&group_values, &random_state)?;
+    // Keys received in this batch
+    let mut batch_keys = vec![];
 
     for (row, hash) in hashes.iter().enumerate() {
         // 1.1
@@ -301,11 +303,17 @@ fn group_aggregate_batch(
             .raw_entry_mut()
             .from_key_hashed_nocheck(*hash, hash)
             // 1.3
-            .and_modify(|_, (_, _, v)| v.push(row as u32))
+            .and_modify(|_, (_, _, v)| {
+                if v.is_empty() {
+                    batch_keys.push(hash)
+                };
+                v.push(row as u32)
+            })
             // 1.2
             .or_insert_with(|| {
                 // We can safely unwrap here as we checked we can create an accumulator before
                 let accumulator_set = create_accumulators(aggr_expr).unwrap();
+                batch_keys.push(hash);
                 let _ = create_group_by_values(&group_values, row, &mut group_by_values);
                 (
                     *hash,
@@ -314,48 +322,48 @@ fn group_aggregate_batch(
             });
     }
 
-    // 2.1 for each key
+    // 2.1 for each key in this batch
     // 2.2 for each aggregation
     // 2.3 `take` from each of its arrays the keys' values
     // 2.4 update / merge the accumulator with the values
     // 2.5 clear indices
-    accumulators
-        .iter_mut()
-        .try_for_each(|(_, (_, accumulator_set, indices))| {
-            // 2.2
-            accumulator_set
-                .iter_mut()
-                .zip(&aggr_input_values)
-                .map(|(accumulator, aggr_array)| {
-                    (
-                        accumulator,
-                        aggr_array
-                            .iter()
-                            .map(|array| {
-                                // 2.3
-                                compute::take(
-                                    array.as_ref(),
-                                    &UInt32Array::from(indices.clone()),
-                                    None, // None: no index check
-                                )
-                                .unwrap()
-                            })
-                            .collect::<Vec<ArrayRef>>(),
-                    )
-                })
-                .try_for_each(|(accumulator, values)| match mode {
-                    AggregateMode::Partial => accumulator.update_batch(&values),
-                    AggregateMode::Final => {
-                        // note: the aggregation here is over states, not values, thus the merge
-                        accumulator.merge_batch(&values)
-                    }
-                })
-                // 2.5
-                .and({
-                    indices.clear();
-                    Ok(())
-                })
-        })?;
+    batch_keys.iter_mut().try_for_each(|key| {
+        let (_, accumulator_set, indices) = accumulators.get_mut(key).unwrap();
+        let primitive_indices = UInt32Array::from(indices.clone());
+        // 2.2
+        accumulator_set
+            .iter_mut()
+            .zip(&aggr_input_values)
+            .map(|(accumulator, aggr_array)| {
+                (
+                    accumulator,
+                    aggr_array
+                        .iter()
+                        .map(|array| {
+                            // 2.3
+                            compute::take(
+                                array.as_ref(),
+                                &primitive_indices,
+                                None, // None: no index check
+                            )
+                            .unwrap()
+                        })
+                        .collect::<Vec<ArrayRef>>(),
+                )
+            })
+            .try_for_each(|(accumulator, values)| match mode {
+                AggregateMode::Partial => accumulator.update_batch(&values),
+                AggregateMode::Final => {
+                    // note: the aggregation here is over states, not values, thus the merge
+                    accumulator.merge_batch(&values)
+                }
+            })
+            // 2.5
+            .and({
+                indices.clear();
+                Ok(())
+            })
+    })?;
     Ok(accumulators)
 }
 

@@ -88,7 +88,8 @@ def scalar(value):
     return Expression._scalar(value)
 
 
-def partitioning(schema=None, field_names=None, flavor=None):
+def partitioning(schema=None, field_names=None, flavor=None,
+                 dictionaries=None):
     """
     Specify a partitioning scheme.
 
@@ -121,6 +122,11 @@ def partitioning(schema=None, field_names=None, flavor=None):
     flavor : str, default None
         The default is DirectoryPartitioning. Specify ``flavor="hive"`` for
         a HivePartitioning.
+    dictionaries : List[Array]
+        If the type of any field of `schema` is a dictionary type, the
+        corresponding entry of `dictionaries` must be an array containing
+        every value which may be taken by the corresponding column or an
+        error will be raised in parsing.
 
     Returns
     -------
@@ -158,7 +164,7 @@ def partitioning(schema=None, field_names=None, flavor=None):
             if field_names is not None:
                 raise ValueError(
                     "Cannot specify both 'schema' and 'field_names'")
-            return DirectoryPartitioning(schema)
+            return DirectoryPartitioning(schema, dictionaries)
         elif field_names is not None:
             if isinstance(field_names, list):
                 return DirectoryPartitioning.discover(field_names)
@@ -175,7 +181,7 @@ def partitioning(schema=None, field_names=None, flavor=None):
             raise ValueError("Cannot specify 'field_names' for flavor 'hive'")
         elif schema is not None:
             if isinstance(schema, pa.Schema):
-                return HivePartitioning(schema)
+                return HivePartitioning(schema, dictionaries)
             else:
                 raise ValueError(
                     "Expected Schema for 'schema', got {}".format(
@@ -635,7 +641,8 @@ def _ensure_write_partitioning(scheme):
 
 def write_dataset(data, base_dir, basename_template=None, format=None,
                   partitioning=None, schema=None,
-                  filesystem=None, file_options=None, use_threads=True):
+                  filesystem=None, file_options=None, use_threads=True,
+                  max_partitions=None):
     """
     Write a dataset to a given format and partitioning.
 
@@ -668,6 +675,8 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
     use_threads : bool, default True
         Write files in parallel. If enabled, then maximum parallelism will be
         used determined by the number of available CPU cores.
+    max_partitions : int, default 1024
+        Maximum number of partitions any batch may be written into.
     """
     from pyarrow.fs import LocalFileSystem, _ensure_filesystem
 
@@ -700,6 +709,9 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
     if basename_template is None:
         basename_template = "part-{i}." + format.default_extname
 
+    if max_partitions is None:
+        max_partitions = 1024
+
     partitioning = _ensure_write_partitioning(partitioning)
 
     if filesystem is None:
@@ -711,4 +723,5 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
     _filesystemdataset_write(
         data, base_dir, basename_template, schema,
         filesystem, partitioning, file_options, use_threads,
+        max_partitions
     )

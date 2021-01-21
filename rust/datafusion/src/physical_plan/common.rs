@@ -39,9 +39,9 @@ use arrow::{
 };
 use arrow::{
     array::{
-        Date64Array, Time64MicrosecondArray, Time64NanosecondArray,
-        TimestampMicrosecondArray, TimestampMillisecondArray, TimestampNanosecondArray,
-        TimestampSecondArray,
+        build_empty_fixed_size_list_array, build_empty_list_array, Date64Array,
+        Time64MicrosecondArray, Time64NanosecondArray, TimestampMicrosecondArray,
+        TimestampMillisecondArray, TimestampNanosecondArray, TimestampSecondArray,
     },
     buffer::Buffer,
     datatypes::{DataType, SchemaRef, TimeUnit},
@@ -227,6 +227,15 @@ pub fn create_batch_empty(schema: &Schema) -> ArrowResult<RecordBatch> {
                         as ArrayRef)
                 }
             },
+            DataType::List(nested_type) => Ok(build_empty_list_array::<i32>(
+                nested_type.data_type().clone(),
+            )?),
+            DataType::LargeList(nested_type) => Ok(build_empty_list_array::<i64>(
+                nested_type.data_type().clone(),
+            )?),
+            DataType::FixedSizeList(nested_type, _) => Ok(
+                build_empty_fixed_size_list_array(nested_type.data_type().clone())?,
+            ),
             _ => Err(DataFusionError::NotImplemented(format!(
                 "Cannot convert datatype {:?} to array",
                 f.data_type()
