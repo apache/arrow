@@ -1632,7 +1632,7 @@ std::mt19937_64 GetSeedGenerator() {
   std::random_device true_random;
   std::mt19937_64 seed_gen(static_cast<uint64_t>(true_random()) ^
                            (static_cast<uint64_t>(true_random()) << 32) ^
-                           (static_cast<uint64_t>(GetPid()) << 17));
+                           static_cast<uint64_t>(GetPid()));
 #endif
   return seed_gen;
 }
