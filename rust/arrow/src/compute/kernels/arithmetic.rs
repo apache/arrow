@@ -55,7 +55,7 @@ where
     //  Benefit
     //      ~30% speedup
     //  Soundness
-    //      `windows` is an iterator with a known size.
+    //      `values` is an iterator with a known size.
     unsafe { buffer.extend_from_trusted_len_iter(values) };
 
     let data = ArrayData::new(
@@ -150,6 +150,11 @@ where
         .zip(right.values().iter())
         .map(|(l, r)| op(*l, *r));
     let mut buffer = MutableBuffer::new(0);
+    // JUSTIFICATION
+    //  Benefit
+    //      ~60% speedup
+    //  Soundness
+    //      `values` is an iterator with a known size.
     unsafe { buffer.extend_from_trusted_len_iter(values) };
 
     let data = ArrayData::new(

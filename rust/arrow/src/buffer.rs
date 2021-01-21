@@ -1058,7 +1058,7 @@ impl MutableBuffer {
 
         let mut dst = self.data.as_ptr().add(self.len) as *mut T;
         for item in iterator {
-            // note how there is not reserve here (compared with `extend_from_iter`)
+            // note how there is no reserve here (compared with `extend_from_iter`)
             std::ptr::write(dst, item);
             dst = dst.add(1);
         }
