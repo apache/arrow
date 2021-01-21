@@ -15,8 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use crate::error::{DataFusionError, Result};
 use crate::logical_plan::{DFSchema, Expr, LogicalPlan};
+use crate::{
+    error::{DataFusionError, Result},
+    logical_plan::{ExpressionVisitor, Recursion},
+};
 
 /// Resolves an `Expr::Wildcard` to a collection of `Expr::Column`'s.
 pub(crate) fn expand_wildcard(expr: &Expr, schema: &DFSchema) -> Vec<Expr> {
@@ -66,6 +69,45 @@ where
         })
 }
 
+// Visitor that find expressions that match a particular predicate
+struct Finder<'a, F>
+where
+    F: Fn(&Expr) -> bool,
+{
+    test_fn: &'a F,
+    exprs: Vec<Expr>,
+}
+
+impl<'a, F> Finder<'a, F>
+where
+    F: Fn(&Expr) -> bool,
+{
+    /// Create a new finder with the `test_fn`
+    fn new(test_fn: &'a F) -> Self {
+        Self {
+            test_fn,
+            exprs: Vec::new(),
+        }
+    }
+}
+
+impl<'a, F> ExpressionVisitor for Finder<'a, F>
+where
+    F: Fn(&Expr) -> bool,
+{
+    fn pre_visit(mut self, expr: &Expr) -> Result<Recursion<Self>> {
+        if (self.test_fn)(expr) {
+            if !(self.exprs.contains(expr)) {
+                self.exprs.push(expr.clone())
+            }
+            // stop recursing down this expr once we find a match
+            return Ok(Recursion::Stop(self));
+        }
+
+        Ok(Recursion::Continue(self))
+    }
+}
+
 /// Search an `Expr`, and all of its nested `Expr`'s, for any that pass the
 /// provided test. The returned `Expr`'s are deduplicated and returned in order
 /// of appearance (depth first).
@@ -73,106 +115,11 @@ fn find_exprs_in_expr<F>(expr: &Expr, test_fn: &F) -> Vec<Expr>
 where
     F: Fn(&Expr) -> bool,
 {
-    let matched_exprs = if test_fn(expr) {
-        vec![expr.clone()]
-    } else {
-        match expr {
-            Expr::AggregateFunction { args, .. } => find_exprs_in_exprs(&args, test_fn),
-            Expr::AggregateUDF { args, .. } => find_exprs_in_exprs(&args, test_fn),
-            Expr::Alias(nested_expr, _) => {
-                find_exprs_in_expr(nested_expr.as_ref(), test_fn)
-            }
-            Expr::Between {
-                expr: nested_expr,
-                low,
-                high,
-                ..
-            } => {
-                let mut matches = vec![];
-                matches.extend(find_exprs_in_expr(nested_expr.as_ref(), test_fn));
-                matches.extend(find_exprs_in_expr(low.as_ref(), test_fn));
-                matches.extend(find_exprs_in_expr(high.as_ref(), test_fn));
-                matches
-            }
-            Expr::BinaryExpr { left, right, .. } => {
-                let mut matches = vec![];
-                matches.extend(find_exprs_in_expr(left.as_ref(), test_fn));
-                matches.extend(find_exprs_in_expr(right.as_ref(), test_fn));
-                matches
-            }
-            Expr::InList {
-                expr: nested_expr,
-                list,
-                ..
-            } => {
-                let mut matches = vec![];
-                matches.extend(find_exprs_in_expr(nested_expr.as_ref(), test_fn));
-                matches.extend(
-                    list.iter()
-                        .flat_map(|expr| find_exprs_in_expr(expr, test_fn))
-                        .collect::<Vec<Expr>>(),
-                );
-                matches
-            }
-            Expr::Case {
-                expr: case_expr_opt,
-                when_then_expr,
-                else_expr: else_expr_opt,
-            } => {
-                let mut matches = vec![];
-
-                if let Some(case_expr) = case_expr_opt {
-                    matches.extend(find_exprs_in_expr(case_expr.as_ref(), test_fn));
-                }
-
-                matches.extend(
-                    when_then_expr
-                        .iter()
-                        .flat_map(|(a, b)| vec![a, b])
-                        .flat_map(|expr| find_exprs_in_expr(expr.as_ref(), test_fn))
-                        .collect::<Vec<Expr>>(),
-                );
-
-                if let Some(else_expr) = else_expr_opt {
-                    matches.extend(find_exprs_in_expr(else_expr.as_ref(), test_fn));
-                }
-
-                matches
-            }
-            Expr::Cast {
-                expr: nested_expr, ..
-            } => find_exprs_in_expr(nested_expr.as_ref(), test_fn),
-            Expr::IsNotNull(nested_expr) => {
-                find_exprs_in_expr(nested_expr.as_ref(), test_fn)
-            }
-            Expr::IsNull(nested_expr) => {
-                find_exprs_in_expr(nested_expr.as_ref(), test_fn)
-            }
-            Expr::Negative(nested_expr) => {
-                find_exprs_in_expr(nested_expr.as_ref(), test_fn)
-            }
-            Expr::Not(nested_expr) => find_exprs_in_expr(nested_expr.as_ref(), test_fn),
-            Expr::ScalarFunction { args, .. } => find_exprs_in_exprs(&args, test_fn),
-            Expr::ScalarUDF { args, .. } => find_exprs_in_exprs(&args, test_fn),
-            Expr::Sort {
-                expr: nested_expr, ..
-            } => find_exprs_in_expr(nested_expr.as_ref(), test_fn),
-
-            // These expressions don't nest other expressions.
-            Expr::Column(_)
-            | Expr::Literal(_)
-            | Expr::ScalarVariable(_)
-            | Expr::Wildcard => vec![],
-        }
-    };
-
-    matched_exprs.into_iter().fold(vec![], |mut acc, expr| {
-        if !acc.contains(&expr) {
-            acc.push(expr)
-        }
-
-        acc
-    })
+    let Finder { exprs, .. } = expr
+        .accept(Finder::new(test_fn))
+        // pre_visit always returns OK, so this will always too
+        .expect("no way to return error during recursion");
+    exprs
 }
 
 /// Convert any `Expr` to an `Expr::Column`.

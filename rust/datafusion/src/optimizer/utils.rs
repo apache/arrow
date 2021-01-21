@@ -22,12 +22,16 @@ use std::{collections::HashSet, sync::Arc};
 use arrow::datatypes::Schema;
 
 use super::optimizer::OptimizerRule;
-use crate::error::{DataFusionError, Result};
 use crate::logical_plan::{
-    Expr, LogicalPlan, Operator, Partitioning, PlanType, StringifiedPlan, ToDFSchema,
+    Expr, LogicalPlan, Operator, Partitioning, PlanType, Recursion, StringifiedPlan,
+    ToDFSchema,
 };
 use crate::prelude::{col, lit};
 use crate::scalar::ScalarValue;
+use crate::{
+    error::{DataFusionError, Result},
+    logical_plan::ExpressionVisitor,
+};
 
 const CASE_EXPR_MARKER: &str = "__DATAFUSION_CASE_EXPR__";
 const CASE_ELSE_MARKER: &str = "__DATAFUSION_CASE_ELSE__";
@@ -46,73 +50,46 @@ pub fn exprlist_to_column_names(
 
 /// Recursively walk an expression tree, collecting the unique set of column names
 /// referenced in the expression
-pub fn expr_to_column_names(expr: &Expr, accum: &mut HashSet<String>) -> Result<()> {
-    match expr {
-        Expr::Alias(expr, _) => expr_to_column_names(expr, accum),
-        Expr::Column(name) => {
-            accum.insert(name.clone());
-            Ok(())
-        }
-        Expr::ScalarVariable(var_names) => {
-            accum.insert(var_names.join("."));
-            Ok(())
-        }
-        Expr::Literal(_) => {
-            // not needed
-            Ok(())
-        }
-        Expr::Not(e) => expr_to_column_names(e, accum),
-        Expr::Negative(e) => expr_to_column_names(e, accum),
-        Expr::IsNull(e) => expr_to_column_names(e, accum),
-        Expr::IsNotNull(e) => expr_to_column_names(e, accum),
-        Expr::BinaryExpr { left, right, .. } => {
-            expr_to_column_names(left, accum)?;
-            expr_to_column_names(right, accum)?;
-            Ok(())
-        }
-        Expr::Case {
-            expr,
-            when_then_expr,
-            else_expr,
-            ..
-        } => {
-            if let Some(e) = expr {
-                expr_to_column_names(e, accum)?;
+struct ColumnNameVisitor<'a> {
+    accum: &'a mut HashSet<String>,
+}
+
+impl ExpressionVisitor for ColumnNameVisitor<'_> {
+    fn pre_visit(self, expr: &Expr) -> Result<Recursion<Self>> {
+        match expr {
+            Expr::Column(name) => {
+                self.accum.insert(name.clone());
             }
-            for (w, t) in when_then_expr {
-                expr_to_column_names(w, accum)?;
-                expr_to_column_names(t, accum)?;
+            Expr::ScalarVariable(var_names) => {
+                self.accum.insert(var_names.join("."));
             }
-            if let Some(e) = else_expr {
-                expr_to_column_names(e, accum)?
-            }
-            Ok(())
+            Expr::Alias(_, _) => {}
+            Expr::Literal(_) => {}
+            Expr::BinaryExpr { .. } => {}
+            Expr::Not(_) => {}
+            Expr::IsNotNull(_) => {}
+            Expr::IsNull(_) => {}
+            Expr::Negative(_) => {}
+            Expr::Between { .. } => {}
+            Expr::Case { .. } => {}
+            Expr::Cast { .. } => {}
+            Expr::Sort { .. } => {}
+            Expr::ScalarFunction { .. } => {}
+            Expr::ScalarUDF { .. } => {}
+            Expr::AggregateFunction { .. } => {}
+            Expr::AggregateUDF { .. } => {}
+            Expr::InList { .. } => {}
+            Expr::Wildcard => {}
         }
-        Expr::Cast { expr, .. } => expr_to_column_names(expr, accum),
-        Expr::Sort { expr, .. } => expr_to_column_names(expr, accum),
-        Expr::AggregateFunction { args, .. } => exprlist_to_column_names(args, accum),
-        Expr::AggregateUDF { args, .. } => exprlist_to_column_names(args, accum),
-        Expr::ScalarFunction { args, .. } => exprlist_to_column_names(args, accum),
-        Expr::ScalarUDF { args, .. } => exprlist_to_column_names(args, accum),
-        Expr::Between {
-            expr, low, high, ..
-        } => {
-            expr_to_column_names(expr, accum)?;
-            expr_to_column_names(low, accum)?;
-            expr_to_column_names(high, accum)?;
-            Ok(())
-        }
-        Expr::InList { expr, list, .. } => {
-            expr_to_column_names(expr, accum)?;
-            for list_expr in list {
-                expr_to_column_names(list_expr, accum)?;
-            }
-            Ok(())
-        }
-        Expr::Wildcard => Err(DataFusionError::Internal(
-            "Wildcard expressions are not valid in a logical query plan".to_owned(),
-        )),
+        Ok(Recursion::Continue(self))
     }
+}
+
+/// Recursively walk an expression tree, collecting the unique set of column names
+/// referenced in the expression
+pub fn expr_to_column_names(expr: &Expr, accum: &mut HashSet<String>) -> Result<()> {
+    expr.accept(ColumnNameVisitor { accum })?;
+    Ok(())
 }
 
 /// Create a `LogicalPlan::Explain` node by running `optimizer` on the
