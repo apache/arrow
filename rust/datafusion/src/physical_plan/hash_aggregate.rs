@@ -30,9 +30,12 @@ use crate::error::{DataFusionError, Result};
 use crate::physical_plan::{Accumulator, AggregateExpr};
 use crate::physical_plan::{Distribution, ExecutionPlan, Partitioning, PhysicalExpr};
 
-use arrow::datatypes::{DataType, Field, Schema, SchemaRef, TimeUnit};
 use arrow::error::{ArrowError, Result as ArrowResult};
 use arrow::record_batch::RecordBatch;
+use arrow::{
+    array::BooleanArray,
+    datatypes::{DataType, Field, Schema, SchemaRef, TimeUnit},
+};
 use arrow::{
     array::{
         ArrayRef, Float32Array, Float64Array, Int16Array, Int32Array, Int64Array,
@@ -373,6 +376,10 @@ pub(crate) fn create_key(
     vec.clear();
     for col in group_by_keys {
         match col.data_type() {
+            DataType::Boolean => {
+                let array = col.as_any().downcast_ref::<BooleanArray>().unwrap();
+                vec.extend_from_slice(&[array.value(row) as u8]);
+            }
             DataType::Float32 => {
                 let array = col.as_any().downcast_ref::<Float32Array>().unwrap();
                 vec.extend_from_slice(&array.value(row).to_le_bytes());
@@ -799,6 +806,7 @@ fn create_batch_from_map(
                     GroupByScalar::Utf8(str) => {
                         Arc::new(StringArray::from(vec![&***str]))
                     }
+                    GroupByScalar::Boolean(b) => Arc::new(BooleanArray::from(vec![*b])),
                     GroupByScalar::TimeMicrosecond(n) => {
                         Arc::new(TimestampMicrosecondArray::from(vec![*n]))
                     }
@@ -920,6 +928,10 @@ pub(crate) fn create_group_by_values(
             DataType::Utf8 => {
                 let array = col.as_any().downcast_ref::<StringArray>().unwrap();
                 vec[i] = GroupByScalar::Utf8(Box::new(array.value(row).into()))
+            }
+            DataType::Boolean => {
+                let array = col.as_any().downcast_ref::<BooleanArray>().unwrap();
+                vec[i] = GroupByScalar::Boolean(array.value(row))
             }
             DataType::Timestamp(TimeUnit::Microsecond, None) => {
                 let array = col
