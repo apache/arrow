@@ -27,10 +27,13 @@ from pyarrow.includes.libarrow cimport *
 cdef extern from "gandiva/gandiva_aliases.h" namespace "gandiva" nogil:
 
     cdef cppclass CNode" gandiva::Node":
-        pass
+        c_string ToString()
+        shared_ptr[CDataType] return_type()
 
     cdef cppclass CExpression" gandiva::Expression":
-        pass
+        c_string ToString()
+        shared_ptr[CNode] root()
+        shared_ptr[CField] result()
 
     ctypedef vector[shared_ptr[CNode]] CNodeVector" gandiva::NodeVector"
 
