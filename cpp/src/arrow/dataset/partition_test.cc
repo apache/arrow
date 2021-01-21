@@ -27,6 +27,7 @@
 #include <vector>
 
 #include "arrow/compute/api_scalar.h"
+#include "arrow/compute/api_vector.h"
 #include "arrow/dataset/scanner_internal.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/filesystem/path_util.h"
@@ -77,6 +78,31 @@ class TestPartitioning : public ::testing::Test {
     ASSERT_OK_AND_ASSIGN(partitioning_, factory_->Finish(actual));
   }
 
+  void AssertPartition(const std::shared_ptr<Partitioning> partitioning,
+                       const std::shared_ptr<RecordBatch> full_batch,
+                       const std::vector<std::vector<int>>& expected_partition_indices) {
+    ASSERT_OK_AND_ASSIGN(auto partition_results, partitioning->Partition(full_batch));
+    ASSERT_EQ(partition_results.batches.size(), expected_partition_indices.size());
+    auto max_index =
+        std::min(partition_results.batches.size(), expected_partition_indices.size());
+    for (int partition_index = 0; partition_index < max_index; partition_index++) {
+      std::shared_ptr<RecordBatch> actual = partition_results.batches[partition_index];
+      std::shared_ptr<ChunkedArray> indices_arr;
+      ChunkedArrayFromVector<Int32Type>({expected_partition_indices[partition_index]},
+                                        &indices_arr);
+      auto expected = compute::Take(full_batch, indices_arr);
+      ASSERT_EQ(expected, actual);
+    }
+  }
+
+  void AssertPartition(const std::shared_ptr<Partitioning> partitioning,
+                       const std::shared_ptr<Schema> schema,
+                       const std::string& record_batch_json,
+                       const std::vector<std::vector<int>>& expected_partition_indices) {
+    auto record_batch = RecordBatchFromJSON(schema, record_batch_json);
+    AssertPartition(partitioning, record_batch, expected_partition_indices);
+  }
+
   void AssertInspectError(const std::vector<std::string>& paths) {
     ASSERT_RAISES(Invalid, factory_->Inspect(paths));
   }
@@ -102,6 +128,21 @@ class TestPartitioning : public ::testing::Test {
   std::shared_ptr<PartitioningFactory> factory_;
   std::shared_ptr<Schema> written_schema_;
 };
+
+TEST_F(TestPartitioning, Basic) {
+  auto schema_ = schema({field("a", int32()), field("b", utf8())});
+  auto partitioning = std::make_shared<DirectoryPartitioning>(schema_);
+  std::string json = R"([{"a": 3,    "b": "x"},
+                         {"a": 3,    "b": "x"},
+                         {"a": 1,    "b": null},
+                         {"a": null,    "b": null},
+                         {"a": null,    "b": "z"},
+                         {"a": null,    "b": null}
+                       ])";
+  AssertPartition(partitioning, schema_, json, {{0, 1}, {2}, {3, 5}, {4}});
+}
+
+TEST_F(TestPartitioning, StructDictionaryNull) {}
 
 TEST_F(TestPartitioning, DirectoryPartitioning) {
   partitioning_ = std::make_shared<DirectoryPartitioning>(
@@ -600,20 +641,26 @@ TEST(GroupTest, Basics) {
 }
 
 TEST(GroupTest, WithNulls) {
-  auto has_nulls = checked_pointer_cast<StructArray>(
-      ArrayFromJSON(struct_({field("a", utf8()), field("b", int32())}), R"([
-    {"a": "ex",  "b": 0},
-    {"a": null,  "b": 0},
-    {"a": "why", "b": 0},
-    {"a": "ex",  "b": 1},
-    {"a": "why", "b": 0},
-    {"a": "ex",  "b": 1},
-    {"a": "ex",  "b": 0},
-    {"a": "why", "b": null}
-  ])"));
-  ASSERT_RAISES(NotImplemented, MakeGroupings(*has_nulls));
+  AssertGrouping({field("a", utf8()), field("b", int32())},
+                 R"([
+                   {"a": "ex",  "b": 0},
+                   {"a": null,  "b": 0},
+                   {"a": null,  "b": 0},
+                   {"a": "ex",  "b": 1},
+                   {"a": null,  "b": null},
+                   {"a": "ex",  "b": 1},
+                   {"a": "ex",  "b": 0},
+                   {"a": "why", "b": null}
+                 ])",
+                 R"([
+                   {"a": "ex", "b": 0, "ids": [0, 6]},
+                   {"a": null, "b": 0, "ids": [1, 2]},
+                   {"a": "ex", "b": 1, "ids": [3, 5]},
+                   {"a": null, "b": null, "ids": [4]},
+                   {"a": "why", "b": null, "ids": [7]}
+  ])");
 
-  has_nulls = checked_pointer_cast<StructArray>(
+  auto has_nulls = checked_pointer_cast<StructArray>(
       ArrayFromJSON(struct_({field("a", utf8()), field("b", int32())}), R"([
     {"a": "ex",  "b": 0},
     null,
