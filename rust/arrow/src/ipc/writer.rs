@@ -50,7 +50,7 @@ pub struct IpcWriteOptions {
     /// When creating the default IpcWriteOptions, the following metadata versions are used:
     ///
     /// version 2.0.0: V4, with legacy format enabled
-    /// version 3.0.0: V5
+    /// version 4.0.0: V5
     metadata_version: ipc::MetadataVersion,
 }
 
