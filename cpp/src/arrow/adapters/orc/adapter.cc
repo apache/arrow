@@ -68,6 +68,8 @@ namespace liborc = orc;
   ORC_ASSIGN_OR_THROW_IMPL(ARROW_ASSIGN_OR_RAISE_NAME(_error_or_value, __COUNTER__), \
                            lhs, rexpr);
 
+const uint64_t ORC_NATURAL_WRITE_SIZE = 128 * 1024;  // Required by liborc::Outstream
+
 namespace arrow {
 
 using internal::checked_cast;
@@ -478,7 +480,7 @@ class ArrowOutputStream : public liborc::OutputStream {
 
   uint64_t getLength() const override { return length_; }
 
-  uint64_t getNaturalWriteSize() const override { return 128 * 1024; }
+  uint64_t getNaturalWriteSize() const override { return ORC_NATURAL_WRITE_SIZE; }
 
   void write(const void* buf, size_t length) override {
     ORC_THROW_NOT_OK(output_stream_->Write(buf, static_cast<int64_t>(length)));
@@ -495,8 +497,6 @@ class ArrowOutputStream : public liborc::OutputStream {
       ORC_THROW_NOT_OK(output_stream_->Close());
     }
   }
-
-  int64_t get_length() { return length_; }
 
   void set_length(int64_t length) { length_ = length; }
 
