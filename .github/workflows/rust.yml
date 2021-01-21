@@ -258,6 +258,7 @@ jobs:
           cd rust
           cargo miri setup
           cargo clean
+          # Ignore MIRI errors until we can get a clean run
           cargo miri test || true
 
   coverage:
