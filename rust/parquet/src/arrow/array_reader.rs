@@ -24,7 +24,7 @@ use std::sync::Arc;
 use std::vec::Vec;
 
 use arrow::array::{
-    build_empty_list_array, Array, ArrayData, ArrayDataBuilder, ArrayDataRef, ArrayRef,
+    new_empty_array, Array, ArrayData, ArrayDataBuilder, ArrayDataRef, ArrayRef,
     BinaryArray, BinaryBuilder, BooleanArray, BooleanBufferBuilder, BooleanBuilder,
     DecimalBuilder, FixedSizeBinaryArray, FixedSizeBinaryBuilder, GenericListArray,
     Int16BufferBuilder, Int32Array, Int64Array, OffsetSizeTrait, PrimitiveArray,
@@ -798,8 +798,7 @@ impl<OffsetSize: OffsetSizeTrait> ArrayReader for ListArrayReader<OffsetSize> {
         let item_type = self.item_reader.get_data_type().clone();
 
         if next_batch_array.len() == 0 {
-            return build_empty_list_array::<i32>(item_type)
-                .map_err(|err| ParquetError::General(err.to_string()));
+            return Ok(new_empty_array(&self.data_type));
         }
         let def_levels = self
             .item_reader

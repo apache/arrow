@@ -93,6 +93,16 @@ impl RecordBatch {
         Ok(RecordBatch { schema, columns })
     }
 
+    /// Creates a new empty [`RecordBatch`].
+    pub fn new_empty(schema: SchemaRef) -> Self {
+        let columns = schema
+            .fields()
+            .iter()
+            .map(|field| new_empty_array(field.data_type()))
+            .collect();
+        RecordBatch { schema, columns }
+    }
+
     /// Validate the schema and columns using [`RecordBatchOptions`]. Returns an error
     /// if any validation check fails.
     fn validate_new_batch(
