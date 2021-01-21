@@ -17,7 +17,7 @@
 
 //! Defines kernel for length of a string array
 
-use crate::{array::*, buffer::MutableBuffer};
+use crate::{array::*, buffer::Buffer};
 use crate::{
     datatypes::DataType,
     error::{ArrowError, Result},
@@ -37,13 +37,12 @@ where
 
     let lengths = slice.windows(2).map(|offset| offset[1] - offset[0]);
 
-    let mut buffer = MutableBuffer::new(0);
     // JUSTIFICATION
     //  Benefit
-    //      ~30% speedup
+    //      ~60% speedup
     //  Soundness
-    //      `windows` is an iterator with a known size.
-    unsafe { buffer.extend_from_trusted_len_iter(lengths) };
+    //      `values` is an iterator with a known size.
+    let buffer = unsafe { Buffer::from_trusted_len_iter(lengths) };
 
     let null_bit_buffer = array
         .data_ref()
@@ -57,7 +56,7 @@ where
         None,
         null_bit_buffer,
         0,
-        vec![buffer.into()],
+        vec![buffer],
         vec![],
     );
     Ok(make_array(Arc::new(data)))

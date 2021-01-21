@@ -27,7 +27,9 @@ use std::sync::Arc;
 
 use num::{One, Zero};
 
-use crate::buffer::{Buffer, MutableBuffer};
+use crate::buffer::Buffer;
+#[cfg(simd)]
+use crate::buffer::MutableBuffer;
 use crate::compute::util::combine_option_bitmap;
 use crate::datatypes;
 use crate::datatypes::ArrowNumericType;
@@ -50,13 +52,12 @@ where
     F: Fn(T::Native) -> T::Native,
 {
     let values = array.values().iter().map(|v| op(*v));
-    let mut buffer = MutableBuffer::new(0);
     // JUSTIFICATION
     //  Benefit
-    //      ~30% speedup
+    //      ~60% speedup
     //  Soundness
     //      `values` is an iterator with a known size.
-    unsafe { buffer.extend_from_trusted_len_iter(values) };
+    let buffer = unsafe { Buffer::from_trusted_len_iter(values) };
 
     let data = ArrayData::new(
         T::DATA_TYPE,
@@ -64,7 +65,7 @@ where
         None,
         array.data_ref().null_buffer().cloned(),
         0,
-        vec![buffer.into()],
+        vec![buffer],
         vec![],
     );
     Ok(PrimitiveArray::<T>::from(Arc::new(data)))
@@ -149,13 +150,12 @@ where
         .iter()
         .zip(right.values().iter())
         .map(|(l, r)| op(*l, *r));
-    let mut buffer = MutableBuffer::new(0);
     // JUSTIFICATION
     //  Benefit
     //      ~60% speedup
     //  Soundness
     //      `values` is an iterator with a known size.
-    unsafe { buffer.extend_from_trusted_len_iter(values) };
+    let buffer = unsafe { Buffer::from_trusted_len_iter(values) };
 
     let data = ArrayData::new(
         T::DATA_TYPE,
@@ -163,7 +163,7 @@ where
         None,
         null_bit_buffer,
         0,
-        vec![buffer.into()],
+        vec![buffer],
         vec![],
     );
     Ok(PrimitiveArray::<T>::from(Arc::new(data)))
@@ -193,33 +193,37 @@ where
     let null_bit_buffer =
         combine_option_bitmap(left.data_ref(), right.data_ref(), left.len())?;
 
-    let mut values = Vec::with_capacity(left.len());
-    if let Some(b) = &null_bit_buffer {
-        // some value is null
-        for i in 0..left.len() {
-            let is_valid = unsafe { bit_util::get_bit_raw(b.as_ptr(), i) };
-            values.push(if is_valid {
-                let right_value = right.value(i);
-                if right_value.is_zero() {
-                    return Err(ArrowError::DivideByZero);
+    let buffer = if let Some(b) = &null_bit_buffer {
+        let values = left.values().iter().zip(right.values()).enumerate().map(
+            |(i, (left, right))| {
+                let is_valid = unsafe { bit_util::get_bit_raw(b.as_ptr(), i) };
+                if is_valid {
+                    if right.is_zero() {
+                        Err(ArrowError::DivideByZero)
+                    } else {
+                        Ok(*left / *right)
+                    }
                 } else {
-                    left.value(i) / right_value
+                    Ok(T::default_value())
                 }
-            } else {
-                T::default_value()
-            });
-        }
+            },
+        );
+        unsafe { Buffer::try_from_trusted_len_iter(values) }
     } else {
         // no value is null
-        for i in 0..left.len() {
-            let right_value = right.value(i);
-            values.push(if right_value.is_zero() {
-                return Err(ArrowError::DivideByZero);
-            } else {
-                left.value(i) / right_value
+        let values = left
+            .values()
+            .iter()
+            .zip(right.values())
+            .map(|(left, right)| {
+                if right.is_zero() {
+                    Err(ArrowError::DivideByZero)
+                } else {
+                    Ok(*left / *right)
+                }
             });
-        }
-    };
+        unsafe { Buffer::try_from_trusted_len_iter(values) }
+    }?;
 
     let data = ArrayData::new(
         T::DATA_TYPE,
@@ -227,7 +231,7 @@ where
         None,
         null_bit_buffer,
         0,
-        vec![Buffer::from_slice_ref(&values)],
+        vec![buffer],
         vec![],
     );
     Ok(PrimitiveArray::<T>::from(Arc::new(data)))

@@ -728,6 +728,7 @@ pub struct MutableBuffer {
 
 impl MutableBuffer {
     /// Allocate a new [MutableBuffer] with initial capacity to be at least `capacity`.
+    #[inline]
     pub fn new(capacity: usize) -> Self {
         let capacity = bit_util::round_upto_multiple_of_64(capacity);
         let ptr = memory::allocate_aligned(capacity);
@@ -904,6 +905,7 @@ impl MutableBuffer {
         self.into_buffer()
     }
 
+    #[inline]
     fn into_buffer(self) -> Buffer {
         let buffer_data = unsafe {
             Bytes::new(self.data, self.len, Deallocation::Native(self.capacity))
@@ -1026,16 +1028,17 @@ impl MutableBuffer {
 
         iterator.for_each(|item| self.push(item));
     }
+}
 
-    /// Creates a [`MutableBuffer`] from an [`ExactSizeIterator`] with a trusted len.
-    /// Prefer this to `collect` whenever possible, as it is faster.
+impl Buffer {
+    /// Creates a [`Buffer`] from an [`Iterator`] with a trusted (upper) length.
+    /// Prefer this to `collect` whenever possible, as it is faster ~60% faster.
     /// # Example
     /// ```
-    /// # use arrow::buffer::MutableBuffer;
+    /// # use arrow::buffer::Buffer;
     /// let v = vec![1u32];
     /// let iter = v.iter().map(|x| x * 2);
-    /// let mut buffer = MutableBuffer::new(0);
-    /// unsafe { buffer.extend_from_trusted_len_iter(iter) };
+    /// let buffer = unsafe { Buffer::from_trusted_len_iter(iter) };
     /// assert_eq!(buffer.len(), 4) // u32 has 4 bytes
     /// ```
     /// # Safety
@@ -1044,39 +1047,67 @@ impl MutableBuffer {
     // This implementation is required for two reasons:
     // 1. there is no trait `TrustedLen` in stable rust and therefore
     //    we can't specialize `extend` for `TrustedLen` like `Vec` does.
-    // 2. `extend_from_trusted_len_iter` is faster.
-    pub unsafe fn extend_from_trusted_len_iter<
-        T: ArrowNativeType,
-        I: ExactSizeIterator<Item = T>,
-    >(
-        &mut self,
+    // 2. `from_trusted_len_iter` is faster.
+    pub unsafe fn from_trusted_len_iter<T: ArrowNativeType, I: Iterator<Item = T>>(
         iterator: I,
-    ) {
-        let len = iterator.len() * std::mem::size_of::<T>();
+    ) -> Self {
+        let (_, upper) = iterator.size_hint();
+        let upper = upper.expect("from_trusted_len_iter requires an upper limit");
+        let len = upper * std::mem::size_of::<T>();
 
-        self.reserve(len);
+        let mut buffer = MutableBuffer::new(len);
 
-        let mut dst = self.data.as_ptr().add(self.len) as *mut T;
+        let mut dst = buffer.data.as_ptr() as *mut T;
         for item in iterator {
             // note how there is no reserve here (compared with `extend_from_iter`)
             std::ptr::write(dst, item);
             dst = dst.add(1);
         }
-        self.len += len;
+        buffer.len = len;
+        buffer.into()
+    }
+
+    /// Creates a [`Buffer`] from an [`Iterator`] with a trusted (upper) length or errors
+    /// if any of the items of the iterator is an error.
+    /// Prefer this to `collect` whenever possible, as it is faster ~60% faster.
+    /// # Safety
+    /// This method assumes that the iterator's size is correct and is undefined behavior
+    /// to use it on an iterator that reports an incorrect length.
+    pub unsafe fn try_from_trusted_len_iter<
+        E,
+        T: ArrowNativeType,
+        I: Iterator<Item = std::result::Result<T, E>>,
+    >(
+        iterator: I,
+    ) -> std::result::Result<Self, E> {
+        let (_, upper) = iterator.size_hint();
+        let upper = upper.expect("try_from_trusted_len_iter requires an upper limit");
+        let len = upper * std::mem::size_of::<T>();
+
+        let mut buffer = MutableBuffer::new(len);
+
+        let mut dst = buffer.data.as_ptr() as *mut T;
+        for item in iterator {
+            // note how there is no reserve here (compared with `extend_from_iter`)
+            std::ptr::write(dst, item?);
+            dst = dst.add(1);
+        }
+        buffer.len = len;
+        Ok(buffer.into())
     }
 }
 
-impl<T: ArrowNativeType> FromIterator<T> for MutableBuffer {
+impl<T: ArrowNativeType> FromIterator<T> for Buffer {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
         let mut iterator = iter.into_iter();
         let size = std::mem::size_of::<T>();
 
         // first iteration, which will likely reserve sufficient space for the buffer.
         let mut buffer = match iterator.next() {
-            None => return Self::new(0),
+            None => MutableBuffer::new(0),
             Some(element) => {
                 let (lower, _) = iterator.size_hint();
-                let mut buffer = Self::new(lower.saturating_add(1) * size);
+                let mut buffer = MutableBuffer::new(lower.saturating_add(1) * size);
                 unsafe {
                     std::ptr::write(buffer.as_mut_ptr() as *mut T, element);
                     buffer.len = size;
@@ -1086,7 +1117,7 @@ impl<T: ArrowNativeType> FromIterator<T> for MutableBuffer {
         };
 
         buffer.extend_from_iter(iterator);
-        buffer
+        buffer.into()
     }
 }
 
@@ -1332,20 +1363,11 @@ mod tests {
     }
 
     #[test]
-    fn mutable_extend_from_trusted_len_iter() {
-        let mut buf = MutableBuffer::new(0);
+    fn test_from_trusted_len_iter() {
         let iter = vec![1u32, 2].into_iter();
-        unsafe { buf.extend_from_trusted_len_iter(iter) };
+        let buf = unsafe { Buffer::from_trusted_len_iter(iter) };
         assert_eq!(8, buf.len());
         assert_eq!(&[1u8, 0, 0, 0, 2, 0, 0, 0], buf.as_slice());
-
-        let iter = vec![3u32, 4].into_iter();
-        unsafe { buf.extend_from_trusted_len_iter(iter) };
-        assert_eq!(16, buf.len());
-        assert_eq!(
-            &[1u8, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0, 4, 0, 0, 0],
-            buf.as_slice()
-        );
     }
 
     #[test]
