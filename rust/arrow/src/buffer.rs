@@ -1133,7 +1133,10 @@ struct SetLenOnDrop<'a> {
 impl<'a> SetLenOnDrop<'a> {
     #[inline]
     fn new(len: &'a mut usize) -> Self {
-        SetLenOnDrop { local_len: *len, len }
+        SetLenOnDrop {
+            local_len: *len,
+            len,
+        }
     }
 }
 

@@ -43,7 +43,8 @@ fn mutable_buffer_extend(data: &[Vec<u32>], capacity: usize) -> Buffer {
     criterion::black_box({
         let mut result = MutableBuffer::new(capacity);
 
-        data.iter().for_each(|vec| result.extend(vec.iter().copied()));
+        data.iter()
+            .for_each(|vec| result.extend(vec.iter().copied()));
 
         result.into()
     })
@@ -94,9 +95,13 @@ fn benchmark(c: &mut Criterion) {
 
     c.bench_function("mutable", |b| b.iter(|| mutable_buffer(&data, 0)));
 
-    c.bench_function("mutable extend", |b| b.iter(|| mutable_buffer_extend(&data, 0)));
+    c.bench_function("mutable extend", |b| {
+        b.iter(|| mutable_buffer_extend(&data, 0))
+    });
 
-    c.bench_function("mutable extend trusted", |b| b.iter(|| mutable_buffer_extend_trusted(&data, 0)));
+    c.bench_function("mutable extend trusted", |b| {
+        b.iter(|| mutable_buffer_extend_trusted(&data, 0))
+    });
 
     c.bench_function("mutable prepared", |b| {
         b.iter(|| mutable_buffer(&data, byte_cap))
