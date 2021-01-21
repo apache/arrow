@@ -950,13 +950,8 @@ Status GetArrowType(const liborc::Type* type, std::shared_ptr<DataType>* out) {
   return Status::OK();
 }
 
-Status GetORCType(const DataType* type, ORC_UNIQUE_PTR<liborc::Type>* out) {
-  // Check for NULLPTR
-  if (type == NULLPTR) {
-    out->reset();
-    return Status::OK();
-  }
-  Type::type kind = type->id();
+Status GetORCType(const DataType& type, ORC_UNIQUE_PTR<liborc::Type>* out) {
+  Type::type kind = type.id();
   switch (kind) {
     case Type::type::NA: {  // Makes out NULLPTR
       out->reset();
@@ -1000,10 +995,11 @@ Status GetORCType(const DataType* type, ORC_UNIQUE_PTR<liborc::Type>* out) {
     case Type::type::TIMESTAMP:
       *out = liborc::createPrimitiveType(liborc::TypeKind::TIMESTAMP);
       break;
-    case Type::type::DECIMAL: {
-      auto type_ = static_cast<const DecimalType*>(type);
-      const uint64_t precision = static_cast<uint64_t>(type_->precision());
-      const uint64_t scale = static_cast<uint64_t>(type_->scale());
+    case Type::type::DECIMAL128: {
+      const uint64_t precision =
+          static_cast<uint64_t>(static_cast<const Decimal128Type&>(type).precision());
+      const uint64_t scale =
+          static_cast<uint64_t>(static_cast<const Decimal128Type&>(type).scale());
       *out = liborc::createDecimalType(precision, scale);
       break;
     }
@@ -1011,32 +1007,32 @@ Status GetORCType(const DataType* type, ORC_UNIQUE_PTR<liborc::Type>* out) {
     case Type::type::FIXED_SIZE_LIST:
     case Type::type::LARGE_LIST: {
       DataType* arrowChildType =
-          static_cast<const BaseListType*>(type)->value_type().get();
+          static_cast<const BaseListType&>(type).value_type().get();
       ORC_UNIQUE_PTR<liborc::Type> orcSubtype;
-      RETURN_NOT_OK(GetORCType(arrowChildType, &orcSubtype));
+      RETURN_NOT_OK(GetORCType(*arrowChildType, &orcSubtype));
       *out = liborc::createListType(std::move(orcSubtype));
       break;
     }
     case Type::type::STRUCT: {
       *out = liborc::createStructType();
       std::vector<std::shared_ptr<Field>> arrowFields =
-          checked_cast<const StructType*>(type)->fields();
+          checked_cast<const StructType&>(type).fields();
       for (std::vector<std::shared_ptr<Field>>::iterator it = arrowFields.begin();
            it != arrowFields.end(); ++it) {
         std::string fieldName = (*it)->name();
         DataType* arrowChildType = (*it)->type().get();
         ORC_UNIQUE_PTR<liborc::Type> orcSubtype;
-        RETURN_NOT_OK(GetORCType(arrowChildType, &orcSubtype));
+        RETURN_NOT_OK(GetORCType(*arrowChildType, &orcSubtype));
         (*out)->addStructField(fieldName, std::move(orcSubtype));
       }
       break;
     }
     case Type::type::MAP: {
-      DataType* keyArrowType = checked_cast<const MapType*>(type)->key_type().get();
-      DataType* itemArrowType = checked_cast<const MapType*>(type)->item_type().get();
+      DataType* keyArrowType = checked_cast<const MapType&>(type).key_type().get();
+      DataType* itemArrowType = checked_cast<const MapType&>(type).item_type().get();
       ORC_UNIQUE_PTR<liborc::Type> keyORCType, itemORCType;
-      RETURN_NOT_OK(GetORCType(keyArrowType, &keyORCType));
-      RETURN_NOT_OK(GetORCType(itemArrowType, &itemORCType));
+      RETURN_NOT_OK(GetORCType(*keyArrowType, &keyORCType));
+      RETURN_NOT_OK(GetORCType(*itemArrowType, &itemORCType));
       *out = liborc::createMapType(std::move(keyORCType), std::move(itemORCType));
       break;
     }
@@ -1044,13 +1040,13 @@ Status GetORCType(const DataType* type, ORC_UNIQUE_PTR<liborc::Type>* out) {
     case Type::type::SPARSE_UNION: {
       *out = liborc::createUnionType();
       std::vector<std::shared_ptr<Field>> arrowFields =
-          checked_cast<const UnionType*>(type)->fields();
+          checked_cast<const UnionType&>(type).fields();
       for (std::vector<std::shared_ptr<Field>>::iterator it = arrowFields.begin();
            it != arrowFields.end(); ++it) {
         std::string fieldName = (*it)->name();
         DataType* arrowChildType = (*it)->type().get();
         ORC_UNIQUE_PTR<liborc::Type> orcSubtype;
-        RETURN_NOT_OK(GetORCType(arrowChildType, &orcSubtype));
+        RETURN_NOT_OK(GetORCType(*arrowChildType, &orcSubtype));
         (*out)->addUnionChild(std::move(orcSubtype));
       }
       break;
@@ -1069,15 +1065,15 @@ Status GetORCType(const DataType* type, ORC_UNIQUE_PTR<liborc::Type>* out) {
   return Status::OK();
 }
 
-Status GetORCType(const Schema* schema, ORC_UNIQUE_PTR<liborc::Type>* out) {
-  int numFields = schema->num_fields();
+Status GetORCType(const Schema& schema, ORC_UNIQUE_PTR<liborc::Type>* out) {
+  int numFields = schema.num_fields();
   *out = liborc::createStructType();
   for (int i = 0; i < numFields; i++) {
-    std::shared_ptr<Field> field = schema->field(i);
+    std::shared_ptr<Field> field = schema.field(i);
     std::string fieldName = field->name();
     DataType* arrowChildType = field->type().get();
     ORC_UNIQUE_PTR<liborc::Type> orcSubtype;
-    RETURN_NOT_OK(GetORCType(arrowChildType, &orcSubtype));
+    RETURN_NOT_OK(GetORCType(*arrowChildType, &orcSubtype));
     (*out)->addStructField(fieldName, std::move(orcSubtype));
   }
   return Status::OK();

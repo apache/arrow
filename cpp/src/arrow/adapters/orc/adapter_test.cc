@@ -79,7 +79,7 @@ class ORCMemWriter {
               ORC_UNIQUE_PTR<liborc::OutputStream>& outStream) {
     orc_options_ = std::make_shared<liborc::WriterOptions>();
     outStream_ = std::move(outStream);
-    ARROW_EXPECT_OK(adapters::orc::GetORCType(schema.get(), &orcSchema_));
+    ARROW_EXPECT_OK(adapters::orc::GetORCType(*schema, &orcSchema_));
     try {
       writer_ = createWriter(*orcSchema_, outStream_.get(), *orc_options_);
     } catch (const liborc::ParseError& e) {
