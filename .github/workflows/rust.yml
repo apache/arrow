@@ -226,6 +226,41 @@ jobs:
           cd rust
           cargo clippy --all-targets --workspace -- -D warnings -A clippy::redundant_field_names
 
+  miri-checks:
+    name: Miri Checks
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [amd64]
+        rust: [nightly-2021-01-19]
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-miri-${{ hashFiles('**/Cargo.lock') }}
+      - name: Setup Rust toolchain
+        run: |
+          rustup toolchain install ${{ matrix.rust }}
+          rustup default ${{ matrix.rust }}
+          rustup component add rustfmt clippy miri
+      - name: Run Miri Checks
+        env:
+          RUST_BACKTRACE: full
+          RUST_LOG: 'trace'
+        run: |
+          export MIRIFLAGS="-Zmiri-disable-isolation"
+          cd rust
+          cargo miri setup
+          cargo clean
+          # Ignore MIRI errors until we can get a clean run
+          cargo miri test || true
+
   coverage:
     name: Coverage
     runs-on: ubuntu-latest
