@@ -85,6 +85,21 @@ TEST_F(TestIsInKernel, CallBinary) {
   AssertArraysEqual(*expected, *out.make_array());
 }
 
+TEST_F(TestIsInKernel, ImplicitlyCastValueSet) {
+  auto input = ArrayFromJSON(int8(), "[0, 1, 2, 3, 4, 5, 6, 7, 8]");
+
+  SetLookupOptions opts{ArrayFromJSON(int32(), "[2, 3, 5, 7]")};
+  ASSERT_OK_AND_ASSIGN(Datum out, CallFunction("is_in", {input}, &opts));
+
+  auto expected = ArrayFromJSON(boolean(), ("[false, false, true, true, false,"
+                                            "true, false, true, false]"));
+  AssertArraysEqual(*expected, *out.make_array());
+
+  // fails; value_set cannot be cast to int8
+  opts = SetLookupOptions{ArrayFromJSON(float32(), "[2.5, 3.1, 5.0]")};
+  ASSERT_RAISES(Invalid, CallFunction("is_in", {input}, &opts));
+}
+
 template <typename Type>
 class TestIsInKernelPrimitive : public ::testing::Test {};
 

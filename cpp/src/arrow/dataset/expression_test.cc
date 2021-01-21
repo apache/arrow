@@ -414,17 +414,11 @@ TEST(Expression, BindWithImplicitCasts) {
                   cmp(cast(field_ref("dict_str"), utf8()), field_ref("str")));
   }
 
-  auto Opts = [](std::shared_ptr<DataType> type) {
-    return compute::SetLookupOptions{ArrayFromJSON(type, R"(["a"])")};
-  };
-
-  // cast value_set to argument type
-  ExpectBindsTo(call("is_in", {field_ref("str")}, Opts(binary())),
-                call("is_in", {field_ref("str")}, Opts(utf8())));
+  compute::SetLookupOptions in_a{ArrayFromJSON(utf8(), R"(["a"])")};
 
   // cast dictionary to value type
-  ExpectBindsTo(call("is_in", {field_ref("dict_str")}, Opts(utf8())),
-                call("is_in", {cast(field_ref("dict_str"), utf8())}, Opts(utf8())));
+  ExpectBindsTo(call("is_in", {field_ref("dict_str")}, in_a),
+                call("is_in", {cast(field_ref("dict_str"), utf8())}, in_a));
 }
 
 TEST(Expression, BindNestedCall) {
@@ -998,13 +992,11 @@ TEST(Expression, SimplifyWithGuarantee) {
       .Expect(equal(field_ref("i32"), literal(3)));
 
   // simplification can see through implicit casts
-  Simplify{
-      or_({equal(field_ref("f32"), literal(0)),
-           call("is_in", {field_ref("i64")},
-                compute::SetLookupOptions{ArrayFromJSON(int32(), "[1,2,3]"), true})})}
+  compute::SetLookupOptions in_123{ArrayFromJSON(int32(), "[1,2,3]"), true};
+  Simplify{or_({equal(field_ref("f32"), literal(0)),
+                call("is_in", {field_ref("i64")}, in_123)})}
       .WithGuarantee(greater(field_ref("f32"), literal(0.F)))
-      .Expect(call("is_in", {field_ref("i64")},
-                   compute::SetLookupOptions{ArrayFromJSON(int64(), "[1,2,3]"), true}));
+      .Expect(call("is_in", {field_ref("i64")}, in_123));
 }
 
 TEST(Expression, SimplifyThenExecute) {

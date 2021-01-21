@@ -391,25 +391,6 @@ Result<std::unique_ptr<compute::KernelState>> InitKernelState(
   return std::move(kernel_state);
 }
 
-Status ImplicitCastFunctionOptions(Expression::Call* call) {
-  if (auto options = GetSetLookupOptions(*call)) {
-    if (options->value_set.type()->Equals(call->arguments[0].type())) {
-      return Status::OK();
-    }
-
-    // The value_set is assumed smaller than inputs, casting it should be cheaper.
-    auto new_options = std::make_shared<compute::SetLookupOptions>(*options);
-    ARROW_ASSIGN_OR_RAISE(
-        new_options->value_set,
-        compute::Cast(std::move(new_options->value_set), call->arguments[0].type()));
-    options = new_options.get();
-    call->options = std::move(new_options);
-    return Status::OK();
-  }
-
-  return Status::OK();
-}
-
 // Produce a bound Expression from unbound Call and bound arguments.
 Result<Expression> BindNonRecursive(Expression::Call call, bool insert_implicit_casts,
                                     compute::ExecContext* exec_context) {
@@ -451,8 +432,6 @@ Result<Expression> BindNonRecursive(Expression::Call call, bool insert_implicit_
           BindNonRecursive(std::move(implicit_cast),
                            /*insert_implicit_casts=*/false, exec_context));
     }
-
-    RETURN_NOT_OK(ImplicitCastFunctionOptions(&call));
   }
 
   compute::KernelContext kernel_context(exec_context);
