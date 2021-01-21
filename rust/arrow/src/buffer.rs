@@ -241,6 +241,67 @@ impl<T: AsRef<[u8]>> From<T> for Buffer {
     }
 }
 
+/// Creating a `Buffer` instance by storing the boolean values into the buffer
+impl std::iter::FromIterator<bool> for Buffer {
+    fn from_iter<I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = bool>,
+    {
+        //this has a very small (but non-zero) performance advantage
+        let mut iterator = iter.into_iter();
+        let mut byte_capacity: usize = iterator.size_hint().0.saturating_add(7) / 8;
+        let mut byte_len: usize = 0;
+        let mut buffer: NonNull<u8> = memory::allocate_aligned(byte_capacity);
+        while let Some(value) = iterator.next() {
+            let mut exhausted = false;
+            let mut byte_accum: u8 = match value {
+                true => 1,
+                false => 0,
+            };
+            for i in 1..8 {
+                if let Some(value) = iterator.next() {
+                    byte_accum |= match value {
+                        true => 1 << i,
+                        false => 0,
+                    };
+                } else {
+                    exhausted = true;
+                    break;
+                }
+            }
+
+            //ensure we have capacity to write the byte
+            if byte_len == byte_capacity {
+                //no capacity for new byte
+                let new_byte_capacity = byte_capacity.saturating_add(1).saturating_add(
+                    iterator.size_hint().0.saturating_add(7) / 8, //convert bit count to byte count, rounding up
+                );
+
+                // Soundness
+                // byte_capacity is tracked
+                // new_byte_capacity is guaranteed to be at least 1 larger than byte_capacity
+                buffer = unsafe {
+                    memory::reallocate(buffer, byte_capacity, new_byte_capacity)
+                };
+                byte_capacity = new_byte_capacity;
+            }
+            unsafe { buffer.as_ptr().add(byte_len).write(byte_accum) };
+            byte_len += 1;
+
+            if exhausted {
+                break;
+            }
+        }
+        unsafe {
+            Buffer::build_with_arguments(
+                buffer,
+                byte_len,
+                Deallocation::Native(byte_capacity),
+            )
+        }
+    }
+}
+
 impl std::ops::Deref for Buffer {
     type Target = [u8];
 
@@ -968,6 +1029,17 @@ impl MutableBuffer {
         self.len += additional;
     }
 
+    /// Extends the buffer with a new item, without checking for sufficient capacity
+    /// Safety
+    /// Caller must ensure that the capacity()-len()>=size_of<T>()
+    #[inline]
+    unsafe fn push_unchecked<T: ToByteSlice>(&mut self, item: T) {
+        let additional = std::mem::size_of::<T>();
+        let dst = self.data.as_ptr().add(self.len) as *mut T;
+        std::ptr::write(dst, item);
+        self.len += additional;
+    }
+
     /// Extends the buffer by `additional` bytes equal to `0u8`, incrementing its capacity if needed.
     #[inline]
     pub fn extend_zeros(&mut self, additional: usize) {
@@ -1188,6 +1260,57 @@ impl Drop for SetLenOnDrop<'_> {
     }
 }
 
+/// Creating a `MutableBuffer` instance by setting bits according to the boolean values
+impl std::iter::FromIterator<bool> for MutableBuffer {
+    fn from_iter<I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = bool>,
+    {
+        let mut iterator = iter.into_iter();
+        let mut result = {
+            let byte_capacity: usize = iterator.size_hint().0.saturating_add(7) / 8;
+            MutableBuffer::new(byte_capacity)
+        };
+
+        while let Some(value) = iterator.next() {
+            //we have the first bit of the byte
+            let mut exhausted = false;
+            let mut byte_accum: u8 = match value {
+                true => 1,
+                false => 0,
+            };
+            //fill remaining bits of the byte (if available)
+            for i in 1..8 {
+                if let Some(value) = iterator.next() {
+                    byte_accum |= match value {
+                        true => 1 << i,
+                        false => 0,
+                    };
+                } else {
+                    exhausted = true;
+                    break;
+                }
+            }
+
+            //ensure we have capacity to write the byte
+            if result.len() == result.capacity() {
+                //no capacity for new byte, allocate 1 byte more (plus however many more the iterator advertises)
+                let additional_byte_capacity = 1usize.saturating_add(
+                    iterator.size_hint().0.saturating_add(7) / 8, //convert bit count to byte count, rounding up
+                );
+                result.reserve(additional_byte_capacity)
+            }
+
+            // Soundness: capacity was allocated above
+            unsafe { result.push_unchecked(byte_accum) };
+            if exhausted {
+                break;
+            }
+        }
+        result
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::thread;
@@ -1301,6 +1424,48 @@ mod tests {
         mut_buf.set_null_bits(32, 32);
         let buf: Buffer = mut_buf.into();
         assert_eq!(256, buf.count_set_bits());
+    }
+
+    #[test]
+    fn test_from_iter_bool() {
+        let bits = [
+            false, true, false, false, true, true, false, false, //first byte
+            false, true, true, true, //second byte
+        ];
+        let buffer: Buffer = bits.iter().copied().collect();
+        assert_eq!([0b00110010, 0b00001110], buffer.as_slice()); //bits are set least-significant first, zero padded
+        assert_eq!(2, buffer.capacity()); //no overallocation if iterator has perfect size_hint()
+
+        let bits = [false, true, false, false, true, true, false, false];
+        let buffer: Buffer = bits.iter().copied().collect();
+        assert_eq!([0b00110010], buffer.as_slice());
+        assert_eq!(1, buffer.capacity());
+
+        let bits: [bool; 0] = [];
+        let buffer: Buffer = bits.iter().copied().collect();
+        assert_eq!(0, buffer.capacity());
+        assert_eq!(0, buffer.len());
+    }
+
+    #[test]
+    fn test_mut_from_iter_bool() {
+        let bits = [
+            false, true, false, false, true, true, false, false, //first byte
+            false, true, true, true, //second byte
+        ];
+        let buffer: MutableBuffer = bits.iter().copied().collect();
+        assert_eq!([0b00110010, 0b00001110], buffer.as_slice()); //bits are set least-significant first, zero padded
+        assert_eq!(64, buffer.capacity()); //allocation rounded up to 64bytes
+
+        let bits = [false, true, false, false, true, true, false, false];
+        let buffer: MutableBuffer = bits.iter().copied().collect();
+        assert_eq!([0b00110010], buffer.as_slice());
+        assert_eq!(64, buffer.capacity());
+
+        let bits: [bool; 0] = [];
+        let buffer: MutableBuffer = bits.iter().copied().collect();
+        assert_eq!(0, buffer.as_slice().len());
+        assert_eq!(0, buffer.capacity());
     }
 
     #[test]
