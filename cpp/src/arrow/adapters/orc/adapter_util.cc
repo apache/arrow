@@ -1006,8 +1006,8 @@ Status GetORCType(const DataType& type, ORC_UNIQUE_PTR<liborc::Type>* out) {
     case Type::type::LIST:
     case Type::type::FIXED_SIZE_LIST:
     case Type::type::LARGE_LIST: {
-      DataType* arrowChildType =
-          static_cast<const BaseListType&>(type).value_type().get();
+      std::shared_ptr<DataType> arrowChildType =
+          static_cast<const BaseListType&>(type).value_type();
       ORC_UNIQUE_PTR<liborc::Type> orcSubtype;
       RETURN_NOT_OK(GetORCType(*arrowChildType, &orcSubtype));
       *out = liborc::createListType(std::move(orcSubtype));
@@ -1020,7 +1020,7 @@ Status GetORCType(const DataType& type, ORC_UNIQUE_PTR<liborc::Type>* out) {
       for (std::vector<std::shared_ptr<Field>>::iterator it = arrowFields.begin();
            it != arrowFields.end(); ++it) {
         std::string fieldName = (*it)->name();
-        DataType* arrowChildType = (*it)->type().get();
+        std::shared_ptr<DataType> arrowChildType = (*it)->type();
         ORC_UNIQUE_PTR<liborc::Type> orcSubtype;
         RETURN_NOT_OK(GetORCType(*arrowChildType, &orcSubtype));
         (*out)->addStructField(fieldName, std::move(orcSubtype));
@@ -1028,8 +1028,10 @@ Status GetORCType(const DataType& type, ORC_UNIQUE_PTR<liborc::Type>* out) {
       break;
     }
     case Type::type::MAP: {
-      DataType* keyArrowType = checked_cast<const MapType&>(type).key_type().get();
-      DataType* itemArrowType = checked_cast<const MapType&>(type).item_type().get();
+      std::shared_ptr<DataType> keyArrowType =
+          checked_cast<const MapType&>(type).key_type();
+      std::shared_ptr<DataType> itemArrowType =
+          checked_cast<const MapType&>(type).item_type();
       ORC_UNIQUE_PTR<liborc::Type> keyORCType, itemORCType;
       RETURN_NOT_OK(GetORCType(*keyArrowType, &keyORCType));
       RETURN_NOT_OK(GetORCType(*itemArrowType, &itemORCType));
@@ -1044,7 +1046,7 @@ Status GetORCType(const DataType& type, ORC_UNIQUE_PTR<liborc::Type>* out) {
       for (std::vector<std::shared_ptr<Field>>::iterator it = arrowFields.begin();
            it != arrowFields.end(); ++it) {
         std::string fieldName = (*it)->name();
-        DataType* arrowChildType = (*it)->type().get();
+        std::shared_ptr<DataType> arrowChildType = (*it)->type();
         ORC_UNIQUE_PTR<liborc::Type> orcSubtype;
         RETURN_NOT_OK(GetORCType(*arrowChildType, &orcSubtype));
         (*out)->addUnionChild(std::move(orcSubtype));
@@ -1071,7 +1073,7 @@ Status GetORCType(const Schema& schema, ORC_UNIQUE_PTR<liborc::Type>* out) {
   for (int i = 0; i < numFields; i++) {
     std::shared_ptr<Field> field = schema.field(i);
     std::string fieldName = field->name();
-    DataType* arrowChildType = field->type().get();
+    std::shared_ptr<DataType> arrowChildType = field->type();
     ORC_UNIQUE_PTR<liborc::Type> orcSubtype;
     RETURN_NOT_OK(GetORCType(*arrowChildType, &orcSubtype));
     (*out)->addStructField(fieldName, std::move(orcSubtype));

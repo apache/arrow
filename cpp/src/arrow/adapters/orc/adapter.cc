@@ -509,7 +509,7 @@ class ORCFileWriter::Impl {
  public:
   Status Open(const std::shared_ptr<Schema>& schema,
               const std::shared_ptr<io::OutputStream>& output_stream) {
-    orc_options_ = std::make_shared<liborc::WriterOptions>();
+    orc_options_ = std::unique_ptr<liborc::WriterOptions>(new liborc::WriterOptions());
     outStream_ = ORC_UNIQUE_PTR<liborc::OutputStream>(
         static_cast<liborc::OutputStream*>(new ArrowOutputStream(output_stream)));
     ORC_THROW_NOT_OK(GetORCType(*schema, &orcSchema_));
@@ -548,7 +548,7 @@ class ORCFileWriter::Impl {
 
  private:
   ORC_UNIQUE_PTR<liborc::Writer> writer_;
-  std::shared_ptr<liborc::WriterOptions> orc_options_;
+  std::unique_ptr<liborc::WriterOptions> orc_options_;
   std::shared_ptr<Schema> schema_;
   ORC_UNIQUE_PTR<liborc::OutputStream> outStream_;
   ORC_UNIQUE_PTR<liborc::Type> orcSchema_;
