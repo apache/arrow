@@ -258,7 +258,7 @@ jobs:
           cd rust
           cargo miri setup
           cargo clean
-          cargo miri test
+          cargo miri test || true
 
   coverage:
     name: Coverage
