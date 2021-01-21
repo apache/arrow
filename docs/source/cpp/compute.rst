@@ -150,9 +150,11 @@ Aggregations
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
 | mode                     | Unary      | Numeric            | Struct  (2)           | :struct:`ModeOptions`                      |
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
+| quantile                 | Unary      | Numeric            | Scalar Numeric (3)    | :struct:`QuantileOptions`                  |
++--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
 | stddev                   | Unary      | Numeric            | Scalar Float64        | :struct:`VarianceOptions`                  |
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
-| sum                      | Unary      | Numeric            | Scalar Numeric (3)    |                                            |
+| sum                      | Unary      | Numeric            | Scalar Numeric (4)    |                                            |
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
 | variance                 | Unary      | Numeric            | Scalar Float64        | :struct:`VarianceOptions`                  |
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
@@ -168,7 +170,9 @@ Notes:
   Note that the output can have less than *N* elements if the input has
   less than *N* distinct values.
 
-* \(3) Output is Int64, UInt64 or Float64, depending on the input type
+* \(3) Output is Float64 or input type, depending on QuantileOptions.
+
+* \(4) Output is Int64, UInt64 or Float64, depending on the input type.
 
 Element-wise ("scalar") functions
 ---------------------------------

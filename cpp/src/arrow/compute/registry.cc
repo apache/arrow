@@ -129,6 +129,7 @@ static std::unique_ptr<FunctionRegistry> CreateBuiltInRegistry() {
   // Aggregate functions
   RegisterScalarAggregateBasic(registry.get());
   RegisterScalarAggregateMode(registry.get());
+  RegisterScalarAggregateQuantile(registry.get());
   RegisterScalarAggregateVariance(registry.get());
 
   // Vector functions

@@ -3909,7 +3909,8 @@ def test_convert_to_extension_array(monkeypatch):
     # Int64Dtype is recognized -> convert to extension block by default
     # for a proper roundtrip
     result = table.to_pandas()
-    assert isinstance(result._data.blocks[0], _int.IntBlock)
+    assert not isinstance(result._data.blocks[0], _int.ExtensionBlock)
+    assert result._data.blocks[0].values.dtype == np.dtype("int64")
     assert isinstance(result._data.blocks[1], _int.ExtensionBlock)
     tm.assert_frame_equal(result, df)
 
@@ -3930,7 +3931,7 @@ def test_convert_to_extension_array(monkeypatch):
     # Int64Dtype has no __from_arrow__ -> use normal conversion
     result = table.to_pandas()
     assert len(result._data.blocks) == 1
-    assert isinstance(result._data.blocks[0], _int.IntBlock)
+    assert not isinstance(result._data.blocks[0], _int.ExtensionBlock)
 
 
 class MyCustomIntegerType(pa.PyExtensionType):
