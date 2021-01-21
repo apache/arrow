@@ -475,6 +475,12 @@ TEST(TestCompareKernel, DispatchBest) {
                       {float64(), float64()});
 
     CheckDispatchBest(name, {dictionary(int8(), utf8()), utf8()}, {utf8(), utf8()});
+
+    CheckDispatchBest(name, {timestamp(TimeUnit::MICRO), date64()},
+                      {timestamp(TimeUnit::MICRO), timestamp(TimeUnit::MICRO)});
+
+    CheckDispatchBest(name, {timestamp(TimeUnit::MILLI), timestamp(TimeUnit::MICRO)},
+                      {timestamp(TimeUnit::MICRO), timestamp(TimeUnit::MICRO)});
   }
 }
 
@@ -496,10 +502,16 @@ TEST(TestCompareKernel, GreaterWithImplicitCasts) {
                     std::make_shared<NullArray>(4),
                     ArrayFromJSON(boolean(), "[null, null, null, null]"));
 
+  CheckScalarBinary("greater",
+                    ArrayFromJSON(timestamp(TimeUnit::SECOND),
+                                  R"(["1970-01-01","2000-02-29","1900-02-28"])"),
+                    ArrayFromJSON(date64(), "[86400000, 0, 86400000]"),
+                    ArrayFromJSON(boolean(), "[false, true, false]"));
+
   // Not currently implemented since it would invoke a double implicit cast:
   // dictionary(int32, int8) -> int8 -> int32
-  //  CheckScalarBinary("greater", ArrayFromJSON(dictionary(int32(), int8()), "[0, 1, 2,
-  //  null]"),
+  //  CheckScalarBinary("greater",
+  //                    ArrayFromJSON(dictionary(int32(), int8()), "[0, 1, 2, null]"),
   //                    ArrayFromJSON(uint32(), "[3, 4, 5, 7]"),
   //                    ArrayFromJSON(boolean(), "[false, false, false, null]"));
 }

@@ -88,6 +88,10 @@ struct CompareFunction : ScalarFunction {
       for (auto& descr : *values) {
         descr.type = type;
       }
+    } else if (auto type = CommonTimestamp(*values)) {
+      for (auto& descr : *values) {
+        descr.type = type;
+      }
     }
 
     if (auto kernel = DispatchExactImpl(this, *values)) return kernel;

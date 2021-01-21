@@ -232,6 +232,28 @@ std::shared_ptr<DataType> CommonNumeric(const std::vector<ValueDescr>& descrs) {
   return at_least_one_signed ? int8() : uint8();
 }
 
+std::shared_ptr<DataType> CommonTimestamp(const std::vector<ValueDescr>& descrs) {
+  TimeUnit::type finest_unit = TimeUnit::SECOND;
+
+  for (const auto& descr : descrs) {
+    auto id = descr.type->id();
+    // a common timestamp is only possible if all types are timestamp like
+    switch (id) {
+      case Type::DATE32:
+      case Type::DATE64:
+        continue;
+      case Type::TIMESTAMP:
+        finest_unit =
+            std::max(finest_unit, checked_cast<const TimestampType&>(*descr.type).unit());
+        continue;
+      default:
+        return nullptr;
+    }
+  }
+
+  return timestamp(finest_unit);
+}
+
 }  // namespace internal
 }  // namespace compute
 }  // namespace arrow
