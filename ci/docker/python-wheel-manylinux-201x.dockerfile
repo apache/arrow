@@ -18,11 +18,14 @@
 ARG base
 FROM ${base}
 
+ARG arch_alias
+ARG arch_short_alias
+
 RUN yum install -y git flex curl autoconf zip wget
 
 # Install CMake
-ARG cmake=3.19.2
-RUN wget -q https://github.com/Kitware/CMake/releases/download/v${cmake}/cmake-${cmake}-Linux-x86_64.tar.gz -O - | \
+ARG cmake=3.19.3
+RUN wget -q https://github.com/Kitware/CMake/releases/download/v${cmake}/cmake-${cmake}-Linux-${arch_alias}.tar.gz -O - | \
     tar -xzf - --directory /usr/local --strip-components=1
 
 # Install Ninja
@@ -62,7 +65,7 @@ ARG build_type=release
 ENV CMAKE_BUILD_TYPE=${build_type} \
     VCPKG_FORCE_SYSTEM_BINARIES=1 \
     VCPKG_OVERLAY_TRIPLETS=/arrow/ci/vcpkg \
-    VCPKG_DEFAULT_TRIPLET=x64-linux-static-${build_type} \
+    VCPKG_DEFAULT_TRIPLET=${arch_short_alias}-linux-static-${build_type} \
     VCPKG_FEATURE_FLAGS=-manifests
 
 # TODO(kszucs): factor out the package enumeration to a text file and reuse it

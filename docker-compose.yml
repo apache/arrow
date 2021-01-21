@@ -720,7 +720,9 @@ services:
     image: ${REPO}:python-${PYTHON}-wheel-manylinux-2014
     build:
       args:
-        base:  quay.io/pypa/manylinux2014_x86_64:2020-11-11-bc8ce45
+        arch_alias: ${ARCH_ALIAS}
+        arch_short_alias: ${ARCH_SHORT_ALIAS}
+        base:  quay.io/pypa/manylinux2014_${ARCH_ALIAS}:2020-11-11-bc8ce45
         vcpkg: ${VCPKG}
         python: ${PYTHON}
       context: .
