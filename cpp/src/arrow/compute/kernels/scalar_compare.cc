@@ -78,6 +78,9 @@ struct CompareFunction : ScalarFunction {
   Result<const Kernel*> DispatchBest(std::vector<ValueDescr>* values) const override {
     RETURN_NOT_OK(CheckArity(static_cast<int>(values->size())));
 
+    using arrow::compute::detail::DispatchExactImpl;
+    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
+
     EnsureDictionaryDecoded(values);
     ReplaceNullWithOtherType(values);
 
@@ -87,9 +90,7 @@ struct CompareFunction : ScalarFunction {
       }
     }
 
-    if (auto kernel = arrow::compute::detail::DispatchExactImpl(this, *values)) {
-      return kernel;
-    }
+    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
     return arrow::compute::detail::NoMatchingKernel(this, *values);
   }
 };
