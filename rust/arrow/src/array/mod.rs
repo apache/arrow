@@ -119,8 +119,6 @@ pub use self::array_binary::FixedSizeBinaryArray;
 pub use self::array_binary::LargeBinaryArray;
 pub use self::array_boolean::BooleanArray;
 pub use self::array_dictionary::DictionaryArray;
-pub use self::array_list::build_empty_fixed_size_list_array;
-pub use self::array_list::build_empty_list_array;
 pub use self::array_list::FixedSizeListArray;
 pub use self::array_list::LargeListArray;
 pub use self::array_list::ListArray;
@@ -132,6 +130,7 @@ pub use self::array_union::UnionArray;
 pub use self::null::NullArray;
 
 pub use self::array::make_array;
+pub use self::array::new_empty_array;
 
 pub type Int8Array = PrimitiveArray<Int8Type>;
 pub type Int16Array = PrimitiveArray<Int16Type>;

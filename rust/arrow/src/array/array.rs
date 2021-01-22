@@ -323,6 +323,12 @@ pub fn make_array(data: ArrayDataRef) -> ArrayRef {
     }
 }
 
+/// Creates a new empty array
+pub fn new_empty_array(data_type: &DataType) -> ArrayRef {
+    let data = ArrayData::new_empty(data_type);
+    make_array(Arc::new(data))
+}
+
 /// Creates a new array from two FFI pointers. Used to import arrays from the C Data Interface
 /// # Safety
 /// Assumes that these pointers represent valid C Data Interfaces, both in memory
@@ -374,4 +380,35 @@ where
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_empty_primitive() {
+        let array = new_empty_array(&DataType::Int32);
+        let a = array.as_any().downcast_ref::<Int32Array>().unwrap();
+        assert_eq!(a.len(), 0);
+        let expected: &[i32] = &[];
+        assert_eq!(a.values(), expected);
+    }
+
+    #[test]
+    fn test_empty_variable_sized() {
+        let array = new_empty_array(&DataType::Utf8);
+        let a = array.as_any().downcast_ref::<StringArray>().unwrap();
+        assert_eq!(a.len(), 0);
+        assert_eq!(a.value_offset(0), 0i32);
+    }
+
+    #[test]
+    fn test_empty_list_primitive() {
+        let data_type =
+            DataType::List(Box::new(Field::new("item", DataType::Int32, false)));
+        let array = new_empty_array(&data_type);
+        let a = array.as_any().downcast_ref::<ListArray>().unwrap();
+        assert_eq!(a.len(), 0);
+        assert_eq!(a.value_offset(0), 0i32);
+    }
 }
