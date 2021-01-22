@@ -817,11 +817,36 @@ impl<OffsetSize: OffsetSizeTrait> ArrayReader for ListArrayReader<OffsetSize> {
             ));
         }
 
-        // Need to remove from the values array the nulls that represent null lists rather than null items
-        // null lists have def_level = 0
+        // List definitions can be encoded as 4 values:
+        // - n + 0: the list slot is null
+        // - n + 1: the list slot is not null, but is empty (i.e. [])
+        // - n + 2: the list slot is not null, but its child is empty (i.e. [ null ])
+        // - n + 3: the list slot is not null, and its child is not empty
+        // Where n is the max definition level of the list's parent.
+        // If a Parquet schema's only leaf is the list, then n = 0.
+
+        // TODO: ARROW-10391 - add a test case with a non-nullable child, check if max is 3
+        let list_field_type = match self.get_data_type() {
+            ArrowType::List(field)
+            | ArrowType::FixedSizeList(field, _)
+            | ArrowType::LargeList(field) => field,
+            _ => {
+                // Panic: this is safe as we only write lists from list datatypes
+                unreachable!()
+            }
+        };
+        let max_list_def_range = if list_field_type.is_nullable() { 3 } else { 2 };
+        let max_list_definition = *(def_levels.iter().max().unwrap());
+        // TODO: ARROW-10391 - Find a reliable way of validating deeply-nested lists
+        // debug_assert!(
+        //     max_list_definition >= max_list_def_range,
+        //     "Lift definition max less than range"
+        // );
+        let list_null_def = max_list_definition - max_list_def_range;
+        let list_empty_def = max_list_definition - 1;
         let mut null_list_indices: Vec<usize> = Vec::new();
         for i in 0..def_levels.len() {
-            if def_levels[i] == 0 {
+            if def_levels[i] == list_null_def {
                 null_list_indices.push(i);
             }
         }
@@ -842,7 +867,7 @@ impl<OffsetSize: OffsetSizeTrait> ArrayReader for ListArrayReader<OffsetSize> {
             if rep_levels[i] == 0 {
                 offsets.push(cur_offset)
             }
-            if def_levels[i] > 0 {
+            if def_levels[i] >= list_empty_def {
                 cur_offset += OffsetSize::one();
             }
         }
