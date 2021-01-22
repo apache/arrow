@@ -72,11 +72,11 @@ ENV CMAKE_BUILD_TYPE=${build_type} \
 # vcpkg will raise an error.
 # TODO(kszucs): factor out the package enumeration to a text file and reuse it
 # from the windows image and potentially in a future macos wheel build
+# boost-build:x64-linux is required on ARM64
 RUN vcpkg install --clean-after-build \
         boost-build:${arch_short_alias}-linux && \
     vcpkg install --clean-after-build \
         abseil \
-        aws-sdk-cpp[config,cognito-identity,core,identity-management,s3,sts,transfer] \
         boost-filesystem \
         brotli \
         bzip2 \
@@ -97,6 +97,10 @@ RUN vcpkg install --clean-after-build \
         utf8proc \
         zlib \
         zstd
+
+# Temporary workaround to test the rest of the features
+# aws-sdk fails to compile static libs
+# RUN vcpkg install aws-sdk-cpp[config,cognito-identity,core,identity-management,s3,sts,transfer] \
 
 ARG python=3.6
 ENV PYTHON_VERSION=${python}
