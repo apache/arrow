@@ -30,11 +30,14 @@ use crate::error::{DataFusionError, Result};
 use crate::physical_plan::{Accumulator, AggregateExpr};
 use crate::physical_plan::{Distribution, ExecutionPlan, Partitioning, PhysicalExpr};
 
-use arrow::{array::{Array, UInt32Builder}, error::{ArrowError, Result as ArrowResult}};
 use arrow::record_batch::RecordBatch;
 use arrow::{
     array::BooleanArray,
     datatypes::{DataType, Field, Schema, SchemaRef, TimeUnit},
+};
+use arrow::{
+    array::{Array, UInt32Builder},
+    error::{ArrowError, Result as ArrowResult},
 };
 use arrow::{
     array::{
