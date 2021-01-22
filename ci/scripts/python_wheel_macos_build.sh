@@ -68,7 +68,6 @@ echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 : ${CMAKE_BUILD_TYPE:=release}
 : ${CMAKE_GENERATOR:=Ninja}
 : ${VCPKG_FEATURE_FLAGS:=-manifests}
-: ${VCPKG_TARGET_TRIPLET:=${VCPKG_DEFAULT_TRIPLET:-x64-linux-static-${CMAKE_BUILD_TYPE}}}
 
 mkdir /tmp/arrow-build
 pushd /tmp/arrow-build
@@ -107,7 +106,7 @@ cmake \
     -DCMAKE_UNITY_BUILD=ON \
     -DOPENSSL_USE_STATIC_LIBS=ON \
     -DVCPKG_MANIFEST_MODE=OFF \
-    -DVCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET} \
+    -DVCPKG_TARGET_TRIPLET=x64-linux-static-${CMAKE_BUILD_TYPE} \
     -G ${CMAKE_GENERATOR} \
     /arrow/cpp
 cmake --build . --target install
