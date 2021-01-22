@@ -22,15 +22,60 @@ option java_package = "org.apache.arrow.flight.sql.impl";
 package arrow.flight.protocol.sql;
 
 /*
- * Wrap the result of a "GetSQLInfo" action.
+ * Wrapper for the result of a "GetSQLInfo" action.
  */
 message ActionGetSQLInfoResult {
   /*
-   * Values are based on Apache Hive's Thrift Service and
-   * ODBC's CLIGetInfo() function. Possible types include:
-   *  - CLI_IDENTIFIER_QUOTE_CHAR
-   *  - CLI_ORDER_BY_COLUMNS_IN_SELECT
-   *  - TODO add more info types.
+   * Values are modelled after ODBC's SQLGetInfo() function. This information is intended to provide
+   * Flight SQL clients with basic, SQL syntax and SQL functions related information.
+   * More information types can be added in future releases.
+   * E.g. more SQL syntax support types, scalar functions support, type conversion support etc.
+   *
+   * Initially, Flight SQL will support the following information types:
+   * - Server Information
+   * -
+   *
+   * 1. Server Information: Provides basic information about the Flight SQL Server.
+   *
+   * The name of the Flight SQL Server.
+   * FLIGHT_SQL_SERVER_NAME
+   *
+   * The native version of the Flight SQL Server.
+   * FLIGHT_SQL_SERVER_VERSION
+   *
+   * The Arrow version of the Flight SQL Server.
+   * FLIGHT_SQL_SERVER_ARROW_VERSION
+   *
+   * Indicates whether the Flight SQL Server is read only.
+   * FLIGHT_SQL_SERVER_READ_ONLY
+   *
+   * Indicates whether the Flight SQL Server supports both read and write.
+   * FLIGHT_SQL_SERVER_READ_WRITE
+   *
+   * 2. SQL Syntax Information: provides information about SQL syntax supported by the Flight SQL Server.
+   *
+   * Indicates whether the Flight SQL Server supports CREATE and DROP of catalogs.
+   * In a SQL environment, a catalog is a collection of schemas.
+   * SQL_DDL_CATALOG
+   *
+   * Indicates whether the Flight SQL Server supports CREATE and DROP of schemas.
+   * In a SQL environment, a catalog is a collection of tables, views, indexes etc.
+   * SQL_DDL_SCHEMA
+   *
+   * Indicates whether the Flight SQL Server supports CREATE and DROP of tables.
+   * In a SQL environment, a table is a collection of rows of information. Each row of information
+   * may have one or more columns of data.
+   * SQL_DDL_TABLE
+   *
+   * Indicates the case sensitivity of catalog, table and schema names.
+   * SQL_IDENTIFIER_CASE
+   *
+   * Indicates the supported character(s) used to surround a delimited identifier.
+   * SQL_IDENTIFIER_QUOTE_CHAR
+   *
+   * Indicates case sensitivity of quoted identifiers.
+   * SQL_QUOTED_IDENTIFIER_CASE
+   *
    */
   map<string, TGetSQLInfoValue> flight_sql_info = 1;
 
@@ -41,7 +86,7 @@ message ActionGetSQLInfoResult {
 /*
  * Wrapper for values returned in ActionGetSQLInfoResult.
  */
-message TGetSQLInfoValue {
+message GetSQLInfoValue {
   oneof value {
     string string_value = 1;
     int32 integer_value = 2;
@@ -78,7 +123,7 @@ message ActionGetCatalogsResult {
  */
 message ActionGetSchemasRequest {
   /*
-   * Specifies the order of result values with prescendence:
+   * Specifies the order of result values with precedence:
    *  - catalog
    *  - schema
    */
@@ -86,9 +131,11 @@ message ActionGetSchemasRequest {
 
   /*
    * Specifies the Catalog to search for schemas.
+   * If omitted, then schemas for all catalogs are searched.
    */ 
   string catalog = 2;
 
+  // TODO: Clarify what kind of filter pattern - regex?
   // Specifies a filter pattern for schemas to search for.
   string schema_filter_pattern = 3;
 }
@@ -119,9 +166,11 @@ message ActionGetTablesRequest {
   // Specifies the Catalog to search for schemas.
   string catalog = 2;
 
+  // TODO: Clarify what kind of filter pattern - regex?
   // Specifies a filter pattern for schemas to search for.
   string schema_filter_pattern = 3;
 
+  // TODO: Clarify what kind of filter pattern - regex?
   // Specifies a filter pattern for tables to search for.
   string table_name_filter_pattern = 4;
 
@@ -142,8 +191,8 @@ message ActionGetTablesResult {
   string table_type = 4;
 
   /*
-   * Schema of the dataset as described in Schema.fbs::Schema,
-   * Null if includeSchema on request is false.
+   * Schema of the dataset as described in Schema.fbs::Schema, it is serialized as an IPC message.
+   * Null if include_schema on request is false.
    */
   bytes arrow_metadata = 5; 
 }
@@ -152,6 +201,9 @@ message ActionGetTablesResult {
  * Wrap the result of a "GetTableTypes" action.
  */
 message ActionGetTableTypesResult {
+  /*
+   * Indicates the type of the table. E.g. table (regular data table) , view, system table etc.
+   */
   string table_type = 1;
 }
 
@@ -159,11 +211,10 @@ message ActionGetTableTypesResult {
 
 /*
  * Request message for the "GetPreparedStatement" action on a 
- * Flight SQL enabled backend. 
- * Requests a list of tables available in the server.
+ * Flight SQL enabled backend.
  */
 message ActionGetPreparedStatementRequest {
-  // The SQL syntax.
+  // The valid SQL string to get a prepared statement for.
   string query = 1;
 }
 
@@ -176,7 +227,7 @@ message ActionGetPreparedStatementResult {
   bytes prepared_statement_handle = 1;
 
   // If a result set generating query was provided, dataset_schema contains the 
-  // schema of the dataset as described in Schema.fbs::Schema.
+  // schema of the dataset as described in Schema.fbs::Schema, it is serialized as an IPC message.
   bytes dataset_schema = 2;
 
   // If the query provided contained parameters, parameter_schema contains the 
@@ -211,6 +262,8 @@ message CommandStatementQuery {
 /*
  * Represents an instance of executing a prepared statement. Used in the 
  * command member of FlightDescriptor for the following RPC calls:
+ * TODO: Is the idea that a Put with parameter values would execute multiple bound versions of the prepared statement
+ * TODO: (one for each row)? Seems like that will work ok for Insert statements, but what about other kinds of prepared statements?
  *  - DoPut: bind parameter values.
  *  - GetFlightInfo: execute the prepared statement instance.
  */
