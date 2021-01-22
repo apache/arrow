@@ -48,7 +48,9 @@ where
 {
     let left = left.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
     let right = right.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
-    Box::new(move |i, j| left.value(i).cmp(&right.value(j)))
+    let left = left.values();
+    let right = right.values();
+    Box::new(move |i, j| left[i].cmp(&right[j]))
 }
 
 fn compare_boolean<'a>(left: &'a Array, right: &'a Array) -> DynComparator<'a> {
@@ -66,7 +68,9 @@ where
 {
     let left = left.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
     let right = right.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
-    Box::new(move |i, j| cmp_nans_last(&left.value(i), &right.value(j)))
+    let left = left.values();
+    let right = right.values();
+    Box::new(move |i, j| cmp_nans_last(&left[i], &right[j]))
 }
 
 fn compare_string<'a, T>(left: &'a Array, right: &'a Array) -> DynComparator<'a>
@@ -90,15 +94,15 @@ where
 {
     let left = left.as_any().downcast_ref::<DictionaryArray<T>>().unwrap();
     let right = right.as_any().downcast_ref::<DictionaryArray<T>>().unwrap();
-    let left_keys = left.keys_array();
-    let right_keys = right.keys_array();
+    let left_keys = left.keys().values();
+    let right_keys = right.keys().values();
 
     let left_values = StringArray::from(left.values().data());
     let right_values = StringArray::from(left.values().data());
 
     Box::new(move |i: usize, j: usize| {
-        let key_left = left_keys.value(i).to_usize().unwrap();
-        let key_right = right_keys.value(j).to_usize().unwrap();
+        let key_left = left_keys[i].to_usize().unwrap();
+        let key_right = right_keys[j].to_usize().unwrap();
         let left = left_values.value(key_left);
         let right = right_values.value(key_right);
         left.cmp(&right)

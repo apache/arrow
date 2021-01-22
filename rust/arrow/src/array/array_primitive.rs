@@ -259,27 +259,27 @@ impl<T: ArrowPrimitiveType> fmt::Debug for PrimitiveArray<T> {
         write!(f, "PrimitiveArray<{:?}>\n[\n", T::DATA_TYPE)?;
         print_long_array(self, f, |array, index, f| match T::DATA_TYPE {
             DataType::Date32(_) | DataType::Date64(_) => {
-                let v = self.value(index).to_usize().unwrap() as i64;
+                let v = self.values()[index].to_usize().unwrap() as i64;
                 match as_date::<T>(v) {
                     Some(date) => write!(f, "{:?}", date),
                     None => write!(f, "null"),
                 }
             }
             DataType::Time32(_) | DataType::Time64(_) => {
-                let v = self.value(index).to_usize().unwrap() as i64;
+                let v = self.values()[index].to_usize().unwrap() as i64;
                 match as_time::<T>(v) {
                     Some(time) => write!(f, "{:?}", time),
                     None => write!(f, "null"),
                 }
             }
             DataType::Timestamp(_, _) => {
-                let v = self.value(index).to_usize().unwrap() as i64;
+                let v = self.values()[index].to_usize().unwrap() as i64;
                 match as_datetime::<T>(v) {
                     Some(datetime) => write!(f, "{:?}", datetime),
                     None => write!(f, "null"),
                 }
             }
-            _ => fmt::Debug::fmt(&array.value(index), f),
+            _ => fmt::Debug::fmt(&array.values()[index], f),
         })?;
         write!(f, "]")
     }

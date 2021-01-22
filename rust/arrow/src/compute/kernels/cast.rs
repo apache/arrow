@@ -569,29 +569,27 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
         (Time64(_), Int64) => cast_array_data::<Int64Type>(array, to_type.clone()),
         (Date32(DateUnit::Day), Date64(DateUnit::Millisecond)) => {
             let date_array = array.as_any().downcast_ref::<Date32Array>().unwrap();
-            let mut b = Date64Builder::new(array.len());
-            for i in 0..array.len() {
-                if array.is_null(i) {
-                    b.append_null()?;
-                } else {
-                    b.append_value(date_array.value(i) as i64 * MILLISECONDS_IN_DAY)?;
-                }
-            }
 
-            Ok(Arc::new(b.finish()) as ArrayRef)
+            // todo: can be optimized by computing this for the whole values buffer and
+            // cloning the null buffer
+            let values = date_array
+                .iter()
+                .map(|x| x.map(|x| x as i64 * MILLISECONDS_IN_DAY))
+                .collect::<Date64Array>();
+
+            Ok(Arc::new(values) as ArrayRef)
         }
         (Date64(DateUnit::Millisecond), Date32(DateUnit::Day)) => {
             let date_array = array.as_any().downcast_ref::<Date64Array>().unwrap();
-            let mut b = Date32Builder::new(array.len());
-            for i in 0..array.len() {
-                if array.is_null(i) {
-                    b.append_null()?;
-                } else {
-                    b.append_value((date_array.value(i) / MILLISECONDS_IN_DAY) as i32)?;
-                }
-            }
 
-            Ok(Arc::new(b.finish()) as ArrayRef)
+            // todo: can be optimized by computing this for the whole values buffer and
+            // cloning the null buffer
+            let values = date_array
+                .iter()
+                .map(|x| x.map(|x| (x / MILLISECONDS_IN_DAY) as i32))
+                .collect::<Date32Array>();
+
+            Ok(Arc::new(values) as ArrayRef)
         }
         (Time32(TimeUnit::Second), Time32(TimeUnit::Millisecond)) => {
             let time_array = Time32MillisecondArray::from(array.data());
@@ -652,33 +650,20 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
             let divisor = from_size / to_size;
             match to_unit {
                 TimeUnit::Second => {
-                    let mut b = Time32SecondBuilder::new(array.len());
-                    for i in 0..array.len() {
-                        if array.is_null(i) {
-                            b.append_null()?;
-                        } else {
-                            b.append_value(
-                                (time_array.value(i) as i64 / divisor) as i32,
-                            )?;
-                        }
-                    }
+                    let array = time_array
+                        .iter()
+                        .map(|x| x.map(|x| (x as i64 / divisor) as i32))
+                        .collect::<Time32SecondArray>();
 
-                    Ok(Arc::new(b.finish()) as ArrayRef)
+                    Ok(Arc::new(array) as ArrayRef)
                 }
                 TimeUnit::Millisecond => {
-                    // currently can't dedup this builder [ARROW-4164]
-                    let mut b = Time32MillisecondBuilder::new(array.len());
-                    for i in 0..array.len() {
-                        if array.is_null(i) {
-                            b.append_null()?;
-                        } else {
-                            b.append_value(
-                                (time_array.value(i) as i64 / divisor) as i32,
-                            )?;
-                        }
-                    }
+                    let array = time_array
+                        .iter()
+                        .map(|x| x.map(|x| (x as i64 / divisor) as i32))
+                        .collect::<Time32MillisecondArray>();
 
-                    Ok(Arc::new(b.finish()) as ArrayRef)
+                    Ok(Arc::new(array) as ArrayRef)
                 }
                 _ => unreachable!("array type not supported"),
             }
@@ -739,16 +724,13 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
         (Timestamp(from_unit, _), Date32(_)) => {
             let time_array = Int64Array::from(array.data());
             let from_size = time_unit_multiple(&from_unit) * SECONDS_IN_DAY;
-            let mut b = Date32Builder::new(array.len());
-            for i in 0..array.len() {
-                if array.is_null(i) {
-                    b.append_null()?;
-                } else {
-                    b.append_value((time_array.value(i) / from_size) as i32)?;
-                }
-            }
 
-            Ok(Arc::new(b.finish()) as ArrayRef)
+            let array = time_array
+                .iter()
+                .map(|x| x.map(|x| (x / from_size) as i32))
+                .collect::<Date32Array>();
+
+            Ok(Arc::new(array) as ArrayRef)
         }
         (Timestamp(from_unit, _), Date64(_)) => {
             let from_size = time_unit_multiple(&from_unit);
@@ -947,19 +929,10 @@ fn numeric_to_bool_cast<T>(from: &PrimitiveArray<T>) -> Result<BooleanArray>
 where
     T: ArrowPrimitiveType + ArrowNumericType,
 {
-    let mut b = BooleanBuilder::new(from.len());
-
-    for i in 0..from.len() {
-        if from.is_null(i) {
-            b.append_null()?;
-        } else if from.value(i) != T::default_value() {
-            b.append_value(true)?;
-        } else {
-            b.append_value(false)?;
-        }
-    }
-
-    Ok(b.finish())
+    Ok(from
+        .iter()
+        .map(|x| x.map(|x| x != T::Native::default()))
+        .collect())
 }
 
 /// Cast Boolean types to numeric
@@ -1153,13 +1126,17 @@ where
     let mut b = PrimitiveDictionaryBuilder::new(keys_builder, values_builder);
 
     // copy each element one at a time
-    for i in 0..values.len() {
-        if values.is_null(i) {
-            b.append_null()?;
-        } else {
-            b.append(values.value(i))?;
+    for value in values {
+        match value {
+            Some(v) => {
+                b.append(v)?;
+            }
+            None => {
+                b.append_null()?;
+            }
         }
     }
+
     Ok(Arc::new(b.finish()))
 }
 

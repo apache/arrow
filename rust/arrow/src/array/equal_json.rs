@@ -39,13 +39,14 @@ pub trait JsonEqual {
 impl<T: ArrowPrimitiveType> JsonEqual for PrimitiveArray<T> {
     fn equals_json(&self, json: &[&Value]) -> bool {
         self.len() == json.len()
-            && (0..self.len()).all(|i| match json[i] {
-                Value::Null => self.is_null(i),
-                v => {
-                    self.is_valid(i)
-                        && Some(v) == self.value(i).into_json_value().as_ref()
-                }
-            })
+            && json
+                .iter()
+                .zip(self.iter())
+                .all(|(lhs, rhs)| match (lhs, rhs) {
+                    (Value::Null, None) => true,
+                    (lhs, Some(rhs)) => Some(*lhs) == rhs.into_json_value().as_ref(),
+                    _ => false,
+                })
     }
 }
 
