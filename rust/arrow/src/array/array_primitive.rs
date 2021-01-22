@@ -96,10 +96,7 @@ impl<T: ArrowPrimitiveType> PrimitiveArray<T> {
     }
 
     /// Creates a PrimitiveArray based on an iterator of values without nulls
-    pub fn from_iter_values<Ptr, I: IntoIterator<Item = Ptr>>(iter: I) -> Self
-    where
-        Ptr: Borrow<<T as ArrowPrimitiveType>::Native>,
-    {
+    pub fn from_iter_values<I: IntoIterator<Item = T::Native>>(iter: I) -> Self {
         let iter = iter.into_iter();
         let (_, data_len) = iter.size_hint();
         let data_len = data_len.expect("Iterator must be sized"); // panic if no upper bound.
@@ -109,7 +106,7 @@ impl<T: ArrowPrimitiveType> PrimitiveArray<T> {
         );
 
         iter.for_each(|item| {
-            val_buf.push(*item.borrow());
+            val_buf.push(item);
         });
 
         let data = ArrayData::new(
