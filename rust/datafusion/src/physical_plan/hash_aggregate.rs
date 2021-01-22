@@ -21,6 +21,7 @@ use std::any::Any;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
+use ahash::RandomState;
 use futures::{
     stream::{Stream, StreamExt},
     Future,
@@ -30,16 +31,13 @@ use crate::error::{DataFusionError, Result};
 use crate::physical_plan::{Accumulator, AggregateExpr};
 use crate::physical_plan::{Distribution, ExecutionPlan, Partitioning, PhysicalExpr};
 
-use super::{ expressions::Column, group_scalar::GroupByScalar,
-    RecordBatchStream, SendableRecordBatchStream,
-};
-use ahash::RandomState;
-use arrow::array::{Array, UInt32Builder};
-use arrow::datatypes::{DataType, Field, Schema, SchemaRef, TimeUnit};
-use arrow::error::{ArrowError, Result as ArrowResult};
-use arrow::record_batch::RecordBatch;
+use arrow::{datatypes::{DataType, Field, Schema, SchemaRef, TimeUnit}, record_batch::RecordBatch};
 use arrow::{
     array::BooleanArray,
+};
+use arrow::{
+    array::{Array, UInt32Builder},
+    error::{ArrowError, Result as ArrowResult},
 };
 use arrow::{
     array::{
@@ -54,6 +52,8 @@ use pin_project_lite::pin_project;
 
 use arrow::array::{TimestampMicrosecondArray, TimestampNanosecondArray};
 use async_trait::async_trait;
+
+use super::{RecordBatchStream, SendableRecordBatchStream, expressions::Column, group_scalar::GroupByScalar};
 
 /// Hash aggregate modes
 #[derive(Debug, Copy, Clone)]
