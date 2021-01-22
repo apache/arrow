@@ -215,9 +215,17 @@ void AddBinaryToBinaryCast(CastFunction* func) {
   auto out_ty = TypeTraits<OutType>::type_singleton();
 
   DCHECK_OK(func->AddKernel(
-      OutType::type_id, {in_ty}, out_ty,
+      InType::type_id, {in_ty}, out_ty,
       TrivialScalarUnaryAsArraysExec(BinaryToBinaryCastFunctor<OutType, InType>::Exec),
       NullHandling::COMPUTED_NO_PREALLOCATE));
+}
+
+template <typename OutType>
+void AddBinaryToBinaryCast(CastFunction* func) {
+  AddBinaryToBinaryCast<OutType, StringType>(func);
+  AddBinaryToBinaryCast<OutType, BinaryType>(func);
+  AddBinaryToBinaryCast<OutType, LargeStringType>(func);
+  AddBinaryToBinaryCast<OutType, LargeBinaryType>(func);
 }
 
 }  // namespace
@@ -225,31 +233,23 @@ void AddBinaryToBinaryCast(CastFunction* func) {
 std::vector<std::shared_ptr<CastFunction>> GetBinaryLikeCasts() {
   auto cast_binary = std::make_shared<CastFunction>("cast_binary", Type::BINARY);
   AddCommonCasts(Type::BINARY, binary(), cast_binary.get());
-  AddBinaryToBinaryCast<BinaryType, StringType>(cast_binary.get());
-  AddBinaryToBinaryCast<BinaryType, LargeBinaryType>(cast_binary.get());
-  AddBinaryToBinaryCast<BinaryType, LargeStringType>(cast_binary.get());
+  AddBinaryToBinaryCast<BinaryType>(cast_binary.get());
 
   auto cast_large_binary =
       std::make_shared<CastFunction>("cast_large_binary", Type::LARGE_BINARY);
   AddCommonCasts(Type::LARGE_BINARY, large_binary(), cast_large_binary.get());
-  AddBinaryToBinaryCast<LargeBinaryType, BinaryType>(cast_large_binary.get());
-  AddBinaryToBinaryCast<LargeBinaryType, StringType>(cast_large_binary.get());
-  AddBinaryToBinaryCast<LargeBinaryType, LargeStringType>(cast_large_binary.get());
+  AddBinaryToBinaryCast<LargeBinaryType>(cast_large_binary.get());
 
   auto cast_string = std::make_shared<CastFunction>("cast_string", Type::STRING);
   AddCommonCasts(Type::STRING, utf8(), cast_string.get());
   AddNumberToStringCasts<StringType>(cast_string.get());
-  AddBinaryToBinaryCast<StringType, BinaryType>(cast_string.get());
-  AddBinaryToBinaryCast<StringType, LargeBinaryType>(cast_string.get());
-  AddBinaryToBinaryCast<StringType, LargeStringType>(cast_string.get());
+  AddBinaryToBinaryCast<StringType>(cast_string.get());
 
   auto cast_large_string =
       std::make_shared<CastFunction>("cast_large_string", Type::LARGE_STRING);
   AddCommonCasts(Type::LARGE_STRING, large_utf8(), cast_large_string.get());
   AddNumberToStringCasts<LargeStringType>(cast_large_string.get());
-  AddBinaryToBinaryCast<LargeStringType, BinaryType>(cast_large_string.get());
-  AddBinaryToBinaryCast<LargeStringType, StringType>(cast_large_string.get());
-  AddBinaryToBinaryCast<LargeStringType, LargeBinaryType>(cast_large_string.get());
+  AddBinaryToBinaryCast<LargeStringType>(cast_large_string.get());
 
   auto cast_fsb =
       std::make_shared<CastFunction>("cast_fixed_size_binary", Type::FIXED_SIZE_BINARY);

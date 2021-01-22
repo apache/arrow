@@ -82,10 +82,10 @@ struct ARROW_EXPORT CastOptions : public FunctionOptions {
 // the same execution machinery
 class CastFunction : public ScalarFunction {
  public:
-  CastFunction(std::string name, Type::type out_type);
-  ~CastFunction() override;
+  CastFunction(std::string name, Type::type out_type_id);
 
-  Type::type out_type_id() const;
+  Type::type out_type_id() const { return out_type_id_; }
+  const std::vector<Type::type>& in_type_ids() const { return in_type_ids_; }
 
   Status AddKernel(Type::type in_type_id, std::vector<InputType> in_types,
                    OutputType out_type, ArrayKernelExec exec,
@@ -96,14 +96,12 @@ class CastFunction : public ScalarFunction {
   // function to CastInit
   Status AddKernel(Type::type in_type_id, ScalarKernel kernel);
 
-  bool CanCastTo(const DataType& out_type) const;
-
   Result<const Kernel*> DispatchExact(
       const std::vector<ValueDescr>& values) const override;
 
  private:
-  struct CastFunctionImpl;
-  std::unique_ptr<CastFunctionImpl> impl_;
+  std::vector<Type::type> in_type_ids_;
+  const Type::type out_type_id_;
 };
 
 ARROW_EXPORT

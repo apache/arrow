@@ -57,14 +57,10 @@ void ExpectResultsEqual(Actual&& actual, Expected&& expected) {
   MaybeExpected maybe_expected(std::forward<Expected>(expected));
 
   if (maybe_expected.ok()) {
-    ASSERT_OK_AND_ASSIGN(auto actual, maybe_actual);
-    EXPECT_EQ(actual, *maybe_expected);
+    EXPECT_EQ(maybe_actual, maybe_expected);
   } else {
-    EXPECT_EQ(maybe_actual.status().code(), expected.status().code());
-    EXPECT_NE(maybe_actual.status().message().find(expected.status().message()),
-              std::string::npos)
-        << "  actual:   " << maybe_actual.status() << "\n"
-        << "  expected: " << maybe_expected.status();
+    EXPECT_RAISES_WITH_CODE_AND_MESSAGE_THAT(
+        expected.status().code(), HasSubstr(expected.status().message()), maybe_actual);
   }
 }
 
@@ -75,24 +71,32 @@ TEST(ExpressionUtils, Comparison) {
     ExpectResultsEqual(Comparison::Execute(l, r).Map(Comparison::GetName), expected);
   };
 
-  Datum zero(0), one(1), two(2), null(std::make_shared<Int32Scalar>()), str("hello");
+  Datum zero(0), one(1), two(2), null(std::make_shared<Int32Scalar>());
+  Datum str("hello"), bin(std::make_shared<BinaryScalar>(Buffer::FromString("hello")));
+  Datum dict_str(DictionaryScalar::Make(std::make_shared<Int32Scalar>(0),
+                                        ArrayFromJSON(utf8(), R"(["a", "b", "c"])")));
 
-  Status parse_failure = Status::Invalid("Failed to parse");
+  Status not_impl = Status::NotImplemented("no kernel matching input types");
 
   Expect("equal", one, one);
   Expect("less", one, two);
   Expect("greater", one, zero);
 
-  // cast RHS to LHS type; "hello" > "1"
-  Expect("greater", str, one);
-  // cast RHS to LHS type; "hello" is not convertible to int
-  Expect(parse_failure, one, str);
-
   Expect("na", one, null);
-  Expect("na", str, null);
   Expect("na", null, one);
-  // cast RHS to LHS type; "hello" is not convertible to int
-  Expect(parse_failure, null, str);
+
+  // strings and ints are not comparable without explicit casts
+  Expect(not_impl, str, one);
+  Expect(not_impl, one, str);
+  Expect(not_impl, str, null);  // not even null ints
+
+  // string -> binary implicit cast allowed
+  Expect("equal", str, bin);
+  Expect("equal", bin, str);
+
+  // dict_str -> string, implicit casts allowed
+  Expect("less", dict_str, str);
+  Expect("less", dict_str, bin);
 }
 
 TEST(ExpressionUtils, StripOrderPreservingCasts) {
@@ -287,9 +291,9 @@ TEST(Expression, IsSatisfiable) {
 
   // When a top level conjunction contains an Expression which is certain to evaluate to
   // null, it can only evaluate to null or false.
-  auto null_or_false = and_(literal(null), field_ref("a"));
-  // This may appear in satisfiable filters if coalesced
-  EXPECT_TRUE(call("is_null", {null_or_false}).IsSatisfiable());
+  auto never_true = and_(literal(null), field_ref("a"));
+  // This may appear in satisfiable filters if coalesced (for example, wrapped in fill_na)
+  EXPECT_TRUE(call("is_null", {never_true}).IsSatisfiable());
   // ... but at the top level it is not satisfiable.
   // This special case arises when (for example) an absent column has made
   // one member of the conjunction always-null. This is fairly common and
@@ -412,6 +416,9 @@ TEST(Expression, BindWithImplicitCasts) {
     // cast dictionary to value type
     ExpectBindsTo(cmp(field_ref("dict_str"), field_ref("str")),
                   cmp(cast(field_ref("dict_str"), utf8()), field_ref("str")));
+
+    ExpectBindsTo(cmp(field_ref("dict_i32"), literal(int64_t(4))),
+                  cmp(cast(field_ref("dict_i32"), int64()), literal(int64_t(4))));
   }
 
   compute::SetLookupOptions in_a{ArrayFromJSON(utf8(), R"(["a"])")};
@@ -997,6 +1004,10 @@ TEST(Expression, SimplifyWithGuarantee) {
                 call("is_in", {field_ref("i64")}, in_123)})}
       .WithGuarantee(greater(field_ref("f32"), literal(0.F)))
       .Expect(call("is_in", {field_ref("i64")}, in_123));
+
+  Simplify{greater(field_ref("dict_i32"), literal(int64_t(1)))}
+      .WithGuarantee(equal(field_ref("dict_i32"), literal(0)))
+      .Expect(false);
 }
 
 TEST(Expression, SimplifyThenExecute) {

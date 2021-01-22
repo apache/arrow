@@ -268,7 +268,7 @@ struct ArithmeticFunction : ScalarFunction {
   using ScalarFunction::ScalarFunction;
 
   Result<const Kernel*> DispatchBest(std::vector<ValueDescr>* values) const override {
-    RETURN_NOT_OK(CheckArity(static_cast<int>(values->size())));
+    RETURN_NOT_OK(CheckArity(*values));
 
     using arrow::compute::detail::DispatchExactImpl;
     if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
@@ -277,9 +277,7 @@ struct ArithmeticFunction : ScalarFunction {
     ReplaceNullWithOtherType(values);
 
     if (auto type = CommonNumeric(*values)) {
-      for (auto& descr : *values) {
-        descr.type = type;
-      }
+      ReplaceTypes(type, values);
     }
 
     if (auto kernel = DispatchExactImpl(this, *values)) return kernel;

@@ -21,6 +21,7 @@
 #include <unordered_set>
 
 #include "arrow/chunked_array.h"
+#include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec_internal.h"
 #include "arrow/dataset/expression_internal.h"
 #include "arrow/io/memory.h"
@@ -746,7 +747,24 @@ Result<Expression> ReplaceFieldsWithKnownValues(
         if (auto ref = expr.field_ref()) {
           auto it = known_values.find(*ref);
           if (it != known_values.end()) {
-            ARROW_ASSIGN_OR_RAISE(Datum lit, compute::Cast(it->second, expr.type()));
+            Datum lit = it->second;
+            if (expr.type()->id() == Type::DICTIONARY) {
+              if (lit.is_scalar()) {
+                // FIXME the "right" way to support this is adding support for scalars to
+                // dictionary_encode and support for casting between index types to cast
+                ARROW_ASSIGN_OR_RAISE(
+                    auto index,
+                    Int32Scalar(0).CastTo(
+                        checked_cast<const DictionaryType&>(*expr.type()).index_type()));
+
+                ARROW_ASSIGN_OR_RAISE(auto dictionary,
+                                      MakeArrayFromScalar(*lit.scalar(), 1));
+
+                return literal(
+                    DictionaryScalar::Make(std::move(index), std::move(dictionary)));
+              }
+            }
+            ARROW_ASSIGN_OR_RAISE(lit, compute::Cast(it->second, expr.type()));
             return literal(std::move(lit));
           }
         }

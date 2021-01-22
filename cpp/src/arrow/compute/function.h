@@ -199,7 +199,8 @@ class ARROW_EXPORT Function {
         doc_(doc ? doc : &FunctionDoc::Empty()),
         default_options_(default_options) {}
 
-  Status CheckArity(int passed_num_args) const;
+  Status CheckArity(const std::vector<InputType>&) const;
+  Status CheckArity(const std::vector<ValueDescr>&) const;
 
   std::string name_;
   Function::Kind kind_;

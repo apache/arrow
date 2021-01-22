@@ -191,11 +191,6 @@ def test_filters_equivalency(tempdir, use_legacy_dataset):
         ['string', string_keys],
         ['boolean', boolean_keys]
     ]
-    schema = pa.schema({
-        'integer': pa.int32(),
-        'string': pa.string(),
-        'boolean', pa.boolean()
-    })
 
     df = pd.DataFrame({
         'integer': np.array(integer_keys, dtype='i4').repeat(15),
@@ -209,9 +204,9 @@ def test_filters_equivalency(tempdir, use_legacy_dataset):
     # Old filters syntax:
     #  integer == 1 AND string != b AND boolean == True
     dataset = pq.ParquetDataset(
-        base_path, filesystem=fs, schema=schema,
+        base_path, filesystem=fs,
         filters=[('integer', '=', 1), ('string', '!=', 'b'),
-                 ('boolean', '==', True)],
+                 ('boolean', '==', 'True')],
         use_legacy_dataset=use_legacy_dataset,
     )
     table = dataset.read()

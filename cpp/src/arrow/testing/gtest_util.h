@@ -79,14 +79,17 @@
     EXPECT_THAT(_st.ToString(), (matcher));                                           \
   } while (false)
 
-#define ASSERT_OK(expr)                                                       \
-  do {                                                                        \
-    auto _res = (expr);                                                       \
-    ::arrow::Status _st = ::arrow::internal::GenericToStatus(_res);           \
-    if (!_st.ok()) {                                                          \
-      FAIL() << "'" ARROW_STRINGIFY(expr) "' failed with " << _st.ToString(); \
-    }                                                                         \
+#define EXPECT_RAISES_WITH_CODE_AND_MESSAGE_THAT(code, matcher, expr) \
+  do {                                                                \
+    auto _res = (expr);                                               \
+    ::arrow::Status _st = ::arrow::internal::GenericToStatus(_res);   \
+    EXPECT_EQ(_st.CodeAsString(), Status::CodeAsString(code));        \
+    EXPECT_THAT(_st.ToString(), (matcher));                           \
   } while (false)
+
+#define ASSERT_OK(expr)                                                              \
+  for (::arrow::Status _st = ::arrow::internal::GenericToStatus((expr)); !_st.ok();) \
+  FAIL() << "'" ARROW_STRINGIFY(expr) "' failed with " << _st.ToString()
 
 #define ASSERT_OK_NO_THROW(expr) ASSERT_NO_THROW(ASSERT_OK(expr))
 
@@ -426,13 +429,6 @@ inline void BitmapFromVector(const std::vector<T>& is_valid,
   ASSERT_OK(GetBitmapFromVector(is_valid, out));
 }
 
-template <typename T>
-void AssertSortedEquals(std::vector<T> u, std::vector<T> v) {
-  std::sort(u.begin(), u.end());
-  std::sort(v.begin(), v.end());
-  ASSERT_EQ(u, v);
-}
-
 ARROW_TESTING_EXPORT
 void SleepFor(double seconds);
 
@@ -473,6 +469,17 @@ class ARROW_TESTING_EXPORT EnvVarGuard {
 #else
 #define LARGE_MEMORY_TEST(name) name
 #endif
+
+inline void PrintTo(const Status& st, std::ostream* os) { *os << st.ToString(); }
+
+template <typename T>
+void PrintTo(const Result<T>& result, std::ostream* os) {
+  if (result.ok()) {
+    ::testing::internal::UniversalPrint(result.ValueOrDie(), os);
+  } else {
+    *os << result.status();
+  }
+}
 
 }  // namespace arrow
 

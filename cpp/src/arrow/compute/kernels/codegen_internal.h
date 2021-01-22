@@ -1193,10 +1193,16 @@ ARROW_EXPORT
 void ReplaceNullWithOtherType(std::vector<ValueDescr>* descrs);
 
 ARROW_EXPORT
+void ReplaceTypes(const std::shared_ptr<DataType>&, std::vector<ValueDescr>* descrs);
+
+ARROW_EXPORT
 std::shared_ptr<DataType> CommonNumeric(const std::vector<ValueDescr>& descrs);
 
 ARROW_EXPORT
 std::shared_ptr<DataType> CommonTimestamp(const std::vector<ValueDescr>& descrs);
+
+ARROW_EXPORT
+std::shared_ptr<DataType> CommonBinary(const std::vector<ValueDescr>& descrs);
 
 }  // namespace internal
 }  // namespace compute

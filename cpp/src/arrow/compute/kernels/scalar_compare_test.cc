@@ -481,6 +481,9 @@ TEST(TestCompareKernel, DispatchBest) {
 
     CheckDispatchBest(name, {timestamp(TimeUnit::MILLI), timestamp(TimeUnit::MICRO)},
                       {timestamp(TimeUnit::MICRO), timestamp(TimeUnit::MICRO)});
+
+    CheckDispatchBest(name, {utf8(), binary()}, {binary(), binary()});
+    CheckDispatchBest(name, {large_utf8(), binary()}, {large_binary(), large_binary()});
   }
 }
 

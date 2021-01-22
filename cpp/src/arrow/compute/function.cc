@@ -37,18 +37,30 @@ static const FunctionDoc kEmptyFunctionDoc{};
 
 const FunctionDoc& FunctionDoc::Empty() { return kEmptyFunctionDoc; }
 
-Status Function::CheckArity(int passed_num_args) const {
-  if (arity_.is_varargs && passed_num_args < arity_.num_args) {
-    return Status::Invalid("VarArgs function needs at least ", arity_.num_args,
-                           " arguments but kernel accepts only ", passed_num_args);
+Status CheckArityImpl(const Function* function, int passed_num_args,
+                      const char* passed_num_args_label) {
+  if (function->arity().is_varargs && passed_num_args < function->arity().num_args) {
+    return Status::Invalid("VarArgs function needs at least ", function->arity().num_args,
+                           " arguments but ", passed_num_args_label, " only ",
+                           passed_num_args);
   }
 
-  if (!arity_.is_varargs && passed_num_args != arity_.num_args) {
-    return Status::Invalid("Function accepts ", arity_.num_args,
-                           " arguments but kernel accepts ", passed_num_args);
+  if (!function->arity().is_varargs && passed_num_args != function->arity().num_args) {
+    return Status::Invalid("Function ", function->name(), " accepts ",
+                           function->arity().num_args, " arguments but ",
+                           passed_num_args_label, " ", passed_num_args);
   }
 
   return Status::OK();
+}
+
+Status Function::CheckArity(const std::vector<InputType>& in_types) const {
+  return CheckArityImpl(this, static_cast<int>(in_types.size()), "kernel accepts");
+}
+
+Status Function::CheckArity(const std::vector<ValueDescr>& descrs) const {
+  return CheckArityImpl(this, static_cast<int>(descrs.size()),
+                        "attempted to look up kernel(s) with");
 }
 
 namespace detail {
@@ -123,7 +135,7 @@ Result<const Kernel*> Function::DispatchExact(
   if (kind_ == Function::META) {
     return Status::NotImplemented("Dispatch for a MetaFunction's Kernels");
   }
-  RETURN_NOT_OK(CheckArity(static_cast<int>(values.size())));
+  RETURN_NOT_OK(CheckArity(values));
 
   if (auto kernel = detail::DispatchExactImpl(this, values)) {
     return kernel;
@@ -135,7 +147,7 @@ Result<const Kernel*> Function::DispatchBest(std::vector<ValueDescr>* values) co
   if (kind_ == Function::META) {
     return Status::NotImplemented("Dispatch for a MetaFunction's Kernels");
   }
-  RETURN_NOT_OK(CheckArity(static_cast<int>(values->size())));
+  RETURN_NOT_OK(CheckArity(*values));
 
   // first try for an exact match
   if (auto kernel = detail::DispatchExactImpl(this, *values)) {
@@ -220,7 +232,7 @@ Status Function::Validate() const {
 
 Status ScalarFunction::AddKernel(std::vector<InputType> in_types, OutputType out_type,
                                  ArrayKernelExec exec, KernelInit init) {
-  RETURN_NOT_OK(CheckArity(static_cast<int>(in_types.size())));
+  RETURN_NOT_OK(CheckArity(in_types));
 
   if (arity_.is_varargs && in_types.size() != 1) {
     return Status::Invalid("VarArgs signatures must have exactly one input type");
@@ -232,7 +244,7 @@ Status ScalarFunction::AddKernel(std::vector<InputType> in_types, OutputType out
 }
 
 Status ScalarFunction::AddKernel(ScalarKernel kernel) {
-  RETURN_NOT_OK(CheckArity(static_cast<int>(kernel.signature->in_types().size())));
+  RETURN_NOT_OK(CheckArity(kernel.signature->in_types()));
   if (arity_.is_varargs && !kernel.signature->is_varargs()) {
     return Status::Invalid("Function accepts varargs but kernel signature does not");
   }
@@ -242,7 +254,7 @@ Status ScalarFunction::AddKernel(ScalarKernel kernel) {
 
 Status VectorFunction::AddKernel(std::vector<InputType> in_types, OutputType out_type,
                                  ArrayKernelExec exec, KernelInit init) {
-  RETURN_NOT_OK(CheckArity(static_cast<int>(in_types.size())));
+  RETURN_NOT_OK(CheckArity(in_types));
 
   if (arity_.is_varargs && in_types.size() != 1) {
     return Status::Invalid("VarArgs signatures must have exactly one input type");
@@ -254,7 +266,7 @@ Status VectorFunction::AddKernel(std::vector<InputType> in_types, OutputType out
 }
 
 Status VectorFunction::AddKernel(VectorKernel kernel) {
-  RETURN_NOT_OK(CheckArity(static_cast<int>(kernel.signature->in_types().size())));
+  RETURN_NOT_OK(CheckArity(kernel.signature->in_types()));
   if (arity_.is_varargs && !kernel.signature->is_varargs()) {
     return Status::Invalid("Function accepts varargs but kernel signature does not");
   }
@@ -263,7 +275,7 @@ Status VectorFunction::AddKernel(VectorKernel kernel) {
 }
 
 Status ScalarAggregateFunction::AddKernel(ScalarAggregateKernel kernel) {
-  RETURN_NOT_OK(CheckArity(static_cast<int>(kernel.signature->in_types().size())));
+  RETURN_NOT_OK(CheckArity(kernel.signature->in_types()));
   if (arity_.is_varargs && !kernel.signature->is_varargs()) {
     return Status::Invalid("Function accepts varargs but kernel signature does not");
   }
@@ -274,7 +286,9 @@ Status ScalarAggregateFunction::AddKernel(ScalarAggregateKernel kernel) {
 Result<Datum> MetaFunction::Execute(const std::vector<Datum>& args,
                                     const FunctionOptions* options,
                                     ExecContext* ctx) const {
-  RETURN_NOT_OK(CheckArity(static_cast<int>(args.size())));
+  RETURN_NOT_OK(
+      CheckArityImpl(this, static_cast<int>(args.size()), "attempted to Execute with"));
+
   if (options == nullptr) {
     options = default_options();
   }

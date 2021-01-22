@@ -86,14 +86,10 @@ struct Comparison {
     return nullptr;
   }
 
-  // Execute a simple Comparison between scalars, casting the RHS if types disagree
+  // Execute a simple Comparison between scalars
   static Result<type> Execute(Datum l, Datum r) {
     if (!l.is_scalar() || !r.is_scalar()) {
       return Status::Invalid("Cannot Execute Comparison on non-scalars");
-    }
-
-    if (!l.type()->Equals(r.type())) {
-      ARROW_ASSIGN_OR_RAISE(r, compute::Cast(r, l.type()));
     }
 
     std::vector<Datum> arguments{std::move(l), std::move(r)};

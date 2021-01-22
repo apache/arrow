@@ -62,6 +62,7 @@ const std::shared_ptr<Schema> kBoringSchema = schema({
     field("date64", date64()),
     field("str", utf8()),
     field("dict_str", dictionary(int32(), utf8())),
+    field("dict_i32", dictionary(int32(), int32())),
     field("ts_ns", timestamp(TimeUnit::NANO)),
 });
 

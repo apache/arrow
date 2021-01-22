@@ -201,6 +201,13 @@ void ReplaceNullWithOtherType(std::vector<ValueDescr>* descrs) {
   }
 }
 
+void ReplaceTypes(const std::shared_ptr<DataType>& type,
+                  std::vector<ValueDescr>* descrs) {
+  for (auto& descr : *descrs) {
+    descr.type = type;
+  }
+}
+
 std::shared_ptr<DataType> CommonNumeric(const std::vector<ValueDescr>& descrs) {
   for (const auto& descr : descrs) {
     auto id = descr.type->id();
@@ -252,6 +259,39 @@ std::shared_ptr<DataType> CommonTimestamp(const std::vector<ValueDescr>& descrs)
   }
 
   return timestamp(finest_unit);
+}
+
+std::shared_ptr<DataType> CommonBinary(const std::vector<ValueDescr>& descrs) {
+  bool all_utf8 = true, all_offset32 = true;
+
+  for (const auto& descr : descrs) {
+    auto id = descr.type->id();
+    // a common varbinary type is only possible if all types are binary like
+    switch (id) {
+      case Type::STRING:
+        continue;
+      case Type::BINARY:
+        all_utf8 = false;
+        continue;
+      case Type::LARGE_STRING:
+        all_offset32 = false;
+        continue;
+      case Type::LARGE_BINARY:
+        all_offset32 = false;
+        all_utf8 = false;
+        continue;
+      default:
+        return nullptr;
+    }
+  }
+
+  if (all_utf8) {
+    if (all_offset32) return utf8();
+    return large_utf8();
+  }
+
+  if (all_offset32) return binary();
+  return large_binary();
 }
 
 }  // namespace internal
