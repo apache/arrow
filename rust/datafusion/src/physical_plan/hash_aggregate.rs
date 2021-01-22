@@ -46,7 +46,7 @@ use arrow::{
 use pin_project_lite::pin_project;
 
 use super::{
-    common, expressions::Column, group_scalar::GroupByScalar, RecordBatchStream,
+    expressions::Column, group_scalar::GroupByScalar, RecordBatchStream,
     SendableRecordBatchStream,
 };
 use ahash::RandomState;
@@ -832,7 +832,7 @@ fn create_batch_from_map(
         let columns = concatenate(arrays)?;
         RecordBatch::try_new(Arc::new(output_schema.to_owned()), columns)?
     } else {
-        common::create_batch_empty(output_schema)?
+        RecordBatch::new_empty(Arc::new(output_schema.to_owned()))
     };
     Ok(batch)
 }
