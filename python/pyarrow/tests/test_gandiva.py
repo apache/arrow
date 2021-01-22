@@ -37,11 +37,15 @@ def test_tree_exp_builder():
     node_a = builder.make_field(field_a)
     node_b = builder.make_field(field_b)
 
+    assert node_a.return_type() == field_a.type
+
     condition = builder.make_function("greater_than", [node_a, node_b],
                                       pa.bool_())
     if_node = builder.make_if(condition, node_a, node_b, pa.int32())
 
     expr = builder.make_expression(if_node, field_result)
+
+    assert expr.result().type == pa.int32()
 
     projector = gandiva.make_projector(
         schema, [expr], pa.default_memory_pool())
@@ -97,6 +101,8 @@ def test_filter():
     thousand = builder.make_literal(1000.0, pa.float64())
     cond = builder.make_function("less_than", [node_a, thousand], pa.bool_())
     condition = builder.make_condition(cond)
+
+    assert condition.result().type == pa.bool_()
 
     filter = gandiva.make_filter(table.schema, condition)
     # Gandiva generates compute kernel function named `@expr_X`
