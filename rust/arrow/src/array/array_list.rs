@@ -27,7 +27,7 @@ use super::{
     ArrayRef,
 };
 use crate::datatypes::ArrowNativeType;
-use crate::datatypes::DataType;
+use crate::datatypes::*;
 
 /// trait declaring an offset size, relevant for i32 vs i64 array types.
 pub trait OffsetSizeTrait: ArrowNativeType + Num + Ord + std::ops::AddAssign {
@@ -238,13 +238,16 @@ impl From<ArrayDataRef> for FixedSizeListArray {
         let values = make_array(data.child_data()[0].clone());
         let length = match data.data_type() {
             DataType::FixedSizeList(_, len) => {
-                // check that child data is multiple of length
-                assert_eq!(
-                    values.len() % *len as usize,
-                    0,
-                    "FixedSizeListArray child array length should be a multiple of {}",
-                    len
-                );
+                if *len > 0 {
+                    // check that child data is multiple of length
+                    assert_eq!(
+                        values.len() % *len as usize,
+                        0,
+                        "FixedSizeListArray child array length should be a multiple of {}",
+                        len
+                    );
+                }
+
                 *len
             }
             _ => {
@@ -298,7 +301,7 @@ impl fmt::Debug for FixedSizeListArray {
 #[cfg(test)]
 mod tests {
     use crate::{
-        array::ArrayData, array::Int32Array, buffer::Buffer, datatypes::Field,
+        array::ArrayData, array::Int32Array, buffer::Buffer, datatypes::Field, memory,
         util::bit_util,
     };
 
@@ -766,6 +769,37 @@ mod tests {
         let list_data = ArrayData::builder(list_data_type)
             .len(3)
             .add_buffer(value_offsets)
+            .add_child_data(value_data)
+            .build();
+        ListArray::from(list_data);
+    }
+
+    #[test]
+    #[should_panic(expected = "memory is not aligned")]
+    fn test_primitive_array_alignment() {
+        let ptr = memory::allocate_aligned(8);
+        let buf = unsafe { Buffer::from_raw_parts(ptr, 8, 8) };
+        let buf2 = buf.slice(1);
+        let array_data = ArrayData::builder(DataType::Int32).add_buffer(buf2).build();
+        Int32Array::from(array_data);
+    }
+
+    #[test]
+    #[should_panic(expected = "memory is not aligned")]
+    fn test_list_array_alignment() {
+        let ptr = memory::allocate_aligned(8);
+        let buf = unsafe { Buffer::from_raw_parts(ptr, 8, 8) };
+        let buf2 = buf.slice(1);
+
+        let values: [i32; 8] = [0; 8];
+        let value_data = ArrayData::builder(DataType::Int32)
+            .add_buffer(Buffer::from(values.to_byte_slice()))
+            .build();
+
+        let list_data_type =
+            DataType::List(Box::new(Field::new("item", DataType::Int32, false)));
+        let list_data = ArrayData::builder(list_data_type)
+            .add_buffer(buf2)
             .add_child_data(value_data)
             .build();
         ListArray::from(list_data);

@@ -24,10 +24,10 @@ use std::sync::Arc;
 use std::vec::Vec;
 
 use arrow::array::{
-    Array, ArrayData, ArrayDataBuilder, ArrayDataRef, ArrayRef, BinaryArray,
-    BinaryBuilder, BooleanArray, BooleanBufferBuilder, DecimalBuilder,
-    FixedSizeBinaryArray, FixedSizeBinaryBuilder, GenericListArray, Int16BufferBuilder,
-    Int32Array, Int64Array, ListBuilder, OffsetSizeTrait, PrimitiveArray,
+    new_empty_array, Array, ArrayData, ArrayDataBuilder, ArrayDataRef, ArrayRef,
+    BinaryArray, BinaryBuilder, BooleanArray, BooleanBufferBuilder, BooleanBuilder,
+    DecimalBuilder, FixedSizeBinaryArray, FixedSizeBinaryBuilder, GenericListArray,
+    Int16BufferBuilder, Int32Array, Int64Array, OffsetSizeTrait, PrimitiveArray,
     PrimitiveBuilder, StringArray, StringBuilder, StructArray,
 };
 use arrow::buffer::{Buffer, MutableBuffer};
@@ -624,105 +624,6 @@ impl<OffsetSize: OffsetSizeTrait> ListArrayReader<OffsetSize> {
     }
 }
 
-macro_rules! build_empty_list_array_with_primitive_items {
-    ($item_type:ident) => {{
-        let values_builder = PrimitiveBuilder::<$item_type>::new(0);
-        let mut builder = ListBuilder::new(values_builder);
-        let empty_list_array = builder.finish();
-        Ok(Arc::new(empty_list_array))
-    }};
-}
-
-macro_rules! build_empty_list_array_with_non_primitive_items {
-    ($builder:ident) => {{
-        let values_builder = $builder::new(0);
-        let mut builder = ListBuilder::new(values_builder);
-        let empty_list_array = builder.finish();
-        Ok(Arc::new(empty_list_array))
-    }};
-}
-
-fn build_empty_list_array(item_type: ArrowType) -> Result<ArrayRef> {
-    match item_type {
-        ArrowType::UInt8 => build_empty_list_array_with_primitive_items!(ArrowUInt8Type),
-        ArrowType::UInt16 => {
-            build_empty_list_array_with_primitive_items!(ArrowUInt16Type)
-        }
-        ArrowType::UInt32 => {
-            build_empty_list_array_with_primitive_items!(ArrowUInt32Type)
-        }
-        ArrowType::UInt64 => {
-            build_empty_list_array_with_primitive_items!(ArrowUInt64Type)
-        }
-        ArrowType::Int8 => build_empty_list_array_with_primitive_items!(ArrowInt8Type),
-        ArrowType::Int16 => build_empty_list_array_with_primitive_items!(ArrowInt16Type),
-        ArrowType::Int32 => build_empty_list_array_with_primitive_items!(ArrowInt32Type),
-        ArrowType::Int64 => build_empty_list_array_with_primitive_items!(ArrowInt64Type),
-        ArrowType::Float32 => {
-            build_empty_list_array_with_primitive_items!(ArrowFloat32Type)
-        }
-        ArrowType::Float64 => {
-            build_empty_list_array_with_primitive_items!(ArrowFloat64Type)
-        }
-        ArrowType::Boolean => {
-            //build_empty_list_array_with_primitive_items!(ArrowBooleanType)
-            todo!()
-        }
-        ArrowType::Date32(_) => {
-            build_empty_list_array_with_primitive_items!(ArrowDate32Type)
-        }
-        ArrowType::Date64(_) => {
-            build_empty_list_array_with_primitive_items!(ArrowDate64Type)
-        }
-        ArrowType::Time32(ArrowTimeUnit::Second) => {
-            build_empty_list_array_with_primitive_items!(ArrowTime32SecondType)
-        }
-        ArrowType::Time32(ArrowTimeUnit::Millisecond) => {
-            build_empty_list_array_with_primitive_items!(ArrowTime32MillisecondType)
-        }
-        ArrowType::Time64(ArrowTimeUnit::Microsecond) => {
-            build_empty_list_array_with_primitive_items!(ArrowTime64MicrosecondType)
-        }
-        ArrowType::Time64(ArrowTimeUnit::Nanosecond) => {
-            build_empty_list_array_with_primitive_items!(ArrowTime64NanosecondType)
-        }
-        ArrowType::Duration(ArrowTimeUnit::Second) => {
-            build_empty_list_array_with_primitive_items!(ArrowDurationSecondType)
-        }
-        ArrowType::Duration(ArrowTimeUnit::Millisecond) => {
-            build_empty_list_array_with_primitive_items!(ArrowDurationMillisecondType)
-        }
-        ArrowType::Duration(ArrowTimeUnit::Microsecond) => {
-            build_empty_list_array_with_primitive_items!(ArrowDurationMicrosecondType)
-        }
-        ArrowType::Duration(ArrowTimeUnit::Nanosecond) => {
-            build_empty_list_array_with_primitive_items!(ArrowDurationNanosecondType)
-        }
-        ArrowType::Timestamp(ArrowTimeUnit::Second, _) => {
-            build_empty_list_array_with_primitive_items!(ArrowTimestampSecondType)
-        }
-        ArrowType::Timestamp(ArrowTimeUnit::Millisecond, _) => {
-            build_empty_list_array_with_primitive_items!(ArrowTimestampMillisecondType)
-        }
-        ArrowType::Timestamp(ArrowTimeUnit::Microsecond, _) => {
-            build_empty_list_array_with_primitive_items!(ArrowTimestampMicrosecondType)
-        }
-        ArrowType::Timestamp(ArrowTimeUnit::Nanosecond, _) => {
-            build_empty_list_array_with_primitive_items!(ArrowTimestampNanosecondType)
-        }
-        ArrowType::Utf8 => {
-            build_empty_list_array_with_non_primitive_items!(StringBuilder)
-        }
-        ArrowType::Binary => {
-            build_empty_list_array_with_non_primitive_items!(BinaryBuilder)
-        }
-        _ => Err(ParquetError::General(format!(
-            "ListArray of type List({:?}) is not supported by array_reader",
-            item_type
-        ))),
-    }
-}
-
 macro_rules! remove_primitive_array_indices {
     ($arr: expr, $item_type:ty, $indices:expr) => {{
         let array_data = match $arr.as_any().downcast_ref::<PrimitiveArray<$item_type>>() {
@@ -811,8 +712,12 @@ fn remove_indices(
             remove_primitive_array_indices!(arr, ArrowFloat64Type, indices)
         }
         ArrowType::Boolean => {
-            todo!()
-            //remove_primitive_array_indices!(arr, ArrowBooleanType, indices)
+            remove_array_indices_custom_builder!(
+                arr,
+                BooleanArray,
+                BooleanBuilder,
+                indices
+            )
         }
         ArrowType::Date32(_) => {
             remove_primitive_array_indices!(arr, ArrowDate32Type, indices)
@@ -893,7 +798,7 @@ impl<OffsetSize: OffsetSizeTrait> ArrayReader for ListArrayReader<OffsetSize> {
         let item_type = self.item_reader.get_data_type().clone();
 
         if next_batch_array.len() == 0 {
-            return build_empty_list_array(item_type);
+            return Ok(new_empty_array(&self.data_type));
         }
         let def_levels = self
             .item_reader
@@ -912,11 +817,36 @@ impl<OffsetSize: OffsetSizeTrait> ArrayReader for ListArrayReader<OffsetSize> {
             ));
         }
 
-        // Need to remove from the values array the nulls that represent null lists rather than null items
-        // null lists have def_level = 0
+        // List definitions can be encoded as 4 values:
+        // - n + 0: the list slot is null
+        // - n + 1: the list slot is not null, but is empty (i.e. [])
+        // - n + 2: the list slot is not null, but its child is empty (i.e. [ null ])
+        // - n + 3: the list slot is not null, and its child is not empty
+        // Where n is the max definition level of the list's parent.
+        // If a Parquet schema's only leaf is the list, then n = 0.
+
+        // TODO: ARROW-10391 - add a test case with a non-nullable child, check if max is 3
+        let list_field_type = match self.get_data_type() {
+            ArrowType::List(field)
+            | ArrowType::FixedSizeList(field, _)
+            | ArrowType::LargeList(field) => field,
+            _ => {
+                // Panic: this is safe as we only write lists from list datatypes
+                unreachable!()
+            }
+        };
+        let max_list_def_range = if list_field_type.is_nullable() { 3 } else { 2 };
+        let max_list_definition = *(def_levels.iter().max().unwrap());
+        // TODO: ARROW-10391 - Find a reliable way of validating deeply-nested lists
+        // debug_assert!(
+        //     max_list_definition >= max_list_def_range,
+        //     "Lift definition max less than range"
+        // );
+        let list_null_def = max_list_definition - max_list_def_range;
+        let list_empty_def = max_list_definition - 1;
         let mut null_list_indices: Vec<usize> = Vec::new();
         for i in 0..def_levels.len() {
-            if def_levels[i] == 0 {
+            if def_levels[i] == list_null_def {
                 null_list_indices.push(i);
             }
         }
@@ -937,7 +867,7 @@ impl<OffsetSize: OffsetSizeTrait> ArrayReader for ListArrayReader<OffsetSize> {
             if rep_levels[i] == 0 {
                 offsets.push(cur_offset)
             }
-            if def_levels[i] > 0 {
+            if def_levels[i] >= list_empty_def {
                 cur_offset += OffsetSize::one();
             }
         }

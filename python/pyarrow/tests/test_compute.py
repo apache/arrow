@@ -1160,3 +1160,42 @@ def test_index_in():
 
     result = pc.index_in(arr, value_set=pa.array([1, 3]), skip_nulls=True)
     assert result.to_pylist() == [0, None, None, 0, None, 1]
+
+
+def test_quantile():
+    arr = pa.array([1, 2, 3, 4])
+
+    result = pc.quantile(arr)
+    assert result.to_pylist() == [2.5]
+
+    result = pc.quantile(arr, interpolation='lower')
+    assert result.to_pylist() == [2]
+    result = pc.quantile(arr, interpolation='higher')
+    assert result.to_pylist() == [3]
+    result = pc.quantile(arr, interpolation='nearest')
+    assert result.to_pylist() == [3]
+    result = pc.quantile(arr, interpolation='midpoint')
+    assert result.to_pylist() == [2.5]
+    result = pc.quantile(arr, interpolation='linear')
+    assert result.to_pylist() == [2.5]
+
+    arr = pa.array([1, 2])
+
+    result = pc.quantile(arr, q=[0.25, 0.5, 0.75])
+    assert result.to_pylist() == [1.25, 1.5, 1.75]
+
+    result = pc.quantile(arr, q=[0.25, 0.5, 0.75], interpolation='lower')
+    assert result.to_pylist() == [1, 1, 1]
+    result = pc.quantile(arr, q=[0.25, 0.5, 0.75], interpolation='higher')
+    assert result.to_pylist() == [2, 2, 2]
+    result = pc.quantile(arr, q=[0.25, 0.5, 0.75], interpolation='midpoint')
+    assert result.to_pylist() == [1.5, 1.5, 1.5]
+    result = pc.quantile(arr, q=[0.25, 0.5, 0.75], interpolation='nearest')
+    assert result.to_pylist() == [1, 1, 2]
+    result = pc.quantile(arr, q=[0.25, 0.5, 0.75], interpolation='linear')
+    assert result.to_pylist() == [1.25, 1.5, 1.75]
+
+    with pytest.raises(ValueError, match="Quantile must be between 0 and 1"):
+        pc.quantile(arr, q=1.1)
+    with pytest.raises(ValueError, match="'zzz' is not a valid interpolation"):
+        pc.quantile(arr, interpolation='zzz')

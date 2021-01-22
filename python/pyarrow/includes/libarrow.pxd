@@ -1848,6 +1848,19 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
             "arrow::compute::SortOptions"(CFunctionOptions):
         vector[CSortKey] sort_keys
 
+    enum CQuantileInterp \
+            "arrow::compute::QuantileOptions::Interpolation":
+        CQuantileInterp_LINEAR   "arrow::compute::QuantileOptions::LINEAR"
+        CQuantileInterp_LOWER    "arrow::compute::QuantileOptions::LOWER"
+        CQuantileInterp_HIGHER   "arrow::compute::QuantileOptions::HIGHER"
+        CQuantileInterp_NEAREST  "arrow::compute::QuantileOptions::NEAREST"
+        CQuantileInterp_MIDPOINT "arrow::compute::QuantileOptions::MIDPOINT"
+
+    cdef cppclass CQuantileOptions \
+            "arrow::compute::QuantileOptions"(CFunctionOptions):
+        vector[double] q
+        CQuantileInterp interpolation
+
     enum DatumType" arrow::Datum::type":
         DatumType_NONE" arrow::Datum::NONE"
         DatumType_SCALAR" arrow::Datum::SCALAR"
