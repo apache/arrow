@@ -55,7 +55,15 @@ import io.grpc.Status;
  * API to Implement an Arrow Flight SQL producer.
  */
 public abstract class FlightSQLProducer implements FlightProducer, AutoCloseable {
-
+  /**
+   * Depending on the provided command, method either:
+   * 1. Return information about a SQL query, or
+   * 2. Return information about a prepared statement. In this case, parameters binding is allowed.
+   *
+   * @param context Per-call context.
+   * @param descriptor The descriptor identifying the data stream.
+   * @return information about the given SQL query, or the given prepared statement.
+   */
   @Override
   public FlightInfo getFlightInfo(CallContext context, FlightDescriptor descriptor) {
     final Any command = FlightSQLUtils.parseOrThrow(descriptor.getCommand());
@@ -73,27 +81,12 @@ public abstract class FlightSQLProducer implements FlightProducer, AutoCloseable
   }
 
   /**
-   * Get information about a particular SQL query based data stream.
+   * Returns the schema of the result produced by the SQL query.
    *
-   * @param command    The sql command to generate the data stream.
-   * @param context    Per-call context.
+   * @param context Per-call context.
    * @param descriptor The descriptor identifying the data stream.
-   * @return Metadata about the stream.
+   * @return the result set schema.
    */
-  public abstract FlightInfo getFlightInfoStatement(CommandStatementQuery command, FlightDescriptor descriptor,
-          CallContext context);
-
-  /**
-   * Get information about a particular prepared statement data stream.
-   *
-   * @param command    The prepared statement to generate the data stream.
-   * @param context    Per-call context.
-   * @param descriptor The descriptor identifying the data stream.
-   * @return Metadata about the stream.
-   */
-  public abstract FlightInfo getFlightInfoPreparedStatement(CommandPreparedStatementQuery command,
-          FlightDescriptor descriptor, CallContext context);
-
   @Override
   public SchemaResult getSchema(CallContext context, FlightDescriptor descriptor) {
     final Any command = FlightSQLUtils.parseOrThrow(descriptor.getCommand());
@@ -107,16 +100,49 @@ public abstract class FlightSQLProducer implements FlightProducer, AutoCloseable
   }
 
   /**
-   * Get schema about a particular SQL query based data stream.
+   * Depending on the provided command, method either:
+   * 1. Return data for a stream produced by executing the provided SQL query, or
+   * 2. Return data for a prepared statement. In this case, parameters binding is allowed.
    *
-   * @param command    The sql command to generate the data stream.
-   * @param context    Per-call context.
-   * @param descriptor The descriptor identifying the data stream.
-   * @return Schema for the stream.
+   * @param context Per-call context.
+   * @param ticket The application-defined ticket identifying this stream.
+   * @param listener An interface for sending data back to the client.
    */
-  public abstract SchemaResult getSchemaStatement(CommandStatementQuery command, FlightDescriptor descriptor,
-          CallContext context);
+  @Override
+  public void getStream(CallContext context, Ticket ticket, ServerStreamListener listener) {
+    final Any command;
 
+    try {
+      command = Any.parseFrom(ticket.getBytes());
+    } catch (InvalidProtocolBufferException e) {
+      listener.error(e);
+      return;
+    }
+
+    if (command.is(CommandStatementQuery.class)) {
+      getStreamStatement(FlightSQLUtils.unpackOrThrow(command, CommandStatementQuery.class),
+              context, ticket, listener);
+
+    } else if (command.is(CommandPreparedStatementQuery.class)) {
+      getStreamPreparedStatement(FlightSQLUtils.unpackOrThrow(command, CommandPreparedStatementQuery.class),
+              context, ticket, listener);
+    }
+
+    throw Status.INVALID_ARGUMENT.asRuntimeException();
+  }
+
+  /**
+   * Depending on the provided command, method either:
+   * 1. Execute provided SQL query as an update statement, or
+   * 2. Execute provided update SQL query prepared statement. In this case, parameters binding
+   *    is allowed, or
+   * 3. Binds parameters to the provided prepared statement.
+   *
+   * @param context Per-call context.
+   * @param flightStream The data stream being uploaded.
+   * @param ackStream The data stream listener for update result acknowledgement.
+   * @return a Runnable to process the stream.
+   */
   @Override
   public Runnable acceptPut(CallContext context, FlightStream flightStream, StreamListener<PutResult> ackStream) {
     final Any command = FlightSQLUtils.parseOrThrow(flightStream.getDescriptor().getCommand());
@@ -141,43 +167,24 @@ public abstract class FlightSQLProducer implements FlightProducer, AutoCloseable
   }
 
   /**
-   * Accept uploaded data for a particular SQL query based data stream. PutResults must be in the form of a
-   * {@link org.apache.arrow.flight.sql.impl.FlightSQL.DoPutUpdateResult}.
+   * Lists all available Flight SQL actions.
    *
-   * @param command      The sql command to generate the data stream.
-   * @param context      Per-call context.
-   * @param flightStream The data stream being uploaded.
-   * @param ackStream    The result data stream.
-   * @return A runnable to process the stream.
+   * @param context Per-call context.
+   * @param listener An interface for sending data back to the client.
    */
-  public abstract Runnable acceptPutStatement(CommandStatementUpdate command, CallContext context,
-          FlightStream flightStream, StreamListener<PutResult> ackStream);
+  @Override
+  public void listActions(CallContext context, StreamListener<ActionType> listener) {
+    FLIGHT_SQL_ACTIONS.forEach(action -> listener.onNext(action));
+    listener.onCompleted();
+  }
 
   /**
-   * Accept uploaded data for a particular prepared statement data stream. PutResults must be in the form of a
-   * {@link org.apache.arrow.flight.sql.impl.FlightSQL.DoPutUpdateResult}.
+   * Performs the requested Flight SQL action.
    *
-   * @param command      The prepared statement to generate the data stream.
-   * @param context      Per-call context.
-   * @param flightStream The data stream being uploaded.
-   * @param ackStream    The result data stream.
-   * @return A runnable to process the stream.
+   * @param context Per-call context.
+   * @param action Client-supplied parameters.
+   * @param listener A stream of responses.
    */
-  public abstract Runnable acceptPutPreparedStatementUpdate(CommandPreparedStatementUpdate command,
-          CallContext context, FlightStream flightStream, StreamListener<PutResult> ackStream);
-
-  /**
-   * Accept uploaded parameter values for a particular prepared statement query.
-   *
-   * @param command      The prepared statement the parameter values will bind to.
-   * @param context      Per-call context.
-   * @param flightStream The data stream being uploaded.
-   * @param ackStream    The result data stream.
-   * @return A runnable to process the stream.
-   */
-  public abstract Runnable acceptPutPreparedStatementQuery(CommandPreparedStatementQuery command,
-          CallContext context, FlightStream flightStream, StreamListener<PutResult> ackStream);
-
   @Override
   public void doAction(CallContext context, Action action, StreamListener<Result> listener) {
 
@@ -215,6 +222,122 @@ public abstract class FlightSQLProducer implements FlightProducer, AutoCloseable
   }
 
   /**
+   * Creates a prepared statement on the server and returns a handle and metadata for in a
+   * {@link org.apache.arrow.flight.sql.impl.FlightSQL.ActionGetPreparedStatementResult} object in a {@link Result}
+   * object.
+   *
+   * @param request  The sql command to generate the prepared statement.
+   * @param context  Per-call context.
+   * @param listener A stream of responses.
+   */
+  public abstract void getPreparedStatement(ActionGetPreparedStatementRequest request, CallContext context,
+                                            StreamListener<Result> listener);
+
+  /**
+   * Closes a prepared statement on the server. No result is expected.
+   *
+   * @param request  The sql command to generate the prepared statement.
+   * @param context  Per-call context.
+   * @param listener A stream of responses.
+   */
+  public abstract void closePreparedStatement(ActionClosePreparedStatementRequest request, CallContext context,
+                                              StreamListener<Result> listener);
+
+  /**
+   * Gets information about a particular SQL query based data stream.
+   *
+   * @param command    The sql command to generate the data stream.
+   * @param context    Per-call context.
+   * @param descriptor The descriptor identifying the data stream.
+   * @return Metadata about the stream.
+   */
+  public abstract FlightInfo getFlightInfoStatement(CommandStatementQuery command, FlightDescriptor descriptor,
+                                                    CallContext context);
+
+  /**
+   * Gets information about a particular prepared statement data stream.
+   *
+   * @param command    The prepared statement to generate the data stream.
+   * @param context    Per-call context.
+   * @param descriptor The descriptor identifying the data stream.
+   * @return Metadata about the stream.
+   */
+  public abstract FlightInfo getFlightInfoPreparedStatement(CommandPreparedStatementQuery command,
+                                                            FlightDescriptor descriptor, CallContext context);
+
+
+  /**
+   * Gets schema about a particular SQL query based data stream.
+   *
+   * @param command    The sql command to generate the data stream.
+   * @param context    Per-call context.
+   * @param descriptor The descriptor identifying the data stream.
+   * @return Schema for the stream.
+   */
+  public abstract SchemaResult getSchemaStatement(CommandStatementQuery command, FlightDescriptor descriptor,
+                                                  CallContext context);
+
+  /**
+   * Returns data for a SQL query based data stream.
+   *
+   * @param command  The sql command to generate the data stream.
+   * @param context  Per-call context.
+   * @param ticket   The application-defined ticket identifying this stream.
+   * @param listener An interface for sending data back to the client.
+   */
+  public abstract void getStreamStatement(CommandStatementQuery command, CallContext context, Ticket ticket,
+                                          ServerStreamListener listener);
+
+  /**
+   * Returns data for a particular prepared statement query instance.
+   *
+   * @param command  The prepared statement to generate the data stream.
+   * @param context  Per-call context.
+   * @param ticket   The application-defined ticket identifying this stream.
+   * @param listener An interface for sending data back to the client.
+   */
+  public abstract void getStreamPreparedStatement(CommandPreparedStatementQuery command, CallContext context,
+                                                  Ticket ticket, ServerStreamListener listener);
+
+  /**
+   * Accepts uploaded data for a particular SQL query based data stream. PutResults must be in the form of a
+   * {@link org.apache.arrow.flight.sql.impl.FlightSQL.DoPutUpdateResult}.
+   *
+   * @param command      The sql command to generate the data stream.
+   * @param context      Per-call context.
+   * @param flightStream The data stream being uploaded.
+   * @param ackStream    The result data stream.
+   * @return A runnable to process the stream.
+   */
+  public abstract Runnable acceptPutStatement(CommandStatementUpdate command, CallContext context,
+          FlightStream flightStream, StreamListener<PutResult> ackStream);
+
+  /**
+   * Accepts uploaded data for a particular prepared statement data stream. PutResults must be in the form of a
+   * {@link org.apache.arrow.flight.sql.impl.FlightSQL.DoPutUpdateResult}.
+   *
+   * @param command      The prepared statement to generate the data stream.
+   * @param context      Per-call context.
+   * @param flightStream The data stream being uploaded.
+   * @param ackStream    The result data stream.
+   * @return A runnable to process the stream.
+   */
+  public abstract Runnable acceptPutPreparedStatementUpdate(CommandPreparedStatementUpdate command,
+          CallContext context, FlightStream flightStream, StreamListener<PutResult> ackStream);
+
+  /**
+   * Accepts uploaded parameter values for a particular prepared statement query.
+   *
+   * @param command      The prepared statement the parameter values will bind to.
+   * @param context      Per-call context.
+   * @param flightStream The data stream being uploaded.
+   * @param ackStream    The result data stream.
+   * @return A runnable to process the stream.
+   */
+  public abstract Runnable acceptPutPreparedStatementQuery(CommandPreparedStatementQuery command,
+          CallContext context, FlightStream flightStream, StreamListener<PutResult> ackStream);
+
+  /**
    * Returns the SQL Info of the server by returning a
    * {@link org.apache.arrow.flight.sql.impl.FlightSQL.ActionGetSQLInfoResult} in a {@link Result}.
    *
@@ -246,15 +369,6 @@ public abstract class FlightSQLProducer implements FlightProducer, AutoCloseable
           StreamListener<Result> listener);
 
   /**
-   * Returns the available table types by returning a stream of
-   * {@link org.apache.arrow.flight.sql.impl.FlightSQL.ActionGetTableTypesResult} objects in {@link Result} objects.
-   *
-   * @param context  Per-call context.
-   * @param listener A stream of responses.
-   */
-  public abstract void getTableTypes(CallContext context, StreamListener<Result> listener);
-
-  /**
    * Returns the available tables by returning a stream of
    * {@link org.apache.arrow.flight.sql.impl.FlightSQL.ActionGetTablesResult} objects in {@link Result} objects.
    *
@@ -265,75 +379,11 @@ public abstract class FlightSQLProducer implements FlightProducer, AutoCloseable
   public abstract void getTables(ActionGetTablesRequest request, CallContext context, StreamListener<Result> listener);
 
   /**
-   * Creates a prepared statement on the server and returns a handle and metadata for in a
-   * {@link org.apache.arrow.flight.sql.impl.FlightSQL.ActionGetPreparedStatementResult} object in a {@link Result}
-   * object.
+   * Returns the available table types by returning a stream of
+   * {@link org.apache.arrow.flight.sql.impl.FlightSQL.ActionGetTableTypesResult} objects in {@link Result} objects.
    *
-   * @param request  The sql command to generate the prepared statement.
    * @param context  Per-call context.
    * @param listener A stream of responses.
    */
-  public abstract void getPreparedStatement(ActionGetPreparedStatementRequest request, CallContext context,
-          StreamListener<Result> listener);
-
-  /**
-   * Closes a prepared statement on the server. No result is expected.
-   *
-   * @param request  The sql command to generate the prepared statement.
-   * @param context  Per-call context.
-   * @param listener A stream of responses.
-   */
-  public abstract void closePreparedStatement(ActionClosePreparedStatementRequest request, CallContext context,
-          StreamListener<Result> listener);
-
-  @Override
-  public void listActions(CallContext context, StreamListener<ActionType> listener) {
-    FLIGHT_SQL_ACTIONS.forEach(action -> listener.onNext(action));
-    listener.onCompleted();
-  }
-
-  @Override
-  public void getStream(CallContext context, Ticket ticket, ServerStreamListener listener) {
-    final Any command;
-
-    try {
-      command = Any.parseFrom(ticket.getBytes());
-    } catch (InvalidProtocolBufferException e) {
-      listener.error(e);
-      return;
-    }
-
-    if (command.is(CommandStatementQuery.class)) {
-      getStreamStatement(FlightSQLUtils.unpackOrThrow(command, CommandStatementQuery.class),
-              context, ticket, listener);
-
-    } else if (command.is(CommandPreparedStatementQuery.class)) {
-      getStreamPreparedStatement(FlightSQLUtils.unpackOrThrow(command, CommandPreparedStatementQuery.class),
-              context, ticket, listener);
-    }
-
-    throw Status.INVALID_ARGUMENT.asRuntimeException();
-  }
-
-  /**
-   * Return data for a SQL query based data stream.
-   *
-   * @param command  The sql command to generate the data stream.
-   * @param context  Per-call context.
-   * @param ticket   The application-defined ticket identifying this stream.
-   * @param listener An interface for sending data back to the client.
-   */
-  public abstract void getStreamStatement(CommandStatementQuery command, CallContext context, Ticket ticket,
-          ServerStreamListener listener);
-
-  /**
-   * Return data for a particular prepared statement query instance.
-   *
-   * @param command  The prepared statement to generate the data stream.
-   * @param context  Per-call context.
-   * @param ticket   The application-defined ticket identifying this stream.
-   * @param listener An interface for sending data back to the client.
-   */
-  public abstract void getStreamPreparedStatement(CommandPreparedStatementQuery command, CallContext context,
-          Ticket ticket, ServerStreamListener listener);
+  public abstract void getTableTypes(CallContext context, StreamListener<Result> listener);
 }
