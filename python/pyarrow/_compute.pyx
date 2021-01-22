@@ -494,15 +494,15 @@ cdef class _CastOptions(FunctionOptions):
         self.options.reset(new CCastOptions())
         self._set_type(target_type)
         if allow_int_overflow is not None:
-            deref(self.options).allow_int_overflow = allow_int_overflow
+            self.allow_int_overflow = allow_int_overflow
         if allow_time_truncate is not None:
-            deref(self.options).allow_time_truncate = allow_time_truncate
+            self.allow_time_truncate = allow_time_truncate
         if allow_time_overflow is not None:
-            deref(self.options).allow_time_overflow = allow_time_overflow
+            self.allow_time_overflow = allow_time_overflow
         if allow_float_truncate is not None:
-            deref(self.options).allow_float_truncate = allow_float_truncate
+            self.allow_float_truncate = allow_float_truncate
         if allow_invalid_utf8 is not None:
-            deref(self.options).allow_invalid_utf8 = allow_invalid_utf8
+            self.allow_invalid_utf8 = allow_invalid_utf8
 
     def _set_type(self, target_type=None):
         if target_type is not None:
