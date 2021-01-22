@@ -71,9 +71,7 @@ ENV CMAKE_BUILD_TYPE=${build_type} \
 # TODO(kszucs): factor out the package enumeration to a text file and reuse it
 # from the windows image and potentially in a future macos wheel build
 # boost-build:x64-linux is required on ARM64
-RUN vcpkg install --clean-after-build boost-build:x64-linux && \
-    vcpkg install --clean-after-build \
-        boost-build:x64-linux \
+RUN vcpkg install --clean-after-build \
         abseil \
         boost-filesystem \
         brotli \

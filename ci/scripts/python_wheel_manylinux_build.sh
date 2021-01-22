@@ -70,6 +70,10 @@ echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 : ${VCPKG_FEATURE_FLAGS:=-manifests}
 : ${VCPKG_TARGET_TRIPLET:=${VCPKG_DEFAULT_TRIPLET:-x64-linux-static-${CMAKE_BUILD_TYPE}}}
 
+# FIXME(kszucs): without Thrift_ROOT defined cmake is unable to locate thrift installed
+# by vcpkg, on the other hand if an arbitrary path is provided it manages to locate the
+# vcpkg package
+
 mkdir /tmp/arrow-build
 pushd /tmp/arrow-build
 cmake \
