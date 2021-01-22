@@ -69,6 +69,10 @@ impl StructArray {
     }
 
     /// Return child array whose field name equals to column_name
+    ///
+    /// Note: A schema can currently have duplicate field names, in which case
+    /// the first field will always be selected.
+    /// This issue will be addressed in [ARROW-11178](https://issues.apache.org/jira/browse/ARROW-11178)
     pub fn column_by_name(&self, column_name: &str) -> Option<&ArrayRef> {
         self.column_names()
             .iter()
