@@ -220,8 +220,10 @@ impl ArrowJsonBatch {
                 let json_array: Vec<Value> = json_from_col(&col, field.data_type());
                 match field.data_type() {
                     DataType::Null => {
-                        let arr = arr.as_any().downcast_ref::<NullArray>().unwrap();
-                        arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
+                        let arr: &NullArray =
+                            arr.as_any().downcast_ref::<NullArray>().unwrap();
+                        // NullArrays should have the same length, json_array is empty
+                        arr.len() == col.count
                     }
                     DataType::Boolean => {
                         let arr = arr.as_any().downcast_ref::<BooleanArray>().unwrap();
@@ -519,6 +521,7 @@ fn json_from_col(col: &ArrowJsonColumn, data_type: &DataType) -> Vec<Value> {
                 converted_col.as_slice(),
             )
         }
+        DataType::Null => vec![],
         _ => merge_json_array(
             col.validity.as_ref().unwrap().as_slice(),
             &col.data.clone().unwrap(),
