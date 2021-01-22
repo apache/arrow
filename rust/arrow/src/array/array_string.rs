@@ -459,7 +459,6 @@ mod tests {
     #[test]
     fn test_string_array_from_iter_values() {
         let data = vec!["hello", "hello2"];
-        // from Vec<Option<&str>>
         let array1 = StringArray::from_iter_values(data.iter());
 
         assert_eq!(array1.value(0), "hello");
