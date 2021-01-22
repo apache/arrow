@@ -94,6 +94,35 @@ impl<T: ArrowPrimitiveType> PrimitiveArray<T> {
         let offset = i + self.offset();
         unsafe { *self.raw_values.as_ptr().add(offset) }
     }
+
+    /// Creates a PrimitiveArray based on an iterator of values without nulls
+    pub fn from_iter_values<Ptr, I: IntoIterator<Item = Ptr>>(iter: I) -> Self
+    where
+        Ptr: Borrow<<T as ArrowPrimitiveType>::Native>,
+    {
+        let iter = iter.into_iter();
+        let (_, data_len) = iter.size_hint();
+        let data_len = data_len.expect("Iterator must be sized"); // panic if no upper bound.
+
+        let mut val_buf = MutableBuffer::new(
+            data_len * mem::size_of::<<T as ArrowPrimitiveType>::Native>(),
+        );
+
+        iter.for_each(|item| {
+            val_buf.push(*item.borrow());
+        });
+
+        let data = ArrayData::new(
+            T::DATA_TYPE,
+            data_len,
+            None,
+            None,
+            0,
+            vec![val_buf.into()],
+            vec![],
+        );
+        PrimitiveArray::from(Arc::new(data))
+    }
 }
 
 impl<T: ArrowPrimitiveType> Array for PrimitiveArray<T> {
@@ -817,6 +846,18 @@ mod tests {
         assert_eq!(0, arr.null_count());
         for i in 0..3 {
             assert_eq!((i + 2) as i32, arr.value(i));
+        }
+    }
+
+    #[test]
+    fn test_primitive_from_iter_values() {
+        // Test building a primitive array with from_iter_values
+
+        let arr: PrimitiveArray<Int32Type> = PrimitiveArray::from_iter_values(0..10);
+        assert_eq!(10, arr.len());
+        assert_eq!(0, arr.null_count());
+        for i in 0..10i32 {
+            assert_eq!(i, arr.value(i as usize));
         }
     }
 
