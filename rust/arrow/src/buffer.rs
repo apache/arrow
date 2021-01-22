@@ -1063,6 +1063,11 @@ impl Buffer {
             std::ptr::write(dst, item);
             dst = dst.add(1);
         }
+        assert_eq!(
+            dst.offset_from(buffer.data.as_ptr() as *mut T) as usize,
+            upper,
+            "Trusted iterator length was not accurately reported"
+        );
         buffer.len = len;
         buffer.into()
     }
@@ -1092,6 +1097,11 @@ impl Buffer {
             std::ptr::write(dst, item?);
             dst = dst.add(1);
         }
+        assert_eq!(
+            dst.offset_from(buffer.data.as_ptr() as *mut T) as usize,
+            upper,
+            "Trusted iterator length was not accurately reported"
+        );
         buffer.len = len;
         Ok(buffer.into())
     }
