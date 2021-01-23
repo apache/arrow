@@ -101,13 +101,9 @@ impl<T: ArrowPrimitiveType> PrimitiveArray<T> {
         let (_, data_len) = iter.size_hint();
         let data_len = data_len.expect("Iterator must be sized"); // panic if no upper bound.
 
-        let mut val_buf = MutableBuffer::new(
-            data_len * mem::size_of::<<T as ArrowPrimitiveType>::Native>(),
-        );
+        let mut val_buf = MutableBuffer::new(data_len);
 
-        iter.for_each(|item| {
-            val_buf.push(item);
-        });
+        val_buf.extend(iter);
 
         let data = ArrayData::new(
             T::DATA_TYPE,
