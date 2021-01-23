@@ -965,8 +965,8 @@ mod tests {
     use arrow::array::Float64Array;
 
     use super::*;
-    use crate::physical_plan::common;
     use crate::physical_plan::expressions::{col, Avg};
+    use crate::{assert_batches_sorted_eq, physical_plan::common};
 
     use crate::physical_plan::merge::MergeExec;
 
@@ -1022,9 +1022,16 @@ mod tests {
 
         let result = common::collect(partial_aggregate.execute(0).await?).await?;
 
-        let mut rows = crate::test::format_batch(&result[0]);
-        rows.sort();
-        assert_eq!(rows, vec!["2,2,2.0", "3,3,7.0", "4,3,11.0"]);
+        let expected = vec![
+            "+---+---------------+-------------+",
+            "| a | AVG(b)[count] | AVG(b)[sum] |",
+            "+---+---------------+-------------+",
+            "| 2 | 2             | 2           |",
+            "| 3 | 3             | 7           |",
+            "| 4 | 3             | 11          |",
+            "+---+---------------+-------------+",
+        ];
+        assert_batches_sorted_eq!(expected, &result);
 
         let merge = Arc::new(MergeExec::new(partial_aggregate));
 
@@ -1049,17 +1056,17 @@ mod tests {
         assert_eq!(batch.num_columns(), 2);
         assert_eq!(batch.num_rows(), 3);
 
-        let mut rows = crate::test::format_batch(&batch);
-        rows.sort();
+        let expected = vec![
+            "+---+--------------------+",
+            "| a | AVG(b)             |",
+            "+---+--------------------+",
+            "| 2 | 1                  |",
+            "| 3 | 2.3333333333333335 |", // 3, (2 + 3 + 2) / 3
+            "| 4 | 3.6666666666666665 |", // 4, (3 + 4 + 4) / 3
+            "+---+--------------------+",
+        ];
 
-        assert_eq!(
-            rows,
-            vec![
-                "2,1.0",
-                "3,2.3333333333333335", // 3, (2 + 3 + 2) / 3
-                "4,3.6666666666666665"  // 4, (3 + 4 + 4) / 3
-            ]
-        );
+        assert_batches_sorted_eq!(&expected, &result);
         Ok(())
     }
 
