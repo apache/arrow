@@ -142,7 +142,9 @@ impl CsvExec {
         let mut filenames: Vec<String> = vec![];
         common::build_file_list(path, &mut filenames, file_extension.as_str())?;
         if filenames.is_empty() {
-            return Err(DataFusionError::Execution(format!("No files found at {path}", path = path).to_string()));
+            return Err(DataFusionError::Execution(
+                format!("No files found at {path}", path = path).to_string(),
+            ));
         }
 
         let schema = match options.schema {
