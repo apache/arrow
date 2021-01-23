@@ -30,3 +30,4 @@ pub mod sort;
 pub mod substring;
 pub mod take;
 pub mod temporal;
+pub mod unary;
