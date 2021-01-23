@@ -838,12 +838,12 @@ impl Stream for HashJoinStream {
 #[cfg(test)]
 mod tests {
     use crate::{
+        assert_batches_sorted_eq,
         physical_plan::{common, memory::MemoryExec},
-        test::{build_table_i32, columns, format_batch},
+        test::{build_table_i32, columns},
     };
 
     use super::*;
-    use std::collections::HashSet;
     use std::sync::Arc;
 
     fn build_table(
@@ -869,19 +869,6 @@ mod tests {
         HashJoinExec::try_new(left, right, &on, join_type)
     }
 
-    /// Asserts that the rows are the same, taking into account that their order
-    /// is irrelevant
-    fn assert_same_rows(result: &[String], expected: &[&str]) {
-        // convert to set since row order is irrelevant
-        let result = result.iter().cloned().collect::<HashSet<_>>();
-
-        let expected = expected
-            .iter()
-            .map(|s| s.to_string())
-            .collect::<HashSet<_>>();
-        assert_eq!(result, expected);
-    }
-
     #[tokio::test]
     async fn join_inner_one() -> Result<()> {
         let left = build_table(
@@ -904,10 +891,16 @@ mod tests {
         let stream = join.execute(0).await?;
         let batches = common::collect(stream).await?;
 
-        let result = format_batch(&batches[0]);
-        let expected = vec!["2,5,8,20,80", "3,5,9,20,80", "1,4,7,10,70"];
-
-        assert_same_rows(&result, &expected);
+        let expected = vec![
+            "+----+----+----+----+----+",
+            "| a1 | b1 | c1 | a2 | c2 |",
+            "+----+----+----+----+----+",
+            "| 1  | 4  | 7  | 10 | 70 |",
+            "| 2  | 5  | 8  | 20 | 80 |",
+            "| 3  | 5  | 9  | 20 | 80 |",
+            "+----+----+----+----+----+",
+        ];
+        assert_batches_sorted_eq!(expected, &batches);
 
         Ok(())
     }
@@ -934,10 +927,17 @@ mod tests {
         let stream = join.execute(0).await?;
         let batches = common::collect(stream).await?;
 
-        let result = format_batch(&batches[0]);
-        let expected = vec!["2,5,8,20,5,80", "3,5,9,20,5,80", "1,4,7,10,4,70"];
+        let expected = vec![
+            "+----+----+----+----+----+----+",
+            "| a1 | b1 | c1 | a2 | b2 | c2 |",
+            "+----+----+----+----+----+----+",
+            "| 1  | 4  | 7  | 10 | 4  | 70 |",
+            "| 2  | 5  | 8  | 20 | 5  | 80 |",
+            "| 3  | 5  | 9  | 20 | 5  | 80 |",
+            "+----+----+----+----+----+----+",
+        ];
 
-        assert_same_rows(&result, &expected);
+        assert_batches_sorted_eq!(expected, &batches);
 
         Ok(())
     }
@@ -965,10 +965,17 @@ mod tests {
         let batches = common::collect(stream).await?;
         assert_eq!(batches.len(), 1);
 
-        let result = format_batch(&batches[0]);
-        let expected = vec!["1,1,7,70", "2,2,8,80", "2,2,9,80"];
+        let expected = vec![
+            "+----+----+----+----+",
+            "| a1 | b2 | c1 | c2 |",
+            "+----+----+----+----+",
+            "| 1  | 1  | 7  | 70 |",
+            "| 2  | 2  | 8  | 80 |",
+            "| 2  | 2  | 9  | 80 |",
+            "+----+----+----+----+",
+        ];
 
-        assert_same_rows(&result, &expected);
+        assert_batches_sorted_eq!(expected, &batches);
 
         Ok(())
     }
@@ -1004,10 +1011,17 @@ mod tests {
         let batches = common::collect(stream).await?;
         assert_eq!(batches.len(), 1);
 
-        let result = format_batch(&batches[0]);
-        let expected = vec!["1,1,7,70", "2,2,8,80", "2,2,9,80"];
+        let expected = vec![
+            "+----+----+----+----+",
+            "| a1 | b2 | c1 | c2 |",
+            "+----+----+----+----+",
+            "| 1  | 1  | 7  | 70 |",
+            "| 2  | 2  | 8  | 80 |",
+            "| 2  | 2  | 9  | 80 |",
+            "+----+----+----+----+",
+        ];
 
-        assert_same_rows(&result, &expected);
+        assert_batches_sorted_eq!(expected, &batches);
 
         Ok(())
     }
@@ -1045,18 +1059,29 @@ mod tests {
         let batches = common::collect(stream).await?;
         assert_eq!(batches.len(), 1);
 
-        let result = format_batch(&batches[0]);
-        let expected = vec!["1,4,7,10,70"];
-        assert_same_rows(&result, &expected);
+        let expected = vec![
+            "+----+----+----+----+----+",
+            "| a1 | b1 | c1 | a2 | c2 |",
+            "+----+----+----+----+----+",
+            "| 1  | 4  | 7  | 10 | 70 |",
+            "+----+----+----+----+----+",
+        ];
+        assert_batches_sorted_eq!(expected, &batches);
 
         // second part
         let stream = join.execute(1).await?;
         let batches = common::collect(stream).await?;
         assert_eq!(batches.len(), 1);
-        let result = format_batch(&batches[0]);
-        let expected = vec!["2,5,8,30,90", "3,5,9,30,90"];
+        let expected = vec![
+            "+----+----+----+----+----+",
+            "| a1 | b1 | c1 | a2 | c2 |",
+            "+----+----+----+----+----+",
+            "| 2  | 5  | 8  | 30 | 90 |",
+            "| 3  | 5  | 9  | 30 | 90 |",
+            "+----+----+----+----+----+",
+        ];
 
-        assert_same_rows(&result, &expected);
+        assert_batches_sorted_eq!(expected, &batches);
 
         Ok(())
     }
@@ -1083,10 +1108,16 @@ mod tests {
         let stream = join.execute(0).await?;
         let batches = common::collect(stream).await?;
 
-        let result = format_batch(&batches[0]);
-        let expected = vec!["1,4,7,10,70", "2,5,8,20,80", "3,7,9,NULL,NULL"];
-
-        assert_same_rows(&result, &expected);
+        let expected = vec![
+            "+----+----+----+----+----+",
+            "| a1 | b1 | c1 | a2 | c2 |",
+            "+----+----+----+----+----+",
+            "| 1  | 4  | 7  | 10 | 70 |",
+            "| 2  | 5  | 8  | 20 | 80 |",
+            "| 3  | 7  | 9  |    |    |",
+            "+----+----+----+----+----+",
+        ];
+        assert_batches_sorted_eq!(expected, &batches);
 
         Ok(())
     }
@@ -1113,10 +1144,17 @@ mod tests {
         let stream = join.execute(0).await?;
         let batches = common::collect(stream).await?;
 
-        let result = format_batch(&batches[0]);
-        let expected = vec!["1,7,10,4,70", "2,8,20,5,80", "NULL,NULL,30,6,90"];
+        let expected = vec![
+            "+----+----+----+----+----+",
+            "| a1 | c1 | a2 | b1 | c2 |",
+            "+----+----+----+----+----+",
+            "|    |    | 30 | 6  | 90 |",
+            "| 1  | 7  | 10 | 4  | 70 |",
+            "| 2  | 8  | 20 | 5  | 80 |",
+            "+----+----+----+----+----+",
+        ];
 
-        assert_same_rows(&result, &expected);
+        assert_batches_sorted_eq!(expected, &batches);
 
         Ok(())
     }

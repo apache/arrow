@@ -21,7 +21,7 @@ use crate::datasource::{MemTable, TableProvider};
 use crate::error::Result;
 use crate::logical_plan::{LogicalPlan, LogicalPlanBuilder};
 use arrow::array::{self, Int32Array};
-use arrow::datatypes::{DataType, Field, Schema, SchemaRef, TimeUnit};
+use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 use arrow::record_batch::RecordBatch;
 use std::fs::File;
 use std::io::prelude::*;
@@ -106,137 +106,7 @@ pub fn aggr_test_schema() -> SchemaRef {
     ]))
 }
 
-/// Format a batch as csv
-pub fn format_batch(batch: &RecordBatch) -> Vec<String> {
-    let mut rows = vec![];
-    for row_index in 0..batch.num_rows() {
-        let mut s = String::new();
-        for column_index in 0..batch.num_columns() {
-            if column_index > 0 {
-                s.push(',');
-            }
-            let array = batch.column(column_index);
-
-            if array.is_null(row_index) {
-                s.push_str("NULL");
-                continue;
-            }
-
-            match array.data_type() {
-                DataType::Utf8 => s.push_str(
-                    array
-                        .as_any()
-                        .downcast_ref::<array::StringArray>()
-                        .unwrap()
-                        .value(row_index),
-                ),
-                DataType::Int8 => s.push_str(&format!(
-                    "{:?}",
-                    array
-                        .as_any()
-                        .downcast_ref::<array::Int8Array>()
-                        .unwrap()
-                        .value(row_index)
-                )),
-                DataType::Int16 => s.push_str(&format!(
-                    "{:?}",
-                    array
-                        .as_any()
-                        .downcast_ref::<array::Int16Array>()
-                        .unwrap()
-                        .value(row_index)
-                )),
-                DataType::Int32 => s.push_str(&format!(
-                    "{:?}",
-                    array
-                        .as_any()
-                        .downcast_ref::<array::Int32Array>()
-                        .unwrap()
-                        .value(row_index)
-                )),
-                DataType::Int64 => s.push_str(&format!(
-                    "{:?}",
-                    array
-                        .as_any()
-                        .downcast_ref::<array::Int64Array>()
-                        .unwrap()
-                        .value(row_index)
-                )),
-                DataType::UInt8 => s.push_str(&format!(
-                    "{:?}",
-                    array
-                        .as_any()
-                        .downcast_ref::<array::UInt8Array>()
-                        .unwrap()
-                        .value(row_index)
-                )),
-                DataType::UInt16 => s.push_str(&format!(
-                    "{:?}",
-                    array
-                        .as_any()
-                        .downcast_ref::<array::UInt16Array>()
-                        .unwrap()
-                        .value(row_index)
-                )),
-                DataType::UInt32 => s.push_str(&format!(
-                    "{:?}",
-                    array
-                        .as_any()
-                        .downcast_ref::<array::UInt32Array>()
-                        .unwrap()
-                        .value(row_index)
-                )),
-                DataType::UInt64 => s.push_str(&format!(
-                    "{:?}",
-                    array
-                        .as_any()
-                        .downcast_ref::<array::UInt64Array>()
-                        .unwrap()
-                        .value(row_index)
-                )),
-                DataType::Float32 => s.push_str(&format!(
-                    "{:?}",
-                    array
-                        .as_any()
-                        .downcast_ref::<array::Float32Array>()
-                        .unwrap()
-                        .value(row_index)
-                )),
-                DataType::Float64 => s.push_str(&format!(
-                    "{:?}",
-                    array
-                        .as_any()
-                        .downcast_ref::<array::Float64Array>()
-                        .unwrap()
-                        .value(row_index)
-                )),
-                DataType::Timestamp(TimeUnit::Microsecond, _) => s.push_str(&format!(
-                    "{:?}",
-                    array
-                        .as_any()
-                        .downcast_ref::<array::TimestampMicrosecondArray>()
-                        .unwrap()
-                        .value_as_datetime(row_index)
-                        .unwrap()
-                )),
-                DataType::Timestamp(TimeUnit::Nanosecond, _) => s.push_str(&format!(
-                    "{:?}",
-                    array
-                        .as_any()
-                        .downcast_ref::<array::TimestampNanosecondArray>()
-                        .unwrap()
-                        .value_as_datetime(row_index)
-                        .unwrap()
-                )),
-                _ => s.push('?'),
-            }
-        }
-        rows.push(s);
-    }
-    rows
-}
-
-/// all tests share a common table
+/// some tests share a common table
 pub fn test_table_scan() -> Result<LogicalPlan> {
     let schema = Schema::new(vec![
         Field::new("a", DataType::UInt32, false),
@@ -287,49 +157,71 @@ pub fn columns(schema: &Schema) -> Vec<String> {
 pub mod user_defined;
 pub mod variable;
 
-mod tests {
-    use super::*;
+/// Compares formatted output of a record batch with an expected
+/// vector of strings, with the result of pretty formatting record
+/// batches. This is a macro so errors appear on the correct line
+///
+/// Designed so that failure output can be directly copy/pasted
+/// into the test code as expected results.
+///
+/// Expects to be called about like this:
+///
+/// `assert_batch_eq!(expected_lines: &[&str], batches: &[RecordBatch])`
+#[macro_export]
+macro_rules! assert_batches_eq {
+    ($EXPECTED_LINES: expr, $CHUNKS: expr) => {
+        let expected_lines: Vec<String> =
+            $EXPECTED_LINES.iter().map(|&s| s.into()).collect();
 
-    use arrow::array::{BooleanArray, Int32Array, StringArray};
-    use arrow::datatypes::{DataType, Field, Schema};
-    use arrow::record_batch::RecordBatch;
+        let formatted = arrow::util::pretty::pretty_format_batches($CHUNKS).unwrap();
 
-    #[test]
-    fn test_format_batch() -> Result<()> {
-        let array_int32 = Int32Array::from(vec![1000, 2000]);
-        let array_string = StringArray::from(vec!["bow \u{1F3F9}", "arrow \u{2191}"]);
+        let actual_lines: Vec<&str> = formatted.trim().lines().collect();
 
-        let schema = Schema::new(vec![
-            Field::new("a", DataType::Int32, false),
-            Field::new("b", DataType::Utf8, false),
-        ]);
+        assert_eq!(
+            expected_lines, actual_lines,
+            "\n\nexpected:\n\n{:#?}\nactual:\n\n{:#?}\n\n",
+            expected_lines, actual_lines
+        );
+    };
+}
 
-        let record_batch = RecordBatch::try_new(
-            Arc::new(schema),
-            vec![Arc::new(array_int32), Arc::new(array_string)],
-        )?;
+/// Compares formatted output of a record batch with an expected
+/// vector of strings in a way that order does not matter.
+/// This is a macro so errors appear on the correct line
+///
+/// Designed so that failure output can be directly copy/pasted
+/// into the test code as expected results.
+///
+/// Expects to be called about like this:
+///
+/// `assert_batch_sorted_eq!(expected_lines: &[&str], batches: &[RecordBatch])`
+#[macro_export]
+macro_rules! assert_batches_sorted_eq {
+    ($EXPECTED_LINES: expr, $CHUNKS: expr) => {
+        let mut expected_lines: Vec<String> =
+            $EXPECTED_LINES.iter().map(|&s| s.into()).collect();
 
-        let result = format_batch(&record_batch);
+        // sort except for header + footer
+        let num_lines = expected_lines.len();
+        if num_lines > 3 {
+            expected_lines.as_mut_slice()[2..num_lines - 1].sort_unstable()
+        }
 
-        assert_eq!(result, vec!["1000,bow \u{1F3F9}", "2000,arrow \u{2191}"]);
+        let formatted = arrow::util::pretty::pretty_format_batches($CHUNKS).unwrap();
+        // fix for windows: \r\n -->
 
-        Ok(())
-    }
+        let mut actual_lines: Vec<&str> = formatted.trim().lines().collect();
 
-    #[test]
-    fn test_format_batch_unknown() -> Result<()> {
-        // Use any Array type not yet handled by format_batch().
-        let array_bool = BooleanArray::from(vec![false, true]);
+        // sort except for header + footer
+        let num_lines = actual_lines.len();
+        if num_lines > 3 {
+            actual_lines.as_mut_slice()[2..num_lines - 1].sort_unstable()
+        }
 
-        let schema = Schema::new(vec![Field::new("a", DataType::Boolean, false)]);
-
-        let record_batch =
-            RecordBatch::try_new(Arc::new(schema), vec![Arc::new(array_bool)])?;
-
-        let result = format_batch(&record_batch);
-
-        assert_eq!(result, vec!["?", "?"]);
-
-        Ok(())
-    }
+        assert_eq!(
+            expected_lines, actual_lines,
+            "\n\nexpected:\n\n{:#?}\nactual:\n\n{:#?}\n\n",
+            expected_lines, actual_lines
+        );
+    };
 }
