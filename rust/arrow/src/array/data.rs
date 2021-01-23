@@ -21,9 +21,12 @@
 use std::mem;
 use std::sync::Arc;
 
-use crate::buffer::Buffer;
-use crate::datatypes::DataType;
+use crate::datatypes::{DataType, IntervalUnit};
 use crate::{bitmap::Bitmap, datatypes::ArrowNativeType};
+use crate::{
+    buffer::{Buffer, MutableBuffer},
+    util::bit_util,
+};
 
 use super::equal::equal;
 
@@ -38,6 +41,167 @@ pub(crate) fn count_nulls(
             .unwrap()
     } else {
         0
+    }
+}
+
+/// creates 2 [`MutableBuffer`]s with a given `capacity` (in slots).
+#[inline]
+pub(crate) fn new_buffers(data_type: &DataType, capacity: usize) -> [MutableBuffer; 2] {
+    let empty_buffer = MutableBuffer::new(0);
+    match data_type {
+        DataType::Null => [empty_buffer, MutableBuffer::new(0)],
+        DataType::Boolean => {
+            let bytes = bit_util::ceil(capacity, 8);
+            let buffer = MutableBuffer::new(bytes);
+            [buffer, empty_buffer]
+        }
+        DataType::UInt8 => [
+            MutableBuffer::new(capacity * mem::size_of::<u8>()),
+            empty_buffer,
+        ],
+        DataType::UInt16 => [
+            MutableBuffer::new(capacity * mem::size_of::<u16>()),
+            empty_buffer,
+        ],
+        DataType::UInt32 => [
+            MutableBuffer::new(capacity * mem::size_of::<u32>()),
+            empty_buffer,
+        ],
+        DataType::UInt64 => [
+            MutableBuffer::new(capacity * mem::size_of::<u64>()),
+            empty_buffer,
+        ],
+        DataType::Int8 => [
+            MutableBuffer::new(capacity * mem::size_of::<i8>()),
+            empty_buffer,
+        ],
+        DataType::Int16 => [
+            MutableBuffer::new(capacity * mem::size_of::<i16>()),
+            empty_buffer,
+        ],
+        DataType::Int32 => [
+            MutableBuffer::new(capacity * mem::size_of::<i32>()),
+            empty_buffer,
+        ],
+        DataType::Int64 => [
+            MutableBuffer::new(capacity * mem::size_of::<i64>()),
+            empty_buffer,
+        ],
+        DataType::Float32 => [
+            MutableBuffer::new(capacity * mem::size_of::<f32>()),
+            empty_buffer,
+        ],
+        DataType::Float64 => [
+            MutableBuffer::new(capacity * mem::size_of::<f64>()),
+            empty_buffer,
+        ],
+        DataType::Date32(_) | DataType::Time32(_) => [
+            MutableBuffer::new(capacity * mem::size_of::<i32>()),
+            empty_buffer,
+        ],
+        DataType::Date64(_)
+        | DataType::Time64(_)
+        | DataType::Duration(_)
+        | DataType::Timestamp(_, _) => [
+            MutableBuffer::new(capacity * mem::size_of::<i64>()),
+            empty_buffer,
+        ],
+        DataType::Interval(IntervalUnit::YearMonth) => [
+            MutableBuffer::new(capacity * mem::size_of::<i32>()),
+            empty_buffer,
+        ],
+        DataType::Interval(IntervalUnit::DayTime) => [
+            MutableBuffer::new(capacity * mem::size_of::<i64>()),
+            empty_buffer,
+        ],
+        DataType::Utf8 | DataType::Binary => {
+            let mut buffer = MutableBuffer::new((1 + capacity) * mem::size_of::<i32>());
+            // safety: `unsafe` code assumes that this buffer is initialized with one element
+            buffer.push(0i32);
+            [buffer, MutableBuffer::new(capacity * mem::size_of::<u8>())]
+        }
+        DataType::LargeUtf8 | DataType::LargeBinary => {
+            let mut buffer = MutableBuffer::new((1 + capacity) * mem::size_of::<i64>());
+            // safety: `unsafe` code assumes that this buffer is initialized with one element
+            buffer.push(0i64);
+            [buffer, MutableBuffer::new(capacity * mem::size_of::<u8>())]
+        }
+        DataType::List(_) => {
+            // offset buffer always starts with a zero
+            let mut buffer = MutableBuffer::new((1 + capacity) * mem::size_of::<i32>());
+            buffer.push(0i32);
+            [buffer, empty_buffer]
+        }
+        DataType::LargeList(_) => {
+            // offset buffer always starts with a zero
+            let mut buffer = MutableBuffer::new((1 + capacity) * mem::size_of::<i64>());
+            buffer.push(0i64);
+            [buffer, empty_buffer]
+        }
+        DataType::FixedSizeBinary(size) => {
+            [MutableBuffer::new(capacity * *size as usize), empty_buffer]
+        }
+        DataType::Dictionary(child_data_type, _) => match child_data_type.as_ref() {
+            DataType::UInt8 => [
+                MutableBuffer::new(capacity * mem::size_of::<u8>()),
+                empty_buffer,
+            ],
+            DataType::UInt16 => [
+                MutableBuffer::new(capacity * mem::size_of::<u16>()),
+                empty_buffer,
+            ],
+            DataType::UInt32 => [
+                MutableBuffer::new(capacity * mem::size_of::<u32>()),
+                empty_buffer,
+            ],
+            DataType::UInt64 => [
+                MutableBuffer::new(capacity * mem::size_of::<u64>()),
+                empty_buffer,
+            ],
+            DataType::Int8 => [
+                MutableBuffer::new(capacity * mem::size_of::<i8>()),
+                empty_buffer,
+            ],
+            DataType::Int16 => [
+                MutableBuffer::new(capacity * mem::size_of::<i16>()),
+                empty_buffer,
+            ],
+            DataType::Int32 => [
+                MutableBuffer::new(capacity * mem::size_of::<i32>()),
+                empty_buffer,
+            ],
+            DataType::Int64 => [
+                MutableBuffer::new(capacity * mem::size_of::<i64>()),
+                empty_buffer,
+            ],
+            _ => unreachable!(),
+        },
+        DataType::Float16 => unreachable!(),
+        DataType::FixedSizeList(_, _) | DataType::Struct(_) => {
+            [empty_buffer, MutableBuffer::new(0)]
+        }
+        DataType::Decimal(_, _) => [
+            MutableBuffer::new(capacity * mem::size_of::<u8>()),
+            empty_buffer,
+        ],
+        DataType::Union(_) => unimplemented!(),
+    }
+}
+
+/// Maps 2 [`MutableBuffer`]s into a vector of [Buffer]s whose size depends on `data_type`.
+#[inline]
+pub(crate) fn into_buffers(
+    data_type: &DataType,
+    buffer1: MutableBuffer,
+    buffer2: MutableBuffer,
+) -> Vec<Buffer> {
+    match data_type {
+        DataType::Null | DataType::Struct(_) => vec![],
+        DataType::Utf8
+        | DataType::Binary
+        | DataType::LargeUtf8
+        | DataType::LargeBinary => vec![buffer1.into(), buffer2.into()],
+        _ => vec![buffer1.into()],
     }
 }
 
@@ -245,6 +409,61 @@ impl ArrayData {
         };
         assert_ne!(self.data_type, DataType::Boolean);
         &values.1[self.offset..]
+    }
+
+    /// Returns a new empty [ArrayData] valid for `data_type`.
+    pub(super) fn new_empty(data_type: &DataType) -> Self {
+        let buffers = new_buffers(data_type, 0);
+        let [buffer1, buffer2] = buffers;
+        let buffers = into_buffers(data_type, buffer1, buffer2);
+
+        let child_data = match data_type {
+            DataType::Null
+            | DataType::Boolean
+            | DataType::UInt8
+            | DataType::UInt16
+            | DataType::UInt32
+            | DataType::UInt64
+            | DataType::Int8
+            | DataType::Int16
+            | DataType::Int32
+            | DataType::Int64
+            | DataType::Float32
+            | DataType::Float64
+            | DataType::Date32(_)
+            | DataType::Date64(_)
+            | DataType::Time32(_)
+            | DataType::Time64(_)
+            | DataType::Duration(_)
+            | DataType::Timestamp(_, _)
+            | DataType::Utf8
+            | DataType::Binary
+            | DataType::LargeUtf8
+            | DataType::LargeBinary
+            | DataType::Interval(_)
+            | DataType::FixedSizeBinary(_)
+            | DataType::Decimal(_, _) => vec![],
+            DataType::List(field) => {
+                vec![Arc::new(Self::new_empty(field.data_type()))]
+            }
+            DataType::FixedSizeList(field, _) => {
+                vec![Arc::new(Self::new_empty(field.data_type()))]
+            }
+            DataType::LargeList(field) => {
+                vec![Arc::new(Self::new_empty(field.data_type()))]
+            }
+            DataType::Struct(fields) => fields
+                .iter()
+                .map(|field| Arc::new(Self::new_empty(field.data_type())))
+                .collect(),
+            DataType::Union(_) => unimplemented!(),
+            DataType::Dictionary(_, data_type) => {
+                vec![Arc::new(Self::new_empty(data_type))]
+            }
+            DataType::Float16 => unreachable!(),
+        };
+
+        Self::new(data_type.clone(), 0, Some(0), None, 0, buffers, child_data)
     }
 }
 

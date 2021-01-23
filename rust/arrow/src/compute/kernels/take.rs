@@ -423,7 +423,7 @@ where
     let mut offsets_buffer = MutableBuffer::from_len_zeroed(bytes_offset);
 
     let offsets = offsets_buffer.typed_data_mut();
-    let mut values = Vec::with_capacity(bytes_offset);
+    let mut values = MutableBuffer::new(0);
     let mut length_so_far = OffsetSize::zero();
     offsets[0] = length_so_far;
 
@@ -513,7 +513,7 @@ where
     let mut data = ArrayData::builder(<OffsetSize as StringOffsetSizeTrait>::DATA_TYPE)
         .len(data_len)
         .add_buffer(offsets_buffer.into())
-        .add_buffer(Buffer::from(values));
+        .add_buffer(values.into());
     if let Some(null_buffer) = nulls {
         data = data.null_bit_buffer(null_buffer);
     }

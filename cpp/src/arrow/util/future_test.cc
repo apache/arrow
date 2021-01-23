@@ -543,8 +543,8 @@ TEST(FutureCompletionTest, FutureNonVoid) {
     auto innerFut = Future<std::string>::Make();
     auto was_cb_run = false;
     auto fut2 = fut.Then([innerFut, &was_cb_run](int) {
-      return innerFut;
       was_cb_run = true;
+      return innerFut;
     });
     fut.MarkFinished(Status::IOError("xxx"));
     AssertFailed(fut2);

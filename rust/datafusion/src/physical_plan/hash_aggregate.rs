@@ -30,17 +30,14 @@ use crate::error::{DataFusionError, Result};
 use crate::physical_plan::{Accumulator, AggregateExpr};
 use crate::physical_plan::{Distribution, ExecutionPlan, Partitioning, PhysicalExpr};
 
-use super::{
-    common, expressions::Column, group_scalar::GroupByScalar, hash_join::create_hashes,
-    hash_join::IdHashBuilder, RecordBatchStream, SendableRecordBatchStream,
-};
-use ahash::RandomState;
-use arrow::array::{Array, UInt32Builder};
-use arrow::error::{ArrowError, Result as ArrowResult};
 use arrow::record_batch::RecordBatch;
 use arrow::{
     array::BooleanArray,
     datatypes::{DataType, Field, Schema, SchemaRef, TimeUnit},
+};
+use arrow::{
+    array::{Array, UInt32Builder},
+    error::{ArrowError, Result as ArrowResult},
 };
 use arrow::{
     array::{
@@ -51,6 +48,13 @@ use arrow::{
 };
 use pin_project_lite::pin_project;
 
+use super::{
+    expressions::Column,
+    group_scalar::GroupByScalar,
+    hash_join::{create_hashes, IdHashBuilder},
+    RecordBatchStream, SendableRecordBatchStream,
+};
+use ahash::RandomState;
 use hashbrown::HashMap;
 use ordered_float::OrderedFloat;
 
@@ -784,7 +788,7 @@ fn create_batch_from_map(
         let columns = concatenate(arrays)?;
         RecordBatch::try_new(Arc::new(output_schema.to_owned()), columns)?
     } else {
-        common::create_batch_empty(output_schema)?
+        RecordBatch::new_empty(Arc::new(output_schema.to_owned()))
     };
     Ok(batch)
 }
