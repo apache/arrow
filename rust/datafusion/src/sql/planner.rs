@@ -214,9 +214,9 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
             SQLDataType::Float(_) => Ok(DataType::Float32),
             SQLDataType::Real | SQLDataType::Double => Ok(DataType::Float64),
             SQLDataType::Boolean => Ok(DataType::Boolean),
-            SQLDataType::Date => Ok(DataType::Date32(DateUnit::Day)),
+            SQLDataType::Date => Ok(DataType::Date32),
             SQLDataType::Time => Ok(DataType::Time64(TimeUnit::Millisecond)),
-            SQLDataType::Timestamp => Ok(DataType::Date64(DateUnit::Millisecond)),
+            SQLDataType::Timestamp => Ok(DataType::Date64),
             _ => Err(DataFusionError::NotImplemented(format!(
                 "The SQL data type {:?} is not implemented",
                 sql_type
@@ -996,7 +996,7 @@ pub fn convert_data_type(sql: &SQLDataType) -> Result<DataType> {
         SQLDataType::Double => Ok(DataType::Float64),
         SQLDataType::Char(_) | SQLDataType::Varchar(_) => Ok(DataType::Utf8),
         SQLDataType::Timestamp => Ok(DataType::Timestamp(TimeUnit::Nanosecond, None)),
-        SQLDataType::Date => Ok(DataType::Date32(DateUnit::Day)),
+        SQLDataType::Date => Ok(DataType::Date32),
         other => Err(DataFusionError::NotImplemented(format!(
             "Unsupported SQL type {:?}",
             other
@@ -1147,7 +1147,7 @@ mod tests {
             "SELECT state FROM person WHERE birth_date < CAST ('2020-01-01' as date)";
 
         let expected = "Projection: #state\
-            \n  Filter: #birth_date Lt CAST(Utf8(\"2020-01-01\") AS Date32(Day))\
+            \n  Filter: #birth_date Lt CAST(Utf8(\"2020-01-01\") AS Date32)\
             \n    TableScan: person projection=None";
 
         quick_test(sql, expected);
@@ -1765,7 +1765,7 @@ mod tests {
     #[test]
     fn select_typedstring() {
         let sql = "SELECT date '2020-12-10' AS date FROM person";
-        let expected = "Projection: CAST(Utf8(\"2020-12-10\") AS Date32(Day)) AS date\
+        let expected = "Projection: CAST(Utf8(\"2020-12-10\") AS Date32) AS date\
             \n  TableScan: person projection=None";
         quick_test(sql, expected);
     }

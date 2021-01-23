@@ -137,11 +137,11 @@ impl<T: ArrowPrimitiveType> Array for PrimitiveArray<T> {
 
 fn as_datetime<T: ArrowPrimitiveType>(v: i64) -> Option<NaiveDateTime> {
     match T::DATA_TYPE {
-        DataType::Date32(_) => {
+        DataType::Date32 => {
             // convert days into seconds
             Some(NaiveDateTime::from_timestamp(v as i64 * SECONDS_IN_DAY, 0))
         }
-        DataType::Date64(_) => Some(NaiveDateTime::from_timestamp(
+        DataType::Date64 => Some(NaiveDateTime::from_timestamp(
             // extract seconds from milliseconds
             v / MILLISECONDS,
             // discard extracted seconds and convert milliseconds to nanoseconds
@@ -221,7 +221,7 @@ fn as_time<T: ArrowPrimitiveType>(v: i64) -> Option<NaiveTime> {
             }
         }
         DataType::Timestamp(_, _) => as_datetime::<T>(v).map(|datetime| datetime.time()),
-        DataType::Date32(_) | DataType::Date64(_) => Some(NaiveTime::from_hms(0, 0, 0)),
+        DataType::Date32 | DataType::Date64 => Some(NaiveTime::from_hms(0, 0, 0)),
         DataType::Interval(_) => None,
         _ => None,
     }
@@ -258,7 +258,7 @@ impl<T: ArrowPrimitiveType> fmt::Debug for PrimitiveArray<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "PrimitiveArray<{:?}>\n[\n", T::DATA_TYPE)?;
         print_long_array(self, f, |array, index, f| match T::DATA_TYPE {
-            DataType::Date32(_) | DataType::Date64(_) => {
+            DataType::Date32 | DataType::Date64 => {
                 let v = self.value(index).to_usize().unwrap() as i64;
                 match as_date::<T>(v) {
                     Some(date) => write!(f, "{:?}", date),
@@ -821,7 +821,7 @@ mod tests {
     fn test_date32_fmt_debug() {
         let arr: PrimitiveArray<Date32Type> = vec![12356, 13548].into();
         assert_eq!(
-            "PrimitiveArray<Date32(Day)>\n[\n  2003-10-31,\n  2007-02-04,\n]",
+            "PrimitiveArray<Date32>\n[\n  2003-10-31,\n  2007-02-04,\n]",
             format!("{:?}", arr)
         );
     }

@@ -100,10 +100,10 @@ pub enum DataType {
     Timestamp(TimeUnit, Option<String>),
     /// A 32-bit date representing the elapsed time since UNIX epoch (1970-01-01)
     /// in days (32 bits).
-    Date32(DateUnit),
+    Date32,
     /// A 64-bit date representing the elapsed time since UNIX epoch (1970-01-01)
-    /// in milliseconds (64 bits).
-    Date64(DateUnit),
+    /// in milliseconds (64 bits). Values are evenly divisible by 86400000.
+    Date64,
     /// A 32-bit time representing the elapsed time since midnight in the unit of `TimeUnit`.
     Time32(TimeUnit),
     /// A 64-bit time representing the elapsed time since midnight in the unit of `TimeUnit`.
@@ -148,17 +148,6 @@ pub enum DataType {
     Dictionary(Box<DataType>, Box<DataType>),
     /// Decimal value with precision and scale
     Decimal(usize, usize),
-}
-
-/// Date is either a 32-bit or 64-bit type representing elapsed time since UNIX
-/// epoch (1970-01-01) in days or milliseconds.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub enum DateUnit {
-    /// Days since the UNIX epoch.
-    Day,
-    /// Milliseconds indicating UNIX time elapsed since the epoch (no
-    /// leap seconds), where the values are evenly divisible by 86400000.
-    Millisecond,
 }
 
 /// An absolute length of time in seconds, milliseconds, microseconds or nanoseconds.
@@ -464,8 +453,8 @@ make_type!(
     i64,
     DataType::Timestamp(TimeUnit::Nanosecond, None)
 );
-make_type!(Date32Type, i32, DataType::Date32(DateUnit::Day));
-make_type!(Date64Type, i64, DataType::Date64(DateUnit::Millisecond));
+make_type!(Date32Type, i32, DataType::Date32);
+make_type!(Date64Type, i64, DataType::Date64);
 make_type!(Time32SecondType, i32, DataType::Time32(TimeUnit::Second));
 make_type!(
     Time32MillisecondType,
@@ -1058,10 +1047,8 @@ impl DataType {
                     Ok(DataType::Timestamp(unit?, tz?))
                 }
                 Some(s) if s == "date" => match map.get("unit") {
-                    Some(p) if p == "DAY" => Ok(DataType::Date32(DateUnit::Day)),
-                    Some(p) if p == "MILLISECOND" => {
-                        Ok(DataType::Date64(DateUnit::Millisecond))
-                    }
+                    Some(p) if p == "DAY" => Ok(DataType::Date32),
+                    Some(p) if p == "MILLISECOND" => Ok(DataType::Date64),
                     _ => Err(ArrowError::ParseError(
                         "date unit missing or invalid".to_string(),
                     )),
@@ -1226,11 +1213,11 @@ impl DataType {
                     TimeUnit::Nanosecond => "NANOSECOND",
                 }})
             }
-            DataType::Date32(unit) | DataType::Date64(unit) => {
-                json!({"name": "date", "unit": match unit {
-                    DateUnit::Day => "DAY",
-                    DateUnit::Millisecond => "MILLISECOND",
-                }})
+            DataType::Date32 => {
+                json!({"name": "date", "unit": "DAY"})
+            }
+            DataType::Date64 => {
+                json!({"name": "date", "unit": "MILLISECOND"})
             }
             DataType::Timestamp(unit, None) => {
                 json!({"name": "timestamp", "unit": match unit {
@@ -1728,8 +1715,8 @@ impl Field {
             | DataType::Float32
             | DataType::Float64
             | DataType::Timestamp(_, _)
-            | DataType::Date32(_)
-            | DataType::Date64(_)
+            | DataType::Date32
+            | DataType::Date64
             | DataType::Time32(_)
             | DataType::Time64(_)
             | DataType::Duration(_)
@@ -2301,8 +2288,8 @@ mod tests {
                 Field::new("c2", DataType::Binary, false),
                 Field::new("c3", DataType::FixedSizeBinary(3), false),
                 Field::new("c4", DataType::Boolean, false),
-                Field::new("c5", DataType::Date32(DateUnit::Day), false),
-                Field::new("c6", DataType::Date64(DateUnit::Millisecond), false),
+                Field::new("c5", DataType::Date32, false),
+                Field::new("c6", DataType::Date64, false),
                 Field::new("c7", DataType::Time32(TimeUnit::Second), false),
                 Field::new("c8", DataType::Time32(TimeUnit::Millisecond), false),
                 Field::new("c9", DataType::Time32(TimeUnit::Microsecond), false),

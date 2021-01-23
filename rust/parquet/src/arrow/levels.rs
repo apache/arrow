@@ -128,8 +128,8 @@ impl LevelInfo {
             | DataType::Utf8
             | DataType::LargeUtf8
             | DataType::Timestamp(_, _)
-            | DataType::Date32(_)
-            | DataType::Date64(_)
+            | DataType::Date32
+            | DataType::Date64
             | DataType::Time32(_)
             | DataType::Time64(_)
             | DataType::Duration(_)
@@ -178,8 +178,8 @@ impl LevelInfo {
                     | DataType::Float32
                     | DataType::Float64
                     | DataType::Timestamp(_, _)
-                    | DataType::Date32(_)
-                    | DataType::Date64(_)
+                    | DataType::Date32
+                    | DataType::Date64
                     | DataType::Time32(_)
                     | DataType::Time64(_)
                     | DataType::Duration(_)
@@ -588,8 +588,8 @@ impl LevelInfo {
             | DataType::Float32
             | DataType::Float64
             | DataType::Timestamp(_, _)
-            | DataType::Date32(_)
-            | DataType::Date64(_)
+            | DataType::Date32
+            | DataType::Date64
             | DataType::Time32(_)
             | DataType::Time64(_)
             | DataType::Duration(_)
