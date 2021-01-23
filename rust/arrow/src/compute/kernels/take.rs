@@ -311,7 +311,6 @@ where
         .enumerate()
         .map(|(i, index)| {
             let (index, value) = maybe_take::<T, I>(values_values, *index)?;
-            println!("{} {} {}", i, index, values.is_null(index));
             if values.is_null(index) {
                 null_count += 1;
                 bit_util::unset_bit(null_slice, i);
@@ -792,14 +791,16 @@ mod tests {
         index: &UInt32Array,
         options: Option<TakeOptions>,
         expected_data: Vec<Option<T::Native>>,
-    ) where
+    ) -> Result<()>
+    where
         T: ArrowPrimitiveType,
         PrimitiveArray<T>: From<Vec<Option<T::Native>>>,
     {
         let output = PrimitiveArray::<T>::from(data);
         let expected = Arc::new(PrimitiveArray::<T>::from(expected_data)) as ArrayRef;
-        let output = take(&output, index, options).unwrap();
-        assert_eq!(&output, &expected)
+        let output = take(&output, index, options)?;
+        assert_eq!(&output, &expected);
+        Ok(())
     }
 
     fn test_take_impl_primitive_arrays<T, I>(
@@ -843,7 +844,8 @@ mod tests {
             &index,
             None,
             vec![None, None, Some(2), Some(3), Some(3), Some(5)],
-        );
+        )
+        .unwrap();
     }
 
     #[test]
@@ -854,7 +856,8 @@ mod tests {
             &index,
             None,
             vec![Some(3), None, Some(1), Some(3), Some(2)],
-        );
+        )
+        .unwrap();
     }
 
     #[test]
@@ -865,7 +868,8 @@ mod tests {
             &index,
             None,
             vec![Some(0), Some(1), Some(2), Some(3), Some(3), Some(5)],
-        );
+        )
+        .unwrap();
     }
 
     #[test]
@@ -878,7 +882,8 @@ mod tests {
             &index,
             None,
             vec![Some(3), None, None, Some(3), Some(2)],
-        );
+        )
+        .unwrap();
 
         // int16
         test_take_primitive_arrays::<Int16Type>(
@@ -886,7 +891,8 @@ mod tests {
             &index,
             None,
             vec![Some(3), None, None, Some(3), Some(2)],
-        );
+        )
+        .unwrap();
 
         // int32
         test_take_primitive_arrays::<Int32Type>(
@@ -894,7 +900,8 @@ mod tests {
             &index,
             None,
             vec![Some(3), None, None, Some(3), Some(2)],
-        );
+        )
+        .unwrap();
 
         // int64
         test_take_primitive_arrays::<Int64Type>(
@@ -902,7 +909,8 @@ mod tests {
             &index,
             None,
             vec![Some(3), None, None, Some(3), Some(2)],
-        );
+        )
+        .unwrap();
 
         // uint8
         test_take_primitive_arrays::<UInt8Type>(
@@ -910,7 +918,8 @@ mod tests {
             &index,
             None,
             vec![Some(3), None, None, Some(3), Some(2)],
-        );
+        )
+        .unwrap();
 
         // uint16
         test_take_primitive_arrays::<UInt16Type>(
@@ -918,7 +927,8 @@ mod tests {
             &index,
             None,
             vec![Some(3), None, None, Some(3), Some(2)],
-        );
+        )
+        .unwrap();
 
         // uint32
         test_take_primitive_arrays::<UInt32Type>(
@@ -926,7 +936,8 @@ mod tests {
             &index,
             None,
             vec![Some(3), None, None, Some(3), Some(2)],
-        );
+        )
+        .unwrap();
 
         // int64
         test_take_primitive_arrays::<Int64Type>(
@@ -934,7 +945,8 @@ mod tests {
             &index,
             None,
             vec![Some(-15), None, None, Some(-15), Some(2)],
-        );
+        )
+        .unwrap();
 
         // interval_year_month
         test_take_primitive_arrays::<IntervalYearMonthType>(
@@ -942,7 +954,8 @@ mod tests {
             &index,
             None,
             vec![Some(-15), None, None, Some(-15), Some(2)],
-        );
+        )
+        .unwrap();
 
         // interval_day_time
         test_take_primitive_arrays::<IntervalDayTimeType>(
@@ -950,7 +963,8 @@ mod tests {
             &index,
             None,
             vec![Some(-15), None, None, Some(-15), Some(2)],
-        );
+        )
+        .unwrap();
 
         // duration_second
         test_take_primitive_arrays::<DurationSecondType>(
@@ -958,7 +972,8 @@ mod tests {
             &index,
             None,
             vec![Some(-15), None, None, Some(-15), Some(2)],
-        );
+        )
+        .unwrap();
 
         // duration_millisecond
         test_take_primitive_arrays::<DurationMillisecondType>(
@@ -966,7 +981,8 @@ mod tests {
             &index,
             None,
             vec![Some(-15), None, None, Some(-15), Some(2)],
-        );
+        )
+        .unwrap();
 
         // duration_microsecond
         test_take_primitive_arrays::<DurationMicrosecondType>(
@@ -974,7 +990,8 @@ mod tests {
             &index,
             None,
             vec![Some(-15), None, None, Some(-15), Some(2)],
-        );
+        )
+        .unwrap();
 
         // duration_nanosecond
         test_take_primitive_arrays::<DurationNanosecondType>(
@@ -982,7 +999,8 @@ mod tests {
             &index,
             None,
             vec![Some(-15), None, None, Some(-15), Some(2)],
-        );
+        )
+        .unwrap();
 
         // float32
         test_take_primitive_arrays::<Float32Type>(
@@ -990,7 +1008,8 @@ mod tests {
             &index,
             None,
             vec![Some(-3.1), None, None, Some(-3.1), Some(2.21)],
-        );
+        )
+        .unwrap();
 
         // float64
         test_take_primitive_arrays::<Float64Type>(
@@ -998,7 +1017,8 @@ mod tests {
             &index,
             None,
             vec![Some(-3.1), None, None, Some(-3.1), Some(2.21)],
-        );
+        )
+        .unwrap();
     }
 
     #[test]
@@ -1512,20 +1532,32 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(
-        expected = "Array index out of bounds, cannot get item at index 6 from 5 entries"
-    )]
     fn test_take_out_of_bounds() {
         let index = UInt32Array::from(vec![Some(3), None, Some(1), Some(3), Some(6)]);
         let take_opt = TakeOptions { check_bounds: true };
 
         // int64
-        test_take_primitive_arrays::<Int64Type>(
+        let result = test_take_primitive_arrays::<Int64Type>(
             vec![Some(0), None, Some(2), Some(3), None],
             &index,
             Some(take_opt),
             vec![None],
         );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    #[should_panic(expected = "index out of bounds: the len is 4 but the index is 1000")]
+    fn test_take_out_of_bounds_panic() {
+        let index = UInt32Array::from(vec![Some(1000)]);
+
+        test_take_primitive_arrays::<Int64Type>(
+            vec![Some(0), None, Some(2), Some(3)],
+            &index,
+            None,
+            vec![None],
+        )
+        .unwrap();
     }
 
     #[test]
