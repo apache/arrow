@@ -94,6 +94,28 @@ impl<T: ArrowPrimitiveType> PrimitiveArray<T> {
         let offset = i + self.offset();
         unsafe { *self.raw_values.as_ptr().add(offset) }
     }
+
+    /// Creates a `PrimitiveArray` with a constant `value` and `size`
+    pub fn from_value(value: T::Native, size: usize) -> Self {
+        let mut val_buf = MutableBuffer::new(
+            size * mem::size_of::<<T as ArrowPrimitiveType>::Native>(),
+        );
+
+        for _ in 0..size {
+            val_buf.push(value);
+        }
+
+        let data = ArrayData::new(
+            T::DATA_TYPE,
+            size,
+            None,
+            None,
+            0,
+            vec![val_buf.into()],
+            vec![],
+        );
+        PrimitiveArray::from(Arc::new(data))
+    }
 }
 
 impl<T: ArrowPrimitiveType> Array for PrimitiveArray<T> {
@@ -819,6 +841,17 @@ mod tests {
             assert_eq!((i + 2) as i32, arr.value(i));
         }
     }
+
+    #[test]
+    fn test_primitive_from_value() {
+        let arr: PrimitiveArray<Int32Type> = PrimitiveArray::from_value(0, 10);
+        assert_eq!(10, arr.len());
+        assert_eq!(0, arr.null_count());
+        for i in 0..10 {
+            assert_eq!(0, arr.value(i));
+        }
+    }
+
 
     #[test]
     #[should_panic(expected = "PrimitiveArray data should contain a single buffer only \
