@@ -43,6 +43,8 @@ chrono = "0.4"
 num-bigint = "0.3"
 arrow = { path = "../arrow", version = "4.0.0-SNAPSHOT", optional = true }
 base64 = { version = "0.12", optional = true }
+clap = "2.33.3"
+serde_json = { version = "1.0", features = ["preserve_order"] }
 
 [dev-dependencies]
 rand = "0.8"
