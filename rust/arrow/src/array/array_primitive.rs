@@ -97,21 +97,14 @@ impl<T: ArrowPrimitiveType> PrimitiveArray<T> {
 
     /// Creates a PrimitiveArray based on an iterator of values without nulls
     pub fn from_iter_values<I: IntoIterator<Item = T::Native>>(iter: I) -> Self {
-        let iter = iter.into_iter();
-        let (_, data_len) = iter.size_hint();
-        let data_len = data_len.expect("Iterator must be sized"); // panic if no upper bound.
-
-        let mut val_buf = MutableBuffer::new(data_len);
-
-        val_buf.extend(iter);
-
+        let val_buf: Buffer = iter.into_iter().collect();
         let data = ArrayData::new(
             T::DATA_TYPE,
-            data_len,
+            val_buf.len() / mem::size_of::<<T as ArrowPrimitiveType>::Native>(),
             None,
             None,
             0,
-            vec![val_buf.into()],
+            vec![val_buf],
             vec![],
         );
         PrimitiveArray::from(Arc::new(data))
