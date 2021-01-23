@@ -498,8 +498,9 @@ pub mod flight_service_server {
     #[async_trait]
     pub trait FlightService: Send + Sync + 'static {
         #[doc = "Server streaming response type for the Handshake method."]
-        type HandshakeStream: Stream<Item = Result<super::HandshakeResponse, tonic::Status>>
-            + Send
+        type HandshakeStream: Stream<
+            Item = Result<super::HandshakeResponse, tonic::Status>,
+        > + Send
             + Sync
             + 'static;
         #[doc = ""]
@@ -512,9 +513,8 @@ pub mod flight_service_server {
             request: tonic::Request<tonic::Streaming<super::HandshakeRequest>>,
         ) -> Result<tonic::Response<Self::HandshakeStream>, tonic::Status>;
         #[doc = "Server streaming response type for the ListFlights method."]
-        type HandshakeStream: Stream<
-            Item = Result<super::HandshakeResponse, tonic::Status>,
-        > + Send
+        type ListFlightsStream: Stream<Item = Result<super::FlightInfo, tonic::Status>>
+            + Send
             + Sync
             + 'static;
         #[doc = ""]
