@@ -143,8 +143,9 @@ impl CsvExec {
         common::build_file_list(path, &mut filenames, file_extension.as_str())?;
         if filenames.is_empty() {
             return Err(DataFusionError::Execution(format!(
-                "No files found at {path}",
-                path = path
+                "No files found at {path} with file extension {file_extension}",
+                path = path,
+                file_extension = file_extension.as_str()
             )));
         }
 
