@@ -1001,12 +1001,15 @@ mod tests {
             .unwrap();
 
         assert_eq!(results.len(), 1);
-        let batch = &results[0];
 
-        let expected: Vec<&str> = vec!["NULL,NULL"];
-        let mut rows = test::format_batch(&batch);
-        rows.sort();
-        assert_eq!(rows, expected);
+        let expected = vec![
+            "+---------+---------+",
+            "| SUM(c1) | SUM(c2) |",
+            "+---------+---------+",
+            "|         |         |",
+            "+---------+---------+",
+        ];
+        assert_batches_sorted_eq!(expected, &results);
 
         Ok(())
     }
