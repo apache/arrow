@@ -36,5 +36,5 @@ pub(super) fn extend_nulls<T: ArrowNativeType>(
     mutable: &mut _MutableArrayData,
     len: usize,
 ) {
-    mutable.buffer1.extend(len * size_of::<T>());
+    mutable.buffer1.extend_zeros(len * size_of::<T>());
 }

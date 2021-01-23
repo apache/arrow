@@ -39,6 +39,17 @@ fn mutable_buffer(data: &[Vec<u32>], capacity: usize) -> Buffer {
     })
 }
 
+fn mutable_buffer_extend(data: &[Vec<u32>], capacity: usize) -> Buffer {
+    criterion::black_box({
+        let mut result = MutableBuffer::new(capacity);
+
+        data.iter()
+            .for_each(|vec| result.extend(vec.iter().copied()));
+
+        result.into()
+    })
+}
+
 fn from_slice(data: &[Vec<u32>], capacity: usize) -> Buffer {
     criterion::black_box({
         let mut a = Vec::<u32>::with_capacity(capacity);
@@ -71,6 +82,10 @@ fn benchmark(c: &mut Criterion) {
     let byte_cap = cap * std::mem::size_of::<u32>();
 
     c.bench_function("mutable", |b| b.iter(|| mutable_buffer(&data, 0)));
+
+    c.bench_function("mutable extend", |b| {
+        b.iter(|| mutable_buffer_extend(&data, 0))
+    });
 
     c.bench_function("mutable prepared", |b| {
         b.iter(|| mutable_buffer(&data, byte_cap))
