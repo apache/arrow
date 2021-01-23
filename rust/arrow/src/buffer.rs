@@ -247,58 +247,7 @@ impl std::iter::FromIterator<bool> for Buffer {
     where
         I: IntoIterator<Item = bool>,
     {
-        //this has a very small (but non-zero) performance advantage
-        let mut iterator = iter.into_iter();
-        let mut byte_capacity: usize = iterator.size_hint().0.saturating_add(7) / 8;
-        let mut byte_len: usize = 0;
-        let mut buffer: NonNull<u8> = memory::allocate_aligned(byte_capacity);
-        while let Some(value) = iterator.next() {
-            let mut exhausted = false;
-            let mut byte_accum: u8 = match value {
-                true => 1,
-                false => 0,
-            };
-            for i in 1..8 {
-                if let Some(value) = iterator.next() {
-                    byte_accum |= match value {
-                        true => 1 << i,
-                        false => 0,
-                    };
-                } else {
-                    exhausted = true;
-                    break;
-                }
-            }
-
-            //ensure we have capacity to write the byte
-            if byte_len == byte_capacity {
-                //no capacity for new byte
-                let new_byte_capacity = byte_capacity.saturating_add(1).saturating_add(
-                    iterator.size_hint().0.saturating_add(7) / 8, //convert bit count to byte count, rounding up
-                );
-
-                // Soundness
-                // byte_capacity is tracked
-                // new_byte_capacity is guaranteed to be at least 1 larger than byte_capacity
-                buffer = unsafe {
-                    memory::reallocate(buffer, byte_capacity, new_byte_capacity)
-                };
-                byte_capacity = new_byte_capacity;
-            }
-            unsafe { buffer.as_ptr().add(byte_len).write(byte_accum) };
-            byte_len += 1;
-
-            if exhausted {
-                break;
-            }
-        }
-        unsafe {
-            Buffer::build_with_arguments(
-                buffer,
-                byte_len,
-                Deallocation::Native(byte_capacity),
-            )
-        }
+        MutableBuffer::from_iter(iter).into()
     }
 }
 
@@ -1434,12 +1383,12 @@ mod tests {
         ];
         let buffer: Buffer = bits.iter().copied().collect();
         assert_eq!([0b00110010, 0b00001110], buffer.as_slice()); //bits are set least-significant first, zero padded
-        assert_eq!(2, buffer.capacity()); //no overallocation if iterator has perfect size_hint()
+        assert_eq!(64, buffer.capacity()); //allocation rounded up to 64 bytes
 
         let bits = [false, true, false, false, true, true, false, false];
         let buffer: Buffer = bits.iter().copied().collect();
         assert_eq!([0b00110010], buffer.as_slice());
-        assert_eq!(1, buffer.capacity());
+        assert_eq!(64, buffer.capacity());
 
         let bits: [bool; 0] = [];
         let buffer: Buffer = bits.iter().copied().collect();
@@ -1455,7 +1404,7 @@ mod tests {
         ];
         let buffer: MutableBuffer = bits.iter().copied().collect();
         assert_eq!([0b00110010, 0b00001110], buffer.as_slice()); //bits are set least-significant first, zero padded
-        assert_eq!(64, buffer.capacity()); //allocation rounded up to 64bytes
+        assert_eq!(64, buffer.capacity()); //allocation rounded up to 64 bytes
 
         let bits = [false, true, false, false, true, true, false, false];
         let buffer: MutableBuffer = bits.iter().copied().collect();

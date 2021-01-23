@@ -49,7 +49,7 @@ fn mutable_buffer_iter_bitset(data: &[Vec<bool>]) -> Vec<Buffer> {
     criterion::black_box({
         data.iter()
             .map(|datum| {
-                let mut result = MutableBuffer::new(data.len() + 7 / 8)
+                let mut result = MutableBuffer::new((data.len() + 7) / 8)
                     .with_bitset(datum.len(), false);
                 for (i, value) in datum.iter().enumerate() {
                     if *value {
