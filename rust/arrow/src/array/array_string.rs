@@ -97,8 +97,9 @@ impl<OffsetSize: StringOffsetSizeTrait> GenericStringArray<OffsetSize> {
     /// Returns the element at index `i` as &str
     pub fn value(&self, i: usize) -> &str {
         assert!(i < self.data.len(), "StringArray out of bounds access");
-        let end = self.value_offsets()[i + 1];
-        let start = self.value_offsets()[i];
+        //Soundness: length checked above, offset buffer length is 1 larger than logical array length
+        let end = unsafe { self.value_offsets().get_unchecked(i + 1) };
+        let start = unsafe { self.value_offsets().get_unchecked(i) };
 
         // Soundness
         // pointer alignment & location is ensured by RawPtrBox
@@ -107,7 +108,7 @@ impl<OffsetSize: StringOffsetSizeTrait> GenericStringArray<OffsetSize> {
         unsafe {
             let slice = std::slice::from_raw_parts(
                 self.value_data.as_ptr().offset(start.to_isize()),
-                (end - start).to_usize().unwrap(),
+                (*end - *start).to_usize().unwrap(),
             );
             std::str::from_utf8_unchecked(slice)
         }

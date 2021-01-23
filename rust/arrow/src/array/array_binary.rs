@@ -97,8 +97,9 @@ impl<OffsetSize: BinaryOffsetSizeTrait> GenericBinaryArray<OffsetSize> {
     /// Returns the element at index `i` as bytes slice
     pub fn value(&self, i: usize) -> &[u8] {
         assert!(i < self.data.len(), "BinaryArray out of bounds access");
-        let end = self.value_offsets()[i + 1];
-        let start = self.value_offsets()[i];
+        //Soundness: length checked above, offset buffer length is 1 larger than logical array length
+        let end = unsafe { self.value_offsets().get_unchecked(i + 1) };
+        let start = unsafe { self.value_offsets().get_unchecked(i) };
 
         // Soundness
         // pointer alignment & location is ensured by RawPtrBox
@@ -106,7 +107,7 @@ impl<OffsetSize: BinaryOffsetSizeTrait> GenericBinaryArray<OffsetSize> {
         unsafe {
             std::slice::from_raw_parts(
                 self.value_data.as_ptr().offset(start.to_isize()),
-                (end - start).to_usize().unwrap(),
+                (*end - *start).to_usize().unwrap(),
             )
         }
     }
