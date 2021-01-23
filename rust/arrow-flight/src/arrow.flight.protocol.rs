@@ -512,8 +512,9 @@ pub mod flight_service_server {
             request: tonic::Request<tonic::Streaming<super::HandshakeRequest>>,
         ) -> Result<tonic::Response<Self::HandshakeStream>, tonic::Status>;
         #[doc = "Server streaming response type for the ListFlights method."]
-        type ListFlightsStream: Stream<Item = Result<super::FlightInfo, tonic::Status>>
-            + Send
+        type HandshakeStream: Stream<
+            Item = Result<super::HandshakeResponse, tonic::Status>,
+        > + Send
             + Sync
             + 'static;
         #[doc = ""]
