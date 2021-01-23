@@ -420,8 +420,8 @@ where
     I: ArrowNumericType,
     I::Native: ToPrimitive,
 {
-    let indices_has_nulls = indices.null_count() != 0;
-    let values_has_nulls = values.null_count() != 0;
+    let indices_has_nulls = indices.null_count() > 0;
+    let values_has_nulls = values.null_count() > 0;
     // note: this function should only panic when "an index is not null and out of bounds".
     // if the index is null, its value is undefined and therefore we should not read from it.
 
