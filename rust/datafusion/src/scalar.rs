@@ -209,61 +209,61 @@ impl ScalarValue {
                 Some(value) => {
                     Arc::new(Float64Array::from_iter_values(repeat(*value).take(size)))
                 }
-                None => Arc::new(repeat(*e).take(size).collect::<Float64Array>()),
+                None => Arc::new(repeat(None).take(size).collect::<Float64Array>()),
             },
             ScalarValue::Float32(e) => match e {
                 Some(value) => {
                     Arc::new(Float32Array::from_iter_values(repeat(*value).take(size)))
                 }
-                None => Arc::new(repeat(*e).take(size).collect::<Float32Array>()),
+                None => Arc::new(repeat(None).take(size).collect::<Float32Array>()),
             },
             ScalarValue::Int8(e) => match e {
                 Some(value) => {
                     Arc::new(Int8Array::from_iter_values(repeat(*value).take(size)))
                 }
-                None => Arc::new(repeat(*e).take(size).collect::<Int8Array>()),
+                None => Arc::new(repeat(None).take(size).collect::<Int8Array>()),
             },
             ScalarValue::Int16(e) => match e {
                 Some(value) => {
                     Arc::new(Int16Array::from_iter_values(repeat(*value).take(size)))
                 }
-                None => Arc::new(repeat(*e).take(size).collect::<Int16Array>()),
+                None => Arc::new(repeat(None).take(size).collect::<Int16Array>()),
             },
             ScalarValue::Int32(e) => match e {
                 Some(value) => {
                     Arc::new(Int32Array::from_iter_values(repeat(*value).take(size)))
                 }
-                None => Arc::new(repeat(*e).take(size).collect::<Int32Array>()),
+                None => Arc::new(repeat(None).take(size).collect::<Int32Array>()),
             },
             ScalarValue::Int64(e) => match e {
                 Some(value) => {
                     Arc::new(Int64Array::from_iter_values(repeat(*value).take(size)))
                 }
-                None => Arc::new(repeat(*e).take(size).collect::<Int64Array>()),
+                None => Arc::new(repeat(None).take(size).collect::<Int64Array>()),
             },
             ScalarValue::UInt8(e) => match e {
                 Some(value) => {
                     Arc::new(UInt8Array::from_iter_values(repeat(*value).take(size)))
                 }
-                None => Arc::new(repeat(*e).take(size).collect::<UInt8Array>()),
+                None => Arc::new(repeat(None).take(size).collect::<UInt8Array>()),
             },
             ScalarValue::UInt16(e) => match e {
                 Some(value) => {
                     Arc::new(UInt16Array::from_iter_values(repeat(*value).take(size)))
                 }
-                None => Arc::new(repeat(*e).take(size).collect::<UInt16Array>()),
+                None => Arc::new(repeat(None).take(size).collect::<UInt16Array>()),
             },
             ScalarValue::UInt32(e) => match e {
                 Some(value) => {
                     Arc::new(UInt32Array::from_iter_values(repeat(*value).take(size)))
                 }
-                None => Arc::new(repeat(*e).take(size).collect::<UInt32Array>()),
+                None => Arc::new(repeat(None).take(size).collect::<UInt32Array>()),
             },
             ScalarValue::UInt64(e) => match e {
                 Some(value) => {
                     Arc::new(UInt64Array::from_iter_values(repeat(*value).take(size)))
                 }
-                None => Arc::new(repeat(*e).take(size).collect::<UInt64Array>()),
+                None => Arc::new(repeat(None).take(size).collect::<UInt64Array>()),
             },
             ScalarValue::TimeMicrosecond(e) => match e {
                 Some(value) => Arc::new(TimestampMicrosecondArray::from_iter_values(
@@ -277,9 +277,11 @@ impl ScalarValue {
                 Some(value) => Arc::new(TimestampNanosecondArray::from_iter_values(
                     repeat(*value).take(size),
                 )),
-                None => {
-                    Arc::new(repeat(*e).take(size).collect::<TimestampNanosecondArray>())
-                }
+                None => Arc::new(
+                    repeat(None)
+                        .take(size)
+                        .collect::<TimestampNanosecondArray>(),
+                ),
             },
             ScalarValue::Utf8(e) => match e {
                 Some(value) => {
