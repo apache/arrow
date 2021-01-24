@@ -1535,7 +1535,7 @@ mod tests {
         let index = UInt32Array::from(vec![Some(1000)]);
 
         test_take_primitive_arrays::<Int64Type>(
-            vec![Some(0), None, Some(2), Some(3)],
+            vec![Some(0), Some(1), Some(2), Some(3)],
             &index,
             None,
             vec![None],
