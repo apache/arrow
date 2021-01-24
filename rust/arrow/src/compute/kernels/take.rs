@@ -254,21 +254,11 @@ impl Default for TakeOptions {
     }
 }
 
-#[inline]
-fn maybe_take<T: ArrowPrimitiveType, I: ArrowPrimitiveType>(
-    values: &[T::Native],
-    index: I::Native,
-) -> Result<(usize, T::Native)>
-where
-    I::Native: ToPrimitive,
-{
-    match ToPrimitive::to_usize(&index) {
-        // there are two potential sources of errors here:
-        // 1. the index is out of bounds (panic as per `take` docs)
-        // 2. the index cannot be converted to a usize (mostly 32 bit systems)
-        Some(index) => Ok((index, values[index])),
-        None => Err(ArrowError::ComputeError("Cast to usize failed".to_string())),
-    }
+#[inline(always)]
+fn maybe_usize<I: ArrowPrimitiveType>(index: I::Native) -> Result<usize> {
+    index
+        .to_usize()
+        .ok_or_else(|| ArrowError::ComputeError("Cast to usize failed".to_string()))
 }
 
 // take implementation when neither values nor indices contain nulls
@@ -279,12 +269,12 @@ fn take_no_nulls<T, I>(
 where
     T: ArrowPrimitiveType,
     I: ArrowNumericType,
-    I::Native: ToPrimitive,
 {
-    let buffer = indices
+    let values = indices
         .iter()
-        .map(|index| maybe_take::<T, I>(values, *index).map(|x| x.1))
-        .collect::<Result<Buffer>>()?;
+        .map(|index| Result::Ok(values[maybe_usize::<I>(*index)?]));
+    // Soundness: `slice.map` is `TrustedLen`.
+    let buffer = unsafe { Buffer::try_from_trusted_len_iter(values)? };
 
     Ok((buffer, None))
 }
@@ -306,18 +296,16 @@ where
 
     let values_values = values.values();
 
-    let buffer = indices
-        .iter()
-        .enumerate()
-        .map(|(i, index)| {
-            let (index, value) = maybe_take::<T, I>(values_values, *index)?;
-            if values.is_null(index) {
-                null_count += 1;
-                bit_util::unset_bit(null_slice, i);
-            }
-            Ok(value)
-        })
-        .collect::<Result<Buffer>>()?;
+    let values = indices.iter().enumerate().map(|(i, index)| {
+        let index = maybe_usize::<I>(*index)?;
+        if values.is_null(index) {
+            null_count += 1;
+            bit_util::unset_bit(null_slice, i);
+        }
+        Result::Ok(values_values[index])
+    });
+    // Soundness: `slice.map` is `TrustedLen`.
+    let buffer = unsafe { Buffer::try_from_trusted_len_iter(values)? };
 
     let nulls = if null_count == 0 {
         // if only non-null values were taken
@@ -339,17 +327,16 @@ where
     I: ArrowNumericType,
     I::Native: ToPrimitive,
 {
-    let buffer = indices
-        .iter()
-        .map(|index| {
-            match index {
-                // valid index => try to take using it
-                Some(index) => maybe_take::<T, I>(values, index).map(|x| x.1),
-                // null index => do not
-                None => Ok(T::Native::default()),
-            }
-        })
-        .collect::<Result<Buffer>>()?;
+    let values = indices.iter().map(|index| {
+        match index {
+            // valid index => try to take using it
+            Some(index) => Result::Ok(values[maybe_usize::<I>(index)?]),
+            // null index => do not
+            None => Ok(T::Native::default()),
+        }
+    });
+    // Soundness: `slice.map` is `TrustedLen`.
+    let buffer = unsafe { Buffer::try_from_trusted_len_iter(values)? };
 
     Ok((buffer, indices.data_ref().null_buffer().cloned()))
 }
@@ -370,27 +357,23 @@ where
     let mut null_count = 0;
 
     let values_values = values.values();
-    // in this branch it is **not** ok to read `index.values()` and try to use it,
-    // as doing so is UB when they come from a null slot.
-    let buffer = indices
-        .iter()
-        .enumerate()
-        .map(|(i, index)| match index {
-            Some(index) => {
-                let (index, value) = maybe_take::<T, I>(values_values, index)?;
-                if values.is_null(index) {
-                    null_count += 1;
-                    bit_util::unset_bit(null_slice, i);
-                }
-                Ok(value)
-            }
-            None => {
+    let values = indices.iter().enumerate().map(|(i, index)| match index {
+        Some(index) => {
+            let index = maybe_usize::<I>(index)?;
+            if values.is_null(index) {
                 null_count += 1;
                 bit_util::unset_bit(null_slice, i);
-                Ok(T::Native::default())
             }
-        })
-        .collect::<Result<Buffer>>()?;
+            Result::Ok(values_values[index])
+        }
+        None => {
+            null_count += 1;
+            bit_util::unset_bit(null_slice, i);
+            Ok(T::Native::default())
+        }
+    });
+    // Soundness: `slice.map` is `TrustedLen`.
+    let buffer = unsafe { Buffer::try_from_trusted_len_iter(values)? };
 
     let nulls = if null_count == 0 {
         // if only non-null values were taken
@@ -437,13 +420,13 @@ where
             take_values_nulls::<T, I>(values, indices.values())?
         }
         (false, true) => {
-            // in this branch it is **not** ok to read `index.values()` and try to use it,
-            // as doing so is UB when the slot corresponds to a null slot.
+            // in this branch it is unsound to read and use `index.values()`,
+            // as doing so is UB when they come from a null slot.
             take_indices_nulls::<T, I>(values.values(), indices)?
         }
         (true, true) => {
-            // in this branch it is **not** ok to read `index.values()` and try to use it,
-            // as doing so is UB when the slot corresponds to a null slot.
+            // in this branch it is unsound to read and use `index.values()`,
+            // as doing so is UB when they come from a null slot.
             take_values_indices_nulls::<T, I>(values, indices)?
         }
     };
