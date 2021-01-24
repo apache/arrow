@@ -269,9 +269,11 @@ impl ScalarValue {
                 Some(value) => Arc::new(TimestampMicrosecondArray::from_iter_values(
                     repeat(*value).take(size),
                 )),
-                None => {
-                    Arc::new(repeat(*e).take(size).collect::<TimestampMicrosecondArray>())
-                }
+                None => Arc::new(
+                    repeat(None)
+                        .take(size)
+                        .collect::<TimestampMicrosecondArray>(),
+                ),
             },
             ScalarValue::TimeNanosecond(e) => match e {
                 Some(value) => Arc::new(TimestampNanosecondArray::from_iter_values(
