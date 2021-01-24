@@ -1321,5 +1321,291 @@ TEST_F(TestVarStdKernelIntegerLength, Basics) {
 }
 #endif
 
+//
+// Quantile
+//
+
+template <typename ArrowType>
+class TestPrimitiveQuantileKernel : public ::testing::Test {
+ public:
+  using Traits = TypeTraits<ArrowType>;
+  using CType = typename ArrowType::c_type;
+
+  void AssertQuantilesAre(const Datum& array, QuantileOptions options,
+                          const std::vector<std::vector<Datum>>& expected) {
+    ASSERT_EQ(options.q.size(), expected.size());
+
+    for (size_t i = 0; i < this->interpolations_.size(); ++i) {
+      options.interpolation = this->interpolations_[i];
+
+      ASSERT_OK_AND_ASSIGN(Datum out, Quantile(array, options));
+      const auto& out_array = out.make_array();
+      ASSERT_OK(out_array->ValidateFull());
+      ASSERT_EQ(out_array->length(), options.q.size());
+      ASSERT_EQ(out_array->null_count(), 0);
+      ASSERT_EQ(out_array->type(), expected[0][i].type());
+
+      if (out_array->type() == float64()) {
+        const double* quantiles = out_array->data()->GetValues<double>(1);
+        for (int64_t j = 0; j < out_array->length(); ++j) {
+          const auto& numeric_scalar =
+              std::static_pointer_cast<DoubleScalar>(expected[j][i].scalar());
+          ASSERT_TRUE((quantiles[j] == numeric_scalar->value) ||
+                      (std::isnan(quantiles[j]) && std::isnan(numeric_scalar->value)));
+        }
+      } else {
+        ASSERT_EQ(out_array->type(), type_singleton());
+        const CType* quantiles = out_array->data()->GetValues<CType>(1);
+        for (int64_t j = 0; j < out_array->length(); ++j) {
+          const auto& numeric_scalar =
+              std::static_pointer_cast<NumericScalar<ArrowType>>(expected[j][i].scalar());
+          ASSERT_EQ(quantiles[j], numeric_scalar->value);
+        }
+      }
+    }
+  }
+
+  void AssertQuantilesAre(const std::string& json, const std::vector<double>& q,
+                          const std::vector<std::vector<Datum>>& expected) {
+    auto array = ArrayFromJSON(type_singleton(), json);
+    AssertQuantilesAre(array, QuantileOptions{q}, expected);
+  }
+
+  void AssertQuantilesAre(const std::vector<std::string>& json,
+                          const std::vector<double>& q,
+                          const std::vector<std::vector<Datum>>& expected) {
+    auto chunked = ChunkedArrayFromJSON(type_singleton(), json);
+    AssertQuantilesAre(chunked, QuantileOptions{q}, expected);
+  }
+
+  void AssertQuantileIs(const Datum& array, double q,
+                        const std::vector<Datum>& expected) {
+    AssertQuantilesAre(array, QuantileOptions{q}, {expected});
+  }
+
+  void AssertQuantileIs(const std::string& json, double q,
+                        const std::vector<Datum>& expected) {
+    auto array = ArrayFromJSON(type_singleton(), json);
+    AssertQuantileIs(array, q, expected);
+  }
+
+  void AssertQuantileIs(const std::vector<std::string>& json, double q,
+                        const std::vector<Datum>& expected) {
+    auto chunked = ChunkedArrayFromJSON(type_singleton(), json);
+    AssertQuantileIs(chunked, q, expected);
+  }
+
+  void AssertQuantilesEmpty(const Datum& array, const std::vector<double>& q) {
+    QuantileOptions options{q};
+    for (auto interpolation : this->interpolations_) {
+      options.interpolation = interpolation;
+      ASSERT_OK_AND_ASSIGN(Datum out, Quantile(array, options));
+      ASSERT_OK(out.make_array()->ValidateFull());
+      ASSERT_EQ(out.array()->length, 0);
+    }
+  }
+
+  void AssertQuantilesEmpty(const std::string& json, const std::vector<double>& q) {
+    auto array = ArrayFromJSON(type_singleton(), json);
+    AssertQuantilesEmpty(array, q);
+  }
+
+  void AssertQuantilesEmpty(const std::vector<std::string>& json,
+                            const std::vector<double>& q) {
+    auto chunked = ChunkedArrayFromJSON(type_singleton(), json);
+    AssertQuantilesEmpty(chunked, q);
+  }
+
+  std::shared_ptr<DataType> type_singleton() { return Traits::type_singleton(); }
+
+  std::vector<enum QuantileOptions::Interpolation> interpolations_{
+      QuantileOptions::LINEAR, QuantileOptions::LOWER, QuantileOptions::HIGHER,
+      QuantileOptions::NEAREST, QuantileOptions::MIDPOINT};
+};
+
+template <typename ArrowType>
+class TestIntegerQuantileKernel : public TestPrimitiveQuantileKernel<ArrowType> {};
+
+template <typename ArrowType>
+class TestFloatingQuantileKernel : public TestPrimitiveQuantileKernel<ArrowType> {};
+
+template <typename ArrowType>
+class TestInt64QuantileKernel : public TestPrimitiveQuantileKernel<ArrowType> {};
+
+#define INTYPE(x) Datum(static_cast<typename TypeParam::c_type>(x))
+#define DOUBLE(x) Datum(static_cast<double>(x))
+// output type per interplation: linear, lower, higher, nearest, midpoint
+#define O(a, b, c, d, e) \
+  { DOUBLE(a), INTYPE(b), INTYPE(c), INTYPE(d), DOUBLE(e) }
+
+TYPED_TEST_SUITE(TestIntegerQuantileKernel, IntegralArrowTypes);
+TYPED_TEST(TestIntegerQuantileKernel, Basics) {
+  // reference values from numpy
+  // ordered by interpolation method: {linear, lower, higher, nearest, midpoint}
+  this->AssertQuantileIs("[1]", 0.1, O(1, 1, 1, 1, 1));
+  this->AssertQuantileIs("[1, 2]", 0.5, O(1.5, 1, 2, 1, 1.5));
+  this->AssertQuantileIs("[3, 5, 2, 9, 0, 1, 8]", 0.5, O(3, 3, 3, 3, 3));
+  this->AssertQuantileIs("[3, 5, 2, 9, 0, 1, 8]", 0.33, O(1.98, 1, 2, 2, 1.5));
+  this->AssertQuantileIs("[3, 5, 2, 9, 0, 1, 8]", 0.9, O(8.4, 8, 9, 8, 8.5));
+  this->AssertQuantilesAre("[3, 5, 2, 9, 0, 1, 8]", {0.5, 0.9},
+                           {O(3, 3, 3, 3, 3), O(8.4, 8, 9, 8, 8.5)});
+  this->AssertQuantilesAre("[3, 5, 2, 9, 0, 1, 8]", {1, 0.5},
+                           {O(9, 9, 9, 9, 9), O(3, 3, 3, 3, 3)});
+  this->AssertQuantileIs("[3, 5, 2, 9, 0, 1, 8]", 0, O(0, 0, 0, 0, 0));
+  this->AssertQuantileIs("[3, 5, 2, 9, 0, 1, 8]", 1, O(9, 9, 9, 9, 9));
+
+  this->AssertQuantileIs("[5, null, null, 3, 9, null, 8, 1, 2, 0]", 0.21,
+                         O(1.26, 1, 2, 1, 1.5));
+  this->AssertQuantilesAre("[5, null, null, 3, 9, null, 8, 1, 2, 0]", {0.5, 0.9},
+                           {O(3, 3, 3, 3, 3), O(8.4, 8, 9, 8, 8.5)});
+  this->AssertQuantilesAre("[5, null, null, 3, 9, null, 8, 1, 2, 0]", {0.9, 0.5},
+                           {O(8.4, 8, 9, 8, 8.5), O(3, 3, 3, 3, 3)});
+
+  this->AssertQuantileIs({"[5]", "[null, null]", "[3, 9, null]", "[8, 1, 2, 0]"}, 0.33,
+                         O(1.98, 1, 2, 2, 1.5));
+  this->AssertQuantilesAre({"[5]", "[null, null]", "[3, 9, null]", "[8, 1, 2, 0]"},
+                           {0.21, 1}, {O(1.26, 1, 2, 1, 1.5), O(9, 9, 9, 9, 9)});
+
+  this->AssertQuantilesEmpty("[]", {0.5});
+  this->AssertQuantilesEmpty("[null, null, null]", {0.1, 0.2});
+  this->AssertQuantilesEmpty({"[null, null]", "[]", "[null]"}, {0.3, 0.4});
+}
+
+#ifndef __MINGW32__
+TYPED_TEST_SUITE(TestFloatingQuantileKernel, RealArrowTypes);
+TYPED_TEST(TestFloatingQuantileKernel, Floats) {
+  // ordered by interpolation method: {linear, lower, higher, nearest, midpoint}
+  this->AssertQuantileIs("[-9, 7, Inf, -Inf, 2, 11]", 0.5, O(4.5, 2, 7, 2, 4.5));
+  this->AssertQuantileIs("[-9, 7, Inf, -Inf, 2, 11]", 0.1,
+                         O(-INFINITY, -INFINITY, -9, -INFINITY, -INFINITY));
+  this->AssertQuantileIs("[-9, 7, Inf, -Inf, 2, 11]", 0.9,
+                         O(INFINITY, 11, INFINITY, 11, INFINITY));
+  this->AssertQuantilesAre("[-9, 7, Inf, -Inf, 2, 11]", {0.3, 0.6},
+                           {O(-3.5, -9, 2, 2, -3.5), O(7, 7, 7, 7, 7)});
+  this->AssertQuantileIs("[-Inf, Inf]", 0.2, O(NAN, -INFINITY, INFINITY, -INFINITY, NAN));
+
+  this->AssertQuantileIs("[NaN, -9, 7, Inf, null, null, -Inf, NaN, 2, 11]", 0.5,
+                         O(4.5, 2, 7, 2, 4.5));
+  this->AssertQuantilesAre("[null, -9, 7, Inf, NaN, NaN, -Inf, null, 2, 11]", {0.3, 0.6},
+                           {O(-3.5, -9, 2, 2, -3.5), O(7, 7, 7, 7, 7)});
+  this->AssertQuantilesAre("[null, -9, 7, Inf, NaN, NaN, -Inf, null, 2, 11]", {0.6, 0.3},
+                           {O(7, 7, 7, 7, 7), O(-3.5, -9, 2, 2, -3.5)});
+
+  this->AssertQuantileIs({"[NaN, -9, 7, Inf]", "[null, NaN]", "[-Inf, NaN, 2, 11]"}, 0.5,
+                         O(4.5, 2, 7, 2, 4.5));
+  this->AssertQuantilesAre({"[null, -9, 7, Inf]", "[NaN, NaN]", "[-Inf, null, 2, 11]"},
+                           {0.3, 0.6}, {O(-3.5, -9, 2, 2, -3.5), O(7, 7, 7, 7, 7)});
+
+  this->AssertQuantilesEmpty("[]", {0.5, 0.6});
+  this->AssertQuantilesEmpty("[null, NaN, null]", {0.1});
+  this->AssertQuantilesEmpty({"[NaN, NaN]", "[]", "[null]"}, {0.3, 0.4});
+}
+#endif
+
+// Test big int64 numbers cannot be precisely presented by double
+TYPED_TEST_SUITE(TestInt64QuantileKernel, Int64Type);
+TYPED_TEST(TestInt64QuantileKernel, Int64) {
+  this->AssertQuantileIs(
+      "[9223372036854775806, 9223372036854775807]", 0.5,
+      O(9.223372036854776e+18, 9223372036854775806, 9223372036854775807,
+        9223372036854775806, 9.223372036854776e+18));
+}
+
+#undef INTYPE
+#undef DOUBLE
+#undef O
+
+#ifndef __MINGW32__
+class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<Int32Type> {
+ public:
+  void CheckQuantiles(int64_t array_size, int64_t num_quantiles) {
+    auto rand = random::RandomArrayGenerator(0x5487658);
+    // set a small value range to exercise input array with equal values
+    const auto array = rand.Numeric<Int32Type>(array_size, -100, 200, 0.1);
+
+    std::vector<double> quantiles;
+    random_real(num_quantiles, 0x5487658, 0.0, 1.0, &quantiles);
+    // make sure to exercise 0 and 1 quantiles
+    *std::min_element(quantiles.begin(), quantiles.end()) = 0;
+    *std::max_element(quantiles.begin(), quantiles.end()) = 1;
+
+    this->AssertQuantilesAre(array, QuantileOptions{quantiles},
+                             NaiveQuantile(*array, quantiles));
+  }
+
+ private:
+  std::vector<std::vector<Datum>> NaiveQuantile(const Array& array,
+                                                const std::vector<double>& quantiles) {
+    // copy and sort input array
+    std::vector<int32_t> input(array.length() - array.null_count());
+    const int32_t* values = array.data()->GetValues<int32_t>(1);
+    const auto bitmap = array.null_bitmap_data();
+    int64_t index = 0;
+    for (int64_t i = 0; i < array.length(); ++i) {
+      if (BitUtil::GetBit(bitmap, i)) {
+        input[index++] = values[i];
+      }
+    }
+    std::sort(input.begin(), input.end());
+
+    std::vector<std::vector<Datum>> output(quantiles.size(),
+                                           std::vector<Datum>(interpolations_.size()));
+    for (uint64_t i = 0; i < interpolations_.size(); ++i) {
+      const auto interp = interpolations_[i];
+      for (uint64_t j = 0; j < quantiles.size(); ++j) {
+        output[j][i] = GetQuantile(input, quantiles[j], interp);
+      }
+    }
+    return output;
+  }
+
+  Datum GetQuantile(const std::vector<int32_t>& input, double q,
+                    enum QuantileOptions::Interpolation interp) {
+    const double index = (input.size() - 1) * q;
+    const uint64_t lower_index = static_cast<uint64_t>(index);
+    const double fraction = index - lower_index;
+
+    switch (interp) {
+      case QuantileOptions::LOWER:
+        return Datum(input[lower_index]);
+      case QuantileOptions::HIGHER:
+        return Datum(input[lower_index + (fraction != 0)]);
+      case QuantileOptions::NEAREST:
+        if (fraction < 0.5) {
+          return Datum(input[lower_index]);
+        } else if (fraction > 0.5) {
+          return Datum(input[lower_index + 1]);
+        } else {
+          return Datum(input[lower_index + (lower_index & 1)]);
+        }
+      case QuantileOptions::LINEAR:
+        if (fraction == 0) {
+          return Datum(static_cast<double>(input[lower_index]));
+        } else {
+          return Datum(fraction * input[lower_index + 1] +
+                       (1 - fraction) * input[lower_index]);
+        }
+      case QuantileOptions::MIDPOINT:
+        if (fraction == 0) {
+          return Datum(static_cast<double>(input[lower_index]));
+        } else {
+          return Datum(input[lower_index] / 2.0 + input[lower_index + 1] / 2.0);
+        }
+      default:
+        return Datum(NAN);
+    }
+  }
+};
+
+TEST_F(TestRandomQuantileKernel, Normal) {
+  this->CheckQuantiles(/*array_size=*/10000, /*num_quantiles=*/100);
+}
+
+TEST_F(TestRandomQuantileKernel, Overlapped) {
+  // much more quantiles than array size => many overlaps
+  this->CheckQuantiles(/*array_size=*/999, /*num_quantiles=*/9999);
+}
+#endif
+
 }  // namespace compute
 }  // namespace arrow

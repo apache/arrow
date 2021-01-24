@@ -19,7 +19,7 @@ use crate::array::ArrayData;
 
 use super::{
     Extend, _MutableArrayData,
-    utils::{reserve_for_bits, set_bits},
+    utils::{resize_for_bits, set_bits},
 };
 
 pub(super) fn build_extend(array: &ArrayData) -> Extend {
@@ -27,7 +27,7 @@ pub(super) fn build_extend(array: &ArrayData) -> Extend {
     Box::new(
         move |mutable: &mut _MutableArrayData, _, start: usize, len: usize| {
             let buffer = &mut mutable.buffer1;
-            reserve_for_bits(buffer, mutable.len + len);
+            resize_for_bits(buffer, mutable.len + len);
             set_bits(
                 &mut buffer.as_slice_mut(),
                 values,
@@ -41,5 +41,5 @@ pub(super) fn build_extend(array: &ArrayData) -> Extend {
 
 pub(super) fn extend_nulls(mutable: &mut _MutableArrayData, len: usize) {
     let buffer = &mut mutable.buffer1;
-    reserve_for_bits(buffer, mutable.len + len);
+    resize_for_bits(buffer, mutable.len + len);
 }

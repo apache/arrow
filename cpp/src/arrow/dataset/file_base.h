@@ -295,6 +295,9 @@ struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {
   /// Partitioning used to generate fragment paths.
   std::shared_ptr<Partitioning> partitioning;
 
+  /// Maximum number of partitions any batch may be written into, default is 1K.
+  int max_partitions = 1024;
+
   /// Template string used to generate fragment basenames.
   /// {i} will be replaced by an auto incremented integer.
   std::string basename_template;

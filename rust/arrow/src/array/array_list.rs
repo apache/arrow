@@ -27,7 +27,7 @@ use super::{
     ArrayRef,
 };
 use crate::datatypes::ArrowNativeType;
-use crate::datatypes::DataType;
+use crate::datatypes::*;
 
 /// trait declaring an offset size, relevant for i32 vs i64 array types.
 pub trait OffsetSizeTrait: ArrowNativeType + Num + Ord + std::ops::AddAssign {
@@ -238,13 +238,16 @@ impl From<ArrayDataRef> for FixedSizeListArray {
         let values = make_array(data.child_data()[0].clone());
         let length = match data.data_type() {
             DataType::FixedSizeList(_, len) => {
-                // check that child data is multiple of length
-                assert_eq!(
-                    values.len() % *len as usize,
-                    0,
-                    "FixedSizeListArray child array length should be a multiple of {}",
-                    len
-                );
+                if *len > 0 {
+                    // check that child data is multiple of length
+                    assert_eq!(
+                        values.len() % *len as usize,
+                        0,
+                        "FixedSizeListArray child array length should be a multiple of {}",
+                        len
+                    );
+                }
+
                 *len
             }
             _ => {
@@ -298,11 +301,7 @@ impl fmt::Debug for FixedSizeListArray {
 #[cfg(test)]
 mod tests {
     use crate::{
-        array::ArrayData,
-        array::Int32Array,
-        buffer::Buffer,
-        datatypes::{Field, ToByteSlice},
-        memory,
+        array::ArrayData, array::Int32Array, buffer::Buffer, datatypes::Field, memory,
         util::bit_util,
     };
 
@@ -313,12 +312,12 @@ mod tests {
         // Construct a value array
         let value_data = ArrayData::builder(DataType::Int32)
             .len(8)
-            .add_buffer(Buffer::from(&[0, 1, 2, 3, 4, 5, 6, 7].to_byte_slice()))
+            .add_buffer(Buffer::from_slice_ref(&[0, 1, 2, 3, 4, 5, 6, 7]))
             .build();
 
         // Construct a buffer for value offsets, for the nested array:
         //  [[0, 1, 2], [3, 4, 5], [6, 7]]
-        let value_offsets = Buffer::from(&[0, 3, 6, 8].to_byte_slice());
+        let value_offsets = Buffer::from_slice_ref(&[0, 3, 6, 8]);
 
         // Construct a list array from the above two
         let list_data_type =
@@ -383,12 +382,12 @@ mod tests {
         // Construct a value array
         let value_data = ArrayData::builder(DataType::Int32)
             .len(8)
-            .add_buffer(Buffer::from(&[0, 1, 2, 3, 4, 5, 6, 7].to_byte_slice()))
+            .add_buffer(Buffer::from_slice_ref(&[0, 1, 2, 3, 4, 5, 6, 7]))
             .build();
 
         // Construct a buffer for value offsets, for the nested array:
         //  [[0, 1, 2], [3, 4, 5], [6, 7]]
-        let value_offsets = Buffer::from(&[0i64, 3, 6, 8].to_byte_slice());
+        let value_offsets = Buffer::from_slice_ref(&[0i64, 3, 6, 8]);
 
         // Construct a list array from the above two
         let list_data_type =
@@ -453,7 +452,7 @@ mod tests {
         // Construct a value array
         let value_data = ArrayData::builder(DataType::Int32)
             .len(9)
-            .add_buffer(Buffer::from(&[0, 1, 2, 3, 4, 5, 6, 7, 8].to_byte_slice()))
+            .add_buffer(Buffer::from_slice_ref(&[0, 1, 2, 3, 4, 5, 6, 7, 8]))
             .build();
 
         // Construct a list array from the above two
@@ -522,7 +521,7 @@ mod tests {
         // Construct a value array
         let value_data = ArrayData::builder(DataType::Int32)
             .len(8)
-            .add_buffer(Buffer::from(&[0, 1, 2, 3, 4, 5, 6, 7].to_byte_slice()))
+            .add_buffer(Buffer::from_slice_ref(&[0, 1, 2, 3, 4, 5, 6, 7]))
             .build();
 
         // Construct a list array from the above two
@@ -542,15 +541,12 @@ mod tests {
         // Construct a value array
         let value_data = ArrayData::builder(DataType::Int32)
             .len(10)
-            .add_buffer(Buffer::from(
-                &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].to_byte_slice(),
-            ))
+            .add_buffer(Buffer::from_slice_ref(&[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]))
             .build();
 
         // Construct a buffer for value offsets, for the nested array:
         //  [[0, 1], null, null, [2, 3], [4, 5], null, [6, 7, 8], null, [9]]
-        let value_offsets =
-            Buffer::from(&[0, 2, 2, 2, 4, 6, 6, 9, 9, 10].to_byte_slice());
+        let value_offsets = Buffer::from_slice_ref(&[0, 2, 2, 2, 4, 6, 6, 9, 9, 10]);
         // 01011001 00000001
         let mut null_bits: [u8; 2] = [0; 2];
         bit_util::set_bit(&mut null_bits, 0);
@@ -607,15 +603,12 @@ mod tests {
         // Construct a value array
         let value_data = ArrayData::builder(DataType::Int32)
             .len(10)
-            .add_buffer(Buffer::from(
-                &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].to_byte_slice(),
-            ))
+            .add_buffer(Buffer::from_slice_ref(&[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]))
             .build();
 
         // Construct a buffer for value offsets, for the nested array:
         //  [[0, 1], null, null, [2, 3], [4, 5], null, [6, 7, 8], null, [9]]
-        let value_offsets =
-            Buffer::from(&[0i64, 2, 2, 2, 4, 6, 6, 9, 9, 10].to_byte_slice());
+        let value_offsets = Buffer::from_slice_ref(&[0i64, 2, 2, 2, 4, 6, 6, 9, 9, 10]);
         // 01011001 00000001
         let mut null_bits: [u8; 2] = [0; 2];
         bit_util::set_bit(&mut null_bits, 0);
@@ -674,9 +667,7 @@ mod tests {
         // Construct a value array
         let value_data = ArrayData::builder(DataType::Int32)
             .len(10)
-            .add_buffer(Buffer::from(
-                &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].to_byte_slice(),
-            ))
+            .add_buffer(Buffer::from_slice_ref(&[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]))
             .build();
 
         // Set null buts for the nested array:
@@ -737,7 +728,7 @@ mod tests {
     fn test_list_array_invalid_buffer_len() {
         let value_data = ArrayData::builder(DataType::Int32)
             .len(8)
-            .add_buffer(Buffer::from(&[0, 1, 2, 3, 4, 5, 6, 7].to_byte_slice()))
+            .add_buffer(Buffer::from_slice_ref(&[0, 1, 2, 3, 4, 5, 6, 7]))
             .build();
         let list_data_type =
             DataType::List(Box::new(Field::new("item", DataType::Int32, false)));
@@ -753,7 +744,7 @@ mod tests {
         expected = "ListArray should contain a single child array (values array)"
     )]
     fn test_list_array_invalid_child_array_len() {
-        let value_offsets = Buffer::from(&[0, 2, 5, 7].to_byte_slice());
+        let value_offsets = Buffer::from_slice_ref(&[0, 2, 5, 7]);
         let list_data_type =
             DataType::List(Box::new(Field::new("item", DataType::Int32, false)));
         let list_data = ArrayData::builder(list_data_type)
@@ -768,10 +759,10 @@ mod tests {
     fn test_list_array_invalid_value_offset_start() {
         let value_data = ArrayData::builder(DataType::Int32)
             .len(8)
-            .add_buffer(Buffer::from(&[0, 1, 2, 3, 4, 5, 6, 7].to_byte_slice()))
+            .add_buffer(Buffer::from_slice_ref(&[0, 1, 2, 3, 4, 5, 6, 7]))
             .build();
 
-        let value_offsets = Buffer::from(&[2, 2, 5, 7].to_byte_slice());
+        let value_offsets = Buffer::from_slice_ref(&[2, 2, 5, 7]);
 
         let list_data_type =
             DataType::List(Box::new(Field::new("item", DataType::Int32, false)));

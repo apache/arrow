@@ -68,6 +68,15 @@ RUN \
     rapidjson-dev \
     tzdata \
     zlib1g-dev && \
+  (echo "includedir=/usr/include" && \
+   echo "libdir=/usr/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH)" && \
+   echo "" && \
+   echo "Name: re2" && \
+   echo "Description: RE2 is a fast, safe, thread-friendly regular expression engine." && \
+   echo "Version: 0.0.0" && \
+   echo "Cflags: -std=c++11 -pthread -I\${includedir}" && \
+   echo "Libs: -pthread -L\${libdir} -lre2") | \
+    tee "/usr/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH)/pkgconfig/re2.pc" && \
   if apt list | grep '^nvidia-cuda-toolkit/'; then \
     apt install -y -V ${quiet} nvidia-cuda-toolkit; \
   fi && \

@@ -142,7 +142,7 @@ class ARROW_DS_EXPORT KeyValuePartitioning : public Partitioning {
 
   virtual std::vector<Key> ParseKeys(const std::string& path) const = 0;
 
-  virtual Result<std::string> FormatValues(const std::vector<Scalar*>& values) const = 0;
+  virtual Result<std::string> FormatValues(const ScalarVector& values) const = 0;
 
   /// Convert a Key to a full expression.
   Result<Expression> ConvertKey(const Key& key) const;
@@ -172,7 +172,7 @@ class ARROW_DS_EXPORT DirectoryPartitioning : public KeyValuePartitioning {
  private:
   std::vector<Key> ParseKeys(const std::string& path) const override;
 
-  Result<std::string> FormatValues(const std::vector<Scalar*>& values) const override;
+  Result<std::string> FormatValues(const ScalarVector& values) const override;
 };
 
 /// \brief Multi-level, directory based partitioning
@@ -201,7 +201,7 @@ class ARROW_DS_EXPORT HivePartitioning : public KeyValuePartitioning {
  private:
   std::vector<Key> ParseKeys(const std::string& path) const override;
 
-  Result<std::string> FormatValues(const std::vector<Scalar*>& values) const override;
+  Result<std::string> FormatValues(const ScalarVector& values) const override;
 };
 
 /// \brief Implementation provided by lambda or other callable
@@ -288,16 +288,58 @@ class ARROW_DS_EXPORT PartitioningOrFactory {
 /// \brief Assemble lists of indices of identical rows.
 ///
 /// \param[in] by A StructArray whose columns will be used as grouping criteria.
-/// \return A StructArray mapping unique rows (in field "values", represented as a
-///         StructArray with the same fields as `by`) to lists of indices where
-///         that row appears (in field "groupings").
+///               Top level nulls are invalid, as are empty criteria (no grouping
+///               columns).
+/// \return A array of type `struct<values: by.type, groupings: list<int64>>`,
+///         which is a mapping from unique rows (field "values") to lists of
+///         indices into `by` where that row appears (field "groupings").
+///
+/// For example,
+///   MakeGroupings([
+///       {"a": "ex",  "b": 0},
+///       {"a": "ex",  "b": 0},
+///       {"a": "why", "b": 0},
+///       {"a": "why", "b": 0},
+///       {"a": "ex",  "b": 0},
+///       {"a": "why", "b": 1}
+///   ]) == [
+///       {"values": {"a": "ex",  "b": 0}, "groupings": [0, 1, 4]},
+///       {"values": {"a": "why", "b": 0}, "groupings": [2, 3]},
+///       {"values": {"a": "why", "b": 1}, "groupings": [5]}
+///   ]
 ARROW_DS_EXPORT
 Result<std::shared_ptr<StructArray>> MakeGroupings(const StructArray& by);
 
-/// \brief Produce slices of an Array which correspond to the provided groupings.
+/// \brief Produce a ListArray whose slots are selections of `array` which correspond to
+/// the provided groupings.
+///
+/// For example,
+///   ApplyGroupings([[0, 1, 4], [2, 3], [5]], [
+///       {"a": "ex",  "b": 0, "passenger": 0},
+///       {"a": "ex",  "b": 0, "passenger": 1},
+///       {"a": "why", "b": 0, "passenger": 2},
+///       {"a": "why", "b": 0, "passenger": 3},
+///       {"a": "ex",  "b": 0, "passenger": 4},
+///       {"a": "why", "b": 1, "passenger": 5}
+///   ]) == [
+///     [
+///       {"a": "ex",  "b": 0, "passenger": 0},
+///       {"a": "ex",  "b": 0, "passenger": 1},
+///       {"a": "ex",  "b": 0, "passenger": 4},
+///     ],
+///     [
+///       {"a": "why", "b": 0, "passenger": 2},
+///       {"a": "why", "b": 0, "passenger": 3},
+///     ],
+///     [
+///       {"a": "why", "b": 1, "passenger": 5}
+///     ]
+///   ]
 ARROW_DS_EXPORT
 Result<std::shared_ptr<ListArray>> ApplyGroupings(const ListArray& groupings,
                                                   const Array& array);
+
+/// \brief Produce selections of a RecordBatch which correspond to the provided groupings.
 ARROW_DS_EXPORT
 Result<RecordBatchVector> ApplyGroupings(const ListArray& groupings,
                                          const std::shared_ptr<RecordBatch>& batch);

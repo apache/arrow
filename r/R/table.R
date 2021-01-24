@@ -76,7 +76,7 @@
 #' - `$schema`
 #' - `$metadata`: Returns the key-value metadata of the `Schema` as a named list.
 #'    Modify or replace by assigning in (`tab$metadata <- new_metadata`).
-#'    All list elements are coerced to string.
+#'    All list elements are coerced to string. See `schema()` for more information.
 #' - `$columns`: Returns a list of `ChunkedArray`s
 #' @rdname Table
 #' @name Table
@@ -211,11 +211,24 @@ arrow_attributes <- function(x, only_top_level = FALSE) {
 
   if (is.data.frame(x)) {
     columns <- map(x, arrow_attributes)
-    if (length(att) || !all(map_lgl(columns, is.null))) {
+    out <- if (length(att) || !all(map_lgl(columns, is.null))) {
       list(attributes = att, columns = columns)
     }
-  } else if (length(att)) {
-    list(attributes = att, columns = NULL)
+    return(out)
+  }
+
+  columns <- NULL
+  if (is.list(x) && !inherits(x, "POSIXlt")) {
+    # for list columns, we also keep attributes of each
+    # element in columns
+    columns <- map(x, arrow_attributes)
+    if (all(map_lgl(columns, is.null))) {
+      columns <- NULL
+    }
+  }
+
+  if (length(att) || !is.null(columns)) {
+    list(attributes = att, columns = columns)
   } else {
     NULL
   }

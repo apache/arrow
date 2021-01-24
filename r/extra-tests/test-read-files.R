@@ -162,4 +162,36 @@ test_that("Can see the metadata (stream)", {
   )
 })
 
+test_that("Can see the extra metadata (parquet)", {
+  pq_file <- "files/ex_data_extra_metadata.parquet"
 
+  if (if_version_less_than("3.0.0")) {
+    expect_warning(
+      df <- read_parquet(pq_file),
+      "Invalid metadata$r",
+      fixed = TRUE
+    )
+    expect_s3_class(df, "tbl")
+  } else {
+    # version 3.0.0 and greater
+    df <- read_parquet(pq_file)
+    expect_s3_class(df, "tbl")
+
+    expect_equal(
+      attributes(df),
+      list(
+        names = letters[1:4],
+        row.names = 1L,
+        class = c("tbl_df", "tbl", "data.frame"),
+        top_level = list(
+          field_one = 12,
+          field_two = "more stuff"
+        )
+      )
+    )
+
+    # column-level attributes for the large column.
+    expect_named(attributes(df$b), "lots")
+    expect_length(attributes(df$b)$lots, 100)
+  }
+})

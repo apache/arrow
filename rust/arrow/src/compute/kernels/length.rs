@@ -17,7 +17,6 @@
 
 //! Defines kernel for length of a string array
 
-use crate::datatypes::ToByteSlice;
 use crate::{array::*, buffer::Buffer};
 use crate::{
     datatypes::DataType,
@@ -30,16 +29,20 @@ where
     OffsetSize: OffsetSizeTrait,
 {
     // note: offsets are stored as u8, but they can be interpreted as OffsetSize
-    let offsets = array.data_ref().clone().buffers()[0].clone();
+    let offsets = &array.data_ref().buffers()[0];
     // this is a 30% improvement over iterating over u8s and building OffsetSize, which
     // justifies the usage of `unsafe`.
     let slice: &[OffsetSize] =
         &unsafe { offsets.typed_data::<OffsetSize>() }[array.offset()..];
 
-    let lengths: Vec<OffsetSize> = slice
-        .windows(2)
-        .map(|offset| offset[1] - offset[0])
-        .collect();
+    let lengths = slice.windows(2).map(|offset| offset[1] - offset[0]);
+
+    // JUSTIFICATION
+    //  Benefit
+    //      ~60% speedup
+    //  Soundness
+    //      `values` is an iterator with a known size.
+    let buffer = unsafe { Buffer::from_trusted_len_iter(lengths) };
 
     let null_bit_buffer = array
         .data_ref()
@@ -53,7 +56,7 @@ where
         None,
         null_bit_buffer,
         0,
-        vec![Buffer::from(lengths.to_byte_slice())],
+        vec![buffer],
         vec![],
     );
     Ok(make_array(Arc::new(data)))

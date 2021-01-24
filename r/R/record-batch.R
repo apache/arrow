@@ -67,7 +67,7 @@
 #' - `$schema`
 #' - `$metadata`: Returns the key-value metadata of the `Schema` as a named list.
 #'    Modify or replace by assigning in (`batch$metadata <- new_metadata`).
-#'    All list elements are coerced to string.
+#'    All list elements are coerced to string. See `schema()` for more information.
 #' - `$columns`: Returns a list of `Array`s
 #' @rdname RecordBatch
 #' @name RecordBatch
@@ -274,17 +274,36 @@ as.data.frame.RecordBatch <- function(x, row.names = NULL, optional = FALSE, ...
   df
 }
 
+#' @importFrom utils object.size
 .serialize_arrow_r_metadata <- function(x) {
   assert_is(x, "list")
 
   # drop problems attributes (most likely from readr)
   x[["attributes"]][["problems"]] <- NULL
 
-  rawToChar(serialize(x, NULL, ascii = TRUE))
+  out <- serialize(x, NULL, ascii = TRUE)
+
+  # if the metadata is over 100 kB, compress
+  if (option_compress_metadata() && object.size(out) > 100000) {
+    out_comp <- serialize(memCompress(out, type = "gzip"), NULL, ascii = TRUE)
+
+    # but ensure that the compression+serialization is effective.
+    if (object.size(out) > object.size(out_comp)) out <- out_comp
+  }
+
+  rawToChar(out)
 }
 
 .unserialize_arrow_r_metadata <- function(x) {
-  tryCatch(unserialize(charToRaw(x)), error = function(e) {
+  tryCatch({
+    out <- unserialize(charToRaw(x))
+
+    # if this is still raw, try decompressing
+    if (is.raw(out)) {
+      out <- unserialize(memDecompress(out, type = "gzip"))
+    }
+    out
+  }, error = function(e) {
     warning("Invalid metadata$r", call. = FALSE)
     NULL
   })
@@ -292,6 +311,20 @@ as.data.frame.RecordBatch <- function(x, row.names = NULL, optional = FALSE, ...
 
 apply_arrow_r_metadata <- function(x, r_metadata) {
   tryCatch({
+    columns_metadata <- r_metadata$columns
+    if (is.data.frame(x)) {
+      if (length(names(x)) && !is.null(columns_metadata)) {
+        for (name in intersect(names(columns_metadata), names(x))) {
+          x[[name]] <- apply_arrow_r_metadata(x[[name]], columns_metadata[[name]])
+        }
+      }
+    } else if(is.list(x) && !inherits(x, "POSIXlt") && !is.null(columns_metadata)) {
+      x <- map2(x, columns_metadata, function(.x, .y) {
+        apply_arrow_r_metadata(.x, .y)
+      })
+      x
+    }
+
     if (!is.null(r_metadata$attributes)) {
       attributes(x)[names(r_metadata$attributes)] <- r_metadata$attributes
       if (inherits(x, "POSIXlt")) {
@@ -303,12 +336,6 @@ apply_arrow_r_metadata <- function(x, r_metadata) {
       }
     }
 
-    columns_metadata <- r_metadata$columns
-    if (length(names(x)) && !is.null(columns_metadata)) {
-      for (name in intersect(names(columns_metadata), names(x))) {
-        x[[name]] <- apply_arrow_r_metadata(x[[name]], columns_metadata[[name]])
-      }
-    }
   }, error = function(e) {
     warning("Invalid metadata$r", call. = FALSE)
   })

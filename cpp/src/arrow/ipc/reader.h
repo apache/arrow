@@ -485,6 +485,8 @@ Result<std::shared_ptr<SparseTensor>> ReadSparseTensorPayload(const IpcPayload& 
 ARROW_EXPORT
 Status FuzzIpcStream(const uint8_t* data, int64_t size);
 ARROW_EXPORT
+Status FuzzIpcTensorStream(const uint8_t* data, int64_t size);
+ARROW_EXPORT
 Status FuzzIpcFile(const uint8_t* data, int64_t size);
 
 }  // namespace internal

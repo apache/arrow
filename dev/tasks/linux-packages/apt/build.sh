@@ -69,7 +69,7 @@ elif [ -d "/host/tmp/debian.${platform}" ]; then
 else
   run cp -rp "/host/tmp/debian" debian
 fi
-DEB_BUILD_OPTIONS="parallel=$(nproc)"
+: ${DEB_BUILD_OPTIONS:="parallel=$(nproc)"}
 # DEB_BUILD_OPTIONS="${DEB_BUILD_OPTIONS} noopt"
 export DEB_BUILD_OPTIONS
 if [ "${DEBUG:-no}" = "yes" ]; then

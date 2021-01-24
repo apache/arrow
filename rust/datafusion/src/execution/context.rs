@@ -595,16 +595,19 @@ impl FunctionRegistry for ExecutionContextState {
 mod tests {
 
     use super::*;
-    use crate::logical_plan::{col, create_udf, sum};
     use crate::physical_plan::functions::ScalarFunctionImplementation;
     use crate::physical_plan::{collect, collect_partitioned};
     use crate::test;
     use crate::variable::VarType;
     use crate::{
+        assert_batches_eq, assert_batches_sorted_eq,
+        logical_plan::{col, create_udf, sum},
+    };
+    use crate::{
         datasource::MemTable, logical_plan::create_udaf,
         physical_plan::expressions::AvgAccumulator,
     };
-    use arrow::array::{ArrayRef, Float64Array, Int32Array, StringArray};
+    use arrow::array::{ArrayRef, Float64Array, Int32Array};
     use arrow::compute::add;
     use arrow::datatypes::*;
     use arrow::record_batch::RecordBatch;
@@ -626,9 +629,55 @@ mod tests {
         for batch in &results {
             assert_eq!(batch.num_columns(), 2);
             assert_eq!(batch.num_rows(), 10);
-
-            assert_eq!(field_names(batch), vec!["c1", "c2"]);
         }
+
+        let expected = vec![
+            "+----+----+",
+            "| c1 | c2 |",
+            "+----+----+",
+            "| 3  | 1  |",
+            "| 3  | 2  |",
+            "| 3  | 3  |",
+            "| 3  | 4  |",
+            "| 3  | 5  |",
+            "| 3  | 6  |",
+            "| 3  | 7  |",
+            "| 3  | 8  |",
+            "| 3  | 9  |",
+            "| 3  | 10 |",
+            "| 2  | 1  |",
+            "| 2  | 2  |",
+            "| 2  | 3  |",
+            "| 2  | 4  |",
+            "| 2  | 5  |",
+            "| 2  | 6  |",
+            "| 2  | 7  |",
+            "| 2  | 8  |",
+            "| 2  | 9  |",
+            "| 2  | 10 |",
+            "| 1  | 1  |",
+            "| 1  | 2  |",
+            "| 1  | 3  |",
+            "| 1  | 4  |",
+            "| 1  | 5  |",
+            "| 1  | 6  |",
+            "| 1  | 7  |",
+            "| 1  | 8  |",
+            "| 1  | 9  |",
+            "| 1  | 10 |",
+            "| 0  | 1  |",
+            "| 0  | 2  |",
+            "| 0  | 3  |",
+            "| 0  | 4  |",
+            "| 0  | 5  |",
+            "| 0  | 6  |",
+            "| 0  | 7  |",
+            "| 0  | 8  |",
+            "| 0  | 9  |",
+            "| 0  | 10 |",
+            "+----+----+",
+        ];
+        assert_batches_sorted_eq!(expected, &results);
 
         Ok(())
     }
@@ -650,24 +699,14 @@ mod tests {
         let results =
             plan_and_collect(&mut ctx, "SELECT @@version, @name FROM dual").await?;
 
-        let batch = &results[0];
-        assert_eq!(2, batch.num_columns());
-        assert_eq!(1, batch.num_rows());
-        assert_eq!(field_names(batch), vec!["@@version", "@name"]);
-
-        let version = batch
-            .column(0)
-            .as_any()
-            .downcast_ref::<StringArray>()
-            .expect("failed to cast version");
-        assert_eq!(version.value(0), "system-var-@@version");
-
-        let name = batch
-            .column(1)
-            .as_any()
-            .downcast_ref::<StringArray>()
-            .expect("failed to cast name");
-        assert_eq!(name.value(0), "user-defined-var-@name");
+        let expected = vec![
+            "+----------------------+------------------------+",
+            "| @@version            | @name                  |",
+            "+----------------------+------------------------+",
+            "| system-var-@@version | user-defined-var-@name |",
+            "+----------------------+------------------------+",
+        ];
+        assert_batches_eq!(expected, &results);
 
         Ok(())
     }
@@ -702,6 +741,35 @@ mod tests {
         }
         assert_eq!(2, num_batches);
         assert_eq!(20, num_rows);
+
+        let results: Vec<RecordBatch> = results.into_iter().flatten().collect();
+        let expected = vec![
+            "+----+----+",
+            "| c1 | c2 |",
+            "+----+----+",
+            "| 1  | 1  |",
+            "| 1  | 10 |",
+            "| 1  | 2  |",
+            "| 1  | 3  |",
+            "| 1  | 4  |",
+            "| 1  | 5  |",
+            "| 1  | 6  |",
+            "| 1  | 7  |",
+            "| 1  | 8  |",
+            "| 1  | 9  |",
+            "| 2  | 1  |",
+            "| 2  | 10 |",
+            "| 2  | 2  |",
+            "| 2  | 3  |",
+            "| 2  | 4  |",
+            "| 2  | 5  |",
+            "| 2  | 6  |",
+            "| 2  | 7  |",
+            "| 2  | 8  |",
+            "| 2  | 9  |",
+            "+----+----+",
+        ];
+        assert_batches_sorted_eq!(expected, &results);
 
         Ok(())
     }
@@ -841,15 +909,70 @@ mod tests {
             execute("SELECT c1, c2 FROM test ORDER BY c1 DESC, c2 ASC", 4).await?;
         assert_eq!(results.len(), 1);
 
-        let batch = &results[0];
         let expected: Vec<&str> = vec![
-            "3,1", "3,2", "3,3", "3,4", "3,5", "3,6", "3,7", "3,8", "3,9", "3,10", "2,1",
-            "2,2", "2,3", "2,4", "2,5", "2,6", "2,7", "2,8", "2,9", "2,10", "1,1", "1,2",
-            "1,3", "1,4", "1,5", "1,6", "1,7", "1,8", "1,9", "1,10", "0,1", "0,2", "0,3",
-            "0,4", "0,5", "0,6", "0,7", "0,8", "0,9", "0,10",
+            "+----+----+",
+            "| c1 | c2 |",
+            "+----+----+",
+            "| 3  | 1  |",
+            "| 3  | 2  |",
+            "| 3  | 3  |",
+            "| 3  | 4  |",
+            "| 3  | 5  |",
+            "| 3  | 6  |",
+            "| 3  | 7  |",
+            "| 3  | 8  |",
+            "| 3  | 9  |",
+            "| 3  | 10 |",
+            "| 2  | 1  |",
+            "| 2  | 2  |",
+            "| 2  | 3  |",
+            "| 2  | 4  |",
+            "| 2  | 5  |",
+            "| 2  | 6  |",
+            "| 2  | 7  |",
+            "| 2  | 8  |",
+            "| 2  | 9  |",
+            "| 2  | 10 |",
+            "| 1  | 1  |",
+            "| 1  | 2  |",
+            "| 1  | 3  |",
+            "| 1  | 4  |",
+            "| 1  | 5  |",
+            "| 1  | 6  |",
+            "| 1  | 7  |",
+            "| 1  | 8  |",
+            "| 1  | 9  |",
+            "| 1  | 10 |",
+            "| 0  | 1  |",
+            "| 0  | 2  |",
+            "| 0  | 3  |",
+            "| 0  | 4  |",
+            "| 0  | 5  |",
+            "| 0  | 6  |",
+            "| 0  | 7  |",
+            "| 0  | 8  |",
+            "| 0  | 9  |",
+            "| 0  | 10 |",
+            "+----+----+",
         ];
-        assert_eq!(test::format_batch(batch), expected);
 
+        // Note it is important to NOT use assert_batches_sorted_eq
+        // here as we are testing the sortedness of the output
+        assert_batches_eq!(expected, &results);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn sort_empty() -> Result<()> {
+        // The predicate on this query purposely generates no results
+        let results = execute(
+            "SELECT c1, c2 FROM test WHERE c1 > 100000 ORDER BY c1 DESC, c2 ASC",
+            4,
+        )
+        .await
+        .unwrap();
+        assert_eq!(results.len(), 0);
         Ok(())
     }
 
@@ -858,14 +981,35 @@ mod tests {
         let results = execute("SELECT SUM(c1), SUM(c2) FROM test", 4).await?;
         assert_eq!(results.len(), 1);
 
-        let batch = &results[0];
+        let expected = vec![
+            "+---------+---------+",
+            "| SUM(c1) | SUM(c2) |",
+            "+---------+---------+",
+            "| 60      | 220     |",
+            "+---------+---------+",
+        ];
+        assert_batches_sorted_eq!(expected, &results);
 
-        assert_eq!(field_names(batch), vec!["SUM(c1)", "SUM(c2)"]);
+        Ok(())
+    }
 
-        let expected: Vec<&str> = vec!["60,220"];
-        let mut rows = test::format_batch(&batch);
-        rows.sort();
-        assert_eq!(rows, expected);
+    #[tokio::test]
+    async fn aggregate_empty() -> Result<()> {
+        // The predicate on this query purposely generates no results
+        let results = execute("SELECT SUM(c1), SUM(c2) FROM test where c1 > 100000", 4)
+            .await
+            .unwrap();
+
+        assert_eq!(results.len(), 1);
+
+        let expected = vec![
+            "+---------+---------+",
+            "| SUM(c1) | SUM(c2) |",
+            "+---------+---------+",
+            "|         |         |",
+            "+---------+---------+",
+        ];
+        assert_batches_sorted_eq!(expected, &results);
 
         Ok(())
     }
@@ -875,14 +1019,14 @@ mod tests {
         let results = execute("SELECT AVG(c1), AVG(c2) FROM test", 4).await?;
         assert_eq!(results.len(), 1);
 
-        let batch = &results[0];
-
-        assert_eq!(field_names(batch), vec!["AVG(c1)", "AVG(c2)"]);
-
-        let expected: Vec<&str> = vec!["1.5,5.5"];
-        let mut rows = test::format_batch(&batch);
-        rows.sort();
-        assert_eq!(rows, expected);
+        let expected = vec![
+            "+---------+---------+",
+            "| AVG(c1) | AVG(c2) |",
+            "+---------+---------+",
+            "| 1.5     | 5.5     |",
+            "+---------+---------+",
+        ];
+        assert_batches_sorted_eq!(expected, &results);
 
         Ok(())
     }
@@ -892,14 +1036,14 @@ mod tests {
         let results = execute("SELECT MAX(c1), MAX(c2) FROM test", 4).await?;
         assert_eq!(results.len(), 1);
 
-        let batch = &results[0];
-
-        assert_eq!(field_names(batch), vec!["MAX(c1)", "MAX(c2)"]);
-
-        let expected: Vec<&str> = vec!["3,10"];
-        let mut rows = test::format_batch(&batch);
-        rows.sort();
-        assert_eq!(rows, expected);
+        let expected = vec![
+            "+---------+---------+",
+            "| MAX(c1) | MAX(c2) |",
+            "+---------+---------+",
+            "| 3       | 10      |",
+            "+---------+---------+",
+        ];
+        assert_batches_sorted_eq!(expected, &results);
 
         Ok(())
     }
@@ -909,14 +1053,14 @@ mod tests {
         let results = execute("SELECT MIN(c1), MIN(c2) FROM test", 4).await?;
         assert_eq!(results.len(), 1);
 
-        let batch = &results[0];
-
-        assert_eq!(field_names(batch), vec!["MIN(c1)", "MIN(c2)"]);
-
-        let expected: Vec<&str> = vec!["0,1"];
-        let mut rows = test::format_batch(&batch);
-        rows.sort();
-        assert_eq!(rows, expected);
+        let expected = vec![
+            "+---------+---------+",
+            "| MIN(c1) | MIN(c2) |",
+            "+---------+---------+",
+            "| 0       | 1       |",
+            "+---------+---------+",
+        ];
+        assert_batches_sorted_eq!(expected, &results);
 
         Ok(())
     }
@@ -926,14 +1070,17 @@ mod tests {
         let results = execute("SELECT c1, SUM(c2) FROM test GROUP BY c1", 4).await?;
         assert_eq!(results.len(), 1);
 
-        let batch = &results[0];
-
-        assert_eq!(field_names(batch), vec!["c1", "SUM(c2)"]);
-
-        let expected: Vec<&str> = vec!["0,55", "1,55", "2,55", "3,55"];
-        let mut rows = test::format_batch(&batch);
-        rows.sort();
-        assert_eq!(rows, expected);
+        let expected = vec![
+            "+----+---------+",
+            "| c1 | SUM(c2) |",
+            "+----+---------+",
+            "| 0  | 55      |",
+            "| 1  | 55      |",
+            "| 2  | 55      |",
+            "| 3  | 55      |",
+            "+----+---------+",
+        ];
+        assert_batches_sorted_eq!(expected, &results);
 
         Ok(())
     }
@@ -943,14 +1090,17 @@ mod tests {
         let results = execute("SELECT c1, AVG(c2) FROM test GROUP BY c1", 4).await?;
         assert_eq!(results.len(), 1);
 
-        let batch = &results[0];
-
-        assert_eq!(field_names(batch), vec!["c1", "AVG(c2)"]);
-
-        let expected: Vec<&str> = vec!["0,5.5", "1,5.5", "2,5.5", "3,5.5"];
-        let mut rows = test::format_batch(&batch);
-        rows.sort();
-        assert_eq!(rows, expected);
+        let expected = vec![
+            "+----+---------+",
+            "| c1 | AVG(c2) |",
+            "+----+---------+",
+            "| 0  | 5.5     |",
+            "| 1  | 5.5     |",
+            "| 2  | 5.5     |",
+            "| 3  | 5.5     |",
+            "+----+---------+",
+        ];
+        assert_batches_sorted_eq!(expected, &results);
 
         Ok(())
     }
@@ -961,14 +1111,8 @@ mod tests {
             execute("SELECT c1, AVG(c2) FROM test WHERE c1 = 123 GROUP BY c1", 4).await?;
         assert_eq!(results.len(), 1);
 
-        let batch = &results[0];
-
-        assert_eq!(field_names(batch), vec!["c1", "AVG(c2)"]);
-
-        let expected: Vec<&str> = vec![];
-        let mut rows = test::format_batch(&batch);
-        rows.sort();
-        assert_eq!(rows, expected);
+        let expected = vec!["++", "||", "++", "++"];
+        assert_batches_sorted_eq!(expected, &results);
 
         Ok(())
     }
@@ -978,14 +1122,17 @@ mod tests {
         let results = execute("SELECT c1, MAX(c2) FROM test GROUP BY c1", 4).await?;
         assert_eq!(results.len(), 1);
 
-        let batch = &results[0];
-
-        assert_eq!(field_names(batch), vec!["c1", "MAX(c2)"]);
-
-        let expected: Vec<&str> = vec!["0,10", "1,10", "2,10", "3,10"];
-        let mut rows = test::format_batch(&batch);
-        rows.sort();
-        assert_eq!(rows, expected);
+        let expected = vec![
+            "+----+---------+",
+            "| c1 | MAX(c2) |",
+            "+----+---------+",
+            "| 0  | 10      |",
+            "| 1  | 10      |",
+            "| 2  | 10      |",
+            "| 3  | 10      |",
+            "+----+---------+",
+        ];
+        assert_batches_sorted_eq!(expected, &results);
 
         Ok(())
     }
@@ -995,14 +1142,17 @@ mod tests {
         let results = execute("SELECT c1, MIN(c2) FROM test GROUP BY c1", 4).await?;
         assert_eq!(results.len(), 1);
 
-        let batch = &results[0];
-
-        assert_eq!(field_names(batch), vec!["c1", "MIN(c2)"]);
-
-        let expected: Vec<&str> = vec!["0,1", "1,1", "2,1", "3,1"];
-        let mut rows = test::format_batch(&batch);
-        rows.sort();
-        assert_eq!(rows, expected);
+        let expected = vec![
+            "+----+---------+",
+            "| c1 | MIN(c2) |",
+            "+----+---------+",
+            "| 0  | 1       |",
+            "| 1  | 1       |",
+            "| 2  | 1       |",
+            "| 3  | 1       |",
+            "+----+---------+",
+        ];
+        assert_batches_sorted_eq!(expected, &results);
 
         Ok(())
     }
@@ -1012,14 +1162,14 @@ mod tests {
         let results = execute("SELECT COUNT(c1), COUNT(c2) FROM test", 1).await?;
         assert_eq!(results.len(), 1);
 
-        let batch = &results[0];
-
-        assert_eq!(field_names(batch), vec!["COUNT(c1)", "COUNT(c2)"]);
-
-        let expected: Vec<&str> = vec!["10,10"];
-        let mut rows = test::format_batch(&batch);
-        rows.sort();
-        assert_eq!(rows, expected);
+        let expected = vec![
+            "+-----------+-----------+",
+            "| COUNT(c1) | COUNT(c2) |",
+            "+-----------+-----------+",
+            "| 10        | 10        |",
+            "+-----------+-----------+",
+        ];
+        assert_batches_sorted_eq!(expected, &results);
         Ok(())
     }
 
@@ -1028,14 +1178,14 @@ mod tests {
         let results = execute("SELECT COUNT(c1), COUNT(c2) FROM test", 4).await?;
         assert_eq!(results.len(), 1);
 
-        let batch = &results[0];
-
-        assert_eq!(field_names(batch), vec!["COUNT(c1)", "COUNT(c2)"]);
-
-        let expected: Vec<&str> = vec!["40,40"];
-        let mut rows = test::format_batch(&batch);
-        rows.sort();
-        assert_eq!(rows, expected);
+        let expected = vec![
+            "+-----------+-----------+",
+            "| COUNT(c1) | COUNT(c2) |",
+            "+-----------+-----------+",
+            "| 40        | 40        |",
+            "+-----------+-----------+",
+        ];
+        assert_batches_sorted_eq!(expected, &results);
         Ok(())
     }
 
@@ -1044,14 +1194,17 @@ mod tests {
         let results = execute("SELECT c1, COUNT(c2) FROM test GROUP BY c1", 4).await?;
         assert_eq!(results.len(), 1);
 
-        let batch = &results[0];
-
-        assert_eq!(field_names(batch), vec!["c1", "COUNT(c2)"]);
-
-        let expected = vec!["0,10", "1,10", "2,10", "3,10"];
-        let mut rows = test::format_batch(&batch);
-        rows.sort();
-        assert_eq!(rows, expected);
+        let expected = vec![
+            "+----+-----------+",
+            "| c1 | COUNT(c2) |",
+            "+----+-----------+",
+            "| 0  | 10        |",
+            "| 1  | 10        |",
+            "| 2  | 10        |",
+            "| 3  | 10        |",
+            "+----+-----------+",
+        ];
+        assert_batches_sorted_eq!(expected, &results);
         Ok(())
     }
 
@@ -1093,15 +1246,15 @@ mod tests {
         ).await?;
         assert_eq!(results.len(), 1);
 
-        let batch = &results[0];
-
-        assert_eq!(field_names(batch), vec!["week", "SUM(c2)"]);
-
-        let expected: Vec<&str> =
-            vec!["2020-12-07T00:00:00,24", "2020-12-14T00:00:00,156"];
-        let mut rows = test::format_batch(&batch);
-        rows.sort();
-        assert_eq!(rows, expected);
+        let expected = vec![
+            "+---------------------+---------+",
+            "| week                | SUM(c2) |",
+            "+---------------------+---------+",
+            "| 2020-12-07 00:00:00 | 24      |",
+            "| 2020-12-14 00:00:00 | 156     |",
+            "+---------------------+---------+",
+        ];
+        assert_batches_sorted_eq!(expected, &results);
 
         Ok(())
     }
@@ -1190,20 +1343,17 @@ mod tests {
         let results = run_count_distinct_integers_aggregated_scenario(partitions).await?;
         assert_eq!(results.len(), 1);
 
-        let batch = &results[0];
-        assert_eq!(batch.num_rows(), 3);
-        assert_eq!(batch.num_columns(), 10);
-        let mut result = test::format_batch(&batch);
-        result.sort_unstable();
-
-        assert_eq!(
-            result,
-            vec![
-                "a,3,2,2,2,2,2,2,2,2",
-                "b,1,1,1,1,1,1,1,1,1",
-                "c,3,2,2,2,2,2,2,2,2",
-            ],
-        );
+        let expected = vec!
+[
+    "+---------+-----------------+------------------------+-------------------------+-------------------------+-------------------------+-------------------------+--------------------------+--------------------------+--------------------------+",
+    "| c_group | COUNT(c_uint64) | COUNT(DISTINCT c_int8) | COUNT(DISTINCT c_int16) | COUNT(DISTINCT c_int32) | COUNT(DISTINCT c_int64) | COUNT(DISTINCT c_uint8) | COUNT(DISTINCT c_uint16) | COUNT(DISTINCT c_uint32) | COUNT(DISTINCT c_uint64) |",
+    "+---------+-----------------+------------------------+-------------------------+-------------------------+-------------------------+-------------------------+--------------------------+--------------------------+--------------------------+",
+    "| a       | 3               | 2                      | 2                       | 2                       | 2                       | 2                       | 2                        | 2                        | 2                        |",
+    "| b       | 1               | 1                      | 1                       | 1                       | 1                       | 1                       | 1                        | 1                        | 1                        |",
+    "| c       | 3               | 2                      | 2                       | 2                       | 2                       | 2                       | 2                        | 2                        | 2                        |",
+    "+---------+-----------------+------------------------+-------------------------+-------------------------+-------------------------+-------------------------+--------------------------+--------------------------+--------------------------+",
+];
+        assert_batches_sorted_eq!(expected, &results);
 
         Ok(())
     }
@@ -1221,19 +1371,16 @@ mod tests {
         let results = run_count_distinct_integers_aggregated_scenario(partitions).await?;
         assert_eq!(results.len(), 1);
 
-        let batch = &results[0];
-        assert_eq!(batch.num_rows(), 3);
-        assert_eq!(batch.num_columns(), 10);
-        let mut result = test::format_batch(&batch);
-        result.sort_unstable();
-        assert_eq!(
-            result,
-            vec![
-                "a,5,3,3,3,3,3,3,3,3",
-                "b,5,4,4,4,4,4,4,4,4",
-                "c,1,1,1,1,1,1,1,1,1",
-            ],
-        );
+        let expected = vec![
+    "+---------+-----------------+------------------------+-------------------------+-------------------------+-------------------------+-------------------------+--------------------------+--------------------------+--------------------------+",
+    "| c_group | COUNT(c_uint64) | COUNT(DISTINCT c_int8) | COUNT(DISTINCT c_int16) | COUNT(DISTINCT c_int32) | COUNT(DISTINCT c_int64) | COUNT(DISTINCT c_uint8) | COUNT(DISTINCT c_uint16) | COUNT(DISTINCT c_uint32) | COUNT(DISTINCT c_uint64) |",
+    "+---------+-----------------+------------------------+-------------------------+-------------------------+-------------------------+-------------------------+--------------------------+--------------------------+--------------------------+",
+    "| a       | 5               | 3                      | 3                       | 3                       | 3                       | 3                       | 3                        | 3                        | 3                        |",
+    "| b       | 5               | 4                      | 4                       | 4                       | 4                       | 4                       | 4                        | 4                        | 4                        |",
+    "| c       | 1               | 1                      | 1                       | 1                       | 1                       | 1                       | 1                        | 1                        | 1                        |",
+    "+---------+-----------------+------------------------+-------------------------+-------------------------+-------------------------+-------------------------+--------------------------+--------------------------+--------------------------+",
+];
+        assert_batches_sorted_eq!(expected, &results);
 
         Ok(())
     }
@@ -1373,8 +1520,14 @@ mod tests {
                 .await?;
 
         assert_eq!(results.len(), 1);
-        assert_eq!(results[0].num_rows(), 1);
-        assert_eq!(test::format_batch(&results[0]), vec!["10,110,20"]);
+        let expected = vec![
+            "+---------+---------+-----------------+",
+            "| SUM(c1) | SUM(c2) | COUNT(UInt8(1)) |",
+            "+---------+---------+-----------------+",
+            "| 10      | 110     | 20              |",
+            "+---------+---------+-----------------+",
+        ];
+        assert_batches_eq!(expected, &results);
 
         Ok(())
     }
@@ -1467,11 +1620,19 @@ mod tests {
         let plan = ctx.create_physical_plan(&plan)?;
         let result = collect(plan).await?;
 
-        let batch = &result[0];
-        assert_eq!(3, batch.num_columns());
-        assert_eq!(4, batch.num_rows());
-        assert_eq!(field_names(batch), vec!["a", "b", "my_add(a,b)"]);
+        let expected = vec![
+            "+-----+-----+-------------+",
+            "| a   | b   | my_add(a,b) |",
+            "+-----+-----+-------------+",
+            "| 1   | 2   | 3           |",
+            "| 10  | 12  | 22          |",
+            "| 10  | 12  | 22          |",
+            "| 100 | 120 | 220         |",
+            "+-----+-----+-------------+",
+        ];
+        assert_batches_eq!(expected, &result);
 
+        let batch = &result[0];
         let a = batch
             .column(0)
             .as_any()
@@ -1567,18 +1728,15 @@ mod tests {
 
         let result = plan_and_collect(&mut ctx, "SELECT MY_AVG(a) FROM t").await?;
 
-        let batch = &result[0];
-        assert_eq!(1, batch.num_columns());
-        assert_eq!(1, batch.num_rows());
+        let expected = vec![
+            "+-----------+",
+            "| MY_AVG(a) |",
+            "+-----------+",
+            "| 3         |",
+            "+-----------+",
+        ];
+        assert_batches_eq!(expected, &result);
 
-        let values = batch
-            .column(0)
-            .as_any()
-            .downcast_ref::<Float64Array>()
-            .expect("failed to cast version");
-        assert_eq!(values.len(), 1);
-        // avg(1,2,3,4,5) = 3.0
-        assert_eq!(values.value(0), 3.0_f64);
         Ok(())
     }
 
@@ -1629,15 +1787,6 @@ mod tests {
         let logical_plan = ctx.optimize(&logical_plan)?;
         let physical_plan = ctx.create_physical_plan(&logical_plan)?;
         collect(physical_plan).await
-    }
-
-    fn field_names(result: &RecordBatch) -> Vec<String> {
-        result
-            .schema()
-            .fields()
-            .iter()
-            .map(|x| x.name().clone())
-            .collect::<Vec<String>>()
     }
 
     /// Execute SQL and return results

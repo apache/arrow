@@ -1493,15 +1493,16 @@ class _ParquetDatasetV2:
                 single_file = path_or_paths[0]
         else:
             if _is_path_like(path_or_paths):
-                path = str(path_or_paths)
+                path_or_paths = str(path_or_paths)
                 if filesystem is None:
                     # path might be a URI describing the FileSystem as well
                     try:
-                        filesystem, path = FileSystem.from_uri(path)
+                        filesystem, path_or_paths = FileSystem.from_uri(
+                            path_or_paths)
                     except ValueError:
                         filesystem = LocalFileSystem(use_mmap=memory_map)
-                if filesystem.get_file_info(path).is_file:
-                    single_file = path
+                if filesystem.get_file_info(path_or_paths).is_file:
+                    single_file = path_or_paths
             else:
                 single_file = path_or_paths
 

@@ -29,7 +29,7 @@ The features currently offered are the following:
   such as ``my_data.csv.gz``)
 * fetching column names from the first row in the CSV file
 * column-wise type inference and conversion to one of ``null``, ``int64``,
-  ``float64``, ``timestamp[s]``, ``string`` or ``binary`` data
+  ``float64``, ``date32``, ``timestamp[s]``, ``string`` or ``binary`` data
 * opportunistic dictionary encoding of ``string`` and ``binary`` columns
   (disabled by default)
 * detecting various spellings of null values such as ``NaN`` or ``#N/A``
@@ -98,8 +98,8 @@ Due to the structure of CSV files, one cannot expect the same levels of
 performance as when reading dedicated binary formats like
 :ref:`Parquet <Parquet>`.  Nevertheless, Arrow strives to reduce the
 overhead of reading CSV files.  A reasonable expectation is at least
-100 MB/s per core on a modern desktop machine (measured in source CSV bytes,
-not target Arrow data bytes).
+100 MB/s per core on a performant desktop or laptop computer (measured
+in source CSV bytes, not target Arrow data bytes).
 
 Performance options can be controlled through the :class:`ReadOptions` class.
 Multi-threaded reading is the default for highest performance, distributing

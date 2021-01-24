@@ -688,10 +688,9 @@ Status PackBatchNoChunks(const std::vector<Datum>& args, ExecBatch* out) {
     switch (arg.kind()) {
       case Datum::SCALAR:
       case Datum::ARRAY:
+      case Datum::CHUNKED_ARRAY:
         length = std::max(arg.length(), length);
         break;
-      case Datum::CHUNKED_ARRAY:
-        return Status::Invalid("Kernel does not support chunked array arguments");
       default:
         DCHECK(false);
         break;
@@ -722,19 +721,15 @@ class VectorExecutor : public KernelExecutorImpl<VectorKernel> {
                     const std::vector<Datum>& outputs) override {
     // If execution yielded multiple chunks (because large arrays were split
     // based on the ExecContext parameters, then the result is a ChunkedArray
-    if (kernel_->output_chunked) {
-      if (HaveChunkedArray(inputs) || outputs.size() > 1) {
-        return ToChunkedArray(outputs, output_descr_.type);
-      } else if (outputs.size() == 1) {
-        // Outputs have just one element
-        return outputs[0];
-      } else {
-        // XXX: In the case where no outputs are omitted, is returning a 0-length
-        // array always the correct move?
-        return MakeArrayOfNull(output_descr_.type, /*length=*/0).ValueOrDie();
-      }
-    } else {
+    if (kernel_->output_chunked && (HaveChunkedArray(inputs) || outputs.size() > 1)) {
+      return ToChunkedArray(outputs, output_descr_.type);
+    } else if (outputs.size() == 1) {
+      // Outputs have just one element
       return outputs[0];
+    } else {
+      // XXX: In the case where no outputs are omitted, is returning a 0-length
+      // array always the correct move?
+      return MakeArrayOfNull(output_descr_.type, /*length=*/0).ValueOrDie();
     }
   }
 

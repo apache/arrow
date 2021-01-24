@@ -17,124 +17,130 @@
 
 from unittest.mock import patch
 
-import pytest
 from click.testing import CliRunner
 
 from archery.cli import archery
 from archery.docker import DockerCompose
 
 
-@pytest.mark.parametrize(('command', 'args', 'kwargs'), [
-    (
-        ['ubuntu-cpp', '--build-only'],
-        ['ubuntu-cpp'],
-        dict(
-            command=None,
-            env={},
-            user=None,
-            force_pull=True,
-            force_build=True,
-            build_only=True,
-            use_cache=True,
-            use_leaf_cache=True,
-            volumes=()
-        )
-    ),
-    (
-        ['ubuntu-cpp', 'bash'],
-        ['ubuntu-cpp'],
-        dict(
-            command='bash',
-            env={},
-            user=None,
-            force_pull=True,
-            force_build=True,
-            build_only=False,
-            use_cache=True,
-            use_leaf_cache=True,
-            volumes=()
-        )
-    ),
-    (
-        ['ubuntu-cpp', '--no-pull', '--no-build'],
-        ['ubuntu-cpp'],
-        dict(
-            command=None,
-            env={},
-            user=None,
-            force_pull=False,
-            force_build=False,
-            build_only=False,
-            use_cache=True,
-            use_leaf_cache=True,
-            volumes=()
-        )
-    ),
-    (
-        [
-            'ubuntu-cpp', '--no-pull', '--force-build', '--user', 'me',
-            '--no-cache', '--no-leaf-cache'
-        ],
-        ['ubuntu-cpp'],
-        dict(
-            command=None,
-            env={},
-            user='me',
-            force_pull=False,
-            force_build=True,
-            build_only=False,
-            use_cache=False,
-            use_leaf_cache=False,
-            volumes=()
-        )
-    ),
-    (
-        [
-            '-e', 'ARROW_GANDIVA=OFF', '-e', 'ARROW_FLIGHT=ON', '-u', 'root',
-            'ubuntu-cpp'
-        ],
-        ['ubuntu-cpp'],
-        dict(
-            command=None,
-            env={
-                'ARROW_GANDIVA': 'OFF',
-                'ARROW_FLIGHT': 'ON'
-            },
-            user='root',
-            force_pull=True,
-            force_build=True,
-            build_only=False,
-            use_cache=True,
-            use_leaf_cache=True,
-            volumes=()
-        )
-    ),
-    (
-        [
-            '--volume', './build:/build', '-v', './ccache:/ccache:delegated',
-            'ubuntu-cpp'
-        ],
-        ['ubuntu-cpp'],
-        dict(
-            command=None,
-            env={},
-            user=None,
-            force_pull=True,
-            force_build=True,
-            build_only=False,
-            use_cache=True,
-            use_leaf_cache=True,
-            volumes=(
-                './build:/build',
-                './ccache:/ccache:delegated',
-            )
-        )
+@patch.object(DockerCompose, "pull")
+@patch.object(DockerCompose, "build")
+@patch.object(DockerCompose, "run")
+def test_docker_run_with_custom_command(run, build, pull):
+    # with custom command
+    args = ["docker", "run", "ubuntu-cpp", "bash"]
+    result = CliRunner().invoke(archery, args)
+    assert result.exit_code == 0
+    pull.assert_called_once_with(
+        "ubuntu-cpp", pull_leaf=True, using_docker=False
     )
-])
-def test_docker_run(command, args, kwargs):
-    runner = CliRunner()
+    build.assert_called_once_with(
+        "ubuntu-cpp", use_cache=True, use_leaf_cache=True, using_docker=False
+    )
+    run.assert_called_once_with(
+        "ubuntu-cpp",
+        command="bash",
+        env={},
+        user=None,
+        using_docker=False,
+        volumes=(),
+    )
 
-    with patch.object(DockerCompose, 'run') as run:
-        result = runner.invoke(archery, ['docker', 'run'] + command)
-        assert result.exit_code == 0
-        run.assert_called_once_with(*args, **kwargs)
+
+@patch.object(DockerCompose, "pull")
+@patch.object(DockerCompose, "build")
+@patch.object(DockerCompose, "run")
+def test_docker_run_options(run, build, pull):
+    # environment variables and volumes
+    args = [
+        "docker",
+        "run",
+        "-e",
+        "ARROW_GANDIVA=OFF",
+        "-e",
+        "ARROW_FLIGHT=ON",
+        "--volume",
+        "./build:/build",
+        "-v",
+        "./ccache:/ccache:delegated",
+        "-u",
+        "root",
+        "ubuntu-cpp",
+    ]
+    result = CliRunner().invoke(archery, args)
+    assert result.exit_code == 0
+    pull.assert_called_once_with(
+        "ubuntu-cpp", pull_leaf=True, using_docker=False
+    )
+    build.assert_called_once_with(
+        "ubuntu-cpp", use_cache=True, use_leaf_cache=True, using_docker=False
+    )
+    run.assert_called_once_with(
+        "ubuntu-cpp",
+        command=None,
+        env={"ARROW_GANDIVA": "OFF", "ARROW_FLIGHT": "ON"},
+        user="root",
+        using_docker=False,
+        volumes=(
+            "./build:/build",
+            "./ccache:/ccache:delegated",
+        ),
+    )
+
+
+@patch.object(DockerCompose, "run")
+def test_docker_run_without_pulling_or_building(run):
+    args = ["docker", "run", "--no-pull", "--no-build", "ubuntu-cpp"]
+    result = CliRunner().invoke(archery, args)
+    assert result.exit_code == 0
+    run.assert_called_once_with(
+        "ubuntu-cpp",
+        command=None,
+        env={},
+        user=None,
+        using_docker=False,
+        volumes=(),
+    )
+
+
+@patch.object(DockerCompose, "pull")
+@patch.object(DockerCompose, "build")
+def test_docker_run_only_pulling_and_building(build, pull):
+    args = ["docker", "run", "ubuntu-cpp", "--build-only"]
+    result = CliRunner().invoke(archery, args)
+    assert result.exit_code == 0
+    pull.assert_called_once_with(
+        "ubuntu-cpp", pull_leaf=True, using_docker=False
+    )
+    build.assert_called_once_with(
+        "ubuntu-cpp", use_cache=True, use_leaf_cache=True, using_docker=False
+    )
+
+
+@patch.object(DockerCompose, "build")
+@patch.object(DockerCompose, "run")
+def test_docker_run_without_build_cache(run, build):
+    args = [
+        "docker",
+        "run",
+        "--no-pull",
+        "--force-build",
+        "--user",
+        "me",
+        "--no-cache",
+        "--no-leaf-cache",
+        "ubuntu-cpp",
+    ]
+    result = CliRunner().invoke(archery, args)
+    assert result.exit_code == 0
+    build.assert_called_once_with(
+        "ubuntu-cpp", use_cache=False, use_leaf_cache=False, using_docker=False
+    )
+    run.assert_called_once_with(
+        "ubuntu-cpp",
+        command=None,
+        env={},
+        user="me",
+        using_docker=False,
+        volumes=(),
+    )

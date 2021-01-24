@@ -223,6 +223,18 @@ TEST_F(TestIpcFileSystemDataset, WriteWithEmptyPartitioningSchema) {
   TestWriteWithEmptyPartitioningSchema();
 }
 
+TEST_F(TestIpcFileSystemDataset, WriteExceedsMaxPartitions) {
+  write_options_.partitioning = std::make_shared<DirectoryPartitioning>(
+      SchemaFromColumnNames(source_schema_, {"model"}));
+
+  // require that no batch be grouped into more than 2 written batches:
+  write_options_.max_partitions = 2;
+
+  auto scanner = std::make_shared<Scanner>(dataset_, scan_options_, scan_context_);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("This exceeds the maximum"),
+                                  FileSystemDataset::Write(write_options_, scanner));
+}
+
 TEST_F(TestIpcFileFormat, OpenFailureWithRelevantError) {
   std::shared_ptr<Buffer> buf = std::make_shared<Buffer>(util::string_view(""));
   auto result = format_->Inspect(FileSource(buf));

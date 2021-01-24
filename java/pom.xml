@@ -34,7 +34,7 @@
     <dep.slf4j.version>1.7.25</dep.slf4j.version>
     <dep.guava.version>20.0</dep.guava.version>
     <dep.netty.version>4.1.48.Final</dep.netty.version>
-    <dep.jackson.version>2.9.8</dep.jackson.version>
+    <dep.jackson.version>2.11.4</dep.jackson.version>
     <dep.hadoop.version>2.7.1</dep.hadoop.version>
     <dep.fbs.version>1.9.0</dep.fbs.version>
     <dep.flatc.version>1.9.0</dep.flatc.version>

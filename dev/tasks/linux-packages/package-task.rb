@@ -136,10 +136,16 @@ class PackageTask
       "docker",
       "run",
       "--rm",
-      "--tty",
+      "--log-driver", "none",
       "--volume", "#{Dir.pwd}:/host:rw",
     ]
-    run_command_line << "--interactive" if $stdin.tty?
+    if $stdin.tty?
+      run_command_line << "--interactive"
+      run_command_line << "--tty"
+    else
+      run_command_line.concat(["--attach", "STDOUT"])
+      run_command_line.concat(["--attach", "STDERR"])
+    end
     build_dir = ENV["BUILD_DIR"]
     if build_dir
       build_dir = "#{File.expand_path(build_dir)}/#{id}"
@@ -149,6 +155,15 @@ class PackageTask
     if debug_build?
       build_command_line.concat(["--build-arg", "DEBUG=yes"])
       run_command_line.concat(["--env", "DEBUG=yes"])
+    end
+    pass_through_env_names = [
+      "DEB_BUILD_OPTIONS",
+      "RPM_BUILD_NCPUS",
+    ]
+    pass_through_env_names.each do |name|
+      value = ENV[name]
+      next unless value
+      run_command_line.concat(["--env", "#{name}=#{value}"])
     end
     if File.exist?(File.join(id, "Dockerfile"))
       docker_context = id

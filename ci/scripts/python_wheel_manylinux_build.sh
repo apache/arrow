@@ -1,0 +1,142 @@
+#!/usr/bin/env bash
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+set -ex
+
+function check_arrow_visibility {
+    nm --demangle --dynamic /tmp/arrow-dist/lib/libarrow.so > nm_arrow.log
+
+    # Filter out Arrow symbols and see if anything remains.
+    # '_init' and '_fini' symbols may or not be present, we don't care.
+    # (note we must ignore the grep exit status when no match is found)
+    grep ' T ' nm_arrow.log | grep -v -E '(arrow|\b_init\b|\b_fini\b)' | cat - > visible_symbols.log
+
+    if [[ -f visible_symbols.log && `cat visible_symbols.log | wc -l` -eq 0 ]]; then
+        return 0
+    else
+        echo "== Unexpected symbols exported by libarrow.so =="
+        cat visible_symbols.log
+        echo "================================================"
+
+        exit 1
+    fi
+}
+
+echo "=== (${PYTHON_VERSION}) Clear output directories and leftovers ==="
+# Clear output directories and leftovers
+rm -rf /tmp/arrow-build
+rm -rf /arrow/python/dist
+rm -rf /arrow/python/build
+rm -rf /arrow/python/repaired_wheels
+rm -rf /arrow/python/pyarrow/*.so
+rm -rf /arrow/python/pyarrow/*.so.*
+
+echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
+: ${ARROW_DATASET:=ON}
+: ${ARROW_FLIGHT:=ON}
+: ${ARROW_GANDIVA:=OFF}
+: ${ARROW_HDFS:=ON}
+: ${ARROW_JEMALLOC:=ON}
+: ${ARROW_MIMALLOC:=ON}
+: ${ARROW_ORC:=ON}
+: ${ARROW_PARQUET:=ON}
+: ${ARROW_PLASMA:=ON}
+: ${ARROW_S3:=ON}
+: ${ARROW_TENSORFLOW:=ON}
+: ${ARROW_WITH_BROTLI:=ON}
+: ${ARROW_WITH_BZ2:=ON}
+: ${ARROW_WITH_LZ4:=ON}
+: ${ARROW_WITH_SNAPPY:=ON}
+: ${ARROW_WITH_ZLIB:=ON}
+: ${ARROW_WITH_ZSTD:=ON}
+: ${CMAKE_BUILD_TYPE:=release}
+: ${CMAKE_GENERATOR:=Ninja}
+
+mkdir /tmp/arrow-build
+pushd /tmp/arrow-build
+cmake \
+    -DARROW_BROTLI_USE_SHARED=OFF \
+    -DARROW_BUILD_SHARED=ON \
+    -DARROW_BUILD_STATIC=OFF \
+    -DARROW_BUILD_TESTS=OFF \
+    -DARROW_DATASET=${ARROW_DATASET} \
+    -DARROW_DEPENDENCY_SOURCE="SYSTEM" \
+    -DARROW_DEPENDENCY_USE_SHARED=OFF \
+    -DARROW_FLIGHT==${ARROW_FLIGHT} \
+    -DARROW_GANDIVA=${ARROW_GANDIVA} \
+    -DARROW_HDFS=${ARROW_HDFS} \
+    -DARROW_JEMALLOC=${ARROW_JEMALLOC} \
+    -DARROW_MIMALLOC=${ARROW_MIMALLOC} \
+    -DARROW_ORC=${ARROW_ORC} \
+    -DARROW_PACKAGE_KIND="manylinux${MANYLINUX_VERSION}" \
+    -DARROW_PARQUET=${ARROW_PARQUET} \
+    -DARROW_PLASMA=${ARROW_PLASMA} \
+    -DARROW_PYTHON=ON \
+    -DARROW_RPATH_ORIGIN=ON \
+    -DARROW_S3=${ARROW_S3} \
+    -DARROW_TENSORFLOW=${ARROW_TENSORFLOW} \
+    -DARROW_USE_CCACHE=ON \
+    -DARROW_UTF8PROC_USE_SHARED=OFF \
+    -DARROW_WITH_BROTLI=${ARROW_WITH_BROTLI} \
+    -DARROW_WITH_BZ2=${ARROW_WITH_BZ2} \
+    -DARROW_WITH_LZ4=${ARROW_WITH_LZ4} \
+    -DARROW_WITH_SNAPPY=${ARROW_WITH_SNAPPY} \
+    -DARROW_WITH_ZLIB=${ARROW_WITH_ZLIB} \
+    -DARROW_WITH_ZSTD=${ARROW_WITH_ZSTD} \
+    -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
+    -DCMAKE_INSTALL_LIBDIR=lib \
+    -DCMAKE_INSTALL_PREFIX=/tmp/arrow-dist \
+    -DCMAKE_TOOLCHAIN_FILE=/opt/vcpkg/scripts/buildsystems/vcpkg.cmake \
+    -DCMAKE_UNITY_BUILD=ON \
+    -DOPENSSL_USE_STATIC_LIBS=ON \
+    -DThrift_ROOT=/opt/vcpkg/installed/x64-linux/lib \
+    -DVCPKG_TARGET_TRIPLET=x64-linux-static-${CMAKE_BUILD_TYPE} \
+    -G ${CMAKE_GENERATOR} \
+    /arrow/cpp
+cmake --build . --target install
+popd
+
+# Check that we don't expose any unwanted symbols
+check_arrow_visibility
+
+echo "=== (${PYTHON_VERSION}) Building wheel ==="
+export PYARROW_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+export PYARROW_BUNDLE_ARROW_CPP=1
+export PYARROW_CMAKE_GENERATOR=${CMAKE_GENERATOR}
+export PYARROW_INSTALL_TESTS=1
+export PYARROW_WITH_DATASET=${ARROW_DATASET}
+export PYARROW_WITH_FLIGHT=${ARROW_FLIGHT}
+export PYARROW_WITH_GANDIVA=${ARROW_GANDIVA}
+export PYARROW_WITH_HDFS=${ARROW_HDFS}
+export PYARROW_WITH_ORC=${ARROW_ORC}
+export PYARROW_WITH_PARQUET=${ARROW_PARQUET}
+export PYARROW_WITH_PLASMA=${ARROW_PLASMA}
+export PYARROW_WITH_S3=${ARROW_S3}
+# PyArrow build configuration
+export PKG_CONFIG_PATH=/usr/lib/pkgconfig:/tmp/arrow-dist/lib/pkgconfig
+
+pushd /arrow/python
+python setup.py bdist_wheel
+
+echo "=== (${PYTHON_VERSION}) Tag the wheel with manylinux${MANYLINUX_VERSION} ==="
+auditwheel repair \
+    --plat "manylinux${MANYLINUX_VERSION}_x86_64" \
+    -L . dist/pyarrow-*.whl \
+    -w repaired_wheels
+popd

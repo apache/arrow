@@ -79,6 +79,7 @@ impl Bytes {
     ///
     /// This function is unsafe as there is no guarantee that the given pointer is valid for `len`
     /// bytes. If the `ptr` and `capacity` come from a `Buffer`, then this is guaranteed.
+    #[inline]
     pub unsafe fn new(
         ptr: std::ptr::NonNull<u8>,
         len: usize,
@@ -154,18 +155,5 @@ impl Debug for Bytes {
         f.debug_list().entries(self.iter()).finish()?;
 
         write!(f, " }}")
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_dealloc_native() {
-        let capacity = 5;
-        let a = memory::allocate_aligned(capacity);
-        // create Bytes and release it. This will make `a` be an invalid pointer, but it is defined behavior
-        unsafe { Bytes::new(a, 3, Deallocation::Native(capacity)) };
     }
 }

@@ -147,6 +147,10 @@ print.arrow_info <- function(x, ...) {
   invisible(x)
 }
 
+option_compress_metadata <- function() {
+  !is_false(getOption("arrow.compress_metadata"))
+}
+
 #' @include enums.R
 ArrowObject <- R6Class("ArrowObject",
   public = list(

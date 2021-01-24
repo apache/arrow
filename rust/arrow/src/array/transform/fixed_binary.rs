@@ -46,7 +46,7 @@ pub(super) fn build_extend(array: &ArrayData) -> Extend {
                         let bytes = &values[i * size..(i + 1) * size];
                         values_buffer.extend_from_slice(bytes);
                     } else {
-                        values_buffer.extend(size);
+                        values_buffer.extend_zeros(size);
                     }
                 })
             },
@@ -61,5 +61,5 @@ pub(super) fn extend_nulls(mutable: &mut _MutableArrayData, len: usize) {
     };
 
     let values_buffer = &mut mutable.buffer1;
-    values_buffer.extend(len * size);
+    values_buffer.extend_zeros(len * size);
 }

@@ -59,7 +59,10 @@ impl<'a, T: ArrowPrimitiveType> std::iter::Iterator for PrimitiveIter<'a, T> {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        (self.array.len(), Some(self.array.len()))
+        (
+            self.array.len() - self.current,
+            Some(self.array.len() - self.current),
+        )
     }
 }
 
@@ -118,7 +121,10 @@ impl<'a> std::iter::Iterator for BooleanIter<'a> {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        (self.array.len(), Some(self.array.len()))
+        (
+            self.array.len() - self.current,
+            Some(self.array.len() - self.current),
+        )
     }
 }
 
@@ -179,7 +185,7 @@ impl<'a, T: StringOffsetSizeTrait> std::iter::Iterator for GenericStringIter<'a,
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        (self.len, Some(self.len))
+        (self.len - self.i, Some(self.len - self.i))
     }
 }
 
@@ -228,7 +234,7 @@ impl<'a, T: BinaryOffsetSizeTrait> std::iter::Iterator for GenericBinaryIter<'a,
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        (self.len, Some(self.len))
+        (self.len - self.i, Some(self.len - self.i))
     }
 }
 

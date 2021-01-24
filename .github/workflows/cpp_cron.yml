@@ -31,6 +31,7 @@ on:
 
 env:
   DOCKER_BUILDKIT: 0
+  DOCKER_VOLUME_PREFIX: ".docker/"
   COMPOSE_DOCKER_CLI_BUILD: 1
   ARROW_ENABLE_TIMING_TESTS: OFF
   ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
@@ -49,7 +50,6 @@ jobs:
           - amd64-fedora-33-cpp
           - amd64-ubuntu-16.04-cpp
           - amd64-ubuntu-18.04-cpp
-          - amd64-ubuntu-18.04-cpp-cmake32
         include:
           - name: amd64-debian-10-cpp
             image: debian-cpp
@@ -66,10 +66,6 @@ jobs:
           - name: amd64-ubuntu-18.04-cpp
             image: ubuntu-cpp
             title: AMD64 Ubuntu 18.04 C++
-            ubuntu: 18.04
-          - name: amd64-ubuntu-18.04-cpp-cmake32
-            image: ubuntu-cpp-cmake32
-            title: AMD64 Ubuntu 18.04 C++ CMake 3.2
             ubuntu: 18.04
     env:
       # the defaults here should correspond to the values in .env

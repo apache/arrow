@@ -19,6 +19,10 @@ if_version <- function(version, op = `==`) {
   op(packageVersion("arrow"), version)
 }
 
+if_version_less_than <- function(version) {
+  if_version(version, op = `<`)
+}
+
 skip_if_version_less_than <- function(version, msg) {
   if(if_version(version, `<`)) {
     skip(msg)

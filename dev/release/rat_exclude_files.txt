@@ -10,6 +10,7 @@
 .github/ISSUE_TEMPLATE/question.md
 ci/etc/rprofile
 ci/etc/*.patch
+ci/vcpkg/*.patch
 CHANGELOG.md
 cpp/CHANGELOG_PARQUET.md
 cpp/src/arrow/io/mman.h

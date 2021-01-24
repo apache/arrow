@@ -49,7 +49,7 @@ pin_run_as_build:
   zlib:
     max_pin: x.x
 python:
-- 3.8.* *_cpython
+- 3.7.* *_cpython
 re2:
 - 2020.10.01
 snappy:

@@ -18,7 +18,7 @@ Please see this [document](https://arrow.apache.org/docs/format/Columnar.html#ph
 The package can be installed by typing in the following in a Julia REPL:
 
 ```julia
-julia> using Pkg; Pkg.add(url="https://github.com/apache/arrow", subdir="julia/Arrow.jl", rev="apache-arrow-3.0.0")
+julia> using Pkg; Pkg.add(url="https://github.com/apache/arrow", subdir="julia/Arrow", rev="apache-arrow-3.0.0")
 ```
 
 or to use the non-official-apache code that will sometimes include bugfix patches between apache releases, you can do:

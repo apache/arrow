@@ -41,19 +41,14 @@ set PYTHON=3.6
 
 @rem Using call with conda.bat seems necessary to avoid terminating the batch
 @rem script execution
-call conda create -p %_VERIFICATION_CONDA_ENV% ^
-    --no-shortcuts -f -q -y python=%PYTHON% ^
+call conda create --no-shortcuts -c conda-forge -f -q -y -p %_VERIFICATION_CONDA_ENV% ^
+    --file=ci\conda_env_cpp.yml ^
+    --file=ci\conda_env_python.yml ^
+    git ^
+    python=%PYTHON% ^
     || exit /B 1
 
 call activate %_VERIFICATION_CONDA_ENV% || exit /B 1
-
-call conda install -y ^
-     --no-shortcuts ^
-     python=3.7 ^
-     git ^
-     --file=ci\conda_env_cpp.yml ^
-     --file=ci\conda_env_python.yml ^
-     -c conda-forge || exit /B 1
 
 set GENERATOR=Visual Studio 15 2017 Win64
 set CONFIGURATION=release
@@ -75,24 +70,25 @@ call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\Common7\Tool
 @rem generator used
 
 cmake -G "%GENERATOR%" ^
-      -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
-      -DARROW_BUILD_STATIC=OFF ^
       -DARROW_BOOST_USE_SHARED=ON ^
+      -DARROW_BUILD_STATIC=OFF ^
       -DARROW_BUILD_TESTS=ON ^
-      -DGTest_SOURCE=BUNDLED ^
-      -DCMAKE_BUILD_TYPE=%CONFIGURATION% ^
-      -DCMAKE_UNITY_BUILD=ON ^
       -DARROW_CXXFLAGS="/MP" ^
+      -DARROW_DATASET=ON ^
+      -DARROW_FLIGHT=ON ^
+      -DARROW_MIMALLOC=ON ^
+      -DARROW_PARQUET=ON ^
+      -DARROW_PYTHON=ON ^
+      -DARROW_WITH_BROTLI=ON ^
       -DARROW_WITH_BZ2=ON ^
-      -DARROW_WITH_ZLIB=ON ^
-      -DARROW_WITH_ZSTD=ON ^
       -DARROW_WITH_LZ4=ON ^
       -DARROW_WITH_SNAPPY=ON ^
-      -DARROW_WITH_BROTLI=ON ^
-      -DARROW_FLIGHT=ON ^
-      -DARROW_PYTHON=ON ^
-      -DARROW_DATASET=ON ^
-      -DARROW_PARQUET=ON ^
+      -DARROW_WITH_ZLIB=ON ^
+      -DARROW_WITH_ZSTD=ON ^
+      -DCMAKE_BUILD_TYPE=%CONFIGURATION% ^
+      -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
+      -DCMAKE_UNITY_BUILD=ON ^
+      -DGTest_SOURCE=BUNDLED ^
       ..  || exit /B
 
 cmake --build . --target INSTALL --config Release || exit /B 1
@@ -111,9 +107,10 @@ git clone https://github.com/apache/arrow-testing.git %_VERIFICATION_DIR%\arrow-
 set ARROW_TEST_DATA=%_VERIFICATION_DIR%\arrow-testing\data
 
 @rem Needed so python-test.exe works
-set PYTHONPATH=%CONDA_PREFIX%\Lib;%CONDA_PREFIX%\Lib\site-packages;%CONDA_PREFIX%\python35.zip;%CONDA_PREFIX%\DLLs;%CONDA_PREFIX%;%PYTHONPATH%
-
+set PYTHONPATH_ORIGINAL=%PYTHONPATH%
+set PYTHONPATH=%CONDA_PREFIX%\Lib;%CONDA_PREFIX%\Lib\site-packages;%CONDA_PREFIX%\DLLs;%CONDA_PREFIX%;%PYTHONPATH%
 ctest -VV  || exit /B 1
+set PYTHONPATH=%PYTHONPATH_ORIGINAL%
 popd
 
 @rem Build and import pyarrow
@@ -126,7 +123,7 @@ set PYARROW_WITH_FLIGHT=1
 set PYARROW_WITH_PARQUET=1
 set PYARROW_WITH_DATASET=1
 python setup.py build_ext --inplace --bundle-arrow-cpp bdist_wheel || exit /B 1
-py.test pyarrow -v -s --enable-parquet || exit /B 1
+pytest pyarrow -v -s --enable-parquet || exit /B 1
 
 popd
 
