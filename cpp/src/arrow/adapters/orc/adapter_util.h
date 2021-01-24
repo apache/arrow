@@ -41,13 +41,19 @@ Status GetORCType(const Schema& schema, ORC_UNIQUE_PTR<liborc::Type>* out);
 Status AppendBatch(const liborc::Type* type, liborc::ColumnVectorBatch* batch,
                    int64_t offset, int64_t length, ArrayBuilder* builder);
 
-Status FillBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch,
-                 int64_t& arrowOffset, int64_t& orcOffset, int64_t length, Array* parray,
-                 std::vector<bool>* incomingMask = NULLPTR);
+/* incoming_mask is exclusively used by FillStructBatch. The cause is that ORC is much
+ * stricter than Arrow in terms of consistency. In this case if a struct scalar is null
+ * all its children must be set to null or ORC is not going to function properly. This is
+ * why I added incomingMask to pass on null status from a struct to its children.
+ */
 
-Status FillBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch,
-                 int64_t& arrowIndexOffset, int& arrowChunkOffset, int64_t length,
-                 ChunkedArray* pchunkedArray);
+Status FillBatch(const DataType* type, liborc::ColumnVectorBatch* column_vector_batch,
+                 int64_t& arrow_offset, int64_t& orc_offset, int64_t length,
+                 Array* parray, std::vector<bool>* incoming_mask = NULLPTR);
+
+Status FillBatch(const DataType* type, liborc::ColumnVectorBatch* column_vector_batch,
+                 int64_t& arrow_index_offset, int& arrow_chunk_offset, int64_t length,
+                 ChunkedArray* chunked_array);
 
 }  // namespace orc
 }  // namespace adapters

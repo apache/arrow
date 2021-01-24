@@ -19,17 +19,14 @@
 
 #include <cstdint>
 #include <memory>
-#include <sstream>
 #include <vector>
 
-#include "arrow/io/file.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
-#include "arrow/table.h"
-#include "arrow/table_builder.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
