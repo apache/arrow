@@ -60,7 +60,27 @@ use parquet::file::reader::{FileReader, SerializedFileReader};
 use parquet::record::Row;
 
 fn main() {
-    let matches = App::new("parquet-read")
+    #[cfg(not(feature = "json_output"))]
+    let app = App::new("parquet-read")
+        .version(crate_version!())
+        .author(crate_authors!())
+        .about("Read data from parquet file")
+        .arg(
+            Arg::with_name("file_path")
+                .value_name("file-path")
+                .required(true)
+                .index(1)
+                .help("Path to a parquet file")
+        )
+        .arg(
+            Arg::with_name("num_records")
+                .value_name("num-records")
+                .index(2)
+                .help("Number of records to read. When not provided, all records are read.")
+        );
+
+    #[cfg(feature = "json_output")]
+    let app = App::new("parquet-read")
         .version(crate_version!())
         .author(crate_authors!())
         .about("Read data from parquet file")
@@ -82,8 +102,10 @@ fn main() {
             .long("json")
             .takes_value(false)
             .help("Print parquet file in JSON lines Format")
-    ).get_matches();
+        );
 
+
+    let matches = app.get_matches();
     let filename = matches.value_of("file_path").unwrap();
     let num_records: Option<usize> = if matches.is_present("num_records") {
         match matches.value_of("num_records").unwrap().parse() {
@@ -93,7 +115,12 @@ fn main() {
     } else {
         None
     };
-    let json = matches.is_present("json");
+
+    let mut json: Option<bool> = None;
+    if cfg!(feature = "json_output") {
+        json = Some(matches.is_present("json"));
+    }
+
 
     let path = Path::new(&filename);
     let file = File::open(&path).unwrap();
@@ -115,10 +142,18 @@ fn main() {
     }
 }
 
-fn print_row(row: &Row, json: bool) {
-    if json {
-        println!("{}", row.to_json_value());
-    } else {
-        println!("{}", row.to_string());
+#[cfg(feature = "json_output")]
+fn print_row(row: &Row, json: Option<bool>) {
+    if let Some(j) = json {
+        if j {
+            println!("{}", row.to_json_value())
+        } else {
+            println!("{}", row.to_string());
+        }
     }
+}
+
+#[cfg(not(feature = "json_output"))]
+fn print_row(row: &Row, _json: Option<bool>) {
+    println!("{}", row.to_string());
 }
