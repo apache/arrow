@@ -110,6 +110,11 @@ class ORCMemWriter {
       batch->clear();
       numRows -= batch_size;
     }
+    // writer_->close();
+    return Status::OK();
+  }
+
+  Status Close() {
     writer_->close();
     return Status::OK();
   }
@@ -124,16 +129,17 @@ class ORCMemWriter {
   int num_cols_;
 };
 
-bool tableWriteReadEqual(const std::shared_ptr<Table>& tableIn,
-                         const std::shared_ptr<Table>& predictedTableOut,
+bool TableWriteReadEqual(const std::shared_ptr<Table>& input_table,
+                         const std::shared_ptr<Table>& expected_output_table,
                          const int maxSize = DEFAULT_SMALL_MEM_STREAM_SIZE) {
   std::unique_ptr<ORCMemWriter> writer =
       std::unique_ptr<ORCMemWriter>(new ORCMemWriter());
   std::unique_ptr<liborc::OutputStream> out_stream =
       std::unique_ptr<liborc::OutputStream>(
           static_cast<liborc::OutputStream*>(new MemoryOutputStream(maxSize)));
-  ARROW_EXPECT_OK(writer->Open(tableIn->schema(), out_stream));
-  ARROW_EXPECT_OK(writer->Write(tableIn));
+  ARROW_EXPECT_OK(writer->Open(input_table->schema(), out_stream));
+  ARROW_EXPECT_OK(writer->Write(input_table));
+  ARROW_EXPECT_OK(writer->Close());
   auto output_mem_stream = static_cast<MemoryOutputStream*>(writer->ReleaseOutStream());
   std::shared_ptr<io::RandomAccessFile> in_stream(
       new io::BufferReader(std::make_shared<Buffer>(
@@ -143,9 +149,9 @@ bool tableWriteReadEqual(const std::shared_ptr<Table>& tableIn,
   std::unique_ptr<adapters::orc::ORCFileReader> reader;
   ARROW_EXPECT_OK(
       adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool(), &reader));
-  std::shared_ptr<Table> outputTable;
-  ARROW_EXPECT_OK(reader->Read(&outputTable));
-  return outputTable->Equals(*predictedTableOut);
+  std::shared_ptr<Table> actual_output_table;
+  ARROW_EXPECT_OK(reader->Read(&actual_output_table));
+  return actual_output_table->Equals(*expected_output_table);
 }
 
 std::unique_ptr<liborc::Writer> CreateWriter(uint64_t stripe_size,
@@ -252,110 +258,112 @@ TEST(TestAdapterRead, readIntAndStringFileMultipleStripes) {
 
 // WriteORC tests
 
-// General
-TEST(TestAdapterWriteGeneral, writeZeroRows) {
-  std::vector<std::shared_ptr<Field>> xFields{field("bool", boolean()),
-                                              field("int8", int8()),
-                                              field("int16", int16()),
-                                              field("int32", int32()),
-                                              field("int64", int64()),
-                                              field("float", float32()),
-                                              field("double", float64()),
-                                              field("decimal128nz", decimal(25, 6)),
-                                              field("decimal128z", decimal(32, 0)),
-                                              field("date32", date32()),
-                                              field("ts3", timestamp(TimeUnit::NANO)),
-                                              field("string", utf8()),
-                                              field("binary", binary())};
-  std::shared_ptr<Schema> sharedPtrSchema = std::make_shared<Schema>(xFields);
-
-  int64_t numCols = xFields.size();
-
-  ArrayBuilderVector builders(numCols, NULLPTR);
-  builders[0] =
-      std::static_pointer_cast<ArrayBuilder>(std::make_shared<BooleanBuilder>());
-  builders[1] = std::static_pointer_cast<ArrayBuilder>(std::make_shared<Int8Builder>());
-  builders[2] = std::static_pointer_cast<ArrayBuilder>(std::make_shared<Int16Builder>());
-  builders[3] = std::static_pointer_cast<ArrayBuilder>(std::make_shared<Int32Builder>());
-  builders[4] = std::static_pointer_cast<ArrayBuilder>(std::make_shared<Int64Builder>());
-  builders[5] = std::static_pointer_cast<ArrayBuilder>(std::make_shared<FloatBuilder>());
-  builders[6] = std::static_pointer_cast<ArrayBuilder>(std::make_shared<DoubleBuilder>());
-  builders[7] = std::static_pointer_cast<ArrayBuilder>(
-      std::make_shared<Decimal128Builder>(decimal(25, 6)));
-  builders[8] = std::static_pointer_cast<ArrayBuilder>(
-      std::make_shared<Decimal128Builder>(decimal(32, 0)));
-  builders[9] = std::static_pointer_cast<ArrayBuilder>(std::make_shared<Date32Builder>());
-  builders[10] =
-      std::static_pointer_cast<ArrayBuilder>(std::make_shared<TimestampBuilder>(
-          timestamp(TimeUnit::NANO), default_memory_pool()));
-  builders[11] =
-      std::static_pointer_cast<ArrayBuilder>(std::make_shared<StringBuilder>());
-  builders[12] =
-      std::static_pointer_cast<ArrayBuilder>(std::make_shared<BinaryBuilder>());
-  ArrayVector arrays(numCols, NULLPTR);
-  ChunkedArrayVector cv;
-  cv.reserve(numCols);
-
-  for (int col = 0; col < numCols; col++) {
-    ARROW_EXPECT_OK(builders[col]->Finish(&arrays[col]));
-    cv.push_back(std::make_shared<ChunkedArray>(arrays[col]));
-  }
-
-  std::shared_ptr<Table> table = Table::Make(sharedPtrSchema, cv);
-  EXPECT_TRUE(tableWriteReadEqual(table, table, DEFAULT_SMALL_MEM_STREAM_SIZE / 16));
+// Trivial
+TEST(TestAdapterWriteTrivial, writeZeroRowsNoConversion) {
+  std::shared_ptr<Table> table = TableFromJSON(
+      schema({field("bool", boolean()), field("int8", int8()), field("int16", int16()),
+              field("int32", int32()), field("int64", int64()), field("float", float32()),
+              field("double", float64()), field("decimal128nz", decimal(25, 6)),
+              field("decimal128z", decimal(32, 0)), field("date32", date32()),
+              field("ts3", timestamp(TimeUnit::NANO)), field("string", utf8()),
+              field("binary", binary()),
+              field("struct", struct_({field("a", utf8()), field("b", int64())})),
+              field("list", list(int32())),
+              field("lsl", list(struct_({field("lsl0", list(int32()))})))}),
+      {R"([])"});
+  EXPECT_TRUE(TableWriteReadEqual(table, table, DEFAULT_SMALL_MEM_STREAM_SIZE / 16));
 }
-TEST(TestAdapterWriteGeneral, writeChunkless) {
-  std::vector<std::shared_ptr<Field>> xFieldsSub{std::make_shared<Field>("a", utf8()),
-                                                 std::make_shared<Field>("b", int32())};
-  std::vector<std::shared_ptr<Field>> xFields{
+TEST(TestAdapterWriteTrivial, writeChunklessNoConversion) {
+  std::shared_ptr<Table> table = TableFromJSON(
+      schema({field("bool", boolean()), field("int8", int8()), field("int16", int16()),
+              field("int32", int32()), field("int64", int64()), field("float", float32()),
+              field("double", float64()), field("decimal128nz", decimal(25, 6)),
+              field("decimal128z", decimal(32, 0)), field("date32", date32()),
+              field("ts3", timestamp(TimeUnit::NANO)), field("string", utf8()),
+              field("binary", binary()),
+              field("struct", struct_({field("a", utf8()), field("b", int64())})),
+              field("list", list(int32())),
+              field("lsl", list(struct_({field("lsl0", list(int32()))})))}),
+      {});
+  EXPECT_TRUE(TableWriteReadEqual(table, table, DEFAULT_SMALL_MEM_STREAM_SIZE / 16));
+}
+TEST(TestAdapterWriteTrivial, writeZeroRowsWithConversion) {
+  std::shared_ptr<Table>
+      input_table = TableFromJSON(
+          schema({field("date64", date64()), field("ts0", timestamp(TimeUnit::SECOND)),
+                  field("ts1", timestamp(TimeUnit::MILLI)),
+                  field("ts2", timestamp(TimeUnit::MICRO)),
+                  field("large_string", large_utf8()),
+                  field("large_binary", large_binary()),
+                  field("fixed_size_binary0", fixed_size_binary(0)),
+                  field("fixed_size_binary", fixed_size_binary(5)),
+                  field("large_list", large_list(int32())),
+                  field("fixed_size_list", fixed_size_list(int32(), 3)),
+                  field("map", map(utf8(), utf8()))}),
+          {R"([])"}),
+      expected_output_table = TableFromJSON(
+          schema({field("date64", timestamp(TimeUnit::NANO)),
+                  field("ts0", timestamp(TimeUnit::NANO)),
+                  field("ts1", timestamp(TimeUnit::NANO)),
+                  field("ts2", timestamp(TimeUnit::NANO)), field("large_string", utf8()),
+                  field("large_binary", binary()), field("fixed_size_binary0", binary()),
+                  field("fixed_size_binary", binary()),
+                  field("large_list", list(int32())),
+                  field("fixed_size_list", list(int32())),
+                  field("map",
+                        list(struct_({field("key", utf8()), field("value", utf8())})))}),
+          {R"([])"});
+  EXPECT_TRUE(TableWriteReadEqual(input_table, expected_output_table,
+                                  DEFAULT_SMALL_MEM_STREAM_SIZE / 16));
+}
+TEST(TestAdapterWriteTrivial, writeChunklessWithConversion) {
+  std::shared_ptr<Table>
+      input_table = TableFromJSON(
+          schema({field("date64", date64()), field("ts0", timestamp(TimeUnit::SECOND)),
+                  field("ts1", timestamp(TimeUnit::MILLI)),
+                  field("ts2", timestamp(TimeUnit::MICRO)),
+                  field("large_string", large_utf8()),
+                  field("large_binary", large_binary()),
+                  field("fixed_size_binary0", fixed_size_binary(0)),
+                  field("fixed_size_binary", fixed_size_binary(5)),
+                  field("large_list", large_list(int32())),
+                  field("fixed_size_list", fixed_size_list(int32(), 3)),
+                  field("map", map(utf8(), utf8()))}),
+          {}),
+      expected_output_table = TableFromJSON(
+          schema({field("date64", timestamp(TimeUnit::NANO)),
+                  field("ts0", timestamp(TimeUnit::NANO)),
+                  field("ts1", timestamp(TimeUnit::NANO)),
+                  field("ts2", timestamp(TimeUnit::NANO)), field("large_string", utf8()),
+                  field("large_binary", binary()), field("fixed_size_binary0", binary()),
+                  field("fixed_size_binary", binary()),
+                  field("large_list", list(int32())),
+                  field("fixed_size_list", list(int32())),
+                  field("map",
+                        list(struct_({field("key", utf8()), field("value", utf8())})))}),
+          {});
+  EXPECT_TRUE(TableWriteReadEqual(input_table, expected_output_table,
+                                  DEFAULT_SMALL_MEM_STREAM_SIZE / 16));
+}
+
+// General
+TEST(TestAdapterWriteGeneral, writeAllNulls) {
+  std::vector<std::shared_ptr<Field>> table_fields{
       field("bool", boolean()),
       field("int8", int8()),
       field("int16", int16()),
       field("int32", int32()),
       field("int64", int64()),
-      field("float", float32()),
-      field("double", float64()),
-      field("decimal128nz", decimal(25, 6)),
-      field("decimal128z", decimal(32, 0)),
+      field("decimal128nz", decimal(33, 4)),
+      field("decimal128z", decimal(35, 0)),
       field("date32", date32()),
       field("ts3", timestamp(TimeUnit::NANO)),
       field("string", utf8()),
-      field("binary", binary()),
-      field("struct", struct_(xFieldsSub)),
-      field("list", list(int32())),
-      field("lsl", list(struct_({field("lsl0", list(int32()))})))};
-  std::shared_ptr<Schema> sharedPtrSchema = std::make_shared<Schema>(xFields);
-
-  int64_t numCols = xFields.size();
-
-  ChunkedArrayVector cv;
-  cv.reserve(numCols);
-
-  ArrayMatrix av(numCols, ArrayVector(0, NULLPTR));
-
-  for (int col = 0; col < numCols; col++) {
-    cv.push_back(std::make_shared<ChunkedArray>(av[col], xFields[col]->type()));
-  }
-
-  std::shared_ptr<Table> table = Table::Make(sharedPtrSchema, cv);
-  EXPECT_TRUE(tableWriteReadEqual(table, table, DEFAULT_SMALL_MEM_STREAM_SIZE / 16));
-}
-TEST(TestAdapterWriteGeneral, writeAllNulls) {
-  std::vector<std::shared_ptr<Field>> xFields{field("bool", boolean()),
-                                              field("int8", int8()),
-                                              field("int16", int16()),
-                                              field("int32", int32()),
-                                              field("int64", int64()),
-                                              field("decimal128nz", decimal(33, 4)),
-                                              field("decimal128z", decimal(35, 0)),
-                                              field("date32", date32()),
-                                              field("ts3", timestamp(TimeUnit::NANO)),
-                                              field("string", utf8()),
-                                              field("binary", binary())};
-  std::shared_ptr<Schema> sharedPtrSchema = std::make_shared<Schema>(xFields);
+      field("binary", binary())};
+  std::shared_ptr<Schema> table_schema = std::make_shared<Schema>(table_fields);
 
   int64_t numRows = 10000;
-  int64_t numCols = xFields.size();
+  int64_t numCols = table_fields.size();
 
   ArrayBuilderMatrix builders(numCols, ArrayBuilderVector(5, NULLPTR));
 
@@ -403,25 +411,26 @@ TEST(TestAdapterWriteGeneral, writeAllNulls) {
     cv.push_back(std::make_shared<ChunkedArray>(arrays[col]));
   }
 
-  std::shared_ptr<Table> table = Table::Make(sharedPtrSchema, cv);
-  EXPECT_TRUE(tableWriteReadEqual(table, table));
+  std::shared_ptr<Table> table = Table::Make(table_schema, cv);
+  EXPECT_TRUE(TableWriteReadEqual(table, table));
 }
 TEST(TestAdapterWriteGeneral, writeNoNulls) {
-  std::vector<std::shared_ptr<Field>> xFields{field("bool", boolean()),
-                                              field("int8", int8()),
-                                              field("int16", int16()),
-                                              field("int32", int32()),
-                                              field("int64", int64()),
-                                              field("decimal128nz", decimal(36, 2)),
-                                              field("decimal128z", decimal(31, 0)),
-                                              field("date32", date32()),
-                                              field("ts3", timestamp(TimeUnit::NANO)),
-                                              field("string", utf8()),
-                                              field("binary", binary())};
-  std::shared_ptr<Schema> sharedPtrSchema = std::make_shared<Schema>(xFields);
+  std::vector<std::shared_ptr<Field>> table_fields{
+      field("bool", boolean()),
+      field("int8", int8()),
+      field("int16", int16()),
+      field("int32", int32()),
+      field("int64", int64()),
+      field("decimal128nz", decimal(36, 2)),
+      field("decimal128z", decimal(31, 0)),
+      field("date32", date32()),
+      field("ts3", timestamp(TimeUnit::NANO)),
+      field("string", utf8()),
+      field("binary", binary())};
+  std::shared_ptr<Schema> table_schema = std::make_shared<Schema>(table_fields);
 
   int64_t numRows = 10000;
-  int64_t numCols = xFields.size();
+  int64_t numCols = table_fields.size();
 
   ArrayBuilderMatrix builders(numCols, ArrayBuilderVector(5, NULLPTR));
 
@@ -514,25 +523,26 @@ TEST(TestAdapterWriteGeneral, writeNoNulls) {
     }
     cv.push_back(std::make_shared<ChunkedArray>(arrays[col]));
   }
-  std::shared_ptr<Table> table = Table::Make(sharedPtrSchema, cv);
-  EXPECT_TRUE(tableWriteReadEqual(table, table, 2 * DEFAULT_SMALL_MEM_STREAM_SIZE));
+  std::shared_ptr<Table> table = Table::Make(table_schema, cv);
+  EXPECT_TRUE(TableWriteReadEqual(table, table, 2 * DEFAULT_SMALL_MEM_STREAM_SIZE));
 }
 TEST(TestAdapterWriteGeneral, writeMixed) {
-  std::vector<std::shared_ptr<Field>> xFields{field("bool", boolean()),
-                                              field("int8", int8()),
-                                              field("int16", int16()),
-                                              field("int32", int32()),
-                                              field("int64", int64()),
-                                              field("decimal128nz", decimal(38, 6)),
-                                              field("decimal128z", decimal(38, 0)),
-                                              field("date32", date32()),
-                                              field("ts3", timestamp(TimeUnit::NANO)),
-                                              field("string", utf8()),
-                                              field("binary", binary())};
-  std::shared_ptr<Schema> sharedPtrSchema = std::make_shared<Schema>(xFields);
+  std::vector<std::shared_ptr<Field>> table_fields{
+      field("bool", boolean()),
+      field("int8", int8()),
+      field("int16", int16()),
+      field("int32", int32()),
+      field("int64", int64()),
+      field("decimal128nz", decimal(38, 6)),
+      field("decimal128z", decimal(38, 0)),
+      field("date32", date32()),
+      field("ts3", timestamp(TimeUnit::NANO)),
+      field("string", utf8()),
+      field("binary", binary())};
+  std::shared_ptr<Schema> table_schema = std::make_shared<Schema>(table_fields);
 
   int64_t numRows = 10000;
-  int64_t numCols = xFields.size();
+  int64_t numCols = table_fields.size();
 
   ArrayBuilderMatrix builders(numCols, ArrayBuilderVector(5, NULLPTR));
 
@@ -671,19 +681,19 @@ TEST(TestAdapterWriteGeneral, writeMixed) {
     }
     cv.push_back(std::make_shared<ChunkedArray>(arrays[col]));
   }
-  std::shared_ptr<Table> table = Table::Make(sharedPtrSchema, cv);
-  EXPECT_TRUE(tableWriteReadEqual(table, table));
+  std::shared_ptr<Table> table = Table::Make(table_schema, cv);
+  EXPECT_TRUE(TableWriteReadEqual(table, table));
 }
 
 // Float & Double
 // Equality might not work hence we do them separately here
 TEST(TestAdapterWriteFloat, writeAllNulls) {
-  std::vector<std::shared_ptr<Field>> xFields{field("float", float32()),
-                                              field("double", float64())};
-  std::shared_ptr<Schema> sharedPtrSchema = std::make_shared<Schema>(xFields);
+  std::vector<std::shared_ptr<Field>> table_fields{field("float", float32()),
+                                                   field("double", float64())};
+  std::shared_ptr<Schema> table_schema = std::make_shared<Schema>(table_fields);
 
   int64_t numRows = 10000;
-  int64_t numCols = xFields.size();
+  int64_t numCols = table_fields.size();
 
   ArrayBuilderMatrix builders(numCols, ArrayBuilderVector(5, NULLPTR));
 
@@ -711,15 +721,16 @@ TEST(TestAdapterWriteFloat, writeAllNulls) {
     }
     cv.push_back(std::make_shared<ChunkedArray>(arrays[col]));
   }
-  std::shared_ptr<Table> table = Table::Make(sharedPtrSchema, cv);
+  std::shared_ptr<Table> table = Table::Make(table_schema, cv);
 
   std::unique_ptr<ORCMemWriter> writer =
       std::unique_ptr<ORCMemWriter>(new ORCMemWriter());
   std::unique_ptr<liborc::OutputStream> out_stream =
       std::unique_ptr<liborc::OutputStream>(static_cast<liborc::OutputStream*>(
           new MemoryOutputStream(DEFAULT_SMALL_MEM_STREAM_SIZE)));
-  ARROW_EXPECT_OK(writer->Open(sharedPtrSchema, out_stream));
+  ARROW_EXPECT_OK(writer->Open(table_schema, out_stream));
   ARROW_EXPECT_OK(writer->Write(table));
+  ARROW_EXPECT_OK(writer->Close());
   auto output_mem_stream = static_cast<MemoryOutputStream*>(writer->ReleaseOutStream());
   std::shared_ptr<io::RandomAccessFile> in_stream(
       new io::BufferReader(std::make_shared<Buffer>(
@@ -729,35 +740,35 @@ TEST(TestAdapterWriteFloat, writeAllNulls) {
   std::unique_ptr<adapters::orc::ORCFileReader> reader;
   ASSERT_TRUE(
       adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool(), &reader).ok());
-  std::shared_ptr<Table> outputTable;
-  ARROW_EXPECT_OK(reader->Read(&outputTable));
-  EXPECT_EQ(outputTable->num_columns(), numCols);
-  EXPECT_EQ(outputTable->num_rows(), numRows);
-  EXPECT_TRUE(outputTable->schema()->Equals(*(table->schema())));
-  EXPECT_TRUE(outputTable->column(0)
+  std::shared_ptr<Table> actual_output_table;
+  ARROW_EXPECT_OK(reader->Read(&actual_output_table));
+  EXPECT_EQ(actual_output_table->num_columns(), numCols);
+  EXPECT_EQ(actual_output_table->num_rows(), numRows);
+  EXPECT_TRUE(actual_output_table->schema()->Equals(*(table->schema())));
+  EXPECT_TRUE(actual_output_table->column(0)
                   ->chunk(0)
                   ->Slice(0, numRows / 2)
                   ->ApproxEquals(table->column(0)->chunk(1)));
-  EXPECT_TRUE(outputTable->column(0)
+  EXPECT_TRUE(actual_output_table->column(0)
                   ->chunk(0)
                   ->Slice(numRows / 2, numRows / 2)
                   ->ApproxEquals(table->column(0)->chunk(3)));
-  EXPECT_TRUE(outputTable->column(1)
+  EXPECT_TRUE(actual_output_table->column(1)
                   ->chunk(0)
                   ->Slice(0, numRows / 2)
                   ->ApproxEquals(table->column(1)->chunk(1)));
-  EXPECT_TRUE(outputTable->column(1)
+  EXPECT_TRUE(actual_output_table->column(1)
                   ->chunk(0)
                   ->Slice(numRows / 2, numRows / 2)
                   ->ApproxEquals(table->column(1)->chunk(3)));
 }
 TEST(TestAdapterWriteFloat, writeNoNulls) {
-  std::vector<std::shared_ptr<Field>> xFields{field("float", float32()),
-                                              field("double", float64())};
-  std::shared_ptr<Schema> sharedPtrSchema = std::make_shared<Schema>(xFields);
+  std::vector<std::shared_ptr<Field>> table_fields{field("float", float32()),
+                                                   field("double", float64())};
+  std::shared_ptr<Schema> table_schema = std::make_shared<Schema>(table_fields);
 
   int64_t numRows = 10000;
-  int64_t numCols = xFields.size();
+  int64_t numCols = table_fields.size();
   ArrayBuilderMatrix builders(numCols, ArrayBuilderVector(5, NULLPTR));
 
   for (int i = 0; i < 5; i++) {
@@ -789,15 +800,16 @@ TEST(TestAdapterWriteFloat, writeNoNulls) {
     }
     cv.push_back(std::make_shared<ChunkedArray>(arrays[col]));
   }
-  std::shared_ptr<Table> table = Table::Make(sharedPtrSchema, cv);
+  std::shared_ptr<Table> table = Table::Make(table_schema, cv);
 
   std::unique_ptr<ORCMemWriter> writer =
       std::unique_ptr<ORCMemWriter>(new ORCMemWriter());
   std::unique_ptr<liborc::OutputStream> out_stream =
       std::unique_ptr<liborc::OutputStream>(static_cast<liborc::OutputStream*>(
           new MemoryOutputStream(DEFAULT_SMALL_MEM_STREAM_SIZE)));
-  ARROW_EXPECT_OK(writer->Open(sharedPtrSchema, out_stream));
+  ARROW_EXPECT_OK(writer->Open(table_schema, out_stream));
   ARROW_EXPECT_OK(writer->Write(table));
+  ARROW_EXPECT_OK(writer->Close());
   auto output_mem_stream = static_cast<MemoryOutputStream*>(writer->ReleaseOutStream());
   std::shared_ptr<io::RandomAccessFile> in_stream(
       new io::BufferReader(std::make_shared<Buffer>(
@@ -807,35 +819,35 @@ TEST(TestAdapterWriteFloat, writeNoNulls) {
   std::unique_ptr<adapters::orc::ORCFileReader> reader;
   ASSERT_TRUE(
       adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool(), &reader).ok());
-  std::shared_ptr<Table> outputTable;
-  ARROW_EXPECT_OK(reader->Read(&outputTable));
-  EXPECT_EQ(outputTable->num_columns(), numCols);
-  EXPECT_EQ(outputTable->num_rows(), numRows);
-  EXPECT_TRUE(outputTable->schema()->Equals(*(table->schema())));
-  EXPECT_TRUE(outputTable->column(0)
+  std::shared_ptr<Table> actual_output_table;
+  ARROW_EXPECT_OK(reader->Read(&actual_output_table));
+  EXPECT_EQ(actual_output_table->num_columns(), numCols);
+  EXPECT_EQ(actual_output_table->num_rows(), numRows);
+  EXPECT_TRUE(actual_output_table->schema()->Equals(*(table->schema())));
+  EXPECT_TRUE(actual_output_table->column(0)
                   ->chunk(0)
                   ->Slice(0, numRows / 2)
                   ->ApproxEquals(table->column(0)->chunk(1)));
-  EXPECT_TRUE(outputTable->column(0)
+  EXPECT_TRUE(actual_output_table->column(0)
                   ->chunk(0)
                   ->Slice(numRows / 2, numRows / 2)
                   ->ApproxEquals(table->column(0)->chunk(3)));
-  EXPECT_TRUE(outputTable->column(1)
+  EXPECT_TRUE(actual_output_table->column(1)
                   ->chunk(0)
                   ->Slice(0, numRows / 2)
                   ->ApproxEquals(table->column(1)->chunk(1)));
-  EXPECT_TRUE(outputTable->column(1)
+  EXPECT_TRUE(actual_output_table->column(1)
                   ->chunk(0)
                   ->Slice(numRows / 2, numRows / 2)
                   ->ApproxEquals(table->column(1)->chunk(3)));
 }
 TEST(TestAdapterWriteFloat, writeMixed) {
-  std::vector<std::shared_ptr<Field>> xFields{field("float", float32()),
-                                              field("double", float64())};
-  std::shared_ptr<Schema> sharedPtrSchema = std::make_shared<Schema>(xFields);
+  std::vector<std::shared_ptr<Field>> table_fields{field("float", float32()),
+                                                   field("double", float64())};
+  std::shared_ptr<Schema> table_schema = std::make_shared<Schema>(table_fields);
 
   int64_t numRows = 10000;
-  int64_t numCols = xFields.size();
+  int64_t numCols = table_fields.size();
 
   ArrayBuilderMatrix builders(numCols, ArrayBuilderVector(5, NULLPTR));
 
@@ -882,15 +894,16 @@ TEST(TestAdapterWriteFloat, writeMixed) {
     }
     cv.push_back(std::make_shared<ChunkedArray>(arrays[col]));
   }
-  std::shared_ptr<Table> table = Table::Make(sharedPtrSchema, cv);
+  std::shared_ptr<Table> table = Table::Make(table_schema, cv);
 
   std::unique_ptr<ORCMemWriter> writer =
       std::unique_ptr<ORCMemWriter>(new ORCMemWriter());
   std::unique_ptr<liborc::OutputStream> out_stream =
       std::unique_ptr<liborc::OutputStream>(static_cast<liborc::OutputStream*>(
           new MemoryOutputStream(DEFAULT_SMALL_MEM_STREAM_SIZE)));
-  ARROW_EXPECT_OK(writer->Open(sharedPtrSchema, out_stream));
+  ARROW_EXPECT_OK(writer->Open(table_schema, out_stream));
   ARROW_EXPECT_OK(writer->Write(table));
+  ARROW_EXPECT_OK(writer->Close());
   auto output_mem_stream = static_cast<MemoryOutputStream*>(writer->ReleaseOutStream());
   std::shared_ptr<io::RandomAccessFile> in_stream(
       new io::BufferReader(std::make_shared<Buffer>(
@@ -900,24 +913,24 @@ TEST(TestAdapterWriteFloat, writeMixed) {
   std::unique_ptr<adapters::orc::ORCFileReader> reader;
   ASSERT_TRUE(
       adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool(), &reader).ok());
-  std::shared_ptr<Table> outputTable;
-  ARROW_EXPECT_OK(reader->Read(&outputTable));
-  EXPECT_EQ(outputTable->num_columns(), numCols);
-  EXPECT_EQ(outputTable->num_rows(), numRows);
-  EXPECT_TRUE(outputTable->schema()->Equals(*(table->schema())));
-  EXPECT_TRUE(outputTable->column(0)
+  std::shared_ptr<Table> actual_output_table;
+  ARROW_EXPECT_OK(reader->Read(&actual_output_table));
+  EXPECT_EQ(actual_output_table->num_columns(), numCols);
+  EXPECT_EQ(actual_output_table->num_rows(), numRows);
+  EXPECT_TRUE(actual_output_table->schema()->Equals(*(table->schema())));
+  EXPECT_TRUE(actual_output_table->column(0)
                   ->chunk(0)
                   ->Slice(0, numRows / 2)
                   ->ApproxEquals(table->column(0)->chunk(1)));
-  EXPECT_TRUE(outputTable->column(0)
+  EXPECT_TRUE(actual_output_table->column(0)
                   ->chunk(0)
                   ->Slice(numRows / 2, numRows / 2)
                   ->ApproxEquals(table->column(0)->chunk(3)));
-  EXPECT_TRUE(outputTable->column(1)
+  EXPECT_TRUE(actual_output_table->column(1)
                   ->chunk(0)
                   ->Slice(0, numRows / 2)
                   ->ApproxEquals(table->column(1)->chunk(1)));
-  EXPECT_TRUE(outputTable->column(1)
+  EXPECT_TRUE(actual_output_table->column(1)
                   ->chunk(0)
                   ->Slice(numRows / 2, numRows / 2)
                   ->ApproxEquals(table->column(1)->chunk(3)));
@@ -925,126 +938,8 @@ TEST(TestAdapterWriteFloat, writeMixed) {
 
 // Converts
 // Since Arrow has way more types than ORC type conversions are unavoidable
-TEST(TestAdapterWriteConvert, writeZeroRows) {
-  std::vector<std::shared_ptr<Field>> xFieldsIn{
-      field("date64", date64()),
-      field("ts0", timestamp(TimeUnit::SECOND)),
-      field("ts1", timestamp(TimeUnit::MILLI)),
-      field("ts2", timestamp(TimeUnit::MICRO)),
-      field("large_string", large_utf8()),
-      field("large_binary", large_binary()),
-      field("fixed_size_binary0", fixed_size_binary(0)),
-      field("fixed_size_binary", fixed_size_binary(5))},
-      xFieldsOut{field("date64", timestamp(TimeUnit::NANO)),
-                 field("ts0", timestamp(TimeUnit::NANO)),
-                 field("ts1", timestamp(TimeUnit::NANO)),
-                 field("ts2", timestamp(TimeUnit::NANO)),
-                 field("large_string", utf8()),
-                 field("large_binary", binary()),
-                 field("fixed_size_binary0", binary()),
-                 field("fixed_size_binary", binary())};
-  std::shared_ptr<Schema> sharedPtrSchemaIn = std::make_shared<Schema>(xFieldsIn),
-                          sharedPtrSchemaOut = std::make_shared<Schema>(xFieldsOut);
-
-  int64_t numCols = xFieldsIn.size();
-
-  ArrayBuilderVector buildersIn(numCols, NULLPTR), buildersOut(numCols, NULLPTR);
-  buildersIn[0] =
-      std::static_pointer_cast<ArrayBuilder>(std::make_shared<Date64Builder>());
-  buildersIn[1] =
-      std::static_pointer_cast<ArrayBuilder>(std::make_shared<TimestampBuilder>(
-          timestamp(TimeUnit::SECOND), default_memory_pool()));
-  buildersIn[2] =
-      std::static_pointer_cast<ArrayBuilder>(std::make_shared<TimestampBuilder>(
-          timestamp(TimeUnit::MILLI), default_memory_pool()));
-  buildersIn[3] =
-      std::static_pointer_cast<ArrayBuilder>(std::make_shared<TimestampBuilder>(
-          timestamp(TimeUnit::MICRO), default_memory_pool()));
-  buildersIn[4] =
-      std::static_pointer_cast<ArrayBuilder>(std::make_shared<LargeStringBuilder>());
-  buildersIn[5] =
-      std::static_pointer_cast<ArrayBuilder>(std::make_shared<LargeBinaryBuilder>());
-  buildersIn[6] = std::static_pointer_cast<ArrayBuilder>(
-      std::make_shared<FixedSizeBinaryBuilder>(fixed_size_binary(0)));
-  buildersIn[7] = std::static_pointer_cast<ArrayBuilder>(
-      std::make_shared<FixedSizeBinaryBuilder>(fixed_size_binary(5)));
-
-  for (int col = 0; col < 4; col++) {
-    buildersOut[col] =
-        std::static_pointer_cast<ArrayBuilder>(std::make_shared<TimestampBuilder>(
-            timestamp(TimeUnit::NANO), default_memory_pool()));
-  }
-  buildersOut[4] =
-      std::static_pointer_cast<ArrayBuilder>(std::make_shared<StringBuilder>());
-  for (int col = 5; col < 8; col++) {
-    buildersOut[col] =
-        std::static_pointer_cast<ArrayBuilder>(std::make_shared<BinaryBuilder>());
-  }
-
-  ArrayVector arraysIn(numCols, NULLPTR), arraysOut(numCols, NULLPTR);
-  ChunkedArrayVector cvIn, cvOut;
-  cvIn.reserve(numCols);
-  cvOut.reserve(numCols);
-
-  for (int col = 0; col < numCols; col++) {
-    ARROW_EXPECT_OK(buildersIn[col]->Finish(&arraysIn[col]));
-    cvIn.push_back(std::make_shared<ChunkedArray>(arraysIn[col]));
-    ARROW_EXPECT_OK(buildersOut[col]->Finish(&arraysOut[col]));
-    cvOut.push_back(std::make_shared<ChunkedArray>(arraysOut[col]));
-  }
-
-  std::shared_ptr<Table> tableIn = Table::Make(sharedPtrSchemaIn, cvIn),
-                         tableOut = Table::Make(sharedPtrSchemaOut, cvOut);
-  EXPECT_TRUE(tableWriteReadEqual(tableIn, tableOut, DEFAULT_SMALL_MEM_STREAM_SIZE / 16));
-}
-TEST(TestAdapterWriteConvert, writeChunkless) {
-  std::vector<std::shared_ptr<Field>> xFieldsIn{
-      field("date64", date64()),
-      field("ts0", timestamp(TimeUnit::SECOND)),
-      field("ts1", timestamp(TimeUnit::MILLI)),
-      field("ts2", timestamp(TimeUnit::MICRO)),
-      field("large_string", large_utf8()),
-      field("large_binary", large_binary()),
-      field("fixed_size_binary0", fixed_size_binary(0)),
-      field("fixed_size_binary", fixed_size_binary(5)),
-      field("large_list", large_list(int32())),
-      field("fixed_size_list", fixed_size_list(int32(), 3)),
-      field("map", map(utf8(), utf8()))},
-      xFieldsOut{
-          field("date64", timestamp(TimeUnit::NANO)),
-          field("ts0", timestamp(TimeUnit::NANO)),
-          field("ts1", timestamp(TimeUnit::NANO)),
-          field("ts2", timestamp(TimeUnit::NANO)),
-          field("large_string", utf8()),
-          field("large_binary", binary()),
-          field("fixed_size_binary0", binary()),
-          field("fixed_size_binary", binary()),
-          field("large_list", list(int32())),
-          field("fixed_size_list", list(int32())),
-          field("map", list(struct_({field("key", utf8()), field("value", utf8())})))};
-  std::shared_ptr<Schema> sharedPtrSchemaIn = std::make_shared<Schema>(xFieldsIn),
-                          sharedPtrSchemaOut = std::make_shared<Schema>(xFieldsOut);
-
-  int64_t numCols = xFieldsIn.size();
-
-  ChunkedArrayVector cvIn, cvOut;
-  cvIn.reserve(numCols);
-  cvOut.reserve(numCols);
-
-  ArrayMatrix avIn(numCols, ArrayVector(0, NULLPTR)),
-      avOut(numCols, ArrayVector(0, NULLPTR));
-
-  for (int col = 0; col < numCols; col++) {
-    cvIn.push_back(std::make_shared<ChunkedArray>(avIn[col], xFieldsIn[col]->type()));
-    cvOut.push_back(std::make_shared<ChunkedArray>(avOut[col], xFieldsOut[col]->type()));
-  }
-
-  std::shared_ptr<Table> tableIn = Table::Make(sharedPtrSchemaIn, cvIn),
-                         tableOut = Table::Make(sharedPtrSchemaOut, cvOut);
-  EXPECT_TRUE(tableWriteReadEqual(tableIn, tableOut, DEFAULT_SMALL_MEM_STREAM_SIZE / 16));
-}
 TEST(TestAdapterWriteConvert, writeAllNulls) {
-  std::vector<std::shared_ptr<Field>> xFieldsIn{
+  std::vector<std::shared_ptr<Field>> input_fields{
       field("date64", date64()),
       field("ts0", timestamp(TimeUnit::SECOND)),
       field("ts1", timestamp(TimeUnit::MILLI)),
@@ -1053,19 +948,19 @@ TEST(TestAdapterWriteConvert, writeAllNulls) {
       field("large_binary", large_binary()),
       field("fixed_size_binary0", fixed_size_binary(0)),
       field("fixed_size_binary", fixed_size_binary(5))},
-      xFieldsOut{field("date64", timestamp(TimeUnit::NANO)),
-                 field("ts0", timestamp(TimeUnit::NANO)),
-                 field("ts1", timestamp(TimeUnit::NANO)),
-                 field("ts2", timestamp(TimeUnit::NANO)),
-                 field("large_string", utf8()),
-                 field("large_binary", binary()),
-                 field("fixed_size_binary0", binary()),
-                 field("fixed_size_binary", binary())};
-  std::shared_ptr<Schema> sharedPtrSchemaIn = std::make_shared<Schema>(xFieldsIn),
-                          sharedPtrSchemaOut = std::make_shared<Schema>(xFieldsOut);
+      output_fields{field("date64", timestamp(TimeUnit::NANO)),
+                    field("ts0", timestamp(TimeUnit::NANO)),
+                    field("ts1", timestamp(TimeUnit::NANO)),
+                    field("ts2", timestamp(TimeUnit::NANO)),
+                    field("large_string", utf8()),
+                    field("large_binary", binary()),
+                    field("fixed_size_binary0", binary()),
+                    field("fixed_size_binary", binary())};
+  std::shared_ptr<Schema> input_schema = std::make_shared<Schema>(input_fields),
+                          output_schema = std::make_shared<Schema>(output_fields);
 
   int64_t numRows = 10000;
-  int64_t numCols = xFieldsIn.size();
+  int64_t numCols = input_fields.size();
 
   ArrayBuilderMatrix buildersIn(numCols, ArrayBuilderVector(5, NULLPTR));
   ArrayBuilderVector buildersOut(numCols, NULLPTR);
@@ -1128,12 +1023,12 @@ TEST(TestAdapterWriteConvert, writeAllNulls) {
     cvOut.push_back(std::make_shared<ChunkedArray>(arraysOut[col]));
   }
 
-  std::shared_ptr<Table> tableIn = Table::Make(sharedPtrSchemaIn, cvIn),
-                         tableOut = Table::Make(sharedPtrSchemaOut, cvOut);
-  EXPECT_TRUE(tableWriteReadEqual(tableIn, tableOut));
+  std::shared_ptr<Table> input_table = Table::Make(input_schema, cvIn),
+                         expected_output_table = Table::Make(output_schema, cvOut);
+  EXPECT_TRUE(TableWriteReadEqual(input_table, expected_output_table));
 }
 TEST(TestAdapterWriteConvert, writeNoNulls) {
-  std::vector<std::shared_ptr<Field>> xFieldsIn{
+  std::vector<std::shared_ptr<Field>> input_fields{
       field("date64", date64()),
       field("ts0", timestamp(TimeUnit::SECOND)),
       field("ts1", timestamp(TimeUnit::MILLI)),
@@ -1142,19 +1037,19 @@ TEST(TestAdapterWriteConvert, writeNoNulls) {
       field("large_binary", large_binary()),
       field("fixed_size_binary0", fixed_size_binary(0)),
       field("fixed_size_binary", fixed_size_binary(2))},
-      xFieldsOut{field("date64", timestamp(TimeUnit::NANO)),
-                 field("ts0", timestamp(TimeUnit::NANO)),
-                 field("ts1", timestamp(TimeUnit::NANO)),
-                 field("ts2", timestamp(TimeUnit::NANO)),
-                 field("large_string", utf8()),
-                 field("large_binary", binary()),
-                 field("fixed_size_binary0", binary()),
-                 field("fixed_size_binary", binary())};
-  std::shared_ptr<Schema> sharedPtrSchemaIn = std::make_shared<Schema>(xFieldsIn),
-                          sharedPtrSchemaOut = std::make_shared<Schema>(xFieldsOut);
+      output_fields{field("date64", timestamp(TimeUnit::NANO)),
+                    field("ts0", timestamp(TimeUnit::NANO)),
+                    field("ts1", timestamp(TimeUnit::NANO)),
+                    field("ts2", timestamp(TimeUnit::NANO)),
+                    field("large_string", utf8()),
+                    field("large_binary", binary()),
+                    field("fixed_size_binary0", binary()),
+                    field("fixed_size_binary", binary())};
+  std::shared_ptr<Schema> input_schema = std::make_shared<Schema>(input_fields),
+                          output_schema = std::make_shared<Schema>(output_fields);
 
   int64_t numRows = 10000;
-  int64_t numCols = xFieldsIn.size();
+  int64_t numCols = input_fields.size();
 
   ArrayBuilderMatrix buildersIn(numCols, ArrayBuilderVector(5, NULLPTR));
   ArrayBuilderVector buildersOut(numCols, NULLPTR);
@@ -1255,12 +1150,12 @@ TEST(TestAdapterWriteConvert, writeNoNulls) {
     cvOut.push_back(std::make_shared<ChunkedArray>(arraysOut[col]));
   }
 
-  std::shared_ptr<Table> tableIn = Table::Make(sharedPtrSchemaIn, cvIn),
-                         tableOut = Table::Make(sharedPtrSchemaOut, cvOut);
-  EXPECT_TRUE(tableWriteReadEqual(tableIn, tableOut));
+  std::shared_ptr<Table> input_table = Table::Make(input_schema, cvIn),
+                         expected_output_table = Table::Make(output_schema, cvOut);
+  EXPECT_TRUE(TableWriteReadEqual(input_table, expected_output_table));
 }
 TEST(TestAdapterWriteConvert, writeMixed) {
-  std::vector<std::shared_ptr<Field>> xFieldsIn{
+  std::vector<std::shared_ptr<Field>> input_fields{
       field("date64", date64()),
       field("ts0", timestamp(TimeUnit::SECOND)),
       field("ts1", timestamp(TimeUnit::MILLI)),
@@ -1269,19 +1164,19 @@ TEST(TestAdapterWriteConvert, writeMixed) {
       field("large_binary", large_binary()),
       field("fixed_size_binary0", fixed_size_binary(0)),
       field("fixed_size_binary", fixed_size_binary(3))},
-      xFieldsOut{field("date64", timestamp(TimeUnit::NANO)),
-                 field("ts0", timestamp(TimeUnit::NANO)),
-                 field("ts1", timestamp(TimeUnit::NANO)),
-                 field("ts2", timestamp(TimeUnit::NANO)),
-                 field("large_string", utf8()),
-                 field("large_binary", binary()),
-                 field("fixed_size_binary0", binary()),
-                 field("fixed_size_binary", binary())};
-  std::shared_ptr<Schema> sharedPtrSchemaIn = std::make_shared<Schema>(xFieldsIn),
-                          sharedPtrSchemaOut = std::make_shared<Schema>(xFieldsOut);
+      output_fields{field("date64", timestamp(TimeUnit::NANO)),
+                    field("ts0", timestamp(TimeUnit::NANO)),
+                    field("ts1", timestamp(TimeUnit::NANO)),
+                    field("ts2", timestamp(TimeUnit::NANO)),
+                    field("large_string", utf8()),
+                    field("large_binary", binary()),
+                    field("fixed_size_binary0", binary()),
+                    field("fixed_size_binary", binary())};
+  std::shared_ptr<Schema> input_schema = std::make_shared<Schema>(input_fields),
+                          output_schema = std::make_shared<Schema>(output_fields);
 
   int64_t numRows = 10000;
-  int64_t numCols = xFieldsIn.size();
+  int64_t numCols = input_fields.size();
 
   ArrayBuilderMatrix buildersIn(numCols, ArrayBuilderVector(5, NULLPTR));
   ArrayBuilderVector buildersOut(numCols, NULLPTR);
@@ -1424,157 +1319,23 @@ TEST(TestAdapterWriteConvert, writeMixed) {
     cvOut.push_back(std::make_shared<ChunkedArray>(arraysOut[col]));
   }
 
-  std::shared_ptr<Table> tableIn = Table::Make(sharedPtrSchemaIn, cvIn),
-                         tableOut = Table::Make(sharedPtrSchemaOut, cvOut);
-  EXPECT_TRUE(tableWriteReadEqual(tableIn, tableOut));
+  std::shared_ptr<Table> input_table = Table::Make(input_schema, cvIn),
+                         expected_output_table = Table::Make(output_schema, cvOut);
+  EXPECT_TRUE(TableWriteReadEqual(input_table, expected_output_table));
 }
 
 // Nested types
-TEST(TestAdapterWriteNested, writeZeroRows) {
-  std::vector<std::shared_ptr<Field>> xFields0{std::make_shared<Field>("a", utf8()),
-                                               std::make_shared<Field>("b", int32())};
-  std::vector<std::shared_ptr<Field>> xFieldsIn{
-      field("struct", struct_(xFields0)),
-      field("list", list(int32())),
-      field("large_list", large_list(int32())),
-      field("fixed_size_list", fixed_size_list(int32(), 3)),
-      field("map", map(utf8(), utf8())),
-      field("lsl", list(struct_({field("lsl0", list(int32()))})))},
-      xFieldsOut{
-          field("struct", struct_(xFields0)),
-          field("list", list(int32())),
-          field("large_list", list(int32())),
-          field("fixed_size_list", list(int32())),
-          field("map", list(struct_({field("key", utf8()), field("value", utf8())}))),
-          field("lsl", list(struct_({field("lsl0", list(int32()))})))};
-
-  std::shared_ptr<Schema> sharedPtrSchemaIn = std::make_shared<Schema>(xFieldsIn);
-  std::shared_ptr<Schema> sharedPtrSchemaOut = std::make_shared<Schema>(xFieldsOut);
-
-  int64_t numRows = 0;
-
-  StringBuilder builder01In, keysBuilder4In, itemsBuilder4In;
-  Int32Builder builder02In, valuesBuilder1In, offsetsBuilder1In, valuesBuilder2In,
-      valuesBuilder3In, offsetsBuilder4In, valuesBuilder500In, offsetsBuilder500In,
-      offsetsBuilder5In;
-  Int64Builder offsetsBuilder2In;
-  std::shared_ptr<Array> array01In, array02In, valuesArray1In, offsetsArray1In,
-      valuesArray2In, offsetsArray2In, valuesArray3In, offsetsArray4In, keysArray4In,
-      itemsArray4In, valuesArray500In, offsetsArray500In, offsetsArray5In;
-
-  ARROW_EXPECT_OK(builder01In.Finish(&array01In));
-  ARROW_EXPECT_OK(builder02In.Finish(&array02In));
-  ARROW_EXPECT_OK(valuesBuilder1In.Finish(&valuesArray1In));
-  ARROW_EXPECT_OK(offsetsBuilder1In.Append(0));
-  ARROW_EXPECT_OK(offsetsBuilder1In.Finish(&offsetsArray1In));
-  ARROW_EXPECT_OK(valuesBuilder2In.Finish(&valuesArray2In));
-  ARROW_EXPECT_OK(offsetsBuilder2In.Append(0));
-  ARROW_EXPECT_OK(offsetsBuilder2In.Finish(&offsetsArray2In));
-  ARROW_EXPECT_OK(valuesBuilder3In.Finish(&valuesArray3In));
-  ARROW_EXPECT_OK(keysBuilder4In.Finish(&keysArray4In));
-  ARROW_EXPECT_OK(itemsBuilder4In.Finish(&itemsArray4In));
-  ARROW_EXPECT_OK(offsetsBuilder4In.Append(0));
-  ARROW_EXPECT_OK(offsetsBuilder4In.Finish(&offsetsArray4In));
-  ARROW_EXPECT_OK(valuesBuilder500In.Finish(&valuesArray500In));
-  ARROW_EXPECT_OK(offsetsBuilder500In.Append(0));
-  ARROW_EXPECT_OK(offsetsBuilder500In.Finish(&offsetsArray500In));
-  ARROW_EXPECT_OK(offsetsBuilder5In.Append(0));
-  ARROW_EXPECT_OK(offsetsBuilder5In.Finish(&offsetsArray5In));
-
-  ArrayVector children0In{array01In, array02In};
-  auto array0In = std::make_shared<StructArray>(sharedPtrSchemaIn->field(0)->type(),
-                                                numRows, children0In);
-  auto array1In = ListArray::FromArrays(*offsetsArray1In, *valuesArray1In).ValueOrDie();
-  auto array2In =
-      LargeListArray::FromArrays(*offsetsArray2In, *valuesArray2In).ValueOrDie();
-  auto array3In = std::static_pointer_cast<FixedSizeListArray>(
-      FixedSizeListArray::FromArrays(valuesArray3In, 3).ValueOrDie());
-  auto array4In = std::static_pointer_cast<MapArray>(
-      MapArray::FromArrays(offsetsArray4In, keysArray4In, itemsArray4In).ValueOrDie());
-  auto array500In =
-      ListArray::FromArrays(*offsetsArray500In, *valuesArray500In).ValueOrDie();
-  ArrayVector children50In{array500In};
-  auto array50In = std::make_shared<StructArray>(
-      sharedPtrSchemaIn->field(5)->type()->field(0)->type(), numRows, children50In);
-  auto array5In = ListArray::FromArrays(*offsetsArray5In, *array50In).ValueOrDie();
-
-  ChunkedArrayVector cvIn{
-      std::make_shared<ChunkedArray>(array0In), std::make_shared<ChunkedArray>(array1In),
-      std::make_shared<ChunkedArray>(array2In), std::make_shared<ChunkedArray>(array3In),
-      std::make_shared<ChunkedArray>(array4In), std::make_shared<ChunkedArray>(array5In)};
-  std::shared_ptr<Table> tableIn = Table::Make(sharedPtrSchemaIn, cvIn);
-
-  StringBuilder builder01Out, keysBuilder4Out, itemsBuilder4Out;
-  Int32Builder builder02Out, valuesBuilder1Out, offsetsBuilder1Out, valuesBuilder2Out,
-      offsetsBuilder2Out, valuesBuilder3Out, offsetsBuilder3Out, offsetsBuilder4Out,
-      valuesBuilder500Out, offsetsBuilder500Out, offsetsBuilder5Out;
-  std::shared_ptr<Array> array01Out, array02Out, valuesArray1Out, offsetsArray1Out,
-      valuesArray2Out, offsetsArray2Out, valuesArray3Out, offsetsArray3Out,
-      offsetsArray4Out, keysArray4Out, itemsArray4Out, valuesArray500Out,
-      offsetsArray500Out, offsetsArray5Out;
-
-  ARROW_EXPECT_OK(builder01Out.Finish(&array01Out));
-  ARROW_EXPECT_OK(builder02Out.Finish(&array02Out));
-  ARROW_EXPECT_OK(valuesBuilder1Out.Finish(&valuesArray1Out));
-  ARROW_EXPECT_OK(offsetsBuilder1Out.Append(0));
-  ARROW_EXPECT_OK(offsetsBuilder1Out.Finish(&offsetsArray1Out));
-  ARROW_EXPECT_OK(valuesBuilder2Out.Finish(&valuesArray2Out));
-  ARROW_EXPECT_OK(offsetsBuilder2Out.Append(0));
-  ARROW_EXPECT_OK(offsetsBuilder2Out.Finish(&offsetsArray2Out));
-  ARROW_EXPECT_OK(valuesBuilder3Out.Finish(&valuesArray3Out));
-  ARROW_EXPECT_OK(offsetsBuilder3Out.Append(0));
-  ARROW_EXPECT_OK(offsetsBuilder3Out.Finish(&offsetsArray3Out));
-  ARROW_EXPECT_OK(keysBuilder4Out.Finish(&keysArray4Out));
-  ARROW_EXPECT_OK(itemsBuilder4Out.Finish(&itemsArray4Out));
-  ARROW_EXPECT_OK(offsetsBuilder4Out.Append(0));
-  ARROW_EXPECT_OK(offsetsBuilder4Out.Finish(&offsetsArray4Out));
-  ARROW_EXPECT_OK(valuesBuilder500Out.Finish(&valuesArray500Out));
-  ARROW_EXPECT_OK(offsetsBuilder500Out.Append(0));
-  ARROW_EXPECT_OK(offsetsBuilder500Out.Finish(&offsetsArray500Out));
-  ARROW_EXPECT_OK(offsetsBuilder5Out.Append(0));
-  ARROW_EXPECT_OK(offsetsBuilder5Out.Finish(&offsetsArray5Out));
-
-  ArrayVector children0Out{array01Out, array02Out},
-      children4StrOut{keysArray4Out, itemsArray4Out};
-  auto array0Out = std::make_shared<StructArray>(sharedPtrSchemaOut->field(0)->type(),
-                                                 numRows, children0Out);
-  auto array1Out =
-      ListArray::FromArrays(*offsetsArray1Out, *valuesArray1Out).ValueOrDie();
-  auto array2Out =
-      ListArray::FromArrays(*offsetsArray2Out, *valuesArray2Out).ValueOrDie();
-  auto array3Out =
-      ListArray::FromArrays(*offsetsArray3Out, *valuesArray3Out).ValueOrDie();
-  auto array40Out = std::make_shared<StructArray>(
-      sharedPtrSchemaOut->field(4)->type()->field(0)->type(), numRows, children4StrOut);
-  auto array4Out = ListArray::FromArrays(*offsetsArray4Out, *array40Out).ValueOrDie();
-  auto array500Out =
-      ListArray::FromArrays(*offsetsArray500Out, *valuesArray500Out).ValueOrDie();
-  ArrayVector children50Out{array500Out};
-  auto array50Out = std::make_shared<StructArray>(
-      sharedPtrSchemaIn->field(5)->type()->field(0)->type(), numRows, children50Out);
-  auto array5Out = ListArray::FromArrays(*offsetsArray5Out, *array50Out).ValueOrDie();
-
-  ChunkedArrayVector cvOut{std::make_shared<ChunkedArray>(array0Out),
-                           std::make_shared<ChunkedArray>(array1Out),
-                           std::make_shared<ChunkedArray>(array2Out),
-                           std::make_shared<ChunkedArray>(array3Out),
-                           std::make_shared<ChunkedArray>(array4Out),
-                           std::make_shared<ChunkedArray>(array5Out)};
-
-  std::shared_ptr<Table> tableOut = Table::Make(sharedPtrSchemaOut, cvOut);
-  EXPECT_TRUE(tableWriteReadEqual(tableIn, tableOut));
-}
 TEST(TestAdapterWriteNested, writeMixedListStruct) {
-  std::vector<std::shared_ptr<Field>> xFields0{std::make_shared<Field>("a", utf8()),
-                                               std::make_shared<Field>("b", int32())};
-  std::vector<std::shared_ptr<Field>> xFields{field("struct", struct_(xFields0)),
-                                              field("list", list(int32()))};
-  std::shared_ptr<Schema> sharedPtrSchema = std::make_shared<Schema>(xFields);
-  auto sharedPtrArrowType0 = xFields[0]->type();
-  auto sharedPtrArrowType1 = xFields[1]->type();
+  std::vector<std::shared_ptr<Field>> table_fields0{
+      std::make_shared<Field>("a", utf8()), std::make_shared<Field>("b", int32())};
+  std::vector<std::shared_ptr<Field>> table_fields{
+      field("struct", struct_(table_fields0)), field("list", list(int32()))};
+  std::shared_ptr<Schema> table_schema = std::make_shared<Schema>(table_fields);
+  auto sharedPtrArrowType0 = table_fields[0]->type();
+  auto sharedPtrArrowType1 = table_fields[1]->type();
 
   int64_t numRows = 10000;
-  int64_t numCols0 = xFields0.size();
+  int64_t numCols0 = table_fields0.size();
 
   //#0 struct<a:string,b:int>
   ArrayBuilderMatrix builders0(numCols0, ArrayBuilderVector(5, NULLPTR));
@@ -1745,23 +1506,23 @@ TEST(TestAdapterWriteNested, writeMixedListStruct) {
   std::shared_ptr<ChunkedArray> carray1 = std::make_shared<ChunkedArray>(av1);
 
   ChunkedArrayVector cv{carray0, carray1};
-  std::shared_ptr<Table> table = Table::Make(sharedPtrSchema, cv);
-  EXPECT_TRUE(tableWriteReadEqual(table, table));
+  std::shared_ptr<Table> table = Table::Make(table_schema, cv);
+  EXPECT_TRUE(TableWriteReadEqual(table, table));
 }
 TEST(TestAdapterWriteNested, writeMixedConvert) {
-  std::vector<std::shared_ptr<Field>> xFieldsIn{
+  std::vector<std::shared_ptr<Field>> input_fields{
       field("large_list", large_list(int32())),
       field("fixed_size_list", fixed_size_list(int32(), 3)),
       field("map", map(int32(), int32()))},
-      xFieldsOut{
+      output_fields{
           field("large_list", list(int32())), field("fixed_size_list", list(int32())),
           field("map", list(struct_({field("key", int32()), field("value", int32())})))};
 
-  std::shared_ptr<Schema> sharedPtrSchemaIn = std::make_shared<Schema>(xFieldsIn);
-  std::shared_ptr<Schema> sharedPtrSchemaOut = std::make_shared<Schema>(xFieldsOut);
+  std::shared_ptr<Schema> input_schema = std::make_shared<Schema>(input_fields);
+  std::shared_ptr<Schema> output_schema = std::make_shared<Schema>(output_fields);
 
   int64_t numRows = 10000;
-  int64_t numCols = xFieldsIn.size();
+  int64_t numCols = input_fields.size();
 
   ArrayBuilderVector valuesBuilders0In(5, NULLPTR), offsetsBuilders0In(3, NULLPTR),
       valuesBuilders1In(5, NULLPTR), keysBuilders2In(5, NULLPTR),
@@ -2015,13 +1776,13 @@ TEST(TestAdapterWriteNested, writeMixedConvert) {
     ARROW_EXPECT_OK(itemsBuilders2In[i]->Finish(&itemsArrays2In[i]));
     if (i == 1 || i == 3) {
       arraysIn[0][i] = std::make_shared<LargeListArray>(
-          xFieldsIn[0]->type(), numRows / 2, offsetsBuffers0In[(i - 1) / 2],
+          input_fields[0]->type(), numRows / 2, offsetsBuffers0In[(i - 1) / 2],
           valuesArrays0In[i], bitmapBuffersIn[0][(i - 1) / 2]);
       arraysIn[1][i] = std::make_shared<FixedSizeListArray>(
-          xFieldsIn[1]->type(), numRows / 2, valuesArrays1In[i],
+          input_fields[1]->type(), numRows / 2, valuesArrays1In[i],
           bitmapBuffersIn[1][(i - 1) / 2]);
       arraysIn[2][i] = std::make_shared<MapArray>(
-          xFieldsIn[2]->type(), numRows / 2, offsetsBuffers2In[(i - 1) / 2],
+          input_fields[2]->type(), numRows / 2, offsetsBuffers2In[(i - 1) / 2],
           keysArrays2In[i], itemsArrays2In[i], bitmapBuffersIn[2][(i - 1) / 2]);
     } else {
       arraysIn[0][i] =
@@ -2040,17 +1801,17 @@ TEST(TestAdapterWriteNested, writeMixedConvert) {
   ARROW_EXPECT_OK(keysBuilder2Out->Finish(&keysArray2Out));
   ARROW_EXPECT_OK(itemsBuilder2Out->Finish(&itemsArray2Out));
   arraysOut[0] =
-      std::make_shared<ListArray>(xFieldsOut[0]->type(), numRows, offsetsBuffersOut[0],
+      std::make_shared<ListArray>(output_fields[0]->type(), numRows, offsetsBuffersOut[0],
                                   valuesArray0Out, bitmapBuffersOut[0]);
   arraysOut[1] =
-      std::make_shared<ListArray>(xFieldsOut[1]->type(), numRows, offsetsBuffersOut[1],
+      std::make_shared<ListArray>(output_fields[1]->type(), numRows, offsetsBuffersOut[1],
                                   valuesArray1Out, bitmapBuffersOut[1]);
 
   ArrayVector children20{keysArray2Out, itemsArray2Out};
   auto arraysOut20 = std::make_shared<StructArray>(
-      xFieldsOut[2]->type()->field(0)->type(), 2 * numRows, children20);
+      output_fields[2]->type()->field(0)->type(), 2 * numRows, children20);
   arraysOut[2] =
-      std::make_shared<ListArray>(xFieldsOut[2]->type(), numRows, offsetsBuffersOut[2],
+      std::make_shared<ListArray>(output_fields[2]->type(), numRows, offsetsBuffersOut[2],
                                   arraysOut20, bitmapBuffersOut[2]);
 
   for (int col = 0; col < numCols; col++) {
@@ -2058,20 +1819,20 @@ TEST(TestAdapterWriteNested, writeMixedConvert) {
     cvOut.push_back(std::make_shared<ChunkedArray>(arraysOut[col]));
   }
 
-  std::shared_ptr<Table> tableIn = Table::Make(sharedPtrSchemaIn, cvIn),
-                         tableOut = Table::Make(sharedPtrSchemaOut, cvOut);
-  EXPECT_TRUE(tableWriteReadEqual(tableIn, tableOut));
+  std::shared_ptr<Table> input_table = Table::Make(input_schema, cvIn),
+                         expected_output_table = Table::Make(output_schema, cvOut);
+  EXPECT_TRUE(TableWriteReadEqual(input_table, expected_output_table));
 }
 TEST(TestAdapterWriteNested, writeMixedListOfStruct) {
-  std::vector<std::shared_ptr<Field>> xFields{
+  std::vector<std::shared_ptr<Field>> table_fields{
       field("ls", list(struct_({field("a", int32())})))};
-  std::shared_ptr<Schema> sharedPtrSchema = std::make_shared<Schema>(xFields);
-  auto sharedPtrArrowType0 = xFields[0]->type();
-  auto sharedPtrArrowType00 = xFields[0]->type()->field(0)->type();
+  std::shared_ptr<Schema> table_schema = std::make_shared<Schema>(table_fields);
+  auto sharedPtrArrowType0 = table_fields[0]->type();
+  auto sharedPtrArrowType00 = table_fields[0]->type()->field(0)->type();
 
   int64_t numRows = 10000;
   int64_t numListElememts = numRows * 2;
-  int64_t numCols0 = (xFields[0]->type()->field(0)->type()->fields()).size();
+  int64_t numCols0 = (table_fields[0]->type()->field(0)->type()->fields()).size();
 
   //#0 list<struct<a:int>>
   ArrayBuilderMatrix builders0(numCols0, ArrayBuilderVector(5, NULLPTR));
@@ -2197,11 +1958,11 @@ TEST(TestAdapterWriteNested, writeMixedListOfStruct) {
   std::shared_ptr<ChunkedArray> carray0 = std::make_shared<ChunkedArray>(av);
 
   ChunkedArrayVector cv{carray0};
-  std::shared_ptr<Table> table = Table::Make(sharedPtrSchema, cv);
-  EXPECT_TRUE(tableWriteReadEqual(table, table));
+  std::shared_ptr<Table> table = Table::Make(table_schema, cv);
+  EXPECT_TRUE(TableWriteReadEqual(table, table));
 }
 TEST(TestAdapterWriteNested, writeMixedStructStruct) {
-  std::vector<std::shared_ptr<Field>> xFields{field(
+  std::vector<std::shared_ptr<Field>> table_fields{field(
       "struct",
       struct_(
           {field("struct2",
@@ -2211,12 +1972,12 @@ TEST(TestAdapterWriteNested, writeMixedStructStruct) {
                           field("decimal128z", decimal(38, 0)), field("date32", date32()),
                           field("ts3", timestamp(TimeUnit::NANO)),
                           field("string", utf8()), field("binary", binary())}))}))};
-  std::shared_ptr<Schema> sharedPtrSchema = std::make_shared<Schema>(xFields);
+  std::shared_ptr<Schema> table_schema = std::make_shared<Schema>(table_fields);
 
   int64_t numRows = 10000;
-  int64_t numCols00 = (xFields[0]->type()->field(0)->type()->fields()).size();
-  auto sharedPtrArrowType00 = xFields[0]->type()->field(0)->type();
-  auto sharedPtrArrowType0 = xFields[0]->type();
+  int64_t numCols00 = (table_fields[0]->type()->field(0)->type()->fields()).size();
+  auto sharedPtrArrowType00 = table_fields[0]->type()->field(0)->type();
+  auto sharedPtrArrowType0 = table_fields[0]->type();
 
   ArrayBuilderMatrix builders(numCols00, ArrayBuilderVector(5, NULLPTR));
 
@@ -2393,7 +2154,7 @@ TEST(TestAdapterWriteNested, writeMixedStructStruct) {
 
   std::shared_ptr<ChunkedArray> carray0 = std::make_shared<ChunkedArray>(av0);
   ChunkedArrayVector cv{carray0};
-  std::shared_ptr<Table> table = Table::Make(sharedPtrSchema, cv);
-  EXPECT_TRUE(tableWriteReadEqual(table, table, 5 * DEFAULT_SMALL_MEM_STREAM_SIZE));
+  std::shared_ptr<Table> table = Table::Make(table_schema, cv);
+  EXPECT_TRUE(TableWriteReadEqual(table, table, 5 * DEFAULT_SMALL_MEM_STREAM_SIZE));
 }
 }  // namespace arrow
