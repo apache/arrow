@@ -419,8 +419,9 @@ class build_ext(_build_ext):
 
     def _bundle_arrow_cpp(self, build_prefix, build_lib):
         print(pjoin(build_lib, target.target))
-        move_shared_libs(build_prefix, build_lib, "arrow")
-        move_shared_libs(build_prefix, build_lib, "arrow_python")
+        if target.target == 'pyarrow':
+            move_shared_libs(build_prefix, build_lib, "arrow")
+            move_shared_libs(build_prefix, build_lib, "arrow_python")
         if target.target == 'pyarrow' and self.with_cuda:
             move_shared_libs(build_prefix, build_lib, "arrow_cuda")
         if target.target == 'pyarrow' and self.with_flight:
