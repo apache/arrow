@@ -54,7 +54,7 @@ extern crate parquet;
 
 use std::{env, fs::File, path::Path};
 
-use clap::{App, Arg, crate_version, crate_authors};
+use clap::{crate_authors, crate_version, App, Arg};
 
 use parquet::file::reader::{FileReader, SerializedFileReader};
 use parquet::record::Row;
@@ -70,13 +70,15 @@ fn main() {
                 .value_name("file-path")
                 .required(true)
                 .index(1)
-                .help("Path to a parquet file")
+                .help("Path to a parquet file"),
         )
         .arg(
             Arg::with_name("num_records")
                 .value_name("num-records")
                 .index(2)
-                .help("Number of records to read. When not provided, all records are read.")
+                .help(
+                    "Number of records to read. When not provided, all records are read.",
+                ),
         );
 
     #[cfg(feature = "json_output")]
@@ -89,21 +91,23 @@ fn main() {
                 .value_name("file-path")
                 .required(true)
                 .index(1)
-                .help("Path to a parquet file")
+                .help("Path to a parquet file"),
         )
         .arg(
             Arg::with_name("num_records")
                 .value_name("num-records")
                 .index(2)
-                .help("Number of records to read. When not provided, all records are read.")
-        ).arg(
-        Arg::with_name("json")
-            .short("j")
-            .long("json")
-            .takes_value(false)
-            .help("Print parquet file in JSON lines Format")
+                .help(
+                    "Number of records to read. When not provided, all records are read.",
+                ),
+        )
+        .arg(
+            Arg::with_name("json")
+                .short("j")
+                .long("json")
+                .takes_value(false)
+                .help("Print parquet file in JSON lines Format"),
         );
-
 
     let matches = app.get_matches();
     let filename = matches.value_of("file_path").unwrap();
@@ -120,7 +124,6 @@ fn main() {
     if cfg!(feature = "json_output") {
         json = Some(matches.is_present("json"));
     }
-
 
     let path = Path::new(&filename);
     let file = File::open(&path).unwrap();

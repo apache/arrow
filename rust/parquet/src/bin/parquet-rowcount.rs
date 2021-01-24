@@ -52,7 +52,7 @@ extern crate parquet;
 
 use std::{env, fs::File, path::Path};
 
-use clap::{App, Arg, crate_version, crate_authors};
+use clap::{crate_authors, crate_version, App, Arg};
 
 use parquet::file::reader::{FileReader, SerializedFileReader};
 
@@ -66,8 +66,9 @@ fn main() {
                 .value_name("file-paths")
                 .required(true)
                 .multiple(true)
-                .help("List of parquet files to read from")
-        ).get_matches();
+                .help("List of parquet files to read from"),
+        )
+        .get_matches();
 
     let filenames: Vec<&str> = matches.values_of("file_paths").unwrap().collect();
     for filename in &filenames {

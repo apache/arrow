@@ -697,7 +697,6 @@ impl Field {
             ),
         }
     }
-
 }
 
 impl fmt::Display for Field {

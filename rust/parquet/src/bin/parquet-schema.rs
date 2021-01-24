@@ -53,7 +53,7 @@ extern crate parquet;
 
 use std::{env, fs::File, path::Path};
 
-use clap::{App, Arg, crate_version, crate_authors};
+use clap::{crate_authors, crate_version, App, Arg};
 
 use parquet::{
     file::reader::{FileReader, SerializedFileReader},
@@ -69,15 +69,16 @@ fn main() {
                 .value_name("file-path")
                 .required(true)
                 .index(1)
-                .help("Path to a parquet file")
+                .help("Path to a parquet file"),
         )
         .arg(
             Arg::with_name("verbose")
                 .short("v")
                 .long("verbose")
                 .takes_value(false)
-                .help("Enable printing full file metadata")
-        ).get_matches();
+                .help("Enable printing full file metadata"),
+        )
+        .get_matches();
 
     let filename = matches.value_of("file_path").unwrap();
     let path = Path::new(&filename);
