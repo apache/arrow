@@ -310,7 +310,6 @@ def test_get_registered_function_signatures():
     assert hasattr(signatures[0], "name")
 
 
-@pytest.mark.gandiva
 def test_filter_project():
     import pyarrow.gandiva as gandiva
     mpool = pa.default_memory_pool()
