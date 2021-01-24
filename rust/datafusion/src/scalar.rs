@@ -318,7 +318,7 @@ impl ScalarValue {
                 Some(value) => {
                     Arc::new(Date32Array::from_iter_values(repeat(*value).take(size)))
                 }
-                None => Arc::new(repeat(*e).take(size).collect::<Date32Array>()),
+                None => Arc::new(repeat(None).take(size).collect::<Date32Array>()),
             },
         }
     }
