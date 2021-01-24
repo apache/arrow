@@ -1221,24 +1221,28 @@ impl std::iter::FromIterator<bool> for MutableBuffer {
             MutableBuffer::new(byte_capacity)
         };
 
-        while let Some(value) = iterator.next() {
-            //we have the first bit of the byte
+        loop {
             let mut exhausted = false;
-            let mut byte_accum: u8 = match value {
-                true => 1,
-                false => 0,
-            };
-            //fill remaining bits of the byte (if available)
-            for i in 1..8 {
+            let mut byte_accum: u8 = 0;
+            let mut mask: u8 = 1;
+
+            //collect (up to) 8 bits into a byte
+            while mask != 0 {
                 if let Some(value) = iterator.next() {
                     byte_accum |= match value {
-                        true => 1 << i,
+                        true => mask,
                         false => 0,
                     };
+                    mask <<= 1;
                 } else {
                     exhausted = true;
                     break;
                 }
+            }
+
+            // break if the iterator was exhausted before it provided a bool for this byte
+            if exhausted && mask == 1 {
+                break;
             }
 
             //ensure we have capacity to write the byte
@@ -1394,6 +1398,16 @@ mod tests {
         let buffer: Buffer = bits.iter().copied().collect();
         assert_eq!(0, buffer.capacity());
         assert_eq!(0, buffer.len());
+
+        let bits = [
+            false, true, false, false, true, true, false, false, //first byte
+            false, true, true, true, //second byte
+        ];
+        let hintless_iterator = bits.iter().filter(|_| true).copied();
+        assert_eq!(0, hintless_iterator.size_hint().0); //sanity check of the test input
+        let buffer: Buffer = hintless_iterator.collect();
+        assert_eq!([0b00110010, 0b00001110], buffer.as_slice()); //bits are set least-significant first, zero padded
+        assert_eq!(64, buffer.capacity()); //allocation rounded up to 64 bytes
     }
 
     #[test]
@@ -1415,6 +1429,16 @@ mod tests {
         let buffer: MutableBuffer = bits.iter().copied().collect();
         assert_eq!(0, buffer.as_slice().len());
         assert_eq!(0, buffer.capacity());
+
+        let bits = [
+            false, true, false, false, true, true, false, false, //first byte
+            false, true, true, true, //second byte
+        ];
+        let hintless_iterator = bits.iter().filter(|_| true).copied();
+        assert_eq!(0, hintless_iterator.size_hint().0); //sanity check of the test input
+        let buffer: MutableBuffer = hintless_iterator.collect();
+        assert_eq!([0b00110010, 0b00001110], buffer.as_slice()); //bits are set least-significant first, zero padded
+        assert_eq!(64, buffer.capacity()); //allocation rounded up to 64 bytes
     }
 
     #[test]
