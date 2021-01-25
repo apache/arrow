@@ -45,7 +45,7 @@ class SerialTaskGroup : public TaskGroup {
 
   Status current_status() override { return status_; }
 
-  bool ok() override { return status_.ok(); }
+  bool ok() const override { return status_.ok(); }
 
   Status Finish() override {
     if (!finished_) {
@@ -102,7 +102,7 @@ class ThreadedTaskGroup : public TaskGroup {
     return status_;
   }
 
-  bool ok() override { return ok_.load(); }
+  bool ok() const override { return ok_.load(); }
 
   Status Finish() override {
     std::unique_lock<std::mutex> lock(mutex_);

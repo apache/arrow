@@ -67,7 +67,7 @@ class ARROW_EXPORT TaskGroup : public std::enable_shared_from_this<TaskGroup> {
   virtual Status current_status() = 0;
 
   /// Whether some tasks have already failed.  Non-blocking, useful for stopping early.
-  virtual bool ok() = 0;
+  virtual bool ok() const = 0;
 
   /// How many tasks can typically be executed in parallel.
   /// This is only a hint, useful for testing or debugging.

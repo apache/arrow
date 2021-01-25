@@ -77,7 +77,7 @@ void TestTaskGroupErrors(std::shared_ptr<TaskGroup> task_group) {
 
   std::atomic<int> count(0);
 
-  auto task_group_was_ok = true;
+  auto task_group_was_ok = false;
   task_group->Append([&]() -> Status {
     for (int i = 0; i < NSUCCESSES; ++i) {
       task_group->Append([&]() {
@@ -97,10 +97,9 @@ void TestTaskGroupErrors(std::shared_ptr<TaskGroup> task_group) {
     return Status::OK();
   });
 
-  ASSERT_TRUE(task_group_was_ok);
-
   // Task error is propagated
   ASSERT_RAISES(Invalid, task_group->Finish());
+  ASSERT_TRUE(task_group_was_ok);
   ASSERT_FALSE(task_group->ok());
   if (task_group->parallelism() == 1) {
     // Serial: exactly two successes and an error
