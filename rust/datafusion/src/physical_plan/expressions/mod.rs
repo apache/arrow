@@ -60,69 +60,13 @@ use arrow::{
 
 mod cast;
 mod coercion;
+mod column;
 pub use cast::{cast, CastExpr};
+pub use column::{col, Column};
 
 /// returns the name of the state
 pub fn format_state_name(name: &str, state_name: &str) -> String {
     format!("{}[{}]", name, state_name)
-}
-
-/// Represents the column at a given index in a RecordBatch
-#[derive(Debug)]
-pub struct Column {
-    name: String,
-}
-
-impl Column {
-    /// Create a new column expression
-    pub fn new(name: &str) -> Self {
-        Self {
-            name: name.to_owned(),
-        }
-    }
-
-    /// Get the column name
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-}
-
-impl fmt::Display for Column {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.name)
-    }
-}
-
-impl PhysicalExpr for Column {
-    /// Return a reference to Any that can be used for downcasting
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    /// Get the data type of this expression, given the schema of the input
-    fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
-        Ok(input_schema
-            .field_with_name(&self.name)?
-            .data_type()
-            .clone())
-    }
-
-    /// Decide whehter this expression is nullable, given the schema of the input
-    fn nullable(&self, input_schema: &Schema) -> Result<bool> {
-        Ok(input_schema.field_with_name(&self.name)?.is_nullable())
-    }
-
-    /// Evaluate the expression
-    fn evaluate(&self, batch: &RecordBatch) -> Result<ColumnarValue> {
-        Ok(ColumnarValue::Array(
-            batch.column(batch.schema().index_of(&self.name)?).clone(),
-        ))
-    }
-}
-
-/// Create a column expression
-pub fn col(name: &str) -> Arc<dyn PhysicalExpr> {
-    Arc::new(Column::new(name))
 }
 
 /// SUM aggregate expression
