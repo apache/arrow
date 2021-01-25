@@ -290,7 +290,7 @@ impl ScalarValue {
                     Arc::new(StringArray::from_iter_values(repeat(value).take(size)))
                 }
                 None => {
-                    Arc::new(repeat(e.as_deref()).take(size).collect::<StringArray>())
+                    Arc::new(repeat(None::<&str>).take(size).collect::<StringArray>())
                 }
             },
             ScalarValue::LargeUtf8(e) => match e {
@@ -298,7 +298,7 @@ impl ScalarValue {
                     Arc::new(LargeStringArray::from_iter_values(repeat(value).take(size)))
                 }
                 None => Arc::new(
-                    repeat(e.as_deref())
+                    repeat(None::<&str>)
                         .take(size)
                         .collect::<LargeStringArray>(),
                 ),
