@@ -51,6 +51,7 @@ else
 fi
 
 cp $ARROW_HOME/ci/scripts/PKGBUILD .
+unset BOOST_ROOT
 printenv
 makepkg-mingw --noconfirm --noprogressbar --skippgpcheck --nocheck --syncdeps --cleanbuild
 
