@@ -22,13 +22,14 @@ call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\Common7\Too
 @rem Install build dependencies with vcpkg
 @rem TODO(ianmcook): change --x-manifest-root to --manifest-root after this
 @rem changes in vcpkg
-C:\vcpkg\vcpkg install ^
+vcpkg install ^
     --triplet x64-windows ^
     --x-manifest-root cpp  ^
     --clean-after-build ^
     || exit /B 1
 
 @rem Build Arrow C++ library
+set VCPKG_INSTALLED=%cd%\vcpkg_installed
 mkdir cpp\build
 pushd cpp\build
 
@@ -41,27 +42,26 @@ cmake -G "Visual Studio 16 2019" -A x64 ^
       -DARROW_FLIGHT=ON ^
       -DARROW_MIMALLOC=ON ^
       -DARROW_PARQUET=ON ^
-      -DARROW_PYTHON=ON ^
+      -DARROW_PYTHON=OFF ^
       -DARROW_WITH_BROTLI=ON ^
       -DARROW_WITH_BZ2=ON ^
       -DARROW_WITH_LZ4=ON ^
       -DARROW_WITH_SNAPPY=ON ^
       -DARROW_WITH_ZLIB=ON ^
       -DARROW_WITH_ZSTD=ON ^
+      -DARROW_DEPENDENCY_SOURCE=SYSTEM ^
       -DCMAKE_BUILD_TYPE=release ^
       -DCMAKE_INSTALL_PREFIX="" ^
       -DCMAKE_UNITY_BUILD=ON ^
-      -DGTest_SOURCE=BUNDLED ^
-      -DVCPKG_TARGET_TRIPLET="x64-windows" ^
       -DCMAKE_TOOLCHAIN_FILE="C:\vcpkg\scripts\buildsystems\vcpkg.cmake" ^
-      -DARROW_DEPENDENCY_SOURCE=SYSTEM ^
       -DLZ4_MSVC_LIB_PREFIX="" ^
       -DLZ4_MSVC_STATIC_LIB_SUFFIX="" ^
       -DZSTD_MSVC_LIB_PREFIX="" ^
-      -DARROW_PACKAGE_PREFIX="..\vcpkg_installed\x64-windows" ^
-      -DOPENSSL_ROOT_DIR="..\vcpkg_installed\x64-windows" ^
+      -DARROW_PACKAGE_PREFIX="%VCPKG_INSTALLED%\x64-windows" ^
+      -DVCPKG_TARGET_TRIPLET="x64-windows" ^
+      -D_VCPKG_INSTALLED_DIR="%VCPKG_INSTALLED%" ^
       -DARROW_BUILD_SHARED=ON ^
-      ..  || exit /B
+      .. || exit /B
 
 cmake --build . --target INSTALL --config Release || exit /B 1
 
