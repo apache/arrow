@@ -107,13 +107,14 @@ impl AggregateExpr for Avg {
 
 /// An accumulator to compute the average
 #[derive(Debug)]
-pub(crate) struct AvgAccumulator {
+pub struct AvgAccumulator {
     // sum is used for null
     sum: ScalarValue,
     count: u64,
 }
 
 impl AvgAccumulator {
+    /// Creates a new `AvgAccumulator`
     pub fn try_new(datatype: &DataType) -> Result<Self> {
         Ok(Self {
             sum: ScalarValue::try_from(datatype)?,

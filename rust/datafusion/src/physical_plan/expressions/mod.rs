@@ -55,7 +55,7 @@ mod negative;
 mod not;
 mod sum;
 
-pub use average::{avg_return_type, Avg};
+pub use average::{avg_return_type, Avg, AvgAccumulator};
 pub use binary::{binary, binary_operator_data_type, BinaryExpr};
 pub use case::{case, CaseExpr};
 pub use cast::{cast, CastExpr};
