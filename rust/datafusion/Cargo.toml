@@ -88,3 +88,7 @@ harness = false
 [[bench]]
 name = "filter_query_sql"
 harness = false
+
+[[bench]]
+name = "scalar"
+harness = false
