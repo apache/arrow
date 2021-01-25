@@ -22,13 +22,13 @@ call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\Common7\Too
 @rem Install build dependencies with vcpkg
 @rem TODO(ianmcook): change --x-manifest-root to --manifest-root after this
 @rem changes in vcpkg
-vcpkg install ^
+C:\vcpkg\vcpkg install ^
     --triplet x64-windows ^
     --x-manifest-root cpp  ^
     --clean-after-build ^
     || exit /B 1
 
-@rem Build Arrow C++ libraries
+@rem Build Arrow C++ library
 mkdir cpp\build
 pushd cpp\build
 
