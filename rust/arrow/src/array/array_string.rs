@@ -146,6 +146,36 @@ impl<OffsetSize: StringOffsetSizeTrait> GenericStringArray<OffsetSize> {
     pub(crate) fn from_opt_vec(v: Vec<Option<&str>>) -> Self {
         v.into_iter().collect()
     }
+
+    /// Creates a `GenericStringArray` based on an iterator of values without nulls
+    pub fn from_iter_values<Ptr, I: IntoIterator<Item = Ptr>>(iter: I) -> Self
+    where
+        Ptr: AsRef<str>,
+    {
+        let iter = iter.into_iter();
+        let (_, data_len) = iter.size_hint();
+        let data_len = data_len.expect("Iterator must be sized"); // panic if no upper bound.
+
+        let mut offsets =
+            MutableBuffer::new((data_len + 1) * std::mem::size_of::<OffsetSize>());
+        let mut values = MutableBuffer::new(0);
+
+        let mut length_so_far = OffsetSize::zero();
+        offsets.push(length_so_far);
+
+        for i in iter {
+            let s = i.as_ref();
+            length_so_far += OffsetSize::from_usize(s.len()).unwrap();
+            offsets.push(length_so_far);
+            values.extend_from_slice(s.as_bytes());
+        }
+        let array_data = ArrayData::builder(OffsetSize::DATA_TYPE)
+            .len(data_len)
+            .add_buffer(offsets.into())
+            .add_buffer(values.into())
+            .build();
+        Self::from(array_data)
+    }
 }
 
 impl<'a, Ptr, OffsetSize: StringOffsetSizeTrait> FromIterator<Option<Ptr>>
@@ -411,6 +441,7 @@ mod tests {
         );
     }
 
+    #[test]
     fn test_string_array_from_iter() {
         let data = vec![Some("hello"), None, Some("arrow")];
         // from Vec<Option<&str>>
@@ -423,5 +454,14 @@ mod tests {
 
         assert_eq!(array1, array2);
         assert_eq!(array2, array3);
+    }
+
+    #[test]
+    fn test_string_array_from_iter_values() {
+        let data = vec!["hello", "hello2"];
+        let array1 = StringArray::from_iter_values(data.iter());
+
+        assert_eq!(array1.value(0), "hello");
+        assert_eq!(array1.value(1), "hello2");
     }
 }
