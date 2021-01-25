@@ -23,6 +23,3 @@ FROM ${repo}:${arch}-conda-python-${python}
 ARG dask=latest
 COPY ci/scripts/install_dask.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_dask.sh ${dask}
-
-# The Spark tests currently break with pandas >= 1.0
-RUN if [ ${dask} == "latest" ]; then conda install pandas=0.25.3; fi
