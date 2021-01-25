@@ -855,7 +855,8 @@ else()
 endif()
 
 # Parquet requires boost only with gcc 4.8 (because of missing std::regex).
-if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "4.9")
+# and on mingw (because of broken std::regex ARROW-7288)
+if(MINGW OR (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "4.9"))
   set(PARQUET_REQUIRES_BOOST TRUE)
 else()
   set(PARQUET_REQUIRES_BOOST FALSE)
