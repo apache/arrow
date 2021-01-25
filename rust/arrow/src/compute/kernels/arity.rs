@@ -22,7 +22,7 @@ use crate::buffer::Buffer;
 use crate::datatypes::ArrowPrimitiveType;
 
 #[inline]
-fn into_primitive_array_data<I: ArrowPrimitiveType, O: ArrowPrimitiveType>(
+pub(super) fn into_primitive_array_data<I: ArrowPrimitiveType, O: ArrowPrimitiveType>(
     array: &PrimitiveArray<I>,
     buffer: Buffer,
 ) -> ArrayData {
@@ -71,4 +71,30 @@ where
 
     let data = into_primitive_array_data::<_, O>(array, buffer);
     PrimitiveArray::<O>::from(std::sync::Arc::new(data))
+}
+
+#[macro_export]
+macro_rules! float_unary {
+    ($name:ident) => {
+        pub fn $name<T>(array: &PrimitiveArray<T>) -> PrimitiveArray<T>
+        where
+            T: ArrowNumericType,
+            T::Native: num::traits::Float,
+        {
+            return unary(array, |a| a.$name());
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! unary {
+    ($name:ident) => {
+        pub fn $name<T>(array: &PrimitiveArray<T>) -> PrimitiveArray<T>
+        where
+            T: ArrowNumericType,
+            T::Native: num::traits::Float,
+        {
+            return unary(array, |a| a.$name());
+        }
+    };
 }

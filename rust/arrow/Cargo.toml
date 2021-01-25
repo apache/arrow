@@ -111,6 +111,10 @@ name = "take_kernels"
 harness = false
 
 [[bench]]
+name = "trigonometry_kernels"
+harness = false
+
+[[bench]]
 name = "length_kernel"
 harness = false
 

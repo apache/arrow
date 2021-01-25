@@ -15,23 +15,37 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Computation kernels on Arrow Arrays
+//! Defines basic math kernels for `PrimitiveArrays`.
 
-pub mod aggregate;
-pub mod arithmetic;
-pub mod arity;
-pub mod boolean;
-pub mod cast;
-pub mod comparison;
-pub mod concat;
-pub mod filter;
-pub mod length;
-pub mod limit;
-pub mod math;
-pub mod sort;
-pub mod substring;
-pub mod take;
-pub mod temporal;
-pub mod trigonometry;
-pub mod window;
-pub mod zip;
+use num::Float;
+
+use crate::datatypes::ArrowNumericType;
+use crate::{array::*, float_unary};
+
+use super::arity::unary;
+
+float_unary!(sqrt);
+
+pub fn powf<T>(array: &PrimitiveArray<T>, n: T::Native) -> PrimitiveArray<T>
+where
+    T: ArrowNumericType,
+    T::Native: num::traits::Float,
+{
+    unary(array, |x| x.powf(n))
+}
+
+pub fn powi<T>(array: &PrimitiveArray<T>, n: i32) -> PrimitiveArray<T>
+where
+    T: ArrowNumericType,
+    T::Native: num::traits::Float,
+{
+    unary(array, |x| x.powi(n))
+}
+
+// pub fn pow<T>(array: &PrimitiveArray<T>, n: usize) -> PrimitiveArray<T>
+// where
+//     T: ArrowPrimitiveType,
+//     T::Native: num::Num
+// {
+//     unary::<_, _, T::Native>(array, |x| x.pow(n))
+// }
