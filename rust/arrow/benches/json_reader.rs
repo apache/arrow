@@ -100,18 +100,12 @@ fn json_list_primitive_to_record_batch() {
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
-    c.bench(
-        "json_primitive_to_record_batch",
-        Benchmark::new("json_primitive_to_record_batch", move |b| {
-            b.iter(json_primitive_to_record_batch)
-        }),
-    );
-    c.bench(
-        "json_list_primitive_to_record_batch",
-        Benchmark::new("json_list_primitive_to_record_batch", move |b| {
-            b.iter(json_list_primitive_to_record_batch)
-        }),
-    );
+    c.bench_function("json_primitive_to_record_batch", |b| {
+        b.iter(json_primitive_to_record_batch)
+    });
+    c.bench_function("json_list_primitive_to_record_batch", |b| {
+        b.iter(json_list_primitive_to_record_batch)
+    });
 }
 
 criterion_group!(benches, criterion_benchmark);
