@@ -20,9 +20,8 @@
 use std::{convert::TryFrom, fmt, iter::repeat, sync::Arc};
 
 use arrow::array::{
-    Int16Builder, Int32Builder, Int64Builder, Int8Builder, ListBuilder,
-    TimestampMicrosecondArray, TimestampNanosecondArray, UInt16Builder, UInt32Builder,
-    UInt64Builder, UInt8Builder,
+    Int16Builder, Int32Builder, Int64Builder, Int8Builder, ListBuilder, TimestampMicrosecondArray,
+    TimestampNanosecondArray, UInt16Builder, UInt32Builder, UInt64Builder, UInt8Builder,
 };
 use arrow::{
     array::ArrayRef,
@@ -30,9 +29,9 @@ use arrow::{
 };
 use arrow::{
     array::{
-        Array, BooleanArray, Date32Array, Float32Array, Float64Array, Int16Array,
-        Int32Array, Int64Array, Int8Array, LargeStringArray, ListArray, StringArray,
-        UInt16Array, UInt32Array, UInt64Array, UInt8Array,
+        Array, BooleanArray, Date32Array, Float32Array, Float64Array, Int16Array, Int32Array,
+        Int64Array, Int8Array, LargeStringArray, ListArray, StringArray, UInt16Array, UInt32Array,
+        UInt64Array, UInt8Array,
     },
     datatypes::DateUnit,
 };
@@ -137,12 +136,8 @@ impl ScalarValue {
             ScalarValue::Int16(_) => DataType::Int16,
             ScalarValue::Int32(_) => DataType::Int32,
             ScalarValue::Int64(_) => DataType::Int64,
-            ScalarValue::TimeMicrosecond(_) => {
-                DataType::Timestamp(TimeUnit::Microsecond, None)
-            }
-            ScalarValue::TimeNanosecond(_) => {
-                DataType::Timestamp(TimeUnit::Nanosecond, None)
-            }
+            ScalarValue::TimeMicrosecond(_) => DataType::Timestamp(TimeUnit::Microsecond, None),
+            ScalarValue::TimeNanosecond(_) => DataType::Timestamp(TimeUnit::Nanosecond, None),
             ScalarValue::Float32(_) => DataType::Float32,
             ScalarValue::Float64(_) => DataType::Float64,
             ScalarValue::Utf8(_) => DataType::Utf8,
@@ -202,67 +197,45 @@ impl ScalarValue {
     /// Converts a scalar value into an array of `size` rows.
     pub fn to_array_of_size(&self, size: usize) -> ArrayRef {
         match self {
-            ScalarValue::Boolean(e) => {
-                Arc::new(BooleanArray::from(vec![*e; size])) as ArrayRef
-            }
+            ScalarValue::Boolean(e) => Arc::new(BooleanArray::from(vec![*e; size])) as ArrayRef,
             ScalarValue::Float64(e) => match e {
-                Some(value) => {
-                    Arc::new(Float64Array::from_iter_values(repeat(*value).take(size)))
-                }
+                Some(value) => Arc::new(Float64Array::from_iter_values(repeat(*value).take(size))),
                 None => Arc::new(repeat(None).take(size).collect::<Float64Array>()),
             },
             ScalarValue::Float32(e) => match e {
-                Some(value) => {
-                    Arc::new(Float32Array::from_iter_values(repeat(*value).take(size)))
-                }
+                Some(value) => Arc::new(Float32Array::from_iter_values(repeat(*value).take(size))),
                 None => Arc::new(repeat(None).take(size).collect::<Float32Array>()),
             },
             ScalarValue::Int8(e) => match e {
-                Some(value) => {
-                    Arc::new(Int8Array::from_iter_values(repeat(*value).take(size)))
-                }
+                Some(value) => Arc::new(Int8Array::from_iter_values(repeat(*value).take(size))),
                 None => Arc::new(repeat(None).take(size).collect::<Int8Array>()),
             },
             ScalarValue::Int16(e) => match e {
-                Some(value) => {
-                    Arc::new(Int16Array::from_iter_values(repeat(*value).take(size)))
-                }
+                Some(value) => Arc::new(Int16Array::from_iter_values(repeat(*value).take(size))),
                 None => Arc::new(repeat(None).take(size).collect::<Int16Array>()),
             },
             ScalarValue::Int32(e) => match e {
-                Some(value) => {
-                    Arc::new(Int32Array::from_iter_values(repeat(*value).take(size)))
-                }
+                Some(value) => Arc::new(Int32Array::from_iter_values(repeat(*value).take(size))),
                 None => Arc::new(repeat(None).take(size).collect::<Int32Array>()),
             },
             ScalarValue::Int64(e) => match e {
-                Some(value) => {
-                    Arc::new(Int64Array::from_iter_values(repeat(*value).take(size)))
-                }
+                Some(value) => Arc::new(Int64Array::from_iter_values(repeat(*value).take(size))),
                 None => Arc::new(repeat(None).take(size).collect::<Int64Array>()),
             },
             ScalarValue::UInt8(e) => match e {
-                Some(value) => {
-                    Arc::new(UInt8Array::from_iter_values(repeat(*value).take(size)))
-                }
+                Some(value) => Arc::new(UInt8Array::from_iter_values(repeat(*value).take(size))),
                 None => Arc::new(repeat(None).take(size).collect::<UInt8Array>()),
             },
             ScalarValue::UInt16(e) => match e {
-                Some(value) => {
-                    Arc::new(UInt16Array::from_iter_values(repeat(*value).take(size)))
-                }
+                Some(value) => Arc::new(UInt16Array::from_iter_values(repeat(*value).take(size))),
                 None => Arc::new(repeat(None).take(size).collect::<UInt16Array>()),
             },
             ScalarValue::UInt32(e) => match e {
-                Some(value) => {
-                    Arc::new(UInt32Array::from_iter_values(repeat(*value).take(size)))
-                }
+                Some(value) => Arc::new(UInt32Array::from_iter_values(repeat(*value).take(size))),
                 None => Arc::new(repeat(None).take(size).collect::<UInt32Array>()),
             },
             ScalarValue::UInt64(e) => match e {
-                Some(value) => {
-                    Arc::new(UInt64Array::from_iter_values(repeat(*value).take(size)))
-                }
+                Some(value) => Arc::new(UInt64Array::from_iter_values(repeat(*value).take(size))),
                 None => Arc::new(repeat(None).take(size).collect::<UInt64Array>()),
             },
             ScalarValue::TimeMicrosecond(e) => match e {
@@ -286,19 +259,15 @@ impl ScalarValue {
                 ),
             },
             ScalarValue::Utf8(e) => match e {
-                Some(value) => {
-                    Arc::new(StringArray::from_iter_values(repeat(value).take(size)))
-                }
-                None => {
-                    Arc::new(repeat(e.as_deref()).take(size).collect::<StringArray>())
-                }
+                Some(value) => Arc::new(StringArray::from_iter_values(repeat(value).take(size))),
+                None => Arc::new(repeat(None::<&str>).take(size).collect::<StringArray>()),
             },
             ScalarValue::LargeUtf8(e) => match e {
                 Some(value) => {
                     Arc::new(LargeStringArray::from_iter_values(repeat(value).take(size)))
                 }
                 None => Arc::new(
-                    repeat(e.as_deref())
+                    repeat(None::<&str>)
                         .take(size)
                         .collect::<LargeStringArray>(),
                 ),
@@ -315,9 +284,7 @@ impl ScalarValue {
                 _ => panic!("Unexpected DataType for list"),
             }),
             ScalarValue::Date32(e) => match e {
-                Some(value) => {
-                    Arc::new(Date32Array::from_iter_values(repeat(*value).take(size)))
-                }
+                Some(value) => Arc::new(Date32Array::from_iter_values(repeat(*value).take(size))),
                 None => Arc::new(repeat(None).take(size).collect::<Date32Array>()),
             },
         }
@@ -340,12 +307,9 @@ impl ScalarValue {
             DataType::Utf8 => typed_cast!(array, index, StringArray, Utf8),
             DataType::LargeUtf8 => typed_cast!(array, index, LargeStringArray, LargeUtf8),
             DataType::List(nested_type) => {
-                let list_array =
-                    array.as_any().downcast_ref::<ListArray>().ok_or_else(|| {
-                        DataFusionError::Internal(
-                            "Failed to downcast ListArray".to_string(),
-                        )
-                    })?;
+                let list_array = array.as_any().downcast_ref::<ListArray>().ok_or_else(|| {
+                    DataFusionError::Internal("Failed to downcast ListArray".to_string())
+                })?;
                 let value = match list_array.is_null(index) {
                     true => None,
                     false => {
@@ -465,8 +429,9 @@ impl TryFrom<ScalarValue> for i32 {
 
     fn try_from(value: ScalarValue) -> Result<Self> {
         match value {
-            ScalarValue::Int32(Some(inner_value))
-            | ScalarValue::Date32(Some(inner_value)) => Ok(inner_value),
+            ScalarValue::Int32(Some(inner_value)) | ScalarValue::Date32(Some(inner_value)) => {
+                Ok(inner_value)
+            }
             _ => Err(DataFusionError::Internal(format!(
                 "Cannot convert {:?} to {}",
                 value,
