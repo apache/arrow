@@ -61,8 +61,10 @@ use arrow::{
 mod cast;
 mod coercion;
 mod column;
+mod not;
 pub use cast::{cast, CastExpr};
 pub use column::{col, Column};
+pub use not::{not, NotExpr};
 
 /// returns the name of the state
 pub fn format_state_name(name: &str, state_name: &str) -> String {
@@ -1454,93 +1456,6 @@ pub static SUPPORTED_NULLIF_TYPES: &[DataType] = &[
     DataType::Float32,
     DataType::Float64,
 ];
-
-/// Not expression
-#[derive(Debug)]
-pub struct NotExpr {
-    /// Input expression
-    arg: Arc<dyn PhysicalExpr>,
-}
-
-impl NotExpr {
-    /// Create new not expression
-    pub fn new(arg: Arc<dyn PhysicalExpr>) -> Self {
-        Self { arg }
-    }
-
-    /// Get the input expression
-    pub fn arg(&self) -> &Arc<dyn PhysicalExpr> {
-        &self.arg
-    }
-}
-
-impl fmt::Display for NotExpr {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "NOT {}", self.arg)
-    }
-}
-
-impl PhysicalExpr for NotExpr {
-    /// Return a reference to Any that can be used for downcasting
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn data_type(&self, _input_schema: &Schema) -> Result<DataType> {
-        Ok(DataType::Boolean)
-    }
-
-    fn nullable(&self, input_schema: &Schema) -> Result<bool> {
-        self.arg.nullable(input_schema)
-    }
-
-    fn evaluate(&self, batch: &RecordBatch) -> Result<ColumnarValue> {
-        let arg = self.arg.evaluate(batch)?;
-        match arg {
-            ColumnarValue::Array(array) => {
-                let array =
-                    array
-                        .as_any()
-                        .downcast_ref::<BooleanArray>()
-                        .ok_or_else(|| {
-                            DataFusionError::Internal(
-                                "boolean_op failed to downcast array".to_owned(),
-                            )
-                        })?;
-                Ok(ColumnarValue::Array(Arc::new(
-                    arrow::compute::kernels::boolean::not(array)?,
-                )))
-            }
-            ColumnarValue::Scalar(scalar) => {
-                use std::convert::TryInto;
-                let bool_value: bool = scalar.try_into()?;
-                Ok(ColumnarValue::Scalar(ScalarValue::Boolean(Some(
-                    !bool_value,
-                ))))
-            }
-        }
-    }
-}
-
-/// Creates a unary expression NOT
-///
-/// # Errors
-///
-/// This function errors when the argument's type is not boolean
-pub fn not(
-    arg: Arc<dyn PhysicalExpr>,
-    input_schema: &Schema,
-) -> Result<Arc<dyn PhysicalExpr>> {
-    let data_type = arg.data_type(input_schema)?;
-    if data_type != DataType::Boolean {
-        Err(DataFusionError::Internal(format!(
-            "NOT '{:?}' can't be evaluated because the expression's type is {:?}, not boolean",
-            arg, data_type,
-        )))
-    } else {
-        Ok(Arc::new(NotExpr::new(arg)))
-    }
-}
 
 /// Negative expression
 #[derive(Debug)]
@@ -3522,41 +3437,6 @@ mod tests {
                 assert_eq!(expected.value(i), actual.value(i));
             }
         }
-    }
-
-    #[test]
-    fn neg_op() -> Result<()> {
-        let schema = Schema::new(vec![Field::new("a", DataType::Boolean, true)]);
-
-        let expr = not(col("a"), &schema)?;
-        assert_eq!(expr.data_type(&schema)?, DataType::Boolean);
-        assert_eq!(expr.nullable(&schema)?, true);
-
-        let input = BooleanArray::from(vec![Some(true), None, Some(false)]);
-        let expected = &BooleanArray::from(vec![Some(false), None, Some(true)]);
-
-        let batch =
-            RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(input)])?;
-
-        let result = expr.evaluate(&batch)?.into_array(batch.num_rows());
-        let result = result
-            .as_any()
-            .downcast_ref::<BooleanArray>()
-            .expect("failed to downcast to BooleanArray");
-        assert_eq!(result, expected);
-
-        Ok(())
-    }
-
-    /// verify that expression errors when the input expression is not a boolean.
-    #[test]
-    fn neg_op_not_null() -> Result<()> {
-        let schema = Schema::new(vec![Field::new("a", DataType::Utf8, true)]);
-
-        let expr = not(col("a"), &schema);
-        assert!(expr.is_err());
-
-        Ok(())
     }
 
     #[test]
