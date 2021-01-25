@@ -28,7 +28,7 @@ vcpkg install ^
     --clean-after-build ^
     || exit /B 1
 
-set VCPKG_INSTALLED=%cd%\vcpkg_installed
+set VCPKG_INSTALLED=%cd%\cpp\vcpkg_installed
 
 @rem Build Arrow C++ library
 mkdir cpp\build
