@@ -244,7 +244,7 @@ class LocalFileSystem(FileSystem):
     _instance = None
 
     def __init__(self):
-        warnings.warn(_FS_DEPR_MSG, DeprecationWarning, stacklevel=2)
+        warnings.warn(_FS_DEPR_MSG, FutureWarning, stacklevel=2)
         super().__init__()
 
     @classmethod
@@ -257,7 +257,7 @@ class LocalFileSystem(FileSystem):
 
     @classmethod
     def get_instance(cls):
-        warnings.warn(_FS_DEPR_MSG, DeprecationWarning, stacklevel=2)
+        warnings.warn(_FS_DEPR_MSG, FutureWarning, stacklevel=2)
         return cls._get_instance()
 
     @implements(FileSystem.ls)
@@ -321,7 +321,7 @@ class DaskFileSystem(FileSystem):
         warnings.warn(
             "The pyarrow.filesystem.DaskFileSystem/S3FSWrapper are deprecated "
             "as of pyarrow 3.0.0, and will be removed in a future version.",
-            DeprecationWarning, stacklevel=2)
+            FutureWarning, stacklevel=2)
         self.fs = fs
 
     @implements(FileSystem.isdir)
