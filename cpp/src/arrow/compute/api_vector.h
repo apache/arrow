@@ -63,6 +63,23 @@ enum class SortOrder {
   Descending,
 };
 
+struct DictionaryEncodeOptions : public FunctionOptions {
+  /// Configure how null values will be encoded
+  enum NullEncodingBehavior {
+    /// the null value will be added to the dictionary with a proper index
+    ENCODE,
+    /// the null value will be masked in the indices array
+    MASK,
+  };
+
+  explicit DictionaryEncodeOptions(NullEncodingBehavior null_encoding = MASK)
+      : null_encoding_behavior(null_encoding) {}
+
+  static DictionaryEncodeOptions Defaults() { return DictionaryEncodeOptions(); }
+
+  NullEncodingBehavior null_encoding_behavior = MASK;
+};
+
 /// \brief One sort key for PartitionNthIndices (TODO) and SortIndices
 struct ARROW_EXPORT SortKey {
   explicit SortKey(std::string name, SortOrder order = SortOrder::Ascending)
@@ -296,7 +313,8 @@ Result<std::shared_ptr<StructArray>> ValueCounts(const Datum& value,
 /// \since 1.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Result<Datum> DictionaryEncode(const Datum& data, ExecContext* ctx = NULLPTR);
+Result<Datum> DictionaryEncode(const Datum& data, const DictionaryEncodeOptions& options,
+                               ExecContext* ctx = NULLPTR);
 
 // ----------------------------------------------------------------------
 // Deprecated functions

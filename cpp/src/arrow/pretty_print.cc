@@ -670,4 +670,49 @@ Status PrettyPrint(const Schema& schema, const PrettyPrintOptions& options,
   return Status::OK();
 }
 
+void GdbPrintArray(const Array& arr, int indent) {
+  PrettyPrintOptions options;
+  options.indent = indent;
+  auto print_st = PrettyPrint(arr, options, &std::cout);
+  if (!print_st.ok()) {
+    std::cout << "Could not print: " << print_st.message();
+  }
+}
+
+void GdbPrintRecordBatch(const RecordBatch& rb, int indent) {
+  PrettyPrintOptions options;
+  options.indent = indent;
+  auto print_st = PrettyPrint(rb, options, &std::cout);
+  if (!print_st.ok()) {
+    std::cout << "Could not print: " << print_st.message();
+  }
+}
+
+void GdbPrintTable(const Table& table, int indent) {
+  PrettyPrintOptions options;
+  options.indent = indent;
+  auto print_st = PrettyPrint(table, options, &std::cout);
+  if (!print_st.ok()) {
+    std::cout << "Could not print: " << print_st.message();
+  }
+}
+
+void GdbPrintChunkedArray(const ChunkedArray& chunked_arr, int indent) {
+  PrettyPrintOptions options;
+  options.indent = indent;
+  auto print_st = PrettyPrint(chunked_arr, options, &std::cout);
+  if (!print_st.ok()) {
+    std::cout << "Could not print: " << print_st.message();
+  }
+}
+
+void GdbPrintSchema(const Schema& schema, int indent) {
+  PrettyPrintOptions options;
+  options.indent = indent;
+  auto print_st = PrettyPrint(schema, options, &std::cout);
+  if (!print_st.ok()) {
+    std::cout << "Could not print: " << print_st.message();
+  }
+}
+
 }  // namespace arrow

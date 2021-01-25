@@ -120,4 +120,17 @@ Status PrettyPrint(const Schema& schema, const PrettyPrintOptions& options,
 ARROW_EXPORT
 Status DebugPrint(const Array& arr, int indent);
 
+// These print routines are used in the gdb pretty printers which are
+// not capable of passing "out" params and do a poor job of overload resolution
+
+ARROW_EXPORT void GdbPrintArray(const Array& arr, int indent);
+
+ARROW_EXPORT void GdbPrintRecordBatch(const RecordBatch& rb, int indent);
+
+ARROW_EXPORT void GdbPrintTable(const Table& table, int indent);
+
+ARROW_EXPORT void GdbPrintChunkedArray(const ChunkedArray& chunked_arr, int indent);
+
+ARROW_EXPORT void GdbPrintSchema(const Schema& schema, int indent);
+
 }  // namespace arrow

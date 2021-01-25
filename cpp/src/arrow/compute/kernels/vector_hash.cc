@@ -641,7 +641,8 @@ const FunctionDoc value_counts_doc(
 
 const FunctionDoc dictionary_encode_doc(
     "Dictionary-encode array",
-    ("Return a dictionary-encoded version of the input array."), {"array"});
+    ("Return a dictionary-encoded version of the input array."), {"array"},
+    "DictionaryEncodeOptions");
 
 }  // namespace
 
@@ -687,11 +688,14 @@ void RegisterVectorHash(FunctionRegistry* registry) {
   // ----------------------------------------------------------------------
   // dictionary_encode
 
+  const auto kDefaultDictionaryEncodeOptions = DictionaryEncodeOptions::Defaults();
+
   base.finalize = DictEncodeFinalize;
   // Unique and ValueCounts output unchunked arrays
   base.output_chunked = true;
   auto dict_encode = std::make_shared<VectorFunction>("dictionary_encode", Arity::Unary(),
-                                                      &dictionary_encode_doc);
+                                                      &dictionary_encode_doc,
+                                                      &kDefaultDictionaryEncodeOptions);
   AddHashKernels<DictEncodeAction>(dict_encode.get(), base, OutputType(DictEncodeOutput));
 
   // Calling dictionary_encode on dictionary input not supported, but if it
