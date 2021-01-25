@@ -17,9 +17,7 @@
 
 //! Defines physical expressions that can evaluated at runtime during query execution
 
-use std::any::Any;
 use std::convert::TryFrom;
-use std::fmt;
 use std::sync::Arc;
 
 use super::ColumnarValue;
@@ -31,7 +29,7 @@ use arrow::compute;
 use arrow::compute::kernels::boolean::nullif;
 use arrow::compute::kernels::comparison::{eq, eq_utf8};
 use arrow::compute::kernels::sort::{SortColumn, SortOptions};
-use arrow::datatypes::{DataType, Schema, TimeUnit};
+use arrow::datatypes::{DataType, TimeUnit};
 use arrow::record_batch::RecordBatch;
 use arrow::{
     array::{
@@ -51,6 +49,7 @@ mod column;
 mod in_list;
 mod is_not_null;
 mod is_null;
+mod literal;
 mod negative;
 mod not;
 pub use binary::{binary, binary_operator_data_type, BinaryExpr};
@@ -60,6 +59,7 @@ pub use column::{col, Column};
 pub use in_list::{in_list, InListExpr};
 pub use is_not_null::{is_not_null, IsNotNullExpr};
 pub use is_null::{is_null, IsNullExpr};
+pub use literal::{lit, Literal};
 pub use negative::{negative, NegativeExpr};
 pub use not::{not, NotExpr};
 
@@ -963,54 +963,6 @@ pub static SUPPORTED_NULLIF_TYPES: &[DataType] = &[
     DataType::Float64,
 ];
 
-/// Represents a non-null literal value
-#[derive(Debug)]
-pub struct Literal {
-    value: ScalarValue,
-}
-
-impl Literal {
-    /// Create a literal value expression
-    pub fn new(value: ScalarValue) -> Self {
-        Self { value }
-    }
-
-    /// Get the scalar value
-    pub fn value(&self) -> &ScalarValue {
-        &self.value
-    }
-}
-
-impl fmt::Display for Literal {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.value)
-    }
-}
-
-impl PhysicalExpr for Literal {
-    /// Return a reference to Any that can be used for downcasting
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn data_type(&self, _input_schema: &Schema) -> Result<DataType> {
-        Ok(self.value.get_datatype())
-    }
-
-    fn nullable(&self, _input_schema: &Schema) -> Result<bool> {
-        Ok(self.value.is_null())
-    }
-
-    fn evaluate(&self, _batch: &RecordBatch) -> Result<ColumnarValue> {
-        Ok(ColumnarValue::Scalar(self.value.clone()))
-    }
-}
-
-/// Create a literal expression
-pub fn lit(value: ScalarValue) -> Arc<dyn PhysicalExpr> {
-    Arc::new(Literal::new(value))
-}
-
 /// Represents Sort operation for a column in a RecordBatch
 #[derive(Clone, Debug)]
 pub struct PhysicalSortExpr {
@@ -1046,29 +998,6 @@ mod tests {
     use crate::error::Result;
     use arrow::array::{LargeStringArray, PrimitiveArray, StringArray};
     use arrow::datatypes::*;
-
-    #[test]
-    fn literal_i32() -> Result<()> {
-        // create an arbitrary record bacth
-        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
-        let a = Int32Array::from(vec![Some(1), None, Some(3), Some(4), Some(5)]);
-        let batch = RecordBatch::try_new(Arc::new(schema), vec![Arc::new(a)])?;
-
-        // create and evaluate a literal expression
-        let literal_expr = lit(ScalarValue::from(42i32));
-        assert_eq!("42", format!("{}", literal_expr));
-
-        let literal_array = literal_expr.evaluate(&batch)?.into_array(batch.num_rows());
-        let literal_array = literal_array.as_any().downcast_ref::<Int32Array>().unwrap();
-
-        // note that the contents of the literal array are unrelated to the batch contents except for the length of the array
-        assert_eq!(literal_array.len(), 5); // 5 rows in the batch
-        for i in 0..literal_array.len() {
-            assert_eq!(literal_array.value(i), 42);
-        }
-
-        Ok(())
-    }
 
     /// macro to perform an aggregation and verify the result.
     macro_rules! generic_test_op {
