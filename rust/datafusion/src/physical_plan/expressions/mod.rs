@@ -40,6 +40,7 @@ use arrow::{
     datatypes::Field,
 };
 
+mod average;
 #[macro_use]
 mod binary;
 mod case;
@@ -54,6 +55,7 @@ mod negative;
 mod not;
 mod sum;
 
+pub use average::{avg_return_type, Avg};
 pub use binary::{binary, binary_operator_data_type, BinaryExpr};
 pub use case::{case, CaseExpr};
 pub use cast::{cast, CastExpr};
@@ -69,154 +71,6 @@ pub use sum::{sum_return_type, Sum};
 /// returns the name of the state
 pub fn format_state_name(name: &str, state_name: &str) -> String {
     format!("{}[{}]", name, state_name)
-}
-
-/// AVG aggregate expression
-#[derive(Debug)]
-pub struct Avg {
-    name: String,
-    data_type: DataType,
-    nullable: bool,
-    expr: Arc<dyn PhysicalExpr>,
-}
-
-/// function return type of an average
-pub fn avg_return_type(arg_type: &DataType) -> Result<DataType> {
-    match arg_type {
-        DataType::Int8
-        | DataType::Int16
-        | DataType::Int32
-        | DataType::Int64
-        | DataType::UInt8
-        | DataType::UInt16
-        | DataType::UInt32
-        | DataType::UInt64
-        | DataType::Float32
-        | DataType::Float64 => Ok(DataType::Float64),
-        other => Err(DataFusionError::Plan(format!(
-            "AVG does not support {:?}",
-            other
-        ))),
-    }
-}
-
-impl Avg {
-    /// Create a new AVG aggregate function
-    pub fn new(expr: Arc<dyn PhysicalExpr>, name: String, data_type: DataType) -> Self {
-        Self {
-            name,
-            expr,
-            data_type,
-            nullable: true,
-        }
-    }
-}
-
-impl AggregateExpr for Avg {
-    fn field(&self) -> Result<Field> {
-        Ok(Field::new(&self.name, DataType::Float64, true))
-    }
-
-    fn state_fields(&self) -> Result<Vec<Field>> {
-        Ok(vec![
-            Field::new(
-                &format_state_name(&self.name, "count"),
-                DataType::UInt64,
-                true,
-            ),
-            Field::new(
-                &format_state_name(&self.name, "sum"),
-                DataType::Float64,
-                true,
-            ),
-        ])
-    }
-
-    fn create_accumulator(&self) -> Result<Box<dyn Accumulator>> {
-        Ok(Box::new(AvgAccumulator::try_new(
-            // avg is f64
-            &DataType::Float64,
-        )?))
-    }
-
-    fn expressions(&self) -> Vec<Arc<dyn PhysicalExpr>> {
-        vec![self.expr.clone()]
-    }
-}
-
-/// An accumulator to compute the average
-#[derive(Debug)]
-pub(crate) struct AvgAccumulator {
-    // sum is used for null
-    sum: ScalarValue,
-    count: u64,
-}
-
-impl AvgAccumulator {
-    pub fn try_new(datatype: &DataType) -> Result<Self> {
-        Ok(Self {
-            sum: ScalarValue::try_from(datatype)?,
-            count: 0,
-        })
-    }
-}
-
-impl Accumulator for AvgAccumulator {
-    fn state(&self) -> Result<Vec<ScalarValue>> {
-        Ok(vec![ScalarValue::from(self.count), self.sum.clone()])
-    }
-
-    fn update(&mut self, values: &Vec<ScalarValue>) -> Result<()> {
-        let values = &values[0];
-
-        self.count += (!values.is_null()) as u64;
-        self.sum = sum::sum(&self.sum, values)?;
-
-        Ok(())
-    }
-
-    fn update_batch(&mut self, values: &Vec<ArrayRef>) -> Result<()> {
-        let values = &values[0];
-
-        self.count += (values.len() - values.data().null_count()) as u64;
-        self.sum = sum::sum(&self.sum, &sum::sum_batch(values)?)?;
-        Ok(())
-    }
-
-    fn merge(&mut self, states: &Vec<ScalarValue>) -> Result<()> {
-        let count = &states[0];
-        // counts are summed
-        if let ScalarValue::UInt64(Some(c)) = count {
-            self.count += c
-        } else {
-            unreachable!()
-        };
-
-        // sums are summed
-        self.sum = sum::sum(&self.sum, &states[1])?;
-        Ok(())
-    }
-
-    fn merge_batch(&mut self, states: &Vec<ArrayRef>) -> Result<()> {
-        let counts = states[0].as_any().downcast_ref::<UInt64Array>().unwrap();
-        // counts are summed
-        self.count += compute::sum(counts).unwrap_or(0);
-
-        // sums are summed
-        self.sum = sum::sum(&self.sum, &sum::sum_batch(&states[1])?)?;
-        Ok(())
-    }
-
-    fn evaluate(&self) -> Result<ScalarValue> {
-        match self.sum {
-            ScalarValue::Float64(e) => {
-                Ok(ScalarValue::Float64(e.map(|f| f / self.count as f64)))
-            }
-            _ => Err(DataFusionError::Internal(
-                "Sum should be f64 on average".to_string(),
-            )),
-        }
-    }
 }
 
 /// MAX aggregate expression
@@ -796,18 +650,6 @@ mod tests {
     }
 
     #[test]
-    fn avg_i32() -> Result<()> {
-        let a: ArrayRef = Arc::new(Int32Array::from(vec![1, 2, 3, 4, 5]));
-        generic_test_op!(
-            a,
-            DataType::Int32,
-            Avg,
-            ScalarValue::from(3_f64),
-            DataType::Float64
-        )
-    }
-
-    #[test]
     fn max_i32() -> Result<()> {
         let a: ArrayRef = Arc::new(Int32Array::from(vec![1, 2, 3, 4, 5]));
         generic_test_op!(
@@ -880,24 +722,6 @@ mod tests {
     }
 
     #[test]
-    fn avg_i32_with_nulls() -> Result<()> {
-        let a: ArrayRef = Arc::new(Int32Array::from(vec![
-            Some(1),
-            None,
-            Some(3),
-            Some(4),
-            Some(5),
-        ]));
-        generic_test_op!(
-            a,
-            DataType::Int32,
-            Avg,
-            ScalarValue::from(3.25f64),
-            DataType::Float64
-        )
-    }
-
-    #[test]
     fn max_i32_with_nulls() -> Result<()> {
         let a: ArrayRef = Arc::new(Int32Array::from(vec![
             Some(1),
@@ -958,31 +782,6 @@ mod tests {
     }
 
     #[test]
-    fn avg_i32_all_nulls() -> Result<()> {
-        let a: ArrayRef = Arc::new(Int32Array::from(vec![None, None]));
-        generic_test_op!(
-            a,
-            DataType::Int32,
-            Avg,
-            ScalarValue::Float64(None),
-            DataType::Float64
-        )
-    }
-
-    #[test]
-    fn avg_u32() -> Result<()> {
-        let a: ArrayRef =
-            Arc::new(UInt32Array::from(vec![1_u32, 2_u32, 3_u32, 4_u32, 5_u32]));
-        generic_test_op!(
-            a,
-            DataType::UInt32,
-            Avg,
-            ScalarValue::from(3.0f64),
-            DataType::Float64
-        )
-    }
-
-    #[test]
     fn max_u32() -> Result<()> {
         let a: ArrayRef =
             Arc::new(UInt32Array::from(vec![1_u32, 2_u32, 3_u32, 4_u32, 5_u32]));
@@ -1009,19 +808,6 @@ mod tests {
     }
 
     #[test]
-    fn avg_f32() -> Result<()> {
-        let a: ArrayRef =
-            Arc::new(Float32Array::from(vec![1_f32, 2_f32, 3_f32, 4_f32, 5_f32]));
-        generic_test_op!(
-            a,
-            DataType::Float32,
-            Avg,
-            ScalarValue::from(3_f64),
-            DataType::Float64
-        )
-    }
-
-    #[test]
     fn max_f32() -> Result<()> {
         let a: ArrayRef =
             Arc::new(Float32Array::from(vec![1_f32, 2_f32, 3_f32, 4_f32, 5_f32]));
@@ -1044,19 +830,6 @@ mod tests {
             Min,
             ScalarValue::from(1_f32),
             DataType::Float32
-        )
-    }
-
-    #[test]
-    fn avg_f64() -> Result<()> {
-        let a: ArrayRef =
-            Arc::new(Float64Array::from(vec![1_f64, 2_f64, 3_f64, 4_f64, 5_f64]));
-        generic_test_op!(
-            a,
-            DataType::Float64,
-            Avg,
-            ScalarValue::from(3_f64),
-            DataType::Float64
         )
     }
 
