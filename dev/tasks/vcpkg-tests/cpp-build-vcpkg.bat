@@ -20,7 +20,7 @@
 call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\Common7\Tools\VsDevCmd.bat" -arch=amd64
 
 @rem Install build dependencies with vcpkg
-@rem TODO(ianmcook): change --x-manifest-root to --manifest-root after this
+@rem TODO(ianmcook): change --x-manifest-root to --manifest-root after it
 @rem changes in vcpkg
 vcpkg install ^
     --triplet x64-windows ^
@@ -28,8 +28,9 @@ vcpkg install ^
     --clean-after-build ^
     || exit /B 1
 
-@rem Build Arrow C++ library
 set VCPKG_INSTALLED=%cd%\vcpkg_installed
+
+@rem Build Arrow C++ library
 mkdir cpp\build
 pushd cpp\build
 
