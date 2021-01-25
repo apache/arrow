@@ -39,7 +39,7 @@ use std::str;
 use std::sync::Arc;
 
 use crate::compute::kernels::arithmetic::{divide, multiply};
-use crate::compute::kernels::unary::unary;
+use crate::compute::kernels::arity::unary;
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 use crate::{array::*, compute::take};

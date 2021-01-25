@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Defines kernels suitable to perform unary operations to primitive arrays.
+//! Defines kernels suitable to perform operations to primitive arrays.
 
 use crate::array::{Array, ArrayData, PrimitiveArray};
 use crate::buffer::Buffer;
@@ -48,7 +48,7 @@ fn into_primitive_array_data<I: ArrowPrimitiveType, O: ArrowPrimitiveType>(
 /// ```rust
 /// # use arrow::array::Int32Array;
 /// # use arrow::datatypes::Int32Type;
-/// # use arrow::compute::kernels::unary::unary;
+/// # use arrow::compute::kernels::arity::unary;
 /// # fn main() {
 /// let array = Int32Array::from(vec![Some(5), Some(7), None]);
 /// let c = unary::<_, _, Int32Type>(&array, |x| x * 2 + 1);
