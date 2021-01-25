@@ -29,7 +29,7 @@ use crate::physical_plan::{Accumulator, AggregateExpr, PhysicalExpr};
 use crate::scalar::ScalarValue;
 use arrow::array::{self, Array, BooleanBuilder, LargeStringArray};
 use arrow::compute;
-use arrow::compute::kernels::arithmetic::{add, divide, multiply, negate, subtract};
+use arrow::compute::kernels::arithmetic::{add, divide, multiply, subtract};
 use arrow::compute::kernels::boolean::{and, nullif, or};
 use arrow::compute::kernels::comparison::{eq, gt, gt_eq, lt, lt_eq, neq};
 use arrow::compute::kernels::comparison::{
@@ -59,10 +59,12 @@ mod cast;
 mod coercion;
 mod column;
 mod in_list;
+mod negative;
 mod not;
 pub use cast::{cast, CastExpr};
 pub use column::{col, Column};
 pub use in_list::{in_list, InListExpr};
+pub use negative::{negative, NegativeExpr};
 pub use not::{not, NotExpr};
 
 /// returns the name of the state
@@ -958,14 +960,6 @@ macro_rules! compute_op {
             .expect("compute_op failed to downcast array");
         Ok(Arc::new($OP(&ll, &rr)?))
     }};
-    // invoke unary operator
-    ($OPERAND:expr, $OP:ident, $DT:ident) => {{
-        let operand = $OPERAND
-            .as_any()
-            .downcast_ref::<$DT>()
-            .expect("compute_op failed to downcast array");
-        Ok(Arc::new($OP(&operand)?))
-    }};
 }
 
 macro_rules! binary_string_array_op_scalar {
@@ -1455,93 +1449,6 @@ pub static SUPPORTED_NULLIF_TYPES: &[DataType] = &[
     DataType::Float32,
     DataType::Float64,
 ];
-
-/// Negative expression
-#[derive(Debug)]
-pub struct NegativeExpr {
-    /// Input expression
-    arg: Arc<dyn PhysicalExpr>,
-}
-
-impl NegativeExpr {
-    /// Create new not expression
-    pub fn new(arg: Arc<dyn PhysicalExpr>) -> Self {
-        Self { arg }
-    }
-
-    /// Get the input expression
-    pub fn arg(&self) -> &Arc<dyn PhysicalExpr> {
-        &self.arg
-    }
-}
-
-impl fmt::Display for NegativeExpr {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "(- {})", self.arg)
-    }
-}
-
-impl PhysicalExpr for NegativeExpr {
-    /// Return a reference to Any that can be used for downcasting
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
-        self.arg.data_type(input_schema)
-    }
-
-    fn nullable(&self, input_schema: &Schema) -> Result<bool> {
-        self.arg.nullable(input_schema)
-    }
-
-    fn evaluate(&self, batch: &RecordBatch) -> Result<ColumnarValue> {
-        let arg = self.arg.evaluate(batch)?;
-        match arg {
-            ColumnarValue::Array(array) => {
-                let result: Result<ArrayRef> = match array.data_type() {
-                    DataType::Int8 => compute_op!(array, negate, Int8Array),
-                    DataType::Int16 => compute_op!(array, negate, Int16Array),
-                    DataType::Int32 => compute_op!(array, negate, Int32Array),
-                    DataType::Int64 => compute_op!(array, negate, Int64Array),
-                    DataType::Float32 => compute_op!(array, negate, Float32Array),
-                    DataType::Float64 => compute_op!(array, negate, Float64Array),
-                    _ => Err(DataFusionError::Internal(format!(
-                        "(- '{:?}') can't be evaluated because the expression's type is {:?}, not signed numeric",
-                        self,
-                        array.data_type(),
-                    ))),
-                };
-                result.map(|a| ColumnarValue::Array(a))
-            }
-            ColumnarValue::Scalar(scalar) => {
-                Ok(ColumnarValue::Scalar(scalar.arithmetic_negate()))
-            }
-        }
-    }
-}
-
-/// Creates a unary expression NEGATIVE
-///
-/// # Errors
-///
-/// This function errors when the argument's type is not signed numeric
-pub fn negative(
-    arg: Arc<dyn PhysicalExpr>,
-    input_schema: &Schema,
-) -> Result<Arc<dyn PhysicalExpr>> {
-    let data_type = arg.data_type(input_schema)?;
-    if !coercion::is_signed_numeric(&data_type) {
-        Err(DataFusionError::Internal(
-            format!(
-                "(- '{:?}') can't be evaluated because the expression's type is {:?}, not signed numeric",
-                arg, data_type,
-            ),
-        ))
-    } else {
-        Ok(Arc::new(NegativeExpr::new(arg)))
-    }
-}
 
 /// IS NULL expression
 #[derive(Debug)]
