@@ -44,7 +44,8 @@ read_parquet <- function(file,
     file <- make_readable_file(file)
     on.exit(file$close())
   }
-  reader <- ParquetFileReader$create(file, props = props, ...)
+  # ARROW-7288: with_safe_locale
+  reader <- with_safe_locale(ParquetFileReader$create(file, props = props, ...))
 
   col_select <- enquo(col_select)
   if (!quo_is_null(col_select)) {
@@ -566,4 +567,15 @@ ParquetArrowReaderProperties <- R6Class("ParquetArrowReaderProperties",
 
 ParquetArrowReaderProperties$create <- function(use_threads = option_use_threads()) {
   parquet___arrow___ArrowReaderProperties__Make(isTRUE(use_threads))
+}
+
+with_safe_locale <- function(expr) {
+  # ARROW-7288: due to a bug in libstdc++ on mingw, std::regex can blow up
+  # on other locales, and the parquet reader calls it
+  if (tolower(Sys.info()[["sysname"]]) == "windows") {
+    old_locale <- Sys.getlocale("LC_COLLATE")
+    Sys.setlocale("LC_COLLATE", "C")
+    on.exit(Sys.setlocale(old_locale))
+  }
+  force(expr)
 }

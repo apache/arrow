@@ -232,3 +232,17 @@ test_that("ParquetFileReader $ReadRowGroup(s) methods", {
   expect_true(reader$ReadRowGroups(c(0, 1), 0) == Table$create(x = 1:20))
   expect_error(reader$ReadRowGroups(c(0, 1), 1))
 })
+
+if (tolower(Sys.info()[["sysname"]]) == "windows") {
+  test_that("Being in the Japanese locale and reading a Parquet file", {
+    skip_if_not_available("snappy")
+
+    old_locale <- Sys.getlocale("LC_COLLATE")
+    Sys.setlocale("LC_COLLATE", "Japanese")
+    on.exit(Sys.setlocale(old_locale))
+
+    df <- read_parquet(pq_file)
+    expect_true(tibble::is_tibble(df))
+    expect_identical(dim(df), c(10L, 11L))
+  })
+}
