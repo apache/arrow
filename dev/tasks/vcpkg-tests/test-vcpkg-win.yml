@@ -15,8 +15,18 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# NOTE: must set "Crossbow" as name to have the badge links working in the
+# github comment reports!
+name: Crossbow
+
+on:
+  push:
+    branches:
+      - "*-github-*"
+
 jobs:
   test-vcpkg-win:
+    name: Install build deps with vcpkg and build Arrow C++
     runs-on: windows-2019
     steps:
       - name: Checkout Arrow
