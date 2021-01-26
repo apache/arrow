@@ -33,11 +33,9 @@
 #include "parquet/statistics.h"
 #include "parquet/thrift_internal.h"
 
-// ARROW-6096: The boost regex library must be used when compiling with gcc < 4.9
-#if defined(PARQUET_USE_BOOST_REGEX)
-#include <boost/regex.hpp>  // IWYU pragma: keep
-using ::boost::regex;
-using ::boost::smatch;
+// ARROW-6096, ARROW-7288: can't use std::regex with gcc < 4.9 or mingw
+#if defined(PARQUET_USE_RE2)
+#include <re2/re2.h>  // IWYU pragma: keep
 
 template <typename... Args>
 static bool regex_match(Args&&... args) {

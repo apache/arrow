@@ -288,6 +288,11 @@ if((NOT ARROW_COMPUTE) AND (NOT ARROW_GANDIVA) AND (NOT ARROW_WITH_GRPC))
   set(ARROW_WITH_RE2 OFF)
 endif()
 
+# Parquet requires re2 only with gcc 4.8 or mingw (because of missing/broken std::regex).
+if(ARROW_PARQUET AND (MINGW OR (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "4.9")))
+  set(ARROW_WITH_RE2 ON)
+endif()
+
 # ----------------------------------------------------------------------
 # Versions and URLs for toolchain builds, which also can be used to configure
 # offline builds
@@ -854,13 +859,6 @@ else()
   set(THRIFT_REQUIRES_BOOST FALSE)
 endif()
 
-# Parquet requires boost only with gcc 4.8 (because of missing std::regex).
-if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "4.9")
-  set(PARQUET_REQUIRES_BOOST TRUE)
-else()
-  set(PARQUET_REQUIRES_BOOST FALSE)
-endif()
-
 # Compilers that don't support int128_t have a compile-time
 # (header-only) dependency on Boost for int128_t.
 if(ARROW_USE_UBSAN)
@@ -878,8 +876,7 @@ endif()
 if(ARROW_BUILD_INTEGRATION
    OR ARROW_BUILD_TESTS
    OR (ARROW_FLIGHT AND ARROW_BUILD_BENCHMARKS)
-   OR (ARROW_S3 AND ARROW_BUILD_BENCHMARKS)
-   OR (ARROW_PARQUET AND PARQUET_REQUIRES_BOOST))
+   OR (ARROW_S3 AND ARROW_BUILD_BENCHMARKS))
   set(ARROW_BOOST_REQUIRED TRUE)
   set(ARROW_BOOST_REQUIRE_LIBRARY TRUE)
 elseif(ARROW_GANDIVA
@@ -2107,7 +2104,7 @@ if(ARROW_WITH_ZSTD)
 endif()
 
 # ----------------------------------------------------------------------
-# RE2 (required for Gandiva)
+# RE2 (required for Gandiva and sometimes for Compute and Parquet)
 
 macro(build_re2)
   message(STATUS "Building RE2 from source")

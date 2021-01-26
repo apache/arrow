@@ -20,13 +20,7 @@
 #include "arrow/util/windows_compatibility.h"
 
 #include <cstdint>
-// Check if thrift version < 0.11.0
-// or if FORCE_BOOST_SMART_PTR is defined. Ref: https://thrift.apache.org/lib/cpp
-#if defined(PARQUET_THRIFT_USE_BOOST) || defined(FORCE_BOOST_SMART_PTR)
-#include <boost/shared_ptr.hpp>
-#else
 #include <memory>
-#endif
 #include <string>
 #include <vector>
 
@@ -54,13 +48,7 @@
 
 namespace parquet {
 
-// Check if thrift version < 0.11.0
-// or if FORCE_BOOST_SMART_PTR is defined. Ref: https://thrift.apache.org/lib/cpp
-#if defined(PARQUET_THRIFT_USE_BOOST) || defined(FORCE_BOOST_SMART_PTR)
-using ::boost::shared_ptr;
-#else
 using ::std::shared_ptr;
-#endif
 
 // ----------------------------------------------------------------------
 // Convert Thrift enums to Parquet enums
