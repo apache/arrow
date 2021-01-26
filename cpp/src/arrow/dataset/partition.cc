@@ -621,13 +621,17 @@ class StructDictionary {
 
  private:
   Status AddOne(Datum column, std::shared_ptr<Int32Array>* fused_indices) {
-    if (column.type()->id() != Type::DICTIONARY) {
-      compute::DictionaryEncodeOptions options;
-      options.null_encoding_behavior =
-          compute::DictionaryEncodeOptions::NullEncodingBehavior::ENCODE;
-      ARROW_ASSIGN_OR_RAISE(column,
-                            compute::DictionaryEncode(std::move(column), options));
+    if (column.type()->id() == Type::DICTIONARY) {
+      // compute::DictionaryEncode doesn't support dictionary and, even if it did, it
+      // would be a null op and return a flat dictionary.  In order to group by dictionary
+      // we would need to be able to create a nested dictionary.
+      return Status::NotImplemented(
+          "Cannot use column of type dictionary as grouping criteria");
     }
+    compute::DictionaryEncodeOptions options;
+    options.null_encoding_behavior =
+        compute::DictionaryEncodeOptions::NullEncodingBehavior::ENCODE;
+    ARROW_ASSIGN_OR_RAISE(column, compute::DictionaryEncode(std::move(column), options));
 
     auto dict_column = column.array_as<DictionaryArray>();
     dictionaries_.push_back(dict_column->dictionary());

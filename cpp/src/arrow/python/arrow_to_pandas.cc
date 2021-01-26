@@ -2183,7 +2183,6 @@ Status ConvertCategoricals(const PandasOptions& options, ChunkedArrayVector* arr
                              "only zero-copy conversions allowed");
     }
     compute::ExecContext ctx(options.pool);
-    // TODO: Should we include nulls here?
     ARROW_ASSIGN_OR_RAISE(
         Datum out, DictionaryEncode((*arrays)[i],
                                     compute::DictionaryEncodeOptions::Defaults(), &ctx));
