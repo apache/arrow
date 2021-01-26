@@ -1,6 +1,6 @@
 Package: arrow
 Title: Integration to 'Apache' 'Arrow'
-Version: 2.0.0.9000
+Version: 3.0.0.9000
 Authors@R: c(
     person("Romain", "Fran\u00e7ois", email = "romain@rstudio.com", role = c("aut"), comment = c(ORCID = "0000-0002-2444-4226")),
     person("Jeroen", "Ooms", email = "jeroen@berkeley.edu", role = c("aut")),

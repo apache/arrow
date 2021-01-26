@@ -140,13 +140,20 @@ def _resolve_filesystem_and_path(
             )
         return filesystem, path
 
-    path = _stringify_path(path)
-
     if filesystem is not None:
         filesystem = _ensure_filesystem(
             filesystem, allow_legacy_filesystem=allow_legacy_filesystem
         )
+        if isinstance(filesystem, LocalFileSystem):
+            path = _stringify_path(path)
+        elif not isinstance(path, str):
+            raise TypeError(
+                "Expected string path; path-like objects are only allowed "
+                "with a local filesystem"
+            )
         return filesystem, path
+
+    path = _stringify_path(path)
 
     # if filesystem is not given, try to automatically determine one
     # first check if the file exists as a local (relative) file path
