@@ -70,9 +70,11 @@ struct DictionaryEncodeOptions : public FunctionOptions {
     ENCODE,
     /// the null value will be masked in the indices array
     MASK,
+    /// the null value will not be included in the dictionary
+    SKIP
   };
 
-  explicit DictionaryEncodeOptions(NullEncodingBehavior null_encoding = MASK)
+  explicit DictionaryEncodeOptions(NullEncodingBehavior null_encoding = SKIP)
       : null_encoding_behavior(null_encoding) {}
 
   static DictionaryEncodeOptions Defaults() { return DictionaryEncodeOptions(); }

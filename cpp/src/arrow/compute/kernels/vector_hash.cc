@@ -173,12 +173,16 @@ class DictEncodeAction final : public ActionBase {
 
   template <class Index>
   void ObserveNullFound(Index index) {
-    indices_builder_.UnsafeAppendNull();
+    if (index < 0) {
+      indices_builder_.UnsafeAppendNull();
+    } else {
+      indices_builder_.UnsafeAppend(index);
+    }
   }
 
   template <class Index>
   void ObserveNullNotFound(Index index) {
-    indices_builder_.UnsafeAppendNull();
+    ObserveNullFound(index);
   }
 
   template <class Index>
@@ -206,6 +210,9 @@ class DictEncodeAction final : public ActionBase {
 
 class HashKernel : public KernelState {
  public:
+  HashKernel() : options_(DictionaryEncodeOptions::Defaults()) {}
+  explicit HashKernel(const DictionaryEncodeOptions& options) : options_(options) {}
+
   // Reset for another run.
   virtual Status Reset() = 0;
 
@@ -229,6 +236,7 @@ class HashKernel : public KernelState {
   virtual Status Append(const ArrayData& arr) = 0;
 
  protected:
+  DictionaryEncodeOptions options_;
   std::mutex lock_;
 };
 
@@ -241,8 +249,9 @@ template <typename Type, typename Scalar, typename Action,
           bool with_memo_visit_null = Action::with_memo_visit_null>
 class RegularHashKernel : public HashKernel {
  public:
-  RegularHashKernel(const std::shared_ptr<DataType>& type, MemoryPool* pool)
-      : pool_(pool), type_(type), action_(type, pool) {}
+  RegularHashKernel(const std::shared_ptr<DataType>& type,
+                    const DictionaryEncodeOptions& options, MemoryPool* pool)
+      : HashKernel(options), pool_(pool), type_(type), action_(type, pool) {}
 
   Status Reset() override {
     memo_table_.reset(new MemoTable(pool_, 0));
@@ -282,7 +291,9 @@ class RegularHashKernel : public HashKernel {
                                           &unused_memo_index);
         },
         [this]() {
-          if (with_memo_visit_null) {
+          if (with_memo_visit_null ||
+              options_.null_encoding_behavior ==
+                  DictionaryEncodeOptions::NullEncodingBehavior::ENCODE) {
             auto on_found = [this](int32_t memo_index) {
               action_.ObserveNullFound(memo_index);
             };
@@ -345,18 +356,23 @@ class RegularHashKernel : public HashKernel {
 // ----------------------------------------------------------------------
 // Hash kernel implementation for nulls
 
-template <typename Action>
+template <typename Action, bool with_error_status = Action::with_error_status>
 class NullHashKernel : public HashKernel {
  public:
-  NullHashKernel(const std::shared_ptr<DataType>& type, MemoryPool* pool)
+  NullHashKernel(const std::shared_ptr<DataType>& type,
+                 const DictionaryEncodeOptions& options, MemoryPool* pool)
       : pool_(pool), type_(type), action_(type, pool) {}
 
   Status Reset() override { return action_.Reset(); }
 
-  Status Append(const ArrayData& arr) override {
+  Status Append(const ArrayData& arr) override { return DoAppend(arr); }
+
+  template <bool HasError = with_error_status>
+  enable_if_t<!HasError, Status> DoAppend(const ArrayData& arr) {
     RETURN_NOT_OK(action_.Reserve(arr.length));
     for (int64_t i = 0; i < arr.length; ++i) {
       if (i == 0) {
+        seen_null_ = true;
         action_.ObserveNullNotFound(0);
       } else {
         action_.ObserveNullFound(0);
@@ -365,12 +381,31 @@ class NullHashKernel : public HashKernel {
     return Status::OK();
   }
 
+  template <bool HasError = with_error_status>
+  enable_if_t<HasError, Status> DoAppend(const ArrayData& arr) {
+    Status s = Status::OK();
+    RETURN_NOT_OK(action_.Reserve(arr.length));
+    for (int64_t i = 0; i < arr.length; ++i) {
+      if (seen_null_ == false && i == 0) {
+        seen_null_ = true;
+        action_.ObserveNullNotFound(0, &s);
+      } else {
+        action_.ObserveNullFound(0);
+      }
+    }
+    return s;
+  }
+
   Status Flush(Datum* out) override { return action_.Flush(out); }
   Status FlushFinal(Datum* out) override { return action_.FlushFinal(out); }
 
   Status GetDictionary(std::shared_ptr<ArrayData>* out) override {
-    // TODO(wesm): handle null being a valid dictionary value
-    auto null_array = std::make_shared<NullArray>(0);
+    std::shared_ptr<NullArray> null_array;
+    if (seen_null_) {
+      null_array = std::make_shared<NullArray>(1);
+    } else {
+      null_array = std::make_shared<NullArray>(0);
+    }
     *out = null_array->data();
     return Status::OK();
   }
@@ -380,6 +415,7 @@ class NullHashKernel : public HashKernel {
  protected:
   MemoryPool* pool_;
   std::shared_ptr<DataType> type_;
+  bool seen_null_ = false;
   Action action_;
 };
 
@@ -451,8 +487,12 @@ struct HashKernelTraits<Type, Action, enable_if_has_string_view<Type>> {
 template <typename Type, typename Action>
 std::unique_ptr<HashKernel> HashInitImpl(KernelContext* ctx, const KernelInitArgs& args) {
   using HashKernelType = typename HashKernelTraits<Type, Action>::HashKernel;
-  auto result = ::arrow::internal::make_unique<HashKernelType>(args.inputs[0].type,
-                                                               ctx->memory_pool());
+  DictionaryEncodeOptions options;
+  if (auto options_ptr = static_cast<const DictionaryEncodeOptions*>(args.options)) {
+    options = *options_ptr;
+  }
+  auto result = ::arrow::internal::make_unique<HashKernelType>(
+      args.inputs[0].type, options, ctx->memory_pool());
   ctx->SetStatus(result->Reset());
   return std::move(result);
 }
@@ -507,6 +547,8 @@ KernelInit GetHashInit(Type::type type_id) {
   }
 }
 
+using DictionaryEncodeState = OptionsWrapper<DictionaryEncodeOptions>;
+
 template <typename Action>
 std::unique_ptr<KernelState> DictionaryHashInit(KernelContext* ctx,
                                                 const KernelInitArgs& args) {
@@ -529,6 +571,7 @@ std::unique_ptr<KernelState> DictionaryHashInit(KernelContext* ctx,
       DCHECK(false) << "Unsupported dictionary index type";
       break;
   }
+  DictionaryEncodeOptions options = DictionaryEncodeOptions::Defaults();
   return ::arrow::internal::make_unique<DictionaryHashKernel>(std::move(indices_hasher));
 }
 

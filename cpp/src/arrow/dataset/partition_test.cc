@@ -80,27 +80,30 @@ class TestPartitioning : public ::testing::Test {
 
   void AssertPartition(const std::shared_ptr<Partitioning> partitioning,
                        const std::shared_ptr<RecordBatch> full_batch,
-                       const std::vector<std::vector<int>>& expected_partition_indices) {
+                       const RecordBatchVector& expected_batches) {
     ASSERT_OK_AND_ASSIGN(auto partition_results, partitioning->Partition(full_batch));
-    ASSERT_EQ(partition_results.batches.size(), expected_partition_indices.size());
-    auto max_index =
-        std::min(partition_results.batches.size(), expected_partition_indices.size());
-    for (int partition_index = 0; partition_index < max_index; partition_index++) {
+    std::shared_ptr<RecordBatch> rest = full_batch;
+    ASSERT_EQ(partition_results.batches.size(), expected_batches.size());
+    auto max_index = std::min(partition_results.batches.size(), expected_batches.size());
+    for (std::size_t partition_index = 0; partition_index < max_index;
+         partition_index++) {
       std::shared_ptr<RecordBatch> actual = partition_results.batches[partition_index];
-      std::shared_ptr<ChunkedArray> indices_arr;
-      ChunkedArrayFromVector<Int32Type>({expected_partition_indices[partition_index]},
-                                        &indices_arr);
-      auto expected = compute::Take(full_batch, indices_arr);
-      ASSERT_EQ(expected, actual);
+      AssertBatchesEqual(*expected_batches[partition_index], *actual);
     }
   }
 
   void AssertPartition(const std::shared_ptr<Partitioning> partitioning,
                        const std::shared_ptr<Schema> schema,
                        const std::string& record_batch_json,
-                       const std::vector<std::vector<int>>& expected_partition_indices) {
+                       const std::shared_ptr<Schema> partitioned_schema,
+                       const std::vector<std::string>& expected_record_batch_strs) {
     auto record_batch = RecordBatchFromJSON(schema, record_batch_json);
-    AssertPartition(partitioning, record_batch, expected_partition_indices);
+    RecordBatchVector expected_batches;
+    for (const auto& expected_record_batch_str : expected_record_batch_strs) {
+      expected_batches.push_back(
+          RecordBatchFromJSON(partitioned_schema, expected_record_batch_str));
+    }
+    AssertPartition(partitioning, record_batch, expected_batches);
   }
 
   void AssertInspectError(const std::vector<std::string>& paths) {
@@ -130,16 +133,21 @@ class TestPartitioning : public ::testing::Test {
 };
 
 TEST_F(TestPartitioning, Basic) {
-  auto schema_ = schema({field("a", int32()), field("b", utf8())});
-  auto partitioning = std::make_shared<DirectoryPartitioning>(schema_);
-  std::string json = R"([{"a": 3,    "b": "x"},
-                         {"a": 3,    "b": "x"},
-                         {"a": 1,    "b": null},
-                         {"a": null,    "b": null},
-                         {"a": null,    "b": "z"},
-                         {"a": null,    "b": null}
+  auto partition_schema = schema({field("a", int32()), field("b", utf8())});
+  auto schema_ = schema({field("a", int32()), field("b", utf8()), field("c", uint32())});
+  auto remaining_schema = schema({field("c", uint32())});
+  auto partitioning = std::make_shared<DirectoryPartitioning>(partition_schema);
+  std::string json = R"([{"a": 3,    "b": "x",  "c": 0},
+                         {"a": 3,    "b": "x",  "c": 1},
+                         {"a": 1,    "b": null, "c": 2},
+                         {"a": null, "b": null, "c": 3},
+                         {"a": null, "b": "z",  "c": 4},
+                         {"a": null, "b": null, "c": 5}
                        ])";
-  AssertPartition(partitioning, schema_, json, {{0, 1}, {2}, {3, 5}, {4}});
+  std::vector<std::string> expected_batches = {R"([{"c": 0}, {"c": 1}])", R"([{"c": 2}])",
+                                               R"([{"c": 3}, {"c": 5}])",
+                                               R"([{"c": 4}])"};
+  AssertPartition(partitioning, schema_, json, remaining_schema, expected_batches);
 }
 
 TEST_F(TestPartitioning, StructDictionaryNull) {}
@@ -643,14 +651,14 @@ TEST(GroupTest, Basics) {
 TEST(GroupTest, WithNulls) {
   AssertGrouping({field("a", utf8()), field("b", int32())},
                  R"([
-                   {"a": "ex",  "b": 0},
-                   {"a": null,  "b": 0},
-                   {"a": null,  "b": 0},
-                   {"a": "ex",  "b": 1},
-                   {"a": null,  "b": null},
-                   {"a": "ex",  "b": 1},
-                   {"a": "ex",  "b": 0},
-                   {"a": "why", "b": null}
+                   {"a": "ex",  "b": 0,    "id": 0},
+                   {"a": null,  "b": 0,    "id": 1},
+                   {"a": null,  "b": 0,    "id": 2},
+                   {"a": "ex",  "b": 1,    "id": 3},
+                   {"a": null,  "b": null, "id": 4},
+                   {"a": "ex",  "b": 1,    "id": 5},
+                   {"a": "ex",  "b": 0,    "id": 6},
+                   {"a": "why", "b": null, "id": 7}
                  ])",
                  R"([
                    {"a": "ex", "b": 0, "ids": [0, 6]},
