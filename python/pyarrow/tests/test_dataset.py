@@ -1337,7 +1337,7 @@ def test_construct_from_single_file(tempdir):
     # instantiate from a single file with a filesystem object
     d2 = ds.dataset(path, filesystem=fs.LocalFileSystem())
     # instantiate from a single file with prefixed filesystem URI
-    d3 = ds.dataset(relative_path, filesystem=_filesystem_uri(directory))
+    d3 = ds.dataset(str(relative_path), filesystem=_filesystem_uri(directory))
     # pickle roundtrip
     d4 = pickle.loads(pickle.dumps(d1))
 
@@ -2531,3 +2531,52 @@ def test_write_dataset_schema_metadata_parquet(tempdir):
 
     schema = pq.read_table(tempdir / "part-0.parquet").schema
     assert schema.metadata == {b'key': b'value'}
+
+
+@pytest.mark.parquet
+@pytest.mark.s3
+def test_write_dataset_s3(s3_example_simple):
+    # write dataset with s3 filesystem
+    _, _, fs, _, host, port, access_key, secret_key = s3_example_simple
+    uri_template = (
+        "s3://{}:{}@{{}}?scheme=http&endpoint_override={}:{}".format(
+            access_key, secret_key, host, port)
+    )
+
+    table = pa.table([
+        pa.array(range(20)), pa.array(np.random.randn(20)),
+        pa.array(np.repeat(['a', 'b'], 10))],
+        names=["f1", "f2", "part"]
+    )
+    part = ds.partitioning(pa.schema([("part", pa.string())]), flavor="hive")
+
+    # writing with filesystem object
+    ds.write_dataset(
+        table, "mybucket/dataset", filesystem=fs, format="feather",
+        partitioning=part
+    )
+    # check rountrip
+    result = ds.dataset(
+        "mybucket/dataset", filesystem=fs, format="ipc", partitioning="hive"
+    ).to_table()
+    assert result.equals(table)
+
+    # writing with URI
+    uri = uri_template.format("mybucket/dataset2")
+    ds.write_dataset(table, uri, format="feather", partitioning=part)
+    # check rountrip
+    result = ds.dataset(
+        "mybucket/dataset2", filesystem=fs, format="ipc", partitioning="hive"
+    ).to_table()
+    assert result.equals(table)
+
+    # writing with path + URI as filesystem
+    uri = uri_template.format("mybucket")
+    ds.write_dataset(
+        table, "dataset3", filesystem=uri, format="feather", partitioning=part
+    )
+    # check rountrip
+    result = ds.dataset(
+        "mybucket/dataset3", filesystem=fs, format="ipc", partitioning="hive"
+    ).to_table()
+    assert result.equals(table)
