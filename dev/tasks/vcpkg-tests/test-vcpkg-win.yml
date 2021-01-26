@@ -38,9 +38,10 @@ jobs:
       - name: Remove and Reinstall vcpkg
         shell: cmd
         run: |
+          CALL vcpkg integrate remove 2>NUL
           CALL C:
           CALL cd \
-          CALL if exist vcpkg rmdir /s /q vcpkg
+          CALL rmdir /s /q vcpkg 2>NUL
           CALL git clone https://github.com/microsoft/vcpkg.git vcpkg
           CALL cd vcpkg
           CALL bootstrap-vcpkg.bat -win64 -disableMetrics
