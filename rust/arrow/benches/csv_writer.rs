@@ -63,12 +63,7 @@ fn record_batches_to_csv() {
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
-    c.bench(
-        "record_batches_to_csv",
-        Benchmark::new("record_batches_to_csv", move |b| {
-            b.iter(record_batches_to_csv)
-        }),
-    );
+    c.bench_function("record_batches_to_csv", |b| b.iter(record_batches_to_csv));
 }
 
 criterion_group!(benches, criterion_benchmark);

@@ -678,7 +678,7 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
     max_partitions : int, default 1024
         Maximum number of partitions any batch may be written into.
     """
-    from pyarrow.fs import LocalFileSystem, _ensure_filesystem
+    from pyarrow.fs import _resolve_filesystem_and_path
 
     if isinstance(data, Dataset):
         schema = schema or data.schema
@@ -714,11 +714,7 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
 
     partitioning = _ensure_write_partitioning(partitioning)
 
-    if filesystem is None:
-        # fall back to local file system as the default
-        filesystem = LocalFileSystem()
-    else:
-        filesystem = _ensure_filesystem(filesystem)
+    filesystem, base_dir = _resolve_filesystem_and_path(base_dir, filesystem)
 
     _filesystemdataset_write(
         data, base_dir, basename_template, schema,
