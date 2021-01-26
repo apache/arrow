@@ -38,12 +38,12 @@ use std::any::Any;
 use std::fmt;
 use std::mem;
 
-use crate::array::{Array, ArrayData, ArrayDataRef};
+use crate::array::{Array, ArrayData};
 use crate::datatypes::*;
 
 /// An Array where all elements are nulls
 pub struct NullArray {
-    data: ArrayDataRef,
+    data: ArrayData,
 }
 
 impl NullArray {
@@ -59,11 +59,7 @@ impl Array for NullArray {
         self
     }
 
-    fn data(&self) -> ArrayDataRef {
-        self.data.clone()
-    }
-
-    fn data_ref(&self) -> &ArrayDataRef {
+    fn data(&self) -> &ArrayData {
         &self.data
     }
 
@@ -92,12 +88,12 @@ impl Array for NullArray {
 
     /// Returns the total number of bytes of memory occupied physically by this [NullArray].
     fn get_array_memory_size(&self) -> usize {
-        self.data.get_array_memory_size() + mem::size_of_val(self)
+        mem::size_of_val(self)
     }
 }
 
-impl From<ArrayDataRef> for NullArray {
-    fn from(data: ArrayDataRef) -> Self {
+impl From<ArrayData> for NullArray {
+    fn from(data: ArrayData) -> Self {
         assert_eq!(
             data.data_type(),
             &DataType::Null,
@@ -135,9 +131,8 @@ mod tests {
         assert_eq!(null_arr.is_valid(0), false);
 
         assert_eq!(0, null_arr.get_buffer_memory_size());
-        let internals_of_null_array = 64; // Arc<ArrayData>
         assert_eq!(
-            null_arr.get_buffer_memory_size() + internals_of_null_array,
+            null_arr.get_buffer_memory_size() + std::mem::size_of::<NullArray>(),
             null_arr.get_array_memory_size()
         );
     }

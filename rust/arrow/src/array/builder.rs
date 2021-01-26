@@ -671,7 +671,7 @@ impl<T: ArrowPrimitiveType> PrimitiveBuilder<T> {
         if null_count > 0 {
             builder = builder.null_bit_buffer(null_bit_buffer.unwrap());
         }
-        builder = builder.add_child_data(values.data());
+        builder = builder.add_child_data(values.data().clone());
         DictionaryArray::<T>::from(builder.build())
     }
 
@@ -802,7 +802,7 @@ where
         let data = ArrayData::builder(data_type)
             .len(len)
             .add_buffer(offset_buffer)
-            .add_child_data(values_data)
+            .add_child_data(values_data.clone())
             .null_bit_buffer(null_bit_buffer)
             .build();
 
@@ -931,7 +931,7 @@ where
             self.list_len,
         ))
         .len(len)
-        .add_child_data(values_data)
+        .add_child_data(values_data.clone())
         .null_bit_buffer(null_bit_buffer)
         .build();
 
@@ -1481,7 +1481,7 @@ impl StructBuilder {
         let mut child_data = Vec::with_capacity(self.field_builders.len());
         for f in &mut self.field_builders {
             let arr = f.finish();
-            child_data.push(arr.data());
+            child_data.push(arr.data().clone());
         }
 
         let null_bit_buffer = self.bitmap_builder.finish();
@@ -2883,7 +2883,7 @@ mod tests {
             .add_buffer(Buffer::from_slice_ref(&[1, 2, 0, 4]))
             .build();
 
-        assert_eq!(expected_string_data, arr.column(0).data());
+        assert_eq!(&expected_string_data, arr.column(0).data());
 
         // TODO: implement equality for ArrayData
         assert_eq!(expected_int_data.len(), arr.column(1).data().len());

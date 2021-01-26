@@ -208,7 +208,7 @@ fn write_leaf(
             // If the column is a Date64, we cast it to a Date32, and then interpret that as Int32
             let array = if let ArrowDataType::Date64 = column.data_type() {
                 let array = arrow::compute::cast(column, &ArrowDataType::Date32)?;
-                Arc::new(arrow_array::Int32Array::from(array.data()))
+                arrow::compute::cast(&array, &ArrowDataType::Int32)?
             } else {
                 arrow::compute::cast(column, &ArrowDataType::Int32)?
             };
@@ -223,7 +223,10 @@ fn write_leaf(
             )?
         }
         ColumnWriter::BoolColumnWriter(ref mut typed) => {
-            let array = arrow_array::BooleanArray::from(column.data());
+            let array = column
+                .as_any()
+                .downcast_ref::<arrow_array::BooleanArray>()
+                .expect("Unable to get boolean array");
             typed.write_batch(
                 get_bool_array_slice(&array, &indices).as_slice(),
                 Some(levels.definition.as_slice()),
@@ -231,9 +234,25 @@ fn write_leaf(
             )?
         }
         ColumnWriter::Int64ColumnWriter(ref mut typed) => {
-            let array = arrow_array::Int64Array::from(column.data());
+            let values = match column.data_type() {
+                ArrowDataType::Int64 => {
+                    let array = column
+                        .as_any()
+                        .downcast_ref::<arrow_array::Int64Array>()
+                        .expect("Unable to get i64 array");
+                    get_numeric_array_slice::<Int64Type, _>(&array, &indices)
+                }
+                _ => {
+                    let array = arrow::compute::cast(column, &ArrowDataType::Int64)?;
+                    let array = array
+                        .as_any()
+                        .downcast_ref::<arrow_array::Int64Array>()
+                        .expect("Unable to get i64 array");
+                    get_numeric_array_slice::<Int64Type, _>(&array, &indices)
+                }
+            };
             typed.write_batch(
-                get_numeric_array_slice::<Int64Type, _>(&array, &indices).as_slice(),
+                values.as_slice(),
                 Some(levels.definition.as_slice()),
                 levels.repetition.as_deref(),
             )?
@@ -242,7 +261,10 @@ fn write_leaf(
             unreachable!("Currently unreachable because data type not supported")
         }
         ColumnWriter::FloatColumnWriter(ref mut typed) => {
-            let array = arrow_array::Float32Array::from(column.data());
+            let array = column
+                .as_any()
+                .downcast_ref::<arrow_array::Float32Array>()
+                .expect("Unable to get Float32 array");
             typed.write_batch(
                 get_numeric_array_slice::<FloatType, _>(&array, &indices).as_slice(),
                 Some(levels.definition.as_slice()),
@@ -250,7 +272,10 @@ fn write_leaf(
             )?
         }
         ColumnWriter::DoubleColumnWriter(ref mut typed) => {
-            let array = arrow_array::Float64Array::from(column.data());
+            let array = column
+                .as_any()
+                .downcast_ref::<arrow_array::Float64Array>()
+                .expect("Unable to get Float64 array");
             typed.write_batch(
                 get_numeric_array_slice::<DoubleType, _>(&array, &indices).as_slice(),
                 Some(levels.definition.as_slice()),
@@ -259,7 +284,10 @@ fn write_leaf(
         }
         ColumnWriter::ByteArrayColumnWriter(ref mut typed) => match column.data_type() {
             ArrowDataType::Binary => {
-                let array = arrow_array::BinaryArray::from(column.data());
+                let array = column
+                    .as_any()
+                    .downcast_ref::<arrow_array::BinaryArray>()
+                    .expect("Unable to get BinaryArray array");
                 typed.write_batch(
                     get_binary_array(&array).as_slice(),
                     Some(levels.definition.as_slice()),
@@ -267,7 +295,10 @@ fn write_leaf(
                 )?
             }
             ArrowDataType::Utf8 => {
-                let array = arrow_array::StringArray::from(column.data());
+                let array = column
+                    .as_any()
+                    .downcast_ref::<arrow_array::StringArray>()
+                    .expect("Unable to get LargeBinaryArray array");
                 typed.write_batch(
                     get_string_array(&array).as_slice(),
                     Some(levels.definition.as_slice()),
@@ -275,7 +306,10 @@ fn write_leaf(
                 )?
             }
             ArrowDataType::LargeBinary => {
-                let array = arrow_array::LargeBinaryArray::from(column.data());
+                let array = column
+                    .as_any()
+                    .downcast_ref::<arrow_array::LargeBinaryArray>()
+                    .expect("Unable to get LargeBinaryArray array");
                 typed.write_batch(
                     get_large_binary_array(&array).as_slice(),
                     Some(levels.definition.as_slice()),
@@ -283,7 +317,10 @@ fn write_leaf(
                 )?
             }
             ArrowDataType::LargeUtf8 => {
-                let array = arrow_array::LargeStringArray::from(column.data());
+                let array = column
+                    .as_any()
+                    .downcast_ref::<arrow_array::LargeStringArray>()
+                    .expect("Unable to get LargeUtf8 array");
                 typed.write_batch(
                     get_large_string_array(&array).as_slice(),
                     Some(levels.definition.as_slice()),
@@ -532,8 +569,8 @@ mod tests {
         assert_eq!(expected_batch.num_columns(), actual_batch.num_columns());
         assert_eq!(expected_batch.num_rows(), actual_batch.num_rows());
         for i in 0..expected_batch.num_columns() {
-            let expected_data = expected_batch.column(i).data();
-            let actual_data = actual_batch.column(i).data();
+            let expected_data = expected_batch.column(i).data().clone();
+            let actual_data = actual_batch.column(i).data().clone();
 
             assert_eq!(expected_data, actual_data);
         }
@@ -582,7 +619,7 @@ mod tests {
         ))))
         .len(5)
         .add_buffer(a_value_offsets)
-        .add_child_data(a_values.data())
+        .add_child_data(a_values.data().clone())
         .null_bit_buffer(Buffer::from(vec![0b00011011]))
         .build();
         let a = ListArray::from(a_list_data);
@@ -742,7 +779,7 @@ mod tests {
         let g_list_data = ArrayData::builder(struct_field_g.data_type().clone())
             .len(5)
             .add_buffer(g_value_offsets)
-            .add_child_data(g_value.data())
+            .add_child_data(g_value.data().clone())
             // .null_bit_buffer(Buffer::from(vec![0b00011011])) // TODO: add to test after resolving other issues
             .build();
         let g = ListArray::from(g_list_data);
@@ -780,13 +817,13 @@ mod tests {
         let b_data = ArrayDataBuilder::new(field_b.data_type().clone())
             .len(6)
             .null_bit_buffer(Buffer::from(vec![0b00100111]))
-            .add_child_data(c.data())
+            .add_child_data(c.data().clone())
             .build();
         let b = StructArray::from(b_data);
         let a_data = ArrayDataBuilder::new(field_a.data_type().clone())
             .len(6)
             .null_bit_buffer(Buffer::from(vec![0b00101111]))
-            .add_child_data(b.data())
+            .add_child_data(b.data().clone())
             .build();
         let a = StructArray::from(a_data);
 
@@ -811,12 +848,12 @@ mod tests {
         let c = Int32Array::from(vec![1, 2, 3, 4, 5, 6]);
         let b_data = ArrayDataBuilder::new(field_b.data_type().clone())
             .len(6)
-            .add_child_data(c.data())
+            .add_child_data(c.data().clone())
             .build();
         let b = StructArray::from(b_data);
         let a_data = ArrayDataBuilder::new(field_a.data_type().clone())
             .len(6)
-            .add_child_data(b.data())
+            .add_child_data(b.data().clone())
             .build();
         let a = StructArray::from(a_data);
 
@@ -843,13 +880,13 @@ mod tests {
         let b_data = ArrayDataBuilder::new(field_b.data_type().clone())
             .len(6)
             .null_bit_buffer(Buffer::from(vec![0b00100111]))
-            .add_child_data(c.data())
+            .add_child_data(c.data().clone())
             .build();
         let b = StructArray::from(b_data);
         // a intentionally has no null buffer, to test that this is handled correctly
         let a_data = ArrayDataBuilder::new(field_a.data_type().clone())
             .len(6)
-            .add_child_data(b.data())
+            .add_child_data(b.data().clone())
             .build();
         let a = StructArray::from(a_data);
 
@@ -1219,7 +1256,7 @@ mod tests {
         .len(5)
         .add_buffer(a_value_offsets)
         .null_bit_buffer(Buffer::from(vec![0b00011011]))
-        .add_child_data(a_values.data())
+        .add_child_data(a_values.data().clone())
         .build();
 
         assert_eq!(a_list_data.null_count(), 1);
@@ -1242,7 +1279,7 @@ mod tests {
         ))))
         .len(5)
         .add_buffer(a_value_offsets)
-        .add_child_data(a_values.data())
+        .add_child_data(a_values.data().clone())
         .null_bit_buffer(Buffer::from(vec![0b00011011]))
         .build();
 

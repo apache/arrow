@@ -17,8 +17,6 @@
 
 //! Math expressions
 
-use std::sync::Arc;
-
 use arrow::array::{make_array, Array, ArrayData, Float32Array, Float64Array};
 use arrow::buffer::Buffer;
 use arrow::datatypes::{DataType, ToByteSlice};
@@ -41,7 +39,7 @@ macro_rules! compute_op {
             vec![Buffer::from(result.to_byte_slice())],
             vec![],
         );
-        Ok(make_array(Arc::new(data)))
+        Ok(make_array(data))
     }};
 }
 
