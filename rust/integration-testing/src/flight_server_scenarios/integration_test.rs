@@ -45,6 +45,7 @@ type Result<T = (), E = Error> = std::result::Result<T, E>;
 
 pub async fn scenario_setup(port: &str) -> Result {
     let addr: SocketAddr = format!("0.0.0.0:{}", port).parse()?;
+    println!("Server listening on localhost:{}", addr.port());
 
     let service = FlightServiceImpl {
         server_location: format!("grpc+tcp://{}", addr),

@@ -36,6 +36,7 @@ pub async fn scenario_setup(port: &str) -> Result {
     let service = MiddlewareScenarioImpl {};
     let svc = FlightServiceServer::new(service);
     let addr: SocketAddr = format!("0.0.0.0:{}", port).parse()?;
+    println!("Server listening on localhost:{}", addr.port());
 
     Server::builder().add_service(svc).serve(addr).await?;
     Ok(())
