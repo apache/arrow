@@ -25,46 +25,12 @@
 #include "arrow/csv/test_common.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
+#include "arrow/io/slow.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/thread_pool.h"
 
 namespace arrow {
 namespace csv {
-
-class SlowInputStream : public io::InputStream {
- public:
-  explicit SlowInputStream(std::shared_ptr<io::BufferReader> target, int64_t latency_ms)
-      : target_(std::move(target)) {
-    latency_s_ = static_cast<double>(latency_ms) / 1000.0;
-  }
-  virtual ~SlowInputStream() {}
-
-  Result<util::string_view> Peek(int64_t nbytes) override {
-    return target_->Peek(nbytes);
-  }
-  bool supports_zero_copy() const override { return target_->supports_zero_copy(); }
-  Status Close() override { return target_->Close(); }
-  Status Abort() override { return target_->Abort(); }
-  Result<int64_t> Tell() const override { return target_->Tell(); }
-  bool closed() const override { return target_->closed(); }
-  Result<int64_t> Read(int64_t nbytes, void* out) override {
-    if (latency_s_ > 0) {
-      SleepFor(latency_s_);
-    }
-    return target_->Read(nbytes, out);
-  }
-  Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) override {
-    if (latency_s_ > 0) {
-      SleepFor(latency_s_);
-    }
-    return target_->Read(nbytes);
-  }
-  Status Seek(int64_t pos) { return target_->Seek(pos); }
-
- private:
-  std::shared_ptr<io::BufferReader> target_;
-  double latency_s_;
-};
 
 static ReadOptions CreateReadOptions(bool use_threads, bool use_async) {
   auto result = csv::ReadOptions::Defaults();
@@ -76,17 +42,18 @@ static ReadOptions CreateReadOptions(bool use_threads, bool use_async) {
   return result;
 }
 
-static std::shared_ptr<SlowInputStream> CreateStreamReader(std::shared_ptr<Buffer> buffer,
-                                                           int64_t latency_ms) {
+static std::shared_ptr<io::SlowInputStream> CreateStreamReader(
+    std::shared_ptr<Buffer> buffer, int64_t latency_ms) {
   auto buffer_reader = std::make_shared<io::BufferReader>(buffer);
-  return std::make_shared<SlowInputStream>(buffer_reader, latency_ms);
+  return std::make_shared<io::SlowInputStream>(buffer_reader, latency_ms);
 }
 
 static void BenchmarkReader(benchmark::State& state, bool use_threads, bool use_async) {
+  constexpr int kNumberOfThreads = 6;
   auto latency_ms = state.range(0);
   auto num_rows = state.range(1);
   auto num_files = state.range(2);
-  if (num_files > 5 && use_threads && !use_async) {
+  if (num_files > (kNumberOfThreads - 1) && use_threads && !use_async) {
     state.SkipWithError("Would deadlock");
   }
   auto input_buffer = *MakeSampleCsvBuffer(num_rows);
