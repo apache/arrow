@@ -103,7 +103,7 @@ Status AppendMapBatch(const liborc::Type* type,
   auto batch = checked_cast<liborc::MapVectorBatch*>(column_vector_batch);
   liborc::ColumnVectorBatch* keys = batch->keys.get();
   liborc::ColumnVectorBatch* vals = batch->elements.get();
-  const liborc::Type* keytype = type->getSubtype(0);
+  const liborc::Type* key_type = type->getSubtype(0);
   const liborc::Type* valtype = type->getSubtype(1);
 
   const bool has_nulls = batch->hasNulls;
@@ -113,7 +113,7 @@ Status AppendMapBatch(const liborc::Type* type,
     int64_t list_length = batch->offsets[i + 1] - start;
     if (list_length && (!has_nulls || batch->notNull[i])) {
       RETURN_NOT_OK(struct_builder->AppendValues(list_length, NULLPTR));
-      RETURN_NOT_OK(AppendBatch(keytype, keys, start, list_length,
+      RETURN_NOT_OK(AppendBatch(key_type, keys, start, list_length,
                                 struct_builder->field_builder(0)));
       RETURN_NOT_OK(AppendBatch(valtype, vals, start, list_length,
                                 struct_builder->field_builder(1)));
@@ -337,526 +337,524 @@ Status AppendBatch(const liborc::Type* type, liborc::ColumnVectorBatch* batch,
   }
 }
 
-template <class array_type, class batch_type>
-Status FillNumericBatch(const DataType* type,
-                        liborc::ColumnVectorBatch* column_vector_batch,
-                        int64_t& arrow_offset, int64_t& orc_offset, int64_t length,
-                        Array* parray, std::vector<bool>* incoming_mask) {
-  auto array = checked_cast<array_type*>(parray);
-  auto batch = checked_cast<batch_type*>(column_vector_batch);
-  int64_t arrow_length = array->length();
-  if (!arrow_length) {
-    return Status::OK();
-  }
-  if (array->null_count() || incoming_mask) {
-    batch->hasNulls = true;
-  }
-  for (; orc_offset < length && arrow_offset < arrow_length;
-       orc_offset++, arrow_offset++) {
-    if (array->IsNull(arrow_offset) || (incoming_mask && !(*incoming_mask)[orc_offset])) {
-      batch->notNull[orc_offset] = false;
-    } else {
-      batch->data[orc_offset] = array->Value(arrow_offset);
-      batch->notNull[orc_offset] = true;
-    }
-  }
-  batch->numElements = orc_offset;
-  return Status::OK();
-}
-
+// static_cast from int64_t or double to itself shouldn't introduce overhead
+// Pleae see
+// https://stackoverflow.com/questions/19106826/
+// can-static-cast-to-same-type-introduce-runtime-overhead
 template <class array_type, class batch_type, class target_type>
-Status FillNumericBatchCast(const DataType* type,
-                            liborc::ColumnVectorBatch* column_vector_batch,
-                            int64_t& arrow_offset, int64_t& orc_offset, int64_t length,
-                            Array* parray, std::vector<bool>* incoming_mask) {
-  auto array = checked_cast<array_type*>(parray);
+Status WriteNumericBatch(const DataType& type,
+                         liborc::ColumnVectorBatch* column_vector_batch,
+                         int64_t* arrow_offset, int64_t* orc_offset,
+                         const int64_t& length, const Array& array,
+                         const std::vector<bool>* incoming_mask) {
+  const array_type& numeric_array(checked_cast<const array_type&>(array));
   auto batch = checked_cast<batch_type*>(column_vector_batch);
-  int64_t arrow_length = array->length();
+  int64_t arrow_length = array.length();
   if (!arrow_length) {
     return Status::OK();
   }
-  if (array->null_count() || incoming_mask) {
+  if (array.null_count() || incoming_mask) {
     batch->hasNulls = true;
   }
-  for (; orc_offset < length && arrow_offset < arrow_length;
-       orc_offset++, arrow_offset++) {
-    if (array->IsNull(arrow_offset) || (incoming_mask && !(*incoming_mask)[orc_offset])) {
-      batch->notNull[orc_offset] = false;
+  for (; *orc_offset < length && *arrow_offset < arrow_length;
+       (*orc_offset)++, (*arrow_offset)++) {
+    if (array.IsNull(*arrow_offset) ||
+        (incoming_mask && !(*incoming_mask)[*orc_offset])) {
+      batch->notNull[*orc_offset] = false;
     } else {
-      batch->data[orc_offset] = static_cast<target_type>(array->Value(arrow_offset));
-      batch->notNull[orc_offset] = true;
+      batch->data[*orc_offset] =
+          static_cast<target_type>(numeric_array.Value(*arrow_offset));
+      batch->notNull[*orc_offset] = true;
     }
   }
-  batch->numElements = orc_offset;
+  batch->numElements = *orc_offset;
   return Status::OK();
 }
 
-Status FillDate64Batch(const DataType* type,
-                       liborc::ColumnVectorBatch* column_vector_batch,
-                       int64_t& arrow_offset, int64_t& orc_offset, int64_t length,
-                       Array* parray, std::vector<bool>* incoming_mask) {
-  auto array = checked_cast<Date64Array*>(parray);
+Status WriteDate64Batch(const DataType& type,
+                        liborc::ColumnVectorBatch* column_vector_batch,
+                        int64_t* arrow_offset, int64_t* orc_offset, const int64_t& length,
+                        const Array& array, const std::vector<bool>* incoming_mask) {
+  const Date64Array& date64_array(checked_cast<const Date64Array&>(array));
   auto batch = checked_cast<liborc::TimestampVectorBatch*>(column_vector_batch);
-  int64_t arrow_length = array->length();
+  int64_t arrow_length = array.length();
   if (!arrow_length) {
     return Status::OK();
   }
-  if (array->null_count() || incoming_mask) {
+  if (array.null_count() || incoming_mask) {
     batch->hasNulls = true;
   }
-  for (; orc_offset < length && arrow_offset < arrow_length;
-       orc_offset++, arrow_offset++) {
-    if (array->IsNull(arrow_offset) || (incoming_mask && !(*incoming_mask)[orc_offset])) {
-      batch->notNull[orc_offset] = false;
+  for (; *orc_offset < length && *arrow_offset < arrow_length;
+       (*orc_offset)++, (*arrow_offset)++) {
+    if (array.IsNull(*arrow_offset) ||
+        (incoming_mask && !(*incoming_mask)[*orc_offset])) {
+      batch->notNull[*orc_offset] = false;
     } else {
-      int64_t miliseconds = array->Value(arrow_offset);
-      batch->data[orc_offset] =
+      int64_t miliseconds = date64_array.Value(*arrow_offset);
+      batch->data[*orc_offset] =
           static_cast<int64_t>(std::floor(miliseconds / kOneSecondMillis));
-      batch->nanoseconds[orc_offset] =
-          (miliseconds - kOneSecondMillis * batch->data[orc_offset]) * kOneMilliNanos;
-      batch->notNull[orc_offset] = true;
+      batch->nanoseconds[*orc_offset] =
+          (miliseconds - kOneSecondMillis * batch->data[*orc_offset]) * kOneMilliNanos;
+      batch->notNull[*orc_offset] = true;
     }
   }
-  batch->numElements = orc_offset;
+  batch->numElements = *orc_offset;
   return Status::OK();
 }
 
-Status FillTimestampBatch(const DataType* type,
-                          liborc::ColumnVectorBatch* column_vector_batch,
-                          int64_t& arrow_offset, int64_t& orc_offset, int64_t length,
-                          Array* parray, std::vector<bool>* incoming_mask) {
-  auto array = checked_cast<TimestampArray*>(parray);
+Status WriteTimestampBatch(const DataType& type,
+                           liborc::ColumnVectorBatch* column_vector_batch,
+                           int64_t* arrow_offset, int64_t* orc_offset,
+                           const int64_t& length, const Array& array,
+                           const std::vector<bool>* incoming_mask) {
+  const TimestampArray& timestamp_array(checked_cast<const TimestampArray&>(array));
   auto batch = checked_cast<liborc::TimestampVectorBatch*>(column_vector_batch);
-  int64_t arrow_length = array->length();
+  int64_t arrow_length = array.length();
   if (!arrow_length) {
     return Status::OK();
   }
-  if (array->null_count() || incoming_mask) {
+  if (array.null_count() || incoming_mask) {
     batch->hasNulls = true;
   }
-  for (; orc_offset < length && arrow_offset < arrow_length;
-       orc_offset++, arrow_offset++) {
-    if (array->IsNull(arrow_offset) || (incoming_mask && !(*incoming_mask)[orc_offset])) {
-      batch->notNull[orc_offset] = false;
+  for (; *orc_offset < length && *arrow_offset < arrow_length;
+       (*orc_offset)++, (*arrow_offset)++) {
+    if (array.IsNull(*arrow_offset) ||
+        (incoming_mask && !(*incoming_mask)[*orc_offset])) {
+      batch->notNull[*orc_offset] = false;
     } else {
-      int64_t data = array->Value(arrow_offset);
-      batch->notNull[orc_offset] = true;
-      switch (std::static_pointer_cast<TimestampType>(array->type())->unit()) {
+      int64_t data = timestamp_array.Value(*arrow_offset);
+      batch->notNull[*orc_offset] = true;
+      switch (
+          internal::checked_pointer_cast<TimestampType>(timestamp_array.type())->unit()) {
         case TimeUnit::type::SECOND: {
-          batch->data[orc_offset] = data;
-          batch->nanoseconds[orc_offset] = 0;
+          batch->data[*orc_offset] = data;
+          batch->nanoseconds[*orc_offset] = 0;
           break;
         }
         case TimeUnit::type::MILLI: {
-          batch->data[orc_offset] =
+          batch->data[*orc_offset] =
               static_cast<int64_t>(std::floor(data / kOneSecondMillis));
-          batch->nanoseconds[orc_offset] =
-              (data - kOneSecondMillis * batch->data[orc_offset]) * kOneMilliNanos;
+          batch->nanoseconds[*orc_offset] =
+              (data - kOneSecondMillis * batch->data[*orc_offset]) * kOneMilliNanos;
           break;
         }
         case TimeUnit::type::MICRO: {
-          batch->data[orc_offset] =
+          batch->data[*orc_offset] =
               static_cast<int64_t>(std::floor(data / kOneSecondMicros));
-          batch->nanoseconds[orc_offset] =
-              (data - kOneSecondMicros * batch->data[orc_offset]) * kOneMicroNanos;
+          batch->nanoseconds[*orc_offset] =
+              (data - kOneSecondMicros * batch->data[*orc_offset]) * kOneMicroNanos;
           break;
         }
         default: {
-          batch->data[orc_offset] =
+          batch->data[*orc_offset] =
               static_cast<int64_t>(std::floor(data / kOneSecondNanos));
-          batch->nanoseconds[orc_offset] =
-              data - kOneSecondNanos * batch->data[orc_offset];
+          batch->nanoseconds[*orc_offset] =
+              data - kOneSecondNanos * batch->data[*orc_offset];
         }
       }
     }
   }
-  batch->numElements = orc_offset;
+  batch->numElements = *orc_offset;
   return Status::OK();
 }
 
 template <class array_type>
-Status FillStringBatch(const DataType* type,
-                       liborc::ColumnVectorBatch* column_vector_batch,
-                       int64_t& arrow_offset, int64_t& orc_offset, int64_t length,
-                       Array* parray, std::vector<bool>* incoming_mask) {
-  auto array = checked_cast<array_type*>(parray);
+Status WriteStringBatch(const DataType& type,
+                        liborc::ColumnVectorBatch* column_vector_batch,
+                        int64_t* arrow_offset, int64_t* orc_offset, const int64_t& length,
+                        const Array& array, const std::vector<bool>* incoming_mask) {
+  const array_type& string_array(checked_cast<const array_type&>(array));
   auto batch = checked_cast<liborc::StringVectorBatch*>(column_vector_batch);
-  int64_t arrow_length = array->length();
+  int64_t arrow_length = array.length();
   if (!arrow_length) {
     return Status::OK();
   }
-  if (array->null_count() || incoming_mask) {
+  if (array.null_count() || incoming_mask) {
     batch->hasNulls = true;
   }
-  for (; orc_offset < length && arrow_offset < arrow_length;
-       orc_offset++, arrow_offset++) {
-    if (array->IsNull(arrow_offset) || (incoming_mask && !(*incoming_mask)[orc_offset])) {
-      batch->notNull[orc_offset] = false;
+  for (; *orc_offset < length && *arrow_offset < arrow_length;
+       (*orc_offset)++, (*arrow_offset)++) {
+    if (array.IsNull(*arrow_offset) ||
+        (incoming_mask && !(*incoming_mask)[*orc_offset])) {
+      batch->notNull[*orc_offset] = false;
     } else {
-      batch->notNull[orc_offset] = true;
-      std::string dataString = array->GetString(arrow_offset);
-      int dataStringLength = dataString.length();
-      if (batch->data[orc_offset]) delete batch->data[orc_offset];
-      batch->data[orc_offset] = new char[dataStringLength + 1];  // Include null
-      memcpy(batch->data[orc_offset], dataString.c_str(), dataStringLength + 1);
-      batch->length[orc_offset] = dataStringLength;
+      batch->notNull[*orc_offset] = true;
+      std::string data_string = string_array.GetString(*arrow_offset);
+      int data_string_length = data_string.length();
+      if (batch->data[*orc_offset]) delete batch->data[*orc_offset];
+      batch->data[*orc_offset] = new char[data_string_length + 1];  // Include null
+      memcpy(batch->data[*orc_offset], data_string.c_str(), data_string_length + 1);
+      batch->length[*orc_offset] = data_string_length;
     }
   }
-  batch->numElements = orc_offset;
+  batch->numElements = *orc_offset;
   return Status::OK();
 }
 
 template <class array_type, class offset_type>
-Status FillBinaryBatch(const DataType* type,
-                       liborc::ColumnVectorBatch* column_vector_batch,
-                       int64_t& arrow_offset, int64_t& orc_offset, int64_t length,
-                       Array* parray, std::vector<bool>* incoming_mask) {
-  auto array = checked_cast<array_type*>(parray);
+Status WriteBinaryBatch(const DataType& type,
+                        liborc::ColumnVectorBatch* column_vector_batch,
+                        int64_t* arrow_offset, int64_t* orc_offset, const int64_t& length,
+                        const Array& array, const std::vector<bool>* incoming_mask) {
+  const array_type& binary_array(checked_cast<const array_type&>(array));
   auto batch = checked_cast<liborc::StringVectorBatch*>(column_vector_batch);
-  int64_t arrow_length = array->length();
+  int64_t arrow_length = array.length();
   if (!arrow_length) {
     return Status::OK();
   }
-  if (array->null_count() || incoming_mask) {
+  if (array.null_count() || incoming_mask) {
     batch->hasNulls = true;
   }
-  for (; orc_offset < length && arrow_offset < arrow_length;
-       orc_offset++, arrow_offset++) {
-    if (array->IsNull(arrow_offset) || (incoming_mask && !(*incoming_mask)[orc_offset])) {
-      batch->notNull[orc_offset] = false;
+  for (; *orc_offset < length && *arrow_offset < arrow_length;
+       (*orc_offset)++, (*arrow_offset)++) {
+    if (array.IsNull(*arrow_offset) ||
+        (incoming_mask && !(*incoming_mask)[*orc_offset])) {
+      batch->notNull[*orc_offset] = false;
     } else {
-      batch->notNull[orc_offset] = true;
-      offset_type dataLength = 0;
-      const uint8_t* data = array->GetValue(arrow_offset, &dataLength);
-      if (batch->data[orc_offset]) delete batch->data[orc_offset];
-      batch->data[orc_offset] = new char[dataLength];  // Do not include null
-      memcpy(batch->data[orc_offset], data, dataLength);
-      batch->length[orc_offset] = dataLength;
+      batch->notNull[*orc_offset] = true;
+      offset_type data_length = 0;
+      const uint8_t* data = binary_array.GetValue(*arrow_offset, &data_length);
+      if (batch->data[*orc_offset]) delete batch->data[*orc_offset];
+      batch->data[*orc_offset] = new char[data_length];  // Do not include null
+      memcpy(batch->data[*orc_offset], data, data_length);
+      batch->length[*orc_offset] = data_length;
     }
   }
-  batch->numElements = orc_offset;
+  batch->numElements = *orc_offset;
   return Status::OK();
 }
 
-Status FillFixedSizeBinaryBatch(const DataType* type,
-                                liborc::ColumnVectorBatch* column_vector_batch,
-                                int64_t& arrow_offset, int64_t& orc_offset,
-                                int64_t length, Array* parray,
-                                std::vector<bool>* incoming_mask) {
-  auto array = checked_cast<FixedSizeBinaryArray*>(parray);
+Status WriteFixedSizeBinaryBatch(const DataType& type,
+                                 liborc::ColumnVectorBatch* column_vector_batch,
+                                 int64_t* arrow_offset, int64_t* orc_offset,
+                                 const int64_t& length, const Array& array,
+                                 const std::vector<bool>* incoming_mask) {
+  const FixedSizeBinaryArray& fixed_size_binary_array(
+      checked_cast<const FixedSizeBinaryArray&>(array));
   auto batch = checked_cast<liborc::StringVectorBatch*>(column_vector_batch);
-  int64_t arrow_length = array->length();
+  int64_t arrow_length = array.length();
   if (!arrow_length) {
     return Status::OK();
   }
-  int32_t byteWidth = array->byte_width();
-  if (array->null_count() || incoming_mask) {
+  const int32_t data_length = fixed_size_binary_array.byte_width();
+  if (array.null_count() || incoming_mask) {
     batch->hasNulls = true;
   }
-  for (; orc_offset < length && arrow_offset < arrow_length;
-       orc_offset++, arrow_offset++) {
-    if (array->IsNull(arrow_offset) || (incoming_mask && !(*incoming_mask)[orc_offset])) {
-      batch->notNull[orc_offset] = false;
+  for (; *orc_offset < length && *arrow_offset < arrow_length;
+       (*orc_offset)++, (*arrow_offset)++) {
+    if (array.IsNull(*arrow_offset) ||
+        (incoming_mask && !(*incoming_mask)[*orc_offset])) {
+      batch->notNull[*orc_offset] = false;
     } else {
-      batch->notNull[orc_offset] = true;
-      const uint8_t* data = array->GetValue(arrow_offset);
-      if (batch->data[orc_offset]) delete batch->data[orc_offset];
-      batch->data[orc_offset] = new char[byteWidth];  // Do not include null
-      memcpy(batch->data[orc_offset], data, byteWidth);
-      batch->length[orc_offset] = byteWidth;
+      batch->notNull[*orc_offset] = true;
+      const uint8_t* data = fixed_size_binary_array.GetValue(*arrow_offset);
+      if (batch->data[*orc_offset]) delete batch->data[*orc_offset];
+      batch->data[*orc_offset] = new char[data_length];  // Do not include null
+      memcpy(batch->data[*orc_offset], data, data_length);
+      batch->length[*orc_offset] = data_length;
     }
   }
-  batch->numElements = orc_offset;
+  batch->numElements = *orc_offset;
   return Status::OK();
 }
 
 // If Arrow supports 256-bit decimals we can not support it unless ORC does it
-Status FillDecimalBatch(const DataType* type,
-                        liborc::ColumnVectorBatch* column_vector_batch,
-                        int64_t& arrow_offset, int64_t& orc_offset, int64_t length,
-                        Array* parray, std::vector<bool>* incoming_mask) {
-  auto array = checked_cast<Decimal128Array*>(parray);
+Status WriteDecimalBatch(const DataType& type,
+                         liborc::ColumnVectorBatch* column_vector_batch,
+                         int64_t* arrow_offset, int64_t* orc_offset,
+                         const int64_t& length, const Array& array,
+                         const std::vector<bool>* incoming_mask) {
+  const Decimal128Array& decimal128_array(checked_cast<const Decimal128Array&>(array));
   auto batch = checked_cast<liborc::Decimal128VectorBatch*>(column_vector_batch);
   // Arrow uses 128 bits for decimal type and in the future, 256 bits will also be
   // supported.
-  int64_t arrow_length = array->length();
+  int64_t arrow_length = array.length();
   if (!arrow_length) {
     return Status::OK();
   }
-  if (array->null_count() || incoming_mask) {
+  if (array.null_count() || incoming_mask) {
     batch->hasNulls = true;
   }
-  for (; orc_offset < length && arrow_offset < arrow_length;
-       orc_offset++, arrow_offset++) {
-    if (array->IsNull(arrow_offset) || (incoming_mask && !(*incoming_mask)[orc_offset])) {
-      batch->notNull[orc_offset] = false;
+  for (; *orc_offset < length && *arrow_offset < arrow_length;
+       (*orc_offset)++, (*arrow_offset)++) {
+    if (array.IsNull(*arrow_offset) ||
+        (incoming_mask && !(*incoming_mask)[*orc_offset])) {
+      batch->notNull[*orc_offset] = false;
     } else {
-      batch->notNull[orc_offset] = true;
-      uint8_t* rawInt128 = const_cast<uint8_t*>(array->GetValue(arrow_offset));
-      uint64_t* lowerBits = reinterpret_cast<uint64_t*>(rawInt128);
-      int64_t* higherBits = reinterpret_cast<int64_t*>(rawInt128 + 8);
-      batch->values[orc_offset] = liborc::Int128(*higherBits, *lowerBits);
+      batch->notNull[*orc_offset] = true;
+      uint8_t* raw_int128 =
+          const_cast<uint8_t*>(decimal128_array.GetValue(*arrow_offset));
+      uint64_t* lower_bits = reinterpret_cast<uint64_t*>(raw_int128);
+      int64_t* higher_bits = reinterpret_cast<int64_t*>(raw_int128 + 8);
+      batch->values[*orc_offset] = liborc::Int128(*higher_bits, *lower_bits);
     }
   }
-  batch->numElements = orc_offset;
+  batch->numElements = *orc_offset;
   return Status::OK();
 }
 
-Status FillStructBatch(const DataType* type,
-                       liborc::ColumnVectorBatch* column_vector_batch,
-                       int64_t& arrow_offset, int64_t& orc_offset, int64_t length,
-                       Array* parray, std::vector<bool>* incoming_mask) {
-  auto array = checked_cast<StructArray*>(parray);
+Status WriteStructBatch(const DataType& type,
+                        liborc::ColumnVectorBatch* column_vector_batch,
+                        int64_t* arrow_offset, int64_t* orc_offset, const int64_t& length,
+                        const Array& array, const std::vector<bool>* incoming_mask) {
+  const StructArray& struct_array(checked_cast<const StructArray&>(array));
   auto batch = checked_cast<liborc::StructVectorBatch*>(column_vector_batch);
-  std::shared_ptr<std::vector<bool>> outgoingMask;
-  std::size_t size = type->fields().size();
-  int64_t arrow_length = array->length();
+  std::shared_ptr<std::vector<bool>> outgoing_mask;
+  std::size_t size = type.fields().size();
+  int64_t arrow_length = array.length();
   if (!arrow_length) {
     return Status::OK();
   }
-  int64_t initorc_offset = orc_offset;
-  int64_t initarrow_offset = arrow_offset;
+  const int64_t init_orc_offset = *orc_offset;
+  const int64_t init_arrow_offset = *arrow_offset;
   // First fill fields of ColumnVectorBatch
-  if (array->null_count() || incoming_mask) {
+  if (array.null_count() || incoming_mask) {
     batch->hasNulls = true;
-    outgoingMask = std::make_shared<std::vector<bool>>(length, true);
+    outgoing_mask = std::make_shared<std::vector<bool>>(length, true);
   } else {
-    outgoingMask = NULLPTR;
+    outgoing_mask = nullptr;
   }
-  for (; orc_offset < length && arrow_offset < arrow_length;
-       orc_offset++, arrow_offset++) {
-    if (array->IsNull(arrow_offset) || (incoming_mask && !(*incoming_mask)[orc_offset])) {
-      batch->notNull[orc_offset] = false;
-      (*outgoingMask)[orc_offset] = false;
+  for (; *orc_offset < length && *arrow_offset < arrow_length;
+       (*orc_offset)++, (*arrow_offset)++) {
+    if (array.IsNull(*arrow_offset) ||
+        (incoming_mask && !(*incoming_mask)[*orc_offset])) {
+      batch->notNull[*orc_offset] = false;
+      (*outgoing_mask)[*orc_offset] = false;
     } else {
-      batch->notNull[orc_offset] = true;
+      batch->notNull[*orc_offset] = true;
     }
   }
-  batch->numElements += orc_offset - initorc_offset;
+  batch->numElements += *orc_offset - init_orc_offset;
   // Fill the fields
   for (std::size_t i = 0; i < size; i++) {
-    orc_offset = initorc_offset;
-    arrow_offset = initarrow_offset;
-    RETURN_NOT_OK(FillBatch(type->field(i)->type().get(), batch->fields[i], arrow_offset,
-                            orc_offset, length, array->field(i).get(),
-                            outgoingMask.get()));
+    *orc_offset = init_orc_offset;
+    *arrow_offset = init_arrow_offset;
+    RETURN_NOT_OK(WriteBatch(*(type.field(i)->type()), batch->fields[i], arrow_offset,
+                             orc_offset, length, *(struct_array.field(i)),
+                             outgoing_mask.get()));
   }
   return Status::OK();
 }
 
 template <class array_type>
-Status FillListBatch(const DataType* type, liborc::ColumnVectorBatch* column_vector_batch,
-                     int64_t& arrow_offset, int64_t& orc_offset, int64_t length,
-                     Array* parray, std::vector<bool>* incoming_mask) {
-  auto array = checked_cast<array_type*>(parray);
+Status WriteListBatch(const DataType& type,
+                      liborc::ColumnVectorBatch* column_vector_batch,
+                      int64_t* arrow_offset, int64_t* orc_offset, const int64_t& length,
+                      const Array& array, const std::vector<bool>* incoming_mask) {
+  const array_type& list_array(checked_cast<const array_type&>(array));
   auto batch = checked_cast<liborc::ListVectorBatch*>(column_vector_batch);
   liborc::ColumnVectorBatch* element_batch = (batch->elements).get();
-  DataType* element_type = array->value_type().get();
-  int64_t arrow_length = array->length();
+  DataType* element_type = list_array.value_type().get();
+  int64_t arrow_length = array.length();
   if (!arrow_length) {
     return Status::OK();
   }
-  if (orc_offset == 0) {
+  if (*orc_offset == 0) {
     batch->offsets[0] = 0;
   }
-  if (array->null_count() || incoming_mask) {
+  if (array.null_count() || incoming_mask) {
     batch->hasNulls = true;
   }
-  for (; orc_offset < length && arrow_offset < arrow_length;
-       orc_offset++, arrow_offset++) {
-    if (array->IsNull(arrow_offset) || (incoming_mask && !(*incoming_mask)[orc_offset])) {
-      batch->notNull[orc_offset] = false;
-      batch->offsets[orc_offset + 1] = batch->offsets[orc_offset];
+  for (; *orc_offset < length && *arrow_offset < arrow_length;
+       (*orc_offset)++, (*arrow_offset)++) {
+    if (array.IsNull(*arrow_offset) ||
+        (incoming_mask && !(*incoming_mask)[*orc_offset])) {
+      batch->notNull[*orc_offset] = false;
+      batch->offsets[*orc_offset + 1] = batch->offsets[*orc_offset];
     } else {
-      batch->notNull[orc_offset] = true;
-      batch->offsets[orc_offset + 1] = batch->offsets[orc_offset] +
-                                       array->value_offset(arrow_offset + 1) -
-                                       array->value_offset(arrow_offset);
-      element_batch->resize(batch->offsets[orc_offset + 1]);
-      int64_t subarray_arrow_offset = array->value_offset(arrow_offset),
-              subarray_orc_offset = batch->offsets[orc_offset],
-              subarray_orc_length = batch->offsets[orc_offset + 1];
-      RETURN_NOT_OK(FillBatch(element_type, element_batch, subarray_arrow_offset,
-                              subarray_orc_offset, subarray_orc_length,
-                              array->values().get(), NULLPTR));
+      batch->notNull[*orc_offset] = true;
+      batch->offsets[*orc_offset + 1] = batch->offsets[*orc_offset] +
+                                        list_array.value_offset(*arrow_offset + 1) -
+                                        list_array.value_offset(*arrow_offset);
+      element_batch->resize(batch->offsets[*orc_offset + 1]);
+      int64_t subarray_arrow_offset = list_array.value_offset(*arrow_offset),
+              subarray_orc_offset = batch->offsets[*orc_offset],
+              subarray_orc_length = batch->offsets[*orc_offset + 1];
+      RETURN_NOT_OK(WriteBatch(*element_type, element_batch, &subarray_arrow_offset,
+                               &subarray_orc_offset, subarray_orc_length,
+                               *(list_array.values()), nullptr));
     }
   }
-  batch->numElements = orc_offset;
+  batch->numElements = *orc_offset;
   return Status::OK();
 }
 
-Status FillFixedSizeListBatch(const DataType* type,
-                              liborc::ColumnVectorBatch* column_vector_batch,
-                              int64_t& arrow_offset, int64_t& orc_offset, int64_t length,
-                              Array* parray, std::vector<bool>* incoming_mask) {
-  auto array = checked_cast<FixedSizeListArray*>(parray);
+Status WriteFixedSizeListBatch(const DataType& type,
+                               liborc::ColumnVectorBatch* column_vector_batch,
+                               int64_t* arrow_offset, int64_t* orc_offset,
+                               const int64_t& length, const Array& array,
+                               const std::vector<bool>* incoming_mask) {
+  const FixedSizeListArray& fixed_size_list_array(
+      checked_cast<const FixedSizeListArray&>(array));
   auto batch = checked_cast<liborc::ListVectorBatch*>(column_vector_batch);
   liborc::ColumnVectorBatch* element_batch = (batch->elements).get();
-  DataType* element_type = array->value_type().get();
-  int64_t arrow_length = array->length();
-  int32_t element_length = array->value_length();  // Fixed length of each subarray
+  DataType* element_type = fixed_size_list_array.value_type().get();
+  int64_t arrow_length = array.length();
+  int32_t element_length =
+      fixed_size_list_array.value_length();  // Fixed length of each subarray
   if (!arrow_length) {
     return Status::OK();
   }
-  if (orc_offset == 0) {
+  if (*orc_offset == 0) {
     batch->offsets[0] = 0;
   }
-  if (array->null_count() || incoming_mask) {
+  if (array.null_count() || incoming_mask) {
     batch->hasNulls = true;
   }
-  for (; orc_offset < length && arrow_offset < arrow_length;
-       orc_offset++, arrow_offset++) {
-    if (array->IsNull(arrow_offset) || (incoming_mask && !(*incoming_mask)[orc_offset])) {
-      batch->notNull[orc_offset] = false;
-      batch->offsets[orc_offset + 1] = batch->offsets[orc_offset];
+  for (; *orc_offset < length && *arrow_offset < arrow_length;
+       (*orc_offset)++, (*arrow_offset)++) {
+    if (array.IsNull(*arrow_offset) ||
+        (incoming_mask && !(*incoming_mask)[*orc_offset])) {
+      batch->notNull[*orc_offset] = false;
+      batch->offsets[*orc_offset + 1] = batch->offsets[*orc_offset];
     } else {
-      batch->notNull[orc_offset] = true;
-      batch->offsets[orc_offset + 1] = batch->offsets[orc_offset] + element_length;
-      int64_t subarray_arrow_offset = array->value_offset(arrow_offset),
-              subarray_orc_offset = batch->offsets[orc_offset],
-              subarray_orc_length = batch->offsets[orc_offset + 1];
+      batch->notNull[*orc_offset] = true;
+      batch->offsets[*orc_offset + 1] = batch->offsets[*orc_offset] + element_length;
+      int64_t subarray_arrow_offset = fixed_size_list_array.value_offset(*arrow_offset),
+              subarray_orc_offset = batch->offsets[*orc_offset],
+              subarray_orc_length = batch->offsets[*orc_offset + 1];
       element_batch->resize(subarray_orc_length);
-      RETURN_NOT_OK(FillBatch(element_type, element_batch, subarray_arrow_offset,
-                              subarray_orc_offset, subarray_orc_length,
-                              array->values().get(), NULLPTR));
+      RETURN_NOT_OK(WriteBatch(*element_type, element_batch, &subarray_arrow_offset,
+                               &subarray_orc_offset, subarray_orc_length,
+                               *(fixed_size_list_array.values()), NULLPTR));
     }
   }
-  batch->numElements = orc_offset;
+  batch->numElements = *orc_offset;
   return Status::OK();
 }
 
-Status FillMapBatch(const DataType* type, liborc::ColumnVectorBatch* column_vector_batch,
-                    int64_t& arrow_offset, int64_t& orc_offset, int64_t length,
-                    Array* parray, std::vector<bool>* incoming_mask) {
-  auto array = checked_cast<MapArray*>(parray);
+Status WriteMapBatch(const DataType& type, liborc::ColumnVectorBatch* column_vector_batch,
+                     int64_t* arrow_offset, int64_t* orc_offset, const int64_t& length,
+                     const Array& array, const std::vector<bool>* incoming_mask) {
+  const MapArray& map_array(checked_cast<const MapArray&>(array));
   auto batch = checked_cast<liborc::MapVectorBatch*>(column_vector_batch);
-  liborc::ColumnVectorBatch* keyBatch = (batch->keys).get();
+  liborc::ColumnVectorBatch* key_batch = (batch->keys).get();
   liborc::ColumnVectorBatch* element_batch = (batch->elements).get();
-  Array* key_array = array->keys().get();
-  Array* element_array = array->items().get();
-  DataType* keyType = key_array->type().get();
-  DataType* element_type = element_array->type().get();
-  int64_t arrow_length = array->length();
+  std::shared_ptr<Array> key_array = map_array.keys();
+  std::shared_ptr<Array> element_array = map_array.items();
+  std::shared_ptr<DataType> key_type = key_array->type();
+  std::shared_ptr<DataType> element_type = element_array->type();
+  int64_t arrow_length = array.length();
   if (!arrow_length) {
     return Status::OK();
   }
-  if (orc_offset == 0) {
+  if (*orc_offset == 0) {
     batch->offsets[0] = 0;
   }
-  if (array->null_count() || incoming_mask) {
+  if (array.null_count() || incoming_mask) {
     batch->hasNulls = true;
   }
-  for (; orc_offset < length && arrow_offset < arrow_length;
-       orc_offset++, arrow_offset++) {
-    if (array->IsNull(arrow_offset) || (incoming_mask && !(*incoming_mask)[orc_offset])) {
-      batch->notNull[orc_offset] = false;
-      batch->offsets[orc_offset + 1] = batch->offsets[orc_offset];
+  for (; *orc_offset < length && *arrow_offset < arrow_length;
+       (*orc_offset)++, (*arrow_offset)++) {
+    if (array.IsNull(*arrow_offset) ||
+        (incoming_mask && !(*incoming_mask)[*orc_offset])) {
+      batch->notNull[*orc_offset] = false;
+      batch->offsets[*orc_offset + 1] = batch->offsets[*orc_offset];
     } else {
-      batch->notNull[orc_offset] = true;
-      batch->offsets[orc_offset + 1] = batch->offsets[orc_offset] +
-                                       array->value_offset(arrow_offset + 1) -
-                                       array->value_offset(arrow_offset);
-      int64_t subarray_arrow_offset = array->value_offset(arrow_offset),
-              subarray_orc_offset = batch->offsets[orc_offset],
-              subarray_orc_length = batch->offsets[orc_offset + 1],
-              initsubarray_arrow_offset = subarray_arrow_offset,
-              initsubarray_orc_offset = subarray_orc_offset;
-      keyBatch->resize(subarray_orc_length);
+      batch->notNull[*orc_offset] = true;
+      batch->offsets[*orc_offset + 1] = batch->offsets[*orc_offset] +
+                                        map_array.value_offset(*arrow_offset + 1) -
+                                        map_array.value_offset(*arrow_offset);
+      int64_t subarray_arrow_offset = map_array.value_offset(*arrow_offset),
+              subarray_orc_offset = batch->offsets[*orc_offset],
+              subarray_orc_length = batch->offsets[*orc_offset + 1],
+              init_subarray_arrow_offset = subarray_arrow_offset,
+              init_subarray_orc_offset = subarray_orc_offset;
+      key_batch->resize(subarray_orc_length);
       element_batch->resize(subarray_orc_length);
-      RETURN_NOT_OK(FillBatch(keyType, keyBatch, subarray_arrow_offset,
-                              subarray_orc_offset, subarray_orc_length, key_array,
-                              NULLPTR));
-      subarray_arrow_offset = initsubarray_arrow_offset;
-      subarray_orc_offset = initsubarray_orc_offset;
-      RETURN_NOT_OK(FillBatch(element_type, element_batch, subarray_arrow_offset,
-                              subarray_orc_offset, subarray_orc_length, element_array,
-                              NULLPTR));
+      RETURN_NOT_OK(WriteBatch(*key_type, key_batch, &subarray_arrow_offset,
+                               &subarray_orc_offset, subarray_orc_length, *key_array,
+                               nullptr));
+      subarray_arrow_offset = init_subarray_arrow_offset;
+      subarray_orc_offset = init_subarray_orc_offset;
+      RETURN_NOT_OK(WriteBatch(*element_type, element_batch, &subarray_arrow_offset,
+                               &subarray_orc_offset, subarray_orc_length, *element_array,
+                               nullptr));
     }
   }
-  batch->numElements = orc_offset;
+  batch->numElements = *orc_offset;
   return Status::OK();
 }
 
-Status FillBatch(const DataType* type, liborc::ColumnVectorBatch* column_vector_batch,
-                 int64_t& arrow_offset, int64_t& orc_offset, int64_t length,
-                 Array* parray, std::vector<bool>* incoming_mask) {
-  Type::type kind = type->id();
+Status WriteBatch(const DataType& type, liborc::ColumnVectorBatch* column_vector_batch,
+                  int64_t* arrow_offset, int64_t* orc_offset, const int64_t& length,
+                  const Array& parray, const std::vector<bool>* incoming_mask) {
+  Type::type kind = type.id();
   switch (kind) {
     case Type::type::BOOL:
-      return FillNumericBatchCast<BooleanArray, liborc::LongVectorBatch, int64_t>(
+      return WriteNumericBatch<BooleanArray, liborc::LongVectorBatch, int64_t>(
           type, column_vector_batch, arrow_offset, orc_offset, length, parray,
           incoming_mask);
     case Type::type::INT8:
-      return FillNumericBatchCast<NumericArray<arrow::Int8Type>, liborc::LongVectorBatch,
-                                  int64_t>(type, column_vector_batch, arrow_offset,
-                                           orc_offset, length, parray, incoming_mask);
+      return WriteNumericBatch<NumericArray<arrow::Int8Type>, liborc::LongVectorBatch,
+                               int64_t>(type, column_vector_batch, arrow_offset,
+                                        orc_offset, length, parray, incoming_mask);
     case Type::type::INT16:
-      return FillNumericBatchCast<NumericArray<arrow::Int16Type>, liborc::LongVectorBatch,
-                                  int64_t>(type, column_vector_batch, arrow_offset,
-                                           orc_offset, length, parray, incoming_mask);
+      return WriteNumericBatch<NumericArray<arrow::Int16Type>, liborc::LongVectorBatch,
+                               int64_t>(type, column_vector_batch, arrow_offset,
+                                        orc_offset, length, parray, incoming_mask);
     case Type::type::INT32:
-      return FillNumericBatchCast<NumericArray<arrow::Int32Type>, liborc::LongVectorBatch,
-                                  int64_t>(type, column_vector_batch, arrow_offset,
-                                           orc_offset, length, parray, incoming_mask);
+      return WriteNumericBatch<NumericArray<arrow::Int32Type>, liborc::LongVectorBatch,
+                               int64_t>(type, column_vector_batch, arrow_offset,
+                                        orc_offset, length, parray, incoming_mask);
     case Type::type::INT64:
-      return FillNumericBatch<NumericArray<arrow::Int64Type>, liborc::LongVectorBatch>(
-          type, column_vector_batch, arrow_offset, orc_offset, length, parray,
-          incoming_mask);
+      return WriteNumericBatch<NumericArray<arrow::Int64Type>, liborc::LongVectorBatch,
+                               int64_t>(type, column_vector_batch, arrow_offset,
+                                        orc_offset, length, parray, incoming_mask);
     case Type::type::FLOAT:
-      return FillNumericBatchCast<NumericArray<arrow::FloatType>,
-                                  liborc::DoubleVectorBatch, double>(
-          type, column_vector_batch, arrow_offset, orc_offset, length, parray,
-          incoming_mask);
+      return WriteNumericBatch<NumericArray<arrow::FloatType>, liborc::DoubleVectorBatch,
+                               double>(type, column_vector_batch, arrow_offset,
+                                       orc_offset, length, parray, incoming_mask);
     case Type::type::DOUBLE:
-      return FillNumericBatch<NumericArray<arrow::DoubleType>, liborc::DoubleVectorBatch>(
-          type, column_vector_batch, arrow_offset, orc_offset, length, parray,
-          incoming_mask);
+      return WriteNumericBatch<NumericArray<arrow::DoubleType>, liborc::DoubleVectorBatch,
+                               double>(type, column_vector_batch, arrow_offset,
+                                       orc_offset, length, parray, incoming_mask);
     case Type::type::BINARY:
-      return FillBinaryBatch<BinaryArray, int32_t>(type, column_vector_batch,
-                                                   arrow_offset, orc_offset, length,
-                                                   parray, incoming_mask);
+      return WriteBinaryBatch<BinaryArray, int32_t>(type, column_vector_batch,
+                                                    arrow_offset, orc_offset, length,
+                                                    parray, incoming_mask);
     case Type::type::LARGE_BINARY:
-      return FillBinaryBatch<LargeBinaryArray, int64_t>(type, column_vector_batch,
-                                                        arrow_offset, orc_offset, length,
-                                                        parray, incoming_mask);
+      return WriteBinaryBatch<LargeBinaryArray, int64_t>(type, column_vector_batch,
+                                                         arrow_offset, orc_offset, length,
+                                                         parray, incoming_mask);
     case Type::type::STRING:
-      return FillStringBatch<StringArray>(type, column_vector_batch, arrow_offset,
-                                          orc_offset, length, parray, incoming_mask);
-    case Type::type::LARGE_STRING:
-      return FillStringBatch<LargeStringArray>(type, column_vector_batch, arrow_offset,
-                                               orc_offset, length, parray, incoming_mask);
-    case Type::type::FIXED_SIZE_BINARY:
-      return FillFixedSizeBinaryBatch(type, column_vector_batch, arrow_offset, orc_offset,
-                                      length, parray, incoming_mask);
-    case Type::type::DATE32:
-      return FillNumericBatchCast<NumericArray<arrow::Date32Type>,
-                                  liborc::LongVectorBatch, int64_t>(
-          type, column_vector_batch, arrow_offset, orc_offset, length, parray,
-          incoming_mask);
-    case Type::type::DATE64:
-      return FillDate64Batch(type, column_vector_batch, arrow_offset, orc_offset, length,
-                             parray, incoming_mask);
-    case Type::type::TIMESTAMP:
-      return FillTimestampBatch(type, column_vector_batch, arrow_offset, orc_offset,
-                                length, parray, incoming_mask);
-    case Type::type::DECIMAL:
-      return FillDecimalBatch(type, column_vector_batch, arrow_offset, orc_offset, length,
-                              parray, incoming_mask);
-    case Type::type::STRUCT:
-      return FillStructBatch(type, column_vector_batch, arrow_offset, orc_offset, length,
-                             parray, incoming_mask);
-    case Type::type::LIST:
-      return FillListBatch<ListArray>(type, column_vector_batch, arrow_offset, orc_offset,
-                                      length, parray, incoming_mask);
-    case Type::type::LARGE_LIST:
-      return FillListBatch<LargeListArray>(type, column_vector_batch, arrow_offset,
+      return WriteStringBatch<StringArray>(type, column_vector_batch, arrow_offset,
                                            orc_offset, length, parray, incoming_mask);
+    case Type::type::LARGE_STRING:
+      return WriteStringBatch<LargeStringArray>(type, column_vector_batch, arrow_offset,
+                                                orc_offset, length, parray,
+                                                incoming_mask);
+    case Type::type::FIXED_SIZE_BINARY:
+      return WriteFixedSizeBinaryBatch(type, column_vector_batch, arrow_offset,
+                                       orc_offset, length, parray, incoming_mask);
+    case Type::type::DATE32:
+      return WriteNumericBatch<NumericArray<arrow::Date32Type>, liborc::LongVectorBatch,
+                               int64_t>(type, column_vector_batch, arrow_offset,
+                                        orc_offset, length, parray, incoming_mask);
+    case Type::type::DATE64:
+      return WriteDate64Batch(type, column_vector_batch, arrow_offset, orc_offset, length,
+                              parray, incoming_mask);
+    case Type::type::TIMESTAMP:
+      return WriteTimestampBatch(type, column_vector_batch, arrow_offset, orc_offset,
+                                 length, parray, incoming_mask);
+    case Type::type::DECIMAL:
+      return WriteDecimalBatch(type, column_vector_batch, arrow_offset, orc_offset,
+                               length, parray, incoming_mask);
+    case Type::type::STRUCT:
+      return WriteStructBatch(type, column_vector_batch, arrow_offset, orc_offset, length,
+                              parray, incoming_mask);
+    case Type::type::LIST:
+      return WriteListBatch<ListArray>(type, column_vector_batch, arrow_offset,
+                                       orc_offset, length, parray, incoming_mask);
+    case Type::type::LARGE_LIST:
+      return WriteListBatch<LargeListArray>(type, column_vector_batch, arrow_offset,
+                                            orc_offset, length, parray, incoming_mask);
     case Type::type::FIXED_SIZE_LIST:
-      return FillFixedSizeListBatch(type, column_vector_batch, arrow_offset, orc_offset,
-                                    length, parray, incoming_mask);
+      return WriteFixedSizeListBatch(type, column_vector_batch, arrow_offset, orc_offset,
+                                     length, parray, incoming_mask);
     case Type::type::MAP:
-      return FillMapBatch(type, column_vector_batch, arrow_offset, orc_offset, length,
-                          parray, incoming_mask);
+      return WriteMapBatch(type, column_vector_batch, arrow_offset, orc_offset, length,
+                           parray, incoming_mask);
     default: {
       return Status::Invalid("Unknown or unsupported Arrow type kind: ", kind);
     }
@@ -864,21 +862,19 @@ Status FillBatch(const DataType* type, liborc::ColumnVectorBatch* column_vector_
   return Status::OK();
 }
 
-Status FillBatch(const DataType* type, liborc::ColumnVectorBatch* column_vector_batch,
-                 int64_t& arrow_index_offset, int& arrow_chunk_offset, int64_t length,
-                 ChunkedArray* chunked_array) {
-  int num_batch = chunked_array->num_chunks();
+Status WriteBatch(const DataType& type, liborc::ColumnVectorBatch* column_vector_batch,
+                  int64_t* arrow_index_offset, int* arrow_chunk_offset, int64_t length,
+                  const ChunkedArray& chunked_array) {
+  int num_batch = chunked_array.num_chunks();
   int64_t orc_offset = 0;
   Status st;
-  while (arrow_chunk_offset < num_batch && orc_offset < length) {
-    st = FillBatch(type, column_vector_batch, arrow_index_offset, orc_offset, length,
-                   chunked_array->chunk(arrow_chunk_offset).get(), NULLPTR);
-    if (!st.ok()) {
-      return st;
-    }
-    if (arrow_chunk_offset < num_batch && orc_offset < length) {
-      arrow_index_offset = 0;
-      arrow_chunk_offset++;
+  while (*arrow_chunk_offset < num_batch && orc_offset < length) {
+    RETURN_NOT_OK(WriteBatch(type, column_vector_batch, arrow_index_offset, &orc_offset,
+                             length, *(chunked_array.chunk(*arrow_chunk_offset)),
+                             nullptr));
+    if (*arrow_chunk_offset < num_batch && orc_offset < length) {
+      *arrow_index_offset = 0;
+      (*arrow_chunk_offset)++;
     }
   }
   return Status::OK();
@@ -956,11 +952,11 @@ Status GetArrowType(const liborc::Type* type, std::shared_ptr<DataType>* out) {
       if (subtype_count != 2) {
         return Status::Invalid("Invalid Orc Map type");
       }
-      std::shared_ptr<DataType> keytype;
+      std::shared_ptr<DataType> key_type;
       std::shared_ptr<DataType> valtype;
-      RETURN_NOT_OK(GetArrowType(type->getSubtype(0), &keytype));
+      RETURN_NOT_OK(GetArrowType(type->getSubtype(0), &key_type));
       RETURN_NOT_OK(GetArrowType(type->getSubtype(1), &valtype));
-      *out = list(struct_({field("key", keytype), field("value", valtype)}));
+      *out = list(struct_({field("key", key_type), field("value", valtype)}));
       break;
     }
     case liborc::STRUCT: {

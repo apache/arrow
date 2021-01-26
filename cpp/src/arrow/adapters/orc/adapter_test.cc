@@ -26,7 +26,9 @@
 #include "arrow/api.h"
 #include "arrow/array.h"
 #include "arrow/io/api.h"
+#include "arrow/io/interfaces.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/random.h"
 #include "arrow/type.h"
 #include "arrow/util/decimal.h"
 
@@ -34,8 +36,9 @@ namespace liborc = orc;
 
 namespace arrow {
 
-constexpr int DEFAULT_SMALL_MEM_STREAM_SIZE = 16384 * 5;  // 80KB
-constexpr int DEFAULT_MEM_STREAM_SIZE = 10 * 1024 * 1024;
+constexpr int kDefaultSmallMemStreamSize = 16384 * 5;  // 80KB
+constexpr int kDefaultMemStreamSize = 10 * 1024 * 1024;
+static constexpr random::SeedType kRandomSeed = 0x0ff1ce;
 
 using ArrayBuilderVector = std::vector<std::shared_ptr<ArrayBuilder>>;
 using ArrayBuilderMatrix = std::vector<ArrayBuilderVector>;
@@ -73,6 +76,11 @@ class MemoryOutputStream : public liborc::OutputStream {
   uint64_t length_, natural_write_size_;
 };
 
+// class ArrowOutputStream : public io::OutputStream {
+//  private:
+//   std::unique_ptr<MemoryOutputStream> mem_stream_;
+// }
+
 class ORCMemWriter {
  public:
   Status Open(const std::shared_ptr<Schema>& schema,
@@ -93,24 +101,23 @@ class ORCMemWriter {
   Status Write(const std::shared_ptr<Table> table) {
     int64_t numRows = table->num_rows();
     int64_t batch_size = 1024;  // Doesn't matter what it is
-    std::vector<int64_t> arrowIndexOffset(num_cols_, 0);
-    std::vector<int> arrowChunkOffset(num_cols_, 0);
+    std::vector<int64_t> arrow_index_offset(num_cols_, 0);
+    std::vector<int> arrow_chunk_offset(num_cols_, 0);
     ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer_->createRowBatch(batch_size);
     liborc::StructVectorBatch* root =
         internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
     std::vector<liborc::ColumnVectorBatch*> fields = root->fields;
     while (numRows > 0) {
       for (int i = 0; i < num_cols_; i++) {
-        ARROW_EXPECT_OK(adapters::orc::FillBatch(
-            schema_->field(i)->type().get(), fields[i], arrowIndexOffset[i],
-            arrowChunkOffset[i], batch_size, table->column(i).get()));
+        ARROW_EXPECT_OK(adapters::orc::WriteBatch(
+            *(schema_->field(i)->type()), fields[i], &(arrow_index_offset[i]),
+            &(arrow_chunk_offset[i]), batch_size, *(table->column(i))));
       }
       root->numElements = fields[0]->numElements;
       writer_->add(*batch);
       batch->clear();
       numRows -= batch_size;
     }
-    // writer_->close();
     return Status::OK();
   }
 
@@ -129,14 +136,14 @@ class ORCMemWriter {
   int num_cols_;
 };
 
-bool TableWriteReadEqual(const std::shared_ptr<Table>& input_table,
-                         const std::shared_ptr<Table>& expected_output_table,
-                         const int maxSize = DEFAULT_SMALL_MEM_STREAM_SIZE) {
+void AssertTableWriteReadEqual(const std::shared_ptr<Table>& input_table,
+                               const std::shared_ptr<Table>& expected_output_table,
+                               const int max_size = kDefaultSmallMemStreamSize) {
   std::unique_ptr<ORCMemWriter> writer =
       std::unique_ptr<ORCMemWriter>(new ORCMemWriter());
   std::unique_ptr<liborc::OutputStream> out_stream =
       std::unique_ptr<liborc::OutputStream>(
-          static_cast<liborc::OutputStream*>(new MemoryOutputStream(maxSize)));
+          static_cast<liborc::OutputStream*>(new MemoryOutputStream(max_size)));
   ARROW_EXPECT_OK(writer->Open(input_table->schema(), out_stream));
   ARROW_EXPECT_OK(writer->Write(input_table));
   ARROW_EXPECT_OK(writer->Close());
@@ -151,7 +158,7 @@ bool TableWriteReadEqual(const std::shared_ptr<Table>& input_table,
       adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool(), &reader));
   std::shared_ptr<Table> actual_output_table;
   ARROW_EXPECT_OK(reader->Read(&actual_output_table));
-  return actual_output_table->Equals(*expected_output_table);
+  AssertTablesEqual(*actual_output_table, *expected_output_table, false, false);
 }
 
 std::unique_ptr<liborc::Writer> CreateWriter(uint64_t stripe_size,
@@ -166,7 +173,7 @@ std::unique_ptr<liborc::Writer> CreateWriter(uint64_t stripe_size,
 }
 
 TEST(TestAdapterRead, readIntAndStringFileMultipleStripes) {
-  MemoryOutputStream mem_stream(DEFAULT_MEM_STREAM_SIZE);
+  MemoryOutputStream mem_stream(kDefaultMemStreamSize);
   ORC_UNIQUE_PTR<liborc::Type> type(
       liborc::Type::buildTypeFromString("struct<col1:int,col2:string>"));
 
@@ -271,7 +278,7 @@ TEST(TestAdapterWriteTrivial, writeZeroRowsNoConversion) {
               field("list", list(int32())),
               field("lsl", list(struct_({field("lsl0", list(int32()))})))}),
       {R"([])"});
-  EXPECT_TRUE(TableWriteReadEqual(table, table, DEFAULT_SMALL_MEM_STREAM_SIZE / 16));
+  AssertTableWriteReadEqual(table, table, kDefaultSmallMemStreamSize / 16);
 }
 TEST(TestAdapterWriteTrivial, writeChunklessNoConversion) {
   std::shared_ptr<Table> table = TableFromJSON(
@@ -285,7 +292,7 @@ TEST(TestAdapterWriteTrivial, writeChunklessNoConversion) {
               field("list", list(int32())),
               field("lsl", list(struct_({field("lsl0", list(int32()))})))}),
       {});
-  EXPECT_TRUE(TableWriteReadEqual(table, table, DEFAULT_SMALL_MEM_STREAM_SIZE / 16));
+  AssertTableWriteReadEqual(table, table, kDefaultSmallMemStreamSize / 16);
 }
 TEST(TestAdapterWriteTrivial, writeZeroRowsWithConversion) {
   std::shared_ptr<Table>
@@ -313,8 +320,8 @@ TEST(TestAdapterWriteTrivial, writeZeroRowsWithConversion) {
                   field("map",
                         list(struct_({field("key", utf8()), field("value", utf8())})))}),
           {R"([])"});
-  EXPECT_TRUE(TableWriteReadEqual(input_table, expected_output_table,
-                                  DEFAULT_SMALL_MEM_STREAM_SIZE / 16));
+  AssertTableWriteReadEqual(input_table, expected_output_table,
+                            kDefaultSmallMemStreamSize / 16);
 }
 TEST(TestAdapterWriteTrivial, writeChunklessWithConversion) {
   std::shared_ptr<Table>
@@ -342,11 +349,49 @@ TEST(TestAdapterWriteTrivial, writeChunklessWithConversion) {
                   field("map",
                         list(struct_({field("key", utf8()), field("value", utf8())})))}),
           {});
-  EXPECT_TRUE(TableWriteReadEqual(input_table, expected_output_table,
-                                  DEFAULT_SMALL_MEM_STREAM_SIZE / 16));
+  AssertTableWriteReadEqual(input_table, expected_output_table,
+                            kDefaultSmallMemStreamSize / 16);
 }
 
 // General
+TEST(TestAdapterWriteGeneral, writeAllNullsNew) {
+  std::vector<std::shared_ptr<Field>> table_fields{
+      field("bool", boolean()),
+      field("int8", int8()),
+      field("int16", int16()),
+      field("int32", int32()),
+      field("int64", int64()),
+      field("decimal128nz", decimal(33, 4)),
+      field("decimal128z", decimal(35, 0)),
+      field("date32", date32()),
+      field("ts3", timestamp(TimeUnit::NANO)),
+      field("string", utf8()),
+      field("binary", binary())};
+  std::shared_ptr<Schema> table_schema = schema(table_fields);
+  arrow::random::RandomArrayGenerator rand(kRandomSeed);
+
+  int64_t numRows = 10000;
+  int64_t numCols = table_fields.size();
+
+  ArrayMatrix arrays(numCols, ArrayVector(5, NULLPTR));
+  for (int i = 0; i < numCols; i++) {
+    for (int j = 0; j < 5; j++) {
+      int row_count = j % 2 ? 0 : numRows / 2;
+      arrays[i][j] = rand.ArrayOf(table_fields[i]->type(), row_count, 1);
+    }
+  }
+
+  ChunkedArrayVector cv;
+  cv.reserve(numCols);
+
+  for (int col = 0; col < numCols; col++) {
+    cv.push_back(std::make_shared<ChunkedArray>(arrays[col]));
+  }
+
+  std::shared_ptr<Table> table = Table::Make(table_schema, cv);
+  AssertTableWriteReadEqual(table, table);
+}
+
 TEST(TestAdapterWriteGeneral, writeAllNulls) {
   std::vector<std::shared_ptr<Field>> table_fields{
       field("bool", boolean()),
@@ -412,7 +457,7 @@ TEST(TestAdapterWriteGeneral, writeAllNulls) {
   }
 
   std::shared_ptr<Table> table = Table::Make(table_schema, cv);
-  EXPECT_TRUE(TableWriteReadEqual(table, table));
+  AssertTableWriteReadEqual(table, table);
 }
 TEST(TestAdapterWriteGeneral, writeNoNulls) {
   std::vector<std::shared_ptr<Field>> table_fields{
@@ -524,7 +569,7 @@ TEST(TestAdapterWriteGeneral, writeNoNulls) {
     cv.push_back(std::make_shared<ChunkedArray>(arrays[col]));
   }
   std::shared_ptr<Table> table = Table::Make(table_schema, cv);
-  EXPECT_TRUE(TableWriteReadEqual(table, table, 2 * DEFAULT_SMALL_MEM_STREAM_SIZE));
+  AssertTableWriteReadEqual(table, table, 2 * kDefaultSmallMemStreamSize);
 }
 TEST(TestAdapterWriteGeneral, writeMixed) {
   std::vector<std::shared_ptr<Field>> table_fields{
@@ -682,7 +727,7 @@ TEST(TestAdapterWriteGeneral, writeMixed) {
     cv.push_back(std::make_shared<ChunkedArray>(arrays[col]));
   }
   std::shared_ptr<Table> table = Table::Make(table_schema, cv);
-  EXPECT_TRUE(TableWriteReadEqual(table, table));
+  AssertTableWriteReadEqual(table, table);
 }
 
 // Float & Double
@@ -727,7 +772,7 @@ TEST(TestAdapterWriteFloat, writeAllNulls) {
       std::unique_ptr<ORCMemWriter>(new ORCMemWriter());
   std::unique_ptr<liborc::OutputStream> out_stream =
       std::unique_ptr<liborc::OutputStream>(static_cast<liborc::OutputStream*>(
-          new MemoryOutputStream(DEFAULT_SMALL_MEM_STREAM_SIZE)));
+          new MemoryOutputStream(kDefaultSmallMemStreamSize)));
   ARROW_EXPECT_OK(writer->Open(table_schema, out_stream));
   ARROW_EXPECT_OK(writer->Write(table));
   ARROW_EXPECT_OK(writer->Close());
@@ -806,7 +851,7 @@ TEST(TestAdapterWriteFloat, writeNoNulls) {
       std::unique_ptr<ORCMemWriter>(new ORCMemWriter());
   std::unique_ptr<liborc::OutputStream> out_stream =
       std::unique_ptr<liborc::OutputStream>(static_cast<liborc::OutputStream*>(
-          new MemoryOutputStream(DEFAULT_SMALL_MEM_STREAM_SIZE)));
+          new MemoryOutputStream(kDefaultSmallMemStreamSize)));
   ARROW_EXPECT_OK(writer->Open(table_schema, out_stream));
   ARROW_EXPECT_OK(writer->Write(table));
   ARROW_EXPECT_OK(writer->Close());
@@ -900,7 +945,7 @@ TEST(TestAdapterWriteFloat, writeMixed) {
       std::unique_ptr<ORCMemWriter>(new ORCMemWriter());
   std::unique_ptr<liborc::OutputStream> out_stream =
       std::unique_ptr<liborc::OutputStream>(static_cast<liborc::OutputStream*>(
-          new MemoryOutputStream(DEFAULT_SMALL_MEM_STREAM_SIZE)));
+          new MemoryOutputStream(kDefaultSmallMemStreamSize)));
   ARROW_EXPECT_OK(writer->Open(table_schema, out_stream));
   ARROW_EXPECT_OK(writer->Write(table));
   ARROW_EXPECT_OK(writer->Close());
@@ -1025,7 +1070,7 @@ TEST(TestAdapterWriteConvert, writeAllNulls) {
 
   std::shared_ptr<Table> input_table = Table::Make(input_schema, cvIn),
                          expected_output_table = Table::Make(output_schema, cvOut);
-  EXPECT_TRUE(TableWriteReadEqual(input_table, expected_output_table));
+  AssertTableWriteReadEqual(input_table, expected_output_table);
 }
 TEST(TestAdapterWriteConvert, writeNoNulls) {
   std::vector<std::shared_ptr<Field>> input_fields{
@@ -1152,7 +1197,7 @@ TEST(TestAdapterWriteConvert, writeNoNulls) {
 
   std::shared_ptr<Table> input_table = Table::Make(input_schema, cvIn),
                          expected_output_table = Table::Make(output_schema, cvOut);
-  EXPECT_TRUE(TableWriteReadEqual(input_table, expected_output_table));
+  AssertTableWriteReadEqual(input_table, expected_output_table);
 }
 TEST(TestAdapterWriteConvert, writeMixed) {
   std::vector<std::shared_ptr<Field>> input_fields{
@@ -1321,7 +1366,7 @@ TEST(TestAdapterWriteConvert, writeMixed) {
 
   std::shared_ptr<Table> input_table = Table::Make(input_schema, cvIn),
                          expected_output_table = Table::Make(output_schema, cvOut);
-  EXPECT_TRUE(TableWriteReadEqual(input_table, expected_output_table));
+  AssertTableWriteReadEqual(input_table, expected_output_table);
 }
 
 // Nested types
@@ -1507,7 +1552,7 @@ TEST(TestAdapterWriteNested, writeMixedListStruct) {
 
   ChunkedArrayVector cv{carray0, carray1};
   std::shared_ptr<Table> table = Table::Make(table_schema, cv);
-  EXPECT_TRUE(TableWriteReadEqual(table, table));
+  AssertTableWriteReadEqual(table, table);
 }
 TEST(TestAdapterWriteNested, writeMixedConvert) {
   std::vector<std::shared_ptr<Field>> input_fields{
@@ -1821,7 +1866,7 @@ TEST(TestAdapterWriteNested, writeMixedConvert) {
 
   std::shared_ptr<Table> input_table = Table::Make(input_schema, cvIn),
                          expected_output_table = Table::Make(output_schema, cvOut);
-  EXPECT_TRUE(TableWriteReadEqual(input_table, expected_output_table));
+  AssertTableWriteReadEqual(input_table, expected_output_table);
 }
 TEST(TestAdapterWriteNested, writeMixedListOfStruct) {
   std::vector<std::shared_ptr<Field>> table_fields{
@@ -1959,7 +2004,7 @@ TEST(TestAdapterWriteNested, writeMixedListOfStruct) {
 
   ChunkedArrayVector cv{carray0};
   std::shared_ptr<Table> table = Table::Make(table_schema, cv);
-  EXPECT_TRUE(TableWriteReadEqual(table, table));
+  AssertTableWriteReadEqual(table, table);
 }
 TEST(TestAdapterWriteNested, writeMixedStructStruct) {
   std::vector<std::shared_ptr<Field>> table_fields{field(
@@ -2155,6 +2200,6 @@ TEST(TestAdapterWriteNested, writeMixedStructStruct) {
   std::shared_ptr<ChunkedArray> carray0 = std::make_shared<ChunkedArray>(av0);
   ChunkedArrayVector cv{carray0};
   std::shared_ptr<Table> table = Table::Make(table_schema, cv);
-  EXPECT_TRUE(TableWriteReadEqual(table, table, 5 * DEFAULT_SMALL_MEM_STREAM_SIZE));
+  AssertTableWriteReadEqual(table, table, 5 * kDefaultSmallMemStreamSize);
 }
 }  // namespace arrow
