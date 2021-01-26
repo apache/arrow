@@ -29,6 +29,7 @@ use crate::{
 };
 
 use super::equal::equal;
+use smallvec::SmallVec;
 
 #[inline]
 pub(crate) fn count_nulls(
@@ -225,11 +226,11 @@ pub struct ArrayData {
     /// The buffers for this array data. Note that depending on the array types, this
     /// could hold different kinds of buffers (e.g., value buffer, value offset buffer)
     /// at different positions.
-    buffers: Vec<Buffer>,
+    buffers: SmallVec<[Buffer; 1]>,
 
     /// The child(ren) of this array. Only non-empty for nested types, currently
     /// `ListArray` and `StructArray`.
-    child_data: Vec<ArrayDataRef>,
+    child_data: SmallVec<[ArrayDataRef; 1]>,
 
     /// The null bitmap. A `None` value for this indicates all values are non-null in
     /// this array.
@@ -258,8 +259,33 @@ impl ArrayData {
             len,
             null_count,
             offset,
-            buffers,
-            child_data,
+            buffers: SmallVec::from_vec(buffers),
+            child_data: SmallVec::from_vec(child_data),
+            null_bitmap,
+        }
+    }
+
+    pub fn new_smallvec(
+        data_type: DataType,
+        len: usize,
+        null_count: Option<usize>,
+        null_bit_buffer: Option<Buffer>,
+        offset: usize,
+        buffer: Buffer,
+        child_data: Option<ArrayDataRef>,
+    ) -> Self {
+        let null_count = match null_count {
+            None => count_nulls(null_bit_buffer.as_ref(), offset, len),
+            Some(null_count) => null_count,
+        };
+        let null_bitmap = null_bit_buffer.map(Bitmap::from);
+        Self {
+            data_type,
+            len,
+            null_count,
+            offset,
+            buffers: SmallVec::from_buf([buffer]),
+            child_data: child_data.map(|cd| SmallVec::from_buf([cd])).unwrap_or_default(),
             null_bitmap,
         }
     }
