@@ -1513,44 +1513,54 @@ impl PhysicalExpr for BinaryExpr {
             right_value.into_array(batch.num_rows()),
         );
 
-        let result: Result<ArrayRef> = match &self.op {
-            Operator::Like => binary_string_array_op!(left, right, like),
-            Operator::NotLike => binary_string_array_op!(left, right, nlike),
-            Operator::Lt => binary_array_op!(left, right, lt),
-            Operator::LtEq => binary_array_op!(left, right, lt_eq),
-            Operator::Gt => binary_array_op!(left, right, gt),
-            Operator::GtEq => binary_array_op!(left, right, gt_eq),
-            Operator::Eq => binary_array_op!(left, right, eq),
-            Operator::NotEq => binary_array_op!(left, right, neq),
-            Operator::Plus => binary_primitive_array_op!(left, right, add),
-            Operator::Minus => binary_primitive_array_op!(left, right, subtract),
-            Operator::Multiply => binary_primitive_array_op!(left, right, multiply),
-            Operator::Divide => binary_primitive_array_op!(left, right, divide),
-            Operator::And => {
-                if left_data_type == DataType::Boolean {
-                    boolean_op!(left, right, and)
-                } else {
-                    return Err(DataFusionError::Internal(format!(
-                        "Cannot evaluate binary expression {:?} with types {:?} and {:?}",
-                        self.op,
-                        left.data_type(),
-                        right.data_type()
-                    )));
+        let result: Result<ArrayRef> = if left
+            .as_ref()
+            .downcast_ref::<NullArray>()
+            .is_some()
+        {
+            Ok(left)
+        } else if right.as_ref().downcast_ref::<NullArray>().is_some() {
+            Ok(right)
+        } else {
+            match &self.op {
+                Operator::Like => binary_string_array_op!(left, right, like),
+                Operator::NotLike => binary_string_array_op!(left, right, nlike),
+                Operator::Lt => binary_array_op!(left, right, lt),
+                Operator::LtEq => binary_array_op!(left, right, lt_eq),
+                Operator::Gt => binary_array_op!(left, right, gt),
+                Operator::GtEq => binary_array_op!(left, right, gt_eq),
+                Operator::Eq => binary_array_op!(left, right, eq),
+                Operator::NotEq => binary_array_op!(left, right, neq),
+                Operator::Plus => binary_primitive_array_op!(left, right, add),
+                Operator::Minus => binary_primitive_array_op!(left, right, subtract),
+                Operator::Multiply => binary_primitive_array_op!(left, right, multiply),
+                Operator::Divide => binary_primitive_array_op!(left, right, divide),
+                Operator::And => {
+                    if left_data_type == DataType::Boolean {
+                        boolean_op!(left, right, and)
+                    } else {
+                        return Err(DataFusionError::Internal(format!(
+                            "Cannot evaluate binary expression {:?} with types {:?} and {:?}",
+                            self.op,
+                            left.data_type(),
+                            right.data_type()
+                        )));
+                    }
                 }
-            }
-            Operator::Or => {
-                if left_data_type == DataType::Boolean {
-                    boolean_op!(left, right, or)
-                } else {
-                    return Err(DataFusionError::Internal(format!(
-                        "Cannot evaluate binary expression {:?} with types {:?} and {:?}",
-                        self.op, left_data_type, right_data_type
-                    )));
+                Operator::Or => {
+                    if left_data_type == DataType::Boolean {
+                        boolean_op!(left, right, or)
+                    } else {
+                        return Err(DataFusionError::Internal(format!(
+                            "Cannot evaluate binary expression {:?} with types {:?} and {:?}",
+                            self.op, left_data_type, right_data_type
+                        )));
+                    }
                 }
+                Operator::Modulus => Err(DataFusionError::NotImplemented(
+                    "Modulus operator is still not supported".to_string(),
+                )),
             }
-            Operator::Modulus => Err(DataFusionError::NotImplemented(
-                "Modulus operator is still not supported".to_string(),
-            )),
         };
         result.map(|a| ColumnarValue::Array(a))
     }
