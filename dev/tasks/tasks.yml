@@ -1580,31 +1580,50 @@ tasks:
     ci: circle
     template: docker-tests/circle.linux.yml
     params:
+      env:
+        UBUNTU: 18.04
       run: "-e ARROW_BUILD_TYPE=release ubuntu-cpp"
 
   test-ubuntu-18.04-cpp-static:
     ci: circle
     template: docker-tests/circle.linux.yml
     params:
+      env:
+        UBUNTU: 18.04
       run: "-e ARROW_BUILD_SHARED=OFF -e ARROW_BUILD_STATIC=ON -e ARROW_TEST_LINKAGE=static ubuntu-cpp"
 
   test-ubuntu-20.04-cpp:
     ci: github
     template: docker-tests/github.linux.yml
     params:
+      env:
+        UBUNTU: 20.04
       run: ubuntu-cpp
 
   test-ubuntu-20.04-cpp-14:
     ci: github
     template: docker-tests/github.linux.yml
     params:
+      env:
+        UBUNTU: 20.04
       run: "-e CMAKE_ARGS=-DCMAKE_CXX_STANDARD=14 ubuntu-cpp"
 
   test-ubuntu-20.04-cpp-17:
     ci: github
     template: docker-tests/github.linux.yml
     params:
+      env:
+        UBUNTU: 20.04
       run: "-e CMAKE_ARGS=-DCMAKE_CXX_STANDARD=17 ubuntu-cpp"
+
+  test-ubuntu-20.04-cpp-thread-sanitizer:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        CLANG_TOOLS: 11
+        UBUNTU: 20.04
+      run: ubuntu-cpp-thread-sanitizer
 
   test-debian-c-glib:
     ci: circle
