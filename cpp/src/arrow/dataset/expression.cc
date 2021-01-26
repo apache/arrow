@@ -681,7 +681,7 @@ Result<Expression> FoldConstants(Expression expr) {
         if (std::all_of(call->arguments.begin(), call->arguments.end(),
                         [](const Expression& argument) { return argument.literal(); })) {
           // all arguments are literal; we can evaluate this subexpression *now*
-          static const Datum ignored_input;
+          static const Datum ignored_input = Datum{};
           ARROW_ASSIGN_OR_RAISE(Datum constant,
                                 ExecuteScalarExpression(expr, ignored_input));
 

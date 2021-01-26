@@ -35,7 +35,7 @@ mod tests {
     use super::*;
     use crate::array::*;
     use crate::buffer::Buffer;
-    use crate::datatypes::{DataType, Field, ToByteSlice};
+    use crate::datatypes::{DataType, Field};
     use crate::util::bit_util;
 
     use std::sync::Arc;
@@ -91,15 +91,12 @@ mod tests {
         // Construct a value array
         let value_data = ArrayData::builder(DataType::Int32)
             .len(10)
-            .add_buffer(Buffer::from(
-                &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].to_byte_slice(),
-            ))
+            .add_buffer(Buffer::from_slice_ref(&[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]))
             .build();
 
         // Construct a buffer for value offsets, for the nested array:
         //  [[0, 1], null, [2, 3], null, [4, 5], null, [6, 7, 8], null, [9]]
-        let value_offsets =
-            Buffer::from(&[0, 2, 2, 4, 4, 6, 6, 9, 9, 10].to_byte_slice());
+        let value_offsets = Buffer::from_slice_ref(&[0, 2, 2, 4, 4, 6, 6, 9, 9, 10]);
         // 01010101 00000001
         let mut null_bits: [u8; 2] = [0; 2];
         bit_util::set_bit(&mut null_bits, 0);
@@ -149,7 +146,7 @@ mod tests {
             .build();
         let int_data = ArrayData::builder(DataType::Int32)
             .len(5)
-            .add_buffer(Buffer::from([0, 28, 42, 0, 0].to_byte_slice()))
+            .add_buffer(Buffer::from_slice_ref(&[0, 28, 42, 0, 0]))
             .null_bit_buffer(Buffer::from([0b00000110]))
             .build();
 

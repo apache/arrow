@@ -21,13 +21,11 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 # Change to the toplevel Rust directory
 pushd $DIR/../../
 
-# As of 2020-12-06, the snapshot flatc version is not changed since "1.12.0",
-# so let's build flatc from source.
-
 echo "Build flatc from source ..."
 
 FB_URL="https://github.com/google/flatbuffers"
-FB_COMMIT="05192553f434d10c5f585aeb6a07a55a6ac702a5"
+# https://github.com/google/flatbuffers/pull/6393
+FB_COMMIT="408cf5802415e1dea65fef7489a6c2f3740fb381"
 FB_DIR="rust/arrow/.flatbuffers"
 FLATC="$FB_DIR/bazel-bin/flatc"
 

@@ -63,5 +63,10 @@ Result<Datum> Variance(const Datum& value, const VarianceOptions& options,
   return CallFunction("variance", {value}, &options, ctx);
 }
 
+Result<Datum> Quantile(const Datum& value, const QuantileOptions& options,
+                       ExecContext* ctx) {
+  return CallFunction("quantile", {value}, &options, ctx);
+}
+
 }  // namespace compute
 }  // namespace arrow

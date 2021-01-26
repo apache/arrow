@@ -412,5 +412,63 @@ TEST(UTF8DecodeReverse, Basics) {
   CheckInvalid("\xF0\x80\x80");
 }
 
+TEST(UTF8FindIf, Basics) {
+  auto CheckOk = [](const std::string& s, unsigned char test, int64_t offset_left,
+                    int64_t offset_right) -> void {
+    const uint8_t* begin = reinterpret_cast<const uint8_t*>(s.c_str());
+    const uint8_t* end = begin + s.length();
+    std::reverse_iterator<const uint8_t*> rbegin(end);
+    std::reverse_iterator<const uint8_t*> rend(begin);
+    const uint8_t* left;
+    const uint8_t* right;
+    auto predicate = [&](uint32_t c) { return c == test; };
+    EXPECT_TRUE(UTF8FindIf(begin, end, predicate, &left));
+    EXPECT_TRUE(UTF8FindIfReverse(begin, end, predicate, &right));
+    EXPECT_EQ(offset_left, left - begin);
+    EXPECT_EQ(offset_right, right - begin);
+    EXPECT_EQ(std::find_if(begin, end, predicate) - begin, left - begin);
+    EXPECT_EQ(std::find_if(rbegin, rend, predicate).base() - begin, right - begin);
+  };
+  auto CheckOkUTF8 = [](const std::string& s, uint32_t test, int64_t offset_left,
+                        int64_t offset_right) -> void {
+    const uint8_t* begin = reinterpret_cast<const uint8_t*>(s.c_str());
+    const uint8_t* end = begin + s.length();
+    std::reverse_iterator<const uint8_t*> rbegin(end);
+    std::reverse_iterator<const uint8_t*> rend(begin);
+    const uint8_t* left;
+    const uint8_t* right;
+    auto predicate = [&](uint32_t c) { return c == test; };
+    EXPECT_TRUE(UTF8FindIf(begin, end, predicate, &left));
+    EXPECT_TRUE(UTF8FindIfReverse(begin, end, predicate, &right));
+    EXPECT_EQ(offset_left, left - begin);
+    EXPECT_EQ(offset_right, right - begin);
+    // we cannot check the unicode version with find_if semantics, because it's byte based
+    // EXPECT_EQ(std::find_if(begin, end, predicate) - begin, left - begin);
+    // EXPECT_EQ(std::find_if(rbegin, rend, predicate).base() - begin, right - begin);
+  };
+
+  CheckOk("aaaba", 'a', 0, 5);
+  CheckOkUTF8("aaaβa", 'a', 0, 6);
+
+  CheckOk("aaaba", 'b', 3, 4);
+  CheckOkUTF8("aaaβa", U'β', 3, 5);
+
+  CheckOk("aaababa", 'b', 3, 6);
+  CheckOkUTF8("aaaβaβa", U'β', 3, 8);
+
+  CheckOk("aaababa", 'c', 7, 0);
+  CheckOk("aaaβaβa", 'c', 9, 0);
+  CheckOkUTF8("aaaβaβa", U'ɑ', 9, 0);
+
+  CheckOk("a", 'a', 0, 1);
+  CheckOkUTF8("ɑ", U'ɑ', 0, 2);
+
+  CheckOk("a", 'b', 1, 0);
+  CheckOkUTF8("ɑ", 'b', 2, 0);
+
+  CheckOk("", 'b', 0, 0);
+  CheckOkUTF8("", U'β', 0, 0);
+}
+
 }  // namespace util
 }  // namespace arrow

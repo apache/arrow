@@ -30,9 +30,12 @@ use crate::error::{DataFusionError, Result};
 use crate::physical_plan::{Accumulator, AggregateExpr};
 use crate::physical_plan::{Distribution, ExecutionPlan, Partitioning, PhysicalExpr};
 
-use arrow::datatypes::{DataType, Field, Schema, SchemaRef, TimeUnit};
 use arrow::error::{ArrowError, Result as ArrowResult};
 use arrow::record_batch::RecordBatch;
+use arrow::{
+    array::BooleanArray,
+    datatypes::{DataType, Field, Schema, SchemaRef, TimeUnit},
+};
 use arrow::{
     array::{
         ArrayRef, Float32Array, Float64Array, Int16Array, Int32Array, Int64Array,
@@ -43,8 +46,8 @@ use arrow::{
 use pin_project_lite::pin_project;
 
 use super::{
-    common, expressions::Column, group_scalar::GroupByScalar, hash_join::create_key,
-    RecordBatchStream, SendableRecordBatchStream,
+    expressions::Column, group_scalar::GroupByScalar, RecordBatchStream,
+    SendableRecordBatchStream,
 };
 use ahash::RandomState;
 use hashbrown::HashMap;
@@ -288,6 +291,9 @@ fn group_aggregate_batch(
     // Make sure we can create the accumulators or otherwise return an error
     create_accumulators(aggr_expr).map_err(DataFusionError::into_arrow_external_error)?;
 
+    // Keys received in this batch
+    let mut batch_keys = vec![];
+
     for row in 0..batch.num_rows() {
         // 1.1
         create_key(&group_values, row, &mut key)
@@ -297,11 +303,17 @@ fn group_aggregate_batch(
             .raw_entry_mut()
             .from_key(&key)
             // 1.3
-            .and_modify(|_, (_, _, v)| v.push(row as u32))
+            .and_modify(|_, (_, _, v)| {
+                if v.is_empty() {
+                    batch_keys.push(key.clone())
+                };
+                v.push(row as u32)
+            })
             // 1.2
             .or_insert_with(|| {
                 // We can safely unwrap here as we checked we can create an accumulator before
                 let accumulator_set = create_accumulators(aggr_expr).unwrap();
+                batch_keys.push(key.clone());
                 let _ = create_group_by_values(&group_values, row, &mut group_by_values);
                 (
                     key.clone(),
@@ -310,49 +322,136 @@ fn group_aggregate_batch(
             });
     }
 
-    // 2.1 for each key
+    // 2.1 for each key in this batch
     // 2.2 for each aggregation
     // 2.3 `take` from each of its arrays the keys' values
     // 2.4 update / merge the accumulator with the values
     // 2.5 clear indices
-    accumulators
-        .iter_mut()
-        .try_for_each(|(_, (_, accumulator_set, indices))| {
-            // 2.2
-            accumulator_set
-                .iter_mut()
-                .zip(&aggr_input_values)
-                .map(|(accumulator, aggr_array)| {
-                    (
-                        accumulator,
-                        aggr_array
-                            .iter()
-                            .map(|array| {
-                                // 2.3
-                                compute::take(
-                                    array.as_ref(),
-                                    &UInt32Array::from(indices.clone()),
-                                    None, // None: no index check
-                                )
-                                .unwrap()
-                            })
-                            .collect::<Vec<ArrayRef>>(),
-                    )
-                })
-                .try_for_each(|(accumulator, values)| match mode {
-                    AggregateMode::Partial => accumulator.update_batch(&values),
-                    AggregateMode::Final => {
-                        // note: the aggregation here is over states, not values, thus the merge
-                        accumulator.merge_batch(&values)
-                    }
-                })
-                // 2.5
-                .and({
-                    indices.clear();
-                    Ok(())
-                })
-        })?;
+    batch_keys.iter_mut().try_for_each(|key| {
+        let (_, accumulator_set, indices) = accumulators.get_mut(key).unwrap();
+        let primitive_indices = UInt32Array::from(indices.clone());
+        // 2.2
+        accumulator_set
+            .iter_mut()
+            .zip(&aggr_input_values)
+            .map(|(accumulator, aggr_array)| {
+                (
+                    accumulator,
+                    aggr_array
+                        .iter()
+                        .map(|array| {
+                            // 2.3
+                            compute::take(
+                                array.as_ref(),
+                                &primitive_indices,
+                                None, // None: no index check
+                            )
+                            .unwrap()
+                        })
+                        .collect::<Vec<ArrayRef>>(),
+                )
+            })
+            .try_for_each(|(accumulator, values)| match mode {
+                AggregateMode::Partial => accumulator.update_batch(&values),
+                AggregateMode::Final => {
+                    // note: the aggregation here is over states, not values, thus the merge
+                    accumulator.merge_batch(&values)
+                }
+            })
+            // 2.5
+            .and({
+                indices.clear();
+                Ok(())
+            })
+    })?;
     Ok(accumulators)
+}
+
+/// Create a key `Vec<u8>` that is used as key for the hashmap
+pub(crate) fn create_key(
+    group_by_keys: &[ArrayRef],
+    row: usize,
+    vec: &mut Vec<u8>,
+) -> Result<()> {
+    vec.clear();
+    for col in group_by_keys {
+        match col.data_type() {
+            DataType::Boolean => {
+                let array = col.as_any().downcast_ref::<BooleanArray>().unwrap();
+                vec.extend_from_slice(&[array.value(row) as u8]);
+            }
+            DataType::Float32 => {
+                let array = col.as_any().downcast_ref::<Float32Array>().unwrap();
+                vec.extend_from_slice(&array.value(row).to_le_bytes());
+            }
+            DataType::Float64 => {
+                let array = col.as_any().downcast_ref::<Float64Array>().unwrap();
+                vec.extend_from_slice(&array.value(row).to_le_bytes());
+            }
+            DataType::UInt8 => {
+                let array = col.as_any().downcast_ref::<UInt8Array>().unwrap();
+                vec.extend_from_slice(&array.value(row).to_le_bytes());
+            }
+            DataType::UInt16 => {
+                let array = col.as_any().downcast_ref::<UInt16Array>().unwrap();
+                vec.extend_from_slice(&array.value(row).to_le_bytes());
+            }
+            DataType::UInt32 => {
+                let array = col.as_any().downcast_ref::<UInt32Array>().unwrap();
+                vec.extend_from_slice(&array.value(row).to_le_bytes());
+            }
+            DataType::UInt64 => {
+                let array = col.as_any().downcast_ref::<UInt64Array>().unwrap();
+                vec.extend_from_slice(&array.value(row).to_le_bytes());
+            }
+            DataType::Int8 => {
+                let array = col.as_any().downcast_ref::<Int8Array>().unwrap();
+                vec.extend_from_slice(&array.value(row).to_le_bytes());
+            }
+            DataType::Int16 => {
+                let array = col.as_any().downcast_ref::<Int16Array>().unwrap();
+                vec.extend(array.value(row).to_le_bytes().iter());
+            }
+            DataType::Int32 => {
+                let array = col.as_any().downcast_ref::<Int32Array>().unwrap();
+                vec.extend_from_slice(&array.value(row).to_le_bytes());
+            }
+            DataType::Int64 => {
+                let array = col.as_any().downcast_ref::<Int64Array>().unwrap();
+                vec.extend_from_slice(&array.value(row).to_le_bytes());
+            }
+            DataType::Timestamp(TimeUnit::Microsecond, None) => {
+                let array = col
+                    .as_any()
+                    .downcast_ref::<TimestampMicrosecondArray>()
+                    .unwrap();
+                vec.extend_from_slice(&array.value(row).to_le_bytes());
+            }
+            DataType::Timestamp(TimeUnit::Nanosecond, None) => {
+                let array = col
+                    .as_any()
+                    .downcast_ref::<TimestampNanosecondArray>()
+                    .unwrap();
+                vec.extend_from_slice(&array.value(row).to_le_bytes());
+            }
+            DataType::Utf8 => {
+                let array = col.as_any().downcast_ref::<StringArray>().unwrap();
+                let value = array.value(row);
+                // store the size
+                vec.extend_from_slice(&value.len().to_le_bytes());
+                // store the string value
+                vec.extend_from_slice(value.as_bytes());
+            }
+            _ => {
+                // This is internal because we should have caught this before.
+                return Err(DataFusionError::Internal(format!(
+                    "Unsupported GROUP BY for {}",
+                    col.data_type(),
+                )));
+            }
+        }
+    }
+    Ok(())
 }
 
 async fn compute_grouped_hash_aggregate(
@@ -707,6 +806,7 @@ fn create_batch_from_map(
                     GroupByScalar::Utf8(str) => {
                         Arc::new(StringArray::from(vec![&***str]))
                     }
+                    GroupByScalar::Boolean(b) => Arc::new(BooleanArray::from(vec![*b])),
                     GroupByScalar::TimeMicrosecond(n) => {
                         Arc::new(TimestampMicrosecondArray::from(vec![*n]))
                     }
@@ -732,7 +832,7 @@ fn create_batch_from_map(
         let columns = concatenate(arrays)?;
         RecordBatch::try_new(Arc::new(output_schema.to_owned()), columns)?
     } else {
-        common::create_batch_empty(output_schema)?
+        RecordBatch::new_empty(Arc::new(output_schema.to_owned()))
     };
     Ok(batch)
 }
@@ -829,6 +929,10 @@ pub(crate) fn create_group_by_values(
                 let array = col.as_any().downcast_ref::<StringArray>().unwrap();
                 vec[i] = GroupByScalar::Utf8(Box::new(array.value(row).into()))
             }
+            DataType::Boolean => {
+                let array = col.as_any().downcast_ref::<BooleanArray>().unwrap();
+                vec[i] = GroupByScalar::Boolean(array.value(row))
+            }
             DataType::Timestamp(TimeUnit::Microsecond, None) => {
                 let array = col
                     .as_any()
@@ -861,8 +965,8 @@ mod tests {
     use arrow::array::Float64Array;
 
     use super::*;
-    use crate::physical_plan::common;
     use crate::physical_plan::expressions::{col, Avg};
+    use crate::{assert_batches_sorted_eq, physical_plan::common};
 
     use crate::physical_plan::merge::MergeExec;
 
@@ -918,9 +1022,16 @@ mod tests {
 
         let result = common::collect(partial_aggregate.execute(0).await?).await?;
 
-        let mut rows = crate::test::format_batch(&result[0]);
-        rows.sort();
-        assert_eq!(rows, vec!["2,2,2.0", "3,3,7.0", "4,3,11.0"]);
+        let expected = vec![
+            "+---+---------------+-------------+",
+            "| a | AVG(b)[count] | AVG(b)[sum] |",
+            "+---+---------------+-------------+",
+            "| 2 | 2             | 2           |",
+            "| 3 | 3             | 7           |",
+            "| 4 | 3             | 11          |",
+            "+---+---------------+-------------+",
+        ];
+        assert_batches_sorted_eq!(expected, &result);
 
         let merge = Arc::new(MergeExec::new(partial_aggregate));
 
@@ -945,17 +1056,17 @@ mod tests {
         assert_eq!(batch.num_columns(), 2);
         assert_eq!(batch.num_rows(), 3);
 
-        let mut rows = crate::test::format_batch(&batch);
-        rows.sort();
+        let expected = vec![
+            "+---+--------------------+",
+            "| a | AVG(b)             |",
+            "+---+--------------------+",
+            "| 2 | 1                  |",
+            "| 3 | 2.3333333333333335 |", // 3, (2 + 3 + 2) / 3
+            "| 4 | 3.6666666666666665 |", // 4, (3 + 4 + 4) / 3
+            "+---+--------------------+",
+        ];
 
-        assert_eq!(
-            rows,
-            vec![
-                "2,1.0",
-                "3,2.3333333333333335", // 3, (2 + 3 + 2) / 3
-                "4,3.6666666666666665"  // 4, (3 + 4 + 4) / 3
-            ]
-        );
+        assert_batches_sorted_eq!(&expected, &result);
         Ok(())
     }
 

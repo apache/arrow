@@ -1,3 +1,9 @@
+apache-arrow-archive-keyring (3.0.0-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Krisztián Szűcs <szucs.krisztian@gmail.com>  Mon, 18 Jan 2021 21:33:18 -0000
+
 apache-arrow-archive-keyring (2.0.0-1) unstable; urgency=low
 
   * New upstream release.

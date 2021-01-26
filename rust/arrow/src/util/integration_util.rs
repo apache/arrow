@@ -220,8 +220,10 @@ impl ArrowJsonBatch {
                 let json_array: Vec<Value> = json_from_col(&col, field.data_type());
                 match field.data_type() {
                     DataType::Null => {
-                        let arr = arr.as_any().downcast_ref::<NullArray>().unwrap();
-                        arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
+                        let arr: &NullArray =
+                            arr.as_any().downcast_ref::<NullArray>().unwrap();
+                        // NullArrays should have the same length, json_array is empty
+                        arr.len() == col.count
                     }
                     DataType::Boolean => {
                         let arr = arr.as_any().downcast_ref::<BooleanArray>().unwrap();
@@ -449,12 +451,10 @@ impl ArrowJsonBatch {
                     for i in 0..col.len() {
                         if col.is_null(i) {
                             validity.push(1);
-                            data.push(
-                                Int8Type::default_value().into_json_value().unwrap(),
-                            );
+                            data.push(0i8.into());
                         } else {
                             validity.push(0);
-                            data.push(col.value(i).into_json_value().unwrap());
+                            data.push(col.value(i).into());
                         }
                     }
 
@@ -521,6 +521,7 @@ fn json_from_col(col: &ArrowJsonColumn, data_type: &DataType) -> Vec<Value> {
                 converted_col.as_slice(),
             )
         }
+        DataType::Null => vec![],
         _ => merge_json_array(
             col.validity.as_ref().unwrap().as_slice(),
             &col.data.clone().unwrap(),
@@ -885,7 +886,7 @@ mod tests {
         let utf8s = StringArray::from(vec![Some("aa"), None, Some("bbb")]);
 
         let value_data = Int32Array::from(vec![None, Some(2), None, None]);
-        let value_offsets = Buffer::from(&[0, 3, 4, 4].to_byte_slice());
+        let value_offsets = Buffer::from_slice_ref(&[0, 3, 4, 4]);
         let list_data_type =
             DataType::List(Box::new(Field::new("item", DataType::Int32, true)));
         let list_data = ArrayData::builder(list_data_type)

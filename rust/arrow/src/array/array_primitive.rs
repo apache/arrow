@@ -94,6 +94,21 @@ impl<T: ArrowPrimitiveType> PrimitiveArray<T> {
         let offset = i + self.offset();
         unsafe { *self.raw_values.as_ptr().add(offset) }
     }
+
+    /// Creates a PrimitiveArray based on an iterator of values without nulls
+    pub fn from_iter_values<I: IntoIterator<Item = T::Native>>(iter: I) -> Self {
+        let val_buf: Buffer = iter.into_iter().collect();
+        let data = ArrayData::new(
+            T::DATA_TYPE,
+            val_buf.len() / mem::size_of::<<T as ArrowPrimitiveType>::Native>(),
+            None,
+            None,
+            0,
+            vec![val_buf],
+            vec![],
+        );
+        PrimitiveArray::from(Arc::new(data))
+    }
 }
 
 impl<T: ArrowPrimitiveType> Array for PrimitiveArray<T> {
@@ -295,20 +310,21 @@ impl<T: ArrowPrimitiveType, Ptr: Borrow<Option<<T as ArrowPrimitiveType>::Native
         let data_len = data_len.expect("Iterator must be sized"); // panic if no upper bound.
 
         let num_bytes = bit_util::ceil(data_len, 8);
-        let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
+        let mut null_buf = MutableBuffer::from_len_zeroed(num_bytes);
         let mut val_buf = MutableBuffer::new(
             data_len * mem::size_of::<<T as ArrowPrimitiveType>::Native>(),
         );
-
-        let null = vec![0; mem::size_of::<<T as ArrowPrimitiveType>::Native>()];
 
         let null_slice = null_buf.as_slice_mut();
         iter.enumerate().for_each(|(i, item)| {
             if let Some(a) = item.borrow() {
                 bit_util::set_bit(null_slice, i);
-                val_buf.extend_from_slice(a.to_byte_slice());
+                val_buf.push(*a);
             } else {
-                val_buf.extend_from_slice(&null);
+                // this ensures that null items on the buffer are not arbitrary.
+                // This is important because falible operations can use null values (e.g. a vectorized "add")
+                // which may panic (e.g. overflow if the number on the slots happen to be very large).
+                val_buf.push(T::Native::default());
             }
         });
 
@@ -334,7 +350,7 @@ macro_rules! def_numeric_from_vec {
             fn from(data: Vec<<$ty as ArrowPrimitiveType>::Native>) -> Self {
                 let array_data = ArrayData::builder($ty::DATA_TYPE)
                     .len(data.len())
-                    .add_buffer(Buffer::from(data.to_byte_slice()))
+                    .add_buffer(Buffer::from_slice_ref(&data))
                     .build();
                 PrimitiveArray::from(array_data)
             }
@@ -383,7 +399,7 @@ impl<T: ArrowTimestampType> PrimitiveArray<T> {
         let array_data =
             ArrayData::builder(DataType::Timestamp(T::get_time_unit(), timezone))
                 .len(data.len())
-                .add_buffer(Buffer::from(data.to_byte_slice()))
+                .add_buffer(Buffer::from_slice_ref(&data))
                 .build();
         PrimitiveArray::from(array_data)
     }
@@ -398,14 +414,13 @@ impl<T: ArrowTimestampType> PrimitiveArray<T> {
         let mut val_buf = MutableBuffer::new(data_len * mem::size_of::<i64>());
 
         {
-            let null = vec![0; mem::size_of::<i64>()];
             let null_slice = null_buf.as_slice_mut();
             for (i, v) in data.iter().enumerate() {
                 if let Some(n) = v {
                     bit_util::set_bit(null_slice, i);
-                    val_buf.extend_from_slice(&n.to_byte_slice());
+                    val_buf.push(*n);
                 } else {
-                    val_buf.extend_from_slice(&null);
+                    val_buf.push(0i64);
                 }
             }
         }
@@ -448,7 +463,7 @@ mod tests {
 
     #[test]
     fn test_primitive_array_from_vec() {
-        let buf = Buffer::from(&[0, 1, 2, 3, 4].to_byte_slice());
+        let buf = Buffer::from_slice_ref(&[0, 1, 2, 3, 4]);
         let arr = Int32Array::from(vec![0, 1, 2, 3, 4]);
         let slice = arr.values();
         assert_eq!(buf, arr.data.buffers()[0]);
@@ -804,7 +819,7 @@ mod tests {
     #[test]
     fn test_primitive_array_builder() {
         // Test building a primitive array with ArrayData builder and offset
-        let buf = Buffer::from(&[0, 1, 2, 3, 4].to_byte_slice());
+        let buf = Buffer::from_slice_ref(&[0, 1, 2, 3, 4]);
         let buf2 = buf.clone();
         let data = ArrayData::builder(DataType::Int32)
             .len(5)
@@ -817,6 +832,18 @@ mod tests {
         assert_eq!(0, arr.null_count());
         for i in 0..3 {
             assert_eq!((i + 2) as i32, arr.value(i));
+        }
+    }
+
+    #[test]
+    fn test_primitive_from_iter_values() {
+        // Test building a primitive array with from_iter_values
+
+        let arr: PrimitiveArray<Int32Type> = PrimitiveArray::from_iter_values(0..10);
+        assert_eq!(10, arr.len());
+        assert_eq!(0, arr.null_count());
+        for i in 0..10i32 {
+            assert_eq!(i, arr.value(i as usize));
         }
     }
 

@@ -37,6 +37,7 @@ pub(crate) enum GroupByScalar {
     Int32(i32),
     Int64(i64),
     Utf8(Box<String>),
+    Boolean(bool),
     TimeMicrosecond(i64),
     TimeNanosecond(i64),
 }
@@ -52,6 +53,7 @@ impl TryFrom<&ScalarValue> for GroupByScalar {
             ScalarValue::Float64(Some(v)) => {
                 GroupByScalar::Float64(OrderedFloat::from(*v))
             }
+            ScalarValue::Boolean(Some(v)) => GroupByScalar::Boolean(*v),
             ScalarValue::Int8(Some(v)) => GroupByScalar::Int8(*v),
             ScalarValue::Int16(Some(v)) => GroupByScalar::Int16(*v),
             ScalarValue::Int32(Some(v)) => GroupByScalar::Int32(*v),
@@ -63,6 +65,7 @@ impl TryFrom<&ScalarValue> for GroupByScalar {
             ScalarValue::Utf8(Some(v)) => GroupByScalar::Utf8(Box::new(v.clone())),
             ScalarValue::Float32(None)
             | ScalarValue::Float64(None)
+            | ScalarValue::Boolean(None)
             | ScalarValue::Int8(None)
             | ScalarValue::Int16(None)
             | ScalarValue::Int32(None)
@@ -92,6 +95,7 @@ impl From<&GroupByScalar> for ScalarValue {
         match group_by_scalar {
             GroupByScalar::Float32(v) => ScalarValue::Float32(Some((*v).into())),
             GroupByScalar::Float64(v) => ScalarValue::Float64(Some((*v).into())),
+            GroupByScalar::Boolean(v) => ScalarValue::Boolean(Some(*v)),
             GroupByScalar::Int8(v) => ScalarValue::Int8(Some(*v)),
             GroupByScalar::Int16(v) => ScalarValue::Int16(Some(*v)),
             GroupByScalar::Int32(v) => ScalarValue::Int32(Some(*v)),

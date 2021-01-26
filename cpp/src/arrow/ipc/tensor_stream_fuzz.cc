@@ -15,26 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use std::mem::size_of;
+#include <memory>
 
-use crate::{array::ArrayData, datatypes::ArrowNativeType};
+#include "arrow/ipc/reader.h"
+#include "arrow/status.h"
+#include "arrow/util/macros.h"
 
-use super::{Extend, _MutableArrayData};
-
-pub(super) fn build_extend<T: ArrowNativeType>(array: &ArrayData) -> Extend {
-    let values = array.buffer::<T>(0);
-    Box::new(
-        move |mutable: &mut _MutableArrayData, _, start: usize, len: usize| {
-            mutable
-                .buffer1
-                .extend_from_slice(&values[start..start + len]);
-        },
-    )
-}
-
-pub(super) fn extend_nulls<T: ArrowNativeType>(
-    mutable: &mut _MutableArrayData,
-    len: usize,
-) {
-    mutable.buffer1.extend_zeros(len * size_of::<T>());
+extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
+  auto status =
+      arrow::ipc::internal::FuzzIpcTensorStream(data, static_cast<int64_t>(size));
+  ARROW_UNUSED(status);
+  return 0;
 }

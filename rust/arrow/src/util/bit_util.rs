@@ -21,6 +21,16 @@
 use packed_simd::u8x64;
 
 const BIT_MASK: [u8; 8] = [1, 2, 4, 8, 16, 32, 64, 128];
+const UNSET_BIT_MASK: [u8; 8] = [
+    255 - 1,
+    255 - 2,
+    255 - 4,
+    255 - 8,
+    255 - 16,
+    255 - 32,
+    255 - 64,
+    255 - 128,
+];
 
 /// Returns the nearest number that is `>=` than `num` and is a multiple of 64
 #[inline]
@@ -72,7 +82,7 @@ pub unsafe fn set_bit_raw(data: *mut u8, i: usize) {
 /// Sets bit at position `i` for `data` to 0
 #[inline]
 pub fn unset_bit(data: &mut [u8], i: usize) {
-    data[i >> 3] ^= BIT_MASK[i & 7];
+    data[i >> 3] &= UNSET_BIT_MASK[i & 7];
 }
 
 /// Sets bit at position `i` for `data` to 0
@@ -83,7 +93,7 @@ pub fn unset_bit(data: &mut [u8], i: usize) {
 /// responsible to guarantee that `i` is within bounds.
 #[inline]
 pub unsafe fn unset_bit_raw(data: *mut u8, i: usize) {
-    *data.add(i >> 3) ^= BIT_MASK[i & 7];
+    *data.add(i >> 3) &= UNSET_BIT_MASK[i & 7];
 }
 
 /// Returns the ceil of `value`/`divisor`
@@ -184,24 +194,24 @@ mod tests {
 
     #[test]
     fn test_set_bit() {
-        let mut b = [0b00000000];
+        let mut b = [0b00000010];
         set_bit(&mut b, 0);
-        assert_eq!([0b00000001], b);
-        set_bit(&mut b, 2);
-        assert_eq!([0b00000101], b);
-        set_bit(&mut b, 5);
-        assert_eq!([0b00100101], b);
+        assert_eq!([0b00000011], b);
+        set_bit(&mut b, 1);
+        assert_eq!([0b00000011], b);
+        set_bit(&mut b, 7);
+        assert_eq!([0b10000011], b);
     }
 
     #[test]
     fn test_unset_bit() {
-        let mut b = [0b11111111];
+        let mut b = [0b11111101];
         unset_bit(&mut b, 0);
-        assert_eq!([0b11111110], b);
-        unset_bit(&mut b, 2);
-        assert_eq!([0b11111010], b);
-        unset_bit(&mut b, 5);
-        assert_eq!([0b11011010], b);
+        assert_eq!([0b11111100], b);
+        unset_bit(&mut b, 1);
+        assert_eq!([0b11111100], b);
+        unset_bit(&mut b, 7);
+        assert_eq!([0b01111100], b);
     }
 
     #[test]

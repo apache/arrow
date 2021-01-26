@@ -38,7 +38,7 @@ pub use expr::{
     count, count_distinct, create_udaf, create_udf, exp, exprlist_to_fields, floor,
     in_list, length, lit, ln, log10, log2, lower, ltrim, max, md5, min, or, round, rtrim,
     sha224, sha256, sha384, sha512, signum, sin, sqrt, sum, tan, trim, trunc, upper,
-    when, Expr, Literal,
+    when, Expr, ExpressionVisitor, Literal, Recursion,
 };
 pub use extension::UserDefinedLogicalNode;
 pub use operators::Operator;

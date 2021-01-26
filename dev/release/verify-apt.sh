@@ -50,6 +50,7 @@ fi
 
 have_flight=yes
 have_plasma=yes
+workaround_missing_packages=()
 case "${distribution}-${code_name}" in
   debian-buster)
     sed \
@@ -59,6 +60,10 @@ case "${distribution}-${code_name}" in
     ;;
   ubuntu-xenial)
     have_flight=no
+    workaround_missing_packages+=(libprotobuf-dev)
+    ;;
+  ubuntu-groovy)
+    workaround_missing_packages+=(libgrpc++-dev protobuf-compiler-grpc)
     ;;
 esac
 if [ "$(arch)" = "aarch64" ]; then
@@ -90,12 +95,11 @@ apt install -y -V libarrow-glib-dev=${deb_version}
 apt install -y -V \
   cmake \
   g++ \
-  git
-git clone \
-  --branch apache-arrow-${version} \
-  --depth 1 \
-  https://github.com/apache/arrow.git
-pushd arrow/cpp/examples/minimal_build
+  git \
+  ${workaround_missing_packages[@]}
+mkdir -p build
+cp -a /arrow/cpp/examples/minimal_build build
+pushd build/minimal_build
 cmake .
 make -j$(nproc)
 ./arrow_example
