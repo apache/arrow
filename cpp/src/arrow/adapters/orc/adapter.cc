@@ -535,9 +535,9 @@ class ORCFileWriter::Impl {
     std::vector<liborc::ColumnVectorBatch*> fields = root->fields;
     while (numRows > 0) {
       for (int i = 0; i < num_cols_; i++) {
-        RETURN_NOT_OK(adapters::orc::WriteBatch(
-            *(schema_->field(i)->type()), fields[i], &(arrow_index_offset[i]),
-            &(arrow_chunk_offset[i]), batch_size, *(table->column(i))));
+        RETURN_NOT_OK(adapters::orc::WriteBatch(fields[i], &(arrow_index_offset[i]),
+                                                &(arrow_chunk_offset[i]), batch_size,
+                                                *(table->column(i))));
       }
       root->numElements = fields[0]->numElements;
       writer_->add(*batch);
