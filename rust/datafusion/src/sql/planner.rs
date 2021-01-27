@@ -613,7 +613,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
     /// Generate a relational expression from a SQL expression
     pub fn sql_to_rex(&self, sql: &SQLExpr, schema: &DFSchema) -> Result<Expr> {
         let expr = self.sql_expr_to_logical_expr(sql)?;
-        self.validate_schema_satisfies_exprs(schema, &vec![expr.clone()])?;
+        self.validate_schema_satisfies_exprs(schema, &[expr.clone()])?;
         Ok(expr)
     }
 
