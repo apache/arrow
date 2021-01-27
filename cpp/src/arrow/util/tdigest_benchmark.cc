@@ -42,7 +42,7 @@ static void BenchmarkTDigest(benchmark::State& state) {
   state.SetItemsProcessed(state.iterations() * items);
 }
 
-BENCHMARK(BenchmarkTDigest)->Arg(1 << 16)->Arg(1 << 20)->Arg(1 << 24);
+BENCHMARK(BenchmarkTDigest)->Arg(1 << 12)->Arg(1 << 16)->Arg(1 << 20);
 
 }  // namespace util
 }  // namespace arrow

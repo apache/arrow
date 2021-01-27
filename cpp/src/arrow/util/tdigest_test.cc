@@ -29,6 +29,7 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/make_unique.h"
@@ -42,7 +43,7 @@ TEST(TDigestTest, SingleValue) {
 
   TDigest td;
   td.Add(value);
-  EXPECT_TRUE(td.Verify());
+  ASSERT_OK(td.Validate());
   // all quantiles equal to same single vaue
   for (double q = 0; q <= 1; q += 0.1) {
     EXPECT_EQ(td.Quantile(q), value);
@@ -56,12 +57,12 @@ TEST(TDigestTest, FewValues) {
       {4, 1, 9, 0, 3, 2, 5, 6, 8, 7, 10},
   };
 
-  for (auto& values : values_vector) {
+  for (const auto& values : values_vector) {
     TDigest td;
     for (double v : values) {
       td.Add(v);
     }
-    EXPECT_TRUE(td.Verify());
+    ASSERT_OK(td.Validate());
 
     double q = 0;
     for (size_t i = 0; i < values.size(); ++i) {
@@ -74,7 +75,7 @@ TEST(TDigestTest, FewValues) {
 
 // Calculate exact quantile as truth
 std::vector<double> ExactQuantile(std::vector<double> values,
-                                  const std::vector<double> quantiles) {
+                                  const std::vector<double>& quantiles) {
   std::sort(values.begin(), values.end());
 
   std::vector<double> output;
@@ -110,9 +111,9 @@ void TestRandom(size_t size) {
   for (double value : values) {
     td.Add(value);
   }
-  EXPECT_TRUE(td.Verify());
+  ASSERT_OK(td.Validate());
 
-  std::vector<double> expected = ExactQuantile(values, quantiles);
+  const std::vector<double> expected = ExactQuantile(values, quantiles);
   std::vector<double> approximated;
   for (auto q : quantiles) {
     approximated.push_back(td.Quantile(q));
@@ -157,7 +158,7 @@ void TestMerge(const std::vector<std::vector<double>>& values_vector, uint32_t d
     for (double value : values) {
       td->Add(value);
     }
-    EXPECT_TRUE(td->Verify());
+    ASSERT_OK(td->Validate());
     tds.push_back(std::move(td));
   }
 
@@ -165,13 +166,13 @@ void TestMerge(const std::vector<std::vector<double>>& values_vector, uint32_t d
   for (const auto& values : values_vector) {
     values_combined.insert(values_combined.end(), values.begin(), values.end());
   }
-  std::vector<double> expected = ExactQuantile(values_combined, quantiles);
+  const std::vector<double> expected = ExactQuantile(values_combined, quantiles);
 
   // merge into an empty tdigest
   {
     TDigest td(delta);
     td.Merge(tds);
-    td.Verify();
+    ASSERT_OK(td.Validate());
     for (size_t i = 0; i < quantiles.size(); ++i) {
       const double tolerance = std::max(std::fabs(expected[i]) * error_ratio, 0.1);
       EXPECT_NEAR(td.Quantile(quantiles[i]), expected[i], tolerance) << quantiles[i];
@@ -183,7 +184,7 @@ void TestMerge(const std::vector<std::vector<double>>& values_vector, uint32_t d
     std::unique_ptr<TDigest> td = std::move(tds[0]);
     tds.erase(tds.begin(), tds.begin() + 1);
     td->Merge(tds);
-    td->Verify();
+    ASSERT_OK(td->Validate());
     for (size_t i = 0; i < quantiles.size(); ++i) {
       const double tolerance = std::max(std::fabs(expected[i]) * error_ratio, 0.1);
       EXPECT_NEAR(td->Quantile(quantiles[i]), expected[i], tolerance) << quantiles[i];
@@ -210,14 +211,17 @@ TEST(TDigestTest, MergeUniform) {
 
 // merge tdigests with different distributions
 TEST(TDigestTest, MergeNonUniform) {
-  const std::vector<std::vector<double>> configs = {
+  const std::vector<std::tuple<size_t, double, double>> configs = {
       // {size, min, max}
       {2000, 1e8, 1e9}, {0, 0, 0}, {3000, -1, 1}, {500, -1e6, -1e5}, {800, 100, 100},
   };
   std::vector<std::vector<double>> values_vector;
   for (const auto& cfg : configs) {
     std::vector<double> values;
-    random_real(static_cast<size_t>(cfg[0]), 0x11223344, cfg[1], cfg[2], &values);
+    const size_t size = std::get<0>(cfg);
+    const double min = std::get<1>(cfg);
+    const double max = std::get<2>(cfg);
+    random_real(size, 0x11223344, min, max, &values);
     values_vector.push_back(std::move(values));
   }
 
@@ -235,6 +239,7 @@ TEST(TDigestTest, Misc) {
 
   std::vector<double> values;
   random_real(size, 0x11223344, min, max, &values);
+  const std::vector<double> expected = ExactQuantile(values, quantiles);
 
   // test small delta and buffer
   {
@@ -248,12 +253,11 @@ TEST(TDigestTest, Misc) {
     for (double value : values) {
       td.Add(value);
     }
-    EXPECT_TRUE(td.Verify());
+    ASSERT_OK(td.Validate());
 
-    for (double q : quantiles) {
-      const double truth = ExactQuantile(values, {q})[0];
-      const double tolerance = std::max(std::fabs(truth) * error_ratio, 0.1);
-      EXPECT_NEAR(td.Quantile(q), truth, tolerance) << q;
+    for (size_t i = 0; i < quantiles.size(); ++i) {
+      const double tolerance = std::max(std::fabs(expected[i]) * error_ratio, 0.1);
+      EXPECT_NEAR(td.Quantile(quantiles[i]), expected[i], tolerance) << quantiles[i];
     }
   }
 
@@ -274,12 +278,11 @@ TEST(TDigestTest, Misc) {
     for (double value : values_integer) {
       td.Add(value);
     }
-    EXPECT_TRUE(td.Verify());
+    ASSERT_OK(td.Validate());
 
-    for (double q : quantiles) {
-      const double truth = ExactQuantile(values, {q})[0];
-      const double tolerance = std::max(std::fabs(truth) * error_ratio, 0.1);
-      EXPECT_NEAR(td.Quantile(q), truth, tolerance) << q;
+    for (size_t i = 0; i < quantiles.size(); ++i) {
+      const double tolerance = std::max(std::fabs(expected[i]) * error_ratio, 0.1);
+      EXPECT_NEAR(td.Quantile(quantiles[i]), expected[i], tolerance) << quantiles[i];
     }
   }
 }
