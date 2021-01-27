@@ -178,7 +178,9 @@ async fn topk_plan() -> Result<()> {
 }
 
 fn make_topk_context() -> ExecutionContext {
-    let config = ExecutionConfig::new().with_query_planner(Arc::new(TopKQueryPlanner {}));
+    let config = ExecutionConfig::new()
+        .with_query_planner(Arc::new(TopKQueryPlanner {}))
+        .add_optimizer_rule(Arc::new(TopKOptimizerRule {}));
 
     ExecutionContext::with_config(config)
 }
@@ -188,10 +190,6 @@ fn make_topk_context() -> ExecutionContext {
 struct TopKQueryPlanner {}
 
 impl QueryPlanner for TopKQueryPlanner {
-    fn rewrite_logical_plan(&self, plan: LogicalPlan) -> Result<LogicalPlan> {
-        TopKOptimizerRule {}.optimize(&plan)
-    }
-
     /// Given a `LogicalPlan` created from above, create an
     /// `ExecutionPlan` suitable for execution
     fn create_physical_plan(
@@ -210,7 +208,7 @@ impl QueryPlanner for TopKQueryPlanner {
 struct TopKOptimizerRule {}
 impl OptimizerRule for TopKOptimizerRule {
     // Example rewrite pass to insert a user defined LogicalPlanNode
-    fn optimize(&mut self, plan: &LogicalPlan) -> Result<LogicalPlan> {
+    fn optimize(&self, plan: &LogicalPlan) -> Result<LogicalPlan> {
         match plan {
             // Note: this code simply looks for the pattern of a Limit followed by a
             // Sort and replaces it by a TopK node. It does not handle many

@@ -25,7 +25,7 @@ use crate::logical_plan::LogicalPlan;
 /// logical plan.
 pub trait OptimizerRule {
     /// Perform optimizations on the plan
-    fn optimize(&mut self, plan: &LogicalPlan) -> Result<LogicalPlan>;
+    fn optimize(&self, plan: &LogicalPlan) -> Result<LogicalPlan>;
     /// Produce a human readable name for this optimizer rule
     fn name(&self) -> &str;
 
@@ -33,7 +33,7 @@ pub trait OptimizerRule {
     /// optimize on plan's children and then return a node of the same
     /// type. Useful for optimizer rules which want to leave the type
     /// of plan unchanged but still apply to the children.
-    fn optimize_children(&mut self, plan: &LogicalPlan) -> Result<LogicalPlan> {
+    fn optimize_children(&self, plan: &LogicalPlan) -> Result<LogicalPlan> {
         let new_exprs = utils::expressions(&plan);
         let new_inputs = utils::inputs(&plan)
             .into_iter()

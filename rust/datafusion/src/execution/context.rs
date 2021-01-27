@@ -324,19 +324,15 @@ impl ExecutionContext {
 
     /// Optimize the logical plan by applying optimizer rules
     pub fn optimize(&self, plan: &LogicalPlan) -> Result<LogicalPlan> {
-        // Apply standard rewrites and optimizations
-        debug!("Logical plan:\n {:?}", plan);
-        let mut plan = ProjectionPushDown::new().optimize(&plan)?;
-        plan = FilterPushDown::new().optimize(&plan)?;
-        plan = HashBuildProbeOrder::new().optimize(&plan)?;
-        debug!("Optimized logical plan:\n {:?}", plan);
+        let optimizers = &self.state.lock().unwrap().config.optimizers;
 
-        self.state
-            .lock()
-            .unwrap()
-            .config
-            .query_planner
-            .rewrite_logical_plan(plan)
+        let mut new_plan = plan.clone();
+        debug!("Logical plan:\n {:?}", plan);
+        for optimizer in optimizers {
+            new_plan = optimizer.optimize(&new_plan)?;
+        }
+        debug!("Optimized logical plan:\n {:?}", plan);
+        Ok(new_plan)
     }
 
     /// Create a physical plan from a logical plan
@@ -454,13 +450,6 @@ impl FunctionRegistry for ExecutionContext {
 
 /// A planner used to add extensions to DataFusion logical and physical plans.
 pub trait QueryPlanner {
-    /// Given a `LogicalPlan`, create a new, modified `LogicalPlan`
-    /// plan. This method is run after built in `OptimizerRule`s. By
-    /// default returns the `plan` unmodified.
-    fn rewrite_logical_plan(&self, plan: LogicalPlan) -> Result<LogicalPlan> {
-        Ok(plan)
-    }
-
     /// Given a `LogicalPlan`, create an `ExecutionPlan` suitable for execution
     fn create_physical_plan(
         &self,
@@ -491,6 +480,8 @@ pub struct ExecutionConfig {
     pub concurrency: usize,
     /// Default batch size when reading data sources
     pub batch_size: usize,
+    /// Responsible for optimizing a logical plan
+    optimizers: Vec<Arc<dyn OptimizerRule + Send + Sync>>,
     /// Responsible for planning `LogicalPlan`s, and `ExecutionPlan`
     query_planner: Arc<dyn QueryPlanner + Send + Sync>,
 }
@@ -501,6 +492,11 @@ impl ExecutionConfig {
         Self {
             concurrency: num_cpus::get(),
             batch_size: 32768,
+            optimizers: vec![
+                Arc::new(ProjectionPushDown::new()),
+                Arc::new(FilterPushDown::new()),
+                Arc::new(HashBuildProbeOrder::new()),
+            ],
             query_planner: Arc::new(DefaultQueryPlanner {}),
         }
     }
@@ -527,6 +523,15 @@ impl ExecutionConfig {
         query_planner: Arc<dyn QueryPlanner + Send + Sync>,
     ) -> Self {
         self.query_planner = query_planner;
+        self
+    }
+
+    /// Adds a new [`OptimizerRule`]
+    pub fn add_optimizer_rule(
+        mut self,
+        optimizer_rule: Arc<dyn OptimizerRule + Send + Sync>,
+    ) -> Self {
+        self.optimizers.push(optimizer_rule);
         self
     }
 }

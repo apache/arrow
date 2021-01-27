@@ -32,7 +32,7 @@ use utils::optimize_explain;
 pub struct ProjectionPushDown {}
 
 impl OptimizerRule for ProjectionPushDown {
-    fn optimize(&mut self, plan: &LogicalPlan) -> Result<LogicalPlan> {
+    fn optimize(&self, plan: &LogicalPlan) -> Result<LogicalPlan> {
         // set of all columns refered by the plan (and thus considered required by the root)
         let required_columns = plan
             .schema()
@@ -108,7 +108,7 @@ fn get_projected_schema(
 
 /// Recursively transverses the logical plan removing expressions and that are not needed.
 fn optimize_plan(
-    optimizer: &mut ProjectionPushDown,
+    optimizer: &ProjectionPushDown,
     plan: &LogicalPlan,
     required_columns: &HashSet<String>, // set of columns required up to this step
     has_projection: bool,
@@ -525,7 +525,7 @@ mod tests {
     }
 
     fn optimize(plan: &LogicalPlan) -> Result<LogicalPlan> {
-        let mut rule = ProjectionPushDown::new();
+        let rule = ProjectionPushDown::new();
         rule.optimize(plan)
     }
 }
