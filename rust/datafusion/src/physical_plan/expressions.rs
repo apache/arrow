@@ -53,7 +53,7 @@ use arrow::record_batch::RecordBatch;
 use arrow::{
     array::{
         ArrayRef, BooleanArray, Date32Array, Date64Array, Float32Array, Float64Array,
-        Int16Array, Int32Array, Int64Array, Int8Array, StringArray,
+        Int16Array, Int32Array, Int64Array, Int8Array, NullArray, StringArray,
         TimestampNanosecondArray, UInt16Array, UInt32Array, UInt64Array, UInt8Array,
     },
     datatypes::Field,
@@ -1514,12 +1514,12 @@ impl PhysicalExpr for BinaryExpr {
         );
 
         let result: Result<ArrayRef> = if left
-            .as_ref()
+            .as_any()
             .downcast_ref::<NullArray>()
             .is_some()
         {
             Ok(left)
-        } else if right.as_ref().downcast_ref::<NullArray>().is_some() {
+        } else if right.as_any().downcast_ref::<NullArray>().is_some() {
             Ok(right)
         } else {
             match &self.op {
