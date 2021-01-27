@@ -165,14 +165,16 @@ mod tests {
             Some(2),
             None,
             None,
-        ]).slice(1, 3);
+        ])
+        .slice(1, 3);
 
-        let input_2 =     PrimitiveArray::<Int64Type>::from(vec![
+        let input_2 = PrimitiveArray::<Int64Type>::from(vec![
             Some(101),
             Some(102),
             Some(103),
             None,
-        ]).slice(1, 3);
+        ])
+        .slice(1, 3);
         let arr = concat(&[input_1.as_ref(), input_2.as_ref()])?;
 
         let expected_output = Arc::new(PrimitiveArray::<Int64Type>::from(vec![
@@ -290,31 +292,34 @@ mod tests {
     #[test]
     fn test_concat_struct_arrays() -> Result<()> {
         let field = Field::new("field", DataType::Int64, true);
-        let input_primitive_1: ArrayRef = Arc::new(PrimitiveArray::<Int64Type>::from(vec![
-            Some(-1),
-            Some(-1),
-            Some(2),
-            None,
-            None,
-        ]));
+        let input_primitive_1: ArrayRef =
+            Arc::new(PrimitiveArray::<Int64Type>::from(vec![
+                Some(-1),
+                Some(-1),
+                Some(2),
+                None,
+                None,
+            ]));
         let input_struct_1 = StructArray::from(vec![(field.clone(), input_primitive_1)]);
 
-        let input_primitive_2: ArrayRef = Arc::new(PrimitiveArray::<Int64Type>::from(vec![
-            Some(101),
-            Some(102),
-            Some(103),
-            None,
-        ]));
+        let input_primitive_2: ArrayRef =
+            Arc::new(PrimitiveArray::<Int64Type>::from(vec![
+                Some(101),
+                Some(102),
+                Some(103),
+                None,
+            ]));
         let input_struct_2 = StructArray::from(vec![(field.clone(), input_primitive_2)]);
 
-        let input_primitive_3: ArrayRef = Arc::new(PrimitiveArray::<Int64Type>::from(vec![Some(256), Some(512), Some(1024)]));
+        let input_primitive_3: ArrayRef =
+            Arc::new(PrimitiveArray::<Int64Type>::from(vec![
+                Some(256),
+                Some(512),
+                Some(1024),
+            ]));
         let input_struct_3 = StructArray::from(vec![(field.clone(), input_primitive_3)]);
 
-        let arr = concat(&[
-            &input_struct_1,
-            &input_struct_2,
-            &input_struct_3,
-        ])?;
+        let arr = concat(&[&input_struct_1, &input_struct_2, &input_struct_3])?;
 
         let expected_primitive_output = Arc::new(PrimitiveArray::<Int64Type>::from(vec![
             Some(-1),
@@ -331,7 +336,11 @@ mod tests {
             Some(1024),
         ])) as ArrayRef;
 
-        let actual_primitive = arr.as_any().downcast_ref::<StructArray>().unwrap().column(0);
+        let actual_primitive = arr
+            .as_any()
+            .downcast_ref::<StructArray>()
+            .unwrap()
+            .column(0);
         assert_eq!(actual_primitive, &expected_primitive_output);
 
         Ok(())
@@ -340,21 +349,23 @@ mod tests {
     #[test]
     fn test_concat_struct_array_slices() -> Result<()> {
         let field = Field::new("field", DataType::Int64, true);
-        let input_primitive_1: ArrayRef = Arc::new(PrimitiveArray::<Int64Type>::from(vec![
-            Some(-1),
-            Some(-1),
-            Some(2),
-            None,
-            None,
-        ]));
+        let input_primitive_1: ArrayRef =
+            Arc::new(PrimitiveArray::<Int64Type>::from(vec![
+                Some(-1),
+                Some(-1),
+                Some(2),
+                None,
+                None,
+            ]));
         let input_struct_1 = StructArray::from(vec![(field.clone(), input_primitive_1)]);
 
-        let input_primitive_2: ArrayRef = Arc::new(PrimitiveArray::<Int64Type>::from(vec![
-            Some(101),
-            Some(102),
-            Some(103),
-            None,
-        ]));
+        let input_primitive_2: ArrayRef =
+            Arc::new(PrimitiveArray::<Int64Type>::from(vec![
+                Some(101),
+                Some(102),
+                Some(103),
+                None,
+            ]));
         let input_struct_2 = StructArray::from(vec![(field.clone(), input_primitive_2)]);
 
         let arr = concat(&[
@@ -370,7 +381,11 @@ mod tests {
             Some(103),
         ])) as ArrayRef;
 
-        let actual_primitive = arr.as_any().downcast_ref::<StructArray>().unwrap().column(0);
+        let actual_primitive = arr
+            .as_any()
+            .downcast_ref::<StructArray>()
+            .unwrap()
+            .column(0);
         assert_eq!(actual_primitive, &expected_primitive_output);
 
         Ok(())
