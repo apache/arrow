@@ -97,7 +97,6 @@ cast_array_expression <- function(x, to_type, safe = TRUE, ...) {
 .wrap_arrow <- function(arg, fun) {
   if (!inherits(arg, c("ArrowObject", "array_expression"))) {
     # TODO: Array$create if lengths are equal?
-    # TODO: these kernels should autocast like the dataset ones do (e.g. int vs. float)
     if (fun == "%in%") {
       arg <- Array$create(arg)
     } else {
