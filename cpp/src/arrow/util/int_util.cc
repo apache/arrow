@@ -926,4 +926,5 @@ Status IntegersCanFit(const Datum& datum, const DataType& target_type) {
 }
 
 }  // namespace internal
+
 }  // namespace arrow
