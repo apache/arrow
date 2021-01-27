@@ -71,7 +71,7 @@
 #' - `$columns`: Returns a list of `Array`s
 #' @rdname RecordBatch
 #' @name RecordBatch
-RecordBatch <- R6Class("RecordBatch", inherit = ArrowObject,
+RecordBatch <- R6Class("RecordBatch", inherit = ArrowTabular,
   public = list(
     column = function(i) RecordBatch__column(self, i),
     column_name = function(i) RecordBatch__column_name(self, i),
@@ -207,11 +207,11 @@ record_batch <- RecordBatch$create
 names.RecordBatch <- function(x) x$names()
 
 #' @export
-`names<-.RecordBatch` <- function(x, value) x$RenameColumns(value)
+`names<-.ArrowTabular` <- function(x, value) x$RenameColumns(value)
 
 #' @importFrom methods as
 #' @export
-`[.RecordBatch` <- function(x, i, j, ..., drop = FALSE) {
+`[.ArrowTabular` <- function(x, i, j, ..., drop = FALSE) {
   if (nargs() == 2L) {
     # List-like column extraction (x[i])
     return(x[, i])
@@ -240,7 +240,7 @@ names.RecordBatch <- function(x) x$names()
 }
 
 #' @export
-`[[.RecordBatch` <- function(x, i, ...) {
+`[[.ArrowTabular` <- function(x, i, ...) {
   if (is.character(i)) {
     x$GetColumnByName(i)
   } else if (is.numeric(i)) {
@@ -251,7 +251,7 @@ names.RecordBatch <- function(x) x$names()
 }
 
 #' @export
-`$.RecordBatch` <- function(x, name, ...) {
+`$.ArrowTabular` <- function(x, name, ...) {
   assert_that(is.string(name))
   if (name %in% ls(x)) {
     get(name, x)
@@ -261,9 +261,7 @@ names.RecordBatch <- function(x) x$names()
 }
 
 #' @export
-dim.RecordBatch <- function(x) {
-  c(x$num_rows, x$num_columns)
-}
+dim.ArrowTabular <- function(x) c(x$num_rows, x$num_columns)
 
 #' @export
 as.data.frame.RecordBatch <- function(x, row.names = NULL, optional = FALSE, ...) {
@@ -343,19 +341,19 @@ apply_arrow_r_metadata <- function(x, r_metadata) {
 }
 
 #' @export
-as.list.RecordBatch <- function(x, ...) as.list(as.data.frame(x, ...))
+as.list.ArrowTabular <- function(x, ...) as.list(as.data.frame(x, ...))
 
 #' @export
-row.names.RecordBatch <- function(x) as.character(seq_len(nrow(x)))
+row.names.ArrowTabular <- function(x) as.character(seq_len(nrow(x)))
 
 #' @export
-dimnames.RecordBatch <- function(x) list(row.names(x), names(x))
+dimnames.ArrowTabular <- function(x) list(row.names(x), names(x))
 
 #' @export
-head.RecordBatch <- head.Array
+head.ArrowTabular <- head.ArrowDatum
 
 #' @export
-tail.RecordBatch <- tail.Array
+tail.ArrowTabular <- tail.ArrowDatum
 
 ToString_tabular <- function(x, ...) {
   # Generic to work with both RecordBatch and Table

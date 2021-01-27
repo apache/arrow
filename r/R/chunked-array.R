@@ -56,7 +56,7 @@
 #' @name ChunkedArray
 #' @seealso [Array]
 #' @export
-ChunkedArray <- R6Class("ChunkedArray", inherit = ArrowObject,
+ChunkedArray <- R6Class("ChunkedArray", inherit = ArrowDatum,
   public = list(
     length = function() ChunkedArray__length(self),
     chunk = function(i) Array$create(ChunkedArray__chunk(self, i)),
@@ -120,33 +120,3 @@ ChunkedArray$create <- function(..., type = NULL) {
 #' @rdname ChunkedArray
 #' @export
 chunked_array <- ChunkedArray$create
-
-#' @export
-length.ChunkedArray <- function(x) x$length()
-
-#' @export
-as.vector.ChunkedArray <- function(x, mode) x$as_vector()
-
-#' @export
-is.na.ChunkedArray <- function(x) call_function("is_null", x)
-
-#' @export
-is.nan.ChunkedArray <- function(x) call_function("is_nan", x)
-
-#' @export
-`[.ChunkedArray` <- filter_rows
-
-#' @export
-head.ChunkedArray <- head.Array
-
-#' @export
-tail.ChunkedArray <- tail.Array
-
-#' @export
-as.double.ChunkedArray <- as.double.Array
-
-#' @export
-as.integer.ChunkedArray <- as.integer.Array
-
-#' @export
-as.character.ChunkedArray <- as.character.Array

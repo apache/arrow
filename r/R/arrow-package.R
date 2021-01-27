@@ -188,6 +188,11 @@ ArrowObject <- R6Class("ArrowObject",
   )
 )
 
+# Base class for Array, ChunkedArray, and Scalar, for S3 methods
+ArrowDatum <- R6Class("ArrowDatum", inherit = ArrowObject)
+# Base class for RecordBatch and Table
+ArrowTabular <- R6Class("ArrowTabular", inherit = ArrowObject)
+
 #' @export
 `!=.ArrowObject` <- function(lhs, rhs) !(lhs == rhs)
 

@@ -83,7 +83,7 @@
 #' @name array
 #' @export
 Array <- R6Class("Array",
-  inherit = ArrowObject,
+  inherit = ArrowDatum,
   public = list(
     IsNull = function(i) Array__IsNull(self, i),
     IsValid = function(i) Array__IsValid(self, i),
@@ -242,16 +242,16 @@ FixedSizeListArray <- R6Class("FixedSizeListArray", inherit = Array,
 )
 
 #' @export
-length.Array <- function(x) x$length()
+length.ArrowDatum <- function(x) x$length()
 
 #' @export
-is.na.Array <- function(x) call_function("is_null", x)
+is.na.ArrowDatum <- function(x) call_function("is_null", x)
 
 #' @export
-is.nan.Array <- function(x) call_function("is_nan", x)
+is.nan.ArrowDatum <- function(x) call_function("is_nan", x)
 
 #' @export
-as.vector.Array <- function(x, mode) x$as_vector()
+as.vector.ArrowDatum <- function(x, mode) x$as_vector()
 
 filter_rows <- function(x, i, keep_na = TRUE, ...) {
   # General purpose function for [ row subsetting with R semantics
@@ -296,11 +296,11 @@ filter_rows <- function(x, i, keep_na = TRUE, ...) {
 }
 
 #' @export
-`[.Array` <- filter_rows
+`[.ArrowDatum` <- filter_rows
 
 #' @importFrom utils head
 #' @export
-head.Array <- function(x, n = 6L, ...) {
+head.ArrowDatum <- function(x, n = 6L, ...) {
   assert_is(n, c("numeric", "integer"))
   assert_that(length(n) == 1)
   len <- NROW(x)
@@ -318,7 +318,7 @@ head.Array <- function(x, n = 6L, ...) {
 
 #' @importFrom utils tail
 #' @export
-tail.Array <- function(x, n = 6L, ...) {
+tail.ArrowDatum <- function(x, n = 6L, ...) {
   assert_is(n, c("numeric", "integer"))
   assert_that(length(n) == 1)
   len <- NROW(x)
@@ -351,10 +351,10 @@ is.Array <- function(x, type = NULL) {
 }
 
 #' @export
-as.double.Array <- function(x, ...) as.double(as.vector(x), ...)
+as.double.ArrowDatum <- function(x, ...) as.double(as.vector(x), ...)
 
 #' @export
-as.integer.Array <- function(x, ...) as.integer(as.vector(x), ...)
+as.integer.ArrowDatum <- function(x, ...) as.integer(as.vector(x), ...)
 
 #' @export
-as.character.Array <- function(x, ...) as.character(as.vector(x), ...)
+as.character.ArrowDatum <- function(x, ...) as.character(as.vector(x), ...)

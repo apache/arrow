@@ -91,7 +91,7 @@
 #' as.data.frame(tab[4:8, c("gear", "hp", "wt")])
 #' }
 #' @export
-Table <- R6Class("Table", inherit = ArrowObject,
+Table <- R6Class("Table", inherit = ArrowTabular,
   public = list(
     column = function(i) {
       Table__column(self, i)
@@ -258,28 +258,7 @@ as.data.frame.Table <- function(x, row.names = NULL, optional = FALSE, ...) {
 }
 
 #' @export
-as.list.Table <- as.list.RecordBatch
-
-#' @export
-row.names.Table <- row.names.RecordBatch
-
-#' @export
-dimnames.Table <- dimnames.RecordBatch
-
-#' @export
-dim.Table <- function(x) c(x$num_rows, x$num_columns)
-
-#' @export
 names.Table <- function(x) x$ColumnNames()
-
-#' @export
-`names<-.Table` <- function(x, value) x$RenameColumns(value)
-
-#' @export
-`[.Table` <- `[.RecordBatch`
-
-#' @export
-`[[.Table` <- `[[.RecordBatch`
 
 #' @export
 `[[<-.Table` <- function(x, i, value) {
@@ -342,12 +321,3 @@ names.Table <- function(x) x$ColumnNames()
   }
   x
 }
-
-#' @export
-`$.Table` <- `$.RecordBatch`
-
-#' @export
-head.Table <- head.RecordBatch
-
-#' @export
-tail.Table <- tail.RecordBatch

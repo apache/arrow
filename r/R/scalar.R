@@ -28,7 +28,7 @@
 #' @rdname Scalar
 #' @export
 Scalar <- R6Class("Scalar",
-  inherit = ArrowObject,
+  inherit = ArrowDatum,
   # TODO: document the methods
   public = list(
     ToString = function() Scalar__ToString(self),
@@ -76,15 +76,3 @@ length.Scalar <- function(x) 1L
 
 #' @export
 is.na.Scalar <- function(x) !x$is_valid
-
-#' @export
-as.vector.Scalar <- function(x, mode) x$as_vector()
-
-#' @export
-as.double.Scalar <- as.double.Array
-
-#' @export
-as.integer.Scalar <- as.integer.Array
-
-#' @export
-as.character.Scalar <- as.character.Array
