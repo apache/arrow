@@ -743,8 +743,6 @@ mod tests {
         let data = mutable.freeze();
         let array = StructArray::from(Arc::new(data));
 
-        // Struct equality doesn't seem to work when using slices?
-
         let expected_strings: ArrayRef =
             Arc::new(StringArray::from(vec![None, Some("mark")]));
         let expected = StructArray::try_from(vec![
