@@ -15,9 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/util/iterator.h"
-#include "arrow/util/async_iterator.h"
-
 #include <algorithm>
 #include <chrono>
 #include <condition_variable>
@@ -29,6 +26,8 @@
 #include <vector>
 
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/async_iterator.h"
+#include "arrow/util/iterator.h"
 
 namespace arrow {
 
@@ -134,7 +133,7 @@ inline Iterator<TestInt> VectorIt(std::vector<TestInt> v) {
   return MakeVectorIterator<TestInt>(std::move(v));
 }
 
-std::function<Future<TestInt>()> AsyncVectorIt(std::vector<TestInt> v) {
+AsyncGenerator<TestInt> AsyncVectorIt(std::vector<TestInt> v) {
   size_t index = 0;
   return [index, v]() mutable -> Future<TestInt> {
     if (index >= v.size()) {
@@ -360,7 +359,8 @@ TEST(TestAsyncUtil, CompleteBackgroundStressTest) {
   combined.Wait(2);
   if (combined.is_finished()) {
     ASSERT_OK_AND_ASSIGN(auto completed_vectors, combined.result());
-    for (auto&& vector : completed_vectors) {
+    for (std::size_t i = 0; i < completed_vectors.size(); i++) {
+      ASSERT_OK_AND_ASSIGN(auto vector, completed_vectors[i]);
       ASSERT_EQ(vector, expected);
     }
   } else {
@@ -395,8 +395,7 @@ TEST(TestAsyncUtil, Visit) {
     sum += item.value;
     return Status::OK();
   });
-  // Should be superfluous
-  sum_future.Wait();
+  ASSERT_TRUE(sum_future.is_finished());
   ASSERT_EQ(6, sum);
 }
 

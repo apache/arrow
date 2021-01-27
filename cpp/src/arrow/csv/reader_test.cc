@@ -27,6 +27,7 @@
 #include "arrow/csv/reader.h"
 #include "arrow/csv/test_common.h"
 #include "arrow/io/interfaces.h"
+#include "arrow/io/memory.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
@@ -36,9 +37,10 @@
 namespace arrow {
 namespace csv {
 
-void StressTableReader(
-    std::function<Result<std::shared_ptr<TableReader>>(std::shared_ptr<io::InputStream>)>
-        reader_factory) {
+using TableReaderFactory =
+    std::function<Result<std::shared_ptr<TableReader>>(std::shared_ptr<io::InputStream>)>;
+
+void StressTableReader(TableReaderFactory reader_factory) {
   const int NTASKS = 100;
   const int NROWS = 1000;
   ASSERT_OK_AND_ASSIGN(auto table_buffer, MakeSampleCsvBuffer(NROWS));
@@ -60,10 +62,8 @@ void StressTableReader(
   }
 }
 
-void TestNestedParallelism(
-    std::shared_ptr<internal::ThreadPool> thread_pool,
-    std::function<Result<std::shared_ptr<TableReader>>(std::shared_ptr<io::InputStream>)>
-        reader_factory) {
+void TestNestedParallelism(std::shared_ptr<internal::ThreadPool> thread_pool,
+                           TableReaderFactory reader_factory) {
   const int NROWS = 1000;
   ASSERT_OK_AND_ASSIGN(auto table_buffer, MakeSampleCsvBuffer(NROWS));
   auto input = std::make_shared<io::BufferReader>(table_buffer);
@@ -76,15 +76,10 @@ void TestNestedParallelism(
     return Status::OK();
   };
   ASSERT_OK_AND_ASSIGN(auto future, thread_pool->Submit(read_task));
-  ASSERT_TRUE(future.Wait(1));
 
-  if (future.is_finished()) {
-    ASSERT_TRUE(table_future.Wait(1));
-    if (table_future.is_finished()) {
-      ASSERT_OK_AND_ASSIGN(auto table, table_future.result());
-      ASSERT_EQ(table->num_rows(), NROWS);
-    }
-  }
+  ASSERT_FINISHES(future);
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto table, table_future);
+  ASSERT_EQ(table->num_rows(), NROWS);
 }  // namespace csv
 
 TEST(SerialReaderTests, Stress) {

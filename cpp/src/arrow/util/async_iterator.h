@@ -76,29 +76,6 @@ class TransformingGenerator {
                                  Transformer<T, V> transformer)
       : finished_(), last_value_(), generator_(generator), transformer_(transformer) {}
 
-  // See comment on TransformingIterator::Pump
-  Result<util::optional<V>> Pump() {
-    if (!finished_ && last_value_.has_value()) {
-      ARROW_ASSIGN_OR_RAISE(TransformFlow<V> next, transformer_(*last_value_));
-      if (next.ReadyForNext()) {
-        if (*last_value_ == IterationTraits<T>::End()) {
-          finished_ = true;
-        }
-        last_value_.reset();
-      }
-      if (next.Finished()) {
-        finished_ = true;
-      }
-      if (next.HasValue()) {
-        return next.Value();
-      }
-    }
-    if (finished_) {
-      return IterationTraits<V>::End();
-    }
-    return util::nullopt;
-  }
-
   Future<V> operator()() {
     while (true) {
       auto maybe_next_result = Pump();
@@ -135,6 +112,29 @@ class TransformingGenerator {
   }
 
  protected:
+  // See comment on TransformingIterator::Pump
+  Result<util::optional<V>> Pump() {
+    if (!finished_ && last_value_.has_value()) {
+      ARROW_ASSIGN_OR_RAISE(TransformFlow<V> next, transformer_(*last_value_));
+      if (next.ReadyForNext()) {
+        if (*last_value_ == IterationTraits<T>::End()) {
+          finished_ = true;
+        }
+        last_value_.reset();
+      }
+      if (next.Finished()) {
+        finished_ = true;
+      }
+      if (next.HasValue()) {
+        return next.Value();
+      }
+    }
+    if (finished_) {
+      return IterationTraits<V>::End();
+    }
+    return util::nullopt;
+  }
+
   bool finished_;
   util::optional<T> last_value_;
   AsyncGenerator<T> generator_;

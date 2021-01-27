@@ -61,6 +61,8 @@ void MakeColumnParser(std::vector<std::string> items, std::shared_ptr<BlockParse
   ASSERT_EQ((*out)->num_rows(), items.size());
 }
 
+namespace {
+
 const std::vector<std::string> int64_rows = {"123", "4", "-317005557", "", "N/A", "0"};
 const std::vector<std::string> float_rows = {"0", "123.456", "-3170.55766", "", "N/A"};
 const std::vector<std::string> decimal128_rows = {"0", "123.456", "-3170.55766",
@@ -73,7 +75,7 @@ static void WriteHeader(std::ostream& writer) {
   writer << "Int64,Float,Decimal128,ISO8601,Strptime" << std::endl;
 }
 
-static std::string GetCell(std::vector<std::string> base_rows, size_t row_index) {
+static std::string GetCell(const std::vector<std::string>& base_rows, size_t row_index) {
   return base_rows[row_index % base_rows.size()];
 }
 
@@ -89,6 +91,7 @@ static void WriteRow(std::ostream& writer, size_t row_index) {
   writer << GetCell(strptime_rows, row_index);
   writer << std::endl;
 }
+}  // namespace
 
 Result<std::shared_ptr<Buffer>> MakeSampleCsvBuffer(size_t num_rows) {
   std::stringstream writer;

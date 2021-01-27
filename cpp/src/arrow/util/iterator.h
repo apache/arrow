@@ -239,6 +239,18 @@ class TransformIterator {
         last_value_(),
         finished_() {}
 
+  Result<V> Next() {
+    while (!finished_) {
+      ARROW_ASSIGN_OR_RAISE(util::optional<V> next, Pump());
+      if (next.has_value()) {
+        return *next;
+      }
+      ARROW_ASSIGN_OR_RAISE(last_value_, it_.Next());
+    }
+    return IterationTraits<V>::End();
+  }
+
+ private:
   // Calls the transform function on the current value.  Can return in several ways
   // * If the next value is requested (e.g. skip) it will return an empty optional
   // * If an invalid status is encountered that will be returned
@@ -266,18 +278,6 @@ class TransformIterator {
     return util::nullopt;
   }
 
-  Result<V> Next() {
-    while (!finished_) {
-      ARROW_ASSIGN_OR_RAISE(util::optional<V> next, Pump());
-      if (next.has_value()) {
-        return *next;
-      }
-      ARROW_ASSIGN_OR_RAISE(last_value_, it_.Next());
-    }
-    return IterationTraits<V>::End();
-  }
-
- private:
   Iterator<T> it_;
   Transformer<T, V> transformer_;
   util::optional<T> last_value_;
@@ -556,7 +556,7 @@ struct ReadaheadIteratorPromise : ReadaheadPromise {
 
   void End() override {
     // No need to do anything for the synchronous case.  No one is waiting on this
-    // called_ = true;
+    called_ = true;
   }
 
   Iterator<T>* it_;

@@ -22,7 +22,6 @@
 #include <vector>
 
 #include "arrow/csv/parser.h"
-#include "arrow/io/memory.h"
 #include "arrow/testing/visibility.h"
 
 namespace arrow {

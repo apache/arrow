@@ -67,7 +67,7 @@ class ARROW_EXPORT TaskGroup : public std::enable_shared_from_this<TaskGroup> {
   /// This should be called only after all top level tasks
   /// have been added to the task group.
   ///
-  /// If you are using a TaskGroup asyncrhonously there are a few considerations to keep
+  /// If you are using a TaskGroup asynchronously there are a few considerations to keep
   /// in mind.  The tasks should not block on I/O, etc (defeats the purpose of using
   /// futures) and should not be doing any nested locking or you run the risk of the tasks
   /// getting stuck in the thread pool waiting for tasks which cannot get scheduled.

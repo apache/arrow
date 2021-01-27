@@ -153,6 +153,7 @@ class ARROW_EXPORT FutureImpl {
 
   using Callback = internal::FnOnce<void()>;
   void AddCallback(Callback callback);
+  bool TryAddCallback(const std::function<Callback()>& callback_factory);
 
   // Waiter API
   inline FutureState SetWaiter(FutureWaiter* w, int future_num);
@@ -380,20 +381,31 @@ class ARROW_MUST_USE_TYPE Future {
   /// cyclic reference to itself through the callback.
   template <typename OnComplete>
   void AddCallback(OnComplete on_complete) const {
-    struct Callback {
-      void operator()() && {
-        auto self = weak_self.get();
-        std::move(on_complete)(*self.GetResult());
-      }
-
-      WeakFuture<T> weak_self;
-      OnComplete on_complete;
-    };
-
     // We know impl_ will not be dangling when invoking callbacks because at least one
     // thread will be waiting for MarkFinished to return. Thus it's safe to keep a
     // weak reference to impl_ here
-    impl_->AddCallback(Callback{WeakFuture<T>(*this), std::move(on_complete)});
+    impl_->AddCallback(
+        Callback<OnComplete>{WeakFuture<T>(*this), std::move(on_complete)});
+  }
+
+  /// \brief Overload of AddCallback that will return false instead of running
+  /// synchronously
+  ///
+  /// This overload will guarantee the callback is never run synchronously.  If the future
+  /// is already finished then it will simply return false.  This can be useful to avoid
+  /// stack overflow in a situation where you have recursive Futures.  For an example
+  /// see the Loop function
+  ///
+  /// Takes in a callback factory function to allow moving callbacks (the factory function
+  /// will only be called if the callback can successfully be added)
+  ///
+  /// Returns true if a callback was actually added and false if the callback failed
+  /// to add because the future was marked complete.
+  template <typename OnComplete>
+  bool TryAddCallback(const std::function<OnComplete()>& callback_factory) const {
+    return impl_->TryAddCallback([this, &callback_factory]() {
+      return Callback<OnComplete>{WeakFuture<T>(*this), callback_factory()};
+    });
   }
 
   /// \brief Consumer API: Register a continuation to run when this future completes
@@ -474,6 +486,17 @@ class ARROW_MUST_USE_TYPE Future {
   }
 
  protected:
+  template <typename OnComplete>
+  struct Callback {
+    void operator()() && {
+      auto self = weak_self.get();
+      std::move(on_complete)(*self.GetResult());
+    }
+
+    WeakFuture<T> weak_self;
+    OnComplete on_complete;
+  };
+
   Result<ValueType>* GetResult() const {
     return static_cast<Result<ValueType>*>(impl_->result_.get());
   }
@@ -515,7 +538,7 @@ class ARROW_MUST_USE_TYPE Future {
   FRIEND_TEST(FutureRefTest, ChainRemoved);
   FRIEND_TEST(FutureRefTest, TailRemoved);
   FRIEND_TEST(FutureRefTest, HeadRemoved);
-};
+};  // namespace arrow
 
 template <typename T>
 class WeakFuture {
@@ -616,42 +639,60 @@ inline std::vector<int> WaitForAny(const std::vector<Future<T>*>& futures,
   return waiter->MoveFinishedFutures();
 }
 
-template <typename T = detail::Empty>
-struct ControlFlow {
-  using BreakValueType = T;
+// template <typename T = detail::Empty>
+// struct ControlFlow {
+//   using BreakValueType = T;
 
-  bool IsBreak() const { return break_value_.has_value(); }
+//   bool IsBreak() const { return break_value_.has_value(); }
 
-  static Result<BreakValueType> MoveBreakValue(const ControlFlow& cf) {
-    return std::move(*cf.break_value_);
-  }
+//   static Result<BreakValueType> MoveBreakValue(const ControlFlow& cf) {
+//     return std::move(*cf.break_value_);
+//   }
 
-  mutable util::optional<BreakValueType> break_value_;
-};
+//   mutable util::optional<BreakValueType> break_value_;
+// };
+
+// struct Continue {
+//   template <typename T>
+//   operator ControlFlow<T>() && {  // NOLINT explicit
+//     return {};
+//   }
+// };
 
 struct Continue {
   template <typename T>
-  operator ControlFlow<T>() && {  // NOLINT explicit
+  operator util::optional<T>() && {  // NOLINT explicit
     return {};
   }
 };
 
+// template <typename T = detail::Empty>
+// ControlFlow<T> Break(T break_value = {}) {
+//   return ControlFlow<T>{std::move(break_value)};
+// }
+
 template <typename T = detail::Empty>
-ControlFlow<T> Break(T break_value = {}) {
-  return ControlFlow<T>{std::move(break_value)};
+util::optional<T> Break(T break_value = {}) {
+  return util::optional<T>{std::move(break_value)};
 }
+
+template <typename T = detail::Empty>
+using ControlFlow = util::optional<T>;
 
 template <typename Iterate,
           typename Control = typename detail::result_of_t<Iterate()>::ValueType,
-          typename BreakValueType = typename Control::BreakValueType>
+          typename BreakValueType = typename Control::value_type>
 Future<BreakValueType> Loop(Iterate iterate) {
   auto break_fut = Future<BreakValueType>::Make();
 
   struct Callback {
-    bool CheckForTermination(const Result<Control>& maybe_control) {
-      if (!maybe_control.ok() || maybe_control->IsBreak()) {
-        Result<BreakValueType> maybe_break = maybe_control.Map(Control::MoveBreakValue);
-        break_fut.MarkFinished(std::move(maybe_break));
+    bool CheckForTermination(const Result<Control>& control_res) {
+      if (!control_res.ok()) {
+        break_fut.MarkFinished(std::move(control_res.status()));
+        return true;
+      }
+      if (control_res->has_value()) {
+        break_fut.MarkFinished(*std::move(*control_res));
         return true;
       }
       return false;
@@ -661,14 +702,23 @@ Future<BreakValueType> Loop(Iterate iterate) {
       if (CheckForTermination(maybe_control)) return;
 
       auto control_fut = iterate();
-      while (control_fut.is_finished()) {
-        // There's no need to AddCallback on a finished future; we can CheckForTermination
-        // now. This also avoids recursion and potential stack overflow.
-        if (CheckForTermination(control_fut.result())) return;
+      while (true) {
+        if (control_fut.is_finished()) {
+          // There's no need to AddCallback on a finished future; we can
+          // CheckForTermination now. This also avoids recursion and potential stack
+          // overflow.
+          if (CheckForTermination(std::move(control_fut.result()))) return;
 
-        control_fut = iterate();
+          control_fut = iterate();
+        } else {
+          std::function<Callback()> callback_factory = [this]() { return *this; };
+          if (control_fut.TryAddCallback(callback_factory)) {
+            break;
+          }
+          // Else we tried to add a callback but someone had stolen in and marked the
+          // future finished so we can just resume iteration
+        }
       }
-      control_fut.AddCallback(std::move(*this));
     }
 
     Iterate iterate;
@@ -685,5 +735,54 @@ Future<BreakValueType> Loop(Iterate iterate) {
 
   return break_fut;
 }
+
+// template <typename Iterate,
+//           typename Control = typename detail::result_of_t<Iterate()>::ValueType,
+//           typename BreakValueType = typename Control::BreakValueType>
+// Future<BreakValueType> Loop(Iterate iterate) {
+//   auto break_fut = Future<BreakValueType>::Make();
+
+//   struct Callback {
+//     bool CheckForTermination(const Result<Control>& maybe_control) {
+//       if (!maybe_control.ok() || maybe_control->IsBreak()) {
+//         Result<BreakValueType> maybe_break =
+//         maybe_control.Map(Control::MoveBreakValue);
+//         break_fut.MarkFinished(std::move(maybe_break));
+//         return true;
+//       }
+//       return false;
+//     }
+
+//     void operator()(const Result<Control>& maybe_control) && {
+//       if (CheckForTermination(maybe_control)) return;
+
+//       auto control_fut = iterate();
+//       while (control_fut.is_finished()) {
+//         // There's no need to AddCallback on a finished future; we can
+//         CheckForTermination
+//         // now. This also avoids recursion and potential stack overflow.
+//         if (CheckForTermination(control_fut.result())) return;
+
+//         control_fut = iterate();
+//       }
+//       control_fut.AddCallback(std::move(*this));
+//     }
+
+//     Iterate iterate;
+//     // If the future returned by control_fut is never completed then we will be hanging
+//     on
+//     // to break_fut forever even if the listener has given up listening on it.  Instead
+//     we
+//     // rely on the fact that a producer (the caller of Future<>::Make) is always
+//     // responsible for completing the futures they create.
+//     // TODO: Could avoid this kind of situation with "future abandonment" similar to
+//     mesos Future<BreakValueType> break_fut;
+//   };
+
+//   auto control_fut = iterate();
+//   control_fut.AddCallback(Callback{std::move(iterate), break_fut});
+
+//   return break_fut;
+// }
 
 }  // namespace arrow

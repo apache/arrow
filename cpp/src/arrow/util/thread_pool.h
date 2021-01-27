@@ -86,13 +86,20 @@ class ARROW_EXPORT Executor {
     return SpawnReal(hints, std::forward<Function>(func));
   }
 
+  // Transfers a future to this executor.  Any continuations added to the
+  // returned future will run in this executor.  Otherwise they would run
+  // on the same thread that called MarkFinished.
+  //
+  // This is necessary when (for example) an I/O task is completing a future.
+  // The continuations of that future should run on the CPU thread pool keeping
+  // CPU heavy work off the I/O thread pool.  So the I/O task should transfer
+  // the future to the CPU executor before returning.
   template <typename T>
   Future<T> Transfer(Future<T> future) {
     auto transferred = Future<T>::Make();
     future.AddCallback([this, transferred](const Result<T>& result) mutable {
-      Result<T> result_copy(result);
-      auto spawn_status = Spawn([transferred, result_copy]() mutable {
-        transferred.MarkFinished(result_copy);
+      auto spawn_status = Spawn([transferred, result]() mutable {
+        transferred.MarkFinished(std::move(result));
       });
       if (!spawn_status.ok()) {
         transferred.MarkFinished(spawn_status);

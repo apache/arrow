@@ -152,10 +152,9 @@ class ThreadedTaskGroup : public TaskGroup {
       if (completion_future_.has_value()) {
         // MarkFinished could be slow.  We don't want to call it while we are holding
         // the lock.
-        // TODO: If optional is thread safe then we can skip this locking entirely
-        auto future = *completion_future_;
-        auto finished = completion_future_->is_finished();
-        auto status = status_;
+        auto& future = *completion_future_;
+        const auto finished = completion_future_->is_finished();
+        const auto& status = status_;
         lock.unlock();
         if (!finished) {
           future.MarkFinished(status);
