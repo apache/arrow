@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use std::net::SocketAddr;
 use std::pin::Pin;
 
 use arrow_flight::{

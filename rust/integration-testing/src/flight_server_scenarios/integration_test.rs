@@ -17,7 +17,6 @@
 
 use std::collections::HashMap;
 use std::convert::TryFrom;
-use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::Arc;
 
