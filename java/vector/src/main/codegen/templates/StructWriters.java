@@ -64,8 +64,8 @@ public class ${mode}StructWriter extends AbstractFieldWriter {
       case LIST:
         list(child.getName());
         break;
-      case MAP:{
-        org.apache.arrow.vector.types.pojo.ArrowType.Map arrowType = (org.apache.arrow.vector.types.pojo.ArrowType.Map) child.getType();
+      case MAP: {
+        ArrowType.Map arrowType = (ArrowType.Map) child.getType();
         map(child.getName(), arrowType.getKeysSorted());
         break;
       }
@@ -205,7 +205,7 @@ public class ${mode}StructWriter extends AbstractFieldWriter {
       ValueVector currentVector = container.getChild(name);
       MapVector v = container.addOrGet(name,
           new FieldType(addVectorAsNullable,
-            new org.apache.arrow.vector.types.pojo.ArrowType.Map(keysSorted)
+            new ArrowType.Map(keysSorted)
           ,null, null),
           MapVector.class);
       writer = new PromotableWriter(v, container, getNullableStructWriterFactory());

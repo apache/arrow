@@ -36,6 +36,7 @@ import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.SchemaChangeCallBack;
 import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.NonNullableStructVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
@@ -573,6 +574,11 @@ public class TestComplexWriter {
       }
       listWriter.setValueCount(COUNT);
       checkListMap(listVector);
+
+      // Verify that the map vector has keysSorted = true
+      MapVector mapVector = (MapVector) listVector.getDataVector();
+      ArrowType arrowType = mapVector.getField().getFieldType().getType();
+      assertTrue(((ArrowType.Map) arrowType).getKeysSorted());
     }
   }
 

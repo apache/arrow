@@ -15,11 +15,6 @@
  * limitations under the License.
  */
 
-import org.apache.arrow.memory.ArrowBuf;
-import org.apache.arrow.vector.types.Types;
-import org.apache.arrow.vector.types.pojo.ArrowType;
-import org.apache.drill.common.types.TypeProtos.MinorType;
-
 <@pp.dropOutputFile />
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/impl/AbstractPromotableFieldWriter.java" />
 
@@ -186,7 +181,7 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
 
   @Override
   public MapWriter map(boolean keysSorted) {
-    return getWriter(MinorType.MAP, new org.apache.arrow.vector.types.pojo.ArrowType.Map(keysSorted));
+    return getWriter(MinorType.MAP, new ArrowType.Map(keysSorted));
   }
 
   @Override
