@@ -66,11 +66,7 @@ type <- function(x) UseMethod("type")
 type.default <- function(x) Array__infer_type(x)
 
 #' @export
-type.Array <- function(x) x$type
-
-#' @export
-type.ChunkedArray <- function(x) x$type
-
+type.ArrowDatum <- function(x) x$type
 
 #----- metadata
 

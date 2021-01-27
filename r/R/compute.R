@@ -35,38 +35,20 @@ call_function <- function(function_name, ..., args = list(...), options = empty_
 }
 
 #' @export
-sum.Array <- function(..., na.rm = FALSE) scalar_aggregate("sum", ..., na.rm = na.rm)
+sum.ArrowDatum <- function(..., na.rm = FALSE) scalar_aggregate("sum", ..., na.rm = na.rm)
 
 #' @export
-sum.ChunkedArray <- sum.Array
+mean.ArrowDatum <- function(..., na.rm = FALSE) scalar_aggregate("mean", ..., na.rm = na.rm)
 
 #' @export
-sum.Scalar <- sum.Array
-
-#' @export
-mean.Array <- function(..., na.rm = FALSE) scalar_aggregate("mean", ..., na.rm = na.rm)
-
-#' @export
-mean.ChunkedArray <- mean.Array
-
-#' @export
-mean.Scalar <- mean.Array
-
-#' @export
-min.Array <- function(..., na.rm = FALSE) {
+min.ArrowDatum <- function(..., na.rm = FALSE) {
   scalar_aggregate("min_max", ..., na.rm = na.rm)$GetFieldByName("min")
 }
 
 #' @export
-min.ChunkedArray <- min.Array
-
-#' @export
-max.Array <- function(..., na.rm = FALSE) {
+max.ArrowDatum <- function(..., na.rm = FALSE) {
   scalar_aggregate("min_max", ..., na.rm = na.rm)$GetFieldByName("max")
 }
-
-#' @export
-max.ChunkedArray <- max.Array
 
 scalar_aggregate <- function(FUN, ..., na.rm = FALSE) {
   a <- collect_arrays_from_dots(list(...))
@@ -99,12 +81,9 @@ collect_arrays_from_dots <- function(dots) {
 }
 
 #' @export
-unique.Array <- function(x, incomparables = FALSE, ...) {
+unique.ArrowDatum <- function(x, incomparables = FALSE, ...) {
   call_function("unique", x)
 }
-
-#' @export
-unique.ChunkedArray <- unique.Array
 
 #' `match` for Arrow objects
 #'
@@ -123,15 +102,12 @@ match_arrow <- function(x, table, ...) UseMethod("match_arrow")
 match_arrow.default <- function(x, table, ...) match(x, table, ...)
 
 #' @export
-match_arrow.Array <- function(x, table, ...) {
+match_arrow.ArrowDatum <- function(x, table, ...) {
   if (!inherits(table, c("Array", "ChunkedArray"))) {
     table <- Array$create(table)
   }
   call_function("index_in_meta_binary", x, table)
 }
-
-#' @export
-match_arrow.ChunkedArray <- match_arrow.Array
 
 CastOptions <- R6Class("CastOptions", inherit = ArrowObject)
 

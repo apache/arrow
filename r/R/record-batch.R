@@ -116,6 +116,9 @@ RecordBatch <- R6Class("RecordBatch", inherit = ArrowTabular,
     },
     serialize = function() ipc___SerializeRecordBatch__Raw(self),
     ToString = function() ToString_tabular(self),
+    to_data_frame = function() {
+      RecordBatch__to_dataframe(self, use_threads = option_use_threads())
+    },
 
     cast = function(target_schema, safe = TRUE, options = cast_options(safe)) {
       assert_is(target_schema, "Schema")
@@ -205,12 +208,3 @@ record_batch <- RecordBatch$create
 
 #' @export
 names.RecordBatch <- function(x) x$names()
-
-#' @export
-as.data.frame.RecordBatch <- function(x, row.names = NULL, optional = FALSE, ...) {
-  df <- RecordBatch__to_dataframe(x, use_threads = option_use_threads())
-  if (!is.null(r_metadata <- x$metadata$r)) {
-    df <- apply_arrow_r_metadata(df, .unserialize_arrow_r_metadata(r_metadata))
-  }
-  df
-}

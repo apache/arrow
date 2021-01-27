@@ -110,6 +110,9 @@ Table <- R6Class("Table", inherit = ArrowTabular,
 
     serialize = function(output_stream, ...) write_table(self, output_stream, ...),
     ToString = function() ToString_tabular(self),
+    to_data_frame = function() {
+      Table__to_dataframe(self, use_threads = option_use_threads())
+    },
 
     cast = function(target_schema, safe = TRUE, options = cast_options(safe)) {
       assert_is(target_schema, "Schema")
@@ -198,15 +201,6 @@ Table$create <- function(..., schema = NULL) {
   } else {
     Table__from_dots(dots, schema)
   }
-}
-
-#' @export
-as.data.frame.Table <- function(x, row.names = NULL, optional = FALSE, ...) {
-  df <- Table__to_dataframe(x, use_threads = option_use_threads())
-  if (!is.null(r_metadata <- x$metadata$r)) {
-    df <- apply_arrow_r_metadata(df, .unserialize_arrow_r_metadata(r_metadata))
-  }
-  df
 }
 
 #' @export

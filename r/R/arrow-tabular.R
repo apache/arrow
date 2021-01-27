@@ -21,6 +21,15 @@
 ArrowTabular <- R6Class("ArrowTabular", inherit = ArrowObject)
 
 #' @export
+as.data.frame.ArrowTabular <- function(x, row.names = NULL, optional = FALSE, ...) {
+  df <- x$to_data_frame()
+  if (!is.null(r_metadata <- x$metadata$r)) {
+    df <- apply_arrow_r_metadata(df, .unserialize_arrow_r_metadata(r_metadata))
+  }
+  df
+}
+
+#' @export
 `names<-.ArrowTabular` <- function(x, value) x$RenameColumns(value)
 
 #' @importFrom methods as
