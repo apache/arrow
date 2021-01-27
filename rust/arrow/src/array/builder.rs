@@ -47,7 +47,7 @@ pub(crate) fn mutable_buffer_to_builder<T: ArrowNativeType>(
     }
 }
 
-///  Converts a `BufferBuilder<T>` into it's underlying `MutableBuffer`.
+///  Converts a `BufferBuilder<T>` into its underlying `MutableBuffer`.
 ///
 /// `From` is not implemented because associated type bounds are unstable.
 pub(crate) fn builder_to_mutable_buffer<T: ArrowNativeType>(

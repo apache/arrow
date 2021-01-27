@@ -992,7 +992,7 @@ impl fmt::Display for DataType {
 }
 
 impl DataType {
-    /// Parse a data type from a JSON representation
+    /// Parse a data type from a JSON representation.
     pub(crate) fn from(json: &Value) -> Result<DataType> {
         let default_field = Field::new("", DataType::Boolean, true);
         match *json {
@@ -1180,7 +1180,7 @@ impl DataType {
         }
     }
 
-    /// Generate a JSON representation of the data type
+    /// Generate a JSON representation of the data type.
     pub fn to_json(&self) -> Value {
         match self {
             DataType::Null => json!({"name": "null"}),
@@ -1265,7 +1265,7 @@ impl DataType {
         }
     }
 
-    /// Returns true if this type is numeric: (UInt*, Unit*, or Float*)
+    /// Returns true if this type is numeric: (UInt*, Unit*, or Float*).
     pub fn is_numeric(t: &DataType) -> bool {
         use DataType::*;
         matches!(
@@ -1284,7 +1284,7 @@ impl DataType {
     }
 
     /// Compares the datatype with another, ignoring nested field names
-    /// and metadata
+    /// and metadata.
     pub(crate) fn equals_datatype(&self, other: &DataType) -> bool {
         match (&self, other) {
             (DataType::List(a), DataType::List(b))
@@ -1359,25 +1359,25 @@ impl Field {
         &self.metadata
     }
 
-    /// Returns an immutable reference to the `Field`'s name
+    /// Returns an immutable reference to the `Field`'s name.
     #[inline]
     pub const fn name(&self) -> &String {
         &self.name
     }
 
-    /// Returns an immutable reference to the `Field`'s  data-type
+    /// Returns an immutable reference to the `Field`'s  data-type.
     #[inline]
     pub const fn data_type(&self) -> &DataType {
         &self.data_type
     }
 
-    /// Indicates whether this `Field` supports null values
+    /// Indicates whether this `Field` supports null values.
     #[inline]
     pub const fn is_nullable(&self) -> bool {
         self.nullable
     }
 
-    /// Returns the dictionary ID, if this is a dictionary type
+    /// Returns the dictionary ID, if this is a dictionary type.
     #[inline]
     pub const fn dict_id(&self) -> Option<i64> {
         match self.data_type {
@@ -1386,7 +1386,7 @@ impl Field {
         }
     }
 
-    /// Returns whether this `Field`'s dictionary is ordered, if this is a dictionary type
+    /// Returns whether this `Field`'s dictionary is ordered, if this is a dictionary type.
     #[inline]
     pub const fn dict_is_ordered(&self) -> Option<bool> {
         match self.data_type {
@@ -1395,7 +1395,7 @@ impl Field {
         }
     }
 
-    /// Parse a `Field` definition from a JSON representation
+    /// Parse a `Field` definition from a JSON representation.
     pub fn from(json: &Value) -> Result<Self> {
         match *json {
             Value::Object(ref map) => {
@@ -1592,7 +1592,7 @@ impl Field {
         }
     }
 
-    /// Generate a JSON representation of the `Field`
+    /// Generate a JSON representation of the `Field`.
     pub fn to_json(&self) -> Value {
         let children: Vec<Value> = match self.data_type() {
             DataType::Struct(fields) => fields.iter().map(|f| f.to_json()).collect(),
@@ -1788,7 +1788,7 @@ impl Schema {
         }
     }
 
-    /// Creates a new `Schema` from a sequence of `Field` values
+    /// Creates a new `Schema` from a sequence of `Field` values.
     ///
     /// # Example
     ///
@@ -1897,25 +1897,25 @@ impl Schema {
         Ok(merged)
     }
 
-    /// Returns an immutable reference of the vector of `Field` instances
+    /// Returns an immutable reference of the vector of `Field` instances.
     #[inline]
     pub const fn fields(&self) -> &Vec<Field> {
         &self.fields
     }
 
     /// Returns an immutable reference of a specific `Field` instance selected using an
-    /// offset within the internal `fields` vector
+    /// offset within the internal `fields` vector.
     pub fn field(&self, i: usize) -> &Field {
         &self.fields[i]
     }
 
-    /// Returns an immutable reference of a specific `Field` instance selected by name
+    /// Returns an immutable reference of a specific `Field` instance selected by name.
     pub fn field_with_name(&self, name: &str) -> Result<&Field> {
         Ok(&self.fields[self.index_of(name)?])
     }
 
     /// Returns a vector of immutable references to all `Field` instances selected by
-    /// the dictionary ID they use
+    /// the dictionary ID they use.
     pub fn fields_with_dict_id(&self, dict_id: i64) -> Vec<&Field> {
         self.fields
             .iter()
@@ -1923,7 +1923,7 @@ impl Schema {
             .collect()
     }
 
-    /// Find the index of the column with the given name
+    /// Find the index of the column with the given name.
     pub fn index_of(&self, name: &str) -> Result<usize> {
         for i in 0..self.fields.len() {
             if self.fields[i].name == name {
@@ -1945,7 +1945,7 @@ impl Schema {
     }
 
     /// Look up a column by name and return a immutable reference to the column along with
-    /// it's index
+    /// its index.
     pub fn column_with_name(&self, name: &str) -> Option<(usize, &Field)> {
         self.fields
             .iter()
@@ -1953,7 +1953,7 @@ impl Schema {
             .find(|&(_, c)| c.name == name)
     }
 
-    /// Generate a JSON representation of the `Schema`
+    /// Generate a JSON representation of the `Schema`.
     pub fn to_json(&self) -> Value {
         json!({
             "fields": self.fields.iter().map(|field| field.to_json()).collect::<Vec<Value>>(),
@@ -1961,7 +1961,7 @@ impl Schema {
         })
     }
 
-    /// Parse a `Schema` definition from a JSON representation
+    /// Parse a `Schema` definition from a JSON representation.
     pub fn from(json: &Value) -> Result<Self> {
         match *json {
             Value::Object(ref schema) => {
@@ -1990,8 +1990,8 @@ impl Schema {
         }
     }
 
-    /// Parse a `metadata` definition from a JSON representation
-    /// The JSON can either be an Object or an Array of Objects
+    /// Parse a `metadata` definition from a JSON representation.
+    /// The JSON can either be an Object or an Array of Objects.
     fn from_metadata(json: &Value) -> Result<HashMap<String, String>> {
         match json {
             Value::Array(_) => {
