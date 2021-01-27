@@ -186,54 +186,6 @@ Table <- R6Class("Table", inherit = ArrowTabular,
   )
 )
 
-arrow_attributes <- function(x, only_top_level = FALSE) {
-  att <- attributes(x)
-
-  removed_attributes <- character()
-  if (identical(class(x), c("tbl_df", "tbl", "data.frame"))) {
-    removed_attributes <- c("class", "row.names", "names")
-  } else if (inherits(x, "data.frame")) {
-    removed_attributes <- c("row.names", "names")
-  } else if (inherits(x, "factor")) {
-    removed_attributes <- c("class", "levels")
-  } else if (inherits(x, "integer64") || inherits(x, "Date")) {
-    removed_attributes <- c("class")
-  } else if (inherits(x, "POSIXct")) {
-    removed_attributes <- c("class", "tzone")
-  } else if (inherits(x, "hms") || inherits(x, "difftime")) {
-    removed_attributes <- c("class", "units")
-  }
-
-  att <- att[setdiff(names(att), removed_attributes)]
-  if (isTRUE(only_top_level)) {
-    return(att)
-  }
-
-  if (is.data.frame(x)) {
-    columns <- map(x, arrow_attributes)
-    out <- if (length(att) || !all(map_lgl(columns, is.null))) {
-      list(attributes = att, columns = columns)
-    }
-    return(out)
-  }
-
-  columns <- NULL
-  if (is.list(x) && !inherits(x, "POSIXlt")) {
-    # for list columns, we also keep attributes of each
-    # element in columns
-    columns <- map(x, arrow_attributes)
-    if (all(map_lgl(columns, is.null))) {
-      columns <- NULL
-    }
-  }
-
-  if (length(att) || !is.null(columns)) {
-    list(attributes = att, columns = columns)
-  } else {
-    NULL
-  }
-}
-
 Table$create <- function(..., schema = NULL) {
   dots <- list2(...)
   # making sure there are always names
