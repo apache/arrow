@@ -71,6 +71,7 @@ DataFusion includes a simple command-line interactive SQL utility. See the [CLI 
 - [ ] Lists
 - [x] Subqueries
 - [ ] Joins
+- [ ] Window
 
 ## Data Sources
 
