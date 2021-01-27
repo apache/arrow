@@ -21,6 +21,7 @@
 // In below tests, most quantiles are within 1% deviation from exact values,
 // while the worst test case is about 10% drift.
 // To make test result stable, I relaxed error bound to be *good enough*.
+// #define _TDIGEST_STRICT_TEST   // enable more strict tests
 
 #include <algorithm>
 #include <cmath>
@@ -128,9 +129,14 @@ void TestRandom(size_t size) {
   const double r2 = 1 - rss / tss;
   EXPECT_GT(r2, 0.999);
 
-  // make sure no quantile drifts more than 5% from truth
+  // make sure no quantile drifts too much from the truth
+#ifdef _TDIGEST_STRICT_TEST
+  const double error_ratio = 0.02;
+#else
+  const double error_ratio = 0.05;
+#endif
   for (size_t i = 0; i < quantiles.size(); ++i) {
-    const double tolerance = std::fabs(expected[i]) * 0.05;
+    const double tolerance = std::fabs(expected[i]) * error_ratio;
     EXPECT_NEAR(approximated[i], expected[i], tolerance) << quantiles[i];
   }
 }
@@ -195,7 +201,11 @@ TEST(TDigestTest, MergeUniform) {
     values_vector.push_back(std::move(values));
   }
 
+#ifdef _TDIGEST_STRICT_TEST
+  TestMerge(values_vector, /*delta=*/100, /*error_ratio=*/0.01);
+#else
   TestMerge(values_vector, /*delta=*/200, /*error_ratio=*/0.05);
+#endif
 }
 
 // merge tdigests with different distributions
@@ -211,7 +221,11 @@ TEST(TDigestTest, MergeNonUniform) {
     values_vector.push_back(std::move(values));
   }
 
+#ifdef _TDIGEST_STRICT_TEST
+  TestMerge(values_vector, /*delta=*/200, /*error_ratio=*/0.01);
+#else
   TestMerge(values_vector, /*delta=*/200, /*error_ratio=*/0.05);
+#endif
 }
 
 TEST(TDigestTest, Misc) {
@@ -224,7 +238,11 @@ TEST(TDigestTest, Misc) {
 
   // test small delta and buffer
   {
-    const double error_ratio = 0.15;  // low accuracy for small delta
+#ifdef _TDIGEST_STRICT_TEST
+    const double error_ratio = 0.06;  // low accuracy for small delta
+#else
+    const double error_ratio = 0.15;
+#endif
 
     TDigest td(10, 50);
     for (double value : values) {
@@ -241,7 +259,11 @@ TEST(TDigestTest, Misc) {
 
   // test many duplicated values
   {
+#ifdef _TDIGEST_STRICT_TEST
+    const double error_ratio = 0.02;
+#else
     const double error_ratio = 0.05;
+#endif
 
     auto values_integer = values;
     for (double& value : values_integer) {
