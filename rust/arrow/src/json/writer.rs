@@ -79,15 +79,19 @@ fn set_column_by_primitive_type<T: ArrowPrimitiveType>(
     col_name: &str,
 ) {
     let primitive_arr = as_primitive_array::<T>(array);
-    for (i, row) in rows.iter_mut().enumerate().take(row_count) {
-        row.insert(
-            col_name.to_string(),
-            primitive_arr
-                .value(i)
-                .into_json_value()
-                .unwrap_or(Value::Null),
-        );
-    }
+
+    rows.iter_mut()
+        .zip(primitive_arr.iter())
+        .take(row_count)
+        .for_each(|(row, maybe_value)| {
+            row.insert(
+                col_name.to_string(),
+                match maybe_value {
+                    Some(v) => v.into_json_value().unwrap_or(Value::Null),
+                    None => Value::Null,
+                },
+            );
+        });
 }
 
 fn set_column_for_json_rows(
@@ -104,9 +108,17 @@ fn set_column_for_json_rows(
         }
         DataType::Boolean => {
             let arr = as_boolean_array(array);
-            for (i, row) in rows.iter_mut().take(row_count).enumerate() {
-                row.insert(col_name.to_string(), arr.value(i).into());
-            }
+            rows.iter_mut().zip(arr.iter()).take(row_count).for_each(
+                |(row, maybe_value)| {
+                    row.insert(
+                        col_name.to_string(),
+                        match maybe_value {
+                            Some(v) => v.into(),
+                            None => Value::Null,
+                        },
+                    );
+                },
+            );
         }
         DataType::Int8 => {
             set_column_by_primitive_type::<Int8Type>(rows, row_count, array, col_name)
@@ -140,9 +152,17 @@ fn set_column_for_json_rows(
         }
         DataType::Utf8 => {
             let strarr = as_string_array(array);
-            for (i, row) in rows.iter_mut().take(row_count).enumerate() {
-                row.insert(col_name.to_string(), strarr.value(i).into());
-            }
+            rows.iter_mut().zip(strarr.iter()).take(row_count).for_each(
+                |(row, maybe_value)| {
+                    row.insert(
+                        col_name.to_string(),
+                        match maybe_value {
+                            Some(v) => v.into(),
+                            None => Value::Null,
+                        },
+                    );
+                },
+            );
         }
         DataType::Struct(_) => {
             let arr = as_struct_array(array);
@@ -241,12 +261,12 @@ mod tests {
     #[test]
     fn write_simple_rows() {
         let schema = Schema::new(vec![
-            Field::new("a", DataType::Int32, false),
-            Field::new("b", DataType::Utf8, false),
+            Field::new("c1", DataType::Int32, false),
+            Field::new("c2", DataType::Utf8, false),
         ]);
 
-        let a = Int32Array::from(vec![1, 2, 3, 4, 5]);
-        let b = StringArray::from(vec!["a", "b", "c", "d", "e"]);
+        let a = Int32Array::from(vec![Some(1), Some(2), Some(3), None, Some(5)]);
+        let b = StringArray::from(vec![Some("a"), Some("b"), Some("c"), Some("d"), None]);
 
         let batch =
             RecordBatch::try_new(Arc::new(schema), vec![Arc::new(a), Arc::new(b)])
@@ -260,11 +280,11 @@ mod tests {
 
         assert_eq!(
             String::from_utf8(buf).unwrap(),
-            r#"{"a":1,"b":"a"}
-{"a":2,"b":"b"}
-{"a":3,"b":"c"}
-{"a":4,"b":"d"}
-{"a":5,"b":"e"}
+            r#"{"c1":1,"c2":"a"}
+{"c1":2,"c2":"b"}
+{"c1":3,"c2":"c"}
+{"c1":null,"c2":"d"}
+{"c1":5,"c2":null}
 "#
         );
     }
