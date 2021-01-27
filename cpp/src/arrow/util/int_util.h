@@ -89,6 +89,11 @@ template <typename InputInt, typename OutputInt>
 ARROW_EXPORT void TransposeInts(const InputInt* source, OutputInt* dest, int64_t length,
                                 const int32_t* transpose_map);
 
+ARROW_EXPORT
+Status TransposeInts(const DataType& src_type, const DataType& dest_type,
+                     const uint8_t* src, uint8_t* dest, int64_t src_offset,
+                     int64_t dest_offset, int64_t length, const int32_t* transpose_map);
+
 /// \brief Do vectorized boundschecking of integer-type array indices. The
 /// indices must be non-nonnegative and strictly less than the passed upper
 /// limit (which is usually the length of an array that is being indexed-into).

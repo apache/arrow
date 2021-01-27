@@ -191,6 +191,7 @@ struct DictionaryConcatenate {
       auto size = buffer->size() / sizeof(CType);
       auto old_indices = reinterpret_cast<const CType*>(buffer->data());
       auto indices_map = reinterpret_cast<const int32_t*>(index_lookup_[i]->data());
+      // XXX use non-template TransposeInts?
       internal::TransposeInts(old_indices, out_data, size, indices_map);
       out_data += size;
     }
