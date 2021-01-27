@@ -199,7 +199,9 @@ impl QueryPlanner for TopKQueryPlanner {
     ) -> Result<Arc<dyn ExecutionPlan>> {
         // Teach the default physical planner how to plan TopK nodes.
         let physical_planner =
-            DefaultPhysicalPlanner::with_extension_planner(Arc::new(TopKPlanner {}));
+            DefaultPhysicalPlanner::with_extension_planners(vec![Arc::new(
+                TopKPlanner {},
+            )]);
         // Delegate most work of physical planning to the default physical planner
         physical_planner.create_physical_plan(logical_plan, ctx_state)
     }
@@ -303,22 +305,21 @@ impl ExtensionPlanner for TopKPlanner {
     fn plan_extension(
         &self,
         node: &dyn UserDefinedLogicalNode,
-        inputs: Vec<Arc<dyn ExecutionPlan>>,
+        inputs: &[Arc<dyn ExecutionPlan>],
         _ctx_state: &ExecutionContextState,
-    ) -> Result<Arc<dyn ExecutionPlan>> {
-        if let Some(topk_node) = node.as_any().downcast_ref::<TopKPlanNode>() {
-            assert_eq!(inputs.len(), 1, "Inconsistent number of inputs");
-            // figure out input name
-            Ok(Arc::new(TopKExec {
-                input: inputs[0].clone(),
-                k: topk_node.k,
-            }))
-        } else {
-            Err(DataFusionError::Internal(format!(
-                "Unknown extension node type {:?}",
-                node
-            )))
-        }
+    ) -> Result<Option<Arc<dyn ExecutionPlan>>> {
+        Ok(
+            if let Some(topk_node) = node.as_any().downcast_ref::<TopKPlanNode>() {
+                assert_eq!(inputs.len(), 1, "Inconsistent number of inputs");
+                // figure out input name
+                Some(Arc::new(TopKExec {
+                    input: inputs[0].clone(),
+                    k: topk_node.k,
+                }))
+            } else {
+                None
+            },
+        )
     }
 }
 
