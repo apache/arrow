@@ -368,7 +368,6 @@ mod tests {
             None,
             Some(102),
             Some(103),
-            None,
         ])) as ArrayRef;
 
         let actual_primitive = arr.as_any().downcast_ref::<StructArray>().unwrap().column(0);
