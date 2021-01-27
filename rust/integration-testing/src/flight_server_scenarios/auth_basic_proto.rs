@@ -44,10 +44,8 @@ pub async fn scenario_setup(port: &str) -> Result {
         password: AUTH_PASSWORD.into(),
         peer_identity: Arc::new(Mutex::new(None)),
     };
+    let addr = super::listen_on(port).await?;
     let svc = FlightServiceServer::new(service);
-    let addr: SocketAddr = format!("0.0.0.0:{}", port).parse()?;
-    // Log output used in test
-    println!("Server listening on localhost:{}", addr.port());
 
     Server::builder().add_service(svc).serve(addr).await?;
     Ok(())

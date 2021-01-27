@@ -44,9 +44,7 @@ type Error = Box<dyn std::error::Error + Send + Sync + 'static>;
 type Result<T = (), E = Error> = std::result::Result<T, E>;
 
 pub async fn scenario_setup(port: &str) -> Result {
-    let addr: SocketAddr = format!("0.0.0.0:{}", port).parse()?;
-    // Log output used in test
-    println!("Server listening on localhost:{}", addr.port());
+    let addr = super::listen_on(port).await?;
 
     let service = FlightServiceImpl {
         server_location: format!("grpc+tcp://{}", addr),
