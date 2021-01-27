@@ -611,7 +611,8 @@ TEST_F(TestWriteRecordBatch, WriteWithCompression) {
   auto batch =
       RecordBatch::Make(schema, length, {rg.String(500, 0, 10, 0.1), dict_array});
 
-  std::vector<Compression::type> codecs = {Compression::LZ4_FRAME, Compression::ZSTD};
+  std::vector<Compression::type> codecs = {Compression::LZ4_FRAME, Compression::ZSTD,
+                                           Compression::FASTPFOR};
   for (auto codec : codecs) {
     if (!util::Codec::IsAvailable(codec)) {
       continue;

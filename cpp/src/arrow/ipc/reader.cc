@@ -401,6 +401,90 @@ Result<std::shared_ptr<Buffer>> DecompressBuffer(const std::shared_ptr<Buffer>& 
   return std::move(uncompressed);
 }
 
+Status DecompressBufferByType(const Buffer& buffer, util::Codec* codec,
+                        std::shared_ptr<Buffer>* out, MemoryPool* pool) {
+  const uint8_t* data = buffer.data();
+  int64_t compressed_size = buffer.size() - sizeof(int64_t);
+  int64_t uncompressed_size = BitUtil::FromLittleEndian(util::SafeLoadAs<int64_t>(data));
+
+  ARROW_ASSIGN_OR_RAISE(auto uncompressed, AllocateBuffer(uncompressed_size, pool));
+
+  int64_t actual_decompressed;
+  ARROW_ASSIGN_OR_RAISE(
+      actual_decompressed,
+      codec->Decompress(compressed_size, data + sizeof(int64_t), uncompressed_size,
+                        uncompressed->mutable_data()));
+  if (actual_decompressed != uncompressed_size) {
+    return Status::Invalid("Failed to fully decompress buffer, expected ",
+                           uncompressed_size, " bytes but decompressed ",
+                           actual_decompressed);
+  }
+  *out = std::move(uncompressed);
+  return Status::OK();
+}
+
+Status DecompressBuffersByType(Compression::type compression,
+                               const IpcReadOptions& options,
+                               std::vector<std::shared_ptr<ArrayData>>* arrs,
+                               const std::vector<std::shared_ptr<Field>>& schema_fields) {
+  ARROW_CHECK_EQ(arrs->size(), schema_fields.size());
+
+  std::unique_ptr<util::Codec> codec;
+  std::unique_ptr<util::Codec> fastpfor32_codec;
+  std::unique_ptr<util::Codec> fastpfor64_codec;
+  ARROW_ASSIGN_OR_RAISE(codec, util::Codec::Create(Compression::LZ4_FRAME));
+  ARROW_ASSIGN_OR_RAISE(fastpfor32_codec, util::Codec::CreateInt32(compression));
+  ARROW_ASSIGN_OR_RAISE(fastpfor64_codec, util::Codec::CreateInt64(compression));
+
+  for (size_t field_idx = 0; field_idx < schema_fields.size(); ++field_idx) {
+    const auto& field = schema_fields[field_idx];
+    auto& arr = (*arrs)[field_idx];
+    if (field->type()->id() == Type::NA) continue;
+
+    const auto& layout_buffers = field->type()->layout().buffers;
+    for (size_t i = 0; i < layout_buffers.size(); ++i) {
+      const auto& layout = layout_buffers[i];
+      if (arr->buffers[i] == nullptr) {
+        continue;
+      }
+      if (arr->buffers[i]->size() == 0) {
+        continue;
+      }
+      if (arr->buffers[i]->size() < 8) {
+        return Status::Invalid(
+            "Likely corrupted message, compressed buffers "
+            "are larger than 8 bytes by construction");
+      }
+      auto& buffer = arr->buffers[i];
+      switch (layout.kind) {
+        case DataTypeLayout::BufferKind::FIXED_WIDTH:
+          if (layout.byte_width == 4 && field->type()->id() != Type::FLOAT) {
+            RETURN_NOT_OK(DecompressBufferByType(*buffer, fastpfor32_codec.get(), &buffer,
+                                           options.memory_pool));
+          } else if (layout.byte_width == 8 && field->type()->id() != Type::DOUBLE) {
+            RETURN_NOT_OK(DecompressBufferByType(*buffer, fastpfor64_codec.get(), &buffer,
+                                           options.memory_pool));
+          } else {
+            RETURN_NOT_OK(
+                DecompressBufferByType(*buffer, codec.get(), &buffer, options.memory_pool));
+          }
+          break;
+        case DataTypeLayout::BufferKind::BITMAP:
+        case DataTypeLayout::BufferKind::VARIABLE_WIDTH: {
+          RETURN_NOT_OK(
+              DecompressBufferByType(*buffer, codec.get(), &buffer, options.memory_pool));
+          break;
+        }
+        case DataTypeLayout::BufferKind::ALWAYS_NULL:
+          break;
+        default:
+          return Status::Invalid("Wrong buffer layout.");
+      }
+    }
+  }
+  return arrow::Status::OK();
+}
+
 Status DecompressBuffers(Compression::type compression, const IpcReadOptions& options,
                          ArrayDataVector* fields) {
   struct BufferAccumulator {
@@ -482,7 +566,13 @@ Result<std::shared_ptr<RecordBatch>> LoadRecordBatchSubset(
     filtered_columns = std::move(columns);
   }
   if (compression != Compression::UNCOMPRESSED) {
-    RETURN_NOT_OK(DecompressBuffers(compression, options, &filtered_columns));
+
+    if (compression == Compression::FASTPFOR) {
+      RETURN_NOT_OK(
+          DecompressBuffersByType(compression, options, &filtered_columns, filtered_fields));
+    } else {
+      RETURN_NOT_OK(DecompressBuffers(compression, options, &filtered_columns));
+    }
   }
 
   return RecordBatch::Make(filtered_schema, metadata->length(),

@@ -290,6 +290,11 @@ if(ARROW_WITH_ZSTD)
   list(APPEND ARROW_SRCS util/compression_zstd.cc)
 endif()
 
+if(ARROW_WITH_FASTPFOR)
+  add_definitions(-DARROW_WITH_FASTPFOR)
+  list(APPEND ARROW_SRCS util/compression_fastpfor.cc)
+endif()
+
 set(ARROW_TESTING_SRCS
     io/test_common.cc
     ipc/test_common.cc

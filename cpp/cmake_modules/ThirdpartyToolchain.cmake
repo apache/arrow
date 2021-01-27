@@ -70,7 +70,8 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     Thrift
     utf8proc
     ZLIB
-    zstd)
+    zstd
+    FastPFOR)
 
 # TODO(wesm): External GTest shared libraries are not currently
 # supported when building with MSVC because of the way that
@@ -604,6 +605,15 @@ else()
   set_urls(
     ARROW_UTF8PROC_SOURCE_URL
     "https://github.com/JuliaStrings/utf8proc/archive/${ARROW_UTF8PROC_BUILD_VERSION}.tar.gz"
+    )
+endif()
+
+if(DEFINED ENV{FASTPFOR_SOURCE_URL})
+  set(FASTPFOR_SOURCE_URL "$ENV{FASTPFOR_SOURCE_URL}")
+else()
+  set_urls(
+    FASTPFOR_SOURCE_URL
+    "https://github.com/lemire/FastPFor/archive/${ARROW_FASTPFOR_BUILD_VERSION}.tar.gz"
     )
 endif()
 
@@ -2256,6 +2266,42 @@ if(ARROW_WITH_UTF8PROC)
   get_target_property(UTF8PROC_INCLUDE_DIR utf8proc::utf8proc
                       INTERFACE_INCLUDE_DIRECTORIES)
   include_directories(SYSTEM ${UTF8PROC_INCLUDE_DIR})
+endif()
+
+if(ARROW_WITH_FASTPFOR)
+  message(STATUS "Building (vendored) FastPFOR from source")
+
+  if(MSVC)
+    message(FATAL_ERROR "Cannot build FastPFOR on MSVC")
+  else()
+    set(FASTPFOR_STATIC_LIB_NAME libFastPFOR.a)
+  endif()
+
+  set(FASTPFOR_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/fastpfor_ep-install")
+  set(FASTPFOR_STATIC_LIB "${FASTPFOR_PREFIX}/lib/${FASTPFOR_STATIC_LIB_NAME}")
+  set(FASTPFOR_INCLUDE_DIR "${FASTPFOR_PREFIX}/include")
+  set(FASTPFOR_CMAKE_ARGS
+      ${EP_COMMON_CMAKE_ARGS}
+      "-DCMAKE_INSTALL_PREFIX=${FASTPFOR_PREFIX}"
+      -DCMAKE_INSTALL_LIBDIR=lib
+      -DCMAKE_BUILD_TYPE=Release)
+
+  externalproject_add(fastpfor_ep
+                      INSTALL_DIR ${FASTPFOR_PREFIX}
+                      URL ${FASTPFOR_SOURCE_URL} ${EP_LOG_OPTIONS}
+                      BUILD_BYPRODUCTS "${FASTPFOR_STATIC_LIB}"
+                      CMAKE_ARGS ${FASTPFOR_CMAKE_ARGS})
+
+  include_directories(SYSTEM ${FASTPFOR_INCLUDE_DIR})
+  file(MAKE_DIRECTORY ${FASTPFOR_INCLUDE_DIR})
+
+  add_library(FastPFOR::FastPFOR STATIC IMPORTED)
+  set_target_properties(FastPFOR::FastPFOR
+                        PROPERTIES IMPORTED_LOCATION "${FASTPFOR_STATIC_LIB}"
+                                   INTERFACE_INCLUDE_DIRECTORIES "${FASTPFOR_INCLUDE_DIR}")
+
+  add_dependencies(toolchain fastpfor_ep)
+  add_dependencies(FastPFOR::FastPFOR fastpfor_ep)
 endif()
 
 macro(build_cares)

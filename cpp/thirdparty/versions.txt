@@ -54,6 +54,7 @@ ARROW_THRIFT_BUILD_MD5_CHECKSUM=3deebbb4d1ca77dd9c9e009a1ea02183
 ARROW_UTF8PROC_BUILD_VERSION=v2.5.0
 ARROW_ZLIB_BUILD_VERSION=1.2.11
 ARROW_ZSTD_BUILD_VERSION=v1.4.5
+ARROW_FASTPFOR_BUILD_VERSION=b75f8053d8839a866ff44dce9f5204582417cfd8
 
 # The first field is the name of the environment variable expected by cmake.
 # This _must_ match what is defined. The second field is the name of the

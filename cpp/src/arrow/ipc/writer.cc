@@ -181,10 +181,11 @@ class RecordBatchSerializer {
   }
 
   Status CompressBuffer(const Buffer& buffer, util::Codec* codec,
-                        std::shared_ptr<Buffer>* out) {
+                        std::shared_ptr<Buffer>* out, MemoryPool* pool) {
     // Convert buffer to uncompressed-length-prefixed compressed buffer
     int64_t maximum_length = codec->MaxCompressedLen(buffer.size(), buffer.data());
-    ARROW_ASSIGN_OR_RAISE(auto result, AllocateBuffer(maximum_length + sizeof(int64_t)));
+    ARROW_ASSIGN_OR_RAISE(auto result,
+                          AllocateBuffer(maximum_length + sizeof(int64_t), pool));
 
     int64_t actual_length;
     ARROW_ASSIGN_OR_RAISE(actual_length,
@@ -203,13 +204,69 @@ class RecordBatchSerializer {
     auto CompressOne = [&](size_t i) {
       if (out_->body_buffers[i]->size() > 0) {
         RETURN_NOT_OK(CompressBuffer(*out_->body_buffers[i], options_.codec.get(),
-                                     &out_->body_buffers[i]));
+                                     &out_->body_buffers[i], options_.memory_pool));
       }
       return Status::OK();
     };
 
     return ::arrow::internal::OptionalParallelFor(
         options_.use_threads, static_cast<int>(out_->body_buffers.size()), CompressOne);
+  }
+
+  Status CompressBodyBuffersByType(const std::vector<std::shared_ptr<Field>>& fields) {
+    std::unique_ptr<util::Codec> codec;
+    std::unique_ptr<util::Codec> int32_codec;
+    std::unique_ptr<util::Codec> int64_codec;
+    ARROW_ASSIGN_OR_RAISE(
+        codec, util::Codec::Create(Compression::LZ4_FRAME, arrow::util::kUseDefaultCompressionLevel));
+    ARROW_ASSIGN_OR_RAISE(
+        int32_codec,
+        util::Codec::CreateInt32(options_.codec->compression_type(), arrow::util::kUseDefaultCompressionLevel));
+    ARROW_ASSIGN_OR_RAISE(
+        int64_codec,
+        util::Codec::CreateInt64(options_.codec->compression_type(), arrow::util::kUseDefaultCompressionLevel));
+
+    AppendCustomMetadata("ARROW:experimental_compression",
+                         util::Codec::GetCodecAsString(options_.codec->compression_type()));
+
+    int32_t buffer_idx = 0;
+    for (const auto& field : fields) {
+      if (field->type()->id() == Type::NA) continue;
+
+      const auto& layout_buffers = field->type()->layout().buffers;
+      for (size_t i = 0; i < layout_buffers.size(); ++i) {
+        const auto& layout = layout_buffers[i];
+        auto& buffer = out_->body_buffers[buffer_idx + i];
+        if (buffer->size() > 0) {
+          switch (layout.kind) {
+            case DataTypeLayout::BufferKind::FIXED_WIDTH:
+              if (layout.byte_width == 4 && field->type()->id() != Type::FLOAT) {
+                RETURN_NOT_OK(CompressBuffer(*buffer, int32_codec.get(), &buffer,
+                                             options_.memory_pool));
+              } else if (layout.byte_width == 8 && field->type()->id() != Type::DOUBLE) {
+                RETURN_NOT_OK(CompressBuffer(*buffer, int64_codec.get(), &buffer,
+                                             options_.memory_pool));
+              } else {
+                RETURN_NOT_OK(
+                    CompressBuffer(*buffer, codec.get(), &buffer, options_.memory_pool));
+              }
+              break;
+            case DataTypeLayout::BufferKind::BITMAP:
+            case DataTypeLayout::BufferKind::VARIABLE_WIDTH:
+              RETURN_NOT_OK(
+                  CompressBuffer(*buffer, codec.get(), &buffer, options_.memory_pool));
+              break;
+            case DataTypeLayout::BufferKind::ALWAYS_NULL:
+              break;
+            default:
+              return Status::Invalid("Wrong buffer layout.");
+          }
+        }
+      }
+      buffer_idx += layout_buffers.size();
+    }
+    // TODO: ParallelFor?
+    return Status::OK();
   }
 
   Status Assemble(const RecordBatch& batch) {
@@ -225,7 +282,12 @@ class RecordBatchSerializer {
     }
 
     if (options_.codec != nullptr) {
-      RETURN_NOT_OK(CompressBodyBuffers());
+     
+      if (options_.codec->compression_type() == Compression::FASTPFOR) {
+        RETURN_NOT_OK(CompressBodyBuffersByType(batch.schema()->fields()));
+      } else {
+        RETURN_NOT_OK(CompressBodyBuffers());
+      }
     }
 
     // The position for the start of a buffer relative to the passed frame of

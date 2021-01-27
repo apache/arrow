@@ -29,7 +29,7 @@ IpcReadOptions IpcReadOptions::Defaults() { return IpcReadOptions(); }
 namespace internal {
 
 Status CheckCompressionSupported(Compression::type codec) {
-  if (!(codec == Compression::LZ4_FRAME || codec == Compression::ZSTD)) {
+  if (!(codec == Compression::LZ4_FRAME || codec == Compression::ZSTD || codec == Compression::FASTPFOR)) {
     return Status::Invalid("Only LZ4_FRAME and ZSTD compression allowed");
   }
   return Status::OK();
