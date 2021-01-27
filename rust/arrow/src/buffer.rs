@@ -468,7 +468,7 @@ pub(super) fn buffer_bin_and(
     }
 }
 
-#[cfg(simd)]
+#[cfg(all(feature = "simd", not(feature = "avx512")))]
 pub(super) fn buffer_bin_and(
     left: &Buffer,
     left_offset_in_bits: usize,
@@ -579,7 +579,7 @@ pub(super) fn buffer_bin_or(
     }
 }
 
-#[cfg(simd)]
+#[cfg(all(feature = "simd", not(feature = "avx512")))]
 pub(super) fn buffer_bin_or(
     left: &Buffer,
     left_offset_in_bits: usize,
