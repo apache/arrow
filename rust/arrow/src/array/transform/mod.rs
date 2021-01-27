@@ -745,12 +745,13 @@ mod tests {
 
         // Struct equality doesn't seem to work when using slices?
 
-        let expected_strings: ArrayRef = Arc::new(StringArray::from(vec![None, Some("mark")]));
+        let expected_strings: ArrayRef =
+            Arc::new(StringArray::from(vec![None, Some("mark")]));
         let expected = StructArray::try_from(vec![
             ("f1", expected_strings),
             ("f2", ints.slice(2, 2)),
         ])
-            .unwrap();
+        .unwrap();
 
         assert_eq!(array, expected);
     }
