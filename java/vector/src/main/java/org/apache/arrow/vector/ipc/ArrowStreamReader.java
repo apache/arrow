@@ -41,9 +41,9 @@ import org.apache.arrow.vector.validate.MetadataV4UnionChecker;
  */
 public class ArrowStreamReader extends ArrowReader {
 
-  private MessageChannelReader messageReader;
+  protected MessageChannelReader messageReader;
 
-  private int loadedDictionaryCount;
+  protected int loadedDictionaryCount;
 
   /**
    * Constructs a streaming reader using a MessageChannelReader. Non-blocking.
@@ -138,7 +138,7 @@ public class ArrowStreamReader extends ArrowReader {
   /**
    * When read a record batch, check whether its dictionaries are available.
    */
-  private void checkDictionaries() throws IOException {
+  protected void checkDictionaries() throws IOException {
     // if all dictionaries are loaded, return.
     if (loadedDictionaryCount == dictionaries.size()) {
       return;
@@ -177,7 +177,7 @@ public class ArrowStreamReader extends ArrowReader {
   }
 
 
-  private ArrowDictionaryBatch readDictionary(MessageResult result) throws IOException {
+  protected ArrowDictionaryBatch readDictionary(MessageResult result) throws IOException {
 
     ArrowBuf bodyBuffer = result.getBodyBuffer();
 

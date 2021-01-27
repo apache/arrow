@@ -44,8 +44,8 @@ import org.apache.arrow.vector.util.VectorBatchAppender;
 public abstract class ArrowReader implements DictionaryProvider, AutoCloseable {
 
   protected final BufferAllocator allocator;
-  private VectorLoader loader;
-  private VectorSchemaRoot root;
+  protected VectorLoader loader;
+  protected VectorSchemaRoot root;
   protected Map<Long, Dictionary> dictionaries;
   private boolean initialized = false;
 

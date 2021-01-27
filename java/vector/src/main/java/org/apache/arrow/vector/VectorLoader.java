@@ -36,7 +36,7 @@ import org.apache.arrow.vector.types.pojo.Field;
  */
 public class VectorLoader {
 
-  private final VectorSchemaRoot root;
+  protected final VectorSchemaRoot root;
 
   /**
    * Construct with a root to load and will create children in root based on schema.
@@ -67,7 +67,7 @@ public class VectorLoader {
     }
   }
 
-  private void loadBuffers(
+  protected void loadBuffers(
       FieldVector vector,
       Field field,
       Iterator<ArrowBuf> buffers,
