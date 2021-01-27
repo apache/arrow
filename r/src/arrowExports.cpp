@@ -108,6 +108,15 @@ BEGIN_CPP11
 END_CPP11
 }
 // array.cpp
+std::string Array__Diff(const std::shared_ptr<arrow::Array>& lhs, const std::shared_ptr<arrow::Array>& rhs);
+extern "C" SEXP _arrow_Array__Diff(SEXP lhs_sexp, SEXP rhs_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type lhs(lhs_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type rhs(rhs_sexp);
+	return cpp11::as_sexp(Array__Diff(lhs, rhs));
+END_CPP11
+}
+// array.cpp
 std::shared_ptr<arrow::ArrayData> Array__data(const std::shared_ptr<arrow::Array>& array);
 extern "C" SEXP _arrow_Array__data(SEXP array_sexp){
 BEGIN_CPP11
@@ -3512,6 +3521,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Array__type_id", (DL_FUNC) &_arrow_Array__type_id, 1}, 
 		{ "_arrow_Array__Equals", (DL_FUNC) &_arrow_Array__Equals, 2}, 
 		{ "_arrow_Array__ApproxEquals", (DL_FUNC) &_arrow_Array__ApproxEquals, 2}, 
+		{ "_arrow_Array__Diff", (DL_FUNC) &_arrow_Array__Diff, 2}, 
 		{ "_arrow_Array__data", (DL_FUNC) &_arrow_Array__data, 1}, 
 		{ "_arrow_Array__RangeEquals", (DL_FUNC) &_arrow_Array__RangeEquals, 5}, 
 		{ "_arrow_Array__View", (DL_FUNC) &_arrow_Array__View, 2}, 

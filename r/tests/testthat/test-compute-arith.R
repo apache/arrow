@@ -28,8 +28,14 @@ test_that("Addition", {
 
   a8 <- a$cast(int8())
   expect_type_equal(a8 + Scalar$create(1, int8()), int8())
+
+  # int8 will be promoted to int32 when added to int32
   expect_type_equal(a8 + 127L, int32())
-  expect_type_equal(a8 + 200L, int32())
+  expect_equal(a8 + 127L, Array$create(c(128:131, NA_integer_)))
+
+  b <- Array$create(c(4:1, NA_integer_))
+  expect_type_equal(a8 + b, int32())
+  expect_equal(a8 + b, Array$create(c(5L, 5L, 5L, 5L, NA_integer_)))
 
   expect_type_equal(a + 4.1, float64())
   expect_equal(a + 4.1, Array$create(c(5.1, 6.1, 7.1, 8.1, NA_real_)))
@@ -38,11 +44,17 @@ test_that("Addition", {
 test_that("Subtraction", {
   a <- Array$create(c(1:4, NA_integer_))
   expect_equal(a - 3L, Array$create(c(-2:1, NA_integer_)))
+
+  expect_equal(Array$create(c(5.1, 6.1, 7.1, 8.1, NA_real_)) - a,
+               Array$create(c(4.1, 4.1, 4.1, 4.1, NA_real_)))
 })
 
 test_that("Multiplication", {
   a <- Array$create(c(1:4, NA_integer_))
   expect_equal(a * 2L, Array$create(c(1:4 * 2L, NA_integer_)))
+
+  expect_equal((a * 0.5) * 3L,
+               Array$create(c(1.5, 3, 4.5, 6, NA_real_)))
 })
 
 test_that("Division", {

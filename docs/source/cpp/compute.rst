@@ -766,6 +766,8 @@ is signed, and its width is the maximum width of any input. For example:
 +===================+======================+===========================================+
 | int32, int32      | int32                |                                           |
 +-------------------+----------------------+-------------------------------------------+
+| uint32, int32     | int32                | One input signed, override unsigned       |
++-------------------+----------------------+-------------------------------------------+
 | int16, int32      | int32                | Max width is 32, promote LHS to int32     |
 +-------------------+----------------------+-------------------------------------------+
 | uint16, uint32    | uint32               | All inputs unsigned, maintain unsigned    |
@@ -780,3 +782,8 @@ is signed, and its width is the maximum width of any input. For example:
 +-------------------+----------------------+-------------------------------------------+
 | float32, int64    | float32              | int64 is wider, still promotes to float32 |
 +-------------------+----------------------+-------------------------------------------+
+
+In particulary, note that comparing a `uint32` column to an `int32` column may
+emit an error if one of the LHS' values cannot be expressed as the common type
+`int32` (for example, `2 ** 31`). This tradeoff is made to keep the results of
+arithmetic operations narrow.

@@ -554,7 +554,7 @@ test_that("filter() on timestamp columns", {
   )
 
   # Now with bare string date
-  skip("Implement more aggressive implicit casting for scalars")
+  skip("Implement more aggressive implicit casting for scalars (ARROW-11402)")
   expect_equivalent(
     ds %>%
       filter(ts >= "2015-05-04") %>%
