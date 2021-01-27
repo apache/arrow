@@ -370,15 +370,21 @@ def benchmark_common_options(cmd):
         click.option("--cmake-extras", type=str, multiple=True,
                      help="Extra flags/options to pass to cmake invocation. "
                      "Can be stacked"),
+    ]
+
+    cmd = cpp_toolchain_options(cmd)
+    return _apply_options(cmd, options)
+
+
+def benchmark_filter_options(cmd):
+    options = [
         click.option("--suite-filter", metavar="<regex>", show_default=True,
                      type=str, default=None,
                      help="Regex filtering benchmark suites."),
         click.option("--benchmark-filter", metavar="<regex>",
                      show_default=True, type=str, default=None,
-                     help="Regex filtering benchmarks."),
+                     help="Regex filtering benchmarks.")
     ]
-
-    cmd = cpp_toolchain_options(cmd)
     return _apply_options(cmd, options)
 
 
@@ -408,6 +414,7 @@ def benchmark_list(ctx, rev_or_path, src, preserve, output, cmake_extras,
 @click.argument("rev_or_path", metavar="[<rev_or_path>]",
                 default="WORKSPACE", required=False)
 @benchmark_common_options
+@benchmark_filter_options
 @click.option("--repetitions", type=int, default=1, show_default=True,
               help=("Number of repetitions of each benchmark. Increasing "
                     "may improve result precision."))
@@ -462,6 +469,7 @@ def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
 
 @benchmark.command(name="diff", short_help="Compare benchmark suites")
 @benchmark_common_options
+@benchmark_filter_options
 @click.option("--threshold", type=float, default=DEFAULT_THRESHOLD,
               show_default=True,
               help="Regression failure threshold in percentage.")
