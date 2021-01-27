@@ -45,7 +45,7 @@ cli = ["rustyline"]
 simd = ["arrow/simd"]
 
 [dependencies]
-ahash = "0.6"
+ahash = "0.7"
 hashbrown = "0.9"
 arrow = { path = "../arrow", version = "4.0.0-SNAPSHOT", features = ["prettyprint"] }
 parquet = { path = "../parquet", version = "4.0.0-SNAPSHOT", features = ["arrow"] }
