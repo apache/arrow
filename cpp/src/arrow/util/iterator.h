@@ -243,7 +243,7 @@ class TransformIterator {
     while (!finished_) {
       ARROW_ASSIGN_OR_RAISE(util::optional<V> next, Pump());
       if (next.has_value()) {
-        return *next;
+        return std::move(*next);
       }
       ARROW_ASSIGN_OR_RAISE(last_value_, it_.Next());
     }
