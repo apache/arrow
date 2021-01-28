@@ -21,6 +21,7 @@ use std::any::Any;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
+use ahash::RandomState;
 use futures::{
     stream::{Stream, StreamExt},
     Future,
@@ -30,11 +31,10 @@ use crate::error::{DataFusionError, Result};
 use crate::physical_plan::{Accumulator, AggregateExpr};
 use crate::physical_plan::{Distribution, ExecutionPlan, Partitioning, PhysicalExpr};
 
-use arrow::error::{ArrowError, Result as ArrowResult};
-use arrow::record_batch::RecordBatch;
+use arrow::array::BooleanArray;
 use arrow::{
-    array::BooleanArray,
-    datatypes::{DataType, Field, Schema, SchemaRef, TimeUnit},
+    array::{Array, UInt32Builder},
+    error::{ArrowError, Result as ArrowResult},
 };
 use arrow::{
     array::{
@@ -43,18 +43,21 @@ use arrow::{
     },
     compute,
 };
+use arrow::{
+    datatypes::{DataType, Field, Schema, SchemaRef, TimeUnit},
+    record_batch::RecordBatch,
+};
+use hashbrown::HashMap;
+use ordered_float::OrderedFloat;
 use pin_project_lite::pin_project;
+
+use arrow::array::{TimestampMicrosecondArray, TimestampNanosecondArray};
+use async_trait::async_trait;
 
 use super::{
     expressions::Column, group_scalar::GroupByScalar, RecordBatchStream,
     SendableRecordBatchStream,
 };
-use ahash::RandomState;
-use hashbrown::HashMap;
-use ordered_float::OrderedFloat;
-
-use arrow::array::{TimestampMicrosecondArray, TimestampNanosecondArray};
-use async_trait::async_trait;
 
 /// Hash aggregate modes
 #[derive(Debug, Copy, Clone)]
@@ -322,48 +325,76 @@ fn group_aggregate_batch(
             });
     }
 
+    // Collect all indices + offsets based on keys in this vec
+    let mut batch_indices: UInt32Builder = UInt32Builder::new(0);
+    let mut offsets = vec![0];
+    let mut offset_so_far = 0;
+    for key in batch_keys.iter() {
+        let (_, _, indices) = accumulators.get_mut(key).unwrap();
+        batch_indices.append_slice(&indices)?;
+        offset_so_far += indices.len();
+        offsets.push(offset_so_far);
+    }
+    let batch_indices = batch_indices.finish();
+
+    // `Take` all values based on indices into Arrays
+    let values: Vec<Vec<Arc<dyn Array>>> = aggr_input_values
+        .iter()
+        .map(|array| {
+            array
+                .iter()
+                .map(|array| {
+                    compute::take(
+                        array.as_ref(),
+                        &batch_indices,
+                        None, // None: no index check
+                    )
+                    .unwrap()
+                })
+                .collect()
+            // 2.3
+        })
+        .collect();
+
     // 2.1 for each key in this batch
     // 2.2 for each aggregation
-    // 2.3 `take` from each of its arrays the keys' values
+    // 2.3 `slice` from each of its arrays the keys' values
     // 2.4 update / merge the accumulator with the values
     // 2.5 clear indices
-    batch_keys.iter_mut().try_for_each(|key| {
-        let (_, accumulator_set, indices) = accumulators.get_mut(key).unwrap();
-        let primitive_indices = UInt32Array::from(indices.clone());
-        // 2.2
-        accumulator_set
-            .iter_mut()
-            .zip(&aggr_input_values)
-            .map(|(accumulator, aggr_array)| {
-                (
-                    accumulator,
-                    aggr_array
-                        .iter()
-                        .map(|array| {
-                            // 2.3
-                            compute::take(
-                                array.as_ref(),
-                                &primitive_indices,
-                                None, // None: no index check
-                            )
-                            .unwrap()
-                        })
-                        .collect::<Vec<ArrayRef>>(),
-                )
-            })
-            .try_for_each(|(accumulator, values)| match mode {
-                AggregateMode::Partial => accumulator.update_batch(&values),
-                AggregateMode::Final => {
-                    // note: the aggregation here is over states, not values, thus the merge
-                    accumulator.merge_batch(&values)
-                }
-            })
-            // 2.5
-            .and({
-                indices.clear();
-                Ok(())
-            })
-    })?;
+    batch_keys
+        .iter_mut()
+        .zip(offsets.windows(2))
+        .try_for_each(|(key, offsets)| {
+            let (_, accumulator_set, indices) = accumulators.get_mut(key).unwrap();
+            // 2.2
+            accumulator_set
+                .iter_mut()
+                .zip(values.iter())
+                .map(|(accumulator, aggr_array)| {
+                    (
+                        accumulator,
+                        aggr_array
+                            .iter()
+                            .map(|array| {
+                                // 2.3
+                                array.slice(offsets[0], offsets[1] - offsets[0])
+                            })
+                            .collect(),
+                    )
+                })
+                .try_for_each(|(accumulator, values)| match mode {
+                    AggregateMode::Partial => accumulator.update_batch(&values),
+                    AggregateMode::Final => {
+                        // note: the aggregation here is over states, not values, thus the merge
+                        accumulator.merge_batch(&values)
+                    }
+                })
+                // 2.5
+                .and({
+                    indices.clear();
+                    Ok(())
+                })
+        })?;
     Ok(accumulators)
 }
 
