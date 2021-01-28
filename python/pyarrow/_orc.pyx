@@ -125,7 +125,8 @@ cdef class ORCWriter(_Weakrefable):
         self.source = source
         get_writer(source, &rd_handle)
         with nogil:
-            self.writer = move(GetResultValue[unique_ptr[ORCFileWriter]](ORCFileWriter.Open(deref(rd_handle))))
+            self.writer = move(GetResultValue[unique_ptr[ORCFileWriter]](
+                ORCFileWriter.Open(deref(rd_handle))))
 
     def write(self, object table):
         cdef:
