@@ -24,10 +24,10 @@ import pytest
 
 
 def test_filesystem_deprecated():
-    with pytest.warns(DeprecationWarning):
+    with pytest.warns(FutureWarning):
         filesystem.LocalFileSystem()
 
-    with pytest.warns(DeprecationWarning):
+    with pytest.warns(FutureWarning):
         filesystem.LocalFileSystem.get_instance()
 
 
@@ -35,16 +35,16 @@ def test_filesystem_deprecated():
                     reason="getattr needs Python 3.7")
 def test_filesystem_deprecated_toplevel():
 
-    with pytest.warns(DeprecationWarning):
+    with pytest.warns(FutureWarning):
         pa.localfs
 
-    with pytest.warns(DeprecationWarning):
+    with pytest.warns(FutureWarning):
         pa.FileSystem
 
-    with pytest.warns(DeprecationWarning):
+    with pytest.warns(FutureWarning):
         pa.LocalFileSystem
 
-    with pytest.warns(DeprecationWarning):
+    with pytest.warns(FutureWarning):
         pa.HadoopFileSystem
 
 
