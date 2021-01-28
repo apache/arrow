@@ -353,6 +353,58 @@ decimal <- function(precision, scale) {
   Decimal128Type__initialize(precision, scale)
 }
 
+StructType <- R6Class("StructType",
+  inherit = NestedType,
+  public = list(
+    GetFieldByName = function(name) StructType__GetFieldByName(self, name),
+    GetFieldIndex = function(name) StructType__GetFieldIndex(self, name)
+  )
+)
+StructType$create <- function(...) struct__(.fields(list(...)))
+
+#' @rdname data-type
+#' @export
+struct <- StructType$create
+
+ListType <- R6Class("ListType",
+  inherit = NestedType,
+  active = list(
+    value_field = function() ListType__value_field(self),
+    value_type = function() ListType__value_type(self)
+  )
+)
+
+#' @rdname data-type
+#' @export
+list_of <- function(type) list__(type)
+
+LargeListType <- R6Class("LargeListType",
+  inherit = NestedType,
+  active = list(
+    value_field = function() LargeListType__value_field(self),
+    value_type = function() LargeListType__value_type(self)
+  )
+)
+
+#' @rdname data-type
+#' @export
+large_list_of <- function(type) large_list__(type)
+
+#' @rdname data-type
+#' @export
+FixedSizeListType <- R6Class("FixedSizeListType",
+  inherit = NestedType,
+  active = list(
+    value_field = function() FixedSizeListType__value_field(self),
+    value_type = function() FixedSizeListType__value_type(self),
+    list_size = function() FixedSizeListType__list_size(self)
+  )
+)
+
+#' @rdname data-type
+#' @export
+fixed_size_list_of <- function(type, list_size) fixed_size_list__(type, list_size)
+
 as_type <- function(type, name = "type") {
   if (identical(type, double())) {
     # Magic so that we don't have to mask this base function
