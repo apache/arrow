@@ -24,7 +24,25 @@ use crate::{
 };
 use std::sync::Arc;
 
-#[allow(clippy::unnecessary_wraps)]
+fn clone_null_buffer(array: &impl Array) -> Option<Buffer> {
+    array
+        .data_ref()
+        .null_bitmap()
+        .as_ref()
+        .map(|b| b.bits.clone())
+}
+
+fn length_from_offsets<T: OffsetSizeTrait>(offsets: &[T]) -> Buffer {
+    let lengths = offsets.windows(2).map(|offset| offset[1] - offset[0]);
+
+    // JUSTIFICATION
+    //  Benefit
+    //      ~60% speedup
+    //  Soundness
+    //      `lengths` is `TrustedLen`
+    unsafe { Buffer::from_trusted_len_iter(lengths) }
+}
+
 fn length_string<OffsetSize>(
     array: &GenericStringArray<OffsetSize>,
     data_type: DataType,
@@ -32,34 +50,51 @@ fn length_string<OffsetSize>(
 where
     OffsetSize: StringOffsetSizeTrait,
 {
-    let lengths = array
-        .value_offsets()
-        .windows(2)
-        .map(|offset| offset[1] - offset[0]);
-
-    // JUSTIFICATION
-    //  Benefit
-    //      ~60% speedup
-    //  Soundness
-    //      `values` is an iterator with a known size.
-    let buffer = unsafe { Buffer::from_trusted_len_iter(lengths) };
-
-    let null_bit_buffer = array
-        .data_ref()
-        .null_bitmap()
-        .as_ref()
-        .map(|b| b.bits.clone());
-
-    let data = ArrayData::new(
+    make_array(Arc::new(ArrayData::new(
         data_type,
         array.len(),
         None,
-        null_bit_buffer,
+        clone_null_buffer(array),
         0,
-        vec![buffer],
+        vec![length_from_offsets(array.value_offsets())],
         vec![],
-    );
-    make_array(Arc::new(data))
+    )))
+}
+
+fn length_list<OffsetSize>(
+    array: &GenericListArray<OffsetSize>,
+    data_type: DataType,
+) -> ArrayRef
+where
+    OffsetSize: OffsetSizeTrait,
+{
+    make_array(Arc::new(ArrayData::new(
+        data_type,
+        array.len(),
+        None,
+        clone_null_buffer(array),
+        0,
+        vec![length_from_offsets(array.value_offsets())],
+        vec![],
+    )))
+}
+
+fn length_binary<OffsetSize>(
+    array: &GenericBinaryArray<OffsetSize>,
+    data_type: DataType,
+) -> ArrayRef
+where
+    OffsetSize: BinaryOffsetSizeTrait,
+{
+    make_array(Arc::new(ArrayData::new(
+        data_type,
+        array.len(),
+        None,
+        clone_null_buffer(array),
+        0,
+        vec![length_from_offsets(array.value_offsets())],
+        vec![],
+    )))
 }
 
 /// Returns an array of Int32/Int64 denoting the number of characters in each string in the array.
@@ -69,6 +104,22 @@ where
 /// * length is in number of bytes
 pub fn length(array: &Array) -> Result<ArrayRef> {
     match array.data_type() {
+        DataType::Binary => {
+            let array = array.as_any().downcast_ref::<BinaryArray>().unwrap();
+            Ok(length_binary(array, DataType::Int32))
+        }
+        DataType::LargeBinary => {
+            let array = array.as_any().downcast_ref::<LargeBinaryArray>().unwrap();
+            Ok(length_binary(array, DataType::Int64))
+        }
+        DataType::List(_) => {
+            let array = array.as_any().downcast_ref::<ListArray>().unwrap();
+            Ok(length_list(array, DataType::Int32))
+        }
+        DataType::LargeList(_) => {
+            let array = array.as_any().downcast_ref::<LargeListArray>().unwrap();
+            Ok(length_list(array, DataType::Int64))
+        }
         DataType::Utf8 => {
             let array = array.as_any().downcast_ref::<StringArray>().unwrap();
             Ok(length_string(array, DataType::Int32))
@@ -205,6 +256,18 @@ mod tests {
 
         let expected = Int32Array::from(vec![1, 5]);
         assert_eq!(expected.data(), result.data());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_binary() -> Result<()> {
+        let data: Vec<&[u8]> = vec![b"hello", b" ", b"world"];
+        let a = BinaryArray::from(data);
+        let result = length(&a)?;
+
+        let expected: &Array = &Int32Array::from(vec![5, 1, 5]);
+        assert_eq!(expected, result.as_ref());
 
         Ok(())
     }
