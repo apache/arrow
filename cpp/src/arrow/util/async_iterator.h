@@ -34,22 +34,35 @@ using AsyncGenerator = std::function<Future<T>()>;
 template <typename T>
 Future<> VisitAsyncGenerator(AsyncGenerator<T> generator,
                              std::function<Status(T)> visitor) {
-  auto loop_body = [generator, visitor] {
-    auto next = generator();
-    return next.Then([visitor](const T& result) -> Result<ControlFlow<detail::Empty>> {
-      if (result == IterationTraits<T>::End()) {
-        return Break(detail::Empty());
-      } else {
-        auto visited = visitor(result);
-        if (visited.ok()) {
-          return Continue();
+  struct LoopBody {
+    struct Callback {
+      Result<ControlFlow<detail::Empty>> operator()(const T& result) {
+        if (result == IterationTraits<T>::End()) {
+          return Break(detail::Empty());
         } else {
-          return visited;
+          auto visited = visitor(result);
+          if (visited.ok()) {
+            return Continue();
+          } else {
+            return visited;
+          }
         }
       }
-    });
+
+      std::function<Status(T)> visitor;
+    };
+
+    Future<ControlFlow<detail::Empty>> operator()() {
+      Callback callback{visitor};
+      auto next = generator();
+      return next.Then(std::move(callback));
+    }
+
+    AsyncGenerator<T> generator;
+    std::function<Status(T)> visitor;
   };
-  return Loop(loop_body);
+
+  return Loop(LoopBody{std::move(generator), std::move(visitor)});
 }
 
 template <typename T>
