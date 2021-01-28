@@ -19,6 +19,7 @@
 
 pub mod aggregate;
 pub mod arithmetic;
+pub mod arity;
 pub mod boolean;
 pub mod cast;
 pub mod comparison;

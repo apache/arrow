@@ -39,6 +39,7 @@ use std::str;
 use std::sync::Arc;
 
 use crate::compute::kernels::arithmetic::{divide, multiply};
+use crate::compute::kernels::arity::unary;
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 use crate::{array::*, compute::take};
@@ -569,45 +570,43 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
         (Time64(_), Int64) => cast_array_data::<Int64Type>(array, to_type.clone()),
         (Date32(DateUnit::Day), Date64(DateUnit::Millisecond)) => {
             let date_array = array.as_any().downcast_ref::<Date32Array>().unwrap();
-            let mut b = Date64Builder::new(array.len());
-            for i in 0..array.len() {
-                if array.is_null(i) {
-                    b.append_null()?;
-                } else {
-                    b.append_value(date_array.value(i) as i64 * MILLISECONDS_IN_DAY)?;
-                }
-            }
 
-            Ok(Arc::new(b.finish()) as ArrayRef)
+            let values =
+                unary::<_, _, Date64Type>(date_array, |x| x as i64 * MILLISECONDS_IN_DAY);
+
+            Ok(Arc::new(values) as ArrayRef)
         }
         (Date64(DateUnit::Millisecond), Date32(DateUnit::Day)) => {
             let date_array = array.as_any().downcast_ref::<Date64Array>().unwrap();
-            let mut b = Date32Builder::new(array.len());
-            for i in 0..array.len() {
-                if array.is_null(i) {
-                    b.append_null()?;
-                } else {
-                    b.append_value((date_array.value(i) / MILLISECONDS_IN_DAY) as i32)?;
-                }
-            }
 
-            Ok(Arc::new(b.finish()) as ArrayRef)
+            let values = unary::<_, _, Date32Type>(date_array, |x| {
+                (x / MILLISECONDS_IN_DAY) as i32
+            });
+
+            Ok(Arc::new(values) as ArrayRef)
         }
         (Time32(TimeUnit::Second), Time32(TimeUnit::Millisecond)) => {
-            let time_array = Time32MillisecondArray::from(array.data());
-            let mult =
-                Time32MillisecondArray::from(vec![MILLISECONDS as i32; array.len()]);
-            let time32_ms = multiply(&time_array, &mult)?;
+            let time_array = array.as_any().downcast_ref::<Time32SecondArray>().unwrap();
 
-            Ok(Arc::new(time32_ms) as ArrayRef)
+            let values = unary::<_, _, Time32MillisecondType>(time_array, |x| {
+                x * MILLISECONDS as i32
+            });
+
+            Ok(Arc::new(values) as ArrayRef)
         }
         (Time32(TimeUnit::Millisecond), Time32(TimeUnit::Second)) => {
-            let time_array = Time32SecondArray::from(array.data());
-            let divisor = Time32SecondArray::from(vec![MILLISECONDS as i32; array.len()]);
-            let time32_s = divide(&time_array, &divisor)?;
+            let time_array = array
+                .as_any()
+                .downcast_ref::<Time32MillisecondArray>()
+                .unwrap();
 
-            Ok(Arc::new(time32_s) as ArrayRef)
+            let values = unary::<_, _, Time32SecondType>(time_array, |x| {
+                x / (MILLISECONDS as i32)
+            });
+
+            Ok(Arc::new(values) as ArrayRef)
         }
+        //(Time32(TimeUnit::Second), Time64(_)) => {},
         (Time32(from_unit), Time64(to_unit)) => {
             let time_array = Int32Array::from(array.data());
             // note: (numeric_cast + SIMD multiply) is faster than (cast & multiply)
@@ -632,18 +631,24 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
             }
         }
         (Time64(TimeUnit::Microsecond), Time64(TimeUnit::Nanosecond)) => {
-            let time_array = Time64NanosecondArray::from(array.data());
-            let mult = Time64NanosecondArray::from(vec![MILLISECONDS; array.len()]);
-            let time64_ns = multiply(&time_array, &mult)?;
+            let time_array = array
+                .as_any()
+                .downcast_ref::<Time64MicrosecondArray>()
+                .unwrap();
 
-            Ok(Arc::new(time64_ns) as ArrayRef)
+            let values =
+                unary::<_, _, Time64NanosecondType>(time_array, |x| x * MILLISECONDS);
+            Ok(Arc::new(values) as ArrayRef)
         }
         (Time64(TimeUnit::Nanosecond), Time64(TimeUnit::Microsecond)) => {
-            let time_array = Time64MicrosecondArray::from(array.data());
-            let divisor = Time64MicrosecondArray::from(vec![MILLISECONDS; array.len()]);
-            let time64_us = divide(&time_array, &divisor)?;
+            let time_array = array
+                .as_any()
+                .downcast_ref::<Time64NanosecondArray>()
+                .unwrap();
 
-            Ok(Arc::new(time64_us) as ArrayRef)
+            let values =
+                unary::<_, _, Time64MicrosecondType>(time_array, |x| x / MILLISECONDS);
+            Ok(Arc::new(values) as ArrayRef)
         }
         (Time64(from_unit), Time32(to_unit)) => {
             let time_array = Int64Array::from(array.data());
@@ -652,33 +657,16 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
             let divisor = from_size / to_size;
             match to_unit {
                 TimeUnit::Second => {
-                    let mut b = Time32SecondBuilder::new(array.len());
-                    for i in 0..array.len() {
-                        if array.is_null(i) {
-                            b.append_null()?;
-                        } else {
-                            b.append_value(
-                                (time_array.value(i) as i64 / divisor) as i32,
-                            )?;
-                        }
-                    }
-
-                    Ok(Arc::new(b.finish()) as ArrayRef)
+                    let values = unary::<_, _, Time32SecondType>(&time_array, |x| {
+                        (x as i64 / divisor) as i32
+                    });
+                    Ok(Arc::new(values) as ArrayRef)
                 }
                 TimeUnit::Millisecond => {
-                    // currently can't dedup this builder [ARROW-4164]
-                    let mut b = Time32MillisecondBuilder::new(array.len());
-                    for i in 0..array.len() {
-                        if array.is_null(i) {
-                            b.append_null()?;
-                        } else {
-                            b.append_value(
-                                (time_array.value(i) as i64 / divisor) as i32,
-                            )?;
-                        }
-                    }
-
-                    Ok(Arc::new(b.finish()) as ArrayRef)
+                    let values = unary::<_, _, Time32MillisecondType>(&time_array, |x| {
+                        (x as i64 / divisor) as i32
+                    });
+                    Ok(Arc::new(values) as ArrayRef)
                 }
                 _ => unreachable!("array type not supported"),
             }
@@ -806,7 +794,7 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
 }
 
 /// Get the time unit as a multiple of a second
-fn time_unit_multiple(unit: &TimeUnit) -> i64 {
+const fn time_unit_multiple(unit: &TimeUnit) -> i64 {
     match unit {
         TimeUnit::Second => 1,
         TimeUnit::Millisecond => MILLISECONDS,
