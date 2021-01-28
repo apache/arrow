@@ -317,7 +317,7 @@ mod tests {
                 Some(512),
                 Some(1024),
             ]));
-        let input_struct_3 = StructArray::from(vec![(field.clone(), input_primitive_3)]);
+        let input_struct_3 = StructArray::from(vec![(field, input_primitive_3)]);
 
         let arr = concat(&[&input_struct_1, &input_struct_2, &input_struct_3])?;
 
@@ -366,7 +366,7 @@ mod tests {
                 Some(103),
                 None,
             ]));
-        let input_struct_2 = StructArray::from(vec![(field.clone(), input_primitive_2)]);
+        let input_struct_2 = StructArray::from(vec![(field, input_primitive_2)]);
 
         let arr = concat(&[
             input_struct_1.slice(1, 3).as_ref(),
