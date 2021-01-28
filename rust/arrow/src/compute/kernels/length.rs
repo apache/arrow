@@ -25,18 +25,17 @@ use crate::{
 use std::sync::Arc;
 
 #[allow(clippy::unnecessary_wraps)]
-fn length_string<OffsetSize>(array: &Array, data_type: DataType) -> Result<ArrayRef>
+fn length_string<OffsetSize>(
+    array: &GenericStringArray<OffsetSize>,
+    data_type: DataType,
+) -> ArrayRef
 where
-    OffsetSize: OffsetSizeTrait,
+    OffsetSize: StringOffsetSizeTrait,
 {
-    // note: offsets are stored as u8, but they can be interpreted as OffsetSize
-    let offsets = &array.data_ref().buffers()[0];
-    // this is a 30% improvement over iterating over u8s and building OffsetSize, which
-    // justifies the usage of `unsafe`.
-    let slice: &[OffsetSize] =
-        &unsafe { offsets.typed_data::<OffsetSize>() }[array.offset()..];
-
-    let lengths = slice.windows(2).map(|offset| offset[1] - offset[0]);
+    let lengths = array
+        .value_offsets()
+        .windows(2)
+        .map(|offset| offset[1] - offset[0]);
 
     // JUSTIFICATION
     //  Benefit
@@ -60,7 +59,7 @@ where
         vec![buffer],
         vec![],
     );
-    Ok(make_array(Arc::new(data)))
+    make_array(Arc::new(data))
 }
 
 /// Returns an array of Int32/Int64 denoting the number of characters in each string in the array.
@@ -70,8 +69,14 @@ where
 /// * length is in number of bytes
 pub fn length(array: &Array) -> Result<ArrayRef> {
     match array.data_type() {
-        DataType::Utf8 => length_string::<i32>(array, DataType::Int32),
-        DataType::LargeUtf8 => length_string::<i64>(array, DataType::Int64),
+        DataType::Utf8 => {
+            let array = array.as_any().downcast_ref::<StringArray>().unwrap();
+            Ok(length_string(array, DataType::Int32))
+        }
+        DataType::LargeUtf8 => {
+            let array = array.as_any().downcast_ref::<LargeStringArray>().unwrap();
+            Ok(length_string(array, DataType::Int64))
+        }
         _ => Err(ArrowError::ComputeError(format!(
             "length not supported for {:?}",
             array.data_type()
