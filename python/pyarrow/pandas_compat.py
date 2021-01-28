@@ -744,7 +744,7 @@ def _reconstruct_block(item, ndim, columns=None, extension_columns=None):
         except ImportError:
             # older pandas versions
             from pandas import DatetimeIndex
-            block_arr = DatetimeIndex(block_arr, dtype=dtype)
+            block_arr = DatetimeIndex(block_arr).tz_localize(dtype.tz)
 
         block = _int.make_block(block_arr, placement=placement,
                                 klass=_int.DatetimeTZBlock)
