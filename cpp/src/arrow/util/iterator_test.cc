@@ -49,6 +49,32 @@ struct IterationTraits<TestInt> {
   static TestInt End() { return TestInt(); }
 };
 
+struct TestStr {
+  TestStr() : value("") {}
+  TestStr(const std::string& s) : value(s) {}  // NOLINT runtime/explicit
+  TestStr(const char* s) : value(s) {}         // NOLINT runtime/explicit
+  explicit TestStr(const TestInt& test_int) {
+    if (test_int == IterationTraits<TestInt>::End()) {
+      value = "";
+    } else {
+      value = std::to_string(test_int.value);
+    }
+  }
+  std::string value;
+
+  bool operator==(const TestStr& other) const { return value == other.value; }
+
+  friend std::ostream& operator<<(std::ostream& os, const TestStr& v) {
+    os << "{\"" << v.value << "\"}";
+    return os;
+  }
+};
+
+template <>
+struct IterationTraits<TestStr> {
+  static TestStr End() { return TestStr(); }
+};
+
 template <typename T>
 class TracingIterator {
  public:
@@ -155,7 +181,7 @@ std::function<Future<TestInt>()> BackgroundAsyncVectorIt(std::vector<TestInt> v)
         return TransformYield(item);
       });
   EXPECT_OK_AND_ASSIGN(auto background,
-                       MakeBackgroundIterator<TestInt>(std::move(slow_iterator), pool));
+                       MakeBackgroundGenerator<TestInt>(std::move(slow_iterator), pool));
   return background;
 }
 
@@ -210,6 +236,9 @@ void AssertIteratorExhausted(Iterator<T>& it) {
   AssertIteratorNext(IterationTraits<T>::End(), it);
 }
 
+// --------------------------------------------------------------------
+// Synchronous iterator tests
+
 TEST(TestEmptyIterator, Basic) { AssertIteratorMatch({}, EmptyIt<TestInt>()); }
 
 TEST(TestVectorIterator, Basic) {
@@ -254,8 +283,19 @@ TEST(TestVectorIterator, RangeForLoop) {
   ASSERT_EQ(ints_it, ints.end());
 }
 
+Transformer<TestInt, TestStr> MakeFirstN(int n) {
+  int remaining = n;
+  return [remaining](TestInt next) mutable -> Result<TransformFlow<TestStr>> {
+    if (remaining > 0) {
+      remaining--;
+      return TransformYield(TestStr(next));
+    }
+    return TransformFinish();
+  };
+}
+
 template <typename T>
-Transformer<T, T> MakeFirstN(int n) {
+Transformer<T, T> MakeFirstNGeneric(int n) {
   int remaining = n;
   return [remaining](T next) mutable -> Result<TransformFlow<T>> {
     if (remaining > 0) {
@@ -268,15 +308,15 @@ Transformer<T, T> MakeFirstN(int n) {
 
 TEST(TestIteratorTransform, Truncating) {
   auto original = VectorIt({1, 2, 3});
-  auto truncated = MakeTransformedIterator(std::move(original), MakeFirstN<TestInt>(2));
-  AssertIteratorMatch({1, 2}, std::move(truncated));
+  auto truncated = MakeTransformedIterator(std::move(original), MakeFirstN(2));
+  AssertIteratorMatch({"1", "2"}, std::move(truncated));
 }
 
 TEST(TestIteratorTransform, TestPointer) {
   auto original = VectorIt<std::shared_ptr<int>>(
       {std::make_shared<int>(1), std::make_shared<int>(2), std::make_shared<int>(3)});
-  auto truncated =
-      MakeTransformedIterator(std::move(original), MakeFirstN<std::shared_ptr<int>>(2));
+  auto truncated = MakeTransformedIterator(std::move(original),
+                                           MakeFirstNGeneric<std::shared_ptr<int>>(2));
   ASSERT_OK_AND_ASSIGN(auto result, truncated.ToVector());
   ASSERT_EQ(2, result.size());
 }
@@ -284,238 +324,54 @@ TEST(TestIteratorTransform, TestPointer) {
 TEST(TestIteratorTransform, TruncatingShort) {
   // Tests the failsafe case where we never call Finish
   auto original = VectorIt({1});
-  auto truncated = MakeTransformedIterator<TestInt, TestInt>(std::move(original),
-                                                             MakeFirstN<TestInt>(2));
-  AssertIteratorMatch({1}, std::move(truncated));
+  auto truncated =
+      MakeTransformedIterator<TestInt, TestStr>(std::move(original), MakeFirstN(2));
+  AssertIteratorMatch({"1"}, std::move(truncated));
 }
 
-TEST(TestAsyncUtil, Background) {
-  std::vector<TestInt> expected = {1, 2, 3};
-  auto background = BackgroundAsyncVectorIt(expected);
-  auto future = CollectAsyncGenerator(background);
-  ASSERT_FALSE(future.is_finished());
-  future.Wait();
-  ASSERT_TRUE(future.is_finished());
-  ASSERT_EQ(expected, *future.result());
-}
-
-struct SlowEmptyIterator {
-  Result<TestInt> Next() {
-    if (called_) {
-      return Status::Invalid("Should not have been called twice");
-    }
-    SleepFor(0.1);
-    return IterationTraits<TestInt>::End();
-  }
-
- private:
-  bool called_ = false;
-};
-
-TEST(TestAsyncUtil, BackgroundRepeatEnd) {
-  // Ensure that the background iterator properly fulfills the asyncgenerator contract
-  // and can be called after it ends.
-  auto iterator = Iterator<TestInt>(SlowEmptyIterator());
-  ASSERT_OK_AND_ASSIGN(
-      auto background_iter,
-      MakeBackgroundIterator(std::move(iterator), internal::GetCpuThreadPool()));
-
-  auto one = background_iter();
-  auto two = background_iter();
-
-  ASSERT_TRUE(one.Wait(0.5));
-
-  if (one.is_finished()) {
-    ASSERT_EQ(IterationTraits<TestInt>::End(), *one.result());
-  }
-
-  ASSERT_TRUE(two.Wait(0.5));
-  ASSERT_TRUE(two.is_finished());
-  if (two.is_finished()) {
-    ASSERT_EQ(IterationTraits<TestInt>::End(), *two.result());
-  }
-}
-
-TEST(TestAsyncUtil, SynchronousFinish) {
-  AsyncGenerator<TestInt> generator = []() {
-    return Future<TestInt>::MakeFinished(IterationTraits<TestInt>::End());
-  };
-  Transformer<TestInt, TestInt> skip_all = [](TestInt value) { return TransformSkip(); };
-  auto transformed = TransformAsyncGenerator(generator, skip_all);
-  auto future = CollectAsyncGenerator(transformed);
-  ASSERT_TRUE(future.is_finished());
-  ASSERT_OK_AND_ASSIGN(auto actual, future.result());
-  ASSERT_EQ(std::vector<TestInt>(), actual);
-}
-
-TEST(TestAsyncUtil, CompleteBackgroundStressTest) {
-  auto expected = RangeVector(100);
-  std::vector<Future<std::vector<TestInt>>> futures;
-  for (unsigned int i = 0; i < 100; i++) {
-    auto background = BackgroundAsyncVectorIt(expected);
-    futures.push_back(CollectAsyncGenerator(background));
-  }
-  auto combined = All(futures);
-  combined.Wait(2);
-  if (combined.is_finished()) {
-    ASSERT_OK_AND_ASSIGN(auto completed_vectors, combined.result());
-    for (std::size_t i = 0; i < completed_vectors.size(); i++) {
-      ASSERT_OK_AND_ASSIGN(auto vector, completed_vectors[i]);
-      ASSERT_EQ(vector, expected);
-    }
-  } else {
-    FAIL() << "After 2 seconds all background iterators had not finished collecting";
-  }
-}
-
-TEST(TestAsyncUtil, StackOverflow) {
-  int counter = 0;
-  AsyncGenerator<TestInt> generator = [&counter]() {
-    if (counter < 1000000) {
-      return Future<TestInt>::MakeFinished(counter++);
-    } else {
-      return Future<TestInt>::MakeFinished(IterationTraits<TestInt>::End());
-    }
-  };
-  Transformer<TestInt, TestInt> discard =
-      [](TestInt next) -> Result<TransformFlow<TestInt>> { return TransformSkip(); };
-  auto transformed = TransformAsyncGenerator(generator, discard);
-  auto collected_future = CollectAsyncGenerator(transformed);
-  ASSERT_TRUE(collected_future.Wait(5));
-  if (collected_future.is_finished()) {
-    ASSERT_OK_AND_ASSIGN(auto collected, collected_future.result());
-    ASSERT_EQ(0, collected.size());
-  }
-}
-
-TEST(TestAsyncUtil, Visit) {
-  auto generator = AsyncVectorIt({1, 2, 3});
-  unsigned int sum = 0;
-  auto sum_future = VisitAsyncGenerator<TestInt>(generator, [&sum](TestInt item) {
-    sum += item.value;
-    return Status::OK();
-  });
-  ASSERT_TRUE(sum_future.is_finished());
-  ASSERT_EQ(6, sum);
-}
-
-TEST(TestAsyncUtil, Collect) {
-  std::vector<TestInt> expected = {1, 2, 3};
-  auto generator = AsyncVectorIt(expected);
-  auto collected = CollectAsyncGenerator(generator);
-  ASSERT_EQ(expected, *collected.result());
-}
-
-template <typename T>
-Transformer<T, T> MakeRepeatN(int repeat_count) {
-  int current_repeat = 0;
-  return [repeat_count, current_repeat](T next) mutable -> Result<TransformFlow<T>> {
-    current_repeat++;
-    bool ready_for_next = false;
-    if (current_repeat == repeat_count) {
-      current_repeat = 0;
-      ready_for_next = true;
-    }
-    return TransformYield(next, ready_for_next);
-  };
-}
-
-TEST(TestIteratorTransform, Repeating) {
-  auto original = VectorIt({1, 2, 3});
-  auto repeated = MakeTransformedIterator<TestInt, TestInt>(std::move(original),
-                                                            MakeRepeatN<TestInt>(2));
-  AssertIteratorMatch({1, 1, 2, 2, 3, 3}, std::move(repeated));
-}
-
-template <typename T>
-Transformer<T, T> MakeFilter(std::function<bool(T&)> filter) {
-  return [filter](T next) -> Result<TransformFlow<T>> {
+Transformer<TestInt, TestStr> MakeFilter(std::function<bool(TestInt&)> filter) {
+  return [filter](TestInt next) -> Result<TransformFlow<TestStr>> {
     if (filter(next)) {
-      return TransformYield(next);
+      return TransformYield(TestStr(next));
     } else {
       return TransformSkip();
     }
   };
 }
 
-template <typename T>
-Transformer<T, T> MakeAbortOnSecond() {
-  int counter = 0;
-  return [counter](T next) mutable -> Result<TransformFlow<T>> {
-    if (counter++ == 1) {
-      return Status::Invalid("X");
-    }
-    return TransformYield(next);
-  };
-}
-
 TEST(TestIteratorTransform, SkipSome) {
   // Exercises TransformSkip
   auto original = VectorIt({1, 2, 3});
-  auto filter = MakeFilter<TestInt>([](TestInt& t) { return t.value != 2; });
+  auto filter = MakeFilter([](TestInt& t) { return t.value != 2; });
   auto filtered = MakeTransformedIterator(std::move(original), filter);
-  AssertIteratorMatch({1, 3}, std::move(filtered));
+  AssertIteratorMatch({"1", "3"}, std::move(filtered));
 }
 
 TEST(TestIteratorTransform, SkipAll) {
   // Exercises TransformSkip
   auto original = VectorIt({1, 2, 3});
-  auto filter = MakeFilter<TestInt>([](TestInt& t) { return false; });
+  auto filter = MakeFilter([](TestInt& t) { return false; });
   auto filtered = MakeTransformedIterator(std::move(original), filter);
   AssertIteratorMatch({}, std::move(filtered));
 }
 
+Transformer<TestInt, TestStr> MakeAbortOnSecond() {
+  int counter = 0;
+  return [counter](TestInt next) mutable -> Result<TransformFlow<TestStr>> {
+    if (counter++ == 1) {
+      return Status::Invalid("X");
+    }
+    return TransformYield(TestStr(next));
+  };
+}
+
 TEST(TestIteratorTransform, Abort) {
   auto original = VectorIt({1, 2, 3});
-  auto transformed =
-      MakeTransformedIterator(std::move(original), MakeAbortOnSecond<TestInt>());
+  auto transformed = MakeTransformedIterator(std::move(original), MakeAbortOnSecond());
   ASSERT_OK(transformed.Next());
   ASSERT_RAISES(Invalid, transformed.Next());
-}
-
-TEST(TestAsyncIteratorTransform, SkipSome) {
-  auto original = AsyncVectorIt({1, 2, 3});
-  auto filter = MakeFilter<TestInt>([](TestInt& t) { return t.value != 2; });
-  auto filtered = TransformAsyncGenerator(std::move(original), filter);
-  AssertAsyncGeneratorMatch({1, 3}, std::move(filtered));
-}
-
-TEST(TestAsyncUtil, ReadaheadFailed) {
-  auto source = []() -> Future<TestInt> {
-    return Future<TestInt>::MakeFinished(Status::Invalid("X"));
-  };
-  auto readahead = AddReadahead<TestInt>(source, 10);
-  auto next = readahead();
-  ASSERT_EQ(Status::Invalid("X"), next.status());
-}
-
-TEST(TestAsyncUtil, Readahead) {
-  int num_delivered = 0;
-  auto source = [&num_delivered]() {
-    if (num_delivered < 5) {
-      return Future<TestInt>::MakeFinished(num_delivered++);
-    } else {
-      return Future<TestInt>::MakeFinished(IterationTraits<TestInt>::End());
-    }
-  };
-  auto readahead = AddReadahead<TestInt>(source, 10);
-  // Should not pump until first item requested
-  ASSERT_EQ(0, num_delivered);
-
-  auto first = readahead();
-  // At this point the pumping should have happened
-  ASSERT_EQ(5, num_delivered);
-  ASSERT_EQ(0, first.result()->value);
-
-  // Read the rest
-  for (int i = 0; i < 4; i++) {
-    auto next = readahead();
-    ASSERT_EQ(i + 1, next.result()->value);
-  }
-
-  // Next should be end
-  auto last = readahead();
-  ASSERT_EQ(IterationTraits<TestInt>::End(), last.result()->value);
+  ASSERT_OK_AND_ASSIGN(auto third, transformed.Next());
+  ASSERT_EQ(IterationTraits<TestStr>::End(), third);
 }
 
 TEST(TestFunctionIterator, RangeForLoop) {
@@ -694,6 +550,187 @@ TEST(ReadaheadIterator, NextError) {
   AssertIteratorNext({2}, it);
   AssertIteratorNext({3}, it);
   AssertIteratorExhausted(it);
+}
+
+// --------------------------------------------------------------------
+// Asynchronous iterator tests
+
+TEST(TestAsyncUtil, Visit) {
+  auto generator = AsyncVectorIt({1, 2, 3});
+  unsigned int sum = 0;
+  auto sum_future = VisitAsyncGenerator<TestInt>(generator, [&sum](TestInt item) {
+    sum += item.value;
+    return Status::OK();
+  });
+  ASSERT_TRUE(sum_future.is_finished());
+  ASSERT_EQ(6, sum);
+}
+
+TEST(TestAsyncUtil, Collect) {
+  std::vector<TestInt> expected = {1, 2, 3};
+  auto generator = AsyncVectorIt(expected);
+  auto collected = CollectAsyncGenerator(generator);
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto collected_val, collected);
+  ASSERT_EQ(expected, collected_val);
+}
+
+TEST(TestAsyncUtil, SynchronousFinish) {
+  AsyncGenerator<TestInt> generator = []() {
+    return Future<TestInt>::MakeFinished(IterationTraits<TestInt>::End());
+  };
+  Transformer<TestInt, TestStr> skip_all = [](TestInt value) { return TransformSkip(); };
+  auto transformed = TransformAsyncGenerator(generator, skip_all);
+  auto future = CollectAsyncGenerator(transformed);
+  ASSERT_TRUE(future.is_finished());
+  ASSERT_OK_AND_ASSIGN(auto actual, future.result());
+  ASSERT_EQ(std::vector<TestStr>(), actual);
+}
+
+TEST(TestAsyncUtil, StackOverflow) {
+  int counter = 0;
+  AsyncGenerator<TestInt> generator = [&counter]() {
+    if (counter < 1000000) {
+      return Future<TestInt>::MakeFinished(counter++);
+    } else {
+      return Future<TestInt>::MakeFinished(IterationTraits<TestInt>::End());
+    }
+  };
+  Transformer<TestInt, TestStr> discard =
+      [](TestInt next) -> Result<TransformFlow<TestStr>> { return TransformSkip(); };
+  auto transformed = TransformAsyncGenerator(generator, discard);
+  auto collected_future = CollectAsyncGenerator(transformed);
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto collected, collected_future);
+  ASSERT_EQ(0, collected.size());
+}
+
+TEST(TestAsyncUtil, Background) {
+  std::vector<TestInt> expected = {1, 2, 3};
+  auto background = BackgroundAsyncVectorIt(expected);
+  auto future = CollectAsyncGenerator(background);
+  ASSERT_FALSE(future.is_finished());
+  future.Wait();
+  ASSERT_TRUE(future.is_finished());
+  ASSERT_EQ(expected, *future.result());
+}
+
+struct SlowEmptyIterator {
+  Result<TestInt> Next() {
+    if (called_) {
+      return Status::Invalid("Should not have been called twice");
+    }
+    SleepFor(0.1);
+    return IterationTraits<TestInt>::End();
+  }
+
+ private:
+  bool called_ = false;
+};
+
+TEST(TestAsyncUtil, BackgroundRepeatEnd) {
+  // Ensure that the background iterator properly fulfills the asyncgenerator contract
+  // and can be called after it ends.
+  auto iterator = Iterator<TestInt>(SlowEmptyIterator());
+  ASSERT_OK_AND_ASSIGN(
+      auto background_iter,
+      MakeBackgroundGenerator(std::move(iterator), internal::GetCpuThreadPool()));
+
+  auto one = background_iter();
+  auto two = background_iter();
+
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto one_fin, one);
+  ASSERT_EQ(IterationTraits<TestInt>::End(), one_fin);
+
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto two_fin, two);
+  ASSERT_EQ(IterationTraits<TestInt>::End(), two_fin);
+}
+
+TEST(TestAsyncUtil, CompleteBackgroundStressTest) {
+  auto expected = RangeVector(100);
+  std::vector<Future<std::vector<TestInt>>> futures;
+  for (unsigned int i = 0; i < 100; i++) {
+    auto background = BackgroundAsyncVectorIt(expected);
+    futures.push_back(CollectAsyncGenerator(background));
+  }
+  auto combined = All(futures);
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto completed_vectors, combined);
+  for (std::size_t i = 0; i < completed_vectors.size(); i++) {
+    ASSERT_OK_AND_ASSIGN(auto vector, completed_vectors[i]);
+    ASSERT_EQ(vector, expected);
+  }
+}
+
+TEST(TestAsyncUtil, Readahead) {
+  int num_delivered = 0;
+  auto source = [&num_delivered]() {
+    if (num_delivered < 5) {
+      return Future<TestInt>::MakeFinished(num_delivered++);
+    } else {
+      return Future<TestInt>::MakeFinished(IterationTraits<TestInt>::End());
+    }
+  };
+  auto readahead = AddReadahead<TestInt>(source, 10);
+  // Should not pump until first item requested
+  ASSERT_EQ(0, num_delivered);
+
+  auto first = readahead();
+  // At this point the pumping should have happened
+  ASSERT_EQ(5, num_delivered);
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto first_val, first);
+  ASSERT_EQ(TestInt(0), first_val);
+
+  // Read the rest
+  for (int i = 0; i < 4; i++) {
+    auto next = readahead();
+    ASSERT_FINISHES_OK_AND_ASSIGN(auto next_val, next);
+    ASSERT_EQ(TestInt(i + 1), next_val);
+  }
+
+  // Next should be end
+  auto last = readahead();
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto last_val, last);
+  ASSERT_EQ(IterationTraits<TestInt>::End(), last_val);
+}
+
+TEST(TestAsyncUtil, ReadaheadFailed) {
+  auto source = []() -> Future<TestInt> {
+    return Future<TestInt>::MakeFinished(Status::Invalid("X"));
+  };
+  auto readahead = AddReadahead<TestInt>(source, 10);
+  for (int i = 0; i < 10; i++) {
+    auto next = readahead();
+    ASSERT_EQ(Status::Invalid("X"), next.status());
+  }
+  auto after_fut = readahead();
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto after, after_fut);
+  ASSERT_EQ(IterationTraits<TestInt>::End(), after);
+}
+
+template <typename T>
+Transformer<T, T> MakeRepeatN(int repeat_count) {
+  int current_repeat = 0;
+  return [repeat_count, current_repeat](T next) mutable -> Result<TransformFlow<T>> {
+    current_repeat++;
+    bool ready_for_next = false;
+    if (current_repeat == repeat_count) {
+      current_repeat = 0;
+      ready_for_next = true;
+    }
+    return TransformYield(next, ready_for_next);
+  };
+}
+
+TEST(TestIteratorTransform, Repeating) {
+  auto original = VectorIt({1, 2, 3});
+  auto repeated = MakeTransformedIterator<TestInt, TestInt>(std::move(original),
+                                                            MakeRepeatN<TestInt>(2));
+  AssertIteratorMatch({1, 1, 2, 2, 3, 3}, std::move(repeated));
+}
+
+TEST(TestAsyncIteratorTransform, SkipSome) {
+  auto original = AsyncVectorIt({1, 2, 3});
+  auto filter = MakeFilter([](TestInt& t) { return t.value != 2; });
+  auto filtered = TransformAsyncGenerator(std::move(original), filter);
+  AssertAsyncGeneratorMatch({"1", "3"}, std::move(filtered));
 }
 
 }  // namespace arrow

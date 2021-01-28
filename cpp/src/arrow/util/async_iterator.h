@@ -55,18 +55,23 @@ Future<> VisitAsyncGenerator(AsyncGenerator<T> generator,
 template <typename T>
 Future<std::vector<T>> CollectAsyncGenerator(AsyncGenerator<T> generator) {
   auto vec = std::make_shared<std::vector<T>>();
-  auto loop_body = [generator, vec] {
-    auto next = generator();
-    return next.Then([vec](const T& result) -> Result<ControlFlow<std::vector<T>>> {
-      if (result == IterationTraits<T>::End()) {
-        return Break(*vec);
-      } else {
-        vec->push_back(result);
-        return Continue();
-      }
-    });
+  struct LoopBody {
+    Future<ControlFlow<std::vector<T>>> operator()() {
+      auto next = generator();
+      auto vec = vec_;
+      return next.Then([vec](const T& result) -> Result<ControlFlow<std::vector<T>>> {
+        if (result == IterationTraits<T>::End()) {
+          return Break(*vec);
+        } else {
+          vec->push_back(result);
+          return Continue();
+        }
+      });
+    }
+    AsyncGenerator<T> generator;
+    std::shared_ptr<std::vector<T>> vec_;
   };
-  return Loop(loop_body);
+  return Loop(LoopBody{std::move(generator), std::move(vec)});
 }
 
 template <typename T, typename V>
@@ -74,7 +79,10 @@ class TransformingGenerator {
  public:
   explicit TransformingGenerator(AsyncGenerator<T> generator,
                                  Transformer<T, V> transformer)
-      : finished_(), last_value_(), generator_(generator), transformer_(transformer) {}
+      : finished_(),
+        last_value_(),
+        generator_(std::move(generator)),
+        transformer_(std::move(transformer)) {}
 
   Future<V> operator()() {
     while (true) {
@@ -82,9 +90,9 @@ class TransformingGenerator {
       if (!maybe_next_result.ok()) {
         return Future<V>::MakeFinished(maybe_next_result.status());
       }
-      auto maybe_next = maybe_next_result.ValueUnsafe();
+      auto maybe_next = std::move(maybe_next_result).ValueUnsafe();
       if (maybe_next.has_value()) {
-        return Future<V>::MakeFinished(*maybe_next);
+        return Future<V>::MakeFinished(*std::move(maybe_next));
       }
 
       auto next_fut = generator_();
@@ -93,7 +101,7 @@ class TransformingGenerator {
       if (next_fut.is_finished()) {
         auto next_result = next_fut.result();
         if (next_result.ok()) {
-          last_value_ = *next_result;
+          last_value_ = *std::move(next_result);
         } else {
           return Future<V>::MakeFinished(next_result.status());
         }
@@ -101,7 +109,7 @@ class TransformingGenerator {
       } else {
         return next_fut.Then([this](const Result<T>& next_result) {
           if (next_result.ok()) {
-            last_value_ = *next_result;
+            last_value_ = *std::move(next_result);
             return (*this)();
           } else {
             return Future<V>::MakeFinished(next_result.status());
@@ -142,54 +150,64 @@ class TransformingGenerator {
 };
 
 template <typename T>
-static std::function<void(const Result<T>&)> MakeCallback(
-    std::shared_ptr<bool> finished) {
-  return [finished](const Result<T>& next_result) {
-    if (!next_result.ok()) {
-      *finished = true;
-    } else {
-      auto next = *next_result;
-      *finished = (next == IterationTraits<T>::End());
-    }
-  };
-}
+class ReadaheadGenerator {
+ public:
+  ReadaheadGenerator(AsyncGenerator<T> source_generator, int max_readahead)
+      : source_generator_(std::move(source_generator)), max_readahead_(max_readahead) {
+    auto finished = std::make_shared<bool>();
+    mark_finished_if_done_ = [finished](const Result<T>& next_result) {
+      if (!next_result.ok()) {
+        *finished = true;
+      } else {
+        const auto& next = *next_result;
+        *finished = (next == IterationTraits<T>::End());
+      }
+    };
+    finished_ = std::move(finished);
+  }
 
-template <typename T>
-AsyncGenerator<T> AddReadahead(AsyncGenerator<T> source_generator, int max_readahead) {
-  // Using a shared_ptr instead of a lambda capture here because it's possible that
-  // the inner mark_finished_if_done outlives the outer lambda
-  auto finished = std::make_shared<bool>(false);
-  auto mark_finished_if_done = [finished](const Result<T>& next_result) {
-    if (!next_result.ok()) {
-      *finished = true;
-    } else {
-      auto next = *next_result;
-      *finished = (next == IterationTraits<T>::End());
-    }
-  };
-
-  std::queue<Future<T>> readahead_queue;
-  return [=]() mutable -> Future<T> {
-    if (readahead_queue.empty()) {
+  Future<T> operator()() {
+    if (readahead_queue_.empty()) {
       // This is the first request, let's pump the underlying queue
-      for (int i = 0; i < max_readahead; i++) {
-        auto next = source_generator();
-        next.AddCallback(mark_finished_if_done);
-        readahead_queue.push(std::move(next));
+      for (int i = 0; i < max_readahead_; i++) {
+        auto next = source_generator_();
+        next.AddCallback(mark_finished_if_done_);
+        readahead_queue_.push(std::move(next));
       }
     }
     // Pop one and add one
-    auto result = readahead_queue.front();
-    readahead_queue.pop();
-    if (*finished) {
-      readahead_queue.push(Future<T>::MakeFinished(IterationTraits<T>::End()));
+    auto result = readahead_queue_.front();
+    readahead_queue_.pop();
+    if (*finished_) {
+      readahead_queue_.push(Future<T>::MakeFinished(IterationTraits<T>::End()));
     } else {
-      auto back_of_queue = source_generator();
-      back_of_queue.AddCallback(mark_finished_if_done);
-      readahead_queue.push(std::move(back_of_queue));
+      auto back_of_queue = source_generator_();
+      back_of_queue.AddCallback(mark_finished_if_done_);
+      readahead_queue_.push(std::move(back_of_queue));
     }
     return result;
-  };
+  }
+
+ private:
+  AsyncGenerator<T> source_generator_;
+  int max_readahead_;
+  std::function<void(const Result<T>&)> mark_finished_if_done_;
+  // Can't use a bool here because finished may be referenced by callbacks that
+  // outlive this class
+  std::shared_ptr<bool> finished_;
+  std::queue<Future<T>> readahead_queue_;
+};
+
+/// \brief Creates a generator that pulls reentrantly from a source
+/// This generator will pull reentrantly from a source, ensuring that max_readahead
+/// requests are active at any given time.
+///
+/// The source generator must be async-reentrant
+///
+/// This generator itself is async-reentrant.
+template <typename T>
+AsyncGenerator<T> AddReadahead(AsyncGenerator<T> source_generator, int max_readahead) {
+  return ReadaheadGenerator<T>(std::move(source_generator), max_readahead);
 }
 
 /// \brief Transforms an async generator using a transformer function returning a new
@@ -198,6 +216,8 @@ AsyncGenerator<T> AddReadahead(AsyncGenerator<T> source_generator, int max_reada
 /// The transform function here behaves exactly the same as the transform function in
 /// MakeTransformedIterator and you can safely use the same transform function to
 /// transform both synchronous and asynchronous streams.
+///
+/// This generator is not async-reentrant
 template <typename T, typename V>
 AsyncGenerator<V> TransformAsyncGenerator(AsyncGenerator<T> generator,
                                           Transformer<T, V> transformer) {
@@ -207,10 +227,10 @@ AsyncGenerator<V> TransformAsyncGenerator(AsyncGenerator<T> generator,
 namespace detail {
 
 template <typename T>
-struct BackgroundIteratorPromise : ReadaheadPromise {
-  ~BackgroundIteratorPromise() override {}
+struct BackgroundGeneratorPromise : ReadaheadPromise {
+  ~BackgroundGeneratorPromise() override {}
 
-  explicit BackgroundIteratorPromise(Iterator<T>* it) : it_(it) {}
+  explicit BackgroundGeneratorPromise(Iterator<T>* it) : it_(it) {}
 
   bool Call() override {
     auto next = it_->Next();
@@ -229,18 +249,20 @@ struct BackgroundIteratorPromise : ReadaheadPromise {
 
 /// \brief Async generator that iterates on an underlying iterator in a
 /// separate thread.
+///
+/// This generator is async-reentrant
 template <typename T>
-class BackgroundIterator {
-  using PromiseType = typename detail::BackgroundIteratorPromise<T>;
+class BackgroundGenerator {
+  using PromiseType = typename detail::BackgroundGeneratorPromise<T>;
 
  public:
-  explicit BackgroundIterator(Iterator<T> it, internal::Executor* executor)
+  explicit BackgroundGenerator(Iterator<T> it, internal::Executor* executor)
       : it_(new Iterator<T>(std::move(it))),
         queue_(new detail::ReadaheadQueue(0)),
         executor_(executor),
         done_() {}
 
-  ~BackgroundIterator() {
+  ~BackgroundGenerator() {
     if (queue_) {
       // Make sure the queue doesn't call any promises after this object
       // is destroyed.
@@ -248,8 +270,8 @@ class BackgroundIterator {
     }
   }
 
-  ARROW_DEFAULT_MOVE_AND_ASSIGN(BackgroundIterator);
-  ARROW_DISALLOW_COPY_AND_ASSIGN(BackgroundIterator);
+  ARROW_DEFAULT_MOVE_AND_ASSIGN(BackgroundGenerator);
+  ARROW_DISALLOW_COPY_AND_ASSIGN(BackgroundGenerator);
 
   Future<T> operator()() {
     if (done_) {
@@ -285,10 +307,10 @@ class BackgroundIterator {
 /// \brief Creates an AsyncGenerator<T> by iterating over an Iterator<T> on a background
 /// thread
 template <typename T>
-static Result<AsyncGenerator<T>> MakeBackgroundIterator(Iterator<T> iterator,
-                                                        internal::Executor* executor) {
+static Result<AsyncGenerator<T>> MakeBackgroundGenerator(Iterator<T> iterator,
+                                                         internal::Executor* executor) {
   auto background_iterator =
-      std::make_shared<BackgroundIterator<T>>(std::move(iterator), executor);
+      std::make_shared<BackgroundGenerator<T>>(std::move(iterator), executor);
   return [background_iterator]() { return (*background_iterator)(); };
 }
 

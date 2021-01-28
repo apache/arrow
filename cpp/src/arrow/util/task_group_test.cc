@@ -248,6 +248,9 @@ void TestFinishNotSticky(std::function<std::shared_ptr<TaskGroup>()> factory) {
   // If a task is added that runs very quickly it might decrement the task counter back
   // down to 0 and mark the completion future as complete before all tasks are added.
   // The "finished future" of the task group could get stuck to complete.
+  //
+  // Instead the task group should not allow the finished future to be marked complete
+  // until after FinishAsync has been called.
   const int NTASKS = 100;
   for (int i = 0; i < NTASKS; ++i) {
     auto task_group = factory();
@@ -276,7 +279,7 @@ void TestFinishNotSticky(std::function<std::shared_ptr<TaskGroup>()> factory) {
     lk.unlock();
     cv.notify_one();
 
-    ASSERT_TRUE(finished.Wait(1));
+    ASSERT_FINISHES_OK(finished);
   }
 }
 
@@ -299,7 +302,7 @@ void TestFinishAlreadyCompleted(std::function<std::shared_ptr<TaskGroup>()> fact
     // iterations
     SleepFor(1e-2);
     auto finished = task_group->FinishAsync();
-    ASSERT_TRUE(finished.Wait(1));
+    ASSERT_FINISHES_OK(finished);
   }
 }
 
@@ -310,6 +313,14 @@ TEST(SerialTaskGroup, Errors) { TestTaskGroupErrors(TaskGroup::MakeSerial()); }
 TEST(SerialTaskGroup, TasksSpawnTasks) { TestTasksSpawnTasks(TaskGroup::MakeSerial()); }
 
 TEST(SerialTaskGroup, NoCopyTask) { TestNoCopyTask(TaskGroup::MakeSerial()); }
+
+TEST(SerialTaskGroup, FinishNeverStarted) {
+  TestFinishNeverStarted(TaskGroup::MakeSerial());
+}
+
+TEST(SerialTaskGroup, FinishAlreadyCompleted) {
+  TestFinishAlreadyCompleted([] { return TaskGroup::MakeSerial(); });
+}
 
 TEST(ThreadedTaskGroup, Success) {
   auto task_group = TaskGroup::MakeThreaded(GetCpuThreadPool());

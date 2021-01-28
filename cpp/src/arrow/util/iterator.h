@@ -258,7 +258,12 @@ class TransformIterator {
   // * If a value is returned by the transformer that will be returned
   Result<util::optional<V>> Pump() {
     if (!finished_ && last_value_.has_value()) {
-      ARROW_ASSIGN_OR_RAISE(TransformFlow<V> next, transformer_(*last_value_));
+      auto next_res = transformer_(*last_value_);
+      if (!next_res.ok()) {
+        finished_ = true;
+        return next_res.status();
+      }
+      auto next = *next_res;
       if (next.ReadyForNext()) {
         if (*last_value_ == IterationTraits<T>::End()) {
           finished_ = true;

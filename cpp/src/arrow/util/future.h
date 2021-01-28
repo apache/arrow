@@ -688,7 +688,7 @@ Future<BreakValueType> Loop(Iterate iterate) {
   struct Callback {
     bool CheckForTermination(const Result<Control>& control_res) {
       if (!control_res.ok()) {
-        break_fut.MarkFinished(std::move(control_res.status()));
+        break_fut.MarkFinished(control_res.status());
         return true;
       }
       if (control_res->has_value()) {
@@ -707,7 +707,7 @@ Future<BreakValueType> Loop(Iterate iterate) {
           // There's no need to AddCallback on a finished future; we can
           // CheckForTermination now. This also avoids recursion and potential stack
           // overflow.
-          if (CheckForTermination(std::move(control_fut.result()))) return;
+          if (CheckForTermination(control_fut.result())) return;
 
           control_fut = iterate();
         } else {

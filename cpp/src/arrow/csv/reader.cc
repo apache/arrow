@@ -157,9 +157,13 @@ struct CSVBlock {
 // This is an unfortunate side-effect of using optional<T> as the iterator in the
 // CSVBlock iterator.  We need to be able to compare with
 // IterationTraits<optional<T>>::End() and empty optionals will always compare true but
-// the optional copmarator won't compile if the underlying type isn't comparable
+// the optional comparator won't compile if the underlying type isn't comparable
 bool operator==(const CSVBlock& left, const CSVBlock& right) { return false; }
 
+// This is a callable that can be used to transform an iterator.  The source iterator
+// will contain buffers of data and the output iterator will contain delimited CSV
+// blocks.  util::optional is used so that there is an end token (required by the
+// iterator APIs (e.g. Visit)) even though an empty optional is never used in this code.
 class BlockReader {
  public:
   BlockReader(std::unique_ptr<Chunker> chunker, std::shared_ptr<Buffer> first_buffer)
@@ -257,7 +261,7 @@ class ThreadedBlockReader : public BlockReader {
     // Wrap shared pointer in callable
     Transformer<std::shared_ptr<Buffer>, util::optional<CSVBlock>> block_reader_fn =
         [block_reader](std::shared_ptr<Buffer> next) { return (*block_reader)(next); };
-    return TransformAsyncGenerator(buffer_generator, block_reader_fn);
+    return TransformAsyncGenerator(std::move(buffer_generator), block_reader_fn);
   }
 
   Result<TransformFlow<util::optional<CSVBlock>>> operator()(
@@ -915,7 +919,7 @@ class AsyncThreadedTableReader
                           io::MakeInputStreamIterator(input_, read_options_.block_size));
 
     ARROW_ASSIGN_OR_RAISE(auto bg_it,
-                          MakeBackgroundIterator(std::move(istream_it), thread_pool_));
+                          MakeBackgroundGenerator(std::move(istream_it), thread_pool_));
 
     int32_t block_queue_size = thread_pool_->GetCapacity();
     auto rh_it = AddReadahead(bg_it, block_queue_size);
@@ -936,6 +940,10 @@ class AsyncThreadedTableReader
 
       std::function<Status(util::optional<CSVBlock>)> block_visitor =
           [self](util::optional<CSVBlock> maybe_block) -> Status {
+        // The logic in VisitAsyncGenerator ensures that we will never be
+        // passed an empty block (visit does not call with the end token) so
+        // we can be assured maybe_block has a value.
+        DCHECK(maybe_block.has_value());
         DCHECK(!maybe_block->consume_bytes);
 
         // Launch parse task

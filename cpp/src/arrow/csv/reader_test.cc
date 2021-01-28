@@ -77,7 +77,7 @@ void TestNestedParallelism(std::shared_ptr<internal::ThreadPool> thread_pool,
   };
   ASSERT_OK_AND_ASSIGN(auto future, thread_pool->Submit(read_task));
 
-  ASSERT_FINISHES(future);
+  ASSERT_FINISHES_OK(future);
   ASSERT_FINISHES_OK_AND_ASSIGN(auto table, table_future);
   ASSERT_EQ(table->num_rows(), NROWS);
 }  // namespace csv

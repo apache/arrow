@@ -155,9 +155,13 @@ class ThreadedTaskGroup : public TaskGroup {
         auto& future = *completion_future_;
         const auto finished = completion_future_->is_finished();
         const auto& status = status_;
-        lock.unlock();
-        if (!finished) {
+        // This will be redundant if the user calls Finish and not FinishAsync
+        if (!finished && !finished_) {
+          finished_ = true;
+          lock.unlock();
           future.MarkFinished(status);
+        } else {
+          lock.unlock();
         }
       }
     }

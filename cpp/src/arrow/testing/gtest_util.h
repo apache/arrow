@@ -135,9 +135,13 @@
     ASSERT_EQ(expected, _actual);               \
   } while (0)
 
+// This macro should be called by futures that are expected to
+// complete pretty quickly.  2 seconds is the default max wait
+// here.  Anything longer than that and it's a questionable
+// unit test anyways.
 #define ASSERT_FINISHES_IMPL(fut)                            \
   do {                                                       \
-    ASSERT_TRUE(fut.Wait(1));                                \
+    ASSERT_TRUE(fut.Wait(2));                                \
     if (!fut.is_finished()) {                                \
       FAIL() << "Future did not finish in a timely fashion"; \
     }                                                        \
@@ -147,19 +151,26 @@ inline void PrintTo(StatusCode code, std::ostream* os) {
   *os << Status::CodeAsString(code);
 }
 
-#define ASSERT_FINISHES(expr) ASSERT_FINISHES_IMPL((expr));
-
-#define ASSERT_FINISHES_AND_ASSIGN(lhs, rexpr) \
-  do {                                         \
-    auto _fut = (rexpr);                       \
-    ASSERT_FINISHES_IMPL(_fut);                \
-    lhs = _fut.result();                       \
+#define ASSERT_FINISHES_OK(fut)                                               \
+  do {                                                                        \
+    ASSERT_TRUE(fut.Wait(2));                                                 \
+    if (!fut.is_finished()) {                                                 \
+      FAIL() << "Future did not finish in a timely fashion";                  \
+    }                                                                         \
+    auto _st = fut.status();                                                  \
+    if (!_st.ok()) {                                                          \
+      FAIL() << "'" ARROW_STRINGIFY(expr) "' failed with " << _st.ToString(); \
+    }                                                                         \
   } while (false)
 
+#define ASSERT_FINISHES_OK_AND_ASSIGN_IMPL(lhs, rexpr, future_name) \
+  auto future_name = (rexpr);                                       \
+  ASSERT_FINISHES_IMPL(future_name);                                \
+  ASSERT_OK_AND_ASSIGN(lhs, future_name.result());
+
 #define ASSERT_FINISHES_OK_AND_ASSIGN(lhs, rexpr) \
-  auto _fut = (rexpr);                            \
-  ASSERT_FINISHES_IMPL(_fut);                     \
-  ASSERT_OK_AND_ASSIGN(lhs, _fut.result());
+  ASSERT_FINISHES_OK_AND_ASSIGN_IMPL(lhs, rexpr,  \
+                                     ARROW_ASSIGN_OR_RAISE_NAME(_fut, __COUNTER__))
 
 namespace arrow {
 // ----------------------------------------------------------------------
