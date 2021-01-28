@@ -132,7 +132,8 @@ class TDigestMerger : private T {
 
 class TDigest::TDigestImpl {
  public:
-  TDigestImpl(uint32_t delta) : delta_(delta > 10 ? delta : 10), merger_(delta_) {
+  explicit TDigestImpl(uint32_t delta)
+      : delta_(delta > 10 ? delta : 10), merger_(delta_) {
     tdigests_[0].reserve(delta_);
     tdigests_[1].reserve(delta_);
     Reset();
