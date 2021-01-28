@@ -154,6 +154,13 @@ cdef class Expression(_Weakrefable):
             Py_LE: "less_equal",
         }[op], [self, other])
 
+    def __bool__(self):
+        raise ValueError(
+            "An expression cannot be evaluated to python True or False. "
+            "If you are using the 'and', 'or' or 'not' operators, use '&', "
+            "'|' or '~' instead."
+        )
+
     def __invert__(self):
         return Expression._call("invert", [self])
 
