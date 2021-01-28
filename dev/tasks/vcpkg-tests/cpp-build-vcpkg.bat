@@ -30,7 +30,7 @@ vcpkg install ^
 
 set VCPKG_INSTALLED=%cd%\cpp\vcpkg_installed
 
-@rem Build Arrow C++ library
+@rem Build and Test Arrow C++ library
 mkdir cpp\build
 pushd cpp\build
 
@@ -64,5 +64,9 @@ cmake -G "Visual Studio 16 2019" -A x64 ^
       .. || exit /B
 
 cmake --build . --target INSTALL --config Release || exit /B 1
+
+ctest --output-on-failure ^
+      --parallel %NUMBER_OF_PROCESSORS% ^
+      --timeout 300 || exit /B
 
 popd
