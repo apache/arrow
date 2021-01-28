@@ -63,6 +63,7 @@ namespace Apache.Arrow
                 case ArrowTypeId.Date32:
                     return new Date32Array(data);
                 case ArrowTypeId.Decimal:
+                    return new DecimalArray(data);
                 case ArrowTypeId.Dictionary:
                 case ArrowTypeId.FixedSizedBinary:
                 case ArrowTypeId.HalfFloat:

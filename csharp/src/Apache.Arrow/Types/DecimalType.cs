@@ -17,6 +17,7 @@ namespace Apache.Arrow.Types
 {
     public sealed class DecimalType: FixedSizeBinaryType
     {
+        public static readonly DecimalType Default = new DecimalType(0, 0);
         public override ArrowTypeId TypeId => ArrowTypeId.Decimal;
         public override string Name => "decimal";
 
@@ -29,5 +30,7 @@ namespace Apache.Arrow.Types
             Precision = precision;
             Scale = scale;
         }
+
+        public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
     }
 }

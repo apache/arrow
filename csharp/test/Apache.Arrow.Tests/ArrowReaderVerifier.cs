@@ -77,7 +77,8 @@ namespace Apache.Arrow.Tests
             IArrowArrayVisitor<ListArray>,
             IArrowArrayVisitor<StringArray>,
             IArrowArrayVisitor<BinaryArray>,
-            IArrowArrayVisitor<StructArray>
+            IArrowArrayVisitor<StructArray>,
+            IArrowArrayVisitor<DecimalArray>
         {
             private readonly IArrowArray _expectedArray;
             private readonly ArrayTypeComparer _arrayTypeComparer;
@@ -103,6 +104,7 @@ namespace Apache.Arrow.Tests
             public void Visit(Date32Array array) => CompareArrays(array);
             public void Visit(Date64Array array) => CompareArrays(array);
             public void Visit(ListArray array) => CompareArrays(array);
+            public void Visit(DecimalArray array) => CompareArrays(array);
 
             public void Visit(StringArray array) => CompareBinaryArrays<StringArray>(array);
 

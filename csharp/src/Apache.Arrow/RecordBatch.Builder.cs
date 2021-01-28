@@ -44,6 +44,7 @@ namespace Apache.Arrow
             public UInt64Array UInt64(Action<UInt64Array.Builder> action) => Build<UInt64Array, UInt64Array.Builder>(new UInt64Array.Builder(), action);
             public FloatArray Float(Action<FloatArray.Builder> action) => Build<FloatArray, FloatArray.Builder>(new FloatArray.Builder(), action);
             public DoubleArray Double(Action<DoubleArray.Builder> action) => Build<DoubleArray, DoubleArray.Builder>(new DoubleArray.Builder(), action);
+            public DecimalArray Decimal(Action<DecimalArray.Builder> action) => Build<DecimalArray, DecimalArray.Builder>(new DecimalArray.Builder(), action);
             public Date32Array Date32(Action<Date32Array.Builder> action) => Build<Date32Array, Date32Array.Builder>(new Date32Array.Builder(), action);
             public Date64Array Date64(Action<Date64Array.Builder> action) => Build<Date64Array, Date64Array.Builder>(new Date64Array.Builder(), action);
             public BinaryArray Binary(Action<BinaryArray.Builder> action) => Build<BinaryArray, BinaryArray.Builder>(new BinaryArray.Builder(), action);
