@@ -31,12 +31,21 @@ addons:
 services:
   - docker
 
+# Note that the global "env" setting isn't inherited automatically by
+# matrix entries with their own "env", so we have to insert it explicitly.
+env: &global_env
+  ARROW_ENABLE_TIMING_TESTS: "OFF"
+  COMPOSE_DOCKER_CLI_BUILD: 1
+  DOCKER_BUILDKIT: 0
+  DOCKER_VOLUME_PREFIX: $TRAVIS_BUILD_DIR/.docker/
+
 jobs:
   include:
     - name: "C++ on ARM"
       os: linux
       arch: arm64
       env:
+        <<: *global_env
         ARCH: arm64v8
         ARROW_CI_MODULES: "CPP"
         DOCKER_IMAGE_ID: ubuntu-cpp
@@ -68,6 +77,7 @@ jobs:
       os: linux
       arch: s390x
       env:
+        <<: *global_env
         ARCH: s390x
         ARROW_CI_MODULES: "CPP"
         DOCKER_IMAGE_ID: ubuntu-cpp
@@ -99,6 +109,7 @@ jobs:
       os: linux
       arch: s390x
       env:
+        <<: *global_env
         ARCH: s390x
         ARROW_CI_MODULES: "GO"
         DOCKER_IMAGE_ID: debian-go
@@ -107,6 +118,7 @@ jobs:
       os: linux
       arch: s390x
       env:
+        <<: *global_env
         ARCH: s390x
         ARROW_CI_MODULES: "JAVA"
         DOCKER_IMAGE_ID: debian-java
@@ -114,11 +126,6 @@ jobs:
 
   allow_failures:
     - arch: s390x
-
-env:
-  DOCKER_BUILDKIT: 0
-  COMPOSE_DOCKER_CLI_BUILD: 1
-  ARROW_ENABLE_TIMING_TESTS: "OFF"
 
 before_install:
   - eval "$(python ci/detect-changes.py)"
