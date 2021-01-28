@@ -27,6 +27,7 @@
 #include "arrow/array.h"
 #include "arrow/io/api.h"
 #include "arrow/io/interfaces.h"
+#include "arrow/io/memory.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
@@ -76,83 +77,17 @@ class MemoryOutputStream : public liborc::OutputStream {
   uint64_t length_, natural_write_size_;
 };
 
-// class ArrowOutputStream : public io::OutputStream {
-//  private:
-//   std::unique_ptr<MemoryOutputStream> mem_stream_;
-// }
-
-class ORCMemWriter {
- public:
-  Status Open(const std::shared_ptr<Schema>& schema,
-              ORC_UNIQUE_PTR<liborc::OutputStream>& outStream) {
-    orc_options_ = std::unique_ptr<liborc::WriterOptions>(new liborc::WriterOptions());
-    outStream_ = std::move(outStream);
-    ARROW_EXPECT_OK(adapters::orc::GetORCType(*schema, &orcSchema_));
-    try {
-      writer_ = createWriter(*orcSchema_, outStream_.get(), *orc_options_);
-    } catch (const liborc::ParseError& e) {
-      return Status::IOError(e.what());
-    }
-    schema_ = schema;
-    num_cols_ = schema->num_fields();
-    return Status::OK();
-  }
-
-  Status Write(const std::shared_ptr<Table> table) {
-    int64_t numRows = table->num_rows();
-    int64_t batch_size = 1024;  // Doesn't matter what it is
-    std::vector<int64_t> arrow_index_offset(num_cols_, 0);
-    std::vector<int> arrow_chunk_offset(num_cols_, 0);
-    ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer_->createRowBatch(batch_size);
-    liborc::StructVectorBatch* root =
-        internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
-    std::vector<liborc::ColumnVectorBatch*> fields = root->fields;
-    while (numRows > 0) {
-      for (int i = 0; i < num_cols_; i++) {
-        ARROW_EXPECT_OK(adapters::orc::WriteBatch(fields[i], &(arrow_index_offset[i]),
-                                                  &(arrow_chunk_offset[i]), batch_size,
-                                                  *(table->column(i))));
-      }
-      root->numElements = fields[0]->numElements;
-      writer_->add(*batch);
-      batch->clear();
-      numRows -= batch_size;
-    }
-    return Status::OK();
-  }
-
-  Status Close() {
-    writer_->close();
-    return Status::OK();
-  }
-
-  liborc::OutputStream* ReleaseOutStream() { return outStream_.release(); }
-
-  ORC_UNIQUE_PTR<liborc::Writer> writer_;
-  std::unique_ptr<liborc::WriterOptions> orc_options_;
-  std::shared_ptr<Schema> schema_;
-  ORC_UNIQUE_PTR<liborc::OutputStream> outStream_;
-  ORC_UNIQUE_PTR<liborc::Type> orcSchema_;
-  int num_cols_;
-};
-
 void AssertTableWriteReadEqual(const std::shared_ptr<Table>& input_table,
                                const std::shared_ptr<Table>& expected_output_table,
-                               const int max_size = kDefaultSmallMemStreamSize) {
-  std::unique_ptr<ORCMemWriter> writer =
-      std::unique_ptr<ORCMemWriter>(new ORCMemWriter());
-  std::unique_ptr<liborc::OutputStream> out_stream =
-      std::unique_ptr<liborc::OutputStream>(
-          static_cast<liborc::OutputStream*>(new MemoryOutputStream(max_size)));
-  ARROW_EXPECT_OK(writer->Open(input_table->schema(), out_stream));
-  ARROW_EXPECT_OK(writer->Write(input_table));
+                               const int64_t max_size = kDefaultSmallMemStreamSize) {
+  std::shared_ptr<io::BufferOutputStream> buffer_output_stream =
+      io::BufferOutputStream::Create(max_size).ValueOrDie();
+  std::unique_ptr<adapters::orc::ORCFileWriter> writer =
+      adapters::orc::ORCFileWriter::Open(*buffer_output_stream).ValueOrDie();
+  ARROW_EXPECT_OK(writer->Write(*input_table));
   ARROW_EXPECT_OK(writer->Close());
-  auto output_mem_stream = static_cast<MemoryOutputStream*>(writer->ReleaseOutStream());
-  std::shared_ptr<io::RandomAccessFile> in_stream(
-      new io::BufferReader(std::make_shared<Buffer>(
-          reinterpret_cast<const uint8_t*>(output_mem_stream->getData()),
-          static_cast<int64_t>(output_mem_stream->getLength()))));
-
+  std::shared_ptr<Buffer> buffer = buffer_output_stream->Finish().ValueOrDie();
+  std::shared_ptr<io::RandomAccessFile> in_stream(new io::BufferReader(buffer));
   std::unique_ptr<adapters::orc::ORCFileReader> reader;
   ARROW_EXPECT_OK(
       adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool(), &reader));
@@ -370,13 +305,13 @@ TEST(TestAdapterWriteGeneral, writeAllNullsNew) {
   std::shared_ptr<Schema> table_schema = schema(table_fields);
   arrow::random::RandomArrayGenerator rand(kRandomSeed);
 
-  int64_t numRows = 10000;
+  int64_t num_rows = 10000;
   int64_t numCols = table_fields.size();
 
   ArrayMatrix arrays(numCols, ArrayVector(5, NULLPTR));
   for (int i = 0; i < numCols; i++) {
     for (int j = 0; j < 5; j++) {
-      int row_count = j % 2 ? 0 : numRows / 2;
+      int row_count = j % 2 ? 0 : num_rows / 2;
       arrays[i][j] = rand.ArrayOf(table_fields[i]->type(), row_count, 1);
     }
   }
@@ -407,7 +342,7 @@ TEST(TestAdapterWriteGeneral, writeAllNulls) {
       field("binary", binary())};
   std::shared_ptr<Schema> table_schema = std::make_shared<Schema>(table_fields);
 
-  int64_t numRows = 10000;
+  int64_t num_rows = 10000;
   int64_t numCols = table_fields.size();
 
   ArrayBuilderMatrix builders(numCols, ArrayBuilderVector(5, NULLPTR));
@@ -438,8 +373,8 @@ TEST(TestAdapterWriteGeneral, writeAllNulls) {
         std::static_pointer_cast<ArrayBuilder>(std::make_shared<BinaryBuilder>());
   }
 
-  for (int i = 0; i < numRows; i++) {
-    int chunk = i < (numRows / 2) ? 1 : 3;
+  for (int i = 0; i < num_rows; i++) {
+    int chunk = i < (num_rows / 2) ? 1 : 3;
     for (int col = 0; col < numCols; col++) {
       ARROW_EXPECT_OK(builders[col][chunk]->AppendNull());
     }
@@ -474,7 +409,7 @@ TEST(TestAdapterWriteGeneral, writeNoNulls) {
       field("binary", binary())};
   std::shared_ptr<Schema> table_schema = std::make_shared<Schema>(table_fields);
 
-  int64_t numRows = 10000;
+  int64_t num_rows = 10000;
   int64_t numCols = table_fields.size();
 
   ArrayBuilderMatrix builders(numCols, ArrayBuilderVector(5, NULLPTR));
@@ -507,7 +442,7 @@ TEST(TestAdapterWriteGeneral, writeNoNulls) {
 
   char bin[2], string_[13];
   std::string str;
-  for (int64_t i = 0; i < numRows / 2; i++) {
+  for (int64_t i = 0; i < num_rows / 2; i++) {
     bin[0] = i % 128;
     bin[1] = bin[0];
     str = "Arrow " + std::to_string(2 * i);
@@ -532,7 +467,7 @@ TEST(TestAdapterWriteGeneral, writeNoNulls) {
     ARROW_EXPECT_OK(
         std::static_pointer_cast<BinaryBuilder>(builders[10][1])->Append(bin, 2));
   }
-  for (int64_t i = numRows / 2; i < numRows; i++) {
+  for (int64_t i = num_rows / 2; i < num_rows; i++) {
     bin[0] = i % 256;
     bin[1] = (i / 256) % 256;
     str = "Arrow " + std::to_string(3 - 4 * i);
@@ -586,7 +521,7 @@ TEST(TestAdapterWriteGeneral, writeMixed) {
       field("binary", binary())};
   std::shared_ptr<Schema> table_schema = std::make_shared<Schema>(table_fields);
 
-  int64_t numRows = 10000;
+  int64_t num_rows = 10000;
   int64_t numCols = table_fields.size();
 
   ArrayBuilderMatrix builders(numCols, ArrayBuilderVector(5, NULLPTR));
@@ -618,7 +553,7 @@ TEST(TestAdapterWriteGeneral, writeMixed) {
   }
   char bin1[2], bin2[] = "", string_[12];
   std::string str;
-  for (int64_t i = 0; i < numRows / 2; i++) {
+  for (int64_t i = 0; i < num_rows / 2; i++) {
     if (i % 2) {
       bin1[0] = i % 256;
       bin1[1] = (i - 1) % 256;
@@ -668,7 +603,7 @@ TEST(TestAdapterWriteGeneral, writeMixed) {
           std::static_pointer_cast<BinaryBuilder>(builders[10][1])->AppendNull());
     }
   }
-  for (int64_t i = numRows / 2; i < numRows; i++) {
+  for (int64_t i = num_rows / 2; i < num_rows; i++) {
     if (i % 2) {
       ARROW_EXPECT_OK(
           std::static_pointer_cast<BooleanBuilder>(builders[0][3])->Append(false));
@@ -737,7 +672,7 @@ TEST(TestAdapterWriteFloat, writeAllNulls) {
                                                    field("double", float64())};
   std::shared_ptr<Schema> table_schema = std::make_shared<Schema>(table_fields);
 
-  int64_t numRows = 10000;
+  int64_t num_rows = 10000;
   int64_t numCols = table_fields.size();
 
   ArrayBuilderMatrix builders(numCols, ArrayBuilderVector(5, NULLPTR));
@@ -749,8 +684,8 @@ TEST(TestAdapterWriteFloat, writeAllNulls) {
         std::static_pointer_cast<ArrayBuilder>(std::make_shared<DoubleBuilder>());
   }
 
-  for (int i = 0; i < numRows; i++) {
-    int chunk = i < (numRows / 2) ? 1 : 3;
+  for (int i = 0; i < num_rows; i++) {
+    int chunk = i < (num_rows / 2) ? 1 : 3;
     for (int col = 0; col < numCols; col++) {
       ARROW_EXPECT_OK(builders[col][chunk]->AppendNull());
     }
@@ -768,19 +703,14 @@ TEST(TestAdapterWriteFloat, writeAllNulls) {
   }
   std::shared_ptr<Table> table = Table::Make(table_schema, cv);
 
-  std::unique_ptr<ORCMemWriter> writer =
-      std::unique_ptr<ORCMemWriter>(new ORCMemWriter());
-  std::unique_ptr<liborc::OutputStream> out_stream =
-      std::unique_ptr<liborc::OutputStream>(static_cast<liborc::OutputStream*>(
-          new MemoryOutputStream(kDefaultSmallMemStreamSize)));
-  ARROW_EXPECT_OK(writer->Open(table_schema, out_stream));
-  ARROW_EXPECT_OK(writer->Write(table));
+  std::shared_ptr<io::BufferOutputStream> buffer_output_stream =
+      io::BufferOutputStream::Create(kDefaultSmallMemStreamSize).ValueOrDie();
+  std::unique_ptr<adapters::orc::ORCFileWriter> writer =
+      adapters::orc::ORCFileWriter::Open(*buffer_output_stream).ValueOrDie();
+  ARROW_EXPECT_OK(writer->Write(*table));
   ARROW_EXPECT_OK(writer->Close());
-  auto output_mem_stream = static_cast<MemoryOutputStream*>(writer->ReleaseOutStream());
-  std::shared_ptr<io::RandomAccessFile> in_stream(
-      new io::BufferReader(std::make_shared<Buffer>(
-          reinterpret_cast<const uint8_t*>(output_mem_stream->getData()),
-          static_cast<int64_t>(output_mem_stream->getLength()))));
+  std::shared_ptr<Buffer> buffer = buffer_output_stream->Finish().ValueOrDie();
+  std::shared_ptr<io::RandomAccessFile> in_stream(new io::BufferReader(buffer));
 
   std::unique_ptr<adapters::orc::ORCFileReader> reader;
   ASSERT_TRUE(
@@ -788,23 +718,23 @@ TEST(TestAdapterWriteFloat, writeAllNulls) {
   std::shared_ptr<Table> actual_output_table;
   ARROW_EXPECT_OK(reader->Read(&actual_output_table));
   EXPECT_EQ(actual_output_table->num_columns(), numCols);
-  EXPECT_EQ(actual_output_table->num_rows(), numRows);
+  EXPECT_EQ(actual_output_table->num_rows(), num_rows);
   EXPECT_TRUE(actual_output_table->schema()->Equals(*(table->schema())));
   EXPECT_TRUE(actual_output_table->column(0)
                   ->chunk(0)
-                  ->Slice(0, numRows / 2)
+                  ->Slice(0, num_rows / 2)
                   ->ApproxEquals(table->column(0)->chunk(1)));
   EXPECT_TRUE(actual_output_table->column(0)
                   ->chunk(0)
-                  ->Slice(numRows / 2, numRows / 2)
+                  ->Slice(num_rows / 2, num_rows / 2)
                   ->ApproxEquals(table->column(0)->chunk(3)));
   EXPECT_TRUE(actual_output_table->column(1)
                   ->chunk(0)
-                  ->Slice(0, numRows / 2)
+                  ->Slice(0, num_rows / 2)
                   ->ApproxEquals(table->column(1)->chunk(1)));
   EXPECT_TRUE(actual_output_table->column(1)
                   ->chunk(0)
-                  ->Slice(numRows / 2, numRows / 2)
+                  ->Slice(num_rows / 2, num_rows / 2)
                   ->ApproxEquals(table->column(1)->chunk(3)));
 }
 TEST(TestAdapterWriteFloat, writeNoNulls) {
@@ -812,7 +742,7 @@ TEST(TestAdapterWriteFloat, writeNoNulls) {
                                                    field("double", float64())};
   std::shared_ptr<Schema> table_schema = std::make_shared<Schema>(table_fields);
 
-  int64_t numRows = 10000;
+  int64_t num_rows = 10000;
   int64_t numCols = table_fields.size();
   ArrayBuilderMatrix builders(numCols, ArrayBuilderVector(5, NULLPTR));
 
@@ -823,13 +753,13 @@ TEST(TestAdapterWriteFloat, writeNoNulls) {
         std::static_pointer_cast<ArrayBuilder>(std::make_shared<DoubleBuilder>());
   }
 
-  for (int i = 0; i < numRows / 2; i++) {
+  for (int i = 0; i < num_rows / 2; i++) {
     ARROW_EXPECT_OK(
         std::static_pointer_cast<FloatBuilder>(builders[0][1])->Append(i + 0.7));
     ARROW_EXPECT_OK(
         std::static_pointer_cast<DoubleBuilder>(builders[1][1])->Append(-i + 0.43));
   }
-  for (int i = numRows / 2; i < numRows; i++) {
+  for (int i = num_rows / 2; i < num_rows; i++) {
     ARROW_EXPECT_OK(
         std::static_pointer_cast<FloatBuilder>(builders[0][3])->Append(2 * i - 2.12));
     ARROW_EXPECT_OK(
@@ -847,19 +777,14 @@ TEST(TestAdapterWriteFloat, writeNoNulls) {
   }
   std::shared_ptr<Table> table = Table::Make(table_schema, cv);
 
-  std::unique_ptr<ORCMemWriter> writer =
-      std::unique_ptr<ORCMemWriter>(new ORCMemWriter());
-  std::unique_ptr<liborc::OutputStream> out_stream =
-      std::unique_ptr<liborc::OutputStream>(static_cast<liborc::OutputStream*>(
-          new MemoryOutputStream(kDefaultSmallMemStreamSize)));
-  ARROW_EXPECT_OK(writer->Open(table_schema, out_stream));
-  ARROW_EXPECT_OK(writer->Write(table));
+  std::shared_ptr<io::BufferOutputStream> buffer_output_stream =
+      io::BufferOutputStream::Create(kDefaultSmallMemStreamSize).ValueOrDie();
+  std::unique_ptr<adapters::orc::ORCFileWriter> writer =
+      adapters::orc::ORCFileWriter::Open(*buffer_output_stream).ValueOrDie();
+  ARROW_EXPECT_OK(writer->Write(*table));
   ARROW_EXPECT_OK(writer->Close());
-  auto output_mem_stream = static_cast<MemoryOutputStream*>(writer->ReleaseOutStream());
-  std::shared_ptr<io::RandomAccessFile> in_stream(
-      new io::BufferReader(std::make_shared<Buffer>(
-          reinterpret_cast<const uint8_t*>(output_mem_stream->getData()),
-          static_cast<int64_t>(output_mem_stream->getLength()))));
+  std::shared_ptr<Buffer> buffer = buffer_output_stream->Finish().ValueOrDie();
+  std::shared_ptr<io::RandomAccessFile> in_stream(new io::BufferReader(buffer));
 
   std::unique_ptr<adapters::orc::ORCFileReader> reader;
   ASSERT_TRUE(
@@ -867,23 +792,23 @@ TEST(TestAdapterWriteFloat, writeNoNulls) {
   std::shared_ptr<Table> actual_output_table;
   ARROW_EXPECT_OK(reader->Read(&actual_output_table));
   EXPECT_EQ(actual_output_table->num_columns(), numCols);
-  EXPECT_EQ(actual_output_table->num_rows(), numRows);
+  EXPECT_EQ(actual_output_table->num_rows(), num_rows);
   EXPECT_TRUE(actual_output_table->schema()->Equals(*(table->schema())));
   EXPECT_TRUE(actual_output_table->column(0)
                   ->chunk(0)
-                  ->Slice(0, numRows / 2)
+                  ->Slice(0, num_rows / 2)
                   ->ApproxEquals(table->column(0)->chunk(1)));
   EXPECT_TRUE(actual_output_table->column(0)
                   ->chunk(0)
-                  ->Slice(numRows / 2, numRows / 2)
+                  ->Slice(num_rows / 2, num_rows / 2)
                   ->ApproxEquals(table->column(0)->chunk(3)));
   EXPECT_TRUE(actual_output_table->column(1)
                   ->chunk(0)
-                  ->Slice(0, numRows / 2)
+                  ->Slice(0, num_rows / 2)
                   ->ApproxEquals(table->column(1)->chunk(1)));
   EXPECT_TRUE(actual_output_table->column(1)
                   ->chunk(0)
-                  ->Slice(numRows / 2, numRows / 2)
+                  ->Slice(num_rows / 2, num_rows / 2)
                   ->ApproxEquals(table->column(1)->chunk(3)));
 }
 TEST(TestAdapterWriteFloat, writeMixed) {
@@ -891,7 +816,7 @@ TEST(TestAdapterWriteFloat, writeMixed) {
                                                    field("double", float64())};
   std::shared_ptr<Schema> table_schema = std::make_shared<Schema>(table_fields);
 
-  int64_t numRows = 10000;
+  int64_t num_rows = 10000;
   int64_t numCols = table_fields.size();
 
   ArrayBuilderMatrix builders(numCols, ArrayBuilderVector(5, NULLPTR));
@@ -903,7 +828,7 @@ TEST(TestAdapterWriteFloat, writeMixed) {
         std::static_pointer_cast<ArrayBuilder>(std::make_shared<DoubleBuilder>());
   }
 
-  for (int i = 0; i < numRows / 2; i++) {
+  for (int i = 0; i < num_rows / 2; i++) {
     if (i % 2) {
       ARROW_EXPECT_OK(
           std::static_pointer_cast<FloatBuilder>(builders[0][1])->Append(i + 0.7));
@@ -916,7 +841,7 @@ TEST(TestAdapterWriteFloat, writeMixed) {
           std::static_pointer_cast<DoubleBuilder>(builders[1][1])->Append(-i + 0.43));
     }
   }
-  for (int i = numRows / 2; i < numRows; i++) {
+  for (int i = num_rows / 2; i < num_rows; i++) {
     if (i % 2) {
       ARROW_EXPECT_OK(
           std::static_pointer_cast<FloatBuilder>(builders[0][3])->AppendNull());
@@ -941,19 +866,14 @@ TEST(TestAdapterWriteFloat, writeMixed) {
   }
   std::shared_ptr<Table> table = Table::Make(table_schema, cv);
 
-  std::unique_ptr<ORCMemWriter> writer =
-      std::unique_ptr<ORCMemWriter>(new ORCMemWriter());
-  std::unique_ptr<liborc::OutputStream> out_stream =
-      std::unique_ptr<liborc::OutputStream>(static_cast<liborc::OutputStream*>(
-          new MemoryOutputStream(kDefaultSmallMemStreamSize)));
-  ARROW_EXPECT_OK(writer->Open(table_schema, out_stream));
-  ARROW_EXPECT_OK(writer->Write(table));
+  std::shared_ptr<io::BufferOutputStream> buffer_output_stream =
+      io::BufferOutputStream::Create(kDefaultSmallMemStreamSize).ValueOrDie();
+  std::unique_ptr<adapters::orc::ORCFileWriter> writer =
+      adapters::orc::ORCFileWriter::Open(*buffer_output_stream).ValueOrDie();
+  ARROW_EXPECT_OK(writer->Write(*table));
   ARROW_EXPECT_OK(writer->Close());
-  auto output_mem_stream = static_cast<MemoryOutputStream*>(writer->ReleaseOutStream());
-  std::shared_ptr<io::RandomAccessFile> in_stream(
-      new io::BufferReader(std::make_shared<Buffer>(
-          reinterpret_cast<const uint8_t*>(output_mem_stream->getData()),
-          static_cast<int64_t>(output_mem_stream->getLength()))));
+  std::shared_ptr<Buffer> buffer = buffer_output_stream->Finish().ValueOrDie();
+  std::shared_ptr<io::RandomAccessFile> in_stream(new io::BufferReader(buffer));
 
   std::unique_ptr<adapters::orc::ORCFileReader> reader;
   ASSERT_TRUE(
@@ -961,23 +881,23 @@ TEST(TestAdapterWriteFloat, writeMixed) {
   std::shared_ptr<Table> actual_output_table;
   ARROW_EXPECT_OK(reader->Read(&actual_output_table));
   EXPECT_EQ(actual_output_table->num_columns(), numCols);
-  EXPECT_EQ(actual_output_table->num_rows(), numRows);
+  EXPECT_EQ(actual_output_table->num_rows(), num_rows);
   EXPECT_TRUE(actual_output_table->schema()->Equals(*(table->schema())));
   EXPECT_TRUE(actual_output_table->column(0)
                   ->chunk(0)
-                  ->Slice(0, numRows / 2)
+                  ->Slice(0, num_rows / 2)
                   ->ApproxEquals(table->column(0)->chunk(1)));
   EXPECT_TRUE(actual_output_table->column(0)
                   ->chunk(0)
-                  ->Slice(numRows / 2, numRows / 2)
+                  ->Slice(num_rows / 2, num_rows / 2)
                   ->ApproxEquals(table->column(0)->chunk(3)));
   EXPECT_TRUE(actual_output_table->column(1)
                   ->chunk(0)
-                  ->Slice(0, numRows / 2)
+                  ->Slice(0, num_rows / 2)
                   ->ApproxEquals(table->column(1)->chunk(1)));
   EXPECT_TRUE(actual_output_table->column(1)
                   ->chunk(0)
-                  ->Slice(numRows / 2, numRows / 2)
+                  ->Slice(num_rows / 2, num_rows / 2)
                   ->ApproxEquals(table->column(1)->chunk(3)));
 }
 
@@ -1004,7 +924,7 @@ TEST(TestAdapterWriteConvert, writeAllNulls) {
   std::shared_ptr<Schema> input_schema = std::make_shared<Schema>(input_fields),
                           output_schema = std::make_shared<Schema>(output_fields);
 
-  int64_t numRows = 10000;
+  int64_t num_rows = 10000;
   int64_t numCols = input_fields.size();
 
   ArrayBuilderMatrix buildersIn(numCols, ArrayBuilderVector(5, NULLPTR));
@@ -1044,8 +964,8 @@ TEST(TestAdapterWriteConvert, writeAllNulls) {
         std::static_pointer_cast<ArrayBuilder>(std::make_shared<BinaryBuilder>());
   }
 
-  for (int i = 0; i < numRows; i++) {
-    int chunk = i < (numRows / 2) ? 1 : 3;
+  for (int i = 0; i < num_rows; i++) {
+    int chunk = i < (num_rows / 2) ? 1 : 3;
     for (int col = 0; col < numCols; col++) {
       ARROW_EXPECT_OK(buildersIn[col][chunk]->AppendNull());
       ARROW_EXPECT_OK(buildersOut[col]->AppendNull());
@@ -1093,7 +1013,7 @@ TEST(TestAdapterWriteConvert, writeNoNulls) {
   std::shared_ptr<Schema> input_schema = std::make_shared<Schema>(input_fields),
                           output_schema = std::make_shared<Schema>(output_fields);
 
-  int64_t numRows = 10000;
+  int64_t num_rows = 10000;
   int64_t numCols = input_fields.size();
 
   ArrayBuilderMatrix buildersIn(numCols, ArrayBuilderVector(5, NULLPTR));
@@ -1136,8 +1056,8 @@ TEST(TestAdapterWriteConvert, writeNoNulls) {
   char bin1[2], bin2[3], bin3[] = "", string_[12];
   std::string str;
 
-  for (int64_t i = 0; i < numRows; i++) {
-    int chunk = i < (numRows / 2) ? 1 : 3;
+  for (int64_t i = 0; i < num_rows; i++) {
+    int chunk = i < (num_rows / 2) ? 1 : 3;
     bin1[0] = i % 256;
     bin1[1] = (i + 1) % 256;
     bin2[0] = (2 * i) % 256;
@@ -1220,7 +1140,7 @@ TEST(TestAdapterWriteConvert, writeMixed) {
   std::shared_ptr<Schema> input_schema = std::make_shared<Schema>(input_fields),
                           output_schema = std::make_shared<Schema>(output_fields);
 
-  int64_t numRows = 10000;
+  int64_t num_rows = 10000;
   int64_t numCols = input_fields.size();
 
   ArrayBuilderMatrix buildersIn(numCols, ArrayBuilderVector(5, NULLPTR));
@@ -1263,8 +1183,8 @@ TEST(TestAdapterWriteConvert, writeMixed) {
   char bin1[3], bin2[4], bin3[] = "", string_[13];
   std::string str;
 
-  for (int64_t i = 0; i < numRows; i++) {
-    int chunk = i < (numRows / 2) ? 1 : 3;
+  for (int64_t i = 0; i < num_rows; i++) {
+    int chunk = i < (num_rows / 2) ? 1 : 3;
     if (i % 2) {
       str = "Arrow " + std::to_string(-4 * i + 8);
       snprintf(string_, sizeof(string_), "%s", str.c_str());
@@ -1379,7 +1299,7 @@ TEST(TestAdapterWriteNested, writeMixedListStruct) {
   auto sharedPtrArrowType0 = table_fields[0]->type();
   auto sharedPtrArrowType1 = table_fields[1]->type();
 
-  int64_t numRows = 10000;
+  int64_t num_rows = 10000;
   int64_t numCols0 = table_fields0.size();
 
   //#0 struct<a:string,b:int>
@@ -1393,8 +1313,8 @@ TEST(TestAdapterWriteNested, writeMixedListStruct) {
   }
   std::string str;
   char string_[10];
-  for (int i = 0; i < numRows; i++) {
-    int chunk = i < (numRows / 2) ? 1 : 3;
+  for (int i = 0; i < num_rows; i++) {
+    int chunk = i < (num_rows / 2) ? 1 : 3;
     str = "Test " + std::to_string(i);
     snprintf(string_, sizeof(string_), "%s", str.c_str());
     if (i % 2) {
@@ -1410,7 +1330,7 @@ TEST(TestAdapterWriteNested, writeMixedListStruct) {
     }
   }
 
-  int arrayBitmapSize = numRows / 16;
+  int arrayBitmapSize = num_rows / 16;
   uint8_t bitmaps0[2][arrayBitmapSize];
   for (int i = 0; i < arrayBitmapSize; i++) {
     for (int j = 0; j < 2; j++) {
@@ -1438,7 +1358,7 @@ TEST(TestAdapterWriteNested, writeMixedListStruct) {
     }
     if (i == 1 || i == 3) {
       av0.push_back(std::make_shared<StructArray>(
-          sharedPtrArrowType0, numRows / 2, subarrays0[i], bitmapBuffers0[(i - 1) / 2]));
+          sharedPtrArrowType0, num_rows / 2, subarrays0[i], bitmapBuffers0[(i - 1) / 2]));
     } else {
       av0.push_back(std::make_shared<StructArray>(sharedPtrArrowType0, 0, subarrays0[i]));
     }
@@ -1459,15 +1379,15 @@ TEST(TestAdapterWriteNested, writeMixedListStruct) {
     offsetsBuilders1[i] =
         std::static_pointer_cast<ArrayBuilder>(std::make_shared<Int32Builder>());
   }
-  int arrayOffsetSize = numRows / 2 + 1;
+  int arrayOffsetSize = num_rows / 2 + 1;
   int32_t offsets1[2][arrayOffsetSize];
 
   offsets1[0][0] = 0;
   offsets1[1][0] = 0;
-  for (int i = 0; i < numRows; i++) {
-    int offsetsChunk = i < (numRows / 2) ? 0 : 1;
+  for (int i = 0; i < num_rows; i++) {
+    int offsetsChunk = i < (num_rows / 2) ? 0 : 1;
     int valuesChunk = 2 * offsetsChunk + 1;
-    int offsetsOffset = offsetsChunk * numRows / 2;
+    int offsetsOffset = offsetsChunk * num_rows / 2;
     switch (i % 4) {
       case 0: {
         offsets1[offsetsChunk][i + 1 - offsetsOffset] =
@@ -1540,7 +1460,7 @@ TEST(TestAdapterWriteNested, writeMixedListStruct) {
     ARROW_EXPECT_OK(valuesBuilders1[i]->Finish(&valuesArrays1[i]));
     if (i == 1 || i == 3) {
       av1.push_back(std::make_shared<ListArray>(
-          sharedPtrArrowType1, numRows / 2, offsetsBuffers1[(i - 1) / 2],
+          sharedPtrArrowType1, num_rows / 2, offsetsBuffers1[(i - 1) / 2],
           valuesArrays1[i], bitmapBuffers1[(i - 1) / 2]));
     } else {
       av1.push_back(
@@ -1566,7 +1486,7 @@ TEST(TestAdapterWriteNested, writeMixedConvert) {
   std::shared_ptr<Schema> input_schema = std::make_shared<Schema>(input_fields);
   std::shared_ptr<Schema> output_schema = std::make_shared<Schema>(output_fields);
 
-  int64_t numRows = 10000;
+  int64_t num_rows = 10000;
   int64_t numCols = input_fields.size();
 
   ArrayBuilderVector valuesBuilders0In(5, NULLPTR), offsetsBuilders0In(3, NULLPTR),
@@ -1602,8 +1522,8 @@ TEST(TestAdapterWriteNested, writeMixedConvert) {
     offsetsBuilders2In[i] =
         std::static_pointer_cast<ArrayBuilder>(std::make_shared<Int32Builder>());
   }
-  int arrayOffsetSizeIn = numRows / 2 + 1;
-  int arrayOffsetSizeOut = numRows + 1;
+  int arrayOffsetSizeIn = num_rows / 2 + 1;
+  int arrayOffsetSizeOut = num_rows + 1;
   int64_t offsets0In[2][arrayOffsetSizeIn];
   int32_t offsets2In[2][arrayOffsetSizeIn];
   int32_t offsetsOut[numCols][arrayOffsetSizeOut];
@@ -1615,10 +1535,10 @@ TEST(TestAdapterWriteNested, writeMixedConvert) {
   for (int col = 0; col < numCols; col++) {
     offsetsOut[col][0] = 0;
   }
-  for (int i = 0; i < numRows; i++) {
-    int offsetsChunk = i < (numRows / 2) ? 0 : 1;
+  for (int i = 0; i < num_rows; i++) {
+    int offsetsChunk = i < (num_rows / 2) ? 0 : 1;
     int valuesChunk = 2 * offsetsChunk + 1;
-    int offsetsOffset = offsetsChunk * numRows / 2;
+    int offsetsOffset = offsetsChunk * num_rows / 2;
     switch (i % 4) {
       case 0: {
         offsets0In[offsetsChunk][i + 1 - offsetsOffset] =
@@ -1729,7 +1649,7 @@ TEST(TestAdapterWriteNested, writeMixedConvert) {
     offsetsOut[1][i + 1] = offsetsOut[1][i] + 3;
   }
 
-  int arrayBitmapSizeIn = numRows / 16, arrayBitmapSizeOut = numRows / 8;
+  int arrayBitmapSizeIn = num_rows / 16, arrayBitmapSizeOut = num_rows / 8;
 
   uint8_t bitmapsIn[numCols][2][arrayBitmapSizeIn],
       bitmapsOut[numCols][arrayBitmapSizeOut];
@@ -1821,13 +1741,13 @@ TEST(TestAdapterWriteNested, writeMixedConvert) {
     ARROW_EXPECT_OK(itemsBuilders2In[i]->Finish(&itemsArrays2In[i]));
     if (i == 1 || i == 3) {
       arraysIn[0][i] = std::make_shared<LargeListArray>(
-          input_fields[0]->type(), numRows / 2, offsetsBuffers0In[(i - 1) / 2],
+          input_fields[0]->type(), num_rows / 2, offsetsBuffers0In[(i - 1) / 2],
           valuesArrays0In[i], bitmapBuffersIn[0][(i - 1) / 2]);
       arraysIn[1][i] = std::make_shared<FixedSizeListArray>(
-          input_fields[1]->type(), numRows / 2, valuesArrays1In[i],
+          input_fields[1]->type(), num_rows / 2, valuesArrays1In[i],
           bitmapBuffersIn[1][(i - 1) / 2]);
       arraysIn[2][i] = std::make_shared<MapArray>(
-          input_fields[2]->type(), numRows / 2, offsetsBuffers2In[(i - 1) / 2],
+          input_fields[2]->type(), num_rows / 2, offsetsBuffers2In[(i - 1) / 2],
           keysArrays2In[i], itemsArrays2In[i], bitmapBuffersIn[2][(i - 1) / 2]);
     } else {
       arraysIn[0][i] =
@@ -1845,19 +1765,19 @@ TEST(TestAdapterWriteNested, writeMixedConvert) {
   ARROW_EXPECT_OK(valuesBuilder1Out->Finish(&valuesArray1Out));
   ARROW_EXPECT_OK(keysBuilder2Out->Finish(&keysArray2Out));
   ARROW_EXPECT_OK(itemsBuilder2Out->Finish(&itemsArray2Out));
-  arraysOut[0] =
-      std::make_shared<ListArray>(output_fields[0]->type(), numRows, offsetsBuffersOut[0],
-                                  valuesArray0Out, bitmapBuffersOut[0]);
-  arraysOut[1] =
-      std::make_shared<ListArray>(output_fields[1]->type(), numRows, offsetsBuffersOut[1],
-                                  valuesArray1Out, bitmapBuffersOut[1]);
+  arraysOut[0] = std::make_shared<ListArray>(output_fields[0]->type(), num_rows,
+                                             offsetsBuffersOut[0], valuesArray0Out,
+                                             bitmapBuffersOut[0]);
+  arraysOut[1] = std::make_shared<ListArray>(output_fields[1]->type(), num_rows,
+                                             offsetsBuffersOut[1], valuesArray1Out,
+                                             bitmapBuffersOut[1]);
 
   ArrayVector children20{keysArray2Out, itemsArray2Out};
   auto arraysOut20 = std::make_shared<StructArray>(
-      output_fields[2]->type()->field(0)->type(), 2 * numRows, children20);
+      output_fields[2]->type()->field(0)->type(), 2 * num_rows, children20);
   arraysOut[2] =
-      std::make_shared<ListArray>(output_fields[2]->type(), numRows, offsetsBuffersOut[2],
-                                  arraysOut20, bitmapBuffersOut[2]);
+      std::make_shared<ListArray>(output_fields[2]->type(), num_rows,
+                                  offsetsBuffersOut[2], arraysOut20, bitmapBuffersOut[2]);
 
   for (int col = 0; col < numCols; col++) {
     cvIn.push_back(std::make_shared<ChunkedArray>(arraysIn[col]));
@@ -1875,8 +1795,8 @@ TEST(TestAdapterWriteNested, writeMixedListOfStruct) {
   auto sharedPtrArrowType0 = table_fields[0]->type();
   auto sharedPtrArrowType00 = table_fields[0]->type()->field(0)->type();
 
-  int64_t numRows = 10000;
-  int64_t numListElememts = numRows * 2;
+  int64_t num_rows = 10000;
+  int64_t numListElememts = num_rows * 2;
   int64_t numCols0 = (table_fields[0]->type()->field(0)->type()->fields()).size();
 
   //#0 list<struct<a:int>>
@@ -1903,15 +1823,15 @@ TEST(TestAdapterWriteNested, writeMixedListOfStruct) {
     offsetsBuilders[i] =
         std::static_pointer_cast<ArrayBuilder>(std::make_shared<Int32Builder>());
   }
-  int arrayOffsetSize = numRows / 2 + 1;
+  int arrayOffsetSize = num_rows / 2 + 1;
   int32_t offsets[2][arrayOffsetSize];
 
   offsets[0][0] = 0;
   offsets[1][0] = 0;
 
-  for (int i = 0; i < numRows; i++) {
-    int offsetsChunk = i < (numRows / 2) ? 0 : 1;
-    int offsetsOffset = offsetsChunk * numRows / 2;
+  for (int i = 0; i < num_rows; i++) {
+    int offsetsChunk = i < (num_rows / 2) ? 0 : 1;
+    int offsetsOffset = offsetsChunk * num_rows / 2;
     switch (i % 4) {
       case 0: {
         offsets[offsetsChunk][i + 1 - offsetsOffset] =
@@ -1936,7 +1856,7 @@ TEST(TestAdapterWriteNested, writeMixedListOfStruct) {
     }
   }
 
-  int arrayBitmapSize = numRows / 16, arrayBitmapSize0 = numListElememts / 16;
+  int arrayBitmapSize = num_rows / 16, arrayBitmapSize0 = numListElememts / 16;
   uint8_t bitmaps[2][arrayBitmapSize], bitmaps0[2][arrayBitmapSize0];
   for (int i = 0; i < arrayBitmapSize0; i++) {
     for (int j = 0; j < 2; j++) {
@@ -1988,8 +1908,8 @@ TEST(TestAdapterWriteNested, writeMixedListOfStruct) {
     }
     if (i == 1 || i == 3) {
       subarrays[i] = std::make_shared<StructArray>(
-          sharedPtrArrowType00, numRows, subarrays0[i], bitmapBuffers0[(i - 1) / 2]);
-      av.push_back(std::make_shared<ListArray>(sharedPtrArrowType0, numRows / 2,
+          sharedPtrArrowType00, num_rows, subarrays0[i], bitmapBuffers0[(i - 1) / 2]);
+      av.push_back(std::make_shared<ListArray>(sharedPtrArrowType0, num_rows / 2,
                                                offsetsBuffers[(i - 1) / 2], subarrays[i],
                                                bitmapBuffers[(i - 1) / 2]));
     } else {
@@ -2019,7 +1939,7 @@ TEST(TestAdapterWriteNested, writeMixedStructStruct) {
                           field("string", utf8()), field("binary", binary())}))}))};
   std::shared_ptr<Schema> table_schema = std::make_shared<Schema>(table_fields);
 
-  int64_t numRows = 10000;
+  int64_t num_rows = 10000;
   int64_t numCols00 = (table_fields[0]->type()->field(0)->type()->fields()).size();
   auto sharedPtrArrowType00 = table_fields[0]->type()->field(0)->type();
   auto sharedPtrArrowType0 = table_fields[0]->type();
@@ -2053,7 +1973,7 @@ TEST(TestAdapterWriteNested, writeMixedStructStruct) {
   }
   char bin1[2], bin2[] = "", string_[12];
   std::string str;
-  for (int64_t i = 0; i < numRows / 2; i++) {
+  for (int64_t i = 0; i < num_rows / 2; i++) {
     if (i % 2) {
       bin1[0] = i % 256;
       bin1[1] = (i - 1) % 256;
@@ -2103,7 +2023,7 @@ TEST(TestAdapterWriteNested, writeMixedStructStruct) {
           std::static_pointer_cast<BinaryBuilder>(builders[10][1])->AppendNull());
     }
   }
-  for (int64_t i = numRows / 2; i < numRows; i++) {
+  for (int64_t i = num_rows / 2; i < num_rows; i++) {
     if (i % 2) {
       ARROW_EXPECT_OK(
           std::static_pointer_cast<BooleanBuilder>(builders[0][3])->Append(false));
@@ -2152,7 +2072,7 @@ TEST(TestAdapterWriteNested, writeMixedStructStruct) {
     }
   }
 
-  int arrayBitmapSize = numRows / 16;
+  int arrayBitmapSize = num_rows / 16;
   uint8_t bitmaps[2][arrayBitmapSize], bitmaps0[2][arrayBitmapSize];
   for (int i = 0; i < arrayBitmapSize; i++) {
     for (int j = 0; j < 2; j++) {
@@ -2186,10 +2106,11 @@ TEST(TestAdapterWriteNested, writeMixedStructStruct) {
       ARROW_EXPECT_OK(builders[col][i]->Finish(&subarrays00[i][col]));
     }
     if (i == 1 || i == 3) {
-      subarrays0[i][0] = std::make_shared<StructArray>(
-          sharedPtrArrowType00, numRows / 2, subarrays00[i], bitmapBuffers0[(i - 1) / 2]);
+      subarrays0[i][0] =
+          std::make_shared<StructArray>(sharedPtrArrowType00, num_rows / 2,
+                                        subarrays00[i], bitmapBuffers0[(i - 1) / 2]);
       av0.push_back(std::make_shared<StructArray>(
-          sharedPtrArrowType0, numRows / 2, subarrays0[i], bitmapBuffers[(i - 1) / 2]));
+          sharedPtrArrowType0, num_rows / 2, subarrays0[i], bitmapBuffers[(i - 1) / 2]));
     } else {
       subarrays0[i][0] =
           std::make_shared<StructArray>(sharedPtrArrowType00, 0, subarrays00[i]);

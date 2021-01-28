@@ -21,6 +21,7 @@
 
 from cython.operator cimport dereference as deref
 from libcpp.vector cimport vector as std_vector
+from libcpp.utility cimport move
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.lib cimport (check_status, _Weakrefable,
@@ -117,26 +118,22 @@ cdef class ORCWriter(_Weakrefable):
     cdef:
         object source
         unique_ptr[ORCFileWriter] writer
-        shared_ptr[CSchema] sp_arrow_schema
 
-    def open(self, object schema, object source):
+    def open(self, object source):
         cdef:
             shared_ptr[COutputStream] rd_handle
-
         self.source = source
-        self.sp_arrow_schema = pyarrow_unwrap_schema(schema)
-
         get_writer(source, &rd_handle)
-
         with nogil:
-            check_status(ORCFileWriter.Open(self.sp_arrow_schema, rd_handle,
-                                            &self.writer))
+            self.writer = move(GetResultValue[unique_ptr[ORCFileWriter]](ORCFileWriter.Open(deref(rd_handle))))
 
     def write(self, object table):
         cdef:
             shared_ptr[CTable] sp_table
-
         sp_table = pyarrow_unwrap_table(table)
-
         with nogil:
-            check_status(deref(self.writer).Write(sp_table))
+            check_status(deref(self.writer).Write(deref(sp_table)))
+
+    def close(self):
+        with nogil:
+            check_status(deref(self.writer).Close())

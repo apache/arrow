@@ -159,13 +159,11 @@ class ORCWriter:
         Writable target. For passing Python file objects or byte buffers,
         see pyarrow.io.PythonFileInterface, pyarrow.io.BufferOutputStream
         or pyarrow.io.FixedSizeBufferWriter.
-    schema : pyarrow.lib.Schema
-        Schema of the table to be written into the ORC file
     """
 
-    def __init__(self, where, schema):
+    def __init__(self, where):
         self.writer = _orc.ORCWriter()
-        self.writer.open(schema, where)
+        self.writer.open(where)
 
     def write(self, table):
         """
@@ -178,6 +176,12 @@ class ORCWriter:
             The table to be written into the ORC file
         """
         self.writer.write(table)
+
+    def close(self):
+        """
+        Close the ORC file
+        """
+        self.writer.close()
 
 
 def write_table(where, table):
@@ -193,5 +197,6 @@ def write_table(where, table):
     table : pyarrow.lib.Table
         The table to be written into the ORC file
     """
-    writer = ORCWriter(where, table.schema)
+    writer = ORCWriter(where)
     writer.write(table)
+    writer.close()

@@ -150,19 +150,20 @@ class ARROW_EXPORT ORCFileWriter {
   ~ORCFileWriter();
   /// \brief Creates a new ORC writer.
   ///
-  /// \param[in] schema of the Arrow table
   /// \param[in] output_stream the io::OutputStream to write into
-  /// \param[out] writer the returned writer object
-  /// \return Status
-  static Status Open(const std::shared_ptr<Schema>& schema,
-                     const std::shared_ptr<io::OutputStream>& output_stream,
-                     std::unique_ptr<ORCFileWriter>* writer);
+  /// \return the returned writer object
+  static Result<std::unique_ptr<ORCFileWriter>> Open(io::OutputStream& output_stream);
 
   /// \brief Write a table
   ///
   /// \param[in] table the Arrow table from which data is extracted
   /// \return Status
-  Status Write(const std::shared_ptr<Table> table);
+  Status Write(const Table& table);
+
+  /// \brief Close a file
+  ///
+  /// \return Status
+  Status Close();
 
  private:
   class Impl;
