@@ -34,6 +34,9 @@ set VCPKG_INSTALLED=%cd%\cpp\vcpkg_installed
 mkdir cpp\build
 pushd cpp\build
 
+@rem TODO(ianmcook): test using --parallel %NUMBER_OF_PROCESSORS% with
+@rem cmake --build instead of specifying -DARROW_CXXFLAGS="/MP" here
+@rem (see https://gitlab.kitware.com/cmake/cmake/-/issues/20564)
 cmake -G "Visual Studio 16 2019" -A x64 ^
       -DARROW_BOOST_USE_SHARED=ON ^
       -DARROW_BUILD_BENCHMARKS=ON ^
