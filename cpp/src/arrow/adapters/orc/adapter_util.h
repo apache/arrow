@@ -39,7 +39,7 @@ Status GetORCType(const DataType& type, ORC_UNIQUE_PTR<liborc::Type>* out);
 Status GetORCType(const Schema& schema, ORC_UNIQUE_PTR<liborc::Type>* out);
 
 Status AppendBatch(const liborc::Type* type, liborc::ColumnVectorBatch* batch,
-                   int64_t offset, int64_t length, ArrayBuilder* builder);
+                   int64_t offset, int64_t length, arrow::ArrayBuilder* builder);
 
 Status WriteBatch(liborc::ColumnVectorBatch* column_vector_batch,
                   int64_t* arrow_index_offset, int* arrow_chunk_offset, int64_t length,
