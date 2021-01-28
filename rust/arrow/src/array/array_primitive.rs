@@ -465,9 +465,7 @@ mod tests {
     fn test_primitive_array_from_vec() {
         let buf = Buffer::from_slice_ref(&[0, 1, 2, 3, 4]);
         let arr = Int32Array::from(vec![0, 1, 2, 3, 4]);
-        let slice = arr.values();
         assert_eq!(buf, arr.data.buffers()[0]);
-        assert_eq!(&[0, 1, 2, 3, 4], slice);
         assert_eq!(5, arr.len());
         assert_eq!(0, arr.offset());
         assert_eq!(0, arr.null_count());
@@ -476,6 +474,7 @@ mod tests {
             assert!(arr.is_valid(i));
             assert_eq!(i as i32, arr.value(i));
         }
+        assert_eq!(&[0, 1, 2, 3, 4], arr.values());
 
         assert_eq!(64, arr.get_buffer_memory_size());
         let internals_of_primitive_array = 8 + 72; // RawPtrBox & Arc<ArrayData> combined.
@@ -590,8 +589,10 @@ mod tests {
         assert_eq!(0, arr.offset());
         assert_eq!(1, arr.null_count());
         assert_eq!(1, arr.value(0));
+        assert_eq!(1, arr.values()[0]);
         assert!(arr.is_null(1));
         assert_eq!(-5, arr.value(2));
+        assert_eq!(-5, arr.values()[2]);
 
         // a day_time interval contains days and milliseconds, but we do not yet have accessors for the values
         let arr = IntervalDayTimeArray::from(vec![Some(1), None, Some(-5)]);
@@ -599,8 +600,10 @@ mod tests {
         assert_eq!(0, arr.offset());
         assert_eq!(1, arr.null_count());
         assert_eq!(1, arr.value(0));
+        assert_eq!(1, arr.values()[0]);
         assert!(arr.is_null(1));
         assert_eq!(-5, arr.value(2));
+        assert_eq!(-5, arr.values()[2]);
     }
 
     #[test]
@@ -610,32 +613,40 @@ mod tests {
         assert_eq!(0, arr.offset());
         assert_eq!(1, arr.null_count());
         assert_eq!(1, arr.value(0));
+        assert_eq!(1, arr.values()[0]);
         assert!(arr.is_null(1));
         assert_eq!(-5, arr.value(2));
+        assert_eq!(-5, arr.values()[2]);
 
         let arr = DurationMillisecondArray::from(vec![Some(1), None, Some(-5)]);
         assert_eq!(3, arr.len());
         assert_eq!(0, arr.offset());
         assert_eq!(1, arr.null_count());
         assert_eq!(1, arr.value(0));
+        assert_eq!(1, arr.values()[0]);
         assert!(arr.is_null(1));
         assert_eq!(-5, arr.value(2));
+        assert_eq!(-5, arr.values()[2]);
 
         let arr = DurationMicrosecondArray::from(vec![Some(1), None, Some(-5)]);
         assert_eq!(3, arr.len());
         assert_eq!(0, arr.offset());
         assert_eq!(1, arr.null_count());
         assert_eq!(1, arr.value(0));
+        assert_eq!(1, arr.values()[0]);
         assert!(arr.is_null(1));
         assert_eq!(-5, arr.value(2));
+        assert_eq!(-5, arr.values()[2]);
 
         let arr = DurationNanosecondArray::from(vec![Some(1), None, Some(-5)]);
         assert_eq!(3, arr.len());
         assert_eq!(0, arr.offset());
         assert_eq!(1, arr.null_count());
         assert_eq!(1, arr.value(0));
+        assert_eq!(1, arr.values()[0]);
         assert!(arr.is_null(1));
         assert_eq!(-5, arr.value(2));
+        assert_eq!(-5, arr.values()[2]);
     }
 
     #[test]
@@ -646,6 +657,7 @@ mod tests {
         assert_eq!(0, arr.null_count());
         assert_eq!(1, arr.value(0));
         assert_eq!(-5, arr.value(1));
+        assert_eq!(&[1, -5], arr.values());
 
         let arr = TimestampMillisecondArray::from_vec(vec![1, -5], None);
         assert_eq!(2, arr.len());
@@ -653,6 +665,7 @@ mod tests {
         assert_eq!(0, arr.null_count());
         assert_eq!(1, arr.value(0));
         assert_eq!(-5, arr.value(1));
+        assert_eq!(&[1, -5], arr.values());
 
         let arr = TimestampMicrosecondArray::from_vec(vec![1, -5], None);
         assert_eq!(2, arr.len());
@@ -660,6 +673,7 @@ mod tests {
         assert_eq!(0, arr.null_count());
         assert_eq!(1, arr.value(0));
         assert_eq!(-5, arr.value(1));
+        assert_eq!(&[1, -5], arr.values());
 
         let arr = TimestampNanosecondArray::from_vec(vec![1, -5], None);
         assert_eq!(2, arr.len());
@@ -667,6 +681,7 @@ mod tests {
         assert_eq!(0, arr.null_count());
         assert_eq!(1, arr.value(0));
         assert_eq!(-5, arr.value(1));
+        assert_eq!(&[1, -5], arr.values());
     }
 
     #[test]
@@ -695,16 +710,20 @@ mod tests {
             assert_eq!(i == 1, arr2.is_null(i));
             assert_eq!(i != 1, arr2.is_valid(i));
         }
+        let int_arr2 = arr2.as_any().downcast_ref::<Int32Array>().unwrap();
+        assert_eq!(2, int_arr2.values()[0]);
+        assert_eq!(&[4, 5, 6], &int_arr2.values()[2..5]);
 
         let arr3 = arr2.slice(2, 3);
         assert_eq!(3, arr3.len());
         assert_eq!(4, arr3.offset());
         assert_eq!(0, arr3.null_count());
 
-        let int_arr = arr3.as_any().downcast_ref::<Int32Array>().unwrap();
-        assert_eq!(4, int_arr.value(0));
-        assert_eq!(5, int_arr.value(1));
-        assert_eq!(6, int_arr.value(2));
+        let int_arr3 = arr3.as_any().downcast_ref::<Int32Array>().unwrap();
+        assert_eq!(&[4, 5, 6], int_arr3.values());
+        assert_eq!(4, int_arr3.value(0));
+        assert_eq!(5, int_arr3.value(1));
+        assert_eq!(6, int_arr3.value(2));
     }
 
     #[test]
