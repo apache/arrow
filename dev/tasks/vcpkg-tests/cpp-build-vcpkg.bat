@@ -52,7 +52,6 @@ cmake -G "Visual Studio 16 2019" -A x64 ^
       -DARROW_WITH_ZSTD=ON ^
       -DARROW_DEPENDENCY_SOURCE=SYSTEM ^
       -DCMAKE_BUILD_TYPE=release ^
-      -DCMAKE_INSTALL_PREFIX="" ^
       -DCMAKE_UNITY_BUILD=ON ^
       -DCMAKE_TOOLCHAIN_FILE="C:\vcpkg\scripts\buildsystems\vcpkg.cmake" ^
       -DLZ4_MSVC_LIB_PREFIX="" ^
