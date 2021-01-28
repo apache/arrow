@@ -21,7 +21,10 @@ use std::sync::Arc;
 extern crate arrow;
 extern crate datafusion;
 
-use arrow::{array::*, datatypes::TimeUnit};
+use arrow::{
+    array::*,
+    datatypes::{DateUnit, TimeUnit},
+};
 use arrow::{datatypes::Int32Type, datatypes::Int64Type, record_batch::RecordBatch};
 use arrow::{
     datatypes::{DataType, Field, Schema, SchemaRef},
@@ -1398,6 +1401,21 @@ fn register_aggregate_simple_csv(ctx: &mut ExecutionContext) -> Result<()> {
     Ok(())
 }
 
+fn register_aggregate_date_csv(ctx: &mut ExecutionContext) -> Result<()> {
+    // It's not possible to use aggregate_test_100, not enought similar values to test grouping on floats
+    let schema = Arc::new(Schema::new(vec![
+        Field::new("date", DataType::Date32(DateUnit::Day), false),
+        Field::new("cnt", DataType::Int32, false),
+    ]));
+
+    ctx.register_csv(
+        "dates",
+        "tests/dates.csv",
+        CsvReadOptions::new().schema(&schema),
+    )?;
+    Ok(())
+}
+
 fn register_alltypes_parquet(ctx: &mut ExecutionContext) {
     let testdata = arrow::util::test_util::parquet_test_data();
     ctx.register_parquet(
@@ -1896,6 +1914,19 @@ async fn csv_between_expr_negated() -> Result<()> {
     let mut actual = execute(&mut ctx, sql).await;
     actual.sort();
     let expected = vec![vec!["10837"]];
+    assert_eq!(expected, actual);
+    Ok(())
+}
+
+#[tokio::test]
+async fn csv_group_by_date() -> Result<()> {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_date_csv(&mut ctx)?;
+    let sql = "SELECT SUM(cnt) FROM dates GROUP BY date";
+    let actual = execute(&mut ctx, sql).await;
+    let mut actual: Vec<String> = actual.iter().flatten().cloned().collect();
+    actual.sort();
+    let expected = vec!["6", "9"];
     assert_eq!(expected, actual);
     Ok(())
 }
