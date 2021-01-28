@@ -65,12 +65,12 @@ cmake -G "Visual Studio 16 2019" -A x64 ^
       -D_VCPKG_INSTALLED_DIR="%VCPKG_INSTALLED%" ^
       -DVCPKG_TARGET_TRIPLET="x64-windows" ^
       -DZSTD_MSVC_LIB_PREFIX="" ^     
-      .. || exit /B
+      .. || exit /B 1
 
 cmake --build . --target INSTALL --config Release || exit /B 1
 
 ctest --output-on-failure ^
       --parallel %NUMBER_OF_PROCESSORS% ^
-      --timeout 300 || exit /B
+      --timeout 300 || exit /B 1
 
 popd
