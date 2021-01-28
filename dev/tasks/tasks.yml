@@ -1816,7 +1816,7 @@ tasks:
 
   test-build-vcpkg-win:
     ci: github
-    template: vcpkg-tests/test-vcpkg-win.yml
+    template: vcpkg-tests/github.windows.yml
 
   ############################## Integration tests ############################
 
