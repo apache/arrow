@@ -698,27 +698,6 @@ macro_rules! hash_array {
     };
 }
 
-macro_rules! hash_array_cast {
-    ($array_type:ident, $column: ident, $ty: ident, $hashes: ident, $random_state: ident, $as_type:ident) => {
-        let array = $column.as_any().downcast_ref::<$array_type>().unwrap();
-        if array.null_count() == 0 {
-            for (i, hash) in $hashes.iter_mut().enumerate() {
-                *hash =
-                    combine_hashes($ty::get_hash(&array.value(i), $random_state), *hash);
-            }
-        } else {
-            for (i, hash) in $hashes.iter_mut().enumerate() {
-                if !array.is_null(i) {
-                    *hash = combine_hashes(
-                        $ty::get_hash(&array.value(i), $random_state),
-                        *hash,
-                    );
-                }
-            }
-        }
-    };
-}
-
 /// Creates hash values for every element in the row based on the values in the columns
 fn create_hashes(arrays: &[ArrayRef], random_state: &RandomState) -> Result<Vec<u64>> {
     let rows = arrays[0].len();
@@ -757,7 +736,7 @@ fn create_hashes(arrays: &[ArrayRef], random_state: &RandomState) -> Result<Vec<
                 hash_array!(TimestampNanosecondArray, col, i64, hashes, random_state);
             }
             DataType::Boolean => {
-                hash_array_cast!(BooleanArray, col, u8, hashes, random_state, u8);
+                hash_array!(BooleanArray, col, u8, hashes, random_state);
             }
             DataType::Utf8 => {
                 hash_array!(StringArray, col, str, hashes, random_state);
