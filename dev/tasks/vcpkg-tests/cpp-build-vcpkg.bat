@@ -39,7 +39,6 @@ pushd cpp\build
 @rem (see https://gitlab.kitware.com/cmake/cmake/-/issues/20564)
 cmake -G "Visual Studio 16 2019" -A x64 ^
       -DARROW_BOOST_USE_SHARED=ON ^
-      -DARROW_BUILD_BENCHMARKS=ON ^
       -DARROW_BUILD_SHARED=ON ^
       -DARROW_BUILD_STATIC=OFF ^
       -DARROW_BUILD_TESTS=ON ^
