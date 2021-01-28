@@ -233,7 +233,11 @@ pub fn return_type(
     match fun {
         BuiltinScalarFunction::Length => Ok(match arg_types[0] {
             DataType::LargeUtf8 => DataType::Int64,
+            DataType::LargeBinary => DataType::Int64,
+            DataType::LargeList(_) => DataType::Int64,
             DataType::Utf8 => DataType::Int32,
+            DataType::Binary => DataType::Int32,
+            DataType::List(_) => DataType::Int32,
             _ => {
                 // this error is internal as `data_types` should have captured this.
                 return Err(DataFusionError::Internal(
@@ -437,9 +441,20 @@ fn signature(fun: &BuiltinScalarFunction) -> Signature {
     // for now, the list is small, as we do not have many built-in functions.
     match fun {
         BuiltinScalarFunction::Concat => Signature::Variadic(vec![DataType::Utf8]),
+        BuiltinScalarFunction::Length => {
+            // todo: add support for non-constant DataType's (e.g. `DataType::List(_)`)
+            Signature::Uniform(
+                1,
+                vec![
+                    DataType::Binary,
+                    DataType::Utf8,
+                    DataType::LargeBinary,
+                    DataType::LargeUtf8,
+                ],
+            )
+        }
         BuiltinScalarFunction::Upper
         | BuiltinScalarFunction::Lower
-        | BuiltinScalarFunction::Length
         | BuiltinScalarFunction::Trim
         | BuiltinScalarFunction::Ltrim
         | BuiltinScalarFunction::Rtrim
