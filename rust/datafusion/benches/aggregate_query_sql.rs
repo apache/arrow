@@ -44,7 +44,7 @@ pub fn seedable_rng() -> StdRng {
 }
 
 fn query(ctx: Arc<Mutex<ExecutionContext>>, sql: &str) {
-    let mut rt = Runtime::new().unwrap();
+    let rt = Runtime::new().unwrap();
 
     // execute the query
     let df = ctx.lock().unwrap().sql(&sql).unwrap();

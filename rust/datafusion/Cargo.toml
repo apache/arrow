@@ -59,7 +59,7 @@ chrono = "0.4"
 async-trait = "0.1.41"
 futures = "0.3"
 pin-project-lite= "^0.2.0"
-tokio = { version = "0.2", features = ["macros", "blocking", "rt-core", "rt-threaded", "sync"] }
+tokio = { version = "1.0", features = ["macros", "rt", "rt-multi-thread", "sync"] }
 log = "^0.4"
 md-5 = "^0.9.1"
 sha2 = "^0.9.1"
@@ -69,9 +69,9 @@ ordered-float = "2.0"
 rand = "0.8"
 criterion = "0.3"
 tempfile = "3"
-prost = "0.6"
+prost = "0.7"
 arrow-flight = { path = "../arrow-flight", version = "4.0.0-SNAPSHOT" }
-tonic = "0.3"
+tonic = "0.4"
 
 [[bench]]
 name = "aggregate_query_sql"
