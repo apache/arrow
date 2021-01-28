@@ -1636,6 +1636,7 @@ def test_dataset_partitioned_dictionary_type_reconstruct(tempdir):
 
     restored = pickle.loads(pickle.dumps(fragment))
     assert restored.to_table(schema=dataset.schema).equals(expected[:5])
+    # to_pandas call triggers computation of the actual dictionary values
     assert restored.to_table(schema=dataset.schema).to_pandas().equals(
         expected[:5].to_pandas()
     )
