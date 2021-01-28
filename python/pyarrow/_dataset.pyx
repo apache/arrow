@@ -457,8 +457,9 @@ cdef class FileSystemDataset(Dataset):
             CResult[shared_ptr[CDataset]] result
             shared_ptr[CFileSystem] c_filesystem
 
-        root_partition = root_partition or _true
-        if not isinstance(root_partition, Expression):
+        if root_partition is None:
+            root_partition = _true
+        elif not isinstance(root_partition, Expression):
             raise TypeError(
                 "Argument 'root_partition' has incorrect type (expected "
                 "Epression, got {0})".format(type(root_partition))
@@ -525,7 +526,9 @@ cdef class FileSystemDataset(Dataset):
         cdef:
             FileFragment fragment
 
-        root_partition = root_partition or _true
+        if root_partition is None:
+            root_partition = _true
+
         for arg, class_, name in [
             (schema, Schema, 'schema'),
             (format, FileFormat, 'format'),
@@ -660,7 +663,8 @@ cdef class FileFormat(_Weakrefable):
         fields absent from the provided schema. If no schema is provided then
         one will be inferred.
         """
-        partition_expression = partition_expression or _true
+        if partition_expression is None:
+            partition_expression = _true
 
         c_source = _make_file_source(file, filesystem)
         c_fragment = <shared_ptr[CFragment]> GetResultValue(
@@ -1271,7 +1275,8 @@ cdef class ParquetFileFormat(FileFormat):
         cdef:
             vector[int] c_row_groups
 
-        partition_expression = partition_expression or _true
+        if partition_expression is None:
+            partition_expression = _true
 
         if row_groups is None:
             return super().make_fragment(file, filesystem,
