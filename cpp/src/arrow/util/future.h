@@ -679,6 +679,12 @@ util::optional<T> Break(T break_value = {}) {
 template <typename T = detail::Empty>
 using ControlFlow = util::optional<T>;
 
+/// \brief Loop through an asynchronous sequence
+///
+/// \param[in] iterate A generator of Future<ControlFlow<BreakValue>>. On completion of each yielded
+/// future the resulting ControlFlow will be examined. A Break will terminate the loop, while a Continue
+/// will re-invoke `iterate`.
+/// \return A future which will complete when a Future returned by iterate completes with a Break
 template <typename Iterate,
           typename Control = typename detail::result_of_t<Iterate()>::ValueType,
           typename BreakValueType = typename Control::value_type>
