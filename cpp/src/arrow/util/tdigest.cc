@@ -367,12 +367,12 @@ void TDigest::Dump() {
   impl_->Dump();
 }
 
-void TDigest::Merge(std::vector<std::unique_ptr<TDigest>>& tdigests) {
+void TDigest::Merge(std::vector<std::unique_ptr<TDigest>>* tdigests) {
   MergeInput();
 
   std::vector<const TDigestImpl*> tdigest_impls;
-  tdigest_impls.reserve(tdigests.size());
-  for (auto& td : tdigests) {
+  tdigest_impls.reserve(tdigests->size());
+  for (auto& td : *tdigests) {
     td->MergeInput();
     tdigest_impls.push_back(td->impl_.get());
   }

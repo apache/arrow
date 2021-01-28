@@ -61,7 +61,7 @@ class ARROW_EXPORT TDigest {
   }
 
   // merge with other t-digests, called infrequently
-  void Merge(std::vector<std::unique_ptr<TDigest>>& tdigests);
+  void Merge(std::vector<std::unique_ptr<TDigest>>* tdigests);
 
   // calculate quantile
   double Quantile(double q);
