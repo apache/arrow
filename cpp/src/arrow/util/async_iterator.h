@@ -291,7 +291,7 @@ class BackgroundGenerator {
       return Future<T>::MakeFinished(IterationTraits<T>::End());
     }
     auto promise = std::unique_ptr<PromiseType>(new PromiseType{it_.get()});
-    auto result = Future<T>(promise->out_);
+    auto future = Future<T>(promise->out_);
     // TODO: Need a futuristic version of ARROW_RETURN_NOT_OK
     auto append_status = queue_->Append(
         static_cast<std::unique_ptr<detail::ReadaheadPromise>>(std::move(promise)));
@@ -299,13 +299,13 @@ class BackgroundGenerator {
       return Future<T>::MakeFinished(append_status);
     }
 
-    result.AddCallback([this](const Result<T>& result) {
+    future.AddCallback([this](const Result<T>& result) {
       if (!result.ok() || result.ValueUnsafe() == IterationTraits<T>::End()) {
         done_ = true;
       }
     });
 
-    return executor_->Transfer(result);
+    return executor_->Transfer(future);
   }
 
  protected:
