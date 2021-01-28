@@ -37,9 +37,6 @@ DataType <- R6Class("DataType",
     Equals = function(other, ...) {
       inherits(other, "DataType") && DataType__Equals(self, other)
     },
-    num_fields = function() {
-      DataType__num_fields(self)
-    },
     fields = function() {
       DataType__fields(self)
     }
@@ -47,7 +44,8 @@ DataType <- R6Class("DataType",
 
   active = list(
     id = function() DataType__id(self),
-    name = function() DataType__name(self)
+    name = function() DataType__name(self),
+    num_fields = function() DataType__num_fields(self)
   )
 )
 

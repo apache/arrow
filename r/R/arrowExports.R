@@ -696,6 +696,10 @@ StructType__GetFieldIndex <- function(type, name){
     .Call(`_arrow_StructType__GetFieldIndex`, type, name)
 }
 
+StructType__field_names <- function(type){
+    .Call(`_arrow_StructType__field_names`, type)
+}
+
 ListType__value_field <- function(type){
     .Call(`_arrow_ListType__value_field`, type)
 }
