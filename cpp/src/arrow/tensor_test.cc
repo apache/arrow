@@ -24,6 +24,7 @@
 #include <utility>
 #include <vector>
 
+#include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
 #include "arrow/buffer.h"
@@ -36,6 +37,92 @@ namespace arrow {
 void AssertCountNonZero(const Tensor& t, int64_t expected) {
   ASSERT_OK_AND_ASSIGN(int64_t count, t.CountNonZero());
   ASSERT_EQ(count, expected);
+}
+
+TEST(TestComputeRowMajorStrides, ZeroDimension) {
+  std::vector<int64_t> strides;
+
+  std::vector<int64_t> shape1 = {0, 2, 3};
+  ASSERT_OK(arrow::internal::ComputeRowMajorStrides(DoubleType(), shape1, &strides));
+  EXPECT_THAT(strides,
+              testing::ElementsAre(sizeof(double), sizeof(double), sizeof(double)));
+
+  std::vector<int64_t> shape2 = {2, 0, 3};
+  strides.clear();
+  ASSERT_OK(arrow::internal::ComputeRowMajorStrides(DoubleType(), shape2, &strides));
+  EXPECT_THAT(strides,
+              testing::ElementsAre(sizeof(double), sizeof(double), sizeof(double)));
+
+  std::vector<int64_t> shape3 = {2, 3, 0};
+  strides.clear();
+  ASSERT_OK(arrow::internal::ComputeRowMajorStrides(DoubleType(), shape3, &strides));
+  EXPECT_THAT(strides,
+              testing::ElementsAre(sizeof(double), sizeof(double), sizeof(double)));
+}
+
+TEST(TestComputeRowMajorStrides, MaximumSize) {
+  constexpr uint64_t total_length =
+      1 + static_cast<uint64_t>(std::numeric_limits<int64_t>::max());
+  std::vector<int64_t> shape = {2, 2, static_cast<int64_t>(total_length / 4)};
+
+  std::vector<int64_t> strides;
+  ASSERT_OK(arrow::internal::ComputeRowMajorStrides(Int8Type(), shape, &strides));
+  EXPECT_THAT(strides, testing::ElementsAre(2 * shape[2], shape[2], 1));
+}
+
+TEST(TestComputeRowMajorStrides, OverflowCase) {
+  constexpr uint64_t total_length =
+      1 + static_cast<uint64_t>(std::numeric_limits<int64_t>::max());
+  std::vector<int64_t> shape = {2, 2, static_cast<int64_t>(total_length / 4)};
+
+  std::vector<int64_t> strides;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("overflow"),
+      arrow::internal::ComputeRowMajorStrides(Int16Type(), shape, &strides));
+  EXPECT_EQ(0, strides.size());
+}
+
+TEST(TestComputeColumnMajorStrides, ZeroDimension) {
+  std::vector<int64_t> strides;
+
+  std::vector<int64_t> shape1 = {0, 2, 3};
+  ASSERT_OK(arrow::internal::ComputeColumnMajorStrides(DoubleType(), shape1, &strides));
+  EXPECT_THAT(strides,
+              testing::ElementsAre(sizeof(double), sizeof(double), sizeof(double)));
+
+  std::vector<int64_t> shape2 = {2, 0, 3};
+  strides.clear();
+  ASSERT_OK(arrow::internal::ComputeColumnMajorStrides(DoubleType(), shape2, &strides));
+  EXPECT_THAT(strides,
+              testing::ElementsAre(sizeof(double), sizeof(double), sizeof(double)));
+
+  std::vector<int64_t> shape3 = {2, 3, 0};
+  strides.clear();
+  ASSERT_OK(arrow::internal::ComputeColumnMajorStrides(DoubleType(), shape3, &strides));
+  EXPECT_THAT(strides,
+              testing::ElementsAre(sizeof(double), sizeof(double), sizeof(double)));
+}
+
+TEST(TestComputeColumnMajorStrides, MaximumSize) {
+  constexpr uint64_t total_length =
+      1 + static_cast<uint64_t>(std::numeric_limits<int64_t>::max());
+  std::vector<int64_t> shape = {static_cast<int64_t>(total_length / 4), 2, 2};
+
+  std::vector<int64_t> strides;
+  ASSERT_OK(arrow::internal::ComputeColumnMajorStrides(Int8Type(), shape, &strides));
+  EXPECT_THAT(strides, testing::ElementsAre(1, shape[0], 2 * shape[0]));
+}
+
+TEST(TestComputeColumnMajorStrides, OverflowCase) {
+  constexpr uint64_t total_length =
+      1 + static_cast<uint64_t>(std::numeric_limits<int64_t>::max());
+  std::vector<int64_t> shape = {static_cast<int64_t>(total_length / 4), 2, 2};
+
+  std::vector<int64_t> strides;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("overflow"),
+      arrow::internal::ComputeColumnMajorStrides(Int16Type(), shape, &strides));
+  EXPECT_EQ(0, strides.size());
 }
 
 TEST(TestTensor, MakeRowMajor) {

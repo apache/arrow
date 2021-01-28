@@ -31,6 +31,7 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/int_util_internal.h"
 #include "arrow/util/logging.h"
 #include "arrow/visitor_inline.h"
 
@@ -40,40 +41,69 @@ using internal::checked_cast;
 
 namespace internal {
 
-void ComputeRowMajorStrides(const FixedWidthType& type, const std::vector<int64_t>& shape,
-                            std::vector<int64_t>* strides) {
+Status ComputeRowMajorStrides(const FixedWidthType& type,
+                              const std::vector<int64_t>& shape,
+                              std::vector<int64_t>* strides) {
   const int byte_width = GetByteWidth(type);
-  int64_t remaining = byte_width;
-  for (int64_t dimsize : shape) {
-    remaining *= dimsize;
+  const auto ndim = shape.size();
+
+  int64_t remaining = 0;
+  if (!shape.empty() && shape.front() > 0) {
+    remaining = byte_width;
+    for (auto i = decltype(ndim){1}; i < ndim; ++i) {
+      if (internal::MultiplyWithOverflow(remaining, shape[i], &remaining)) {
+        return Status::Invalid(
+            "Given shape involves overflow in integer multiplication to compute "
+            "row-major strides");
+      }
+    }
   }
 
   if (remaining == 0) {
     strides->assign(shape.size(), byte_width);
-    return;
+    return Status::OK();
   }
 
-  for (int64_t dimsize : shape) {
-    remaining /= dimsize;
+  strides->push_back(remaining);
+  for (auto i = decltype(ndim){1}; i < ndim; ++i) {
+    remaining /= shape[i];
     strides->push_back(remaining);
   }
+
+  return Status::OK();
 }
 
-void ComputeColumnMajorStrides(const FixedWidthType& type,
-                               const std::vector<int64_t>& shape,
-                               std::vector<int64_t>* strides) {
+Status ComputeColumnMajorStrides(const FixedWidthType& type,
+                                 const std::vector<int64_t>& shape,
+                                 std::vector<int64_t>* strides) {
   const int byte_width = internal::GetByteWidth(type);
-  int64_t total = byte_width;
-  for (int64_t dimsize : shape) {
-    if (dimsize == 0) {
-      strides->assign(shape.size(), byte_width);
-      return;
+  const auto ndim = shape.size();
+
+  int64_t total = 0;
+  if (!shape.empty() && shape.back() > 0) {
+    total = byte_width;
+    for (auto i = decltype(ndim){0}; i < ndim - 1; ++i) {
+      if (internal::MultiplyWithOverflow(total, shape[i], &total)) {
+        return Status::Invalid(
+            "Given shape involves overflow in integer multiplication to compute "
+            "column-major strides");
+      }
     }
   }
-  for (int64_t dimsize : shape) {
-    strides->push_back(total);
-    total *= dimsize;
+
+  if (total == 0) {
+    strides->assign(shape.size(), byte_width);
+    return Status::OK();
   }
+
+  total = byte_width;
+  for (auto i = decltype(ndim){0}; i < ndim - 1; ++i) {
+    strides->push_back(total);
+    total *= shape[i];
+  }
+  strides->push_back(total);
+
+  return Status::OK();
 }
 
 }  // namespace internal
