@@ -2852,6 +2852,28 @@ BEGIN_CPP11
 END_CPP11
 }
 // recordbatch.cpp
+std::shared_ptr<arrow::RecordBatch> RecordBatch__AddColumn(const std::shared_ptr<arrow::RecordBatch>& batch, R_xlen_t i, const std::shared_ptr<arrow::Field>& field, const std::shared_ptr<arrow::Array>& column);
+extern "C" SEXP _arrow_RecordBatch__AddColumn(SEXP batch_sexp, SEXP i_sexp, SEXP field_sexp, SEXP column_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
+	arrow::r::Input<R_xlen_t>::type i(i_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Field>&>::type field(field_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type column(column_sexp);
+	return cpp11::as_sexp(RecordBatch__AddColumn(batch, i, field, column));
+END_CPP11
+}
+// recordbatch.cpp
+std::shared_ptr<arrow::RecordBatch> RecordBatch__SetColumn(const std::shared_ptr<arrow::RecordBatch>& batch, R_xlen_t i, const std::shared_ptr<arrow::Field>& field, const std::shared_ptr<arrow::Array>& column);
+extern "C" SEXP _arrow_RecordBatch__SetColumn(SEXP batch_sexp, SEXP i_sexp, SEXP field_sexp, SEXP column_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
+	arrow::r::Input<R_xlen_t>::type i(i_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Field>&>::type field(field_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type column(column_sexp);
+	return cpp11::as_sexp(RecordBatch__SetColumn(batch, i, field, column));
+END_CPP11
+}
+// recordbatch.cpp
 std::shared_ptr<arrow::RecordBatch> RecordBatch__RemoveColumn(const std::shared_ptr<arrow::RecordBatch>& batch, R_xlen_t i);
 extern "C" SEXP _arrow_RecordBatch__RemoveColumn(SEXP batch_sexp, SEXP i_sexp){
 BEGIN_CPP11
@@ -3805,6 +3827,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_RecordBatch__GetColumnByName", (DL_FUNC) &_arrow_RecordBatch__GetColumnByName, 2}, 
 		{ "_arrow_RecordBatch__SelectColumns", (DL_FUNC) &_arrow_RecordBatch__SelectColumns, 2}, 
 		{ "_arrow_RecordBatch__Equals", (DL_FUNC) &_arrow_RecordBatch__Equals, 3}, 
+		{ "_arrow_RecordBatch__AddColumn", (DL_FUNC) &_arrow_RecordBatch__AddColumn, 4}, 
+		{ "_arrow_RecordBatch__SetColumn", (DL_FUNC) &_arrow_RecordBatch__SetColumn, 4}, 
 		{ "_arrow_RecordBatch__RemoveColumn", (DL_FUNC) &_arrow_RecordBatch__RemoveColumn, 2}, 
 		{ "_arrow_RecordBatch__column_name", (DL_FUNC) &_arrow_RecordBatch__column_name, 2}, 
 		{ "_arrow_RecordBatch__names", (DL_FUNC) &_arrow_RecordBatch__names, 1}, 

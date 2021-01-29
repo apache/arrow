@@ -104,6 +104,27 @@ class SimpleRecordBatch : public RecordBatch {
                              internal::AddVectorElement(columns_, i, column->data()));
   }
 
+  Result<std::shared_ptr<RecordBatch>> SetColumn(
+      int i, const std::shared_ptr<Field>& field,
+      const std::shared_ptr<Array>& column) const override {
+    ARROW_CHECK(field != nullptr);
+    ARROW_CHECK(column != nullptr);
+
+    if (!field->type()->Equals(column->type())) {
+      return Status::Invalid("Column data type ", field->type()->name(),
+                             " does not match field data type ", column->type()->name());
+    }
+    if (column->length() != num_rows_) {
+      return Status::Invalid(
+          "Added column's length must match record batch's length. Expected length ",
+          num_rows_, " but got length ", column->length());
+    }
+
+    ARROW_ASSIGN_OR_RAISE(auto new_schema, schema_->SetField(i, field));
+    return RecordBatch::Make(new_schema, num_rows_,
+                             internal::ReplaceVectorElement(columns_, i, column->data()));
+  }
+
   Result<std::shared_ptr<RecordBatch>> RemoveColumn(int i) const override {
     ARROW_ASSIGN_OR_RAISE(auto new_schema, schema_->RemoveField(i));
 
