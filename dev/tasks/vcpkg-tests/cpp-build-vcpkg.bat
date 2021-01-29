@@ -32,6 +32,8 @@ vcpkg install ^
     --clean-after-build ^
     || exit /B 1
 
+set ARROW_TEST_DATA=%cd%\testing\data
+set PARQUET_TEST_DATA=%cd%\cpp\submodules\parquet-testing\data
 set VCPKG_INSTALLED=%cd%\cpp\vcpkg_installed
 
 
