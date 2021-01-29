@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @include arrow-package.R
+#' @include arrow-datum.R
 
 #' @title Arrow scalars
 #' @usage NULL
@@ -28,19 +28,10 @@
 #' @rdname Scalar
 #' @export
 Scalar <- R6Class("Scalar",
-  inherit = ArrowObject,
+  inherit = ArrowDatum,
   # TODO: document the methods
   public = list(
     ToString = function() Scalar__ToString(self),
-    cast = function(target_type, safe = TRUE, ...) {
-      opts <- list(
-        to_type = as_type(target_type),
-        allow_int_overflow = !safe,
-        allow_time_truncate = !safe,
-        allow_float_truncate = !safe
-      )
-      call_function("cast", self, options = modifyList(opts, list(...)))
-    },
     as_vector = function() Scalar__as_vector(self)
   ),
   active = list(
@@ -76,15 +67,3 @@ length.Scalar <- function(x) 1L
 
 #' @export
 is.na.Scalar <- function(x) !x$is_valid
-
-#' @export
-as.vector.Scalar <- function(x, mode) x$as_vector()
-
-#' @export
-as.double.Scalar <- as.double.Array
-
-#' @export
-as.integer.Scalar <- as.integer.Array
-
-#' @export
-as.character.Scalar <- as.character.Array

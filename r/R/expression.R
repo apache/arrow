@@ -32,7 +32,7 @@ array_expression <- function(FUN,
 }
 
 #' @export
-Ops.Array <- function(e1, e2) {
+Ops.ArrowDatum <- function(e1, e2) {
   if (.Generic %in% names(.array_function_map)) {
     expr <- build_array_expression(.Generic, e1, e2)
     eval_array_expression(expr)
@@ -40,9 +40,6 @@ Ops.Array <- function(e1, e2) {
     stop(paste0("Unsupported operation on `", class(e1)[1L], "` : "), .Generic, call. = FALSE)
   }
 }
-
-#' @export
-Ops.ChunkedArray <- Ops.Array
 
 #' @export
 Ops.array_expression <- function(e1, e2) {
@@ -75,9 +72,10 @@ build_array_expression <- function(.Generic, e1, e2, ...) {
       # ^^^ form doesn't work because Ops.Array evaluates eagerly,
       # but we can build that up
       quotient <- build_array_expression("%/%", e1, e2)
+      base <- build_array_expression("*", quotient, e2)
       # this cast is to ensure that the result of this and e1 are the same
       # (autocasting only applies to scalars)
-      base <- cast_array_expression(quotient * e2, e1$type)
+      base <- cast_array_expression(base, e1$type)
       return(build_array_expression("-", e1, base))
     }
 

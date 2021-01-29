@@ -604,52 +604,22 @@ BEGIN_CPP11
 END_CPP11
 }
 // compute.cpp
-std::shared_ptr<arrow::compute::CastOptions> compute___CastOptions__initialize(bool allow_int_overflow, bool allow_time_truncate, bool allow_float_truncate);
-extern "C" SEXP _arrow_compute___CastOptions__initialize(SEXP allow_int_overflow_sexp, SEXP allow_time_truncate_sexp, SEXP allow_float_truncate_sexp){
-BEGIN_CPP11
-	arrow::r::Input<bool>::type allow_int_overflow(allow_int_overflow_sexp);
-	arrow::r::Input<bool>::type allow_time_truncate(allow_time_truncate_sexp);
-	arrow::r::Input<bool>::type allow_float_truncate(allow_float_truncate_sexp);
-	return cpp11::as_sexp(compute___CastOptions__initialize(allow_int_overflow, allow_time_truncate, allow_float_truncate));
-END_CPP11
-}
-// compute.cpp
-std::shared_ptr<arrow::Array> Array__cast(const std::shared_ptr<arrow::Array>& array, const std::shared_ptr<arrow::DataType>& target_type, const std::shared_ptr<arrow::compute::CastOptions>& options);
-extern "C" SEXP _arrow_Array__cast(SEXP array_sexp, SEXP target_type_sexp, SEXP options_sexp){
-BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type array(array_sexp);
-	arrow::r::Input<const std::shared_ptr<arrow::DataType>&>::type target_type(target_type_sexp);
-	arrow::r::Input<const std::shared_ptr<arrow::compute::CastOptions>&>::type options(options_sexp);
-	return cpp11::as_sexp(Array__cast(array, target_type, options));
-END_CPP11
-}
-// compute.cpp
-std::shared_ptr<arrow::ChunkedArray> ChunkedArray__cast(const std::shared_ptr<arrow::ChunkedArray>& chunked_array, const std::shared_ptr<arrow::DataType>& target_type, const std::shared_ptr<arrow::compute::CastOptions>& options);
-extern "C" SEXP _arrow_ChunkedArray__cast(SEXP chunked_array_sexp, SEXP target_type_sexp, SEXP options_sexp){
-BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);
-	arrow::r::Input<const std::shared_ptr<arrow::DataType>&>::type target_type(target_type_sexp);
-	arrow::r::Input<const std::shared_ptr<arrow::compute::CastOptions>&>::type options(options_sexp);
-	return cpp11::as_sexp(ChunkedArray__cast(chunked_array, target_type, options));
-END_CPP11
-}
-// compute.cpp
-std::shared_ptr<arrow::RecordBatch> RecordBatch__cast(const std::shared_ptr<arrow::RecordBatch>& batch, const std::shared_ptr<arrow::Schema>& schema, const std::shared_ptr<arrow::compute::CastOptions>& options);
+std::shared_ptr<arrow::RecordBatch> RecordBatch__cast(const std::shared_ptr<arrow::RecordBatch>& batch, const std::shared_ptr<arrow::Schema>& schema, cpp11::list options);
 extern "C" SEXP _arrow_RecordBatch__cast(SEXP batch_sexp, SEXP schema_sexp, SEXP options_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
 	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
-	arrow::r::Input<const std::shared_ptr<arrow::compute::CastOptions>&>::type options(options_sexp);
+	arrow::r::Input<cpp11::list>::type options(options_sexp);
 	return cpp11::as_sexp(RecordBatch__cast(batch, schema, options));
 END_CPP11
 }
 // compute.cpp
-std::shared_ptr<arrow::Table> Table__cast(const std::shared_ptr<arrow::Table>& table, const std::shared_ptr<arrow::Schema>& schema, const std::shared_ptr<arrow::compute::CastOptions>& options);
+std::shared_ptr<arrow::Table> Table__cast(const std::shared_ptr<arrow::Table>& table, const std::shared_ptr<arrow::Schema>& schema, cpp11::list options);
 extern "C" SEXP _arrow_Table__cast(SEXP table_sexp, SEXP schema_sexp, SEXP options_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
 	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
-	arrow::r::Input<const std::shared_ptr<arrow::compute::CastOptions>&>::type options(options_sexp);
+	arrow::r::Input<cpp11::list>::type options(options_sexp);
 	return cpp11::as_sexp(Table__cast(table, schema, options));
 END_CPP11
 }
@@ -3570,9 +3540,6 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_util___Codec__IsAvailable", (DL_FUNC) &_arrow_util___Codec__IsAvailable, 1}, 
 		{ "_arrow_io___CompressedOutputStream__Make", (DL_FUNC) &_arrow_io___CompressedOutputStream__Make, 2}, 
 		{ "_arrow_io___CompressedInputStream__Make", (DL_FUNC) &_arrow_io___CompressedInputStream__Make, 2}, 
-		{ "_arrow_compute___CastOptions__initialize", (DL_FUNC) &_arrow_compute___CastOptions__initialize, 3}, 
-		{ "_arrow_Array__cast", (DL_FUNC) &_arrow_Array__cast, 3}, 
-		{ "_arrow_ChunkedArray__cast", (DL_FUNC) &_arrow_ChunkedArray__cast, 3}, 
 		{ "_arrow_RecordBatch__cast", (DL_FUNC) &_arrow_RecordBatch__cast, 3}, 
 		{ "_arrow_Table__cast", (DL_FUNC) &_arrow_Table__cast, 3}, 
 		{ "_arrow_compute__CallFunction", (DL_FUNC) &_arrow_compute__CallFunction, 3}, 

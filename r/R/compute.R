@@ -35,38 +35,20 @@ call_function <- function(function_name, ..., args = list(...), options = empty_
 }
 
 #' @export
-sum.Array <- function(..., na.rm = FALSE) scalar_aggregate("sum", ..., na.rm = na.rm)
+sum.ArrowDatum <- function(..., na.rm = FALSE) scalar_aggregate("sum", ..., na.rm = na.rm)
 
 #' @export
-sum.ChunkedArray <- sum.Array
+mean.ArrowDatum <- function(..., na.rm = FALSE) scalar_aggregate("mean", ..., na.rm = na.rm)
 
 #' @export
-sum.Scalar <- sum.Array
-
-#' @export
-mean.Array <- function(..., na.rm = FALSE) scalar_aggregate("mean", ..., na.rm = na.rm)
-
-#' @export
-mean.ChunkedArray <- mean.Array
-
-#' @export
-mean.Scalar <- mean.Array
-
-#' @export
-min.Array <- function(..., na.rm = FALSE) {
+min.ArrowDatum <- function(..., na.rm = FALSE) {
   scalar_aggregate("min_max", ..., na.rm = na.rm)$GetFieldByName("min")
 }
 
 #' @export
-min.ChunkedArray <- min.Array
-
-#' @export
-max.Array <- function(..., na.rm = FALSE) {
+max.ArrowDatum <- function(..., na.rm = FALSE) {
   scalar_aggregate("min_max", ..., na.rm = na.rm)$GetFieldByName("max")
 }
-
-#' @export
-max.ChunkedArray <- max.Array
 
 scalar_aggregate <- function(FUN, ..., na.rm = FALSE) {
   a <- collect_arrays_from_dots(list(...))
@@ -99,12 +81,9 @@ collect_arrays_from_dots <- function(dots) {
 }
 
 #' @export
-unique.Array <- function(x, incomparables = FALSE, ...) {
+unique.ArrowDatum <- function(x, incomparables = FALSE, ...) {
   call_function("unique", x)
 }
-
-#' @export
-unique.ChunkedArray <- unique.Array
 
 #' `match` for Arrow objects
 #'
@@ -123,29 +102,27 @@ match_arrow <- function(x, table, ...) UseMethod("match_arrow")
 match_arrow.default <- function(x, table, ...) match(x, table, ...)
 
 #' @export
-match_arrow.Array <- function(x, table, ...) {
+match_arrow.ArrowDatum <- function(x, table, ...) {
   if (!inherits(table, c("Array", "ChunkedArray"))) {
     table <- Array$create(table)
   }
   call_function("index_in_meta_binary", x, table)
 }
 
-#' @export
-match_arrow.ChunkedArray <- match_arrow.Array
-
-CastOptions <- R6Class("CastOptions", inherit = ArrowObject)
-
 #' Cast options
 #'
-#' @param safe enforce safe conversion
-#' @param allow_int_overflow allow int conversion, `!safe` by default
-#' @param allow_time_truncate allow time truncate, `!safe` by default
-#' @param allow_float_truncate allow float truncate, `!safe` by default
-#'
+#' @param safe logical: enforce safe conversion? Default `TRUE`
+#' @param ... additional cast options, such as `allow_int_overflow`,
+#' `allow_time_truncate`, and `allow_float_truncate`, which are set to `!safe`
+#' by default
+#' @return A list
 #' @export
-cast_options <- function(safe = TRUE,
-                         allow_int_overflow = !safe,
-                         allow_time_truncate = !safe,
-                         allow_float_truncate = !safe) {
-  compute___CastOptions__initialize(allow_int_overflow, allow_time_truncate, allow_float_truncate)
+#' @keywords internal
+cast_options <- function(safe = TRUE, ...) {
+  opts <- list(
+    allow_int_overflow = !safe,
+    allow_time_truncate = !safe,
+    allow_float_truncate = !safe
+  )
+  modifyList(opts, list(...))
 }

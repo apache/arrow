@@ -15,41 +15,53 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("compute: vector operations")
-
-expect_bool_function_equal <- function(array_exp, r_exp, class = "Array") {
+expect_bool_function_equal <- function(array_exp, r_exp) {
   # Assert that the Array operation returns a boolean array
   # and that its contents are equal to expected
-  expect_is(array_exp, class)
+  expect_is(array_exp, "ArrowDatum")
   expect_type_equal(array_exp, bool())
   expect_identical(as.vector(array_exp), r_exp)
 }
 
-expect_array_compares <- function(r_values, compared_to, Class = Array) {
-  a <- Class$create(r_values)
+expect_array_compares <- function(x, compared_to) {
+  r_values <- as.vector(x)
+  r_compared_to <- as.vector(compared_to)
   # Iterate over all comparison functions
-  expect_bool_function_equal(a == compared_to, r_values == compared_to, class(a))
-  expect_bool_function_equal(a != compared_to, r_values != compared_to, class(a))
-  expect_bool_function_equal(a > compared_to, r_values > compared_to, class(a))
-  expect_bool_function_equal(a >= compared_to, r_values >= compared_to, class(a))
-  expect_bool_function_equal(a < compared_to, r_values < compared_to, class(a))
-  expect_bool_function_equal(a <= compared_to, r_values <= compared_to, class(a))
+  expect_bool_function_equal(x == compared_to, r_values == r_compared_to)
+  expect_bool_function_equal(x != compared_to, r_values != r_compared_to)
+  expect_bool_function_equal(x > compared_to, r_values > r_compared_to)
+  expect_bool_function_equal(x >= compared_to, r_values >= r_compared_to)
+  expect_bool_function_equal(x < compared_to, r_values < r_compared_to)
+  expect_bool_function_equal(x <= compared_to, r_values <= r_compared_to)
 }
 
-expect_chunked_array_compares <- function(...) expect_array_compares(..., Class = ChunkedArray)
-
 test_that("compare ops with Array", {
-  expect_array_compares(1:5, 4L)
-  expect_array_compares(1:5, 4) # implicit casting
-  expect_array_compares(c(NA, 1:5), 4)
-  expect_array_compares(as.numeric(c(NA, 1:5)), 4)
+  a <- Array$create(1:5)
+  expect_array_compares(a, 4L)
+  expect_array_compares(a, 4) # implicit casting
+  expect_array_compares(a, Scalar$create(4))
+  expect_array_compares(Array$create(c(NA, 1:5)), 4)
+  expect_array_compares(Array$create(as.numeric(c(NA, 1:5))), 4)
+  expect_array_compares(Array$create(c(NA, 1:5)), Array$create(rev(c(NA, 1:5))))
 })
 
 test_that("compare ops with ChunkedArray", {
-  expect_chunked_array_compares(1:5, 4L)
-  expect_chunked_array_compares(1:5, 4) # implicit casting
-  expect_chunked_array_compares(c(NA, 1:5), 4)
-  expect_chunked_array_compares(as.numeric(c(NA, 1:5)), 4)
+  expect_array_compares(ChunkedArray$create(1:3, 4:5), 4L)
+  expect_array_compares(ChunkedArray$create(1:3, 4:5), 4) # implicit casting
+  expect_array_compares(ChunkedArray$create(1:3, 4:5), Scalar$create(4))
+  expect_array_compares(ChunkedArray$create(c(NA, 1:3), 4:5), 4)
+  expect_array_compares(
+    ChunkedArray$create(c(NA, 1:3), 4:5),
+    ChunkedArray$create(4:5, c(NA, 1:3))
+  )
+  expect_array_compares(
+    ChunkedArray$create(c(NA, 1:3), 4:5),
+    Array$create(c(NA, 1:5))
+  )
+  expect_array_compares(
+    Array$create(c(NA, 1:5)),
+    ChunkedArray$create(c(NA, 1:3), 4:5)
+  )
 })
 
 test_that("logic ops with Array", {
@@ -74,18 +86,17 @@ test_that("logic ops with ChunkedArray", {
   truth <- expand.grid(left = c(TRUE, FALSE, NA), right = c(TRUE, FALSE, NA))
   a_left <- ChunkedArray$create(truth$left)
   a_right <- ChunkedArray$create(truth$right)
-  expect_bool_function_equal(a_left & a_right, truth$left & truth$right, "ChunkedArray")
-  expect_bool_function_equal(a_left | a_right, truth$left | truth$right, "ChunkedArray")
-  expect_bool_function_equal(a_left == a_right, truth$left == truth$right, "ChunkedArray")
-  expect_bool_function_equal(a_left != a_right, truth$left != truth$right, "ChunkedArray")
-  expect_bool_function_equal(!a_left, !truth$left, "ChunkedArray")
+  expect_bool_function_equal(a_left & a_right, truth$left & truth$right)
+  expect_bool_function_equal(a_left | a_right, truth$left | truth$right)
+  expect_bool_function_equal(a_left == a_right, truth$left == truth$right)
+  expect_bool_function_equal(a_left != a_right, truth$left != truth$right)
+  expect_bool_function_equal(!a_left, !truth$left)
 
   # More complexity
   isEqualTo <- function(x, y) x == y & !is.na(x)
   expect_bool_function_equal(
     isEqualTo(a_left, a_right),
-    isEqualTo(truth$left, truth$right),
-    "ChunkedArray"
+    isEqualTo(truth$left, truth$right)
   )
 })
 

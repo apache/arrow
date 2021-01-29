@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @include arrow-package.R
+#' @include arrow-datum.R
 
 #' @title Arrow Arrays
 #' @description An `Array` is an immutable data array with some logical type
@@ -83,7 +83,7 @@
 #' @name array
 #' @export
 Array <- R6Class("Array",
-  inherit = ArrowObject,
+  inherit = ArrowDatum,
   public = list(
     IsNull = function(i) Array__IsNull(self, i),
     IsValid = function(i) Array__IsValid(self, i),
@@ -127,10 +127,6 @@ Array <- R6Class("Array",
     RangeEquals = function(other, start_idx, end_idx, other_start_idx = 0L) {
       assert_is(other, "Array")
       Array__RangeEquals(self, other, start_idx, end_idx, other_start_idx)
-    },
-    cast = function(target_type, safe = TRUE, options = cast_options(safe)) {
-      assert_is(options, "CastOptions")
-      Array$create(Array__cast(self, as_type(target_type), options))
     },
     View = function(type) {
       Array$create(Array__View(self, as_type(type)))
@@ -241,107 +237,6 @@ FixedSizeListArray <- R6Class("FixedSizeListArray", inherit = Array,
   )
 )
 
-#' @export
-length.Array <- function(x) x$length()
-
-#' @export
-is.na.Array <- function(x) call_function("is_null", x)
-
-#' @export
-is.nan.Array <- function(x) call_function("is_nan", x)
-
-#' @export
-as.vector.Array <- function(x, mode) x$as_vector()
-
-filter_rows <- function(x, i, keep_na = TRUE, ...) {
-  # General purpose function for [ row subsetting with R semantics
-  # Based on the input for `i`, calls x$Filter, x$Slice, or x$Take
-  nrows <- x$num_rows %||% x$length() # Depends on whether Array or Table-like
-  if (inherits(i, "array_expression")) {
-    # Evaluate it
-    i <- eval_array_expression(i)
-  }
-  if (is.logical(i)) {
-    if (isTRUE(i)) {
-      # Shortcut without doing any work
-      x
-    } else {
-      i <- rep_len(i, nrows) # For R recycling behavior; consider vctrs::vec_recycle()
-      x$Filter(i, keep_na)
-    }
-  } else if (is.numeric(i)) {
-    if (all(i < 0)) {
-      # in R, negative i means "everything but i"
-      i <- setdiff(seq_len(nrows), -1 * i)
-    }
-    if (is.sliceable(i)) {
-      x$Slice(i[1] - 1, length(i))
-    } else if (all(i > 0)) {
-      x$Take(i - 1)
-    } else {
-      stop("Cannot mix positive and negative indices", call. = FALSE)
-    }
-  } else if (is.Array(i, INTEGER_TYPES)) {
-    # NOTE: this doesn't do the - 1 offset
-    x$Take(i)
-  } else if (is.Array(i, "bool")) {
-    x$Filter(i, keep_na)
-  } else {
-    # Unsupported cases
-    if (is.Array(i)) {
-      stop("Cannot extract rows with an Array of type ", i$type$ToString(), call. = FALSE)
-    }
-    stop("Cannot extract rows with an object of class ", class(i), call.=FALSE)
-  }
-}
-
-#' @export
-`[.Array` <- filter_rows
-
-#' @importFrom utils head
-#' @export
-head.Array <- function(x, n = 6L, ...) {
-  assert_is(n, c("numeric", "integer"))
-  assert_that(length(n) == 1)
-  len <- NROW(x)
-  if (n < 0) {
-    # head(x, negative) means all but the last n rows
-    n <- max(len + n, 0)
-  } else {
-    n <- min(len, n)
-  }
-  if (n == len) {
-    return(x)
-  }
-  x$Slice(0, n)
-}
-
-#' @importFrom utils tail
-#' @export
-tail.Array <- function(x, n = 6L, ...) {
-  assert_is(n, c("numeric", "integer"))
-  assert_that(length(n) == 1)
-  len <- NROW(x)
-  if (n < 0) {
-    # tail(x, negative) means all but the first n rows
-    n <- min(-n, len)
-  } else {
-    n <- max(len - n, 0)
-  }
-  if (n == 0) {
-    return(x)
-  }
-  x$Slice(n)
-}
-
-is.sliceable <- function(i) {
-  # Determine whether `i` can be expressed as a $Slice() command
-  is.numeric(i) &&
-    length(i) > 0 &&
-    all(i > 0) &&
-    identical(as.integer(i), i[1]:i[length(i)])
-}
-
 is.Array <- function(x, type = NULL) {
   is_it <- inherits(x, c("Array", "ChunkedArray"))
   if (is_it && !is.null(type)) {
@@ -349,12 +244,3 @@ is.Array <- function(x, type = NULL) {
   }
   is_it
 }
-
-#' @export
-as.double.Array <- function(x, ...) as.double(as.vector(x), ...)
-
-#' @export
-as.integer.Array <- function(x, ...) as.integer(as.vector(x), ...)
-
-#' @export
-as.character.Array <- function(x, ...) as.character(as.vector(x), ...)
