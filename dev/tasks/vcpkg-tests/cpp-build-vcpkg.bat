@@ -17,11 +17,15 @@
 
 @rem Run VsDevCmd.bat to set Visual Studio environment variables for building
 @rem on the command line. This is the path for Visual Studio Enterprise 2019
+
 call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\Common7\Tools\VsDevCmd.bat" -arch=amd64
 
+
 @rem Install build dependencies with vcpkg
+
 @rem TODO(ianmcook): change --x-manifest-root to --manifest-root after it
 @rem changes in vcpkg
+
 vcpkg install ^
     --triplet x64-windows ^
     --x-manifest-root cpp  ^
@@ -30,15 +34,19 @@ vcpkg install ^
 
 set VCPKG_INSTALLED=%cd%\cpp\vcpkg_installed
 
+
 @rem Build and Test Arrow C++ library
+
 mkdir cpp\build
 pushd cpp\build
 
 @rem TODO(ianmcook): test using --parallel %NUMBER_OF_PROCESSORS% with
 @rem cmake --build instead of specifying -DARROW_CXXFLAGS="/MP" here
 @rem (see https://gitlab.kitware.com/cmake/cmake/-/issues/20564)
+
 @rem TODO(ianmcook): Add -DARROW_BUILD_BENCHMARKS=ON after the issue described
 @rem at https://github.com/google/benchmark/issues/1046 is resolved
+
 cmake -G "Visual Studio 16 2019" -A x64 ^
       -DARROW_BOOST_USE_SHARED=ON ^
       -DARROW_BUILD_SHARED=ON ^
