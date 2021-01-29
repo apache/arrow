@@ -651,6 +651,7 @@ impl DefaultPhysicalPlanner {
                 let value_expr = self.create_physical_expr(expr, input_schema, ctx_state)?;
                 let value_expr_data_type = value_expr.data_type(input_schema)?;
 
+                todo!("")
             }
             other => Err(DataFusionError::NotImplemented(format!(
                 "Physical plan does not support logical expression {:?}",
