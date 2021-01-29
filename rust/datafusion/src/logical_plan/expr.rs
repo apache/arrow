@@ -1120,10 +1120,18 @@ fn create_name(e: &Expr, input_schema: &DFSchema) -> Result<String> {
             let expr = create_name(expr, input_schema)?;
             let list = list.iter().map(|expr| create_name(expr, input_schema));
             if *negated {
-                Ok(format!("{:?} NOT IN ({:?})", expr, list))
+                Ok(format!("{} NOT IN ({:?})", expr, list))
             } else {
-                Ok(format!("{:?} IN ({:?})", expr, list))
+                Ok(format!("{} IN ({:?})", expr, list))
             }
+        }
+        Expr::Extract {
+            date_part: DatePart::Hour,
+            expr,
+        } => {
+            let expr = create_name(expr, input_schema)?;
+
+            Ok(format!("EXTRACT(HOUR FROM {})", expr))
         }
         other => Err(DataFusionError::NotImplemented(format!(
             "Physical plan does not support logical expression {:?}",

@@ -1,4 +1,4 @@
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 /// Date part
 pub enum DatePart {
     /// Hour part of date / time
