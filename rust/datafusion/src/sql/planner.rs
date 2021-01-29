@@ -21,6 +21,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use crate::datasource::TableProvider;
+use crate::logical_plan::DatePart;
 use crate::logical_plan::Expr::Alias;
 use crate::logical_plan::{
     and, lit, DFSchema, Expr, LogicalPlan, LogicalPlanBuilder, Operator, PlanType,
@@ -41,8 +42,8 @@ use arrow::datatypes::*;
 
 use crate::prelude::JoinType;
 use sqlparser::ast::{
-    BinaryOperator, DataType as SQLDataType, Expr as SQLExpr, FunctionArg, Join,
-    JoinConstraint, JoinOperator, Query, Select, SelectItem, SetExpr, TableFactor,
+    BinaryOperator, DataType as SQLDataType, DateTimeField, Expr as SQLExpr, FunctionArg,
+    Join, JoinConstraint, JoinOperator, Query, Select, SelectItem, SetExpr, TableFactor,
     TableWithJoins, UnaryOperator, Value,
 };
 use sqlparser::ast::{ColumnDef as SQLColumnDef, ColumnOption};
@@ -631,6 +632,13 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
             SQLExpr::Value(Value::SingleQuotedString(ref s)) => Ok(lit(s.clone())),
 
             SQLExpr::Value(Value::Null) => Ok(Expr::Literal(ScalarValue::Utf8(None))),
+            SQLExpr::Extract {
+                field: DateTimeField::Hour,
+                expr,
+            } => Ok(Expr::Extract {
+                date_part: DatePart::Hour,
+                expr: Box::new(self.sql_expr_to_logical_expr(expr)?),
+            }),
 
             SQLExpr::Identifier(ref id) => {
                 if &id.value[0..1] == "@" {
@@ -1132,7 +1140,8 @@ mod tests {
 
     #[test]
     fn test_timestamp_filter() {
-        let sql = "SELECT state FROM person WHERE birth_date < CAST (158412331400600000 as timestamp)";
+        let sql =
+            "SELECT state FROM person WHERE birth_date < CAST (158412331400600000 as timestamp)";
 
         let expected = "Projection: #state\
             \n  Filter: #birth_date Lt CAST(Int64(158412331400600000) AS Timestamp(Nanosecond, None))\
@@ -1479,7 +1488,8 @@ mod tests {
     fn select_simple_aggregate_with_groupby_non_column_expression_nested_and_not_resolvable(
     ) {
         // The query should fail, because age + 9 is not in the group by.
-        let sql = "SELECT ((age + 1) / 2) * (age + 9), MIN(first_name) FROM person GROUP BY age + 1";
+        let sql =
+            "SELECT ((age + 1) / 2) * (age + 9), MIN(first_name) FROM person GROUP BY age + 1";
         let err = logical_plan(sql).expect_err("query should have failed");
         assert_eq!(
             "Plan(\"Projection references non-aggregate values\")",
