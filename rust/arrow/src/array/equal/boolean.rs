@@ -76,9 +76,12 @@ pub(super) fn boolean_equal(
         let lhs_null_bytes = lhs_nulls.as_ref().unwrap().as_slice();
         let rhs_null_bytes = rhs_nulls.as_ref().unwrap().as_slice();
 
+        let lhs_start = lhs.offset() + lhs_start;
+        let rhs_start = rhs.offset() + rhs_start;
+
         (0..len).all(|i| {
-            let lhs_pos = lhs.offset() + lhs_start + i;
-            let rhs_pos = rhs.offset() + rhs_start + i;
+            let lhs_pos = lhs_start + i;
+            let rhs_pos = rhs_start + i;
             let lhs_is_null = !get_bit(lhs_null_bytes, lhs_pos);
             let rhs_is_null = !get_bit(rhs_null_bytes, rhs_pos);
 
