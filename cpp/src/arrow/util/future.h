@@ -275,10 +275,6 @@ class ARROW_MUST_USE_TYPE Future {
     Wait();
     return *GetResult();
   }
-  // Result<ValueType>&& result() && {
-  //   Wait();
-  //   return std::move(*GetResult());
-  // }
 
   /// \brief Wait for the Future to complete and return its Status
   const Status& status() const { return result().status(); }
@@ -639,37 +635,12 @@ inline std::vector<int> WaitForAny(const std::vector<Future<T>*>& futures,
   return waiter->MoveFinishedFutures();
 }
 
-// template <typename T = detail::Empty>
-// struct ControlFlow {
-//   using BreakValueType = T;
-
-//   bool IsBreak() const { return break_value_.has_value(); }
-
-//   static Result<BreakValueType> MoveBreakValue(const ControlFlow& cf) {
-//     return std::move(*cf.break_value_);
-//   }
-
-//   mutable util::optional<BreakValueType> break_value_;
-// };
-
-// struct Continue {
-//   template <typename T>
-//   operator ControlFlow<T>() && {  // NOLINT explicit
-//     return {};
-//   }
-// };
-
 struct Continue {
   template <typename T>
   operator util::optional<T>() && {  // NOLINT explicit
     return {};
   }
 };
-
-// template <typename T = detail::Empty>
-// ControlFlow<T> Break(T break_value = {}) {
-//   return ControlFlow<T>{std::move(break_value)};
-// }
 
 template <typename T = detail::Empty>
 util::optional<T> Break(T break_value = {}) {
