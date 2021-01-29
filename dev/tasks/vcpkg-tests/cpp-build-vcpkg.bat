@@ -86,6 +86,10 @@ cmake --build . --target INSTALL --config Release || exit /B 1
 
 @rem Test Arrow C++ library
 
+@rem TODO(ianmcook): Troubleshoot two test failures:
+@rem  - TestStatisticsSortOrder/0.MinMax
+@rem  - TestStatistic.Int32Extremums
+
 ctest --output-on-failure ^
       --parallel %NUMBER_OF_PROCESSORS% ^
       --timeout 300 || exit /B 1
