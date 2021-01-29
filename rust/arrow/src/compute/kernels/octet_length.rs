@@ -24,7 +24,7 @@ use crate::{
 };
 use std::sync::Arc;
 
-fn length_string<OffsetSize>(array: &Array, data_type: DataType) -> Result<ArrayRef>
+fn octet_length_string<OffsetSize>(array: &Array, data_type: DataType) -> Result<ArrayRef>
 where
     OffsetSize: OffsetSizeTrait,
 {
@@ -41,7 +41,7 @@ where
     //  Benefit
     //      ~60% speedup
     //  Soundness
-    //      `values` is an iterator with a known size.
+    //      `lengths` is an iterator with a known size.
     let buffer = unsafe { Buffer::from_trusted_len_iter(lengths) };
 
     let null_bit_buffer = array
@@ -62,17 +62,17 @@ where
     Ok(make_array(Arc::new(data)))
 }
 
-/// Returns an array of Int32/Int64 denoting the number of characters in each string in the array.
+/// Returns an array of Int32/Int64 denoting the number of octets in each string in the array.
 ///
 /// * this only accepts StringArray/Utf8 and LargeString/LargeUtf8
 /// * length of null is null.
-/// * length is in number of bytes
-pub fn length(array: &Array) -> Result<ArrayRef> {
+/// * length is in number of octets
+pub fn octet_length(array: &Array) -> Result<ArrayRef> {
     match array.data_type() {
-        DataType::Utf8 => length_string::<i32>(array, DataType::Int32),
-        DataType::LargeUtf8 => length_string::<i64>(array, DataType::Int64),
+        DataType::Utf8 => octet_length_string::<i32>(array, DataType::Int32),
+        DataType::LargeUtf8 => octet_length_string::<i64>(array, DataType::Int64),
         _ => Err(ArrowError::ComputeError(format!(
-            "length not supported for {:?}",
+            "octet_length not supported for {:?}",
             array.data_type()
         ))),
     }
@@ -99,6 +99,7 @@ mod tests {
             (vec!["hello", " ", "world"], 3, vec![5, 1, 5]),
             (vec!["hello", " ", "world", "!"], 4, vec![5, 1, 5, 1]),
             (vec!["💖"], 1, vec![4]),
+            (vec!["josé"], 1, vec![5]),
             (values, 4096, expected),
         ]
     }
@@ -107,7 +108,7 @@ mod tests {
     fn test_string() -> Result<()> {
         cases().into_iter().try_for_each(|(input, len, expected)| {
             let array = StringArray::from(input);
-            let result = length(&array)?;
+            let result = octet_length(&array)?;
             assert_eq!(len, result.len());
             let result = result.as_any().downcast_ref::<Int32Array>().unwrap();
             expected.iter().enumerate().for_each(|(i, value)| {
@@ -121,7 +122,7 @@ mod tests {
     fn test_large_string() -> Result<()> {
         cases().into_iter().try_for_each(|(input, len, expected)| {
             let array = LargeStringArray::from(input);
-            let result = length(&array)?;
+            let result = octet_length(&array)?;
             assert_eq!(len, result.len());
             let result = result.as_any().downcast_ref::<Int64Array>().unwrap();
             expected.iter().enumerate().for_each(|(i, value)| {
@@ -145,7 +146,7 @@ mod tests {
             .into_iter()
             .try_for_each(|(input, len, expected)| {
                 let array = StringArray::from(input);
-                let result = length(&array)?;
+                let result = octet_length(&array)?;
                 assert_eq!(len, result.len());
                 let result = result.as_any().downcast_ref::<Int32Array>().unwrap();
 
@@ -161,7 +162,7 @@ mod tests {
             .into_iter()
             .try_for_each(|(input, len, expected)| {
                 let array = LargeStringArray::from(input);
-                let result = length(&array)?;
+                let result = octet_length(&array)?;
                 assert_eq!(len, result.len());
                 let result = result.as_any().downcast_ref::<Int64Array>().unwrap();
 
@@ -181,7 +182,7 @@ mod tests {
     fn wrong_type() -> Result<()> {
         let array: UInt64Array = vec![1u64].into();
 
-        assert!(length(&array).is_err());
+        assert!(octet_length(&array).is_err());
         Ok(())
     }
 
@@ -196,7 +197,7 @@ mod tests {
                 .buffers(a.data_ref().buffers().to_vec())
                 .build(),
         );
-        let result = length(b.as_ref())?;
+        let result = octet_length(b.as_ref())?;
 
         let expected = Int32Array::from(vec![1, 5]);
         assert_eq!(expected.data(), result.data());

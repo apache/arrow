@@ -42,7 +42,7 @@ use crate::physical_plan::math_expressions;
 use crate::physical_plan::string_expressions;
 use arrow::{
     array::ArrayRef,
-    compute::kernels::length::length,
+    compute::kernels::octet_length::octet_length,
     datatypes::TimeUnit,
     datatypes::{DataType, Field, Schema},
     record_batch::RecordBatch,
@@ -117,6 +117,8 @@ pub enum BuiltinScalarFunction {
     Signum,
     /// length
     Length,
+    /// octet_length
+    OctetLength,
     /// concat
     Concat,
     /// lower
@@ -177,6 +179,7 @@ impl FromStr for BuiltinScalarFunction {
             "truc" => BuiltinScalarFunction::Trunc,
             "abs" => BuiltinScalarFunction::Abs,
             "signum" => BuiltinScalarFunction::Signum,
+            "octet_length" => BuiltinScalarFunction::OctetLength,
             "length" => BuiltinScalarFunction::Length,
             "char_length" => BuiltinScalarFunction::Length,
             "character_length" => BuiltinScalarFunction::Length,
@@ -228,6 +231,16 @@ pub fn return_type(
     // the return type of the built in function.
     // Some built-in functions' return type depends on the incoming type.
     match fun {
+        BuiltinScalarFunction::OctetLength => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::Int64,
+            DataType::Utf8 => DataType::Int32,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The octet_length function can only accept strings.".to_string(),
+                ));
+            }
+        }),
         BuiltinScalarFunction::Length => Ok(match arg_types[0] {
             DataType::LargeUtf8 => DataType::Int64,
             DataType::Utf8 => DataType::Int32,
@@ -424,7 +437,8 @@ pub fn create_physical_expr(
                 other,
             ))),
         },
-        BuiltinScalarFunction::Length => |args| Ok(length(args[0].as_ref())?),
+        BuiltinScalarFunction::OctetLength => |args| Ok(octet_length(args[0].as_ref())?),
+        BuiltinScalarFunction::Length => |args| Ok(octet_length(args[0].as_ref())?),
         BuiltinScalarFunction::Concat => {
             |args| Ok(Arc::new(string_expressions::concatenate(args)?))
         }
@@ -501,6 +515,7 @@ fn signature(fun: &BuiltinScalarFunction) -> Signature {
         BuiltinScalarFunction::Concat => Signature::Variadic(vec![DataType::Utf8]),
         BuiltinScalarFunction::Upper
         | BuiltinScalarFunction::Lower
+        | BuiltinScalarFunction::OctetLength
         | BuiltinScalarFunction::Length
         | BuiltinScalarFunction::Trim
         | BuiltinScalarFunction::Ltrim

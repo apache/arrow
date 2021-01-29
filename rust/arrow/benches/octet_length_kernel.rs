@@ -22,10 +22,10 @@ use criterion::Criterion;
 extern crate arrow;
 
 use arrow::array::*;
-use arrow::compute::kernels::length::length;
+use arrow::compute::kernels::octet_length::octet_length;
 
-fn bench_length(array: &StringArray) {
-    criterion::black_box(length(array).unwrap());
+fn bench_octet_length(array: &StringArray) {
+    criterion::black_box(octet_length(array).unwrap());
 }
 
 fn add_benchmark(c: &mut Criterion) {
@@ -40,7 +40,7 @@ fn add_benchmark(c: &mut Criterion) {
     }
     let array = StringArray::from(values);
 
-    c.bench_function("length", |b| b.iter(|| bench_length(&array)));
+    c.bench_function("length", |b| b.iter(|| bench_octet_length(&array)));
 }
 
 criterion_group!(benches, add_benchmark);

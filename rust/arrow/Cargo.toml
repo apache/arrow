@@ -111,7 +111,7 @@ name = "take_kernels"
 harness = false
 
 [[bench]]
-name = "length_kernel"
+name = "octet_length_kernel"
 harness = false
 
 [[bench]]

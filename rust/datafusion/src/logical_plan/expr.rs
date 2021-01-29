@@ -820,19 +820,13 @@ unary_scalar_expr!(Trim, trim);
 unary_scalar_expr!(Ltrim, ltrim);
 unary_scalar_expr!(Rtrim, rtrim);
 unary_scalar_expr!(Upper, upper);
+unary_scalar_expr!(Length, length);
+unary_scalar_expr!(OctetLength, octet_length);
 unary_scalar_expr!(MD5, md5);
 unary_scalar_expr!(SHA224, sha224);
 unary_scalar_expr!(SHA256, sha256);
 unary_scalar_expr!(SHA384, sha384);
 unary_scalar_expr!(SHA512, sha512);
-
-/// returns the length of a string in bytes
-pub fn length(e: Expr) -> Expr {
-    Expr::ScalarFunction {
-        fun: functions::BuiltinScalarFunction::Length,
-        args: vec![e],
-    }
-}
 
 /// returns the concatenation of string expressions
 pub fn concat(args: Vec<Expr>) -> Expr {
