@@ -648,10 +648,10 @@ impl DefaultPhysicalPlanner {
                 }
             },
             Expr::Extract { date_part, expr } => {
-                let value_expr =
+                let physical_expr =
                     self.create_physical_expr(expr, input_schema, ctx_state)?;
 
-                expressions::extract(*date_part, value_expr)
+                expressions::extract(*date_part, physical_expr)
             }
             other => Err(DataFusionError::NotImplemented(format!(
                 "Physical plan does not support logical expression {:?}",
