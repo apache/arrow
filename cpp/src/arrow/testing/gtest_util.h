@@ -151,13 +151,14 @@ inline void PrintTo(StatusCode code, std::ostream* os) {
   *os << Status::CodeAsString(code);
 }
 
-#define ASSERT_FINISHES_OK(fut)                                               \
+#define ASSERT_FINISHES_OK(expr)                                              \
   do {                                                                        \
-    ASSERT_TRUE(fut.Wait(2));                                                 \
-    if (!fut.is_finished()) {                                                 \
+    auto&& _fut = (expr);                                                     \
+    ASSERT_TRUE(_fut.Wait(2));                                                \
+    if (!_fut.is_finished()) {                                                \
       FAIL() << "Future did not finish in a timely fashion";                  \
     }                                                                         \
-    auto _st = fut.status();                                                  \
+    auto _st = _fut.status();                                                 \
     if (!_st.ok()) {                                                          \
       FAIL() << "'" ARROW_STRINGIFY(expr) "' failed with " << _st.ToString(); \
     }                                                                         \

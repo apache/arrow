@@ -611,13 +611,37 @@ TEST(TestAsyncUtil, GeneratorIterator) {
 }
 
 TEST(TestAsyncUtil, TransferGenerator) {
-  auto generator = AsyncVectorIt({1});
+  std::mutex mutex;
+  std::condition_variable cv;
+  std::atomic<bool> finished(false);
+
+  ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::ThreadPool::Make(1));
+
+  // Needs to be a slow source to ensure we don't call Then on a completed
+  AsyncGenerator<TestInt> slow_generator = [&]() {
+    return thread_pool
+        ->Submit([&] {
+          std::unique_lock<std::mutex> lock(mutex);
+          cv.wait_for(lock, std::chrono::duration<double>(30),
+                      [&] { return finished.load(); });
+          return IterationTraits<TestInt>::End();
+        })
+        .ValueOrDie();
+  };
+
   auto transferred =
-      TransferGenerator(std::move(generator), internal::GetCpuThreadPool());
+      TransferGenerator<TestInt>(std::move(slow_generator), thread_pool.get());
+
   auto current_thread_id = std::this_thread::get_id();
   auto fut = transferred().Then([&current_thread_id](const Result<TestInt>& result) {
     ASSERT_NE(current_thread_id, std::this_thread::get_id());
   });
+
+  {
+    std::lock_guard<std::mutex> lg(mutex);
+    finished.store(true);
+  }
+  cv.notify_one();
   ASSERT_FINISHES_OK(fut);
 }
 
