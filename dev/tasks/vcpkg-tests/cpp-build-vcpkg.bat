@@ -32,12 +32,15 @@ vcpkg install ^
     --clean-after-build ^
     || exit /B 1
 
+
+@rem Set environment variables
+
 set ARROW_TEST_DATA=%cd%\testing\data
 set PARQUET_TEST_DATA=%cd%\cpp\submodules\parquet-testing\data
 set VCPKG_INSTALLED=%cd%\cpp\vcpkg_installed
 
 
-@rem Build and Test Arrow C++ library
+@rem Build Arrow C++ library
 
 mkdir cpp\build
 pushd cpp\build
@@ -79,6 +82,9 @@ cmake -G "Visual Studio 16 2019" -A x64 ^
       .. || exit /B 1
 
 cmake --build . --target INSTALL --config Release || exit /B 1
+
+
+@rem Test Arrow C++ library
 
 ctest --output-on-failure ^
       --parallel %NUMBER_OF_PROCESSORS% ^
