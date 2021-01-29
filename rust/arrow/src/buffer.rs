@@ -241,6 +241,16 @@ impl<T: AsRef<[u8]>> From<T> for Buffer {
     }
 }
 
+/// Creating a `Buffer` instance by storing the boolean values into the buffer
+impl std::iter::FromIterator<bool> for Buffer {
+    fn from_iter<I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = bool>,
+    {
+        MutableBuffer::from_iter(iter).into()
+    }
+}
+
 impl std::ops::Deref for Buffer {
     type Target = [u8];
 
@@ -968,6 +978,17 @@ impl MutableBuffer {
         self.len += additional;
     }
 
+    /// Extends the buffer with a new item, without checking for sufficient capacity
+    /// Safety
+    /// Caller must ensure that the capacity()-len()>=size_of<T>()
+    #[inline]
+    unsafe fn push_unchecked<T: ToByteSlice>(&mut self, item: T) {
+        let additional = std::mem::size_of::<T>();
+        let dst = self.data.as_ptr().add(self.len) as *mut T;
+        std::ptr::write(dst, item);
+        self.len += additional;
+    }
+
     /// Extends the buffer by `additional` bytes equal to `0u8`, incrementing its capacity if needed.
     #[inline]
     pub fn extend_zeros(&mut self, additional: usize) {
@@ -1188,6 +1209,61 @@ impl Drop for SetLenOnDrop<'_> {
     }
 }
 
+/// Creating a `MutableBuffer` instance by setting bits according to the boolean values
+impl std::iter::FromIterator<bool> for MutableBuffer {
+    fn from_iter<I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = bool>,
+    {
+        let mut iterator = iter.into_iter();
+        let mut result = {
+            let byte_capacity: usize = iterator.size_hint().0.saturating_add(7) / 8;
+            MutableBuffer::new(byte_capacity)
+        };
+
+        loop {
+            let mut exhausted = false;
+            let mut byte_accum: u8 = 0;
+            let mut mask: u8 = 1;
+
+            //collect (up to) 8 bits into a byte
+            while mask != 0 {
+                if let Some(value) = iterator.next() {
+                    byte_accum |= match value {
+                        true => mask,
+                        false => 0,
+                    };
+                    mask <<= 1;
+                } else {
+                    exhausted = true;
+                    break;
+                }
+            }
+
+            // break if the iterator was exhausted before it provided a bool for this byte
+            if exhausted && mask == 1 {
+                break;
+            }
+
+            //ensure we have capacity to write the byte
+            if result.len() == result.capacity() {
+                //no capacity for new byte, allocate 1 byte more (plus however many more the iterator advertises)
+                let additional_byte_capacity = 1usize.saturating_add(
+                    iterator.size_hint().0.saturating_add(7) / 8, //convert bit count to byte count, rounding up
+                );
+                result.reserve(additional_byte_capacity)
+            }
+
+            // Soundness: capacity was allocated above
+            unsafe { result.push_unchecked(byte_accum) };
+            if exhausted {
+                break;
+            }
+        }
+        result
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::thread;
@@ -1301,6 +1377,68 @@ mod tests {
         mut_buf.set_null_bits(32, 32);
         let buf: Buffer = mut_buf.into();
         assert_eq!(256, buf.count_set_bits());
+    }
+
+    #[test]
+    fn test_from_iter_bool() {
+        let bits = [
+            false, true, false, false, true, true, false, false, //first byte
+            false, true, true, true, //second byte
+        ];
+        let buffer: Buffer = bits.iter().copied().collect();
+        assert_eq!([0b00110010, 0b00001110], buffer.as_slice()); //bits are set least-significant first, zero padded
+        assert_eq!(64, buffer.capacity()); //allocation rounded up to 64 bytes
+
+        let bits = [false, true, false, false, true, true, false, false];
+        let buffer: Buffer = bits.iter().copied().collect();
+        assert_eq!([0b00110010], buffer.as_slice());
+        assert_eq!(64, buffer.capacity());
+
+        let bits: [bool; 0] = [];
+        let buffer: Buffer = bits.iter().copied().collect();
+        assert_eq!(0, buffer.capacity());
+        assert_eq!(0, buffer.len());
+
+        let bits = [
+            false, true, false, false, true, true, false, false, //first byte
+            false, true, true, true, //second byte
+        ];
+        let hintless_iterator = bits.iter().filter(|_| true).copied();
+        assert_eq!(0, hintless_iterator.size_hint().0); //sanity check of the test input
+        let buffer: Buffer = hintless_iterator.collect();
+        assert_eq!([0b00110010, 0b00001110], buffer.as_slice()); //bits are set least-significant first, zero padded
+        assert_eq!(64, buffer.capacity()); //allocation rounded up to 64 bytes
+    }
+
+    #[test]
+    fn test_mut_from_iter_bool() {
+        let bits = [
+            false, true, false, false, true, true, false, false, //first byte
+            false, true, true, true, //second byte
+        ];
+        let buffer: MutableBuffer = bits.iter().copied().collect();
+        assert_eq!([0b00110010, 0b00001110], buffer.as_slice()); //bits are set least-significant first, zero padded
+        assert_eq!(64, buffer.capacity()); //allocation rounded up to 64 bytes
+
+        let bits = [false, true, false, false, true, true, false, false];
+        let buffer: MutableBuffer = bits.iter().copied().collect();
+        assert_eq!([0b00110010], buffer.as_slice());
+        assert_eq!(64, buffer.capacity());
+
+        let bits: [bool; 0] = [];
+        let buffer: MutableBuffer = bits.iter().copied().collect();
+        assert_eq!(0, buffer.as_slice().len());
+        assert_eq!(0, buffer.capacity());
+
+        let bits = [
+            false, true, false, false, true, true, false, false, //first byte
+            false, true, true, true, //second byte
+        ];
+        let hintless_iterator = bits.iter().filter(|_| true).copied();
+        assert_eq!(0, hintless_iterator.size_hint().0); //sanity check of the test input
+        let buffer: MutableBuffer = hintless_iterator.collect();
+        assert_eq!([0b00110010, 0b00001110], buffer.as_slice()); //bits are set least-significant first, zero padded
+        assert_eq!(64, buffer.capacity()); //allocation rounded up to 64 bytes
     }
 
     #[test]
