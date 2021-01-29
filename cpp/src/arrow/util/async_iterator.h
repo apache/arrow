@@ -344,7 +344,7 @@ class GeneratorIterator {
  public:
   explicit GeneratorIterator(AsyncGenerator<T> source) : source_(std::move(source)) {}
 
-  Result<T> Next() { return source_().result(); }
+  Result<T> Next() { return Result<T>(source_().result()); }
 
  private:
   AsyncGenerator<T> source_;

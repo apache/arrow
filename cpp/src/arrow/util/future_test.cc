@@ -324,41 +324,6 @@ TEST(FutureSyncTest, Foo) {
   }
 }
 
-TEST(FutureSyncTest, MoveOnlyDataType) {
-  {
-    // MarkFinished(MoveOnlyDataType)
-    auto fut = Future<MoveOnlyDataType>::Make();
-    AssertNotFinished(fut);
-    fut.MarkFinished(MoveOnlyDataType(42));
-    AssertSuccessful(fut);
-    const auto& res = fut.result();
-    ASSERT_TRUE(res.ok());
-    ASSERT_EQ(*res, 42);
-    ASSERT_OK_AND_ASSIGN(MoveOnlyDataType value, std::move(fut).result());
-    ASSERT_EQ(value, 42);
-  }
-  {
-    // MarkFinished(Result<MoveOnlyDataType>)
-    auto fut = Future<MoveOnlyDataType>::Make();
-    AssertNotFinished(fut);
-    fut.MarkFinished(Result<MoveOnlyDataType>(MoveOnlyDataType(43)));
-    AssertSuccessful(fut);
-    ASSERT_OK_AND_ASSIGN(MoveOnlyDataType value, std::move(fut).result());
-    ASSERT_EQ(value, 43);
-  }
-  {
-    // MarkFinished(failed Result<MoveOnlyDataType>)
-    auto fut = Future<MoveOnlyDataType>::Make();
-    AssertNotFinished(fut);
-    fut.MarkFinished(Result<MoveOnlyDataType>(Status::IOError("xxx")));
-    AssertFailed(fut);
-    ASSERT_RAISES(IOError, fut.status());
-    const auto& res = fut.result();
-    ASSERT_TRUE(res.status().IsIOError());
-    ASSERT_RAISES(IOError, std::move(fut).result());
-  }
-}
-
 TEST(FutureSyncTest, Empty) {
   {
     // MarkFinished()
@@ -1572,7 +1537,7 @@ TYPED_TEST(FutureWaitTest, StressWaitForAll) { this->TestStressWaitForAll(); }
 template <typename T>
 class FutureIteratorTest : public FutureTestBase<T> {};
 
-using FutureIteratorTestTypes = ::testing::Types<Foo, MoveOnlyDataType>;
+using FutureIteratorTestTypes = ::testing::Types<Foo>;
 
 TYPED_TEST_SUITE(FutureIteratorTest, FutureIteratorTestTypes);
 

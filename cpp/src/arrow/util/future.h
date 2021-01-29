@@ -275,10 +275,10 @@ class ARROW_MUST_USE_TYPE Future {
     Wait();
     return *GetResult();
   }
-  Result<ValueType>&& result() && {
-    Wait();
-    return std::move(*GetResult());
-  }
+  // Result<ValueType>&& result() && {
+  //   Wait();
+  //   return std::move(*GetResult());
+  // }
 
   /// \brief Wait for the Future to complete and return its Status
   const Status& status() const { return result().status(); }
@@ -741,54 +741,5 @@ Future<BreakValueType> Loop(Iterate iterate) {
 
   return break_fut;
 }
-
-// template <typename Iterate,
-//           typename Control = typename detail::result_of_t<Iterate()>::ValueType,
-//           typename BreakValueType = typename Control::BreakValueType>
-// Future<BreakValueType> Loop(Iterate iterate) {
-//   auto break_fut = Future<BreakValueType>::Make();
-
-//   struct Callback {
-//     bool CheckForTermination(const Result<Control>& maybe_control) {
-//       if (!maybe_control.ok() || maybe_control->IsBreak()) {
-//         Result<BreakValueType> maybe_break =
-//         maybe_control.Map(Control::MoveBreakValue);
-//         break_fut.MarkFinished(std::move(maybe_break));
-//         return true;
-//       }
-//       return false;
-//     }
-
-//     void operator()(const Result<Control>& maybe_control) && {
-//       if (CheckForTermination(maybe_control)) return;
-
-//       auto control_fut = iterate();
-//       while (control_fut.is_finished()) {
-//         // There's no need to AddCallback on a finished future; we can
-//         CheckForTermination
-//         // now. This also avoids recursion and potential stack overflow.
-//         if (CheckForTermination(control_fut.result())) return;
-
-//         control_fut = iterate();
-//       }
-//       control_fut.AddCallback(std::move(*this));
-//     }
-
-//     Iterate iterate;
-//     // If the future returned by control_fut is never completed then we will be hanging
-//     on
-//     // to break_fut forever even if the listener has given up listening on it.  Instead
-//     we
-//     // rely on the fact that a producer (the caller of Future<>::Make) is always
-//     // responsible for completing the futures they create.
-//     // TODO: Could avoid this kind of situation with "future abandonment" similar to
-//     mesos Future<BreakValueType> break_fut;
-//   };
-
-//   auto control_fut = iterate();
-//   control_fut.AddCallback(Callback{std::move(iterate), break_fut});
-
-//   return break_fut;
-// }
 
 }  // namespace arrow
