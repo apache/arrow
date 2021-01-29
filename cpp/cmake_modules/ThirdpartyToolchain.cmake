@@ -2790,7 +2790,8 @@ macro(build_awssdk)
                       ${EP_LOG_OPTIONS}
                       URL ${AWS_CHECKSUMS_SOURCE_URL}
                       CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${AWS_CHECKSUMS_STATIC_LIBRARY})
+                      BUILD_BYPRODUCTS ${AWS_CHECKSUMS_STATIC_LIBRARY}
+                      DEPENDS aws_c_common_ep)
   add_dependencies(AWS::aws-checksums aws_checksums_ep)
 
   externalproject_add(aws_c_event_stream_ep
@@ -2798,7 +2799,7 @@ macro(build_awssdk)
                       URL ${AWS_C_EVENT_STREAM_SOURCE_URL}
                       CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
                       BUILD_BYPRODUCTS ${AWS_C_EVENT_STREAM_STATIC_LIBRARY}
-                      DEPENDS aws_c_common_ep aws_checksums_ep)
+                      DEPENDS aws_checksums_ep)
   add_dependencies(AWS::aws-c-event-stream aws_c_event_stream_ep)
 
   externalproject_add(awssdk_ep
