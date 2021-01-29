@@ -267,35 +267,32 @@ impl<T: ArrowPrimitiveType, Ptr: Borrow<Option<<T as ArrowPrimitiveType>::Native
 {
     fn from_iter<I: IntoIterator<Item = Ptr>>(iter: I) -> Self {
         let iter = iter.into_iter();
-        let (_, data_len) = iter.size_hint();
-        let data_len = data_len.expect("Iterator must be sized"); // panic if no upper bound.
+        let (lower, _) = iter.size_hint();
 
-        let num_bytes = bit_util::ceil(data_len, 8);
-        let mut null_buf = MutableBuffer::from_len_zeroed(num_bytes);
-        let mut val_buf = MutableBuffer::new(
-            data_len * mem::size_of::<<T as ArrowPrimitiveType>::Native>(),
-        );
+        let mut null_buf = BooleanBufferBuilder::new(lower);
 
-        let null_slice = null_buf.as_slice_mut();
-        iter.enumerate().for_each(|(i, item)| {
-            if let Some(a) = item.borrow() {
-                bit_util::set_bit(null_slice, i);
-                val_buf.push(*a);
-            } else {
-                // this ensures that null items on the buffer are not arbitrary.
-                // This is important because falible operations can use null values (e.g. a vectorized "add")
-                // which may panic (e.g. overflow if the number on the slots happen to be very large).
-                val_buf.push(T::Native::default());
-            }
-        });
+        let buffer: Buffer = iter
+            .map(|item| {
+                if let Some(a) = item.borrow() {
+                    null_buf.append(true);
+                    *a
+                } else {
+                    null_buf.append(false);
+                    // this ensures that null items on the buffer are not arbitrary.
+                    // This is important because falible operations can use null values (e.g. a vectorized "add")
+                    // which may panic (e.g. overflow if the number on the slots happen to be very large).
+                    T::Native::default()
+                }
+            })
+            .collect();
 
         let data = ArrayData::new(
             T::DATA_TYPE,
-            data_len,
+            null_buf.len(),
             None,
             Some(null_buf.into()),
             0,
-            vec![val_buf.into()],
+            vec![buffer],
             vec![],
         );
         PrimitiveArray::from(Arc::new(data))
