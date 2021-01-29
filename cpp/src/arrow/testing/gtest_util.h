@@ -163,6 +163,13 @@ inline void PrintTo(StatusCode code, std::ostream* os) {
     }                                                                         \
   } while (false)
 
+#define ASSERT_FINISHES_ERR(ENUM, expr) \
+  do {                                  \
+    auto&& fut = (expr);                \
+    ASSERT_FINISHES_IMPL(fut);          \
+    ASSERT_RAISES(ENUM, fut.status());  \
+  } while (false)
+
 #define ASSERT_FINISHES_OK_AND_ASSIGN_IMPL(lhs, rexpr, future_name) \
   auto future_name = (rexpr);                                       \
   ASSERT_FINISHES_IMPL(future_name);                                \

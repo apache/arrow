@@ -167,13 +167,15 @@ class ReadaheadGenerator {
  public:
   ReadaheadGenerator(AsyncGenerator<T> source_generator, int max_readahead)
       : source_generator_(std::move(source_generator)), max_readahead_(max_readahead) {
-    auto finished = std::make_shared<bool>();
+    auto finished = std::make_shared<std::atomic<bool>>();
     mark_finished_if_done_ = [finished](const Result<T>& next_result) {
       if (!next_result.ok()) {
-        *finished = true;
+        finished->store(true);
       } else {
         const auto& next = *next_result;
-        *finished = (next == IterationTraits<T>::End());
+        if (next == IterationTraits<T>::End()) {
+          *finished = true;
+        }
       }
     };
     finished_ = std::move(finished);
@@ -191,7 +193,7 @@ class ReadaheadGenerator {
     // Pop one and add one
     auto result = readahead_queue_.front();
     readahead_queue_.pop();
-    if (*finished_) {
+    if (finished_->load()) {
       readahead_queue_.push(Future<T>::MakeFinished(IterationTraits<T>::End()));
     } else {
       auto back_of_queue = source_generator_();
@@ -207,7 +209,7 @@ class ReadaheadGenerator {
   std::function<void(const Result<T>&)> mark_finished_if_done_;
   // Can't use a bool here because finished may be referenced by callbacks that
   // outlive this class
-  std::shared_ptr<bool> finished_;
+  std::shared_ptr<std::atomic<bool>> finished_;
   std::queue<Future<T>> readahead_queue_;
 };
 
@@ -237,94 +239,118 @@ AsyncGenerator<V> TransformAsyncGenerator(AsyncGenerator<T> generator,
   return TransformingGenerator<T, V>(generator, transformer);
 }
 
-namespace detail {
-
+/// \brief Transfers execution of the generator onto the given executor
+///
+/// This generator is async-reentrant if the source generator is async-reentrant
 template <typename T>
-struct BackgroundGeneratorPromise : ReadaheadPromise {
-  ~BackgroundGeneratorPromise() override {}
+class TransferringGenerator {
+ public:
+  explicit TransferringGenerator(AsyncGenerator<T> source, internal::Executor* executor)
+      : source_(std::move(source)), executor_(executor) {}
 
-  explicit BackgroundGeneratorPromise(Iterator<T>* it) : it_(it) {}
+  Future<T> operator()() { return executor_->Transfer(source_()); }
 
-  bool Call() override {
-    auto next = it_->Next();
-    auto finished = next == IterationTraits<T>::End();
-    out_.MarkFinished(std::move(next));
-    return finished;
-  }
-
-  void End() override { out_.MarkFinished(IterationTraits<T>::End()); }
-
-  Iterator<T>* it_;
-  Future<T> out_ = Future<T>::Make();
+ private:
+  AsyncGenerator<T> source_;
+  internal::Executor* executor_;
 };
 
-}  // namespace detail
+template <typename T>
+AsyncGenerator<T> TransferGenerator(AsyncGenerator<T> source,
+                                    internal::Executor* executor) {
+  return TransferringGenerator<T>(std::move(source), executor);
+}
 
 /// \brief Async generator that iterates on an underlying iterator in a
-/// separate thread.
+/// separate executor.
 ///
 /// This generator is async-reentrant
 template <typename T>
 class BackgroundGenerator {
-  using PromiseType = typename detail::BackgroundGeneratorPromise<T>;
-
  public:
-  explicit BackgroundGenerator(Iterator<T> it, internal::Executor* executor)
-      : it_(new Iterator<T>(std::move(it))),
-        queue_(new detail::ReadaheadQueue(0)),
-        executor_(executor),
-        done_() {}
+  explicit BackgroundGenerator(Iterator<T> it,
+                               std::shared_ptr<internal::ThreadPool> background_executor)
+      : background_executor_(std::move(background_executor)) {
+    task_ =
+        Task{std::make_shared<Iterator<T>>(std::move(it)), std::make_shared<bool>(false)};
+  }
 
   ~BackgroundGenerator() {
-    if (queue_) {
-      // Make sure the queue doesn't call any promises after this object
-      // is destroyed.
-      queue_->EnsureShutdownOrDie();
-    }
+    // The thread pool will be disposed of automatically.  By default it will not wait
+    // so the background thread may outlive this object.  That should be ok.  Any task
+    // objects in the thread pool are copies of task_ and have their own shared_ptr to
+    // the iterator.
   }
 
   ARROW_DEFAULT_MOVE_AND_ASSIGN(BackgroundGenerator);
   ARROW_DISALLOW_COPY_AND_ASSIGN(BackgroundGenerator);
 
   Future<T> operator()() {
-    if (done_) {
-      return Future<T>::MakeFinished(IterationTraits<T>::End());
+    auto submitted_future = background_executor_->Submit(task_);
+    if (!submitted_future.ok()) {
+      return Future<T>::MakeFinished(submitted_future.status());
     }
-    auto promise = std::unique_ptr<PromiseType>(new PromiseType{it_.get()});
-    auto future = Future<T>(promise->out_);
-    // TODO: Need a futuristic version of ARROW_RETURN_NOT_OK
-    auto append_status = queue_->Append(
-        static_cast<std::unique_ptr<detail::ReadaheadPromise>>(std::move(promise)));
-    if (!append_status.ok()) {
-      return Future<T>::MakeFinished(append_status);
-    }
-
-    future.AddCallback([this](const Result<T>& result) {
-      if (!result.ok() || result.ValueUnsafe() == IterationTraits<T>::End()) {
-        done_ = true;
-      }
-    });
-
-    return executor_->Transfer(future);
+    return std::move(*submitted_future);
   }
 
  protected:
-  // The underlying iterator is referenced by pointer in ReadaheadPromise,
-  // so make sure it doesn't move.
-  std::unique_ptr<Iterator<T>> it_;
-  std::unique_ptr<detail::ReadaheadQueue> queue_;
-  internal::Executor* executor_;
-  bool done_;
+  struct Task {
+    Result<T> operator()() {
+      if (*done_) {
+        return IterationTraits<T>::End();
+      }
+      auto next = it_->Next();
+      if (!next.ok() || *next == IterationTraits<T>::End()) {
+        *done_ = true;
+      }
+      return next;
+    }
+    // This task is going to be copied so we need to convert the iterator ptr to
+    // a shared ptr.  This should be safe however because the background executor only
+    // has a single thread so it can't access it_ across multiple threads.
+    std::shared_ptr<Iterator<T>> it_;
+    std::shared_ptr<bool> done_;
+  };
+
+  Task task_;
+  std::shared_ptr<internal::ThreadPool> background_executor_;
 };
 
 /// \brief Creates an AsyncGenerator<T> by iterating over an Iterator<T> on a background
 /// thread
 template <typename T>
-static Result<AsyncGenerator<T>> MakeBackgroundGenerator(Iterator<T> iterator,
-                                                         internal::Executor* executor) {
-  auto background_iterator =
-      std::make_shared<BackgroundGenerator<T>>(std::move(iterator), executor);
+static Result<AsyncGenerator<T>> MakeBackgroundGenerator(Iterator<T> iterator) {
+  ARROW_ASSIGN_OR_RAISE(auto background_executor, internal::ThreadPool::Make(1));
+  auto background_iterator = std::make_shared<BackgroundGenerator<T>>(
+      std::move(iterator), std::move(background_executor));
   return [background_iterator]() { return (*background_iterator)(); };
+}
+
+/// \brief Converts an AsyncGenerator<T> to an Iterator<T> by blocking until each future
+/// is finished
+template <typename T>
+class GeneratorIterator {
+ public:
+  explicit GeneratorIterator(AsyncGenerator<T> source) : source_(std::move(source)) {}
+
+  Result<T> Next() { return source_().result(); }
+
+ private:
+  AsyncGenerator<T> source_;
+};
+
+template <typename T>
+Result<Iterator<T>> MakeGeneratorIterator(AsyncGenerator<T> source) {
+  return Iterator<T>(GeneratorIterator<T>(std::move(source)));
+}
+
+template <typename T>
+Result<Iterator<T>> MakeReadaheadIterator(Iterator<T> it, int readahead_queue_size) {
+  ARROW_ASSIGN_OR_RAISE(auto background_generator,
+                        MakeBackgroundGenerator(std::move(it)));
+  auto readahead_generator =
+      AddReadahead(std::move(background_generator), readahead_queue_size);
+  return MakeGeneratorIterator(std::move(readahead_generator));
 }
 
 }  // namespace arrow

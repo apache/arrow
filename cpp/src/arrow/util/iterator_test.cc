@@ -181,8 +181,8 @@ std::function<Future<TestInt>()> BackgroundAsyncVectorIt(std::vector<TestInt> v)
         return TransformYield(item);
       });
   EXPECT_OK_AND_ASSIGN(auto background,
-                       MakeBackgroundGenerator<TestInt>(std::move(slow_iterator), pool));
-  return background;
+                       MakeBackgroundGenerator<TestInt>(std::move(slow_iterator)));
+  return TransferGenerator(background, pool);
 }
 
 std::vector<TestInt> RangeVector(unsigned int max) {
@@ -374,6 +374,27 @@ TEST(TestIteratorTransform, Abort) {
   ASSERT_EQ(IterationTraits<TestStr>::End(), third);
 }
 
+template <typename T>
+Transformer<T, T> MakeRepeatN(int repeat_count) {
+  int current_repeat = 0;
+  return [repeat_count, current_repeat](T next) mutable -> Result<TransformFlow<T>> {
+    current_repeat++;
+    bool ready_for_next = false;
+    if (current_repeat == repeat_count) {
+      current_repeat = 0;
+      ready_for_next = true;
+    }
+    return TransformYield(next, ready_for_next);
+  };
+}
+
+TEST(TestIteratorTransform, Repeating) {
+  auto original = VectorIt({1, 2, 3});
+  auto repeated = MakeTransformedIterator<TestInt, TestInt>(std::move(original),
+                                                            MakeRepeatN<TestInt>(2));
+  AssertIteratorMatch({1, 1, 2, 2, 3, 3}, std::move(repeated));
+}
+
 TEST(TestFunctionIterator, RangeForLoop) {
   int i = 0;
   auto fails_at_3 = MakeFunctionIterator([&]() -> Result<TestInt> {
@@ -455,13 +476,6 @@ TEST(FlattenVectorIterator, Pyramid) {
   AssertIteratorMatch({1, 2, 2, 3, 3, 3}, std::move(it));
 }
 
-TEST(ReadaheadIterator, DefaultConstructor) {
-  ReadaheadIterator<TestInt> it;
-  TestInt v{42};
-  ASSERT_OK_AND_ASSIGN(v, it.Next());
-  ASSERT_EQ(v, TestInt());
-}
-
 TEST(ReadaheadIterator, Empty) {
   ASSERT_OK_AND_ASSIGN(auto it, MakeReadaheadIterator(VectorIt({}), 2));
   AssertIteratorMatch({}, std::move(it));
@@ -489,13 +503,16 @@ TEST(ReadaheadIterator, Trace) {
 
   ASSERT_OK_AND_ASSIGN(
       auto it, MakeReadaheadIterator(Iterator<TestInt>(std::move(tracing_it)), 2));
-  tracing->WaitForValues(2);
-  SleepABit();  // check no further value is emitted
-  tracing->AssertValuesEqual({1, 2});
+  SleepABit();  // Background iterator won't start pumping until first request comes in
+  ASSERT_EQ(tracing->values().size(), 0);
 
-  AssertIteratorNext({1}, it);
+  AssertIteratorNext({1}, it);  // Once we ask for one value we should get that one value
+                                // as well as 2 read ahead
+
   tracing->WaitForValues(3);
-  SleepABit();
+  tracing->AssertValuesEqual({1, 2, 3});
+
+  SleepABit();  // No further values should be fetched
   tracing->AssertValuesEqual({1, 2, 3});
 
   AssertIteratorNext({2}, it);
@@ -543,12 +560,9 @@ TEST(ReadaheadIterator, NextError) {
 
   ASSERT_RAISES(IOError, it.Next().status());
 
-  AssertIteratorNext({1}, it);
-  tracing->WaitForValues(3);
+  AssertIteratorExhausted(it);
   SleepABit();
-  tracing->AssertValuesEqual({1, 2, 3});
-  AssertIteratorNext({2}, it);
-  AssertIteratorNext({3}, it);
+  tracing->AssertValuesEqual({});
   AssertIteratorExhausted(it);
 }
 
@@ -586,6 +600,30 @@ TEST(TestAsyncUtil, SynchronousFinish) {
   ASSERT_EQ(std::vector<TestStr>(), actual);
 }
 
+TEST(TestAsyncUtil, GeneratorIterator) {
+  auto generator = BackgroundAsyncVectorIt({1, 2, 3});
+  ASSERT_OK_AND_ASSIGN(auto iterator, MakeGeneratorIterator(std::move(generator)));
+  ASSERT_OK_AND_EQ(TestInt(1), iterator.Next());
+  ASSERT_OK_AND_EQ(TestInt(2), iterator.Next());
+  ASSERT_OK_AND_EQ(TestInt(3), iterator.Next());
+  ASSERT_OK_AND_EQ(IterationTraits<TestInt>::End(), iterator.Next());
+  ASSERT_OK_AND_EQ(IterationTraits<TestInt>::End(), iterator.Next());
+}
+
+TEST(TestAsyncUtil, TransferGenerator) {
+  auto generator = AsyncVectorIt({1});
+  auto transferred =
+      TransferGenerator(std::move(generator), internal::GetCpuThreadPool());
+  auto current_thread_id = std::this_thread::get_id();
+  auto fut = transferred().Then([&current_thread_id](const Result<TestInt>& result) {
+    ASSERT_NE(current_thread_id, std::this_thread::get_id());
+  });
+  ASSERT_FINISHES_OK(fut);
+}
+
+// This test is too slow for valgrind
+#if !(defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER))
+
 TEST(TestAsyncUtil, StackOverflow) {
   int counter = 0;
   AsyncGenerator<TestInt> generator = [&counter]() {
@@ -602,6 +640,8 @@ TEST(TestAsyncUtil, StackOverflow) {
   ASSERT_FINISHES_OK_AND_ASSIGN(auto collected, collected_future);
   ASSERT_EQ(0, collected.size());
 }
+
+#endif
 
 TEST(TestAsyncUtil, Background) {
   std::vector<TestInt> expected = {1, 2, 3};
@@ -627,15 +667,16 @@ struct SlowEmptyIterator {
 };
 
 TEST(TestAsyncUtil, BackgroundRepeatEnd) {
-  // Ensure that the background iterator properly fulfills the asyncgenerator contract
+  // Ensure that the background generator properly fulfills the asyncgenerator contract
   // and can be called after it ends.
   auto iterator = Iterator<TestInt>(SlowEmptyIterator());
-  ASSERT_OK_AND_ASSIGN(
-      auto background_iter,
-      MakeBackgroundGenerator(std::move(iterator), internal::GetCpuThreadPool()));
+  ASSERT_OK_AND_ASSIGN(auto background_gen, MakeBackgroundGenerator(std::move(iterator)));
 
-  auto one = background_iter();
-  auto two = background_iter();
+  background_gen =
+      TransferGenerator(std::move(background_gen), internal::GetCpuThreadPool());
+
+  auto one = background_gen();
+  auto two = background_gen();
 
   ASSERT_FINISHES_OK_AND_ASSIGN(auto one_fin, one);
   ASSERT_EQ(IterationTraits<TestInt>::End(), one_fin);
@@ -692,38 +733,42 @@ TEST(TestAsyncUtil, Readahead) {
 }
 
 TEST(TestAsyncUtil, ReadaheadFailed) {
-  auto source = []() -> Future<TestInt> {
-    return Future<TestInt>::MakeFinished(Status::Invalid("X"));
+  ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::ThreadPool::Make(4));
+  std::atomic<int32_t> counter(0);
+  // All tasks are a little slow.  The first task fails.
+  // The readahead will have spawned 9 more tasks and they
+  // should all pass
+  auto source = [thread_pool, &counter]() -> Future<TestInt> {
+    auto count = counter++;
+    return *thread_pool->Submit([count]() -> Result<TestInt> {
+      if (count == 0) {
+        return Status::Invalid("X");
+      }
+      return TestInt(count);
+    });
   };
   auto readahead = AddReadahead<TestInt>(source, 10);
-  for (int i = 0; i < 10; i++) {
-    auto next = readahead();
-    ASSERT_EQ(Status::Invalid("X"), next.status());
+  ASSERT_FINISHES_ERR(Invalid, readahead());
+  SleepABit();
+
+  for (int i = 0; i < 9; i++) {
+    ASSERT_FINISHES_OK_AND_ASSIGN(auto next_val, readahead());
+    ASSERT_EQ(TestInt(i + 1), next_val);
   }
-  auto after_fut = readahead();
-  ASSERT_FINISHES_OK_AND_ASSIGN(auto after, after_fut);
-  ASSERT_EQ(IterationTraits<TestInt>::End(), after);
-}
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto after, readahead());
 
-template <typename T>
-Transformer<T, T> MakeRepeatN(int repeat_count) {
-  int current_repeat = 0;
-  return [repeat_count, current_repeat](T next) mutable -> Result<TransformFlow<T>> {
-    current_repeat++;
-    bool ready_for_next = false;
-    if (current_repeat == repeat_count) {
-      current_repeat = 0;
-      ready_for_next = true;
-    }
-    return TransformYield(next, ready_for_next);
-  };
-}
+  // It's possible that finished was set quickly and there
+  // are only 10 elements
+  if (after == IterationTraits<TestInt>::End()) {
+    return;
+  }
 
-TEST(TestIteratorTransform, Repeating) {
-  auto original = VectorIt({1, 2, 3});
-  auto repeated = MakeTransformedIterator<TestInt, TestInt>(std::move(original),
-                                                            MakeRepeatN<TestInt>(2));
-  AssertIteratorMatch({1, 1, 2, 2, 3, 3}, std::move(repeated));
+  // It's also possible that finished was too slow and there
+  // ended up being 11 elements
+  ASSERT_EQ(TestInt(10), after);
+  // There can't be 12 elements because SleepABit will prevent it
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto definitely_last, readahead());
+  ASSERT_EQ(IterationTraits<TestInt>::End(), definitely_last);
 }
 
 TEST(TestAsyncIteratorTransform, SkipSome) {

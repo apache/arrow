@@ -918,8 +918,8 @@ class AsyncThreadedTableReader
     ARROW_ASSIGN_OR_RAISE(auto istream_it,
                           io::MakeInputStreamIterator(input_, read_options_.block_size));
 
-    ARROW_ASSIGN_OR_RAISE(auto bg_it,
-                          MakeBackgroundGenerator(std::move(istream_it), thread_pool_));
+    ARROW_ASSIGN_OR_RAISE(auto bg_it, MakeBackgroundGenerator(std::move(istream_it)));
+    bg_it = TransferGenerator(bg_it, thread_pool_);
 
     int32_t block_queue_size = thread_pool_->GetCapacity();
     auto rh_it = AddReadahead(bg_it, block_queue_size);
