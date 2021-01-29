@@ -327,14 +327,20 @@ where
     I: ArrowNumericType,
     I::Native: ToPrimitive,
 {
-    let values = indices.iter().map(|index| {
-        match index {
-            // valid index => try to take using it
-            Some(index) => Result::Ok(values[maybe_usize::<I>(index)?]),
-            // null index => do not
-            None => Ok(T::Native::default()),
-        }
+    let values = indices.values().iter().map(|index| {
+        let index = maybe_usize::<I>(*index)?;
+        Result::Ok(match values.get(index) {
+            Some(value) => *value,
+            None => {
+                if indices.is_null(index) {
+                    T::Native::default()
+                } else {
+                    panic!("Out-of-bounds index {}", index)
+                }
+            }
+        })
     });
+
     // Soundness: `slice.map` is `TrustedLen`.
     let buffer = unsafe { Buffer::try_from_trusted_len_iter(values)? };
 
