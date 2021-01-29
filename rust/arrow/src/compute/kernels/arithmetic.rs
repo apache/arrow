@@ -117,6 +117,55 @@ where
     Ok(PrimitiveArray::<T>::from(Arc::new(data)))
 }
 
+#[cfg(simd)]
+fn simd_float_unary_math_op<T, SIMD_OP, SCALAR_OP>(
+    array: &PrimitiveArray<T>,
+    simd_op: SIMD_OP,
+    scalar_op: SCALAR_OP,
+) -> Result<PrimitiveArray<T>>
+where
+    T: datatypes::ArrowFloatNumericType,
+    SIMD_OP: Fn(T::Simd) -> T::Simd,
+    SCALAR_OP: Fn(T::Native) -> T::Native,
+{
+    let lanes = T::lanes();
+    let buffer_size = array.len() * std::mem::size_of::<T::Native>();
+
+    let mut result = MutableBuffer::new(buffer_size).with_bitset(buffer_size, false);
+
+    let mut result_chunks = result.typed_data_mut().chunks_exact_mut(lanes);
+    let mut array_chunks = array.values().chunks_exact(lanes);
+
+    result_chunks
+        .borrow_mut()
+        .zip(array_chunks.borrow_mut())
+        .for_each(|(result_slice, input_slice)| {
+            let simd_input = T::load(input_slice);
+            let simd_result = T::unary_op(simd_input, &simd_op);
+            T::write(simd_result, result_slice);
+        });
+
+    let result_remainder = result_chunks.into_remainder();
+    let array_remainder = array_chunks.remainder();
+
+    result_remainder.into_iter().zip(array_remainder).for_each(
+        |(scalar_result, scalar_input)| {
+            *scalar_result = scalar_op(*scalar_input);
+        },
+    );
+
+    let data = ArrayData::new(
+        T::DATA_TYPE,
+        array.len(),
+        None,
+        array.data_ref().null_buffer().cloned(),
+        0,
+        vec![result.into()],
+        vec![],
+    );
+    Ok(PrimitiveArray::<T>::from(Arc::new(data)))
+}
+
 /// Helper function to perform math lambda function on values from two arrays. If either
 /// left or right value is null then the output value is also null, so `1 + null` is
 /// `null`.
@@ -542,11 +591,18 @@ pub fn pow_scalar<T>(
     raise: T::Native,
 ) -> Result<PrimitiveArray<T>>
 where
-    T: datatypes::ArrowNumericType,
+    T: datatypes::ArrowFloatNumericType,
     T::Native: Pow<T::Native, Output = T::Native>,
 {
     #[cfg(simd)]
-    todo!();
+    {
+        let raise_vector = T::init(raise);
+        return simd_float_unary_math_op(
+            array,
+            |x| T::pow(x, raise_vector),
+            |x| x.pow(raise),
+        );
+    }
     #[cfg(not(simd))]
     return unary_math_op(array, |x| x.pow(raise));
 }
@@ -826,6 +882,10 @@ mod tests {
         let a = Float64Array::from(vec![1.0, 2.0, 3.0]);
         let actual = pow_scalar(&a, 2.0).unwrap();
         let expected = Float64Array::from(vec![1.0, 4.0, 9.0]);
+        assert_eq!(expected, actual);
+        let a = Float64Array::from(vec![Some(1.0), None, Some(3.0)]);
+        let actual = pow_scalar(&a, 2.0).unwrap();
+        let expected = Float64Array::from(vec![Some(1.0), None, Some(9.0)]);
         assert_eq!(expected, actual);
     }
 }
