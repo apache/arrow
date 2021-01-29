@@ -1672,7 +1672,7 @@ fn make_timestamp_nano_table() -> Result<Box<MemTable>> {
 }
 
 #[tokio::test]
-async fn to_timstamp() -> Result<()> {
+async fn to_timestamp() -> Result<()> {
     let mut ctx = ExecutionContext::new();
     ctx.register_table("ts_data", make_timestamp_nano_table()?);
 
@@ -1968,8 +1968,8 @@ async fn crypto_expressions() -> Result<()> {
 async fn extract_date_part() -> Result<()> {
     let mut ctx = ExecutionContext::new();
     let sql = "SELECT
-        EXTRACT(HOUR FROM CAST('2020-01-01' AS date)),
-        EXTRACT(HOUR FROM to_timestamp('2020-09-08T12:00:00'))
+        EXTRACT(HOUR FROM CAST('2020-01-01' AS DATE)),
+        EXTRACT(HOUR FROM to_timestamp('2020-09-08T12:00:00+00:00'))
     ";
     let actual = execute(&mut ctx, sql).await;
 
