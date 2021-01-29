@@ -93,9 +93,7 @@
 #' @export
 Table <- R6Class("Table", inherit = ArrowTabular,
   public = list(
-    column = function(i) {
-      Table__column(self, i)
-    },
+    column = function(i) Table__column(self, i),
     ColumnNames = function() Table__ColumnNames(self),
     RenameColumns = function(value) Table__RenameColumns(self, value),
     GetColumnByName = function(name) {
@@ -107,24 +105,17 @@ Table <- R6Class("Table", inherit = ArrowTabular,
     AddColumn = function(i, new_field, value) Table__AddColumn(self, i, new_field, value),
     SetColumn = function(i, new_field, value) Table__SetColumn(self, i, new_field, value),
     field = function(i) Table__field(self, i),
-
     serialize = function(output_stream, ...) write_table(self, output_stream, ...),
-    ToString = function() ToString_tabular(self),
     to_data_frame = function() {
       Table__to_dataframe(self, use_threads = option_use_threads())
     },
-
     cast = function(target_schema, safe = TRUE, options = cast_options(safe)) {
       assert_is(target_schema, "Schema")
       assert_is(options, "CastOptions")
       assert_that(identical(self$schema$names, target_schema$names), msg = "incompatible schemas")
       Table__cast(self, target_schema, options)
     },
-
-    SelectColumns = function(indices) {
-      Table__SelectColumns(self, indices)
-    },
-
+    SelectColumns = function(indices) Table__SelectColumns(self, indices),
     Slice = function(offset, length = NULL) {
       if (is.null(length)) {
         Table__Slice1(self, offset)
@@ -132,39 +123,16 @@ Table <- R6Class("Table", inherit = ArrowTabular,
         Table__Slice2(self, offset, length)
       }
     },
-    Take = function(i) {
-      if (is.numeric(i)) {
-        i <- as.integer(i)
-      }
-      if (is.integer(i)) {
-        i <- Array$create(i)
-      }
-      call_function("take", self, i)
-    },
-    Filter = function(i, keep_na = TRUE) {
-      if (is.logical(i)) {
-        i <- Array$create(i)
-      }
-      call_function("filter", self, i, options = list(keep_na = keep_na))
-    },
-
+    # Take and Filter are methods on ArrowTabular
     Equals = function(other, check_metadata = FALSE, ...) {
       inherits(other, "Table") && Table__Equals(self, other, isTRUE(check_metadata))
     },
-
-    Validate = function() {
-      Table__Validate(self)
-    },
-
-    ValidateFull = function() {
-      Table__ValidateFull(self)
-    },
-
+    Validate = function() Table__Validate(self),
+    ValidateFull = function() Table__ValidateFull(self),
     invalidate = function() {
       .Call(`_arrow_Table__Reset`, self)
       super$invalidate()
     }
-
   ),
 
   active = list(
@@ -205,65 +173,3 @@ Table$create <- function(..., schema = NULL) {
 
 #' @export
 names.Table <- function(x) x$ColumnNames()
-
-#' @export
-`[[<-.Table` <- function(x, i, value) {
-  if (!is.character(i) & !is.numeric(i)) {
-    stop("'i' must be character or numeric, not ", class(i), call. = FALSE)
-  } else if (is.na(i)) {
-    # Catch if a NA_character or NA_integer is passed. These are caught elsewhere
-    # in cpp (i.e. _arrow_RecordBatch__column_name)
-    # TODO: figure out if catching in cpp like ^^^ is preferred
-    stop("'i' cannot be NA", call. = FALSE)
-  }
-
-  if (is.null(value)) {
-    if (is.character(i)) {
-      i <- match(i, names(x))
-    }
-    x <- x$RemoveColumn(i - 1L)
-  } else {
-    if (!is.character(i)) {
-      # get or create a/the column name
-      if (i <= x$num_columns) {
-        i <- names(x)[i]
-      } else {
-        i <- as.character(i)
-      }
-    }
-
-    # auto-magic recycling on non-ArrowObjects
-    if (!inherits(value, "ArrowObject")) {
-      value <- vctrs::vec_recycle(value, x$num_rows)
-    }
-
-    # construct the field
-    if (!inherits(value, "ChunkedArray")) {
-      value <- chunked_array(value)
-    }
-    new_field <- field(i, value$type)
-
-    if (i %in% names(x)) {
-      i <- match(i, names(x)) - 1L
-      x <- x$SetColumn(i, new_field, value)
-    } else {
-      i <- x$num_columns
-      x <- x$AddColumn(i, new_field, value)
-    }
-  }
-  x
-}
-
-#' @export
-`$<-.Table` <- function(x, i, value) {
-  assert_that(is.string(i))
-  # We need to check if `i` is in names in case it is an active binding (e.g.
-  # `metadata`, in which case we use assign to change the active binding instead
-  # of the column in the table)
-  if (i %in% ls(x)) {
-    assign(i, value, x)
-  } else {
-    x[[i]] <- value
-  }
-  x
-}

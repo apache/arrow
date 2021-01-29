@@ -17,8 +17,30 @@
 
 #' @include arrow-datum.R
 
-# Base class for RecordBatch and Table
-ArrowTabular <- R6Class("ArrowTabular", inherit = ArrowObject)
+# Base class for RecordBatch and Table for S3 method dispatch only.
+# Does not exist in C++ class hierarchy
+ArrowTabular <- R6Class("ArrowTabular", inherit = ArrowObject,
+  public = list(
+    ToString = function() ToString_tabular(self),
+    Take = function(i) {
+      if (is.numeric(i)) {
+        i <- as.integer(i)
+      }
+      if (is.integer(i)) {
+        i <- Array$create(i)
+      }
+      assert_that(is.Array(i))
+      call_function("take", self, i)
+    },
+    Filter = function(i, keep_na = TRUE) {
+      if (is.logical(i)) {
+        i <- Array$create(i)
+      }
+      assert_that(is.Array(i, "bool"))
+      call_function("filter", self, i, options = list(keep_na = keep_na))
+    }
+  )
+)
 
 #' @export
 as.data.frame.ArrowTabular <- function(x, row.names = NULL, optional = FALSE, ...) {
@@ -81,6 +103,66 @@ as.data.frame.ArrowTabular <- function(x, row.names = NULL, optional = FALSE, ..
   } else {
     x$GetColumnByName(name)
   }
+}
+
+#' @export
+`[[<-.ArrowTabular` <- function(x, i, value) {
+  if (!is.character(i) & !is.numeric(i)) {
+    stop("'i' must be character or numeric, not ", class(i), call. = FALSE)
+  }
+  assert_that(length(i) == 1, !is.na(i))
+
+  if (is.null(value)) {
+    if (is.character(i)) {
+      i <- match(i, names(x))
+    }
+    x <- x$RemoveColumn(i - 1L)
+  } else {
+    if (!is.character(i)) {
+      # get or create a/the column name
+      if (i <= x$num_columns) {
+        i <- names(x)[i]
+      } else {
+        i <- as.character(i)
+      }
+    }
+
+    # auto-magic recycling on non-ArrowObjects
+    if (!inherits(value, "ArrowObject")) {
+      value <- vctrs::vec_recycle(value, x$num_rows)
+    }
+
+    # construct the field
+    if (inherits(x, "RecordBatch") && !inherits(value, "Array")) {
+      value <- Array$create(value)
+    } else if (inherits(x, "Table") && !inherits(value, "ChunkedArray")) {
+      value <- ChunkedArray$create(value)
+    }
+    new_field <- field(i, value$type)
+
+    if (i %in% names(x)) {
+      i <- match(i, names(x)) - 1L
+      x <- x$SetColumn(i, new_field, value)
+    } else {
+      i <- x$num_columns
+      x <- x$AddColumn(i, new_field, value)
+    }
+  }
+  x
+}
+
+#' @export
+`$<-.ArrowTabular` <- function(x, i, value) {
+  assert_that(is.string(i))
+  # We need to check if `i` is in names in case it is an active binding (e.g.
+  # `metadata`, in which case we use assign to change the active binding instead
+  # of the column in the table)
+  if (i %in% ls(x)) {
+    assign(i, value, x)
+  } else {
+    x[[i]] <- value
+  }
+  x
 }
 
 #' @export

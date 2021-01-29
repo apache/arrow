@@ -84,12 +84,14 @@ RecordBatch <- R6Class("RecordBatch", inherit = ArrowTabular,
       assert_that(is.string(name))
       RecordBatch__GetColumnByName(self, name)
     },
-    SelectColumns = function(indices) {
-      RecordBatch__SelectColumns(self, indices)
+    SelectColumns = function(indices) RecordBatch__SelectColumns(self, indices),
+    AddColumn = function(i, new_field, value) {
+      stop("TODO: ARROW-10520", call. = FALSE)
     },
-    RemoveColumn = function(i){
-      RecordBatch__RemoveColumn(self, i)
+    SetColumn = function(i, new_field, value) {
+      stop("TODO: ARROW-10520", call. = FALSE)
     },
+    RemoveColumn = function(i) RecordBatch__RemoveColumn(self, i),
     Slice = function(offset, length = NULL) {
       if (is.null(length)) {
         RecordBatch__Slice1(self, offset)
@@ -97,37 +99,17 @@ RecordBatch <- R6Class("RecordBatch", inherit = ArrowTabular,
         RecordBatch__Slice2(self, offset, length)
       }
     },
-    Take = function(i) {
-      if (is.numeric(i)) {
-        i <- as.integer(i)
-      }
-      if (is.integer(i)) {
-        i <- Array$create(i)
-      }
-      assert_is(i, "Array")
-      call_function("take", self, i)
-    },
-    Filter = function(i, keep_na = TRUE) {
-      if (is.logical(i)) {
-        i <- Array$create(i)
-      }
-      assert_that(is.Array(i, "bool"))
-      call_function("filter", self, i, options = list(keep_na = keep_na))
-    },
+    # Take and Filter are methods on ArrowTabular
     serialize = function() ipc___SerializeRecordBatch__Raw(self),
-    ToString = function() ToString_tabular(self),
     to_data_frame = function() {
       RecordBatch__to_dataframe(self, use_threads = option_use_threads())
     },
-
     cast = function(target_schema, safe = TRUE, options = cast_options(safe)) {
       assert_is(target_schema, "Schema")
       assert_is(options, "CastOptions")
       assert_that(identical(self$schema$names, target_schema$names), msg = "incompatible schemas")
-
       RecordBatch__cast(self, target_schema, options)
     },
-
     invalidate = function() {
       .Call(`_arrow_RecordBatch__Reset`, self)
       super$invalidate()

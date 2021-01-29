@@ -17,7 +17,8 @@
 
 #' @include arrow-package.R
 
-# Base class for Array, ChunkedArray, and Scalar, for S3 methods
+# Base class for Array, ChunkedArray, and Scalar, for S3 method dispatch only.
+# Does not exist in C++ class hierarchy
 ArrowDatum <- R6Class("ArrowDatum", inherit = ArrowObject)
 
 #' @export
