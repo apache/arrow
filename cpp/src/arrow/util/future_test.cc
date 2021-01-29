@@ -510,20 +510,22 @@ TEST(FutureStessTest, Callback) {
 }
 
 TEST(FutureStessTest, TryAddCallback) {
-  for (unsigned int n = 0; n < 1000; n++) {
+  for (unsigned int n = 0; n < 1; n++) {
     auto fut = Future<>::Make();
     std::atomic<unsigned int> callbacks_added(0);
-    bool finished;
+    std::atomic<bool> finished;
     std::mutex mutex;
     std::condition_variable cv;
+    std::thread::id callback_adder_thread_id;
 
     std::thread callback_adder([&] {
-      auto test_thread = std::this_thread::get_id();
-      std::function<void(const Result<detail::Empty>&)> callback = [&test_thread](...) {
-        if (std::this_thread::get_id() == test_thread) {
-          FAIL() << "TryAddCallback allowed a callback to be run synchronously";
-        }
-      };
+      callback_adder_thread_id = std::this_thread::get_id();
+      std::function<void(const Result<detail::Empty>&)> callback =
+          [&callback_adder_thread_id](const Result<detail::Empty>&) {
+            if (std::this_thread::get_id() == callback_adder_thread_id) {
+              FAIL() << "TryAddCallback allowed a callback to be run synchronously";
+            }
+          };
       std::function<std::function<void(const Result<detail::Empty>&)>()>
           callback_factory = [&callback]() { return callback; };
       while (true) {
@@ -536,7 +538,7 @@ TEST(FutureStessTest, TryAddCallback) {
       }
       {
         std::lock_guard<std::mutex> lg(mutex);
-        finished = true;
+        finished.store(true);
       }
       cv.notify_one();
     });
@@ -548,7 +550,8 @@ TEST(FutureStessTest, TryAddCallback) {
     fut.MarkFinished();
 
     std::unique_lock<std::mutex> lk(mutex);
-    cv.wait_for(lk, std::chrono::duration<double>(0.5), [&finished] { return finished; });
+    cv.wait_for(lk, std::chrono::duration<double>(0.5),
+                [&finished] { return finished.load(); });
     lk.unlock();
 
     ASSERT_TRUE(finished);
