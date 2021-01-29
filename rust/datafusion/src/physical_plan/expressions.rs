@@ -2614,13 +2614,10 @@ impl PhysicalExpr for Extract {
                     .unwrap();
                 Ok(ColumnarValue::Array(Arc::new(hour(array)?)))
             }
-            d => {
-                return Err(DataFusionError::Internal(format!(
-                    "Extract does not support datatype {:?}",
-                    d
-                )))
-            } // DataType::Time32(_) => {}
-              // DataType::Time64(_) => {}
+            datatype => Err(DataFusionError::Internal(format!(
+                "Extract does not support datatype {:?}",
+                datatype
+            ))),
         }
     }
 }
