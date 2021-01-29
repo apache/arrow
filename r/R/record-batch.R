@@ -104,9 +104,8 @@ RecordBatch <- R6Class("RecordBatch", inherit = ArrowTabular,
     to_data_frame = function() {
       RecordBatch__to_dataframe(self, use_threads = option_use_threads())
     },
-    cast = function(target_schema, safe = TRUE, options = cast_options(safe)) {
+    cast = function(target_schema, safe = TRUE, ..., options = cast_options(safe, ...)) {
       assert_is(target_schema, "Schema")
-      assert_is(options, "CastOptions")
       assert_that(identical(self$schema$names, target_schema$names), msg = "incompatible schemas")
       RecordBatch__cast(self, target_schema, options)
     },

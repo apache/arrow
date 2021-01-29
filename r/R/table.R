@@ -109,9 +109,8 @@ Table <- R6Class("Table", inherit = ArrowTabular,
     to_data_frame = function() {
       Table__to_dataframe(self, use_threads = option_use_threads())
     },
-    cast = function(target_schema, safe = TRUE, options = cast_options(safe)) {
+    cast = function(target_schema, safe = TRUE, ..., options = cast_options(safe, ...)) {
       assert_is(target_schema, "Schema")
-      assert_is(options, "CastOptions")
       assert_that(identical(self$schema$names, target_schema$names), msg = "incompatible schemas")
       Table__cast(self, target_schema, options)
     },

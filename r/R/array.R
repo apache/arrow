@@ -128,10 +128,6 @@ Array <- R6Class("Array",
       assert_is(other, "Array")
       Array__RangeEquals(self, other, start_idx, end_idx, other_start_idx)
     },
-    cast = function(target_type, safe = TRUE, options = cast_options(safe)) {
-      assert_is(options, "CastOptions")
-      Array$create(Array__cast(self, as_type(target_type), options))
-    },
     View = function(type) {
       Array$create(Array__View(self, as_type(type)))
     },

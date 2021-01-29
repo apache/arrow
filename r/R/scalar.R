@@ -32,15 +32,6 @@ Scalar <- R6Class("Scalar",
   # TODO: document the methods
   public = list(
     ToString = function() Scalar__ToString(self),
-    cast = function(target_type, safe = TRUE, ...) {
-      opts <- list(
-        to_type = as_type(target_type),
-        allow_int_overflow = !safe,
-        allow_time_truncate = !safe,
-        allow_float_truncate = !safe
-      )
-      call_function("cast", self, options = modifyList(opts, list(...)))
-    },
     as_vector = function() Scalar__as_vector(self)
   ),
   active = list(

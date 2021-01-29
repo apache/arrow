@@ -83,10 +83,6 @@ ChunkedArray <- R6Class("ChunkedArray", inherit = ArrowDatum,
       }
       call_function("filter", self, i, options = list(keep_na = keep_na))
     },
-    cast = function(target_type, safe = TRUE, options = cast_options(safe)) {
-      assert_is(options, "CastOptions")
-      ChunkedArray__cast(self, as_type(target_type), options)
-    },
     View = function(type) {
       ChunkedArray__View(self, as_type(type))
     },

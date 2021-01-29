@@ -109,19 +109,20 @@ match_arrow.ArrowDatum <- function(x, table, ...) {
   call_function("index_in_meta_binary", x, table)
 }
 
-CastOptions <- R6Class("CastOptions", inherit = ArrowObject)
-
 #' Cast options
 #'
-#' @param safe enforce safe conversion
-#' @param allow_int_overflow allow int conversion, `!safe` by default
-#' @param allow_time_truncate allow time truncate, `!safe` by default
-#' @param allow_float_truncate allow float truncate, `!safe` by default
-#'
+#' @param safe logical: enforce safe conversion? Default `TRUE`
+#' @param ... additional cast options, such as `allow_int_overflow`,
+#' `allow_time_truncate`, and `allow_float_truncate`, which are set to `!safe`
+#' by default
+#' @return A list
 #' @export
-cast_options <- function(safe = TRUE,
-                         allow_int_overflow = !safe,
-                         allow_time_truncate = !safe,
-                         allow_float_truncate = !safe) {
-  compute___CastOptions__initialize(allow_int_overflow, allow_time_truncate, allow_float_truncate)
+#' @keywords internal
+cast_options <- function(safe = TRUE, ...) {
+  opts <- list(
+    allow_int_overflow = !safe,
+    allow_time_truncate = !safe,
+    allow_float_truncate = !safe
+  )
+  modifyList(opts, list(...))
 }

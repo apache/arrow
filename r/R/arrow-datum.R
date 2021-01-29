@@ -19,7 +19,15 @@
 
 # Base class for Array, ChunkedArray, and Scalar, for S3 method dispatch only.
 # Does not exist in C++ class hierarchy
-ArrowDatum <- R6Class("ArrowDatum", inherit = ArrowObject)
+ArrowDatum <- R6Class("ArrowDatum", inherit = ArrowObject,
+  public = list(
+    cast = function(target_type, safe = TRUE, ...) {
+      opts <- cast_options(safe, ...)
+      opts$to_type <- as_type(target_type)
+      call_function("cast", self, options = opts)
+    }
+  )
+)
 
 #' @export
 length.ArrowDatum <- function(x) x$length()
