@@ -145,6 +145,7 @@ reference:
 - title: Computation
   contents:
   - match_arrow
+  - value_counts
 - title: Configuration
   contents:
   - arrow_info

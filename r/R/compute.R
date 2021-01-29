@@ -109,6 +109,17 @@ match_arrow.ArrowDatum <- function(x, table, ...) {
   call_function("index_in_meta_binary", x, table)
 }
 
+#' `table` for Arrow objects
+#'
+#' This function tabulates the values in the array and returns a table of counts.
+#' @param x `Array` or `ChunkedArray`
+#' @return A `StructArray` containing "values" (same type as `x`) and "counts"
+#' `Int64`.
+#' @export
+value_counts <- function(x) {
+  call_function("value_counts", x)
+}
+
 #' Cast options
 #'
 #' @param safe logical: enforce safe conversion? Default `TRUE`

@@ -1471,6 +1471,14 @@ BEGIN_CPP11
 END_CPP11
 }
 // datatype.cpp
+std::vector<std::string> StructType__field_names(const std::shared_ptr<arrow::StructType>& type);
+extern "C" SEXP _arrow_StructType__field_names(SEXP type_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::StructType>&>::type type(type_sexp);
+	return cpp11::as_sexp(StructType__field_names(type));
+END_CPP11
+}
+// datatype.cpp
 std::shared_ptr<arrow::Field> ListType__value_field(const std::shared_ptr<arrow::ListType>& type);
 extern "C" SEXP _arrow_ListType__value_field(SEXP type_sexp){
 BEGIN_CPP11
@@ -3644,6 +3652,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_DictionaryType__ordered", (DL_FUNC) &_arrow_DictionaryType__ordered, 1}, 
 		{ "_arrow_StructType__GetFieldByName", (DL_FUNC) &_arrow_StructType__GetFieldByName, 2}, 
 		{ "_arrow_StructType__GetFieldIndex", (DL_FUNC) &_arrow_StructType__GetFieldIndex, 2}, 
+		{ "_arrow_StructType__field_names", (DL_FUNC) &_arrow_StructType__field_names, 1}, 
 		{ "_arrow_ListType__value_field", (DL_FUNC) &_arrow_ListType__value_field, 1}, 
 		{ "_arrow_ListType__value_type", (DL_FUNC) &_arrow_ListType__value_type, 1}, 
 		{ "_arrow_LargeListType__value_field", (DL_FUNC) &_arrow_LargeListType__value_field, 1}, 

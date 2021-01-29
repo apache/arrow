@@ -189,6 +189,39 @@ StructArray <- R6Class("StructArray", inherit = Array,
   )
 )
 
+
+#' @export
+`[[.StructArray` <- function(x, i, ...) {
+  if (is.character(i)) {
+    x$GetFieldByName(i)
+  } else if (is.numeric(i)) {
+    x$field(i - 1)
+  } else {
+    stop("'i' must be character or numeric, not ", class(i), call. = FALSE)
+  }
+}
+
+#' @export
+`$.StructArray` <- function(x, name, ...) {
+  assert_that(is.string(name))
+  if (name %in% ls(x)) {
+    get(name, x)
+  } else {
+    x$GetFieldByName(name)
+  }
+}
+
+#' @export
+names.StructArray <- function(x, ...) StructType__field_names(x$type)
+
+#' @export
+dim.StructArray <- function(x, ...) c(length(x), x$type$num_fields)
+
+#' @export
+as.data.frame.StructArray <- function(x, row.names = NULL, optional = FALSE, ...) {
+  as.vector(x)
+}
+
 #' @rdname array
 #' @usage NULL
 #' @format NULL

@@ -85,7 +85,6 @@ Collate:
     'install-arrow.R'
     'ipc_stream.R'
     'json.R'
-    'list.R'
     'memory-pool.R'
     'message.R'
     'metadata.R'
@@ -96,5 +95,4 @@ Collate:
     'reexports-bit64.R'
     'reexports-tidyselect.R'
     'schema.R'
-    'struct.R'
     'util.R'
