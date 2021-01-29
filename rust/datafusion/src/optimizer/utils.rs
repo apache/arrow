@@ -23,7 +23,8 @@ use arrow::datatypes::Schema;
 
 use super::optimizer::OptimizerRule;
 use crate::logical_plan::{
-    Expr, LogicalPlan, Operator, Partitioning, PlanType, Recursion, StringifiedPlan, ToDFSchema,
+    Expr, LogicalPlan, Operator, Partitioning, PlanType, Recursion, StringifiedPlan,
+    ToDFSchema,
 };
 use crate::prelude::{col, lit};
 use crate::scalar::ScalarValue;
@@ -37,7 +38,10 @@ const CASE_ELSE_MARKER: &str = "__DATAFUSION_CASE_ELSE__";
 
 /// Recursively walk a list of expression trees, collecting the unique set of column
 /// names referenced in the expression
-pub fn exprlist_to_column_names(expr: &[Expr], accum: &mut HashSet<String>) -> Result<()> {
+pub fn exprlist_to_column_names(
+    expr: &[Expr],
+    accum: &mut HashSet<String>,
+) -> Result<()> {
     for e in expr {
         expr_to_column_names(e, accum)?;
     }
@@ -137,7 +141,9 @@ pub fn expressions(plan: &LogicalPlan) -> Vec<Expr> {
             result.extend(aggr_expr.clone());
             result
         }
-        LogicalPlan::Join { on, .. } => on.iter().flat_map(|(l, r)| vec![col(l), col(r)]).collect(),
+        LogicalPlan::Join { on, .. } => {
+            on.iter().flat_map(|(l, r)| vec![col(l), col(r)]).collect()
+        }
         LogicalPlan::Sort { expr, .. } => expr.clone(),
         LogicalPlan::Extension { node } => node.expressions(),
         // plans without expressions
@@ -335,11 +341,15 @@ pub fn rewrite_expression(expr: &Expr, expressions: &Vec<Expr>) -> Result<Expr> 
 
             while i < expressions.len() {
                 match &expressions[i] {
-                    Expr::Literal(ScalarValue::Utf8(Some(str))) if str == CASE_EXPR_MARKER => {
+                    Expr::Literal(ScalarValue::Utf8(Some(str)))
+                        if str == CASE_EXPR_MARKER =>
+                    {
                         base_expr = Some(Box::new(expressions[i + 1].clone()));
                         i += 2;
                     }
-                    Expr::Literal(ScalarValue::Utf8(Some(str))) if str == CASE_ELSE_MARKER => {
+                    Expr::Literal(ScalarValue::Utf8(Some(str)))
+                        if str == CASE_ELSE_MARKER =>
+                    {
                         else_expr = Some(Box::new(expressions[i + 1].clone()));
                         i += 2;
                     }
@@ -363,7 +373,9 @@ pub fn rewrite_expression(expr: &Expr, expressions: &Vec<Expr>) -> Result<Expr> 
             expr: Box::new(expressions[0].clone()),
             data_type: data_type.clone(),
         }),
-        Expr::Alias(_, alias) => Ok(Expr::Alias(Box::new(expressions[0].clone()), alias.clone())),
+        Expr::Alias(_, alias) => {
+            Ok(Expr::Alias(Box::new(expressions[0].clone()), alias.clone()))
+        }
         Expr::Not(_) => Ok(Expr::Not(Box::new(expressions[0].clone()))),
         Expr::Negative(_) => Ok(Expr::Negative(Box::new(expressions[0].clone()))),
         Expr::Column(_) => Ok(expr.clone()),
