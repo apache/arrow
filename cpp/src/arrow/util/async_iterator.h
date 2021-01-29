@@ -255,6 +255,17 @@ class TransferringGenerator {
   internal::Executor* executor_;
 };
 
+/// \brief Transfers a future to an underlying executor.
+///
+/// Continuations run on the returned future will be run on the given executor
+/// if they cannot be run synchronously.
+///
+/// This is often needed to move computation off I/O threads or other external
+/// completion sources and back on to the CPU executor so the I/O thread can
+/// stay busy and focused on I/O
+///
+/// Keep in mind that continuations called on an already completed future will
+/// always be run synchronously and so no transfer will happen in that case.
 template <typename T>
 AsyncGenerator<T> TransferGenerator(AsyncGenerator<T> source,
                                     internal::Executor* executor) {
