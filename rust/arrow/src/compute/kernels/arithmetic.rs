@@ -35,6 +35,7 @@ use crate::datatypes;
 use crate::datatypes::ArrowNumericType;
 use crate::error::{ArrowError, Result};
 use crate::{array::*, util::bit_util};
+use num::traits::Pow;
 #[cfg(simd)]
 use std::borrow::BorrowMut;
 #[cfg(simd)]
@@ -42,13 +43,9 @@ use std::slice::{ChunksExact, ChunksExactMut};
 
 /// Helper function to perform math lambda function on values from single array of signed numeric
 /// type. If value is null then the output value is also null, so `-null` is `null`.
-pub fn signed_unary_math_op<T, F>(
-    array: &PrimitiveArray<T>,
-    op: F,
-) -> Result<PrimitiveArray<T>>
+pub fn unary_math_op<T, F>(array: &PrimitiveArray<T>, op: F) -> Result<PrimitiveArray<T>>
 where
-    T: datatypes::ArrowSignedNumericType,
-    T::Native: Neg<Output = T::Native>,
+    T: datatypes::ArrowNumericType,
     F: Fn(T::Native) -> T::Native,
 {
     let values = array.values().iter().map(|v| op(*v));
@@ -71,7 +68,7 @@ where
     Ok(PrimitiveArray::<T>::from(Arc::new(data)))
 }
 
-/// SIMD vectorized version of `signed_unary_math_op` above.
+/// SIMD vectorized version of `unary_math_op` above specialized for signed numerical values.
 #[cfg(simd)]
 fn simd_signed_unary_math_op<T, SIMD_OP, SCALAR_OP>(
     array: &PrimitiveArray<T>,
@@ -536,7 +533,22 @@ where
     #[cfg(simd)]
     return simd_signed_unary_math_op(array, |x| -x, |x| -x);
     #[cfg(not(simd))]
-    return signed_unary_math_op(array, |x| -x);
+    return unary_math_op(array, |x| -x);
+}
+
+/// Raise array to the power of a scalar.
+pub fn pow_scalar<T>(
+    array: &PrimitiveArray<T>,
+    raise: T::Native,
+) -> Result<PrimitiveArray<T>>
+where
+    T: datatypes::ArrowNumericType,
+    T::Native: Pow<T::Native, Output = T::Native>,
+{
+    #[cfg(simd)]
+    todo!();
+    #[cfg(not(simd))]
+    return unary_math_op(array, |x| x.pow(raise));
 }
 
 /// Perform `left * right` operation on two arrays. If either left or right value is null
@@ -806,6 +818,14 @@ mod tests {
             .into_iter()
             .map(|i| Some(i + i))
             .collect();
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn test_primitive_array_raise_power_scalar() {
+        let a = Float64Array::from(vec![1.0, 2.0, 3.0]);
+        let actual = pow_scalar(&a, 2.0).unwrap();
+        let expected = Float64Array::from(vec![1.0, 4.0, 9.0]);
         assert_eq!(expected, actual);
     }
 }
