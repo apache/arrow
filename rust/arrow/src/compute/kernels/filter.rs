@@ -42,7 +42,7 @@ enum State {
 /// slots of a [BooleanArray] are true. Each interval corresponds to a contiguous region of memory to be
 /// "taken" from an array to be filtered.
 #[derive(Debug)]
-struct SlicesIterator<'a> {
+pub(crate) struct SlicesIterator<'a> {
     iter: Enumerate<BitChunkIterator<'a>>,
     state: State,
     filter_count: usize,
@@ -57,7 +57,7 @@ struct SlicesIterator<'a> {
 }
 
 impl<'a> SlicesIterator<'a> {
-    fn new(filter: &'a BooleanArray) -> Self {
+    pub(crate) fn new(filter: &'a BooleanArray) -> Self {
         let values = &filter.data_ref().buffers()[0];
 
         // this operation is performed before iteration
