@@ -28,9 +28,6 @@ use crate::logical_plan::DatePart;
 use crate::logical_plan::Operator;
 use crate::physical_plan::{Accumulator, AggregateExpr, PhysicalExpr};
 use crate::scalar::ScalarValue;
-use arrow::array::{
-    self, Array, BooleanBuilder, GenericStringArray, LargeStringArray, StringOffsetSizeTrait,
-};
 use arrow::compute;
 use arrow::compute::kernels;
 use arrow::compute::kernels::arithmetic::{add, divide, multiply, negate, subtract};
@@ -40,8 +37,8 @@ use arrow::compute::kernels::comparison::{
     eq_scalar, gt_eq_scalar, gt_scalar, lt_eq_scalar, lt_scalar, neq_scalar,
 };
 use arrow::compute::kernels::comparison::{
-    eq_utf8, gt_eq_utf8, gt_utf8, like_utf8, like_utf8_scalar, lt_eq_utf8, lt_utf8, neq_utf8,
-    nlike_utf8, nlike_utf8_scalar,
+    eq_utf8, gt_eq_utf8, gt_utf8, like_utf8, like_utf8_scalar, lt_eq_utf8, lt_utf8,
+    neq_utf8, nlike_utf8, nlike_utf8_scalar,
 };
 use arrow::compute::kernels::comparison::{
     eq_utf8_scalar, gt_eq_utf8_scalar, gt_utf8_scalar, lt_eq_utf8_scalar, lt_utf8_scalar,
@@ -52,9 +49,16 @@ use arrow::datatypes::{DataType, DateUnit, Schema, TimeUnit};
 use arrow::record_batch::RecordBatch;
 use arrow::{
     array::{
-        ArrayRef, BooleanArray, Date32Array, Date64Array, Float32Array, Float64Array, Int16Array,
-        Int32Array, Int64Array, Int8Array, StringArray, TimestampNanosecondArray, UInt16Array,
-        UInt32Array, UInt64Array, UInt8Array,
+        self, Array, BooleanBuilder, GenericStringArray, LargeStringArray,
+        StringOffsetSizeTrait,
+    },
+    compute::hour,
+};
+use arrow::{
+    array::{
+        ArrayRef, BooleanArray, Date32Array, Date64Array, Float32Array, Float64Array,
+        Int16Array, Int32Array, Int64Array, Int8Array, StringArray,
+        TimestampNanosecondArray, UInt16Array, UInt32Array, UInt64Array, UInt8Array,
     },
     datatypes::Field,
 };
@@ -135,7 +139,9 @@ pub struct Sum {
 /// function return type of a sum
 pub fn sum_return_type(arg_type: &DataType) -> Result<DataType> {
     match arg_type {
-        DataType::Int8 | DataType::Int16 | DataType::Int32 | DataType::Int64 => Ok(DataType::Int64),
+        DataType::Int8 | DataType::Int16 | DataType::Int32 | DataType::Int64 => {
+            Ok(DataType::Int64)
+        }
         DataType::UInt8 | DataType::UInt16 | DataType::UInt32 | DataType::UInt64 => {
             Ok(DataType::UInt64)
         }
@@ -485,7 +491,9 @@ impl Accumulator for AvgAccumulator {
 
     fn evaluate(&self) -> Result<ScalarValue> {
         match self.sum {
-            ScalarValue::Float64(e) => Ok(ScalarValue::Float64(e.map(|f| f / self.count as f64))),
+            ScalarValue::Float64(e) => {
+                Ok(ScalarValue::Float64(e.map(|f| f / self.count as f64)))
+            }
             _ => Err(DataFusionError::Internal(
                 "Sum should be f64 on average".to_string(),
             )),
@@ -1154,7 +1162,11 @@ pub struct BinaryExpr {
 
 impl BinaryExpr {
     /// Create new binary expression
-    pub fn new(left: Arc<dyn PhysicalExpr>, op: Operator, right: Arc<dyn PhysicalExpr>) -> Self {
+    pub fn new(
+        left: Arc<dyn PhysicalExpr>,
+        op: Operator,
+        right: Arc<dyn PhysicalExpr>,
+    ) -> Self {
         Self { left, op, right }
     }
 
@@ -1181,7 +1193,10 @@ impl fmt::Display for BinaryExpr {
 }
 
 /// Coercion rules for dictionary values (aka the type of the  dictionary itself)
-fn dictionary_value_coercion(lhs_type: &DataType, rhs_type: &DataType) -> Option<DataType> {
+fn dictionary_value_coercion(
+    lhs_type: &DataType,
+    rhs_type: &DataType,
+) -> Option<DataType> {
     numerical_coercion(lhs_type, rhs_type).or_else(|| string_coercion(lhs_type, rhs_type))
 }
 
@@ -1315,7 +1330,11 @@ fn order_coercion(lhs_type: &DataType, rhs_type: &DataType) -> Option<DataType> 
 
 /// Coercion rules for all binary operators. Returns the output type
 /// of applying `op` to an argument of `lhs_type` and `rhs_type`.
-fn common_binary_type(lhs_type: &DataType, op: &Operator, rhs_type: &DataType) -> Result<DataType> {
+fn common_binary_type(
+    lhs_type: &DataType,
+    op: &Operator,
+    rhs_type: &DataType,
+) -> Result<DataType> {
     // This result MUST be compatible with `binary_coerce`
     let result = match op {
         Operator::And | Operator::Or => match (lhs_type, rhs_type) {
@@ -1381,7 +1400,9 @@ pub fn binary_operator_data_type(
         | Operator::GtEq
         | Operator::LtEq => Ok(DataType::Boolean),
         // math operations return the same value as the common coerced type
-        Operator::Plus | Operator::Minus | Operator::Divide | Operator::Multiply => Ok(common_type),
+        Operator::Plus | Operator::Minus | Operator::Divide | Operator::Multiply => {
+            Ok(common_type)
+        }
         Operator::Modulus => Err(DataFusionError::NotImplemented(
             "Modulus operator is still not supported".to_string(),
         )),
@@ -1669,12 +1690,15 @@ impl PhysicalExpr for NotExpr {
         let arg = self.arg.evaluate(batch)?;
         match arg {
             ColumnarValue::Array(array) => {
-                let array = array
-                    .as_any()
-                    .downcast_ref::<BooleanArray>()
-                    .ok_or_else(|| {
-                        DataFusionError::Internal("boolean_op failed to downcast array".to_owned())
-                    })?;
+                let array =
+                    array
+                        .as_any()
+                        .downcast_ref::<BooleanArray>()
+                        .ok_or_else(|| {
+                            DataFusionError::Internal(
+                                "boolean_op failed to downcast array".to_owned(),
+                            )
+                        })?;
                 Ok(ColumnarValue::Array(Arc::new(
                     arrow::compute::kernels::boolean::not(array)?,
                 )))
@@ -1695,7 +1719,10 @@ impl PhysicalExpr for NotExpr {
 /// # Errors
 ///
 /// This function errors when the argument's type is not boolean
-pub fn not(arg: Arc<dyn PhysicalExpr>, input_schema: &Schema) -> Result<Arc<dyn PhysicalExpr>> {
+pub fn not(
+    arg: Arc<dyn PhysicalExpr>,
+    input_schema: &Schema,
+) -> Result<Arc<dyn PhysicalExpr>> {
     let data_type = arg.data_type(input_schema)?;
     if data_type != DataType::Boolean {
         Err(DataFusionError::Internal(format!(
@@ -1765,7 +1792,9 @@ impl PhysicalExpr for NegativeExpr {
                 };
                 result.map(|a| ColumnarValue::Array(a))
             }
-            ColumnarValue::Scalar(scalar) => Ok(ColumnarValue::Scalar(scalar.arithmetic_negate())),
+            ColumnarValue::Scalar(scalar) => {
+                Ok(ColumnarValue::Scalar(scalar.arithmetic_negate()))
+            }
         }
     }
 }
@@ -1836,9 +1865,9 @@ impl PhysicalExpr for IsNullExpr {
             ColumnarValue::Array(array) => Ok(ColumnarValue::Array(Arc::new(
                 arrow::compute::is_null(array.as_ref())?,
             ))),
-            ColumnarValue::Scalar(scalar) => Ok(ColumnarValue::Scalar(ScalarValue::Boolean(Some(
-                scalar.is_null(),
-            )))),
+            ColumnarValue::Scalar(scalar) => Ok(ColumnarValue::Scalar(
+                ScalarValue::Boolean(Some(scalar.is_null())),
+            )),
         }
     }
 }
@@ -1893,9 +1922,9 @@ impl PhysicalExpr for IsNotNullExpr {
             ColumnarValue::Array(array) => Ok(ColumnarValue::Array(Arc::new(
                 arrow::compute::is_not_null(array.as_ref())?,
             ))),
-            ColumnarValue::Scalar(scalar) => Ok(ColumnarValue::Scalar(ScalarValue::Boolean(Some(
-                !scalar.is_null(),
-            )))),
+            ColumnarValue::Scalar(scalar) => Ok(ColumnarValue::Scalar(
+                ScalarValue::Boolean(Some(!scalar.is_null())),
+            )),
         }
     }
 }
@@ -2377,7 +2406,9 @@ pub fn is_signed_numeric(dt: &DataType) -> bool {
 pub fn is_numeric(dt: &DataType) -> bool {
     is_signed_numeric(dt)
         || match dt {
-            DataType::UInt8 | DataType::UInt16 | DataType::UInt32 | DataType::UInt64 => true,
+            DataType::UInt8 | DataType::UInt16 | DataType::UInt32 | DataType::UInt64 => {
+                true
+            }
             _ => false,
         }
 }
@@ -2528,8 +2559,7 @@ pub struct InListExpr {
 
 impl fmt::Display for Extract {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        //write!(f, "{}", self.value)
-        Ok(())
+        write!(f, "EXTRACT({} AS {:?})", self.date_part, self.expr)
     }
 }
 
@@ -2541,6 +2571,7 @@ pub struct Extract {
 }
 
 impl Extract {
+    /// Create new Extract expression
     pub fn new(date_part: DatePart, expr: Arc<dyn PhysicalExpr>) -> Self {
         Self { date_part, expr }
     }
@@ -2551,16 +2582,24 @@ impl PhysicalExpr for Extract {
         todo!()
     }
 
-    fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
-        todo!()
+    fn data_type(&self, _input_schema: &Schema) -> Result<DataType> {
+        Ok(DataType::Int32)
     }
 
     fn nullable(&self, input_schema: &Schema) -> Result<bool> {
-        todo!()
+        self.expr.nullable(input_schema)
     }
 
     fn evaluate(&self, batch: &RecordBatch) -> Result<ColumnarValue> {
-        todo!()
+        let value = self.expr.evaluate(batch)?;
+        let array = match value {
+            ColumnarValue::Array(array) => array,
+            ColumnarValue::Scalar(scalar) => scalar.to_array(),
+        };
+
+        let array = array.as_any().downcast_ref::<Date32Array>().unwrap();
+
+        Ok(ColumnarValue::Array(Arc::new(hour(array)?)))
     }
 }
 
@@ -2787,7 +2826,9 @@ impl PhysicalExpr for InListExpr {
                 make_contains!(array, list_values, self.negated, Boolean, BooleanArray)
             }
             DataType::Utf8 => self.compare_utf8::<i32>(array, list_values, self.negated),
-            DataType::LargeUtf8 => self.compare_utf8::<i64>(array, list_values, self.negated),
+            DataType::LargeUtf8 => {
+                self.compare_utf8::<i64>(array, list_values, self.negated)
+            }
             datatype => {
                 unimplemented!("InList does not support datatype {:?}.", datatype)
             }
@@ -2805,7 +2846,10 @@ pub fn in_list(
 }
 
 /// Creates a expression Extract
-pub fn Extract(date_part: DatePart, expr: Arc<dyn PhysicalExpr>) -> Result<Arc<dyn PhysicalExpr>> {
+pub fn extract(
+    date_part: DatePart,
+    expr: Arc<dyn PhysicalExpr>,
+) -> Result<Arc<dyn PhysicalExpr>> {
     Ok(Arc::new(Extract::new(date_part, expr)))
 }
 
@@ -2840,7 +2884,8 @@ mod tests {
         ]);
         let a = Int32Array::from(vec![1, 2, 3, 4, 5]);
         let b = Int32Array::from(vec![1, 2, 4, 8, 16]);
-        let batch = RecordBatch::try_new(Arc::new(schema), vec![Arc::new(a), Arc::new(b)])?;
+        let batch =
+            RecordBatch::try_new(Arc::new(schema), vec![Arc::new(a), Arc::new(b)])?;
 
         // expression: "a < b"
         let lt = binary_simple(col("a"), Operator::Lt, col("b"));
@@ -2867,7 +2912,8 @@ mod tests {
         ]);
         let a = Int32Array::from(vec![2, 4, 6, 8, 10]);
         let b = Int32Array::from(vec![2, 5, 4, 8, 8]);
-        let batch = RecordBatch::try_new(Arc::new(schema), vec![Arc::new(a), Arc::new(b)])?;
+        let batch =
+            RecordBatch::try_new(Arc::new(schema), vec![Arc::new(a), Arc::new(b)])?;
 
         // expression: "a < b OR a == b"
         let expr = binary_simple(
@@ -2930,8 +2976,10 @@ mod tests {
             ]);
             let a = $A_ARRAY::from($A_VEC);
             let b = $B_ARRAY::from($B_VEC);
-            let batch =
-                RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a), Arc::new(b)])?;
+            let batch = RecordBatch::try_new(
+                Arc::new(schema.clone()),
+                vec![Arc::new(a), Arc::new(b)],
+            )?;
 
             // verify that we can construct the expression
             let expression = binary(col("a"), $OP, col("b"), &schema)?;
@@ -3102,7 +3150,8 @@ mod tests {
     #[test]
     fn test_dictionary_type_to_array_coersion() -> Result<()> {
         // Test string  a string dictionary
-        let dict_type = DataType::Dictionary(Box::new(DataType::Int32), Box::new(DataType::Utf8));
+        let dict_type =
+            DataType::Dictionary(Box::new(DataType::Int32), Box::new(DataType::Utf8));
         let string_type = DataType::Utf8;
 
         // build dictionary
@@ -3116,7 +3165,8 @@ mod tests {
         dict_builder.append("four")?;
         let dict_array = dict_builder.finish();
 
-        let str_array = StringArray::from(vec![Some("not one"), Some("two"), None, Some("four")]);
+        let str_array =
+            StringArray::from(vec![Some("not one"), Some("two"), None, Some("four")]);
 
         let schema = Arc::new(Schema::new(vec![
             Field::new("dict", dict_type, true),
@@ -3171,7 +3221,8 @@ mod tests {
 
     #[test]
     fn test_coersion_error() -> Result<()> {
-        let expr = common_binary_type(&DataType::Float32, &Operator::Plus, &DataType::Utf8);
+        let expr =
+            common_binary_type(&DataType::Float32, &Operator::Plus, &DataType::Utf8);
 
         if let Err(DataFusionError::Plan(e)) = expr {
             assert_eq!(e, "'Float32 + Utf8' can't be evaluated because there isn't a common type to coerce the types to");
@@ -3193,7 +3244,8 @@ mod tests {
         ($A_ARRAY:ident, $A_TYPE:expr, $A_VEC:expr, $TYPEARRAY:ident, $TYPE:expr, $VEC:expr) => {{
             let schema = Schema::new(vec![Field::new("a", $A_TYPE, false)]);
             let a = $A_ARRAY::from($A_VEC);
-            let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+            let batch =
+                RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
 
             // verify that we can construct the expression
             let expression = cast(col("a"), &schema, $TYPE)?;
@@ -3286,7 +3338,8 @@ mod tests {
 
             let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![$ARRAY])?;
 
-            let agg = Arc::new(<$OP>::new(col("a"), "bla".to_string(), $EXPECTED_DATATYPE));
+            let agg =
+                Arc::new(<$OP>::new(col("a"), "bla".to_string(), $EXPECTED_DATATYPE));
             let actual = aggregate(&batch, agg)?;
             let expected = ScalarValue::from($EXPECTED);
 
@@ -3514,7 +3567,8 @@ mod tests {
 
     #[test]
     fn sum_u32() -> Result<()> {
-        let a: ArrayRef = Arc::new(UInt32Array::from(vec![1_u32, 2_u32, 3_u32, 4_u32, 5_u32]));
+        let a: ArrayRef =
+            Arc::new(UInt32Array::from(vec![1_u32, 2_u32, 3_u32, 4_u32, 5_u32]));
         generic_test_op!(
             a,
             DataType::UInt32,
@@ -3526,7 +3580,8 @@ mod tests {
 
     #[test]
     fn avg_u32() -> Result<()> {
-        let a: ArrayRef = Arc::new(UInt32Array::from(vec![1_u32, 2_u32, 3_u32, 4_u32, 5_u32]));
+        let a: ArrayRef =
+            Arc::new(UInt32Array::from(vec![1_u32, 2_u32, 3_u32, 4_u32, 5_u32]));
         generic_test_op!(
             a,
             DataType::UInt32,
@@ -3538,7 +3593,8 @@ mod tests {
 
     #[test]
     fn max_u32() -> Result<()> {
-        let a: ArrayRef = Arc::new(UInt32Array::from(vec![1_u32, 2_u32, 3_u32, 4_u32, 5_u32]));
+        let a: ArrayRef =
+            Arc::new(UInt32Array::from(vec![1_u32, 2_u32, 3_u32, 4_u32, 5_u32]));
         generic_test_op!(
             a,
             DataType::UInt32,
@@ -3550,7 +3606,8 @@ mod tests {
 
     #[test]
     fn min_u32() -> Result<()> {
-        let a: ArrayRef = Arc::new(UInt32Array::from(vec![1_u32, 2_u32, 3_u32, 4_u32, 5_u32]));
+        let a: ArrayRef =
+            Arc::new(UInt32Array::from(vec![1_u32, 2_u32, 3_u32, 4_u32, 5_u32]));
         generic_test_op!(
             a,
             DataType::UInt32,
@@ -3562,7 +3619,8 @@ mod tests {
 
     #[test]
     fn sum_f32() -> Result<()> {
-        let a: ArrayRef = Arc::new(Float32Array::from(vec![1_f32, 2_f32, 3_f32, 4_f32, 5_f32]));
+        let a: ArrayRef =
+            Arc::new(Float32Array::from(vec![1_f32, 2_f32, 3_f32, 4_f32, 5_f32]));
         generic_test_op!(
             a,
             DataType::Float32,
@@ -3574,7 +3632,8 @@ mod tests {
 
     #[test]
     fn avg_f32() -> Result<()> {
-        let a: ArrayRef = Arc::new(Float32Array::from(vec![1_f32, 2_f32, 3_f32, 4_f32, 5_f32]));
+        let a: ArrayRef =
+            Arc::new(Float32Array::from(vec![1_f32, 2_f32, 3_f32, 4_f32, 5_f32]));
         generic_test_op!(
             a,
             DataType::Float32,
@@ -3586,7 +3645,8 @@ mod tests {
 
     #[test]
     fn max_f32() -> Result<()> {
-        let a: ArrayRef = Arc::new(Float32Array::from(vec![1_f32, 2_f32, 3_f32, 4_f32, 5_f32]));
+        let a: ArrayRef =
+            Arc::new(Float32Array::from(vec![1_f32, 2_f32, 3_f32, 4_f32, 5_f32]));
         generic_test_op!(
             a,
             DataType::Float32,
@@ -3598,7 +3658,8 @@ mod tests {
 
     #[test]
     fn min_f32() -> Result<()> {
-        let a: ArrayRef = Arc::new(Float32Array::from(vec![1_f32, 2_f32, 3_f32, 4_f32, 5_f32]));
+        let a: ArrayRef =
+            Arc::new(Float32Array::from(vec![1_f32, 2_f32, 3_f32, 4_f32, 5_f32]));
         generic_test_op!(
             a,
             DataType::Float32,
@@ -3610,7 +3671,8 @@ mod tests {
 
     #[test]
     fn sum_f64() -> Result<()> {
-        let a: ArrayRef = Arc::new(Float64Array::from(vec![1_f64, 2_f64, 3_f64, 4_f64, 5_f64]));
+        let a: ArrayRef =
+            Arc::new(Float64Array::from(vec![1_f64, 2_f64, 3_f64, 4_f64, 5_f64]));
         generic_test_op!(
             a,
             DataType::Float64,
@@ -3622,7 +3684,8 @@ mod tests {
 
     #[test]
     fn avg_f64() -> Result<()> {
-        let a: ArrayRef = Arc::new(Float64Array::from(vec![1_f64, 2_f64, 3_f64, 4_f64, 5_f64]));
+        let a: ArrayRef =
+            Arc::new(Float64Array::from(vec![1_f64, 2_f64, 3_f64, 4_f64, 5_f64]));
         generic_test_op!(
             a,
             DataType::Float64,
@@ -3634,7 +3697,8 @@ mod tests {
 
     #[test]
     fn max_f64() -> Result<()> {
-        let a: ArrayRef = Arc::new(Float64Array::from(vec![1_f64, 2_f64, 3_f64, 4_f64, 5_f64]));
+        let a: ArrayRef =
+            Arc::new(Float64Array::from(vec![1_f64, 2_f64, 3_f64, 4_f64, 5_f64]));
         generic_test_op!(
             a,
             DataType::Float64,
@@ -3646,7 +3710,8 @@ mod tests {
 
     #[test]
     fn min_f64() -> Result<()> {
-        let a: ArrayRef = Arc::new(Float64Array::from(vec![1_f64, 2_f64, 3_f64, 4_f64, 5_f64]));
+        let a: ArrayRef =
+            Arc::new(Float64Array::from(vec![1_f64, 2_f64, 3_f64, 4_f64, 5_f64]));
         generic_test_op!(
             a,
             DataType::Float64,
@@ -3716,7 +3781,8 @@ mod tests {
 
     #[test]
     fn count_utf8() -> Result<()> {
-        let a: ArrayRef = Arc::new(StringArray::from(vec!["a", "bb", "ccc", "dddd", "ad"]));
+        let a: ArrayRef =
+            Arc::new(StringArray::from(vec!["a", "bb", "ccc", "dddd", "ad"]));
         generic_test_op!(
             a,
             DataType::Utf8,
@@ -3728,7 +3794,8 @@ mod tests {
 
     #[test]
     fn count_large_utf8() -> Result<()> {
-        let a: ArrayRef = Arc::new(LargeStringArray::from(vec!["a", "bb", "ccc", "dddd", "ad"]));
+        let a: ArrayRef =
+            Arc::new(LargeStringArray::from(vec!["a", "bb", "ccc", "dddd", "ad"]));
         generic_test_op!(
             a,
             DataType::LargeUtf8,
@@ -3802,7 +3869,10 @@ mod tests {
         Ok(())
     }
 
-    fn aggregate(batch: &RecordBatch, agg: Arc<dyn AggregateExpr>) -> Result<ScalarValue> {
+    fn aggregate(
+        batch: &RecordBatch,
+        agg: Arc<dyn AggregateExpr>,
+    ) -> Result<ScalarValue> {
         let mut accum = agg.create_accumulator()?;
         let expr = agg.expressions();
         let values = expr
@@ -3913,7 +3983,10 @@ mod tests {
         Ok(())
     }
 
-    fn assert_array_eq<T: ArrowNumericType>(expected: PrimitiveArray<T>, actual: ArrayRef) {
+    fn assert_array_eq<T: ArrowNumericType>(
+        expected: PrimitiveArray<T>,
+        actual: ArrayRef,
+    ) {
         let actual = actual
             .as_any()
             .downcast_ref::<PrimitiveArray<T>>()
@@ -3939,7 +4012,8 @@ mod tests {
         let input = BooleanArray::from(vec![Some(true), None, Some(false)]);
         let expected = &BooleanArray::from(vec![Some(false), None, Some(true)]);
 
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(input)])?;
+        let batch =
+            RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(input)])?;
 
         let result = expr.evaluate(&batch)?.into_array(batch.num_rows());
         let result = result
@@ -4050,7 +4124,8 @@ mod tests {
             .downcast_ref::<Int32Array>()
             .expect("failed to downcast to Int32Array");
 
-        let expected = &Int32Array::from(vec![Some(123), Some(999), Some(999), Some(456)]);
+        let expected =
+            &Int32Array::from(vec![Some(123), Some(999), Some(999), Some(456)]);
 
         assert_eq!(expected, result);
 
@@ -4119,7 +4194,8 @@ mod tests {
             .downcast_ref::<Int32Array>()
             .expect("failed to downcast to Int32Array");
 
-        let expected = &Int32Array::from(vec![Some(123), Some(999), Some(999), Some(456)]);
+        let expected =
+            &Int32Array::from(vec![Some(123), Some(999), Some(999), Some(456)]);
 
         assert_eq!(expected, result);
 
