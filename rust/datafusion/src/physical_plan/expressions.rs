@@ -2579,7 +2579,7 @@ impl Extract {
 
 impl PhysicalExpr for Extract {
     fn as_any(&self) -> &dyn Any {
-        todo!()
+        self
     }
 
     fn data_type(&self, _input_schema: &Schema) -> Result<DataType> {
