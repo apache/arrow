@@ -2592,14 +2592,36 @@ impl PhysicalExpr for Extract {
 
     fn evaluate(&self, batch: &RecordBatch) -> Result<ColumnarValue> {
         let value = self.expr.evaluate(batch)?;
+        let data_type = value.data_type();
         let array = match value {
             ColumnarValue::Array(array) => array,
             ColumnarValue::Scalar(scalar) => scalar.to_array(),
         };
 
-        let array = array.as_any().downcast_ref::<Date32Array>().unwrap();
-
-        Ok(ColumnarValue::Array(Arc::new(hour(array)?)))
+        match data_type {
+            DataType::Date32(_) => {
+                let array = array.as_any().downcast_ref::<Date32Array>().unwrap();
+                Ok(ColumnarValue::Array(Arc::new(hour(array)?)))
+            }
+            DataType::Date64(_) => {
+                let array = array.as_any().downcast_ref::<Date64Array>().unwrap();
+                Ok(ColumnarValue::Array(Arc::new(hour(array)?)))
+            }
+            DataType::Timestamp(TimeUnit::Nanosecond, None) => {
+                let array = array
+                    .as_any()
+                    .downcast_ref::<TimestampNanosecondArray>()
+                    .unwrap();
+                Ok(ColumnarValue::Array(Arc::new(hour(array)?)))
+            }
+            d => {
+                return Err(DataFusionError::Internal(format!(
+                    "Extract does not support datatype {:?}",
+                    d
+                )))
+            } // DataType::Time32(_) => {}
+              // DataType::Time64(_) => {}
+        }
     }
 }
 

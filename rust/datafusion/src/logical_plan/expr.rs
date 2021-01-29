@@ -254,10 +254,14 @@ impl Expr {
                     DataType::Date32(_)
                     | DataType::Date64(_)
                     | DataType::Time32(_)
-                    | DataType::Time64(_) => Ok(DataType::Int32),
-                    _ => Err(DataFusionError::Internal(
-                        "Only Date and Time datatypes supported in Extract".to_owned(),
-                    )),
+                    | DataType::Time64(_)
+                    | DataType::Timestamp(arrow::datatypes::TimeUnit::Nanosecond, None) => {
+                        Ok(DataType::Int32)
+                    }
+                    dt => Err(DataFusionError::Internal(format!(
+                        "Only Date and Time datatypes supported in Extract, got {}",
+                        dt
+                    ))),
                 }
             }
         }
@@ -1015,11 +1019,8 @@ impl fmt::Debug for Expr {
                 }
             }
             Expr::Wildcard => write!(f, "*"),
-            Expr::Extract {
-                date_part: DatePart::Hour,
-                expr,
-            } => {
-                write!(f, "EXTRACT(HOUR FROM {:?})", expr)
+            Expr::Extract { date_part, expr } => {
+                write!(f, "EXTRACT({} FROM {:?})", date_part, expr)
             }
         }
     }
