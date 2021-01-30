@@ -342,5 +342,123 @@ TEST(ApplicationVersion, Basics) {
       version1.HasCorrectStatistics(Type::BYTE_ARRAY, stats_int, SortOrder::UNSIGNED));
 }
 
+TEST(ApplicationVersion, Empty) {
+  ApplicationVersion version("");
+
+  ASSERT_EQ("", version.application_);
+  ASSERT_EQ("", version.build_);
+  ASSERT_EQ(0, version.version.major);
+  ASSERT_EQ(0, version.version.minor);
+  ASSERT_EQ(0, version.version.patch);
+  ASSERT_EQ("", version.version.unknown);
+  ASSERT_EQ("", version.version.pre_release);
+  ASSERT_EQ("", version.version.build_info);
+}
+
+TEST(ApplicationVersion, VersionEmpty) {
+  ApplicationVersion version("parquet-mr version ");
+
+  ASSERT_EQ("parquet-mr", version.application_);
+  ASSERT_EQ("", version.build_);
+  ASSERT_EQ(0, version.version.major);
+  ASSERT_EQ(0, version.version.minor);
+  ASSERT_EQ(0, version.version.patch);
+  ASSERT_EQ("", version.version.unknown);
+  ASSERT_EQ("", version.version.pre_release);
+  ASSERT_EQ("", version.version.build_info);
+}
+
+TEST(ApplicationVersion, VersionNoMajor) {
+  ApplicationVersion version("parquet-mr version .");
+
+  ASSERT_EQ("parquet-mr", version.application_);
+  ASSERT_EQ("", version.build_);
+  ASSERT_EQ(0, version.version.major);
+  ASSERT_EQ(0, version.version.minor);
+  ASSERT_EQ(0, version.version.patch);
+  ASSERT_EQ("", version.version.unknown);
+  ASSERT_EQ("", version.version.pre_release);
+  ASSERT_EQ("", version.version.build_info);
+}
+
+TEST(ApplicationVersion, VersionNoMinor) {
+  ApplicationVersion version("parquet-mr version 1.");
+
+  ASSERT_EQ("parquet-mr", version.application_);
+  ASSERT_EQ("", version.build_);
+  ASSERT_EQ(1, version.version.major);
+  ASSERT_EQ(0, version.version.minor);
+  ASSERT_EQ(0, version.version.patch);
+  ASSERT_EQ("", version.version.unknown);
+  ASSERT_EQ("", version.version.pre_release);
+  ASSERT_EQ("", version.version.build_info);
+}
+
+TEST(ApplicationVersion, VersionNoPatch) {
+  ApplicationVersion version("parquet-mr version 1.7.");
+
+  ASSERT_EQ("parquet-mr", version.application_);
+  ASSERT_EQ("", version.build_);
+  ASSERT_EQ(1, version.version.major);
+  ASSERT_EQ(7, version.version.minor);
+  ASSERT_EQ(0, version.version.patch);
+  ASSERT_EQ("", version.version.unknown);
+  ASSERT_EQ("", version.version.pre_release);
+  ASSERT_EQ("", version.version.build_info);
+}
+
+TEST(ApplicationVersion, VersionNoUnknown) {
+  ApplicationVersion version("parquet-mr version 1.7.9-cdh5.5.0+cd");
+
+  ASSERT_EQ("parquet-mr", version.application_);
+  ASSERT_EQ("", version.build_);
+  ASSERT_EQ(1, version.version.major);
+  ASSERT_EQ(7, version.version.minor);
+  ASSERT_EQ(9, version.version.patch);
+  ASSERT_EQ("", version.version.unknown);
+  ASSERT_EQ("cdh5.5.0", version.version.pre_release);
+  ASSERT_EQ("cd", version.version.build_info);
+}
+
+TEST(ApplicationVersion, VersionNoPreRelease) {
+  ApplicationVersion version("parquet-mr version 1.7.9ab+cd");
+
+  ASSERT_EQ("parquet-mr", version.application_);
+  ASSERT_EQ("", version.build_);
+  ASSERT_EQ(1, version.version.major);
+  ASSERT_EQ(7, version.version.minor);
+  ASSERT_EQ(9, version.version.patch);
+  ASSERT_EQ("ab", version.version.unknown);
+  ASSERT_EQ("", version.version.pre_release);
+  ASSERT_EQ("cd", version.version.build_info);
+}
+
+TEST(ApplicationVersion, VersionNoUnknownNoPreRelease) {
+  ApplicationVersion version("parquet-mr version 1.7.9+cd");
+
+  ASSERT_EQ("parquet-mr", version.application_);
+  ASSERT_EQ("", version.build_);
+  ASSERT_EQ(1, version.version.major);
+  ASSERT_EQ(7, version.version.minor);
+  ASSERT_EQ(9, version.version.patch);
+  ASSERT_EQ("", version.version.unknown);
+  ASSERT_EQ("", version.version.pre_release);
+  ASSERT_EQ("cd", version.version.build_info);
+}
+
+TEST(ApplicationVersion, FullWithSpaces) {
+  ApplicationVersion version(
+      " parquet-mr  version  1.5.3ab-cdh5.5.0+cd  (build  abcd ) ");
+
+  ASSERT_EQ("parquet-mr", version.application_);
+  ASSERT_EQ("abcd", version.build_);
+  ASSERT_EQ(1, version.version.major);
+  ASSERT_EQ(5, version.version.minor);
+  ASSERT_EQ(3, version.version.patch);
+  ASSERT_EQ("ab", version.version.unknown);
+  ASSERT_EQ("cdh5.5.0", version.version.pre_release);
+  ASSERT_EQ("cd", version.version.build_info);
+}
+
 }  // namespace metadata
 }  // namespace parquet
