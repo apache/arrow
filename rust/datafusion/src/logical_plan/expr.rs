@@ -174,7 +174,7 @@ pub enum Expr {
     Extract {
         /// The date part, e.g. `DatePart::Hour`
         date_part: DatePart,
-        /// The expression being cast
+        /// The expression to extract the date part from
         expr: Box<Expr>,
     },
 }

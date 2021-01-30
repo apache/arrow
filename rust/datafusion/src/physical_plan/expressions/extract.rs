@@ -21,7 +21,7 @@ impl fmt::Display for Extract {
     }
 }
 
-/// InList
+/// Extract
 #[derive(Debug)]
 pub struct Extract {
     date_part: DatePart,
