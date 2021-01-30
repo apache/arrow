@@ -107,9 +107,7 @@ where
     PrimitiveArray<OffsetType>: From<Vec<Option<OffsetType::Native>>>,
 {
     // TODO: benchmark this function, there might be a faster unsafe alternative
-    // get list array's offsets
-    let offsets: Vec<OffsetType::Native> =
-        (0..=list.len()).map(|i| list.value_offset(i)).collect();
+    let offsets: &[OffsetType::Native] = list.value_offsets();
 
     let mut new_offsets = Vec::with_capacity(indices.len());
     let mut values = Vec::new();

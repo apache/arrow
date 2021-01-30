@@ -118,9 +118,9 @@ groups:
   ######################## Tasks to run regularly #############################
 
   nightly:
-    - centos-*
-    - debian-*
-    - ubuntu-*
+    - debian-*-amd64
+    - ubuntu-*-amd64
+    - centos-*-amd64
     - conda-*
     - gandiva-*
     # List the homebrews explicitly because we don't care about running homebrew-cpp-autobrew

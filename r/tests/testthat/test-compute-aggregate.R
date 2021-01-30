@@ -214,3 +214,18 @@ test_that("match_arrow", {
   ca <- ChunkedArray$create(c(1, 4, 3, 1, 1, 3, 4))
   expect_equal(match_arrow(ca, tab), ChunkedArray$create(c(3L, 0L, 1L, 3L, 3L, 1L, 0L)))
 })
+
+test_that("value_counts", {
+  a <- Array$create(c(1, 4, 3, 1, 1, 3, 4))
+  result_df <- tibble::tibble(
+    values = c(1, 4, 3),
+    counts = c(3L, 2L, 2L)
+  )
+  result <- Array$create(
+    result_df,
+    type = struct(values = float64(), counts = int64())
+  )
+  expect_equal(value_counts(a), result)
+  expect_identical(as.data.frame(value_counts(a)), result_df)
+  expect_identical(as.vector(value_counts(a)$counts), result_df$counts)
+})

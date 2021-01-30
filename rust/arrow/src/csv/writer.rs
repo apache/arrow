@@ -156,14 +156,14 @@ impl<W: Write> Writer<W> {
                     let c = col.as_any().downcast_ref::<StringArray>().unwrap();
                     c.value(row_index).to_owned()
                 }
-                DataType::Date32(DateUnit::Day) => {
+                DataType::Date32 => {
                     let c = col.as_any().downcast_ref::<Date32Array>().unwrap();
                     c.value_as_date(row_index)
                         .unwrap()
                         .format(&self.date_format)
                         .to_string()
                 }
-                DataType::Date64(DateUnit::Millisecond) => {
+                DataType::Date64 => {
                     let c = col.as_any().downcast_ref::<Date64Array>().unwrap();
                     c.value_as_date(row_index)
                         .unwrap()

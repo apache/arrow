@@ -4,22 +4,19 @@
 \alias{cast_options}
 \title{Cast options}
 \usage{
-cast_options(
-  safe = TRUE,
-  allow_int_overflow = !safe,
-  allow_time_truncate = !safe,
-  allow_float_truncate = !safe
-)
+cast_options(safe = TRUE, ...)
 }
 \arguments{
-\item{safe}{enforce safe conversion}
+\item{safe}{logical: enforce safe conversion? Default \code{TRUE}}
 
-\item{allow_int_overflow}{allow int conversion, \code{!safe} by default}
-
-\item{allow_time_truncate}{allow time truncate, \code{!safe} by default}
-
-\item{allow_float_truncate}{allow float truncate, \code{!safe} by default}
+\item{...}{additional cast options, such as \code{allow_int_overflow},
+\code{allow_time_truncate}, and \code{allow_float_truncate}, which are set to \code{!safe}
+by default}
+}
+\value{
+A list
 }
 \description{
 Cast options
 }
+\keyword{internal}

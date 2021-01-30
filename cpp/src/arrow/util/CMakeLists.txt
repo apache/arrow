@@ -57,6 +57,7 @@ add_arrow_test(utility-test
                rle_encoding_test.cc
                stl_util_test.cc
                string_test.cc
+               tdigest_test.cc
                time_test.cc
                trie_test.cc
                uri_test.cc
@@ -78,6 +79,7 @@ add_arrow_benchmark(hashing_benchmark)
 add_arrow_benchmark(int_util_benchmark)
 add_arrow_benchmark(machine_benchmark)
 add_arrow_benchmark(range_benchmark)
+add_arrow_benchmark(tdigest_benchmark)
 add_arrow_benchmark(thread_pool_benchmark)
 add_arrow_benchmark(trie_benchmark)
 add_arrow_benchmark(utf8_util_benchmark)

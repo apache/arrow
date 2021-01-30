@@ -230,10 +230,8 @@ pub fn make_array(data: ArrayDataRef) -> ArrayRef {
         DataType::Float16 => panic!("Float16 datatype not supported"),
         DataType::Float32 => Arc::new(Float32Array::from(data)) as ArrayRef,
         DataType::Float64 => Arc::new(Float64Array::from(data)) as ArrayRef,
-        DataType::Date32(DateUnit::Day) => Arc::new(Date32Array::from(data)) as ArrayRef,
-        DataType::Date64(DateUnit::Millisecond) => {
-            Arc::new(Date64Array::from(data)) as ArrayRef
-        }
+        DataType::Date32 => Arc::new(Date32Array::from(data)) as ArrayRef,
+        DataType::Date64 => Arc::new(Date64Array::from(data)) as ArrayRef,
         DataType::Time32(TimeUnit::Second) => {
             Arc::new(Time32SecondArray::from(data)) as ArrayRef
         }
@@ -399,7 +397,7 @@ mod tests {
         let array = new_empty_array(&DataType::Utf8);
         let a = array.as_any().downcast_ref::<StringArray>().unwrap();
         assert_eq!(a.len(), 0);
-        assert_eq!(a.value_offset(0), 0i32);
+        assert_eq!(a.value_offsets()[0], 0i32);
     }
 
     #[test]
@@ -409,6 +407,6 @@ mod tests {
         let array = new_empty_array(&data_type);
         let a = array.as_any().downcast_ref::<ListArray>().unwrap();
         assert_eq!(a.len(), 0);
-        assert_eq!(a.value_offset(0), 0i32);
+        assert_eq!(a.value_offsets()[0], 0i32);
     }
 }

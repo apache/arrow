@@ -619,7 +619,7 @@ def test_read_partitioned_directory_s3fs_wrapper(
         pytest.skip("S3FSWrapper no longer working for s3fs 0.5+")
 
     fs, path = s3_example_s3fs
-    with pytest.warns(DeprecationWarning):
+    with pytest.warns(FutureWarning):
         wrapper = S3FSWrapper(fs)
     _partition_test_for_filesystem(wrapper, path)
 

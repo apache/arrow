@@ -245,11 +245,11 @@ if _sys.version_info >= (3, 7):
         if name in _deprecated:
             obj, new_name = _deprecated[name]
             _warnings.warn(_msg.format(name, new_name),
-                           DeprecationWarning, stacklevel=2)
+                           FutureWarning, stacklevel=2)
             return obj
         elif name in _serialization_deprecatd:
             _warnings.warn(_serialization_msg.format(name),
-                           DeprecationWarning, stacklevel=2)
+                           FutureWarning, stacklevel=2)
             return _serialization_deprecatd[name]
 
         raise AttributeError(

@@ -23,7 +23,7 @@ use serde_json::Value;
 use arrow::util::integration_util::ArrowJsonBatch;
 
 use arrow::array::*;
-use arrow::datatypes::{DataType, DateUnit, Field, IntervalUnit, Schema};
+use arrow::datatypes::{DataType, Field, IntervalUnit, Schema};
 use arrow::error::{ArrowError, Result};
 use arrow::record_batch::RecordBatch;
 use arrow::{
@@ -163,7 +163,7 @@ fn array_from_json(
             Ok(Arc::new(b.finish()))
         }
         DataType::Int32
-        | DataType::Date32(DateUnit::Day)
+        | DataType::Date32
         | DataType::Time32(_)
         | DataType::Interval(IntervalUnit::YearMonth) => {
             let mut b = Int32Builder::new(json_col.count);
@@ -183,7 +183,7 @@ fn array_from_json(
             arrow::compute::cast(&array, field.data_type())
         }
         DataType::Int64
-        | DataType::Date64(DateUnit::Millisecond)
+        | DataType::Date64
         | DataType::Time64(_)
         | DataType::Timestamp(_, _)
         | DataType::Duration(_)

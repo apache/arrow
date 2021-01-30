@@ -66,7 +66,11 @@ impl CsvFile {
                 let mut filenames: Vec<String> = vec![];
                 common::build_file_list(path, &mut filenames, options.file_extension)?;
                 if filenames.is_empty() {
-                    return Err(DataFusionError::Plan("No files found".to_string()));
+                    return Err(DataFusionError::Plan(format!(
+                        "No files found at {path} with file extension {file_extension}",
+                        path = path,
+                        file_extension = options.file_extension
+                    )));
                 }
                 CsvExec::try_infer_schema(&filenames, &options)?
             }

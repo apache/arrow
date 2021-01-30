@@ -166,8 +166,8 @@ pub fn array_value_to_string(column: &array::ArrayRef, row: usize) -> Result<Str
         DataType::Timestamp(unit, _) if *unit == TimeUnit::Nanosecond => {
             make_string_datetime!(array::TimestampNanosecondArray, column, row)
         }
-        DataType::Date32(_) => make_string_date!(array::Date32Array, column, row),
-        DataType::Date64(_) => make_string_date!(array::Date64Array, column, row),
+        DataType::Date32 => make_string_date!(array::Date32Array, column, row),
+        DataType::Date64 => make_string_date!(array::Date64Array, column, row),
         DataType::Time32(unit) if *unit == TimeUnit::Second => {
             make_string_time!(array::Time32SecondArray, column, row)
         }

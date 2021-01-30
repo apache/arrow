@@ -59,8 +59,8 @@ pub(super) fn fixed_binary_equal(
             let lhs_pos = lhs_start + i;
             let rhs_pos = rhs_start + i;
 
-            let lhs_is_null = !get_bit(lhs_null_bytes, lhs_pos);
-            let rhs_is_null = !get_bit(rhs_null_bytes, rhs_pos);
+            let lhs_is_null = !get_bit(lhs_null_bytes, lhs_pos + lhs.offset());
+            let rhs_is_null = !get_bit(rhs_null_bytes, rhs_pos + rhs.offset());
 
             lhs_is_null
                 || (lhs_is_null == rhs_is_null)

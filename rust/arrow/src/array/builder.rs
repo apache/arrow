@@ -1342,8 +1342,8 @@ pub fn make_builder(datatype: &DataType, capacity: usize) -> Box<ArrayBuilder> {
             Box::new(DecimalBuilder::new(capacity, *precision, *scale))
         }
         DataType::Utf8 => Box::new(StringBuilder::new(capacity)),
-        DataType::Date32(DateUnit::Day) => Box::new(Date32Builder::new(capacity)),
-        DataType::Date64(DateUnit::Millisecond) => Box::new(Date64Builder::new(capacity)),
+        DataType::Date32 => Box::new(Date32Builder::new(capacity)),
+        DataType::Date64 => Box::new(Date64Builder::new(capacity)),
         DataType::Time32(TimeUnit::Second) => {
             Box::new(Time32SecondBuilder::new(capacity))
         }
@@ -1569,14 +1569,14 @@ impl FieldData {
             DataType::Int8 => self.append_null::<Int8Type>()?,
             DataType::Int16 => self.append_null::<Int16Type>()?,
             DataType::Int32
-            | DataType::Date32(_)
+            | DataType::Date32
             | DataType::Time32(_)
             | DataType::Interval(IntervalUnit::YearMonth) => {
                 self.append_null::<Int32Type>()?
             }
             DataType::Int64
             | DataType::Timestamp(_, _)
-            | DataType::Date64(_)
+            | DataType::Date64
             | DataType::Time64(_)
             | DataType::Interval(IntervalUnit::DayTime)
             | DataType::Duration(_) => self.append_null::<Int64Type>()?,
@@ -2420,7 +2420,7 @@ mod tests {
         assert_eq!(DataType::Int32, list_array.value_type());
         assert_eq!(3, list_array.len());
         assert_eq!(0, list_array.null_count());
-        assert_eq!(6, list_array.value_offset(2));
+        assert_eq!(6, list_array.value_offsets()[2]);
         assert_eq!(2, list_array.value_length(2));
         for i in 0..3 {
             assert!(list_array.is_valid(i));
@@ -2456,7 +2456,7 @@ mod tests {
         assert_eq!(DataType::Int32, list_array.value_type());
         assert_eq!(3, list_array.len());
         assert_eq!(0, list_array.null_count());
-        assert_eq!(6, list_array.value_offset(2));
+        assert_eq!(6, list_array.value_offsets()[2]);
         assert_eq!(2, list_array.value_length(2));
         for i in 0..3 {
             assert!(list_array.is_valid(i));
@@ -2487,7 +2487,7 @@ mod tests {
         assert_eq!(DataType::Int32, list_array.value_type());
         assert_eq!(4, list_array.len());
         assert_eq!(1, list_array.null_count());
-        assert_eq!(3, list_array.value_offset(2));
+        assert_eq!(3, list_array.value_offsets()[2]);
         assert_eq!(3, list_array.value_length(2));
     }
 
@@ -2514,7 +2514,7 @@ mod tests {
         assert_eq!(DataType::Int32, list_array.value_type());
         assert_eq!(4, list_array.len());
         assert_eq!(1, list_array.null_count());
-        assert_eq!(3, list_array.value_offset(2));
+        assert_eq!(3, list_array.value_offsets()[2]);
         assert_eq!(3, list_array.value_length(2));
     }
 
@@ -2681,7 +2681,7 @@ mod tests {
         assert_eq!([b'h', b'e', b'l', b'l', b'o'], binary_array.value(0));
         assert_eq!([] as [u8; 0], binary_array.value(1));
         assert_eq!([b'w', b'o', b'r', b'l', b'd'], binary_array.value(2));
-        assert_eq!(5, binary_array.value_offset(2));
+        assert_eq!(5, binary_array.value_offsets()[2]);
         assert_eq!(5, binary_array.value_length(2));
     }
 
@@ -2710,7 +2710,7 @@ mod tests {
         assert_eq!([b'h', b'e', b'l', b'l', b'o'], binary_array.value(0));
         assert_eq!([] as [u8; 0], binary_array.value(1));
         assert_eq!([b'w', b'o', b'r', b'l', b'd'], binary_array.value(2));
-        assert_eq!(5, binary_array.value_offset(2));
+        assert_eq!(5, binary_array.value_offsets()[2]);
         assert_eq!(5, binary_array.value_length(2));
     }
 
@@ -2729,7 +2729,7 @@ mod tests {
         assert_eq!("hello", string_array.value(0));
         assert_eq!("", string_array.value(1));
         assert_eq!("world", string_array.value(2));
-        assert_eq!(5, string_array.value_offset(2));
+        assert_eq!(5, string_array.value_offsets()[2]);
         assert_eq!(5, string_array.value_length(2));
     }
 
@@ -2802,7 +2802,7 @@ mod tests {
         assert_eq!("hello", string_array.value(0));
         assert_eq!("", string_array.value(1));
         assert_eq!("world", string_array.value(2));
-        assert_eq!(5, string_array.value_offset(2));
+        assert_eq!(5, string_array.value_offsets()[2]);
         assert_eq!(5, string_array.value_length(2));
     }
 

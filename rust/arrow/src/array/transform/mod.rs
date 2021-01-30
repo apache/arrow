@@ -183,12 +183,12 @@ fn build_extend(array: &ArrayData) -> Extend {
         DataType::Int64 => primitive::build_extend::<i64>(array),
         DataType::Float32 => primitive::build_extend::<f32>(array),
         DataType::Float64 => primitive::build_extend::<f64>(array),
-        DataType::Date32(_)
+        DataType::Date32
         | DataType::Time32(_)
         | DataType::Interval(IntervalUnit::YearMonth) => {
             primitive::build_extend::<i32>(array)
         }
-        DataType::Date64(_)
+        DataType::Date64
         | DataType::Time64(_)
         | DataType::Timestamp(_, _)
         | DataType::Duration(_)
@@ -238,10 +238,10 @@ fn build_extend_nulls(data_type: &DataType) -> ExtendNulls {
         DataType::Int64 => primitive::extend_nulls::<i64>,
         DataType::Float32 => primitive::extend_nulls::<f32>,
         DataType::Float64 => primitive::extend_nulls::<f64>,
-        DataType::Date32(_)
+        DataType::Date32
         | DataType::Time32(_)
         | DataType::Interval(IntervalUnit::YearMonth) => primitive::extend_nulls::<i32>,
-        DataType::Date64(_)
+        DataType::Date64
         | DataType::Time64(_)
         | DataType::Timestamp(_, _)
         | DataType::Duration(_)
@@ -304,8 +304,8 @@ impl<'a> MutableArrayData<'a> {
             | DataType::Int64
             | DataType::Float32
             | DataType::Float64
-            | DataType::Date32(_)
-            | DataType::Date64(_)
+            | DataType::Date32
+            | DataType::Date64
             | DataType::Time32(_)
             | DataType::Time64(_)
             | DataType::Duration(_)

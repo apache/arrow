@@ -823,7 +823,7 @@ def test_serialize_pandas_no_preserve_index():
 
 
 @pytest.mark.pandas
-@pytest.mark.filterwarnings("ignore:'pyarrow:DeprecationWarning")
+@pytest.mark.filterwarnings("ignore:'pyarrow:FutureWarning")
 def test_serialize_with_pandas_objects():
     df = pd.DataFrame({'a': [1, 2, 3]}, index=[1, 2, 3])
     s = pd.Series([1, 2, 3, 4])

@@ -250,7 +250,7 @@ fn create_primitive_array(
         | UInt16
         | UInt32
         | Time32(_)
-        | Date32(_)
+        | Date32
         | Interval(IntervalUnit::YearMonth) => {
             if buffers[1].len() / 8 == length && length != 1 {
                 // interpret as a signed i64, and cast appropriately
@@ -307,7 +307,7 @@ fn create_primitive_array(
         | Float64
         | Time64(_)
         | Timestamp(_, _)
-        | Date64(_)
+        | Date64
         | Duration(_)
         | Interval(IntervalUnit::DayTime) => {
             let mut builder = ArrayData::builder(data_type.clone())

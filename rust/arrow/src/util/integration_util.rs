@@ -237,12 +237,12 @@ impl ArrowJsonBatch {
                         let arr = arr.as_any().downcast_ref::<Int16Array>().unwrap();
                         arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
                     }
-                    DataType::Int32 | DataType::Date32(_) | DataType::Time32(_) => {
+                    DataType::Int32 | DataType::Date32 | DataType::Time32(_) => {
                         let arr = Int32Array::from(arr.data());
                         arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
                     }
                     DataType::Int64
-                    | DataType::Date64(_)
+                    | DataType::Date64
                     | DataType::Time64(_)
                     | DataType::Timestamp(_, _)
                     | DataType::Duration(_) => {
@@ -494,7 +494,7 @@ fn json_from_col(col: &ArrowJsonColumn, data_type: &DataType) -> Vec<Value> {
         DataType::Struct(fields) => json_from_struct_col(col, fields),
         DataType::Int64
         | DataType::UInt64
-        | DataType::Date64(_)
+        | DataType::Date64
         | DataType::Time64(_)
         | DataType::Timestamp(_, _)
         | DataType::Duration(_) => {
@@ -762,8 +762,8 @@ mod tests {
             Field::new("uint64s", DataType::UInt64, true),
             Field::new("float32s", DataType::Float32, true),
             Field::new("float64s", DataType::Float64, true),
-            Field::new("date_days", DataType::Date32(DateUnit::Day), true),
-            Field::new("date_millis", DataType::Date64(DateUnit::Millisecond), true),
+            Field::new("date_days", DataType::Date32, true),
+            Field::new("date_millis", DataType::Date64, true),
             Field::new("time_secs", DataType::Time32(TimeUnit::Second), true),
             Field::new("time_millis", DataType::Time32(TimeUnit::Millisecond), true),
             Field::new("time_micros", DataType::Time64(TimeUnit::Microsecond), true),
