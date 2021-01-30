@@ -90,7 +90,7 @@ where
         dt => {
             return {
                 Err(ArrowError::ComputeError(format!(
-                    "hour does not support type {:?}",
+                    "year does not support type {:?}",
                     dt
                 )))
             }
