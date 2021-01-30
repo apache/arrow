@@ -167,7 +167,7 @@ mod tests {
 
     #[test]
     fn test_temporal_array_date32_year() {
-        let a: PrimitiveArray<Date32Type> = vec![Some(15147), None, Some(15248)].into();
+        let a: PrimitiveArray<Date32Type> = vec![Some(15147), None, Some(15448)].into();
 
         let b = year(&a).unwrap();
         assert_eq!(2011, b.value(0));
