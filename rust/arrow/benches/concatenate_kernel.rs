@@ -19,61 +19,15 @@
 extern crate criterion;
 use criterion::Criterion;
 
-use rand::distributions::{Alphanumeric, Distribution, Standard};
-use rand::Rng;
-
-use std::sync::Arc;
-
 extern crate arrow;
 
 use arrow::array::*;
 use arrow::compute::concat;
 use arrow::datatypes::*;
-use arrow::util::test_util::seedable_rng;
+use arrow::util::bench_util::*;
 
-// cast array from specified primitive array type to desired data type
-fn create_primitive<T>(size: usize, null_density: f32) -> ArrayRef
-where
-    T: ArrowPrimitiveType,
-    Standard: Distribution<T::Native>,
-    PrimitiveArray<T>: std::convert::From<Vec<T::Native>>,
-{
-    let mut rng = seedable_rng();
-
-    let array: PrimitiveArray<T> = seedable_rng()
-        .sample_iter(&Standard)
-        .take(size)
-        .map(|value| {
-            let x = rng.gen::<f32>();
-            if x < null_density {
-                Some(value)
-            } else {
-                None
-            }
-        })
-        .collect();
-
-    Arc::new(array) as ArrayRef
-}
-
-fn create_strings(size: usize, null_density: f32) -> ArrayRef {
-    let rng = &mut seedable_rng();
-
-    let mut builder = StringBuilder::new(size);
-    for _ in 0..size {
-        let x = rng.gen::<f32>();
-        if x < null_density {
-            let value = rng.sample_iter(&Alphanumeric).take(4).collect::<String>();
-            builder.append_value(&value).unwrap();
-        } else {
-            builder.append_null().unwrap()
-        }
-    }
-    Arc::new(builder.finish())
-}
-
-fn bench_concat(v1: &ArrayRef, v2: &ArrayRef) {
-    criterion::black_box(concat(&[v1.as_ref(), v2.as_ref()]).unwrap());
+fn bench_concat(v1: &dyn Array, v2: &dyn Array) {
+    criterion::black_box(concat(&[v1, v2]).unwrap());
 }
 
 fn bench_concat_arrays(arrays: &[&dyn Array]) {
@@ -81,28 +35,28 @@ fn bench_concat_arrays(arrays: &[&dyn Array]) {
 }
 
 fn add_benchmark(c: &mut Criterion) {
-    let v1 = create_primitive::<Int32Type>(1024, 0.0);
-    let v2 = create_primitive::<Int32Type>(1024, 0.0);
+    let v1 = create_primitive_array::<Int32Type>(1024, 0.0);
+    let v2 = create_primitive_array::<Int32Type>(1024, 0.0);
     c.bench_function("concat i32 1024", |b| b.iter(|| bench_concat(&v1, &v2)));
 
-    let v1 = create_primitive::<Int32Type>(1024, 0.5);
-    let v2 = create_primitive::<Int32Type>(1024, 0.5);
+    let v1 = create_primitive_array::<Int32Type>(1024, 0.5);
+    let v2 = create_primitive_array::<Int32Type>(1024, 0.5);
     c.bench_function("concat i32 nulls 1024", |b| {
         b.iter(|| bench_concat(&v1, &v2))
     });
 
-    let small_array = create_primitive::<Int32Type>(4, 0.0);
-    let arrays: Vec<_> = (0..1024).map(|_| small_array.as_ref()).collect();
+    let small_array = create_primitive_array::<Int32Type>(4, 0.0);
+    let arrays: Vec<_> = (0..1024).map(|_| &small_array as &dyn Array).collect();
     c.bench_function("concat 1024 arrays i32 4", |b| {
         b.iter(|| bench_concat_arrays(&arrays))
     });
 
-    let v1 = create_strings(1024, 0.0);
-    let v2 = create_strings(1024, 0.0);
+    let v1 = create_string_array(1024, 0.0);
+    let v2 = create_string_array(1024, 0.0);
     c.bench_function("concat str 1024", |b| b.iter(|| bench_concat(&v1, &v2)));
 
-    let v1 = create_strings(1024, 0.5);
-    let v2 = create_strings(1024, 0.5);
+    let v1 = create_string_array(1024, 0.5);
+    let v2 = create_string_array(1024, 0.5);
     c.bench_function("concat str nulls 1024", |b| {
         b.iter(|| bench_concat(&v1, &v2))
     });

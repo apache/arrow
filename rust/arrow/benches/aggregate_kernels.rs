@@ -19,47 +19,11 @@
 extern crate criterion;
 use criterion::Criterion;
 
-use rand::{distributions::Alphanumeric, Rng};
-
 extern crate arrow;
 
-use arrow::array::*;
 use arrow::compute::kernels::aggregate::*;
-use arrow::util::test_util::seedable_rng;
-
-fn create_array(size: usize, with_nulls: bool) -> Float32Array {
-    // use random numbers to avoid spurious compiler optimizations wrt to branching
-    let mut rng = seedable_rng();
-    let mut builder = Float32Builder::new(size);
-
-    for _ in 0..size {
-        if with_nulls && rng.gen::<f32>() > 0.5 {
-            builder.append_null().unwrap();
-        } else {
-            builder.append_value(rng.gen()).unwrap();
-        }
-    }
-    builder.finish()
-}
-
-fn create_string_array(size: usize, with_nulls: bool) -> StringArray {
-    // use random numbers to avoid spurious compiler optimizations wrt to branching
-    let mut rng = seedable_rng();
-    let mut builder = StringBuilder::new(size);
-
-    for _ in 0..size {
-        if with_nulls && rng.gen::<f32>() > 0.5 {
-            builder.append_null().unwrap();
-        } else {
-            let string = seedable_rng()
-                .sample_iter(&Alphanumeric)
-                .take(10)
-                .collect::<String>();
-            builder.append_value(&string).unwrap();
-        }
-    }
-    builder.finish()
-}
+use arrow::util::bench_util::*;
+use arrow::{array::*, datatypes::Float32Type};
 
 fn bench_sum(arr_a: &Float32Array) {
     criterion::black_box(sum(&arr_a).unwrap());
@@ -78,22 +42,22 @@ fn bench_min_string(arr_a: &StringArray) {
 }
 
 fn add_benchmark(c: &mut Criterion) {
-    let arr_a = create_array(512, false);
+    let arr_a = create_primitive_array::<Float32Type>(512, 0.0);
 
     c.bench_function("sum 512", |b| b.iter(|| bench_sum(&arr_a)));
     c.bench_function("min 512", |b| b.iter(|| bench_min(&arr_a)));
     c.bench_function("max 512", |b| b.iter(|| bench_max(&arr_a)));
 
-    let arr_a = create_array(512, true);
+    let arr_a = create_primitive_array::<Float32Type>(512, 0.5);
 
     c.bench_function("sum nulls 512", |b| b.iter(|| bench_sum(&arr_a)));
     c.bench_function("min nulls 512", |b| b.iter(|| bench_min(&arr_a)));
     c.bench_function("max nulls 512", |b| b.iter(|| bench_max(&arr_a)));
 
-    let arr_b = create_string_array(512, false);
+    let arr_b = create_string_array(512, 0.0);
     c.bench_function("min string 512", |b| b.iter(|| bench_min_string(&arr_b)));
 
-    let arr_b = create_string_array(512, true);
+    let arr_b = create_string_array(512, 0.5);
     c.bench_function("min nulls string 512", |b| {
         b.iter(|| bench_min_string(&arr_b))
     });
