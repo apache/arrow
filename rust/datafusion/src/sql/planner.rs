@@ -416,31 +416,35 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
         let select_exprs = self.prepare_select_exprs(&plan, &select.projection)?;
 
         // Optionally the HAVING expression.
-        let having_expr_opt = if let Some(having_expr) = &select.having {
-            let having_expr = self.sql_expr_to_logical_expr(having_expr)?;
+        let having_expr_opt = select
+            .having
+            .as_ref()
+            .map::<Result<Expr>, _>(|having_expr| {
+                let having_expr = self.sql_expr_to_logical_expr(having_expr)?;
 
-            // This step "dereferences" any aliases in the HAVING clause.
-            //
-            // This is how we support queries with HAVING expressions that
-            // refer to aliased columns.
-            //
-            // For example:
-            //
-            //   SELECT c1 AS m FROM t HAVING m > 10;
-            //   SELECT c1, MAX(c2) AS m FROM t GROUP BY c1 HAVING m > 10;
-            //
-            // are rewritten as, respectively:
-            //
-            //   SELECT c1 AS m FROM t HAVING c1 > 10;
-            //   SELECT c1, MAX(c2) AS m FROM t GROUP BY c1 HAVING MAX(c2) > 10;
-            //
-            let having_expr =
-                resolve_aliases_to_exprs(&having_expr, &extract_aliases(&select_exprs))?;
+                // This step "dereferences" any aliases in the HAVING clause.
+                //
+                // This is how we support queries with HAVING expressions that
+                // refer to aliased columns.
+                //
+                // For example:
+                //
+                //   SELECT c1 AS m FROM t HAVING m > 10;
+                //   SELECT c1, MAX(c2) AS m FROM t GROUP BY c1 HAVING m > 10;
+                //
+                // are rewritten as, respectively:
+                //
+                //   SELECT c1 AS m FROM t HAVING c1 > 10;
+                //   SELECT c1, MAX(c2) AS m FROM t GROUP BY c1 HAVING MAX(c2) > 10;
+                //
+                let having_expr = resolve_aliases_to_exprs(
+                    &having_expr,
+                    &extract_aliases(&select_exprs),
+                )?;
 
-            Some(having_expr)
-        } else {
-            None
-        };
+                Ok(having_expr)
+            })
+            .transpose()?;
 
         // The outer expressions we will search through for
         // aggregates. Aggregates may be sourced from the SELECT...
