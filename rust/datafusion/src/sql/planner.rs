@@ -488,7 +488,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
 
         let plan = if let Some(having_expr_post_aggr) = having_expr_post_aggr_opt {
             LogicalPlanBuilder::from(&plan)
-                .filter(having_expr_post_aggr.clone())?
+                .filter(having_expr_post_aggr)?
                 .build()?
         } else {
             plan
