@@ -77,10 +77,10 @@ message ActionGetSQLInfoResult {
    * SQL_QUOTED_IDENTIFIER_CASE
    *
    */
-  map<string, TGetSQLInfoValue> flight_sql_info = 1;
+  map<string, GetSQLInfoValue> flight_sql_info = 1;
 
   // Implementation specific custom SQLInfo values.
-  map<string, TGetSQLInfoValue> custom_info = 2;
+  map<string, GetSQLInfoValue> custom_info = 2;
 }
 
 /*
@@ -135,8 +135,13 @@ message ActionGetSchemasRequest {
    */ 
   string catalog = 2;
 
-  // TODO: Clarify what kind of filter pattern - regex?
-  // Specifies a filter pattern for schemas to search for.
+  /*
+   * Specifies a filter pattern for schemas to search for.
+   * When no schema_filter_pattern is provided, the pattern will not be used to narrow the search.
+   * In the pattern string, two special characters can be used to denote matching rules:
+   *    - "%" means to match any substring with 0 or more characters.
+   *    - "_" means to match any one character.
+   */
   string schema_filter_pattern = 3;
 }
 
@@ -166,12 +171,20 @@ message ActionGetTablesRequest {
   // Specifies the Catalog to search for schemas.
   string catalog = 2;
 
-  // TODO: Clarify what kind of filter pattern - regex?
-  // Specifies a filter pattern for schemas to search for.
+  /* Specifies a filter pattern for schemas to search for.
+   * When no schema_filter_pattern is provided, the pattern will not be used to narrow the search.
+   * In the pattern string, two special characters can be used to denote matching rules:
+   *    - "%" means to match any substring with 0 or more characters.
+   *    - "_" means to match any one character.
+   */
   string schema_filter_pattern = 3;
 
-  // TODO: Clarify what kind of filter pattern - regex?
-  // Specifies a filter pattern for tables to search for.
+  /* Specifies a filter pattern for tables to search for.
+   * When no schema_filter_pattern is provided, the pattern will not be used to narrow the search.
+   * In the pattern string, two special characters can be used to denote matching rules:
+   *    - "%" means to match any substring with 0 or more characters.
+   *    - "_" means to match any one character.
+   */
   string table_name_filter_pattern = 4;
 
   // Specifies a filter of table types which must match.
