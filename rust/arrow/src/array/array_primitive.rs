@@ -28,9 +28,12 @@ use chrono::prelude::*;
 use super::array::print_long_array;
 use super::raw_pointer::RawPtrBox;
 use super::*;
-use crate::buffer::{Buffer, MutableBuffer};
 use crate::temporal_conversions;
 use crate::util::bit_util;
+use crate::{
+    buffer::{Buffer, MutableBuffer},
+    util::trusted_len_unzip,
+};
 
 /// Number of seconds in a day
 const SECONDS_IN_DAY: i64 = 86_400;
@@ -295,6 +298,29 @@ impl<T: ArrowPrimitiveType, Ptr: Borrow<Option<<T as ArrowPrimitiveType>::Native
             vec![buffer],
             vec![],
         );
+        PrimitiveArray::from(Arc::new(data))
+    }
+}
+
+impl<T: ArrowPrimitiveType> PrimitiveArray<T> {
+    /// Creates a [`PrimitiveArray`] from an iterator of trusted length.
+    /// # Safety
+    /// The iterator must be [`TrustedLen`](https://doc.rust-lang.org/std/iter/trait.TrustedLen.html).
+    /// I.e. that `size_hint().1` correctly reports its length.
+    #[inline]
+    pub unsafe fn from_trusted_len_iter<I, P>(iter: I) -> Self
+    where
+        P: std::borrow::Borrow<Option<<T as ArrowPrimitiveType>::Native>>,
+        I: IntoIterator<Item = P>,
+    {
+        let iterator = iter.into_iter();
+        let (_, upper) = iterator.size_hint();
+        let len = upper.expect("trusted_len_unzip requires an upper limit");
+
+        let (null, buffer) = trusted_len_unzip(iterator);
+
+        let data =
+            ArrayData::new(T::DATA_TYPE, len, None, Some(null), 0, vec![buffer], vec![]);
         PrimitiveArray::from(Arc::new(data))
     }
 }

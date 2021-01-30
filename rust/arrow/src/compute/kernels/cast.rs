@@ -860,9 +860,12 @@ where
     T::Native: num::NumCast,
     R::Native: num::NumCast,
 {
-    from.iter()
-        .map(|v| v.and_then(num::cast::cast::<T::Native, R::Native>))
-        .collect()
+    let iter = from
+        .iter()
+        .map(|v| v.and_then(num::cast::cast::<T::Native, R::Native>));
+    // Soundness:
+    //  The iterator is trustedLen because it comes from an `PrimitiveArray`.
+    unsafe { PrimitiveArray::<R>::from_trusted_len_iter(iter) }
 }
 
 /// Cast numeric types to Utf8
@@ -905,15 +908,18 @@ where
     T: ArrowNumericType,
     <T as ArrowPrimitiveType>::Native: lexical_core::FromLexical,
 {
-    (0..from.len())
-        .map(|i| {
-            if from.is_null(i) {
-                None
-            } else {
-                lexical_core::parse(from.value(i).as_bytes()).ok()
-            }
-        })
-        .collect()
+    let iter = (0..from.len()).map(|i| {
+        if from.is_null(i) {
+            None
+        } else {
+            lexical_core::parse(from.value(i).as_bytes()).ok()
+        }
+    });
+    // Benefit:
+    //     20% performance improvement
+    // Soundness:
+    //     The iterator is trustedLen because it comes from an `StringArray`.
+    unsafe { PrimitiveArray::<T>::from_trusted_len_iter(iter) }
 }
 
 /// Cast numeric types to Boolean
@@ -968,18 +974,21 @@ where
     T: ArrowNumericType,
     T::Native: num::NumCast,
 {
-    (0..from.len())
-        .map(|i| {
-            if from.is_null(i) {
-                None
-            } else if from.value(i) {
-                // a workaround to cast a primitive to T::Native, infallible
-                num::cast::cast(1)
-            } else {
-                Some(T::default_value())
-            }
-        })
-        .collect()
+    let iter = (0..from.len()).map(|i| {
+        if from.is_null(i) {
+            None
+        } else if from.value(i) {
+            // a workaround to cast a primitive to T::Native, infallible
+            num::cast::cast(1)
+        } else {
+            Some(T::default_value())
+        }
+    });
+    // Benefit:
+    //     20% performance improvement
+    // Soundness:
+    //     The iterator is trustedLen because it comes from a Range
+    unsafe { PrimitiveArray::<T>::from_trusted_len_iter(iter) }
 }
 
 /// Attempts to cast an `ArrayDictionary` with index type K into

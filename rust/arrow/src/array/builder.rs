@@ -337,12 +337,6 @@ impl BooleanBufferBuilder {
 
     #[inline]
     pub fn append(&mut self, v: bool) {
-        self.push(v)
-    }
-
-    /// Adds a new element to the Builder.
-    #[inline]
-    pub fn push(&mut self, v: bool) {
         self.advance(1);
         if v {
             unsafe { bit_util::set_bit_raw(self.buffer.as_mut_ptr(), self.len - 1) };
@@ -382,6 +376,7 @@ impl BooleanBufferBuilder {
 }
 
 impl From<BooleanBufferBuilder> for Buffer {
+    #[inline]
     fn from(builder: BooleanBufferBuilder) -> Self {
         builder.buffer.into()
     }
