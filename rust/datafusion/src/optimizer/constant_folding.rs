@@ -31,17 +31,17 @@ use crate::scalar::ScalarValue;
 /// Recursively go through all expressionss and simplify the following cases:
 /// * `expr = ture` to `expr`
 /// * `expr = false` to `!expr`
-pub struct BooleanComparison {}
+pub struct ConstantFolding {}
 
-impl BooleanComparison {
+impl ConstantFolding {
     #[allow(missing_docs)]
     pub fn new() -> Self {
         Self {}
     }
 }
 
-impl OptimizerRule for BooleanComparison {
-    fn optimize(&mut self, plan: &LogicalPlan) -> Result<LogicalPlan> {
+impl OptimizerRule for ConstantFolding {
+    fn optimize(&self, plan: &LogicalPlan) -> Result<LogicalPlan> {
         match plan {
             LogicalPlan::Filter { predicate, input } => Ok(LogicalPlan::Filter {
                 predicate: optimize_expr(predicate),
@@ -75,7 +75,7 @@ impl OptimizerRule for BooleanComparison {
     }
 
     fn name(&self) -> &str {
-        "boolean_comparison"
+        "constant_folding"
     }
 }
 
@@ -265,7 +265,7 @@ mod tests {
     }
 
     fn assert_optimized_plan_eq(plan: &LogicalPlan, expected: &str) {
-        let mut rule = BooleanComparison::new();
+        let mut rule = ConstantFolding::new();
         let optimized_plan = rule.optimize(plan).expect("failed to optimize plan");
         let formatted_plan = format!("{:?}", optimized_plan);
         assert_eq!(formatted_plan, expected);

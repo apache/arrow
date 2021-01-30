@@ -40,7 +40,7 @@ use crate::execution::dataframe_impl::DataFrameImpl;
 use crate::logical_plan::{
     FunctionRegistry, LogicalPlan, LogicalPlanBuilder, ToDFSchema,
 };
-use crate::optimizer::boolean_comparison::BooleanComparison;
+use crate::optimizer::constant_folding::ConstantFolding;
 use crate::optimizer::filter_push_down::FilterPushDown;
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::projection_push_down::ProjectionPushDown;
@@ -513,7 +513,7 @@ impl ExecutionConfig {
             concurrency: num_cpus::get(),
             batch_size: 32768,
             optimizers: vec![
-                Arc::new(BooleanComparison::new()),
+                Arc::new(ConstantFolding::new()),
                 Arc::new(ProjectionPushDown::new()),
                 Arc::new(FilterPushDown::new()),
                 Arc::new(HashBuildProbeOrder::new()),
