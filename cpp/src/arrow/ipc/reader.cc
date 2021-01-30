@@ -1053,7 +1053,9 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
         file_->ReadAt(footer_offset_ - footer_length - file_end_size, footer_length));
 
     auto data = footer_buffer_->data();
-    flatbuffers::Verifier verifier(data, footer_buffer_->size(), 128);
+    flatbuffers::Verifier verifier(data, footer_buffer_->size(), /*max_depth=*/128,
+                                   /*max_tables=*/UINT_MAX);
+
     if (!flatbuf::VerifyFooterBuffer(verifier)) {
       return Status::IOError("Verification of flatbuffer-encoded Footer failed.");
     }

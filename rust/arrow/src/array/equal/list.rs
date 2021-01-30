@@ -144,15 +144,15 @@ pub(super) fn list_equal<T: OffsetSizeTrait>(
         )
     } else {
         // get a ref of the parent null buffer bytes, to use in testing for nullness
-        let lhs_null_bytes = rhs_nulls.unwrap().as_slice();
+        let lhs_null_bytes = lhs_nulls.unwrap().as_slice();
         let rhs_null_bytes = rhs_nulls.unwrap().as_slice();
         // with nulls, we need to compare item by item whenever it is not null
         (0..len).all(|i| {
             let lhs_pos = lhs_start + i;
             let rhs_pos = rhs_start + i;
 
-            let lhs_is_null = !get_bit(lhs_null_bytes, lhs_pos);
-            let rhs_is_null = !get_bit(rhs_null_bytes, rhs_pos);
+            let lhs_is_null = !get_bit(lhs_null_bytes, lhs_pos + lhs.offset());
+            let rhs_is_null = !get_bit(rhs_null_bytes, rhs_pos + rhs.offset());
 
             lhs_is_null
                 || (lhs_is_null == rhs_is_null)

@@ -251,8 +251,8 @@ impl Expr {
             } => {
                 let inner = expr.get_type(schema)?;
                 match inner {
-                    DataType::Date32(_)
-                    | DataType::Date64(_)
+                    DataType::Date32
+                    | DataType::Date64
                     | DataType::Time32(_)
                     | DataType::Time64(_)
                     | DataType::Timestamp(arrow::datatypes::TimeUnit::Nanosecond, None) => {

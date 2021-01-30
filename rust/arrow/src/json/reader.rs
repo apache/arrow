@@ -931,8 +931,8 @@ impl Decoder {
             DataType::Float32 => self.read_primitive_list_values::<Float32Type>(rows),
             DataType::Float64 => self.read_primitive_list_values::<Float64Type>(rows),
             DataType::Timestamp(_, _)
-            | DataType::Date32(_)
-            | DataType::Date64(_)
+            | DataType::Date32
+            | DataType::Date64
             | DataType::Time32(_)
             | DataType::Time64(_) => {
                 return Err(ArrowError::JsonError(
@@ -1084,10 +1084,10 @@ impl Decoder {
                                 field.name(),
                             ),
                     },
-                    DataType::Date64(_) => {
+                    DataType::Date64 => {
                         self.build_primitive_array::<Date64Type>(rows, field.name())
                     }
-                    DataType::Date32(_) => {
+                    DataType::Date32 => {
                         self.build_primitive_array::<Date32Type>(rows, field.name())
                     }
                     DataType::Time64(unit) => match unit {
@@ -2602,11 +2602,7 @@ mod tests {
 
     #[test]
     fn test_date_from_json_milliseconds() {
-        let schema = Schema::new(vec![Field::new(
-            "a",
-            DataType::Date64(DateUnit::Millisecond),
-            true,
-        )]);
+        let schema = Schema::new(vec![Field::new("a", DataType::Date64, true)]);
 
         let builder = ReaderBuilder::new()
             .with_schema(Arc::new(schema))
@@ -2624,7 +2620,7 @@ mod tests {
         assert_eq!(schema, batch_schema);
 
         let a = schema.column_with_name("a").unwrap();
-        assert_eq!(&DataType::Date64(DateUnit::Millisecond), a.1.data_type());
+        assert_eq!(&DataType::Date64, a.1.data_type());
 
         let aa = batch
             .column(a.0)

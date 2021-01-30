@@ -123,9 +123,9 @@ are mapped to Arrow types according to the following table
 | `REAL`          | `Float64`                        |
 | `DOUBLE`        | `Float64`                        |
 | `BOOLEAN`       | `Boolean`                        |
-| `DATE`          | `Date64(DateUnit::Day)`          |
+| `DATE`          | `Date32`                         |
 | `TIME`          | `Time64(TimeUnit::Millisecond)`  |
-| `TIMESTAMP`     | `Date64(DateUnit::Millisecond)`  |
+| `TIMESTAMP`     | `Date64`                         |
 | `INTERVAL`      | *Not yet supported*              |
 | `REGCLASS`      | *Not yet supported*              |
 | `TEXT`          | *Not yet supported*              |

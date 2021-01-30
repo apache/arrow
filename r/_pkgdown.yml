@@ -117,7 +117,6 @@ reference:
   - DataType
   - DictionaryType
   - FixedWidthType
-  - cast_options
 - title: Flight
   contents:
   - load_flight_server
@@ -146,6 +145,7 @@ reference:
 - title: Computation
   contents:
   - match_arrow
+  - value_counts
 - title: Configuration
   contents:
   - arrow_info

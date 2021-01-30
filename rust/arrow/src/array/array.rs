@@ -230,10 +230,8 @@ pub fn make_array(data: ArrayDataRef) -> ArrayRef {
         DataType::Float16 => panic!("Float16 datatype not supported"),
         DataType::Float32 => Arc::new(Float32Array::from(data)) as ArrayRef,
         DataType::Float64 => Arc::new(Float64Array::from(data)) as ArrayRef,
-        DataType::Date32(DateUnit::Day) => Arc::new(Date32Array::from(data)) as ArrayRef,
-        DataType::Date64(DateUnit::Millisecond) => {
-            Arc::new(Date64Array::from(data)) as ArrayRef
-        }
+        DataType::Date32 => Arc::new(Date32Array::from(data)) as ArrayRef,
+        DataType::Date64 => Arc::new(Date64Array::from(data)) as ArrayRef,
         DataType::Time32(TimeUnit::Second) => {
             Arc::new(Time32SecondArray::from(data)) as ArrayRef
         }

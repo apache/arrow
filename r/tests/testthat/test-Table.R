@@ -207,10 +207,11 @@ test_that("[[<- assignment", {
 
   # nonsense indexes
   expect_error(tab[[NA]] <- letters[10:1], "'i' must be character or numeric, not logical")
-  expect_error(tab[[NA_integer_]] <- letters[10:1], "'i' cannot be NA")
-  expect_error(tab[[NA_real_]] <- letters[10:1], "'i' cannot be NA")
-  expect_error(tab[[NA_character_]] <- letters[10:1], "'i' cannot be NA")
   expect_error(tab[[NULL]] <- letters[10:1], "'i' must be character or numeric, not NULL")
+  expect_error(tab[[NA_integer_]] <- letters[10:1], "!is.na(i) is not TRUE", fixed = TRUE)
+  expect_error(tab[[NA_real_]] <- letters[10:1], "!is.na(i) is not TRUE", fixed = TRUE)
+  expect_error(tab[[NA_character_]] <- letters[10:1], "!is.na(i) is not TRUE", fixed = TRUE)
+  expect_error(tab[[c(1, 4)]] <- letters[10:1], "length(i) not equal to 1", fixed = TRUE)
 })
 
 test_that("Table$Slice", {

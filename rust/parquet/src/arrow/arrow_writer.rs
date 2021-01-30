@@ -20,7 +20,7 @@
 use std::sync::Arc;
 
 use arrow::array as arrow_array;
-use arrow::datatypes::{DataType as ArrowDataType, DateUnit, IntervalUnit, SchemaRef};
+use arrow::datatypes::{DataType as ArrowDataType, IntervalUnit, SchemaRef};
 use arrow::record_batch::RecordBatch;
 use arrow_array::Array;
 
@@ -134,8 +134,8 @@ fn write_leaves(
         | ArrowDataType::Float32
         | ArrowDataType::Float64
         | ArrowDataType::Timestamp(_, _)
-        | ArrowDataType::Date32(_)
-        | ArrowDataType::Date64(_)
+        | ArrowDataType::Date32
+        | ArrowDataType::Date64
         | ArrowDataType::Time32(_)
         | ArrowDataType::Time64(_)
         | ArrowDataType::Duration(_)
@@ -204,9 +204,8 @@ fn write_leaf(
     let written = match writer {
         ColumnWriter::Int32ColumnWriter(ref mut typed) => {
             // If the column is a Date64, we cast it to a Date32, and then interpret that as Int32
-            let array = if let ArrowDataType::Date64(_) = column.data_type() {
-                let array =
-                    arrow::compute::cast(column, &ArrowDataType::Date32(DateUnit::Day))?;
+            let array = if let ArrowDataType::Date64 = column.data_type() {
+                let array = arrow::compute::cast(column, &ArrowDataType::Date32)?;
                 Arc::new(arrow_array::Int32Array::from(array.data()))
             } else {
                 arrow::compute::cast(column, &ArrowDataType::Int32)?

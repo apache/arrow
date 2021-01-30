@@ -1342,8 +1342,8 @@ pub fn make_builder(datatype: &DataType, capacity: usize) -> Box<ArrayBuilder> {
             Box::new(DecimalBuilder::new(capacity, *precision, *scale))
         }
         DataType::Utf8 => Box::new(StringBuilder::new(capacity)),
-        DataType::Date32(DateUnit::Day) => Box::new(Date32Builder::new(capacity)),
-        DataType::Date64(DateUnit::Millisecond) => Box::new(Date64Builder::new(capacity)),
+        DataType::Date32 => Box::new(Date32Builder::new(capacity)),
+        DataType::Date64 => Box::new(Date64Builder::new(capacity)),
         DataType::Time32(TimeUnit::Second) => {
             Box::new(Time32SecondBuilder::new(capacity))
         }
@@ -1569,14 +1569,14 @@ impl FieldData {
             DataType::Int8 => self.append_null::<Int8Type>()?,
             DataType::Int16 => self.append_null::<Int16Type>()?,
             DataType::Int32
-            | DataType::Date32(_)
+            | DataType::Date32
             | DataType::Time32(_)
             | DataType::Interval(IntervalUnit::YearMonth) => {
                 self.append_null::<Int32Type>()?
             }
             DataType::Int64
             | DataType::Timestamp(_, _)
-            | DataType::Date64(_)
+            | DataType::Date64
             | DataType::Time64(_)
             | DataType::Interval(IntervalUnit::DayTime)
             | DataType::Duration(_) => self.append_null::<Int64Type>()?,
