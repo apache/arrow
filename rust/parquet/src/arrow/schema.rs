@@ -26,7 +26,7 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use arrow::datatypes::{DataType, DateUnit, Field, IntervalUnit, Schema, TimeUnit};
+use arrow::datatypes::{DataType, Field, IntervalUnit, Schema, TimeUnit};
 use arrow::ipc::writer;
 
 use crate::errors::{ParquetError::ArrowError, Result};
@@ -371,12 +371,12 @@ fn arrow_to_parquet_type(field: &Field) -> Result<Type> {
                 .with_repetition(repetition)
                 .build()
         }
-        DataType::Date32(_) => Type::primitive_type_builder(name, PhysicalType::INT32)
+        DataType::Date32 => Type::primitive_type_builder(name, PhysicalType::INT32)
             .with_logical_type(LogicalType::DATE)
             .with_repetition(repetition)
             .build(),
         // date64 is cast to date32
-        DataType::Date64(_) => Type::primitive_type_builder(name, PhysicalType::INT32)
+        DataType::Date64 => Type::primitive_type_builder(name, PhysicalType::INT32)
             .with_logical_type(LogicalType::DATE)
             .with_repetition(repetition)
             .build(),
@@ -585,7 +585,7 @@ impl ParquetTypeConverter<'_> {
             LogicalType::INT_8 => Ok(DataType::Int8),
             LogicalType::INT_16 => Ok(DataType::Int16),
             LogicalType::INT_32 => Ok(DataType::Int32),
-            LogicalType::DATE => Ok(DataType::Date32(DateUnit::Day)),
+            LogicalType::DATE => Ok(DataType::Date32),
             LogicalType::TIME_MILLIS => Ok(DataType::Time32(TimeUnit::Millisecond)),
             LogicalType::DECIMAL => Ok(self.to_decimal()),
             other => Err(ArrowError(format!(
@@ -797,7 +797,7 @@ mod tests {
 
     use std::{collections::HashMap, convert::TryFrom, sync::Arc};
 
-    use arrow::datatypes::{DataType, DateUnit, Field, IntervalUnit, TimeUnit};
+    use arrow::datatypes::{DataType, Field, IntervalUnit, TimeUnit};
 
     use crate::file::{metadata::KeyValue, reader::SerializedFileReader};
     use crate::{
@@ -1416,7 +1416,7 @@ mod tests {
                 DataType::List(Box::new(Field::new("bools", DataType::Boolean, true))),
                 true,
             ),
-            Field::new("date", DataType::Date32(DateUnit::Day), true),
+            Field::new("date", DataType::Date32, true),
             Field::new("time_milli", DataType::Time32(TimeUnit::Millisecond), true),
             Field::new("time_micro", DataType::Time64(TimeUnit::Microsecond), true),
             Field::new(
@@ -1496,7 +1496,7 @@ mod tests {
                 DataType::List(Box::new(Field::new("element", DataType::Boolean, false))),
                 false,
             ),
-            Field::new("date", DataType::Date32(DateUnit::Day), true),
+            Field::new("date", DataType::Date32, true),
             Field::new("time_milli", DataType::Time32(TimeUnit::Millisecond), true),
             Field::new("time_micro", DataType::Time64(TimeUnit::Microsecond), true),
             Field::new(
@@ -1598,8 +1598,8 @@ mod tests {
                 Field::new("c2", DataType::Binary, false),
                 Field::new("c3", DataType::FixedSizeBinary(3), false),
                 Field::new("c4", DataType::Boolean, false),
-                Field::new("c5", DataType::Date32(DateUnit::Day), false),
-                Field::new("c6", DataType::Date64(DateUnit::Millisecond), false),
+                Field::new("c5", DataType::Date32, false),
+                Field::new("c6", DataType::Date64, false),
                 Field::new("c7", DataType::Time32(TimeUnit::Second), false),
                 Field::new("c8", DataType::Time32(TimeUnit::Millisecond), false),
                 Field::new("c13", DataType::Time64(TimeUnit::Microsecond), false),

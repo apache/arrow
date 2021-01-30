@@ -72,8 +72,8 @@ pub fn can_cast_types(from_type: &DataType, to_type: &DataType) -> bool {
         (_, Boolean) => DataType::is_numeric(from_type),
         (Boolean, _) => DataType::is_numeric(to_type) || to_type == &Utf8,
 
-        (Utf8, Date32(DateUnit::Day)) => true,
-        (Utf8, Date64(DateUnit::Millisecond)) => true,
+        (Utf8, Date32) => true,
+        (Utf8, Date64) => true,
         (Utf8, _) => DataType::is_numeric(to_type),
         (_, Utf8) => DataType::is_numeric(from_type) || from_type == &Binary,
 
@@ -180,16 +180,16 @@ pub fn can_cast_types(from_type: &DataType, to_type: &DataType) -> bool {
         // end numeric casts
 
         // temporal casts
-        (Int32, Date32(_)) => true,
+        (Int32, Date32) => true,
         (Int32, Time32(_)) => true,
-        (Date32(_), Int32) => true,
+        (Date32, Int32) => true,
         (Time32(_), Int32) => true,
-        (Int64, Date64(_)) => true,
+        (Int64, Date64) => true,
         (Int64, Time64(_)) => true,
-        (Date64(_), Int64) => true,
+        (Date64, Int64) => true,
         (Time64(_), Int64) => true,
-        (Date32(DateUnit::Day), Date64(DateUnit::Millisecond)) => true,
-        (Date64(DateUnit::Millisecond), Date32(DateUnit::Day)) => true,
+        (Date32, Date64) => true,
+        (Date64, Date32) => true,
         (Time32(TimeUnit::Second), Time32(TimeUnit::Millisecond)) => true,
         (Time32(TimeUnit::Millisecond), Time32(TimeUnit::Second)) => true,
         (Time32(_), Time64(_)) => true,
@@ -201,8 +201,8 @@ pub fn can_cast_types(from_type: &DataType, to_type: &DataType) -> bool {
         (Timestamp(_, _), Int64) => true,
         (Int64, Timestamp(_, _)) => true,
         (Timestamp(_, _), Timestamp(_, _)) => true,
-        (Timestamp(_, _), Date32(_)) => true,
-        (Timestamp(_, _), Date64(_)) => true,
+        (Timestamp(_, _), Date32) => true,
+        (Timestamp(_, _), Date64) => true,
         // date64 to timestamp might not make sense,
         (Int64, Duration(_)) => true,
         (Null, Int32) => true,
@@ -376,7 +376,7 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
             Int64 => cast_string_to_numeric::<Int64Type>(array),
             Float32 => cast_string_to_numeric::<Float32Type>(array),
             Float64 => cast_string_to_numeric::<Float64Type>(array),
-            Date32(DateUnit::Day) => {
+            Date32 => {
                 use chrono::Datelike;
                 let string_array = array.as_any().downcast_ref::<StringArray>().unwrap();
                 let mut builder = PrimitiveBuilder::<Date32Type>::new(string_array.len());
@@ -394,7 +394,7 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
                 }
                 Ok(Arc::new(builder.finish()) as ArrayRef)
             }
-            Date64(DateUnit::Millisecond) => {
+            Date64 => {
                 let string_array = array.as_any().downcast_ref::<StringArray>().unwrap();
                 let mut builder = PrimitiveBuilder::<Date64Type>::new(string_array.len());
                 for i in 0..string_array.len() {
@@ -547,7 +547,7 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
         // end numeric casts
 
         // temporal casts
-        (Int32, Date32(_)) => cast_array_data::<Date32Type>(array, to_type.clone()),
+        (Int32, Date32) => cast_array_data::<Date32Type>(array, to_type.clone()),
         (Int32, Time32(TimeUnit::Second)) => {
             cast_array_data::<Time32SecondType>(array, to_type.clone())
         }
@@ -555,9 +555,9 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
             cast_array_data::<Time32MillisecondType>(array, to_type.clone())
         }
         // No support for microsecond/nanosecond with i32
-        (Date32(_), Int32) => cast_array_data::<Int32Type>(array, to_type.clone()),
+        (Date32, Int32) => cast_array_data::<Int32Type>(array, to_type.clone()),
         (Time32(_), Int32) => cast_array_data::<Int32Type>(array, to_type.clone()),
-        (Int64, Date64(_)) => cast_array_data::<Date64Type>(array, to_type.clone()),
+        (Int64, Date64) => cast_array_data::<Date64Type>(array, to_type.clone()),
         // No support for second/milliseconds with i64
         (Int64, Time64(TimeUnit::Microsecond)) => {
             cast_array_data::<Time64MicrosecondType>(array, to_type.clone())
@@ -566,9 +566,9 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
             cast_array_data::<Time64NanosecondType>(array, to_type.clone())
         }
 
-        (Date64(_), Int64) => cast_array_data::<Int64Type>(array, to_type.clone()),
+        (Date64, Int64) => cast_array_data::<Int64Type>(array, to_type.clone()),
         (Time64(_), Int64) => cast_array_data::<Int64Type>(array, to_type.clone()),
-        (Date32(DateUnit::Day), Date64(DateUnit::Millisecond)) => {
+        (Date32, Date64) => {
             let date_array = array.as_any().downcast_ref::<Date32Array>().unwrap();
 
             let values =
@@ -576,7 +576,7 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
 
             Ok(Arc::new(values) as ArrayRef)
         }
-        (Date64(DateUnit::Millisecond), Date32(DateUnit::Day)) => {
+        (Date64, Date32) => {
             let date_array = array.as_any().downcast_ref::<Date64Array>().unwrap();
 
             let values = unary::<_, _, Date32Type>(date_array, |x| {
@@ -724,7 +724,7 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
                 ),
             }
         }
-        (Timestamp(from_unit, _), Date32(_)) => {
+        (Timestamp(from_unit, _), Date32) => {
             let time_array = Int64Array::from(array.data());
             let from_size = time_unit_multiple(&from_unit) * SECONDS_IN_DAY;
             let mut b = Date32Builder::new(array.len());
@@ -738,7 +738,7 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
 
             Ok(Arc::new(b.finish()) as ArrayRef)
         }
-        (Timestamp(from_unit, _), Date64(_)) => {
+        (Timestamp(from_unit, _), Date64) => {
             let from_size = time_unit_multiple(&from_unit);
             let to_size = MILLISECONDS;
 
@@ -1454,7 +1454,7 @@ mod tests {
     fn test_cast_date32_to_date64() {
         let a = Date32Array::from(vec![10000, 17890]);
         let array = Arc::new(a) as ArrayRef;
-        let b = cast(&array, &DataType::Date64(DateUnit::Millisecond)).unwrap();
+        let b = cast(&array, &DataType::Date64).unwrap();
         let c = b.as_any().downcast_ref::<Date64Array>().unwrap();
         assert_eq!(864000000000, c.value(0));
         assert_eq!(1545696000000, c.value(1));
@@ -1464,7 +1464,7 @@ mod tests {
     fn test_cast_date64_to_date32() {
         let a = Date64Array::from(vec![Some(864000000005), Some(1545696000001), None]);
         let array = Arc::new(a) as ArrayRef;
-        let b = cast(&array, &DataType::Date32(DateUnit::Day)).unwrap();
+        let b = cast(&array, &DataType::Date32).unwrap();
         let c = b.as_any().downcast_ref::<Date32Array>().unwrap();
         assert_eq!(10000, c.value(0));
         assert_eq!(17890, c.value(1));
@@ -1485,7 +1485,7 @@ mod tests {
     fn test_cast_int32_to_date32() {
         let a = Int32Array::from(vec![10000, 17890]);
         let array = Arc::new(a) as ArrayRef;
-        let b = cast(&array, &DataType::Date32(DateUnit::Day)).unwrap();
+        let b = cast(&array, &DataType::Date32).unwrap();
         let c = b.as_any().downcast_ref::<Date32Array>().unwrap();
         assert_eq!(10000, c.value(0));
         assert_eq!(17890, c.value(1));
@@ -1498,7 +1498,7 @@ mod tests {
             Some(String::from("UTC")),
         );
         let array = Arc::new(a) as ArrayRef;
-        let b = cast(&array, &DataType::Date32(DateUnit::Day)).unwrap();
+        let b = cast(&array, &DataType::Date32).unwrap();
         let c = b.as_any().downcast_ref::<Date32Array>().unwrap();
         assert_eq!(10000, c.value(0));
         assert_eq!(17890, c.value(1));
@@ -1512,7 +1512,7 @@ mod tests {
             None,
         );
         let array = Arc::new(a) as ArrayRef;
-        let b = cast(&array, &DataType::Date64(DateUnit::Millisecond)).unwrap();
+        let b = cast(&array, &DataType::Date64).unwrap();
         let c = b.as_any().downcast_ref::<Date64Array>().unwrap();
         assert_eq!(864000000005, c.value(0));
         assert_eq!(1545696000001, c.value(1));
@@ -2726,7 +2726,7 @@ mod tests {
             "2000",                // just a year is invalid
         ]);
         let array = Arc::new(a) as ArrayRef;
-        let b = cast(&array, &DataType::Date32(DateUnit::Day)).unwrap();
+        let b = cast(&array, &DataType::Date32).unwrap();
         let c = b.as_any().downcast_ref::<Date32Array>().unwrap();
 
         // test valid inputs
@@ -2757,7 +2757,7 @@ mod tests {
             "2000-01-01",          // just a date is invalid
         ]);
         let array = Arc::new(a) as ArrayRef;
-        let b = cast(&array, &DataType::Date64(DateUnit::Millisecond)).unwrap();
+        let b = cast(&array, &DataType::Date64).unwrap();
         let c = b.as_any().downcast_ref::<Date64Array>().unwrap();
 
         // test valid inputs
@@ -3024,8 +3024,8 @@ mod tests {
             Timestamp(TimeUnit::Millisecond, Some(tz_name.clone())),
             Timestamp(TimeUnit::Microsecond, Some(tz_name.clone())),
             Timestamp(TimeUnit::Nanosecond, Some(tz_name)),
-            Date32(DateUnit::Day),
-            Date64(DateUnit::Millisecond),
+            Date32,
+            Date64,
             Time32(TimeUnit::Second),
             Time32(TimeUnit::Millisecond),
             Time64(TimeUnit::Microsecond),

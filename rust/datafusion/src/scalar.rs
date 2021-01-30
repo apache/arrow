@@ -20,6 +20,11 @@
 use std::{convert::TryFrom, fmt, iter::repeat, sync::Arc};
 
 use arrow::array::{
+    Array, BooleanArray, Date32Array, Float32Array, Float64Array, Int16Array, Int32Array,
+    Int64Array, Int8Array, LargeStringArray, ListArray, StringArray, UInt16Array,
+    UInt32Array, UInt64Array, UInt8Array,
+};
+use arrow::array::{
     Int16Builder, Int32Builder, Int64Builder, Int8Builder, ListBuilder,
     TimestampMicrosecondArray, TimestampNanosecondArray, UInt16Builder, UInt32Builder,
     UInt64Builder, UInt8Builder,
@@ -27,14 +32,6 @@ use arrow::array::{
 use arrow::{
     array::ArrayRef,
     datatypes::{DataType, Field},
-};
-use arrow::{
-    array::{
-        Array, BooleanArray, Date32Array, Float32Array, Float64Array, Int16Array,
-        Int32Array, Int64Array, Int8Array, LargeStringArray, ListArray, StringArray,
-        UInt16Array, UInt32Array, UInt64Array, UInt8Array,
-    },
-    datatypes::DateUnit,
 };
 
 use crate::error::{DataFusionError, Result};
@@ -150,7 +147,7 @@ impl ScalarValue {
             ScalarValue::List(_, data_type) => {
                 DataType::List(Box::new(Field::new("item", data_type.clone(), true)))
             }
-            ScalarValue::Date32(_) => DataType::Date32(DateUnit::Day),
+            ScalarValue::Date32(_) => DataType::Date32,
         }
     }
 
@@ -358,7 +355,7 @@ impl ScalarValue {
                 };
                 ScalarValue::List(value, nested_type.data_type().clone())
             }
-            DataType::Date32(DateUnit::Day) => {
+            DataType::Date32 => {
                 typed_cast!(array, index, Date32Array, Date32)
             }
             other => {

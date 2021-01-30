@@ -48,7 +48,7 @@ use arrow::compute::kernels::comparison::{
     neq_utf8_scalar,
 };
 use arrow::compute::kernels::sort::{SortColumn, SortOptions};
-use arrow::datatypes::{DataType, DateUnit, Schema, TimeUnit};
+use arrow::datatypes::{DataType, Schema, TimeUnit};
 use arrow::record_batch::RecordBatch;
 use arrow::{
     array::{
@@ -1089,7 +1089,7 @@ macro_rules! binary_array_op_scalar {
             DataType::Timestamp(TimeUnit::Nanosecond, None) => {
                 compute_op_scalar!($LEFT, $RIGHT, $OP, TimestampNanosecondArray)
             }
-            DataType::Date32(DateUnit::Day) => {
+            DataType::Date32 => {
                 compute_op_scalar!($LEFT, $RIGHT, $OP, Date32Array)
             }
             other => Err(DataFusionError::Internal(format!(
@@ -1120,10 +1120,10 @@ macro_rules! binary_array_op {
             DataType::Timestamp(TimeUnit::Nanosecond, None) => {
                 compute_op!($LEFT, $RIGHT, $OP, TimestampNanosecondArray)
             }
-            DataType::Date32(DateUnit::Day) => {
+            DataType::Date32 => {
                 compute_op!($LEFT, $RIGHT, $OP, Date32Array)
             }
-            DataType::Date64(DateUnit::Millisecond) => {
+            DataType::Date64 => {
                 compute_op!($LEFT, $RIGHT, $OP, Date64Array)
             }
             other => Err(DataFusionError::Internal(format!(
@@ -1238,10 +1238,10 @@ fn string_coercion(lhs_type: &DataType, rhs_type: &DataType) -> Option<DataType>
 fn temporal_coercion(lhs_type: &DataType, rhs_type: &DataType) -> Option<DataType> {
     use arrow::datatypes::DataType::*;
     match (lhs_type, rhs_type) {
-        (Utf8, Date32(DateUnit::Day)) => Some(Date32(DateUnit::Day)),
-        (Date32(DateUnit::Day), Utf8) => Some(Date32(DateUnit::Day)),
-        (Utf8, Date64(DateUnit::Millisecond)) => Some(Date64(DateUnit::Millisecond)),
-        (Date64(DateUnit::Millisecond), Utf8) => Some(Date64(DateUnit::Millisecond)),
+        (Utf8, Date32) => Some(Date32),
+        (Date32, Utf8) => Some(Date32),
+        (Utf8, Date64) => Some(Date64),
+        (Date64, Utf8) => Some(Date64),
         _ => None,
     }
 }
@@ -3014,7 +3014,7 @@ mod tests {
             DataType::Utf8,
             vec!["1994-12-13", "1995-01-26"],
             Date32Array,
-            DataType::Date32(DateUnit::Day),
+            DataType::Date32,
             vec![9112, 9156],
             Operator::Eq,
             BooleanArray,
@@ -3026,7 +3026,7 @@ mod tests {
             DataType::Utf8,
             vec!["1994-12-13", "1995-01-26"],
             Date32Array,
-            DataType::Date32(DateUnit::Day),
+            DataType::Date32,
             vec![9113, 9154],
             Operator::Lt,
             BooleanArray,
@@ -3038,7 +3038,7 @@ mod tests {
             DataType::Utf8,
             vec!["1994-12-13T12:34:56", "1995-01-26T01:23:45"],
             Date64Array,
-            DataType::Date64(DateUnit::Millisecond),
+            DataType::Date64,
             vec![787322096000, 791083425000],
             Operator::Eq,
             BooleanArray,
@@ -3050,7 +3050,7 @@ mod tests {
             DataType::Utf8,
             vec!["1994-12-13T12:34:56", "1995-01-26T01:23:45"],
             Date64Array,
-            DataType::Date64(DateUnit::Millisecond),
+            DataType::Date64,
             vec![787322096001, 791083424999],
             Operator::Lt,
             BooleanArray,
