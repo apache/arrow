@@ -27,7 +27,7 @@ use crate::data_type::{ByteArray, Decimal, Int96};
 use crate::errors::{ParquetError, Result};
 use crate::schema::types::ColumnDescPtr;
 
-#[cfg(feature = "json_output")]
+#[cfg(feature = "cli")]
 use serde_json::Value;
 
 /// Macro as a shortcut to generate 'not yet implemented' panic error.
@@ -79,7 +79,7 @@ impl Row {
         }
     }
 
-    #[cfg(feature = "json_output")]
+    #[cfg(feature = "cli")]
     pub fn to_json_value(&self) -> Value {
         Value::Object(
             self.fields
@@ -649,7 +649,7 @@ impl Field {
         }
     }
 
-    #[cfg(feature = "json_output")]
+    #[cfg(feature = "cli")]
     pub fn to_json_value(&self) -> Value {
         match &self {
             Field::Null => Value::Null,
@@ -662,7 +662,7 @@ impl Field {
             Field::UShort(n) => Value::Number(serde_json::Number::from(*n)),
             Field::UInt(n) => Value::Number(serde_json::Number::from(*n)),
             Field::ULong(n) => Value::Number(serde_json::Number::from(*n)),
-            Field::Float(n) => serde_json::Number::from_f64(*n as f64)
+            Field::Float(n) => serde_json::Number::from_f64(f64::from(*n))
                 .map(Value::Number)
                 .unwrap_or(Value::Null),
             Field::Double(n) => serde_json::Number::from_f64(*n)
@@ -1669,6 +1669,117 @@ mod tests {
                 map.get_values().get_string(i).unwrap()
             );
         }
+    }
+
+    #[test]
+    #[cfg(feature = "cli")]
+    fn test_to_json_value() {
+        assert_eq!(Field::Null.to_json_value(), Value::Null);
+        assert_eq!(Field::Bool(true).to_json_value(), Value::Bool(true));
+        assert_eq!(Field::Bool(false).to_json_value(), Value::Bool(false));
+        assert_eq!(
+            Field::Byte(1).to_json_value(),
+            Value::Number(serde_json::Number::from(1))
+        );
+        assert_eq!(
+            Field::Short(2).to_json_value(),
+            Value::Number(serde_json::Number::from(2))
+        );
+        assert_eq!(
+            Field::Int(3).to_json_value(),
+            Value::Number(serde_json::Number::from(3))
+        );
+        assert_eq!(
+            Field::Long(4).to_json_value(),
+            Value::Number(serde_json::Number::from(4))
+        );
+        assert_eq!(
+            Field::UByte(1).to_json_value(),
+            Value::Number(serde_json::Number::from(1))
+        );
+        assert_eq!(
+            Field::UShort(2).to_json_value(),
+            Value::Number(serde_json::Number::from(2))
+        );
+        assert_eq!(
+            Field::UInt(3).to_json_value(),
+            Value::Number(serde_json::Number::from(3))
+        );
+        assert_eq!(
+            Field::ULong(4).to_json_value(),
+            Value::Number(serde_json::Number::from(4))
+        );
+        assert_eq!(
+            Field::Float(5.0).to_json_value(),
+            Value::Number(serde_json::Number::from_f64(f64::from(5.0 as f32)).unwrap())
+        );
+        assert_eq!(
+            Field::Float(5.1234).to_json_value(),
+            Value::Number(
+                serde_json::Number::from_f64(f64::from(5.1234 as f32)).unwrap()
+            )
+        );
+        assert_eq!(
+            Field::Double(6.0).to_json_value(),
+            Value::Number(serde_json::Number::from_f64(6.0 as f64).unwrap())
+        );
+        assert_eq!(
+            Field::Double(6.1234).to_json_value(),
+            Value::Number(serde_json::Number::from_f64(6.1234 as f64).unwrap())
+        );
+        assert_eq!(
+            Field::Str("abc".to_string()).to_json_value(),
+            Value::String(String::from("abc"))
+        );
+        assert_eq!(
+            Field::Decimal(Decimal::from_i32(4, 8, 2)).to_json_value(),
+            Value::String(String::from("0.04"))
+        );
+        assert_eq!(
+            Field::Bytes(ByteArray::from(vec![1, 2, 3])).to_json_value(),
+            Value::String(String::from("AQID"))
+        );
+        assert_eq!(
+            Field::TimestampMicros(12345678).to_json_value(),
+            Value::String("1969-12-31 16:00:12 -08:00".to_string())
+        );
+        assert_eq!(
+            Field::TimestampMicros(12345678901).to_json_value(),
+            Value::String(convert_timestamp_micros_to_string(12345678901))
+        );
+
+        let fields = vec![
+            ("X".to_string(), Field::Int(1)),
+            ("Y".to_string(), Field::Double(2.2)),
+            ("Z".to_string(), Field::Str("abc".to_string())),
+        ];
+        let row = Field::Group(make_row(fields));
+        assert_eq!(
+            row.to_json_value(),
+            serde_json::json!({"X": 1, "Y": 2.2, "Z": "abc"})
+        );
+
+        let row = Field::ListInternal(make_list(vec![
+            Field::Int(1),
+            Field::Int(12),
+            Field::Null,
+        ]));
+        let array = vec![
+            Value::Number(serde_json::Number::from(1)),
+            Value::Number(serde_json::Number::from(12)),
+            Value::Null,
+        ];
+        assert_eq!(row.to_json_value(), Value::Array(array));
+
+        let row = Field::MapInternal(make_map(vec![
+            (Field::Str("k1".to_string()), Field::Double(1.2)),
+            (Field::Str("k2".to_string()), Field::Double(3.4)),
+            (Field::Str("k3".to_string()), Field::Double(4.5)),
+        ]));
+        assert_eq!(
+            row.to_json_value(),
+            serde_json::json!({"k1": 1.2, "k2": 3.4, "k3": 4.5})
+        );
     }
 }
 

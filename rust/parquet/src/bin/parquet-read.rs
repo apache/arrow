@@ -60,28 +60,6 @@ use parquet::file::reader::{FileReader, SerializedFileReader};
 use parquet::record::Row;
 
 fn main() {
-    #[cfg(not(feature = "json_output"))]
-    let app = App::new("parquet-read")
-        .version(crate_version!())
-        .author(crate_authors!())
-        .about("Read data from parquet file")
-        .arg(
-            Arg::with_name("file_path")
-                .value_name("file-path")
-                .required(true)
-                .index(1)
-                .help("Path to a parquet file"),
-        )
-        .arg(
-            Arg::with_name("num_records")
-                .value_name("num-records")
-                .index(2)
-                .help(
-                    "Number of records to read. When not provided, all records are read.",
-                ),
-        );
-
-    #[cfg(feature = "json_output")]
     let app = App::new("parquet-read")
         .version(crate_version!())
         .author(crate_authors!())
@@ -120,11 +98,7 @@ fn main() {
         None
     };
 
-    let mut json: Option<bool> = None;
-    if cfg!(feature = "json_output") {
-        json = Some(matches.is_present("json"));
-    }
-
+    let json = matches.is_present("json");
     let path = Path::new(&filename);
     let file = File::open(&path).unwrap();
     let parquet_reader = SerializedFileReader::new(file).unwrap();
@@ -145,18 +119,10 @@ fn main() {
     }
 }
 
-#[cfg(feature = "json_output")]
-fn print_row(row: &Row, json: Option<bool>) {
-    if let Some(j) = json {
-        if j {
-            println!("{}", row.to_json_value())
-        } else {
-            println!("{}", row.to_string());
-        }
+fn print_row(row: &Row, json: bool) {
+    if json {
+        println!("{}", row.to_json_value())
+    } else {
+        println!("{}", row.to_string());
     }
-}
-
-#[cfg(not(feature = "json_output"))]
-fn print_row(row: &Row, _json: Option<bool>) {
-    println!("{}", row.to_string());
 }
