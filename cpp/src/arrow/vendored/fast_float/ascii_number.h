@@ -154,6 +154,7 @@ parsed_number_string parse_number_string(const char *p, const char *pend, chars_
     digit_count -= int(start - start_digits);
     if (digit_count >= 19) {
       answer.mantissa = 0xFFFFFFFFFFFFFFFF; // important: we don't want the mantissa to be used in a fast path uninitialized.
+      answer.exponent = 0xFFFFFFFFFFFFFFFF;
       answer.too_many_digits = true;
       return answer;
     }
