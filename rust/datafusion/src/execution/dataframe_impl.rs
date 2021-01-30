@@ -158,11 +158,11 @@ impl DataFrame for DataFrameImpl {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::datasource::csv::CsvReadOptions;
     use crate::execution::context::ExecutionContext;
     use crate::logical_plan::*;
+    use crate::{datasource::csv::CsvReadOptions, physical_plan::ColumnarValue};
     use crate::{physical_plan::functions::ScalarFunctionImplementation, test};
-    use arrow::{array::ArrayRef, datatypes::DataType};
+    use arrow::datatypes::DataType;
 
     #[test]
     fn select_columns() -> Result<()> {
@@ -287,7 +287,7 @@ mod tests {
 
         // declare the udf
         let my_fn: ScalarFunctionImplementation =
-            Arc::new(|_: &[ArrayRef]| unimplemented!("my_fn is not implemented"));
+            Arc::new(|_: &[ColumnarValue]| unimplemented!("my_fn is not implemented"));
 
         // create and register the udf
         ctx.register_udf(create_udf(

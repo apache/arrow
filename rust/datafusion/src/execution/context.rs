@@ -619,8 +619,8 @@ impl FunctionRegistry for ExecutionContextState {
 mod tests {
 
     use super::*;
-    use crate::physical_plan::functions::ScalarFunctionImplementation;
     use crate::physical_plan::{collect, collect_partitioned};
+    use crate::physical_plan::{functions::ScalarFunctionImplementation, ColumnarValue};
     use crate::test;
     use crate::variable::VarType;
     use crate::{
@@ -631,7 +631,7 @@ mod tests {
         datasource::MemTable, logical_plan::create_udaf,
         physical_plan::expressions::AvgAccumulator,
     };
-    use arrow::array::{ArrayRef, Float64Array, Int32Array};
+    use arrow::array::{Float64Array, Int32Array};
     use arrow::compute::add;
     use arrow::datatypes::*;
     use arrow::record_batch::RecordBatch;
@@ -1618,17 +1618,24 @@ mod tests {
         let provider = MemTable::try_new(Arc::new(schema), vec![vec![batch]])?;
         ctx.register_table("t", Box::new(provider));
 
-        let myfunc: ScalarFunctionImplementation = Arc::new(|args: &[ArrayRef]| {
-            let l = &args[0]
-                .as_any()
-                .downcast_ref::<Int32Array>()
-                .expect("cast failed");
-            let r = &args[1]
-                .as_any()
-                .downcast_ref::<Int32Array>()
-                .expect("cast failed");
-            Ok(Arc::new(add(l, r)?))
-        });
+        let myfunc: ScalarFunctionImplementation =
+            Arc::new(|args: &[ColumnarValue]| {
+                if let (ColumnarValue::Array(l), ColumnarValue::Array(r)) =
+                    (&args[0], &args[1])
+                {
+                    let l = l
+                        .as_any()
+                        .downcast_ref::<Int32Array>()
+                        .expect("cast failed");
+                    let r = r
+                        .as_any()
+                        .downcast_ref::<Int32Array>()
+                        .expect("cast failed");
+                    Ok(ColumnarValue::Array(Arc::new(add(l, r)?)))
+                } else {
+                    unimplemented!()
+                }
+            });
 
         ctx.register_udf(create_udf(
             "my_add",
