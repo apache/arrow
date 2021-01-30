@@ -3,7 +3,10 @@ use core::fmt;
 use std::{any::Any, sync::Arc};
 
 use arrow::{
-    array::{Date32Array, Date64Array, TimestampNanosecondArray},
+    array::{
+        Date32Array, Date64Array, TimestampMicrosecondArray, TimestampMillisecondArray,
+        TimestampNanosecondArray, TimestampSecondArray,
+    },
     compute::hour,
     datatypes::{DataType, Schema, TimeUnit},
     record_batch::RecordBatch,
@@ -65,13 +68,36 @@ impl PhysicalExpr for Extract {
                 let array = array.as_any().downcast_ref::<Date64Array>().unwrap();
                 Ok(ColumnarValue::Array(Arc::new(hour(array)?)))
             }
-            DataType::Timestamp(TimeUnit::Nanosecond, None) => {
-                let array = array
-                    .as_any()
-                    .downcast_ref::<TimestampNanosecondArray>()
-                    .unwrap();
-                Ok(ColumnarValue::Array(Arc::new(hour(array)?)))
-            }
+            DataType::Timestamp(time_unit, None) => match time_unit {
+                TimeUnit::Second => {
+                    let array = array
+                        .as_any()
+                        .downcast_ref::<TimestampSecondArray>()
+                        .unwrap();
+                    Ok(ColumnarValue::Array(Arc::new(hour(array)?)))
+                }
+                TimeUnit::Millisecond => {
+                    let array = array
+                        .as_any()
+                        .downcast_ref::<TimestampMillisecondArray>()
+                        .unwrap();
+                    Ok(ColumnarValue::Array(Arc::new(hour(array)?)))
+                }
+                TimeUnit::Microsecond => {
+                    let array = array
+                        .as_any()
+                        .downcast_ref::<TimestampMicrosecondArray>()
+                        .unwrap();
+                    Ok(ColumnarValue::Array(Arc::new(hour(array)?)))
+                }
+                TimeUnit::Nanosecond => {
+                    let array = array
+                        .as_any()
+                        .downcast_ref::<TimestampNanosecondArray>()
+                        .unwrap();
+                    Ok(ColumnarValue::Array(Arc::new(hour(array)?)))
+                }
+            },
             datatype => Err(DataFusionError::Internal(format!(
                 "Extract does not support datatype {:?}",
                 datatype
