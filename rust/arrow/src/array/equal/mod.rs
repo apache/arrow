@@ -329,9 +329,10 @@ mod tests {
 
         let b = BooleanArray::from(vec![false, false, false]).data();
         test_equal(a.as_ref(), b.as_ref(), false);
+    }
 
-        // Test the case where null_count > 0
-
+    #[test]
+    fn test_boolean_equal_null() {
         let a = BooleanArray::from(vec![Some(false), None, None, Some(true)]).data();
         let b = BooleanArray::from(vec![Some(false), None, None, Some(true)]).data();
         test_equal(a.as_ref(), b.as_ref(), true);
@@ -341,23 +342,25 @@ mod tests {
 
         let b = BooleanArray::from(vec![Some(true), None, None, Some(true)]).data();
         test_equal(a.as_ref(), b.as_ref(), false);
+    }
 
-        // Test the case where offset != 0
-
+    #[test]
+    fn test_boolean_equal_offset() {
         let a =
             BooleanArray::from(vec![false, true, false, true, false, false, true]).data();
         let b =
-            BooleanArray::from(vec![false, false, false, true, false, true, true]).data();
+            BooleanArray::from(vec![true, false, false, false, true, false, true, true])
+                .data();
         assert_eq!(equal(a.as_ref(), b.as_ref()), false);
         assert_eq!(equal(b.as_ref(), a.as_ref()), false);
 
         let a_slice = a.slice(2, 3);
-        let b_slice = b.slice(2, 3);
+        let b_slice = b.slice(3, 3);
         assert_eq!(equal(&a_slice, &b_slice), true);
         assert_eq!(equal(&b_slice, &a_slice), true);
 
         let a_slice = a.slice(3, 4);
-        let b_slice = b.slice(3, 4);
+        let b_slice = b.slice(4, 4);
         assert_eq!(equal(&a_slice, &b_slice), false);
         assert_eq!(equal(&b_slice, &a_slice), false);
 
@@ -435,6 +438,20 @@ mod tests {
                 (1, 1),
                 vec![Some(1), None, Some(2)],
                 (2, 1),
+                true,
+            ),
+            (
+                vec![None, Some(2), None],
+                (1, 1),
+                vec![None, None, Some(2)],
+                (2, 1),
+                true,
+            ),
+            (
+                vec![Some(1), None, Some(2), None, Some(3)],
+                (2, 2),
+                vec![None, Some(2), None, Some(3)],
+                (1, 2),
                 true,
             ),
         ];
@@ -539,6 +556,26 @@ mod tests {
     #[test]
     fn test_large_binary_equal() {
         test_generic_binary_equal::<i64>()
+    }
+
+    #[test]
+    fn test_string_offset() {
+        let a = StringArray::from(vec![Some("a"), None, Some("b")]).data();
+        let a = a.slice(2, 1);
+        let b = StringArray::from(vec![Some("b")]).data();
+
+        test_equal(&a, b.as_ref(), true);
+    }
+
+    #[test]
+    fn test_string_offset_larger() {
+        let a =
+            StringArray::from(vec![Some("a"), None, Some("b"), None, Some("c")]).data();
+        let b = StringArray::from(vec![None, Some("b"), None, Some("c")]).data();
+
+        test_equal(&a.slice(2, 2), &b.slice(0, 2), false);
+        test_equal(&a.slice(2, 2), &b.slice(1, 2), true);
+        test_equal(&a.slice(2, 2), &b.slice(2, 2), false);
     }
 
     #[test]
@@ -781,6 +818,7 @@ mod tests {
             None,
         ]);
         let b = create_decimal_array(&[
+            None,
             Some(8_887_000_000),
             None,
             None,
@@ -790,23 +828,23 @@ mod tests {
         ]);
 
         let a_slice = a.slice(0, 3);
-        let b_slice = b.slice(0, 3);
+        let b_slice = b.slice(1, 3);
         test_equal(&a_slice, &b_slice, true);
 
         let a_slice = a.slice(0, 5);
-        let b_slice = b.slice(0, 5);
+        let b_slice = b.slice(1, 5);
         test_equal(&a_slice, &b_slice, false);
 
         let a_slice = a.slice(4, 1);
-        let b_slice = b.slice(4, 1);
+        let b_slice = b.slice(5, 1);
         test_equal(&a_slice, &b_slice, true);
 
         let a_slice = a.slice(3, 3);
-        let b_slice = b.slice(3, 3);
+        let b_slice = b.slice(4, 3);
         test_equal(&a_slice, &b_slice, false);
 
         let a_slice = a.slice(1, 3);
-        let b_slice = b.slice(1, 3);
+        let b_slice = b.slice(2, 3);
         test_equal(&a_slice, &b_slice, false);
 
         let b = create_decimal_array(&[
