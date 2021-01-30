@@ -26,7 +26,7 @@ use arrow::datatypes::*;
 use crate::datasource::datasource::Statistics;
 use crate::datasource::TableProvider;
 use crate::error::Result;
-use crate::logical_plan::Expr;
+use crate::logical_plan::{combine_filters, Expr};
 use crate::physical_plan::parquet::ParquetExec;
 use crate::physical_plan::ExecutionPlan;
 
@@ -97,22 +97,6 @@ impl TableProvider for ParquetTable {
     fn statistics(&self) -> Statistics {
         self.statistics.clone()
     }
-}
-
-/// Combines an array of filter expressions into a single filter expression
-/// consisting of the input filter expressions joined with logical AND.
-/// Returns None if the filters array is empty.
-fn combine_filters(filters: &[Expr]) -> Option<Expr> {
-    if filters.is_empty() {
-        return None;
-    }
-    let combined_filter = filters
-        .iter()
-        .skip(1)
-        .fold(filters[0].clone(), |acc, filter| {
-            crate::logical_plan::and(acc, filter.clone())
-        });
-    Some(combined_filter)
 }
 
 #[cfg(test)]
