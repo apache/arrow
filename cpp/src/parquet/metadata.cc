@@ -914,6 +914,11 @@ namespace {
 // Parse the application version format and set parsed values to
 // ApplicationVersion.
 //
+// The application version format must be compatible parquet-mr's
+// one. See also:
+//   * https://github.com/apache/parquet-mr/blob/master/parquet-common/src/main/java/org/apache/parquet/VersionParser.java
+//   * https://github.com/apache/parquet-mr/blob/master/parquet-common/src/main/java/org/apache/parquet/SemanticVersion.java
+//
 // The application version format:
 //   "${APPLICATION_NAME}"
 //   "${APPLICATION_NAME} version ${VERSION}"
