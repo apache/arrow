@@ -70,7 +70,6 @@ RUN vcpkg install --clean-after-build \
         abseil \
         aws-sdk-cpp[config,cognito-identity,core,identity-management,s3,sts,transfer] \
         boost-filesystem \
-        boost-regex \
         brotli \
         bzip2 \
         c-ares \

@@ -760,10 +760,8 @@ macro(build_boost)
       )
     set(BOOST_SYSTEM_LIBRARY boost_system_static)
     set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
-    set(BOOST_REGEX_LIBRARY boost_regex_static)
     set(BOOST_BUILD_PRODUCTS ${BOOST_STATIC_SYSTEM_LIBRARY}
-                             ${BOOST_STATIC_FILESYSTEM_LIBRARY}
-                             ${BOOST_STATIC_REGEX_LIBRARY})
+                             ${BOOST_STATIC_FILESYSTEM_LIBRARY})
 
     add_thirdparty_lib(boost_system STATIC_LIB "${BOOST_STATIC_SYSTEM_LIBRARY}")
 
@@ -896,15 +894,12 @@ if(ARROW_BOOST_REQUIRED)
   if(TARGET Boost::system)
     set(BOOST_SYSTEM_LIBRARY Boost::system)
     set(BOOST_FILESYSTEM_LIBRARY Boost::filesystem)
-    set(BOOST_REGEX_LIBRARY Boost::regex)
   elseif(BoostAlt_FOUND)
     set(BOOST_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY})
     set(BOOST_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY})
-    set(BOOST_REGEX_LIBRARY ${Boost_REGEX_LIBRARY})
   else()
     set(BOOST_SYSTEM_LIBRARY boost_system_static)
     set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
-    set(BOOST_REGEX_LIBRARY boost_regex_static)
   endif()
   set(ARROW_BOOST_LIBS ${BOOST_SYSTEM_LIBRARY} ${BOOST_FILESYSTEM_LIBRARY})
 
