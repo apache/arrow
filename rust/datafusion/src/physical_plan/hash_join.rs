@@ -1008,7 +1008,7 @@ mod tests {
             build_table_i32(("a2", &vec![30]), ("b1", &vec![5]), ("c2", &vec![90]));
         let schema = batch1.schema();
         let right = Arc::new(
-            MemoryExec::try_new(&vec![vec![batch1], vec![batch2]], schema, None).unwrap(),
+            MemoryExec::try_new(&[vec![batch1], vec![batch2]], schema, None).unwrap(),
         );
 
         let on = &[("b1", "b1")];
