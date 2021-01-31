@@ -191,7 +191,7 @@ class TypedColumnReader : public ColumnReader {
   /// @param[out] null_count The number of nulls on the lowest levels.
   ///   (i.e. (values_read - null_count) is total number of non-null entries)
   ///
-  /// \deprecated Since 2.0.0
+  /// \deprecated Since 4.0.0
   ARROW_DEPRECATED("Doesn't handle nesting correctly and unused outside of unit tests.")
   virtual int64_t ReadBatchSpaced(int64_t batch_size, int16_t* def_levels,
                                   int16_t* rep_levels, T* values, uint8_t* valid_bits,
