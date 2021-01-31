@@ -68,7 +68,7 @@ public class PerformanceTestServer implements AutoCloseable {
 
       @Override
       public WaitResult waitForListener(long timeout) {
-        while (!listener.isReady()) {
+        while (!listener.isReady() && !listener.isCancelled()) {
           // busy wait
         }
         return WaitResult.READY;
