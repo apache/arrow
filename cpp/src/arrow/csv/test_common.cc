@@ -91,14 +91,23 @@ static void WriteRow(std::ostream& writer, size_t row_index) {
   writer << GetCell(strptime_rows, row_index);
   writer << std::endl;
 }
+
+static void WriteInvalidRow(std::ostream& writer, size_t row_index) {
+  writer << "\"" << std::endl << "\"";
+  writer << std::endl;
+}
 }  // namespace
 
-Result<std::shared_ptr<Buffer>> MakeSampleCsvBuffer(size_t num_rows) {
+Result<std::shared_ptr<Buffer>> MakeSampleCsvBuffer(size_t num_rows, bool valid) {
   std::stringstream writer;
 
   WriteHeader(writer);
   for (size_t i = 0; i < num_rows; ++i) {
-    WriteRow(writer, i);
+    if (i == num_rows / 2 && !valid) {
+      WriteInvalidRow(writer, i);
+    } else {
+      WriteRow(writer, i);
+    }
   }
 
   auto table_str = writer.str();

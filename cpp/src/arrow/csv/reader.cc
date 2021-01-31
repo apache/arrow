@@ -919,10 +919,10 @@ class AsyncThreadedTableReader
                           io::MakeInputStreamIterator(input_, read_options_.block_size));
 
     ARROW_ASSIGN_OR_RAISE(auto bg_it, MakeBackgroundGenerator(std::move(istream_it)));
-    bg_it = TransferGenerator(bg_it, thread_pool_);
+    bg_it = TransferGenerator(std::move(bg_it), thread_pool_);
 
     int32_t block_queue_size = thread_pool_->GetCapacity();
-    auto rh_it = AddReadahead(bg_it, block_queue_size);
+    auto rh_it = AddReadahead(std::move(bg_it), block_queue_size);
     buffer_generator_ = CSVBufferIterator::MakeAsync(std::move(rh_it));
     return Status::OK();
   }
@@ -957,7 +957,7 @@ class AsyncThreadedTableReader
         return Status::OK();
       };
 
-      return VisitAsyncGenerator(block_generator, block_visitor)
+      return VisitAsyncGenerator(std::move(block_generator), block_visitor)
           .Then([self](...) -> Future<> {
             // By this point we've added all top level tasks so it is safe to call
             // FinishAsync

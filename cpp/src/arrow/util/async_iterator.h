@@ -16,6 +16,7 @@
 // under the License.
 
 #pragma once
+#include <iostream>
 #include <queue>
 
 #include "arrow/util/functional.h"
@@ -89,77 +90,92 @@ Future<std::vector<T>> CollectAsyncGenerator(AsyncGenerator<T> generator) {
 
 template <typename T, typename V>
 class TransformingGenerator {
- public:
-  explicit TransformingGenerator(AsyncGenerator<T> generator,
-                                 Transformer<T, V> transformer)
-      : finished_(),
-        last_value_(),
-        generator_(std::move(generator)),
-        transformer_(std::move(transformer)) {}
+  // The transforming generator state will be referenced as an async generator but will
+  // also be referenced via callback to various futures.  If the async generator owner
+  // moves it around we need the state to be consistent for future callbacks.
+  struct TransformingGeneratorState
+      : std::enable_shared_from_this<TransformingGeneratorState> {
+    TransformingGeneratorState(AsyncGenerator<T> generator, Transformer<T, V> transformer)
+        : generator_(std::move(generator)),
+          transformer_(std::move(transformer)),
+          last_value_(),
+          finished_() {}
 
-  Future<V> operator()() {
-    while (true) {
-      auto maybe_next_result = Pump();
-      if (!maybe_next_result.ok()) {
-        return Future<V>::MakeFinished(maybe_next_result.status());
-      }
-      auto maybe_next = std::move(maybe_next_result).ValueUnsafe();
-      if (maybe_next.has_value()) {
-        return Future<V>::MakeFinished(*std::move(maybe_next));
-      }
-
-      auto next_fut = generator_();
-      // If finished already, process results immediately inside the loop to avoid stack
-      // overflow
-      if (next_fut.is_finished()) {
-        auto next_result = next_fut.result();
-        if (next_result.ok()) {
-          last_value_ = *std::move(next_result);
-        } else {
-          return Future<V>::MakeFinished(next_result.status());
+    Future<V> operator()() {
+      while (true) {
+        auto maybe_next_result = Pump();
+        if (!maybe_next_result.ok()) {
+          return Future<V>::MakeFinished(maybe_next_result.status());
         }
-        // Otherwise, if not finished immediately, add callback to process results
-      } else {
-        return next_fut.Then([this](const Result<T>& next_result) {
+        auto maybe_next = std::move(maybe_next_result).ValueUnsafe();
+        if (maybe_next.has_value()) {
+          return Future<V>::MakeFinished(*std::move(maybe_next));
+        }
+
+        auto next_fut = generator_();
+        // If finished already, process results immediately inside the loop to avoid stack
+        // overflow
+        if (next_fut.is_finished()) {
+          auto next_result = next_fut.result();
           if (next_result.ok()) {
-            last_value_ = *std::move(next_result);
-            return (*this)();
+            last_value_ = *next_result;
           } else {
             return Future<V>::MakeFinished(next_result.status());
           }
-        });
+          // Otherwise, if not finished immediately, add callback to process results
+        } else {
+          auto self = this->shared_from_this();
+          return next_fut.Then([self](const Result<T>& next_result) {
+            if (next_result.ok()) {
+              self->last_value_ = *next_result;
+              return (*self)();
+            } else {
+              return Future<V>::MakeFinished(next_result.status());
+            }
+          });
+        }
       }
     }
-  }
 
- protected:
-  // See comment on TransformingIterator::Pump
-  Result<util::optional<V>> Pump() {
-    if (!finished_ && last_value_.has_value()) {
-      ARROW_ASSIGN_OR_RAISE(TransformFlow<V> next, transformer_(*last_value_));
-      if (next.ReadyForNext()) {
-        if (*last_value_ == IterationTraits<T>::End()) {
+    // See comment on TransformingIterator::Pump
+    Result<util::optional<V>> Pump() {
+      if (!finished_ && last_value_.has_value()) {
+        ARROW_ASSIGN_OR_RAISE(TransformFlow<V> next, transformer_(*last_value_));
+        if (next.ReadyForNext()) {
+          if (*last_value_ == IterationTraits<T>::End()) {
+            finished_ = true;
+          }
+          last_value_.reset();
+        }
+        if (next.Finished()) {
           finished_ = true;
         }
-        last_value_.reset();
+        if (next.HasValue()) {
+          return next.Value();
+        }
       }
-      if (next.Finished()) {
-        finished_ = true;
+      if (finished_) {
+        return IterationTraits<V>::End();
       }
-      if (next.HasValue()) {
-        return next.Value();
-      }
+      return util::nullopt;
     }
-    if (finished_) {
-      return IterationTraits<V>::End();
-    }
-    return util::nullopt;
-  }
 
-  bool finished_;
-  util::optional<T> last_value_;
-  AsyncGenerator<T> generator_;
-  Transformer<T, V> transformer_;
+    AsyncGenerator<T> generator_;
+    Transformer<T, V> transformer_;
+    util::optional<T> last_value_;
+    bool finished_;
+  };
+
+ public:
+  explicit TransformingGenerator(AsyncGenerator<T> generator,
+                                 Transformer<T, V> transformer)
+      : state_(std::make_shared<TransformingGeneratorState>(std::move(generator),
+                                                            std::move(transformer))) {}
+
+  Future<V> operator()() { return (*state_)(); }
+
+ protected:
+  std::shared_ptr<TransformingGeneratorState> state_;
 };
 
 template <typename T>
