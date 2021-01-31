@@ -738,14 +738,9 @@ fn aggregate_batch(
 
             // 1.3
             match mode {
-                AggregateMode::Partial => {
-                    accum.update_batch(values)?;
-                }
-                AggregateMode::Final => {
-                    accum.merge_batch(values)?;
-                }
+                AggregateMode::Partial => accum.update_batch(values),
+                AggregateMode::Final => accum.merge_batch(values),
             }
-            Ok(())
         })
 }
 
