@@ -98,7 +98,7 @@ impl OptimizerRule for HashBuildProbeOrder {
         "hash_build_probe_order"
     }
 
-    fn optimize(&mut self, plan: &LogicalPlan) -> Result<LogicalPlan> {
+    fn optimize(&self, plan: &LogicalPlan) -> Result<LogicalPlan> {
         match plan {
             // Main optimization rule, swaps order of left and right
             // based on number of rows in each table

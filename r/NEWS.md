@@ -19,6 +19,9 @@
 
 # arrow 3.0.0.9000
 
+* `value_counts()` to tabulate values in an `Array` or `ChunkedArray`, similar to `base::table()`.
+* `StructArray` objects gain data.frame-like methods, including `names()`, `$`, `[[`, and `dim()`.
+
 # arrow 3.0.0
 
 ## Python and Flight
@@ -39,7 +42,7 @@
 * Option `arrow.skip_nul` (default `FALSE`, as in `base::scan()`) allows conversion of Arrow string (`utf8()`) type data containing embedded nul `\0` characters to R. If set to `TRUE`, nuls will be stripped and a warning is emitted if any are found.
 * `arrow_info()` for an overview of various run-time and build-time Arrow configurations, useful for debugging
 * Set environment variable `ARROW_DEFAULT_MEMORY_POOL` before loading the Arrow package to change memory allocators. Windows packages are built with `mimalloc`; most others are built with both `jemalloc` (used by default) and `mimalloc`. These alternative memory allocators are generally much faster than the system memory allocator, so they are used by default when available, but sometimes it is useful to turn them off for debugging purposes. To disable them, set `ARROW_DEFAULT_MEMORY_POOL=system`.
-* List columns that have attributes on each element are now also included with the metadata that is saved when creating Arrow tables. This allows `sf` tibbles to faithfully preserved and roundtripped (ARROW-10386)[https://issues.apache.org/jira/browse/ARROW-10386].
+* List columns that have attributes on each element are now also included with the metadata that is saved when creating Arrow tables. This allows `sf` tibbles to faithfully preserved and roundtripped ([ARROW-10386](https://issues.apache.org/jira/browse/ARROW-10386)).
 * R metadata that exceeds 100Kb is now compressed before being written to a table; see `schema()` for more details.
 
 ## Bug fixes
@@ -48,8 +51,8 @@
 * C++ functions now trigger garbage collection when needed
 * `write_parquet()` can now write RecordBatches
 * Reading a Table from a RecordBatchStreamReader containing 0 batches no longer crashes
-* `readr`'s `problems` attribute is removed when converting to Arrow RecordBatch and table to prevent large amounts of metadata from accumulating inadvertently [ARROW-10624](https://issues.apache.org/jira/browse/ARROW-10624)
-* Fixed reading of compressed Feather files written with Arrow 0.17 [ARROW-10850](https://issues.apache.org/jira/browse/ARROW-10850)
+* `readr`'s `problems` attribute is removed when converting to Arrow RecordBatch and table to prevent large amounts of metadata from accumulating inadvertently ([ARROW-10624](https://issues.apache.org/jira/browse/ARROW-10624))
+* Fixed reading of compressed Feather files written with Arrow 0.17 ([ARROW-10850](https://issues.apache.org/jira/browse/ARROW-10850))
 * `SubTreeFileSystem` gains a useful print method and no longer errors when printing
 
 ## Packaging and installation

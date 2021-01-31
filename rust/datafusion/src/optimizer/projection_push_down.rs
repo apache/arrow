@@ -32,7 +32,7 @@ use utils::optimize_explain;
 pub struct ProjectionPushDown {}
 
 impl OptimizerRule for ProjectionPushDown {
-    fn optimize(&mut self, plan: &LogicalPlan) -> Result<LogicalPlan> {
+    fn optimize(&self, plan: &LogicalPlan) -> Result<LogicalPlan> {
         // set of all columns refered by the plan (and thus considered required by the root)
         let required_columns = plan
             .schema()
@@ -108,7 +108,7 @@ fn get_projected_schema(
 
 /// Recursively transverses the logical plan removing expressions and that are not needed.
 fn optimize_plan(
-    optimizer: &mut ProjectionPushDown,
+    optimizer: &ProjectionPushDown,
     plan: &LogicalPlan,
     required_columns: &HashSet<String>, // set of columns required up to this step
     has_projection: bool,
@@ -312,7 +312,7 @@ mod tests {
         let table_scan = test_table_scan()?;
 
         let plan = LogicalPlanBuilder::from(&table_scan)
-            .aggregate(vec![], vec![max(col("b"))])?
+            .aggregate(&[], &[max(col("b"))])?
             .build()?;
 
         let expected = "Aggregate: groupBy=[[]], aggr=[[MAX(#b)]]\
@@ -328,7 +328,7 @@ mod tests {
         let table_scan = test_table_scan()?;
 
         let plan = LogicalPlanBuilder::from(&table_scan)
-            .aggregate(vec![col("c")], vec![max(col("b"))])?
+            .aggregate(&[col("c")], &[max(col("b"))])?
             .build()?;
 
         let expected = "Aggregate: groupBy=[[#c]], aggr=[[MAX(#b)]]\
@@ -345,7 +345,7 @@ mod tests {
 
         let plan = LogicalPlanBuilder::from(&table_scan)
             .filter(col("c"))?
-            .aggregate(vec![], vec![max(col("b"))])?
+            .aggregate(&[], &[max(col("b"))])?
             .build()?;
 
         let expected = "Aggregate: groupBy=[[]], aggr=[[MAX(#b)]]\
@@ -362,7 +362,7 @@ mod tests {
         let table_scan = test_table_scan()?;
 
         let projection = LogicalPlanBuilder::from(&table_scan)
-            .project(vec![Expr::Cast {
+            .project(&[Expr::Cast {
                 expr: Box::new(col("c")),
                 data_type: DataType::Float64,
             }])?
@@ -383,7 +383,7 @@ mod tests {
         assert_fields_eq(&table_scan, vec!["a", "b", "c"]);
 
         let plan = LogicalPlanBuilder::from(&table_scan)
-            .project(vec![col("a"), col("b")])?
+            .project(&[col("a"), col("b")])?
             .build()?;
 
         assert_fields_eq(&plan, vec!["a", "b"]);
@@ -403,7 +403,7 @@ mod tests {
         assert_fields_eq(&table_scan, vec!["a", "b", "c"]);
 
         let plan = LogicalPlanBuilder::from(&table_scan)
-            .project(vec![col("c"), col("a")])?
+            .project(&[col("c"), col("a")])?
             .limit(5)?
             .build()?;
 
@@ -432,7 +432,7 @@ mod tests {
     fn table_scan_with_literal_projection() -> Result<()> {
         let table_scan = test_table_scan()?;
         let plan = LogicalPlanBuilder::from(&table_scan)
-            .project(vec![lit(1_i64), lit(2_i64)])?
+            .project(&[lit(1_i64), lit(2_i64)])?
             .build()?;
         let expected = "Projection: Int64(1), Int64(2)\
                       \n  TableScan: test projection=Some([0])";
@@ -449,9 +449,9 @@ mod tests {
 
         // we never use "b" in the first projection => remove it
         let plan = LogicalPlanBuilder::from(&table_scan)
-            .project(vec![col("c"), col("a"), col("b")])?
+            .project(&[col("c"), col("a"), col("b")])?
             .filter(col("c").gt(lit(1)))?
-            .aggregate(vec![col("c")], vec![max(col("a"))])?
+            .aggregate(&[col("c")], &[max(col("a"))])?
             .build()?;
 
         assert_fields_eq(&plan, vec!["c", "MAX(a)"]);
@@ -476,8 +476,8 @@ mod tests {
 
         // there is no need for the first projection
         let plan = LogicalPlanBuilder::from(&table_scan)
-            .project(vec![col("b")])?
-            .project(vec![lit(1).alias("a")])?
+            .project(&[col("b")])?
+            .project(&[lit(1).alias("a")])?
             .build()?;
 
         assert_fields_eq(&plan, vec!["a"]);
@@ -500,9 +500,9 @@ mod tests {
 
         // we never use "min(b)" => remove it
         let plan = LogicalPlanBuilder::from(&table_scan)
-            .aggregate(vec![col("a"), col("c")], vec![max(col("b")), min(col("b"))])?
+            .aggregate(&[col("a"), col("c")], &[max(col("b")), min(col("b"))])?
             .filter(col("c").gt(lit(1)))?
-            .project(vec![col("c"), col("a"), col("MAX(b)")])?
+            .project(&[col("c"), col("a"), col("MAX(b)")])?
             .build()?;
 
         assert_fields_eq(&plan, vec!["c", "a", "MAX(b)"]);
@@ -525,7 +525,7 @@ mod tests {
     }
 
     fn optimize(plan: &LogicalPlan) -> Result<LogicalPlan> {
-        let mut rule = ProjectionPushDown::new();
+        let rule = ProjectionPushDown::new();
         rule.optimize(plan)
     }
 }

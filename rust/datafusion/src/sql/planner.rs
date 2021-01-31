@@ -214,9 +214,9 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
             SQLDataType::Float(_) => Ok(DataType::Float32),
             SQLDataType::Real | SQLDataType::Double => Ok(DataType::Float64),
             SQLDataType::Boolean => Ok(DataType::Boolean),
-            SQLDataType::Date => Ok(DataType::Date32(DateUnit::Day)),
+            SQLDataType::Date => Ok(DataType::Date32),
             SQLDataType::Time => Ok(DataType::Time64(TimeUnit::Millisecond)),
-            SQLDataType::Timestamp => Ok(DataType::Date64(DateUnit::Millisecond)),
+            SQLDataType::Timestamp => Ok(DataType::Date64),
             _ => Err(DataFusionError::NotImplemented(format!(
                 "The SQL data type {:?} is not implemented",
                 sql_type
@@ -498,7 +498,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
             plan
         };
 
-        self.project(&plan, select_exprs_post_aggr, false)
+        self.project(&plan, &select_exprs_post_aggr, false)
     }
 
     /// Returns the `Expr`'s corresponding to a SQL query's SELECT expressions.
@@ -529,7 +529,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
     fn project(
         &self,
         input: &LogicalPlan,
-        expr: Vec<Expr>,
+        expr: &[Expr],
         force: bool,
     ) -> Result<LogicalPlan> {
         self.validate_schema_satisfies_exprs(&input.schema(), &expr)?;
@@ -551,10 +551,10 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
     fn aggregate(
         &self,
         input: &LogicalPlan,
-        select_exprs: &Vec<Expr>,
+        select_exprs: &[Expr],
         having_expr_opt: &Option<Expr>,
-        group_by: &Vec<SQLExpr>,
-        aggr_exprs: &Vec<Expr>,
+        group_by: &[SQLExpr],
+        aggr_exprs: &[Expr],
     ) -> Result<(LogicalPlan, Vec<Expr>, Option<Expr>)> {
         let group_by_exprs = group_by
             .iter()
@@ -568,7 +568,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
             .collect::<Vec<Expr>>();
 
         let plan = LogicalPlanBuilder::from(&input)
-            .aggregate(group_by_exprs, aggr_exprs.clone())?
+            .aggregate(&group_by_exprs, aggr_exprs)?
             .build()?;
 
         // After aggregation, these are all of the columns that will be
@@ -635,7 +635,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
     fn order_by(
         &self,
         plan: &LogicalPlan,
-        order_by: &Vec<OrderByExpr>,
+        order_by: &[OrderByExpr],
     ) -> Result<LogicalPlan> {
         if order_by.is_empty() {
             return Ok(plan.clone());
@@ -655,14 +655,16 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
             })
             .collect();
 
-        LogicalPlanBuilder::from(&plan).sort(order_by_rex?)?.build()
+        LogicalPlanBuilder::from(&plan)
+            .sort(&order_by_rex?)?
+            .build()
     }
 
     /// Validate the schema provides all of the columns referenced in the expressions.
     fn validate_schema_satisfies_exprs(
         &self,
         schema: &DFSchema,
-        exprs: &Vec<Expr>,
+        exprs: &[Expr],
     ) -> Result<()> {
         find_column_exprs(exprs)
             .iter()
@@ -699,7 +701,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
     /// Generate a relational expression from a SQL expression
     pub fn sql_to_rex(&self, sql: &SQLExpr, schema: &DFSchema) -> Result<Expr> {
         let expr = self.sql_expr_to_logical_expr(sql)?;
-        self.validate_schema_satisfies_exprs(schema, &vec![expr.clone()])?;
+        self.validate_schema_satisfies_exprs(schema, &[expr.clone()])?;
         Ok(expr)
     }
 
@@ -717,6 +719,8 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                 Err(_) => Ok(lit(n.parse::<f64>().unwrap())),
             },
             SQLExpr::Value(Value::SingleQuotedString(ref s)) => Ok(lit(s.clone())),
+
+            SQLExpr::Value(Value::Boolean(n)) => Ok(lit(*n)),
 
             SQLExpr::Value(Value::Null) => Ok(Expr::Literal(ScalarValue::Utf8(None))),
 
@@ -1084,7 +1088,7 @@ pub fn convert_data_type(sql: &SQLDataType) -> Result<DataType> {
         SQLDataType::Double => Ok(DataType::Float64),
         SQLDataType::Char(_) | SQLDataType::Varchar(_) => Ok(DataType::Utf8),
         SQLDataType::Timestamp => Ok(DataType::Timestamp(TimeUnit::Nanosecond, None)),
-        SQLDataType::Date => Ok(DataType::Date32(DateUnit::Day)),
+        SQLDataType::Date => Ok(DataType::Date32),
         other => Err(DataFusionError::NotImplemented(format!(
             "Unsupported SQL type {:?}",
             other
@@ -1235,7 +1239,7 @@ mod tests {
             "SELECT state FROM person WHERE birth_date < CAST ('2020-01-01' as date)";
 
         let expected = "Projection: #state\
-            \n  Filter: #birth_date Lt CAST(Utf8(\"2020-01-01\") AS Date32(Day))\
+            \n  Filter: #birth_date Lt CAST(Utf8(\"2020-01-01\") AS Date32)\
             \n    TableScan: person projection=None";
 
         quick_test(sql, expected);
@@ -2104,7 +2108,7 @@ mod tests {
     #[test]
     fn select_typedstring() {
         let sql = "SELECT date '2020-12-10' AS date FROM person";
-        let expected = "Projection: CAST(Utf8(\"2020-12-10\") AS Date32(Day)) AS date\
+        let expected = "Projection: CAST(Utf8(\"2020-12-10\") AS Date32) AS date\
             \n  TableScan: person projection=None";
         quick_test(sql, expected);
     }

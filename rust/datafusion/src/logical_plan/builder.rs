@@ -131,7 +131,7 @@ impl LogicalPlanBuilder {
     /// This function errors under any of the following conditions:
     /// * Two or more expressions have the same name
     /// * An invalid expression is used (e.g. a `sort` expression)
-    pub fn project(&self, expr: Vec<Expr>) -> Result<Self> {
+    pub fn project(&self, expr: &[Expr]) -> Result<Self> {
         let input_schema = self.plan.schema();
         let mut projected_expr = vec![];
         (0..expr.len()).for_each(|i| match &expr[i] {
@@ -170,9 +170,9 @@ impl LogicalPlanBuilder {
     }
 
     /// Apply a sort
-    pub fn sort(&self, expr: Vec<Expr>) -> Result<Self> {
+    pub fn sort(&self, expr: &[Expr]) -> Result<Self> {
         Ok(Self::from(&LogicalPlan::Sort {
-            expr,
+            expr: expr.to_vec(),
             input: Arc::new(self.plan.clone()),
         }))
     }
@@ -220,9 +220,9 @@ impl LogicalPlanBuilder {
     }
 
     /// Apply an aggregate
-    pub fn aggregate(&self, group_expr: Vec<Expr>, aggr_expr: Vec<Expr>) -> Result<Self> {
-        let mut all_expr: Vec<Expr> = group_expr.clone();
-        aggr_expr.iter().for_each(|x| all_expr.push(x.clone()));
+    pub fn aggregate(&self, group_expr: &[Expr], aggr_expr: &[Expr]) -> Result<Self> {
+        let mut all_expr = group_expr.to_vec();
+        all_expr.extend_from_slice(aggr_expr);
 
         validate_unique_names("Aggregations", &all_expr, self.plan.schema())?;
 
@@ -231,8 +231,8 @@ impl LogicalPlanBuilder {
 
         Ok(Self::from(&LogicalPlan::Aggregate {
             input: Arc::new(self.plan.clone()),
-            group_expr,
-            aggr_expr,
+            group_expr: group_expr.to_vec(),
+            aggr_expr: aggr_expr.to_vec(),
             schema: DFSchemaRef::new(aggr_schema),
         }))
     }
@@ -351,7 +351,7 @@ mod tests {
             Some(vec![0, 3]),
         )?
         .filter(col("state").eq(lit("CO")))?
-        .project(vec![col("id")])?
+        .project(&[col("id")])?
         .build()?;
 
         let expected = "Projection: #id\
@@ -370,11 +370,8 @@ mod tests {
             &employee_schema(),
             Some(vec![3, 4]),
         )?
-        .aggregate(
-            vec![col("state")],
-            vec![sum(col("salary")).alias("total_salary")],
-        )?
-        .project(vec![col("state"), col("total_salary")])?
+        .aggregate(&[col("state")], &[sum(col("salary")).alias("total_salary")])?
+        .project(&[col("state"), col("total_salary")])?
         .build()?;
 
         let expected = "Projection: #state, #total_salary\
@@ -393,7 +390,7 @@ mod tests {
             &employee_schema(),
             Some(vec![3, 4]),
         )?
-        .sort(vec![
+        .sort(&[
             Expr::Sort {
                 expr: Box::new(col("state")),
                 asc: true,
@@ -423,7 +420,7 @@ mod tests {
             Some(vec![0, 3]),
         )?
         // two columns with the same name => error
-        .project(vec![col("id"), col("first_name").alias("id")]);
+        .project(&[col("id"), col("first_name").alias("id")]);
 
         match plan {
             Err(DataFusionError::Plan(e)) => {
@@ -446,7 +443,7 @@ mod tests {
             Some(vec![0, 3]),
         )?
         // two columns with the same name => error
-        .aggregate(vec![col("state")], vec![sum(col("salary")).alias("state")]);
+        .aggregate(&[col("state")], &[sum(col("salary")).alias("state")]);
 
         match plan {
             Err(DataFusionError::Plan(e)) => {

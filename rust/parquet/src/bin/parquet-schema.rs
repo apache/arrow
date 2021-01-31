@@ -34,17 +34,26 @@
 //! ```
 //!
 //! # Usage
+//! ```
+//! parquet-schema [FLAGS] <file-path>
+//! ```
 //!
-//! ```
-//! parquet-schema <file-path> [verbose]
-//! ```
-//! where `file-path` is the path to a Parquet file and `verbose` is the optional boolean
-//! flag that allows to print schema only, when set to `false` (default behaviour when
-//! not provided), or print full file metadata, when set to `true`.
+//! ## Flags
+//!     -h, --help       Prints help information
+//!     -V, --version    Prints version information
+//!     -v, --verbose    Enable printing full file metadata
+//!
+//! ## Args
+//!     <file-path>    Path to a Parquet file
+//!
+//! Note that `verbose` is an optional boolean flag that allows to print schema only,
+//! when not provided or print full file metadata when provided.
 
 extern crate parquet;
 
-use std::{env, fs::File, path::Path, process};
+use std::{env, fs::File, path::Path};
+
+use clap::{crate_authors, crate_version, App, Arg};
 
 use parquet::{
     file::reader::{FileReader, SerializedFileReader},
@@ -52,31 +61,38 @@ use parquet::{
 };
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
-    if args.len() != 2 && args.len() != 3 {
-        println!("Usage: parquet-schema <file-path> [verbose]");
-        process::exit(1);
-    }
-    let path = Path::new(&args[1]);
-    let mut verbose = false;
-    if args.len() == 3 {
-        match args[2].parse() {
-            Ok(b) => verbose = b,
-            Err(e) => panic!(
-                "Error when reading value for [verbose] (expected either 'true' or 'false'): {}",
-                e
-            ),
-        }
-    }
+    let matches = App::new("parquet-schema")
+        .version(crate_version!())
+        .author(crate_authors!())
+        .arg(
+            Arg::with_name("file_path")
+                .value_name("file-path")
+                .required(true)
+                .index(1)
+                .help("Path to a Parquet file"),
+        )
+        .arg(
+            Arg::with_name("verbose")
+                .short("v")
+                .long("verbose")
+                .takes_value(false)
+                .help("Enable printing full file metadata"),
+        )
+        .get_matches();
+
+    let filename = matches.value_of("file_path").unwrap();
+    let path = Path::new(&filename);
     let file = match File::open(&path) {
         Err(e) => panic!("Error when opening file {}: {}", path.display(), e),
         Ok(f) => f,
     };
+    let verbose = matches.is_present("verbose");
+
     match SerializedFileReader::new(file) {
         Err(e) => panic!("Error when parsing Parquet file: {}", e),
         Ok(parquet_reader) => {
             let metadata = parquet_reader.metadata();
-            println!("Metadata for file: {}", &args[1]);
+            println!("Metadata for file: {}", &filename);
             println!();
             if verbose {
                 print_parquet_metadata(&mut std::io::stdout(), &metadata);

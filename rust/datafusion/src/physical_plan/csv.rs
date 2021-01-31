@@ -142,7 +142,11 @@ impl CsvExec {
         let mut filenames: Vec<String> = vec![];
         common::build_file_list(path, &mut filenames, file_extension.as_str())?;
         if filenames.is_empty() {
-            return Err(DataFusionError::Execution("No files found".to_string()));
+            return Err(DataFusionError::Execution(format!(
+                "No files found at {path} with file extension {file_extension}",
+                path = path,
+                file_extension = file_extension.as_str()
+            )));
         }
 
         let schema = match options.schema {
@@ -191,6 +195,11 @@ impl CsvExec {
     /// File extension
     pub fn file_extension(&self) -> &str {
         &self.file_extension
+    }
+
+    /// Get the schema of the CSV file
+    pub fn file_schema(&self) -> SchemaRef {
+        self.schema.clone()
     }
 
     /// Optional projection for which columns to load
@@ -334,6 +343,7 @@ mod tests {
         )?;
         assert_eq!(13, csv.schema.fields().len());
         assert_eq!(3, csv.projected_schema.fields().len());
+        assert_eq!(13, csv.file_schema().fields().len());
         assert_eq!(3, csv.schema().fields().len());
         let mut stream = csv.execute(0).await?;
         let batch = stream.next().await.unwrap()?;
@@ -356,6 +366,7 @@ mod tests {
             CsvExec::try_new(&path, CsvReadOptions::new().schema(&schema), None, 1024)?;
         assert_eq!(13, csv.schema.fields().len());
         assert_eq!(13, csv.projected_schema.fields().len());
+        assert_eq!(13, csv.file_schema().fields().len());
         assert_eq!(13, csv.schema().fields().len());
         let mut it = csv.execute(0).await?;
         let batch = it.next().await.unwrap()?;

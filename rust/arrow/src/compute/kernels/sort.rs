@@ -106,12 +106,8 @@ pub fn sort_to_indices(
         DataType::Float64 => {
             sort_primitive::<Float64Type, _>(values, v, n, total_cmp_64, &options)
         }
-        DataType::Date32(_) => {
-            sort_primitive::<Date32Type, _>(values, v, n, cmp, &options)
-        }
-        DataType::Date64(_) => {
-            sort_primitive::<Date64Type, _>(values, v, n, cmp, &options)
-        }
+        DataType::Date32 => sort_primitive::<Date32Type, _>(values, v, n, cmp, &options),
+        DataType::Date64 => sort_primitive::<Date64Type, _>(values, v, n, cmp, &options),
         DataType::Time32(Second) => {
             sort_primitive::<Time32SecondType, _>(values, v, n, cmp, &options)
         }

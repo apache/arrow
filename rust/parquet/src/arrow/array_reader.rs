@@ -33,7 +33,7 @@ use arrow::array::{
 use arrow::buffer::{Buffer, MutableBuffer};
 use arrow::datatypes::{
     ArrowPrimitiveType, BooleanType as ArrowBooleanType, DataType as ArrowType,
-    Date32Type as ArrowDate32Type, Date64Type as ArrowDate64Type, DateUnit,
+    Date32Type as ArrowDate32Type, Date64Type as ArrowDate64Type,
     DurationMicrosecondType as ArrowDurationMicrosecondType,
     DurationMillisecondType as ArrowDurationMillisecondType,
     DurationNanosecondType as ArrowDurationNanosecondType,
@@ -345,9 +345,9 @@ impl<T: DataType> ArrayReader for PrimitiveArrayReader<T> {
         // - date64: we should cast int32 to date32, then date32 to date64.
         let target_type = self.get_data_type();
         let array = match target_type {
-            ArrowType::Date64(_) => {
+            ArrowType::Date64 => {
                 // this is cheap as it internally reinterprets the data
-                let a = arrow::compute::cast(&array, &ArrowType::Date32(DateUnit::Day))?;
+                let a = arrow::compute::cast(&array, &ArrowType::Date32)?;
                 arrow::compute::cast(&a, target_type)?
             }
             ArrowType::Decimal(p, s) => {
@@ -719,10 +719,10 @@ fn remove_indices(
                 indices
             )
         }
-        ArrowType::Date32(_) => {
+        ArrowType::Date32 => {
             remove_primitive_array_indices!(arr, ArrowDate32Type, indices)
         }
-        ArrowType::Date64(_) => {
+        ArrowType::Date64 => {
             remove_primitive_array_indices!(arr, ArrowDate64Type, indices)
         }
         ArrowType::Time32(ArrowTimeUnit::Second) => {

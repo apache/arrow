@@ -86,7 +86,7 @@ use std::{
 };
 
 use crate::buffer::Buffer;
-use crate::datatypes::{DataType, DateUnit, TimeUnit};
+use crate::datatypes::{DataType, TimeUnit};
 use crate::error::{ArrowError, Result};
 use crate::util::bit_util;
 
@@ -187,8 +187,8 @@ fn to_datatype(format: &str) -> Result<DataType> {
         "Z" => DataType::LargeBinary,
         "u" => DataType::Utf8,
         "U" => DataType::LargeUtf8,
-        "tdD" => DataType::Date32(DateUnit::Day),
-        "tdm" => DataType::Date64(DateUnit::Millisecond),
+        "tdD" => DataType::Date32,
+        "tdm" => DataType::Date64,
         "tts" => DataType::Time32(TimeUnit::Second),
         "ttm" => DataType::Time32(TimeUnit::Millisecond),
         "ttu" => DataType::Time64(TimeUnit::Microsecond),
@@ -222,8 +222,8 @@ fn from_datatype(datatype: &DataType) -> Result<String> {
         DataType::LargeBinary => "Z",
         DataType::Utf8 => "u",
         DataType::LargeUtf8 => "U",
-        DataType::Date32(DateUnit::Day) => "tdD",
-        DataType::Date64(DateUnit::Millisecond) => "tdm",
+        DataType::Date32 => "tdD",
+        DataType::Date64 => "tdm",
         DataType::Time32(TimeUnit::Second) => "tts",
         DataType::Time32(TimeUnit::Millisecond) => "ttm",
         DataType::Time64(TimeUnit::Microsecond) => "ttu",
@@ -252,8 +252,8 @@ fn bit_width(data_type: &DataType, i: usize) -> Result<usize> {
         (DataType::UInt64, 1) => size_of::<u64>() * 8,
         (DataType::Int8, 1) => size_of::<i8>() * 8,
         (DataType::Int16, 1) => size_of::<i16>() * 8,
-        (DataType::Int32, 1) | (DataType::Date32(_), 1) | (DataType::Time32(_), 1) => size_of::<i32>() * 8,
-        (DataType::Int64, 1) | (DataType::Date64(_), 1) | (DataType::Time64(_), 1) => size_of::<i64>() * 8,
+        (DataType::Int32, 1) | (DataType::Date32, 1) | (DataType::Time32(_), 1) => size_of::<i32>() * 8,
+        (DataType::Int64, 1) | (DataType::Date64, 1) | (DataType::Time64(_), 1) => size_of::<i64>() * 8,
         (DataType::Float32, 1) => size_of::<f32>() * 8,
         (DataType::Float64, 1) => size_of::<f64>() * 8,
         // primitive types have a single buffer
@@ -264,8 +264,8 @@ fn bit_width(data_type: &DataType, i: usize) -> Result<usize> {
         (DataType::UInt64, _) |
         (DataType::Int8, _) |
         (DataType::Int16, _) |
-        (DataType::Int32, _) | (DataType::Date32(_), _) | (DataType::Time32(_), _) |
-        (DataType::Int64, _) | (DataType::Date64(_), _) | (DataType::Time64(_), _) |
+        (DataType::Int32, _) | (DataType::Date32, _) | (DataType::Time32(_), _) |
+        (DataType::Int64, _) | (DataType::Date64, _) | (DataType::Time64(_), _) |
         (DataType::Float32, _) |
         (DataType::Float64, _) => {
             return Err(ArrowError::CDataInterface(format!(

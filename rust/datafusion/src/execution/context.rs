@@ -75,7 +75,7 @@ use parquet::file::properties::WriterProperties;
 /// let mut ctx = ExecutionContext::new();
 /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
 /// let df = df.filter(col("a").lt_eq(col("b")))?
-///            .aggregate(vec![col("a")], vec![min(col("b"))])?
+///            .aggregate(&[col("a")], &[min(col("b"))])?
 ///            .limit(100)?;
 /// let results = df.collect();
 /// # Ok(())
@@ -324,19 +324,15 @@ impl ExecutionContext {
 
     /// Optimize the logical plan by applying optimizer rules
     pub fn optimize(&self, plan: &LogicalPlan) -> Result<LogicalPlan> {
-        // Apply standard rewrites and optimizations
-        debug!("Logical plan:\n {:?}", plan);
-        let mut plan = ProjectionPushDown::new().optimize(&plan)?;
-        plan = FilterPushDown::new().optimize(&plan)?;
-        plan = HashBuildProbeOrder::new().optimize(&plan)?;
-        debug!("Optimized logical plan:\n {:?}", plan);
+        let optimizers = &self.state.lock().unwrap().config.optimizers;
 
-        self.state
-            .lock()
-            .unwrap()
-            .config
-            .query_planner
-            .rewrite_logical_plan(plan)
+        let mut new_plan = plan.clone();
+        debug!("Logical plan:\n {:?}", plan);
+        for optimizer in optimizers {
+            new_plan = optimizer.optimize(&new_plan)?;
+        }
+        debug!("Optimized logical plan:\n {:?}", plan);
+        Ok(new_plan)
     }
 
     /// Create a physical plan from a logical plan
@@ -454,13 +450,6 @@ impl FunctionRegistry for ExecutionContext {
 
 /// A planner used to add extensions to DataFusion logical and physical plans.
 pub trait QueryPlanner {
-    /// Given a `LogicalPlan`, create a new, modified `LogicalPlan`
-    /// plan. This method is run after built in `OptimizerRule`s. By
-    /// default returns the `plan` unmodified.
-    fn rewrite_logical_plan(&self, plan: LogicalPlan) -> Result<LogicalPlan> {
-        Ok(plan)
-    }
-
     /// Given a `LogicalPlan`, create an `ExecutionPlan` suitable for execution
     fn create_physical_plan(
         &self,
@@ -491,6 +480,8 @@ pub struct ExecutionConfig {
     pub concurrency: usize,
     /// Default batch size when reading data sources
     pub batch_size: usize,
+    /// Responsible for optimizing a logical plan
+    optimizers: Vec<Arc<dyn OptimizerRule + Send + Sync>>,
     /// Responsible for planning `LogicalPlan`s, and `ExecutionPlan`
     query_planner: Arc<dyn QueryPlanner + Send + Sync>,
 }
@@ -501,6 +492,11 @@ impl ExecutionConfig {
         Self {
             concurrency: num_cpus::get(),
             batch_size: 32768,
+            optimizers: vec![
+                Arc::new(ProjectionPushDown::new()),
+                Arc::new(FilterPushDown::new()),
+                Arc::new(HashBuildProbeOrder::new()),
+            ],
             query_planner: Arc::new(DefaultQueryPlanner {}),
         }
     }
@@ -527,6 +523,15 @@ impl ExecutionConfig {
         query_planner: Arc<dyn QueryPlanner + Send + Sync>,
     ) -> Self {
         self.query_planner = query_planner;
+        self
+    }
+
+    /// Adds a new [`OptimizerRule`]
+    pub fn add_optimizer_rule(
+        mut self,
+        optimizer_rule: Arc<dyn OptimizerRule + Send + Sync>,
+    ) -> Self {
+        self.optimizers.push(optimizer_rule);
         self
     }
 }
@@ -782,7 +787,7 @@ mod tests {
 
         let table = ctx.table("test")?;
         let logical_plan = LogicalPlanBuilder::from(&table.to_logical_plan())
-            .project(vec![col("c2")])?
+            .project(&[col("c2")])?
             .build()?;
 
         let optimized_plan = ctx.optimize(&logical_plan)?;
@@ -834,7 +839,7 @@ mod tests {
         assert_eq!(schema.field_with_name("c1")?.is_nullable(), false);
 
         let plan = LogicalPlanBuilder::scan_empty("", schema.as_ref(), None)?
-            .project(vec![col("c1")])?
+            .project(&[col("c1")])?
             .build()?;
 
         let plan = ctx.optimize(&plan)?;
@@ -865,7 +870,7 @@ mod tests {
         )?]];
 
         let plan = LogicalPlanBuilder::scan_memory(partitions, schema, None)?
-            .project(vec![col("b")])?
+            .project(&[col("b")])?
             .build()?;
         assert_fields_eq(&plan, vec!["b"]);
 
@@ -1396,8 +1401,8 @@ mod tests {
         ]));
 
         let plan = LogicalPlanBuilder::scan_empty("", schema.as_ref(), None)?
-            .aggregate(vec![col("c1")], vec![sum(col("c2"))])?
-            .project(vec![col("c1"), col("SUM(c2)").alias("total_salary")])?
+            .aggregate(&[col("c1")], &[sum(col("c2"))])?
+            .project(&[col("c1"), col("SUM(c2)").alias("total_salary")])?
             .build()?;
 
         let plan = ctx.optimize(&plan)?;
@@ -1604,7 +1609,7 @@ mod tests {
         let t = ctx.table("t")?;
 
         let plan = LogicalPlanBuilder::from(&t.to_logical_plan())
-            .project(vec![
+            .project(&[
                 col("a"),
                 col("b"),
                 ctx.udf("my_add")?.call(vec![col("a"), col("b")]),

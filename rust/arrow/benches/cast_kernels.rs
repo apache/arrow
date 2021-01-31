@@ -160,10 +160,10 @@ fn add_benchmark(c: &mut Criterion) {
         b.iter(|| cast_array(&i64_array, DataType::Int32))
     });
     c.bench_function("cast date64 to date32 512", |b| {
-        b.iter(|| cast_array(&date64_array, DataType::Date32(DateUnit::Day)))
+        b.iter(|| cast_array(&date64_array, DataType::Date32))
     });
     c.bench_function("cast date32 to date64 512", |b| {
-        b.iter(|| cast_array(&date32_array, DataType::Date64(DateUnit::Millisecond)))
+        b.iter(|| cast_array(&date32_array, DataType::Date64))
     });
     c.bench_function("cast time32s to time32ms 512", |b| {
         b.iter(|| cast_array(&time32s_array, DataType::Time32(TimeUnit::Millisecond)))
@@ -204,15 +204,10 @@ fn add_benchmark(c: &mut Criterion) {
         b.iter(|| cast_array(&time_ms_array, DataType::Int64))
     });
     c.bench_function("cast utf8 to date32 512", |b| {
-        b.iter(|| cast_array(&utf8_date_array, DataType::Date32(DateUnit::Day)))
+        b.iter(|| cast_array(&utf8_date_array, DataType::Date32))
     });
     c.bench_function("cast utf8 to date64 512", |b| {
-        b.iter(|| {
-            cast_array(
-                &utf8_date_time_array,
-                DataType::Date64(DateUnit::Millisecond),
-            )
-        })
+        b.iter(|| cast_array(&utf8_date_time_array, DataType::Date64))
     });
 }
 

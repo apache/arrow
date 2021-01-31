@@ -280,18 +280,6 @@ io___CompressedInputStream__Make <- function(codec, raw){
     .Call(`_arrow_io___CompressedInputStream__Make`, codec, raw)
 }
 
-compute___CastOptions__initialize <- function(allow_int_overflow, allow_time_truncate, allow_float_truncate){
-    .Call(`_arrow_compute___CastOptions__initialize`, allow_int_overflow, allow_time_truncate, allow_float_truncate)
-}
-
-Array__cast <- function(array, target_type, options){
-    .Call(`_arrow_Array__cast`, array, target_type, options)
-}
-
-ChunkedArray__cast <- function(chunked_array, target_type, options){
-    .Call(`_arrow_ChunkedArray__cast`, chunked_array, target_type, options)
-}
-
 RecordBatch__cast <- function(batch, schema, options){
     .Call(`_arrow_RecordBatch__cast`, batch, schema, options)
 }
@@ -706,6 +694,10 @@ StructType__GetFieldByName <- function(type, name){
 
 StructType__GetFieldIndex <- function(type, name){
     .Call(`_arrow_StructType__GetFieldIndex`, type, name)
+}
+
+StructType__field_names <- function(type){
+    .Call(`_arrow_StructType__field_names`, type)
 }
 
 ListType__value_field <- function(type){

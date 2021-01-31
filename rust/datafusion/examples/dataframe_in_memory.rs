@@ -56,7 +56,7 @@ async fn main() -> Result<()> {
     // construct an expression corresponding to "SELECT a, b FROM t WHERE b = 10" in SQL
     let filter = col("b").eq(lit(10));
 
-    let df = df.select_columns(vec!["a", "b"])?.filter(filter)?;
+    let df = df.select_columns(&["a", "b"])?.filter(filter)?;
 
     // execute
     let results = df.collect().await?;
