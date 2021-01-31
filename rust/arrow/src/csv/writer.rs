@@ -76,6 +76,7 @@ use crate::{array::*, util::serialization::lexical_to_string};
 const DEFAULT_DATE_FORMAT: &str = "%F";
 const DEFAULT_TIME_FORMAT: &str = "%T";
 const DEFAULT_TIMESTAMP_FORMAT: &str = "%FT%H:%M:%S.%9f";
+const DEFAULT_DATETIME_FORMAT: &str = "%+"; //  	ISO 8601 / RFC 3339 date & time format.
 
 fn write_primitive_value<T>(array: &ArrayRef, i: usize) -> String
 where
@@ -97,6 +98,8 @@ pub struct Writer<W: Write> {
     has_headers: bool,
     /// The date format for date arrays
     date_format: String,
+    /// The datetime format for datetime arrays
+    datetime_format: String,
     /// The timestamp format for timestamp arrays
     timestamp_format: String,
     /// The time format for time arrays
@@ -116,6 +119,7 @@ impl<W: Write> Writer<W> {
             delimiter,
             has_headers: true,
             date_format: DEFAULT_DATE_FORMAT.to_string(),
+            datetime_format: DEFAULT_DATETIME_FORMAT.to_string(),
             time_format: DEFAULT_TIME_FORMAT.to_string(),
             timestamp_format: DEFAULT_TIMESTAMP_FORMAT.to_string(),
             beginning: true,
@@ -165,9 +169,9 @@ impl<W: Write> Writer<W> {
                 }
                 DataType::Date64 => {
                     let c = col.as_any().downcast_ref::<Date64Array>().unwrap();
-                    c.value_as_date(row_index)
+                    c.value_as_datetime(row_index)
                         .unwrap()
-                        .format(&self.date_format)
+                        .format(&self.datetime_format)
                         .to_string()
                 }
                 DataType::Time32(TimeUnit::Second) => {
@@ -288,6 +292,8 @@ pub struct WriterBuilder {
     has_headers: bool,
     /// Optional date format for date arrays
     date_format: Option<String>,
+    /// Optional datetime format for datetime arrays
+    datetime_format: Option<String>,
     /// Optional timestamp format for timestamp arrays
     timestamp_format: Option<String>,
     /// Optional time format for time arrays
@@ -300,6 +306,7 @@ impl Default for WriterBuilder {
             has_headers: true,
             delimiter: None,
             date_format: Some(DEFAULT_DATE_FORMAT.to_string()),
+            datetime_format: Some(DEFAULT_DATETIME_FORMAT.to_string()),
             time_format: Some(DEFAULT_TIME_FORMAT.to_string()),
             timestamp_format: Some(DEFAULT_TIMESTAMP_FORMAT.to_string()),
         }
@@ -375,6 +382,9 @@ impl WriterBuilder {
             date_format: self
                 .date_format
                 .unwrap_or_else(|| DEFAULT_DATE_FORMAT.to_string()),
+            datetime_format: self
+                .datetime_format
+                .unwrap_or_else(|| DEFAULT_DATETIME_FORMAT.to_string()),
             time_format: self
                 .time_format
                 .unwrap_or_else(|| DEFAULT_TIME_FORMAT.to_string()),
