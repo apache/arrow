@@ -76,7 +76,6 @@ use crate::{array::*, util::serialization::lexical_to_string};
 const DEFAULT_DATE_FORMAT: &str = "%F";
 const DEFAULT_TIME_FORMAT: &str = "%T";
 const DEFAULT_TIMESTAMP_FORMAT: &str = "%FT%H:%M:%S.%9f";
-const DEFAULT_DATETIME_FORMAT: &str = "%+"; //  	ISO 8601 / RFC 3339 date & time format.
 
 fn write_primitive_value<T>(array: &ArrayRef, i: usize) -> String
 where
@@ -119,7 +118,7 @@ impl<W: Write> Writer<W> {
             delimiter,
             has_headers: true,
             date_format: DEFAULT_DATE_FORMAT.to_string(),
-            datetime_format: DEFAULT_DATETIME_FORMAT.to_string(),
+            datetime_format: DEFAULT_TIMESTAMP_FORMAT.to_string(),
             time_format: DEFAULT_TIME_FORMAT.to_string(),
             timestamp_format: DEFAULT_TIMESTAMP_FORMAT.to_string(),
             beginning: true,
@@ -306,7 +305,7 @@ impl Default for WriterBuilder {
             has_headers: true,
             delimiter: None,
             date_format: Some(DEFAULT_DATE_FORMAT.to_string()),
-            datetime_format: Some(DEFAULT_DATETIME_FORMAT.to_string()),
+            datetime_format: Some(DEFAULT_TIMESTAMP_FORMAT.to_string()),
             time_format: Some(DEFAULT_TIME_FORMAT.to_string()),
             timestamp_format: Some(DEFAULT_TIMESTAMP_FORMAT.to_string()),
         }
@@ -384,7 +383,7 @@ impl WriterBuilder {
                 .unwrap_or_else(|| DEFAULT_DATE_FORMAT.to_string()),
             datetime_format: self
                 .datetime_format
-                .unwrap_or_else(|| DEFAULT_DATETIME_FORMAT.to_string()),
+                .unwrap_or_else(|| DEFAULT_TIMESTAMP_FORMAT.to_string()),
             time_format: self
                 .time_format
                 .unwrap_or_else(|| DEFAULT_TIME_FORMAT.to_string()),
@@ -400,11 +399,12 @@ impl WriterBuilder {
 mod tests {
     use super::*;
 
+    use crate::csv::Reader;
     use crate::datatypes::{Field, Schema};
     use crate::util::string_writer::StringWriter;
     use crate::util::test_util::get_temp_file;
     use std::fs::File;
-    use std::io::Read;
+    use std::io::{Cursor, Read};
     use std::sync::Arc;
 
     #[test]
@@ -593,5 +593,55 @@ consectetur adipiscing elit,,2,false,2019-04-18T10:54:47.378000000,06:51:20
 sed do eiusmod tempor,-556132.25,1,,2019-04-18T02:45:55.555000000,23:46:03\n";
         let right = writer.writer.into_inner().map(|s| s.to_string());
         assert_eq!(Some(left.to_string()), right.ok());
+    }
+
+    #[test]
+    fn test_conversion_consistency() {
+        // test if we can serialize and deserialize whilst retaining the same type information/ precision
+
+        let schema = Schema::new(vec![
+            Field::new("c1", DataType::Date32, false),
+            Field::new("c2", DataType::Date64, false),
+        ]);
+
+        let c1 = Date32Array::from(vec![3, 2, 1]);
+        let c2 = Date64Array::from(vec![3, 2, 1]);
+
+        let batch = RecordBatch::try_new(
+            Arc::new(schema.clone()),
+            vec![Arc::new(c1), Arc::new(c2)],
+        )
+        .unwrap();
+
+        let builder = WriterBuilder::new().has_headers(false);
+
+        let mut buf: Cursor<Vec<u8>> = Default::default();
+        // drop the writer early to release the borrow.
+        {
+            let mut writer = builder.build(&mut buf);
+            writer.write(&batch).unwrap();
+        }
+        buf.set_position(0);
+
+        let mut reader = Reader::new(
+            buf,
+            Arc::new(schema),
+            false,
+            None,
+            3,
+            // starting at row 2 and up to row 6.
+            None,
+            None,
+        );
+        let rb = reader.next().unwrap().unwrap();
+        let c1 = rb.column(0).as_any().downcast_ref::<Date32Array>().unwrap();
+        let c2 = rb.column(1).as_any().downcast_ref::<Date64Array>().unwrap();
+
+        let actual = c1.into_iter().collect::<Vec<_>>();
+        let expected = vec![Some(3), Some(2), Some(1)];
+        assert_eq!(actual, expected);
+        let actual = c2.into_iter().collect::<Vec<_>>();
+        let expected = vec![Some(3), Some(2), Some(1)];
+        assert_eq!(actual, expected);
     }
 }
