@@ -339,7 +339,7 @@ where
 
 /// Returns mapping of each alias (`String`) to the expression (`Expr`) it is
 /// aliasing.
-pub(crate) fn extract_aliases(exprs: &Vec<Expr>) -> HashMap<String, Expr> {
+pub(crate) fn extract_aliases(exprs: &[Expr]) -> HashMap<String, Expr> {
     exprs
         .iter()
         .filter_map(|expr| match expr {
