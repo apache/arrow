@@ -715,6 +715,46 @@ mod tests {
     }
 
     #[test]
+    fn test_struct_offset() {
+        let strings: ArrayRef = Arc::new(StringArray::from(vec![
+            Some("joe"),
+            None,
+            None,
+            Some("mark"),
+            Some("doe"),
+        ]));
+        let ints: ArrayRef = Arc::new(Int32Array::from(vec![
+            Some(1),
+            Some(2),
+            Some(3),
+            Some(4),
+            Some(5),
+        ]));
+
+        let array =
+            StructArray::try_from(vec![("f1", strings.clone()), ("f2", ints.clone())])
+                .unwrap()
+                .slice(1, 3)
+                .data();
+        let arrays = vec![array.as_ref()];
+        let mut mutable = MutableArrayData::new(arrays, false, 0);
+
+        mutable.extend(0, 1, 3);
+        let data = mutable.freeze();
+        let array = StructArray::from(Arc::new(data));
+
+        let expected_strings: ArrayRef =
+            Arc::new(StringArray::from(vec![None, Some("mark")]));
+        let expected = StructArray::try_from(vec![
+            ("f1", expected_strings),
+            ("f2", ints.slice(2, 2)),
+        ])
+        .unwrap();
+
+        assert_eq!(array, expected);
+    }
+
+    #[test]
     fn test_struct_nulls() {
         let strings: ArrayRef = Arc::new(StringArray::from(vec![
             Some("joe"),
