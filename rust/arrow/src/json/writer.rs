@@ -72,6 +72,66 @@ use crate::datatypes::*;
 use crate::error::Result;
 use crate::record_batch::RecordBatch;
 
+fn primitive_array_to_json<T: ArrowPrimitiveType>(array: &ArrayRef) -> Vec<Value> {
+    as_primitive_array::<T>(array)
+        .iter()
+        .map(|maybe_value| match maybe_value {
+            Some(v) => v.into_json_value().unwrap_or(Value::Null),
+            None => Value::Null,
+        })
+        .collect()
+}
+
+pub fn array_to_json_array(array: &ArrayRef) -> Vec<Value> {
+    match array.data_type() {
+        DataType::Null => iter::repeat(Value::Null).take(array.len()).collect(),
+        DataType::Boolean => as_boolean_array(array)
+            .iter()
+            .map(|maybe_value| match maybe_value {
+                Some(v) => v.into(),
+                None => Value::Null,
+            })
+            .collect(),
+
+        DataType::Utf8 => as_string_array(array)
+            .iter()
+            .map(|maybe_value| match maybe_value {
+                Some(v) => v.into(),
+                None => Value::Null,
+            })
+            .collect(),
+        DataType::Int8 => primitive_array_to_json::<Int8Type>(array),
+        DataType::Int16 => primitive_array_to_json::<Int16Type>(array),
+        DataType::Int32 => primitive_array_to_json::<Int32Type>(array),
+        DataType::Int64 => primitive_array_to_json::<Int64Type>(array),
+        DataType::UInt8 => primitive_array_to_json::<UInt8Type>(array),
+        DataType::UInt16 => primitive_array_to_json::<UInt16Type>(array),
+        DataType::UInt32 => primitive_array_to_json::<UInt32Type>(array),
+        DataType::UInt64 => primitive_array_to_json::<UInt64Type>(array),
+        DataType::Float32 => primitive_array_to_json::<Float32Type>(array),
+        DataType::Float64 => primitive_array_to_json::<Float64Type>(array),
+        _ => {
+            panic!(format!(
+                "Unsupported datatype for array conversion: {:#?}",
+                array.data_type()
+            ));
+        }
+    }
+}
+
+macro_rules! set_column_by_array_type {
+    ($cast_fn:ident, $col_name:ident, $rows:ident, $array:ident, $row_count:ident) => {
+        let arr = $cast_fn($array);
+        $rows.iter_mut().zip(arr.iter()).take($row_count).for_each(
+            |(row, maybe_value)| {
+                if let Some(v) = maybe_value {
+                    row.insert($col_name.to_string(), v.into());
+                }
+            },
+        );
+    };
+}
+
 fn set_column_by_primitive_type<T: ArrowPrimitiveType>(
     rows: &mut [JsonMap<String, Value>],
     row_count: usize,
@@ -84,13 +144,10 @@ fn set_column_by_primitive_type<T: ArrowPrimitiveType>(
         .zip(primitive_arr.iter())
         .take(row_count)
         .for_each(|(row, maybe_value)| {
-            row.insert(
-                col_name.to_string(),
-                match maybe_value {
-                    Some(v) => v.into_json_value().unwrap_or(Value::Null),
-                    None => Value::Null,
-                },
-            );
+            // when value is null, we simply skip setting the key
+            if let Some(j) = maybe_value.and_then(|v| v.into_json_value()) {
+                row.insert(col_name.to_string(), j);
+            }
         });
 }
 
@@ -101,25 +158,6 @@ fn set_column_for_json_rows(
     col_name: &str,
 ) {
     match array.data_type() {
-        DataType::Null => {
-            for row in rows.iter_mut().take(row_count) {
-                row.insert(col_name.to_string(), Value::Null);
-            }
-        }
-        DataType::Boolean => {
-            let arr = as_boolean_array(array);
-            rows.iter_mut().zip(arr.iter()).take(row_count).for_each(
-                |(row, maybe_value)| {
-                    row.insert(
-                        col_name.to_string(),
-                        match maybe_value {
-                            Some(v) => v.into(),
-                            None => Value::Null,
-                        },
-                    );
-                },
-            );
-        }
         DataType::Int8 => {
             set_column_by_primitive_type::<Int8Type>(rows, row_count, array, col_name)
         }
@@ -150,29 +188,25 @@ fn set_column_for_json_rows(
         DataType::Float64 => {
             set_column_by_primitive_type::<Float64Type>(rows, row_count, array, col_name)
         }
+        DataType::Null => {
+            // when value is null, we simply skip setting the key
+        }
+        DataType::Boolean => {
+            set_column_by_array_type!(as_boolean_array, col_name, rows, array, row_count);
+        }
         DataType::Utf8 => {
-            let strarr = as_string_array(array);
-            rows.iter_mut().zip(strarr.iter()).take(row_count).for_each(
-                |(row, maybe_value)| {
-                    row.insert(
-                        col_name.to_string(),
-                        match maybe_value {
-                            Some(v) => v.into(),
-                            None => Value::Null,
-                        },
-                    );
-                },
-            );
+            set_column_by_array_type!(as_string_array, col_name, rows, array, row_count);
         }
         DataType::Struct(_) => {
-            let arr = as_struct_array(array);
-            let inner_col_names = arr.column_names();
+            let structarr = as_struct_array(array);
+            let inner_col_names = structarr.column_names();
 
             let mut inner_objs = iter::repeat(JsonMap::new())
                 .take(row_count)
                 .collect::<Vec<JsonMap<String, Value>>>();
 
-            arr.columns()
+            structarr
+                .columns()
                 .iter()
                 .enumerate()
                 .for_each(|(j, struct_col)| {
@@ -189,6 +223,20 @@ fn set_column_for_json_rows(
                 .zip(inner_objs.into_iter())
                 .for_each(|(row, obj)| {
                     row.insert(col_name.to_string(), Value::Object(obj));
+                });
+        }
+        DataType::List(_) => {
+            let listarr = as_list_array::<i32>(array);
+            rows.iter_mut()
+                .zip(listarr.iter())
+                .take(row_count)
+                .for_each(|(row, maybe_value)| {
+                    if let Some(v) = maybe_value {
+                        row.insert(
+                            col_name.to_string(),
+                            Value::Array(array_to_json_array(&v)),
+                        );
+                    }
                 });
         }
         _ => {
@@ -307,15 +355,34 @@ mod tests {
         let result = String::from_utf8(buf).unwrap();
         let expected = read_to_string(test_file).unwrap();
         for (r, e) in result.lines().zip(expected.lines()) {
-            assert_eq!(
-                serde_json::from_str::<Value>(r).unwrap(),
-                serde_json::from_str::<Value>(e).unwrap()
-            );
+            let mut expected_json = serde_json::from_str::<Value>(e).unwrap();
+            // remove null value from object to make comparision consistent:
+            if let Value::Object(obj) = expected_json {
+                expected_json = Value::Object(
+                    obj.into_iter().filter(|(_, v)| *v != Value::Null).collect(),
+                );
+            }
+            assert_eq!(serde_json::from_str::<Value>(r).unwrap(), expected_json,);
         }
     }
 
     #[test]
     fn write_basic_rows() {
         test_write_for_file("test/data/basic.json");
+    }
+
+    #[test]
+    fn write_arrays() {
+        test_write_for_file("test/data/arrays.json");
+    }
+
+    #[test]
+    fn write_basic_nulls() {
+        test_write_for_file("test/data/basic_nulls.json");
+    }
+
+    #[test]
+    fn write_mixed() {
+        test_write_for_file("test/data/mixed_arrays.json");
     }
 }

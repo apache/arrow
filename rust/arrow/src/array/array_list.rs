@@ -24,7 +24,7 @@ use num::Num;
 
 use super::{
     array::print_long_array, make_array, raw_pointer::RawPtrBox, Array, ArrayDataRef,
-    ArrayRef,
+    ArrayRef, GenericListArrayIter,
 };
 use crate::datatypes::ArrowNativeType;
 use crate::datatypes::*;
@@ -101,6 +101,20 @@ impl<OffsetSize: OffsetSizeTrait> GenericListArray<OffsetSize> {
     #[inline]
     fn value_offset_at(&self, i: usize) -> OffsetSize {
         unsafe { *self.value_offsets.as_ptr().add(i) }
+    }
+
+    /// constructs a new iterator
+    pub fn iter<'a>(&'a self) -> GenericListArrayIter<'a, OffsetSize> {
+        GenericListArrayIter::<'a, OffsetSize>::new(&self)
+    }
+}
+
+impl<'a, S: OffsetSizeTrait> IntoIterator for &'a GenericListArray<S> {
+    type Item = Option<ArrayRef>;
+    type IntoIter = GenericListArrayIter<'a, S>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        GenericListArrayIter::<'a, S>::new(self)
     }
 }
 
