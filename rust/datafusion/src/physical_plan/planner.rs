@@ -50,29 +50,30 @@ use arrow::compute::SortOptions;
 use arrow::datatypes::{Schema, SchemaRef};
 use expressions::col;
 
-/// This trait permits the `DefaultPhysicalPlanner` to create plans for
-/// user defined `ExtensionPlanNode`s
+/// This trait exposes the ability to plan an [`ExecutionPlan`] out of a [`LogicalPlan`].
 pub trait ExtensionPlanner {
-    /// Create a physical plan for an extension node
+    /// Create a physical plan for a [`UserDefinedLogicalNode`].
+    /// This errors when the planner knows how to plan the concrete implementation of `node`
+    /// but errors while doing so, and `None` when the planner does not know how to plan the `node`
+    /// and wants to delegate the planning to another [`ExtensionPlanner`].
     fn plan_extension(
         &self,
         node: &dyn UserDefinedLogicalNode,
-        inputs: Vec<Arc<dyn ExecutionPlan>>,
+        inputs: &[Arc<dyn ExecutionPlan>],
         ctx_state: &ExecutionContextState,
-    ) -> Result<Arc<dyn ExecutionPlan>>;
+    ) -> Result<Option<Arc<dyn ExecutionPlan>>>;
 }
 
 /// Default single node physical query planner that converts a
 /// `LogicalPlan` to an `ExecutionPlan` suitable for execution.
 pub struct DefaultPhysicalPlanner {
-    extension_planner: Arc<dyn ExtensionPlanner + Send + Sync>,
+    extension_planners: Vec<Arc<dyn ExtensionPlanner + Send + Sync>>,
 }
 
 impl Default for DefaultPhysicalPlanner {
-    /// Create an implementation of the default physical planner
     fn default() -> Self {
         Self {
-            extension_planner: Arc::new(DefaultExtensionPlanner {}),
+            extension_planners: vec![],
         }
     }
 }
@@ -90,12 +91,14 @@ impl PhysicalPlanner for DefaultPhysicalPlanner {
 }
 
 impl DefaultPhysicalPlanner {
-    /// Create a physical planner that uses `extension_planner` to
-    /// plan extension nodes.
-    pub fn with_extension_planner(
-        extension_planner: Arc<dyn ExtensionPlanner + Send + Sync>,
+    /// Create a physical planner that uses `extension_planners` to
+    /// plan user-defined logical nodes [`LogicalPlan::Extension`].
+    /// The planner uses the first [`ExtensionPlanner`] to return a non-`None`
+    /// plan.
+    pub fn with_extension_planners(
+        extension_planners: Vec<Arc<dyn ExtensionPlanner + Send + Sync>>,
     ) -> Self {
-        Self { extension_planner }
+        Self { extension_planners }
     }
 
     /// Create a physical plan from a logical plan
@@ -408,11 +411,19 @@ impl DefaultPhysicalPlanner {
                     .map(|input_plan| self.create_physical_plan(input_plan, ctx_state))
                     .collect::<Result<Vec<_>>>()?;
 
-                let plan = self.extension_planner.plan_extension(
-                    node.as_ref(),
-                    inputs,
-                    ctx_state,
+                let maybe_plan = self.extension_planners.iter().try_fold(
+                    None,
+                    |maybe_plan, planner| {
+                        if let Some(plan) = maybe_plan {
+                            Ok(Some(plan))
+                        } else {
+                            planner.plan_extension(node.as_ref(), &inputs, ctx_state)
+                        }
+                    },
                 )?;
+                let plan = maybe_plan.ok_or_else(|| DataFusionError::Plan(format!(
+                    "No installed planner was able to convert the custom node to an execution plan: {:?}", node
+                )))?;
 
                 // Ensure the ExecutionPlan's  schema matches the
                 // declared logical schema to catch and warn about
@@ -730,23 +741,6 @@ fn tuple_err<T, R>(value: (Result<T>, Result<R>)) -> Result<(T, R)> {
     }
 }
 
-struct DefaultExtensionPlanner {}
-
-impl ExtensionPlanner for DefaultExtensionPlanner {
-    fn plan_extension(
-        &self,
-        node: &dyn UserDefinedLogicalNode,
-        _inputs: Vec<Arc<dyn ExecutionPlan>>,
-        _ctx_state: &ExecutionContextState,
-    ) -> Result<Arc<dyn ExecutionPlan>> {
-        Err(DataFusionError::NotImplemented(format!(
-            "DefaultPhysicalPlanner does not know how to plan {:?}. \
-                     Provide a custom ExtensionPlanNodePlanner that does",
-            node
-        )))
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -880,7 +874,7 @@ mod tests {
         };
         let plan = planner.create_physical_plan(&logical_plan, &ctx_state);
 
-        let expected_error = "DefaultPhysicalPlanner does not know how to plan NoOp";
+        let expected_error = "No installed planner was able to convert the custom node to an execution plan: NoOp";
         match plan {
             Ok(_) => panic!("Expected planning failure"),
             Err(e) => assert!(
@@ -898,9 +892,9 @@ mod tests {
         // Test that creating an execution plan whose schema doesn't
         // match the logical plan's schema generates an error.
         let ctx_state = make_ctx_state();
-        let planner = DefaultPhysicalPlanner::with_extension_planner(Arc::new(
+        let planner = DefaultPhysicalPlanner::with_extension_planners(vec![Arc::new(
             BadExtensionPlanner {},
-        ));
+        )]);
 
         let logical_plan = LogicalPlan::Extension {
             node: Arc::new(NoOpExtensionNode::default()),
@@ -1083,16 +1077,16 @@ mod tests {
         fn plan_extension(
             &self,
             _node: &dyn UserDefinedLogicalNode,
-            _inputs: Vec<Arc<dyn ExecutionPlan>>,
+            _inputs: &[Arc<dyn ExecutionPlan>],
             _ctx_state: &ExecutionContextState,
-        ) -> Result<Arc<dyn ExecutionPlan>> {
-            Ok(Arc::new(NoOpExecutionPlan {
+        ) -> Result<Option<Arc<dyn ExecutionPlan>>> {
+            Ok(Some(Arc::new(NoOpExecutionPlan {
                 schema: SchemaRef::new(Schema::new(vec![Field::new(
                     "b",
                     DataType::Int32,
                     false,
                 )])),
-            }))
+            })))
         }
     }
 }
