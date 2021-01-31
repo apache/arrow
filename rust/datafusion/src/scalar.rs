@@ -520,7 +520,23 @@ impl TryFrom<ScalarValue> for i32 {
     }
 }
 
-impl_try_from!(Int64, i64);
+// special implementation for i64 because of TimeNanosecond
+impl TryFrom<ScalarValue> for i64 {
+    type Error = DataFusionError;
+
+    fn try_from(value: ScalarValue) -> Result<Self> {
+        match value {
+            ScalarValue::Int64(Some(inner_value))
+            | ScalarValue::TimeNanosecond(Some(inner_value)) => Ok(inner_value),
+            _ => Err(DataFusionError::Internal(format!(
+                "Cannot convert {:?} to {}",
+                value,
+                std::any::type_name::<Self>()
+            ))),
+        }
+    }
+}
+
 impl_try_from!(UInt8, u8);
 impl_try_from!(UInt16, u16);
 impl_try_from!(UInt32, u32);
