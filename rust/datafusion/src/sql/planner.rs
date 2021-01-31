@@ -632,6 +632,8 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
             },
             SQLExpr::Value(Value::SingleQuotedString(ref s)) => Ok(lit(s.clone())),
 
+            SQLExpr::Value(Value::Boolean(n)) => Ok(lit(*n)),
+
             SQLExpr::Value(Value::Null) => Ok(Expr::Literal(ScalarValue::Utf8(None))),
 
             SQLExpr::Identifier(ref id) => {

@@ -1928,6 +1928,20 @@ async fn string_expressions() -> Result<()> {
 }
 
 #[tokio::test]
+async fn boolean_expressions() -> Result<()> {
+    let mut ctx = ExecutionContext::new();
+    let sql = "SELECT
+        true AS val_1,
+        false AS val_2
+    ";
+    let actual = execute(&mut ctx, sql).await;
+
+    let expected = vec![vec!["true", "false"]];
+    assert_eq!(expected, actual);
+    Ok(())
+}
+
+#[tokio::test]
 async fn crypto_expressions() -> Result<()> {
     let mut ctx = ExecutionContext::new();
     let sql = "SELECT
