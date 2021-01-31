@@ -226,7 +226,7 @@ fn set_column_for_json_rows(
                 });
         }
         DataType::List(_) => {
-            let listarr = as_list_array::<i32>(array);
+            let listarr = as_list_array(array);
             rows.iter_mut()
                 .zip(listarr.iter())
                 .take(row_count)
@@ -302,6 +302,7 @@ mod tests {
     use std::fs::{read_to_string, File};
     use std::sync::Arc;
 
+    use crate::buffer::*;
     use crate::json::reader::*;
 
     use super::*;
@@ -390,6 +391,55 @@ mod tests {
             r#"{"c1":{"c11":1,"c12":{"c121":"e"}},"c2":"a"}
 {"c1":{"c12":{"c121":"f"}},"c2":"b"}
 {"c1":{"c11":5,"c12":{"c121":"g"}},"c2":"c"}
+"#
+        );
+    }
+
+    #[test]
+    fn write_struct_with_list_field() {
+        let schema = Schema::new(vec![
+            Field::new(
+                "c_struct",
+                DataType::List(Box::new(Field::new("c_list", DataType::Utf8, false))),
+                false,
+            ),
+            Field::new("c2", DataType::Int32, false),
+        ]);
+
+        let a_values = StringArray::from(vec!["a", "a1", "b", "c", "d", "e"]);
+        //  [["a", "a1"], ["b"], ["c"], ["d"], ["e"]]
+        let a_value_offsets = Buffer::from(&[0, 2, 3, 4, 5, 6].to_byte_slice());
+        let a_list_data = ArrayData::builder(DataType::List(Box::new(Field::new(
+            "c_list",
+            DataType::Utf8,
+            false,
+        ))))
+        .len(5)
+        .add_buffer(a_value_offsets)
+        .add_child_data(a_values.data())
+        .null_bit_buffer(Buffer::from(vec![0b00011111]))
+        .build();
+        let a = ListArray::from(a_list_data);
+
+        let b = Int32Array::from(vec![1, 2, 3, 4, 5]);
+
+        let batch =
+            RecordBatch::try_new(Arc::new(schema), vec![Arc::new(a), Arc::new(b)])
+                .unwrap();
+
+        let mut buf = Vec::new();
+        {
+            let mut writer = Writer::new(&mut buf);
+            writer.write_batches(&vec![batch]).unwrap();
+        }
+
+        assert_eq!(
+            String::from_utf8(buf).unwrap(),
+            r#"{"c_struct":["a","a1"],"c2":1}
+{"c_struct":["b"],"c2":2}
+{"c_struct":["c"],"c2":3}
+{"c_struct":["d"],"c2":4}
+{"c_struct":["e"],"c2":5}
 "#
         );
     }
