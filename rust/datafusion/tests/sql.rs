@@ -21,10 +21,7 @@ use std::sync::Arc;
 extern crate arrow;
 extern crate datafusion;
 
-use arrow::{
-    array::*,
-    datatypes::{DateUnit, TimeUnit},
-};
+use arrow::{array::*, datatypes::TimeUnit};
 use arrow::{datatypes::Int32Type, datatypes::Int64Type, record_batch::RecordBatch};
 use arrow::{
     datatypes::{DataType, Field, Schema, SchemaRef},
@@ -1907,7 +1904,7 @@ async fn csv_between_expr_negated() -> Result<()> {
 async fn csv_group_by_date() -> Result<()> {
     let mut ctx = ExecutionContext::new();
     let schema = Arc::new(Schema::new(vec![
-        Field::new("date", DataType::Date32(DateUnit::Day), false),
+        Field::new("date", DataType::Date32, false),
         Field::new("cnt", DataType::Int32, false),
     ]));
     let data = RecordBatch::try_new(
