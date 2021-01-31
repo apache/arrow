@@ -22,6 +22,7 @@
 #include <iostream>
 #include <queue>
 #include <vector>
+#include <tuple>
 
 #include "arrow/status.h"
 
