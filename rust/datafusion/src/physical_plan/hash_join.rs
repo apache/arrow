@@ -18,7 +18,9 @@
 //! Defines the join plan for executing partitions in parallel and then joining the results
 //! into a set of partitions.
 
+use ahash::CallHasher;
 use ahash::RandomState;
+
 use arrow::{
     array::{
         ArrayRef, BooleanArray, LargeStringArray, TimestampMicrosecondArray,
@@ -676,41 +678,20 @@ fn equal_rows(
 }
 
 macro_rules! hash_array {
-    ($array_type:ident, $column: ident, $f: ident, $hashes: ident, $random_state: ident) => {
+    ($array_type:ident, $column: ident, $ty: ident, $hashes: ident, $random_state: ident) => {
         let array = $column.as_any().downcast_ref::<$array_type>().unwrap();
         if array.null_count() == 0 {
             for (i, hash) in $hashes.iter_mut().enumerate() {
-                let mut hasher = $random_state.build_hasher();
-                hasher.$f(array.value(i));
-                *hash = combine_hashes(hasher.finish(), *hash);
+                *hash =
+                    combine_hashes($ty::get_hash(&array.value(i), $random_state), *hash);
             }
         } else {
             for (i, hash) in $hashes.iter_mut().enumerate() {
-                let mut hasher = $random_state.build_hasher();
                 if !array.is_null(i) {
-                    hasher.$f(array.value(i));
-                    *hash = combine_hashes(hasher.finish(), *hash);
-                }
-            }
-        }
-    };
-}
-
-macro_rules! hash_array_cast {
-    ($array_type:ident, $column: ident, $f: ident, $hashes: ident, $random_state: ident, $as_type:tt) => {
-        let array = $column.as_any().downcast_ref::<$array_type>().unwrap();
-        if array.null_count() == 0 {
-            for (i, hash) in $hashes.iter_mut().enumerate() {
-                let mut hasher = $random_state.build_hasher();
-                hasher.$f(array.value(i) as $as_type);
-                *hash = combine_hashes(hasher.finish(), *hash);
-            }
-        } else {
-            for (i, hash) in $hashes.iter_mut().enumerate() {
-                let mut hasher = $random_state.build_hasher();
-                if !array.is_null(i) {
-                    hasher.$f(array.value(i) as $as_type);
-                    *hash = combine_hashes(hasher.finish(), *hash);
+                    *hash = combine_hashes(
+                        $ty::get_hash(&array.value(i), $random_state),
+                        *hash,
+                    );
                 }
             }
         }
@@ -725,57 +706,40 @@ fn create_hashes(arrays: &[ArrayRef], random_state: &RandomState) -> Result<Vec<
     for col in arrays {
         match col.data_type() {
             DataType::UInt8 => {
-                hash_array!(UInt8Array, col, write_u8, hashes, random_state);
+                hash_array!(UInt8Array, col, u8, hashes, random_state);
             }
             DataType::UInt16 => {
-                hash_array!(UInt16Array, col, write_u16, hashes, random_state);
+                hash_array!(UInt16Array, col, u16, hashes, random_state);
             }
             DataType::UInt32 => {
-                hash_array!(UInt32Array, col, write_u32, hashes, random_state);
+                hash_array!(UInt32Array, col, u32, hashes, random_state);
             }
             DataType::UInt64 => {
-                hash_array!(UInt64Array, col, write_u64, hashes, random_state);
+                hash_array!(UInt64Array, col, u64, hashes, random_state);
             }
             DataType::Int8 => {
-                hash_array!(Int8Array, col, write_i8, hashes, random_state);
+                hash_array!(Int8Array, col, i8, hashes, random_state);
             }
             DataType::Int16 => {
-                hash_array!(Int16Array, col, write_i16, hashes, random_state);
+                hash_array!(Int16Array, col, i16, hashes, random_state);
             }
             DataType::Int32 => {
-                hash_array!(Int32Array, col, write_i32, hashes, random_state);
+                hash_array!(Int32Array, col, i32, hashes, random_state);
             }
             DataType::Int64 => {
-                hash_array!(Int64Array, col, write_i64, hashes, random_state);
+                hash_array!(Int64Array, col, i64, hashes, random_state);
             }
             DataType::Timestamp(TimeUnit::Microsecond, None) => {
-                hash_array!(
-                    TimestampMicrosecondArray,
-                    col,
-                    write_i64,
-                    hashes,
-                    random_state
-                );
+                hash_array!(TimestampMicrosecondArray, col, i64, hashes, random_state);
             }
             DataType::Timestamp(TimeUnit::Nanosecond, None) => {
-                hash_array!(
-                    TimestampNanosecondArray,
-                    col,
-                    write_i64,
-                    hashes,
-                    random_state
-                );
+                hash_array!(TimestampNanosecondArray, col, i64, hashes, random_state);
             }
             DataType::Boolean => {
-                hash_array_cast!(BooleanArray, col, write_u8, hashes, random_state, u8);
+                hash_array!(BooleanArray, col, u8, hashes, random_state);
             }
             DataType::Utf8 => {
-                let array = col.as_any().downcast_ref::<StringArray>().unwrap();
-                for (i, hash) in hashes.iter_mut().enumerate() {
-                    let mut hasher = random_state.build_hasher();
-                    hasher.write(array.value(i).as_bytes());
-                    *hash = combine_hashes(hasher.finish(), *hash);
-                }
+                hash_array!(StringArray, col, str, hashes, random_state);
             }
             _ => {
                 // This is internal because we should have caught this before.
