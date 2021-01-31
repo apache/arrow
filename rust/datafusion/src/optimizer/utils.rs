@@ -95,7 +95,7 @@ pub fn expr_to_column_names(expr: &Expr, accum: &mut HashSet<String>) -> Result<
 /// Create a `LogicalPlan::Explain` node by running `optimizer` on the
 /// input plan and capturing the resulting plan string
 pub fn optimize_explain(
-    optimizer: &mut impl OptimizerRule,
+    optimizer: &impl OptimizerRule,
     verbose: bool,
     plan: &LogicalPlan,
     stringified_plans: &Vec<StringifiedPlan>,
@@ -117,6 +117,40 @@ pub fn optimize_explain(
         stringified_plans,
         schema: schema.clone().to_dfschema_ref()?,
     })
+}
+
+/// Convenience rule for writing optimizers: recursively invoke
+/// optimize on plan's children and then return a node of the same
+/// type. Useful for optimizer rules which want to leave the type
+/// of plan unchanged but still apply to the children.
+/// This also handles the case when the `plan` is a [`LogicalPlan::Explain`].
+pub fn optimize_children(
+    optimizer: &impl OptimizerRule,
+    plan: &LogicalPlan,
+) -> Result<LogicalPlan> {
+    if let LogicalPlan::Explain {
+        verbose,
+        plan,
+        stringified_plans,
+        schema,
+    } = plan
+    {
+        return optimize_explain(
+            optimizer,
+            *verbose,
+            &*plan,
+            stringified_plans,
+            &schema.as_ref().to_owned().into(),
+        );
+    }
+
+    let new_exprs = expressions(&plan);
+    let new_inputs = inputs(&plan)
+        .into_iter()
+        .map(|plan| optimizer.optimize(plan))
+        .collect::<Result<Vec<_>>>()?;
+
+    from_plan(plan, &new_exprs, &new_inputs)
 }
 
 /// returns all expressions (non-recursively) in the current logical plan node.
@@ -446,7 +480,7 @@ mod tests {
     struct TestOptimizer {}
 
     impl OptimizerRule for TestOptimizer {
-        fn optimize(&mut self, plan: &LogicalPlan) -> Result<LogicalPlan> {
+        fn optimize(&self, plan: &LogicalPlan) -> Result<LogicalPlan> {
             Ok(plan.clone())
         }
 
@@ -457,13 +491,13 @@ mod tests {
 
     #[test]
     fn test_optimize_explain() -> Result<()> {
-        let mut optimizer = TestOptimizer {};
+        let optimizer = TestOptimizer {};
 
         let empty_plan = LogicalPlanBuilder::empty(false).build()?;
         let schema = LogicalPlan::explain_schema();
 
         let optimized_explain = optimize_explain(
-            &mut optimizer,
+            &optimizer,
             true,
             &empty_plan,
             &vec![StringifiedPlan::new(PlanType::LogicalPlan, "...")],

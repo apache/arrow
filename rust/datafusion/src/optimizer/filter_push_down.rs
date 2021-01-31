@@ -396,7 +396,7 @@ impl OptimizerRule for FilterPushDown {
         "filter_push_down"
     }
 
-    fn optimize(&mut self, plan: &LogicalPlan) -> Result<LogicalPlan> {
+    fn optimize(&self, plan: &LogicalPlan) -> Result<LogicalPlan> {
         optimize(plan, State::default())
     }
 }
@@ -438,7 +438,7 @@ mod tests {
     use arrow::datatypes::SchemaRef;
 
     fn assert_optimized_plan_eq(plan: &LogicalPlan, expected: &str) {
-        let mut rule = FilterPushDown::new();
+        let rule = FilterPushDown::new();
         let optimized_plan = rule.optimize(plan).expect("failed to optimize plan");
         let formatted_plan = format!("{:?}", optimized_plan);
         assert_eq!(formatted_plan, expected);

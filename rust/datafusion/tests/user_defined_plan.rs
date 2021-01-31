@@ -72,7 +72,7 @@ use datafusion::{
     execution::context::ExecutionContextState,
     execution::context::QueryPlanner,
     logical_plan::{Expr, LogicalPlan, UserDefinedLogicalNode},
-    optimizer::{optimizer::OptimizerRule, utils::optimize_explain},
+    optimizer::{optimizer::OptimizerRule, utils::optimize_children},
     physical_plan::{
         planner::{DefaultPhysicalPlanner, ExtensionPlanner},
         Distribution, ExecutionPlan, Partitioning, PhysicalPlanner, RecordBatchStream,
@@ -178,7 +178,9 @@ async fn topk_plan() -> Result<()> {
 }
 
 fn make_topk_context() -> ExecutionContext {
-    let config = ExecutionConfig::new().with_query_planner(Arc::new(TopKQueryPlanner {}));
+    let config = ExecutionConfig::new()
+        .with_query_planner(Arc::new(TopKQueryPlanner {}))
+        .add_optimizer_rule(Arc::new(TopKOptimizerRule {}));
 
     ExecutionContext::with_config(config)
 }
@@ -188,10 +190,6 @@ fn make_topk_context() -> ExecutionContext {
 struct TopKQueryPlanner {}
 
 impl QueryPlanner for TopKQueryPlanner {
-    fn rewrite_logical_plan(&self, plan: LogicalPlan) -> Result<LogicalPlan> {
-        TopKOptimizerRule {}.optimize(&plan)
-    }
-
     /// Given a `LogicalPlan` created from above, create an
     /// `ExecutionPlan` suitable for execution
     fn create_physical_plan(
@@ -210,52 +208,32 @@ impl QueryPlanner for TopKQueryPlanner {
 struct TopKOptimizerRule {}
 impl OptimizerRule for TopKOptimizerRule {
     // Example rewrite pass to insert a user defined LogicalPlanNode
-    fn optimize(&mut self, plan: &LogicalPlan) -> Result<LogicalPlan> {
-        match plan {
-            // Note: this code simply looks for the pattern of a Limit followed by a
-            // Sort and replaces it by a TopK node. It does not handle many
-            // edge cases (e.g multiple sort columns, sort ASC / DESC), etc.
-            LogicalPlan::Limit { ref n, ref input } => {
-                if let LogicalPlan::Sort {
-                    ref expr,
-                    ref input,
-                } = **input
-                {
-                    if expr.len() == 1 {
-                        // we found a sort with a single sort expr, replace with a a TopK
-                        return Ok(LogicalPlan::Extension {
-                            node: Arc::new(TopKPlanNode {
-                                k: *n,
-                                input: self.optimize(input.as_ref())?,
-                                expr: expr[0].clone(),
-                            }),
-                        });
-                    }
+    fn optimize(&self, plan: &LogicalPlan) -> Result<LogicalPlan> {
+        // Note: this code simply looks for the pattern of a Limit followed by a
+        // Sort and replaces it by a TopK node. It does not handle many
+        // edge cases (e.g multiple sort columns, sort ASC / DESC), etc.
+        if let LogicalPlan::Limit { ref n, ref input } = plan {
+            if let LogicalPlan::Sort {
+                ref expr,
+                ref input,
+            } = **input
+            {
+                if expr.len() == 1 {
+                    // we found a sort with a single sort expr, replace with a a TopK
+                    return Ok(LogicalPlan::Extension {
+                        node: Arc::new(TopKPlanNode {
+                            k: *n,
+                            input: self.optimize(input.as_ref())?,
+                            expr: expr[0].clone(),
+                        }),
+                    });
                 }
             }
-            // Due to the way explain is implemented, in order to get
-            // explain functionality we need to explicitly handle it
-            // here.
-            LogicalPlan::Explain {
-                verbose,
-                plan,
-                stringified_plans,
-                schema,
-            } => {
-                return optimize_explain(
-                    self,
-                    *verbose,
-                    &*plan,
-                    stringified_plans,
-                    &schema.as_ref().to_owned().into(),
-                )
-            }
-            _ => {}
         }
 
         // If we didn't find the Limit/Sort combination, recurse as
         // normal and build the result.
-        self.optimize_children(plan)
+        optimize_children(self, plan)
     }
 
     fn name(&self) -> &str {
