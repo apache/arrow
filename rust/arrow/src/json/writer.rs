@@ -331,8 +331,65 @@ mod tests {
             r#"{"c1":1,"c2":"a"}
 {"c1":2,"c2":"b"}
 {"c1":3,"c2":"c"}
-{"c1":null,"c2":"d"}
-{"c1":5,"c2":null}
+{"c2":"d"}
+{"c1":5}
+"#
+        );
+    }
+
+    #[test]
+    fn write_nested_structs() {
+        let schema = Schema::new(vec![
+            Field::new(
+                "c1",
+                DataType::Struct(vec![
+                    Field::new("c11", DataType::Int32, false),
+                    Field::new(
+                        "c12",
+                        DataType::Struct(vec![Field::new("c121", DataType::Utf8, false)]),
+                        false,
+                    ),
+                ]),
+                false,
+            ),
+            Field::new("c2", DataType::Utf8, false),
+        ]);
+
+        let a = StructArray::from(vec![
+            (
+                Field::new("c11", DataType::Int32, false),
+                Arc::new(Int32Array::from(vec![Some(1), None, Some(5)])) as ArrayRef,
+            ),
+            (
+                Field::new(
+                    "c12",
+                    DataType::Struct(vec![Field::new("c121", DataType::Utf8, false)]),
+                    false,
+                ),
+                Arc::new(StructArray::from(vec![(
+                    Field::new("c121", DataType::Utf8, false),
+                    Arc::new(StringArray::from(vec![Some("e"), Some("f"), Some("g")]))
+                        as ArrayRef,
+                )])) as ArrayRef,
+            ),
+        ]);
+        let b = StringArray::from(vec![Some("a"), Some("b"), Some("c")]);
+
+        let batch =
+            RecordBatch::try_new(Arc::new(schema), vec![Arc::new(a), Arc::new(b)])
+                .unwrap();
+
+        let mut buf = Vec::new();
+        {
+            let mut writer = Writer::new(&mut buf);
+            writer.write_batches(&vec![batch]).unwrap();
+        }
+
+        assert_eq!(
+            String::from_utf8(buf).unwrap(),
+            r#"{"c1":{"c11":1,"c12":{"c121":"e"}},"c2":"a"}
+{"c1":{"c12":{"c121":"f"}},"c2":"b"}
+{"c1":{"c11":5,"c12":{"c121":"g"}},"c2":"c"}
 "#
         );
     }
@@ -379,10 +436,5 @@ mod tests {
     #[test]
     fn write_basic_nulls() {
         test_write_for_file("test/data/basic_nulls.json");
-    }
-
-    #[test]
-    fn write_mixed() {
-        test_write_for_file("test/data/mixed_arrays.json");
     }
 }
