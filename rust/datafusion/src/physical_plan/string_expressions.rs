@@ -165,19 +165,16 @@ pub fn concatenate(args: &[ColumnarValue]) -> Result<ColumnarValue> {
         // short avenue with only scalars
         let initial = Some("".to_string());
         let result = args.iter().fold(initial, |mut acc, rhs| {
-            match acc {
-                Some(ref mut inner) => {
-                    match rhs {
-                        ColumnarValue::Scalar(ScalarValue::Utf8(Some(v))) => {
-                            inner.push_str(v);
-                        }
-                        ColumnarValue::Scalar(ScalarValue::Utf8(None)) => {
-                            acc = None;
-                        }
-                        _ => unreachable!(""),
-                    };
-                }
-                None => {}
+            if let Some(ref mut inner) = acc {
+                match rhs {
+                    ColumnarValue::Scalar(ScalarValue::Utf8(Some(v))) => {
+                        inner.push_str(v);
+                    }
+                    ColumnarValue::Scalar(ScalarValue::Utf8(None)) => {
+                        acc = None;
+                    }
+                    _ => unreachable!(""),
+                };
             };
             acc
         });
