@@ -32,18 +32,17 @@ use crate::{
 };
 
 /// Shifts array by defined number of items (to left or right)
-pub fn shift<T>(values: &PrimitiveArray<T>, shift: i64) -> Result<ArrayRef>
+pub fn shift<T>(values: &PrimitiveArray<T>, offset: i64) -> Result<ArrayRef>
 where
     T: ArrowPrimitiveType,
 {
     // Compute slice
-    let offset = clamp(shift, 0, values.len() as i64) as usize;
-    println!("{}", offset);
-    let length = values.len() - abs(shift) as usize;
-    let slice = values.slice(offset, length);
+    let slice_offset = clamp(offset, 0, values.len() as i64) as usize;
+    let length = values.len() - abs(offset) as usize;
+    let slice = values.slice(slice_offset, length);
 
     // Generate array with remaining `null` items
-    let nulls = abs(shift as i64) as usize;
+    let nulls = abs(offset as i64) as usize;
 
     let mut null_array = MutableBuffer::new(nulls);
     let mut null_data = MutableBuffer::new(nulls * T::get_byte_width());
@@ -62,7 +61,7 @@ where
 
     // Concatenate both arrays, add nulls after if shift > 0 else before
     let null_arr = make_array(Arc::new(null_data));
-    if shift > 0 {
+    if offset > 0 {
         concat(&[slice.as_ref(), null_arr.as_ref()])
     } else {
         concat(&[null_arr.as_ref(), slice.as_ref()])
