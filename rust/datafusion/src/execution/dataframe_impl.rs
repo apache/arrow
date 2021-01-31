@@ -49,17 +49,17 @@ impl DataFrameImpl {
 #[async_trait]
 impl DataFrame for DataFrameImpl {
     /// Apply a projection based on a list of column names
-    fn select_columns(&self, columns: Vec<&str>) -> Result<Arc<dyn DataFrame>> {
+    fn select_columns(&self, columns: &[&str]) -> Result<Arc<dyn DataFrame>> {
         let fields = columns
             .iter()
             .map(|name| self.plan.schema().field_with_unqualified_name(name))
             .collect::<Result<Vec<_>>>()?;
-        let expr = fields.iter().map(|f| col(f.name())).collect();
-        self.select(expr)
+        let expr: Vec<Expr> = fields.iter().map(|f| col(f.name())).collect();
+        self.select(&expr)
     }
 
     /// Create a projection based on arbitrary expressions
-    fn select(&self, expr_list: Vec<Expr>) -> Result<Arc<dyn DataFrame>> {
+    fn select(&self, expr_list: &[Expr]) -> Result<Arc<dyn DataFrame>> {
         let plan = LogicalPlanBuilder::from(&self.plan)
             .project(expr_list)?
             .build()?;
@@ -77,8 +77,8 @@ impl DataFrame for DataFrameImpl {
     /// Perform an aggregate query
     fn aggregate(
         &self,
-        group_expr: Vec<Expr>,
-        aggr_expr: Vec<Expr>,
+        group_expr: &[Expr],
+        aggr_expr: &[Expr],
     ) -> Result<Arc<dyn DataFrame>> {
         let plan = LogicalPlanBuilder::from(&self.plan)
             .aggregate(group_expr, aggr_expr)?
@@ -93,7 +93,7 @@ impl DataFrame for DataFrameImpl {
     }
 
     /// Sort by specified sorting expressions
-    fn sort(&self, expr: Vec<Expr>) -> Result<Arc<dyn DataFrame>> {
+    fn sort(&self, expr: &[Expr]) -> Result<Arc<dyn DataFrame>> {
         let plan = LogicalPlanBuilder::from(&self.plan).sort(expr)?.build()?;
         Ok(Arc::new(DataFrameImpl::new(self.ctx_state.clone(), &plan)))
     }
@@ -168,7 +168,7 @@ mod tests {
     fn select_columns() -> Result<()> {
         // build plan using Table API
         let t = test_table()?;
-        let t2 = t.select_columns(vec!["c1", "c2", "c11"])?;
+        let t2 = t.select_columns(&["c1", "c2", "c11"])?;
         let plan = t2.to_logical_plan();
 
         // build query using SQL
@@ -184,7 +184,7 @@ mod tests {
     fn select_expr() -> Result<()> {
         // build plan using Table API
         let t = test_table()?;
-        let t2 = t.select(vec![col("c1"), col("c2"), col("c11")])?;
+        let t2 = t.select(&[col("c1"), col("c2"), col("c11")])?;
         let plan = t2.to_logical_plan();
 
         // build query using SQL
@@ -200,8 +200,8 @@ mod tests {
     fn aggregate() -> Result<()> {
         // build plan using DataFrame API
         let df = test_table()?;
-        let group_expr = vec![col("c1")];
-        let aggr_expr = vec![
+        let group_expr = &[col("c1")];
+        let aggr_expr = &[
             min(col("c12")),
             max(col("c12")),
             avg(col("c12")),
@@ -228,8 +228,8 @@ mod tests {
 
     #[tokio::test]
     async fn join() -> Result<()> {
-        let left = test_table()?.select_columns(vec!["c1", "c2"])?;
-        let right = test_table()?.select_columns(vec!["c1", "c3"])?;
+        let left = test_table()?.select_columns(&["c1", "c2"])?;
+        let right = test_table()?.select_columns(&["c1", "c3"])?;
         let left_rows = left.collect().await?;
         let right_rows = right.collect().await?;
         let join = left.join(right, JoinType::Inner, &["c1"], &["c1"])?;
@@ -247,7 +247,7 @@ mod tests {
     fn limit() -> Result<()> {
         // build query using Table API
         let t = test_table()?;
-        let t2 = t.select_columns(vec!["c1", "c2", "c11"])?.limit(10)?;
+        let t2 = t.select_columns(&["c1", "c2", "c11"])?.limit(10)?;
         let plan = t2.to_logical_plan();
 
         // build query using SQL
@@ -265,7 +265,7 @@ mod tests {
         // build query using Table API
         let df = test_table()?;
         let df = df
-            .select_columns(vec!["c1", "c2", "c11"])?
+            .select_columns(&["c1", "c2", "c11"])?
             .limit(10)?
             .explain(false)?;
         let plan = df.to_logical_plan();
@@ -302,7 +302,7 @@ mod tests {
 
         let f = df.registry();
 
-        let df = df.select(vec![f.udf("my_fn")?.call(vec![col("c12")])])?;
+        let df = df.select(&[f.udf("my_fn")?.call(vec![col("c12")])])?;
         let plan = df.to_logical_plan();
 
         // build query using SQL

@@ -431,7 +431,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                 (plan, select_exprs)
             };
 
-        self.project(&plan, select_exprs_post_aggr, false)
+        self.project(&plan, &select_exprs_post_aggr, false)
     }
 
     /// Returns the `Expr`'s corresponding to a SQL query's SELECT expressions.
@@ -462,7 +462,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
     fn project(
         &self,
         input: &LogicalPlan,
-        expr: Vec<Expr>,
+        expr: &[Expr],
         force: bool,
     ) -> Result<LogicalPlan> {
         self.validate_schema_satisfies_exprs(&input.schema(), &expr)?;
@@ -484,9 +484,9 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
     fn aggregate(
         &self,
         input: &LogicalPlan,
-        select_exprs: &Vec<Expr>,
-        group_by: &Vec<SQLExpr>,
-        aggr_exprs: &Vec<Expr>,
+        select_exprs: &[Expr],
+        group_by: &[SQLExpr],
+        aggr_exprs: &[Expr],
     ) -> Result<(LogicalPlan, Vec<Expr>)> {
         let group_by_exprs = group_by
             .iter()
@@ -500,7 +500,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
             .collect::<Vec<Expr>>();
 
         let plan = LogicalPlanBuilder::from(&input)
-            .aggregate(group_by_exprs, aggr_exprs.clone())?
+            .aggregate(&group_by_exprs, aggr_exprs)?
             .build()?;
 
         // After aggregation, these are all of the columns that will be
@@ -547,7 +547,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
     fn order_by(
         &self,
         plan: &LogicalPlan,
-        order_by: &Vec<OrderByExpr>,
+        order_by: &[OrderByExpr],
     ) -> Result<LogicalPlan> {
         if order_by.is_empty() {
             return Ok(plan.clone());
@@ -567,14 +567,16 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
             })
             .collect();
 
-        LogicalPlanBuilder::from(&plan).sort(order_by_rex?)?.build()
+        LogicalPlanBuilder::from(&plan)
+            .sort(&order_by_rex?)?
+            .build()
     }
 
     /// Validate the schema provides all of the columns referenced in the expressions.
     fn validate_schema_satisfies_exprs(
         &self,
         schema: &DFSchema,
-        exprs: &Vec<Expr>,
+        exprs: &[Expr],
     ) -> Result<()> {
         find_column_exprs(exprs)
             .iter()
@@ -611,7 +613,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
     /// Generate a relational expression from a SQL expression
     pub fn sql_to_rex(&self, sql: &SQLExpr, schema: &DFSchema) -> Result<Expr> {
         let expr = self.sql_expr_to_logical_expr(sql)?;
-        self.validate_schema_satisfies_exprs(schema, &vec![expr.clone()])?;
+        self.validate_schema_satisfies_exprs(schema, &[expr.clone()])?;
         Ok(expr)
     }
 

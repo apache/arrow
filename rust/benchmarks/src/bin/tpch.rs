@@ -1575,7 +1575,7 @@ mod tests {
                 .file_extension(".out");
             let df = ctx.read_csv(&format!("{}/answers/q{}.out", path, n), options)?;
             let df = df.select(
-                get_answer_schema(n)
+                &get_answer_schema(n)
                     .fields()
                     .iter()
                     .map(|field| {

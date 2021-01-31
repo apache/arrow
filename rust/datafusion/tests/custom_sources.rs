@@ -161,7 +161,7 @@ async fn custom_source_dataframe() -> Result<()> {
 
     let table = ctx.read_table(Arc::new(CustomTableProvider))?;
     let logical_plan = LogicalPlanBuilder::from(&table.to_logical_plan())
-        .project(vec![col("c2")])?
+        .project(&[col("c2")])?
         .build()?;
 
     let optimized_plan = ctx.optimize(&logical_plan)?;
