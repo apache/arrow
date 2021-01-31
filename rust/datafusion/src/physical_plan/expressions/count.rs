@@ -92,13 +92,13 @@ impl CountAccumulator {
 }
 
 impl Accumulator for CountAccumulator {
-    fn update_batch(&mut self, values: &Vec<ArrayRef>) -> Result<()> {
+    fn update_batch(&mut self, values: &[ArrayRef]) -> Result<()> {
         let array = &values[0];
         self.count += (array.len() - array.data().null_count()) as u64;
         Ok(())
     }
 
-    fn update(&mut self, values: &Vec<ScalarValue>) -> Result<()> {
+    fn update(&mut self, values: &[ScalarValue]) -> Result<()> {
         let value = &values[0];
         if !value.is_null() {
             self.count += 1;
@@ -106,7 +106,7 @@ impl Accumulator for CountAccumulator {
         Ok(())
     }
 
-    fn merge(&mut self, states: &Vec<ScalarValue>) -> Result<()> {
+    fn merge(&mut self, states: &[ScalarValue]) -> Result<()> {
         let count = &states[0];
         if let ScalarValue::UInt64(Some(delta)) = count {
             self.count += *delta;
@@ -116,7 +116,7 @@ impl Accumulator for CountAccumulator {
         Ok(())
     }
 
-    fn merge_batch(&mut self, states: &Vec<ArrayRef>) -> Result<()> {
+    fn merge_batch(&mut self, states: &[ArrayRef]) -> Result<()> {
         let counts = states[0].as_any().downcast_ref::<UInt64Array>().unwrap();
         let delta = &compute::sum(counts);
         if let Some(d) = delta {

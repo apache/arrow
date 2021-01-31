@@ -902,9 +902,9 @@ pub fn create_udaf(
 
 fn fmt_function(
     f: &mut fmt::Formatter,
-    fun: &String,
+    fun: &str,
     distinct: bool,
-    args: &Vec<Expr>,
+    args: &[Expr],
 ) -> fmt::Result {
     let args: Vec<String> = args.iter().map(|arg| format!("{:?}", arg)).collect();
     let distinct_str = match distinct {
@@ -1009,7 +1009,7 @@ impl fmt::Debug for Expr {
 }
 
 fn create_function_name(
-    fun: &String,
+    fun: &str,
     distinct: bool,
     args: &[Expr],
     input_schema: &DFSchema,

@@ -232,10 +232,10 @@ pub trait Accumulator: Send + Sync + Debug {
     fn state(&self) -> Result<Vec<ScalarValue>>;
 
     /// updates the accumulator's state from a vector of scalars.
-    fn update(&mut self, values: &Vec<ScalarValue>) -> Result<()>;
+    fn update(&mut self, values: &[ScalarValue]) -> Result<()>;
 
     /// updates the accumulator's state from a vector of arrays.
-    fn update_batch(&mut self, values: &Vec<ArrayRef>) -> Result<()> {
+    fn update_batch(&mut self, values: &[ArrayRef]) -> Result<()> {
         if values.is_empty() {
             return Ok(());
         };
@@ -249,10 +249,10 @@ pub trait Accumulator: Send + Sync + Debug {
     }
 
     /// updates the accumulator's state from a vector of scalars.
-    fn merge(&mut self, states: &Vec<ScalarValue>) -> Result<()>;
+    fn merge(&mut self, states: &[ScalarValue]) -> Result<()>;
 
     /// updates the accumulator's state from a vector of states.
-    fn merge_batch(&mut self, states: &Vec<ArrayRef>) -> Result<()> {
+    fn merge_batch(&mut self, states: &[ArrayRef]) -> Result<()> {
         if states.is_empty() {
             return Ok(());
         };

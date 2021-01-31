@@ -64,8 +64,8 @@ impl UserDefinedLogicalNode for TestUserDefinedPlanNode {
 
     fn from_template(
         &self,
-        exprs: &Vec<Expr>,
-        inputs: &Vec<LogicalPlan>,
+        exprs: &[Expr],
+        inputs: &[LogicalPlan],
     ) -> Arc<dyn UserDefinedLogicalNode + Send + Sync> {
         assert_eq!(inputs.len(), 1, "input size inconsistent");
         assert_eq!(exprs.len(), 0, "expression size inconsistent");

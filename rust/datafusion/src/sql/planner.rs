@@ -186,7 +186,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
         })
     }
 
-    fn build_schema(&self, columns: &Vec<SQLColumnDef>) -> Result<Schema> {
+    fn build_schema(&self, columns: &[SQLColumnDef]) -> Result<Schema> {
         let mut fields = Vec::new();
 
         for column in columns {
@@ -224,7 +224,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
         }
     }
 
-    fn plan_from_tables(&self, from: &Vec<TableWithJoins>) -> Result<Vec<LogicalPlan>> {
+    fn plan_from_tables(&self, from: &[TableWithJoins]) -> Result<Vec<LogicalPlan>> {
         match from.len() {
             0 => Ok(vec![LogicalPlanBuilder::empty(true).build()?]),
             _ => from
@@ -507,7 +507,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
     fn prepare_select_exprs(
         &self,
         plan: &LogicalPlan,
-        projection: &Vec<SelectItem>,
+        projection: &[SelectItem],
     ) -> Result<Vec<Expr>> {
         let input_schema = plan.schema();
 

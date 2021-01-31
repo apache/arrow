@@ -1025,8 +1025,8 @@ mod tests {
 
         fn from_template(
             &self,
-            _exprs: &Vec<Expr>,
-            _inputs: &Vec<LogicalPlan>,
+            _exprs: &[Expr],
+            _inputs: &[LogicalPlan],
         ) -> Arc<dyn UserDefinedLogicalNode + Send + Sync> {
             unimplemented!("NoOp");
         }

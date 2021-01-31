@@ -278,7 +278,7 @@ fn optimize(plan: &LogicalPlan, mut state: State) -> Result<LogicalPlan> {
             // optimize inner
             let new_input = optimize(input, state)?;
 
-            utils::from_plan(&plan, &expr, &vec![new_input])
+            utils::from_plan(&plan, &expr, &[new_input])
         }
         LogicalPlan::Aggregate {
             input, aggr_expr, ..
@@ -327,7 +327,7 @@ fn optimize(plan: &LogicalPlan, mut state: State) -> Result<LogicalPlan> {
 
             // create a new Join with the new `left` and `right`
             let expr = utils::expressions(&plan);
-            let plan = utils::from_plan(&plan, &expr, &vec![left, right])?;
+            let plan = utils::from_plan(&plan, &expr, &[left, right])?;
 
             if keep.0.is_empty() {
                 Ok(plan)
