@@ -43,7 +43,7 @@
 //!     -V, --version    Prints version information
 //!
 //! ## Args
-//!     <file-paths>...    List of parquet files to read from
+//!     <file-paths>...    List of Parquet files to read from
 //!
 //! Note that `parquet-rowcount` reads full file schema, no projection or filtering is
 //! applied.
@@ -60,13 +60,13 @@ fn main() {
     let matches = App::new("parquet-rowcount")
         .version(crate_version!())
         .author(crate_authors!())
-        .about("Return number of rows in parquet file")
+        .about("Return number of rows in Parquet file")
         .arg(
             Arg::with_name("file_paths")
                 .value_name("file-paths")
                 .required(true)
                 .multiple(true)
-                .help("List of parquet files to read from"),
+                .help("List of Parquet files to read from separated by space"),
         )
         .get_matches();
 

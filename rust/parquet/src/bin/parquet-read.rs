@@ -35,16 +35,16 @@
 //!
 //! # Usage
 //! ```
-//!  parquet-read <file-path> [num-records]
+//! parquet-read <file-path> [num-records]
 //! ```
 //!
 //! ## Flags
 //!     -h, --help       Prints help information
-//!     -j, --json       Print parquet file in JSON lines Format
+//!     -j, --json       Print Parquet file in JSON lines Format
 //!     -V, --version    Prints version information
 //!
 //! ## Args
-//!     <file-path>      Path to a parquet file
+//!     <file-path>      Path to a Parquet file
 //!     <num-records>    Number of records to read. When not provided, all records are read.
 //!
 //! Note that `parquet-read` reads full file schema, no projection or filtering is
@@ -63,7 +63,7 @@ fn main() {
     let app = App::new("parquet-read")
         .version(crate_version!())
         .author(crate_authors!())
-        .about("Read data from parquet file")
+        .about("Read data from a Parquet file and print output in console, in either built-in or JSON format")
         .arg(
             Arg::with_name("file_path")
                 .value_name("file-path")
@@ -84,7 +84,7 @@ fn main() {
                 .short("j")
                 .long("json")
                 .takes_value(false)
-                .help("Print parquet file in JSON lines Format"),
+                .help("Print Parquet file in JSON lines format"),
         );
 
     let matches = app.get_matches();

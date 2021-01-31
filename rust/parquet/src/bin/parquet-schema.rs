@@ -44,7 +44,7 @@
 //!     -v, --verbose    Enable printing full file metadata
 //!
 //! ## Args
-//!     <file-path>    Path to a parquet file
+//!     <file-path>    Path to a Parquet file
 //!
 //! Note that `verbose` is an optional boolean flag that allows to print schema only,
 //! when not provided or print full file metadata when provided.
@@ -69,7 +69,7 @@ fn main() {
                 .value_name("file-path")
                 .required(true)
                 .index(1)
-                .help("Path to a parquet file"),
+                .help("Path to a Parquet file"),
         )
         .arg(
             Arg::with_name("verbose")
