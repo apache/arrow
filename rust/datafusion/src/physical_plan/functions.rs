@@ -385,21 +385,9 @@ pub fn create_physical_expr(
         BuiltinScalarFunction::Trunc => math_expressions::trunc,
         BuiltinScalarFunction::Abs => math_expressions::abs,
         BuiltinScalarFunction::Signum => math_expressions::signum,
-        /*
-        BuiltinScalarFunction::NullIf => |args| match &args[0] {
-            ColumnarValue::Scalar(v) => match v {
-                ScalarValue::Utf8(v) => Ok(ColumnarValue::Scalar(ScalarValue::Int32(
-                    v.as_ref().map(|x| x.len() as i32),
-                ))),
-                ScalarValue::LargeUtf8(v) => Ok(ColumnarValue::Scalar(
-                    ScalarValue::Int64(v.as_ref().map(|x| x.len() as i64)),
-                )),
-                _ => unreachable!(),
-            },
-            ColumnarValue::Array(v) => Ok(ColumnarValue::Array(nullif_func(v.as_ref())?)),
-        },
-         */
+        BuiltinScalarFunction::NullIf => nullif_func,
         BuiltinScalarFunction::MD5 => crypto_expressions::md5,
+        BuiltinScalarFunction::SHA224 => crypto_expressions::sha224,
         BuiltinScalarFunction::SHA256 => crypto_expressions::sha256,
         BuiltinScalarFunction::SHA384 => crypto_expressions::sha384,
         BuiltinScalarFunction::SHA512 => crypto_expressions::sha512,
@@ -421,16 +409,9 @@ pub fn create_physical_expr(
         BuiltinScalarFunction::Ltrim => string_expressions::ltrim,
         BuiltinScalarFunction::Rtrim => string_expressions::rtrim,
         BuiltinScalarFunction::Upper => string_expressions::upper,
-        /*
-        BuiltinScalarFunction::ToTimestamp => {
-            |args| Ok(Arc::new(datetime_expressions::to_timestamp(args)?))
-        }
-        BuiltinScalarFunction::DateTrunc => {
-            |args| Ok(Arc::new(datetime_expressions::date_trunc(args)?))
-        }
-        BuiltinScalarFunction::Array => |args| Ok(array_expressions::array(args)?),
-         */
-        _ => todo!(),
+        BuiltinScalarFunction::ToTimestamp => datetime_expressions::to_timestamp,
+        BuiltinScalarFunction::DateTrunc => datetime_expressions::date_trunc,
+        BuiltinScalarFunction::Array => array_expressions::array,
     });
     // coerce
     let args = coerce(args, input_schema, &signature(fun))?;
@@ -590,9 +571,16 @@ impl PhysicalExpr for ScalarFunctionExpr {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{error::Result, physical_plan::expressions::lit, scalar::ScalarValue};
+    use crate::{
+        error::Result,
+        physical_plan::expressions::{col, lit},
+        scalar::ScalarValue,
+    };
     use arrow::{
-        array::{ArrayRef, FixedSizeListArray, Float64Array, Int32Array, StringArray},
+        array::{
+            ArrayRef, FixedSizeListArray, Float64Array, Int32Array, StringArray,
+            UInt32Array, UInt64Array,
+        },
         datatypes::Field,
         record_batch::RecordBatch,
     };
@@ -681,18 +669,21 @@ mod tests {
     }
 
     fn generic_test_array(
-        value1: ScalarValue,
-        value2: ScalarValue,
+        value1: ArrayRef,
+        value2: ArrayRef,
         expected_type: DataType,
         expected: &str,
     ) -> Result<()> {
         // any type works here: we evaluate against a literal of `value`
-        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
-        let columns: Vec<ArrayRef> = vec![Arc::new(Int32Array::from(vec![1]))];
+        let schema = Schema::new(vec![
+            Field::new("a", value1.data_type().clone(), false),
+            Field::new("b", value2.data_type().clone(), false),
+        ]);
+        let columns: Vec<ArrayRef> = vec![value1, value2];
 
         let expr = create_physical_expr(
             &BuiltinScalarFunction::Array,
-            &[lit(value1), lit(value2)],
+            &vec![col("a"), col("b")],
             &schema,
         )?;
 
@@ -722,24 +713,24 @@ mod tests {
     #[test]
     fn test_array() -> Result<()> {
         generic_test_array(
-            ScalarValue::Utf8(Some("aa".to_string())),
-            ScalarValue::Utf8(Some("aa".to_string())),
+            Arc::new(StringArray::from(vec!["aa"])),
+            Arc::new(StringArray::from(vec!["bb"])),
             DataType::Utf8,
-            "StringArray\n[\n  \"aa\",\n  \"aa\",\n]",
+            "StringArray\n[\n  \"aa\",\n  \"bb\",\n]",
         )?;
 
         // different types, to validate that casting happens
         generic_test_array(
-            ScalarValue::from(1u32),
-            ScalarValue::from(1u64),
+            Arc::new(UInt32Array::from(vec![1u32])),
+            Arc::new(UInt64Array::from(vec![1u64])),
             DataType::UInt64,
             "PrimitiveArray<UInt64>\n[\n  1,\n  1,\n]",
         )?;
 
         // different types (another order), to validate that casting happens
         generic_test_array(
-            ScalarValue::from(1u64),
-            ScalarValue::from(1u32),
+            Arc::new(UInt64Array::from(vec![1u64])),
+            Arc::new(UInt32Array::from(vec![1u32])),
             DataType::UInt64,
             "PrimitiveArray<UInt64>\n[\n  1,\n  1,\n]",
         )

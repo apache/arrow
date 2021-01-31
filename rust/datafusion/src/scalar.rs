@@ -19,8 +19,11 @@
 
 use std::{convert::TryFrom, fmt, iter::repeat, sync::Arc};
 
-use arrow::array::*;
 use arrow::datatypes::{DataType, Field, IntervalUnit, TimeUnit};
+use arrow::{
+    array::*,
+    datatypes::{ArrowNativeType, Float32Type, TimestampNanosecondType},
+};
 
 use crate::error::{DataFusionError, Result};
 
@@ -660,6 +663,24 @@ impl fmt::Debug for ScalarValue {
                 write!(f, "IntervalYearMonth(\"{}\")", self)
             }
         }
+    }
+}
+
+/// Trait used to map
+pub trait ScalarType<T: ArrowNativeType> {
+    /// returns a scalar from an optional T
+    fn into_scalar(r: Option<T>) -> ScalarValue;
+}
+
+impl ScalarType<f32> for Float32Type {
+    fn into_scalar(r: Option<f32>) -> ScalarValue {
+        ScalarValue::Float32(r)
+    }
+}
+
+impl ScalarType<i64> for TimestampNanosecondType {
+    fn into_scalar(r: Option<i64>) -> ScalarValue {
+        ScalarValue::TimeNanosecond(r)
     }
 }
 
