@@ -57,7 +57,7 @@ public class DirectReservationListener implements ReservationListener {
   public void reserve(long size) {
     try {
       if (size > Integer.MAX_VALUE) {
-        throw new IllegalArgumentException("reserve size should be of type int");
+        throw new IllegalArgumentException("reserve size should not be larger than Integer.MAX_VALUE (0x7fffffff)");
       }
       methodReserve.invoke(null, (int) size, (int) size);
     } catch (Exception e) {
@@ -72,7 +72,7 @@ public class DirectReservationListener implements ReservationListener {
   public void unreserve(long size) {
     try {
       if (size > Integer.MAX_VALUE) {
-        throw new IllegalArgumentException("unreserve size should be of type int");
+        throw new IllegalArgumentException("unreserve size should not be larger than Integer.MAX_VALUE (0x7fffffff)");
       }
       methodUnreserve.invoke(null, (int) size, (int) size);
     } catch (Exception e) {

@@ -28,16 +28,14 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
-import org.apache.arrow.dataset.jni.DirectReservationListener;
+import org.apache.arrow.dataset.ParquetWriteSupport;
 import org.apache.arrow.dataset.jni.NativeDataset;
 import org.apache.arrow.dataset.jni.NativeInstanceReleasedException;
 import org.apache.arrow.dataset.jni.NativeMemoryPool;
 import org.apache.arrow.dataset.jni.NativeScanTask;
 import org.apache.arrow.dataset.jni.NativeScanner;
-import org.apache.arrow.dataset.jni.ReservationListener;
 import org.apache.arrow.dataset.jni.TestNativeDataset;
 import org.apache.arrow.dataset.scanner.ScanOptions;
 import org.apache.arrow.dataset.scanner.ScanTask;
@@ -62,11 +60,6 @@ public class TestFileSystemDataset extends TestNativeDataset {
   public static final TemporaryFolder TMP = new TemporaryFolder();
 
   public static final String AVRO_SCHEMA_USER = "user.avsc";
-
-  /**
-   * The default block size of C++ ReservationListenableMemoryPool.
-   */
-  public static final long DEFAULT_NATIVE_MEMORY_POOL_BLOCK_SIZE = 512 * 1024;
 
   @Test
   public void testParquetRead() throws Exception {
@@ -238,7 +231,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
   }
 
   @Test
-  public void testAllocatorReservation() throws Exception {
+  public void testMemoryAllocation() throws Exception {
     ParquetWriteSupport writeSupport = ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a");
     FileSystemDatasetFactory factory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
             FileFormat.PARQUET, writeSupport.getOutputURI());
@@ -252,55 +245,6 @@ public class TestFileSystemDataset extends TestNativeDataset {
     long reservation = rootAllocator().getAllocatedMemory();
     AutoCloseables.close(datum);
     long finalReservation = rootAllocator().getAllocatedMemory();
-    Assert.assertEquals(expected_diff, reservation - initReservation);
-    Assert.assertEquals(-expected_diff, finalReservation - reservation);
-  }
-
-  @Test
-  public void testDirectMemoryReservation() throws Exception {
-    ParquetWriteSupport writeSupport = ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a");
-    NativeMemoryPool pool = NativeMemoryPool.createListenable(DirectReservationListener.instance());
-    FileSystemDatasetFactory factory = new FileSystemDatasetFactory(rootAllocator(),
-        pool, FileFormat.PARQUET,
-        writeSupport.getOutputURI());
-    ScanOptions options = new ScanOptions(new String[0], 100);
-    long initReservation = DirectReservationListener.instance().getCurrentDirectMemReservation();
-    List<ArrowRecordBatch> datum = collectResultFromFactory(factory, options);
-    long reservation = DirectReservationListener.instance().getCurrentDirectMemReservation();
-    AutoCloseables.close(datum);
-    AutoCloseables.close(pool);
-    long finalReservation = DirectReservationListener.instance().getCurrentDirectMemReservation();
-    final long expected_diff = DEFAULT_NATIVE_MEMORY_POOL_BLOCK_SIZE;
-    Assert.assertEquals(expected_diff, reservation - initReservation);
-    Assert.assertEquals(-expected_diff, finalReservation - reservation);
-  }
-
-  @Test
-  public void testCustomReservationListener() throws Exception {
-    ParquetWriteSupport writeSupport = ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a");
-    final AtomicLong reserved = new AtomicLong(0L);
-    ReservationListener listener = new ReservationListener() {
-      @Override
-      public void reserve(long size) {
-        reserved.getAndAdd(size);
-      }
-
-      @Override
-      public void unreserve(long size) {
-        reserved.getAndAdd(-size);
-      }
-    };
-    NativeMemoryPool pool = NativeMemoryPool.createListenable(listener);
-    FileSystemDatasetFactory factory = new FileSystemDatasetFactory(rootAllocator(),
-        pool, FileFormat.PARQUET, writeSupport.getOutputURI());
-    ScanOptions options = new ScanOptions(new String[0], 100);
-    long initReservation = reserved.get();
-    List<ArrowRecordBatch> datum = collectResultFromFactory(factory, options);
-    long reservation = reserved.get();
-    AutoCloseables.close(datum);
-    AutoCloseables.close(pool);
-    long finalReservation = reserved.get();
-    final long expected_diff = DEFAULT_NATIVE_MEMORY_POOL_BLOCK_SIZE;
     Assert.assertEquals(expected_diff, reservation - initReservation);
     Assert.assertEquals(-expected_diff, finalReservation - reservation);
   }

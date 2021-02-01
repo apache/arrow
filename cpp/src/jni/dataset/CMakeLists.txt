@@ -35,7 +35,7 @@ set(ARROW_BUILD_STATIC OFF)
 
 set(ARROW_DATASET_JNI_LIBS arrow_dataset_static)
 
-set(ARROW_DATASET_JNI_SOURCES jni_wrapper.cpp)
+set(ARROW_DATASET_JNI_SOURCES jni_wrapper.cc jni_util.cc)
 
 add_arrow_lib(arrow_dataset_jni
               BUILD_SHARED
@@ -56,3 +56,10 @@ add_arrow_lib(arrow_dataset_jni
               arrow_dataset_java)
 
 add_dependencies(arrow_dataset_jni ${ARROW_DATASET_JNI_LIBRARIES})
+
+add_arrow_test(dataset_jni_test
+               SOURCES
+               jni_util_test.cc
+               jni_util.cc
+               EXTRA_INCLUDES
+               ${JNI_INCLUDE_DIRS})

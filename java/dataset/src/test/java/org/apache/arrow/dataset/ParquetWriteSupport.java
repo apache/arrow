@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.dataset.file;
+package org.apache.arrow.dataset;
 
 import java.io.File;
 import java.nio.file.Path;
@@ -34,7 +34,7 @@ import org.apache.parquet.hadoop.ParquetWriter;
 /**
  * Utility class for writing Parquet files using Avro based tools.
  */
-class ParquetWriteSupport implements AutoCloseable {
+public class ParquetWriteSupport implements AutoCloseable {
 
   private final String path;
   private final String uri;
