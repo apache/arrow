@@ -109,7 +109,10 @@ where
     compare_op_scalar!(left, right, op)
 }
 
-pub fn like_utf8(left: &StringArray, right: &StringArray) -> Result<BooleanArray> {
+pub fn like_utf8<OffsetSize: StringOffsetSizeTrait>(
+    left: &GenericStringArray<OffsetSize>,
+    right: &GenericStringArray<OffsetSize>,
+) -> Result<BooleanArray> {
     let mut map = HashMap::new();
     if left.len() != right.len() {
         return Err(ArrowError::ComputeError(
@@ -158,7 +161,10 @@ fn is_like_pattern(c: char) -> bool {
     c == '%' || c == '_'
 }
 
-pub fn like_utf8_scalar(left: &StringArray, right: &str) -> Result<BooleanArray> {
+pub fn like_utf8_scalar<OffsetSize: StringOffsetSizeTrait>(
+    left: &GenericStringArray<OffsetSize>,
+    right: &str,
+) -> Result<BooleanArray> {
     let null_bit_buffer = left.data().null_buffer().cloned();
     let bytes = bit_util::ceil(left.len(), 8);
     let mut bool_buf = MutableBuffer::from_len_zeroed(bytes);
@@ -217,7 +223,10 @@ pub fn like_utf8_scalar(left: &StringArray, right: &str) -> Result<BooleanArray>
     Ok(BooleanArray::from(Arc::new(data)))
 }
 
-pub fn nlike_utf8(left: &StringArray, right: &StringArray) -> Result<BooleanArray> {
+pub fn nlike_utf8<OffsetSize: StringOffsetSizeTrait>(
+    left: &GenericStringArray<OffsetSize>,
+    right: &GenericStringArray<OffsetSize>,
+) -> Result<BooleanArray> {
     let mut map = HashMap::new();
     if left.len() != right.len() {
         return Err(ArrowError::ComputeError(
@@ -262,7 +271,10 @@ pub fn nlike_utf8(left: &StringArray, right: &StringArray) -> Result<BooleanArra
     Ok(BooleanArray::from(Arc::new(data)))
 }
 
-pub fn nlike_utf8_scalar(left: &StringArray, right: &str) -> Result<BooleanArray> {
+pub fn nlike_utf8_scalar<OffsetSize: StringOffsetSizeTrait>(
+    left: &GenericStringArray<OffsetSize>,
+    right: &str,
+) -> Result<BooleanArray> {
     let null_bit_buffer = left.data().null_buffer().cloned();
     let mut result = BooleanBufferBuilder::new(left.len());
 
@@ -308,51 +320,87 @@ pub fn nlike_utf8_scalar(left: &StringArray, right: &str) -> Result<BooleanArray
     Ok(BooleanArray::from(Arc::new(data)))
 }
 
-pub fn eq_utf8(left: &StringArray, right: &StringArray) -> Result<BooleanArray> {
+pub fn eq_utf8<OffsetSize: StringOffsetSizeTrait>(
+    left: &GenericStringArray<OffsetSize>,
+    right: &GenericStringArray<OffsetSize>,
+) -> Result<BooleanArray> {
     compare_op!(left, right, |a, b| a == b)
 }
 
-pub fn eq_utf8_scalar(left: &StringArray, right: &str) -> Result<BooleanArray> {
+pub fn eq_utf8_scalar<OffsetSize: StringOffsetSizeTrait>(
+    left: &GenericStringArray<OffsetSize>,
+    right: &str,
+) -> Result<BooleanArray> {
     compare_op_scalar!(left, right, |a, b| a == b)
 }
 
-pub fn neq_utf8(left: &StringArray, right: &StringArray) -> Result<BooleanArray> {
+pub fn neq_utf8<OffsetSize: StringOffsetSizeTrait>(
+    left: &GenericStringArray<OffsetSize>,
+    right: &GenericStringArray<OffsetSize>,
+) -> Result<BooleanArray> {
     compare_op!(left, right, |a, b| a != b)
 }
 
-pub fn neq_utf8_scalar(left: &StringArray, right: &str) -> Result<BooleanArray> {
+pub fn neq_utf8_scalar<OffsetSize: StringOffsetSizeTrait>(
+    left: &GenericStringArray<OffsetSize>,
+    right: &str,
+) -> Result<BooleanArray> {
     compare_op_scalar!(left, right, |a, b| a != b)
 }
 
-pub fn lt_utf8(left: &StringArray, right: &StringArray) -> Result<BooleanArray> {
+pub fn lt_utf8<OffsetSize: StringOffsetSizeTrait>(
+    left: &GenericStringArray<OffsetSize>,
+    right: &GenericStringArray<OffsetSize>,
+) -> Result<BooleanArray> {
     compare_op!(left, right, |a, b| a < b)
 }
 
-pub fn lt_utf8_scalar(left: &StringArray, right: &str) -> Result<BooleanArray> {
+pub fn lt_utf8_scalar<OffsetSize: StringOffsetSizeTrait>(
+    left: &GenericStringArray<OffsetSize>,
+    right: &str,
+) -> Result<BooleanArray> {
     compare_op_scalar!(left, right, |a, b| a < b)
 }
 
-pub fn lt_eq_utf8(left: &StringArray, right: &StringArray) -> Result<BooleanArray> {
+pub fn lt_eq_utf8<OffsetSize: StringOffsetSizeTrait>(
+    left: &GenericStringArray<OffsetSize>,
+    right: &GenericStringArray<OffsetSize>,
+) -> Result<BooleanArray> {
     compare_op!(left, right, |a, b| a <= b)
 }
 
-pub fn lt_eq_utf8_scalar(left: &StringArray, right: &str) -> Result<BooleanArray> {
+pub fn lt_eq_utf8_scalar<OffsetSize: StringOffsetSizeTrait>(
+    left: &GenericStringArray<OffsetSize>,
+    right: &str,
+) -> Result<BooleanArray> {
     compare_op_scalar!(left, right, |a, b| a <= b)
 }
 
-pub fn gt_utf8(left: &StringArray, right: &StringArray) -> Result<BooleanArray> {
+pub fn gt_utf8<OffsetSize: StringOffsetSizeTrait>(
+    left: &GenericStringArray<OffsetSize>,
+    right: &GenericStringArray<OffsetSize>,
+) -> Result<BooleanArray> {
     compare_op!(left, right, |a, b| a > b)
 }
 
-pub fn gt_utf8_scalar(left: &StringArray, right: &str) -> Result<BooleanArray> {
+pub fn gt_utf8_scalar<OffsetSize: StringOffsetSizeTrait>(
+    left: &GenericStringArray<OffsetSize>,
+    right: &str,
+) -> Result<BooleanArray> {
     compare_op_scalar!(left, right, |a, b| a > b)
 }
 
-pub fn gt_eq_utf8(left: &StringArray, right: &StringArray) -> Result<BooleanArray> {
+pub fn gt_eq_utf8<OffsetSize: StringOffsetSizeTrait>(
+    left: &GenericStringArray<OffsetSize>,
+    right: &GenericStringArray<OffsetSize>,
+) -> Result<BooleanArray> {
     compare_op!(left, right, |a, b| a >= b)
 }
 
-pub fn gt_eq_utf8_scalar(left: &StringArray, right: &str) -> Result<BooleanArray> {
+pub fn gt_eq_utf8_scalar<OffsetSize: StringOffsetSizeTrait>(
+    left: &GenericStringArray<OffsetSize>,
+    right: &str,
+) -> Result<BooleanArray> {
     compare_op_scalar!(left, right, |a, b| a >= b)
 }
 
@@ -1213,6 +1261,22 @@ mod tests {
             #[test]
             fn $test_name() {
                 let left = StringArray::from($left);
+                let res = $op(&left, $right).unwrap();
+                let expected = $expected;
+                assert_eq!(expected.len(), res.len());
+                for i in 0..res.len() {
+                    let v = res.value(i);
+                    assert_eq!(
+                        v,
+                        expected[i],
+                        "unexpected result when comparing {} at position {} to {} ",
+                        left.value(i),
+                        i,
+                        $right
+                    );
+                }
+
+                let left = LargeStringArray::from($left);
                 let res = $op(&left, $right).unwrap();
                 let expected = $expected;
                 assert_eq!(expected.len(), res.len());
