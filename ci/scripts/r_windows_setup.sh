@@ -45,5 +45,9 @@ else
   pacman --noconfirm -Syy
 fi
 
+which tar
+which pacman
+which zstd
+
 "$(dirname $0)/ccache_setup.sh"
 echo "CCACHE_DIR=$(cygpath --absolute --windows ccache)" >> $GITHUB_ENV
