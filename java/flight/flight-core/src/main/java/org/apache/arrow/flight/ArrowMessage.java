@@ -67,7 +67,17 @@ import io.netty.buffer.UnpooledByteBufAllocator;
  */
 class ArrowMessage implements AutoCloseable {
 
-  public static final boolean FAST_PATH = true;
+  // If true, serialize Arrow data by giving gRPC a reference to the underlying Arrow buffer
+  // instead of copying the data. Defaults to true.
+  public static final boolean ENABLE_ZERO_COPY;
+
+  static {
+    String zeroCopyFlag = System.getProperty("arrow.flight.enable_zero_copy");
+    if (zeroCopyFlag == null) {
+      zeroCopyFlag = System.getenv("ARROW_FLIGHT_ENABLE_ZERO_COPY");
+    }
+    ENABLE_ZERO_COPY = !"false".equals(zeroCopyFlag);
+  }
 
   private static final int DESCRIPTOR_TAG =
       (FlightData.FLIGHT_DESCRIPTOR_FIELD_NUMBER << 3) | WireFormat.WIRETYPE_LENGTH_DELIMITED;
@@ -279,7 +289,7 @@ class ArrowMessage implements AutoCloseable {
           case APP_METADATA_TAG: {
             int size = readRawVarint32(stream);
             appMetadata = allocator.buffer(size);
-            GetReadableBuffer.readIntoBuffer(stream, appMetadata, size, FAST_PATH);
+            GetReadableBuffer.readIntoBuffer(stream, appMetadata, size, ENABLE_ZERO_COPY);
             break;
           }
           case BODY_TAG:
@@ -290,7 +300,7 @@ class ArrowMessage implements AutoCloseable {
             }
             int size = readRawVarint32(stream);
             body = allocator.buffer(size);
-            GetReadableBuffer.readIntoBuffer(stream, body, size, FAST_PATH);
+            GetReadableBuffer.readIntoBuffer(stream, body, size, ENABLE_ZERO_COPY);
             break;
 
           default:
@@ -392,6 +402,9 @@ class ArrowMessage implements AutoCloseable {
       int size = 0;
       List<ByteBuf> allBufs = new ArrayList<>();
       for (ArrowBuf b : bufs) {
+        // [ARROW-11066] This creates a Netty buffer whose refcnt is INDEPENDENT of the backing
+        // Arrow buffer. This is susceptible to use-after-free, so we subclass CompositeByteBuf
+        // below to tie the Arrow buffer refcnt to the Netty buffer refcnt
         allBufs.add(Unpooled.wrappedBuffer(b.nioBuffer()).retain());
         size += b.readableBytes();
         // [ARROW-4213] These buffers must be aligned to an 8-byte boundary in order to be readable from C++.
@@ -408,18 +421,65 @@ class ArrowMessage implements AutoCloseable {
 
       ByteBuf initialBuf = Unpooled.buffer(baos.size());
       initialBuf.writeBytes(baos.toByteArray());
-      final CompositeByteBuf bb = new CompositeByteBuf(UnpooledByteBufAllocator.DEFAULT, true,
+      final CompositeByteBuf bb = new ArrowBufRetainingCompositeByteBuf(
           Math.max(2, bufs.size() + 1),
           ImmutableList.<ByteBuf>builder()
               .add(initialBuf)
               .addAll(allBufs)
-              .build());
+              .build(),
+          bufs);
       final ByteBufInputStream is = new DrainableByteBufInputStream(bb);
       return is;
     } catch (Exception ex) {
       throw new RuntimeException("Unexpected IO Exception", ex);
     }
 
+  }
+
+  /**
+   * ARROW-11066: enable the zero-copy optimization and protect against use-after-free.
+   *
+   * When you send a message through gRPC, the following happens:
+   * 1. gRPC immediately serializes the message, eventually calling asInputStream above.
+   * 2. gRPC buffers the serialized message for sending.
+   * 3. Later, gRPC will actually write out the message.
+   *
+   * The problem with this is that when the zero-copy optimization is enabled, Flight
+   * "serializes" the message by handing gRPC references to Arrow data. That means we need
+   * a way to keep the Arrow buffers valid until gRPC actually writes them, else, we'll read
+   * invalid data or segfault. gRPC doesn't know anything about Arrow buffers, either.
+   *
+   * This class solves that issue by bridging Arrow and Netty/gRPC. We increment the refcnt
+   * on a set of Arrow backing buffers and decrement them once the Netty buffers are freed
+   * by gRPC.
+   */
+  private static final class ArrowBufRetainingCompositeByteBuf extends CompositeByteBuf {
+    // Arrow buffers that back the Netty ByteBufs here; ByteBufs held by this class are
+    // either slices of one of the ArrowBufs or independently allocated.
+    final List<ArrowBuf> backingBuffers;
+    boolean freed;
+
+    ArrowBufRetainingCompositeByteBuf(int maxNumComponents, Iterable<ByteBuf> buffers, List<ArrowBuf> backingBuffers) {
+      super(UnpooledByteBufAllocator.DEFAULT, /* direct */ true, maxNumComponents, buffers);
+      this.backingBuffers = backingBuffers;
+      this.freed = false;
+      // N.B. the Netty superclass avoids enhanced-for to reduce GC pressure, so follow that here
+      for (int i = 0; i < backingBuffers.size(); i++) {
+        backingBuffers.get(i).getReferenceManager().retain();
+      }
+    }
+
+    @Override
+    protected void deallocate() {
+      super.deallocate();
+      if (freed) {
+        return;
+      }
+      freed = true;
+      for (int i = 0; i < backingBuffers.size(); i++) {
+        backingBuffers.get(i).getReferenceManager().release();
+      }
+    }
   }
 
   private static class DrainableByteBufInputStream extends ByteBufInputStream implements Drainable {
@@ -434,11 +494,7 @@ class ArrowMessage implements AutoCloseable {
     @Override
     public int drainTo(OutputStream target) throws IOException {
       int size = buf.readableBytes();
-      if (FAST_PATH && AddWritableBuffer.add(buf, target)) {
-        return size;
-      }
-
-      buf.getBytes(0, target, buf.readableBytes());
+      AddWritableBuffer.add(buf, target, ENABLE_ZERO_COPY);
       return size;
     }
 
