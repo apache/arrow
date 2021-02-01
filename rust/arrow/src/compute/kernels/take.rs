@@ -320,15 +320,7 @@ where
         };
     }
 
-    let data = ArrayData::new(
-        T::DATA_TYPE,
-        indices.len(),
-        None,
-        nulls,
-        0,
-        vec![buffer.into()],
-        vec![],
-    );
+    let data = ArrayData::new_primitive::<T>(buffer.into(), nulls);
     Ok(PrimitiveArray::<T>::from(Arc::new(data)))
 }
 

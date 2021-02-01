@@ -21,7 +21,7 @@
 use std::mem;
 use std::sync::Arc;
 
-use crate::datatypes::{DataType, IntervalUnit};
+use crate::datatypes::{ArrowPrimitiveType, DataType, IntervalUnit};
 use crate::{bitmap::Bitmap, datatypes::ArrowNativeType};
 use crate::{
     buffer::{Buffer, MutableBuffer},
@@ -266,7 +266,7 @@ impl ArrayData {
 
     /// Returns a builder to construct a `ArrayData` instance.
     #[inline]
-    pub const fn builder(data_type: DataType) -> ArrayDataBuilder {
+    pub fn builder(data_type: DataType) -> ArrayDataBuilder {
         ArrayDataBuilder::new(data_type)
     }
 
@@ -467,6 +467,37 @@ impl ArrayData {
     }
 }
 
+impl ArrayData {
+    /// Creates a new [`ArrayData`] for a primitive array, verifying all assumptions for consumers to
+    /// soundly use it.
+    /// # Panic
+    /// This function panics iff any of the following:
+    /// * `values.len()` is not a multiple of `size_of::<T::Native>`
+    /// * `values.as_ptr()` is not aligned with `T::Native`
+    /// * when `nulls` is `Some`, `nulls.len` is smaller than `(ArrayData::len + 7) / 8`.
+    #[inline]
+    pub fn new_primitive<T: ArrowPrimitiveType>(
+        values: Buffer,
+        nulls: Option<Buffer>,
+    ) -> Self {
+        assert_eq!(values.len() % std::mem::size_of::<T::Native>(), 0,
+            "The length of the values buffer must be multiple of the size_of of the primitive type");
+        assert_eq!(
+            values
+                .as_ptr()
+                .align_offset(std::mem::align_of::<T::Native>()),
+            0,
+            "The values `buffer` pointer must be aligned with the primitive type"
+        );
+        let len = values.len() / std::mem::size_of::<T::Native>();
+
+        if let Some(ref nulls) = nulls {
+            assert!(nulls.len() >= len.saturating_add(7) / 8);
+        }
+        ArrayData::new(T::DATA_TYPE, len, None, nulls, 0, vec![values], vec![])
+    }
+}
+
 impl PartialEq for ArrayData {
     fn eq(&self, other: &Self) -> bool {
         equal(self, other)
@@ -487,7 +518,7 @@ pub struct ArrayDataBuilder {
 
 impl ArrayDataBuilder {
     #[inline]
-    pub const fn new(data_type: DataType) -> Self {
+    pub fn new(data_type: DataType) -> Self {
         Self {
             data_type,
             len: 0,
@@ -557,6 +588,7 @@ mod tests {
     use std::sync::Arc;
 
     use crate::buffer::Buffer;
+    use crate::datatypes::Int32Type;
     use crate::util::bit_util;
 
     #[test]
@@ -608,10 +640,10 @@ mod tests {
         bit_util::set_bit(&mut bit_v, 0);
         bit_util::set_bit(&mut bit_v, 3);
         bit_util::set_bit(&mut bit_v, 10);
-        let arr_data = ArrayData::builder(DataType::Int32)
-            .len(16)
-            .null_bit_buffer(Buffer::from(bit_v))
-            .build();
+        let arr_data = ArrayData::new_primitive::<Int32Type>(
+            Buffer::from_slice_ref(&(0..16).collect::<Vec<_>>()),
+            Some(Buffer::from(bit_v)),
+        );
         assert_eq!(13, arr_data.null_count());
 
         // Test with offset
@@ -633,10 +665,10 @@ mod tests {
         bit_util::set_bit(&mut bit_v, 0);
         bit_util::set_bit(&mut bit_v, 3);
         bit_util::set_bit(&mut bit_v, 10);
-        let arr_data = ArrayData::builder(DataType::Int32)
-            .len(16)
-            .null_bit_buffer(Buffer::from(bit_v))
-            .build();
+        let arr_data = ArrayData::new_primitive::<Int32Type>(
+            Buffer::from_slice_ref(&(0..16).collect::<Vec<_>>()),
+            Some(Buffer::from(bit_v)),
+        );
         assert!(arr_data.null_buffer().is_some());
         assert_eq!(&bit_v, arr_data.null_buffer().unwrap().as_slice());
     }

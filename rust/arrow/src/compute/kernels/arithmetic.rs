@@ -30,7 +30,9 @@ use num::{One, Zero};
 use crate::buffer::Buffer;
 #[cfg(simd)]
 use crate::buffer::MutableBuffer;
-use crate::compute::{kernels::arity::unary, util::combine_option_bitmap};
+#[cfg(not(simd))]
+use crate::compute::kernels::arity::unary;
+use crate::compute::util::combine_option_bitmap;
 use crate::datatypes;
 use crate::datatypes::ArrowNumericType;
 use crate::error::{ArrowError, Result};
@@ -78,14 +80,9 @@ where
         },
     );
 
-    let data = ArrayData::new(
-        T::DATA_TYPE,
-        array.len(),
-        None,
+    let data = ArrayData::new_primitive::<T>(
+        result.into(),
         array.data_ref().null_buffer().cloned(),
-        0,
-        vec![result.into()],
-        vec![],
     );
     Ok(PrimitiveArray::<T>::from(Arc::new(data)))
 }
@@ -127,14 +124,9 @@ where
         },
     );
 
-    let data = ArrayData::new(
-        T::DATA_TYPE,
-        array.len(),
-        None,
+    let data = ArrayData::new_primitive::<T>(
+        result.into(),
         array.data_ref().null_buffer().cloned(),
-        0,
-        vec![result.into()],
-        vec![],
     );
     Ok(PrimitiveArray::<T>::from(Arc::new(data)))
 }
@@ -176,15 +168,7 @@ where
     //      `values` is an iterator with a known size.
     let buffer = unsafe { Buffer::from_trusted_len_iter(values) };
 
-    let data = ArrayData::new(
-        T::DATA_TYPE,
-        left.len(),
-        None,
-        null_bit_buffer,
-        0,
-        vec![buffer],
-        vec![],
-    );
+    let data = ArrayData::new_primitive::<T>(buffer, null_bit_buffer);
     Ok(PrimitiveArray::<T>::from(Arc::new(data)))
 }
 
@@ -244,15 +228,7 @@ where
         unsafe { Buffer::try_from_trusted_len_iter(values) }
     }?;
 
-    let data = ArrayData::new(
-        T::DATA_TYPE,
-        left.len(),
-        None,
-        null_bit_buffer,
-        0,
-        vec![buffer],
-        vec![],
-    );
+    let data = ArrayData::new_primitive::<T>(buffer, null_bit_buffer);
     Ok(PrimitiveArray::<T>::from(Arc::new(data)))
 }
 
@@ -307,15 +283,7 @@ where
             *scalar_result = scalar_op(*scalar_left, *scalar_right);
         });
 
-    let data = ArrayData::new(
-        T::DATA_TYPE,
-        left.len(),
-        None,
-        null_bit_buffer,
-        0,
-        vec![result.into()],
-        vec![],
-    );
+    let data = ArrayData::new_primitive::<T>(result.into(), null_bit_buffer);
     Ok(PrimitiveArray::<T>::from(Arc::new(data)))
 }
 
@@ -494,15 +462,7 @@ where
         }
     }
 
-    let data = ArrayData::new(
-        T::DATA_TYPE,
-        left.len(),
-        None,
-        null_bit_buffer,
-        0,
-        vec![result.into()],
-        vec![],
-    );
+    let data = ArrayData::new_primitive::<T>(result.into(), null_bit_buffer);
     Ok(PrimitiveArray::<T>::from(Arc::new(data)))
 }
 

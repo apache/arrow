@@ -303,17 +303,9 @@ fn sort_boolean(
         result_slice[valids_len..].copy_from_slice(nulls.as_slice())
     }
 
-    let result_data = Arc::new(ArrayData::new(
-        DataType::UInt32,
-        values.len(),
-        Some(0),
-        None,
-        0,
-        vec![result.into()],
-        vec![],
-    ));
+    let result_data = ArrayData::new_primitive::<UInt32Type>(result.into(), None);
 
-    Ok(UInt32Array::from(result_data))
+    Ok(UInt32Array::from(Arc::new(result_data)))
 }
 
 /// Sort primitive values
@@ -369,17 +361,8 @@ where
         result_slice[valids_len..].copy_from_slice(nulls.as_slice())
     }
 
-    let result_data = Arc::new(ArrayData::new(
-        DataType::UInt32,
-        values.len(),
-        Some(0),
-        None,
-        0,
-        vec![result.into()],
-        vec![],
-    ));
-
-    Ok(UInt32Array::from(result_data))
+    let result_data = ArrayData::new_primitive::<UInt32Type>(result.into(), None);
+    Ok(UInt32Array::from(Arc::new(result_data)))
 }
 
 // insert valid and nan values in the correct order depending on the descending flag

@@ -288,27 +288,25 @@ where
 
     // Align/shift left data on offset as needed, since new bitmaps are shifted and aligned to 0 already
     // NOTE: this probably only works for primitive arrays.
-    let data_buffers = if left.offset() == 0 {
-        left_data.buffers().to_vec()
+    let buffer = if left.offset() == 0 {
+        left_data.buffers()[0].clone()
     } else {
         // Shift each data buffer by type's bit_width * offset.
-        left_data
-            .buffers()
-            .iter()
-            .map(|buf| buf.slice(left.offset() * T::get_byte_width()))
-            .collect::<Vec<_>>()
+        left_data.buffers()[0].slice(left.offset() * T::get_byte_width())
     };
 
+    // UNSOUND: when `offset != 0`, the sliced buffer's `len` will be smaller than `left.len()`
+    // resulting in UB derived from out of bound accesses.
     // Construct new array with same values but modified null bitmap
     // TODO: shift data buffer as needed
     let data = ArrayData::new(
         T::DATA_TYPE,
         left.len(),
-        None, // force new to compute the number of null bits
+        None,
         modified_null_buffer,
-        0, // No need for offset since left data has been shifted
-        data_buffers,
-        left_data.child_data().to_vec(),
+        0,
+        vec![buffer],
+        vec![],
     );
     Ok(PrimitiveArray::<T>::from(Arc::new(data)))
 }

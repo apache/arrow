@@ -2947,10 +2947,10 @@ mod tests {
 
     fn make_list_array() -> ListArray {
         // Construct a value array
-        let value_data = ArrayData::builder(DataType::Int32)
-            .len(8)
-            .add_buffer(Buffer::from_slice_ref(&[0, 1, 2, 3, 4, 5, 6, 7]))
-            .build();
+        let value_data = ArrayData::new_primitive::<Int32Type>(
+            Buffer::from_slice_ref(&[0i32, 1, 2, 3, 4, 5, 6, 7]),
+            None,
+        );
 
         // Construct a buffer for value offsets, for the nested array:
         //  [[0, 1, 2], [3, 4, 5], [6, 7]]
@@ -2962,7 +2962,7 @@ mod tests {
         let list_data = ArrayData::builder(list_data_type)
             .len(3)
             .add_buffer(value_offsets)
-            .add_child_data(value_data)
+            .add_child_data(Arc::new(value_data))
             .build();
         ListArray::from(list_data)
     }

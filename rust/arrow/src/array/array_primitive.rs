@@ -102,15 +102,7 @@ impl<T: ArrowPrimitiveType> PrimitiveArray<T> {
     /// Creates a PrimitiveArray based on an iterator of values without nulls
     pub fn from_iter_values<I: IntoIterator<Item = T::Native>>(iter: I) -> Self {
         let val_buf: Buffer = iter.into_iter().collect();
-        let data = ArrayData::new(
-            T::DATA_TYPE,
-            val_buf.len() / mem::size_of::<<T as ArrowPrimitiveType>::Native>(),
-            None,
-            None,
-            0,
-            vec![val_buf],
-            vec![],
-        );
+        let data = ArrayData::new_primitive::<T>(val_buf, None);
         PrimitiveArray::from(Arc::new(data))
     }
 }
@@ -289,15 +281,7 @@ impl<T: ArrowPrimitiveType, Ptr: Borrow<Option<<T as ArrowPrimitiveType>::Native
             })
             .collect();
 
-        let data = ArrayData::new(
-            T::DATA_TYPE,
-            null_buf.len(),
-            None,
-            Some(null_buf.into()),
-            0,
-            vec![buffer],
-            vec![],
-        );
+        let data = ArrayData::new_primitive::<T>(buffer, Some(null_buf.into()));
         PrimitiveArray::from(Arc::new(data))
     }
 }
@@ -332,11 +316,9 @@ macro_rules! def_numeric_from_vec {
     ( $ty:ident ) => {
         impl From<Vec<<$ty as ArrowPrimitiveType>::Native>> for PrimitiveArray<$ty> {
             fn from(data: Vec<<$ty as ArrowPrimitiveType>::Native>) -> Self {
-                let array_data = ArrayData::builder($ty::DATA_TYPE)
-                    .len(data.len())
-                    .add_buffer(Buffer::from_slice_ref(&data))
-                    .build();
-                PrimitiveArray::from(array_data)
+                let data =
+                    ArrayData::new_primitive::<$ty>(Buffer::from_slice_ref(&data), None);
+                PrimitiveArray::from(Arc::new(data))
             }
         }
 

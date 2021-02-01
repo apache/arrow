@@ -323,6 +323,8 @@ impl fmt::Debug for FixedSizeListArray {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use crate::{
         array::ArrayData, array::Int32Array, buffer::Buffer, datatypes::Field, memory,
         util::bit_util,
@@ -333,10 +335,11 @@ mod tests {
     #[test]
     fn test_list_array() {
         // Construct a value array
-        let value_data = ArrayData::builder(DataType::Int32)
-            .len(8)
-            .add_buffer(Buffer::from_slice_ref(&[0, 1, 2, 3, 4, 5, 6, 7]))
-            .build();
+        let value_data = ArrayData::new_primitive::<Int32Type>(
+            Buffer::from_slice_ref(&[0i32, 1, 2, 3, 4, 5, 6, 7]),
+            None,
+        );
+        let value_data = Arc::new(value_data);
 
         // Construct a buffer for value offsets, for the nested array:
         //  [[0, 1, 2], [3, 4, 5], [6, 7]]
@@ -815,10 +818,10 @@ mod tests {
     #[should_panic(expected = "assertion failed: (offset + length) <= self.len()")]
     fn test_fixed_size_list_array_index_out_of_bound() {
         // Construct a value array
-        let value_data = ArrayData::builder(DataType::Int32)
-            .len(10)
-            .add_buffer(Buffer::from_slice_ref(&[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]))
-            .build();
+        let value_data = ArrayData::new_primitive::<Int32Type>(
+            Buffer::from_slice_ref(&[0i32, 1, 2, 3, 4, 5, 6, 7, 8, 9]),
+            None,
+        );
 
         // Set null buts for the nested array:
         //  [[0, 1], null, null, [6, 7], [8, 9]]
@@ -835,7 +838,7 @@ mod tests {
         );
         let list_data = ArrayData::builder(list_data_type)
             .len(5)
-            .add_child_data(value_data)
+            .add_child_data(Arc::new(value_data))
             .null_bit_buffer(Buffer::from(null_bits))
             .build();
         let list_array = FixedSizeListArray::from(list_data);

@@ -251,7 +251,7 @@ mod tests {
     use super::*;
     use crate::{
         buffer::Buffer,
-        datatypes::{DataType, Field},
+        datatypes::{DataType, Field, Int32Type},
     };
 
     macro_rules! def_temporal_test {
@@ -502,10 +502,11 @@ mod tests {
 
     #[test]
     fn test_filter_list_array() {
-        let value_data = ArrayData::builder(DataType::Int32)
-            .len(8)
-            .add_buffer(Buffer::from_slice_ref(&[0, 1, 2, 3, 4, 5, 6, 7]))
-            .build();
+        let value_data = ArrayData::new_primitive::<Int32Type>(
+            Buffer::from_slice_ref(&[0i32, 1, 2, 3, 4, 5, 6, 7]),
+            None,
+        );
+        let value_data = Arc::new(value_data);
 
         let value_offsets = Buffer::from_slice_ref(&[0i64, 3, 6, 8, 8]);
 
@@ -524,10 +525,11 @@ mod tests {
         let result = filter(&a, &b).unwrap();
 
         // expected: [[3, 4, 5], null]
-        let value_data = ArrayData::builder(DataType::Int32)
-            .len(3)
-            .add_buffer(Buffer::from_slice_ref(&[3, 4, 5]))
-            .build();
+        let value_data = ArrayData::new_primitive::<Int32Type>(
+            Buffer::from_slice_ref(&[3, 4, 5]),
+            None,
+        );
+        let value_data = Arc::new(value_data);
 
         let value_offsets = Buffer::from_slice_ref(&[0i64, 3, 3]);
 

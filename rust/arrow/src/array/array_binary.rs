@@ -641,7 +641,7 @@ impl Array for DecimalArray {
 mod tests {
     use crate::{
         array::{LargeListArray, ListArray},
-        datatypes::Field,
+        datatypes::{Field, UInt32Type, UInt8Type},
     };
 
     use super::*;
@@ -762,10 +762,8 @@ mod tests {
         let values: [u8; 12] = [
             b'h', b'e', b'l', b'l', b'o', b'p', b'a', b'r', b'q', b'u', b'e', b't',
         ];
-        let values_data = ArrayData::builder(DataType::UInt8)
-            .len(12)
-            .add_buffer(Buffer::from(&values[..]))
-            .build();
+        let values_data =
+            ArrayData::new_primitive::<UInt8Type>(Buffer::from_slice_ref(&values), None);
         let offsets: [i32; 4] = [0, 5, 5, 12];
 
         // Array data: ["hello", "", "parquet"]
@@ -779,7 +777,7 @@ mod tests {
         let array_data2 = ArrayData::builder(DataType::Binary)
             .len(3)
             .add_buffer(Buffer::from_slice_ref(&offsets))
-            .add_child_data(values_data)
+            .add_child_data(Arc::new(values_data))
             .build();
         let list_array = ListArray::from(array_data2);
         let binary_array2 = BinaryArray::from(list_array);
@@ -804,10 +802,9 @@ mod tests {
         let values: [u8; 12] = [
             b'h', b'e', b'l', b'l', b'o', b'p', b'a', b'r', b'q', b'u', b'e', b't',
         ];
-        let values_data = ArrayData::builder(DataType::UInt8)
-            .len(12)
-            .add_buffer(Buffer::from(&values[..]))
-            .build();
+        let values_data =
+            ArrayData::new_primitive::<UInt8Type>(Buffer::from_slice_ref(&values), None);
+        let values_data = Arc::new(values_data);
         let offsets: [i64; 4] = [0, 5, 5, 12];
 
         // Array data: ["hello", "", "parquet"]
@@ -874,16 +871,14 @@ mod tests {
     )]
     fn test_binary_array_from_incorrect_list_array_type() {
         let values: [u32; 12] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
-        let values_data = ArrayData::builder(DataType::UInt32)
-            .len(12)
-            .add_buffer(Buffer::from_slice_ref(&values))
-            .build();
+        let values_data =
+            ArrayData::new_primitive::<UInt32Type>(Buffer::from_slice_ref(&values), None);
         let offsets: [i32; 4] = [0, 5, 5, 12];
 
         let array_data = ArrayData::builder(DataType::Utf8)
             .len(3)
             .add_buffer(Buffer::from_slice_ref(&offsets))
-            .add_child_data(values_data)
+            .add_child_data(Arc::new(values_data))
             .build();
         let list_array = ListArray::from(array_data);
         BinaryArray::from(list_array);

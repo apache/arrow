@@ -626,14 +626,13 @@ impl<T: ArrowPrimitiveType> PrimitiveBuilder<T> {
         let len = self.len();
         let null_bit_buffer = self.bitmap_builder.finish();
         let null_count = len - null_bit_buffer.count_set_bits();
-        let mut builder = ArrayData::builder(T::DATA_TYPE)
-            .len(len)
-            .add_buffer(self.values_builder.finish());
-        if null_count > 0 {
-            builder = builder.null_bit_buffer(null_bit_buffer);
-        }
-        let data = builder.build();
-        PrimitiveArray::<T>::from(data)
+        let nulls = if null_count > 0 {
+            Some(null_bit_buffer)
+        } else {
+            None
+        };
+        let data = ArrayData::new_primitive::<T>(self.values_builder.finish(), nulls);
+        PrimitiveArray::<T>::from(Arc::new(data))
     }
 
     /// Builds the `DictionaryArray` and reset this builder.
@@ -2845,11 +2844,10 @@ mod tests {
             .add_buffer(Buffer::from_slice_ref(b"joemark"))
             .build();
 
-        let expected_int_data = ArrayData::builder(DataType::Int32)
-            .len(4)
-            .null_bit_buffer(Buffer::from_slice_ref(&[11_u8]))
-            .add_buffer(Buffer::from_slice_ref(&[1, 2, 0, 4]))
-            .build();
+        let expected_int_data = ArrayData::new_primitive::<Int32Type>(
+            Buffer::from_slice_ref(&[1, 2, 0, 4]),
+            Some(Buffer::from_slice_ref(&[11_u8])),
+        );
 
         assert_eq!(expected_string_data, arr.column(0).data());
 

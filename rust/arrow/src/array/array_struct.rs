@@ -280,7 +280,7 @@ mod tests {
     };
     use crate::{
         array::Int64Array,
-        datatypes::{DataType, Field},
+        datatypes::{DataType, Field, Int32Type},
     };
     use crate::{buffer::Buffer, datatypes::ToByteSlice};
 
@@ -358,11 +358,10 @@ mod tests {
             .add_buffer(Buffer::from(b"joemark"))
             .build();
 
-        let expected_int_data = ArrayData::builder(DataType::Int32)
-            .len(4)
-            .null_bit_buffer(Buffer::from(&[11_u8]))
-            .add_buffer(Buffer::from(&[1, 2, 0, 4].to_byte_slice()))
-            .build();
+        let expected_int_data = ArrayData::new_primitive::<Int32Type>(
+            Buffer::from_slice_ref(&[1, 2, 0, 4]),
+            Some(Buffer::from(&[11_u8])),
+        );
 
         assert_eq!(expected_string_data, arr.column(0).data());
 
@@ -435,11 +434,12 @@ mod tests {
             .add_buffer(Buffer::from([0b00010000]))
             .null_bit_buffer(Buffer::from([0b00010001]))
             .build();
-        let int_data = ArrayData::builder(DataType::Int32)
-            .len(5)
-            .add_buffer(Buffer::from([0, 28, 42, 0, 0].to_byte_slice()))
-            .null_bit_buffer(Buffer::from([0b00000110]))
-            .build();
+
+        let int_data = ArrayData::new_primitive::<Int32Type>(
+            Buffer::from_slice_ref(&[0, 28, 42, 0, 0]),
+            Some(Buffer::from(&[0b00000110])),
+        );
+        let int_data = Arc::new(int_data);
 
         let mut field_types = vec![];
         field_types.push(Field::new("a", DataType::Boolean, false));
