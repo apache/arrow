@@ -1396,7 +1396,7 @@ impl<'a> ArrayReaderBuilder {
             self.file_reader.clone(),
         )?);
 
-        let mut arrow_type: Option<ArrowType> =
+        let arrow_type: Option<ArrowType> =
             match self.get_arrow_field(&cur_type, context) {
                 Some(f) => Some(f.data_type().clone()),
                 _ => None,
