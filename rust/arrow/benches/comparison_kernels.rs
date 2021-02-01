@@ -21,43 +21,10 @@ use criterion::Criterion;
 
 extern crate arrow;
 
-use arrow::array::*;
 use arrow::compute::*;
 use arrow::datatypes::ArrowNumericType;
-use arrow::util::test_util::seedable_rng;
-use rand::distributions::Alphanumeric;
-use rand::Rng;
-
-fn create_array(size: usize) -> Float32Array {
-    let mut builder = Float32Builder::new(size);
-    for i in 0..size {
-        if i % 2 == 0 {
-            builder.append_value(1.0).unwrap();
-        } else {
-            builder.append_value(0.0).unwrap();
-        }
-    }
-    builder.finish()
-}
-
-fn create_string_array(size: usize, with_nulls: bool) -> StringArray {
-    // use random numbers to avoid spurious compiler optimizations wrt to branching
-    let mut rng = seedable_rng();
-    let mut builder = StringBuilder::new(size);
-
-    for _ in 0..size {
-        if with_nulls && rng.gen::<f32>() > 0.5 {
-            builder.append_null().unwrap();
-        } else {
-            let string = seedable_rng()
-                .sample_iter(&Alphanumeric)
-                .take(10)
-                .collect::<String>();
-            builder.append_value(&string).unwrap();
-        }
-    }
-    builder.finish()
-}
+use arrow::util::bench_util::*;
+use arrow::{array::*, datatypes::Float32Type};
 
 fn bench_eq<T>(arr_a: &PrimitiveArray<T>, arr_b: &PrimitiveArray<T>)
 where
@@ -154,10 +121,10 @@ fn bench_nlike_utf8_scalar(arr_a: &StringArray, value_b: &str) {
 
 fn add_benchmark(c: &mut Criterion) {
     let size = 65536;
-    let arr_a = create_array(size);
-    let arr_b = create_array(size);
+    let arr_a = create_primitive_array::<Float32Type>(size, 0.0);
+    let arr_b = create_primitive_array::<Float32Type>(size, 0.0);
 
-    let arr_string = create_string_array(size, false);
+    let arr_string = create_string_array(size, 0.0);
 
     c.bench_function("eq Float32", |b| b.iter(|| bench_eq(&arr_a, &arr_b)));
     c.bench_function("eq scalar Float32", |b| {
