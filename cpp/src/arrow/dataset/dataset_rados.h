@@ -173,12 +173,40 @@ class ARROW_DS_EXPORT RadosFileSystem : public fs::LocalFileSystem {
     return Status::OK();
   }
 
+  Status Read(const std::string &path, std::shared_ptr<Buffer> &buffer, int64_t position, int64_t nbytes) {
+    librados::bufferlist bl;
+    int fd = ceph_open(cmount_, path.c_str(), O_RDWR, 0777);
+    if (fd < 0)
+      return Status::IOError("libcephfs::ceph_open returned negative file descriptor.");
+    
+    char *buff = new char[nbytes];
+    int num_bytes_read = ceph_read(cmount_, fd, buff, nbytes, position);
+    if (num_bytes_read < 0) {
+      return Status::IOError("libcephfs::ceph_read returned negative number of bytes.");
+    }
+
+    buffer = std::make_shared<Buffer>((uint8_t*)buff, nbytes);
+
+    if (ceph_close(cmount_, fd)) 
+      return Status::IOError("libcephfs::ceph_close returned non-zero exit code.");
+
+    return Status::OK();
+  }
+
+  Status GetSize(const std::string &path, uint64_t &size) {
+    struct ceph_statx stx;
+    if (ceph_statx(cmount_, path.c_str(), &stx, CEPH_STATX_ALL_STATS, 0))
+      return Status::IOError("libcephfs::ceph_statx failed");
+    size = stx.stx_size;
+    return Status::OK();
+  }
+
   Status Exec(const std::string& path, const std::string& fn,
               std::shared_ptr<librados::bufferlist>& in,
               std::shared_ptr<librados::bufferlist>& out) {
     struct ceph_statx stx;
     if (ceph_statx(cmount_, path.c_str(), &stx, 0, 0))
-      return Status::IOError("ceph_stat failed");
+      return Status::IOError("libcephfs::ceph_statx failed");
 
     uint64_t inode = stx.stx_ino;
 
@@ -265,7 +293,6 @@ class ARROW_DS_EXPORT RadosDataset : public Dataset {
 
   Result<std::shared_ptr<Dataset>> ReplaceSchema(
       std::shared_ptr<Schema> schema) const override;
-
  protected:
   RadosDataset(std::shared_ptr<Schema> schema, RadosFragmentVector fragments,
                std::shared_ptr<RadosFileSystem> filesystem)
@@ -337,6 +364,98 @@ class CephFSParquetWriter {
 
  protected:
   std::shared_ptr<RadosFileSystem> filesystem_;
+};
+
+class ARROW_DS_EXPORT ObjectInputFile : public arrow::io::RandomAccessFile {
+ public:
+  explicit ObjectInputFile(std::shared_ptr<RadosFileSystem> filesystem, std::string &path)
+    : filesystem_(std::move(filesystem)),
+      path_(path) {Init();}
+
+  arrow::Status Init() {
+    uint64_t size;
+    ARROW_RETURN_NOT_OK(filesystem_->GetSize(path_, size));
+    content_length_ = size;
+    return Status::OK();
+  }
+
+  arrow::Status CheckClosed() const {
+    if (closed_) {
+      return arrow::Status::Invalid("Operation on closed stream");
+    }
+    return arrow::Status::OK();
+  }
+
+  arrow::Status CheckPosition(int64_t position, const char* action) const {
+    if (position < 0) {
+      return arrow::Status::Invalid("Cannot ", action, " from negative position");
+    }
+    if (position > content_length_) {
+      return arrow::Status::IOError("Cannot ", action, " past end of file");
+    }
+    return arrow::Status::OK();
+  }
+
+  arrow::Result<int64_t> ReadAt(int64_t position, int64_t nbytes, void* out) { return 0; }
+
+  arrow::Result<std::shared_ptr<arrow::Buffer>> ReadAt(int64_t position, int64_t nbytes) {
+    RETURN_NOT_OK(CheckClosed());
+    RETURN_NOT_OK(CheckPosition(position, "read"));
+
+    // No need to allocate more than the remaining number of bytes
+    nbytes = std::min(nbytes, content_length_ - position);
+
+    if (nbytes > 0) {
+      std::shared_ptr<Buffer> buffer;
+      ARROW_RETURN_NOT_OK(filesystem_->Read(path_, buffer, position, nbytes));
+      return buffer;
+    }
+    return std::make_shared<arrow::Buffer>("");
+  }
+
+  arrow::Result<std::shared_ptr<arrow::Buffer>> Read(int64_t nbytes) {
+    ARROW_ASSIGN_OR_RAISE(auto buffer, ReadAt(pos_, nbytes));
+    pos_ += buffer->size();
+    return std::move(buffer);
+  }
+
+  arrow::Result<int64_t> Read(int64_t nbytes, void* out) {
+    ARROW_ASSIGN_OR_RAISE(int64_t bytes_read, ReadAt(pos_, nbytes, out));
+    pos_ += bytes_read;
+    return bytes_read;
+  }
+
+  arrow::Result<int64_t> GetSize() {
+    RETURN_NOT_OK(CheckClosed());
+    return content_length_;
+  }
+
+  arrow::Status Seek(int64_t position) {
+    RETURN_NOT_OK(CheckClosed());
+    RETURN_NOT_OK(CheckPosition(position, "seek"));
+
+    pos_ = position;
+    return arrow::Status::OK();
+  }
+
+  arrow::Result<int64_t> Tell() const {
+    RETURN_NOT_OK(CheckClosed());
+    return pos_;
+  }
+
+  arrow::Status Close() {
+    closed_ = true;
+    return arrow::Status::OK();
+  }
+
+  bool closed() const { return closed_; }
+
+ protected:
+  std::shared_ptr<RadosFileSystem> filesystem_;
+  std::string path_;
+  bool closed_ = false;
+  int64_t pos_ = 0;
+  int64_t content_length_ = -1;
 };
 
 }  // namespace dataset

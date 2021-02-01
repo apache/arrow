@@ -152,9 +152,9 @@ TEST(TestClsSDK, EndToEndWithPartitionPruning) {
   auto ds = factory->Finish(finish_options).ValueOrDie();
 
   auto builder = ds->NewScan().ValueOrDie();
-  auto projection = std::vector<std::string>{"year", "price", "country", "sales"};
+  auto projection = std::vector<std::string>{"year", "price", "country"};
   auto filter =
-      ("sales"_ > int32_t(900) && "price"_ > double(90000.0f) && "year"_ == 2018).Copy();
+      ("sales"_ > int32_t(400) && "price"_ > double(30000.0f)).Copy();
 
   builder->Project(projection);
   builder->Filter(filter);
@@ -163,4 +163,32 @@ TEST(TestClsSDK, EndToEndWithPartitionPruning) {
   auto table = scanner->ToTable().ValueOrDie();
   std::cout << table->ToString() << "\n";
   std::cout << table->num_rows() << "\n";
+}
+
+TEST(TestClsSDK, TestObjectInputFileInterface) {
+  auto fs = CreateTestRadosFileSystem();
+  auto writer = std::make_shared<arrow::dataset::CephFSParquetWriter>(fs);
+  std::string path = "/path/to/a/file.parquet";
+
+  arrow::Status s = writer->WriteTable(CreatePartitionedTable(), path);
+  ASSERT_EQ(s.ok(), true);
+
+  auto source = std::make_shared<arrow::dataset::ObjectInputFile>(fs, path);
+  ASSERT_EQ(s.ok(), true);
+
+  std::unique_ptr<parquet::arrow::FileReader> reader;
+  s = parquet::arrow::OpenFile(source, arrow::default_memory_pool(), &reader);
+  ASSERT_EQ(s.ok(), true);
+
+  // get schema in arrow::Schema form, with K/V metadata included.
+  std::shared_ptr<arrow::Schema> schema;
+  s = reader->GetSchema(&schema);
+  ASSERT_EQ(s.ok(), true);
+  std::cout << schema->ToString() << "\n";
+  auto schema_ = arrow::schema({arrow::field("sales", arrow::int32()), arrow::field("price", arrow::float64())});
+  ASSERT_EQ(schema->Equals(schema_), 1);
+
+  // get parquet file metadata
+  std::shared_ptr<parquet::FileMetaData> metadata = reader->parquet_reader()->metadata();
+  ASSERT_EQ(metadata->num_columns(), 2);
 }
