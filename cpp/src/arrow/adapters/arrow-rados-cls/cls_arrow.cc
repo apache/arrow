@@ -14,8 +14,9 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-
+#define _FILE_OFFSET_BITS 64
 #include <rados/objclass.h>
+#include <memory>
 
 #include "arrow/api.h"
 #include "arrow/dataset/dataset_rados.h"
@@ -31,8 +32,7 @@ CLS_VER(1, 0)
 CLS_NAME(arrow)
 
 cls_handle_t h_class;
-cls_method_handle_t h_read_ipc_schema;
-cls_method_handle_t h_read_parquet_schema;
+cls_method_handle_t h_read_schema;
 cls_method_handle_t h_write;
 cls_method_handle_t h_scan;
 
@@ -132,7 +132,8 @@ class RandomAccessObject : public arrow::io::RandomAccessFile {
 static arrow::Status ScanParquetObject(
     cls_method_context_t hctx, std::shared_ptr<arrow::dataset::Expression> filter,
     std::shared_ptr<arrow::dataset::Expression> partition_expression,
-    std::shared_ptr<arrow::Schema> schema, std::shared_ptr<arrow::Table>& t) {
+    std::shared_ptr<arrow::Schema> projection_schema,
+    std::shared_ptr<arrow::Schema> dataset_schema, std::shared_ptr<arrow::Table>& t) {
   auto file = std::make_shared<RandomAccessObject>(hctx);
   ARROW_RETURN_NOT_OK(file->Init());
 
@@ -142,16 +143,17 @@ static arrow::Status ScanParquetObject(
   ARROW_RETURN_NOT_OK(
       parquet::arrow::OpenFile(file, arrow::default_memory_pool(), &reader));
 
-  std::shared_ptr<arrow::Schema> table_schema;
-  ARROW_RETURN_NOT_OK(reader->GetSchema(&table_schema));
-
   auto format = std::make_shared<arrow::dataset::ParquetFileFormat>();
   ARROW_ASSIGN_OR_RAISE(auto fragment,
-                        format->MakeFragment(source, partition_expression, table_schema));
+                        format->MakeFragment(source, partition_expression));
 
   auto ctx = std::make_shared<arrow::dataset::ScanContext>();
-  auto builder = std::make_shared<arrow::dataset::ScannerBuilder>(schema, fragment, ctx);
+  auto builder =
+      std::make_shared<arrow::dataset::ScannerBuilder>(dataset_schema, fragment, ctx);
+
   ARROW_RETURN_NOT_OK(builder->Filter(filter));
+  ARROW_RETURN_NOT_OK(builder->Project(projection_schema->field_names()));
+
   ARROW_ASSIGN_OR_RAISE(auto scanner, builder->Finish());
   ARROW_ASSIGN_OR_RAISE(auto table, scanner->ToTable());
 
@@ -161,41 +163,8 @@ static arrow::Status ScanParquetObject(
   return arrow::Status::OK();
 }
 
-static arrow::Status ScanIpcObject(
-    cls_method_context_t hctx, std::shared_ptr<arrow::dataset::Expression> filter,
-    std::shared_ptr<arrow::dataset::Expression> partition_expression,
-    std::shared_ptr<arrow::Schema> schema, std::shared_ptr<arrow::Table>& t) {
-  ceph::buffer::list bl;
-  if (cls_cxx_read(hctx, 0, 0, &bl) < 0)
-    return arrow::Status::ExecutionError("READ_FAILED");
-
-  arrow::RecordBatchVector batches;
-  std::shared_ptr<arrow::Buffer> buffer =
-      std::make_shared<arrow::Buffer>((uint8_t*)bl.c_str(), bl.length());
-  std::shared_ptr<arrow::io::BufferReader> buffer_reader =
-      std::make_shared<arrow::io::BufferReader>(buffer);
-  /// We can change this to RecordBatchFileReader later, to read from Arrow/Feather files.
-  ARROW_ASSIGN_OR_RAISE(auto record_batch_reader,
-                        arrow::ipc::RecordBatchStreamReader::Open(buffer_reader));
-  ARROW_RETURN_NOT_OK(record_batch_reader->ReadAll(&batches));
-
-  auto ctx = std::make_shared<arrow::dataset::ScanContext>();
-  auto fragment = std::make_shared<arrow::dataset::InMemoryFragment>(batches);
-  auto table_schema = batches[0]->schema();
-
-  auto builder =
-      std::make_shared<arrow::dataset::ScannerBuilder>(table_schema, fragment, ctx);
-  ARROW_RETURN_NOT_OK(builder->Filter(filter));
-  ARROW_RETURN_NOT_OK(builder->Project(schema->field_names()));
-  ARROW_ASSIGN_OR_RAISE(auto scanner, builder->Finish());
-  ARROW_ASSIGN_OR_RAISE(auto table, scanner->ToTable());
-
-  t = table;
-  return arrow::Status::OK();
-}
-
-static int read_parquet_schema(cls_method_context_t hctx, ceph::buffer::list* in,
-                               ceph::buffer::list* out) {
+static int read_schema(cls_method_context_t hctx, ceph::buffer::list* in,
+                       ceph::buffer::list* out) {
   std::shared_ptr<RandomAccessObject> source = std::make_shared<RandomAccessObject>(hctx);
   if (!source->Init().ok()) return -1;
 
@@ -214,23 +183,6 @@ static int read_parquet_schema(cls_method_context_t hctx, ceph::buffer::list* in
   return 0;
 }
 
-static int read_ipc_schema(cls_method_context_t hctx, ceph::buffer::list* in,
-                           ceph::buffer::list* out) {
-  ceph::buffer::list bl;
-  if (cls_cxx_read(hctx, 0, 0, &bl) < 0) return -1;
-
-  std::shared_ptr<arrow::Table> table;
-  if (!arrow::dataset::DeserializeTableFromBufferlist(&table, bl).ok()) return -1;
-
-  std::shared_ptr<arrow::Schema> schema = table->schema();
-  std::shared_ptr<arrow::Buffer> buffer =
-      arrow::ipc::SerializeSchema(*schema).ValueOrDie();
-  ceph::buffer::list result;
-  result.append((char*)buffer->data(), buffer->size());
-  *out = result;
-  return 0;
-}
-
 static int write(cls_method_context_t hctx, ceph::buffer::list* in,
                  ceph::buffer::list* out) {
   if (cls_cxx_create(hctx, false) < 0) return -1;
@@ -240,31 +192,37 @@ static int write(cls_method_context_t hctx, ceph::buffer::list* in,
 
 static int scan(cls_method_context_t hctx, ceph::buffer::list* in,
                 ceph::buffer::list* out) {
+  // the components required to construct a ParquetFragment.
   std::shared_ptr<arrow::dataset::Expression> filter;
   std::shared_ptr<arrow::dataset::Expression> partition_expression;
-  std::shared_ptr<arrow::Schema> schema;
-  int64_t format;
+  std::shared_ptr<arrow::Schema> projection_schema;
+  std::shared_ptr<arrow::Schema> dataset_schema;
+
+  // deserialize the scan request
+  std::shared_ptr<ceph::buffer::list> in_ptr = std::make_shared<ceph::buffer::list>(*in);
+
   if (!arrow::dataset::DeserializeScanRequestFromBufferlist(
-           &filter, &partition_expression, &schema, &format, *in)
+           &filter, &partition_expression, &projection_schema, &dataset_schema, in_ptr)
            .ok())
     return -1;
 
+  // scan the parquet object
   std::shared_ptr<arrow::Table> table;
-  if (format == 1) {
-    if (!ScanIpcObject(hctx, filter, partition_expression, schema, table).ok()) return -1;
-  } else if (format == 2) {
-    if (!ScanParquetObject(hctx, filter, partition_expression, schema, table).ok())
-      return -1;
-  } else {
+  arrow::Status s = ScanParquetObject(hctx, filter, partition_expression,
+                                      projection_schema, dataset_schema, table);
+  if (!s.ok()) {
+    CLS_LOG(0, "error: %s", s.message().c_str());
     return -1;
   }
 
   CLS_LOG(0, "table: %s", table->ToString().c_str());
+  CLS_LOG(0, "table rows: %d", table->num_rows());
 
-  ceph::buffer::list bl;
-  if (!arrow::dataset::SerializeTableToIPCStream(table, bl).ok()) return -1;
+  // serialize the resultant table to send back to the client
+  std::shared_ptr<ceph::buffer::list> bl = std::make_shared<ceph::buffer::list>();
+  if (!arrow::dataset::SerializeTableToBufferlist(table, bl).ok()) return -1;
 
-  *out = bl;
+  *out = *bl;
   return 0;
 }
 
@@ -273,10 +231,8 @@ void __cls_init() {
 
   cls_register("arrow", &h_class);
 
-  cls_register_cxx_method(h_class, "read_ipc_schema", CLS_METHOD_RD | CLS_METHOD_WR,
-                          read_ipc_schema, &h_read_ipc_schema);
-  cls_register_cxx_method(h_class, "read_parquet_schema", CLS_METHOD_RD | CLS_METHOD_WR,
-                          read_parquet_schema, &h_read_parquet_schema);
+  cls_register_cxx_method(h_class, "read_schema", CLS_METHOD_RD | CLS_METHOD_WR,
+                          read_schema, &h_read_schema);
   cls_register_cxx_method(h_class, "write", CLS_METHOD_RD | CLS_METHOD_WR, write,
                           &h_write);
   cls_register_cxx_method(h_class, "scan", CLS_METHOD_RD | CLS_METHOD_WR, scan, &h_scan);

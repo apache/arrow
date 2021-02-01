@@ -24,6 +24,10 @@
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/scanner_internal.h"
+#include "arrow/io/memory.h"
+#include "arrow/ipc/reader.h"
+#include "arrow/ipc/writer.h"
+#include "arrow/result.h"
 #include "arrow/table.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
@@ -195,6 +199,32 @@ struct TableAssemblyState {
   }
 };
 
+struct TableSerializer {
+  std::mutex mutex{};
+  std::shared_ptr<ipc::RecordBatchWriter> writer;
+  std::shared_ptr<io::BufferOutputStream> sink;
+
+  Status Init(std::shared_ptr<Schema> schema) {
+    ARROW_ASSIGN_OR_RAISE(sink, io::BufferOutputStream::Create());
+    ARROW_ASSIGN_OR_RAISE(writer, ipc::MakeStreamWriter(sink, schema));
+    return Status::OK();
+  }
+
+  Status Write(RecordBatchVector b) {
+    std::lock_guard<std::mutex> lock(mutex);
+    for (auto& batch : b) {
+      RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
+    }
+    return Status::OK();
+  }
+
+  Status Close(std::shared_ptr<Buffer>& buffer) {
+    RETURN_NOT_OK(writer->Close());
+    ARROW_ASSIGN_OR_RAISE(buffer, sink->Finish());
+    return Status::OK();
+  }
+};
+
 Result<std::shared_ptr<Table>> Scanner::ToTable() {
   ARROW_ASSIGN_OR_RAISE(auto scan_task_it, Scan());
   auto task_group = scan_context_->TaskGroup();
@@ -202,26 +232,34 @@ Result<std::shared_ptr<Table>> Scanner::ToTable() {
   /// Wraps the state in a shared_ptr to ensure that failing ScanTasks don't
   /// invalidate concurrently running tasks when Finish() early returns
   /// and the mutex/batches fail out of scope.
-  auto state = std::make_shared<TableAssemblyState>();
-
+  auto serializer = std::make_shared<TableSerializer>();
+  serializer->Init(scan_options_->schema());
+  std::shared_ptr<Buffer> buffer;
   size_t scan_task_id = 0;
   for (auto maybe_scan_task : scan_task_it) {
     ARROW_ASSIGN_OR_RAISE(auto scan_task, maybe_scan_task);
 
     auto id = scan_task_id++;
-    task_group->Append([state, id, scan_task] {
+    task_group->Append([id, scan_task, serializer] {
       ARROW_ASSIGN_OR_RAISE(auto batch_it, scan_task->Execute());
       ARROW_ASSIGN_OR_RAISE(auto local, batch_it.ToVector());
-      state->Emplace(std::move(local), id);
+      serializer->Write(local);
       return Status::OK();
     });
   }
 
   // Wait for all tasks to complete, or the first error.
   RETURN_NOT_OK(task_group->Finish());
+  serializer->Close(buffer);
 
-  return Table::FromRecordBatches(scan_options_->schema(),
-                                  FlattenRecordBatchVector(std::move(state->batches)));
+  io::BufferReader buffer_reader(buffer);
+  std::shared_ptr<ipc::RecordBatchReader> reader;
+  ARROW_ASSIGN_OR_RAISE(reader, ipc::RecordBatchStreamReader::Open(&buffer_reader));
+
+  RecordBatchVector batches;
+  reader->ReadAll(&batches);
+
+  return Table::FromRecordBatches(scan_options_->schema(), batches);
 }
 
 }  // namespace dataset

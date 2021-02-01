@@ -48,63 +48,65 @@ Status char_to_int64(char* buffer, int64_t& num) {
 }
 
 Status SerializeScanRequestToBufferlist(std::shared_ptr<Expression> filter,
-                                        std::shared_ptr<Expression> partition_expression,
-                                        std::shared_ptr<Schema> schema, int64_t format,
-                                        librados::bufferlist& bl) {
-  /// Serialize the filter Expression and the Schema.
+                                        std::shared_ptr<Expression> part_expr,
+                                        std::shared_ptr<Schema> projection_schema,
+                                        std::shared_ptr<Schema> dataset_schema,
+                                        std::shared_ptr<librados::bufferlist>& bl) {
+  // serialize the filter expression's and the schema's.
   ARROW_ASSIGN_OR_RAISE(auto filter_buffer, filter->Serialize());
-  ARROW_ASSIGN_OR_RAISE(auto partition_expression_buffer,
-                        partition_expression->Serialize());
-  ARROW_ASSIGN_OR_RAISE(auto schema_buffer, ipc::SerializeSchema(*schema));
+  ARROW_ASSIGN_OR_RAISE(auto part_expr_buffer, part_expr->Serialize());
+  ARROW_ASSIGN_OR_RAISE(auto projection_schema_buffer,
+                        ipc::SerializeSchema(*projection_schema));
+  ARROW_ASSIGN_OR_RAISE(auto dataset_schema_buffer,
+                        ipc::SerializeSchema(*dataset_schema));
 
-  /// Convert filter Expression size to buffer.
+  // convert filter Expression size to buffer.
   char* filter_size_buffer = new char[8];
   ARROW_RETURN_NOT_OK(int64_to_char(filter_size_buffer, filter_buffer->size()));
 
-  /// Convert partition expression size to buffer.
-  char* partition_expression_size_buffer = new char[8];
-  ARROW_RETURN_NOT_OK(int64_to_char(partition_expression_size_buffer,
-                                    partition_expression_buffer->size()));
+  // convert partition expression size to buffer.
+  char* part_expr_size_buffer = new char[8];
+  ARROW_RETURN_NOT_OK(int64_to_char(part_expr_size_buffer, part_expr_buffer->size()));
 
-  /// Convert Schema size to buffer.
-  char* schema_size_buffer = new char[8];
-  ARROW_RETURN_NOT_OK(int64_to_char(schema_size_buffer, schema_buffer->size()));
+  // convert projection schema size to buffer.
+  char* projection_schema_size_buffer = new char[8];
+  ARROW_RETURN_NOT_OK(
+      int64_to_char(projection_schema_size_buffer, projection_schema_buffer->size()));
 
-  char* format_buffer = new char[8];
-  ARROW_RETURN_NOT_OK(int64_to_char(format_buffer, format));
+  // convert dataset schema to buffer
+  char* dataset_schema_size_buffer = new char[8];
+  ARROW_RETURN_NOT_OK(
+      int64_to_char(dataset_schema_size_buffer, dataset_schema_buffer->size()));
 
-  /// Append the filter Expression size.
-  bl.append(filter_size_buffer, 8);
-  /// Append the filter Expression data.
-  bl.append((char*)filter_buffer->data(), filter_buffer->size());
+  // append the filter expression size and data.
+  bl->append(filter_size_buffer, 8);
+  bl->append((char*)filter_buffer->data(), filter_buffer->size());
 
-  /// Append the partition Expression size.
-  bl.append(partition_expression_size_buffer, 8);
-  /// Append the partition Expression data.
-  bl.append((char*)partition_expression_buffer->data(),
-            partition_expression_buffer->size());
+  // append the partition expression size and data
+  bl->append(part_expr_size_buffer, 8);
+  bl->append((char*)part_expr_buffer->data(), part_expr_buffer->size());
 
-  /// Append the Schema size.
-  bl.append(schema_size_buffer, 8);
-  /// Append the Schema data.
-  bl.append((char*)schema_buffer->data(), schema_buffer->size());
+  // append the projection schema size and data.
+  bl->append(projection_schema_size_buffer, 8);
+  bl->append((char*)projection_schema_buffer->data(), projection_schema_buffer->size());
 
-  bl.append(format_buffer, 8);
-
+  // append the dataset schema size and data.
+  bl->append(dataset_schema_size_buffer, 8);
+  bl->append((char*)dataset_schema_buffer->data(), dataset_schema_buffer->size());
   return Status::OK();
 }
 
 Status DeserializeScanRequestFromBufferlist(std::shared_ptr<Expression>* filter,
                                             std::shared_ptr<Expression>* part_expr,
-                                            std::shared_ptr<Schema>* schema,
-                                            int64_t* format, librados::bufferlist& bl) {
-  librados::bufferlist::iterator itr = bl.begin();
+                                            std::shared_ptr<Schema>* projection_schema,
+                                            std::shared_ptr<Schema>* dataset_schema,
+                                            std::shared_ptr<librados::bufferlist>& bl) {
+  librados::bufferlist::iterator itr = bl->begin();
 
   int64_t filter_size = 0;
   char* filter_size_buffer = new char[8];
   itr.copy(8, filter_size_buffer);
   ARROW_RETURN_NOT_OK(char_to_int64(filter_size_buffer, filter_size));
-
   char* filter_buffer = new char[filter_size];
   itr.copy(filter_size, filter_buffer);
 
@@ -112,22 +114,23 @@ Status DeserializeScanRequestFromBufferlist(std::shared_ptr<Expression>* filter,
   char* part_expr_size_buffer = new char[8];
   itr.copy(8, part_expr_size_buffer);
   ARROW_RETURN_NOT_OK(char_to_int64(part_expr_size_buffer, part_expr_size));
-
   char* part_expr_buffer = new char[part_expr_size];
   itr.copy(part_expr_size, part_expr_buffer);
 
-  int64_t schema_size = 0;
-  char* schema_size_buffer = new char[8];
-  itr.copy(8, schema_size_buffer);
-  ARROW_RETURN_NOT_OK(char_to_int64(schema_size_buffer, schema_size));
+  int64_t projection_schema_size = 0;
+  char* projection_schema_size_buffer = new char[8];
+  itr.copy(8, projection_schema_size_buffer);
+  ARROW_RETURN_NOT_OK(
+      char_to_int64(projection_schema_size_buffer, projection_schema_size));
+  char* projection_schema_buffer = new char[projection_schema_size];
+  itr.copy(projection_schema_size, projection_schema_buffer);
 
-  char* schema_buffer = new char[schema_size];
-  itr.copy(schema_size, schema_buffer);
-
-  int64_t format_ = 0;
-  char* format_buffer = new char[8];
-  itr.copy(8, format_buffer);
-  ARROW_RETURN_NOT_OK(char_to_int64(format_buffer, format_));
+  int64_t dataset_schema_size = 0;
+  char* dataset_schema_size_buffer = new char[8];
+  itr.copy(8, dataset_schema_size_buffer);
+  ARROW_RETURN_NOT_OK(char_to_int64(dataset_schema_size_buffer, dataset_schema_size));
+  char* dataset_schema_buffer = new char[dataset_schema_size];
+  itr.copy(dataset_schema_size, dataset_schema_buffer);
 
   ARROW_ASSIGN_OR_RAISE(auto filter_, Expression::Deserialize(
                                           Buffer((uint8_t*)filter_buffer, filter_size)));
@@ -139,52 +142,35 @@ Status DeserializeScanRequestFromBufferlist(std::shared_ptr<Expression>* filter,
   *part_expr = part_expr_;
 
   ipc::DictionaryMemo empty_memo;
-  io::BufferReader schema_reader((uint8_t*)schema_buffer, schema_size);
+  io::BufferReader projection_schema_reader((uint8_t*)projection_schema_buffer,
+                                            projection_schema_size);
+  io::BufferReader dataset_schema_reader((uint8_t*)dataset_schema_buffer,
+                                         dataset_schema_size);
 
-  ARROW_ASSIGN_OR_RAISE(auto schema_, ipc::ReadSchema(&schema_reader, &empty_memo));
-  *schema = schema_;
+  ARROW_ASSIGN_OR_RAISE(auto projection_schema_,
+                        ipc::ReadSchema(&projection_schema_reader, &empty_memo));
+  *projection_schema = projection_schema_;
 
-  *format = format_;
+  ARROW_ASSIGN_OR_RAISE(auto dataset_schema_,
+                        ipc::ReadSchema(&dataset_schema_reader, &empty_memo));
+  *dataset_schema = dataset_schema_;
 
   return Status::OK();
 }
 
-Status SerializeTableToIPCStream(std::shared_ptr<Table>& table,
-                                 librados::bufferlist& bl) {
+Status SerializeTableToBufferlist(std::shared_ptr<Table>& table,
+                                  std::shared_ptr<librados::bufferlist>& bl) {
   ARROW_ASSIGN_OR_RAISE(auto buffer_output_stream, io::BufferOutputStream::Create());
 
   const auto options = ipc::IpcWriteOptions::Defaults();
   ARROW_ASSIGN_OR_RAISE(
-      auto writer, ipc::MakeStreamWriter(buffer_output_stream, table->schema(), options));
+      auto writer, ipc::MakeFileWriter(buffer_output_stream, table->schema(), options));
 
   ARROW_RETURN_NOT_OK(writer->WriteTable(*table));
   ARROW_RETURN_NOT_OK(writer->Close());
 
   ARROW_ASSIGN_OR_RAISE(auto buffer, buffer_output_stream->Finish());
-  bl.append((char*)buffer->data(), buffer->size());
-  return Status::OK();
-}
-
-Status SerializeTableToParquetStream(std::shared_ptr<Table>& table,
-                                     librados::bufferlist& bl) {
-  ARROW_ASSIGN_OR_RAISE(auto buffer_output_stream, io::BufferOutputStream::Create());
-
-  PARQUET_THROW_NOT_OK(parquet::arrow::WriteTable(*table, arrow::default_memory_pool(),
-                                                  buffer_output_stream, 1));
-
-  ARROW_ASSIGN_OR_RAISE(auto buffer, buffer_output_stream->Finish());
-  bl.append((char*)buffer->data(), buffer->size());
-  return Status::OK();
-}
-
-Status DeserializeTableFromBufferlist(std::shared_ptr<Table>* table,
-                                      librados::bufferlist& bl) {
-  io::BufferReader reader((uint8_t*)bl.c_str(), bl.length());
-  ARROW_ASSIGN_OR_RAISE(auto record_batch_reader,
-                        ipc::RecordBatchStreamReader::Open(&reader));
-  ARROW_ASSIGN_OR_RAISE(auto table_,
-                        Table::FromRecordBatchReader(record_batch_reader.get()));
-  *table = table_;
+  bl->append((char*)buffer->data(), buffer->size());
   return Status::OK();
 }
 

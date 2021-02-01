@@ -83,29 +83,26 @@ ceph osd crush add osd.${OSD_ID} 1 root=default host=localhost
 ceph-osd --id ${OSD_ID} --mkjournal --mkfs
 ceph-osd --id ${OSD_ID}
 
-# check that it works
-ceph osd pool create rbd 8 8
-rados --pool rbd put group /etc/group
-rados --pool rbd get group ${test_dir}/group
-diff /etc/group ${test_dir}/group
-ceph osd tree
+# start a MDS daemon
+MDS_DATA=${TEST_DIR}/mds
+mkdir -p $MDS_DATA
+
+ceph osd pool create cephfs_data 64
+ceph osd pool create cephfs_metadata 64
+ceph fs new cephfs cephfs_metadata cephfs_data
+
+ceph-mds --id a
+while [[ ! $(ceph mds stat | grep "up:active") ]]; do sleep 1; done
+
+# start a MGR daemon
+ceph-mgr --id 0
 
 export CEPH_CONF="/etc/ceph/ceph.conf"
+
 mkdir -p /usr/lib/x86_64-linux-gnu/rados-classes/
 mkdir -p /usr/lib/aarch64-linux-gnu/rados-classes/
 cp debug/libcls_arrow* /usr/lib/x86_64-linux-gnu/rados-classes/
 cp debug/libcls_arrow* /usr/lib/aarch64-linux-gnu/rados-classes/
-
-ceph osd pool create test-pool 32 32 replicated
-
-# download and write the partitioned nyctaxi dataset in parquet format
-wget -O nyc.zip https://github.com/JayjeetAtGithub/zips/blob/main/nyc.zip?raw=true
-apt install -y unzip
-unzip nyc.zip
-wget https://github.com/JayjeetAtGithub/zips/raw/main/ppw.py
-python3 ppw.py
-
-wget -O nyc.parquet https://github.com/JayjeetAtGithub/zips/blob/main/nyc.parquet?raw=true
 
 TESTS=debug/arrow-cls-cls-arrow-test
 if [ -f "$TESTS" ]; then

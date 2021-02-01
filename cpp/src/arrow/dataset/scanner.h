@@ -96,8 +96,7 @@ class ARROW_DS_EXPORT ScanOptions {
   // sub-selection optimization.
   std::vector<std::string> MaterializedFields() const;
 
-  // The file format (ipc/parquet)
-  int64_t format;
+  std::shared_ptr<Schema> dataset_schema;
 
  private:
   explicit ScanOptions(std::shared_ptr<Schema> schema);
