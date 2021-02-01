@@ -146,7 +146,7 @@ pub fn array_to_json_array(array: &ArrayRef) -> Vec<Value> {
         DataType::Struct(_) => {
             let jsonmaps =
                 struct_array_to_jsonmap_array(as_struct_array(array), array.len());
-            jsonmaps.into_iter().map(|m| Value::Object(m)).collect()
+            jsonmaps.into_iter().map(Value::Object).collect()
         }
         _ => {
             panic!(format!(
@@ -344,7 +344,7 @@ mod tests {
         let mut buf = Vec::new();
         {
             let mut writer = Writer::new(&mut buf);
-            writer.write_batches(&vec![batch]).unwrap();
+            writer.write_batches(&[batch]).unwrap();
         }
 
         assert_eq!(
@@ -403,7 +403,7 @@ mod tests {
         let mut buf = Vec::new();
         {
             let mut writer = Writer::new(&mut buf);
-            writer.write_batches(&vec![batch]).unwrap();
+            writer.write_batches(&[batch]).unwrap();
         }
 
         assert_eq!(
@@ -445,7 +445,7 @@ mod tests {
         let mut buf = Vec::new();
         {
             let mut writer = Writer::new(&mut buf);
-            writer.write_batches(&vec![batch]).unwrap();
+            writer.write_batches(&[batch]).unwrap();
         }
 
         assert_eq!(
@@ -503,7 +503,7 @@ mod tests {
         let mut buf = Vec::new();
         {
             let mut writer = Writer::new(&mut buf);
-            writer.write_batches(&vec![batch]).unwrap();
+            writer.write_batches(&[batch]).unwrap();
         }
 
         assert_eq!(
@@ -577,7 +577,7 @@ mod tests {
         let mut buf = Vec::new();
         {
             let mut writer = Writer::new(&mut buf);
-            writer.write_batches(&vec![batch]).unwrap();
+            writer.write_batches(&[batch]).unwrap();
         }
 
         assert_eq!(
@@ -601,7 +601,7 @@ mod tests {
         let mut buf = Vec::new();
         {
             let mut writer = Writer::new(&mut buf);
-            writer.write_batches(&vec![batch]).unwrap();
+            writer.write_batches(&[batch]).unwrap();
         }
 
         let result = String::from_utf8(buf).unwrap();
