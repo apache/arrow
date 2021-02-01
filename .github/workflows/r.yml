@@ -181,6 +181,10 @@ jobs:
           rtools-version: 35
           r-version: '3.6'
           Ncpus: 2
+      - name: Install zstd for cache
+        if: ${{ matrix.rtools == 35 }}
+        run: |
+          pacman --noconfirm -S zstd
       - name: Setup ccache
         shell: bash
         run: |
@@ -190,7 +194,7 @@ jobs:
         uses: actions/cache@v2
         with:
           path: ccache
-          key: r-${{ matrix.rtools }}-ccache-mingw-${{ hashFiles('cpp/**') }}
+          key: r-${{ matrix.rtools }}x-ccache-mingw-${{ hashFiles('cpp/**') }}
           restore-keys: r-${{ matrix.rtools }}-ccache-mingw-
       - name: Build Arrow C++
         shell: bash
