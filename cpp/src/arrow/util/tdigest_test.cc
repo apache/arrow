@@ -216,7 +216,7 @@ TEST(TDigestTest, MergeNonUniform) {
     double min;
     double max;
   } configs[] = {
-    {2000, 1e8, 1e9}, {0, 0, 0}, {3000, -1, 1}, {500, -1e6, -1e5}, {800, 100, 100},
+      {2000, 1e8, 1e9}, {0, 0, 0}, {3000, -1, 1}, {500, -1e6, -1e5}, {800, 100, 100},
   };
   std::vector<std::vector<double>> values_vector;
   for (const auto& cfg : configs) {
