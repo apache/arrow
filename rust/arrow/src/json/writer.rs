@@ -110,6 +110,13 @@ pub fn array_to_json_array(array: &ArrayRef) -> Vec<Value> {
         DataType::UInt64 => primitive_array_to_json::<UInt64Type>(array),
         DataType::Float32 => primitive_array_to_json::<Float32Type>(array),
         DataType::Float64 => primitive_array_to_json::<Float64Type>(array),
+        DataType::List(_) => as_list_array(array)
+            .iter()
+            .map(|maybe_value| match maybe_value {
+                Some(v) => Value::Array(array_to_json_array(&v)),
+                None => Value::Null,
+            })
+            .collect(),
         _ => {
             panic!(format!(
                 "Unsupported datatype for array conversion: {:#?}",
@@ -407,7 +414,7 @@ mod tests {
         ]);
 
         let a_values = StringArray::from(vec!["a", "a1", "b", "c", "d", "e"]);
-        //  [["a", "a1"], ["b"], ["c"], ["d"], ["e"]]
+        // list column rows: ["a", "a1"], ["b"], ["c"], ["d"], ["e"]
         let a_value_offsets = Buffer::from(&[0, 2, 3, 4, 5, 6].to_byte_slice());
         let a_list_data = ArrayData::builder(DataType::List(Box::new(Field::new(
             "c_list",
@@ -440,6 +447,70 @@ mod tests {
 {"c_struct":["c"],"c2":3}
 {"c_struct":["d"],"c2":4}
 {"c_struct":["e"],"c2":5}
+"#
+        );
+    }
+
+    #[test]
+    fn write_nested_list() {
+        let schema = Schema::new(vec![
+            Field::new(
+                "c1",
+                DataType::List(Box::new(Field::new(
+                    "a",
+                    DataType::List(Box::new(Field::new("b", DataType::Int32, false))),
+                    false,
+                ))),
+                false,
+            ),
+            Field::new("c2", DataType::Utf8, false),
+        ]);
+
+        // list column rows: [[1, 2], [3]], [], [[4, 5, 6]]
+        let a_values = Int32Array::from(vec![1, 2, 3, 4, 5, 6]);
+
+        let a_value_offsets = Buffer::from(&[0, 2, 3, 6].to_byte_slice());
+        // Construct a list array from the above two
+        let a_list_data = ArrayData::builder(DataType::List(Box::new(Field::new(
+            "b",
+            DataType::Int32,
+            false,
+        ))))
+        .len(3)
+        .add_buffer(a_value_offsets)
+        .null_bit_buffer(Buffer::from(vec![0b00000111]))
+        .add_child_data(a_values.data())
+        .build();
+
+        let c1_value_offsets = Buffer::from(&[0, 2, 2, 3].to_byte_slice());
+        let c1_list_data = ArrayData::builder(DataType::List(Box::new(Field::new(
+            "a",
+            DataType::List(Box::new(Field::new("b", DataType::Int32, false))),
+            false,
+        ))))
+        .len(3)
+        .add_buffer(c1_value_offsets)
+        .add_child_data(a_list_data)
+        .build();
+
+        let c1 = ListArray::from(c1_list_data);
+        let c2 = StringArray::from(vec![Some("foo"), Some("bar"), None]);
+
+        let batch =
+            RecordBatch::try_new(Arc::new(schema), vec![Arc::new(c1), Arc::new(c2)])
+                .unwrap();
+
+        let mut buf = Vec::new();
+        {
+            let mut writer = Writer::new(&mut buf);
+            writer.write_batches(&vec![batch]).unwrap();
+        }
+
+        assert_eq!(
+            String::from_utf8(buf).unwrap(),
+            r#"{"c1":[[1,2],[3]],"c2":"foo"}
+{"c1":[],"c2":"bar"}
+{"c1":[[4,5,6]]}
 "#
         );
     }
