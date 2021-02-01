@@ -29,7 +29,7 @@ use crate::{
 };
 
 use super::equal::equal;
-use smallvec::SmallVec;
+use std::ops::Index;
 
 #[inline]
 pub(crate) fn count_nulls(
@@ -206,6 +206,57 @@ pub(crate) fn into_buffers(
     }
 }
 
+#[derive(Debug, Clone)]
+enum SmallContainer<T> {
+    Zero,
+    One([T;1]),
+    Many(Vec<T>)
+}
+
+impl <T> SmallContainer<T> {
+    fn from_vec(mut v: Vec<T>) -> Self {
+        match v.len() {
+            0 => Self::Zero,
+            1 => Self::One([v.remove(0)]),
+            _ => Self::Many(v)
+        }
+    }
+
+    fn get(&self, index: usize) -> &T {
+        match self {
+            SmallContainer::One(one) if index == 0 => &one[0],
+            SmallContainer::Many(v) if index < v.len() => &v[index],
+            _ => panic!("index out of bounds")
+        }
+    }
+
+    fn as_slice(&self) -> &[T] {
+        match self {
+            SmallContainer::Zero => &[],
+            SmallContainer::One(one) => one.as_ref(),
+            SmallContainer::Many(v) => v.as_slice()
+        }
+    }
+
+    fn iter(&self) -> impl Iterator<Item=&T> {
+        self.as_slice().iter()
+    }
+}
+
+impl <T> Index<usize> for SmallContainer<T> {
+    type Output = T;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        self.get(index)
+    }
+}
+
+impl <T> Default for SmallContainer<T> {
+    fn default() -> Self {
+        Self::Zero
+    }
+}
+
 /// An generic representation of Arrow array data which encapsulates common attributes and
 /// operations for Arrow array. Specific operations for different arrays types (e.g.,
 /// primitive, list, struct) are implemented in `Array`.
@@ -226,11 +277,11 @@ pub struct ArrayData {
     /// The buffers for this array data. Note that depending on the array types, this
     /// could hold different kinds of buffers (e.g., value buffer, value offset buffer)
     /// at different positions.
-    buffers: SmallVec<[Buffer; 1]>,
+    buffers: SmallContainer<Buffer>,
 
     /// The child(ren) of this array. Only non-empty for nested types, currently
     /// `ListArray` and `StructArray`.
-    child_data: SmallVec<[ArrayDataRef; 1]>,
+    child_data: SmallContainer<ArrayDataRef>,
 
     /// The null bitmap. A `None` value for this indicates all values are non-null in
     /// this array.
@@ -259,8 +310,8 @@ impl ArrayData {
             len,
             null_count,
             offset,
-            buffers: SmallVec::from_vec(buffers),
-            child_data: SmallVec::from_vec(child_data),
+            buffers: SmallContainer::from_vec(buffers),
+            child_data: SmallContainer::from_vec(child_data),
             null_bitmap,
         }
     }
@@ -284,8 +335,8 @@ impl ArrayData {
             len,
             null_count,
             offset,
-            buffers: SmallVec::from_buf([buffer]),
-            child_data: child_data.map(|cd| SmallVec::from_buf([cd])).unwrap_or_default(),
+            buffers: SmallContainer::One([buffer]),
+            child_data: child_data.map(|cd| SmallContainer::One([cd])).unwrap_or_default(),
             null_bitmap,
         }
     }
@@ -304,12 +355,12 @@ impl ArrayData {
 
     /// Returns a slice of buffers for this array data
     pub fn buffers(&self) -> &[Buffer] {
-        &self.buffers[..]
+        &self.buffers.as_slice()
     }
 
     /// Returns a slice of children data arrays
     pub fn child_data(&self) -> &[ArrayDataRef] {
-        &self.child_data[..]
+        &self.child_data.as_slice()
     }
 
     /// Returns whether the element at index `i` is null
@@ -366,6 +417,7 @@ impl ArrayData {
     /// Returns the total number of bytes of memory occupied by the buffers owned by this [ArrayData].
     pub fn get_buffer_memory_size(&self) -> usize {
         let mut size = 0;
+        /*
         for buffer in &self.buffers {
             size += buffer.capacity();
         }
@@ -375,6 +427,8 @@ impl ArrayData {
         for child in &self.child_data {
             size += child.get_buffer_memory_size();
         }
+
+         */
         size
     }
 
@@ -388,6 +442,7 @@ impl ArrayData {
             - mem::size_of_val(&self.child_data);
 
         // Calculate rest of the fields top down which contain actual data
+        /*
         for buffer in &self.buffers {
             size += mem::size_of_val(&buffer);
             size += buffer.capacity();
@@ -398,6 +453,8 @@ impl ArrayData {
         for child in &self.child_data {
             size += child.get_array_memory_size();
         }
+
+         */
 
         size
     }
