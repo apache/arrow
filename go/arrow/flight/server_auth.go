@@ -18,6 +18,7 @@ package flight
 
 import (
 	"context"
+	"encoding/base64"
 	"strings"
 
 	"google.golang.org/grpc"
@@ -26,7 +27,12 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-const grpcAuthHeader = "auth-token-bin"
+const (
+	grpcAuthHeader    = "auth-token-bin"
+	basicAuthHeader   = "authorization"
+	basicAuthPrefix   = "Basic"
+	bearerTokenPrefix = "Bearer"
+)
 
 // AuthConn wraps the stream from grpc for handshakes to simplify handling
 // handshake request and response from the flight.proto forwarding just the
@@ -142,4 +148,82 @@ func (s *server) handshake(stream FlightService_HandshakeServer) error {
 	}
 
 	return s.authHandler.Authenticate(&serverAuthConn{stream})
+}
+
+type BasicAuthValidator interface {
+	Validate(username, password string) (string, error)
+	IsValid(bearerToken string) (interface{}, error)
+}
+
+func createServerBearerTokenUnaryInterceptor(validator BasicAuthValidator) grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req interface{}, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+		var auth string
+		md, ok := metadata.FromIncomingContext(ctx)
+		if ok {
+			vals := md.Get(basicAuthHeader)
+			if len(vals) > 0 && strings.HasPrefix(vals[0], bearerTokenPrefix) {
+				auth = vals[0][len(bearerTokenPrefix)+1:]
+			}
+		}
+
+		identity, err := validator.IsValid(auth)
+		if err != nil {
+			return nil, err
+		}
+
+		return handler(context.WithValue(ctx, authCtxKey{}, identity), req)
+	}
+}
+
+func createServerBearerTokenStreamInterceptor(validator BasicAuthValidator) grpc.StreamServerInterceptor {
+	return func(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+		var auth []string
+		md, ok := metadata.FromIncomingContext(stream.Context())
+		if ok {
+			auth = md.Get(basicAuthHeader)
+			if len(auth) > 0 {
+				auth = strings.Split(auth[0], " ")
+			}
+		}
+
+		if auth == nil || len(auth) == 0 {
+			return status.Error(codes.Unauthenticated, "must authenticate first")
+		}
+
+		if strings.HasSuffix(info.FullMethod, "/Handshake") {
+			if auth[0] == basicAuthPrefix {
+				val, err := base64.RawStdEncoding.DecodeString(auth[1])
+				if err != nil {
+					return status.Errorf(codes.Unauthenticated, "invalid basic auth encoding: %s", err)
+				}
+
+				creds := strings.SplitN(string(val), ":", 2)
+				token, err := validator.Validate(creds[0], creds[1])
+				if err != nil {
+					return err
+				}
+
+				stream.SetTrailer(metadata.New(map[string]string{basicAuthHeader: strings.Join([]string{bearerTokenPrefix, token}, " ")}))
+				return handler(srv, stream)
+			}
+			return status.Errorf(codes.Unauthenticated, "only Basic Auth implemented")
+		}
+
+		if auth[0] == bearerTokenPrefix {
+			identity, err := validator.IsValid(auth[1])
+			if err != nil {
+				return err
+			}
+			return handler(srv, &authWrappedStream{ServerStream: stream, ctx: context.WithValue(stream.Context(), authCtxKey{}, identity)})
+		}
+		return status.Errorf(codes.Unauthenticated, "Only bearer token auth implemented")
+	}
+}
+
+func CreateServerBearerTokenAuthInterceptors(validator BasicAuthValidator) (grpc.UnaryServerInterceptor, grpc.StreamServerInterceptor) {
+	if validator == nil {
+		panic("validator cannot be nil")
+	}
+
+	return createServerBearerTokenUnaryInterceptor(validator), createServerBearerTokenStreamInterceptor(validator)
 }
