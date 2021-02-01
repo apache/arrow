@@ -181,16 +181,11 @@ jobs:
           rtools-version: 35
           r-version: '3.6'
           Ncpus: 2
-      - name: Install zstd for cache
-        if: ${{ matrix.rtools == 35 }}
+      - name: Setup
         shell: bash
-        run: |
-          pacman --noconfirm -S zstd
-      - name: Setup ccache
-        shell: bash
-        run: |
-          ci/scripts/ccache_setup.sh
-          echo "CCACHE_DIR=$(cygpath --absolute --windows ccache)" >> $GITHUB_ENV
+        env:
+          RTOOLS_VERSION: ${{ matrix.rtools }}
+        run: ci/scripts/r_windows_setup.sh
       - name: Cache ccache
         uses: actions/cache@v2
         with:
