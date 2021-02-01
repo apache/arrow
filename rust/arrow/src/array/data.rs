@@ -209,7 +209,7 @@ pub(crate) fn into_buffers(
 #[derive(Debug, Clone)]
 enum SmallContainer<T> {
     Zero,
-    One([T;1]),
+    One(T),
     Many(Vec<T>)
 }
 
@@ -217,14 +217,14 @@ impl <T> SmallContainer<T> {
     fn from_vec(mut v: Vec<T>) -> Self {
         match v.len() {
             0 => Self::Zero,
-            1 => Self::One([v.remove(0)]),
+            1 => Self::One(v.pop().unwrap()),
             _ => Self::Many(v)
         }
     }
 
     fn get(&self, index: usize) -> &T {
         match self {
-            SmallContainer::One(one) if index == 0 => &one[0],
+            SmallContainer::One(one) if index == 0 => one,
             SmallContainer::Many(v) if index < v.len() => &v[index],
             _ => panic!("index out of bounds")
         }
@@ -233,7 +233,7 @@ impl <T> SmallContainer<T> {
     fn as_slice(&self) -> &[T] {
         match self {
             SmallContainer::Zero => &[],
-            SmallContainer::One(one) => one.as_ref(),
+            SmallContainer::One(one) => std::slice::from_ref(one),
             SmallContainer::Many(v) => v.as_slice()
         }
     }
@@ -335,8 +335,8 @@ impl ArrayData {
             len,
             null_count,
             offset,
-            buffers: SmallContainer::One([buffer]),
-            child_data: child_data.map(|cd| SmallContainer::One([cd])).unwrap_or_default(),
+            buffers: SmallContainer::One(buffer),
+            child_data: child_data.map(SmallContainer::One).unwrap_or_default(),
             null_bitmap,
         }
     }
@@ -417,18 +417,16 @@ impl ArrayData {
     /// Returns the total number of bytes of memory occupied by the buffers owned by this [ArrayData].
     pub fn get_buffer_memory_size(&self) -> usize {
         let mut size = 0;
-        /*
-        for buffer in &self.buffers {
+        for buffer in self.buffers.iter() {
             size += buffer.capacity();
         }
         if let Some(bitmap) = &self.null_bitmap {
             size += bitmap.get_buffer_memory_size()
         }
-        for child in &self.child_data {
+        for child in self.child_data.iter() {
             size += child.get_buffer_memory_size();
         }
 
-         */
         size
     }
 
@@ -442,19 +440,16 @@ impl ArrayData {
             - mem::size_of_val(&self.child_data);
 
         // Calculate rest of the fields top down which contain actual data
-        /*
-        for buffer in &self.buffers {
+        for buffer in self.buffers.iter() {
             size += mem::size_of_val(&buffer);
             size += buffer.capacity();
         }
         if let Some(bitmap) = &self.null_bitmap {
             size += bitmap.get_array_memory_size()
         }
-        for child in &self.child_data {
+        for child in self.child_data.iter() {
             size += child.get_array_memory_size();
         }
-
-         */
 
         size
     }
