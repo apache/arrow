@@ -183,6 +183,7 @@ jobs:
           Ncpus: 2
       - name: Install zstd for cache
         if: ${{ matrix.rtools == 35 }}
+        shell: bash
         run: |
           pacman --noconfirm -S zstd
       - name: Setup ccache
