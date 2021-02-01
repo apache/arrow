@@ -211,17 +211,17 @@ TEST(TDigestTest, MergeUniform) {
 
 // merge tdigests with different distributions
 TEST(TDigestTest, MergeNonUniform) {
-  const std::vector<std::tuple<size_t, double, double>> configs = {
-      // {size, min, max}
+  struct {
+    size_t size;
+    double min;
+    double max;
+  } configs[] = {
       {2000, 1e8, 1e9}, {0, 0, 0}, {3000, -1, 1}, {500, -1e6, -1e5}, {800, 100, 100},
   };
   std::vector<std::vector<double>> values_vector;
   for (const auto& cfg : configs) {
     std::vector<double> values;
-    const size_t size = std::get<0>(cfg);
-    const double min = std::get<1>(cfg);
-    const double max = std::get<2>(cfg);
-    random_real(size, 0x11223344, min, max, &values);
+    random_real(cfg.size, 0x11223344, cfg.min, cfg.max, &values);
     values_vector.push_back(std::move(values));
   }
 

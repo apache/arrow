@@ -1418,7 +1418,7 @@ class TestPrimitiveQuantileKernel : public ::testing::Test {
 
   std::shared_ptr<DataType> type_singleton() { return Traits::type_singleton(); }
 
-  std::vector<enum QuantileOptions::Interpolation> interpolations_{
+  std::vector<enum QuantileOptions::Interpolation> interpolations_ = {
       QuantileOptions::LINEAR, QuantileOptions::LOWER, QuantileOptions::HIGHER,
       QuantileOptions::NEAREST, QuantileOptions::MIDPOINT};
 };
