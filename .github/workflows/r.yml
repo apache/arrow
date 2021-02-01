@@ -201,8 +201,8 @@ jobs:
         uses: actions/cache@v2
         with:
           path: ccache
-          key: r-${{ matrix.rtools }}xx-ccache-mingw-${{ hashFiles('cpp/**') }}
-          restore-keys: r-${{ matrix.rtools }}xx-ccache-mingw-
+          key: r-${{ matrix.rtools }}-ccache-mingw-${{ hashFiles('cpp/**') }}
+          restore-keys: r-${{ matrix.rtools }}-ccache-mingw-
       - name: Build Arrow C++
         shell: bash
         env:
