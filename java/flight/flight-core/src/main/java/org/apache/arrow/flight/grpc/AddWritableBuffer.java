@@ -17,6 +17,7 @@
 
 package org.apache.arrow.flight.grpc;
 
+import java.io.IOException;
 import java.io.OutputStream;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -87,8 +88,11 @@ public class AddWritableBuffer {
    * @param buf The buffer to add.
    * @param stream The Candidate OutputStream to add to.
    * @return True if added. False if not possible.
+   * @throws IOException on error
    */
-  public static boolean add(ByteBuf buf, OutputStream stream) {
+  public static boolean add(ByteBuf buf, OutputStream stream) throws IOException {
+    buf.readBytes(stream, buf.readableBytes());
+
     if (bufChainOut == null) {
       return false;
     }
