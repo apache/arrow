@@ -16,7 +16,6 @@
 // under the License.
 
 #pragma once
-#include <iostream>
 #include <queue>
 
 #include "arrow/util/functional.h"
