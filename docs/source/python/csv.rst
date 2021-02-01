@@ -75,7 +75,16 @@ Customized conversion
 ---------------------
 
 To alter how CSV data is converted to Arrow types and data, you should create
-a :class:`ConvertOptions` instance and pass it to :func:`read_csv`.
+a :class:`ConvertOptions` instance and pass it to :func:`read_csv`::
+
+   table = csv.read_csv('testdata.csv', convert_options=pa.csv.ConvertOptions(
+    column_types={
+        's_name': pa.string(),
+        's_start_date': pa.string(),
+        'agg_percentile_bps': pa.decimal128(precision=38, scale=10),
+    }
+   ))
+
 
 Incremental reading
 -------------------
