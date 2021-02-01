@@ -192,6 +192,7 @@ jobs:
           Remove-Item zstd.zip -Force
           Move-Item zstd\zstd.exe c:\Rtools\bin\
           Remove-Item zstd -Recurse -Force
+          zstd --version
       - name: Setup ccache
         shell: bash
         run: |
