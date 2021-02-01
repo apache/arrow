@@ -35,6 +35,23 @@ fn create_array_with_nulls(size: usize) -> ArrayRef {
     Arc::new(array)
 }
 
+fn create_nested_array(size: usize) -> ArrayRef {
+    let mut builder = ListBuilder::new(StringDictionaryBuilder::new(Int16Builder::new(size), StringBuilder::new(size)));
+    let strings = &["foo", "bar", "baz"];
+
+    (0..size).for_each(|i| {
+        if i%2== 0 {
+            builder.values().append(&strings[i%strings.len()]).unwrap();
+            builder.append(true).unwrap()
+        } else {
+            builder.append(false).unwrap();
+        }
+    });
+
+    Arc::new(builder.finish())
+}
+
+
 fn array_slice_benchmark(c: &mut Criterion) {
     let array = create_array_with_nulls(4096);
     c.bench_function("array_slice 128", |b| {
@@ -45,6 +62,17 @@ fn array_slice_benchmark(c: &mut Criterion) {
     });
     c.bench_function("array_slice 2048", |b| {
         b.iter(|| create_array_slice(&array, 2048))
+    });
+
+    let nested_array = create_nested_array(4096);
+    c.bench_function("array_slice nested type 128", |b| {
+        b.iter(|| create_array_slice(&nested_array, 128))
+    });
+    c.bench_function("array_slice nested type 512", |b| {
+        b.iter(|| create_array_slice(&nested_array, 512))
+    });
+    c.bench_function("array_slice nested type 2048", |b| {
+        b.iter(|| create_array_slice(&nested_array, 2048))
     });
 }
 
