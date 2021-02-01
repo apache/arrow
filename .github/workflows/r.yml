@@ -168,6 +168,22 @@ jobs:
           cd r/tests
           sed -i.bak -E -e 's/"arrow"/"arrow", reporter = "location"/' testthat.R
           rm -f testthat.R.bak
+      - name: Setup ccache
+        shell: bash
+        run: |
+          ci/scripts/ccache_setup.sh
+          echo "CCACHE_DIR=$(cygpath --absolute --windows ccache)" >> $GITHUB_ENV
+      # We must enable actions/cache before r-lib/actions/setup-r to ensure
+      # using system tar instead of tar provided by Rtools.
+      # We can use tar provided by Rtools when we drop support for Rtools 3.5.
+      # Because Rtools 4.0 or later has zstd. actions/cache requires zstd
+      # when tar is GNU tar.
+      - name: Cache ccache
+        uses: actions/cache@v2
+        with:
+          path: ccache
+          key: r-${{ matrix.rtools }}-ccache-mingw-${{ hashFiles('cpp/**') }}
+          restore-keys: r-${{ matrix.rtools }}-ccache-mingw-
       # We use the makepkg-mingw setup that is included in rtools40 even when
       # we use the rtools35 compilers, so we always install R 4.0/Rtools40
       - uses: r-lib/actions/setup-r@master
@@ -213,3 +229,8 @@ jobs:
         shell: cmd
         run: cat check/arrow.Rcheck/00install.out
         if: always()
+      # We can remove this when we drop support for Rtools 3.5.
+      - name: Ensure using system tar in actions/cache
+        run: |
+          Write-Output "${Env:windir}\System32" | `
+            Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
