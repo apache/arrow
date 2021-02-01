@@ -89,8 +89,9 @@ class SimpleRecordBatch : public RecordBatch {
     ARROW_CHECK(column != nullptr);
 
     if (!field->type()->Equals(column->type())) {
-      return Status::Invalid("Column data type ", field->type()->name(),
-                             " does not match field data type ", column->type()->name());
+      return Status::TypeError("Column data type ", field->type()->name(),
+                               " does not match field data type ",
+                               column->type()->name());
     }
     if (column->length() != num_rows_) {
       return Status::Invalid(
@@ -111,8 +112,9 @@ class SimpleRecordBatch : public RecordBatch {
     ARROW_CHECK(column != nullptr);
 
     if (!field->type()->Equals(column->type())) {
-      return Status::Invalid("Column data type ", field->type()->name(),
-                             " does not match field data type ", column->type()->name());
+      return Status::TypeError("Column data type ", field->type()->name(),
+                               " does not match field data type ",
+                               column->type()->name());
     }
     if (column->length() != num_rows_) {
       return Status::Invalid(
@@ -183,8 +185,8 @@ std::shared_ptr<RecordBatch> RecordBatch::Make(
 Result<std::shared_ptr<RecordBatch>> RecordBatch::FromStructArray(
     const std::shared_ptr<Array>& array) {
   if (array->type_id() != Type::STRUCT) {
-    return Status::Invalid("Cannot construct record batch from array of type ",
-                           *array->type());
+    return Status::TypeError("Cannot construct record batch from array of type ",
+                             *array->type());
   }
   if (array->null_count() != 0) {
     return Status::Invalid(

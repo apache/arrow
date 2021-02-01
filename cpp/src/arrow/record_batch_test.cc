@@ -164,7 +164,7 @@ TEST_F(TestRecordBatch, AddColumn) {
   ASSERT_RAISES(Invalid, batch.AddColumn(0, field1, longer_col));
 
   // Negative test with mismatch type
-  ASSERT_RAISES(Invalid, batch.AddColumn(0, field1, array2));
+  ASSERT_RAISES(TypeError, batch.AddColumn(0, field1, array2));
 
   ASSERT_OK_AND_ASSIGN(auto new_batch, batch.AddColumn(0, field1, array1));
   AssertBatchesEqual(*new_batch, *batch1);
@@ -208,7 +208,7 @@ TEST_F(TestRecordBatch, SetColumn) {
   ASSERT_RAISES(Invalid, batch.SetColumn(0, field1, longer_col));
 
   // Negative test with mismatch type
-  ASSERT_RAISES(Invalid, batch.SetColumn(0, field1, array2));
+  ASSERT_RAISES(TypeError, batch.SetColumn(0, field1, array2));
 
   ASSERT_OK_AND_ASSIGN(auto new_batch, batch.SetColumn(1, field3, array3));
   AssertBatchesEqual(*new_batch, *batch2);
@@ -280,7 +280,7 @@ TEST_F(TestRecordBatch, ToFromEmptyStructArray) {
 }
 
 TEST_F(TestRecordBatch, FromStructArrayInvalidType) {
-  ASSERT_RAISES(Invalid, RecordBatch::FromStructArray(MakeRandomArray<Int32Array>(10)));
+  ASSERT_RAISES(TypeError, RecordBatch::FromStructArray(MakeRandomArray<Int32Array>(10)));
 }
 
 TEST_F(TestRecordBatch, FromStructArrayInvalidNullCount) {
