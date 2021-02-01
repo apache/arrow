@@ -181,11 +181,22 @@ jobs:
           rtools-version: 35
           r-version: '3.6'
           Ncpus: 2
-      - name: Setup
+      - name: Install zstd for cache
+        if: ${{ matrix.rtools == 35 }}
+        run: |
+          $ZSTD_VERSION = "1.4.8"
+          Invoke-WebRequest `
+            -Uri "https://github.com/facebook/zstd/releases/download/v${ZSTD_VERSION}/zstd-v${ZSTD_VERSION}-win64.zip" `
+            -OutFile zstd.zip
+          Expand-Archive zstd.zip -DestinationPath zstd
+          Remove-Item zstd.zip -Force
+          Move-Item zstd\zstd.exe c:\Rtools\bin\
+          Remove-Item zstd -Recurse -Force
+      - name: Setup ccache
         shell: bash
-        env:
-          RTOOLS_VERSION: ${{ matrix.rtools }}
-        run: ci/scripts/r_windows_setup.sh
+        run: |
+          ci/scripts/ccache_setup.sh
+          echo "CCACHE_DIR=$(cygpath --absolute --windows ccache)" >> $GITHUB_ENV
       - name: Cache ccache
         uses: actions/cache@v2
         with:
