@@ -182,8 +182,8 @@ jobs:
         uses: actions/cache@v2
         with:
           path: ccache
-          key: r-${{ matrix.rtools }}-xxx-ccache-mingw-${{ hashFiles('cpp/**') }}
-          restore-keys: r-${{ matrix.rtools }}-xxx-ccache-mingw-
+          key: r-${{ matrix.rtools }}-xxxx-ccache-mingw-${{ hashFiles('cpp/**') }}
+          restore-keys: r-${{ matrix.rtools }}-xxxx-ccache-mingw-
       # We use the makepkg-mingw setup that is included in rtools40 even when
       # we use the rtools35 compilers, so we always install R 4.0/Rtools40
       - uses: r-lib/actions/setup-r@master
@@ -229,3 +229,8 @@ jobs:
         shell: cmd
         run: cat check/arrow.Rcheck/00install.out
         if: always()
+      # We can remove this when we drop support for Rtools 3.5.
+      - name: Ensure using system tar in actions/cache
+        run: |
+          Write-Output "${Env:windir}\System32" | `
+            Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
