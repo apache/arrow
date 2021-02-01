@@ -19,9 +19,9 @@
 
 use chrono::{Datelike, Timelike};
 
+use crate::array::*;
 use crate::datatypes::*;
-use crate::error::Result;
-use crate::{array::*, error::ArrowError};
+use crate::error::{ArrowError, Result};
 /// Extracts the hours of a given temporal array as an array of integers
 pub fn hour<T>(array: &PrimitiveArray<T>) -> Result<Int32Array>
 where
@@ -136,8 +136,7 @@ mod tests {
 
     #[test]
     fn test_temporal_array_time64_micro_hour() {
-        let a: PrimitiveArray<Time64MicrosecondType> =
-            vec![37800000000, 86339000000].into();
+        let a: PrimitiveArray<Time64MicrosecondType> = vec![37800000000, 86339000000].into();
 
         let b = hour(&a).unwrap();
         assert_eq!(10, b.value(0));
@@ -146,8 +145,7 @@ mod tests {
 
     #[test]
     fn test_temporal_array_timestamp_micro_hour() {
-        let a: TimestampMicrosecondArray =
-            vec![37800000000, 86339000000].into();
+        let a: TimestampMicrosecondArray = vec![37800000000, 86339000000].into();
 
         let b = hour(&a).unwrap();
         assert_eq!(10, b.value(0));
@@ -177,7 +175,8 @@ mod tests {
 
     #[test]
     fn test_temporal_array_timestamp_micro_year() {
-        let a: TimestampMicrosecondArray = vec![Some(1612025847000000), None, Some(1722015847000000)].into();
+        let a: TimestampMicrosecondArray =
+            vec![Some(1612025847000000), None, Some(1722015847000000)].into();
 
         let b = year(&a).unwrap();
         assert_eq!(2021, b.value(0));
