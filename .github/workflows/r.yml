@@ -182,8 +182,8 @@ jobs:
         uses: actions/cache@v2
         with:
           path: ccache
-          key: r-${{ matrix.rtools }}-xxxx-ccache-mingw-${{ hashFiles('cpp/**') }}
-          restore-keys: r-${{ matrix.rtools }}-xxxx-ccache-mingw-
+          key: r-${{ matrix.rtools }}-ccache-mingw-${{ hashFiles('cpp/**') }}
+          restore-keys: r-${{ matrix.rtools }}-ccache-mingw-
       # We use the makepkg-mingw setup that is included in rtools40 even when
       # we use the rtools35 compilers, so we always install R 4.0/Rtools40
       - uses: r-lib/actions/setup-r@master
