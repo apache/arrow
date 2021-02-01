@@ -1308,6 +1308,14 @@ RecordBatch__Equals <- function(self, other, check_metadata){
     .Call(`_arrow_RecordBatch__Equals`, self, other, check_metadata)
 }
 
+RecordBatch__AddColumn <- function(batch, i, field, column){
+    .Call(`_arrow_RecordBatch__AddColumn`, batch, i, field, column)
+}
+
+RecordBatch__SetColumn <- function(batch, i, field, column){
+    .Call(`_arrow_RecordBatch__SetColumn`, batch, i, field, column)
+}
+
 RecordBatch__RemoveColumn <- function(batch, i){
     .Call(`_arrow_RecordBatch__RemoveColumn`, batch, i)
 }

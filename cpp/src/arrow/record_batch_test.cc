@@ -15,18 +15,19 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <cstdint>
-#include <memory>
-#include <vector>
+#include "arrow/record_batch.h"
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
+#include <cstdint>
+#include <memory>
+#include <vector>
 
 #include "arrow/array/array_base.h"
 #include "arrow/array/data.h"
 #include "arrow/array/util.h"
 #include "arrow/chunked_array.h"
-#include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_common.h"
@@ -163,7 +164,7 @@ TEST_F(TestRecordBatch, AddColumn) {
   ASSERT_RAISES(Invalid, batch.AddColumn(0, field1, longer_col));
 
   // Negative test with mismatch type
-  ASSERT_RAISES(Invalid, batch.AddColumn(0, field1, array2));
+  ASSERT_RAISES(TypeError, batch.AddColumn(0, field1, array2));
 
   ASSERT_OK_AND_ASSIGN(auto new_batch, batch.AddColumn(0, field1, array1));
   AssertBatchesEqual(*new_batch, *batch1);
@@ -175,6 +176,45 @@ TEST_F(TestRecordBatch, AddColumn) {
   AssertBatchesEqual(*new_batch2, *new_batch);
 
   ASSERT_TRUE(new_batch2->schema()->field(1)->nullable());
+}
+
+TEST_F(TestRecordBatch, SetColumn) {
+  const int length = 10;
+
+  auto field1 = field("f1", int32());
+  auto field2 = field("f2", uint8());
+  auto field3 = field("f3", int16());
+
+  auto schema1 = ::arrow::schema({field1, field2});
+  auto schema2 = ::arrow::schema({field1, field3});
+  auto schema3 = ::arrow::schema({field3, field2});
+
+  auto array1 = MakeRandomArray<Int32Array>(length);
+  auto array2 = MakeRandomArray<UInt8Array>(length);
+  auto array3 = MakeRandomArray<Int16Array>(length);
+
+  auto batch1 = RecordBatch::Make(schema1, length, {array1, array2});
+  auto batch2 = RecordBatch::Make(schema2, length, {array1, array3});
+  auto batch3 = RecordBatch::Make(schema3, length, {array3, array2});
+
+  const RecordBatch& batch = *batch1;
+
+  // Negative tests with invalid index
+  ASSERT_RAISES(Invalid, batch.SetColumn(5, field1, array1));
+  ASSERT_RAISES(Invalid, batch.SetColumn(-1, field1, array1));
+
+  // Negative test with wrong length
+  auto longer_col = MakeRandomArray<Int32Array>(length + 1);
+  ASSERT_RAISES(Invalid, batch.SetColumn(0, field1, longer_col));
+
+  // Negative test with mismatch type
+  ASSERT_RAISES(TypeError, batch.SetColumn(0, field1, array2));
+
+  ASSERT_OK_AND_ASSIGN(auto new_batch, batch.SetColumn(1, field3, array3));
+  AssertBatchesEqual(*new_batch, *batch2);
+
+  ASSERT_OK_AND_ASSIGN(new_batch, batch.SetColumn(0, field3, array3));
+  AssertBatchesEqual(*new_batch, *batch3);
 }
 
 TEST_F(TestRecordBatch, RemoveColumn) {
@@ -240,7 +280,7 @@ TEST_F(TestRecordBatch, ToFromEmptyStructArray) {
 }
 
 TEST_F(TestRecordBatch, FromStructArrayInvalidType) {
-  ASSERT_RAISES(Invalid, RecordBatch::FromStructArray(MakeRandomArray<Int32Array>(10)));
+  ASSERT_RAISES(TypeError, RecordBatch::FromStructArray(MakeRandomArray<Int32Array>(10)));
 }
 
 TEST_F(TestRecordBatch, FromStructArrayInvalidNullCount) {

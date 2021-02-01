@@ -161,7 +161,81 @@ test_that("[[ and $ on RecordBatch", {
   expect_error(batch[[c("asdf", "jkl;")]], 'name is not a string', fixed = TRUE)
 })
 
+test_that("[[<- assignment", {
+  tbl <- tibble::tibble(
+    int = 1:10,
+    dbl = as.numeric(1:10),
+    lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
+    chr = letters[1:10],
+    fct = factor(letters[1:10])
+  )
+  batch <- RecordBatch$create(tbl)
+
+  # can remove a column
+  batch[["chr"]] <- NULL
+  expect_data_frame(batch, tbl[-4])
+
+  # can remove a column by index
+  batch[[4]] <- NULL
+  expect_data_frame(batch, tbl[1:3])
+
+  # can add a named column
+  batch[["new"]] <- letters[10:1]
+  expect_data_frame(batch, dplyr::bind_cols(tbl[1:3], new = letters[10:1]))
+
+  # can replace a column by index
+  batch[[2]] <- as.numeric(10:1)
+  expect_vector(batch[[2]], as.numeric(10:1))
+
+  # can add a column by index
+  batch[[5]] <- as.numeric(10:1)
+  expect_vector(batch[[5]], as.numeric(10:1))
+  expect_vector(batch[["5"]], as.numeric(10:1))
+
+  # can replace a column
+  batch[["int"]] <- 10:1
+  expect_vector(batch[["int"]], 10:1)
+
+  # can use $
+  batch$new <- NULL
+  expect_null(as.vector(batch$new))
+  expect_identical(dim(batch), c(10L, 4L))
+
+  batch$int <- 1:10
+  expect_vector(batch$int, 1:10)
+
+  # recycling
+  batch[["atom"]] <- 1L
+  expect_vector(batch[["atom"]], rep(1L, 10))
+
+  expect_error(
+    batch[["atom"]] <- 1:6,
+    "Can't recycle input of size 6 to size 10."
+  )
+
+  # assign Arrow array
+  array <- Array$create(c(10:1))
+  batch$array <- array
+  expect_vector(batch$array, 10:1)
+
+  # nonsense indexes
+  expect_error(batch[[NA]] <- letters[10:1], "'i' must be character or numeric, not logical")
+  expect_error(batch[[NULL]] <- letters[10:1], "'i' must be character or numeric, not NULL")
+  expect_error(batch[[NA_integer_]] <- letters[10:1], "!is.na(i) is not TRUE", fixed = TRUE)
+  expect_error(batch[[NA_real_]] <- letters[10:1], "!is.na(i) is not TRUE", fixed = TRUE)
+  expect_error(batch[[NA_character_]] <- letters[10:1], "!is.na(i) is not TRUE", fixed = TRUE)
+  expect_error(batch[[c(1, 4)]] <- letters[10:1], "length(i) not equal to 1", fixed = TRUE)
+})
+
 test_that("head and tail on RecordBatch", {
+  tbl <- tibble::tibble(
+    int = 1:10,
+    dbl = as.numeric(1:10),
+    lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
+    chr = letters[1:10],
+    fct = factor(letters[1:10])
+  )
+  batch <- RecordBatch$create(tbl)
   expect_data_frame(head(batch), head(tbl))
   expect_data_frame(head(batch, 4), head(tbl, 4))
   expect_data_frame(head(batch, 40), head(tbl, 40))
