@@ -82,6 +82,32 @@ fn primitive_array_to_json<T: ArrowPrimitiveType>(array: &ArrayRef) -> Vec<Value
         .collect()
 }
 
+fn struct_array_to_jsonmap_array(
+    array: &StructArray,
+    row_count: usize,
+) -> Vec<JsonMap<String, Value>> {
+    let inner_col_names = array.column_names();
+
+    let mut inner_objs = iter::repeat(JsonMap::new())
+        .take(row_count)
+        .collect::<Vec<JsonMap<String, Value>>>();
+
+    array
+        .columns()
+        .iter()
+        .enumerate()
+        .for_each(|(j, struct_col)| {
+            set_column_for_json_rows(
+                &mut inner_objs,
+                row_count,
+                struct_col,
+                inner_col_names[j],
+            );
+        });
+
+    inner_objs
+}
+
 pub fn array_to_json_array(array: &ArrayRef) -> Vec<Value> {
     match array.data_type() {
         DataType::Null => iter::repeat(Value::Null).take(array.len()).collect(),
@@ -117,6 +143,11 @@ pub fn array_to_json_array(array: &ArrayRef) -> Vec<Value> {
                 None => Value::Null,
             })
             .collect(),
+        DataType::Struct(_) => {
+            let jsonmaps =
+                struct_array_to_jsonmap_array(as_struct_array(array), array.len());
+            jsonmaps.into_iter().map(|m| Value::Object(m)).collect()
+        }
         _ => {
             panic!(format!(
                 "Unsupported datatype for array conversion: {:#?}",
@@ -205,26 +236,8 @@ fn set_column_for_json_rows(
             set_column_by_array_type!(as_string_array, col_name, rows, array, row_count);
         }
         DataType::Struct(_) => {
-            let structarr = as_struct_array(array);
-            let inner_col_names = structarr.column_names();
-
-            let mut inner_objs = iter::repeat(JsonMap::new())
-                .take(row_count)
-                .collect::<Vec<JsonMap<String, Value>>>();
-
-            structarr
-                .columns()
-                .iter()
-                .enumerate()
-                .for_each(|(j, struct_col)| {
-                    set_column_for_json_rows(
-                        &mut inner_objs,
-                        row_count,
-                        struct_col,
-                        inner_col_names[j],
-                    );
-                });
-
+            let inner_objs =
+                struct_array_to_jsonmap_array(as_struct_array(array), row_count);
             rows.iter_mut()
                 .take(row_count)
                 .zip(inner_objs.into_iter())
@@ -363,7 +376,7 @@ mod tests {
             Field::new("c2", DataType::Utf8, false),
         ]);
 
-        let a = StructArray::from(vec![
+        let c1 = StructArray::from(vec![
             (
                 Field::new("c11", DataType::Int32, false),
                 Arc::new(Int32Array::from(vec![Some(1), None, Some(5)])) as ArrayRef,
@@ -381,10 +394,10 @@ mod tests {
                 )])) as ArrayRef,
             ),
         ]);
-        let b = StringArray::from(vec![Some("a"), Some("b"), Some("c")]);
+        let c2 = StringArray::from(vec![Some("a"), Some("b"), Some("c")]);
 
         let batch =
-            RecordBatch::try_new(Arc::new(schema), vec![Arc::new(a), Arc::new(b)])
+            RecordBatch::try_new(Arc::new(schema), vec![Arc::new(c1), Arc::new(c2)])
                 .unwrap();
 
         let mut buf = Vec::new();
@@ -404,28 +417,23 @@ mod tests {
 
     #[test]
     fn write_struct_with_list_field() {
-        let schema = Schema::new(vec![
-            Field::new(
-                "c_struct",
-                DataType::List(Box::new(Field::new("c_list", DataType::Utf8, false))),
-                false,
-            ),
-            Field::new("c2", DataType::Int32, false),
-        ]);
+        let field_c1 = Field::new(
+            "c1",
+            DataType::List(Box::new(Field::new("c_list", DataType::Utf8, false))),
+            false,
+        );
+        let field_c2 = Field::new("c2", DataType::Int32, false);
+        let schema = Schema::new(vec![field_c1.clone(), field_c2]);
 
         let a_values = StringArray::from(vec!["a", "a1", "b", "c", "d", "e"]);
         // list column rows: ["a", "a1"], ["b"], ["c"], ["d"], ["e"]
         let a_value_offsets = Buffer::from(&[0, 2, 3, 4, 5, 6].to_byte_slice());
-        let a_list_data = ArrayData::builder(DataType::List(Box::new(Field::new(
-            "c_list",
-            DataType::Utf8,
-            false,
-        ))))
-        .len(5)
-        .add_buffer(a_value_offsets)
-        .add_child_data(a_values.data())
-        .null_bit_buffer(Buffer::from(vec![0b00011111]))
-        .build();
+        let a_list_data = ArrayData::builder(field_c1.data_type().clone())
+            .len(5)
+            .add_buffer(a_value_offsets)
+            .add_child_data(a_values.data())
+            .null_bit_buffer(Buffer::from(vec![0b00011111]))
+            .build();
         let a = ListArray::from(a_list_data);
 
         let b = Int32Array::from(vec![1, 2, 3, 4, 5]);
@@ -442,56 +450,48 @@ mod tests {
 
         assert_eq!(
             String::from_utf8(buf).unwrap(),
-            r#"{"c_struct":["a","a1"],"c2":1}
-{"c_struct":["b"],"c2":2}
-{"c_struct":["c"],"c2":3}
-{"c_struct":["d"],"c2":4}
-{"c_struct":["e"],"c2":5}
+            r#"{"c1":["a","a1"],"c2":1}
+{"c1":["b"],"c2":2}
+{"c1":["c"],"c2":3}
+{"c1":["d"],"c2":4}
+{"c1":["e"],"c2":5}
 "#
         );
     }
 
     #[test]
     fn write_nested_list() {
-        let schema = Schema::new(vec![
-            Field::new(
-                "c1",
-                DataType::List(Box::new(Field::new(
-                    "a",
-                    DataType::List(Box::new(Field::new("b", DataType::Int32, false))),
-                    false,
-                ))),
-                false,
-            ),
-            Field::new("c2", DataType::Utf8, false),
-        ]);
+        let list_inner_type = Field::new(
+            "a",
+            DataType::List(Box::new(Field::new("b", DataType::Int32, false))),
+            false,
+        );
+        let field_c1 = Field::new(
+            "c1",
+            DataType::List(Box::new(list_inner_type.clone())),
+            false,
+        );
+        let field_c2 = Field::new("c2", DataType::Utf8, false);
+        let schema = Schema::new(vec![field_c1.clone(), field_c2]);
 
         // list column rows: [[1, 2], [3]], [], [[4, 5, 6]]
         let a_values = Int32Array::from(vec![1, 2, 3, 4, 5, 6]);
 
         let a_value_offsets = Buffer::from(&[0, 2, 3, 6].to_byte_slice());
         // Construct a list array from the above two
-        let a_list_data = ArrayData::builder(DataType::List(Box::new(Field::new(
-            "b",
-            DataType::Int32,
-            false,
-        ))))
-        .len(3)
-        .add_buffer(a_value_offsets)
-        .null_bit_buffer(Buffer::from(vec![0b00000111]))
-        .add_child_data(a_values.data())
-        .build();
+        let a_list_data = ArrayData::builder(list_inner_type.data_type().clone())
+            .len(3)
+            .add_buffer(a_value_offsets)
+            .null_bit_buffer(Buffer::from(vec![0b00000111]))
+            .add_child_data(a_values.data())
+            .build();
 
         let c1_value_offsets = Buffer::from(&[0, 2, 2, 3].to_byte_slice());
-        let c1_list_data = ArrayData::builder(DataType::List(Box::new(Field::new(
-            "a",
-            DataType::List(Box::new(Field::new("b", DataType::Int32, false))),
-            false,
-        ))))
-        .len(3)
-        .add_buffer(c1_value_offsets)
-        .add_child_data(a_list_data)
-        .build();
+        let c1_list_data = ArrayData::builder(field_c1.data_type().clone())
+            .len(3)
+            .add_buffer(c1_value_offsets)
+            .add_child_data(a_list_data)
+            .build();
 
         let c1 = ListArray::from(c1_list_data);
         let c2 = StringArray::from(vec![Some("foo"), Some("bar"), None]);
@@ -511,6 +511,80 @@ mod tests {
             r#"{"c1":[[1,2],[3]],"c2":"foo"}
 {"c1":[],"c2":"bar"}
 {"c1":[[4,5,6]]}
+"#
+        );
+    }
+
+    #[test]
+    fn write_list_of_struct() {
+        let field_c1 = Field::new(
+            "c1",
+            DataType::List(Box::new(Field::new(
+                "s",
+                DataType::Struct(vec![
+                    Field::new("c11", DataType::Int32, false),
+                    Field::new(
+                        "c12",
+                        DataType::Struct(vec![Field::new("c121", DataType::Utf8, false)]),
+                        false,
+                    ),
+                ]),
+                false,
+            ))),
+            true,
+        );
+        let field_c2 = Field::new("c2", DataType::Int32, false);
+        let schema = Schema::new(vec![field_c1.clone(), field_c2]);
+
+        let struct_values = StructArray::from(vec![
+            (
+                Field::new("c11", DataType::Int32, false),
+                Arc::new(Int32Array::from(vec![Some(1), None, Some(5)])) as ArrayRef,
+            ),
+            (
+                Field::new(
+                    "c12",
+                    DataType::Struct(vec![Field::new("c121", DataType::Utf8, false)]),
+                    false,
+                ),
+                Arc::new(StructArray::from(vec![(
+                    Field::new("c121", DataType::Utf8, false),
+                    Arc::new(StringArray::from(vec![Some("e"), Some("f"), Some("g")]))
+                        as ArrayRef,
+                )])) as ArrayRef,
+            ),
+        ]);
+
+        // list column rows (c1):
+        // [{"c11": 1, "c12": {"c121": "e"}}, {"c12": {"c121": "f"}}],
+        // null,
+        // [{"c11": 5, "c12": {"c121": "g"}}]
+        let c1_value_offsets = Buffer::from(&[0, 2, 2, 3].to_byte_slice());
+        let c1_list_data = ArrayData::builder(field_c1.data_type().clone())
+            .len(3)
+            .add_buffer(c1_value_offsets)
+            .add_child_data(struct_values.data())
+            .null_bit_buffer(Buffer::from(vec![0b00000101]))
+            .build();
+        let c1 = ListArray::from(c1_list_data);
+
+        let c2 = Int32Array::from(vec![1, 2, 3]);
+
+        let batch =
+            RecordBatch::try_new(Arc::new(schema), vec![Arc::new(c1), Arc::new(c2)])
+                .unwrap();
+
+        let mut buf = Vec::new();
+        {
+            let mut writer = Writer::new(&mut buf);
+            writer.write_batches(&vec![batch]).unwrap();
+        }
+
+        assert_eq!(
+            String::from_utf8(buf).unwrap(),
+            r#"{"c1":[{"c11":1,"c12":{"c121":"e"}},{"c12":{"c121":"f"}}],"c2":1}
+{"c2":2}
+{"c1":[{"c11":5,"c12":{"c121":"g"}}],"c2":3}
 "#
         );
     }
