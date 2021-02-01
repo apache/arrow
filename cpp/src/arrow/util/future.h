@@ -276,6 +276,17 @@ class ARROW_MUST_USE_TYPE Future {
     return *GetResult();
   }
 
+  /// \brief Returns an rvalue to the result.  This method is potentially unsafe
+  ///
+  /// The future is not the unique owner of the result, copies of a future will
+  /// also point to the same result.  You must make sure that no other copies
+  /// of the future exist.  Attempts to add callbacks after you move the result
+  /// will result in undefined behavior.
+  Result<ValueType>&& MoveResult() {
+    Wait();
+    return std::move(*GetResult());
+  }
+
   /// \brief Wait for the Future to complete and return its Status
   const Status& status() const { return result().status(); }
 
