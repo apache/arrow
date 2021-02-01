@@ -1962,7 +1962,7 @@ macro(build_lz4)
       endif()
     endif()
     set(LZ4_STATIC_LIB
-        "${LZ4_BUILD_DIR}/visual/VS2010/bin/x64_${CMAKE_BUILD_TYPE}/liblz4_static.lib")
+    "${LZ4_BUILD_DIR}/build/VS2010/bin/x64_${CMAKE_BUILD_TYPE}/liblz4_static.lib")
     set(LZ4_BUILD_COMMAND
         BUILD_COMMAND
         msbuild.exe
@@ -1972,7 +1972,7 @@ macro(build_lz4)
         /p:PlatformToolset=v140
         ${LZ4_RUNTIME_LIBRARY_LINKAGE}
         /t:Build
-        ${LZ4_BUILD_DIR}/visual/VS2010/lz4.sln)
+      ${LZ4_BUILD_DIR}/build/VS2010/lz4.sln)
   else()
     set(LZ4_STATIC_LIB "${LZ4_BUILD_DIR}/lib/liblz4.a")
     set(LZ4_BUILD_COMMAND BUILD_COMMAND ${CMAKE_SOURCE_DIR}/build-support/build-lz4-lib.sh
