@@ -66,6 +66,12 @@ void __cpuidex(int CPUInfo[4], int function_id, int subfunction_id) {
                          "=d"(CPUInfo[3])
                        : "a"(function_id), "c"(subfunction_id));
 }
+
+int64_t _xgetbv(int xcr) {
+  int out = 0;
+  __asm__ __volatile__("xgetbv" : "=a"(out) : "c"(xcr) : "%edx");
+  return out;
+}
 #endif
 
 #if defined(__GNUC__) && defined(__linux__) && defined(__aarch64__)
