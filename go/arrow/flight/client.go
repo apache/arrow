@@ -38,7 +38,7 @@ type Client interface {
 	// Authenticate uses the ClientAuthHandler that was used when creating the client
 	// in order to use the Handshake endpoints of the service.
 	Authenticate(context.Context, ...grpc.CallOption) error
-	AuthenticateBasicToken(context.Context, string, string, ...grpc.CallOption) (context.Context, error)
+	AuthenticateBasicToken(ctx context.Context, username string, password string, opts ...grpc.CallOption) (context.Context, error)
 	Close() error
 	// join the interface from the FlightServiceClient instead of re-defining all
 	// the endpoints here.
