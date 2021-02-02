@@ -74,6 +74,12 @@ class PARQUET_EXPORT ParquetFileReader {
         const ReaderProperties& props = default_reader_properties(),
         std::shared_ptr<FileMetaData> metadata = NULLPTR);
 
+    static std::unique_ptr<Contents> Open(
+        std::shared_ptr<::arrow::io::MultiFileProvider<::arrow::io::RandomAccessFile>>
+            source,
+        const ReaderProperties& props = default_reader_properties(),
+        std::shared_ptr<FileMetaData> metadata = NULLPTR);
+
     virtual ~Contents() = default;
     // Perform any cleanup associated with the file contents
     virtual void Close() = 0;
@@ -99,6 +105,14 @@ class PARQUET_EXPORT ParquetFileReader {
   // the responsibility of the file implementation
   static std::unique_ptr<ParquetFileReader> Open(
       std::shared_ptr<::arrow::io::RandomAccessFile> source,
+      const ReaderProperties& props = default_reader_properties(),
+      std::shared_ptr<FileMetaData> metadata = NULLPTR);
+
+  // Create a file reader instance from an Arrow file object. Thread-safety is
+  // the responsibility of the file implementation
+  static std::unique_ptr<ParquetFileReader> Open(
+      std::shared_ptr<::arrow::io::MultiFileProvider<::arrow::io::RandomAccessFile>>
+          source,
       const ReaderProperties& props = default_reader_properties(),
       std::shared_ptr<FileMetaData> metadata = NULLPTR);
 

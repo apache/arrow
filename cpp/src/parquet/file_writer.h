@@ -138,6 +138,9 @@ class PARQUET_EXPORT ParquetFileWriter {
       schema_.Init(std::move(schema));
     }
     virtual ~Contents() {}
+
+    virtual void Snapshot(const std::string& data_path,
+                          std::shared_ptr<::arrow::io::OutputStream>& sink) = 0;
     // Perform any cleanup associated with the file contents
     virtual void Close() = 0;
 
@@ -185,6 +188,10 @@ class PARQUET_EXPORT ParquetFileWriter {
       std::shared_ptr<const KeyValueMetadata> key_value_metadata = NULLPTR);
 
   void Open(std::unique_ptr<Contents> contents);
+
+  void Snapshot(const std::string& data_path,
+                std::shared_ptr<::arrow::io::OutputStream>& sink);
+
   void Close();
 
   // Construct a RowGroupWriter for the indicated number of rows.

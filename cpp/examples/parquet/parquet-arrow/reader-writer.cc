@@ -46,6 +46,45 @@ std::shared_ptr<arrow::Table> generate_table() {
   return arrow::Table::Make(schema, {i64array, strarray});
 }
 
+void write_parquet_file_with_snapshot(const arrow::Table& table) {
+  std::shared_ptr<arrow::io::FileOutputStream> outfile;
+  PARQUET_ASSIGN_OR_THROW(
+      outfile,
+      arrow::io::FileOutputStream::Open("parquet-arrow-example.parquet"));
+  // The last argument to the function call is the size of the RowGroup in
+  // the parquet file. Normally you would choose this to be rather large but
+  // for the example, we use a small value to have multiple RowGroups.
+
+//  PARQUET_THROW_NOT_OK(parquet::arrow::WriteTable(table, arrow::default_memory_pool(), outfile, 10));
+  std::unique_ptr<parquet::arrow::FileWriter> writer;
+  PARQUET_THROW_NOT_OK(parquet::arrow::FileWriter::Open(*table.schema(),
+                                                        arrow::default_memory_pool(),
+                                                        std::move(outfile),
+                                                        parquet::default_writer_properties(),
+                                                        parquet::default_arrow_writer_properties(),
+                                                        &writer));
+  PARQUET_THROW_NOT_OK(writer->WriteTable(table, table.num_rows()));
+  std::shared_ptr<arrow::io::FileOutputStream> targetHeader;
+  PARQUET_ASSIGN_OR_THROW(
+      targetHeader,
+      arrow::io::FileOutputStream::Open("image1.parquet"));
+  PARQUET_THROW_NOT_OK(writer->Snapshot("parquet-arrow-example.parquet",
+                                        std::move(targetHeader)));
+  PARQUET_THROW_NOT_OK(writer->WriteTable(table, table.num_rows()));
+  PARQUET_ASSIGN_OR_THROW(
+      targetHeader,
+      arrow::io::FileOutputStream::Open("image2.parquet"));
+  PARQUET_THROW_NOT_OK(writer->Snapshot("parquet-arrow-example.parquet",
+                                        std::move(targetHeader)));
+  PARQUET_THROW_NOT_OK(writer->WriteTable(table, table.num_rows()));
+  PARQUET_ASSIGN_OR_THROW(
+      targetHeader,
+      arrow::io::FileOutputStream::Open("image3.parquet"));
+  PARQUET_THROW_NOT_OK(writer->Snapshot("parquet-arrow-example.parquet",
+                                        std::move(targetHeader)));
+  PARQUET_THROW_NOT_OK(writer->Close());
+}
+
 // #1 Write out the data as a Parquet file
 void write_parquet_file(const arrow::Table& table) {
   std::shared_ptr<arrow::io::FileOutputStream> outfile;
@@ -62,19 +101,16 @@ void write_parquet_file(const arrow::Table& table) {
 // #2: Fully read in the file
 void read_whole_file() {
   std::cout << "Reading parquet-arrow-example.parquet at once" << std::endl;
-  std::shared_ptr<arrow::io::ReadableFile> infile;
-  PARQUET_ASSIGN_OR_THROW(
-      infile,
-      arrow::io::ReadableFile::Open("parquet-arrow-example.parquet",
-                                    arrow::default_memory_pool()));
 
   std::unique_ptr<parquet::arrow::FileReader> reader;
   PARQUET_THROW_NOT_OK(
-      parquet::arrow::OpenFile(infile, arrow::default_memory_pool(), &reader));
+      parquet::arrow::OpenMultiFile(std::make_shared<arrow::io::MultiReadableFile>(
+          "image2.parquet"),arrow::default_memory_pool(), &reader));
   std::shared_ptr<arrow::Table> table;
   PARQUET_THROW_NOT_OK(reader->ReadTable(&table));
   std::cout << "Loaded " << table->num_rows() << " rows in " << table->num_columns()
             << " columns." << std::endl;
+  PARQUET_THROW_NOT_OK(arrow::PrettyPrint(*table, {}, &std::cout));
 }
 
 // #3: Read only a single RowGroup of the parquet file
@@ -136,7 +172,8 @@ void read_single_column_chunk() {
 
 int main(int argc, char** argv) {
   std::shared_ptr<arrow::Table> table = generate_table();
-  write_parquet_file(*table);
+  write_parquet_file_with_snapshot(*table);
+  //write_parquet_file(*table);
   read_whole_file();
   read_single_rowgroup();
   read_single_column();

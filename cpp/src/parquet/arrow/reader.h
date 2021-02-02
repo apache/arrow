@@ -280,6 +280,12 @@ class PARQUET_EXPORT FileReaderBuilder {
                        const ReaderProperties& properties = default_reader_properties(),
                        std::shared_ptr<FileMetaData> metadata = NULLPTR);
 
+  ::arrow::Status Open(
+      std::shared_ptr<::arrow::io::MultiFileProvider<::arrow::io::RandomAccessFile>>
+          multi_file,
+      const ReaderProperties& properties = default_reader_properties(),
+      std::shared_ptr<FileMetaData> metadata = NULLPTR);
+
   ParquetFileReader* raw_reader() { return raw_reader_.get(); }
 
   /// Set Arrow MemoryPool for memory allocation
@@ -297,6 +303,18 @@ class PARQUET_EXPORT FileReaderBuilder {
 
 /// \defgroup parquet-arrow-reader-factories Factory functions for Parquet Arrow readers
 ///
+/// @{
+
+/// \brief Build FileReader from an Arrow mulifile file and MemoryPool
+///
+/// Advanced settings are supported through the FileReaderBuilder class.
+PARQUET_EXPORT
+::arrow::Status OpenMultiFile(
+    std::shared_ptr<::arrow::io::MultiFileProvider<::arrow::io::RandomAccessFile>>,
+    ::arrow::MemoryPool* allocator, std::unique_ptr<FileReader>* reader);
+
+/// @}
+
 /// @{
 
 /// \brief Build FileReader from Arrow file and MemoryPool

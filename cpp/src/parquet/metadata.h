@@ -473,6 +473,8 @@ class PARQUET_EXPORT FileMetaDataBuilder {
   // Complete the Thrift structure
   std::unique_ptr<FileMetaData> Finish();
 
+  std::unique_ptr<FileMetaData> ToFileMetadata(bool finish, const std::string data_path);
+
   // crypto metadata
   std::unique_ptr<FileCryptoMetaData> GetCryptoMetaData();
 

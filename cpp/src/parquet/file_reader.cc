@@ -119,7 +119,7 @@ const RowGroupMetaData* RowGroupReader::metadata() const { return contents_->met
 // RowGroupReader::Contents implementation for the Parquet file specification
 class SerializedRowGroup : public RowGroupReader::Contents {
  public:
-  SerializedRowGroup(std::shared_ptr<ArrowInputFile> source,
+  SerializedRowGroup(std::shared_ptr<ArrowMultiInputFile> source,
                      std::shared_ptr<::arrow::io::internal::ReadRangeCache> cached_source,
                      int64_t source_size, FileMetaData* file_metadata,
                      int row_group_number, const ReaderProperties& props,
@@ -151,7 +151,11 @@ class SerializedRowGroup : public RowGroupReader::Contents {
       PARQUET_ASSIGN_OR_THROW(auto buffer, cached_source_->Read(col_range));
       stream = std::make_shared<::arrow::io::BufferReader>(buffer);
     } else {
-      stream = properties_.GetStream(source_, col_range.offset, col_range.length);
+      PARQUET_ASSIGN_OR_THROW(auto columnSource,
+                              col->file_path().empty()
+                                  ? source_->DefaultFile()
+                                  : source_->ForPath(col->file_path()));
+      stream = properties_.GetStream(columnSource, col_range.offset, col_range.length);
     }
 
     std::unique_ptr<ColumnCryptoMetaData> crypto_metadata = col->crypto_metadata();
@@ -200,7 +204,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
   }
 
  private:
-  std::shared_ptr<ArrowInputFile> source_;
+  std::shared_ptr<ArrowMultiInputFile> source_;
   // Will be nullptr if PreBuffer() is not called.
   std::shared_ptr<::arrow::io::internal::ReadRangeCache> cached_source_;
   int64_t source_size_;
@@ -221,8 +225,16 @@ class SerializedFile : public ParquetFileReader::Contents {
  public:
   SerializedFile(std::shared_ptr<ArrowInputFile> source,
                  const ReaderProperties& props = default_reader_properties())
+      : source_(::arrow::io::AsMultiFileProvider(std::move(source))), properties_(props) {
+    PARQUET_ASSIGN_OR_THROW(auto defaultSource, source_->DefaultFile());
+    PARQUET_ASSIGN_OR_THROW(source_size_, defaultSource->GetSize());
+  }
+
+  SerializedFile(std::shared_ptr<ArrowMultiInputFile> source,
+                 const ReaderProperties& props = default_reader_properties())
       : source_(std::move(source)), properties_(props) {
-    PARQUET_ASSIGN_OR_THROW(source_size_, source_->GetSize());
+    PARQUET_ASSIGN_OR_THROW(auto defaultSource, source_->DefaultFile());
+    PARQUET_ASSIGN_OR_THROW(source_size_, defaultSource->GetSize());
   }
 
   ~SerializedFile() override {
@@ -253,8 +265,9 @@ class SerializedFile : public ParquetFileReader::Contents {
                  const std::vector<int>& column_indices,
                  const ::arrow::io::AsyncContext& ctx,
                  const ::arrow::io::CacheOptions& options) {
-    cached_source_ =
-        std::make_shared<::arrow::io::internal::ReadRangeCache>(source_, ctx, options);
+    PARQUET_ASSIGN_OR_THROW(auto defaultSource, source_->DefaultFile());
+    cached_source_ = std::make_shared<::arrow::io::internal::ReadRangeCache>(
+        defaultSource, ctx, options);
     std::vector<::arrow::io::ReadRange> ranges;
     for (int row : row_groups) {
       for (int col : column_indices) {
@@ -275,9 +288,10 @@ class SerializedFile : public ParquetFileReader::Contents {
     }
 
     int64_t footer_read_size = std::min(source_size_, kDefaultFooterReadSize);
+    PARQUET_ASSIGN_OR_THROW(auto defaultSource, source_->DefaultFile());
     PARQUET_ASSIGN_OR_THROW(
         auto footer_buffer,
-        source_->ReadAt(source_size_ - footer_read_size, footer_read_size));
+        defaultSource->ReadAt(source_size_ - footer_read_size, footer_read_size));
 
     // Check if all bytes are read. Check if last 4 bytes read have the magic bits
     if (footer_buffer->size() != footer_read_size ||
@@ -315,7 +329,7 @@ class SerializedFile : public ParquetFileReader::Contents {
   }
 
  private:
-  std::shared_ptr<ArrowInputFile> source_;
+  std::shared_ptr<ArrowMultiInputFile> source_;
   std::shared_ptr<::arrow::io::internal::ReadRangeCache> cached_source_;
   int64_t source_size_;
   std::shared_ptr<FileMetaData> file_metadata_;
@@ -359,8 +373,9 @@ void SerializedFile::ParseUnencryptedFileMetadata(
     *metadata_buffer = SliceBuffer(
         footer_buffer, footer_read_size - *metadata_len - kFooterSize, *metadata_len);
   } else {
+    PARQUET_ASSIGN_OR_THROW(auto defaultSource, source_->DefaultFile());
     PARQUET_ASSIGN_OR_THROW(*metadata_buffer,
-                            source_->ReadAt(metadata_start, *metadata_len));
+                            defaultSource->ReadAt(metadata_start, *metadata_len));
     if ((*metadata_buffer)->size() != *metadata_len) {
       throw ParquetException("Failed reading metadata buffer (requested " +
                              std::to_string(*metadata_len) + " bytes but got " +
@@ -391,8 +406,9 @@ void SerializedFile::ParseMetaDataOfEncryptedFileWithEncryptedFooter(
     crypto_metadata_buffer = SliceBuffer(
         footer_buffer, footer_read_size - footer_len - kFooterSize, footer_len);
   } else {
+    PARQUET_ASSIGN_OR_THROW(auto defaultSource, source_->DefaultFile());
     PARQUET_ASSIGN_OR_THROW(crypto_metadata_buffer,
-                            source_->ReadAt(crypto_metadata_start, footer_len));
+                            defaultSource->ReadAt(crypto_metadata_start, footer_len));
     if (crypto_metadata_buffer->size() != footer_len) {
       throw ParquetException("Failed reading encrypted metadata buffer (requested " +
                              std::to_string(footer_len) + " bytes but got " +
@@ -416,8 +432,9 @@ void SerializedFile::ParseMetaDataOfEncryptedFileWithEncryptedFooter(
 
   int64_t metadata_offset = source_size_ - kFooterSize - footer_len + crypto_metadata_len;
   uint32_t metadata_len = footer_len - crypto_metadata_len;
+  PARQUET_ASSIGN_OR_THROW(auto defaultSource, source_->DefaultFile());
   PARQUET_ASSIGN_OR_THROW(auto metadata_buffer,
-                          source_->ReadAt(metadata_offset, metadata_len));
+                          defaultSource->ReadAt(metadata_offset, metadata_len));
   if (metadata_buffer->size() != metadata_len) {
     throw ParquetException("Failed reading metadata buffer (requested " +
                            std::to_string(metadata_len) + " bytes but got " +
@@ -537,9 +554,37 @@ std::unique_ptr<ParquetFileReader::Contents> ParquetFileReader::Contents::Open(
   return result;
 }
 
+std::unique_ptr<ParquetFileReader::Contents> ParquetFileReader::Contents::Open(
+    std::shared_ptr<::arrow::io::MultiFileProvider<::arrow::io::RandomAccessFile>> source,
+    const ReaderProperties& props, std::shared_ptr<FileMetaData> metadata) {
+  std::unique_ptr<ParquetFileReader::Contents> result(
+      new SerializedFile(std::move(source), props));
+
+  // Access private methods here, but otherwise unavailable
+  SerializedFile* file = static_cast<SerializedFile*>(result.get());
+
+  if (metadata == nullptr) {
+    // Validates magic bytes, parses metadata, and initializes the SchemaDescriptor
+    file->ParseMetaData();
+  } else {
+    file->set_metadata(std::move(metadata));
+  }
+
+  return result;
+}
+
 std::unique_ptr<ParquetFileReader> ParquetFileReader::Open(
     std::shared_ptr<::arrow::io::RandomAccessFile> source, const ReaderProperties& props,
     std::shared_ptr<FileMetaData> metadata) {
+  auto contents = SerializedFile::Open(std::move(source), props, std::move(metadata));
+  std::unique_ptr<ParquetFileReader> result(new ParquetFileReader());
+  result->Open(std::move(contents));
+  return result;
+}
+
+std::unique_ptr<ParquetFileReader> ParquetFileReader::Open(
+    std::shared_ptr<::arrow::io::MultiFileProvider<::arrow::io::RandomAccessFile>> source,
+    const ReaderProperties& props, std::shared_ptr<FileMetaData> metadata) {
   auto contents = SerializedFile::Open(std::move(source), props, std::move(metadata));
   std::unique_ptr<ParquetFileReader> result(new ParquetFileReader());
   result->Open(std::move(contents));

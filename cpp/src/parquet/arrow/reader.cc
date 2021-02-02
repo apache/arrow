@@ -1065,6 +1065,15 @@ Status FileReaderBuilder::Open(std::shared_ptr<::arrow::io::RandomAccessFile> fi
   return Status::OK();
 }
 
+Status FileReaderBuilder::Open(
+    std::shared_ptr<::arrow::io::MultiFileProvider<::arrow::io::RandomAccessFile>>
+        multi_file,
+    const ReaderProperties& properties, std::shared_ptr<FileMetaData> metadata) {
+  PARQUET_CATCH_NOT_OK(raw_reader_ = ParquetReader::Open(
+                           std::move(multi_file), properties, std::move(metadata)));
+  return Status::OK();
+}
+
 FileReaderBuilder* FileReaderBuilder::memory_pool(::arrow::MemoryPool* pool) {
   pool_ = pool;
   return this;
@@ -1078,6 +1087,15 @@ FileReaderBuilder* FileReaderBuilder::properties(
 
 Status FileReaderBuilder::Build(std::unique_ptr<FileReader>* out) {
   return FileReader::Make(pool_, std::move(raw_reader_), properties_, out);
+}
+
+Status OpenMultiFile(
+    std::shared_ptr<::arrow::io::MultiFileProvider<::arrow::io::RandomAccessFile>>
+        multi_file,
+    ::arrow::MemoryPool* pool_, std::unique_ptr<FileReader>* reader) {
+  FileReaderBuilder builder;
+  RETURN_NOT_OK(builder.Open(std::move(multi_file)));
+  return builder.memory_pool(pool_)->Build(reader);
 }
 
 Status OpenFile(std::shared_ptr<::arrow::io::RandomAccessFile> file, MemoryPool* pool,

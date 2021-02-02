@@ -217,5 +217,33 @@ class ARROW_EXPORT MemoryMappedFile : public ReadWriteFileInterface {
   std::shared_ptr<MemoryMap> memory_map_;
 };
 
+class ARROW_EXPORT MultiReadableFile : public MultiFileProvider<RandomAccessFile> {
+ public:
+  MultiReadableFile(const std::string& default_file_path,
+                    MemoryPool* pool = arrow::default_memory_pool());
+
+ protected:
+  arrow::Result<std::shared_ptr<RandomAccessFile>> OpenFile(
+      const std::string& path) override;
+};
+
+template <class FILE>
+class SingleFile : public MultiFileProvider<FILE> {
+ public:
+  SingleFile(std::shared_ptr<FILE> default_file,
+             MemoryPool* pool = arrow::default_memory_pool())
+      : MultiFileProvider<FILE>(std::move(default_file)) {}
+
+ protected:
+  Result<std::shared_ptr<FILE>> OpenFile(const std::string& path) override {
+    return {Status::NotImplemented("Single file provider doesn't allow for sub files")};
+  };
+};
+
+template <class FILE>
+std::shared_ptr<MultiFileProvider<FILE>> AsMultiFileProvider(std::shared_ptr<FILE> file) {
+  return std::make_shared<SingleFile<FILE>>(std::move(file));
+}
+
 }  // namespace io
 }  // namespace arrow

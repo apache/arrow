@@ -1411,7 +1411,10 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
     return current_row_group_builder_.get();
   }
 
-  std::unique_ptr<FileMetaData> Finish() {
+  std::unique_ptr<FileMetaData> Finish() { return ToFileMetadata(true); }
+
+  std::unique_ptr<FileMetaData> ToFileMetadata(bool finish = true,
+                                               const std::string& data_path = "") {
     int64_t total_rows = 0;
     for (auto row_group : row_groups_) {
       total_rows += row_group.num_rows;
@@ -1480,7 +1483,13 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
     ToParquet(static_cast<parquet::schema::GroupNode*>(schema_->schema_root().get()),
               &metadata_->schema);
     auto file_meta_data = std::unique_ptr<FileMetaData>(new FileMetaData());
-    file_meta_data->impl_->metadata_ = std::move(metadata_);
+    file_meta_data->impl_->metadata_ =
+        finish
+            ? std::move(metadata_)
+            : std::unique_ptr<format::FileMetaData>(new format::FileMetaData(*metadata_));
+    if (!data_path.empty()) {
+      file_meta_data->set_file_path(data_path);
+    }
     file_meta_data->impl_->InitSchema();
     file_meta_data->impl_->InitKeyValueMetadata();
     return file_meta_data;
@@ -1544,6 +1553,11 @@ std::unique_ptr<FileMetaData> FileMetaDataBuilder::Finish() { return impl_->Fini
 
 std::unique_ptr<FileCryptoMetaData> FileMetaDataBuilder::GetCryptoMetaData() {
   return impl_->BuildFileCryptoMetaData();
+}
+
+std::unique_ptr<FileMetaData> FileMetaDataBuilder::ToFileMetadata(
+    bool finish, const std::string data_path) {
+  return impl_->ToFileMetadata(finish, data_path);
 }
 
 }  // namespace parquet

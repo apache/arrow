@@ -23,6 +23,7 @@
 
 #include "gtest/gtest.h"
 
+#include <chrono>
 #include <cstdint>
 #include <functional>
 #include <iostream>
@@ -33,8 +34,11 @@
 #include "arrow/array/builder_decimal.h"
 #include "arrow/array/builder_dict.h"
 #include "arrow/array/builder_primitive.h"
+#include "arrow/builder.h"
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api.h"
+#include "arrow/io/file.h"
+#include "arrow/pretty_print.h"
 #include "arrow/record_batch.h"
 #include "arrow/scalar.h"
 #include "arrow/table.h"
@@ -3810,6 +3814,121 @@ TEST(TestArrowWriteDictionaries, NestedSubfield) {
               props_store_schema);
 
   ::arrow::AssertTablesEqual(*table, *actual);
+}
+
+std::shared_ptr<::arrow::Table> generate_table(size_t seed, size_t size) {
+  ::arrow::Int64Builder i64builder;
+  ::arrow::StringBuilder strbuilder;
+  auto i32builder = std::make_shared<::arrow::Int32Builder>();
+  ::arrow::ListBuilder list_builder(::arrow::default_memory_pool(), i32builder);
+
+  for (int64_t v = 0; v < int64_t(size); v++) {
+    PARQUET_THROW_NOT_OK(i64builder.Append((v + seed) * 10));
+    PARQUET_THROW_NOT_OK(strbuilder.Append("v - " + std::to_string(v + seed)));
+    PARQUET_THROW_NOT_OK(list_builder.Append());
+    for (int32_t step = 0; step < int32_t(v + seed) % 7; step++) {
+      PARQUET_THROW_NOT_OK(
+          i32builder->Append(step + static_cast<int32_t>(v + seed) * 100));
+    }
+  }
+  std::shared_ptr<arrow::Array> i64array;
+  std::shared_ptr<arrow::Array> strarray;
+  std::shared_ptr<arrow::Array> list_array;
+  PARQUET_THROW_NOT_OK(i64builder.Finish(&i64array));
+  PARQUET_THROW_NOT_OK(strbuilder.Finish(&strarray));
+  PARQUET_THROW_NOT_OK(list_builder.Finish(&list_array));
+
+  std::shared_ptr<::arrow::Schema> schema = ::arrow::schema(
+      {::arrow::field("int", ::arrow::int64()), ::arrow::field("str", ::arrow::utf8()),
+       ::arrow::field("intList", ::arrow::list(::arrow::int32()))});
+
+  return ::arrow::Table::Make(schema, {i64array, strarray, list_array});
+}
+
+std::string snapshot(std::unique_ptr<FileWriter>& writer, std::string base_file_name,
+                     std::string prefix, std::string snapshot_name) {
+  std::shared_ptr<::arrow::io::FileOutputStream> targetHeader;
+  std::string snapshot_full_name = prefix + snapshot_name + ".parquet";
+  PARQUET_ASSIGN_OR_THROW(targetHeader,
+                          ::arrow::io::FileOutputStream::Open(snapshot_full_name));
+  PARQUET_THROW_NOT_OK(writer->Snapshot(base_file_name, std::move(targetHeader)));
+  return snapshot_full_name;
+}
+
+void validate(std::string path, size_t size) {
+  std::unique_ptr<parquet::arrow::FileReader> reader;
+  PARQUET_THROW_NOT_OK(parquet::arrow::OpenMultiFile(
+      std::make_shared<::arrow::io::MultiReadableFile>(path),
+      ::arrow::default_memory_pool(), &reader));
+  std::shared_ptr<::arrow::Table> table;
+  PARQUET_THROW_NOT_OK(reader->ReadTable(&table));
+  std::cout << "Loaded " << table->num_rows() << " rows in " << table->num_columns()
+            << " columns." << std::endl;
+  ASSERT_TRUE(table->Equals(*generate_table(0, size)));
+  //  PARQUET_THROW_NOT_OK(::arrow::PrettyPrint(*table, {}, &std::cout));
+}
+
+TEST(TestParquestArrowSnapshot, ReadWriteSnapshot) {
+  auto seed = std::chrono::system_clock::now().time_since_epoch().count();
+  std::default_random_engine generator(static_cast<unsigned int>(seed));
+  std::uniform_int_distribution<size_t> distribution(0,
+                                                     std::numeric_limits<size_t>::max());
+  std::string prefix = "ReadWriteSnapshot." + std::to_string(distribution(generator));
+  std::string base_file_name = prefix + ".base.parquet";
+  std::vector<std::pair<size_t, std::string>> snapshots;
+
+  std::shared_ptr<::arrow::io::FileOutputStream> outfile;
+  PARQUET_ASSIGN_OR_THROW(outfile, ::arrow::io::FileOutputStream::Open(base_file_name));
+
+  auto table_zero = generate_table(0, 0);
+  ASSERT_EQ(table_zero->num_rows(), 0);
+  std::unique_ptr<::parquet::arrow::FileWriter> writer;
+  PARQUET_THROW_NOT_OK(::parquet::arrow::FileWriter::Open(
+      *table_zero->schema(), ::arrow::default_memory_pool(), std::move(outfile),
+      parquet::default_writer_properties(), parquet::default_arrow_writer_properties(),
+      &writer));
+  snapshots.emplace_back(0, snapshot(writer, base_file_name, prefix, "0.0"));
+  validate(snapshots.back().second, snapshots.back().first);
+  snapshots.emplace_back(0, snapshot(writer, base_file_name, prefix, "0.1"));
+  validate(snapshots.back().second, snapshots.back().first);
+  PARQUET_THROW_NOT_OK(writer->WriteTable(*table_zero, table_zero->num_rows()));
+  snapshots.emplace_back(0, snapshot(writer, base_file_name, prefix, "0.2"));
+  validate(snapshots.back().second, snapshots.back().first);
+  PARQUET_THROW_NOT_OK(writer->WriteTable(*generate_table(0, 1), 1));
+  snapshots.emplace_back(1, snapshot(writer, base_file_name, prefix, "1.0"));
+  validate(snapshots.back().second, snapshots.back().first);
+  snapshots.emplace_back(1, snapshot(writer, base_file_name, prefix, "1.1"));
+  validate(snapshots.back().second, snapshots.back().first);
+  PARQUET_THROW_NOT_OK(writer->WriteTable(*generate_table(1, 1), 1));
+  snapshots.emplace_back(2, snapshot(writer, base_file_name, prefix, "2.0"));
+  validate(snapshots.back().second, snapshots.back().first);
+  snapshots.emplace_back(2, snapshot(writer, base_file_name, prefix, "2.1"));
+  validate(snapshots.back().second, snapshots.back().first);
+  PARQUET_THROW_NOT_OK(writer->WriteTable(*generate_table(2, 10), 10));
+  snapshots.emplace_back(12, snapshot(writer, base_file_name, prefix, "12.0"));
+  validate(snapshots.back().second, snapshots.back().first);
+  snapshots.emplace_back(12, snapshot(writer, base_file_name, prefix, "12.1"));
+  validate(snapshots.back().second, snapshots.back().first);
+  PARQUET_THROW_NOT_OK(writer->WriteTable(*generate_table(12, 10), 10));
+  snapshots.emplace_back(22, snapshot(writer, base_file_name, prefix, "22.0"));
+  validate(snapshots.back().second, snapshots.back().first);
+  snapshots.emplace_back(22, snapshot(writer, base_file_name, prefix, "22.1"));
+  validate(snapshots.back().second, snapshots.back().first);
+  PARQUET_THROW_NOT_OK(writer->WriteTable(*generate_table(22, 100), 100));
+  snapshots.emplace_back(122, snapshot(writer, base_file_name, prefix, "122.0"));
+  validate(snapshots.back().second, snapshots.back().first);
+  snapshots.emplace_back(122, snapshot(writer, base_file_name, prefix, "122.1"));
+  validate(snapshots.back().second, snapshots.back().first);
+  PARQUET_THROW_NOT_OK(writer->WriteTable(*generate_table(122, 1000), 1000));
+  snapshots.emplace_back(1122, snapshot(writer, base_file_name, prefix, "1122.0"));
+  validate(snapshots.back().second, snapshots.back().first);
+  snapshots.emplace_back(1122, snapshot(writer, base_file_name, prefix, "1122.1"));
+  validate(snapshots.back().second, snapshots.back().first);
+  PARQUET_THROW_NOT_OK(writer->Close());
+  validate(base_file_name, 1122);
+  for (const auto& snapshot : snapshots) {
+    validate(snapshot.second, snapshot.first);
+  }
 }
 
 }  // namespace arrow

@@ -17,12 +17,16 @@
 
 #pragma once
 
+#include <arrow/util/mutex.h>
+
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "arrow/io/type_fwd.h"
+#include "arrow/result.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/string_view.h"
@@ -264,6 +268,100 @@ class ARROW_EXPORT ReadWriteFileInterface : public RandomAccessFile, public Writ
  protected:
   ReadWriteFileInterface() { RandomAccessFile::set_mode(FileMode::READWRITE); }
 };
+
+template <class FILE>
+class MultiFileProvider {
+  static_assert(std::is_convertible<FILE*, FileInterface*>::value,
+                "MultiFile provider is only intended to work with file interfaces");
+
+  std::shared_ptr<FILE> default_file_;
+  const std::string default_file_path_;
+  std::unordered_map<std::string, std::shared_ptr<FILE>> path_to_file_;
+  util::Mutex file_creation_lock_;
+  FileMode::type mode_;
+  bool closed_ = false;
+
+ public:
+  arrow::Result<std::shared_ptr<FILE>> DefaultFile();
+
+  arrow::Result<std::shared_ptr<FILE>> ForPath(const std::string& path);
+
+  Status Close();
+
+  bool closed() const { return closed_; }
+
+  virtual ~MultiFileProvider() {}
+
+ protected:
+  const std::string base_path_;
+  arrow::MemoryPool* pool_;
+
+  MultiFileProvider(std::shared_ptr<FILE> default_file, const std::string& base_path = "",
+                    arrow::MemoryPool* pool = arrow::default_memory_pool())
+      : default_file_(std::move(default_file)),
+        default_file_path_(""),
+        mode_(default_file_->mode()),
+        base_path_(base_path),
+        pool_(pool) {}
+
+  MultiFileProvider(const std::string& default_file_path, FileMode::type mode,
+                    const std::string& base_path = "",
+                    arrow::MemoryPool* pool = arrow::default_memory_pool())
+      : default_file_path_(default_file_path),
+        mode_(mode),
+        base_path_(base_path),
+        pool_(pool) {}
+
+  virtual arrow::Result<std::shared_ptr<FILE>> OpenFile(const std::string&) = 0;
+
+  FileMode::type mode() const { return mode_; }
+
+ private:
+  ARROW_DISALLOW_COPY_AND_ASSIGN(MultiFileProvider);
+};
+
+template <class FILE>
+arrow::Result<std::shared_ptr<FILE>> MultiFileProvider<FILE>::ForPath(
+    const std::string& path) {
+  auto lock = file_creation_lock_.Lock();
+  auto file_for_path_it = path_to_file_.find(path);
+  if (file_for_path_it != path_to_file_.end()) {
+    return arrow::ToResult(file_for_path_it->second);
+  } else {
+    ARROW_ASSIGN_OR_RAISE(auto new_file, OpenFile(path));
+    path_to_file_.emplace(path, new_file);
+    return arrow::ToResult(new_file);
+  }
+}
+
+template <class FILE>
+arrow::Result<std::shared_ptr<FILE>> MultiFileProvider<FILE>::DefaultFile() {
+  auto lock = file_creation_lock_.Lock();
+  if (!default_file_) {
+    auto result = OpenFile(default_file_path_);
+    if (result.ok()) {
+      default_file_ = result.MoveValueUnsafe();
+    } else {
+      return result;
+    }
+  }
+  return arrow::ToResult(default_file_);
+}
+
+template <class FILE>
+Status MultiFileProvider<FILE>::Close() {
+  auto lock = file_creation_lock_.Lock();
+  if (!closed_) {
+    closed_ = true;
+    if (default_file_) {
+      ARROW_RETURN_NOT_OK(default_file_->Close());
+    }
+    for (const auto& sub_file : path_to_file_) {
+      ARROW_RETURN_NOT_OK(sub_file.second->Close());
+    }
+  }
+  return Status::OK();
+}
 
 /// \brief Return an iterator on an input stream
 ///

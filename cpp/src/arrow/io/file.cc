@@ -45,11 +45,10 @@
 // ----------------------------------------------------------------------
 // Other Arrow includes
 
+#include "arrow/buffer.h"
 #include "arrow/io/file.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/util_internal.h"
-
-#include "arrow/buffer.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/util/future.h"
@@ -770,6 +769,29 @@ Status MemoryMappedFile::Resize(int64_t new_size) {
 }
 
 int MemoryMappedFile::file_descriptor() const { return memory_map_->fd(); }
+
+arrow::Result<std::shared_ptr<RandomAccessFile>> MultiReadableFile::OpenFile(
+    const std::string& path) {
+  auto result = ReadableFile::Open(base_path_ + path, pool_);
+  if (result.ok()) {
+    return arrow::ToResult(
+        std::static_pointer_cast<RandomAccessFile>(result.MoveValueUnsafe()));
+  }
+  return {result.status()};
+}
+
+std::string parent_path(const std::string& file_path) {
+  auto pos = file_path.find_last_of("/");
+  if (pos == std::string::npos) {
+    return "";
+  }
+  return file_path.substr(0, pos);
+}
+
+MultiReadableFile::MultiReadableFile(const std::string& default_file_path,
+                                     MemoryPool* pool)
+    : MultiFileProvider(default_file_path, FileMode::READ, parent_path(default_file_path),
+                        pool) {}
 
 }  // namespace io
 }  // namespace arrow

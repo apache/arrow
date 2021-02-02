@@ -273,11 +273,20 @@ class FileSerializer : public ParquetFileWriter::Contents {
     return result;
   }
 
-  void Close() override {
+  void Snapshot(const std::string& data_path,
+                std::shared_ptr<::arrow::io::OutputStream>& sink) override {
+    FlushFileMeta(sink, data_path, false);
+  }
+
+  void Close() override { FlushFileMeta(sink_); }
+  void FlushFileMeta(std::shared_ptr<::arrow::io::OutputStream>& sink,
+                     const std::string& data_path = "", bool finish = true) {
     if (is_open_) {
       // If any functions here raise an exception, we set is_open_ to be false
       // so that this does not get called again (possibly causing segfault)
-      is_open_ = false;
+      if (finish) {
+        is_open_ = false;
+      }
       if (row_group_writer_) {
         num_rows_ += row_group_writer_->num_rows();
         row_group_writer_->Close();
@@ -288,9 +297,12 @@ class FileSerializer : public ParquetFileWriter::Contents {
       auto file_encryption_properties = properties_->file_encryption_properties();
 
       if (file_encryption_properties == nullptr) {  // Non encrypted file.
-        file_metadata_ = metadata_->Finish();
-        WriteFileMetaData(*file_metadata_, sink_.get());
+        file_metadata_ = metadata_->ToFileMetadata(finish, data_path);
+        WriteFileMetaData(*file_metadata_, sink.get());
       } else {  // Encrypted file
+        if (!finish) {
+          throw ParquetException("Snapshot not supported for an encrypted file");
+        }
         CloseEncryptedFile(file_encryption_properties);
       }
     }
@@ -546,6 +558,13 @@ const std::shared_ptr<FileMetaData> ParquetFileWriter::metadata() const {
 
 void ParquetFileWriter::Open(std::unique_ptr<ParquetFileWriter::Contents> contents) {
   contents_ = std::move(contents);
+}
+
+void ParquetFileWriter::Snapshot(const std::string& data_path,
+                                 std::shared_ptr<::arrow::io::OutputStream>& sink) {
+  if (contents_) {
+    contents_->Snapshot(data_path, sink);
+  }
 }
 
 void ParquetFileWriter::Close() {

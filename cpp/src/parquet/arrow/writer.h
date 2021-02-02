@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <arrow/status.h>
+
 #include <cstdint>
 #include <memory>
 
@@ -76,6 +78,8 @@ class PARQUET_EXPORT FileWriter {
 
   virtual ::arrow::Status WriteColumnChunk(
       const std::shared_ptr<::arrow::ChunkedArray>& data) = 0;
+  virtual ::arrow::Status Snapshot(const std::string& data_path,
+                                   std::shared_ptr<::arrow::io::OutputStream> sink) = 0;
   virtual ::arrow::Status Close() = 0;
   virtual ~FileWriter();
 

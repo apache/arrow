@@ -100,6 +100,7 @@ using MutableBuffer = ::arrow::MutableBuffer;
 using ResizableBuffer = ::arrow::ResizableBuffer;
 using ResizableBuffer = ::arrow::ResizableBuffer;
 using ArrowInputFile = ::arrow::io::RandomAccessFile;
+using ArrowMultiInputFile = ::arrow::io::MultiFileProvider<::arrow::io::RandomAccessFile>;
 using ArrowInputStream = ::arrow::io::InputStream;
 using ArrowOutputStream = ::arrow::io::OutputStream;
 using string_view = ::arrow::util::string_view;
