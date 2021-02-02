@@ -176,6 +176,14 @@ fn naive_datetime_to_timestamp(s: &str, datetime: NaiveDateTime) -> Result<i64> 
     }
 }
 
+// given a function `op` that maps a `&str` to a Result of an arrow native type,
+// returns a `PrimitiveArray` after the application
+// of the function to `args[0]`.
+/// # Errors
+/// This function errors iff:
+/// * the number of arguments is not 1 or
+/// * the first argument is not castable to a `GenericStringArray` or
+/// * the function `op` errors
 pub(crate) fn unary_string_to_primitive_function<'a, T, O, F>(
     args: &[&'a dyn Array],
     op: F,
@@ -197,12 +205,17 @@ where
     let array = args[0]
         .as_any()
         .downcast_ref::<GenericStringArray<T>>()
-        .unwrap();
+        .ok_or_else(|| {
+            DataFusionError::Internal("failed to downcast to string".to_string())
+        })?;
 
     // first map is the iterator, second is for the `Option<_>`
     array.iter().map(|x| x.map(|x| op(x)).transpose()).collect()
 }
 
+// given an function that maps a `&str` to a arrow native type,
+// returns a `ColumnarValue` where the function is applied to either a `ArrayRef` or `ScalarValue`
+// depending on the `args`'s variant.
 fn handle<'a, O, F, S>(
     args: &'a [ColumnarValue],
     op: F,
@@ -229,11 +242,11 @@ where
         ColumnarValue::Scalar(scalar) => match scalar {
             ScalarValue::Utf8(a) => {
                 let result = a.as_ref().map(|x| (op)(x)).transpose()?;
-                Ok(ColumnarValue::Scalar(S::into_scalar(result)))
+                Ok(ColumnarValue::Scalar(S::scalar(result)))
             }
             ScalarValue::LargeUtf8(a) => {
                 let result = a.as_ref().map(|x| (op)(x)).transpose()?;
-                Ok(ColumnarValue::Scalar(S::into_scalar(result)))
+                Ok(ColumnarValue::Scalar(S::scalar(result)))
             }
             other => Err(DataFusionError::Internal(format!(
                 "Unsupported data type {:?} for function {}",

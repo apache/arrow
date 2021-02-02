@@ -30,7 +30,7 @@ use crate::{
     scalar::ScalarValue,
 };
 use arrow::{
-    array::{Array, GenericBinaryArray, GenericStringArray, StringOffsetSizeTrait},
+    array::{Array, BinaryArray, GenericStringArray, StringOffsetSizeTrait},
     datatypes::DataType,
 };
 
@@ -58,11 +58,15 @@ fn sha_process<D: SHA2Digest + Default>(input: &str) -> SHA2DigestOutput<D> {
     digest.finalize()
 }
 
+/// # Errors
+/// This function errors when:
+/// * the number of arguments is not 1
+/// * the first argument is not castable to a `GenericStringArray`
 fn unary_binary_function<T, R, F>(
     args: &[&dyn Array],
     op: F,
     name: &str,
-) -> Result<GenericBinaryArray<i32>>
+) -> Result<BinaryArray>
 where
     R: AsRef<[u8]>,
     T: StringOffsetSizeTrait,
@@ -79,7 +83,9 @@ where
     let array = args[0]
         .as_any()
         .downcast_ref::<GenericStringArray<T>>()
-        .unwrap();
+        .ok_or_else(|| {
+            DataFusionError::Internal("failed to downcast to string".to_string())
+        })?;
 
     // first map is the iterator, second is for the `Option<_>`
     Ok(array.iter().map(|x| x.map(|x| op(x))).collect())
@@ -111,8 +117,8 @@ where
                 )?)))
             }
             other => Err(DataFusionError::Internal(format!(
-                "Unsupported data type {:?} for function md5",
-                other,
+                "Unsupported data type {:?} for function {}",
+                other, name,
             ))),
         },
         ColumnarValue::Scalar(scalar) => match scalar {
@@ -125,8 +131,8 @@ where
                 Ok(ColumnarValue::Scalar(ScalarValue::Binary(result)))
             }
             other => Err(DataFusionError::Internal(format!(
-                "Unsupported data type {:?} for function md5",
-                other,
+                "Unsupported data type {:?} for function {}",
+                other, name,
             ))),
         },
     }
