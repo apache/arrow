@@ -1355,35 +1355,40 @@ mod tests {
         run_query(1).await
     }
 
-    // #[tokio::test]
-    // async fn run_q3() -> Result<()> {
-    //     run_query(3).await
-    // }
+    #[tokio::test]
+    #[ignore]
+    async fn run_q3() -> Result<()> {
+        run_query(3).await
+    }
 
-    // #[tokio::test]
-    // async fn run_q5() -> Result<()> {
-    //     run_query(5).await
-    // }
+    #[tokio::test]
+    #[ignore]
+    async fn run_q5() -> Result<()> {
+        run_query(5).await
+    }
 
     #[tokio::test]
     async fn run_q6() -> Result<()> {
         run_query(6).await
     }
 
-    // #[tokio::test]
-    // async fn run_q10() -> Result<()> {
-    //     run_query(10).await
-    // }
+    #[tokio::test]
+    #[ignore]
+    async fn run_q10() -> Result<()> {
+        run_query(10).await
+    }
 
-    // #[tokio::test]
-    // async fn run_q12() -> Result<()> {
-    //     run_query(12).await
-    // }
+    #[tokio::test]
+    #[ignore]
+    async fn run_q12() -> Result<()> {
+        run_query(12).await
+    }
 
-    // #[tokio::test]
-    // async fn run_q14() -> Result<()> {
-    //     run_query(14).await
-    // }
+    #[tokio::test]
+    #[ignore]
+    async fn run_q14() -> Result<()> {
+        run_query(14).await
+    }
 
     /// Specialised String representation
     fn col_str(column: &ArrayRef, row_index: usize) -> String {
