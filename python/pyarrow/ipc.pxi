@@ -124,6 +124,14 @@ cdef class IpcWriteOptions(_Weakrefable):
         self.emit_dictionary_deltas = emit_dictionary_deltas
 
     @property
+    def allow_64bit(self):
+        return self.c_options.allow_64bit
+
+    @allow_64bit.setter
+    def allow_64bit(self, bint value):
+        self.c_options.allow_64bit = value
+
+    @property
     def use_legacy_format(self):
         return self.c_options.write_legacy_ipc_format
 
