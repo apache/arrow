@@ -136,7 +136,8 @@ mod tests {
 
     #[test]
     fn test_temporal_array_time64_micro_hour() {
-        let a: PrimitiveArray<Time64MicrosecondType> = vec![37800000000, 86339000000].into();
+        let a: PrimitiveArray<Time64MicrosecondType> =
+            vec![37800000000, 86339000000].into();
 
         let b = hour(&a).unwrap();
         assert_eq!(10, b.value(0));
