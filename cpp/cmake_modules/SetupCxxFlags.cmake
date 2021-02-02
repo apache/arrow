@@ -410,6 +410,10 @@ endif(BUILD_WARNING_FLAGS)
 
 # Only enable additional instruction sets if they are supported
 if(ARROW_CPU_FLAG STREQUAL "x86")
+  if(MINGW)
+    # Enable _xgetbv() intrinsic to query OS support for ZMM register saves
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -mxsave")
+  endif()
   if(ARROW_SIMD_LEVEL STREQUAL "AVX512")
     if(NOT CXX_SUPPORTS_AVX512)
       message(FATAL_ERROR "AVX512 required but compiler doesn't support it.")
