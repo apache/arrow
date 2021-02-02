@@ -760,10 +760,8 @@ macro(build_boost)
       )
     set(BOOST_SYSTEM_LIBRARY boost_system_static)
     set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
-    set(BOOST_REGEX_LIBRARY boost_regex_static)
     set(BOOST_BUILD_PRODUCTS ${BOOST_STATIC_SYSTEM_LIBRARY}
-                             ${BOOST_STATIC_FILESYSTEM_LIBRARY}
-                             ${BOOST_STATIC_REGEX_LIBRARY})
+                             ${BOOST_STATIC_FILESYSTEM_LIBRARY})
 
     add_thirdparty_lib(boost_system STATIC_LIB "${BOOST_STATIC_SYSTEM_LIBRARY}")
 
@@ -854,13 +852,6 @@ else()
   set(THRIFT_REQUIRES_BOOST FALSE)
 endif()
 
-# Parquet requires boost only with gcc 4.8 (because of missing std::regex).
-if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "4.9")
-  set(PARQUET_REQUIRES_BOOST TRUE)
-else()
-  set(PARQUET_REQUIRES_BOOST FALSE)
-endif()
-
 # Compilers that don't support int128_t have a compile-time
 # (header-only) dependency on Boost for int128_t.
 if(ARROW_USE_UBSAN)
@@ -878,8 +869,7 @@ endif()
 if(ARROW_BUILD_INTEGRATION
    OR ARROW_BUILD_TESTS
    OR (ARROW_FLIGHT AND ARROW_BUILD_BENCHMARKS)
-   OR (ARROW_S3 AND ARROW_BUILD_BENCHMARKS)
-   OR (ARROW_PARQUET AND PARQUET_REQUIRES_BOOST))
+   OR (ARROW_S3 AND ARROW_BUILD_BENCHMARKS))
   set(ARROW_BOOST_REQUIRED TRUE)
   set(ARROW_BOOST_REQUIRE_LIBRARY TRUE)
 elseif(ARROW_GANDIVA
@@ -904,15 +894,12 @@ if(ARROW_BOOST_REQUIRED)
   if(TARGET Boost::system)
     set(BOOST_SYSTEM_LIBRARY Boost::system)
     set(BOOST_FILESYSTEM_LIBRARY Boost::filesystem)
-    set(BOOST_REGEX_LIBRARY Boost::regex)
   elseif(BoostAlt_FOUND)
     set(BOOST_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY})
     set(BOOST_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY})
-    set(BOOST_REGEX_LIBRARY ${Boost_REGEX_LIBRARY})
   else()
     set(BOOST_SYSTEM_LIBRARY boost_system_static)
     set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
-    set(BOOST_REGEX_LIBRARY boost_regex_static)
   endif()
   set(ARROW_BOOST_LIBS ${BOOST_SYSTEM_LIBRARY} ${BOOST_FILESYSTEM_LIBRARY})
 
