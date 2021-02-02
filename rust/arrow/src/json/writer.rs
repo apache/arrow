@@ -143,6 +143,13 @@ pub fn array_to_json_array(array: &ArrayRef) -> Vec<Value> {
                 None => Value::Null,
             })
             .collect(),
+        DataType::LargeList(_) => as_large_list_array(array)
+            .iter()
+            .map(|maybe_value| match maybe_value {
+                Some(v) => Value::Array(array_to_json_array(&v)),
+                None => Value::Null,
+            })
+            .collect(),
         DataType::Struct(_) => {
             let jsonmaps =
                 struct_array_to_jsonmap_array(as_struct_array(array), array.len());
@@ -247,6 +254,20 @@ fn set_column_for_json_rows(
         }
         DataType::List(_) => {
             let listarr = as_list_array(array);
+            rows.iter_mut()
+                .zip(listarr.iter())
+                .take(row_count)
+                .for_each(|(row, maybe_value)| {
+                    if let Some(v) = maybe_value {
+                        row.insert(
+                            col_name.to_string(),
+                            Value::Array(array_to_json_array(&v)),
+                        );
+                    }
+                });
+        }
+        DataType::LargeList(_) => {
+            let listarr = as_large_list_array(array);
             rows.iter_mut()
                 .zip(listarr.iter())
                 .take(row_count)
