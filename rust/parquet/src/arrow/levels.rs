@@ -188,7 +188,7 @@ impl LevelInfo {
                     | DataType::LargeBinary
                     | DataType::Utf8
                     | DataType::LargeUtf8
-                    | DataType::Dictionary(_, _) 
+                    | DataType::Dictionary(_, _)
                     | DataType::Decimal(_, _) => {
                         vec![list_level.calculate_child_levels(
                             child_offsets,
