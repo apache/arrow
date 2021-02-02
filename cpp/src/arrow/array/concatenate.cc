@@ -287,7 +287,6 @@ class ConcatenateImpl {
       const auto& data = in_[i];
       auto transpose_map =
           reinterpret_cast<const int32_t*>(index_transpositions[i]->data());
-      auto src = data->GetValues<uint8_t>(1, 0);
       RETURN_NOT_OK(internal::TransposeInts(index_type, index_type,
                                             /*src=*/data->GetValues<uint8_t>(1, 0),
                                             /*dest=*/out_data,
