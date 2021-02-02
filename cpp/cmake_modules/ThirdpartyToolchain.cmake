@@ -2340,6 +2340,7 @@ macro(build_grpc)
       spinlock_wait
       stacktrace
       status
+      statusor
       str_format_internal
       strings
       strings_internal
