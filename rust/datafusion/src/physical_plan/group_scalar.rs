@@ -40,6 +40,7 @@ pub(crate) enum GroupByScalar {
     Boolean(bool),
     TimeMicrosecond(i64),
     TimeNanosecond(i64),
+    Date32(i32),
 }
 
 impl TryFrom<&ScalarValue> for GroupByScalar {
@@ -107,6 +108,7 @@ impl From<&GroupByScalar> for ScalarValue {
             GroupByScalar::Utf8(v) => ScalarValue::Utf8(Some(v.to_string())),
             GroupByScalar::TimeMicrosecond(v) => ScalarValue::TimeMicrosecond(Some(*v)),
             GroupByScalar::TimeNanosecond(v) => ScalarValue::TimeNanosecond(Some(*v)),
+            GroupByScalar::Date32(v) => ScalarValue::Date32(Some(*v)),
         }
     }
 }

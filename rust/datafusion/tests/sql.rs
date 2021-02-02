@@ -710,7 +710,8 @@ async fn csv_query_cast() -> Result<()> {
 async fn csv_query_cast_literal() -> Result<()> {
     let mut ctx = ExecutionContext::new();
     register_aggregate_csv(&mut ctx)?;
-    let sql = "SELECT c12, CAST(1 AS float) FROM aggregate_test_100 WHERE c12 > CAST(0 AS float) LIMIT 2";
+    let sql =
+        "SELECT c12, CAST(1 AS float) FROM aggregate_test_100 WHERE c12 > CAST(0 AS float) LIMIT 2";
     let actual = execute(&mut ctx, sql).await;
     let expected = vec![
         vec!["0.9294097332465232", "1"],
@@ -1123,8 +1124,7 @@ async fn equijoin() -> Result<()> {
 #[tokio::test]
 async fn left_join() -> Result<()> {
     let mut ctx = create_join_context("t1_id", "t2_id")?;
-    let sql =
-        "SELECT t1_id, t1_name, t2_name FROM t1 LEFT JOIN t2 ON t1_id = t2_id ORDER BY t1_id";
+    let sql = "SELECT t1_id, t1_name, t2_name FROM t1 LEFT JOIN t2 ON t1_id = t2_id ORDER BY t1_id";
     let actual = execute(&mut ctx, sql).await;
     let expected = vec![
         vec!["11", "a", "z"],
@@ -1896,6 +1896,46 @@ async fn csv_between_expr_negated() -> Result<()> {
     let mut actual = execute(&mut ctx, sql).await;
     actual.sort();
     let expected = vec![vec!["10837"]];
+    assert_eq!(expected, actual);
+    Ok(())
+}
+
+#[tokio::test]
+async fn csv_group_by_date() -> Result<()> {
+    let mut ctx = ExecutionContext::new();
+    let schema = Arc::new(Schema::new(vec![
+        Field::new("date", DataType::Date32, false),
+        Field::new("cnt", DataType::Int32, false),
+    ]));
+    let data = RecordBatch::try_new(
+        schema.clone(),
+        vec![
+            Arc::new(Date32Array::from(vec![
+                Some(100),
+                Some(100),
+                Some(100),
+                Some(101),
+                Some(101),
+                Some(101),
+            ])),
+            Arc::new(Int32Array::from(vec![
+                Some(1),
+                Some(2),
+                Some(3),
+                Some(3),
+                Some(3),
+                Some(3),
+            ])),
+        ],
+    )?;
+    let table = MemTable::try_new(schema, vec![vec![data]])?;
+
+    ctx.register_table("dates", Box::new(table));
+    let sql = "SELECT SUM(cnt) FROM dates GROUP BY date";
+    let actual = execute(&mut ctx, sql).await;
+    let mut actual: Vec<String> = actual.iter().flatten().cloned().collect();
+    actual.sort();
+    let expected = vec!["6", "9"];
     assert_eq!(expected, actual);
     Ok(())
 }
