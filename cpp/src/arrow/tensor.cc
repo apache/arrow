@@ -115,8 +115,11 @@ inline bool IsTensorStridesRowMajor(const std::shared_ptr<DataType>& type,
                                     const std::vector<int64_t>& strides) {
   std::vector<int64_t> c_strides;
   const auto& fw_type = checked_cast<const FixedWidthType&>(*type);
-  internal::ComputeRowMajorStrides(fw_type, shape, &c_strides);
-  return strides == c_strides;
+  if (internal::ComputeRowMajorStrides(fw_type, shape, &c_strides).ok()) {
+    return strides == c_strides;
+  } else {
+    return false;
+  }
 }
 
 inline bool IsTensorStridesColumnMajor(const std::shared_ptr<DataType>& type,
@@ -124,8 +127,11 @@ inline bool IsTensorStridesColumnMajor(const std::shared_ptr<DataType>& type,
                                        const std::vector<int64_t>& strides) {
   std::vector<int64_t> f_strides;
   const auto& fw_type = checked_cast<const FixedWidthType&>(*type);
-  internal::ComputeColumnMajorStrides(fw_type, shape, &f_strides);
-  return strides == f_strides;
+  if (internal::ComputeColumnMajorStrides(fw_type, shape, &f_strides).ok()) {
+    return strides == f_strides;
+  } else {
+    return false;
+  }
 }
 
 inline Status CheckTensorValidity(const std::shared_ptr<DataType>& type,
@@ -209,8 +215,8 @@ Tensor::Tensor(const std::shared_ptr<DataType>& type, const std::shared_ptr<Buff
     : type_(type), data_(data), shape_(shape), strides_(strides), dim_names_(dim_names) {
   ARROW_CHECK(is_tensor_supported(type->id()));
   if (shape.size() > 0 && strides.size() == 0) {
-    internal::ComputeRowMajorStrides(checked_cast<const FixedWidthType&>(*type_), shape,
-                                     &strides_);
+    ARROW_CHECK_OK(internal::ComputeRowMajorStrides(
+        checked_cast<const FixedWidthType&>(*type_), shape, &strides_));
   }
 }
 
