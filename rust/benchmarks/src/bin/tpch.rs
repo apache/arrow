@@ -1609,13 +1609,13 @@ mod tests {
             .with_batch_size(10);
         let mut ctx = ExecutionContext::with_config(config);
 
-        for &x in TABLES {
-            let schema = get_schema(x);
+        for &table in TABLES {
+            let schema = get_schema(table);
             let batch = RecordBatch::new_empty(Arc::new(schema.to_owned()));
 
             let provider = MemTable::try_new(Arc::new(schema), vec![vec![batch]])?;
 
-            ctx.register_table(x, Box::new(provider));
+            ctx.register_table(table, Box::new(provider));
         }
 
         let plan = create_logical_plan(&mut ctx, n)?;
