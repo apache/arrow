@@ -295,7 +295,7 @@ class ConcatenateImpl {
                                             transpose_map));
       out_data += data->length * index_width;
     }
-    return out;
+    return std::move(out);
   }
 
   Status Visit(const DictionaryType& d) {
@@ -345,7 +345,7 @@ class ConcatenateImpl {
   Result<BufferVector> Buffers(size_t index) {
     BufferVector buffers;
     buffers.reserve(in_.size());
-    for (const std::shared_ptr<const ArrayData>& array_data : in_) {
+    for (const auto& array_data : in_) {
       const auto& buffer = array_data->buffers[index];
       if (buffer != nullptr) {
         ARROW_ASSIGN_OR_RAISE(
@@ -387,7 +387,7 @@ class ConcatenateImpl {
   Result<BufferVector> Buffers(size_t index, int byte_width) {
     BufferVector buffers;
     buffers.reserve(in_.size());
-    for (const std::shared_ptr<const ArrayData>& array_data : in_) {
+    for (const auto& array_data : in_) {
       const auto& buffer = array_data->buffers[index];
       if (buffer != nullptr) {
         ARROW_ASSIGN_OR_RAISE(auto sliced_buffer,
