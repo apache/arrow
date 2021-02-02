@@ -67,9 +67,8 @@ class PARQUET_EXPORT ApplicationVersion {
   // Version of the application that wrote the file, expressed as
   // (<major>.<minor>.<patch>). Unmatched parts default to 0.
   // "1.2.3"    => {1, 2, 3}
-  // "1.2"      => {0, 0, 0}
-  // "1.2-cdh5" => {0, 0, 0}
-  // TODO (majetideepak): Implement support for pre_release
+  // "1.2"      => {1, 2, 0}
+  // "1.2-cdh5" => {1, 2, 0}
   struct {
     int major;
     int minor;

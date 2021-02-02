@@ -931,6 +931,8 @@ namespace {
 //   parquet-cpp version 1.5.0ab-xyz5.5.0+cd (build abcd)
 //
 // The VERSION format:
+//   "${MAJOR}"
+//   "${MAJOR}.${MINOR}"
 //   "${MAJOR}.${MINOR}.${PATCH}"
 //   "${MAJOR}.${MINOR}.${PATCH}${UNKNOWN}"
 //   "${MAJOR}.${MINOR}.${PATCH}${UNKNOWN}-${PRE_RELEASE}"
@@ -941,6 +943,8 @@ namespace {
 //   "${MAJOR}.${MINOR}.${PATCH}+${BUILD_INFO}"
 //
 // Eg:
+//   1
+//   1.5
 //   1.5.0
 //   1.5.0ab
 //   1.5.0ab-cdh5.5.0
@@ -1058,19 +1062,24 @@ class ApplicationVersionParser {
   bool ParseVersionMajor() {
     size_t version_major_start = 0;
     auto version_major_end = version_string_.find_first_not_of(digits_);
-    // No ".".
-    if (version_major_end == std::string::npos ||
-        version_string_[version_major_end] != '.') {
-      return false;
-    }
-    // No MAJOR.
-    if (version_major_end == version_major_start) {
-      return false;
+    // MAJOR only.
+    if (version_major_end == std::string::npos) {
+      version_major_end = version_string_.size();
+      version_parsing_position_ = version_major_end;
+    } else {
+      // No ".".
+      if (version_string_[version_major_end] != '.') {
+        return false;
+      }
+      // No MAJOR.
+      if (version_major_end == version_major_start) {
+        return false;
+      }
+      version_parsing_position_ = version_major_end + 1;  // +1 is for '.'.
     }
     auto version_major_string = version_string_.substr(
         version_major_start, version_major_end - version_major_start);
     application_version_.version.major = atoi(version_major_string.c_str());
-    version_parsing_position_ = version_major_end + 1;  // +1 is for '.'.
     return true;
   }
 
@@ -1078,18 +1087,24 @@ class ApplicationVersionParser {
     auto version_minor_start = version_parsing_position_;
     auto version_minor_end =
         version_string_.find_first_not_of(digits_, version_minor_start);
-    if (version_minor_end == std::string::npos ||
-        version_string_[version_minor_end] != '.') {
-      return false;
-    }
-    // No MINOR.
-    if (version_minor_end == version_minor_start) {
-      return false;
+    // MAJOR.MINOR only.
+    if (version_minor_end == std::string::npos) {
+      version_minor_end = version_string_.size();
+      version_parsing_position_ = version_minor_end;
+    } else {
+      // No ".".
+      if (version_string_[version_minor_end] != '.') {
+        return false;
+      }
+      // No MINOR.
+      if (version_minor_end == version_minor_start) {
+        return false;
+      }
+      version_parsing_position_ = version_minor_end + 1;  // +1 is for '.'.
     }
     auto version_minor_string = version_string_.substr(
         version_minor_start, version_minor_end - version_minor_start);
     application_version_.version.minor = atoi(version_minor_string.c_str());
-    version_parsing_position_ = version_minor_end + 1;  // +1 is for '.'.
     return true;
   }
 
