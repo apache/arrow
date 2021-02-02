@@ -1021,7 +1021,7 @@ class ApplicationVersionParser {
   bool ParseVersion() {
     // No VERSION.
     if (version_start_ == std::string::npos) {
-      return true;
+      return false;
     }
 
     RemovePrecedingSpaces(created_by_, version_start_, created_by_.size());
