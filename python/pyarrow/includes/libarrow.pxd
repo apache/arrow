@@ -54,8 +54,7 @@ cdef extern from "arrow/util/decimal.h" namespace "arrow" nogil:
         c_string ToString(int32_t scale) const
 
 
-cdef extern from "arrow/api.h" namespace "arrow" nogil:
-
+cdef extern from "arrow/config.h" namespace "arrow" nogil:
     cdef cppclass CBuildInfo "arrow::BuildInfo":
         int version
         int version_major
@@ -73,6 +72,14 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     const CBuildInfo& GetBuildInfo()
 
+    cdef cppclass CRuntimeInfo "arrow::RuntimeInfo":
+        c_string simd_level
+        c_string detected_simd_level
+
+    CRuntimeInfo GetRuntimeInfo()
+
+
+cdef extern from "arrow/api.h" namespace "arrow" nogil:
     enum Type" arrow::Type::type":
         _Type_NA" arrow::Type::NA"
 
