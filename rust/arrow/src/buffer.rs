@@ -1103,7 +1103,7 @@ impl MutableBuffer {
 
 impl Buffer {
     /// Creates a [`Buffer`] from an [`Iterator`] with a trusted (upper) length.
-    /// Prefer this to `collect` whenever possible, as it is faster ~60% faster.
+    /// Prefer this to `collect` whenever possible, as it is ~60% faster.
     /// # Example
     /// ```
     /// # use arrow::buffer::Buffer;
