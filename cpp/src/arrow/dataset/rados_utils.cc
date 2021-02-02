@@ -47,14 +47,13 @@ Status char_to_int64(char* buffer, int64_t& num) {
   return Status::OK();
 }
 
-Status SerializeScanRequestToBufferlist(std::shared_ptr<Expression> filter,
-                                        std::shared_ptr<Expression> part_expr,
+Status SerializeScanRequestToBufferlist(Expression filter, Expression part_expr,
                                         std::shared_ptr<Schema> projection_schema,
                                         std::shared_ptr<Schema> dataset_schema,
                                         std::shared_ptr<librados::bufferlist>& bl) {
   // serialize the filter expression's and the schema's.
-  ARROW_ASSIGN_OR_RAISE(auto filter_buffer, filter->Serialize());
-  ARROW_ASSIGN_OR_RAISE(auto part_expr_buffer, part_expr->Serialize());
+  ARROW_ASSIGN_OR_RAISE(auto filter_buffer, Serialize(filter));
+  ARROW_ASSIGN_OR_RAISE(auto part_expr_buffer, Serialize(part_expr));
   ARROW_ASSIGN_OR_RAISE(auto projection_schema_buffer,
                         ipc::SerializeSchema(*projection_schema));
   ARROW_ASSIGN_OR_RAISE(auto dataset_schema_buffer,
@@ -96,8 +95,7 @@ Status SerializeScanRequestToBufferlist(std::shared_ptr<Expression> filter,
   return Status::OK();
 }
 
-Status DeserializeScanRequestFromBufferlist(std::shared_ptr<Expression>* filter,
-                                            std::shared_ptr<Expression>* part_expr,
+Status DeserializeScanRequestFromBufferlist(Expression* filter, Expression* part_expr,
                                             std::shared_ptr<Schema>* projection_schema,
                                             std::shared_ptr<Schema>* dataset_schema,
                                             std::shared_ptr<librados::bufferlist>& bl) {
@@ -132,13 +130,13 @@ Status DeserializeScanRequestFromBufferlist(std::shared_ptr<Expression>* filter,
   char* dataset_schema_buffer = new char[dataset_schema_size];
   itr.copy(dataset_schema_size, dataset_schema_buffer);
 
-  ARROW_ASSIGN_OR_RAISE(auto filter_, Expression::Deserialize(
-                                          Buffer((uint8_t*)filter_buffer, filter_size)));
+  ARROW_ASSIGN_OR_RAISE(auto filter_, Deserialize(std::make_shared<Buffer>(
+                                          (uint8_t*)filter_buffer, filter_size)));
   *filter = filter_;
 
   ARROW_ASSIGN_OR_RAISE(
       auto part_expr_,
-      Expression::Deserialize(Buffer((uint8_t*)part_expr_buffer, part_expr_size)));
+      Deserialize(std::make_shared<Buffer>((uint8_t*)part_expr_buffer, part_expr_size)));
   *part_expr = part_expr_;
 
   ipc::DictionaryMemo empty_memo;

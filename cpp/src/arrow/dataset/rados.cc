@@ -37,9 +37,9 @@ int IoCtxWrapper::exec(const std::string& oid, const char* cls, const char* meth
   return this->ioCtx->exec(oid, cls, method, in, out);
 }
 
-int IoCtxWrapper::stat(const std::string& oid, uint64_t *psize) {
+int IoCtxWrapper::stat(const std::string& oid, uint64_t* psize) {
   return this->ioCtx->stat(oid, psize, NULL);
-};
+}
 
 std::vector<std::string> IoCtxWrapper::list() {
   std::vector<std::string> oids;

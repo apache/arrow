@@ -173,13 +173,14 @@ class ARROW_DS_EXPORT RadosFileSystem : public fs::LocalFileSystem {
     return Status::OK();
   }
 
-  Status Read(const std::string &path, std::shared_ptr<Buffer> &buffer, int64_t position, int64_t nbytes) {
+  Status Read(const std::string& path, std::shared_ptr<Buffer>& buffer, int64_t position,
+              int64_t nbytes) {
     librados::bufferlist bl;
     int fd = ceph_open(cmount_, path.c_str(), O_RDWR, 0777);
     if (fd < 0)
       return Status::IOError("libcephfs::ceph_open returned negative file descriptor.");
-    
-    char *buff = new char[nbytes];
+
+    char* buff = new char[nbytes];
     int num_bytes_read = ceph_read(cmount_, fd, buff, nbytes, position);
     if (num_bytes_read < 0) {
       return Status::IOError("libcephfs::ceph_read returned negative number of bytes.");
@@ -187,13 +188,13 @@ class ARROW_DS_EXPORT RadosFileSystem : public fs::LocalFileSystem {
 
     buffer = std::make_shared<Buffer>((uint8_t*)buff, nbytes);
 
-    if (ceph_close(cmount_, fd)) 
+    if (ceph_close(cmount_, fd))
       return Status::IOError("libcephfs::ceph_close returned non-zero exit code.");
 
     return Status::OK();
   }
 
-  Status GetSize(const std::string &path, uint64_t &size) {
+  Status GetSize(const std::string& path, uint64_t& size) {
     struct ceph_statx stx;
     if (ceph_statx(cmount_, path.c_str(), &stx, CEPH_STATX_ALL_STATS, 0))
       return Status::IOError("libcephfs::ceph_statx failed");
@@ -261,7 +262,7 @@ class ARROW_DS_EXPORT RadosFragment : public Fragment {
  public:
   RadosFragment(std::shared_ptr<Schema> schema, std::string path,
                 std::shared_ptr<RadosFileSystem> filesystem,
-                std::shared_ptr<Expression> partition_expression = scalar(true))
+                Expression partition_expression = literal(true))
       : Fragment(partition_expression, std::move(schema)),
         path_(std::move(path)),
         filesystem_(std::move(filesystem)) {}
@@ -293,6 +294,7 @@ class ARROW_DS_EXPORT RadosDataset : public Dataset {
 
   Result<std::shared_ptr<Dataset>> ReplaceSchema(
       std::shared_ptr<Schema> schema) const override;
+
  protected:
   RadosDataset(std::shared_ptr<Schema> schema, RadosFragmentVector fragments,
                std::shared_ptr<RadosFileSystem> filesystem)
@@ -300,8 +302,8 @@ class ARROW_DS_EXPORT RadosDataset : public Dataset {
         fragments_(fragments),
         filesystem_(std::move(filesystem)) {}
 
-  FragmentIterator GetFragmentsImpl(
-      std::shared_ptr<Expression> predicate = scalar(true)) override;
+  Result<FragmentIterator> GetFragmentsImpl(
+      Expression predicate = literal(true)) override;
   RadosFragmentVector fragments_;
   std::shared_ptr<RadosFileSystem> filesystem_;
 };
@@ -344,7 +346,7 @@ class ARROW_DS_EXPORT RadosDatasetFactory : public DatasetFactory {
 
 class CephFSParquetWriter {
  public:
-  CephFSParquetWriter(std::shared_ptr<RadosFileSystem> filesystem)
+  explicit CephFSParquetWriter(std::shared_ptr<RadosFileSystem> filesystem)
       : filesystem_(std::move(filesystem)) {}
 
   Status WriteTable(std::shared_ptr<Table> table, std::string path) {
@@ -368,9 +370,10 @@ class CephFSParquetWriter {
 
 class ARROW_DS_EXPORT ObjectInputFile : public arrow::io::RandomAccessFile {
  public:
-  explicit ObjectInputFile(std::shared_ptr<RadosFileSystem> filesystem, std::string &path)
-    : filesystem_(std::move(filesystem)),
-      path_(path) {Init();}
+  explicit ObjectInputFile(std::shared_ptr<RadosFileSystem> filesystem, std::string& path)
+      : filesystem_(std::move(filesystem)), path_(path) {
+    Init();
+  }
 
   arrow::Status Init() {
     uint64_t size;
@@ -399,8 +402,8 @@ class ARROW_DS_EXPORT ObjectInputFile : public arrow::io::RandomAccessFile {
   arrow::Result<int64_t> ReadAt(int64_t position, int64_t nbytes, void* out) { return 0; }
 
   arrow::Result<std::shared_ptr<arrow::Buffer>> ReadAt(int64_t position, int64_t nbytes) {
-    RETURN_NOT_OK(CheckClosed());
-    RETURN_NOT_OK(CheckPosition(position, "read"));
+    ARROW_RETURN_NOT_OK(CheckClosed());
+    ARROW_RETURN_NOT_OK(CheckPosition(position, "read"));
 
     // No need to allocate more than the remaining number of bytes
     nbytes = std::min(nbytes, content_length_ - position);
@@ -426,20 +429,20 @@ class ARROW_DS_EXPORT ObjectInputFile : public arrow::io::RandomAccessFile {
   }
 
   arrow::Result<int64_t> GetSize() {
-    RETURN_NOT_OK(CheckClosed());
+    ARROW_RETURN_NOT_OK(CheckClosed());
     return content_length_;
   }
 
   arrow::Status Seek(int64_t position) {
-    RETURN_NOT_OK(CheckClosed());
-    RETURN_NOT_OK(CheckPosition(position, "seek"));
+    ARROW_RETURN_NOT_OK(CheckClosed());
+    ARROW_RETURN_NOT_OK(CheckPosition(position, "seek"));
 
     pos_ = position;
     return arrow::Status::OK();
   }
 
   arrow::Result<int64_t> Tell() const {
-    RETURN_NOT_OK(CheckClosed());
+    ARROW_RETURN_NOT_OK(CheckClosed());
     return pos_;
   }
 

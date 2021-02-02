@@ -57,7 +57,7 @@ class ARROW_DS_EXPORT IoCtxInterface {
 
   virtual std::vector<std::string> list() = 0;
 
-  virtual int stat(const std::string& oid, uint64_t *psize) = 0;
+  virtual int stat(const std::string& oid, uint64_t* psize) = 0;
 
  private:
   friend class RadosWrapper;
@@ -76,7 +76,7 @@ class ARROW_DS_EXPORT IoCtxWrapper : public IoCtxInterface {
            librados::bufferlist& in, librados::bufferlist& out) override;
   std::vector<std::string> list() override;
 
-  int stat(const std::string& oid, uint64_t *psize) override;
+  int stat(const std::string& oid, uint64_t* psize) override;
 
  private:
   void setIoCtx(librados::IoCtx* ioCtx_) override { *ioCtx = *ioCtx_; }

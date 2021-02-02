@@ -22,7 +22,7 @@
 #include <utility>
 
 #include "arrow/dataset/dataset_internal.h"
-#include "arrow/dataset/filter.h"
+#include "arrow/dataset/expression.h"
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/table.h"
@@ -115,11 +115,13 @@ Result<std::shared_ptr<Dataset>> RadosDataset::Make(
   return std::shared_ptr<Dataset>(new RadosDataset(schema, fragments, filesystem));
 }
 
-FragmentIterator RadosDataset::GetFragmentsImpl(std::shared_ptr<Expression> predicate) {
+Result<FragmentIterator> RadosDataset::GetFragmentsImpl(Expression predicate) {
   FragmentVector fragments;
   for (const auto& fragment : fragments_) {
-    bool satisfies = predicate->IsSatisfiableWith(fragment->partition_expression());
-    if (satisfies) {
+    ARROW_ASSIGN_OR_RAISE(
+        auto simplified,
+        SimplifyWithGuarantee(predicate, fragment->partition_expression()));
+    if (simplified.IsSatisfiable()) {
       fragments.push_back(fragment);
     }
   }
