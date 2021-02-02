@@ -49,7 +49,7 @@ ARROW_PROTOBUF_BUILD_VERSION=v3.14.0
 # a pre-release version of RapidJSON to build with GCC 8 without
 # warnings.
 ARROW_RAPIDJSON_BUILD_VERSION=1a803826f1197b5e30703afe4b9c0e7dd48074f5
-ARROW_RE2_BUILD_VERSION=2020-11-01
+ARROW_RE2_BUILD_VERSION=2019-08-01
 ARROW_SNAPPY_BUILD_VERSION=1.1.8
 # We can't upgrade to thrift 0.13 because it requires cmake 3.10 and we support
 # older than that (ARROW-8049, THRIFT-5137)
