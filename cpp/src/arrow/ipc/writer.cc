@@ -1002,14 +1002,13 @@ class ARROW_EXPORT IpcFormatWriter : public RecordBatchWriter {
   }
 
   Status WriteTable(const Table& table, int64_t max_chunksize) override {
-    std::shared_ptr<Table> owned_table;
-    const Table* table_ptr = &table;
     if (is_file_format_ && options_.unify_dictionaries) {
-      ARROW_ASSIGN_OR_RAISE(owned_table,
+      ARROW_ASSIGN_OR_RAISE(auto unified_table,
                             DictionaryUnifier::UnifyTable(table, options_.memory_pool));
-      table_ptr = owned_table.get();
+      return RecordBatchWriter::WriteTable(*unified_table, max_chunksize);
+    } else {
+      return RecordBatchWriter::WriteTable(table, max_chunksize);
     }
-    return RecordBatchWriter::WriteTable(*table_ptr, max_chunksize);
   }
 
   Status Close() override {

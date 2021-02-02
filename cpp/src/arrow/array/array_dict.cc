@@ -337,8 +337,8 @@ struct RecursiveUnifier {
   MemoryPool* pool;
 
   // Return true if any of the arrays was changed (including descendents)
-  Result<bool> Unify(std::shared_ptr<DataType> type, ArrayDataVector* arrays) {
-    DCHECK(!arrays->empty());
+  Result<bool> Unify(std::shared_ptr<DataType> type, ArrayDataVector* chunks) {
+    DCHECK(!chunks->empty());
     bool changed = false;
     std::shared_ptr<DataType> ext_type = nullptr;
 
@@ -349,9 +349,9 @@ struct RecursiveUnifier {
 
     // Unify all child dictionaries (if any)
     if (type->num_fields() > 0) {
-      ArrayDataVector children(arrays->size());
+      ArrayDataVector children(chunks->size());
       for (int i = 0; i < type->num_fields(); ++i) {
-        std::transform(arrays->begin(), arrays->end(), children.begin(),
+        std::transform(chunks->begin(), chunks->end(), children.begin(),
                        [i](const std::shared_ptr<ArrayData>& array) {
                          return array->child_data[i];
                        });
@@ -359,8 +359,8 @@ struct RecursiveUnifier {
                               Unify(type->field(i)->type(), &children));
         if (child_changed) {
           // Only do this when unification actually occurred
-          for (size_t j = 0; j < arrays->size(); ++j) {
-            (*arrays)[j]->child_data[i] = std::move(children[j]);
+          for (size_t j = 0; j < chunks->size(); ++j) {
+            (*chunks)[j]->child_data[i] = std::move(children[j]);
           }
           changed = true;
         }
@@ -376,23 +376,22 @@ struct RecursiveUnifier {
       ARROW_ASSIGN_OR_RAISE(auto unifier,
                             DictionaryUnifier::Make(dict_type.value_type(), this->pool));
       // Unify all dictionary array chunks
-      BufferVector transpose_maps(arrays->size());
-      for (size_t j = 0; j < arrays->size(); ++j) {
-        DCHECK_NE((*arrays)[j]->dictionary, nullptr);
-        // XXX should be able to pass ArrayData directly?
+      BufferVector transpose_maps(chunks->size());
+      for (size_t j = 0; j < chunks->size(); ++j) {
+        DCHECK_NE((*chunks)[j]->dictionary, nullptr);
         RETURN_NOT_OK(
-            unifier->Unify(*MakeArray((*arrays)[j]->dictionary), &transpose_maps[j]));
+            unifier->Unify(*MakeArray((*chunks)[j]->dictionary), &transpose_maps[j]));
       }
       std::shared_ptr<Array> dictionary;
       RETURN_NOT_OK(unifier->GetResultWithIndexType(dict_type.index_type(), &dictionary));
-      for (size_t j = 0; j < arrays->size(); ++j) {
+      for (size_t j = 0; j < chunks->size(); ++j) {
         ARROW_ASSIGN_OR_RAISE(
-            (*arrays)[j],
+            (*chunks)[j],
             TransposeDictIndices(
-                (*arrays)[j], type, type, dictionary->data(),
+                (*chunks)[j], type, type, dictionary->data(),
                 reinterpret_cast<const int32_t*>(transpose_maps[j]->data()), this->pool));
         if (ext_type) {
-          (*arrays)[j]->type = ext_type;
+          (*chunks)[j]->type = ext_type;
         }
       }
       changed = true;

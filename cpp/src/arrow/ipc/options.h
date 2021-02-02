@@ -86,16 +86,16 @@ struct ARROW_EXPORT IpcWriteOptions {
 
   /// \brief Whether to unify dictionaries for the IPC file format
   ///
-  /// The IPC file format doesn't support dictionary replacements and deltas.
-  /// Therefore, each field with a dictionary type must have the same dictionary
-  /// values for every record batch.
+  /// The IPC file format doesn't support dictionary replacements or deltas.
+  /// Therefore, chunks of a column with a dictionary type must have the same
+  /// dictionary in each record batch.
   ///
   /// If this option is true, RecordBatchWriter::WriteTable will attempt
-  /// to unify dictionaries accross each table column.  If this option is
-  /// false, unequal dictionaries accross a table column will simply raise
+  /// to unify dictionaries across each table column.  If this option is
+  /// false, unequal dictionaries across a table column will simply raise
   /// an error.
   ///
-  /// Note that enabling this option has a runtime cost; also, not all types
+  /// Note that enabling this option has a runtime cost. Also, not all types
   /// currently support dictionary unification.
   ///
   /// This option is ignored for IPC streams, which support dictionary replacement

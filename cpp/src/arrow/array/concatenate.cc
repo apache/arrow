@@ -165,49 +165,9 @@ Status PutOffsets(const std::shared_ptr<Buffer>& src, Offset first_offset, Offse
   return Status::OK();
 }
 
-struct DictionaryConcatenate {
-  DictionaryConcatenate(BufferVector& index_buffers, BufferVector& index_lookup,
-                        MemoryPool* pool)
-      : out_(nullptr),
-        index_buffers_(index_buffers),
-        index_lookup_(index_lookup),
-        pool_(pool) {}
-
-  template <typename T>
-  enable_if_t<!is_integer_type<T>::value, Status> Visit(const T& t) {
-    return Status::Invalid("Dictionary indices must be integral types");
-  }
-
-  template <typename T, typename CType = typename T::c_type>
-  enable_if_integer<T, Status> Visit(const T& index_type) {
-    int64_t out_length = 0;
-    for (const auto& buffer : index_buffers_) {
-      out_length += buffer->size();
-    }
-    ARROW_ASSIGN_OR_RAISE(out_, AllocateBuffer(out_length, pool_));
-    CType* out_data = reinterpret_cast<CType*>(out_->mutable_data());
-    for (size_t i = 0; i < index_buffers_.size(); i++) {
-      const auto& buffer = index_buffers_[i];
-      auto size = buffer->size() / sizeof(CType);
-      auto old_indices = reinterpret_cast<const CType*>(buffer->data());
-      auto indices_map = reinterpret_cast<const int32_t*>(index_lookup_[i]->data());
-      // XXX use non-template TransposeInts?
-      internal::TransposeInts(old_indices, out_data, size, indices_map);
-      out_data += size;
-    }
-    return Status::OK();
-  }
-
-  std::shared_ptr<Buffer> out_;
-  const BufferVector& index_buffers_;
-  const BufferVector& index_lookup_;
-  MemoryPool* pool_;
-};
-
 class ConcatenateImpl {
  public:
-  ConcatenateImpl(const std::vector<std::shared_ptr<const ArrayData>>& in,
-                  MemoryPool* pool)
+  ConcatenateImpl(const ArrayDataVector& in, MemoryPool* pool)
       : in_(std::move(in)), pool_(pool), out_(std::make_shared<ArrayData>()) {
     out_->type = in[0]->type;
     for (size_t i = 0; i < in_.size(); ++i) {
@@ -311,6 +271,34 @@ class ConcatenateImpl {
     return new_index_lookup;
   }
 
+  // Transpose and concatenate dictionary indices
+  Result<std::shared_ptr<Buffer>> ConcatenateDictionaryIndices(
+      const DataType& index_type, const BufferVector& index_transpositions,
+      MemoryPool* pool) {
+    const auto index_width =
+        internal::checked_cast<const FixedWidthType&>(index_type).bit_width() / 8;
+    int64_t out_length = 0;
+    for (const auto& data : in_) {
+      out_length += data->length;
+    }
+    ARROW_ASSIGN_OR_RAISE(auto out, AllocateBuffer(out_length * index_width, pool));
+    uint8_t* out_data = out->mutable_data();
+    for (size_t i = 0; i < in_.size(); i++) {
+      const auto& data = in_[i];
+      auto transpose_map =
+          reinterpret_cast<const int32_t*>(index_transpositions[i]->data());
+      auto src = data->GetValues<uint8_t>(1, 0);
+      RETURN_NOT_OK(internal::TransposeInts(index_type, index_type,
+                                            /*src=*/data->GetValues<uint8_t>(1, 0),
+                                            /*dest=*/out_data,
+                                            /*src_offset=*/data->offset,
+                                            /*dest_offset=*/0, /*length=*/data->length,
+                                            transpose_map));
+      out_data += data->length * index_width;
+    }
+    return out;
+  }
+
   Status Visit(const DictionaryType& d) {
     auto fixed = internal::checked_cast<const FixedWidthType*>(d.index_type().get());
 
@@ -331,9 +319,8 @@ class ConcatenateImpl {
       return ConcatenateBuffers(index_buffers, pool_).Value(&out_->buffers[1]);
     } else {
       ARROW_ASSIGN_OR_RAISE(auto index_lookup, UnifyDictionaries(d));
-      DictionaryConcatenate concatenate(index_buffers, index_lookup, pool_);
-      RETURN_NOT_OK(VisitTypeInline(*d.index_type(), &concatenate));
-      out_->buffers[1] = std::move(concatenate.out_);
+      ARROW_ASSIGN_OR_RAISE(out_->buffers[1],
+                            ConcatenateDictionaryIndices(*fixed, index_lookup, pool_));
       return Status::OK();
     }
   }
@@ -436,8 +423,8 @@ class ConcatenateImpl {
 
   // Gather the index-th child_data of each input into a vector.
   // Elements are sliced with that input's offset and length.
-  Result<std::vector<std::shared_ptr<const ArrayData>>> ChildData(size_t index) {
-    std::vector<std::shared_ptr<const ArrayData>> child_data(in_.size());
+  Result<ArrayDataVector> ChildData(size_t index) {
+    ArrayDataVector child_data(in_.size());
     for (size_t i = 0; i < in_.size(); ++i) {
       ARROW_ASSIGN_OR_RAISE(child_data[i], in_[i]->child_data[index]->SliceSafe(
                                                in_[i]->offset, in_[i]->length));
@@ -447,9 +434,8 @@ class ConcatenateImpl {
 
   // Gather the index-th child_data of each input into a vector.
   // Elements are sliced with that input's offset and length multiplied by multiplier.
-  Result<std::vector<std::shared_ptr<const ArrayData>>> ChildData(size_t index,
-                                                                  size_t multiplier) {
-    std::vector<std::shared_ptr<const ArrayData>> child_data(in_.size());
+  Result<ArrayDataVector> ChildData(size_t index, size_t multiplier) {
+    ArrayDataVector child_data(in_.size());
     for (size_t i = 0; i < in_.size(); ++i) {
       ARROW_ASSIGN_OR_RAISE(
           child_data[i], in_[i]->child_data[index]->SliceSafe(
@@ -460,10 +446,9 @@ class ConcatenateImpl {
 
   // Gather the index-th child_data of each input into a vector.
   // Elements are sliced with the explicitly passed ranges.
-  Result<std::vector<std::shared_ptr<const ArrayData>>> ChildData(
-      size_t index, const std::vector<Range>& ranges) {
+  Result<ArrayDataVector> ChildData(size_t index, const std::vector<Range>& ranges) {
     DCHECK_EQ(in_.size(), ranges.size());
-    std::vector<std::shared_ptr<const ArrayData>> child_data(in_.size());
+    ArrayDataVector child_data(in_.size());
     for (size_t i = 0; i < in_.size(); ++i) {
       ARROW_ASSIGN_OR_RAISE(child_data[i], in_[i]->child_data[index]->SliceSafe(
                                                ranges[i].offset, ranges[i].length));
@@ -471,7 +456,7 @@ class ConcatenateImpl {
     return child_data;
   }
 
-  const std::vector<std::shared_ptr<const ArrayData>>& in_;
+  const ArrayDataVector& in_;
   MemoryPool* pool_;
   std::shared_ptr<ArrayData> out_;
 };
@@ -484,7 +469,7 @@ Result<std::shared_ptr<Array>> Concatenate(const ArrayVector& arrays, MemoryPool
   }
 
   // gather ArrayData of input arrays
-  std::vector<std::shared_ptr<const ArrayData>> data(arrays.size());
+  ArrayDataVector data(arrays.size());
   for (size_t i = 0; i < arrays.size(); ++i) {
     if (!arrays[i]->type()->Equals(*arrays[0]->type())) {
       return Status::Invalid("arrays to be concatenated must be identically typed, but ",
