@@ -904,10 +904,6 @@ Status GetArrowType(const liborc::Type* type, std::shared_ptr<DataType>* out) {
 Status GetORCType(const DataType& type, ORC_UNIQUE_PTR<liborc::Type>* out) {
   Type::type kind = type.id();
   switch (kind) {
-    case Type::type::NA: {  // Makes out NULLPTR
-      out->reset();
-      break;
-    }
     case Type::type::BOOL:
       *out = liborc::createPrimitiveType(liborc::TypeKind::BOOLEAN);
       break;
