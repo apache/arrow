@@ -239,6 +239,13 @@ TEST(TestTensor, MakeFailureCases) {
   // negative items in shape
   ASSERT_RAISES(Invalid, Tensor::Make(float64(), data, {-3, 6}));
 
+  // overflow in stride computation
+  constexpr uint64_t total_length =
+      1 + static_cast<uint64_t>(std::numeric_limits<int64_t>::max());
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("overflow"),
+      Tensor::Make(float64(), data, {2, 2, static_cast<int64_t>(total_length / 4)}));
+
   // invalid stride length
   ASSERT_RAISES(Invalid, Tensor::Make(float64(), data, shape, {sizeof(double)}));
   ASSERT_RAISES(Invalid, Tensor::Make(float64(), data, shape,
