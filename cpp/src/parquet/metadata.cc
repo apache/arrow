@@ -1116,6 +1116,10 @@ class ApplicationVersionParser {
     if (version_patch_end == std::string::npos) {
       version_patch_end = version_string_.size();
     }
+    // No PATCH.
+    if (version_patch_end == version_patch_start) {
+      return false;
+    }
     auto version_patch_string = version_string_.substr(
         version_patch_start, version_patch_end - version_patch_start);
     application_version_.version.patch = atoi(version_patch_string.c_str());
