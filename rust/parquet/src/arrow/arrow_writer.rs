@@ -25,7 +25,9 @@ use arrow::record_batch::RecordBatch;
 use arrow_array::Array;
 
 use super::levels::LevelInfo;
-use super::schema::add_encoded_arrow_schema_to_metadata;
+use super::schema::{
+    add_encoded_arrow_schema_to_metadata, decimal_length_from_precision,
+};
 
 use crate::column::writer::ColumnWriter;
 use crate::errors::{ParquetError, Result};
@@ -143,7 +145,8 @@ fn write_leaves(
         | ArrowDataType::LargeBinary
         | ArrowDataType::Binary
         | ArrowDataType::Utf8
-        | ArrowDataType::LargeUtf8 => {
+        | ArrowDataType::LargeUtf8
+        | ArrowDataType::Decimal(_, _) => {
             let mut col_writer = get_col_writer(&mut row_group_writer)?;
             write_leaf(
                 &mut col_writer,
@@ -188,7 +191,6 @@ fn write_leaves(
         )),
         ArrowDataType::FixedSizeList(_, _)
         | ArrowDataType::FixedSizeBinary(_)
-        | ArrowDataType::Decimal(_, _)
         | ArrowDataType::Union(_) => Err(ParquetError::NYI(
             "Attempting to write an Arrow type that is not yet implemented".to_string(),
         )),
@@ -315,6 +317,13 @@ fn write_leaf(
                         .unwrap();
                     get_fsb_array_slice(&array, &indices)
                 }
+                ArrowDataType::Decimal(_, _) => {
+                    let array = column
+                        .as_any()
+                        .downcast_ref::<arrow_array::DecimalArray>()
+                        .unwrap();
+                    get_decimal_array_slice(&array, &indices)
+                }
                 _ => {
                     return Err(ParquetError::NYI(
                         "Attempting to write an Arrow type that is not yet implemented"
@@ -412,6 +421,20 @@ fn get_interval_dt_array_slice(
         prefix.append(&mut value);
         debug_assert_eq!(prefix.len(), 12);
         values.push(FixedLenByteArray::from(ByteArray::from(prefix)));
+    }
+    values
+}
+
+fn get_decimal_array_slice(
+    array: &arrow_array::DecimalArray,
+    indices: &[usize],
+) -> Vec<FixedLenByteArray> {
+    let mut values = Vec::with_capacity(indices.len());
+    let size = decimal_length_from_precision(array.precision());
+    for i in indices {
+        let as_be_bytes = array.value(*i).to_be_bytes();
+        let resized_value = as_be_bytes[(16 - size)..].to_vec();
+        values.push(FixedLenByteArray::from(ByteArray::from(resized_value)));
     }
     values
 }
@@ -630,6 +653,49 @@ mod tests {
         for i in 0..batch.num_rows() {
             assert_eq!(string_col.value(i), raw_string_values[i]);
             assert_eq!(binary_col.value(i), raw_binary_values[i].as_slice());
+        }
+    }
+
+    #[test]
+    fn arrow_writer_decimal() {
+        let decimal_field = Field::new("a", DataType::Decimal(5, 2), false);
+        let schema = Schema::new(vec![decimal_field]);
+
+        let mut dec_builder = DecimalBuilder::new(4, 5, 2);
+        dec_builder.append_value(10_000).unwrap();
+        dec_builder.append_value(50_000).unwrap();
+        dec_builder.append_value(0).unwrap();
+        dec_builder.append_value(-100).unwrap();
+
+        let raw_decimal_i128_values: Vec<i128> = vec![10_000, 50_000, 0, -100];
+        let decimal_values = dec_builder.finish();
+        let batch = RecordBatch::try_new(
+            Arc::new(schema.clone()),
+            vec![Arc::new(decimal_values)],
+        )
+        .unwrap();
+
+        let mut file = get_temp_file("test_arrow_writer_decimal.parquet", &[]);
+        let mut writer =
+            ArrowWriter::try_new(file.try_clone().unwrap(), Arc::new(schema), None)
+                .unwrap();
+        writer.write(&batch).unwrap();
+        writer.close().unwrap();
+
+        file.seek(std::io::SeekFrom::Start(0)).unwrap();
+        let file_reader = SerializedFileReader::new(file).unwrap();
+        let mut arrow_reader = ParquetFileArrowReader::new(Arc::new(file_reader));
+        let mut record_batch_reader = arrow_reader.get_record_reader(1024).unwrap();
+
+        let batch = record_batch_reader.next().unwrap().unwrap();
+        let decimal_col = batch
+            .column(0)
+            .as_any()
+            .downcast_ref::<DecimalArray>()
+            .unwrap();
+
+        for i in 0..batch.num_rows() {
+            assert_eq!(decimal_col.value(i), raw_decimal_i128_values[i]);
         }
     }
 
