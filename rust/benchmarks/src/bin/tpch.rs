@@ -1351,6 +1351,16 @@ mod tests {
         verify_query(22).await
     }
 
+    #[tokio::test]
+    async fn run_q1() -> Result<()> {
+        run_query(1).await
+    }
+
+    // #[tokio::test]
+    // async fn run_q3() -> Result<()> {
+    //     run_query(3).await
+    // }
+
     /// Specialised String representation
     fn col_str(column: &ArrayRef, row_index: usize) -> String {
         if column.is_null(row_index) {
@@ -1560,6 +1570,30 @@ mod tests {
                 })
                 .collect::<Vec<Field>>(),
         )
+    }
+
+    async fn run_query(n: usize) -> Result<()> {
+        // Tests running query with empty tables, to see whether they run succesfully.
+
+        let config = ExecutionConfig::new()
+            .with_concurrency(1)
+            .with_batch_size(10);
+        let mut ctx = ExecutionContext::with_config(config);
+
+        for &x in TABLES {
+            let schema = get_schema(x);
+            let batch = RecordBatch::new_empty(Arc::new(schema.to_owned()));
+
+            let provider = MemTable::try_new(Arc::new(schema), vec![vec![batch]])?;
+
+            ctx.register_table(x, Box::new(provider));
+        }
+
+        let plan = create_logical_plan(&mut ctx, n)?;
+        execute_query(&mut ctx, &plan, false).await?;
+
+
+        Ok(())
     }
 
     async fn verify_query(n: usize) -> Result<()> {
