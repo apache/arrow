@@ -954,7 +954,7 @@ class ApplicationVersionParser {
                            ApplicationVersion& application_version)
       : created_by_(created_by),
         application_version_(application_version),
-        digit_("0123456789") {}
+        digits_("0123456789") {}
 
   void Parse() {
     application_version_.application_ = "unknown";
@@ -1050,7 +1050,7 @@ class ApplicationVersionParser {
 
   bool ParseVersionMajor() {
     size_t version_major_start = 0;
-    auto version_major_end = version_string_.find_first_not_of(digit_);
+    auto version_major_end = version_string_.find_first_not_of(digits_);
     // No ".".
     if (version_major_end == std::string::npos ||
         version_string_[version_major_end] != '.') {
@@ -1070,7 +1070,7 @@ class ApplicationVersionParser {
   bool ParseVersionMinor() {
     auto version_minor_start = version_parsing_position_;
     auto version_minor_end =
-        version_string_.find_first_not_of(digit_, version_minor_start);
+        version_string_.find_first_not_of(digits_, version_minor_start);
     if (version_minor_end == std::string::npos ||
         version_string_[version_minor_end] != '.') {
       return false;
@@ -1089,7 +1089,7 @@ class ApplicationVersionParser {
   bool ParseVersionPatch() {
     auto version_patch_start = version_parsing_position_;
     auto version_patch_end =
-        version_string_.find_first_not_of(digit_, version_patch_start);
+        version_string_.find_first_not_of(digits_, version_patch_start);
     // No UNKNOWN, PRE_RELEASE and BUILD_INFO.
     if (version_patch_end == std::string::npos) {
       version_patch_end = version_string_.size();
@@ -1176,7 +1176,7 @@ class ApplicationVersionParser {
   ApplicationVersion& application_version_;
 
   // For parsing.
-  std::string digit_;
+  std::string digits_;
   size_t version_parsing_position_;
   size_t version_start_;
   size_t version_end_;
