@@ -622,16 +622,27 @@ class StructDictionary {
  private:
   Status AddOne(Datum column, std::shared_ptr<Int32Array>* fused_indices) {
     if (column.type()->id() == Type::DICTIONARY) {
-      // compute::DictionaryEncode doesn't support dictionary and, even if it did, it
-      // would be a null op and return a flat dictionary.  In order to group by dictionary
-      // we would need to be able to create a nested dictionary.
-      return Status::NotImplemented(
-          "Cannot use column of type dictionary as grouping criteria");
+      if (column.null_count() != 0) {
+        // TODO Optimize this by allowign DictionaryEncode to transfer a null-masked
+        // dictionary to a null-encoded dictionary.  At the moment we decode and then
+        // encode causing one extra copy, and a potentially expansive decoding copy at
+        // that.
+        ARROW_ASSIGN_OR_RAISE(
+            auto decoded_dictionary,
+            compute::Cast(
+                column,
+                std::static_pointer_cast<DictionaryType>(column.type())->value_type(),
+                compute::CastOptions()));
+        column = decoded_dictionary;
+      }
     }
-    compute::DictionaryEncodeOptions options;
-    options.null_encoding_behavior =
-        compute::DictionaryEncodeOptions::NullEncodingBehavior::ENCODE;
-    ARROW_ASSIGN_OR_RAISE(column, compute::DictionaryEncode(std::move(column), options));
+    if (column.type()->id() != Type::DICTIONARY) {
+      compute::DictionaryEncodeOptions options;
+      options.null_encoding_behavior =
+          compute::DictionaryEncodeOptions::NullEncodingBehavior::ENCODE;
+      ARROW_ASSIGN_OR_RAISE(column,
+                            compute::DictionaryEncode(std::move(column), options));
+    }
 
     auto dict_column = column.array_as<DictionaryArray>();
     dictionaries_.push_back(dict_column->dictionary());
@@ -668,9 +679,7 @@ class StructDictionary {
   Status RestoreDictionaryEncoding(std::shared_ptr<DictionaryType> expected_type,
                                    Datum* column) {
     DCHECK_NE(column->type()->id(), Type::DICTIONARY);
-    ARROW_ASSIGN_OR_RAISE(
-        *column, compute::DictionaryEncode(std::move(*column),
-                                           compute::DictionaryEncodeOptions::Defaults()));
+    ARROW_ASSIGN_OR_RAISE(*column, compute::DictionaryEncode(std::move(*column)));
 
     if (expected_type->index_type()->id() == Type::INT32) {
       // dictionary_encode has already yielded the expected index_type

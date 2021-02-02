@@ -46,7 +46,7 @@ static void BuildDictionary(benchmark::State& state) {  // NOLINT non-const refe
   ArrayFromVector<Int64Type, int64_t>(is_valid, values, &arr);
 
   while (state.KeepRunning()) {
-    ABORT_NOT_OK(DictionaryEncode(arr, DictionaryEncodeOptions::Defaults()).status());
+    ABORT_NOT_OK(DictionaryEncode(arr).status());
   }
   state.counters["null_percent"] =
       static_cast<double>(arr->null_count()) / arr->length() * 100;
@@ -73,7 +73,7 @@ static void BuildStringDictionary(
   ArrayFromVector<StringType, std::string>(data, &arr);
 
   while (state.KeepRunning()) {
-    ABORT_NOT_OK(DictionaryEncode(arr, DictionaryEncodeOptions::Defaults()).status());
+    ABORT_NOT_OK(DictionaryEncode(arr).status());
   }
   state.SetBytesProcessed(state.iterations() * total_bytes);
   state.SetItemsProcessed(state.iterations() * data.size());
@@ -169,7 +169,7 @@ void BenchDictionaryEncode(benchmark::State& state, const ParamType& params) {
   std::shared_ptr<Array> arr;
   params.GenerateTestData(&arr);
   while (state.KeepRunning()) {
-    ABORT_NOT_OK(DictionaryEncode(arr, DictionaryEncodeOptions::Defaults()).status());
+    ABORT_NOT_OK(DictionaryEncode(arr).status());
   }
   params.SetMetadata(state);
 }

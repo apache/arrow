@@ -668,6 +668,25 @@ TEST(GroupTest, WithNulls) {
                    {"a": "why", "b": null, "ids": [7]}
   ])");
 
+  AssertGrouping({field("a", dictionary(int32(), utf8())), field("b", int32())},
+                 R"([
+                   {"a": "ex",  "b": 0,    "id": 0},
+                   {"a": null,  "b": 0,    "id": 1},
+                   {"a": null,  "b": 0,    "id": 2},
+                   {"a": "ex",  "b": 1,    "id": 3},
+                   {"a": null,  "b": null, "id": 4},
+                   {"a": "ex",  "b": 1,    "id": 5},
+                   {"a": "ex",  "b": 0,    "id": 6},
+                   {"a": "why", "b": null, "id": 7}
+                 ])",
+                 R"([
+                   {"a": "ex", "b": 0, "ids": [0, 6]},
+                   {"a": null, "b": 0, "ids": [1, 2]},
+                   {"a": "ex", "b": 1, "ids": [3, 5]},
+                   {"a": null, "b": null, "ids": [4]},
+                   {"a": "why", "b": null, "ids": [7]}
+  ])");
+
   auto has_nulls = checked_pointer_cast<StructArray>(
       ArrayFromJSON(struct_({field("a", utf8()), field("b", int32())}), R"([
     {"a": "ex",  "b": 0},

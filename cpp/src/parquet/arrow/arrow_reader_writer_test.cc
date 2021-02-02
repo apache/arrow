@@ -885,8 +885,7 @@ TYPED_TEST(TestParquetIO, SingleColumnOptionalDictionaryWrite) {
 
   ASSERT_OK(NullableArray<TypeParam>(SMALL_SIZE, 10, kDefaultSeed, &values));
 
-  ASSERT_OK_AND_ASSIGN(Datum out,
-                       DictionaryEncode(values, DictionaryEncodeOptions::Defaults()));
+  ASSERT_OK_AND_ASSIGN(Datum out, DictionaryEncode(values));
   std::shared_ptr<Array> dict_values = MakeArray(out.array());
   std::shared_ptr<GroupNode> schema =
       MakeSimpleSchema(*dict_values->type(), Repetition::OPTIONAL);

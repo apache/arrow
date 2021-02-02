@@ -126,8 +126,7 @@ void CheckDictEncode(const std::shared_ptr<Array>& input,
   auto type = dictionary(expected_indices->type(), expected_values->type());
   DictionaryArray expected(type, expected_indices, expected_values);
 
-  ASSERT_OK_AND_ASSIGN(Datum datum_out,
-                       DictionaryEncode(input, DictionaryEncodeOptions::Defaults()));
+  ASSERT_OK_AND_ASSIGN(Datum datum_out, DictionaryEncode(input));
   std::shared_ptr<Array> result = MakeArray(datum_out.array());
   ASSERT_OK(result->ValidateFull());
 
@@ -205,8 +204,7 @@ TYPED_TEST(TestHashKernelPrimitive, ZeroChunks) {
   auto type = TypeTraits<TypeParam>::type_singleton();
 
   auto zero_chunks = std::make_shared<ChunkedArray>(ArrayVector{}, type);
-  ASSERT_OK_AND_ASSIGN(
-      Datum result, DictionaryEncode(zero_chunks, DictionaryEncodeOptions::Defaults()));
+  ASSERT_OK_AND_ASSIGN(Datum result, DictionaryEncode(zero_chunks));
 
   ASSERT_EQ(result.kind(), Datum::CHUNKED_ARRAY);
   AssertChunkedEqual(*result.chunked_array(),
@@ -372,8 +370,7 @@ TYPED_TEST(TestHashKernelBinaryTypes, ZeroChunks) {
   auto type = this->type();
 
   auto zero_chunks = std::make_shared<ChunkedArray>(ArrayVector{}, type);
-  ASSERT_OK_AND_ASSIGN(
-      Datum result, DictionaryEncode(zero_chunks, DictionaryEncodeOptions::Defaults()));
+  ASSERT_OK_AND_ASSIGN(Datum result, DictionaryEncode(zero_chunks));
 
   ASSERT_EQ(result.kind(), Datum::CHUNKED_ARRAY);
   AssertChunkedEqual(*result.chunked_array(),
@@ -389,8 +386,7 @@ TYPED_TEST(TestHashKernelBinaryTypes, TwoChunks) {
           ArrayFromJSON(type, "[\"b\"]"),
       },
       type);
-  ASSERT_OK_AND_ASSIGN(Datum result,
-                       DictionaryEncode(two_chunks, DictionaryEncodeOptions::Defaults()));
+  ASSERT_OK_AND_ASSIGN(Datum result, DictionaryEncode(two_chunks));
 
   auto dict_type = dictionary(int32(), type);
   auto dictionary = ArrayFromJSON(type, R"(["a", "b"])");
@@ -682,8 +678,7 @@ TEST_F(TestHashKernel, ChunkedArrayInvoke) {
   ASSERT_ARRAYS_EQUAL(*ex_counts, *counts->field(1));
 
   // Dictionary encode
-  ASSERT_OK_AND_ASSIGN(Datum encoded_out,
-                       DictionaryEncode(carr, DictionaryEncodeOptions::Defaults()));
+  ASSERT_OK_AND_ASSIGN(Datum encoded_out, DictionaryEncode(carr));
   ASSERT_EQ(Datum::CHUNKED_ARRAY, encoded_out.kind());
 
   AssertChunkedEqual(*dict_carr, *encoded_out.chunked_array());
@@ -692,8 +687,7 @@ TEST_F(TestHashKernel, ChunkedArrayInvoke) {
 TEST_F(TestHashKernel, ZeroLengthDictionaryEncode) {
   // ARROW-7008
   auto values = ArrayFromJSON(utf8(), "[]");
-  ASSERT_OK_AND_ASSIGN(Datum datum_result,
-                       DictionaryEncode(values, DictionaryEncodeOptions::Defaults()));
+  ASSERT_OK_AND_ASSIGN(Datum datum_result, DictionaryEncode(values));
 
   std::shared_ptr<Array> result = datum_result.make_array();
   const auto& dict_result = checked_cast<const DictionaryArray&>(*result);
@@ -710,8 +704,7 @@ TEST_F(TestHashKernel, NullEncodingSchemes) {
   std::shared_ptr<Array> expected = std::make_shared<DictionaryArray>(
       dictionary_type, expected_mask_indices, expected_mask_dictionary);
 
-  ASSERT_OK_AND_ASSIGN(Datum datum_result,
-                       DictionaryEncode(values, DictionaryEncodeOptions::Defaults()));
+  ASSERT_OK_AND_ASSIGN(Datum datum_result, DictionaryEncode(values));
   std::shared_ptr<Array> result = datum_result.make_array();
   AssertArraysEqual(*expected, *result);
 
@@ -742,9 +735,7 @@ TEST_F(TestHashKernel, ChunkedArrayZeroChunk) {
                            "[]");
   AssertArraysEqual(*expected, *result_array);
 
-  ASSERT_OK_AND_ASSIGN(
-      Datum result_datum,
-      DictionaryEncode(chunked_array, DictionaryEncodeOptions::Defaults()));
+  ASSERT_OK_AND_ASSIGN(Datum result_datum, DictionaryEncode(chunked_array));
   auto dict_type = dictionary(int32(), chunked_array->type());
   ASSERT_EQ(result_datum.kind(), Datum::CHUNKED_ARRAY);
 

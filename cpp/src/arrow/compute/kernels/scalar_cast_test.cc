@@ -1472,8 +1472,7 @@ TEST(Cast, FromDictionary) {
     ASSERT_OK_AND_ASSIGN(auto no_nulls, Take(*dict, *indices));
     ASSERT_EQ(no_nulls->null_count(), 0);
 
-    ASSERT_OK_AND_ASSIGN(Datum encoded,
-                         DictionaryEncode(no_nulls, DictionaryEncodeOptions::Defaults()));
+    ASSERT_OK_AND_ASSIGN(Datum encoded, DictionaryEncode(no_nulls));
 
     // Make a new dict array with nullptr bitmap buffer
     auto data = encoded.array()->Copy();
