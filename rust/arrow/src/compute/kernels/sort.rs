@@ -497,7 +497,7 @@ where
         .downcast_ref::<FixedSizeListArray>()
         .map_or_else(
             || {
-                let values = as_list_array::<S>(values);
+                let values = as_generic_list_array::<S>(values);
                 value_indices
                     .iter()
                     .copied()
