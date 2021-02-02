@@ -44,6 +44,7 @@ use crate::{
     scalar::ScalarValue,
 };
 use arrow::{
+    array::ArrayRef,
     compute::kernels::length::length,
     datatypes::TimeUnit,
     datatypes::{DataType, Field, Schema},
@@ -566,6 +567,44 @@ impl PhysicalExpr for ScalarFunctionExpr {
         let fun = self.fun.as_ref();
         (fun)(&inputs)
     }
+}
+
+/// decorates a function to handle [`ScalarValue`]s by coverting them to arrays before calling the function
+/// and vice-versa after evaluation.
+pub fn make_scalar_function<F>(inner: F) -> ScalarFunctionImplementation
+where
+    F: Fn(&[ArrayRef]) -> Result<ArrayRef> + Sync + Send + 'static,
+{
+    Arc::new(move |args: &[ColumnarValue]| {
+        // first, identify if any of the arguments is an Array. If yes, store its `len`,
+        // as any scalar will need to be converted to an array of len `len`.
+        let len = args
+            .iter()
+            .fold(Option::<usize>::None, |acc, arg| match arg {
+                ColumnarValue::Scalar(_) => acc,
+                ColumnarValue::Array(a) => Some(a.len()),
+            });
+
+        // to array
+        let args = if let Some(len) = len {
+            args.iter()
+                .map(|arg| arg.clone().into_array(len))
+                .collect::<Vec<ArrayRef>>()
+        } else {
+            args.iter()
+                .map(|arg| arg.clone().into_array(1))
+                .collect::<Vec<ArrayRef>>()
+        };
+
+        let result = (inner)(&args);
+
+        // maybe back to scalar
+        if len.is_some() {
+            result.map(ColumnarValue::Array)
+        } else {
+            ScalarValue::try_from_array(&result?, 0).map(ColumnarValue::Scalar)
+        }
+    })
 }
 
 #[cfg(test)]
