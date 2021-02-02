@@ -156,7 +156,7 @@ cdef class Expression(_Weakrefable):
 
     def __bool__(self):
         raise ValueError(
-            "An expression cannot be evaluated to python True or False. "
+            "An Expression cannot be evaluated to python True or False. "
             "If you are using the 'and', 'or' or 'not' operators, use '&', "
             "'|' or '~' instead."
         )
