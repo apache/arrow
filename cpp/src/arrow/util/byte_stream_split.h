@@ -25,23 +25,44 @@
 
 #ifdef ARROW_HAVE_SSE4_2
 // Enable the SIMD for ByteStreamSplit Encoder/Decoder
-#define ARROW_HAVE_SIMD_SPLIT
+#define ARROW_HAVE_SIMD_DECODE_SPLIT
+#define ARROW_HAVE_SIMD_ENCODE_SPLIT
 #endif  // ARROW_HAVE_SSE4_2
+
+#ifdef ARROW_HAVE_NEON
+#define ARROW_HAVE_SIMD_DECODE_SPLIT
+#endif  // ARROW_HAVE_NEON
 
 namespace arrow {
 namespace util {
 namespace internal {
 
-#if defined(ARROW_HAVE_SSE4_2)
+#if defined(ARROW_HAVE_NEON)
+#define DATA_TYPE_128BIT uint8x16_t
+#define LDR_SIMD_128BIT vld1q_u8
+#define STR_SIMD_128BIT vst1q_u8
+#define REINT_CAST_TYPE uint8_t
+#define SHUFFLE_LO_128BIT vzip1q_u8
+#define SHUFFLE_HI_128BIT vzip2q_u8
+#elif defined(ARROW_HAVE_SSE4_2)
+#define DATA_TYPE_128BIT __m128i
+#define LDR_SIMD_128BIT _mm_loadu_si128
+#define STR_SIMD_128BIT _mm_storeu_si128
+#define REINT_CAST_TYPE __m128i
+#define SHUFFLE_LO_128BIT _mm_unpacklo_epi8
+#define SHUFFLE_HI_128BIT _mm_unpackhi_epi8
+#endif
+
+#if defined(ARROW_HAVE_SSE4_2) || defined(ARROW_HAVE_NEON)
 template <typename T>
-void ByteStreamSplitDecodeSse2(const uint8_t* data, int64_t num_values, int64_t stride,
-                               T* out) {
+void ByteStreamSplitDecode128bit(const uint8_t* data, int64_t num_values, int64_t stride,
+                                 T* out) {
   constexpr size_t kNumStreams = sizeof(T);
   static_assert(kNumStreams == 4U || kNumStreams == 8U, "Invalid number of streams.");
   constexpr size_t kNumStreamsLog2 = (kNumStreams == 8U ? 3U : 2U);
 
   const int64_t size = num_values * sizeof(T);
-  constexpr int64_t kBlockSize = sizeof(__m128i) * kNumStreams;
+  constexpr int64_t kBlockSize = sizeof(DATA_TYPE_128BIT) * kNumStreams;
   const int64_t num_blocks = size / kBlockSize;
   uint8_t* output_data = reinterpret_cast<uint8_t*>(out);
 
@@ -63,30 +84,32 @@ void ByteStreamSplitDecodeSse2(const uint8_t* data, int64_t num_values, int64_t 
   // Stage 1: AAAA BBBB CCCC DDDD
   // Stage 2: ACAC ACAC BDBD BDBD
   // Stage 3: ABCD ABCD ABCD ABCD
-  __m128i stage[kNumStreamsLog2 + 1U][kNumStreams];
+  DATA_TYPE_128BIT stage[kNumStreamsLog2 + 1U][kNumStreams];
   constexpr size_t kNumStreamsHalf = kNumStreams / 2U;
 
   for (int64_t i = 0; i < num_blocks; ++i) {
     for (size_t j = 0; j < kNumStreams; ++j) {
-      stage[0][j] = _mm_loadu_si128(
-          reinterpret_cast<const __m128i*>(&data[i * sizeof(__m128i) + j * stride]));
+      stage[0][j] = LDR_SIMD_128BIT(reinterpret_cast<const REINT_CAST_TYPE*>(
+          &data[i * sizeof(DATA_TYPE_128BIT) + j * stride]));
     }
     for (size_t step = 0; step < kNumStreamsLog2; ++step) {
       for (size_t j = 0; j < kNumStreamsHalf; ++j) {
         stage[step + 1U][j * 2] =
-            _mm_unpacklo_epi8(stage[step][j], stage[step][kNumStreamsHalf + j]);
+            SHUFFLE_LO_128BIT(stage[step][j], stage[step][kNumStreamsHalf + j]);
         stage[step + 1U][j * 2 + 1U] =
-            _mm_unpackhi_epi8(stage[step][j], stage[step][kNumStreamsHalf + j]);
+            SHUFFLE_HI_128BIT(stage[step][j], stage[step][kNumStreamsHalf + j]);
       }
     }
     for (size_t j = 0; j < kNumStreams; ++j) {
-      _mm_storeu_si128(reinterpret_cast<__m128i*>(
-                           &output_data[(i * kNumStreams + j) * sizeof(__m128i)]),
-                       stage[kNumStreamsLog2][j]);
+      STR_SIMD_128BIT(reinterpret_cast<REINT_CAST_TYPE*>(
+                          &output_data[(i * kNumStreams + j) * sizeof(DATA_TYPE_128BIT)]),
+                      stage[kNumStreamsLog2][j]);
     }
   }
 }
+#endif  // ARROW_HAVE_SSE4_2 || ARROW_HAVE_NEON
 
+#if defined(ARROW_HAVE_SSE4_2)
 template <typename T>
 void ByteStreamSplitEncodeSse2(const uint8_t* raw_values, const size_t num_values,
                                uint8_t* output_buffer_raw) {
@@ -185,7 +208,7 @@ void ByteStreamSplitDecodeAvx2(const uint8_t* data, int64_t num_values, int64_t 
   const int64_t size = num_values * sizeof(T);
   constexpr int64_t kBlockSize = sizeof(__m256i) * kNumStreams;
   if (size < kBlockSize)  // Back to SSE for small size
-    return ByteStreamSplitDecodeSse2(data, num_values, stride, out);
+    return ByteStreamSplitDecode128bit(data, num_values, stride, out);
   const int64_t num_blocks = size / kBlockSize;
   uint8_t* output_data = reinterpret_cast<uint8_t*>(out);
 
@@ -545,7 +568,7 @@ void ByteStreamSplitEncodeAvx512(const uint8_t* raw_values, const size_t num_val
 }
 #endif  // ARROW_HAVE_AVX512
 
-#if defined(ARROW_HAVE_SIMD_SPLIT)
+#if defined(ARROW_HAVE_SIMD_DECODE_SPLIT)
 template <typename T>
 void inline ByteStreamSplitDecodeSimd(const uint8_t* data, int64_t num_values,
                                       int64_t stride, T* out) {
@@ -553,13 +576,15 @@ void inline ByteStreamSplitDecodeSimd(const uint8_t* data, int64_t num_values,
   return ByteStreamSplitDecodeAvx512(data, num_values, stride, out);
 #elif defined(ARROW_HAVE_AVX2)
   return ByteStreamSplitDecodeAvx2(data, num_values, stride, out);
-#elif defined(ARROW_HAVE_SSE4_2)
-  return ByteStreamSplitDecodeSse2(data, num_values, stride, out);
+#elif defined(ARROW_HAVE_SSE4_2) || defined(ARROW_HAVE_NEON)
+  return ByteStreamSplitDecode128bit(data, num_values, stride, out);
 #else
 #error "ByteStreamSplitDecodeSimd not implemented"
 #endif
 }
+#endif
 
+#if defined(ARROW_HAVE_SIMD_ENCODE_SPLIT)
 template <typename T>
 void inline ByteStreamSplitEncodeSimd(const uint8_t* raw_values, const size_t num_values,
                                       uint8_t* output_buffer_raw) {
@@ -604,7 +629,7 @@ void ByteStreamSplitDecodeScalar(const uint8_t* data, int64_t num_values, int64_
 template <typename T>
 void inline ByteStreamSplitEncode(const uint8_t* raw_values, const size_t num_values,
                                   uint8_t* output_buffer_raw) {
-#if defined(ARROW_HAVE_SIMD_SPLIT)
+#if defined(ARROW_HAVE_SIMD_ENCODE_SPLIT)
   return ByteStreamSplitEncodeSimd<T>(raw_values, num_values, output_buffer_raw);
 #else
   return ByteStreamSplitEncodeScalar<T>(raw_values, num_values, output_buffer_raw);
@@ -614,7 +639,7 @@ void inline ByteStreamSplitEncode(const uint8_t* raw_values, const size_t num_va
 template <typename T>
 void inline ByteStreamSplitDecode(const uint8_t* data, int64_t num_values, int64_t stride,
                                   T* out) {
-#if defined(ARROW_HAVE_SIMD_SPLIT)
+#if defined(ARROW_HAVE_SIMD_DECODE_SPLIT)
   return ByteStreamSplitDecodeSimd(data, num_values, stride, out);
 #else
   return ByteStreamSplitDecodeScalar(data, num_values, stride, out);
