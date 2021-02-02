@@ -79,7 +79,6 @@ using arrow::Status;
 using arrow::Table;
 using arrow::TimeUnit;
 using arrow::compute::DictionaryEncode;
-using arrow::compute::DictionaryEncodeOptions;
 using arrow::internal::checked_cast;
 using arrow::internal::checked_pointer_cast;
 using arrow::internal::Iota;
