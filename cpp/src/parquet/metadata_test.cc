@@ -448,7 +448,7 @@ TEST(ApplicationVersion, VersionNoUnknownNoPreRelease) {
 
 TEST(ApplicationVersion, FullWithSpaces) {
   ApplicationVersion version(
-      " parquet-mr  version  1.5.3ab-cdh5.5.0+cd  (build  abcd ) ");
+      " parquet-mr \t version \v 1.5.3ab-cdh5.5.0+cd \r (build \n abcd \f) ");
 
   ASSERT_EQ("parquet-mr", version.application_);
   ASSERT_EQ("abcd", version.build_);

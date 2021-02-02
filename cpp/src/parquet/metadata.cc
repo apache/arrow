@@ -25,6 +25,7 @@
 #include <vector>
 
 #include "arrow/util/logging.h"
+#include "arrow/util/string_view.h"
 #include "parquet/encryption_internal.h"
 #include "parquet/exception.h"
 #include "parquet/internal_file_decryptor.h"
@@ -954,6 +955,7 @@ class ApplicationVersionParser {
                            ApplicationVersion& application_version)
       : created_by_(created_by),
         application_version_(application_version),
+        spaces_(" \t\v\r\n\f"),
         digits_("0123456789") {}
 
   void Parse() {
@@ -972,15 +974,20 @@ class ApplicationVersionParser {
   }
 
  private:
+  bool IsSpace(const std::string& string, const size_t& offset) {
+    auto target = ::arrow::util::string_view(string).substr(offset, 1);
+    return target.find_first_of(spaces_) != ::arrow::util::string_view::npos;
+  }
+
   void RemovePrecedingSpaces(const std::string& string, size_t& start,
                              const size_t& end) {
-    while (start < end && string[start] == ' ') {
+    while (start < end && IsSpace(string, start)) {
       ++start;
     }
   }
 
   void RemoveTrailingSpaces(const std::string& string, const size_t& start, size_t& end) {
-    while (start < (end - 1) && (end - 1) < string.size() && string[end - 1] == ' ') {
+    while (start < (end - 1) && (end - 1) < string.size() && IsSpace(string, end - 1)) {
       --end;
     }
   }
@@ -1176,6 +1183,7 @@ class ApplicationVersionParser {
   ApplicationVersion& application_version_;
 
   // For parsing.
+  std::string spaces_;
   std::string digits_;
   size_t version_parsing_position_;
   size_t version_start_;
