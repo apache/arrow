@@ -226,6 +226,11 @@ impl RowGroupMetaData {
         self.total_byte_size
     }
 
+    /// Total size of all compressed column data in this row group.
+    pub fn compressed_size(&self) -> i64 {
+        self.columns.iter().map(|c| c.total_compressed_size).sum()
+    }
+
     /// Returns reference to a schema descriptor.
     pub fn schema_descr(&self) -> &SchemaDescriptor {
         self.schema_descr.as_ref()
