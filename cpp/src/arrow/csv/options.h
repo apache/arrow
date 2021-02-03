@@ -137,5 +137,13 @@ struct ARROW_EXPORT ReadOptions {
   static ReadOptions Defaults();
 };
 
+/// Experimental
+struct WriteOptions {
+  bool include_header = true;
+  // The writer processes batches of rows together.  This is the
+  // maximum number of rows processed at a time.
+  int32_t batch_size = 1024;
+};
+
 }  // namespace csv
 }  // namespace arrow

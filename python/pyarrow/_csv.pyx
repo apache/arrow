@@ -30,10 +30,11 @@ from pyarrow.includes.libarrow cimport *
 from pyarrow.lib cimport (check_status, Field, MemoryPool, Schema,
                           RecordBatchReader, ensure_type,
                           maybe_unbox_memory_pool, get_input_stream,
-                          native_transcoding_input_stream,
+                          get_writer, native_transcoding_input_stream,
                           pyarrow_wrap_schema, pyarrow_wrap_table,
-                          pyarrow_wrap_data_type, pyarrow_unwrap_data_type)
+                          pyarrow_wrap_data_type, pyarrow_unwrap_data_type, Table, RecordBatch)
 from pyarrow.lib import frombytes, tobytes
+from pyarrow.util import _stringify_path
 
 
 cdef unsigned char _single_char(s) except 0:
@@ -763,3 +764,52 @@ def open_csv(input_file, read_options=None, parse_options=None,
                  move(c_convert_options),
                  maybe_unbox_memory_pool(memory_pool))
     return reader
+
+def write_csv(output_file, data, include_header=True,
+              MemoryPool memory_pool=None):
+    """
+
+    Parameters
+    ----------
+    output_file: string, path, pyarrow.OutputStream or file-like object
+        The location of CSV data.
+    data: The data to write.
+        Either a pyarrow.RecordBatch or a pyarrow.Table
+    include_header: bool, optional
+        Include header based on schema field names when writing out
+        (defaults to true).
+    memory_pool: MemoryPool, optional
+        Pool to allocate Table memory from
+
+    Returns
+    -------
+    None
+    """
+    cdef:
+        shared_ptr[COutputStream] stream
+        CCSVWriteOptions c_write_options
+        CMemoryPool* c_memory_pool
+        CRecordBatch* batch
+        CTable* table
+    try:
+       where = _stringify_path(output_file)
+    except TypeError:
+       get_writer(output_file, &stream)
+    else:
+       c_where = tobytes(where)
+       stream = GetResultValue(FileOutputStream.Open(c_where))
+
+    c_write_options.include_header = include_header
+    c_memory_pool = maybe_unbox_memory_pool(memory_pool)
+    if isinstance(data, RecordBatch):
+        batch = (<RecordBatch>data).batch
+        with nogil:
+          check_status(WriteCsv(deref(batch), c_write_options, c_memory_pool,
+                       stream.get()))
+    elif isinstance(data, Table):
+        table = (<Table>data).table
+        with nogil:
+          check_status(WriteCsv(deref(table), c_write_options, c_memory_pool,
+                       stream.get()))
+    else:
+       raise ValueError(type(data))

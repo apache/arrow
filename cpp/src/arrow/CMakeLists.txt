@@ -348,7 +348,8 @@ if(ARROW_CSV)
               csv/column_decoder.cc
               csv/options.cc
               csv/parser.cc
-              csv/reader.cc)
+              csv/reader.cc
+              csv/writer.cc)
 
   list(APPEND ARROW_TESTING_SRCS csv/test_common.cc)
 endif()

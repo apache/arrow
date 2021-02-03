@@ -25,6 +25,7 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/iterator.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -162,6 +163,10 @@ class ARROW_EXPORT RecordBatch {
   /// \param[in] length the number of elements to slice from offset
   /// \return new record batch
   virtual std::shared_ptr<RecordBatch> Slice(int64_t offset, int64_t length) const = 0;
+
+  // Returns an iterator for maximum slice size over this record batch.  The Iterator
+  // Becomes invalid when this object goes out of scope.
+  RecordBatchIterator SliceIterator(int64_t slice_size) const;
 
   /// \return PrettyPrint representation suitable for debugging
   std::string ToString() const;

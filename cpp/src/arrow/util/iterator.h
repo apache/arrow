@@ -64,7 +64,8 @@ template <typename T>
 class Iterator : public util::EqualityComparable<Iterator<T>> {
  public:
   /// \brief Iterator may be constructed from any type which has a member function
-  /// with signature Status Next(T*);
+  /// with signature Result<T> Next();
+  /// End of iterator is signalled by returning IteratorTraits<T>::End();
   ///
   /// The argument is moved or copied to the heap and kept in a unique_ptr<void>. Only
   /// its destructor and its Next method (which are stored in function pointers) are

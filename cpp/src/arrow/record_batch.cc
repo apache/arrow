@@ -37,6 +37,26 @@
 
 namespace arrow {
 
+namespace {
+// If there will only be one slice returned it is cheaper to just return the original
+// RecordBatch (no overhead from vector and std::shared_ptr copying on underlying arrays).
+
+struct SliceIteratorFunctor {
+  Result<std::shared_ptr<RecordBatch>> Next() {
+    if (current_offset < batch->num_rows()) {
+      std::shared_ptr<RecordBatch> next = batch->Slice(current_offset, slice_size);
+      current_offset += slice_size;
+      return next;
+    }
+    return IterationTraits<std::shared_ptr<RecordBatch>>::End();
+  }
+  const RecordBatch* const batch;
+  const int64_t slice_size;
+  int64_t current_offset;
+};
+
+}  // namespace
+
 Result<std::shared_ptr<RecordBatch>> RecordBatch::AddColumn(
     int i, std::string field_name, const std::shared_ptr<Array>& column) const {
   auto field = ::arrow::field(std::move(field_name), column->type());
@@ -194,6 +214,11 @@ Result<std::shared_ptr<RecordBatch>> RecordBatch::FromStructArray(
   }
   return Make(arrow::schema(array->type()->fields()), array->length(),
               array->data()->child_data);
+}
+
+RecordBatchIterator RecordBatch::SliceIterator(int64_t slice_size) const {
+  SliceIteratorFunctor functor = {this, slice_size, /*offset=*/static_cast<int64_t>(0)};
+  return RecordBatchIterator(std::move(functor));
 }
 
 Result<std::shared_ptr<StructArray>> RecordBatch::ToStructArray() const {

@@ -36,7 +36,7 @@ import numpy as np
 
 import pyarrow as pa
 from pyarrow.csv import (
-    open_csv, read_csv, ReadOptions, ParseOptions, ConvertOptions, ISO8601)
+    open_csv, read_csv, ReadOptions, ParseOptions, ConvertOptions, ISO8601, write_csv)
 
 
 def generate_col_names():
@@ -1257,3 +1257,21 @@ def test_read_csv_does_not_close_passed_file_handles():
     buf = io.BytesIO(b"a,b,c\n1,2,3\n4,5,6")
     read_csv(buf)
     assert not buf.closed
+
+def test_write_read_round_trip():
+    t = pa.Table.from_arrays([[1,2,3], ["a", "b", "c"]], ["c1", "c2"])
+    record_batch = t.to_batches(max_chunksize=4)[0]
+    for data in [t, record_batch]:
+      buf = io.BytesIO()
+      # test with header
+      write_csv(buf, data, include_header=True)
+      buf.seek(0)
+      assert t == read_csv(buf)
+
+      # Test without header
+      buf = io.BytesIO()
+      write_csv(buf, data, include_header=False)
+      buf.seek(0)
+
+      read_options = ReadOptions(column_names=t.column_names)
+      assert t == read_csv(buf, read_options=read_options)
