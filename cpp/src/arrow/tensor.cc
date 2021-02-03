@@ -163,14 +163,25 @@ Status CheckTensorStridesValidity(const std::shared_ptr<Buffer>& data,
     return Status::OK();
   }
 
-  std::vector<int64_t> last_index(shape);
-  const int64_t n = static_cast<int64_t>(shape.size());
-  for (int64_t i = 0; i < n; ++i) {
-    --last_index[i];
+  // Check the largest offset can be computed without overflow
+  const auto ndim = shape.size();
+  int64_t largest_offset = 0;
+  for (auto i = decltype(ndim){0}; i < ndim; ++i) {
+    if (strides[i] <= 0) continue;
+
+    int64_t dim_offset;
+    if (!internal::MultiplyWithOverflow(shape[i] - 1, strides[i], &dim_offset)) {
+      if (!internal::AddWithOverflow(largest_offset, dim_offset, &largest_offset)) {
+        continue;
+      }
+    }
+
+    return Status::Invalid(
+        "too large number given in strides to compute the item offset");
   }
-  int64_t last_offset = Tensor::CalculateValueOffset(strides, last_index);
+
   const int byte_width = internal::GetByteWidth(*type);
-  if (last_offset + byte_width > data->size()) {
+  if (largest_offset + byte_width > data->size()) {
     return Status::Invalid("strides must not involve buffer over run");
   }
   return Status::OK();
