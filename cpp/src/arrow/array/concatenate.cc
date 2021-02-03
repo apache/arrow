@@ -273,15 +273,14 @@ class ConcatenateImpl {
 
   // Transpose and concatenate dictionary indices
   Result<std::shared_ptr<Buffer>> ConcatenateDictionaryIndices(
-      const DataType& index_type, const BufferVector& index_transpositions,
-      MemoryPool* pool) {
+      const DataType& index_type, const BufferVector& index_transpositions) {
     const auto index_width =
         internal::checked_cast<const FixedWidthType&>(index_type).bit_width() / 8;
     int64_t out_length = 0;
     for (const auto& data : in_) {
       out_length += data->length;
     }
-    ARROW_ASSIGN_OR_RAISE(auto out, AllocateBuffer(out_length * index_width, pool));
+    ARROW_ASSIGN_OR_RAISE(auto out, AllocateBuffer(out_length * index_width, pool_));
     uint8_t* out_data = out->mutable_data();
     for (size_t i = 0; i < in_.size(); i++) {
       const auto& data = in_[i];
@@ -319,7 +318,7 @@ class ConcatenateImpl {
     } else {
       ARROW_ASSIGN_OR_RAISE(auto index_lookup, UnifyDictionaries(d));
       ARROW_ASSIGN_OR_RAISE(out_->buffers[1],
-                            ConcatenateDictionaryIndices(*fixed, index_lookup, pool_));
+                            ConcatenateDictionaryIndices(*fixed, index_lookup));
       return Status::OK();
     }
   }
