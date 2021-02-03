@@ -24,3 +24,5 @@
 /*/yum/tmp/
 /*/yum/build.sh
 /*/yum/env.sh
+/apt/repositories/
+/yum/repositories/
