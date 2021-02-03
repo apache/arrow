@@ -1289,10 +1289,8 @@ tasks:
 
   homebrew-r-autobrew:
     # This tests that the autobrew formula + script work in practice
-    ci: travis
-    template: homebrew-formulae/travis.osx.r.yml
-    params:
-      r_version: release
+    ci: github
+    template: r/github.macos.yml
 
   ############################## Gandiva Tasks ################################
 
