@@ -30,7 +30,7 @@ use num::{One, Zero};
 use crate::buffer::Buffer;
 #[cfg(simd)]
 use crate::buffer::MutableBuffer;
-use crate::compute::util::combine_option_bitmap;
+use crate::compute::{kernels::arity::unary, util::combine_option_bitmap};
 use crate::datatypes;
 use crate::datatypes::ArrowNumericType;
 use crate::error::{ArrowError, Result};
@@ -40,33 +40,6 @@ use num::traits::Pow;
 use std::borrow::BorrowMut;
 #[cfg(simd)]
 use std::slice::{ChunksExact, ChunksExactMut};
-
-/// Helper function to perform math lambda function on values from single array of signed numeric
-/// type. If value is null then the output value is also null, so `-null` is `null`.
-pub fn unary_math_op<T, F>(array: &PrimitiveArray<T>, op: F) -> Result<PrimitiveArray<T>>
-where
-    T: datatypes::ArrowNumericType,
-    F: Fn(T::Native) -> T::Native,
-{
-    let values = array.values().iter().map(|v| op(*v));
-    // JUSTIFICATION
-    //  Benefit
-    //      ~60% speedup
-    //  Soundness
-    //      `values` is an iterator with a known size.
-    let buffer = unsafe { Buffer::from_trusted_len_iter(values) };
-
-    let data = ArrayData::new(
-        T::DATA_TYPE,
-        array.len(),
-        None,
-        array.data_ref().null_buffer().cloned(),
-        0,
-        vec![buffer],
-        vec![],
-    );
-    Ok(PrimitiveArray::<T>::from(Arc::new(data)))
-}
 
 /// SIMD vectorized version of `unary_math_op` above specialized for signed numerical values.
 #[cfg(simd)]
@@ -582,7 +555,7 @@ where
     #[cfg(simd)]
     return simd_signed_unary_math_op(array, |x| -x, |x| -x);
     #[cfg(not(simd))]
-    return unary_math_op(array, |x| -x);
+    return Ok(unary(array, |x| -x));
 }
 
 /// Raise array to the power of a scalar.
@@ -604,7 +577,7 @@ where
         );
     }
     #[cfg(not(simd))]
-    return unary_math_op(array, |x| x.pow(raise));
+    return Ok(unary(array, |x| x.pow(raise)));
 }
 
 /// Perform `left * right` operation on two arrays. If either left or right value is null
