@@ -1823,7 +1823,7 @@ impl Schema {
     /// ```
     /// use arrow::datatypes::*;
     ///
-    /// let merged = Schema::try_merge(&vec![
+    /// let merged = Schema::try_merge(vec![
     ///     Schema::new(vec![
     ///         Field::new("c1", DataType::Int64, false),
     ///         Field::new("c2", DataType::Utf8, false),
@@ -1844,44 +1844,40 @@ impl Schema {
     ///     ]),
     /// );
     /// ```
-    pub fn try_merge(schemas: &[Self]) -> Result<Self> {
-        let mut merged = Self::empty();
-
-        for schema in schemas {
-            for (key, value) in schema.metadata.iter() {
-                // merge metadata
-                match merged.metadata.get(key) {
-                    Some(old_val) => {
-                        if old_val != value {
+    pub fn try_merge(schemas: impl IntoIterator<Item = Self>) -> Result<Self> {
+        schemas
+            .into_iter()
+            .try_fold(Self::empty(), |mut merged, schema| {
+                let Schema { metadata, fields } = schema;
+                for (key, value) in metadata.into_iter() {
+                    // merge metadata
+                    if let Some(old_val) = merged.metadata.get(&key) {
+                        if old_val != &value {
                             return Err(ArrowError::SchemaError(
-                                "Fail to merge schema due to conflicting metadata"
+                                "Fail to merge schema due to conflicting metadata."
                                     .to_string(),
                             ));
                         }
                     }
-                    None => {
-                        merged.metadata.insert(key.clone(), value.clone());
+                    merged.metadata.insert(key, value);
+                }
+                // merge fields
+                for field in fields.into_iter() {
+                    let mut new_field = true;
+                    for merged_field in &mut merged.fields {
+                        if field.name != merged_field.name {
+                            continue;
+                        }
+                        new_field = false;
+                        merged_field.try_merge(&field)?
+                    }
+                    // found a new field, add to field list
+                    if new_field {
+                        merged.fields.push(field);
                     }
                 }
-            }
-            // merge fields
-            for field in &schema.fields {
-                let mut new_field = true;
-                for merged_field in &mut merged.fields {
-                    if field.name != merged_field.name {
-                        continue;
-                    }
-                    new_field = false;
-                    merged_field.try_merge(field)?
-                }
-                // found a new field, add to field list
-                if new_field {
-                    merged.fields.push(field.clone());
-                }
-            }
-        }
-
-        Ok(merged)
+                Ok(merged)
+            })
     }
 
     /// Returns an immutable reference of the vector of `Field` instances.
@@ -3031,7 +3027,8 @@ mod tests {
         f2.set_metadata(Some(metadata2));
 
         assert!(
-            Schema::try_merge(&[Schema::new(vec![f1]), Schema::new(vec![f2])]).is_err()
+            Schema::try_merge(vec![Schema::new(vec![f1]), Schema::new(vec![f2])])
+                .is_err()
         );
 
         // 2. None + Some
@@ -3105,7 +3102,7 @@ mod tests {
 
     #[test]
     fn test_schema_merge() -> Result<()> {
-        let merged = Schema::try_merge(&[
+        let merged = Schema::try_merge(vec![
             Schema::new(vec![
                 Field::new("first_name", DataType::Utf8, false),
                 Field::new("last_name", DataType::Utf8, false),
@@ -3164,7 +3161,7 @@ mod tests {
 
         // support merge union fields
         assert_eq!(
-            Schema::try_merge(&[
+            Schema::try_merge(vec![
                 Schema::new(vec![Field::new(
                     "c1",
                     DataType::Union(vec![
@@ -3194,7 +3191,7 @@ mod tests {
         );
 
         // incompatible field should throw error
-        assert!(Schema::try_merge(&[
+        assert!(Schema::try_merge(vec![
             Schema::new(vec![
                 Field::new("first_name", DataType::Utf8, false),
                 Field::new("last_name", DataType::Utf8, false),
@@ -3204,7 +3201,7 @@ mod tests {
         .is_err());
 
         // incompatible metadata should throw error
-        assert!(Schema::try_merge(&[
+        assert!(Schema::try_merge(vec![
             Schema::new_with_metadata(
                 vec![Field::new("first_name", DataType::Utf8, false)],
                 [("foo".to_string(), "bar".to_string()),]

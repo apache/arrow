@@ -222,7 +222,7 @@ pub fn infer_schema_from_files(
         }
     }
 
-    Schema::try_merge(&schemas)
+    Schema::try_merge(schemas)
 }
 
 // optional bounds of the reader, of the form (min line, max line).
