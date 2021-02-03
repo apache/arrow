@@ -44,6 +44,7 @@ use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 use crate::{array::*, compute::take};
 use crate::{buffer::Buffer, util::serialization::lexical_to_string};
+use num::{NumCast, ToPrimitive};
 
 /// Return true if a value of type `from_type` can be cast into a
 /// value of `to_type`. Note that such as cast may be lossy.
@@ -58,8 +59,14 @@ pub fn can_cast_types(from_type: &DataType, to_type: &DataType) -> bool {
     match (from_type, to_type) {
         (Struct(_), _) => false,
         (_, Struct(_)) => false,
+        (LargeList(list_from), LargeList(list_to)) => {
+            can_cast_types(list_from.data_type(), list_to.data_type())
+        }
         (List(list_from), List(list_to)) => {
             can_cast_types(list_from.data_type(), list_to.data_type())
+        }
+        (List(list_from), LargeList(list_to)) => {
+            list_from.data_type() == list_to.data_type()
         }
         (List(_), _) => false,
         (_, List(list_to)) => can_cast_types(from_type, list_to.data_type()),
@@ -270,6 +277,45 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
             let list = ListArray::from(Arc::new(array_data));
             Ok(Arc::new(list) as ArrayRef)
         }
+        (LargeList(_), LargeList(ref to)) => {
+            let data = array.data_ref();
+            let underlying_array = make_array(data.child_data()[0].clone());
+            let cast_array = cast(&underlying_array, to.data_type())?;
+            let array_data = ArrayData::new(
+                to.data_type().clone(),
+                array.len(),
+                Some(cast_array.null_count()),
+                cast_array
+                    .data()
+                    .null_bitmap()
+                    .clone()
+                    .map(|bitmap| bitmap.bits),
+                array.offset(),
+                // reuse offset buffer
+                data.buffers().to_vec(),
+                vec![cast_array.data()],
+            );
+            let list = LargeListArray::from(Arc::new(array_data));
+            Ok(Arc::new(list) as ArrayRef)
+        }
+        (List(list_from), LargeList(list_to)) => {
+            if list_to.data_type() != list_from.data_type() {
+                Err(ArrowError::ComputeError(
+                    "cannot cast list to large-list with different child data".into(),
+                ))
+            } else {
+                cast_list_container::<i32, i64>(array)
+            }
+        }
+        (LargeList(list_from), List(list_to)) => {
+            if list_to.data_type() != list_from.data_type() {
+                Err(ArrowError::ComputeError(
+                    "cannot cast large-list to list with different child data".into(),
+                ))
+            } else {
+                cast_list_container::<i64, i32>(array)
+            }
+        }
         (List(_), _) => Err(ArrowError::ComputeError(
             "Cannot cast list to non-list data types".to_string(),
         )),
@@ -293,6 +339,30 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
                 vec![cast_array.data()],
             );
             let list_array = Arc::new(ListArray::from(Arc::new(list_data))) as ArrayRef;
+
+            Ok(list_array)
+        }
+        (_, LargeList(ref to)) => {
+            // cast primitive to list's primitive
+            let cast_array = cast(array, to.data_type())?;
+            // create offsets, where if array.len() = 2, we have [0,1,2]
+            let offsets: Vec<i64> = (0..=array.len() as i64).collect();
+            let value_offsets = Buffer::from_slice_ref(&offsets);
+            let list_data = ArrayData::new(
+                to.data_type().clone(),
+                array.len(),
+                Some(cast_array.null_count()),
+                cast_array
+                    .data()
+                    .null_bitmap()
+                    .clone()
+                    .map(|bitmap| bitmap.bits),
+                0,
+                vec![value_offsets],
+                vec![cast_array.data()],
+            );
+            let list_array =
+                Arc::new(LargeListArray::from(Arc::new(list_data))) as ArrayRef;
 
             Ok(list_array)
         }
@@ -1190,6 +1260,76 @@ where
         }
     }
     Ok(Arc::new(b.finish()))
+}
+
+/// Cast the container type of List/Largelist array but not the inner types.
+/// This function can leave the value data intact and only has to cast the offset dtypes.
+fn cast_list_container<OffsetSizeFrom, OffsetSizeTo>(array: &ArrayRef) -> Result<ArrayRef>
+where
+    OffsetSizeFrom: OffsetSizeTrait + ToPrimitive,
+    OffsetSizeTo: OffsetSizeTrait + NumCast,
+{
+    let data = array.data_ref();
+    // the value data stored by the list
+    let value_data = data.child_data()[0].clone();
+
+    let out_dtype = match array.data_type() {
+        DataType::List(value_type) => {
+            assert_eq!(
+                std::mem::size_of::<OffsetSizeFrom>(),
+                std::mem::size_of::<i32>()
+            );
+            assert_eq!(
+                std::mem::size_of::<OffsetSizeTo>(),
+                std::mem::size_of::<i64>()
+            );
+            DataType::LargeList(value_type.clone())
+        }
+        DataType::LargeList(value_type) => {
+            assert_eq!(
+                std::mem::size_of::<OffsetSizeFrom>(),
+                std::mem::size_of::<i64>()
+            );
+            assert_eq!(
+                std::mem::size_of::<OffsetSizeTo>(),
+                std::mem::size_of::<i32>()
+            );
+            if value_data.len() > i32::MAX as usize {
+                return Err(ArrowError::ComputeError(
+                    "LargeList too large to cast to List".into(),
+                ));
+            }
+            DataType::List(value_type.clone())
+        }
+        // implementation error
+        _ => unreachable!(),
+    };
+
+    // the offsets
+    // SAFETY
+    //      We asserted the correct size of OffsetSizeFrom above.
+    let offsets = unsafe { data.buffers()[0].typed_data::<OffsetSizeFrom>() };
+
+    let iter = offsets.iter().map(|idx| {
+        let idx: OffsetSizeTo = NumCast::from(*idx).unwrap();
+        idx
+    });
+
+    // SAFETY
+    //      A slice produces a trusted length iterator
+    let offset_buffer = unsafe { Buffer::from_trusted_len_iter(iter) };
+
+    // wrap up
+    let mut builder = ArrayData::builder(out_dtype)
+        .len(array.len())
+        .add_buffer(offset_buffer)
+        .add_child_data(value_data);
+
+    if let Some(buf) = data.null_buffer() {
+        builder = builder.null_bit_buffer(buf.clone())
+    }
+    let data = builder.build();
+    Ok(make_array(data))
 }
 
 #[cfg(test)]
@@ -2870,6 +3010,40 @@ mod tests {
                 };
             }
         }
+    }
+
+    #[test]
+    fn test_cast_list_containers() {
+        // large-list to list
+        let array = Arc::new(make_large_list_array()) as ArrayRef;
+        let list_array = cast(
+            &array,
+            &DataType::List(Box::new(Field::new("", DataType::Int32, false))),
+        )
+        .unwrap();
+        let actual = list_array.as_any().downcast_ref::<ListArray>().unwrap();
+        let expected = array.as_any().downcast_ref::<LargeListArray>().unwrap();
+
+        assert_eq!(&expected.value(0), &actual.value(0));
+        assert_eq!(&expected.value(1), &actual.value(1));
+        assert_eq!(&expected.value(2), &actual.value(2));
+
+        // list to large-list
+        let array = Arc::new(make_list_array()) as ArrayRef;
+        let large_list_array = cast(
+            &array,
+            &DataType::LargeList(Box::new(Field::new("", DataType::Int32, false))),
+        )
+        .unwrap();
+        let actual = large_list_array
+            .as_any()
+            .downcast_ref::<LargeListArray>()
+            .unwrap();
+        let expected = array.as_any().downcast_ref::<ListArray>().unwrap();
+
+        assert_eq!(&expected.value(0), &actual.value(0));
+        assert_eq!(&expected.value(1), &actual.value(1));
+        assert_eq!(&expected.value(2), &actual.value(2));
     }
 
     /// Create instances of arrays with varying types for cast tests
