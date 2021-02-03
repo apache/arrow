@@ -181,12 +181,16 @@ pub fn can_cast_types(from_type: &DataType, to_type: &DataType) -> bool {
 
         // temporal casts
         (Int32, Date32) => true,
+        (Int32, Date64) => true,
         (Int32, Time32(_)) => true,
         (Date32, Int32) => true,
+        (Date32, Int64) => true,
         (Time32(_), Int32) => true,
         (Int64, Date64) => true,
+        (Int64, Date32) => true,
         (Int64, Time64(_)) => true,
         (Date64, Int64) => true,
+        (Date64, Int32) => true,
         (Time64(_), Int64) => true,
         (Date32, Date64) => true,
         (Date64, Date32) => true,
@@ -548,6 +552,7 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
 
         // temporal casts
         (Int32, Date32) => cast_array_data::<Date32Type>(array, to_type.clone()),
+        (Int32, Date64) => cast(&cast(array, &DataType::Date32)?, &DataType::Date64),
         (Int32, Time32(TimeUnit::Second)) => {
             cast_array_data::<Time32SecondType>(array, to_type.clone())
         }
@@ -556,8 +561,10 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
         }
         // No support for microsecond/nanosecond with i32
         (Date32, Int32) => cast_array_data::<Int32Type>(array, to_type.clone()),
+        (Date32, Int64) => cast(&cast(array, &DataType::Int32)?, &DataType::Int64),
         (Time32(_), Int32) => cast_array_data::<Int32Type>(array, to_type.clone()),
         (Int64, Date64) => cast_array_data::<Date64Type>(array, to_type.clone()),
+        (Int64, Date32) => cast(&cast(array, &DataType::Int32)?, &DataType::Date32),
         // No support for second/milliseconds with i64
         (Int64, Time64(TimeUnit::Microsecond)) => {
             cast_array_data::<Time64MicrosecondType>(array, to_type.clone())
@@ -567,6 +574,7 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
         }
 
         (Date64, Int64) => cast_array_data::<Int64Type>(array, to_type.clone()),
+        (Date64, Int32) => cast(&cast(array, &DataType::Int64)?, &DataType::Int32),
         (Time64(_), Int64) => cast_array_data::<Int64Type>(array, to_type.clone()),
         (Date32, Date64) => {
             let date_array = array.as_any().downcast_ref::<Date32Array>().unwrap();
@@ -2204,6 +2212,11 @@ mod tests {
             get_cast_values::<Int32Type>(&i64_array, &DataType::Int32)
         );
 
+        assert_eq!(
+            i32_expected,
+            get_cast_values::<Date32Type>(&i64_array, &DataType::Date32)
+        );
+
         let i16_expected = vec![
             "null", "null", "-32768", "-128", "0", "127", "32767", "null", "null",
         ];
@@ -2347,6 +2360,21 @@ mod tests {
             u8_expected,
             get_cast_values::<UInt8Type>(&i32_array, &DataType::UInt8)
         );
+
+        // The date32 to date64 cast increases the numerical values in order to keep the same dates.
+        let i64_expected = vec![
+            "-185542587187200000",
+            "-2831155200000",
+            "-11059200000",
+            "0",
+            "10972800000",
+            "2831068800000",
+            "185542587100800000",
+        ];
+        assert_eq!(
+            i64_expected,
+            get_cast_values::<Date64Type>(&i32_array, &DataType::Date64)
+        );
     }
 
     #[test]
@@ -2418,6 +2446,34 @@ mod tests {
         assert_eq!(
             u8_expected,
             get_cast_values::<UInt8Type>(&i16_array, &DataType::UInt8)
+        );
+    }
+
+    #[test]
+    fn test_cast_from_date32() {
+        let i32_values: Vec<i32> = vec![
+            std::i32::MIN as i32,
+            std::i16::MIN as i32,
+            std::i8::MIN as i32,
+            0,
+            std::i8::MAX as i32,
+            std::i16::MAX as i32,
+            std::i32::MAX as i32,
+        ];
+        let date32_array: ArrayRef = Arc::new(Date32Array::from(i32_values));
+
+        let i64_expected = vec![
+            "-2147483648",
+            "-32768",
+            "-128",
+            "0",
+            "127",
+            "32767",
+            "2147483647",
+        ];
+        assert_eq!(
+            i64_expected,
+            get_cast_values::<Int64Type>(&date32_array, &DataType::Int64)
         );
     }
 
