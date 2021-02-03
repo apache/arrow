@@ -63,6 +63,11 @@ import io.grpc.MethodDescriptor;
  */
 public class TestBasicOperation {
 
+  @Test
+  public void fastPathEnabledByDefault() {
+    Assert.assertTrue(ArrowMessage.ENABLE_ZERO_COPY);
+  }
+
   /**
    * ARROW-6017: we should be able to construct locations for unknown schemes.
    */
