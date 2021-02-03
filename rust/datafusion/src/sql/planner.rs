@@ -1440,6 +1440,35 @@ mod tests {
     }
 
     #[test]
+    fn select_aggregate_with_group_by_with_having_and_where() {
+        let sql = "SELECT first_name, MAX(age)
+                   FROM person
+                   WHERE id > 5
+                   GROUP BY first_name
+                   HAVING MAX(age) < 100";
+        let expected = "Filter: #MAX(age) Lt Int64(100)\
+                        \n  Aggregate: groupBy=[[#first_name]], aggr=[[MAX(#age)]]\
+                        \n    Filter: #id Gt Int64(5)\
+                        \n      TableScan: person projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn select_aggregate_with_group_by_with_having_and_where_filtering_on_aggregate_column(
+    ) {
+        let sql = "SELECT first_name, MAX(age)
+                   FROM person
+                   WHERE id > 5 AND age > 18
+                   GROUP BY first_name
+                   HAVING MAX(age) < 100";
+        let expected = "Filter: #MAX(age) Lt Int64(100)\
+                        \n  Aggregate: groupBy=[[#first_name]], aggr=[[MAX(#age)]]\
+                        \n    Filter: #id Gt Int64(5) And #age Gt Int64(18)\
+                        \n      TableScan: person projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
     fn select_aggregate_with_group_by_with_having_using_column_by_alias() {
         let sql = "SELECT first_name AS fn, MAX(age)
                    FROM person

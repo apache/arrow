@@ -453,6 +453,22 @@ async fn csv_query_group_by_and_having() -> Result<()> {
 }
 
 #[tokio::test]
+async fn csv_query_group_by_and_having_and_where() -> Result<()> {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv(&mut ctx)?;
+    let sql = "SELECT c1, MIN(c3) AS m
+               FROM aggregate_test_100
+               WHERE c1 IN ('a', 'b')
+               GROUP BY c1
+               HAVING m < -100 AND MAX(c3) > 70";
+    let mut actual = execute(&mut ctx, sql).await;
+    actual.sort();
+    let expected = vec![vec!["a", "-101"]];
+    assert_eq!(expected, actual);
+    Ok(())
+}
+
+#[tokio::test]
 async fn csv_query_having_without_group_by() -> Result<()> {
     let mut ctx = ExecutionContext::new();
     register_aggregate_csv(&mut ctx)?;
