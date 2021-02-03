@@ -461,6 +461,12 @@ class ArrayWriter {
     return Status::OK();
   }
 
+  void WriteRawNumber(util::string_view v) {
+    // Avoid RawNumber() as it misleadingly adds quotes
+    // (see https://github.com/Tencent/rapidjson/pull/1155)
+    writer_->RawValue(v.data(), v.size(), rj::kNumberType);
+  }
+
   template <typename ArrayType, typename TypeClass = typename ArrayType::TypeClass,
             typename CType = typename TypeClass::c_type>
   enable_if_t<is_physical_integer_type<TypeClass>::value &&
@@ -471,8 +477,7 @@ class ArrayWriter {
       if (arr.IsValid(i)) {
         writer_->Int64(arr.Value(i));
       } else {
-        writer_->RawNumber(null_string.data(),
-                           static_cast<rj::SizeType>(null_string.size()));
+        WriteRawNumber(null_string);
       }
     }
   }
@@ -500,13 +505,13 @@ class ArrayWriter {
   template <typename ArrayType>
   enable_if_physical_floating_point<typename ArrayType::TypeClass> WriteDataValues(
       const ArrayType& arr) {
-    static const char null_string[] = "0.";
+    static const std::string null_string = "0";
     const auto data = arr.raw_values();
     for (int64_t i = 0; i < arr.length(); ++i) {
       if (arr.IsValid(i)) {
         writer_->Double(data[i]);
       } else {
-        writer_->RawNumber(null_string, sizeof(null_string));
+        WriteRawNumber(null_string);
       }
     }
   }
@@ -625,19 +630,21 @@ class ArrayWriter {
   }
 
   void SetNoChildren() {
-    writer_->Key("children");
-    writer_->StartArray();
-    writer_->EndArray();
+    // Nothing.  We used to write an empty "children" array member,
+    // but that fails the Java parser (ARROW-11483).
   }
 
   Status WriteChildren(const std::vector<std::shared_ptr<Field>>& fields,
                        const std::vector<std::shared_ptr<Array>>& arrays) {
-    writer_->Key("children");
-    writer_->StartArray();
-    for (size_t i = 0; i < fields.size(); ++i) {
-      RETURN_NOT_OK(VisitArray(fields[i]->name(), *arrays[i]));
+    // NOTE: the Java parser fails on an empty "children" member (ARROW-11483).
+    if (fields.size() > 0) {
+      writer_->Key("children");
+      writer_->StartArray();
+      for (size_t i = 0; i < fields.size(); ++i) {
+        RETURN_NOT_OK(VisitArray(fields[i]->name(), *arrays[i]));
+      }
+      writer_->EndArray();
     }
-    writer_->EndArray();
     return Status::OK();
   }
 
@@ -756,8 +763,14 @@ Result<const RjObject> GetMemberObject(const RjObject& obj, const std::string& k
   return it->value.GetObject();
 }
 
-Result<const RjArray> GetMemberArray(const RjObject& obj, const std::string& key) {
+Result<const RjArray> GetMemberArray(const RjObject& obj, const std::string& key,
+                                     bool allow_absent = false) {
+  static const auto empty_array = rj::Value(rj::kArrayType);
+
   const auto& it = obj.FindMember(key);
+  if (allow_absent && it == obj.MemberEnd()) {
+    return empty_array.GetArray();
+  }
   RETURN_NOT_ARRAY(key, it, obj);
   return it->value.GetArray();
 }
@@ -1495,7 +1508,8 @@ class ArrayReader {
     return Status::OK();
   }
   Status GetChildren(const RjObject& obj, const DataType& type) {
-    ARROW_ASSIGN_OR_RAISE(const auto json_children, GetMemberArray(obj, "children"));
+    ARROW_ASSIGN_OR_RAISE(const auto json_children,
+                          GetMemberArray(obj, "children", /*allow_absent=*/true));
 
     if (type.num_fields() != static_cast<int>(json_children.Size())) {
       return Status::Invalid("Expected ", type.num_fields(), " children, but got ",
