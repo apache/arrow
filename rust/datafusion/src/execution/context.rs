@@ -95,6 +95,7 @@ use parquet::file::properties::WriterProperties;
 /// # Ok(())
 /// # }
 /// ```
+#[derive(Clone)]
 pub struct ExecutionContext {
     /// Internal state for the context
     pub state: Arc<Mutex<ExecutionContextState>>,
