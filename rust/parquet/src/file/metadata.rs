@@ -741,6 +741,31 @@ mod tests {
         assert_eq!(col_chunk_res, col_chunk_exp);
     }
 
+    #[test]
+    fn test_compressed_size() {
+        let schema_descr = get_test_schema_descr();
+
+        let mut columns = vec![];
+        for column_descr in schema_descr.columns() {
+            let column = ColumnChunkMetaData::builder(column_descr.clone())
+                .set_total_compressed_size(500)
+                .set_total_uncompressed_size(700)
+                .build()
+                .unwrap();
+            columns.push(column);
+        }
+        let row_group_meta = RowGroupMetaData::builder(schema_descr)
+            .set_num_rows(1000)
+            .set_column_metadata(columns)
+            .build()
+            .unwrap();
+
+        let compressed_size_res: i64 = row_group_meta.compressed_size();
+        let compressed_size_exp: i64 = 1000;
+
+        assert_eq!(compressed_size_res, compressed_size_exp);
+    }
+
     /// Returns sample schema descriptor so we can create column metadata.
     fn get_test_schema_descr() -> SchemaDescPtr {
         let schema = SchemaType::group_type_builder("schema")
