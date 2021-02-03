@@ -1962,7 +1962,7 @@ macro(build_lz4)
       endif()
     endif()
     set(LZ4_STATIC_LIB
-        "${LZ4_BUILD_DIR}/visual/VS2010/bin/x64_${CMAKE_BUILD_TYPE}/liblz4_static.lib")
+        "${LZ4_BUILD_DIR}/build/VS2010/bin/x64_${CMAKE_BUILD_TYPE}/liblz4_static.lib")
     set(LZ4_BUILD_COMMAND
         BUILD_COMMAND
         msbuild.exe
@@ -1972,7 +1972,7 @@ macro(build_lz4)
         /p:PlatformToolset=v140
         ${LZ4_RUNTIME_LIBRARY_LINKAGE}
         /t:Build
-        ${LZ4_BUILD_DIR}/visual/VS2010/lz4.sln)
+        ${LZ4_BUILD_DIR}/build/VS2010/lz4.sln)
   else()
     set(LZ4_STATIC_LIB "${LZ4_BUILD_DIR}/lib/liblz4.a")
     set(LZ4_BUILD_COMMAND BUILD_COMMAND ${CMAKE_SOURCE_DIR}/build-support/build-lz4-lib.sh
@@ -2102,7 +2102,8 @@ macro(build_re2)
   set(RE2_STATIC_LIB
       "${RE2_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}re2${CMAKE_STATIC_LIBRARY_SUFFIX}")
 
-  set(RE2_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=${RE2_PREFIX}")
+  set(RE2_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=${RE2_PREFIX}"
+                     -DCMAKE_INSTALL_LIBDIR=lib)
 
   externalproject_add(re2_ep
                       ${EP_LOG_OPTIONS}
@@ -2339,6 +2340,7 @@ macro(build_grpc)
       spinlock_wait
       stacktrace
       status
+      statusor
       str_format_internal
       strings
       strings_internal
@@ -2790,7 +2792,8 @@ macro(build_awssdk)
                       ${EP_LOG_OPTIONS}
                       URL ${AWS_CHECKSUMS_SOURCE_URL}
                       CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${AWS_CHECKSUMS_STATIC_LIBRARY})
+                      BUILD_BYPRODUCTS ${AWS_CHECKSUMS_STATIC_LIBRARY}
+                      DEPENDS aws_c_common_ep)
   add_dependencies(AWS::aws-checksums aws_checksums_ep)
 
   externalproject_add(aws_c_event_stream_ep
@@ -2798,7 +2801,7 @@ macro(build_awssdk)
                       URL ${AWS_C_EVENT_STREAM_SOURCE_URL}
                       CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
                       BUILD_BYPRODUCTS ${AWS_C_EVENT_STREAM_STATIC_LIBRARY}
-                      DEPENDS aws_c_common_ep aws_checksums_ep)
+                      DEPENDS aws_checksums_ep)
   add_dependencies(AWS::aws-c-event-stream aws_c_event_stream_ep)
 
   externalproject_add(awssdk_ep
