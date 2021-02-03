@@ -273,41 +273,43 @@ where
     I: ArrowNumericType,
     I::Native: ToPrimitive,
 {
+    if values.is_empty() {
+        return Ok(PrimitiveArray::from_iter_values(vec![]));
+    }
+    // Only one branch to check if we can cast to usize up front.
+    ToPrimitive::to_usize(&indices.value(0))
+        .ok_or_else(|| ArrowError::ComputeError("Cast to usize failed".to_string()))?;
+
     let data_len = indices.len();
-
-    let mut buffer =
-        MutableBuffer::from_len_zeroed(data_len * std::mem::size_of::<T::Native>());
-    let data = buffer.typed_data_mut();
-
     let nulls;
 
-    if values.null_count() == 0 {
-        // Take indices without null checking
-        for (i, elem) in data.iter_mut().enumerate() {
-            let index = ToPrimitive::to_usize(&indices.value(i)).ok_or_else(|| {
-                ArrowError::ComputeError("Cast to usize failed".to_string())
-            })?;
+    let iter_index = indices
+        .values()
+        .iter()
+        .map(|idx| ToPrimitive::to_usize(idx).unwrap());
 
-            *elem = values.value(index);
-        }
+    // Take indices without null checking
+    // SAFETY
+    // the values slice iterator has a trusted length;
+    let buffer = unsafe {
+        Buffer::from_trusted_len_iter(iter_index.clone().map(|idx| values.value(idx)))
+    };
+
+    if values.null_count() == 0 {
+        // only take the null values from the index array
         nulls = indices.data_ref().null_buffer().cloned();
     } else {
+        // combine the null values of the index array and the values array
         let num_bytes = bit_util::ceil(data_len, 8);
         let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, true);
 
         let null_slice = null_buf.as_slice_mut();
-
-        for (i, elem) in data.iter_mut().enumerate() {
-            let index = ToPrimitive::to_usize(&indices.value(i)).ok_or_else(|| {
-                ArrowError::ComputeError("Cast to usize failed".to_string())
-            })?;
-
+        for (i, index) in iter_index.enumerate() {
             if values.is_null(index) {
                 bit_util::unset_bit(null_slice, i);
             }
-
-            *elem = values.value(index);
         }
+
         nulls = match indices.data_ref().null_buffer() {
             Some(buffer) => Some(buffer_bin_and(
                 buffer,
@@ -326,7 +328,7 @@ where
         None,
         nulls,
         0,
-        vec![buffer.into()],
+        vec![buffer],
         vec![],
     );
     Ok(PrimitiveArray::<T>::from(Arc::new(data)))
