@@ -16,67 +16,14 @@
 // under the License.
 extern crate arrow;
 
-use arrow::{compute::Filter, util::test_util::seedable_rng};
-use rand::{
-    distributions::{Alphanumeric, Standard},
-    prelude::Distribution,
-    Rng,
-};
+use arrow::compute::Filter;
+use arrow::util::bench_util::*;
 
 use arrow::array::*;
 use arrow::compute::{build_filter, filter};
-use arrow::datatypes::ArrowNumericType;
 use arrow::datatypes::{Float32Type, UInt8Type};
 
 use criterion::{criterion_group, criterion_main, Criterion};
-
-fn create_primitive_array<T>(size: usize, null_density: f32) -> PrimitiveArray<T>
-where
-    T: ArrowNumericType,
-    Standard: Distribution<T::Native>,
-{
-    // use random numbers to avoid spurious compiler optimizations wrt to branching
-    let mut rng = seedable_rng();
-    let mut builder = PrimitiveArray::<T>::builder(size);
-
-    for _ in 0..size {
-        if rng.gen::<f32>() < null_density {
-            builder.append_null().unwrap();
-        } else {
-            builder.append_value(rng.gen()).unwrap();
-        }
-    }
-    builder.finish()
-}
-
-fn create_string_array(size: usize, null_density: f32) -> StringArray {
-    // use random numbers to avoid spurious compiler optimizations wrt to branching
-    let mut rng = seedable_rng();
-    let mut builder = StringBuilder::new(size);
-
-    for _ in 0..size {
-        if rng.gen::<f32>() < null_density {
-            builder.append_null().unwrap();
-        } else {
-            let value = (&mut rng)
-                .sample_iter(&Alphanumeric)
-                .take(10)
-                .collect::<String>();
-            builder.append_value(&value).unwrap();
-        }
-    }
-    builder.finish()
-}
-
-fn create_bool_array(size: usize, trues_density: f32) -> BooleanArray {
-    let mut rng = seedable_rng();
-    let mut builder = BooleanBuilder::new(size);
-    for _ in 0..size {
-        let value = rng.gen::<f32>() < trues_density;
-        builder.append_value(value).unwrap();
-    }
-    builder.finish()
-}
 
 fn bench_filter(data_array: &dyn Array, filter_array: &BooleanArray) {
     criterion::black_box(filter(data_array, filter_array).unwrap());
@@ -88,9 +35,9 @@ fn bench_built_filter<'a>(filter: &Filter<'a>, data: &impl Array) {
 
 fn add_benchmark(c: &mut Criterion) {
     let size = 65536;
-    let filter_array = create_bool_array(size, 0.5);
-    let dense_filter_array = create_bool_array(size, 1.0 - 1.0 / 1024.0);
-    let sparse_filter_array = create_bool_array(size, 1.0 / 1024.0);
+    let filter_array = create_boolean_array(size, 0.0, 0.5);
+    let dense_filter_array = create_boolean_array(size, 0.0, 1.0 - 1.0 / 1024.0);
+    let sparse_filter_array = create_boolean_array(size, 0.0, 1.0 / 1024.0);
 
     let filter = build_filter(&filter_array).unwrap();
     let dense_filter = build_filter(&dense_filter_array).unwrap();

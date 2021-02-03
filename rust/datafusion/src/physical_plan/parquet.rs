@@ -267,6 +267,14 @@ impl ParquetExec {
 }
 
 impl ParquetPartition {
+    /// Create a new parquet partition
+    pub fn new(filenames: Vec<String>, statistics: Statistics) -> Self {
+        Self {
+            filenames,
+            statistics,
+        }
+    }
+
     /// The Parquet filename for this partition
     pub fn filenames(&self) -> &[String] {
         &self.filenames

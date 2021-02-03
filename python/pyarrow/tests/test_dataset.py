@@ -1612,6 +1612,37 @@ def test_open_dataset_partitioned_dictionary_type(tempdir, partitioning,
     assert dataset.schema.equals(expected_schema)
 
 
+@pytest.mark.pandas
+def test_dataset_partitioned_dictionary_type_reconstruct(tempdir):
+    # https://issues.apache.org/jira/browse/ARROW-11400
+    table = pa.table({'part': np.repeat(['A', 'B'], 5), 'col': range(10)})
+    part = ds.partitioning(table.select(['part']).schema, flavor="hive")
+    ds.write_dataset(table, tempdir, partitioning=part, format="feather")
+
+    dataset = ds.dataset(
+        tempdir, format="feather",
+        partitioning=ds.HivePartitioning.discover(infer_dictionary=True)
+    )
+    expected = pa.table(
+        {'col': table['col'], 'part': table['part'].dictionary_encode()}
+    )
+    assert dataset.to_table().equals(expected)
+    fragment = list(dataset.get_fragments())[0]
+    assert fragment.to_table(schema=dataset.schema).equals(expected[:5])
+    part_expr = fragment.partition_expression
+
+    restored = pickle.loads(pickle.dumps(dataset))
+    assert restored.to_table().equals(expected)
+
+    restored = pickle.loads(pickle.dumps(fragment))
+    assert restored.to_table(schema=dataset.schema).equals(expected[:5])
+    # to_pandas call triggers computation of the actual dictionary values
+    assert restored.to_table(schema=dataset.schema).to_pandas().equals(
+        expected[:5].to_pandas()
+    )
+    assert restored.partition_expression.equals(part_expr)
+
+
 @pytest.fixture
 def s3_example_simple(s3_connection, s3_server):
     from pyarrow.fs import FileSystem

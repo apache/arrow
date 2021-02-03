@@ -206,7 +206,6 @@ Summary:	Runtime libraries for Apache Arrow C++
 License:	Apache-2.0
 Requires:	boost%{boost_version}-system
 Requires:	boost%{boost_version}-filesystem
-Requires:	boost%{boost_version}-regex
 Requires:	brotli
 Requires:	gflags
 Requires:	glog

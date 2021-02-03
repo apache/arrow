@@ -31,7 +31,7 @@ use crate::error::{DataFusionError, Result};
 use crate::physical_plan::{Accumulator, AggregateExpr};
 use crate::physical_plan::{Distribution, ExecutionPlan, Partitioning, PhysicalExpr};
 
-use arrow::array::BooleanArray;
+use arrow::array::{BooleanArray, Date32Array};
 use arrow::{
     array::{Array, UInt32Builder},
     error::{ArrowError, Result as ArrowResult},
@@ -473,6 +473,10 @@ pub(crate) fn create_key(
                 // store the string value
                 vec.extend_from_slice(value.as_bytes());
             }
+            DataType::Date32 => {
+                let array = col.as_any().downcast_ref::<Date32Array>().unwrap();
+                vec.extend_from_slice(&array.value(row).to_le_bytes());
+            }
             _ => {
                 // This is internal because we should have caught this before.
                 return Err(DataFusionError::Internal(format!(
@@ -844,6 +848,7 @@ fn create_batch_from_map(
                     GroupByScalar::TimeNanosecond(n) => {
                         Arc::new(TimestampNanosecondArray::from_vec(vec![*n], None))
                     }
+                    GroupByScalar::Date32(n) => Arc::new(Date32Array::from(vec![*n])),
                 })
                 .collect::<Vec<ArrayRef>>();
 
@@ -978,6 +983,11 @@ pub(crate) fn create_group_by_values(
                     .unwrap();
                 vec[i] = GroupByScalar::TimeNanosecond(array.value(row))
             }
+            DataType::Date32 => {
+                let array = col.as_any().downcast_ref::<Date32Array>().unwrap();
+                vec[i] = GroupByScalar::Date32(array.value(row));
+            }
+
             _ => {
                 // This is internal because we should have caught this before.
                 return Err(DataFusionError::Internal(format!(

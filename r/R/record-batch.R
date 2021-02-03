@@ -86,10 +86,10 @@ RecordBatch <- R6Class("RecordBatch", inherit = ArrowTabular,
     },
     SelectColumns = function(indices) RecordBatch__SelectColumns(self, indices),
     AddColumn = function(i, new_field, value) {
-      stop("TODO: ARROW-10520", call. = FALSE)
+      RecordBatch__AddColumn(self, i, new_field, value)
     },
     SetColumn = function(i, new_field, value) {
-      stop("TODO: ARROW-10520", call. = FALSE)
+      RecordBatch__SetColumn(self, i, new_field, value)
     },
     RemoveColumn = function(i) RecordBatch__RemoveColumn(self, i),
     Slice = function(offset, length = NULL) {

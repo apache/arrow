@@ -52,7 +52,6 @@ RUN vcpkg install --clean-after-build \
         aws-sdk-cpp[config,cognito-identity,core,identity-management,s3,sts,transfer] \
         boost-filesystem \
         boost-multiprecision \
-        boost-regex \
         boost-system \
         brotli \
         bzip2 \

@@ -19,26 +19,12 @@
 extern crate criterion;
 use criterion::Criterion;
 
-use rand::distributions::{Distribution, Standard};
-use rand::Rng;
-
-use arrow::util::test_util::seedable_rng;
+use arrow::util::bench_util::create_boolean_array;
 
 extern crate arrow;
 
 use arrow::array::*;
 use arrow::compute::kernels::boolean as boolean_kernels;
-
-fn create_boolean(size: usize) -> BooleanArray
-where
-    Standard: Distribution<bool>,
-{
-    seedable_rng()
-        .sample_iter(&Standard)
-        .take(size)
-        .map(Some)
-        .collect()
-}
 
 fn bench_and(lhs: &BooleanArray, rhs: &BooleanArray) {
     criterion::black_box(boolean_kernels::and(lhs, rhs).unwrap());
@@ -54,8 +40,8 @@ fn bench_not(array: &BooleanArray) {
 
 fn add_benchmark(c: &mut Criterion) {
     let size = 2usize.pow(15);
-    let array1 = create_boolean(size);
-    let array2 = create_boolean(size);
+    let array1 = create_boolean_array(size, 0.0, 0.5);
+    let array2 = create_boolean_array(size, 0.0, 0.5);
     c.bench_function("and", |b| b.iter(|| bench_and(&array1, &array2)));
     c.bench_function("or", |b| b.iter(|| bench_or(&array1, &array2)));
     c.bench_function("not", |b| b.iter(|| bench_not(&array1)));

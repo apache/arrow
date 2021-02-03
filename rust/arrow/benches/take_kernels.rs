@@ -19,57 +19,14 @@
 extern crate criterion;
 use criterion::Criterion;
 
-use rand::distributions::{Alphanumeric, Distribution, Standard};
 use rand::Rng;
 
 extern crate arrow;
 
-use arrow::array::*;
 use arrow::compute::take;
 use arrow::datatypes::*;
 use arrow::util::test_util::seedable_rng;
-
-// cast array from specified primitive array type to desired data type
-fn create_primitive<T>(size: usize) -> PrimitiveArray<T>
-where
-    T: ArrowPrimitiveType,
-    Standard: Distribution<T::Native>,
-    PrimitiveArray<T>: std::convert::From<Vec<T::Native>>,
-{
-    seedable_rng()
-        .sample_iter(&Standard)
-        .take(size)
-        .map(Some)
-        .collect()
-}
-
-// cast array from specified primitive array type to desired data type
-fn create_boolean(size: usize) -> BooleanArray
-where
-    Standard: Distribution<bool>,
-{
-    seedable_rng()
-        .sample_iter(&Standard)
-        .take(size)
-        .map(Some)
-        .collect()
-}
-
-fn create_strings(size: usize, null_density: f32) -> StringArray {
-    let rng = &mut seedable_rng();
-
-    let mut builder = StringBuilder::new(size);
-    for _ in 0..size {
-        let x = rng.gen::<f32>();
-        if x < null_density {
-            let value = rng.sample_iter(&Alphanumeric).take(4).collect::<String>();
-            builder.append_value(&value).unwrap();
-        } else {
-            builder.append_null().unwrap()
-        }
-    }
-    builder.finish()
-}
+use arrow::{array::*, util::bench_util::*};
 
 fn create_random_index(size: usize, null_density: f32) -> UInt32Array {
     let mut rng = seedable_rng();
@@ -90,10 +47,10 @@ fn bench_take(values: &dyn Array, indices: &UInt32Array) {
 }
 
 fn add_benchmark(c: &mut Criterion) {
-    let values = create_primitive::<Int32Type>(512);
+    let values = create_primitive_array::<Int32Type>(512, 0.0);
     let indices = create_random_index(512, 0.0);
     c.bench_function("take i32 512", |b| b.iter(|| bench_take(&values, &indices)));
-    let values = create_primitive::<Int32Type>(1024);
+    let values = create_primitive_array::<Int32Type>(1024, 0.0);
     let indices = create_random_index(1024, 0.0);
     c.bench_function("take i32 1024", |b| {
         b.iter(|| bench_take(&values, &indices))
@@ -103,64 +60,64 @@ fn add_benchmark(c: &mut Criterion) {
     c.bench_function("take i32 nulls 512", |b| {
         b.iter(|| bench_take(&values, &indices))
     });
-    let values = create_primitive::<Int32Type>(1024);
+    let values = create_primitive_array::<Int32Type>(1024, 0.0);
     let indices = create_random_index(1024, 0.5);
     c.bench_function("take i32 nulls 1024", |b| {
         b.iter(|| bench_take(&values, &indices))
     });
 
-    let values = create_boolean(512);
+    let values = create_boolean_array(512, 0.0, 0.5);
     let indices = create_random_index(512, 0.0);
     c.bench_function("take bool 512", |b| {
         b.iter(|| bench_take(&values, &indices))
     });
-    let values = create_boolean(1024);
+    let values = create_boolean_array(1024, 0.0, 0.5);
     let indices = create_random_index(1024, 0.0);
     c.bench_function("take bool 1024", |b| {
         b.iter(|| bench_take(&values, &indices))
     });
 
-    let values = create_boolean(512);
+    let values = create_boolean_array(512, 0.0, 0.5);
     let indices = create_random_index(512, 0.5);
     c.bench_function("take bool nulls 512", |b| {
         b.iter(|| bench_take(&values, &indices))
     });
-    let values = create_boolean(1024);
+    let values = create_boolean_array(1024, 0.0, 0.5);
     let indices = create_random_index(1024, 0.5);
     c.bench_function("take bool nulls 1024", |b| {
         b.iter(|| bench_take(&values, &indices))
     });
 
-    let values = create_strings(512, 0.0);
+    let values = create_string_array(512, 0.0);
     let indices = create_random_index(512, 0.0);
     c.bench_function("take str 512", |b| b.iter(|| bench_take(&values, &indices)));
 
-    let values = create_strings(1024, 0.0);
+    let values = create_string_array(1024, 0.0);
     let indices = create_random_index(1024, 0.0);
     c.bench_function("take str 1024", |b| {
         b.iter(|| bench_take(&values, &indices))
     });
 
-    let values = create_strings(512, 0.0);
+    let values = create_string_array(512, 0.0);
     let indices = create_random_index(512, 0.5);
     c.bench_function("take str null indices 512", |b| {
         b.iter(|| bench_take(&values, &indices))
     });
 
-    let values = create_strings(1024, 0.0);
+    let values = create_string_array(1024, 0.0);
     let indices = create_random_index(1024, 0.5);
     c.bench_function("take str null indices 1024", |b| {
         b.iter(|| bench_take(&values, &indices))
     });
 
-    let values = create_strings(1024, 0.5);
+    let values = create_string_array(1024, 0.5);
 
     let indices = create_random_index(1024, 0.0);
     c.bench_function("take str null values 1024", |b| {
         b.iter(|| bench_take(&values, &indices))
     });
 
-    let values = create_strings(1024, 0.5);
+    let values = create_string_array(1024, 0.5);
     let indices = create_random_index(1024, 0.5);
     c.bench_function("take str null values null indices 1024", |b| {
         b.iter(|| bench_take(&values, &indices))

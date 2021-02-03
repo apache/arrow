@@ -118,6 +118,22 @@ bool RecordBatch__Equals(const std::shared_ptr<arrow::RecordBatch>& self,
 }
 
 // [[arrow::export]]
+std::shared_ptr<arrow::RecordBatch> RecordBatch__AddColumn(
+    const std::shared_ptr<arrow::RecordBatch>& batch, R_xlen_t i,
+    const std::shared_ptr<arrow::Field>& field,
+    const std::shared_ptr<arrow::Array>& column) {
+  return ValueOrStop(batch->AddColumn(i, field, column));
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::RecordBatch> RecordBatch__SetColumn(
+    const std::shared_ptr<arrow::RecordBatch>& batch, R_xlen_t i,
+    const std::shared_ptr<arrow::Field>& field,
+    const std::shared_ptr<arrow::Array>& column) {
+  return ValueOrStop(batch->SetColumn(i, field, column));
+}
+
+// [[arrow::export]]
 std::shared_ptr<arrow::RecordBatch> RecordBatch__RemoveColumn(
     const std::shared_ptr<arrow::RecordBatch>& batch, R_xlen_t i) {
   arrow::r::validate_index(i, batch->num_columns());

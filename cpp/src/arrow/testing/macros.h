@@ -15,11 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Transfer data between the Arrow memory format and JSON line-delimited records.
+#pragma once
 
-pub mod reader;
-pub mod writer;
-
-pub use self::reader::Reader;
-pub use self::reader::ReaderBuilder;
-pub use self::writer::Writer;
+#ifdef __GNUC__
+#define SUPPRESS_DEPRECATION_WARNING \
+  _Pragma("GCC diagnostic push");    \
+  _Pragma("GCC diagnostic ignored \"-Wdeprecated-declarations\"")
+#define UNSUPPRESS_DEPRECATION_WARNING _Pragma("GCC diagnostic pop")
+#elif defined(_MSC_VER)
+#define SUPPRESS_DEPRECATION_WARNING \
+  __pragma(warning(push)) __pragma(warning(disable : 4996))
+#define UNSUPPRESS_DEPRECATION_WARNING __pragma(warning(pop))
+#endif

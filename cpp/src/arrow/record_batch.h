@@ -130,6 +130,11 @@ class ARROW_EXPORT RecordBatch {
   virtual Result<std::shared_ptr<RecordBatch>> AddColumn(
       int i, std::string field_name, const std::shared_ptr<Array>& column) const;
 
+  /// \brief Replace a column in the table, producing a new Table
+  virtual Result<std::shared_ptr<RecordBatch>> SetColumn(
+      int i, const std::shared_ptr<Field>& field,
+      const std::shared_ptr<Array>& column) const = 0;
+
   /// \brief Remove column from the record batch, producing a new RecordBatch
   ///
   /// \param[in] i field index, does boundscheck

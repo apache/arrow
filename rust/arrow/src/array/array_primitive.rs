@@ -29,6 +29,7 @@ use super::array::print_long_array;
 use super::raw_pointer::RawPtrBox;
 use super::*;
 use crate::buffer::{Buffer, MutableBuffer};
+use crate::temporal_conversions;
 use crate::util::bit_util;
 
 /// Number of seconds in a day
@@ -137,37 +138,20 @@ impl<T: ArrowPrimitiveType> Array for PrimitiveArray<T> {
 
 fn as_datetime<T: ArrowPrimitiveType>(v: i64) -> Option<NaiveDateTime> {
     match T::DATA_TYPE {
-        DataType::Date32 => {
-            // convert days into seconds
-            Some(NaiveDateTime::from_timestamp(v as i64 * SECONDS_IN_DAY, 0))
-        }
-        DataType::Date64 => Some(NaiveDateTime::from_timestamp(
-            // extract seconds from milliseconds
-            v / MILLISECONDS,
-            // discard extracted seconds and convert milliseconds to nanoseconds
-            (v % MILLISECONDS * MICROSECONDS) as u32,
-        )),
+        DataType::Date32 => Some(temporal_conversions::date32_to_datetime(v as i32)),
+        DataType::Date64 => Some(temporal_conversions::date64_to_datetime(v)),
         DataType::Time32(_) | DataType::Time64(_) => None,
         DataType::Timestamp(unit, _) => match unit {
-            TimeUnit::Second => Some(NaiveDateTime::from_timestamp(v, 0)),
-            TimeUnit::Millisecond => Some(NaiveDateTime::from_timestamp(
-                // extract seconds from milliseconds
-                v / MILLISECONDS,
-                // discard extracted seconds and convert milliseconds to nanoseconds
-                (v % MILLISECONDS * MICROSECONDS) as u32,
-            )),
-            TimeUnit::Microsecond => Some(NaiveDateTime::from_timestamp(
-                // extract seconds from microseconds
-                v / MICROSECONDS,
-                // discard extracted seconds and convert microseconds to nanoseconds
-                (v % MICROSECONDS * MILLISECONDS) as u32,
-            )),
-            TimeUnit::Nanosecond => Some(NaiveDateTime::from_timestamp(
-                // extract seconds from nanoseconds
-                v / NANOSECONDS,
-                // discard extracted seconds
-                (v % NANOSECONDS) as u32,
-            )),
+            TimeUnit::Second => Some(temporal_conversions::timestamp_s_to_datetime(v)),
+            TimeUnit::Millisecond => {
+                Some(temporal_conversions::timestamp_ms_to_datetime(v))
+            }
+            TimeUnit::Microsecond => {
+                Some(temporal_conversions::timestamp_us_to_datetime(v))
+            }
+            TimeUnit::Nanosecond => {
+                Some(temporal_conversions::timestamp_ns_to_datetime(v))
+            }
         },
         // interval is not yet fully documented [ARROW-3097]
         DataType::Interval(_) => None,
@@ -185,41 +169,18 @@ fn as_time<T: ArrowPrimitiveType>(v: i64) -> Option<NaiveTime> {
             // safe to immediately cast to u32 as `self.value(i)` is positive i32
             let v = v as u32;
             match unit {
-                TimeUnit::Second => Some(NaiveTime::from_num_seconds_from_midnight(v, 0)),
+                TimeUnit::Second => Some(temporal_conversions::time32s_to_time(v as i32)),
                 TimeUnit::Millisecond => {
-                    Some(NaiveTime::from_num_seconds_from_midnight(
-                        // extract seconds from milliseconds
-                        v / MILLISECONDS as u32,
-                        // discard extracted seconds and convert milliseconds to
-                        // nanoseconds
-                        v % MILLISECONDS as u32 * MICROSECONDS as u32,
-                    ))
+                    Some(temporal_conversions::time32ms_to_time(v as i32))
                 }
                 _ => None,
             }
         }
-        DataType::Time64(unit) => {
-            match unit {
-                TimeUnit::Microsecond => {
-                    Some(NaiveTime::from_num_seconds_from_midnight(
-                        // extract seconds from microseconds
-                        (v / MICROSECONDS) as u32,
-                        // discard extracted seconds and convert microseconds to
-                        // nanoseconds
-                        (v % MICROSECONDS * MILLISECONDS) as u32,
-                    ))
-                }
-                TimeUnit::Nanosecond => {
-                    Some(NaiveTime::from_num_seconds_from_midnight(
-                        // extract seconds from nanoseconds
-                        (v / NANOSECONDS) as u32,
-                        // discard extracted seconds
-                        (v % NANOSECONDS) as u32,
-                    ))
-                }
-                _ => None,
-            }
-        }
+        DataType::Time64(unit) => match unit {
+            TimeUnit::Microsecond => Some(temporal_conversions::time64us_to_time(v)),
+            TimeUnit::Nanosecond => Some(temporal_conversions::time64ns_to_time(v)),
+            _ => None,
+        },
         DataType::Timestamp(_, _) => as_datetime::<T>(v).map(|datetime| datetime.time()),
         DataType::Date32 | DataType::Date64 => Some(NaiveTime::from_hms(0, 0, 0)),
         DataType::Interval(_) => None,

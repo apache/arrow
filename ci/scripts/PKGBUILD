@@ -30,7 +30,8 @@ depends=("${MINGW_PACKAGE_PREFIX}-aws-sdk-cpp"
          "${MINGW_PACKAGE_PREFIX}-zlib"
          "${MINGW_PACKAGE_PREFIX}-lz4"
          "${MINGW_PACKAGE_PREFIX}-zstd")
-makedepends=("${MINGW_PACKAGE_PREFIX}-cmake"
+makedepends=("${MINGW_PACKAGE_PREFIX}-ccache"
+             "${MINGW_PACKAGE_PREFIX}-cmake"
              "${MINGW_PACKAGE_PREFIX}-gcc")
 options=("staticlibs" "strip" "!buildflags")
 
@@ -102,6 +103,7 @@ build() {
     -DARROW_SNAPPY_USE_SHARED=OFF \
     -DARROW_USE_GLOG=OFF \
     -DARROW_WITH_LZ4=ON \
+    -DARROW_WITH_RE2=OFF \
     -DARROW_WITH_SNAPPY=ON \
     -DARROW_WITH_UTF8PROC=OFF \
     -DARROW_WITH_ZLIB=ON \

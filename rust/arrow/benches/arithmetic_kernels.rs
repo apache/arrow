@@ -19,29 +19,19 @@
 extern crate criterion;
 use criterion::Criterion;
 
-use rand::Rng;
 use std::sync::Arc;
 
 extern crate arrow;
 
-use arrow::array::*;
 use arrow::compute::kernels::arithmetic::*;
 use arrow::compute::kernels::limit::*;
-use arrow::util::test_util::seedable_rng;
+use arrow::util::bench_util::*;
+use arrow::{array::*, datatypes::Float32Type};
 
 fn create_array(size: usize, with_nulls: bool) -> ArrayRef {
-    // use random numbers to avoid spurious compiler optimizations wrt to branching
-    let mut rng = seedable_rng();
-    let mut builder = Float32Builder::new(size);
-
-    for _ in 0..size {
-        if with_nulls && rng.gen::<f32>() > 0.5 {
-            builder.append_null().unwrap();
-        } else {
-            builder.append_value(rng.gen()).unwrap();
-        }
-    }
-    Arc::new(builder.finish())
+    let null_density = if with_nulls { 0.5 } else { 0.0 };
+    let array = create_primitive_array::<Float32Type>(size, null_density);
+    Arc::new(array)
 }
 
 fn bench_add(arr_a: &ArrayRef, arr_b: &ArrayRef) {

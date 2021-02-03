@@ -58,16 +58,6 @@ class PARQUET_EXPORT ApplicationVersion {
   static const ApplicationVersion& PARQUET_816_FIXED_VERSION();
   static const ApplicationVersion& PARQUET_CPP_FIXED_STATS_VERSION();
   static const ApplicationVersion& PARQUET_MR_FIXED_STATS_VERSION();
-  // Regular expression for the version format
-  // major . minor . patch unknown - prerelease.x + build info
-  // Eg: 1.5.0ab-cdh5.5.0+cd
-  static constexpr char const* VERSION_FORMAT =
-      "^(\\d+)\\.(\\d+)\\.(\\d+)([^-+]*)?(?:-([^+]*))?(?:\\+(.*))?$";
-  // Regular expression for the application format
-  // application_name version VERSION_FORMAT (build build_name)
-  // Eg: parquet-cpp version 1.5.0ab-xyz5.5.0+cd (build abcd)
-  static constexpr char const* APPLICATION_FORMAT =
-      "(.*?)\\s*(?:(version\\s*(?:([^(]*?)\\s*(?:\\(\\s*build\\s*([^)]*?)\\s*\\))?)?)?)";
 
   // Application that wrote the file. e.g. "IMPALA"
   std::string application_;
@@ -77,9 +67,8 @@ class PARQUET_EXPORT ApplicationVersion {
   // Version of the application that wrote the file, expressed as
   // (<major>.<minor>.<patch>). Unmatched parts default to 0.
   // "1.2.3"    => {1, 2, 3}
-  // "1.2"      => {0, 0, 0}
-  // "1.2-cdh5" => {0, 0, 0}
-  // TODO (majetideepak): Implement support for pre_release
+  // "1.2"      => {1, 2, 0}
+  // "1.2-cdh5" => {1, 2, 0}
   struct {
     int major;
     int minor;

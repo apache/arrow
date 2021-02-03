@@ -21,6 +21,7 @@
 #include <cmath>
 #include <iostream>
 #include <queue>
+#include <tuple>
 #include <vector>
 
 #include "arrow/status.h"

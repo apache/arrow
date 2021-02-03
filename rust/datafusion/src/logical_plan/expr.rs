@@ -661,6 +661,20 @@ pub fn and(left: Expr, right: Expr) -> Expr {
     }
 }
 
+/// Combines an array of filter expressions into a single filter expression
+/// consisting of the input filter expressions joined with logical AND.
+/// Returns None if the filters array is empty.
+pub fn combine_filters(filters: &[Expr]) -> Option<Expr> {
+    if filters.is_empty() {
+        return None;
+    }
+    let combined_filter = filters
+        .iter()
+        .skip(1)
+        .fold(filters[0].clone(), |acc, filter| and(acc, filter.clone()));
+    Some(combined_filter)
+}
+
 /// return a new expression with a logical OR
 pub fn or(left: Expr, right: Expr) -> Expr {
     Expr::BinaryExpr {

@@ -25,6 +25,7 @@
 #include <vector>
 
 #include "arrow/util/logging.h"
+#include "arrow/util/string_view.h"
 #include "parquet/encryption_internal.h"
 #include "parquet/exception.h"
 #include "parquet/internal_file_decryptor.h"
@@ -32,45 +33,6 @@
 #include "parquet/schema_internal.h"
 #include "parquet/statistics.h"
 #include "parquet/thrift_internal.h"
-
-// ARROW-6096: The boost regex library must be used when compiling with gcc < 4.9
-#if defined(PARQUET_USE_BOOST_REGEX)
-#include <boost/regex.hpp>  // IWYU pragma: keep
-using ::boost::regex;
-using ::boost::smatch;
-
-template <typename... Args>
-static bool regex_match(Args&&... args) {
-  try {
-    return boost::regex_match(std::forward<Args>(args)...);
-  } catch (const boost::regex_error& e) {
-    if (e.code() == boost::regex_constants::error_complexity ||
-        e.code() == boost::regex_constants::error_stack) {
-      // Input-dependent error => return as if matching failed
-      return false;
-    }
-    throw;
-  }
-}
-#else
-#include <regex>
-using ::std::regex;
-using ::std::smatch;
-
-template <typename... Args>
-static bool regex_match(Args&&... args) {
-  try {
-    return std::regex_match(std::forward<Args>(args)...);
-  } catch (const std::regex_error& e) {
-    if (e.code() == std::regex_constants::error_complexity ||
-        e.code() == std::regex_constants::error_stack) {
-      // Input-dependent error => return as if matching failed
-      return false;
-    }
-    throw;
-  }
-}
-#endif
 
 namespace parquet {
 
@@ -949,43 +911,309 @@ ApplicationVersion::ApplicationVersion(std::string application, int major, int m
                                        int patch)
     : application_(std::move(application)), version{major, minor, patch, "", "", ""} {}
 
+namespace {
+// Parse the application version format and set parsed values to
+// ApplicationVersion.
+//
+// The application version format must be compatible parquet-mr's
+// one. See also:
+//   * https://github.com/apache/parquet-mr/blob/master/parquet-common/src/main/java/org/apache/parquet/VersionParser.java
+//   * https://github.com/apache/parquet-mr/blob/master/parquet-common/src/main/java/org/apache/parquet/SemanticVersion.java
+//
+// The application version format:
+//   "${APPLICATION_NAME}"
+//   "${APPLICATION_NAME} version ${VERSION}"
+//   "${APPLICATION_NAME} version ${VERSION} (build ${BUILD_NAME})"
+//
+// Eg:
+//   parquet-cpp
+//   parquet-cpp version 1.5.0ab-xyz5.5.0+cd
+//   parquet-cpp version 1.5.0ab-xyz5.5.0+cd (build abcd)
+//
+// The VERSION format:
+//   "${MAJOR}"
+//   "${MAJOR}.${MINOR}"
+//   "${MAJOR}.${MINOR}.${PATCH}"
+//   "${MAJOR}.${MINOR}.${PATCH}${UNKNOWN}"
+//   "${MAJOR}.${MINOR}.${PATCH}${UNKNOWN}-${PRE_RELEASE}"
+//   "${MAJOR}.${MINOR}.${PATCH}${UNKNOWN}-${PRE_RELEASE}+${BUILD_INFO}"
+//   "${MAJOR}.${MINOR}.${PATCH}${UNKNOWN}+${BUILD_INFO}"
+//   "${MAJOR}.${MINOR}.${PATCH}-${PRE_RELEASE}"
+//   "${MAJOR}.${MINOR}.${PATCH}-${PRE_RELEASE}+${BUILD_INFO}"
+//   "${MAJOR}.${MINOR}.${PATCH}+${BUILD_INFO}"
+//
+// Eg:
+//   1
+//   1.5
+//   1.5.0
+//   1.5.0ab
+//   1.5.0ab-cdh5.5.0
+//   1.5.0ab-cdh5.5.0+cd
+//   1.5.0ab+cd
+//   1.5.0-cdh5.5.0
+//   1.5.0-cdh5.5.0+cd
+//   1.5.0+cd
+class ApplicationVersionParser {
+ public:
+  ApplicationVersionParser(const std::string& created_by,
+                           ApplicationVersion& application_version)
+      : created_by_(created_by),
+        application_version_(application_version),
+        spaces_(" \t\v\r\n\f"),
+        digits_("0123456789") {}
+
+  void Parse() {
+    application_version_.application_ = "unknown";
+    application_version_.version = {0, 0, 0, "", "", ""};
+
+    if (!ParseApplicationName()) {
+      return;
+    }
+    if (!ParseVersion()) {
+      return;
+    }
+    if (!ParseBuildName()) {
+      return;
+    }
+  }
+
+ private:
+  bool IsSpace(const std::string& string, const size_t& offset) {
+    auto target = ::arrow::util::string_view(string).substr(offset, 1);
+    return target.find_first_of(spaces_) != ::arrow::util::string_view::npos;
+  }
+
+  void RemovePrecedingSpaces(const std::string& string, size_t& start,
+                             const size_t& end) {
+    while (start < end && IsSpace(string, start)) {
+      ++start;
+    }
+  }
+
+  void RemoveTrailingSpaces(const std::string& string, const size_t& start, size_t& end) {
+    while (start < (end - 1) && (end - 1) < string.size() && IsSpace(string, end - 1)) {
+      --end;
+    }
+  }
+
+  bool ParseApplicationName() {
+    std::string version_mark(" version ");
+    auto version_mark_position = created_by_.find(version_mark);
+    size_t application_name_end;
+    // No VERSION and BUILD_NAME.
+    if (version_mark_position == std::string::npos) {
+      version_start_ = std::string::npos;
+      application_name_end = created_by_.size();
+    } else {
+      version_start_ = version_mark_position + version_mark.size();
+      application_name_end = version_mark_position;
+    }
+
+    size_t application_name_start = 0;
+    RemovePrecedingSpaces(created_by_, application_name_start, application_name_end);
+    RemoveTrailingSpaces(created_by_, application_name_start, application_name_end);
+    application_version_.application_ = created_by_.substr(
+        application_name_start, application_name_end - application_name_start);
+
+    return true;
+  }
+
+  bool ParseVersion() {
+    // No VERSION.
+    if (version_start_ == std::string::npos) {
+      return false;
+    }
+
+    RemovePrecedingSpaces(created_by_, version_start_, created_by_.size());
+    version_end_ = created_by_.find(" (", version_start_);
+    // No BUILD_NAME.
+    if (version_end_ == std::string::npos) {
+      version_end_ = created_by_.size();
+    }
+    RemoveTrailingSpaces(created_by_, version_start_, version_end_);
+    // No VERSION.
+    if (version_start_ == version_end_) {
+      return false;
+    }
+    version_string_ = created_by_.substr(version_start_, version_end_ - version_start_);
+
+    if (!ParseVersionMajor()) {
+      return false;
+    }
+    if (!ParseVersionMinor()) {
+      return false;
+    }
+    if (!ParseVersionPatch()) {
+      return false;
+    }
+    if (!ParseVersionUnknown()) {
+      return false;
+    }
+    if (!ParseVersionPreRelease()) {
+      return false;
+    }
+    if (!ParseVersionBuildInfo()) {
+      return false;
+    }
+
+    return true;
+  }
+
+  bool ParseVersionMajor() {
+    size_t version_major_start = 0;
+    auto version_major_end = version_string_.find_first_not_of(digits_);
+    // MAJOR only.
+    if (version_major_end == std::string::npos) {
+      version_major_end = version_string_.size();
+      version_parsing_position_ = version_major_end;
+    } else {
+      // No ".".
+      if (version_string_[version_major_end] != '.') {
+        return false;
+      }
+      // No MAJOR.
+      if (version_major_end == version_major_start) {
+        return false;
+      }
+      version_parsing_position_ = version_major_end + 1;  // +1 is for '.'.
+    }
+    auto version_major_string = version_string_.substr(
+        version_major_start, version_major_end - version_major_start);
+    application_version_.version.major = atoi(version_major_string.c_str());
+    return true;
+  }
+
+  bool ParseVersionMinor() {
+    auto version_minor_start = version_parsing_position_;
+    auto version_minor_end =
+        version_string_.find_first_not_of(digits_, version_minor_start);
+    // MAJOR.MINOR only.
+    if (version_minor_end == std::string::npos) {
+      version_minor_end = version_string_.size();
+      version_parsing_position_ = version_minor_end;
+    } else {
+      // No ".".
+      if (version_string_[version_minor_end] != '.') {
+        return false;
+      }
+      // No MINOR.
+      if (version_minor_end == version_minor_start) {
+        return false;
+      }
+      version_parsing_position_ = version_minor_end + 1;  // +1 is for '.'.
+    }
+    auto version_minor_string = version_string_.substr(
+        version_minor_start, version_minor_end - version_minor_start);
+    application_version_.version.minor = atoi(version_minor_string.c_str());
+    return true;
+  }
+
+  bool ParseVersionPatch() {
+    auto version_patch_start = version_parsing_position_;
+    auto version_patch_end =
+        version_string_.find_first_not_of(digits_, version_patch_start);
+    // No UNKNOWN, PRE_RELEASE and BUILD_INFO.
+    if (version_patch_end == std::string::npos) {
+      version_patch_end = version_string_.size();
+    }
+    // No PATCH.
+    if (version_patch_end == version_patch_start) {
+      return false;
+    }
+    auto version_patch_string = version_string_.substr(
+        version_patch_start, version_patch_end - version_patch_start);
+    application_version_.version.patch = atoi(version_patch_string.c_str());
+    version_parsing_position_ = version_patch_end;
+    return true;
+  }
+
+  bool ParseVersionUnknown() {
+    // No UNKNOWN.
+    if (version_parsing_position_ == version_string_.size()) {
+      return true;
+    }
+    auto version_unknown_start = version_parsing_position_;
+    auto version_unknown_end = version_string_.find_first_of("-+", version_unknown_start);
+    // No PRE_RELEASE and BUILD_INFO
+    if (version_unknown_end == std::string::npos) {
+      version_unknown_end = version_string_.size();
+    }
+    application_version_.version.unknown = version_string_.substr(
+        version_unknown_start, version_unknown_end - version_unknown_start);
+    version_parsing_position_ = version_unknown_end;
+    return true;
+  }
+
+  bool ParseVersionPreRelease() {
+    // No PRE_RELEASE.
+    if (version_parsing_position_ == version_string_.size() ||
+        version_string_[version_parsing_position_] != '-') {
+      return true;
+    }
+
+    auto version_pre_release_start = version_parsing_position_ + 1;  // +1 is for '-'.
+    auto version_pre_release_end =
+        version_string_.find_first_of("+", version_pre_release_start);
+    // No BUILD_INFO
+    if (version_pre_release_end == std::string::npos) {
+      version_pre_release_end = version_string_.size();
+    }
+    application_version_.version.pre_release = version_string_.substr(
+        version_pre_release_start, version_pre_release_end - version_pre_release_start);
+    version_parsing_position_ = version_pre_release_end;
+    return true;
+  }
+
+  bool ParseVersionBuildInfo() {
+    // No BUILD_INFO.
+    if (version_parsing_position_ == version_string_.size() ||
+        version_string_[version_parsing_position_] != '+') {
+      return true;
+    }
+
+    auto version_build_info_start = version_parsing_position_ + 1;  // +1 is for '+'.
+    application_version_.version.build_info =
+        version_string_.substr(version_build_info_start);
+    return true;
+  }
+
+  bool ParseBuildName() {
+    std::string build_mark(" (build ");
+    auto build_mark_position = created_by_.find(build_mark, version_end_);
+    // No BUILD_NAME.
+    if (build_mark_position == std::string::npos) {
+      return false;
+    }
+    auto build_name_start = build_mark_position + build_mark.size();
+    RemovePrecedingSpaces(created_by_, build_name_start, created_by_.size());
+    auto build_name_end = created_by_.find_first_of(")", build_name_start);
+    // No end ")".
+    if (build_name_end == std::string::npos) {
+      return false;
+    }
+    RemoveTrailingSpaces(created_by_, build_name_start, build_name_end);
+    application_version_.build_ =
+        created_by_.substr(build_name_start, build_name_end - build_name_start);
+
+    return true;
+  }
+
+  const std::string& created_by_;
+  ApplicationVersion& application_version_;
+
+  // For parsing.
+  std::string spaces_;
+  std::string digits_;
+  size_t version_parsing_position_;
+  size_t version_start_;
+  size_t version_end_;
+  std::string version_string_;
+};
+}  // namespace
+
 ApplicationVersion::ApplicationVersion(const std::string& created_by) {
-  // Use singletons to compile only once (ARROW-9863)
-  static regex app_regex{ApplicationVersion::APPLICATION_FORMAT};
-  static regex ver_regex{ApplicationVersion::VERSION_FORMAT};
-  smatch app_matches;
-  smatch ver_matches;
-
-  std::string created_by_lower = created_by;
-  std::transform(created_by_lower.begin(), created_by_lower.end(),
-                 created_by_lower.begin(), ::tolower);
-
-  bool app_success = regex_match(created_by_lower, app_matches, app_regex);
-  bool ver_success = false;
-  std::string version_str;
-
-  if (app_success && app_matches.size() >= 4) {
-    // first match is the entire string. sub-matches start from second.
-    application_ = app_matches[1];
-    version_str = app_matches[3];
-    build_ = app_matches[4];
-    ver_success = regex_match(version_str, ver_matches, ver_regex);
-  } else {
-    application_ = "unknown";
-  }
-
-  if (ver_success && ver_matches.size() >= 7) {
-    version.major = atoi(ver_matches[1].str().c_str());
-    version.minor = atoi(ver_matches[2].str().c_str());
-    version.patch = atoi(ver_matches[3].str().c_str());
-    version.unknown = ver_matches[4].str();
-    version.pre_release = ver_matches[5].str();
-    version.build_info = ver_matches[6].str();
-  } else {
-    version.major = 0;
-    version.minor = 0;
-    version.patch = 0;
-  }
+  ApplicationVersionParser parser(created_by, *this);
+  parser.Parse();
 }
 
 bool ApplicationVersion::VersionLt(const ApplicationVersion& other_version) const {
