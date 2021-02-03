@@ -1423,20 +1423,14 @@ class TestPrimitiveQuantileKernel : public ::testing::Test {
       QuantileOptions::NEAREST, QuantileOptions::MIDPOINT};
 };
 
-template <typename ArrowType>
-class TestIntegerQuantileKernel : public TestPrimitiveQuantileKernel<ArrowType> {};
-
-template <typename ArrowType>
-class TestFloatingQuantileKernel : public TestPrimitiveQuantileKernel<ArrowType> {};
-
-template <typename ArrowType>
-class TestInt64QuantileKernel : public TestPrimitiveQuantileKernel<ArrowType> {};
-
 #define INTYPE(x) Datum(static_cast<typename TypeParam::c_type>(x))
 #define DOUBLE(x) Datum(static_cast<double>(x))
 // output type per interplation: linear, lower, higher, nearest, midpoint
 #define O(a, b, c, d, e) \
   { DOUBLE(a), INTYPE(b), INTYPE(c), INTYPE(d), DOUBLE(e) }
+
+template <typename ArrowType>
+class TestIntegerQuantileKernel : public TestPrimitiveQuantileKernel<ArrowType> {};
 
 TYPED_TEST_SUITE(TestIntegerQuantileKernel, IntegralArrowTypes);
 TYPED_TEST(TestIntegerQuantileKernel, Basics) {
@@ -1471,6 +1465,9 @@ TYPED_TEST(TestIntegerQuantileKernel, Basics) {
   this->AssertQuantilesEmpty({"[null, null]", "[]", "[null]"}, {0.3, 0.4});
 }
 
+template <typename ArrowType>
+class TestFloatingQuantileKernel : public TestPrimitiveQuantileKernel<ArrowType> {};
+
 #ifndef __MINGW32__
 TYPED_TEST_SUITE(TestFloatingQuantileKernel, RealArrowTypes);
 TYPED_TEST(TestFloatingQuantileKernel, Floats) {
@@ -1500,11 +1497,28 @@ TYPED_TEST(TestFloatingQuantileKernel, Floats) {
   this->AssertQuantilesEmpty("[null, NaN, null]", {0.1});
   this->AssertQuantilesEmpty({"[NaN, NaN]", "[]", "[null]"}, {0.3, 0.4});
 }
+
+class TestInt8QuantileKernel : public TestPrimitiveQuantileKernel<Int8Type> {};
+
+// Test histogram approach
+TEST_F(TestInt8QuantileKernel, Int8) {
+  using TypeParam = Int8Type;
+  this->AssertQuantilesAre(
+      "[127, -128, null, -128, 66, -88, 127]", {0, 0.3, 0.7, 1},
+      {O(-128, -128, -128, -128, -128), O(-108, -128, -88, -88, -108),
+       O(96.5, 66, 127, 127, 96.5), O(127, 127, 127, 127, 127)});
+  this->AssertQuantilesAre(
+      {"[null]", "[-88, 127]", "[]", "[66, -128, null, -128]", "[127]"}, {0, 0.3, 0.7, 1},
+      {O(-128, -128, -128, -128, -128), O(-108, -128, -88, -88, -108),
+       O(96.5, 66, 127, 127, 96.5), O(127, 127, 127, 127, 127)});
+}
 #endif
 
+class TestInt64QuantileKernel : public TestPrimitiveQuantileKernel<Int64Type> {};
+
 // Test big int64 numbers cannot be precisely presented by double
-TYPED_TEST_SUITE(TestInt64QuantileKernel, Int64Type);
-TYPED_TEST(TestInt64QuantileKernel, Int64) {
+TEST_F(TestInt64QuantileKernel, Int64) {
+  using TypeParam = Int64Type;
   this->AssertQuantileIs(
       "[9223372036854775806, 9223372036854775807]", 0.5,
       O(9.223372036854776e+18, 9223372036854775806, 9223372036854775807,
@@ -1520,7 +1534,7 @@ class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<Int32Type> {
  public:
   void CheckQuantiles(int64_t array_size, int64_t num_quantiles) {
     auto rand = random::RandomArrayGenerator(0x5487658);
-    // set a small value range to exercise input array with equal values
+    // small value range to exercise input array with equal values and histogram approach
     const auto array = rand.Numeric<Int32Type>(array_size, -100, 200, 0.1);
 
     std::vector<double> quantiles;
@@ -1598,12 +1612,18 @@ class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<Int32Type> {
 };
 
 TEST_F(TestRandomQuantileKernel, Normal) {
+  // exercise copy and sort approach: size < 65536
   this->CheckQuantiles(/*array_size=*/10000, /*num_quantiles=*/100);
 }
 
 TEST_F(TestRandomQuantileKernel, Overlapped) {
   // much more quantiles than array size => many overlaps
   this->CheckQuantiles(/*array_size=*/999, /*num_quantiles=*/9999);
+}
+
+TEST_F(TestRandomQuantileKernel, Histogram) {
+  // exercise histogram approach: size >= 65536, range <= 65536
+  this->CheckQuantiles(/*array_size=*/80000, /*num_quantiles=*/100);
 }
 #endif
 
