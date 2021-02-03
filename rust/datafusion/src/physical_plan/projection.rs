@@ -134,7 +134,7 @@ impl ExecutionPlan for ProjectionExec {
 
 fn batch_project(
     batch: &RecordBatch,
-    expressions: &Vec<Arc<dyn PhysicalExpr>>,
+    expressions: &[Arc<dyn PhysicalExpr>],
     schema: &SchemaRef,
 ) -> ArrowResult<RecordBatch> {
     expressions

@@ -81,7 +81,7 @@ impl Accumulator for GeometricMean {
 
     // this function receives one entry per argument of this accumulator.
     // DataFusion calls this function on every row, and expects this function to update the accumulator's state.
-    fn update(&mut self, values: &Vec<ScalarValue>) -> Result<()> {
+    fn update(&mut self, values: &[ScalarValue]) -> Result<()> {
         // this is a one-argument UDAF, and thus we use `0`.
         let value = &values[0];
         match value {
@@ -100,7 +100,7 @@ impl Accumulator for GeometricMean {
 
     // this function receives states from other accumulators (Vec<ScalarValue>)
     // and updates the accumulator.
-    fn merge(&mut self, states: &Vec<ScalarValue>) -> Result<()> {
+    fn merge(&mut self, states: &[ScalarValue]) -> Result<()> {
         let prod = &states[0];
         let n = &states[1];
         match (prod, n) {

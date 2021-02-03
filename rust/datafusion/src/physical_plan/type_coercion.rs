@@ -42,7 +42,7 @@ use crate::physical_plan::expressions::cast;
 ///
 /// See the module level documentation for more detail on coercion.
 pub fn coerce(
-    expressions: &Vec<Arc<dyn PhysicalExpr>>,
+    expressions: &[Arc<dyn PhysicalExpr>],
     schema: &Schema,
     signature: &Signature,
 ) -> Result<Vec<Arc<dyn PhysicalExpr>>> {
@@ -65,7 +65,7 @@ pub fn coerce(
 ///
 /// See the module level documentation for more detail on coercion.
 pub fn data_types(
-    current_types: &Vec<DataType>,
+    current_types: &[DataType],
     signature: &Signature,
 ) -> Result<Vec<DataType>> {
     let valid_types = match signature {
@@ -97,8 +97,8 @@ pub fn data_types(
         }
     };
 
-    if valid_types.contains(current_types) {
-        return Ok(current_types.clone());
+    if valid_types.contains(&current_types.to_owned()) {
+        return Ok(current_types.to_vec());
     }
 
     for valid_types in valid_types {
@@ -116,8 +116,8 @@ pub fn data_types(
 
 /// Try to coerce current_types into valid_types.
 fn maybe_data_types(
-    valid_types: &Vec<DataType>,
-    current_types: &Vec<DataType>,
+    valid_types: &[DataType],
+    current_types: &[DataType],
 ) -> Option<Vec<DataType>> {
     if valid_types.len() != current_types.len() {
         return None;

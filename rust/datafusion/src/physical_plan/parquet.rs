@@ -395,7 +395,7 @@ impl RowGroupPredicateBuilder {
 fn build_statistics_record_batch(
     row_groups: &[RowGroupMetaData],
     parquet_schema: &Schema,
-    stat_column_req: &Vec<(String, StatisticsType, Field)>,
+    stat_column_req: &[(String, StatisticsType, Field)],
 ) -> Result<RecordBatch> {
     let mut fields = Vec::<Field>::new();
     let mut arrays = Vec::<ArrayRef>::new();

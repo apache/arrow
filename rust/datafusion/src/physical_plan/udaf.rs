@@ -102,7 +102,7 @@ impl AggregateUDF {
 /// This function errors when `args`' can't be coerced to a valid argument type of the UDAF.
 pub fn create_aggregate_expr(
     fun: &AggregateUDF,
-    args: &Vec<Arc<dyn PhysicalExpr>>,
+    args: &[Arc<dyn PhysicalExpr>],
     input_schema: &Schema,
     name: String,
 ) -> Result<Arc<dyn AggregateExpr>> {

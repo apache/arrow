@@ -138,7 +138,7 @@ impl ExecutionPlan for SortExec {
 }
 
 fn sort_batches(
-    batches: &Vec<RecordBatch>,
+    batches: &[RecordBatch],
     schema: &SchemaRef,
     expr: &[PhysicalSortExpr],
 ) -> ArrowResult<Option<RecordBatch>> {
@@ -375,7 +375,7 @@ mod tests {
                     },
                 },
             ],
-            Arc::new(MemoryExec::try_new(&vec![vec![batch]], schema, None)?),
+            Arc::new(MemoryExec::try_new(&[vec![batch]], schema, None)?),
             2,
         )?);
 

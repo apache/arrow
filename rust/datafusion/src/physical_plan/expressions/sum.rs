@@ -230,24 +230,24 @@ pub(super) fn sum(lhs: &ScalarValue, rhs: &ScalarValue) -> Result<ScalarValue> {
 }
 
 impl Accumulator for SumAccumulator {
-    fn update_batch(&mut self, values: &Vec<ArrayRef>) -> Result<()> {
+    fn update_batch(&mut self, values: &[ArrayRef]) -> Result<()> {
         let values = &values[0];
         self.sum = sum(&self.sum, &sum_batch(values)?)?;
         Ok(())
     }
 
-    fn update(&mut self, values: &Vec<ScalarValue>) -> Result<()> {
+    fn update(&mut self, values: &[ScalarValue]) -> Result<()> {
         // sum(v1, v2, v3) = v1 + v2 + v3
         self.sum = sum(&self.sum, &values[0])?;
         Ok(())
     }
 
-    fn merge(&mut self, states: &Vec<ScalarValue>) -> Result<()> {
+    fn merge(&mut self, states: &[ScalarValue]) -> Result<()> {
         // sum(sum1, sum2) = sum1 + sum2
         self.update(states)
     }
 
-    fn merge_batch(&mut self, states: &Vec<ArrayRef>) -> Result<()> {
+    fn merge_batch(&mut self, states: &[ArrayRef]) -> Result<()> {
         // sum(sum1, sum2, sum3, ...) = sum1 + sum2 + sum3 + ...
         self.update_batch(states)
     }

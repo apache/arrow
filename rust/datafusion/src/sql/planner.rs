@@ -186,7 +186,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
         })
     }
 
-    fn build_schema(&self, columns: &Vec<SQLColumnDef>) -> Result<Schema> {
+    fn build_schema(&self, columns: &[SQLColumnDef]) -> Result<Schema> {
         let mut fields = Vec::new();
 
         for column in columns {
@@ -224,7 +224,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
         }
     }
 
-    fn plan_from_tables(&self, from: &Vec<TableWithJoins>) -> Result<Vec<LogicalPlan>> {
+    fn plan_from_tables(&self, from: &[TableWithJoins]) -> Result<Vec<LogicalPlan>> {
         match from.len() {
             0 => Ok(vec![LogicalPlanBuilder::empty(true).build()?]),
             _ => from
@@ -478,7 +478,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                     // provided by the SELECT.
                     if !can_columns_satisfy_exprs(
                         &available_columns,
-                        &vec![having_expr.clone()],
+                        &[having_expr.clone()],
                     )? {
                         return Err(DataFusionError::Plan(
                             "Having references column(s) not provided by the select"
@@ -507,7 +507,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
     fn prepare_select_exprs(
         &self,
         plan: &LogicalPlan,
-        projection: &Vec<SelectItem>,
+        projection: &[SelectItem],
     ) -> Result<Vec<Expr>> {
         let input_schema = plan.schema();
 
@@ -599,7 +599,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
 
             if !can_columns_satisfy_exprs(
                 &column_exprs_post_aggr,
-                &vec![having_expr_post_aggr.clone()],
+                &[having_expr_post_aggr.clone()],
             )? {
                 return Err(DataFusionError::Plan(
                     "Having references non-aggregate values".to_owned(),

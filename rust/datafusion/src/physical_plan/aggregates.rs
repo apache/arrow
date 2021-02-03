@@ -89,10 +89,7 @@ impl FromStr for AggregateFunction {
 }
 
 /// Returns the datatype of the scalar function
-pub fn return_type(
-    fun: &AggregateFunction,
-    arg_types: &Vec<DataType>,
-) -> Result<DataType> {
+pub fn return_type(fun: &AggregateFunction, arg_types: &[DataType]) -> Result<DataType> {
     // Note that this function *must* return the same type that the respective physical expression returns
     // or the execution panics.
 
@@ -112,7 +109,7 @@ pub fn return_type(
 pub fn create_aggregate_expr(
     fun: &AggregateFunction,
     distinct: bool,
-    args: &Vec<Arc<dyn PhysicalExpr>>,
+    args: &[Arc<dyn PhysicalExpr>],
     input_schema: &Schema,
     name: String,
 ) -> Result<Arc<dyn AggregateExpr>> {
@@ -133,7 +130,7 @@ pub fn create_aggregate_expr(
         (AggregateFunction::Count, true) => {
             Arc::new(distinct_expressions::DistinctCount::new(
                 arg_types,
-                args.clone(),
+                args.to_vec(),
                 name,
                 return_type,
             ))
@@ -199,51 +196,51 @@ mod tests {
 
     #[test]
     fn test_min_max() -> Result<()> {
-        let observed = return_type(&AggregateFunction::Min, &vec![DataType::Utf8])?;
+        let observed = return_type(&AggregateFunction::Min, &[DataType::Utf8])?;
         assert_eq!(DataType::Utf8, observed);
 
-        let observed = return_type(&AggregateFunction::Max, &vec![DataType::Int32])?;
+        let observed = return_type(&AggregateFunction::Max, &[DataType::Int32])?;
         assert_eq!(DataType::Int32, observed);
         Ok(())
     }
 
     #[test]
     fn test_sum_no_utf8() -> Result<()> {
-        let observed = return_type(&AggregateFunction::Sum, &vec![DataType::Utf8]);
+        let observed = return_type(&AggregateFunction::Sum, &[DataType::Utf8]);
         assert!(observed.is_err());
         Ok(())
     }
 
     #[test]
     fn test_sum_upcasts() -> Result<()> {
-        let observed = return_type(&AggregateFunction::Sum, &vec![DataType::UInt32])?;
+        let observed = return_type(&AggregateFunction::Sum, &[DataType::UInt32])?;
         assert_eq!(DataType::UInt64, observed);
         Ok(())
     }
 
     #[test]
     fn test_count_return_type() -> Result<()> {
-        let observed = return_type(&AggregateFunction::Count, &vec![DataType::Utf8])?;
+        let observed = return_type(&AggregateFunction::Count, &[DataType::Utf8])?;
         assert_eq!(DataType::UInt64, observed);
 
-        let observed = return_type(&AggregateFunction::Count, &vec![DataType::Int8])?;
+        let observed = return_type(&AggregateFunction::Count, &[DataType::Int8])?;
         assert_eq!(DataType::UInt64, observed);
         Ok(())
     }
 
     #[test]
     fn test_avg_return_type() -> Result<()> {
-        let observed = return_type(&AggregateFunction::Avg, &vec![DataType::Float32])?;
+        let observed = return_type(&AggregateFunction::Avg, &[DataType::Float32])?;
         assert_eq!(DataType::Float64, observed);
 
-        let observed = return_type(&AggregateFunction::Avg, &vec![DataType::Float64])?;
+        let observed = return_type(&AggregateFunction::Avg, &[DataType::Float64])?;
         assert_eq!(DataType::Float64, observed);
         Ok(())
     }
 
     #[test]
     fn test_avg_no_utf8() -> Result<()> {
-        let observed = return_type(&AggregateFunction::Avg, &vec![DataType::Utf8]);
+        let observed = return_type(&AggregateFunction::Avg, &[DataType::Utf8]);
         assert!(observed.is_err());
         Ok(())
     }

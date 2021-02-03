@@ -208,7 +208,7 @@ impl FromStr for BuiltinScalarFunction {
 /// Returns the datatype of the scalar function
 pub fn return_type(
     fun: &BuiltinScalarFunction,
-    arg_types: &Vec<DataType>,
+    arg_types: &[DataType],
 ) -> Result<DataType> {
     // Note that this function *must* return the same type that the respective physical expression returns
     // or the execution panics.
@@ -362,7 +362,7 @@ pub fn return_type(
 /// This function errors when `args`' can't be coerced to a valid argument type of the function.
 pub fn create_physical_expr(
     fun: &BuiltinScalarFunction,
-    args: &Vec<Arc<dyn PhysicalExpr>>,
+    args: &[Arc<dyn PhysicalExpr>],
     input_schema: &Schema,
 ) -> Result<Arc<dyn PhysicalExpr>> {
     let fun_expr: ScalarFunctionImplementation = Arc::new(match fun {
@@ -648,8 +648,7 @@ mod tests {
 
         let arg = lit(value);
 
-        let expr =
-            create_physical_expr(&BuiltinScalarFunction::Exp, &vec![arg], &schema)?;
+        let expr = create_physical_expr(&BuiltinScalarFunction::Exp, &[arg], &schema)?;
 
         // type is correct
         assert_eq!(expr.data_type(&schema)?, DataType::Float64);
@@ -688,7 +687,7 @@ mod tests {
         // concat(value, value)
         let expr = create_physical_expr(
             &BuiltinScalarFunction::Concat,
-            &vec![lit(value.clone()), lit(value)],
+            &[lit(value.clone()), lit(value)],
             &schema,
         )?;
 
@@ -715,7 +714,7 @@ mod tests {
 
     #[test]
     fn test_concat_error() -> Result<()> {
-        let result = return_type(&BuiltinScalarFunction::Concat, &vec![]);
+        let result = return_type(&BuiltinScalarFunction::Concat, &[]);
         if result.is_ok() {
             Err(DataFusionError::Plan(
                 "Function 'concat' cannot accept zero arguments".to_string(),
@@ -737,7 +736,7 @@ mod tests {
 
         let expr = create_physical_expr(
             &BuiltinScalarFunction::Array,
-            &vec![lit(value1), lit(value2)],
+            &[lit(value1), lit(value2)],
             &schema,
         )?;
 

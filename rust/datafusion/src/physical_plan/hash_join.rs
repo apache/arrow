@@ -817,7 +817,7 @@ mod tests {
     ) -> Arc<dyn ExecutionPlan> {
         let batch = build_table_i32(a, b, c);
         let schema = batch.schema();
-        Arc::new(MemoryExec::try_new(&vec![vec![batch]], schema, None).unwrap())
+        Arc::new(MemoryExec::try_new(&[vec![batch]], schema, None).unwrap())
     }
 
     fn join(
@@ -956,7 +956,7 @@ mod tests {
             build_table_i32(("a1", &vec![2]), ("b2", &vec![2]), ("c1", &vec![9]));
         let schema = batch1.schema();
         let left = Arc::new(
-            MemoryExec::try_new(&vec![vec![batch1], vec![batch2]], schema, None).unwrap(),
+            MemoryExec::try_new(&[vec![batch1], vec![batch2]], schema, None).unwrap(),
         );
 
         let right = build_table(
@@ -1008,7 +1008,7 @@ mod tests {
             build_table_i32(("a2", &vec![30]), ("b1", &vec![5]), ("c2", &vec![90]));
         let schema = batch1.schema();
         let right = Arc::new(
-            MemoryExec::try_new(&vec![vec![batch1], vec![batch2]], schema, None).unwrap(),
+            MemoryExec::try_new(&[vec![batch1], vec![batch2]], schema, None).unwrap(),
         );
 
         let on = &[("b1", "b1")];

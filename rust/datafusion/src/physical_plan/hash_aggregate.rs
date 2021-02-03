@@ -85,8 +85,8 @@ pub struct HashAggregateExec {
 
 fn create_schema(
     input_schema: &Schema,
-    group_expr: &Vec<(Arc<dyn PhysicalExpr>, String)>,
-    aggr_expr: &Vec<Arc<dyn AggregateExpr>>,
+    group_expr: &[(Arc<dyn PhysicalExpr>, String)],
+    aggr_expr: &[Arc<dyn AggregateExpr>],
     mode: AggregateMode,
 ) -> Result<Schema> {
     let mut fields = Vec::with_capacity(group_expr.len() + aggr_expr.len());
@@ -261,11 +261,11 @@ pin_project! {
 
 fn group_aggregate_batch(
     mode: &AggregateMode,
-    group_expr: &Vec<Arc<dyn PhysicalExpr>>,
-    aggr_expr: &Vec<Arc<dyn AggregateExpr>>,
+    group_expr: &[Arc<dyn PhysicalExpr>],
+    aggr_expr: &[Arc<dyn AggregateExpr>],
     batch: RecordBatch,
     mut accumulators: Accumulators,
-    aggregate_expressions: &Vec<Vec<Arc<dyn PhysicalExpr>>>,
+    aggregate_expressions: &[Vec<Arc<dyn PhysicalExpr>>],
 ) -> Result<Accumulators> {
     // evaluate the grouping expressions
     let group_values = evaluate(group_expr, &batch)?;
@@ -379,7 +379,7 @@ fn group_aggregate_batch(
                                 // 2.3
                                 array.slice(offsets[0], offsets[1] - offsets[0])
                             })
-                            .collect(),
+                            .collect::<Vec<ArrayRef>>(),
                     )
                 })
                 .try_for_each(|(accumulator, values)| match mode {
@@ -556,9 +556,9 @@ impl GroupedHashAggregateStream {
     }
 }
 
-type AccumulatorSet = Vec<Box<dyn Accumulator>>;
+type AccumulatorItem = Box<dyn Accumulator>;
 type Accumulators =
-    HashMap<Vec<u8>, (Box<[GroupByScalar]>, AccumulatorSet, Vec<u32>), RandomState>;
+    HashMap<Vec<u8>, (Box<[GroupByScalar]>, Vec<AccumulatorItem>, Vec<u32>), RandomState>;
 
 impl Stream for GroupedHashAggregateStream {
     type Item = ArrowResult<RecordBatch>;
@@ -599,7 +599,7 @@ impl RecordBatchStream for GroupedHashAggregateStream {
 
 /// Evaluates expressions against a record batch.
 fn evaluate(
-    expr: &Vec<Arc<dyn PhysicalExpr>>,
+    expr: &[Arc<dyn PhysicalExpr>],
     batch: &RecordBatch,
 ) -> Result<Vec<ArrayRef>> {
     expr.iter()
@@ -610,7 +610,7 @@ fn evaluate(
 
 /// Evaluates expressions against a record batch.
 fn evaluate_many(
-    expr: &Vec<Vec<Arc<dyn PhysicalExpr>>>,
+    expr: &[Vec<Arc<dyn PhysicalExpr>>],
     batch: &RecordBatch,
 ) -> Result<Vec<Vec<ArrayRef>>> {
     expr.iter()
@@ -679,7 +679,7 @@ async fn compute_hash_aggregate(
     // future is ready when all batches are computed
     while let Some(batch) = input.next().await {
         let batch = batch?;
-        accumulators = aggregate_batch(&mode, &batch, accumulators, &expressions)
+        aggregate_batch(&mode, &batch, &mut accumulators, &expressions)
             .map_err(DataFusionError::into_arrow_external_error)?;
     }
 
@@ -717,18 +717,18 @@ impl HashAggregateStream {
 fn aggregate_batch(
     mode: &AggregateMode,
     batch: &RecordBatch,
-    accumulators: AccumulatorSet,
-    expressions: &Vec<Vec<Arc<dyn PhysicalExpr>>>,
-) -> Result<AccumulatorSet> {
+    accumulators: &mut [AccumulatorItem],
+    expressions: &[Vec<Arc<dyn PhysicalExpr>>],
+) -> Result<()> {
     // 1.1 iterate accumulators and respective expressions together
     // 1.2 evaluate expressions
     // 1.3 update / merge accumulators with the expressions' values
 
     // 1.1
     accumulators
-        .into_iter()
+        .iter_mut()
         .zip(expressions)
-        .map(|(mut accum, expr)| {
+        .try_for_each(|(accum, expr)| {
             // 1.2
             let values = &expr
                 .iter()
@@ -738,16 +738,10 @@ fn aggregate_batch(
 
             // 1.3
             match mode {
-                AggregateMode::Partial => {
-                    accum.update_batch(values)?;
-                }
-                AggregateMode::Final => {
-                    accum.merge_batch(values)?;
-                }
+                AggregateMode::Partial => accum.update_batch(values),
+                AggregateMode::Final => accum.merge_batch(values),
             }
-            Ok(accum)
         })
-        .collect::<Result<Vec<_>>>()
 }
 
 impl Stream for HashAggregateStream {
@@ -874,8 +868,8 @@ fn create_batch_from_map(
 }
 
 fn create_accumulators(
-    aggr_expr: &Vec<Arc<dyn AggregateExpr>>,
-) -> Result<AccumulatorSet> {
+    aggr_expr: &[Arc<dyn AggregateExpr>],
+) -> Result<Vec<AccumulatorItem>> {
     aggr_expr
         .iter()
         .map(|expr| expr.create_accumulator())
@@ -885,7 +879,7 @@ fn create_accumulators(
 /// returns a vector of ArrayRefs, where each entry corresponds to either the
 /// final value (mode = Final) or states (mode = Partial)
 fn finalize_aggregation(
-    accumulators: &AccumulatorSet,
+    accumulators: &[AccumulatorItem],
     mode: &AggregateMode,
 ) -> Result<Vec<ArrayRef>> {
     match mode {
