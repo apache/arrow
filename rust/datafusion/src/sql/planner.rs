@@ -478,7 +478,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                     // provided by the SELECT.
                     if !can_columns_satisfy_exprs(
                         &available_columns,
-                        &vec![having_expr.clone()],
+                        &[having_expr.clone()],
                     )? {
                         return Err(DataFusionError::Plan(
                             "Having references column(s) not provided by the select"
@@ -599,7 +599,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
 
             if !can_columns_satisfy_exprs(
                 &column_exprs_post_aggr,
-                &vec![having_expr_post_aggr.clone()],
+                &[having_expr_post_aggr.clone()],
             )? {
                 return Err(DataFusionError::Plan(
                     "Having references non-aggregate values".to_owned(),
