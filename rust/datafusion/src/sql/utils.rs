@@ -20,6 +20,7 @@ use crate::{
     error::{DataFusionError, Result},
     logical_plan::{ExpressionVisitor, Recursion},
 };
+use std::collections::HashMap;
 
 /// Resolves an `Expr::Wildcard` to a collection of `Expr::Column`'s.
 pub(crate) fn expand_wildcard(expr: &Expr, schema: &DFSchema) -> Vec<Expr> {
@@ -334,4 +335,36 @@ where
             Expr::Wildcard => Ok(Expr::Wildcard),
         },
     }
+}
+
+/// Returns mapping of each alias (`String`) to the expression (`Expr`) it is
+/// aliasing.
+pub(crate) fn extract_aliases(exprs: &[Expr]) -> HashMap<String, Expr> {
+    exprs
+        .iter()
+        .filter_map(|expr| match expr {
+            Expr::Alias(nested_expr, alias_name) => {
+                Some((alias_name.clone(), *nested_expr.clone()))
+            }
+            _ => None,
+        })
+        .collect::<HashMap<String, Expr>>()
+}
+
+/// Rebuilds an `Expr` with columns that refer to aliases replaced by the
+/// alias' underlying `Expr`.
+pub(crate) fn resolve_aliases_to_exprs(
+    expr: &Expr,
+    aliases: &HashMap<String, Expr>,
+) -> Result<Expr> {
+    clone_with_replacement(expr, &|nested_expr| match nested_expr {
+        Expr::Column(name) => {
+            if let Some(aliased_expr) = aliases.get(name) {
+                Ok(Some(aliased_expr.clone()))
+            } else {
+                Ok(None)
+            }
+        }
+        _ => Ok(None),
+    })
 }

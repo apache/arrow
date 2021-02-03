@@ -50,8 +50,8 @@ use sqlparser::ast::{OrderByExpr, Statement};
 use sqlparser::parser::ParserError::ParserError;
 
 use super::utils::{
-    can_columns_satisfy_exprs, expand_wildcard, expr_as_column_expr,
-    find_aggregate_exprs, find_column_exprs, rebase_expr,
+    can_columns_satisfy_exprs, expand_wildcard, expr_as_column_expr, extract_aliases,
+    find_aggregate_exprs, find_column_exprs, rebase_expr, resolve_aliases_to_exprs,
 };
 
 /// The ContextProvider trait allows the query planner to obtain meta-data about tables and
@@ -341,12 +341,6 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
 
     /// Generate a logic plan from an SQL select
     fn select_to_plan(&self, select: &Select) -> Result<LogicalPlan> {
-        if select.having.is_some() {
-            return Err(DataFusionError::NotImplemented(
-                "HAVING is not implemented yet".to_string(),
-            ));
-        }
-
         let plans = self.plan_from_tables(&select.from)?;
 
         let plan = match &select.selection {
@@ -421,15 +415,88 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
         // The SELECT expressions, with wildcards expanded.
         let select_exprs = self.prepare_select_exprs(&plan, &select.projection)?;
 
-        // All of the aggregate expressions (deduplicated).
-        let aggr_exprs = find_aggregate_exprs(&select_exprs);
+        // Optionally the HAVING expression.
+        let having_expr_opt = select
+            .having
+            .as_ref()
+            .map::<Result<Expr>, _>(|having_expr| {
+                let having_expr = self.sql_expr_to_logical_expr(having_expr)?;
 
-        let (plan, select_exprs_post_aggr) =
+                // This step "dereferences" any aliases in the HAVING clause.
+                //
+                // This is how we support queries with HAVING expressions that
+                // refer to aliased columns.
+                //
+                // For example:
+                //
+                //   SELECT c1 AS m FROM t HAVING m > 10;
+                //   SELECT c1, MAX(c2) AS m FROM t GROUP BY c1 HAVING m > 10;
+                //
+                // are rewritten as, respectively:
+                //
+                //   SELECT c1 AS m FROM t HAVING c1 > 10;
+                //   SELECT c1, MAX(c2) AS m FROM t GROUP BY c1 HAVING MAX(c2) > 10;
+                //
+                let having_expr = resolve_aliases_to_exprs(
+                    &having_expr,
+                    &extract_aliases(&select_exprs),
+                )?;
+
+                Ok(having_expr)
+            })
+            .transpose()?;
+
+        // The outer expressions we will search through for
+        // aggregates. Aggregates may be sourced from the SELECT...
+        let mut aggr_expr_haystack = select_exprs.clone();
+
+        // ... or from the HAVING.
+        if let Some(having_expr) = &having_expr_opt {
+            aggr_expr_haystack.push(having_expr.clone());
+        }
+
+        // All of the aggregate expressions (deduplicated).
+        let aggr_exprs = find_aggregate_exprs(&aggr_expr_haystack);
+
+        let (plan, select_exprs_post_aggr, having_expr_post_aggr_opt) =
             if !select.group_by.is_empty() || !aggr_exprs.is_empty() {
-                self.aggregate(&plan, &select_exprs, &select.group_by, &aggr_exprs)?
+                self.aggregate(
+                    &plan,
+                    &select_exprs,
+                    &having_expr_opt,
+                    &select.group_by,
+                    &aggr_exprs,
+                )?
             } else {
-                (plan, select_exprs)
+                if let Some(having_expr) = &having_expr_opt {
+                    let available_columns = select_exprs
+                        .iter()
+                        .map(|expr| expr_as_column_expr(expr, &plan))
+                        .collect::<Result<Vec<Expr>>>()?;
+
+                    // Ensure the HAVING expression is using only columns
+                    // provided by the SELECT.
+                    if !can_columns_satisfy_exprs(
+                        &available_columns,
+                        &vec![having_expr.clone()],
+                    )? {
+                        return Err(DataFusionError::Plan(
+                            "Having references column(s) not provided by the select"
+                                .to_owned(),
+                        ));
+                    }
+                }
+
+                (plan, select_exprs, having_expr_opt)
             };
+
+        let plan = if let Some(having_expr_post_aggr) = having_expr_post_aggr_opt {
+            LogicalPlanBuilder::from(&plan)
+                .filter(having_expr_post_aggr)?
+                .build()?
+        } else {
+            plan
+        };
 
         self.project(&plan, &select_exprs_post_aggr, false)
     }
@@ -485,9 +552,10 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
         &self,
         input: &LogicalPlan,
         select_exprs: &[Expr],
+        having_expr_opt: &Option<Expr>,
         group_by: &[SQLExpr],
         aggr_exprs: &[Expr],
-    ) -> Result<(LogicalPlan, Vec<Expr>)> {
+    ) -> Result<(LogicalPlan, Vec<Expr>, Option<Expr>)> {
         let group_by_exprs = group_by
             .iter()
             .map(|e| self.sql_to_rex(e, &input.schema()))
@@ -523,7 +591,27 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
             ));
         }
 
-        Ok((plan, select_exprs_post_aggr))
+        // Rewrite the HAVING expression to use the columns produced by the
+        // aggregation.
+        let having_expr_post_aggr_opt = if let Some(having_expr) = having_expr_opt {
+            let having_expr_post_aggr =
+                rebase_expr(having_expr, &aggr_projection_exprs, input)?;
+
+            if !can_columns_satisfy_exprs(
+                &column_exprs_post_aggr,
+                &vec![having_expr_post_aggr.clone()],
+            )? {
+                return Err(DataFusionError::Plan(
+                    "Having references non-aggregate values".to_owned(),
+                ));
+            }
+
+            Some(having_expr_post_aggr)
+        } else {
+            None
+        };
+
+        Ok((plan, select_exprs_post_aggr, having_expr_post_aggr_opt))
     }
 
     /// Wrap a plan in a limit
@@ -1230,6 +1318,286 @@ mod tests {
                         \n    Filter: #age Gt Int64(20)\
                         \n      TableScan: person projection=None";
 
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn select_with_having() {
+        let sql = "SELECT id, age
+                   FROM person
+                   HAVING age > 100 AND age < 200";
+        let expected = "Projection: #id, #age\
+                        \n  Filter: #age Gt Int64(100) And #age Lt Int64(200)\
+                        \n    TableScan: person projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn select_with_having_referencing_column_not_in_select() {
+        let sql = "SELECT id, age
+                   FROM person
+                   HAVING first_name = 'M'";
+        let err = logical_plan(sql).expect_err("query should have failed");
+        assert_eq!(
+            "Plan(\"Having references column(s) not provided by the select\")",
+            format!("{:?}", err)
+        );
+    }
+
+    #[test]
+    fn select_with_having_referencing_column_nested_in_select_expression() {
+        let sql = "SELECT id, age + 1
+                   FROM person
+                   HAVING age > 100";
+        let err = logical_plan(sql).expect_err("query should have failed");
+        assert_eq!(
+            "Plan(\"Having references column(s) not provided by the select\")",
+            format!("{:?}", err)
+        );
+    }
+
+    #[test]
+    fn select_with_having_with_aggregate_not_in_select() {
+        let sql = "SELECT first_name
+                   FROM person
+                   HAVING MAX(age) > 100";
+        let err = logical_plan(sql).expect_err("query should have failed");
+        assert_eq!(
+            "Plan(\"Projection references non-aggregate values\")",
+            format!("{:?}", err)
+        );
+    }
+
+    #[test]
+    fn select_aggregate_with_having_that_reuses_aggregate() {
+        let sql = "SELECT MAX(age)
+                   FROM person
+                   HAVING MAX(age) < 30";
+        let expected = "Filter: #MAX(age) Lt Int64(30)\
+                        \n  Aggregate: groupBy=[[]], aggr=[[MAX(#age)]]\
+                        \n    TableScan: person projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn select_aggregate_with_having_with_aggregate_not_in_select() {
+        let sql = "SELECT MAX(age)
+                   FROM person
+                   HAVING MAX(first_name) > 'M'";
+        let expected = "Projection: #MAX(age)\
+                        \n  Filter: #MAX(first_name) Gt Utf8(\"M\")\
+                        \n    Aggregate: groupBy=[[]], aggr=[[MAX(#age), MAX(#first_name)]]\
+                        \n      TableScan: person projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn select_aggregate_with_having_referencing_column_not_in_select() {
+        let sql = "SELECT COUNT(*)
+                   FROM person
+                   HAVING first_name = 'M'";
+        let err = logical_plan(sql).expect_err("query should have failed");
+        assert_eq!(
+            "Plan(\"Having references non-aggregate values\")",
+            format!("{:?}", err)
+        );
+    }
+
+    #[test]
+    fn select_aggregate_aliased_with_having_referencing_aggregate_by_its_alias() {
+        let sql = "SELECT MAX(age) as max_age
+                   FROM person
+                   HAVING max_age < 30";
+        let expected = "Projection: #MAX(age) AS max_age\
+                        \n  Filter: #MAX(age) Lt Int64(30)\
+                        \n    Aggregate: groupBy=[[]], aggr=[[MAX(#age)]]\
+                        \n      TableScan: person projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn select_aggregate_aliased_with_having_that_reuses_aggregate_but_not_by_its_alias() {
+        let sql = "SELECT MAX(age) as max_age
+                   FROM person
+                   HAVING MAX(age) < 30";
+        let expected = "Projection: #MAX(age) AS max_age\
+                        \n  Filter: #MAX(age) Lt Int64(30)\
+                        \n    Aggregate: groupBy=[[]], aggr=[[MAX(#age)]]\
+                        \n      TableScan: person projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn select_aggregate_with_group_by_with_having() {
+        let sql = "SELECT first_name, MAX(age)
+                   FROM person
+                   GROUP BY first_name
+                   HAVING first_name = 'M'";
+        let expected = "Filter: #first_name Eq Utf8(\"M\")\
+                        \n  Aggregate: groupBy=[[#first_name]], aggr=[[MAX(#age)]]\
+                        \n    TableScan: person projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn select_aggregate_with_group_by_with_having_and_where() {
+        let sql = "SELECT first_name, MAX(age)
+                   FROM person
+                   WHERE id > 5
+                   GROUP BY first_name
+                   HAVING MAX(age) < 100";
+        let expected = "Filter: #MAX(age) Lt Int64(100)\
+                        \n  Aggregate: groupBy=[[#first_name]], aggr=[[MAX(#age)]]\
+                        \n    Filter: #id Gt Int64(5)\
+                        \n      TableScan: person projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn select_aggregate_with_group_by_with_having_and_where_filtering_on_aggregate_column(
+    ) {
+        let sql = "SELECT first_name, MAX(age)
+                   FROM person
+                   WHERE id > 5 AND age > 18
+                   GROUP BY first_name
+                   HAVING MAX(age) < 100";
+        let expected = "Filter: #MAX(age) Lt Int64(100)\
+                        \n  Aggregate: groupBy=[[#first_name]], aggr=[[MAX(#age)]]\
+                        \n    Filter: #id Gt Int64(5) And #age Gt Int64(18)\
+                        \n      TableScan: person projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn select_aggregate_with_group_by_with_having_using_column_by_alias() {
+        let sql = "SELECT first_name AS fn, MAX(age)
+                   FROM person
+                   GROUP BY first_name
+                   HAVING MAX(age) > 2 AND fn = 'M'";
+        let expected = "Projection: #first_name AS fn, #MAX(age)\
+                        \n  Filter: #MAX(age) Gt Int64(2) And #first_name Eq Utf8(\"M\")\
+                        \n    Aggregate: groupBy=[[#first_name]], aggr=[[MAX(#age)]]\
+                        \n      TableScan: person projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn select_aggregate_with_group_by_with_having_using_columns_with_and_without_their_aliases(
+    ) {
+        let sql = "SELECT first_name AS fn, MAX(age) AS max_age
+                   FROM person
+                   GROUP BY first_name
+                   HAVING MAX(age) > 2 AND max_age < 5 AND first_name = 'M' AND fn = 'N'";
+        let expected = "Projection: #first_name AS fn, #MAX(age) AS max_age\
+                        \n  Filter: #MAX(age) Gt Int64(2) And #MAX(age) Lt Int64(5) And #first_name Eq Utf8(\"M\") And #first_name Eq Utf8(\"N\")\
+                        \n    Aggregate: groupBy=[[#first_name]], aggr=[[MAX(#age)]]\
+                        \n      TableScan: person projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn select_aggregate_with_group_by_with_having_that_reuses_aggregate() {
+        let sql = "SELECT first_name, MAX(age)
+                   FROM person
+                   GROUP BY first_name
+                   HAVING MAX(age) > 100";
+        let expected = "Filter: #MAX(age) Gt Int64(100)\
+                        \n  Aggregate: groupBy=[[#first_name]], aggr=[[MAX(#age)]]\
+                        \n    TableScan: person projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn select_aggregate_with_group_by_with_having_referencing_column_not_in_group_by() {
+        let sql = "SELECT first_name, MAX(age)
+                   FROM person
+                   GROUP BY first_name
+                   HAVING MAX(age) > 10 AND last_name = 'M'";
+        let err = logical_plan(sql).expect_err("query should have failed");
+        assert_eq!(
+            "Plan(\"Having references non-aggregate values\")",
+            format!("{:?}", err)
+        );
+    }
+
+    #[test]
+    fn select_aggregate_with_group_by_with_having_that_reuses_aggregate_multiple_times() {
+        let sql = "SELECT first_name, MAX(age)
+                   FROM person
+                   GROUP BY first_name
+                   HAVING MAX(age) > 100 AND MAX(age) < 200";
+        let expected = "Filter: #MAX(age) Gt Int64(100) And #MAX(age) Lt Int64(200)\
+                        \n  Aggregate: groupBy=[[#first_name]], aggr=[[MAX(#age)]]\
+                        \n    TableScan: person projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn select_aggregate_with_group_by_with_having_using_aggreagate_not_in_select() {
+        let sql = "SELECT first_name, MAX(age)
+                   FROM person
+                   GROUP BY first_name
+                   HAVING MAX(age) > 100 AND MIN(id) < 50";
+        let expected = "Projection: #first_name, #MAX(age)\
+                        \n  Filter: #MAX(age) Gt Int64(100) And #MIN(id) Lt Int64(50)\
+                        \n    Aggregate: groupBy=[[#first_name]], aggr=[[MAX(#age), MIN(#id)]]\
+                        \n      TableScan: person projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn select_aggregate_aliased_with_group_by_with_having_referencing_aggregate_by_its_alias(
+    ) {
+        let sql = "SELECT first_name, MAX(age) AS max_age
+                   FROM person
+                   GROUP BY first_name
+                   HAVING max_age > 100";
+        let expected = "Projection: #first_name, #MAX(age) AS max_age\
+                        \n  Filter: #MAX(age) Gt Int64(100)\
+                        \n    Aggregate: groupBy=[[#first_name]], aggr=[[MAX(#age)]]\
+                        \n      TableScan: person projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn select_aggregate_compound_aliased_with_group_by_with_having_referencing_compound_aggregate_by_its_alias(
+    ) {
+        let sql = "SELECT first_name, MAX(age) + 1 AS max_age_plus_one
+                   FROM person
+                   GROUP BY first_name
+                   HAVING max_age_plus_one > 100";
+        let expected =
+            "Projection: #first_name, #MAX(age) Plus Int64(1) AS max_age_plus_one\
+                        \n  Filter: #MAX(age) Plus Int64(1) Gt Int64(100)\
+                        \n    Aggregate: groupBy=[[#first_name]], aggr=[[MAX(#age)]]\
+                        \n      TableScan: person projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn select_aggregate_with_group_by_with_having_using_derived_column_aggreagate_not_in_select(
+    ) {
+        let sql = "SELECT first_name, MAX(age)
+                   FROM person
+                   GROUP BY first_name
+                   HAVING MAX(age) > 100 AND MIN(id - 2) < 50";
+        let expected = "Projection: #first_name, #MAX(age)\
+                        \n  Filter: #MAX(age) Gt Int64(100) And #MIN(id Minus Int64(2)) Lt Int64(50)\
+                        \n    Aggregate: groupBy=[[#first_name]], aggr=[[MAX(#age), MIN(#id Minus Int64(2))]]\
+                        \n      TableScan: person projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn select_aggregate_with_group_by_with_having_using_count_star_not_in_select() {
+        let sql = "SELECT first_name, MAX(age)
+                   FROM person
+                   GROUP BY first_name
+                   HAVING MAX(age) > 100 AND COUNT(*) < 50";
+        let expected = "Projection: #first_name, #MAX(age)\
+                        \n  Filter: #MAX(age) Gt Int64(100) And #COUNT(UInt8(1)) Lt Int64(50)\
+                        \n    Aggregate: groupBy=[[#first_name]], aggr=[[MAX(#age), COUNT(UInt8(1))]]\
+                        \n      TableScan: person projection=None";
         quick_test(sql, expected);
     }
 
