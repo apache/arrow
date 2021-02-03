@@ -74,7 +74,7 @@ uint64_t QuantileToDataPoint(size_t length, double q,
   return datapoint_index;
 }
 
-// copy and sort approach, large memory footprint
+// copy and nth_element approach, large memory footprint
 template <typename InType>
 struct SortQuantiler {
   using CType = typename InType::c_type;
@@ -375,7 +375,7 @@ struct CountQuantiler {
   }
 };
 
-// histogram or sort approach per value range and size, only for integers
+// histogram or 'copy & nth_element' approach per value range and size, only for integers
 template <typename InType>
 struct CountOrSortQuantiler {
   using CType = typename InType::c_type;
@@ -383,7 +383,7 @@ struct CountOrSortQuantiler {
   void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     // cross point to benefit from histogram approach
     // parameters estimated from ad-hoc benchmarks manually
-    static constexpr int kMinArraySize = 65536 * sizeof(int) / sizeof(CType);
+    static constexpr int kMinArraySize = 65536;
     static constexpr int kMaxValueRange = 65536;
 
     const Datum& datum = batch[0];
@@ -441,10 +441,7 @@ struct ExactQuantiler<InType, enable_if_t<is_floating_type<InType>::value>> {
 
 template <typename _, typename InType>
 struct QuantileExecutor {
-  using CType = typename InType::c_type;
-
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    // validate arguments
     if (ctx->state() == nullptr) {
       ctx->SetStatus(Status::Invalid("Quantile requires QuantileOptions"));
       return;

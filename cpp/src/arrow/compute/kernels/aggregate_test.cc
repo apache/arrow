@@ -1612,7 +1612,7 @@ class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<Int32Type> {
 };
 
 TEST_F(TestRandomQuantileKernel, Normal) {
-  // exercise copy and sort approach: size < 65536 int32
+  // exercise copy and sort approach: size < 65536
   this->CheckQuantiles(/*array_size=*/10000, /*num_quantiles=*/100);
 }
 
@@ -1622,7 +1622,7 @@ TEST_F(TestRandomQuantileKernel, Overlapped) {
 }
 
 TEST_F(TestRandomQuantileKernel, Histogram) {
-  // exercise histogram approach: size >= 65536 int32, range <= 65536
+  // exercise histogram approach: size >= 65536, range <= 65536
   this->CheckQuantiles(/*array_size=*/80000, /*num_quantiles=*/100);
 }
 #endif
