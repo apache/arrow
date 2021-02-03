@@ -76,12 +76,18 @@ Customized conversion
 
 To alter how CSV data is converted to Arrow types and data, you should create
 a :class:`ConvertOptions` instance and pass it to :func:`read_csv`::
+   import pyarrow as pa
+   import pyarrow.csv as csv
 
-   table = csv.read_csv('testdata.csv', convert_options=pa.csv.ConvertOptions(
+   table = csv.read_csv('tips.csv.gz', convert_options=pa.csv.ConvertOptions(
     column_types={
-        's_name': pa.string(),
-        's_start_date': pa.string(),
-        'agg_percentile_bps': pa.decimal128(precision=38, scale=10),
+        'total_bill': pa.decimal128(precision=10, scale=2),
+        'tip': pa.decimal128(precision=10, scale=2),
+        'sex': pa.string(),
+        'smoker': pa.string(),
+        'day': pa.string(),
+        'time': pa.string(),
+        'size': pa.int64()
     }
    ))
 
