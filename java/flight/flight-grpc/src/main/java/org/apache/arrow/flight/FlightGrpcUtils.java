@@ -29,8 +29,6 @@ import io.grpc.BindableService;
 import io.grpc.CallOptions;
 import io.grpc.ClientCall;
 import io.grpc.ConnectivityState;
-import io.grpc.Context;
-import io.grpc.HandlerRegistry;
 import io.grpc.ManagedChannel;
 import io.grpc.MethodDescriptor;
 
@@ -127,13 +125,6 @@ public class FlightGrpcUtils {
     }
   }
 
-  /**
-   * A gRPC Context key that gives you access to a per-call allocator.
-   *
-   * @see #createHandlerRegistry(BufferAllocator, BindableService)
-   */
-  public static final Context.Key<BufferAllocator> PER_CALL_ALLOCATOR = FlightService.PER_CALL_ALLOCATOR;
-
   private FlightGrpcUtils() {}
 
   /**
@@ -166,24 +157,5 @@ public class FlightGrpcUtils {
   public static FlightClient createFlightClientWithSharedChannel(
       BufferAllocator incomingAllocator, ManagedChannel channel) {
     return new FlightClient(incomingAllocator, new NonClosingProxyManagedChannel(channel), Collections.emptyList());
-  }
-
-  /**
-   * Create a gRPC handler registry from a Flight service.
-   *
-   * <p>This handler registry will intercept DoGet/DoPut/DoExchange calls such that a fresh child allocator is created
-   * for each call, allowing finer-grained memory usage tracking and more protection against leaks.
-   *
-   * <p>The per-call allocator can be accessed via {@link #PER_CALL_ALLOCATOR}.
-   *
-   * <p>This must be used with {@link AllocatorClosingServerInterceptor} to close the created child allocator after
-   * each call.
-   *
-   * @param allocator The allocator used to create child allocators.
-   * @param flightService The org.apache.arrow.flight.impl.Flight gRPC service.
-   * @return A gRPC HandlerRegistry that can be passed to a server builder.
-   */
-  public static HandlerRegistry createHandlerRegistry(BufferAllocator allocator, BindableService flightService) {
-    return new FlightHandlerRegistry(allocator, flightService.bindService());
   }
 }
