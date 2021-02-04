@@ -33,10 +33,10 @@ fn create_random_index(size: usize, null_density: f32) -> UInt32Array {
     let mut builder = UInt32Builder::new(size);
     for _ in 0..size {
         if rng.gen::<f32>() < null_density {
+            builder.append_null().unwrap()
+        } else {
             let value = rng.gen_range::<u32, _, _>(0u32, size as u32);
             builder.append_value(value).unwrap();
-        } else {
-            builder.append_null().unwrap()
         }
     }
     builder.finish()
