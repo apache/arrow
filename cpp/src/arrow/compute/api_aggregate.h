@@ -127,6 +127,28 @@ struct ARROW_EXPORT QuantileOptions : public FunctionOptions {
   enum Interpolation interpolation;
 };
 
+/// \brief Control TDigest approximate quantile kernel behavior
+///
+/// By default, returns the median value.
+struct ARROW_EXPORT TDigestOptions : public FunctionOptions {
+  explicit TDigestOptions(double q = 0.5, uint32_t delta = 100,
+                          uint32_t buffer_size = 500)
+      : q{q}, delta{delta}, buffer_size{buffer_size} {}
+
+  explicit TDigestOptions(std::vector<double> q, uint32_t delta = 100,
+                          uint32_t buffer_size = 500)
+      : q{std::move(q)}, delta{delta}, buffer_size{buffer_size} {}
+
+  static TDigestOptions Defaults() { return TDigestOptions{}; }
+
+  /// quantile must be between 0 and 1 inclusive
+  std::vector<double> q;
+  /// compression parameter, default 100
+  uint32_t delta;
+  /// input buffer size, default 500
+  uint32_t buffer_size;
+};
+
 /// @}
 
 /// \brief Count non-null (or null) values in an array.
@@ -269,6 +291,20 @@ ARROW_EXPORT
 Result<Datum> Quantile(const Datum& value,
                        const QuantileOptions& options = QuantileOptions::Defaults(),
                        ExecContext* ctx = NULLPTR);
+
+/// \brief Calculate the approximate quantiles of a numeric array with T-Digest algorithm
+///
+/// \param[in] value input datum, expecting Array or ChunkedArray
+/// \param[in] options see TDigestOptions for more information
+/// \param[in] ctx the function execution context, optional
+/// \return resulting datum as an array
+///
+/// \since 4.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> TDigest(const Datum& value,
+                      const TDigestOptions& options = TDigestOptions::Defaults(),
+                      ExecContext* ctx = NULLPTR);
 
 }  // namespace compute
 }  // namespace arrow

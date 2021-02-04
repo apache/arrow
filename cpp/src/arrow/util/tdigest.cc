@@ -332,6 +332,8 @@ class TDigest::TDigestImpl {
     return Lerp(td[ci_left].mean, td[ci_right].mean, diff);
   }
 
+  double total_weight() { return total_weight_; }
+
  private:
   // must be delcared before merger_, see constructor initialization list
   const uint32_t delta_;
@@ -390,6 +392,8 @@ void TDigest::MergeInput() {
     impl_->MergeInput(input_);  // will mutate input_
   }
 }
+
+bool TDigest::is_empty() { return impl_->total_weight() == 0; }
 
 }  // namespace internal
 }  // namespace arrow

@@ -498,5 +498,19 @@ QUANTILE_KERNEL_BENCHMARK_WIDE(QuantileKernelInt64Wide, Int64Type);
 QUANTILE_KERNEL_BENCHMARK_NARROW(QuantileKernelInt64Narrow, Int64Type);
 QUANTILE_KERNEL_BENCHMARK_WIDE(QuantileKernelDouble, DoubleType);
 
+static void TDigestKernel(benchmark::State& state) {
+  TDigestOptions options;
+  RegressionArgs args(state);
+  const int64_t array_size = args.size / sizeof(double);
+  auto rand = random::RandomArrayGenerator(1926);
+  auto array = rand.Numeric<DoubleType>(array_size, 0, 1 << 24, args.null_proportion);
+
+  for (auto _ : state) {
+    ABORT_NOT_OK(TDigest(array, options).status());
+  }
+}
+
+BENCHMARK(TDigestKernel)->Apply(QuantileKernelBenchArgs);
+
 }  // namespace compute
 }  // namespace arrow

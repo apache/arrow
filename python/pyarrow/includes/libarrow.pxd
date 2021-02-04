@@ -1890,6 +1890,14 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         vector[double] q
         CQuantileInterp interpolation
 
+    cdef cppclass CTDigestOptions \
+            "arrow::compute::TDigestOptions"(CFunctionOptions):
+        CTDigestOptions(vector[double] q,
+                        unsigned int delta, unsigned int buffer_size)
+        vector[double] q
+        unsigned int delta
+        unsigned int buffer_size
+
     enum DatumType" arrow::Datum::type":
         DatumType_NONE" arrow::Datum::NONE"
         DatumType_SCALAR" arrow::Datum::SCALAR"

@@ -1533,23 +1533,67 @@ TEST_F(TestInt64QuantileKernel, Int64) {
 class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<Int32Type> {
  public:
   void CheckQuantiles(int64_t array_size, int64_t num_quantiles) {
-    auto rand = random::RandomArrayGenerator(0x5487658);
-    // small value range to exercise input array with equal values and histogram approach
-    const auto array = rand.Numeric<Int32Type>(array_size, -100, 200, 0.1);
-
+    std::shared_ptr<Array> array;
     std::vector<double> quantiles;
-    random_real(num_quantiles, 0x5487658, 0.0, 1.0, &quantiles);
-    // make sure to exercise 0 and 1 quantiles
-    *std::min_element(quantiles.begin(), quantiles.end()) = 0;
-    *std::max_element(quantiles.begin(), quantiles.end()) = 1;
+    // small value range to exercise input array with equal values and histogram approach
+    GenerateTestData(array_size, num_quantiles, -100, 200, &array, &quantiles);
 
     this->AssertQuantilesAre(array, QuantileOptions{quantiles},
-                             NaiveQuantile(*array, quantiles));
+                             NaiveQuantile(*array, quantiles, interpolations_));
+  }
+
+  void CheckTDigests(std::vector<int> chunk_sizes, int64_t num_quantiles) {
+    int total_size = 0;
+    for (int size : chunk_sizes) {
+      total_size += size;
+    }
+    std::shared_ptr<Array> array;
+    std::vector<double> quantiles;
+    GenerateTestData(total_size, num_quantiles, 100, 123456789, &array, &quantiles);
+
+    total_size = 0;
+    ArrayVector array_vector;
+    for (int size : chunk_sizes) {
+      array_vector.emplace_back(array->Slice(total_size, size));
+      total_size += size;
+    }
+    auto chunked = *ChunkedArray::Make(array_vector);
+
+    TDigestOptions options(quantiles);
+    ASSERT_OK_AND_ASSIGN(Datum out, TDigest(chunked, options));
+    const auto& out_array = out.make_array();
+    ASSERT_OK(out_array->ValidateFull());
+    ASSERT_EQ(out_array->length(), quantiles.size());
+    ASSERT_EQ(out_array->null_count(), 0);
+    ASSERT_EQ(out_array->type(), float64());
+
+    // linear interpolated exact quantile as reference
+    std::vector<std::vector<Datum>> exact =
+        NaiveQuantile(*array, quantiles, {QuantileOptions::LINEAR});
+    const double* approx = out_array->data()->GetValues<double>(1);
+    for (size_t i = 0; i < quantiles.size(); ++i) {
+      const auto& exact_scalar =
+          std::static_pointer_cast<DoubleScalar>(exact[i][0].scalar());
+      const double tolerance = std::fabs(exact_scalar->value) * 0.05;
+      EXPECT_NEAR(approx[i], exact_scalar->value, tolerance) << quantiles[i];
+    }
   }
 
  private:
-  std::vector<std::vector<Datum>> NaiveQuantile(const Array& array,
-                                                const std::vector<double>& quantiles) {
+  void GenerateTestData(int64_t array_size, int64_t num_quantiles, int min, int max,
+                        std::shared_ptr<Array>* array, std::vector<double>* quantiles) {
+    auto rand = random::RandomArrayGenerator(0x5487658);
+    *array = rand.Numeric<Int32Type>(array_size, min, max, 0.1);
+
+    random_real(num_quantiles, 0x5487658, 0.0, 1.0, quantiles);
+    // make sure to exercise 0 and 1 quantiles
+    *std::min_element(quantiles->begin(), quantiles->end()) = 0;
+    *std::max_element(quantiles->begin(), quantiles->end()) = 1;
+  }
+
+  std::vector<std::vector<Datum>> NaiveQuantile(
+      const Array& array, const std::vector<double>& quantiles,
+      const std::vector<enum QuantileOptions::Interpolation>& interpolations) {
     // copy and sort input array
     std::vector<int32_t> input(array.length() - array.null_count());
     const int32_t* values = array.data()->GetValues<int32_t>(1);
@@ -1563,9 +1607,9 @@ class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<Int32Type> {
     std::sort(input.begin(), input.end());
 
     std::vector<std::vector<Datum>> output(quantiles.size(),
-                                           std::vector<Datum>(interpolations_.size()));
-    for (uint64_t i = 0; i < interpolations_.size(); ++i) {
-      const auto interp = interpolations_[i];
+                                           std::vector<Datum>(interpolations.size()));
+    for (uint64_t i = 0; i < interpolations.size(); ++i) {
+      const auto interp = interpolations[i];
       for (uint64_t j = 0; j < quantiles.size(); ++j) {
         output[j][i] = GetQuantile(input, quantiles[j], interp);
       }
@@ -1624,6 +1668,10 @@ TEST_F(TestRandomQuantileKernel, Overlapped) {
 TEST_F(TestRandomQuantileKernel, Histogram) {
   // exercise histogram approach: size >= 65536, range <= 65536
   this->CheckQuantiles(/*array_size=*/80000, /*num_quantiles=*/100);
+}
+
+TEST_F(TestRandomQuantileKernel, TDigest) {
+  this->CheckTDigests(/*chunk_sizes=*/{12345, 6789, 8765, 4321}, /*num_quantiles=*/100);
 }
 #endif
 
