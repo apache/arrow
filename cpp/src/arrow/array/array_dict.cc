@@ -436,7 +436,7 @@ Result<std::shared_ptr<Table>> DictionaryUnifier::UnifyTable(const Table& table,
   for (auto& col : columns) {
     ARROW_ASSIGN_OR_RAISE(col, DictionaryUnifier::UnifyChunkedArray(col, pool));
   }
-  return Table::Make(table.schema(), std::move(columns));
+  return Table::Make(table.schema(), std::move(columns), table.num_rows());
 }
 
 }  // namespace arrow

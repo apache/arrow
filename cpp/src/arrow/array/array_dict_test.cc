@@ -30,6 +30,7 @@
 #include "arrow/array/builder_nested.h"
 #include "arrow/chunked_array.h"
 #include "arrow/status.h"
+#include "arrow/table.h"
 #include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
@@ -1662,6 +1663,16 @@ TEST(TestDictionaryUnifier, ChunkedArrayNestedDict) {
   ASSERT_OK_AND_ASSIGN(auto chunked, ChunkedArray::Make({chunk1, chunk2}));
 
   ASSERT_RAISES(NotImplemented, DictionaryUnifier::UnifyChunkedArray(chunked));
+}
+
+TEST(TestDictionaryUnifier, TableZeroColumns) {
+  auto schema = ::arrow::schema(FieldVector{});
+  auto table = Table::Make(schema, ArrayVector{}, /*num_rows=*/42);
+
+  ASSERT_OK_AND_ASSIGN(auto unified, DictionaryUnifier::UnifyTable(*table));
+  AssertSchemaEqual(*schema, *unified->schema());
+  ASSERT_EQ(unified->num_rows(), 42);
+  AssertTablesEqual(*table, *unified);
 }
 
 }  // namespace arrow
