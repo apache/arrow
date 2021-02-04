@@ -534,6 +534,7 @@ class BenchmarkDecodeArrow : public ::benchmark::Fixture {
   void TearDown(const ::benchmark::State& state) override {
     buffer_.reset();
     input_array_.reset();
+    values_.clear();
   }
 
   void InitDataInputs() {
@@ -548,7 +549,6 @@ class BenchmarkDecodeArrow : public ::benchmark::Fixture {
     valid_bits_ = input_array_->null_bitmap_data();
     total_size_ = input_array_->data()->buffers[2]->size();
 
-    values_.clear();
     values_.reserve(num_values_);
     const auto& binary_array = static_cast<const ::arrow::BinaryArray&>(*input_array_);
     for (int64_t i = 0; i < binary_array.length(); i++) {
