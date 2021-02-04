@@ -31,6 +31,7 @@
 #include "arrow/array.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
+#include "arrow/util/key_value_metadata.h"
 
 using arrow::ArrayFromVector;
 using arrow::Field;

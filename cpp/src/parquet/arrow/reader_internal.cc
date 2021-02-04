@@ -38,6 +38,7 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/base64.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/int_util_internal.h"
 #include "arrow/util/logging.h"
@@ -86,6 +87,8 @@ using parquet::schema::GroupNode;
 using parquet::schema::Node;
 using parquet::schema::PrimitiveNode;
 using ParquetType = parquet::Type;
+
+namespace BitUtil = arrow::BitUtil;
 
 namespace parquet {
 namespace arrow {

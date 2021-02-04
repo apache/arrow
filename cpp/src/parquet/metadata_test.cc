@@ -19,6 +19,7 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/util/key_value_metadata.h"
 #include "parquet/schema.h"
 #include "parquet/statistics.h"
 #include "parquet/thrift_internal.h"

@@ -20,16 +20,11 @@
 #include <cstdint>
 #include <memory>
 
-#include "arrow/buffer.h"              // IWYU pragma: export
-#include "arrow/io/interfaces.h"       // IWYU pragma: export
-#include "arrow/io/memory.h"           // IWYU pragma: export
-#include "arrow/memory_pool.h"         // IWYU pragma: export
-#include "arrow/status.h"              // IWYU pragma: export
-#include "arrow/util/bit_util.h"       // IWYU pragma: export
-#include "arrow/util/bitmap_writer.h"  // IWYU pragma: export
-#include "arrow/util/compression.h"    // IWYU pragma: export
-#include "arrow/util/macros.h"         // IWYU pragma: export
-#include "arrow/util/string_view.h"    // IWYU pragma: export
+#include "arrow/buffer.h"         // IWYU pragma: export
+#include "arrow/io/interfaces.h"  // IWYU pragma: export
+#include "arrow/status.h"         // IWYU pragma: export
+#include "arrow/type_fwd.h"       // IWYU pragma: export
+#include "arrow/util/macros.h"    // IWYU pragma: export
 
 #if defined(_WIN32) || defined(__CYGWIN__)
 
@@ -90,8 +85,6 @@
 
 namespace parquet {
 
-namespace BitUtil = ::arrow::BitUtil;
-
 using Buffer = ::arrow::Buffer;
 using Codec = ::arrow::util::Codec;
 using Compression = ::arrow::Compression;
@@ -102,7 +95,6 @@ using ResizableBuffer = ::arrow::ResizableBuffer;
 using ArrowInputFile = ::arrow::io::RandomAccessFile;
 using ArrowInputStream = ::arrow::io::InputStream;
 using ArrowOutputStream = ::arrow::io::OutputStream;
-using string_view = ::arrow::util::string_view;
 
 constexpr int64_t kDefaultOutputStreamSize = 1024;
 
