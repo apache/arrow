@@ -51,6 +51,11 @@
     </dependency>
     <dependency>
       <groupId>io.grpc</groupId>
+      <artifactId>grpc-context</artifactId>
+      <version>${dep.grpc.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.grpc</groupId>
       <artifactId>grpc-core</artifactId>
       <version>${dep.grpc.version}</version>
     </dependency>
@@ -71,6 +76,11 @@
        <version>${project.version}</version>
        <scope>runtime</scope>
      </dependency>
+    <dependency>
+       <groupId>org.apache.arrow</groupId>
+       <artifactId>arrow-vector</artifactId>
+       <version>${project.version}</version>
+     </dependency>
      <dependency>
        <groupId>io.grpc</groupId>
        <artifactId>grpc-protobuf</artifactId>
@@ -89,6 +99,10 @@
        <groupId>io.grpc</groupId>
        <artifactId>grpc-api</artifactId>
        <version>${dep.grpc.version}</version>
+     </dependency>
+     <dependency>
+       <groupId>org.slf4j</groupId>
+       <artifactId>slf4j-api</artifactId>
      </dependency>
   </dependencies>
 
