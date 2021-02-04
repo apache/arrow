@@ -91,7 +91,6 @@ x-hierarchy:
       - conda-python-turbodbc
       - conda-python-kartothek
       - conda-python-spark
-      - conda-python-spark-pyarrow-only
   - debian-cpp:
     - debian-c-glib:
       - debian-ruby
@@ -1340,35 +1339,4 @@ services:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         /arrow/ci/scripts/java_build.sh /arrow /build &&
-        /arrow/ci/scripts/integration_spark.sh /arrow /spark"]
-
-  conda-python-spark-pyarrow-only:
-    # Usage:
-    #   docker-compose build conda-cpp
-    #   docker-compose build conda-python
-    #   docker-compose build conda-python-spark-pyarrow-only
-    #   docker-compose run conda-python-spark-pyarrow-only
-    image: ${REPO}:${ARCH}-conda-python-${PYTHON}-spark-${SPARK}-pyarrow-only
-    build:
-      context: .
-      dockerfile: ci/docker/conda-python-spark.dockerfile
-      cache_from:
-        - ${REPO}:${ARCH}-conda-python-${PYTHON}-spark-${SPARK}-pyarrow-only
-      args:
-        repo: ${REPO}
-        arch: ${ARCH}
-        python: ${PYTHON}
-        jdk: ${JDK}
-        # conda-forge doesn't have 3.5.4 so pinning explicitly, but this should
-        # be set to ${MAVEN}
-        maven: 3.5
-        spark: ${SPARK}
-    shm_size: *shm-size
-    environment:
-      <<: *ccache
-    volumes: *conda-maven-volumes
-    command:
-      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/python_build.sh /arrow /build &&
-        /arrow/ci/scripts/java_build.sh /arrow /build &&
-        /arrow/ci/scripts/integration_spark.sh /arrow /spark true"]
+        /arrow/ci/scripts/integration_spark.sh /arrow /spark ${TEST_PYARROW_ONLY:-false}"]
