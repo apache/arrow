@@ -52,8 +52,9 @@ jobs:
       - uses: r-lib/actions/setup-r@v1
       - name: Install dependencies
         run: |
+          install.packages("remotes")
           remotes::install_deps(dependencies = TRUE)
-          remotes::install_cran(c("rcmdcheck", "sys"))
+          remotes::install_cran(c("rcmdcheck", "sys", "sessioninfo"))
         shell: Rscript {0}
       - name: Session info
         run: |
