@@ -364,27 +364,23 @@ fn bitwise_bin_op_helper<F>(
 where
     F: Fn(u64, u64) -> u64,
 {
-    // reserve capacity and set length so we can get a typed view of u64 chunks
-    let mut result =
-        MutableBuffer::new(ceil(len_in_bits, 8)).with_bitset(len_in_bits / 64 * 8, false);
-
     let left_chunks = left.bit_chunks(left_offset_in_bits, len_in_bits);
     let right_chunks = right.bit_chunks(right_offset_in_bits, len_in_bits);
-    let result_chunks = result.typed_data_mut::<u64>().iter_mut();
 
-    result_chunks
-        .zip(left_chunks.iter().zip(right_chunks.iter()))
-        .for_each(|(res, (left, right))| {
-            *res = op(left, right);
-        });
+    let chunks = left_chunks
+        .iter()
+        .zip(right_chunks.iter())
+        .map(|(left, right)| op(left, right));
+    // Soundness: `BitChunks` is a trusted len iterator
+    let mut buffer = unsafe { MutableBuffer::from_trusted_len_iter(chunks) };
 
     let remainder_bytes = ceil(left_chunks.remainder_len(), 8);
     let rem = op(left_chunks.remainder_bits(), right_chunks.remainder_bits());
     // we are counting its starting from the least significant bit, to to_le_bytes should be correct
     let rem = &rem.to_le_bytes()[0..remainder_bytes];
-    result.extend_from_slice(rem);
+    buffer.extend_from_slice(rem);
 
-    result.into()
+    buffer.into()
 }
 
 /// Apply a bitwise operation `op` to one input and return the result as a Buffer.
@@ -1049,17 +1045,15 @@ impl MutableBuffer {
 
         iterator.for_each(|item| self.push(item));
     }
-}
 
-impl Buffer {
-    /// Creates a [`Buffer`] from an [`Iterator`] with a trusted (upper) length.
+    /// Creates a [`MutableBuffer`] from an [`Iterator`] with a trusted (upper) length.
     /// Prefer this to `collect` whenever possible, as it is faster ~60% faster.
     /// # Example
     /// ```
-    /// # use arrow::buffer::Buffer;
+    /// # use arrow::buffer::MutableBuffer;
     /// let v = vec![1u32];
     /// let iter = v.iter().map(|x| x * 2);
-    /// let buffer = unsafe { Buffer::from_trusted_len_iter(iter) };
+    /// let buffer = unsafe { MutableBuffer::from_trusted_len_iter(iter) };
     /// assert_eq!(buffer.len(), 4) // u32 has 4 bytes
     /// ```
     /// # Safety
@@ -1090,10 +1084,10 @@ impl Buffer {
             "Trusted iterator length was not accurately reported"
         );
         buffer.len = len;
-        buffer.into()
+        buffer
     }
 
-    /// Creates a [`Buffer`] from an [`Iterator`] with a trusted (upper) length or errors
+    /// Creates a [`MutableBuffer`] from an [`Iterator`] with a trusted (upper) length or errors
     /// if any of the items of the iterator is an error.
     /// Prefer this to `collect` whenever possible, as it is faster ~60% faster.
     /// # Safety
@@ -1124,7 +1118,48 @@ impl Buffer {
             "Trusted iterator length was not accurately reported"
         );
         buffer.len = len;
-        Ok(buffer.into())
+        Ok(buffer)
+    }
+}
+
+impl Buffer {
+    /// Creates a [`Buffer`] from an [`Iterator`] with a trusted (upper) length.
+    /// Prefer this to `collect` whenever possible, as it is ~60% faster.
+    /// # Example
+    /// ```
+    /// # use arrow::buffer::Buffer;
+    /// let v = vec![1u32];
+    /// let iter = v.iter().map(|x| x * 2);
+    /// let buffer = unsafe { Buffer::from_trusted_len_iter(iter) };
+    /// assert_eq!(buffer.len(), 4) // u32 has 4 bytes
+    /// ```
+    /// # Safety
+    /// This method assumes that the iterator's size is correct and is undefined behavior
+    /// to use it on an iterator that reports an incorrect length.
+    // This implementation is required for two reasons:
+    // 1. there is no trait `TrustedLen` in stable rust and therefore
+    //    we can't specialize `extend` for `TrustedLen` like `Vec` does.
+    // 2. `from_trusted_len_iter` is faster.
+    pub unsafe fn from_trusted_len_iter<T: ArrowNativeType, I: Iterator<Item = T>>(
+        iterator: I,
+    ) -> Self {
+        MutableBuffer::from_trusted_len_iter(iterator).into()
+    }
+
+    /// Creates a [`Buffer`] from an [`Iterator`] with a trusted (upper) length or errors
+    /// if any of the items of the iterator is an error.
+    /// Prefer this to `collect` whenever possible, as it is faster ~60% faster.
+    /// # Safety
+    /// This method assumes that the iterator's size is correct and is undefined behavior
+    /// to use it on an iterator that reports an incorrect length.
+    pub unsafe fn try_from_trusted_len_iter<
+        E,
+        T: ArrowNativeType,
+        I: Iterator<Item = std::result::Result<T, E>>,
+    >(
+        iterator: I,
+    ) -> std::result::Result<Self, E> {
+        Ok(MutableBuffer::try_from_trusted_len_iter(iterator)?.into())
     }
 }
 
