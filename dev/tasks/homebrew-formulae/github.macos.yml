@@ -44,9 +44,8 @@ jobs:
           # Sometimes crossbow gives a remote URL with .git and sometimes not. Make sure there's only one
           sed -i.bak -E -e 's@.git.git@.git@' $ARROW_FORMULA && rm -f $ARROW_FORMULA.bak
           brew update
-          brew uninstall --ignore-dependencies boost
           brew --version
-          brew unlink python@2
+          brew unlink python@2 || true
           brew config
           brew doctor || true
           cp $ARROW_FORMULA $(brew --repository homebrew/core)/Formula/apache-arrow.rb
