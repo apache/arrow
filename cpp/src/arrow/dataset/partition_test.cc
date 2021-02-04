@@ -341,6 +341,9 @@ TEST_F(TestPartitioning, HivePartitioningFormat) {
                      equal(field_ref("beta"), literal(3.25f))}),
                "alpha=0/beta=3.25");
 
+  AssertFormat(equal(field_ref("alpha"), literal(MakeNullScalar(int32()))),
+               "alpha=_HIVE_DEFAULT_PARTITION_");
+
   // written_schema_ is incompatible with partitioning_'s schema
   written_schema_ = schema({field("alpha", utf8()), field("beta", utf8())});
   AssertFormatError<StatusCode::TypeError>(

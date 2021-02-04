@@ -51,6 +51,8 @@ Expression::Expression(Parameter parameter)
 
 Expression literal(Datum lit) { return Expression(std::move(lit)); }
 
+Expression null_literal() { return Expression(Datum()); }
+
 Expression field_ref(FieldRef ref) {
   return Expression(Expression::Parameter{std::move(ref), {}});
 }

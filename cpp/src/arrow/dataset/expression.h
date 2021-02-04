@@ -135,6 +135,9 @@ inline bool operator!=(const Expression& l, const Expression& r) { return !l.Equ
 ARROW_DS_EXPORT
 Expression literal(Datum lit);
 
+ARROW_DS_EXPORT
+Expression null_literal();
+
 template <typename Arg>
 Expression literal(Arg&& arg) {
   return literal(Datum(std::forward<Arg>(arg)));
