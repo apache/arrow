@@ -42,7 +42,6 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Strings;
 
-import io.grpc.Context;
 import io.grpc.stub.ServerCallStreamObserver;
 import io.grpc.stub.StreamObserver;
 
@@ -53,8 +52,6 @@ class FlightService extends FlightServiceImplBase {
 
   private static final Logger logger = LoggerFactory.getLogger(FlightService.class);
   private static final int PENDING_REQUESTS = 5;
-  static final Context.Key<BufferAllocator> PER_CALL_ALLOCATOR =
-      Context.key("org.apache.arrow.flight.FlightGrpcUtils.PER_CALL_ALLOCATOR");
 
   private final BufferAllocator allocator;
   private final FlightProducer producer;
@@ -224,7 +221,7 @@ class FlightService extends FlightServiceImplBase {
     final StreamPipe<PutResult, Flight.PutResult> ackStream = StreamPipe
         .wrap(responseObserver, PutResult::toProtocol, this::handleExceptionWithMiddleware);
     final FlightStream fs = new FlightStream(
-        getCallAllocator(),
+        allocator,
         PENDING_REQUESTS,
         /* server-upload streams are not cancellable */null,
         responseObserver::request);
@@ -355,7 +352,7 @@ class FlightService extends FlightServiceImplBase {
         responseObserver,
         this::handleExceptionWithMiddleware);
     final FlightStream fs = new FlightStream(
-        getCallAllocator(),
+        allocator,
         PENDING_REQUESTS,
         /* server-upload streams are not cancellable */null,
         responseObserver::request);
@@ -378,17 +375,6 @@ class FlightService extends FlightServiceImplBase {
       listener.error(ex);
     }
     return observer;
-  }
-
-  /**
-   * Helper method to get either the per-call allocator (if enabled) or the shared allocator.
-   */
-  private BufferAllocator getCallAllocator() {
-    BufferAllocator callAllocator = PER_CALL_ALLOCATOR.get();
-    if (callAllocator == null) {
-      callAllocator = this.allocator;
-    }
-    return callAllocator;
   }
 
   /**

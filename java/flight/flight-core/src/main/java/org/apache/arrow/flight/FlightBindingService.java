@@ -43,9 +43,9 @@ import io.grpc.stub.StreamObserver;
  */
 class FlightBindingService implements BindableService {
 
-  static final String DO_GET = MethodDescriptor.generateFullMethodName(FlightConstants.SERVICE, "DoGet");
-  static final String DO_PUT = MethodDescriptor.generateFullMethodName(FlightConstants.SERVICE, "DoPut");
-  static final String DO_EXCHANGE = MethodDescriptor.generateFullMethodName(
+  private static final String DO_GET = MethodDescriptor.generateFullMethodName(FlightConstants.SERVICE, "DoGet");
+  private static final String DO_PUT = MethodDescriptor.generateFullMethodName(FlightConstants.SERVICE, "DoPut");
+  private static final String DO_EXCHANGE = MethodDescriptor.generateFullMethodName(
       FlightConstants.SERVICE, "DoExchange");
   private static final Set<String> OVERRIDE_METHODS = ImmutableSet.of(DO_GET, DO_PUT, DO_EXCHANGE);
 
