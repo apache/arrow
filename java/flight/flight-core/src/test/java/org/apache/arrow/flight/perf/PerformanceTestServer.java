@@ -120,6 +120,7 @@ public class PerformanceTestServer implements AutoCloseable {
           BigIntVector b = (BigIntVector) root.getVector("b");
           BigIntVector c = (BigIntVector) root.getVector("c");
           BigIntVector d = (BigIntVector) root.getVector("d");
+          listener.setUseZeroCopy(true);
           listener.start(root);
           root.allocateNew();
 

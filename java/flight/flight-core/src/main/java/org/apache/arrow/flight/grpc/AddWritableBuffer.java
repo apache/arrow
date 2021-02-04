@@ -92,10 +92,14 @@ public class AddWritableBuffer {
    * @throws IOException if the fast path is not enabled and there was an error copying the buffer to the stream.
    */
   public static boolean add(ByteBuf buf, OutputStream stream, boolean tryZeroCopy) throws IOException {
-    if (!tryZeroCopy) {
+    if (!tryZeroCopy || !tryAddBuffer(buf, stream)) {
       buf.getBytes(0, stream, buf.readableBytes());
       return false;
     }
+    return true;
+  }
+
+  private static boolean tryAddBuffer(ByteBuf buf, OutputStream stream) throws IOException {
 
     if (bufChainOut == null) {
       return false;
