@@ -23,9 +23,14 @@ language: minimal
 addons:
   apt:
     packages:
+      - apt-utils
+      - createrepo
+      - devscripts
+      - gpg
       - libgit2-dev
       - python3-pip
       - rake
+      - rpm
 
 services:
   - docker
@@ -47,45 +52,66 @@ before_script:
   - git -C arrow checkout FETCH_HEAD
 
 script:
+  # Build packages
   - pushd arrow/dev/tasks/linux-packages
   - rake version:update
   - |
-    rake docker:pull || :
+      rake docker:pull || :
+  - pushd apache-arrow-archive-keyring/apt
   - |
-    stdbuf --output=0 \
+      for target in debian-* ubuntu-*; do
+        cp -a ${target} ${target}-arm64
+      done
+  - popd
+  - pushd apache-arrow-release/yum
+  - |
+      for target in centos-*; do
+        cp -a ${target} ${target}-aarch64
+      done
+  - popd
+  - |
       rake \
+        --trace \
+        {{ task_namespace }}:build \
         BUILD_DIR=build \
-        DEB_BUILD_OPTIONS=parallel=8 \
-        RPM_BUILD_NCPUS=8 \
-        {{ build_task }}
+        DEB_BUILD_OPTIONS=parallel=2 \
+        RPM_BUILD_NCPUS=2
   - sudo rm -rf */*/build
+  - popd
+  # Push Docker image
+  - pushd arrow/dev/tasks/linux-packages
+  - |
+      docker login -u "${DOCKERHUB_USER}" \
+                   -p "${DOCKERHUB_TOKEN}" || :
+  - |
+      rake docker:push || :
+  - popd
+  # Test built packages
+  - |
+      (echo "Key-Type: RSA"; \
+       echo "Key-Length: 4096"; \
+       echo "Name-Real: Test"; \
+       echo "Name-Email: test@example.com"; \
+       echo "%no-protection") | \
+        gpg --full-generate-key --batch
+  - |
+      GPG_KEY_ID=$(gpg --list-keys --with-colon test@example.com | grep fpr | cut -d: -f10)
+  - gpg --export --armor test@example.com > arrow/dev/tasks/linux-packages/KEYS
+  - pushd arrow/dev/tasks/linux-packages
+  - |
+      rake --trace {{ task_namespace }}:test GPG_KEY_ID=${GPG_KEY_ID}
+  - rm -rf {{ task_namespace }}/repositories
   - popd
 
 after_success:
-  - pushd arrow/dev/tasks/linux-packages
-  - |
-    docker login -u "${DOCKERHUB_USER}" \
-                 -p "${DOCKERHUB_TOKEN}" || :
-  - |
-    rake docker:push || :
-  - popd
-  - |
-    sudo -H pip3 install \
-      "click>=7.1" \
-      github3.py \
-      jinja2 \
-      jira \
-      pygit2==0.26.4 \
-      ruamel.yaml \
-      setuptools_scm \
-      toolz
+  - sudo -H pip3 install --requirement arrow/dev/tasks/requirements-crossbow.txt
   - |
     python3 arrow/dev/tasks/crossbow.py \
       --queue-path . \
       --queue-remote {{ queue_remote_url }} \
       upload-artifacts \
     {%- for extension in upload_extensions %}
-      --pattern "**/*{{ extension }}" \
+      --pattern "arrow/dev/tasks/linux-packages/**/*{{ extension }}" \
     {%- endfor %}
       --sha {{ task.branch }} \
       --tag {{ task.tag }}

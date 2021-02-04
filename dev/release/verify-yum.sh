@@ -20,20 +20,26 @@
 set -exu
 
 if [ $# -lt 2 ]; then
-  echo "Usage: $0 X.Y.Z IS_RC"
-  echo "       $0 X.Y.Z IS_RC BINTRAY_REPOSITORY"
-  echo " e.g.: $0 0.13.0 yes           # Verify 0.13.0 RC"
-  echo " e.g.: $0 0.13.0 no            # Verify 0.13.0"
-  echo " e.g.: $0 0.13.0 yes kou/arrow # Verify 0.13.0 RC at https://bintray.com/kou/arrow"
+  echo "Usage: $0 VERSION rc"
+  echo "       $0 VERSION rc BINTRAY_REPOSITORY"
+  echo "       $0 VERSION release"
+  echo "       $0 VERSION release BINTRAY_REPOSITORY"
+  echo "       $0 VERSION local"
+  echo " e.g.: $0 0.13.0 rc           # Verify 0.13.0 RC"
+  echo " e.g.: $0 0.13.0 release      # Verify 0.13.0"
+  echo " e.g.: $0 0.13.0 rc kou/arrow # Verify 0.13.0 RC at https://bintray.com/kou/arrow"
+  echo " e.g.: $0 0.13.0-dev20210203 local # Verify 0.13.0-dev20210203 on local"
   exit 1
 fi
 
 VERSION="$1"
-IS_RC="$2"
+TYPE="$2"
 BINTRAY_REPOSITORY="${3:-apache/arrow}"
 
+local_prefix="/arrow/dev/tasks/linux-packages"
+
 bintray_base_url="https://dl.bintray.com/${BINTRAY_REPOSITORY}/centos"
-if [ "${IS_RC}" = "yes" ]; then
+if [ "${TYPE}" = "rc" ]; then
   bintray_base_url="${bintray_base_url}-rc"
 fi
 
@@ -60,23 +66,56 @@ if [ "$(arch)" = "aarch64" ]; then
   have_gandiva=no
 fi
 
-${install_command} \
-  ${bintray_base_url}/${distribution_version}/apache-arrow-release-latest.rpm
-if [ "${BINTRAY_REPOSITORY}" = "apache/arrow" ]; then
-  if [ "${IS_RC}" = "yes" ]; then
-    sed \
-      -i"" \
-      -e "s,/centos/,/centos-rc/,g" \
-      /etc/yum.repos.d/Apache-Arrow.repo
-  fi
+if [ "${TYPE}" = "local" ]; then
+  case "${VERSION}" in
+    *-dev*)
+      package_version="$(echo "${VERSION}" | sed -e 's/-dev\(.*\)$/-0.dev\1/g')"
+      ;;
+    *-rc*)
+      package_version="$(echo "${VERSION}" | sed -e 's/-rc.*$//g')"
+      package_version+="-1"
+      ;;
+    *)
+      package_version="${VERSION}-1"
+      ;;
+  esac
+  package_version+=".el${distribution_version}"
+  release_path="${local_prefix}/yum/repositories"
+  release_path+="/centos/${distribution_version}/$(arch)/Packages"
+  release_path+="/apache-arrow-release-${package_version}.noarch.rpm"
+  ${install_command} "${release_path}"
 else
-  sed \
-    -i"" \
-    -e "s,baseurl=https://apache.bintray.com/arrow/centos,baseurl=${bintray_base_url},g" \
-    /etc/yum.repos.d/Apache-Arrow.repo
+  package_version="${VERSION}"
+  ${install_command} \
+    ${bintray_base_url}/${distribution_version}/apache-arrow-release-latest.rpm
 fi
 
-${install_command} --enablerepo=epel arrow-devel-${VERSION}
+if [ "${TYPE}" = "local" ]; then
+  sed \
+    -i"" \
+    -e "s,baseurl=https://apache.bintray.com/arrow/,baseurl=file://${local_prefix}/yum/repositories/,g" \
+    /etc/yum.repos.d/Apache-Arrow.repo
+  keys="${local_prefix}/KEYS"
+  if [ -f "${keys}" ]; then
+    cp "${keys}" /etc/pki/rpm-gpg/RPM-GPG-KEY-Apache-Arrow
+  fi
+else
+  if [ "${BINTRAY_REPOSITORY}" = "apache/arrow" ]; then
+    if [ "${TYPE}" = "rc" ]; then
+      sed \
+        -i"" \
+        -e "s,/centos/,/centos-rc/,g" \
+        /etc/yum.repos.d/Apache-Arrow.repo
+    fi
+  else
+    sed \
+      -i"" \
+      -e "s,baseurl=https://apache.bintray.com/arrow/centos,baseurl=${bintray_base_url},g" \
+      /etc/yum.repos.d/Apache-Arrow.repo
+  fi
+fi
+
+${install_command} --enablerepo=epel arrow-devel-${package_version}
 ${install_command} \
   ${cmake_package} \
   gcc-c++ \
@@ -91,36 +130,36 @@ make -j$(nproc)
 popd
 
 if [ "${have_glib}" = "yes" ]; then
-  ${install_command} --enablerepo=epel arrow-glib-devel-${VERSION}
-  ${install_command} --enablerepo=epel arrow-glib-doc-${VERSION}
+  ${install_command} --enablerepo=epel arrow-glib-devel-${package_version}
+  ${install_command} --enablerepo=epel arrow-glib-doc-${package_version}
 fi
-${install_command} --enablerepo=epel arrow-python-devel-${VERSION}
+${install_command} --enablerepo=epel arrow-python-devel-${package_version}
 
 if [ "${have_glib}" = "yes" ]; then
-  ${install_command} --enablerepo=epel plasma-glib-devel-${VERSION}
-  ${install_command} --enablerepo=epel plasma-glib-doc-${VERSION}
+  ${install_command} --enablerepo=epel plasma-glib-devel-${package_version}
+  ${install_command} --enablerepo=epel plasma-glib-doc-${package_version}
 else
-  ${install_command} --enablerepo=epel plasma-devel-${VERSION}
+  ${install_command} --enablerepo=epel plasma-devel-${package_version}
 fi
 
 if [ "${have_flight}" = "yes" ]; then
-  ${install_command} --enablerepo=epel arrow-flight-devel-${VERSION}
+  ${install_command} --enablerepo=epel arrow-flight-devel-${package_version}
 fi
 
 if [ "${have_gandiva}" = "yes" ]; then
   if [ "${have_glib}" = "yes" ]; then
-    ${install_command} --enablerepo=epel gandiva-glib-devel-${VERSION}
-    ${install_command} --enablerepo=epel gandiva-glib-doc-${VERSION}
+    ${install_command} --enablerepo=epel gandiva-glib-devel-${package_version}
+    ${install_command} --enablerepo=epel gandiva-glib-doc-${package_version}
   else
-    ${install_command} --enablerepo=epel gandiva-devel-${VERSION}
+    ${install_command} --enablerepo=epel gandiva-devel-${package_version}
   fi
 fi
 
 if [ "${have_parquet}" = "yes" ]; then
   if [ "${have_glib}" = "yes" ]; then
-    ${install_command} --enablerepo=epel parquet-glib-devel-${VERSION}
-    ${install_command} --enablerepo=epel parquet-glib-doc-${VERSION}
+    ${install_command} --enablerepo=epel parquet-glib-devel-${package_version}
+    ${install_command} --enablerepo=epel parquet-glib-doc-${package_version}
   else
-    ${install_command} --enablerepo=epel parquet-devel-${VERSION}
+    ${install_command} --enablerepo=epel parquet-devel-${package_version}
   fi
 fi

@@ -546,8 +546,8 @@ tasks:
     ci: github
     template: linux-packages/github.linux.amd64.yml
     params:
-      build_task: "apt:build"
       target: "debian-buster"
+      task_namespace: "apt"
       upload_extensions:
         - .ddeb
         - .deb
@@ -621,8 +621,8 @@ tasks:
     ci: travis
     template: linux-packages/travis.linux.arm64.yml
     params:
-      build_task: "apt:build"
       target: "debian-buster-arm64"
+      task_namespace: "apt"
       upload_extensions:
         - .ddeb
         - .deb
@@ -676,8 +676,8 @@ tasks:
     ci: github
     template: linux-packages/github.linux.amd64.yml
     params:
-      build_task: "apt:build"
       target: "ubuntu-xenial"
+      task_namespace: "apt"
       upload_extensions:
         - .ddeb
         - .deb
@@ -734,8 +734,8 @@ tasks:
     ci: travis
     template: linux-packages/travis.linux.arm64.yml
     params:
-      build_task: "apt:build"
       target: "ubuntu-xenial-arm64"
+      task_namespace: "apt"
       upload_extensions:
         - .ddeb
         - .deb
@@ -777,8 +777,8 @@ tasks:
     ci: github
     template: linux-packages/github.linux.amd64.yml
     params:
-      build_task: "apt:build"
       target: "ubuntu-bionic"
+      task_namespace: "apt"
       upload_extensions:
         - .ddeb
         - .deb
@@ -838,8 +838,8 @@ tasks:
     ci: travis
     template: linux-packages/travis.linux.arm64.yml
     params:
-      build_task: "apt:build"
       target: "ubuntu-bionic-arm64"
+      task_namespace: "apt"
       upload_extensions:
         - .ddeb
         - .deb
@@ -883,8 +883,8 @@ tasks:
     ci: github
     template: linux-packages/github.linux.amd64.yml
     params:
-      build_task: "apt:build"
       target: "ubuntu-focal"
+      task_namespace: "apt"
       upload_extensions:
         - .ddeb
         - .deb
@@ -944,8 +944,8 @@ tasks:
     ci: travis
     template: linux-packages/travis.linux.arm64.yml
     params:
-      build_task: "apt:build"
       target: "ubuntu-focal-arm64"
+      task_namespace: "apt"
       upload_extensions:
         - .ddeb
         - .deb
@@ -989,8 +989,8 @@ tasks:
     ci: github
     template: linux-packages/github.linux.amd64.yml
     params:
-      build_task: "apt:build"
       target: "ubuntu-groovy"
+      task_namespace: "apt"
       upload_extensions:
         - .ddeb
         - .deb
@@ -1050,8 +1050,8 @@ tasks:
     ci: travis
     template: linux-packages/travis.linux.arm64.yml
     params:
-      build_task: "apt:build"
       target: "ubuntu-groovy-arm64"
+      task_namespace: "apt"
       upload_extensions:
         - .ddeb
         - .deb
@@ -1095,8 +1095,8 @@ tasks:
     ci: github
     template: linux-packages/github.linux.amd64.yml
     params:
-      build_task: "yum:build"
       target: "centos-7"
+      task_namespace: yum
       upload_extensions:
         - .rpm
     artifacts:
@@ -1132,8 +1132,8 @@ tasks:
     ci: travis
     template: linux-packages/travis.linux.arm64.yml
     params:
-      build_task: "yum:build"
       target: "centos-7-aarch64"
+      task_namespace: yum
       upload_extensions:
         - .rpm
     artifacts:
@@ -1167,8 +1167,8 @@ tasks:
     ci: github
     template: linux-packages/github.linux.amd64.yml
     params:
-      build_task: "yum:build"
       target: "centos-8"
+      task_namespace: yum
       upload_extensions:
         - .rpm
     artifacts:
@@ -1226,8 +1226,8 @@ tasks:
     ci: travis
     template: linux-packages/travis.linux.arm64.yml
     params:
-      build_task: "yum:build"
       target: "centos-8-aarch64"
+      task_namespace: yum
       upload_extensions:
         - .rpm
     artifacts:
