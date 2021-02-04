@@ -57,11 +57,14 @@ jobs:
         image:
           - conda-cpp
           - ubuntu-cpp-sanitizer
+          - ubuntu-cpp-cls
         include:
           - image: conda-cpp
             title: AMD64 Conda C++
           - image: ubuntu-cpp-sanitizer
             title: AMD64 Ubuntu 18.04 C++ ASAN UBSAN
+          - image: ubuntu-cpp-cls
+            title: AMD64 Ubuntu 20.04 C++ (With Rados CLS)
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2

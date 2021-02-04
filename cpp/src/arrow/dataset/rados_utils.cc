@@ -162,7 +162,7 @@ Status SerializeTableToBufferlist(std::shared_ptr<Table>& table,
 
   const auto options = ipc::IpcWriteOptions::Defaults();
   ARROW_ASSIGN_OR_RAISE(
-      auto writer, ipc::MakeFileWriter(buffer_output_stream, table->schema(), options));
+      auto writer, ipc::MakeStreamWriter(buffer_output_stream, table->schema(), options));
 
   ARROW_RETURN_NOT_OK(writer->WriteTable(*table));
   ARROW_RETURN_NOT_OK(writer->Close());

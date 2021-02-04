@@ -44,7 +44,7 @@ osd pool default size = 1
 EOF
 export CEPH_ARGS="--conf /etc/ceph/ceph.conf"
 
-# single monitor
+# start a MON daemon
 MON_DATA=${test_dir}/mon
 mkdir -p $MON_DATA
 
@@ -61,9 +61,10 @@ EOF
 
 ceph-mon --id 0 --mkfs --keyring /dev/null
 touch ${MON_DATA}/keyring
+cp ${MON_DATA}/keyring /etc/ceph/keyring
 ceph-mon --id 0
 
-# single osd
+# start a OSD daemon
 OSD_DATA=${test_dir}/osd
 mkdir ${OSD_DATA}
 
@@ -99,14 +100,31 @@ ceph-mgr --id 0
 
 export CEPH_CONF="/etc/ceph/ceph.conf"
 
+# copy the CLS libs to the appropriate locations.
 mkdir -p /usr/lib/x86_64-linux-gnu/rados-classes/
 mkdir -p /usr/lib/aarch64-linux-gnu/rados-classes/
 cp debug/libcls_arrow* /usr/lib/x86_64-linux-gnu/rados-classes/
 cp debug/libcls_arrow* /usr/lib/aarch64-linux-gnu/rados-classes/
 
+# mount a ceph filesystem to /mnt/cephfs in the user-space using ceph-fuse
+mkdir -p /mnt/cephfs
+ceph-fuse --id client.admin -m 127.0.0.1:6789  --client_fs cephfs /mnt/cephfs
+
+# download an example dataset and copy into the mounted dir
+apt-get install -y unzip
+rm -rf nyc
+wget https://raw.githubusercontent.com/JayjeetAtGithub/zips/main/nyc.zip
+unzip nyc.zip
+cp -r nyc /mnt/cephfs/
+sleep 15
+
+# run the end-to-end tests
 TESTS=debug/arrow-cls-cls-arrow-test
 if [ -f "$TESTS" ]; then
     debug/arrow-cls-cls-arrow-test
 fi
+
+# unmount cephfs
+umount /mnt/cephfs
 
 popd

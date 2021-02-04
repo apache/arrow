@@ -776,24 +776,25 @@ services:
 
   ubuntu-cpp-cls:
     # Usage:
-    #   docker-compose build ubuntu-cpp
-    #   docker-compose run --rm ubuntu-cpp
+    #   docker-compose build ubuntu-cpp-cls
+    #   docker-compose run --rm ubuntu-cpp-cls
     # Parameters:
-    #   ARCH: amd64, arm64v8, s390x, ...
-    #   UBUNTU: 16.04, 18.04, 20.04
-    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
+    #   ARCH: amd64
+    #   UBUNTU: 20.04
+    image: ${REPO}:${ARCH}-ubuntu-20.04-cpp
     build:
       context: .
-      dockerfile: ci/docker/ubuntu-${UBUNTU}-cpp.dockerfile
+      dockerfile: ci/docker/ubuntu-20.04-cpp.dockerfile
       cache_from:
-        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
+        - ${REPO}:${ARCH}-ubuntu-20.04-cpp
       args:
         arch: ${ARCH}
-        base: "${ARCH}/ubuntu:${UBUNTU}"
+        base: "${ARCH}/ubuntu:20.04"
         clang_tools: ${CLANG_TOOLS}
         llvm: ${LLVM}
     shm_size: *shm-size
     ulimits: *ulimits
+    privileged: true
     environment:
       <<: *ccache
       ARROW_ENABLE_TIMING_TESTS:  # inherit
@@ -802,8 +803,7 @@ services:
     command: &cpp-cls-command >
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/integration_ceph.sh /arrow /build &&
-        /arrow/ci/scripts/cpp_test.sh /arrow /build"
+        /arrow/ci/scripts/integration_ceph.sh /arrow /build"
 
   ubuntu-python-cls:
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3

@@ -22,6 +22,7 @@ from pyarrow.util import _stringify_path, _is_path_like
 
 from pyarrow._dataset import (  # noqa
     CsvFileFormat,
+    RadosParquetFileFormat,
     Expression,
     Dataset,
     DatasetFactory,
@@ -228,6 +229,8 @@ def _ensure_format(obj):
         return IpcFileFormat()
     elif obj == "csv":
         return CsvFileFormat()
+    elif obj == "rados-parquet":
+        return RadosParquetFileFormat()
     else:
         raise ValueError("format '{}' is not supported".format(obj))
 

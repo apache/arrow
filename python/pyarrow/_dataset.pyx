@@ -623,6 +623,7 @@ cdef class FileFormat(_Weakrefable):
             'ipc': IpcFileFormat,
             'csv': CsvFileFormat,
             'parquet': ParquetFileFormat,
+            'rados-parquet': RadosParquetFileFormat,
         }
 
         class_ = classes.get(type_name, None)
@@ -695,6 +696,7 @@ cdef class Fragment(_Weakrefable):
             # subclasses of FileFragment
             'ipc': FileFragment,
             'csv': FileFragment,
+            'rados-parquet': FileFragment,
             'parquet': ParquetFileFragment,
         }
 
@@ -1297,6 +1299,18 @@ cdef class IpcFileFormat(FileFormat):
 
     def __reduce__(self):
         return IpcFileFormat, tuple()
+
+
+cdef class RadosParquetFileFormat(FileFormat):
+    cdef:
+        CRadosParquetFileFormat* rados_parquet_format
+
+    def __init__(self, path_to_config):
+        self.init(shared_ptr[CFileFormat]GetResultValue(CRadosParquetFileFormat.Make(path_to_config)))
+
+    cdef void init(self, const shared_ptr[CFileFormat]& sp):
+        FileFormat.init(self, sp)
+        self.rados_parquet_format = <CRadosParquetFileFormat*> sp.get()
 
 
 cdef class CsvFileFormat(FileFormat):

@@ -19,7 +19,7 @@
 #include <memory>
 
 #include "arrow/api.h"
-#include "arrow/dataset/dataset_rados.h"
+#include "arrow/dataset/dataset.h"
 #include "arrow/dataset/file_parquet.h"
 #include "arrow/dataset/rados_utils.h"
 #include "arrow/io/api.h"
@@ -198,7 +198,6 @@ static int scan(cls_method_context_t hctx, ceph::buffer::list* in,
   arrow::dataset::Expression partition_expression;
   std::shared_ptr<arrow::Schema> projection_schema;
   std::shared_ptr<arrow::Schema> dataset_schema;
-
   // deserialize the scan request
   std::shared_ptr<ceph::buffer::list> in_ptr = std::make_shared<ceph::buffer::list>(*in);
 
