@@ -121,30 +121,6 @@ TEST(SerialReaderTests, NestedParallelism) {
   TestNestedParallelism(thread_pool, MakeSerialFactory());
 }
 
-Result<TableReaderFactory> CreateThreadedFactory() {
-  ARROW_ASSIGN_OR_RAISE(auto thread_pool, internal::ThreadPool::Make(1));
-  return [thread_pool](std::shared_ptr<io::InputStream> input_stream)
-             -> Result<std::shared_ptr<TableReader>> {
-    ReadOptions read_options = ReadOptions::Defaults();
-    read_options.use_threads = true;
-    read_options.block_size = 1 << 10;
-    read_options.legacy_blocking_reads = true;
-    auto table_reader = TableReader::Make(
-        default_memory_pool(), io::AsyncContext(thread_pool.get()), input_stream,
-        read_options, ParseOptions::Defaults(), ConvertOptions::Defaults());
-    return table_reader;
-  };
-}
-
-TEST(ThreadedReaderTests, Stress) {
-  ASSERT_OK_AND_ASSIGN(auto factory, CreateThreadedFactory());
-  StressTableReader(factory);
-}
-TEST(ThreadedReaderTests, StressInvalid) {
-  ASSERT_OK_AND_ASSIGN(auto factory, CreateThreadedFactory());
-  StressInvalidTableReader(factory);
-}
-
 Result<TableReaderFactory> MakeAsyncFactory(
     std::shared_ptr<internal::ThreadPool> thread_pool = nullptr) {
   if (!thread_pool) {

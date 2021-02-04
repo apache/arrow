@@ -819,80 +819,6 @@ class SerialTableReader : public BaseTableReader {
   Iterator<std::shared_ptr<Buffer>> buffer_iterator_;
 };
 
-/////////////////////////////////////////////////////////////////////////
-// Parallel TableReader implementation
-
-class ThreadedTableReader : public BaseTableReader {
- public:
-  using BaseTableReader::BaseTableReader;
-
-  ThreadedTableReader(MemoryPool* pool, std::shared_ptr<io::InputStream> input,
-                      const ReadOptions& read_options, const ParseOptions& parse_options,
-                      const ConvertOptions& convert_options, Executor* thread_pool)
-      : BaseTableReader(pool, input, read_options, parse_options, convert_options),
-        thread_pool_(thread_pool) {}
-
-  ~ThreadedTableReader() override {
-    if (task_group_) {
-      // In case of error, make sure all pending tasks are finished before
-      // we start destroying BaseTableReader members
-      ARROW_UNUSED(task_group_->Finish());
-    }
-  }
-
-  Status Init() override {
-    ARROW_ASSIGN_OR_RAISE(auto istream_it,
-                          io::MakeInputStreamIterator(input_, read_options_.block_size));
-
-    int32_t block_queue_size = thread_pool_->GetCapacity();
-    ARROW_ASSIGN_OR_RAISE(auto rh_it,
-                          MakeReadaheadIterator(std::move(istream_it), block_queue_size));
-    buffer_iterator_ = CSVBufferIterator::Make(std::move(rh_it));
-    return Status::OK();
-  }
-
-  Result<std::shared_ptr<Table>> Read() override {
-    task_group_ = internal::TaskGroup::MakeThreaded(thread_pool_);
-
-    // First block
-    ARROW_ASSIGN_OR_RAISE(auto first_buffer, buffer_iterator_.Next());
-    if (first_buffer == nullptr) {
-      return Status::Invalid("Empty CSV file");
-    }
-    RETURN_NOT_OK(ProcessHeader(first_buffer, &first_buffer));
-    RETURN_NOT_OK(MakeColumnBuilders());
-
-    auto block_iterator = ThreadedBlockReader::MakeIterator(std::move(buffer_iterator_),
-                                                            MakeChunker(parse_options_),
-                                                            std::move(first_buffer));
-
-    while (true) {
-      ARROW_ASSIGN_OR_RAISE(auto maybe_block, block_iterator.Next());
-      if (!maybe_block.has_value()) {
-        // EOF
-        break;
-      }
-      DCHECK(!maybe_block->consume_bytes);
-
-      // Launch parse task
-      task_group_->Append([this, maybe_block] {
-        return ParseAndInsert(maybe_block->partial, maybe_block->completion,
-                              maybe_block->buffer, maybe_block->block_index,
-                              maybe_block->is_final)
-            .status();
-      });
-    }
-
-    // Finish conversion, create schema and table
-    RETURN_NOT_OK(task_group_->Finish());
-    return MakeTable();
-  }
-
- protected:
-  Executor* thread_pool_;
-  Iterator<std::shared_ptr<Buffer>> buffer_iterator_;
-};
-
 class AsyncThreadedTableReader
     : public BaseTableReader,
       public std::enable_shared_from_this<AsyncThreadedTableReader> {
@@ -999,15 +925,9 @@ Result<std::shared_ptr<TableReader>> TableReader::Make(
     const ParseOptions& parse_options, const ConvertOptions& convert_options) {
   std::shared_ptr<BaseTableReader> reader;
   if (read_options.use_threads) {
-    if (read_options.legacy_blocking_reads) {
-      reader =
-          std::make_shared<ThreadedTableReader>(pool, input, read_options, parse_options,
-                                                convert_options, async_context.executor);
-    } else {
-      reader = std::make_shared<AsyncThreadedTableReader>(pool, input, read_options,
-                                                          parse_options, convert_options,
-                                                          async_context.executor);
-    }
+    reader = std::make_shared<AsyncThreadedTableReader>(pool, input, read_options,
+                                                        parse_options, convert_options,
+                                                        async_context.executor);
   } else {
     reader = std::make_shared<SerialTableReader>(pool, input, read_options, parse_options,
                                                  convert_options);

@@ -119,13 +119,6 @@ struct ARROW_EXPORT ReadOptions {
 
   /// Whether to use the global CPU thread pool
   bool use_threads = true;
-  /// TODO: This will come out before this gets merged in.  There is not much point in
-  /// prompting the user because AsyncThreadedTableReader should be better in all
-  /// situations.  Do we want to completely remove ThreadedTableReader?  Leave it in gated
-  /// by an environment variable?  At the moment I am leaving this flag here as it makes
-  /// it easier to benchmark and compare while reviewing the PR. Whether to use blocking
-  /// reads or asynchronous reads
-  bool legacy_blocking_reads = false;
   /// Block size we request from the IO layer; also determines the size of
   /// chunks when use_threads is true
   int32_t block_size = 1 << 20;  // 1 MB
