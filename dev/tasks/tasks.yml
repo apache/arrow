@@ -1276,23 +1276,21 @@ tasks:
   ############################## Homebrew Tasks ################################
 
   homebrew-cpp:
-    ci: travis
-    template: homebrew-formulae/travis.osx.yml
+    ci: github
+    template: homebrew-formulae/github.macos.yml
     params:
       formula: apache-arrow.rb
 
   homebrew-cpp-autobrew:
-    ci: travis
-    template: homebrew-formulae/travis.osx.yml
+    ci: github
+    template: homebrew-formulae/github.macos.yml
     params:
       formula: autobrew/apache-arrow.rb
 
   homebrew-r-autobrew:
     # This tests that the autobrew formula + script work in practice
-    ci: travis
-    template: homebrew-formulae/travis.osx.r.yml
-    params:
-      r_version: release
+    ci: github
+    template: r/github.macos.yml
 
   ############################## Gandiva Tasks ################################
 
