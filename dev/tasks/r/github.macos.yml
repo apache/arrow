@@ -53,7 +53,7 @@ jobs:
       - name: Install dependencies
         run: |
           install.packages("remotes")
-          remotes::install_deps(dependencies = TRUE)
+          remotes::install_deps("arrow/r", dependencies = TRUE)
           remotes::install_cran(c("rcmdcheck", "sys", "sessioninfo"))
         shell: Rscript {0}
       - name: Session info
