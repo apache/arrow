@@ -1276,14 +1276,14 @@ tasks:
   ############################## Homebrew Tasks ################################
 
   homebrew-cpp:
-    ci: travis
-    template: homebrew-formulae/travis.osx.yml
+    ci: github
+    template: homebrew-formulae/github.macos.yml
     params:
       formula: apache-arrow.rb
 
   homebrew-cpp-autobrew:
-    ci: travis
-    template: homebrew-formulae/travis.osx.yml
+    ci: github
+    template: homebrew-formulae/github.macos.yml
     params:
       formula: autobrew/apache-arrow.rb
 
