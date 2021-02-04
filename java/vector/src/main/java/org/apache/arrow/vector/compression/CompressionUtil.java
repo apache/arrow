@@ -20,6 +20,7 @@ package org.apache.arrow.vector.compression;
 import org.apache.arrow.flatbuf.BodyCompressionMethod;
 import org.apache.arrow.flatbuf.CompressionType;
 import org.apache.arrow.memory.ArrowBuf;
+import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.ipc.message.ArrowBodyCompression;
 
 /**
@@ -72,9 +73,12 @@ public class CompressionUtil {
   /**
    * Process compression by compressing the buffer as is.
    */
-  public static void compressRawBuffer(ArrowBuf inputBuffer, ArrowBuf compressedBuffer) {
+  public static ArrowBuf compressRawBuffer(BufferAllocator allocator, ArrowBuf inputBuffer) {
+    ArrowBuf compressedBuffer = allocator.buffer(SIZE_OF_UNCOMPRESSED_LENGTH + inputBuffer.writerIndex());
     compressedBuffer.setLong(0, NO_COMPRESSION_LENGTH);
     compressedBuffer.setBytes(SIZE_OF_UNCOMPRESSED_LENGTH, inputBuffer, 0, inputBuffer.writerIndex());
+    compressedBuffer.writerIndex(SIZE_OF_UNCOMPRESSED_LENGTH + inputBuffer.writerIndex());
+    return compressedBuffer;
   }
 
   /**
