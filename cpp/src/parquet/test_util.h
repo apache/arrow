@@ -31,6 +31,7 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/io/memory.h"
 #include "arrow/testing/util.h"
 
 #include "parquet/column_page.h"

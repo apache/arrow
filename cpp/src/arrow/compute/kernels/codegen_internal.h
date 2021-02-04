@@ -343,8 +343,8 @@ struct BoxScalar<Decimal128Type> {
 // values, such as Decimal128 rather than util::string_view.
 
 template <typename T, typename VisitFunc, typename NullFunc>
-static void VisitArrayValuesInline(const ArrayData& arr, VisitFunc&& valid_func,
-                                   NullFunc&& null_func) {
+static inline void VisitArrayValuesInline(const ArrayData& arr, VisitFunc&& valid_func,
+                                          NullFunc&& null_func) {
   VisitArrayDataInline<T>(
       arr,
       [&](typename GetViewType<T>::PhysicalType v) {
@@ -356,8 +356,9 @@ static void VisitArrayValuesInline(const ArrayData& arr, VisitFunc&& valid_func,
 // Like VisitArrayValuesInline, but for binary functions.
 
 template <typename Arg0Type, typename Arg1Type, typename VisitFunc, typename NullFunc>
-static void VisitTwoArrayValuesInline(const ArrayData& arr0, const ArrayData& arr1,
-                                      VisitFunc&& valid_func, NullFunc&& null_func) {
+static inline void VisitTwoArrayValuesInline(const ArrayData& arr0, const ArrayData& arr1,
+                                             VisitFunc&& valid_func,
+                                             NullFunc&& null_func) {
   ArrayIterator<Arg0Type> arr0_it(arr0);
   ArrayIterator<Arg1Type> arr1_it(arr1);
 
@@ -442,7 +443,7 @@ namespace applicator {
 // static void Call(KernelContext*, const ArrayData& in, ArrayData* out)
 // static void Call(KernelContext*, const Scalar& in, Scalar* out)
 template <typename Operator>
-void SimpleUnary(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+inline void SimpleUnary(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   if (batch[0].kind() == Datum::SCALAR) {
     Operator::Call(ctx, *batch[0].scalar(), out->scalar().get());
   } else if (batch.length > 0) {
@@ -464,7 +465,7 @@ void SimpleUnary(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
 // static void Call(KernelContext*, const Scalar& arg0, const Scalar& arg1,
 //                  Scalar* out)
 template <typename Operator>
-void SimpleBinary(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+inline void SimpleBinary(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   if (batch.length == 0) return;
 
   if (batch[0].kind() == Datum::ARRAY) {
