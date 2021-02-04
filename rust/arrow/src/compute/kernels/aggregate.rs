@@ -19,10 +19,9 @@
 
 use std::ops::Add;
 
-use crate::array::{
-    Array, BooleanArray, GenericStringArray, PrimitiveArray, StringOffsetSizeTrait,
-};
-use crate::datatypes::{ArrowNativeType, ArrowNumericType};
+use crate::array::{Array, BooleanArray, GenericStringArray, PrimitiveArray, StringOffsetSizeTrait, Float64Array, Float32Array};
+use crate::datatypes::{ArrowNativeType, ArrowNumericType, DataType};
+use num::{Float, NumCast};
 
 /// Generic test for NaN, the optimizer should be able to remove this for integer types.
 #[inline]
@@ -72,9 +71,21 @@ fn min_max_string<T: StringOffsetSizeTrait, F: Fn(&str, &str) -> bool>(
 pub fn min<T>(array: &PrimitiveArray<T>) -> Option<T::Native>
 where
     T: ArrowNumericType,
-    T::Native: ArrowNativeType,
+    T::Native: ArrowNativeType + NumCast,
 {
-    min_max_helper(array, |a, b| (is_nan(*a) & !is_nan(*b)) || a > b)
+    match T::DATA_TYPE {
+        DataType::Float64 => {
+            let array = array.as_any().downcast_ref::<Float64Array>().unwrap();
+            min_max_float_helper(array, |a, b| a.is_nan() & !b.is_nan() || a > b).map(|v| NumCast::from(v).unwrap())
+        }
+        DataType::Float32 => {
+            let array = array.as_any().downcast_ref::<Float32Array>().unwrap();
+            min_max_float_helper(array, |a, b| a.is_nan() & !b.is_nan() || a > b).map(|v| NumCast::from(v).unwrap())
+        }
+        _ => {
+            min_max_helper(array, |a, b| a > b)
+        }
+    }
 }
 
 /// Returns the maximum value in the array, according to the natural order.
@@ -83,9 +94,21 @@ where
 pub fn max<T>(array: &PrimitiveArray<T>) -> Option<T::Native>
 where
     T: ArrowNumericType,
-    T::Native: ArrowNativeType,
+    T::Native: ArrowNativeType + NumCast,
 {
-    min_max_helper(array, |a, b| (!is_nan(*a) & is_nan(*b)) || a < b)
+    match T::DATA_TYPE {
+        DataType::Float64 => {
+            let array = array.as_any().downcast_ref::<Float64Array>().unwrap();
+            min_max_float_helper(array, |a, b| !a.is_nan() & b.is_nan() || a < b).map(|v| NumCast::from(v).unwrap())
+        }
+        DataType::Float32 => {
+            let array = array.as_any().downcast_ref::<Float32Array>().unwrap();
+            min_max_float_helper(array, |a, b| !a.is_nan() & b.is_nan() || a < b).map(|v| NumCast::from(v).unwrap())
+        }
+        _ => {
+            min_max_helper(array, |a, b| a < b)
+        }
+    }
 }
 
 /// Returns the maximum value in the string array, according to the natural order.
@@ -100,6 +123,52 @@ pub fn min_string<T: StringOffsetSizeTrait>(
     array: &GenericStringArray<T>,
 ) -> Option<&str> {
     min_max_string(array, |a, b| a > b)
+}
+
+
+/// Helper function to perform min/max lambda function on values from a float array.
+fn min_max_float_helper<T, F>(array: &PrimitiveArray<T>, cmp: F) -> Option<T::Native>
+    where
+        T: ArrowNumericType,
+        T::Native: Float,
+    F: Fn(&T::Native, &T::Native) -> bool,
+{
+    let null_count = array.null_count();
+
+    // Includes case array.len() == 0
+    if null_count == array.len() {
+        return None;
+    }
+
+    if array.len() == 1 {
+        return array.into_iter().next().unwrap()
+    }
+
+    let data = array.data();
+    let m = array.values();
+    let mut n;
+
+    if m[0].is_nan() && array.is_valid(0) || m[m.len() - 1].is_nan() && array.is_valid(m.len() -1) {
+        return Some(T::Native::nan())
+    }
+
+    if null_count == 0 {
+        // optimized path for arrays without null values
+        n = m[1..]
+            .iter()
+            .fold(m[0], |max, item| if cmp(&max, item) { *item } else { max });
+    } else {
+        n = T::default_value();
+        let mut has_value = false;
+        for (i, item) in m.iter().enumerate() {
+            if data.is_valid(i) && (!has_value || cmp(&n, item)) {
+                has_value = true;
+                n = *item
+            }
+        }
+    }
+    Some(n)
+
 }
 
 /// Helper function to perform min/max lambda function on values from a numeric array.
@@ -825,6 +894,16 @@ mod tests {
             })
             .collect();
         assert_eq!(Some(1.0), min(&a));
+        assert!(max(&a).unwrap().is_nan());
+    }
+
+    #[test]
+    fn test_primitive_nan_consistency() {
+        let a = Float64Array::from_iter_values(vec![1.0, f64::NAN]);
+        assert!(min(&a).unwrap().is_nan());
+        assert!(max(&a).unwrap().is_nan());
+        let a = Float64Array::from_iter_values(vec![f64::NAN, 1.0]);
+        assert!(min(&a).unwrap().is_nan());
         assert!(max(&a).unwrap().is_nan());
     }
 
