@@ -84,18 +84,14 @@ public class AddWritableBuffer {
   }
 
   /**
-   * Add the provided ByteBuf to the gRPC BufferChainOutputStream if possible, else copy the buffer to the stream.
+   * Add the provided ByteBuf to the output stream if it is possible.
    * @param buf The buffer to add.
    * @param stream The Candidate OutputStream to add to.
-   * @param tryZeroCopy If true, try to zero-copy append the buffer to the stream. This may not succeed.
-   * @return True if buffer was zero-copy added to the stream. False if the buffer was copied.
-   * @throws IOException if the fast path is not enabled and there was an error copying the buffer to the stream.
+   * @return True if added. False if not possible.
+   * @throws IOException on error
    */
-  public static boolean add(ByteBuf buf, OutputStream stream, boolean tryZeroCopy) throws IOException {
-    if (!tryZeroCopy) {
-      buf.getBytes(0, stream, buf.readableBytes());
-      return false;
-    }
+  public static boolean add(ByteBuf buf, OutputStream stream) throws IOException {
+    buf.readBytes(stream, buf.readableBytes());
 
     if (bufChainOut == null) {
       return false;
