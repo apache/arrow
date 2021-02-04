@@ -1047,7 +1047,7 @@ class BinaryTask
     else
       available_apt_targets.select do |distribution, code_name, component|
         env_apt_targets.any? do |env_apt_target|
-          "#{distribution}-#{code_name}".start_with?(env_apt_target)
+          env_apt_target.start_with?("#{distribution}-#{code_name}")
         end
       end
     end
@@ -1435,7 +1435,7 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
     else
       available_yum_targets.select do |distribution, distribution_version|
         env_yum_targets.any? do |env_yum_target|
-          "#{distribution}-#{distribution_version}".start_with?(env_yum_target)
+          env_yum_target.start_with?("#{distribution}-#{distribution_version}")
         end
       end
     end
