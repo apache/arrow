@@ -410,12 +410,17 @@ std::shared_ptr<PartitioningFactory> DirectoryPartitioning::MakeFactory(
 }
 
 util::optional<KeyValuePartitioning::Key> HivePartitioning::ParseKey(
-    const std::string& segment) {
+    const std::string& segment, const std::string& null_fallback) {
   auto name_end = string_view(segment).find_first_of('=');
+  // Keep for backwards compatibility, this would be produced by arrow <= 3
   if (name_end == string_view::npos) {
     return util::nullopt;
   }
 
+  auto value = segment.substr(name_end + 1);
+  if (value == null_fallback) {
+    return util::nullopt;
+  }
   return Key{segment.substr(0, name_end), segment.substr(name_end + 1)};
 }
 
@@ -424,7 +429,7 @@ std::vector<KeyValuePartitioning::Key> HivePartitioning::ParseKeys(
   std::vector<Key> keys;
 
   for (const auto& segment : fs::internal::SplitAbstractPath(path)) {
-    if (auto key = ParseKey(segment)) {
+    if (auto key = ParseKey(segment, null_fallback_)) {
       keys.push_back(std::move(*key));
     }
   }
@@ -438,12 +443,10 @@ Result<std::string> HivePartitioning::FormatValues(const ScalarVector& values) c
   for (int i = 0; i < schema_->num_fields(); ++i) {
     const std::string& name = schema_->field(i)->name();
 
-    if (values[i] == nullptr) {
-      if (!NextValid(values, i)) break;
-
+    if (values[i] == nullptr || !values[i]->is_valid) {
       // If no key is available just provide a placeholder segment to maintain the
       // field_index <-> path nesting relation
-      segments[i] = name;
+      segments[i] = name + "=" + null_fallback_;
     } else {
       segments[i] = name + "=" + values[i]->ToString();
     }
@@ -454,8 +457,8 @@ Result<std::string> HivePartitioning::FormatValues(const ScalarVector& values) c
 
 class HivePartitioningFactory : public KeyValuePartitioningFactory {
  public:
-  explicit HivePartitioningFactory(PartitioningFactoryOptions options)
-      : KeyValuePartitioningFactory(options) {}
+  explicit HivePartitioningFactory(HivePartitioningFactoryOptions options)
+      : KeyValuePartitioningFactory(options), null_fallback_(options.null_fallback) {}
 
   std::string type_name() const override { return "hive"; }
 
@@ -463,7 +466,7 @@ class HivePartitioningFactory : public KeyValuePartitioningFactory {
       const std::vector<std::string>& paths) override {
     for (auto path : paths) {
       for (auto&& segment : fs::internal::SplitAbstractPath(path)) {
-        if (auto key = HivePartitioning::ParseKey(segment)) {
+        if (auto key = HivePartitioning::ParseKey(segment, null_fallback_)) {
           RETURN_NOT_OK(InsertRepr(key->name, key->value));
         }
       }
@@ -491,11 +494,12 @@ class HivePartitioningFactory : public KeyValuePartitioningFactory {
   }
 
  private:
+  const std::string null_fallback_;
   std::vector<std::string> field_names_;
 };
 
 std::shared_ptr<PartitioningFactory> HivePartitioning::MakeFactory(
-    PartitioningFactoryOptions options) {
+    HivePartitioningFactoryOptions options) {
   return std::shared_ptr<PartitioningFactory>(new HivePartitioningFactory(options));
 }
 

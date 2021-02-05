@@ -258,6 +258,8 @@ TEST_F(TestPartitioning, DictionaryInference) {
   // successful dictionary inference
   AssertInspect({"/a/0"}, {DictStr("alpha"), DictInt("beta")});
   AssertInspect({"/a/0", "/a/1"}, {DictStr("alpha"), DictInt("beta")});
+  AssertInspect({"/a/0", "/a"}, {DictStr("alpha"), DictInt("beta")});
+  AssertInspect({"/0/a", "/1"}, {DictInt("alpha"), DictStr("beta")});
   AssertInspect({"/a/0", "/b/0", "/a/1", "/b/1"}, {DictStr("alpha"), DictInt("beta")});
   AssertInspect({"/a/-", "/b/-", "/a/_", "/b/_"}, {DictStr("alpha"), DictStr("beta")});
 }
@@ -320,7 +322,7 @@ TEST_F(TestPartitioning, HivePartitioning) {
 
 TEST_F(TestPartitioning, HivePartitioningFormat) {
   partitioning_ = std::make_shared<HivePartitioning>(
-      schema({field("alpha", int32()), field("beta", float32())}));
+      schema({field("alpha", int32()), field("beta", float32())}), ArrayVector(), "xyz");
 
   written_schema_ = partitioning_->schema();
 
@@ -330,9 +332,9 @@ TEST_F(TestPartitioning, HivePartitioningFormat) {
   AssertFormat(and_(equal(field_ref("beta"), literal(3.25f)),
                     equal(field_ref("alpha"), literal(0))),
                "alpha=0/beta=3.25");
-  AssertFormat(equal(field_ref("alpha"), literal(0)), "alpha=0");
-  AssertFormat(equal(field_ref("beta"), literal(3.25f)), "alpha/beta=3.25");
-  AssertFormat(literal(true), "");
+  AssertFormat(equal(field_ref("alpha"), literal(0)), "alpha=0/beta=xyz");
+  AssertFormat(equal(field_ref("beta"), literal(3.25f)), "alpha=xyz/beta=3.25");
+  AssertFormat(literal(true), "alpha=xyz/beta=xyz");
 
   ASSERT_OK_AND_ASSIGN(written_schema_,
                        written_schema_->AddField(0, field("gamma", utf8())));
@@ -342,7 +344,7 @@ TEST_F(TestPartitioning, HivePartitioningFormat) {
                "alpha=0/beta=3.25");
 
   AssertFormat(equal(field_ref("alpha"), literal(MakeNullScalar(int32()))),
-               "alpha=_HIVE_DEFAULT_PARTITION_");
+               "alpha=xyz/beta=xyz");
 
   // written_schema_ is incompatible with partitioning_'s schema
   written_schema_ = schema({field("alpha", utf8()), field("beta", utf8())});
@@ -374,8 +376,9 @@ TEST_F(TestPartitioning, DiscoverHiveSchema) {
 }
 
 TEST_F(TestPartitioning, HiveDictionaryInference) {
-  PartitioningFactoryOptions options;
+  HivePartitioningFactoryOptions options;
   options.infer_dictionary = true;
+  options.null_fallback = "xyz";
   factory_ = HivePartitioning::MakeFactory(options);
 
   // type is still int32 if possible
@@ -387,6 +390,8 @@ TEST_F(TestPartitioning, HiveDictionaryInference) {
   // successful dictionary inference
   AssertInspect({"/alpha=a/beta=0"}, {DictStr("alpha"), DictInt("beta")});
   AssertInspect({"/alpha=a/beta=0", "/alpha=a/1"}, {DictStr("alpha"), DictInt("beta")});
+  AssertInspect({"/alpha=a/beta=0", "/alpha=xyz/beta=xyz"},
+                {DictStr("alpha"), DictInt("beta")});
   AssertInspect(
       {"/alpha=a/beta=0", "/alpha=b/beta=0", "/alpha=a/beta=1", "/alpha=b/beta=1"},
       {DictStr("alpha"), DictInt("beta")});
@@ -396,7 +401,7 @@ TEST_F(TestPartitioning, HiveDictionaryInference) {
 }
 
 TEST_F(TestPartitioning, HiveDictionaryHasUniqueValues) {
-  PartitioningFactoryOptions options;
+  HivePartitioningFactoryOptions options;
   options.infer_dictionary = true;
   factory_ = HivePartitioning::MakeFactory(options);
 
@@ -519,7 +524,7 @@ class RangePartitioning : public Partitioning {
     std::vector<Expression> ranges;
 
     for (auto segment : fs::internal::SplitAbstractPath(path)) {
-      auto key = HivePartitioning::ParseKey(segment);
+      auto key = HivePartitioning::ParseKey(segment, "");
       if (!key) {
         return Status::Invalid("can't parse '", segment, "' as a range");
       }
