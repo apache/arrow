@@ -264,8 +264,10 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
         (_, Struct(_)) => Err(ArrowError::ComputeError(
             "Cannot cast to struct from other types".to_string(),
         )),
-        (List(_), List(ref to)) => cast_list_inner::<i32>(&**array, to),
-        (LargeList(_), LargeList(ref to)) => cast_list_inner::<i64>(&**array, to),
+        (List(_), List(ref to)) => cast_list_inner::<i32>(&**array, to, to_type),
+        (LargeList(_), LargeList(ref to)) => {
+            cast_list_inner::<i64>(&**array, to, to_type)
+        }
         (List(list_from), LargeList(list_to)) => {
             if list_to.data_type() != list_from.data_type() {
                 Err(ArrowError::ComputeError(
@@ -287,8 +289,8 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
         (List(_), _) => Err(ArrowError::ComputeError(
             "Cannot cast list to non-list data types".to_string(),
         )),
-        (_, List(ref to)) => cast_primitive_to_list::<i32>(array, to),
-        (_, LargeList(ref to)) => cast_primitive_to_list::<i64>(array, to),
+        (_, List(ref to)) => cast_primitive_to_list::<i32>(array, to, to_type),
+        (_, LargeList(ref to)) => cast_primitive_to_list::<i64>(array, to, to_type),
         (Dictionary(index_type, _), _) => match **index_type {
             DataType::Int8 => dictionary_cast::<Int8Type>(array, to_type),
             DataType::Int16 => dictionary_cast::<Int16Type>(array, to_type),
@@ -1243,6 +1245,7 @@ where
 fn cast_primitive_to_list<OffsetSize: OffsetSizeTrait + NumCast>(
     array: &ArrayRef,
     to: &Field,
+    to_type: &DataType,
 ) -> Result<ArrayRef> {
     // cast primitive to list's primitive
     let cast_array = cast(array, to.data_type())?;
@@ -1257,7 +1260,7 @@ fn cast_primitive_to_list<OffsetSize: OffsetSizeTrait + NumCast>(
     };
 
     let list_data = ArrayData::new(
-        to.data_type().clone(),
+        to_type.clone(),
         array.len(),
         Some(cast_array.null_count()),
         cast_array
@@ -1279,12 +1282,13 @@ fn cast_primitive_to_list<OffsetSize: OffsetSizeTrait + NumCast>(
 fn cast_list_inner<OffsetSize: OffsetSizeTrait>(
     array: &dyn Array,
     to: &Field,
+    to_type: &DataType,
 ) -> Result<ArrayRef> {
     let data = array.data_ref();
     let underlying_array = make_array(data.child_data()[0].clone());
     let cast_array = cast(&underlying_array, to.data_type())?;
     let array_data = ArrayData::new(
-        to.data_type().clone(),
+        to_type.clone(),
         array.len(),
         Some(cast_array.null_count()),
         cast_array
