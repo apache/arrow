@@ -484,7 +484,7 @@ test_that("Array$create() can handle data frame with custom struct type (not inf
   expect_error(Array$create(df, type = type), regexp = "Field name in position.*does not match the name of the column of the data frame")
 
   type <- struct(x = float64(), y = utf8())
-  expect_error(Array$create(df, type = type), regexp = "Expecting a character vector")
+  expect_error(Array$create(df, type = type), regexp = "Invalid")
 })
 
 test_that("Array$create() supports tibble with no columns (ARROW-8354)", {
