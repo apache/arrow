@@ -754,7 +754,6 @@ template <typename U>
 class RDictionaryConverter<U, enable_if_has_string_view<U>>
     : public DictionaryConverter<U, RConverter> {
  public:
-
   Status Extend(SEXP x, int64_t size) override {
     RETURN_NOT_OK(this->Reserve(size));
 
@@ -772,18 +771,16 @@ class RDictionaryConverter<U, enable_if_has_string_view<U>>
     return RVectorVisitor<int>::Visit(x, 0, size, append_null, append_value);
   }
 
-   virtual Result<std::shared_ptr<Array>> ToArray() override {
-     ARROW_ASSIGN_OR_RAISE(auto result,
-                           this->builder_->Finish());
+  Result<std::shared_ptr<Array>> ToArray() override {
+    ARROW_ASSIGN_OR_RAISE(auto result, this->builder_->Finish());
 
-     auto result_type = checked_cast<DictionaryType*>(result->type().get());
-     if (this->dict_type_->ordered() && !result_type->ordered()) {
-       return Status::Invalid("converter api seems to lose dictionary orderness");
-     }
-
-     return result;
+    auto result_type = checked_cast<DictionaryType*>(result->type().get());
+    if (this->dict_type_->ordered() && !result_type->ordered()) {
+      return Status::Invalid("converter api seems to lose dictionary orderness");
     }
 
+    return result;
+  }
 };
 
 template <typename T, typename Enable = void>
@@ -850,13 +847,12 @@ class RStructConverter : public StructConverter<RConverter, RConverterTrait> {
       std::string name(x_names[i]);
       if (name != fields[i]->name()) {
         return Status::RError(
-          "Field name in position ", i, " (", fields[i]->name(),
-                    ") does not match the name of the column of the data frame (", name, ")");
+            "Field name in position ", i, " (", fields[i]->name(),
+            ") does not match the name of the column of the data frame (", name, ")");
       }
     }
 
     RETURN_NOT_OK(this->Reserve(size));
-
 
     for (R_xlen_t i = 0; i < size; i++) {
       RETURN_NOT_OK(struct_builder_->Append());
