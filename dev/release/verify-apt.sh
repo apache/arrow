@@ -65,9 +65,6 @@ case "${distribution}-${code_name}" in
   ubuntu-xenial)
     have_flight=no
     ;;
-  ubuntu-groovy)
-    workaround_missing_packages+=(libgrpc++-dev protobuf-compiler-grpc)
-    ;;
 esac
 if [ "$(arch)" = "aarch64" ]; then
   have_plasma=no
