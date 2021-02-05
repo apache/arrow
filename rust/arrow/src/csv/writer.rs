@@ -156,6 +156,10 @@ impl<W: Write> Writer<W> {
                     let c = col.as_any().downcast_ref::<StringArray>().unwrap();
                     c.value(row_index).to_owned()
                 }
+                DataType::LargeUtf8 => {
+                    let c = col.as_any().downcast_ref::<LargeStringArray>().unwrap();
+                    c.value(row_index).to_owned()
+                }
                 DataType::Date32 => {
                     let c = col.as_any().downcast_ref::<Date32Array>().unwrap();
                     c.value_as_date(row_index)
