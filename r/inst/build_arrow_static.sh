@@ -36,13 +36,6 @@ set -x
 SOURCE_DIR="$(cd "${SOURCE_DIR}" && pwd)"
 DEST_DIR="$(mkdir -p "${DEST_DIR}" && cd "${DEST_DIR}" && pwd)"
 
-if [ "$CMAKE_GENERATOR" = "" ]; then
-  # Look for ninja, prefer it
-  if which ninja >/dev/null 2>&1; then
-    CMAKE_GENERATOR="Ninja"
-  fi
-fi
-
 if [ "$LIBARROW_MINIMAL" = "false" ]; then
   ARROW_DEFAULT_PARAM="ON"
 else
