@@ -32,7 +32,7 @@ use crate::{
 };
 
 /// Shifts array by defined number of items (to left or right)
-/// A positive value for `offset` shifts the array to the left (LAG)
+/// A positive value for `offset` shifts the array to the right
 /// a negative value shifts the array to the left.
 /// # Examples
 /// ```
@@ -41,7 +41,7 @@ use crate::{
 /// use arrow::compute::shift;
 ///
 /// let a: Int32Array = vec![Some(1), None, Some(4)].into();
-/// // shift array 1 element to the left
+/// // shift array 1 element to the right
 /// let res = shift(&a, 1).unwrap();
 /// let expected: Int32Array = vec![None, Some(1), None].into();
 /// assert_eq!(res.as_ref(), &expected)
