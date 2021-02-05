@@ -750,11 +750,19 @@ class RDictionaryConverter<U, enable_if_has_c_type<U>>
   }
 };
 
-template <typename U>
-class RDictionaryConverter<U, enable_if_has_string_view<U>>
-    : public DictionaryConverter<U, RConverter> {
+template <typename ValueType>
+class RDictionaryConverter<ValueType, enable_if_has_string_view<ValueType>>
+    : public DictionaryConverter<ValueType, RConverter> {
  public:
+  using BuilderType = DictionaryBuilder<ValueType>;
+
   Status Extend(SEXP x, int64_t size) override {
+    // first we need to handle the levels
+    cpp11::strings levels(Rf_getAttrib(x, R_LevelsSymbol));
+    auto memo_array = arrow::r::vec_to_arrow(levels, utf8(), false);
+    RETURN_NOT_OK(this->value_builder_->InsertMemoValues(*memo_array));
+
+    // then we can proceed
     RETURN_NOT_OK(this->Reserve(size));
 
     RVectorType rtype = GetVectorType(x);
@@ -762,7 +770,6 @@ class RDictionaryConverter<U, enable_if_has_string_view<U>>
       return Status::Invalid("invalid R type to convert to dictionary");
     }
 
-    cpp11::strings levels(Rf_getAttrib(x, R_LevelsSymbol));
     auto append_value = [this, levels](int value) {
       SEXP s = STRING_ELT(levels, value - 1);
       return this->value_builder_->Append(CHAR(s));
