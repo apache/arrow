@@ -37,7 +37,7 @@ where
     T: ArrowPrimitiveType,
 {
     // Compute slice
-    let slice_offset = clamp(offset, 0, values.len() as i64) as usize;
+    let slice_offset = clamp(-offset, 0, values.len() as i64) as usize;
     let length = values.len() - abs(offset) as usize;
     let slice = values.slice(slice_offset, length);
 
@@ -62,9 +62,9 @@ where
     // Concatenate both arrays, add nulls after if shift > 0 else before
     let null_arr = make_array(Arc::new(null_data));
     if offset > 0 {
-        concat(&[slice.as_ref(), null_arr.as_ref()])
-    } else {
         concat(&[null_arr.as_ref(), slice.as_ref()])
+    } else {
+        concat(&[slice.as_ref(), null_arr.as_ref()])
     }
 }
 
@@ -81,7 +81,7 @@ mod tests {
 
         let b = res.as_any().downcast_ref::<Int32Array>().unwrap();
         assert_eq!(a.len(), res.len());
-        let expected: Int32Array = vec![None, Some(1), None].into();
+        let expected: Int32Array = vec![None, Some(4), None].into();
 
         assert_eq!(b, &expected);
     }
