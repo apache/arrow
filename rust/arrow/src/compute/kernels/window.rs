@@ -44,7 +44,7 @@ use crate::{
 /// // shift array 1 element to the left
 /// let res = shift(&a, 1).unwrap();
 /// let expected: Int32Array = vec![None, Some(1), None].into();
-/// assert_eq!(res.as_ref, &expected)
+/// assert_eq!(res.as_ref(), &expected)
 /// ```
 pub fn shift<T>(values: &PrimitiveArray<T>, offset: i64) -> Result<ArrayRef>
 where
