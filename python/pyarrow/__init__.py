@@ -64,9 +64,9 @@ import pyarrow.lib as _lib
 if _gc_enabled:
     _gc.enable()
 
-from pyarrow.lib import (BuildInfo, VersionInfo,
+from pyarrow.lib import (BuildInfo, RuntimeInfo, VersionInfo,
                          cpp_build_info, cpp_version, cpp_version_info,
-                         cpu_count, set_cpu_count)
+                         runtime_info, cpu_count, set_cpu_count)
 
 
 def show_versions():

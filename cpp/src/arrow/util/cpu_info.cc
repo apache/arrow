@@ -31,11 +31,12 @@
 #endif
 
 #ifdef _WIN32
+#include <immintrin.h>
 #include <intrin.h>
 #include <array>
 #include <bitset>
-#include "arrow/util/windows_compatibility.h"
 
+#include "arrow/util/windows_compatibility.h"
 #endif
 
 #include <algorithm>
@@ -64,6 +65,12 @@ void __cpuidex(int CPUInfo[4], int function_id, int subfunction_id) {
                        : "=a"(CPUInfo[0]), "=b"(CPUInfo[1]), "=c"(CPUInfo[2]),
                          "=d"(CPUInfo[3])
                        : "a"(function_id), "c"(subfunction_id));
+}
+
+int64_t _xgetbv(int xcr) {
+  int out = 0;
+  __asm__ __volatile__("xgetbv" : "=a"(out) : "c"(xcr) : "%edx");
+  return out;
 }
 #endif
 
@@ -251,6 +258,13 @@ bool RetrieveCPUInfo(int64_t* hardware_flags, std::string* model_name,
     }
   }
 
+  bool zmm_enabled = false;
+  if (features_ECX[27]) {  // OSXSAVE
+    // Query if the OS supports saving ZMM registers when switching contexts
+    int64_t xcr0 = _xgetbv(0);
+    zmm_enabled = (xcr0 & 0xE0) == 0xE0;
+  }
+
   if (features_ECX[9]) *hardware_flags |= CpuInfo::SSSE3;
   if (features_ECX[19]) *hardware_flags |= CpuInfo::SSE4_1;
   if (features_ECX[20]) *hardware_flags |= CpuInfo::SSE4_2;
@@ -266,11 +280,14 @@ bool RetrieveCPUInfo(int64_t* hardware_flags, std::string* model_name,
     if (features_EBX[3]) *hardware_flags |= CpuInfo::BMI1;
     if (features_EBX[5]) *hardware_flags |= CpuInfo::AVX2;
     if (features_EBX[8]) *hardware_flags |= CpuInfo::BMI2;
-    if (features_EBX[16]) *hardware_flags |= CpuInfo::AVX512F;
-    if (features_EBX[17]) *hardware_flags |= CpuInfo::AVX512DQ;
-    if (features_EBX[28]) *hardware_flags |= CpuInfo::AVX512CD;
-    if (features_EBX[30]) *hardware_flags |= CpuInfo::AVX512BW;
-    if (features_EBX[31]) *hardware_flags |= CpuInfo::AVX512VL;
+    // ARROW-11427: only use AVX512 if enabled by the OS
+    if (zmm_enabled) {
+      if (features_EBX[16]) *hardware_flags |= CpuInfo::AVX512F;
+      if (features_EBX[17]) *hardware_flags |= CpuInfo::AVX512DQ;
+      if (features_EBX[28]) *hardware_flags |= CpuInfo::AVX512CD;
+      if (features_EBX[30]) *hardware_flags |= CpuInfo::AVX512BW;
+      if (features_EBX[31]) *hardware_flags |= CpuInfo::AVX512VL;
+    }
   }
 
   return true;

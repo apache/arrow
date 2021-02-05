@@ -16,6 +16,8 @@
 # under the License.
 
 import os
+import subprocess
+
 import pytest
 
 import pyarrow as pa
@@ -50,6 +52,27 @@ def test_build_info():
     assert pa.cpp_build_info.version_info == pa.cpp_version_info
 
     # assert pa.version == pa.__version__  # XXX currently false
+
+
+def test_runtime_info():
+    info = pa.runtime_info()
+    assert isinstance(info, pa.RuntimeInfo)
+    possible_simd_levels = ('none', 'sse4_2', 'avx', 'avx2', 'avx512')
+    assert info.simd_level in possible_simd_levels
+    assert info.detected_simd_level in possible_simd_levels
+
+    if info.simd_level != 'none':
+        env = os.environ.copy()
+        env['ARROW_USER_SIMD_LEVEL'] = 'none'
+        code = f"""if 1:
+            import pyarrow as pa
+
+            info = pa.runtime_info()
+            assert info.simd_level == 'none', info.simd_level
+            assert info.detected_simd_level == f{info.detected_simd_level!r},\
+                info.detected_simd_level
+            """
+        subprocess.check_call(["python", "-c", code], env=env)
 
 
 @pytest.mark.parametrize('klass', [
