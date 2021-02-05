@@ -238,31 +238,50 @@ filter.arrow_dplyr_query <- function(.data, ..., .preserve = FALSE) {
 }
 filter.Dataset <- filter.ArrowTabular <- filter.arrow_dplyr_query
 
+# Helper to assemble the functions that go in the NSE data mask
+# The only difference between the Dataset and the Table/RecordBatch versions
+# is that they use a different wrapping function (FUN) to hold the unevaluated
+# expression.
+build_function_list <- function(FUN) {
+  wrapper <- function(operator) {
+    force(operator)
+    function(e1, e2) FUN(operator, e1, e2)
+  }
+
+  c(
+    lapply(set_names(names(.array_function_map)), wrapper),
+    # TODO: lapply also for the arrow spellings?
+    # See list_compute_functions()
+    # (would want to do these first, and then modifyList with the R ones
+    # in case of name collision)
+    # Would need to generalize FUN to accept ... args
+    str_trim = function(string, side = c("both", "left", "right")) {
+      side <- match.arg(side)
+      switch(
+        side,
+        left = FUN("utf8_ltrim_whitespace", string),
+        right = FUN("utf8_rtrim_whitespace", string),
+        both = FUN("utf8_trim_whitespace", string)
+      )
+    }
+  )
+}
+
+# Create these once, at package build time
+dataset_function_list <- build_function_list(build_dataset_expression)
+array_function_list <- build_function_list(build_array_expression)
+
 # Create a data mask for evaluating a filter expression
 filter_mask <- function(.data) {
-  f_env <- env()
-
-  # Insert functions/operators and field references
-  # TODO: define functions in env once, outside of this function
-  # filter_env <- env(parent = if (data_is_dataset) function_env1 else function_env2)
   if (query_on_dataset(.data)) {
-    comp_func <- function(operator) {
-      force(operator)
-      function(e1, e2) build_dataset_expression(operator, e1, e2)
-    }
+    f_env <- new_environment(dataset_function_list)
     var_binder <- function(x) Expression$field_ref(x)
   } else {
-    comp_func <- function(operator) {
-      force(operator)
-      function(e1, e2) build_array_expression(operator, e1, e2)
-    }
+    f_env <- new_environment(array_function_list)
     var_binder <- function(x) .data$.data[[x]]
   }
 
-  # First add the functions
-  func_names <- set_names(names(.array_function_map))
-  env_bind(f_env, !!!lapply(func_names, comp_func))
-  # Then add the column references
+  # Add the column references
   # Renaming is handled automatically by the named list
   data_pronoun <- lapply(.data$selected_columns, var_binder)
   env_bind(f_env, !!!data_pronoun)

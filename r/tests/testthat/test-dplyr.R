@@ -18,6 +18,7 @@
 context("dplyr verbs")
 
 library(dplyr)
+library(stringr)
 
 expect_dplyr_equal <- function(expr, # A dplyr pipeline with `input` as its start
                                tbl,  # A tbl/df as reference, will make RB/Table with
@@ -83,6 +84,11 @@ expect_dplyr_error <- function(expr, # A dplyr pipeline with `input` as its star
 }
 
 tbl <- example_data
+# Add some better string data
+tbl$verses <- verses[[1]]
+# c(" a ", "  b  ", "   c   ", ...) increasing padding
+# nchar =   3  5  7  9 11 13 15 17 19 21
+tbl$padded_strings <- stringr::str_pad(letters[1:10], width = 2*(1:10)+1, side = "both")
 
 test_that("basic select/filter/collect", {
   batch <- record_batch(tbl)
@@ -260,6 +266,20 @@ test_that("filter() with string ops", {
   expect_dplyr_equal(
     input %>%
       filter(dbl > 2, toupper(chr) %in% c("D", "F")) %>%
+      collect(),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(dbl > 2, str_length(verses) > 25) %>%
+      collect(),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(dbl > 2, str_length(str_trim(padded_strings, "left")) > 5) %>%
       collect(),
     tbl
   )
