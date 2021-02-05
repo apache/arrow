@@ -1339,4 +1339,4 @@ services:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         /arrow/ci/scripts/java_build.sh /arrow /build &&
-        /arrow/ci/scripts/integration_spark.sh /arrow /spark"]
+        /arrow/ci/scripts/integration_spark.sh /arrow /spark ${TEST_PYARROW_ONLY:-false}"]

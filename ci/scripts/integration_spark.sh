@@ -20,6 +20,11 @@ set -eu
 
 source_dir=${1}
 spark_dir=${2}
+
+# Test Spark with latest PyArrow only, don't build with latest Arrow Java
+test_pyarrow_only=${3:-false}
+
+# Spark branch to checkout
 spark_version=${SPARK_VERSION:-master}
 
 # Use old behavior that always dropped tiemzones.
@@ -30,6 +35,7 @@ if [ "${SPARK_VERSION:0:2}" == "2." ]; then
   export ARROW_PRE_0_15_IPC_FORMAT=1
 fi
 
+# Get Arrow Java version
 pushd ${source_dir}/java
   arrow_version=`mvn org.apache.maven.plugins:maven-help-plugin:2.1.1:evaluate -Dexpression=project.version | sed -n -e '/^\[.*\]/ !{ /^[0-9]/ { p; q } }'`
 popd
@@ -37,23 +43,33 @@ popd
 export MAVEN_OPTS="-Xmx2g -XX:ReservedCodeCacheSize=512m -Dorg.slf4j.simpleLogger.defaultLogLevel=warn"
 export MAVEN_OPTS="${MAVEN_OPTS} -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn"
 
-# build Spark with Arrow
 pushd ${spark_dir}
-  # update Spark pom with the Arrow version just installed and build Spark, need package phase for pyspark
-  echo "Building Spark with Arrow ${arrow_version}"
-  mvn versions:set-property -Dproperty=arrow.version -DnewVersion=${arrow_version}
 
-  build/mvn -B -DskipTests package -pl sql/core -pl assembly -am
+  if [ "${test_pyarrow_only}" == "true" ]; then
+    echo "Building Spark ${SPARK_VERSION} to test pyarrow only"
 
-  spark_scala_tests=(
-    "org.apache.spark.sql.execution.arrow"
-    "org.apache.spark.sql.execution.vectorized.ColumnarBatchSuite"
-    "org.apache.spark.sql.execution.vectorized.ArrowColumnVectorSuite")
+    # Build Spark only
+    build/mvn -B -DskipTests package
 
-  (echo "Testing Spark:"; IFS=$'\n'; echo "${spark_scala_tests[*]}")
+  else
 
-  # TODO: should be able to only build spark-sql tests with adding "-pl sql/core" but not currently working
-  build/mvn -B -Dtest=none -DwildcardSuites=$(IFS=,; echo "${spark_scala_tests[*]}") test
+    # Update Spark pom with the Arrow version just installed and build Spark, need package phase for pyspark
+    echo "Building Spark ${SPARK_VERSION} with Arrow ${arrow_version}"
+    mvn versions:set-property -Dproperty=arrow.version -DnewVersion=${arrow_version}
+
+    # Build Spark with new Arrow Java
+    build/mvn -B -DskipTests package -pl sql/core -pl assembly -am
+
+    spark_scala_tests=(
+      "org.apache.spark.sql.execution.arrow"
+      "org.apache.spark.sql.execution.vectorized.ColumnarBatchSuite"
+      "org.apache.spark.sql.execution.vectorized.ArrowColumnVectorSuite")
+
+    (echo "Testing Spark:"; IFS=$'\n'; echo "${spark_scala_tests[*]}")
+
+    # TODO: should be able to only build spark-sql tests with adding "-pl sql/core" but not currently working
+    build/mvn -B -Dtest=none -DwildcardSuites=$(IFS=,; echo "${spark_scala_tests[*]}") test
+  fi
 
   # Run pyarrow related Python tests only
   spark_python_tests=(

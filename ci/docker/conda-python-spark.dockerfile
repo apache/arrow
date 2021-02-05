@@ -23,12 +23,10 @@ FROM ${repo}:${arch}-conda-python-${python}
 ARG jdk=8
 ARG maven=3.5
 
-# The Spark tests currently break with pandas >= 1.0
 RUN conda install -q \
-        patch \
-        pandas=0.25.3 \
         openjdk=${jdk} \
-        maven=${maven} && \
+        maven=${maven} \
+        pandas && \
     conda clean --all
 
 # installing specific version of spark

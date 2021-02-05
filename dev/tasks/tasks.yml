@@ -1943,7 +1943,8 @@ tasks:
       env:
         PYTHON: 3.7
         SPARK: "branch-3.0"
-      # use the master branch of spark, so prevent reusing any layers
+        TEST_PYARROW_ONLY: "true"
+      # use the branch-3.0 of spark, so prevent reusing any layers
       run: --no-leaf-cache conda-python-spark
 
   test-conda-python-3.8-spark-master:
