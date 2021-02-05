@@ -754,6 +754,7 @@ template <typename U>
 class RDictionaryConverter<U, enable_if_has_string_view<U>>
     : public DictionaryConverter<U, RConverter> {
  public:
+
   Status Extend(SEXP x, int64_t size) override {
     RETURN_NOT_OK(this->Reserve(size));
 
@@ -770,6 +771,19 @@ class RDictionaryConverter<U, enable_if_has_string_view<U>>
     auto append_null = [this]() { return this->value_builder_->AppendNull(); };
     return RVectorVisitor<int>::Visit(x, 0, size, append_null, append_value);
   }
+
+   virtual Result<std::shared_ptr<Array>> ToArray() override {
+     ARROW_ASSIGN_OR_RAISE(auto result,
+                           this->builder_->Finish());
+
+     auto result_type = checked_cast<DictionaryType*>(result->type().get());
+     if (this->dict_type_->ordered() && !result_type->ordered()) {
+       return Status::Invalid("converter api seems to lose dictionary orderness");
+     }
+
+     return result;
+    }
+
 };
 
 template <typename T, typename Enable = void>
@@ -818,12 +832,31 @@ struct RConverterTrait<StructType> {
 class RStructConverter : public StructConverter<RConverter, RConverterTrait> {
  public:
   Status Extend(SEXP x, int64_t size) override {
-    RETURN_NOT_OK(this->Reserve(size));
-
+    // check that x is compatible
     R_xlen_t n_columns = XLENGTH(x);
     if (!Rf_inherits(x, "data.frame")) {
       return Status::Invalid("Can only convert data frames to Struct type");
     }
+
+    auto fields = this->struct_type_->fields();
+    if (n_columns != fields.size()) {
+      return Status::RError("Number of fields in struct (", fields.size(),
+                            ") incompatible with number of columns in the data frame (",
+                            n_columns, ")");
+    }
+
+    cpp11::strings x_names = Rf_getAttrib(x, R_NamesSymbol);
+    for (R_xlen_t i = 0; i < n_columns; i++) {
+      std::string name(x_names[i]);
+      if (name != fields[i]->name()) {
+        return Status::RError(
+          "Field name in position ", i, " (", fields[i]->name(),
+                    ") does not match the name of the column of the data frame (", name, ")");
+      }
+    }
+
+    RETURN_NOT_OK(this->Reserve(size));
+
 
     for (R_xlen_t i = 0; i < size; i++) {
       RETURN_NOT_OK(struct_builder_->Append());

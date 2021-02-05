@@ -1381,6 +1381,8 @@ arrow::Status CheckCompatibleStruct(SEXP obj,
 
 std::shared_ptr<arrow::Array> Array__from_vector(
     SEXP x, const std::shared_ptr<arrow::DataType>& type, bool type_inferred) {
+  // new api
+  return vec_to_arrow(x, type, type_inferred);
 
   // short circuit if `x` is already an Array
   if (Rf_inherits(x, "Array")) {

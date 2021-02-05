@@ -1269,7 +1269,7 @@ ExportRecordBatch <- function(batch, array_ptr, schema_ptr){
 }
 
 vec_to_arrow <- function(x, s_type){
-    .Call(`_arrow_vec_to_arrow` , x, s_type)
+    .Call(`_arrow_vec_to_arrow`, x, s_type)
 }
 
 RecordBatch__num_columns <- function(x){
