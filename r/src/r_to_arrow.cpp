@@ -812,6 +812,7 @@ class RListConverter : public ListConverter<T, RConverter, RConverterTrait> {
     auto append_value = [this](SEXP value) {
       R_xlen_t n = XLENGTH(value);
       RETURN_NOT_OK(this->list_builder_->ValidateOverflow(n));
+      RETURN_NOT_OK(this->list_builder_->Append());
       return this->value_converter_.get()->Extend(value, n);
     };
     auto append_null = [this]() { return this->list_builder_->AppendNull(); };
