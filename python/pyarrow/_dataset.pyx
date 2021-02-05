@@ -84,7 +84,37 @@ cdef CFileSource _make_file_source(object file, FileSystem filesystem=None):
 
 
 cdef class Expression(_Weakrefable):
+    """
+    A logical expression to be evaluated against some input.
 
+    To create an expression:
+
+    - Use the factory function ``pyarrow.dataset.scalar()`` to create a
+      scalar (not necessary when combined, see example below).
+    - Use the factory function ``pyarrow.dataset.field()`` to reference
+      a field (column in table).
+    - Compare fields and scalars with ``<``, ``<=``, ``==``, ``>=``, ``>``.
+    - Combine expressions using python operators ``&`` (logical and),
+      ``|`` (logical or) and ``~`` (logical not).
+      Note: python keywords ``and``, ``or`` and ``not`` cannot be used
+      to combine expressions.
+    - Check whether the expression is contained in a list of values with
+      the ``pyarrow.dataset.Expression.isin()`` member function.
+
+    Examples:
+    --------
+    >>> import pyarrow.dataset as ds
+    >>> (ds.field("a") < ds.scalar(3)) | (ds.field("b") > 7)
+    <pyarrow.dataset.Expression ((a < 3:int64) or (b > 7:int64))>
+    >>> ds.field('a') != 3
+    <pyarrow.dataset.Expression (a != 3)>
+    >>> ds.field('a').isin([1, 2, 3])
+    <pyarrow.dataset.Expression (a is in [
+      1,
+      2,
+      3
+    ])>
+    """
     cdef:
         CExpression expr
 
