@@ -32,6 +32,21 @@ use crate::{
 };
 
 /// Shifts array by defined number of items (to left or right)
+/// A positive value
+/// # Examples
+/// ```
+/// use arrow::array::Int32Array;
+/// use arrow::error::Result;
+/// use arrow::compute::shift;
+///
+/// let a: Int32Array = vec![Some(1), None, Some(4)].into();
+/// // shift array 1 element to the left
+/// let res = shift(&a, 1).unwrap();
+/// let b = res.as_any().downcast_ref::<Int32Array>().unwrap();
+/// let expected: Int32Array = vec![None, Some(1), None].into();
+/// assert_eq!(b, &expected)
+/// ```
+
 pub fn shift<T>(values: &PrimitiveArray<T>, offset: i64) -> Result<ArrayRef>
 where
     T: ArrowPrimitiveType,
@@ -80,7 +95,6 @@ mod tests {
         let res = shift(&a, -1).unwrap();
 
         let b = res.as_any().downcast_ref::<Int32Array>().unwrap();
-        assert_eq!(a.len(), res.len());
         let expected: Int32Array = vec![None, Some(4), None].into();
 
         assert_eq!(b, &expected);
