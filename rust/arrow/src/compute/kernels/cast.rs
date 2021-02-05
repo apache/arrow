@@ -250,7 +250,7 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
             let underlying_array = make_array(data.child_data()[0].clone());
             let cast_array = cast(&underlying_array, to.data_type())?;
             let array_data = ArrayData::new(
-                to.data_type().clone(),
+                to_type.clone(),
                 array.len(),
                 Some(cast_array.null_count()),
                 cast_array
@@ -276,7 +276,7 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
             let offsets: Vec<i32> = (0..=array.len() as i32).collect();
             let value_offsets = Buffer::from_slice_ref(&offsets);
             let list_data = ArrayData::new(
-                to.data_type().clone(),
+                to_type.clone(),
                 array.len(),
                 Some(cast_array.null_count()),
                 cast_array

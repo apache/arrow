@@ -776,7 +776,9 @@ mod tests {
             .build();
         let binary_array1 = BinaryArray::from(array_data1);
 
-        let array_data2 = ArrayData::builder(DataType::Binary)
+        let data_type =
+            DataType::List(Box::new(Field::new("item", DataType::UInt8, false)));
+        let array_data2 = ArrayData::builder(data_type)
             .len(3)
             .add_buffer(Buffer::from_slice_ref(&offsets))
             .add_child_data(values_data)
@@ -818,7 +820,9 @@ mod tests {
             .build();
         let binary_array1 = LargeBinaryArray::from(array_data1);
 
-        let array_data2 = ArrayData::builder(DataType::Binary)
+        let data_type =
+            DataType::LargeList(Box::new(Field::new("item", DataType::UInt8, false)));
+        let array_data2 = ArrayData::builder(data_type)
             .len(3)
             .add_buffer(Buffer::from_slice_ref(&offsets))
             .add_child_data(values_data)
@@ -869,41 +873,21 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "BinaryArray can only be created from List<u8> arrays, mismatched \
-                    data types."
-    )]
-    fn test_binary_array_from_incorrect_list_array_type() {
-        let values: [u32; 12] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
-        let values_data = ArrayData::builder(DataType::UInt32)
-            .len(12)
-            .add_buffer(Buffer::from_slice_ref(&values))
-            .build();
-        let offsets: [i32; 4] = [0, 5, 5, 12];
-
-        let array_data = ArrayData::builder(DataType::Utf8)
-            .len(3)
-            .add_buffer(Buffer::from_slice_ref(&offsets))
-            .add_child_data(values_data)
-            .build();
-        let list_array = ListArray::from(array_data);
-        BinaryArray::from(list_array);
-    }
-
-    #[test]
-    #[should_panic(
-        expected = "BinaryArray can only be created from list array of u8 values \
-                    (i.e. List<PrimitiveArray<u8>>)."
+        expected = "assertion failed: `(left == right)`\n  left: `UInt32`,\n \
+                    right: `UInt8`: BinaryArray can only be created from List<u8> arrays, \
+                    mismatched data types."
     )]
     fn test_binary_array_from_incorrect_list_array() {
         let values: [u32; 12] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
         let values_data = ArrayData::builder(DataType::UInt32)
             .len(12)
             .add_buffer(Buffer::from_slice_ref(&values))
-            .add_child_data(ArrayData::builder(DataType::Boolean).build())
             .build();
         let offsets: [i32; 4] = [0, 5, 5, 12];
 
-        let array_data = ArrayData::builder(DataType::Utf8)
+        let data_type =
+            DataType::List(Box::new(Field::new("item", DataType::UInt32, false)));
+        let array_data = ArrayData::builder(data_type)
             .len(3)
             .add_buffer(Buffer::from_slice_ref(&offsets))
             .add_child_data(values_data)
