@@ -455,26 +455,30 @@ TEST(TestCompareKernel, DispatchBest) {
   for (std::string name :
        {"equal", "not_equal", "less", "less_equal", "greater", "greater_equal"}) {
     CheckDispatchBest(name, {int32(), int32()}, {int32(), int32()});
-
     CheckDispatchBest(name, {int32(), null()}, {int32(), int32()});
-
     CheckDispatchBest(name, {null(), int32()}, {int32(), int32()});
 
+    CheckDispatchBest(name, {int32(), int8()}, {int32(), int32()});
     CheckDispatchBest(name, {int32(), int16()}, {int32(), int32()});
+    CheckDispatchBest(name, {int32(), int32()}, {int32(), int32()});
+    CheckDispatchBest(name, {int32(), int64()}, {int64(), int64()});
+
+    CheckDispatchBest(name, {int32(), uint8()}, {int32(), int32()});
+    CheckDispatchBest(name, {int32(), uint16()}, {int32(), int32()});
+    CheckDispatchBest(name, {int32(), uint32()}, {int64(), int64()});
+    CheckDispatchBest(name, {int32(), uint64()}, {int64(), int64()});
+
+    CheckDispatchBest(name, {uint8(), uint8()}, {uint8(), uint8()});
+    CheckDispatchBest(name, {uint8(), uint16()}, {uint16(), uint16()});
 
     CheckDispatchBest(name, {int32(), float32()}, {float32(), float32()});
-
     CheckDispatchBest(name, {float32(), int64()}, {float32(), float32()});
-
     CheckDispatchBest(name, {float64(), int32()}, {float64(), float64()});
 
     CheckDispatchBest(name, {dictionary(int8(), float64()), float64()},
                       {float64(), float64()});
-
     CheckDispatchBest(name, {dictionary(int8(), float64()), int16()},
                       {float64(), float64()});
-
-    CheckDispatchBest(name, {dictionary(int8(), utf8()), utf8()}, {utf8(), utf8()});
 
     CheckDispatchBest(name, {timestamp(TimeUnit::MICRO), date64()},
                       {timestamp(TimeUnit::MICRO), timestamp(TimeUnit::MICRO)});
@@ -496,6 +500,10 @@ TEST(TestCompareKernel, GreaterWithImplicitCasts) {
                     ArrayFromJSON(uint32(), "[3, 4, 5, 7]"),
                     ArrayFromJSON(boolean(), "[false, false, true, null]"));
 
+  CheckScalarBinary("greater", ArrayFromJSON(int8(), "[-16, 0, 16, null]"),
+                    ArrayFromJSON(uint8(), "[255, 254, 1, 0]"),
+                    ArrayFromJSON(boolean(), "[false, false, true, null]"));
+
   CheckScalarBinary("greater",
                     ArrayFromJSON(dictionary(int32(), int32()), "[0, 1, 2, null]"),
                     ArrayFromJSON(uint32(), "[3, 4, 5, 7]"),
@@ -512,9 +520,25 @@ TEST(TestCompareKernel, GreaterWithImplicitCasts) {
                     ArrayFromJSON(boolean(), "[false, true, false]"));
 
   CheckScalarBinary("greater",
-                    ArrayFromJSON(dictionary(int32(), int8()), "[0, 1, 2, null]"),
+                    ArrayFromJSON(dictionary(int32(), int8()), "[3, -3, -28, null]"),
                     ArrayFromJSON(uint32(), "[3, 4, 5, 7]"),
                     ArrayFromJSON(boolean(), "[false, false, false, null]"));
+}
+
+TEST(TestCompareKernel, GreaterWithImplicitCastsUint64EdgeCase) {
+  // int64 is as wide as we can promote
+  CheckDispatchBest("greater", {int8(), uint64()}, {int64(), int64()});
+
+  // this works sometimes
+  CheckScalarBinary("greater", ArrayFromJSON(int8(), "[-1]"),
+                    ArrayFromJSON(uint64(), "[0]"), ArrayFromJSON(boolean(), "[false]"));
+
+  // ... but it can result in impossible implicit casts in  the presence of uint64, since
+  // some uint64 values cannot be cast to int64:
+  ASSERT_RAISES(
+      Invalid,
+      CallFunction("greater", {ArrayFromJSON(int64(), "[-1]"),
+                               ArrayFromJSON(uint64(), "[18446744073709551615]")}));
 }
 
 class TestStringCompareKernel : public ::testing::Test {};

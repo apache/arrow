@@ -186,9 +186,9 @@ void CheckDispatchBest(std::string func_name, std::vector<ValueDescr> original_v
                        function->DispatchExact(expected_equivalent_values));
 
   EXPECT_EQ(actual_kernel, expected_kernel)
-      << "DispatchBest" << ValueDescr::ToString(original_values) << " => "
+      << "  DispatchBest" << ValueDescr::ToString(original_values) << " => "
       << actual_kernel->signature->ToString() << "\n"
-      << "DispatchExact" << ValueDescr::ToString(expected_equivalent_values) << " => "
+      << "  DispatchExact" << ValueDescr::ToString(expected_equivalent_values) << " => "
       << expected_kernel->signature->ToString();
 }
 

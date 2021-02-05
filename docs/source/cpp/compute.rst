@@ -104,6 +104,57 @@ exact semantics of the function::
 .. seealso::
    :doc:`Compute API reference <api/compute>`
 
+Implicit casts
+==============
+
+Functions may require conversion of their arguments before execution if a
+kernel does not match the argument types precisely. For example comparison
+of dictionary encoded arrays is not directly supported by any kernel, but an
+implicit cast can be made allowing comparison against the decoded array.
+
+Each function may define implicit cast behaviour as appropriate. For example
+comparison and arithmetic kernels require identically typed arguments, and
+support execution against differing numeric types by promoting their arguments
+to numeric type which can accommodate any value from either input.
+
+.. _common-numeric-type:
+
+Common numeric type
+~~~~~~~~~~~~~~~~~~~
+
+The common numeric type of a set of input numeric types is the smallest numeric
+type which can accommodate any value of any input. If any input is a floating
+point type the common numeric type is the widest floating point type among the
+inputs. Otherwise the common numeric type is integral and is signed if any input
+is signed. For example:
+
++-------------------+----------------------+------------------------------------------------+
+| Input types       | Common numeric type  | Notes                                          |
++===================+======================+================================================+
+| int32, int32      | int32                |                                                |
++-------------------+----------------------+------------------------------------------------+
+| int16, int32      | int32                | Max width is 32, promote LHS to int32          |
++-------------------+----------------------+------------------------------------------------+
+| uint16, int32     | int32                | One input signed, override unsigned            |
++-------------------+----------------------+------------------------------------------------+
+| uint32, int32     | int64                | Widen to accommodate range of uint32           |
++-------------------+----------------------+------------------------------------------------+
+| uint16, uint32    | uint32               | All inputs unsigned, maintain unsigned         |
++-------------------+----------------------+------------------------------------------------+
+| int16, uint32     | int64                |                                                |
++-------------------+----------------------+------------------------------------------------+
+| uint64, int16     | int64                | NB: int64 cannot accommodate all uint64 values |
++-------------------+----------------------+------------------------------------------------+
+| float32, int32    | float32              | Promote RHS to float32                         |
++-------------------+----------------------+------------------------------------------------+
+| float32, float64  | float64              |                                                |
++-------------------+----------------------+------------------------------------------------+
+| float32, int64    | float32              | int64 is wider, still promotes to float32      |
++-------------------+----------------------+------------------------------------------------+
+
+In particulary, note that comparing a `uint64` column to an `int16` column may
+emit an error if one of the LHS' values cannot be expressed as the common type
+`int64` (for example, `2 ** 63`).
 
 .. _compute-function-list:
 
@@ -750,40 +801,3 @@ Structural transforms
   in the list array is appended to the output.  Nulls in the parent list array
   are discarded.
 
-.. _common-numeric-type:
-
-Common numeric type
-~~~~~~~~~~~~~~~~~~~
-
-The common numeric type of a set of input numeric types is the smallest numeric
-type which can accommodate any value of any input. If any input is a floating
-point type the common numeric type is the widest floating point type among the
-inputs. Otherwise the common numeric type is integral, is signed if any input
-is signed, and its width is the maximum width of any input. For example:
-
-+-------------------+----------------------+-------------------------------------------+
-| Input types       | Common numeric type  | Notes                                     |
-+===================+======================+===========================================+
-| int32, int32      | int32                |                                           |
-+-------------------+----------------------+-------------------------------------------+
-| uint32, int32     | int32                | One input signed, override unsigned       |
-+-------------------+----------------------+-------------------------------------------+
-| int16, int32      | int32                | Max width is 32, promote LHS to int32     |
-+-------------------+----------------------+-------------------------------------------+
-| uint16, uint32    | uint32               | All inputs unsigned, maintain unsigned    |
-+-------------------+----------------------+-------------------------------------------+
-| uint16, int32     | int32                | One input signed, override unsigned       |
-+-------------------+----------------------+-------------------------------------------+
-| int16, uint32     | int32                |                                           |
-+-------------------+----------------------+-------------------------------------------+
-| float32, int32    | float32              | Promote RHS to float32                    |
-+-------------------+----------------------+-------------------------------------------+
-| float32, float64  | float64              |                                           |
-+-------------------+----------------------+-------------------------------------------+
-| float32, int64    | float32              | int64 is wider, still promotes to float32 |
-+-------------------+----------------------+-------------------------------------------+
-
-In particulary, note that comparing a `uint32` column to an `int32` column may
-emit an error if one of the LHS' values cannot be expressed as the common type
-`int32` (for example, `2 ** 31`). This tradeoff is made to keep the results of
-arithmetic operations narrow.

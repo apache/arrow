@@ -209,6 +209,8 @@ void ReplaceTypes(const std::shared_ptr<DataType>& type,
 }
 
 std::shared_ptr<DataType> CommonNumeric(const std::vector<ValueDescr>& descrs) {
+  DCHECK(!descrs.empty()) << "tried to find CommonNumeric type of an empty set";
+
   for (const auto& descr : descrs) {
     auto id = descr.type->id();
     if (!is_floating(id) && !is_integer(id)) {
@@ -220,27 +222,40 @@ std::shared_ptr<DataType> CommonNumeric(const std::vector<ValueDescr>& descrs) {
       return nullptr;
     }
   }
+
   for (const auto& descr : descrs) {
     if (descr.type->id() == Type::DOUBLE) return float64();
   }
+
   for (const auto& descr : descrs) {
     if (descr.type->id() == Type::FLOAT) return float32();
   }
 
-  bool at_least_one_signed = false;
-  int max_width = 0;
+  int max_width_signed = 0, max_width_unsigned = 0;
 
   for (const auto& descr : descrs) {
     auto id = descr.type->id();
-    at_least_one_signed |= is_signed_integer(id);
-    max_width = std::max(bit_width(id), max_width);
+    auto max_width = is_signed_integer(id) ? &max_width_signed : &max_width_unsigned;
+    *max_width = std::max(bit_width(id), *max_width);
   }
 
-  if (max_width == 64) return at_least_one_signed ? int64() : uint64();
-  if (max_width == 32) return at_least_one_signed ? int32() : uint32();
-  if (max_width == 16) return at_least_one_signed ? int16() : uint16();
-  DCHECK_EQ(max_width, 8);
-  return at_least_one_signed ? int8() : uint8();
+  if (max_width_signed == 0) {
+    if (max_width_unsigned >= 64) return uint64();
+    if (max_width_unsigned == 32) return uint32();
+    if (max_width_unsigned == 16) return uint16();
+    DCHECK_EQ(max_width_unsigned, 8);
+    return int8();
+  }
+
+  if (max_width_signed <= max_width_unsigned) {
+    max_width_signed = BitUtil::NextPower2(max_width_unsigned + 1);
+  }
+
+  if (max_width_signed >= 64) return int64();
+  if (max_width_signed == 32) return int32();
+  if (max_width_signed == 16) return int16();
+  DCHECK_EQ(max_width_signed, 8);
+  return int8();
 }
 
 std::shared_ptr<DataType> CommonTimestamp(const std::vector<ValueDescr>& descrs) {

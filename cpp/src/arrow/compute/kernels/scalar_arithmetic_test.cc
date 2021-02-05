@@ -643,22 +643,28 @@ TEST(TestBinaryArithmetic, DispatchBest) {
       name += suffix;
 
       CheckDispatchBest(name, {int32(), int32()}, {int32(), int32()});
-
       CheckDispatchBest(name, {int32(), null()}, {int32(), int32()});
-
       CheckDispatchBest(name, {null(), int32()}, {int32(), int32()});
 
+      CheckDispatchBest(name, {int32(), int8()}, {int32(), int32()});
       CheckDispatchBest(name, {int32(), int16()}, {int32(), int32()});
+      CheckDispatchBest(name, {int32(), int32()}, {int32(), int32()});
+      CheckDispatchBest(name, {int32(), int64()}, {int64(), int64()});
+
+      CheckDispatchBest(name, {int32(), uint8()}, {int32(), int32()});
+      CheckDispatchBest(name, {int32(), uint16()}, {int32(), int32()});
+      CheckDispatchBest(name, {int32(), uint32()}, {int64(), int64()});
+      CheckDispatchBest(name, {int32(), uint64()}, {int64(), int64()});
+
+      CheckDispatchBest(name, {uint8(), uint8()}, {uint8(), uint8()});
+      CheckDispatchBest(name, {uint8(), uint16()}, {uint16(), uint16()});
 
       CheckDispatchBest(name, {int32(), float32()}, {float32(), float32()});
-
       CheckDispatchBest(name, {float32(), int64()}, {float32(), float32()});
-
       CheckDispatchBest(name, {float64(), int32()}, {float64(), float64()});
 
       CheckDispatchBest(name, {dictionary(int8(), float64()), float64()},
                         {float64(), float64()});
-
       CheckDispatchBest(name, {dictionary(int8(), float64()), int16()},
                         {float64(), float64()});
     }
@@ -672,12 +678,12 @@ TEST(TestBinaryArithmetic, AddWithImplicitCasts) {
 
   CheckScalarBinary("add", ArrayFromJSON(int8(), "[-16, 0, 16, null]"),
                     ArrayFromJSON(uint32(), "[3, 4, 5, 7]"),
-                    ArrayFromJSON(int32(), "[-13, 4, 21, null]"));
+                    ArrayFromJSON(int64(), "[-13, 4, 21, null]"));
 
   CheckScalarBinary("add",
                     ArrayFromJSON(dictionary(int32(), int32()), "[8, 6, 3, null, 2]"),
                     ArrayFromJSON(uint32(), "[3, 4, 5, 7, 0]"),
-                    ArrayFromJSON(int32(), "[11, 10, 8, null, 2]"));
+                    ArrayFromJSON(int64(), "[11, 10, 8, null, 2]"));
 
   CheckScalarBinary("add", ArrayFromJSON(int32(), "[0, 1, 2, null]"),
                     std::make_shared<NullArray>(4),
@@ -685,7 +691,22 @@ TEST(TestBinaryArithmetic, AddWithImplicitCasts) {
 
   CheckScalarBinary("add", ArrayFromJSON(dictionary(int32(), int8()), "[0, 1, 2, null]"),
                     ArrayFromJSON(uint32(), "[3, 4, 5, 7]"),
-                    ArrayFromJSON(int32(), "[3, 5, 7, null]"));
+                    ArrayFromJSON(int64(), "[3, 5, 7, null]"));
+}
+
+TEST(TestBinaryArithmetic, AddWithImplicitCastsUint64EdgeCase) {
+  // int64 is as wide as we can promote
+  CheckDispatchBest("add", {int8(), uint64()}, {int64(), int64()});
+
+  // this works sometimes
+  CheckScalarBinary("add", ArrayFromJSON(int8(), "[-1]"), ArrayFromJSON(uint64(), "[0]"),
+                    ArrayFromJSON(int64(), "[-1]"));
+
+  // ... but it can result in impossible implicit casts in  the presence of uint64, since
+  // some uint64 values cannot be cast to int64:
+  ASSERT_RAISES(Invalid,
+                CallFunction("add", {ArrayFromJSON(int64(), "[-1]"),
+                                     ArrayFromJSON(uint64(), "[18446744073709551615]")}));
 }
 
 }  // namespace compute
