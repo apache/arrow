@@ -137,6 +137,63 @@ class GoogleBenchmarkObservation:
         return str(self.value)
 
 
+def add_unit_to_name(name, unit):
+    """ Disambiguate benchmark name by adding the benchmark unit.
+
+    Before:
+        "GreaterArrayArrayInt64/32768/10000"
+        "ArrayArrayKernel<Add, UInt64Type>/262144/0"
+    After:
+        "GreaterArrayArrayInt64Items/32768/10000"
+        "ArrayArrayKernelBytes<Add, UInt64Type>/262144/0"
+    """
+
+    parts = name.split("<", 1)
+    if len(parts) == 2:
+        return f"{parts[0]}{unit}<{parts[1]}"
+
+    parts = name.split("/", 1)
+    if len(parts) == 2:
+        return f"{parts[0]}{unit}/{parts[1]}"
+
+    return f"{name}{unit}"
+
+
+def extend_payload(payload):
+    """ GoogleBenchmarkObservation will currently only yield one of
+    bytes_per_second or items_per_second (even if both are present).
+
+    Yield both results by duplicating the google benchmark, and
+    disambiguating the benchmark names by adding the unit to them.
+
+    Also disambiguate results that only have one of bytes_per_second or
+    items_per_second, so that historic results (which may have been
+    saved) already have a disambiguated name should the benchmark start
+    to measure both bytes_per_second and items_per_second later.
+    """
+
+    extended = []
+    for x in payload:
+        name = x["name"]
+        if x.get("bytes_per_second") and x.get("items_per_second"):
+            bytes = x.copy()
+            del bytes["items_per_second"]
+            bytes["name"] = add_unit_to_name(name, "Bytes")
+            extended.append(bytes)
+
+            items = x.copy()
+            del items["bytes_per_second"]
+            items["name"] = add_unit_to_name(name, "Items")
+            extended.append(items)
+        else:
+            if x.get("bytes_per_second"):
+                x["name"] = add_unit_to_name(name, "Bytes")
+            elif x.get("items_per_second"):
+                x["name"] = add_unit_to_name(name, "Items")
+            extended.append(x)
+    return extended
+
+
 class GoogleBenchmark(Benchmark):
     """ A set of GoogleBenchmarkObservations. """
 
@@ -170,6 +227,7 @@ class GoogleBenchmark(Benchmark):
         def group_key(x):
             return x.name
 
-        benchmarks = map(lambda x: GoogleBenchmarkObservation(**x), payload)
+        extended = extend_payload(payload)
+        benchmarks = map(lambda x: GoogleBenchmarkObservation(**x), extended)
         groups = groupby(sorted(benchmarks, key=group_key), group_key)
         return [cls(k, list(bs)) for k, bs in groups]
