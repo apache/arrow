@@ -92,9 +92,8 @@ mod tests {
         let res = shift(&a, 1).unwrap();
 
         let b = res.as_any().downcast_ref::<Int32Array>().unwrap();
-        assert_eq!(a.len(), res.len());
-        assert_eq!(false, b.is_valid(0));
-        assert_eq!(4, b.value(1));
-        assert_eq!(false, b.is_valid(2));
+        let expected: Int32Array = vec![None, Some(1), None].into();
+
+        assert_eq!(b, &expected);
     }
 }
