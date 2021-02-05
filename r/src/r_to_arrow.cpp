@@ -67,6 +67,7 @@ enum RVectorType {
   DATE_DBL,
   TIME,
   POSIXCT,
+  POSIXLT,
   BINARY,
   LIST,
   FACTOR,
@@ -110,6 +111,10 @@ RVectorType GetVectorType(SEXP x) {
     case VECSXP: {
       if (Rf_inherits(x, "data.frame")) {
         return DATAFRAME;
+      }
+
+      if (Rf_inherits(x, "POSIXlt")) {
+        return POSIXLT;
       }
 
       if (Rf_inherits(x, "arrow_binary")) {
@@ -839,7 +844,8 @@ class RStructConverter : public StructConverter<RConverter, RConverterTrait> {
   Status Extend(SEXP x, int64_t size) override {
     // check that x is compatible
     R_xlen_t n_columns = XLENGTH(x);
-    if (!Rf_inherits(x, "data.frame")) {
+
+    if (!Rf_inherits(x, "data.frame") && !Rf_inherits(x, "POSIXlt")) {
       return Status::Invalid("Can only convert data frames to Struct type");
     }
 
