@@ -735,13 +735,16 @@ arrow::Status WriteBatch(liborc::ColumnVectorBatch* column_vector_batch,
           return WriteTimestampBatch<arrow::TimestampArray>(
               column_vector_batch, arrow_offset, orc_offset, length, array, incoming_mask,
               kOneSecondMicros, kOneMicroNanos);
-        default:
+        case arrow::TimeUnit::type::NANO:
           return WriteTimestampBatch<arrow::TimestampArray>(
               column_vector_batch, arrow_offset, orc_offset, length, array, incoming_mask,
               kOneSecondNanos, 1);
+        default:
+          return arrow::Status::Invalid("Unknown or unsupported Arrow type: ",
+                                        array.type()->ToString());
       }
     }
-    case arrow::Type::type::DECIMAL:
+    case arrow::Type::type::DECIMAL128:
       return WriteDecimalBatch(column_vector_batch, arrow_offset, orc_offset, length,
                                array, incoming_mask);
     case arrow::Type::type::STRUCT:
@@ -760,7 +763,8 @@ arrow::Status WriteBatch(liborc::ColumnVectorBatch* column_vector_batch,
       return WriteMapBatch(column_vector_batch, arrow_offset, orc_offset, length, array,
                            incoming_mask);
     default: {
-      return arrow::Status::Invalid("Unknown or unsupported Arrow type kind: ", kind);
+      return arrow::Status::Invalid("Unknown or unsupported Arrow type: ",
+                                    array.type()->ToString());
     }
   }
   return arrow::Status::OK();
@@ -895,7 +899,7 @@ Status GetArrowType(const liborc::Type* type, std::shared_ptr<DataType>* out) {
       break;
     }
     default: {
-      return Status::Invalid("Unknown Orc type kind: ", kind);
+      return Status::Invalid("Unknown Orc type kind: ", type->toString());
     }
   }
   return arrow::Status::OK();
@@ -1001,7 +1005,7 @@ Status GetORCType(const DataType& type, ORC_UNIQUE_PTR<liborc::Type>* out) {
       break;
     }
     default: {
-      return Status::Invalid("Unknown or unsupported Arrow type kind: ", kind);
+      return Status::Invalid("Unknown or unsupported Arrow type: ", type.ToString());
     }
   }
   return arrow::Status::OK();

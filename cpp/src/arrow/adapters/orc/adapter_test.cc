@@ -123,8 +123,8 @@ std::shared_ptr<Table> GenerateRandomTable(std::shared_ptr<Schema> schema, int64
   return Table::Make(schema, cv);
 }
 
-std::shared_ptr<DataType> ORCWriteReadTypeCast(
-    const std::shared_ptr<DataType> data_type) {
+Result<std::shared_ptr<DataType>> ORCWriteReadTypeCast(
+    const std::shared_ptr<DataType>& data_type) {
   switch (data_type->id()) {
     case Type::type::BOOL:
     case Type::type::INT8:
@@ -148,52 +148,58 @@ std::shared_ptr<DataType> ORCWriteReadTypeCast(
       return binary();
     case Type::type::LIST:
     case Type::type::LARGE_LIST:
-    case Type::type::FIXED_SIZE_LIST:
-      return list(data_type->field(0)->type());
-    case Type::type::MAP:
-      return map(data_type->field(0)->type(), data_type->field(1)->type());
-    case Type::type::STRUCT:
-      return struct_(data_type->fields());
+    case Type::type::FIXED_SIZE_LIST: {
+      Result<std::shared_ptr<DataType>> maybe_data_type =
+          ORCWriteReadTypeCast(data_type->field(0)->type());
+      if (maybe_data_type.ok()) {
+        return list(maybe_data_type.ValueOrDie());
+      } else {
+        return maybe_data_type.status();
+      }
+    }
+    case Type::type::MAP: {
+      Result<std::shared_ptr<DataType>> maybe_key_type = ORCWriteReadTypeCast(
+                                            data_type->field(0)->type()),
+                                        maybe_item_type = ORCWriteReadTypeCast(
+                                            data_type->field(1)->type());
+      if (!maybe_key_type.ok()) {
+        return maybe_key_type.status();
+      } else if (!maybe_item_type.ok()) {
+        return maybe_item_type.status();
+      } else {
+        return map(maybe_key_type.ValueOrDie(), maybe_item_type.ValueOrDie());
+      }
+    }
+    case Type::type::STRUCT: {
+      int num_fields = data_type->num_fields();
+      std::vector<std::shared_ptr<Field>> new_fields(num_fields, nullptr);
+      for (int i = 0; i < num_fields; i++) {
+        std::shared_ptr<Field> current_field = data_type->field(i);
+        Result<std::shared_ptr<DataType>> maybe_data_type =
+            ORCWriteReadTypeCast(current_field->type());
+        if (maybe_data_type.ok()) {
+          new_fields[i] = current_field->WithType(maybe_data_type.ValueOrDie());
+        } else {
+          return maybe_data_type.status();
+        }
+      }
+      return struct_(new_fields);
+    }
     default:
-      return nullptr;  // Unsupported
+      return Status::Invalid("Unknown or unsupported Arrow type kind");  // Unsupported
   }
 }
 
-Result<std::shared_ptr<Array>> ORCWriteReadArrayCast(const std::shared_ptr<Array> array) {
-  const std::shared_ptr<DataType> output_type = ORCWriteReadTypeCast(array->type());
-  if (output_type != nullptr) {
-    return compute::Cast(*array, output_type);
+Result<std::shared_ptr<Array>> ORCWriteReadArrayCast(
+    const std::shared_ptr<Array>& array) {
+  Result<std::shared_ptr<DataType>> maybe_output_type =
+      ORCWriteReadTypeCast(array->type());
+  if (maybe_output_type.ok()) {
+    return compute::Cast(*array, maybe_output_type.ValueOrDie());
   } else {
-    return Status::Invalid("Unknown or unsupported Arrow type kind");
+    return maybe_output_type.status();
   }
 }
-
-// Result<Table> ORCWriteReadTableCast(const Table& table) {
-//   int num_cols = table.num_columns();
-//   std::vector<int> num_chunks;
-//   std::vector<int64_t> current_size_chunks;
-//   ArrayMatrix output_arrays(num_cols, ArrayVector(0, NULLPTR));
-//   for (int i = 0; i < num_cols; i++) {
-//     std::shared_ptr<ChunkedArray> chunked_array = table.column(i);
-//     int current_num_chunks = chunked_array->num_chunks();
-//     output_arrays[i].resize(current_num_chunks);
-//     for (int j = 0; j < current_num_chunks; j++) {
-//       Result<std::shared_ptr<Array>> maybe_array =
-//           ORCWriteReadArrayCast(chunked_array->chunk(j));
-//       if (!maybe_array.ok()) {
-//         return Status::Invalid("Unknown or unsupported Arrow type kind");
-//       } else {
-//         output_arrays[i][j] = maybe_array.ValueOrDie();
-//       }
-//     }
-//   }
-//   ChunkedArrayVector cv;
-//   cv.reserve(num_cols);
-//   for (int col = 0; col < num_cols; col++) {
-//     cv.push_back(std::make_shared<ChunkedArray>(output_arrays[col]));
-//   }
-//   return Result<Table>(*Table::Make(table.schema(), cv));
-// }
 
 void AssertTableWriteReadEqual(const std::shared_ptr<Table>& input_table,
                                const std::shared_ptr<Table>& expected_output_table,
