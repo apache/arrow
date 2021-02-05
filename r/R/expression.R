@@ -110,7 +110,10 @@ cast_array_expression <- function(x, to_type, safe = TRUE, ...) {
 .unary_function_map <- list(
   "!" = "invert",
   "is.na" = "is_null",
-  "is.nan" = "is_nan"
+  "is.nan" = "is_nan",
+  "nchar" = "binary_length",
+  "tolower" = "utf8_lower",
+  "toupper" = "utf8_upper"
 )
 
 .binary_function_map <- list(

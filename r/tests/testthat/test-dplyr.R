@@ -256,6 +256,15 @@ test_that("filter() with %in%", {
   )
 })
 
+test_that("filter() with string ops", {
+  expect_dplyr_equal(
+    input %>%
+      filter(dbl > 2, toupper(chr) %in% c("D", "F")) %>%
+      collect(),
+    tbl
+  )
+})
+
 test_that("filter environment scope", {
   # "object 'b_var' not found"
   expect_dplyr_error(input %>% filter(batch, chr == b_var))
