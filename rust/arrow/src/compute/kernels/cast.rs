@@ -305,7 +305,7 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
                     "cannot cast list to large-list with different child data".into(),
                 ))
             } else {
-                cast_list_container::<i32, i64>(array)
+                cast_list_container::<i32, i64>(&**array)
             }
         }
         (LargeList(list_from), List(list_to)) => {
@@ -314,7 +314,7 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
                     "cannot cast large-list to list with different child data".into(),
                 ))
             } else {
-                cast_list_container::<i64, i32>(array)
+                cast_list_container::<i64, i32>(&**array)
             }
         }
         (List(_), _) => Err(ArrowError::ComputeError(
@@ -1265,7 +1265,9 @@ where
 
 /// Cast the container type of List/Largelist array but not the inner types.
 /// This function can leave the value data intact and only has to cast the offset dtypes.
-fn cast_list_container<OffsetSizeFrom, OffsetSizeTo>(array: &ArrayRef) -> Result<ArrayRef>
+fn cast_list_container<OffsetSizeFrom, OffsetSizeTo>(
+    array: &dyn Array,
+) -> Result<ArrayRef>
 where
     OffsetSizeFrom: OffsetSizeTrait + ToPrimitive,
     OffsetSizeTo: OffsetSizeTrait + NumCast,
@@ -1306,10 +1308,7 @@ where
         _ => unreachable!(),
     };
 
-    // the offsets
-    // SAFETY
-    //      We asserted the correct size of OffsetSizeFrom above.
-    let offsets = unsafe { data.buffers()[0].typed_data::<OffsetSizeFrom>() };
+    let offsets = data.buffer::<OffsetSizeFrom>(0);
 
     let iter = offsets.iter().map(|idx| {
         let idx: OffsetSizeTo = NumCast::from(*idx).unwrap();
