@@ -694,7 +694,7 @@ class RPrimitiveConverter<T, enable_if_string_like<T>>
     int64_t start = 0;
     RVectorType rtype = GetVectorType(x);
     if (rtype != STRING) {
-      return Status::Invalid("invalid R type to convert to string");
+      return Status::Invalid("Expecting a character vector");
     }
 
     cpp11::strings s(arrow::r::utf8_strings(x));
