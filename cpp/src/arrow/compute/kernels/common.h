@@ -51,16 +51,4 @@ namespace arrow {
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 
-namespace compute {
-namespace detail {
-
-/// \brief Look up a kernel in a function. If no Kernel is found, nullptr is returned.
-ARROW_EXPORT
-const Kernel* DispatchExactImpl(const Function* func, const std::vector<ValueDescr>&);
-
-ARROW_EXPORT
-Status NoMatchingKernel(const Function* func, const std::vector<ValueDescr>&);
-
-}  // namespace detail
-}  // namespace compute
 }  // namespace arrow

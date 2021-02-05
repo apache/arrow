@@ -155,5 +155,17 @@ Result<Datum> Cast(const Datum& value, std::shared_ptr<DataType> to_type,
                    const CastOptions& options = CastOptions::Safe(),
                    ExecContext* ctx = NULLPTR);
 
+/// \brief Cast several values simultaneously. Safe cast options are used.
+/// \param[in] values datums to cast
+/// \param[in] descrs ValueDescrs to cast to
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datums
+///
+/// \since 1.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<std::vector<Datum>> Cast(std::vector<Datum> values, std::vector<ValueDescr> descrs,
+                                ExecContext* ctx = NULLPTR);
+
 }  // namespace compute
 }  // namespace arrow

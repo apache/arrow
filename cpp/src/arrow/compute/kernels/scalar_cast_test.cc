@@ -468,13 +468,11 @@ TEST_F(TestCast, CanCast) {
   ExpectCannotCast(fixed_size_binary(3),
                    {fixed_size_binary(3)});  // FIXME missing identity cast
 
-  auto smallint = std::make_shared<SmallintType>();
-  ASSERT_OK(RegisterExtensionType(smallint));
-  ExpectCanCast(smallint, {int16()});  // cast storage
-  ExpectCanCast(smallint,
+  ExtensionTypeGuard smallint_guard(smallint());
+  ExpectCanCast(smallint(), {int16()});  // cast storage
+  ExpectCanCast(smallint(),
                 kNumericTypes);  // any cast which is valid for storage is supported
-  ExpectCannotCast(null(), {smallint});  // FIXME missing common cast from null
-  ASSERT_OK(UnregisterExtensionType("smallint"));
+  ExpectCannotCast(null(), {smallint()});  // FIXME missing common cast from null
 }
 
 TEST_F(TestCast, SameTypeZeroCopy) {
@@ -1929,7 +1927,7 @@ std::shared_ptr<Array> SmallintArrayFromJSON(const std::string& json_data) {
 
 TEST_F(TestCast, ExtensionTypeToIntDowncast) {
   auto smallint = std::make_shared<SmallintType>();
-  ASSERT_OK(RegisterExtensionType(smallint));
+  ExtensionTypeGuard smallint_guard(smallint);
 
   CastOptions options;
   options.allow_int_overflow = false;
@@ -1965,8 +1963,6 @@ TEST_F(TestCast, ExtensionTypeToIntDowncast) {
   // disallow overflow
   options.allow_int_overflow = false;
   ASSERT_RAISES(Invalid, Cast(*v3, uint8(), options));
-
-  ASSERT_OK(UnregisterExtensionType("smallint"));
 }
 
 }  // namespace compute

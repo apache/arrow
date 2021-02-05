@@ -225,5 +225,21 @@ bool CanCast(const DataType& from_type, const DataType& to_type) {
   return false;
 }
 
+Result<std::vector<Datum>> Cast(std::vector<Datum> datums, std::vector<ValueDescr> descrs,
+                                ExecContext* ctx) {
+  for (size_t i = 0; i != datums.size(); ++i) {
+    if (descrs[i] != datums[i].descr()) {
+      if (descrs[i].shape != datums[i].shape()) {
+        return Status::NotImplemented("casting between Datum shapes");
+      }
+
+      ARROW_ASSIGN_OR_RAISE(datums[i],
+                            Cast(datums[i], CastOptions::Safe(descrs[i].type), ctx));
+    }
+  }
+
+  return datums;
+}
+
 }  // namespace compute
 }  // namespace arrow

@@ -105,6 +105,10 @@ struct Comparison {
     return less.scalar_as<BooleanScalar>().value ? LESS : GREATER;
   }
 
+  // Given an Expression wrapped in casts which preserve ordering
+  // (for example, cast(field_ref("i16"), to_type=int32())), unwrap the inner Expression.
+  // This is used to destructure implicitly cast field_refs during Expression
+  // simplification.
   static const Expression& StripOrderPreservingCasts(const Expression& expr) {
     auto call = expr.call();
     if (!call) return expr;

@@ -511,12 +511,10 @@ TEST(TestCompareKernel, GreaterWithImplicitCasts) {
                     ArrayFromJSON(date64(), "[86400000, 0, 86400000]"),
                     ArrayFromJSON(boolean(), "[false, true, false]"));
 
-  // Not currently implemented since it would invoke a double implicit cast:
-  // dictionary(int32, int8) -> int8 -> int32
-  //  CheckScalarBinary("greater",
-  //                    ArrayFromJSON(dictionary(int32(), int8()), "[0, 1, 2, null]"),
-  //                    ArrayFromJSON(uint32(), "[3, 4, 5, 7]"),
-  //                    ArrayFromJSON(boolean(), "[false, false, false, null]"));
+  CheckScalarBinary("greater",
+                    ArrayFromJSON(dictionary(int32(), int8()), "[0, 1, 2, null]"),
+                    ArrayFromJSON(uint32(), "[3, 4, 5, 7]"),
+                    ArrayFromJSON(boolean(), "[false, false, false, null]"));
 }
 
 class TestStringCompareKernel : public ::testing::Test {};

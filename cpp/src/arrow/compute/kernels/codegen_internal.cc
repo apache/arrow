@@ -215,6 +215,10 @@ std::shared_ptr<DataType> CommonNumeric(const std::vector<ValueDescr>& descrs) {
       // a common numeric type is only possible if all types are numeric
       return nullptr;
     }
+    if (id == Type::HALF_FLOAT) {
+      // float16 arithmetic is not currently supported
+      return nullptr;
+    }
   }
   for (const auto& descr : descrs) {
     if (descr.type->id() == Type::DOUBLE) return float64();

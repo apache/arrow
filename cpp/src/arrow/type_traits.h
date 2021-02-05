@@ -963,6 +963,12 @@ static inline int bit_width(Type::type type_id) {
       return 32;
     case Type::INTERVAL_DAY_TIME:
       return 64;
+
+    case Type::DECIMAL128:
+      return 128;
+    case Type::DECIMAL256:
+      return 256;
+
     default:
       break;
   }

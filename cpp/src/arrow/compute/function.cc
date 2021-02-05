@@ -145,31 +145,19 @@ Result<const Kernel*> Function::DispatchExact(
 }
 
 Result<const Kernel*> Function::DispatchBest(std::vector<ValueDescr>* values) const {
-  if (kind_ == Function::META) {
-    return Status::NotImplemented("Dispatch for a MetaFunction's Kernels");
-  }
-  RETURN_NOT_OK(CheckArity(*values));
-
-  // first try for an exact match
-  if (auto kernel = detail::DispatchExactImpl(this, *values)) {
-    return kernel;
-  }
-
-  // XXX permit generic conversions here, for example dict -> decoded, null -> any?
+  // TODO(ARROW-11508) permit generic conversions here
   return DispatchExact(*values);
 }
 
-Result<Datum> Function::Execute(const std::vector<Datum>& original_args,
+Result<Datum> Function::Execute(const std::vector<Datum>& args,
                                 const FunctionOptions* options, ExecContext* ctx) const {
   if (options == nullptr) {
     options = default_options();
   }
   if (ctx == nullptr) {
     ExecContext default_ctx;
-    return Execute(original_args, options, &default_ctx);
+    return Execute(args, options, &default_ctx);
   }
-  // make a local copy to accommodate implicit casts
-  auto args = original_args;
 
   // type-check Datum arguments here. Really we'd like to avoid this as much as
   // possible
@@ -180,16 +168,7 @@ Result<Datum> Function::Execute(const std::vector<Datum>& original_args,
   }
 
   ARROW_ASSIGN_OR_RAISE(auto kernel, DispatchBest(&inputs));
-  for (size_t i = 0; i != args.size(); ++i) {
-    if (inputs[i] != args[i].descr()) {
-      if (inputs[i].shape != args[i].shape()) {
-        return Status::NotImplemented(
-            "Automatic broadcasting of scalars to arrays for function ", name());
-      }
-
-      ARROW_ASSIGN_OR_RAISE(args[i], Cast(args[i], inputs[i].type));
-    }
-  }
+  ARROW_ASSIGN_OR_RAISE(auto implicitly_cast_args, Cast(args, inputs, ctx));
 
   std::unique_ptr<KernelState> state;
 
@@ -211,8 +190,8 @@ Result<Datum> Function::Execute(const std::vector<Datum>& original_args,
   RETURN_NOT_OK(executor->Init(&kernel_ctx, {kernel, inputs, options}));
 
   auto listener = std::make_shared<detail::DatumAccumulator>();
-  RETURN_NOT_OK(executor->Execute(args, listener.get()));
-  return executor->WrapResults(args, listener->values());
+  RETURN_NOT_OK(executor->Execute(implicitly_cast_args, listener.get()));
+  return executor->WrapResults(implicitly_cast_args, listener->values());
 }
 
 Status Function::Validate() const {

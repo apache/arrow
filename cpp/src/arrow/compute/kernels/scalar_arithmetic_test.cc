@@ -674,20 +674,18 @@ TEST(TestBinaryArithmetic, AddWithImplicitCasts) {
                     ArrayFromJSON(uint32(), "[3, 4, 5, 7]"),
                     ArrayFromJSON(int32(), "[-13, 4, 21, null]"));
 
-  CheckScalarBinary("add", ArrayFromJSON(dictionary(int32(), int32()), "[0, 1, 2, null]"),
-                    ArrayFromJSON(uint32(), "[3, 4, 5, 7]"),
-                    ArrayFromJSON(int32(), "[3, 5, 7, null]"));
+  CheckScalarBinary("add",
+                    ArrayFromJSON(dictionary(int32(), int32()), "[8, 6, 3, null, 2]"),
+                    ArrayFromJSON(uint32(), "[3, 4, 5, 7, 0]"),
+                    ArrayFromJSON(int32(), "[11, 10, 8, null, 2]"));
 
   CheckScalarBinary("add", ArrayFromJSON(int32(), "[0, 1, 2, null]"),
                     std::make_shared<NullArray>(4),
                     ArrayFromJSON(int32(), "[null, null, null, null]"));
 
-  // Not currently implemented since it would invoke a double implicit cast:
-  // dictionary(int32, int8) -> int8 -> int32
-  //  CheckScalarBinary("add", ArrayFromJSON(dictionary(int32(), int8()), "[0, 1, 2,
-  //  null]"),
-  //                    ArrayFromJSON(uint32(), "[3, 4, 5, 7]"),
-  //                    ArrayFromJSON(int32(), "[3, 5, 7, null]"));
+  CheckScalarBinary("add", ArrayFromJSON(dictionary(int32(), int8()), "[0, 1, 2, null]"),
+                    ArrayFromJSON(uint32(), "[3, 4, 5, 7]"),
+                    ArrayFromJSON(int32(), "[3, 5, 7, null]"));
 }
 
 }  // namespace compute

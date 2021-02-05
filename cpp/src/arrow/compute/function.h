@@ -233,6 +233,14 @@ class FunctionImpl : public Function {
   std::vector<KernelType> kernels_;
 };
 
+/// \brief Look up a kernel in a function. If no Kernel is found, nullptr is returned.
+ARROW_EXPORT
+const Kernel* DispatchExactImpl(const Function* func, const std::vector<ValueDescr>&);
+
+/// \brief Return an error message if no Kernel is found.
+ARROW_EXPORT
+Status NoMatchingKernel(const Function* func, const std::vector<ValueDescr>&);
+
 }  // namespace detail
 
 /// \brief A function that executes elementwise operations on arrays or
