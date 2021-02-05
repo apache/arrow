@@ -434,7 +434,7 @@ class RPrimitiveConverter<T, enable_if_t<is_boolean_type<T>::value>>
   Status Extend(SEXP x, int64_t size) override {
     auto rtype = GetVectorType(x);
     if (rtype != BOOLEAN) {
-      return Status::Invalid("cannot convert");
+      return Status::Invalid("Expecting a logical vector");
     }
     RETURN_NOT_OK(this->Reserve(size));
 
@@ -850,6 +850,13 @@ class RStructConverter : public StructConverter<RConverter, RConverterTrait> {
         return Status::RError(
             "Field name in position ", i, " (", fields[i]->name(),
             ") does not match the name of the column of the data frame (", name, ")");
+      }
+    }
+
+    for (R_xlen_t i = 0; i < n_columns; i++) {
+      SEXP x_i = VECTOR_ELT(x, i);
+      if (vctrs::short_vec_size(x_i) < size) {
+        return Status::RError("Degenerated data frame");
       }
     }
 
