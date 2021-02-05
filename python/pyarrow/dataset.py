@@ -19,10 +19,9 @@
 
 import pyarrow as pa
 from pyarrow.util import _stringify_path, _is_path_like
-
 from pyarrow._dataset import (  # noqa
-    CsvFileFormat,
     RadosParquetFileFormat,
+    CsvFileFormat,
     Expression,
     Dataset,
     DatasetFactory,
@@ -53,13 +52,6 @@ from pyarrow._dataset import (  # noqa
     _get_partition_keys,
     _filesystemdataset_write,
 )
-
-
-try:
-    import pyarrow.rados as rados
-    from pyarrow._rados import RadosDataset
-except ImportError:
-    rados = None
 
 
 def field(name):
@@ -229,8 +221,6 @@ def _ensure_format(obj):
         return IpcFileFormat()
     elif obj == "csv":
         return CsvFileFormat()
-    elif obj == "rados-parquet":
-        return RadosParquetFileFormat()
     else:
         raise ValueError("format '{}' is not supported".format(obj))
 
@@ -405,31 +395,6 @@ def _union_dataset(children, schema=None, **kwargs):
     children = [child.replace_schema(schema) for child in children]
 
     return UnionDataset(schema, children)
-
-
-def _is_rados(source):
-    if isinstance(source, (list, tuple)):
-        if len(source) <= 0:
-            return False
-        source = source[0]
-    if isinstance(source, str):
-        if rados and rados.is_valid_rados_uri(source):
-            return True
-    return False
-
-
-def _rados_dataset(source, schema=None, filesystem=None,
-                   partitioning=None, format=None,
-                   partition_base_dir=None, exclude_invalid_files=None,
-                   selector_ignore_prefixes=None):
-    if not rados:
-        raise ImportError(
-            "The pyarrow installation is not built with support for rados."
-        )
-    if isinstance(source, (list, tuple)):
-        source = source[0]
-    rados_factory_options = rados.parse_uri(source)
-    return RadosDataset(rados_factory_options)
 
 
 def parquet_dataset(metadata_path, schema=None, filesystem=None, format=None,
@@ -644,8 +609,6 @@ def dataset(source, schema=None, format=None, filesystem=None,
     )
 
     # TODO(kszucs): support InMemoryDataset for a table input
-    if _is_rados(source):
-        return _rados_dataset(source, **kwargs)
     if _is_path_like(source):
         return _filesystem_dataset(source, **kwargs)
     elif isinstance(source, (tuple, list)):

@@ -20,35 +20,34 @@
 
 #pragma once
 
-#include <memory>
-#include <string>
 #include <functional>
+#include <memory>
 #include <sstream>
+#include <string>
 #include <utility>
 #include <vector>
 
+#include <cephfs/ceph_ll_client.h>
+#include <cephfs/libcephfs.h>
 #include "arrow/api.h"
-#include "arrow/filesystem/api.h"
-#include "arrow/filesystem/path_util.h"
-#include "arrow/filesystem/util_internal.h"
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/discovery.h"
 #include "arrow/dataset/file_base.h"
-#include "arrow/dataset/type_fwd.h"
-#include "arrow/dataset/visibility.h"
 #include "arrow/dataset/rados.h"
 #include "arrow/dataset/rados_utils.h"
 #include "arrow/dataset/scanner.h"
+#include "arrow/dataset/type_fwd.h"
+#include "arrow/dataset/visibility.h"
+#include "arrow/filesystem/api.h"
+#include "arrow/filesystem/path_util.h"
 #include "arrow/util/iterator.h"
-#include <cephfs/ceph_ll_client.h>
-#include <cephfs/libcephfs.h>
 
 namespace arrow {
 namespace dataset {
 
 class ARROW_DS_EXPORT RadosCluster {
  public:
-  RadosCluster(std::string conf_path)
+  explicit RadosCluster(std::string conf_path)
       : pool_name("cephfs_data"),
         user_name("client.admin"),
         cluster_name("ceph"),
@@ -145,11 +144,14 @@ class ARROW_DS_EXPORT DirectObjectAccess {
 };
 
 class ARROW_DS_EXPORT RadosParquetFileFormat : public FileFormat {
- public:  
-  static Result<std::shared_ptr<RadosParquetFileFormat>> Make(const std::string& path_to_config);
+ public:
+  static Result<std::shared_ptr<RadosParquetFileFormat>> Make(
+      const std::string& path_to_config);
+
+  explicit RadosParquetFileFormat(const std::string& path_to_config);
 
   explicit RadosParquetFileFormat(std::shared_ptr<DirectObjectAccess> doa)
-    : doa_(std::move(doa)) {}
+      : doa_(std::move(doa)) {}
 
   std::string type_name() const override { return "rados-parquet"; }
 
@@ -173,8 +175,8 @@ class ARROW_DS_EXPORT RadosParquetFileFormat : public FileFormat {
 
   std::shared_ptr<FileWriteOptions> DefaultWriteOptions() override { return NULLPTR; }
 
-  protected:
-    std::shared_ptr<DirectObjectAccess> doa_; 
+ protected:
+  std::shared_ptr<DirectObjectAccess> doa_;
 };
 
 }  // namespace dataset

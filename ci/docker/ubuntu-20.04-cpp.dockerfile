@@ -95,6 +95,7 @@ RUN apt-get update -y -q && \
         protobuf-compiler \
         rapidjson-dev \
         tzdata \
+        unzip \
         wget && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*

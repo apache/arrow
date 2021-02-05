@@ -25,41 +25,11 @@ from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_dataset cimport *
 from pyarrow.lib cimport _Weakrefable
 
-cdef extern from "arrow/dataset/dataset_rados.h" \
-        namespace "arrow::dataset" nogil:
-    cdef cppclass CRadosDatasetFactoryOptions \
-            "arrow::dataset::RadosDatasetFactoryOptions":
-        vector[c_string] objects_
-        c_string pool_name_
-        c_string user_name_
-        c_string cluster_name_
-        c_string ceph_config_path_
-        uint64_t flags_
-        c_string cls_name_
-
-    cdef cppclass CRadosDataset \
-            "arrow::dataset::RadosDataset"(CDataset):
+cdef extern from "arrow/dataset/file_parquet_rados.h" namespace "arrow::dataset" nogil:
+    cdef cppclass CRadosParquetFileFormat "arrow::dataset::RadosParquetFileFormat"(
+            CFileFormat):
         @staticmethod
-        CResult[shared_ptr[CDataset]] Make "Make"(
-            CRadosDatasetFactoryOptions factory_option
+        CResult[shared_ptr[CRadosParquetFileFormat]] Make "Make"(
+            c_string path_to_config
         )
-
-        @staticmethod
-        CStatus Write "Write"(
-            vector[shared_ptr[CRecordBatch]] batches,
-            CRadosDatasetFactoryOptions factory_option,
-            c_string object_id
-        )
-
-cdef class RadosDatasetFactoryOptions(_Weakrefable):
-    cdef:
-        CRadosDatasetFactoryOptions rados_factory_options
-
-    cdef inline CRadosDatasetFactoryOptions unwrap(self):
-        return self.rados_factory_options
-
-cdef class RadosDataset(Dataset):
-    cdef:
-        CRadosDataset* rados_dataset
-
-    cdef void init(self, const shared_ptr[CDataset]& sp)
+        CRadosParquetFileFormat(c_string path_to_config)

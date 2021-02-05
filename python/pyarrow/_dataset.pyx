@@ -30,6 +30,7 @@ from pyarrow.lib import frombytes, tobytes
 from pyarrow.includes.libarrow_dataset cimport *
 from pyarrow._fs cimport FileSystem, FileInfo, FileSelector
 from pyarrow._csv cimport ParseOptions
+from pyarrow._rados import RadosParquetFileFormat
 from pyarrow.util import _is_path_like, _stringify_path
 
 from pyarrow._parquet cimport (
@@ -604,10 +605,6 @@ cdef class FileWriteOptions(_Weakrefable):
 
 cdef class FileFormat(_Weakrefable):
 
-    cdef:
-        shared_ptr[CFileFormat] wrapped
-        CFileFormat* format
-
     def __init__(self):
         _forbid_instantiation(self.__class__)
 
@@ -634,7 +631,7 @@ cdef class FileFormat(_Weakrefable):
         self.init(sp)
         return self
 
-    cdef inline shared_ptr[CFileFormat] unwrap(self):
+    cdef inline shared_ptr[CFileFormat] unwrap(self) nogil: 
         return self.wrapped
 
     def inspect(self, file, filesystem=None):
@@ -1299,19 +1296,6 @@ cdef class IpcFileFormat(FileFormat):
 
     def __reduce__(self):
         return IpcFileFormat, tuple()
-
-
-cdef class RadosParquetFileFormat(FileFormat):
-    cdef:
-        CRadosParquetFileFormat* rados_parquet_format
-
-    def __init__(self, path_to_config):
-        self.init(shared_ptr[CFileFormat]GetResultValue(CRadosParquetFileFormat.Make(path_to_config)))
-
-    cdef void init(self, const shared_ptr[CFileFormat]& sp):
-        FileFormat.init(self, sp)
-        self.rados_parquet_format = <CRadosParquetFileFormat*> sp.get()
-
 
 cdef class CsvFileFormat(FileFormat):
     cdef:

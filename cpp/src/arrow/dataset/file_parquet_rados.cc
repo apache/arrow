@@ -19,12 +19,14 @@
 #include "arrow/api.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/expression.h"
+#include "arrow/dataset/file_base.h"
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/path_util.h"
-#include "arrow/dataset/file_base.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/checked_cast.h"
+#include "arrow/filesystem/util_internal.h"
+
 
 namespace arrow {
 namespace dataset {
@@ -32,8 +34,7 @@ namespace dataset {
 class RadosParquetScanTask : public ScanTask {
  public:
   RadosParquetScanTask(std::shared_ptr<ScanOptions> options,
-                       std::shared_ptr<ScanContext> context,
-                       FileSource source,
+                       std::shared_ptr<ScanContext> context, FileSource source,
                        std::shared_ptr<DirectObjectAccess> doa)
       : ScanTask(std::move(options), std::move(context)),
         source_(std::move(source)),
@@ -47,16 +48,23 @@ class RadosParquetScanTask : public ScanTask {
         options_->filter, options_->partition_expression, options_->projector.schema(),
         options_->dataset_schema, in));
 
-    auto path = fs::internal::RemoveAncestor("/mnt/cephfs/", source_.path()).value().to_string();
+    auto path =
+        fs::internal::RemoveAncestor("/mnt/cephfs/", source_.path()).value().to_string();
 
     Status s = doa_->Exec(path, "scan", in, out);
     if (!s.ok()) {
       return Status::ExecutionError(s.message());
     }
+
+    char *scanned_table_buffer = new char[out->length()];
+    librados::bufferlist::iterator itr = out->begin();
+    itr.copy(out->length(), scanned_table_buffer);
+
     RecordBatchVector batches;
-    auto buffer = std::make_shared<Buffer>((uint8_t*)out->c_str(), out->length());
+    auto buffer = std::make_shared<Buffer>((uint8_t*)scanned_table_buffer, out->length());
     auto buffer_reader = std::make_shared<io::BufferReader>(buffer);
-    ARROW_ASSIGN_OR_RAISE(auto rb_reader, arrow::ipc::RecordBatchStreamReader::Open(buffer_reader));
+    ARROW_ASSIGN_OR_RAISE(auto rb_reader,
+                          arrow::ipc::RecordBatchStreamReader::Open(buffer_reader));
     rb_reader->ReadAll(&batches);
     return MakeVectorIterator(batches);
   }
@@ -70,29 +78,35 @@ Result<bool> RadosParquetFileFormat::IsSupported(const FileSource& source) const
   return true;
 }
 
-bool RadosParquetFileFormat::Equals(const FileFormat& other) const {
-  return true;
-};
+bool RadosParquetFileFormat::Equals(const FileFormat& other) const { return true; }
 
-Result<std::shared_ptr<RadosParquetFileFormat>> RadosParquetFileFormat::Make(const std::string& path_to_config) {
+Result<std::shared_ptr<RadosParquetFileFormat>> RadosParquetFileFormat::Make(
+    const std::string& path_to_config) {
   auto cluster = std::make_shared<RadosCluster>(path_to_config);
-  RETURN_NOT_OK(cluster->Connect());  
+  RETURN_NOT_OK(cluster->Connect());
   auto doa = std::make_shared<arrow::dataset::DirectObjectAccess>();
   RETURN_NOT_OK(doa->Init(cluster));
   return std::make_shared<RadosParquetFileFormat>(doa);
 }
 
-Result<std::shared_ptr<Schema>> RadosParquetFileFormat::Inspect(const FileSource& source) const {
-  std::shared_ptr<librados::bufferlist> in = 
-    std::make_shared<librados::bufferlist>();
-  std::shared_ptr<librados::bufferlist> out = 
-    std::make_shared<librados::bufferlist>();
+RadosParquetFileFormat::RadosParquetFileFormat(const std::string& path_to_config) {
+  auto cluster = std::make_shared<RadosCluster>(path_to_config);
+  cluster->Connect();
+  auto doa = std::make_shared<arrow::dataset::DirectObjectAccess>();
+  doa->Init(cluster);
+  doa_ = doa;
+}
 
-  auto path = fs::internal::RemoveAncestor("/mnt/cephfs/", source.path()).value().to_string();
+Result<std::shared_ptr<Schema>> RadosParquetFileFormat::Inspect(
+    const FileSource& source) const {
+  std::shared_ptr<librados::bufferlist> in = std::make_shared<librados::bufferlist>();
+  std::shared_ptr<librados::bufferlist> out = std::make_shared<librados::bufferlist>();
+
+  auto path =
+      fs::internal::RemoveAncestor("/mnt/cephfs/", source.path()).value().to_string();
 
   Status s = doa_->Exec(path, "read_schema", in, out);
-  if (!s.ok()) 
-    return Status::ExecutionError(s.message());
+  if (!s.ok()) return Status::ExecutionError(s.message());
 
   std::vector<std::shared_ptr<Schema>> schemas;
   ipc::DictionaryMemo empty_memo;
@@ -101,9 +115,9 @@ Result<std::shared_ptr<Schema>> RadosParquetFileFormat::Inspect(const FileSource
   return schema;
 }
 
-Result<ScanTaskIterator> RadosParquetFileFormat::ScanFile(std::shared_ptr<ScanOptions> options,
-                                                          std::shared_ptr<ScanContext> context,
-                                                          FileFragment* file) const {
+Result<ScanTaskIterator> RadosParquetFileFormat::ScanFile(
+    std::shared_ptr<ScanOptions> options, std::shared_ptr<ScanContext> context,
+    FileFragment* file) const {
   options->partition_expression = file->partition_expression();
   ARROW_ASSIGN_OR_RAISE(options->dataset_schema, file->ReadPhysicalSchema());
 
@@ -112,5 +126,5 @@ Result<ScanTaskIterator> RadosParquetFileFormat::ScanFile(std::shared_ptr<ScanOp
   return MakeVectorIterator(v);
 }
 
-} /// namespace dataset
-} /// namespace arrow
+}  // namespace dataset
+}  // namespace arrow

@@ -55,3 +55,19 @@ cdef class Dataset(_Weakrefable):
     cdef wrap(const shared_ptr[CDataset]& sp)
 
     cdef shared_ptr[CDataset] unwrap(self) nogil
+
+
+
+cdef class FileFormat(_Weakrefable):
+
+    cdef:
+        shared_ptr[CFileFormat] wrapped
+        CFileFormat* format
+
+    cdef void init(self, const shared_ptr[CFileFormat]& sp)
+     
+    @staticmethod
+    cdef wrap(const shared_ptr[CFileFormat]& sp)
+
+    cdef inline shared_ptr[CFileFormat] unwrap(self) nogil
+

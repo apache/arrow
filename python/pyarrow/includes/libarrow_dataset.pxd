@@ -264,13 +264,6 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             CFileFormat):
         CCSVParseOptions parse_options
 
-    cdef cppclass CRadosParquetFileFormat "arrow::dataset::RadosParquetFileFormat"(
-            CFileFormat):
-        @staticmethod
-        CResult[shared_ptr[CRadosParquetFileFormat]] Make "Make"(
-            c_string path_to_config
-        )
-
     cdef cppclass CPartitioning "arrow::dataset::Partitioning":
         c_string type_name() const
         CResult[CExpression] Parse(const c_string & path) const

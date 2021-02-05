@@ -17,98 +17,17 @@
 
 # cython: language_level = 3
 
-from pyarrow._dataset cimport Dataset
+from pyarrow._dataset cimport FileFormat
 from pyarrow.lib cimport *
 from pyarrow.lib import frombytes, tobytes
-from pyarrow.includes.libarrow_dataset cimport *
-from pyarrow.lib cimport _Weakrefable
 
-cdef class RadosDatasetFactoryOptions(_Weakrefable):
-    __slots__ = ()
-
-    def __init__(self,
-                 pool_name='test-pool',
-                 ceph_config_path='/etc/ceph/ceph.conf',
-                 objects=[],
-                 user_name='client.admin',
-                 cluster_name='ceph',
-                 flags=0,
-                 cls_name='arrow'):
-        self.rados_factory_options.pool_name_ = tobytes(pool_name)
-        self.rados_factory_options.ceph_config_path_ = tobytes(
-            ceph_config_path)
-        self.rados_factory_options.objects_ = [tobytes(s) for s in objects]
-        self.rados_factory_options.user_name_ = tobytes(user_name)
-        self.rados_factory_options.cluster_name_ = tobytes(cluster_name)
-        self.rados_factory_options.flags_ = flags
-        self.rados_factory_options.cls_name_ = tobytes(cls_name)
-
-    @property
-    def ceph_config_path(self):
-        return frombytes(self.rados_factory_options.ceph_config_path_)
-
-    @property
-    def objects(self):
-        return [
-            frombytes(path) for path in self.rados_factory_options.objects_
-        ]
-
-    @property
-    def pool_name(self):
-        return frombytes(self.rados_factory_options.pool_name_)
-
-    @property
-    def user_name(self):
-        return frombytes(self.rados_factory_options.user_name_)
-
-    @property
-    def cluster_name(self):
-        return frombytes(self.rados_factory_options.cluster_name_)
-
-    @property
-    def flags(self):
-        return self.rados_factory_options.flags_
-
-    @property
-    def cls_name(self):
-        return frombytes(self.rados_factory_options.cls_name_)
-
-
-cdef class RadosDataset(Dataset):
-    def __init__(self, RadosDatasetFactoryOptions rados_factory_options=None):
-        cdef:
-            CRadosDatasetFactoryOptions c_rados_factory_options
-
-        if rados_factory_options is None:
-            rados_factory_options = RadosDatasetFactoryOptions()
-
-        c_rados_factory_options = rados_factory_options.unwrap()
-
-        self.init(GetResultValue(CRadosDataset.Make(c_rados_factory_options)))
-
-    cdef void init(self, const shared_ptr[CDataset]& sp):
-        Dataset.init(self, sp)
-        self.rados_dataset = <CRadosDataset*> sp.get()
-
-
-def _write_to_dataset(batches, object_id,
-                      RadosDatasetFactoryOptions rados_factory_options=None):
+cdef class RadosParquetFileFormat(FileFormat):
     cdef:
-        vector[shared_ptr[CRecordBatch]] cbatches
-        CRadosDatasetFactoryOptions c_rados_factory_options
-        c_string id
+        CRadosParquetFileFormat* rados_parquet_format
 
-    if rados_factory_options is None:
-        rados_factory_options = RadosDatasetFactoryOptions()
-    c_rados_factory_options = rados_factory_options.unwrap()
+    def __init__(self, path_to_config):
+        self.init(shared_ptr[CFileFormat](new CRadosParquetFileFormat(path_to_config)))
 
-    nbatches = len(batches)
-    cbatches.resize(nbatches)
-    for i in range(nbatches):
-        cbatches[i] = pyarrow_unwrap_batch(batches[i])
-
-    id = tobytes(object_id)
-
-    with nogil:
-        check_status(CRadosDataset.Write(
-            cbatches, c_rados_factory_options, id))
+    cdef void init(self, const shared_ptr[CFileFormat]& sp):
+        FileFormat.init(self, sp)
+        self.rados_parquet_format = <CRadosParquetFileFormat*> sp.get()

@@ -109,10 +109,10 @@ cp debug/libcls_arrow* /usr/lib/aarch64-linux-gnu/rados-classes/
 # mount a ceph filesystem to /mnt/cephfs in the user-space using ceph-fuse
 mkdir -p /mnt/cephfs
 ceph-fuse --id client.admin -m 127.0.0.1:6789  --client_fs cephfs /mnt/cephfs
+sleep 5
 
 # download an example dataset and copy into the mounted dir
-apt-get install -y unzip
-rm -rf nyc
+rm -rf nyc*
 wget https://raw.githubusercontent.com/JayjeetAtGithub/zips/main/nyc.zip
 unzip nyc.zip
 cp -r nyc /mnt/cephfs/
@@ -122,6 +122,21 @@ sleep 15
 TESTS=debug/arrow-cls-cls-arrow-test
 if [ -f "$TESTS" ]; then
     debug/arrow-cls-cls-arrow-test
+fi
+
+if [ ! -z "$ARROW_PYTHON" ]; then
+# write a simple python snippet
+cat > test_rados_parquet.py <<EOF
+import pyarrow.dataset as ds
+
+fmt = ds.RadosParquetFileFormat(b"/etc/ceph/ceph.conf")
+dataset = ds.dataset("file:///mnt/cephfs/nyc/", format=fmt)
+print(dataset.files)
+print(dataset.to_table(columns=['DOLocationID', 'total_amount', 'fare_amount'], filter=( ds.field('total_amount') > 200 )).to_pandas())
+EOF
+
+# execute the script
+python test_rados_parquet.py
 fi
 
 # unmount cephfs
