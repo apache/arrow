@@ -32,7 +32,7 @@ use crate::{
 };
 
 /// Shifts array by defined number of items (to left or right)
-/// A positive value for `offset` shifts the array to the left (LAG)
+/// A positive value for `offset` shifts the array to the right
 /// a negative value shifts the array to the left.
 /// # Examples
 /// ```
