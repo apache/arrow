@@ -45,12 +45,12 @@ Status ComputeRowMajorStrides(const FixedWidthType& type,
                               const std::vector<int64_t>& shape,
                               std::vector<int64_t>* strides) {
   const int byte_width = GetByteWidth(type);
-  const auto ndim = shape.size();
+  const size_t ndim = shape.size();
 
   int64_t remaining = 0;
   if (!shape.empty() && shape.front() > 0) {
     remaining = byte_width;
-    for (auto i = decltype(ndim){1}; i < ndim; ++i) {
+    for (size_t i = 1; i < ndim; ++i) {
       if (internal::MultiplyWithOverflow(remaining, shape[i], &remaining)) {
         return Status::Invalid(
             "Given shape involves overflow in integer multiplication to compute "
@@ -65,7 +65,7 @@ Status ComputeRowMajorStrides(const FixedWidthType& type,
   }
 
   strides->push_back(remaining);
-  for (auto i = decltype(ndim){1}; i < ndim; ++i) {
+  for (size_t i = 1; i < ndim; ++i) {
     remaining /= shape[i];
     strides->push_back(remaining);
   }
@@ -77,12 +77,12 @@ Status ComputeColumnMajorStrides(const FixedWidthType& type,
                                  const std::vector<int64_t>& shape,
                                  std::vector<int64_t>* strides) {
   const int byte_width = internal::GetByteWidth(type);
-  const auto ndim = shape.size();
+  const size_t ndim = shape.size();
 
   int64_t total = 0;
   if (!shape.empty() && shape.back() > 0) {
     total = byte_width;
-    for (auto i = decltype(ndim){0}; i < ndim - 1; ++i) {
+    for (size_t i = 0; i < ndim - 1; ++i) {
       if (internal::MultiplyWithOverflow(total, shape[i], &total)) {
         return Status::Invalid(
             "Given shape involves overflow in integer multiplication to compute "
@@ -97,7 +97,7 @@ Status ComputeColumnMajorStrides(const FixedWidthType& type,
   }
 
   total = byte_width;
-  for (auto i = decltype(ndim){0}; i < ndim - 1; ++i) {
+  for (size_t i = 0; i < ndim - 1; ++i) {
     strides->push_back(total);
     total *= shape[i];
   }
@@ -164,9 +164,9 @@ Status CheckTensorStridesValidity(const std::shared_ptr<Buffer>& data,
   }
 
   // Check the largest offset can be computed without overflow
-  const auto ndim = shape.size();
+  const size_t ndim = shape.size();
   int64_t largest_offset = 0;
-  for (auto i = decltype(ndim){0}; i < ndim; ++i) {
+  for (size_t i = 0; i < ndim; ++i) {
     if (strides[i] <= 0) continue;
 
     int64_t dim_offset;
