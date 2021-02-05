@@ -46,7 +46,6 @@ use crate::{
 /// let expected: Int32Array = vec![None, Some(1), None].into();
 /// assert_eq!(b, &expected)
 /// ```
-
 pub fn shift<T>(values: &PrimitiveArray<T>, offset: i64) -> Result<ArrayRef>
 where
     T: ArrowPrimitiveType,
