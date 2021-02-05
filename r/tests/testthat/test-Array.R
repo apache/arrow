@@ -652,8 +652,6 @@ test_that("Handling string data with embedded nuls", {
 
 test_that("Array$create() should have helpful error", {
   expect_error(Array$create(list(numeric(0)), list_of(bool())), "Expecting a logical vector")
-  expect_error(Array$create(list(numeric(0)), list_of(int32())), "Expecting an integer vector")
-  expect_error(Array$create(list(integer(0)), list_of(float64())), "Expecting a numeric vector")
 
   lgl <- logical(0)
   int <- integer(0)
@@ -662,7 +660,6 @@ test_that("Array$create() should have helpful error", {
   expect_error(Array$create(list()), "Requires at least one element to infer")
   expect_error(Array$create(list(lgl, lgl, int)), "Expecting a logical vector")
   expect_error(Array$create(list(char, num, char)), "Expecting a character vector")
-  expect_error(Array$create(list(int, int, num)), "Expecting an integer vector")
 })
 
 test_that("Array$View() (ARROW-6542)", {
