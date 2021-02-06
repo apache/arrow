@@ -246,6 +246,13 @@ TEST(TestTensor, MakeFailureCases) {
       Invalid, testing::HasSubstr("overflow"),
       Tensor::Make(float64(), data, {2, 2, static_cast<int64_t>(total_length / 4)}));
 
+  // overflow by negative multiplication in strides validity check
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("would not fit in 64-bit integer"),
+      Tensor::Make(
+          float64(), data, {0, 4, 0},
+          {sizeof(double), -static_cast<int64_t>(total_length / 2), sizeof(double)}));
+
   // invalid stride length
   ASSERT_RAISES(Invalid, Tensor::Make(float64(), data, shape, {sizeof(double)}));
   ASSERT_RAISES(Invalid, Tensor::Make(float64(), data, shape,

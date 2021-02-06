@@ -167,17 +167,23 @@ Status CheckTensorStridesValidity(const std::shared_ptr<Buffer>& data,
   const size_t ndim = shape.size();
   int64_t largest_offset = 0;
   for (size_t i = 0; i < ndim; ++i) {
-    if (strides[i] <= 0) continue;
+    if (shape[i] == 0) continue;
 
     int64_t dim_offset;
     if (!internal::MultiplyWithOverflow(shape[i] - 1, strides[i], &dim_offset)) {
+      if (dim_offset <= 0) {
+        // Ignore the negative dim_offset here because we are interested in only the
+        // largest offset
+        continue;
+      }
+
       if (!internal::AddWithOverflow(largest_offset, dim_offset, &largest_offset)) {
         continue;
       }
     }
 
     return Status::Invalid(
-        "too large number given in strides to compute the item offset");
+        "offsets computed from shape and strides would not fit in 64-bit integer");
   }
 
   const int byte_width = internal::GetByteWidth(*type);
