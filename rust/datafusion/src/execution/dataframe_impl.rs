@@ -315,6 +315,17 @@ mod tests {
         Ok(())
     }
 
+    #[tokio::test]
+    async fn sendable() {
+        let df = test_table().unwrap();
+        // dataframes should be sendable between threads/tasks
+        let task = tokio::task::spawn(async move {
+            df.select_columns(&["c1"])
+                .expect("should be usable in a task")
+        });
+        task.await.expect("task completed successfully");
+    }
+
     /// Compare the formatted string representation of two plans for equality
     fn assert_same_plan(plan1: &LogicalPlan, plan2: &LogicalPlan) {
         assert_eq!(format!("{:?}", plan1), format!("{:?}", plan2));

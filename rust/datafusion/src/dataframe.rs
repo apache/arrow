@@ -51,7 +51,7 @@ use async_trait::async_trait;
 /// # }
 /// ```
 #[async_trait]
-pub trait DataFrame {
+pub trait DataFrame: Send + Sync {
     /// Filter the DataFrame by column. Returns a new DataFrame only containing the
     /// specified columns.
     ///
