@@ -2028,6 +2028,77 @@ async fn boolean_expressions() -> Result<()> {
 }
 
 #[tokio::test]
+async fn interval_expressions() -> Result<()> {
+    let mut ctx = ExecutionContext::new();
+    let sql = "SELECT
+        (interval '1') as interval_1,
+        (interval '1 second') as interval_2,
+        (interval '500 milliseconds') as interval_3,
+        (interval '5 second') as interval_4,
+        (interval '1 minute') as interval_5,
+        (interval '0.5 minute') as interval_6,
+        (interval '.5 minute') as interval_7,
+        (interval '5 minute') as interval_8,
+        (interval '5 minute 1 second') as interval_9,
+        (interval '1 hour') as interval_10,
+        (interval '5 hour') as interval_11,
+        (interval '1 day') as interval_12,
+        (interval '1 day 1') as interval_13,
+        (interval '0.5') as interval_14,
+        (interval '0.5 day 1') as interval_15,
+        (interval '0.49 day') as interval_16,
+        (interval '0.499 day') as interval_17,
+        (interval '0.4999 day') as interval_18,
+        (interval '0.49999 day') as interval_19,
+        (interval '0.49999999999 day') as interval_20,
+        (interval '5 day') as interval_21,
+        (interval '5 day 4 hours 3 minutes 2 seconds 100 milliseconds') as interval_22,
+        (interval '0.5 month') as interval_23,
+        (interval '1 month') as interval_24,
+        (interval '5 month') as interval_25,
+        (interval '13 month') as interval_26,
+        (interval '0.5 year') as interval_27,
+        (interval '1 year') as interval_28,
+        (interval '2 year') as interval_29
+    ";
+    let actual = execute(&mut ctx, sql).await;
+
+    let expected = vec![vec![
+        "0 years 0 mons 0 days 0 hours 0 mins 1.00 secs",
+        "0 years 0 mons 0 days 0 hours 0 mins 1.00 secs",
+        "0 years 0 mons 0 days 0 hours 0 mins 0.500 secs",
+        "0 years 0 mons 0 days 0 hours 0 mins 5.00 secs",
+        "0 years 0 mons 0 days 0 hours 1 mins 0.00 secs",
+        "0 years 0 mons 0 days 0 hours 0 mins 30.00 secs",
+        "0 years 0 mons 0 days 0 hours 0 mins 30.00 secs",
+        "0 years 0 mons 0 days 0 hours 5 mins 0.00 secs",
+        "0 years 0 mons 0 days 0 hours 5 mins 1.00 secs",
+        "0 years 0 mons 0 days 1 hours 0 mins 0.00 secs",
+        "0 years 0 mons 0 days 5 hours 0 mins 0.00 secs",
+        "0 years 0 mons 1 days 0 hours 0 mins 0.00 secs",
+        "0 years 0 mons 1 days 0 hours 0 mins 1.00 secs",
+        "0 years 0 mons 0 days 0 hours 0 mins 0.500 secs",
+        "0 years 0 mons 0 days 12 hours 0 mins 1.00 secs",
+        "0 years 0 mons 0 days 11 hours 45 mins 36.00 secs",
+        "0 years 0 mons 0 days 11 hours 58 mins 33.596 secs",
+        "0 years 0 mons 0 days 11 hours 59 mins 51.364 secs",
+        "0 years 0 mons 0 days 11 hours 59 mins 59.136 secs",
+        "0 years 0 mons 0 days 12 hours 0 mins 0.00 secs",
+        "0 years 0 mons 5 days 0 hours 0 mins 0.00 secs",
+        "0 years 0 mons 5 days 4 hours 3 mins 2.100 secs",
+        "0 years 0 mons 15 days 0 hours 0 mins 0.00 secs",
+        "0 years 1 mons 0 days 0 hours 0 mins 0.00 secs",
+        "0 years 5 mons 0 days 0 hours 0 mins 0.00 secs",
+        "1 years 1 mons 0 days 0 hours 0 mins 0.00 secs",
+        "0 years 6 mons 0 days 0 hours 0 mins 0.00 secs",
+        "1 years 0 mons 0 days 0 hours 0 mins 0.00 secs",
+        "2 years 0 mons 0 days 0 hours 0 mins 0.00 secs",
+    ]];
+    assert_eq!(expected, actual);
+    Ok(())
+}
+
+#[tokio::test]
 async fn crypto_expressions() -> Result<()> {
     let mut ctx = ExecutionContext::new();
     let sql = "SELECT
