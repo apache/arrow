@@ -77,7 +77,9 @@ TEST(TestComputeRowMajorStrides, OverflowCase) {
 
   std::vector<int64_t> strides;
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, testing::HasSubstr("overflow"),
+      Invalid,
+      testing::HasSubstr(
+          "Row-major strides computed from shape would not fit in 64-bit integer"),
       arrow::internal::ComputeRowMajorStrides(Int16Type(), shape, &strides));
   EXPECT_EQ(0, strides.size());
 }
@@ -120,7 +122,9 @@ TEST(TestComputeColumnMajorStrides, OverflowCase) {
 
   std::vector<int64_t> strides;
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, testing::HasSubstr("overflow"),
+      Invalid,
+      testing::HasSubstr(
+          "Column-major strides computed from shape would not fit in 64-bit integer"),
       arrow::internal::ComputeColumnMajorStrides(Int16Type(), shape, &strides));
   EXPECT_EQ(0, strides.size());
 }
@@ -243,7 +247,9 @@ TEST(TestTensor, MakeFailureCases) {
   constexpr uint64_t total_length =
       1 + static_cast<uint64_t>(std::numeric_limits<int64_t>::max());
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, testing::HasSubstr("overflow"),
+      Invalid,
+      testing::HasSubstr(
+          "Row-major strides computed from shape would not fit in 64-bit integer"),
       Tensor::Make(float64(), data, {2, 2, static_cast<int64_t>(total_length / 4)}));
 
   // overflow by negative multiplication in strides validity check

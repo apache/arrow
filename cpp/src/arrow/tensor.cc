@@ -53,8 +53,7 @@ Status ComputeRowMajorStrides(const FixedWidthType& type,
     for (size_t i = 1; i < ndim; ++i) {
       if (internal::MultiplyWithOverflow(remaining, shape[i], &remaining)) {
         return Status::Invalid(
-            "Given shape involves overflow in integer multiplication to compute "
-            "row-major strides");
+            "Row-major strides computed from shape would not fit in 64-bit integer");
       }
     }
   }
@@ -85,8 +84,8 @@ Status ComputeColumnMajorStrides(const FixedWidthType& type,
     for (size_t i = 0; i < ndim - 1; ++i) {
       if (internal::MultiplyWithOverflow(total, shape[i], &total)) {
         return Status::Invalid(
-            "Given shape involves overflow in integer multiplication to compute "
-            "column-major strides");
+            "Column-major strides computed from shape would not fit in 64-bit "
+            "integer");
       }
     }
   }
