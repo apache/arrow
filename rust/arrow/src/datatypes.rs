@@ -169,7 +169,7 @@ pub enum IntervalUnit {
     /// Indicates the number of elapsed whole months, stored as 4-byte integers.
     YearMonth,
     /// Indicates the number of elapsed days and milliseconds,
-    /// stored as 2 contiguous 32-bit integers (8-bytes in total).
+    /// stored as 2 contiguous 32-bit integers (days, milliseconds) (8-bytes in total).
     DayTime,
 }
 

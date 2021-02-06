@@ -19,12 +19,12 @@
 //! purposes. See the `pretty` crate for additional functions for
 //! record batch pretty printing.
 
-use crate::array;
 use crate::array::Array;
 use crate::datatypes::{
     ArrowNativeType, ArrowPrimitiveType, DataType, Int16Type, Int32Type, Int64Type,
     Int8Type, TimeUnit, UInt16Type, UInt32Type, UInt64Type, UInt8Type,
 };
+use crate::{array, datatypes::IntervalUnit};
 
 use array::DictionaryArray;
 
@@ -38,6 +38,66 @@ macro_rules! make_string {
             "".to_string()
         } else {
             array.value($row).to_string()
+        };
+
+        Ok(s)
+    }};
+}
+
+macro_rules! make_string_interval_year_month {
+    ($column: ident, $row: ident) => {{
+        let array = $column
+            .as_any()
+            .downcast_ref::<array::IntervalYearMonthArray>()
+            .unwrap();
+
+        let s = if array.is_null($row) {
+            "NULL".to_string()
+        } else {
+            let interval = array.value($row) as f64;
+            let years = (interval / 12_f64).floor();
+            let month = interval - (years * 12_f64);
+
+            format!(
+                "{} years {} mons 0 days 0 hours 0 mins 0.00 secs",
+                years, month,
+            )
+        };
+
+        Ok(s)
+    }};
+}
+
+macro_rules! make_string_interval_day_time {
+    ($column: ident, $row: ident) => {{
+        let array = $column
+            .as_any()
+            .downcast_ref::<array::IntervalDayTimeArray>()
+            .unwrap();
+
+        let s = if array.is_null($row) {
+            "NULL".to_string()
+        } else {
+            let value: u64 = array.value($row) as u64;
+
+            let days_parts: i32 = ((value & 0xFFFFFFFF00000000) >> 32) as i32;
+            let milliseconds_part: i32 = (value & 0xFFFFFFFF) as i32;
+
+            let secs = milliseconds_part / 1000;
+            let mins = secs / 60;
+            let hours = mins / 60;
+
+            let secs = secs - (mins * 60);
+            let mins = mins - (hours * 60);
+
+            format!(
+                "0 years 0 mons {} days {} hours {} mins {}.{:02} secs",
+                days_parts,
+                hours,
+                mins,
+                secs,
+                (milliseconds_part % 1000),
+            )
         };
 
         Ok(s)
@@ -180,6 +240,14 @@ pub fn array_value_to_string(column: &array::ArrayRef, row: usize) -> Result<Str
         DataType::Time64(unit) if *unit == TimeUnit::Nanosecond => {
             make_string_time!(array::Time64NanosecondArray, column, row)
         }
+        DataType::Interval(unit) => match unit {
+            IntervalUnit::DayTime => {
+                make_string_interval_day_time!(column, row)
+            }
+            IntervalUnit::YearMonth => {
+                make_string_interval_year_month!(column, row)
+            }
+        },
         DataType::List(_) => make_string_from_list!(column, row),
         DataType::Dictionary(index_type, _value_type) => match **index_type {
             DataType::Int8 => dict_array_value_to_string::<Int8Type>(column, row),
