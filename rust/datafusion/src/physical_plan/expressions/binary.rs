@@ -32,7 +32,7 @@ use arrow::compute::kernels::comparison::{
     eq_utf8_scalar, gt_eq_utf8_scalar, gt_utf8_scalar, lt_eq_utf8_scalar, lt_utf8_scalar,
     neq_utf8_scalar,
 };
-use arrow::datatypes::{DataType, Schema, TimeUnit};
+use arrow::datatypes::{DataType, IntervalUnit, Schema, TimeUnit};
 use arrow::record_batch::RecordBatch;
 
 use crate::error::{DataFusionError, Result};
@@ -41,7 +41,10 @@ use crate::physical_plan::expressions::cast;
 use crate::physical_plan::{ColumnarValue, PhysicalExpr};
 use crate::scalar::ScalarValue;
 
-use super::coercion::{eq_coercion, numerical_coercion, order_coercion, string_coercion};
+use super::coercion::{
+    eq_coercion, interval_coercion, numerical_coercion, order_coercion, string_coercion,
+    temporal_coercion,
+};
 
 /// Binary expression
 #[derive(Debug)]
@@ -201,6 +204,12 @@ macro_rules! binary_primitive_array_op {
             DataType::UInt64 => compute_op!($LEFT, $RIGHT, $OP, UInt64Array),
             DataType::Float32 => compute_op!($LEFT, $RIGHT, $OP, Float32Array),
             DataType::Float64 => compute_op!($LEFT, $RIGHT, $OP, Float64Array),
+            DataType::Interval(IntervalUnit::YearMonth) => {
+                compute_op!($LEFT, $RIGHT, $OP, IntervalYearMonthArray)
+            }
+            DataType::Interval(IntervalUnit::DayTime) => {
+                compute_op!($LEFT, $RIGHT, $OP, IntervalDayTimeArray)
+            }
             other => Err(DataFusionError::Internal(format!(
                 "Unsupported data type {:?}",
                 other
@@ -230,6 +239,12 @@ macro_rules! binary_array_op_scalar {
             }
             DataType::Date32 => {
                 compute_op_scalar!($LEFT, $RIGHT, $OP, Date32Array)
+            }
+            DataType::Interval(IntervalUnit::YearMonth) => {
+                compute_op_scalar!($LEFT, $RIGHT, $OP, IntervalYearMonthArray)
+            }
+            DataType::Interval(IntervalUnit::DayTime) => {
+                compute_op_scalar!($LEFT, $RIGHT, $OP, IntervalDayTimeArray)
             }
             other => Err(DataFusionError::Internal(format!(
                 "Unsupported data type {:?}",
@@ -315,6 +330,8 @@ fn common_binary_type(
         // because coercion favours higher information types
         Operator::Plus | Operator::Minus | Operator::Divide | Operator::Multiply => {
             numerical_coercion(lhs_type, rhs_type)
+                .or_else(|| temporal_coercion(lhs_type, rhs_type))
+                .or_else(|| interval_coercion(lhs_type, rhs_type))
         }
         Operator::Modulus => {
             return Err(DataFusionError::NotImplemented(

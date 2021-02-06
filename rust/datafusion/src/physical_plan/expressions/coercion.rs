@@ -93,11 +93,47 @@ pub fn string_coercion(lhs_type: &DataType, rhs_type: &DataType) -> Option<DataT
 /// casted to for the purpose of a date computation
 pub fn temporal_coercion(lhs_type: &DataType, rhs_type: &DataType) -> Option<DataType> {
     use arrow::datatypes::DataType::*;
+    use arrow::datatypes::IntervalUnit;
+    use arrow::datatypes::TimeUnit;
+
     match (lhs_type, rhs_type) {
+        // Date32
         (Utf8, Date32) => Some(Date32),
         (Date32, Utf8) => Some(Date32),
+        // Date64
         (Utf8, Date64) => Some(Date64),
         (Date64, Utf8) => Some(Date64),
+        //
+        (
+            DataType::Timestamp(TimeUnit::Nanosecond, tz),
+            Interval(IntervalUnit::DayTime),
+        ) => match tz {
+            Some(tz) => Some(DataType::Timestamp(TimeUnit::Nanosecond, Some(tz.clone()))),
+            None => Some(DataType::Timestamp(TimeUnit::Nanosecond, None)),
+        },
+        (
+            Interval(IntervalUnit::DayTime),
+            DataType::Timestamp(TimeUnit::Nanosecond, tz),
+        ) => match tz {
+            Some(tz) => Some(DataType::Timestamp(TimeUnit::Nanosecond, Some(tz.clone()))),
+            None => Some(DataType::Timestamp(TimeUnit::Nanosecond, None)),
+        },
+        //
+        _ => None,
+    }
+}
+
+pub fn interval_coercion(lhs_type: &DataType, rhs_type: &DataType) -> Option<DataType> {
+    use arrow::datatypes::DataType::*;
+    use arrow::datatypes::IntervalUnit;
+
+    match (lhs_type, rhs_type) {
+        (Interval(IntervalUnit::YearMonth), Interval(IntervalUnit::YearMonth)) => {
+            Some(Interval(IntervalUnit::YearMonth))
+        }
+        (Interval(IntervalUnit::DayTime), Interval(IntervalUnit::DayTime)) => {
+            Some(Interval(IntervalUnit::DayTime))
+        }
         _ => None,
     }
 }

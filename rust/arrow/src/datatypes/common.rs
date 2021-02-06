@@ -411,6 +411,7 @@ impl BooleanType {
     pub const DATA_TYPE: DataType = DataType::Boolean;
 }
 
+#[macro_export]
 macro_rules! make_type {
     ($name:ident, $native_ty:ty, $data_ty:expr) => {
         #[derive(Debug)]
@@ -610,6 +611,7 @@ where
 #[cfg(not(simd))]
 pub trait ArrowNumericType: ArrowPrimitiveType {}
 
+#[macro_export]
 macro_rules! make_numeric_type {
     ($impl_ty:ty, $native_ty:ty, $simd_ty:ident, $simd_mask_ty:ident) => {
         #[cfg(simd)]

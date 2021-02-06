@@ -2099,6 +2099,29 @@ async fn interval_expressions() -> Result<()> {
 }
 
 #[tokio::test]
+async fn interval_binary_expressions() -> Result<()> {
+    let mut ctx = ExecutionContext::new();
+    let sql = "SELECT
+        ((interval '1 second') + (interval '1 second')) as interval_1,
+        ((interval '2 second') - (interval '1 second')) as interval_2,
+        ((interval '1 day') + (interval '1 second')) as interval_3,
+        ((interval '1 month') + (interval '1 month')) as interval_4,
+        ((interval '2 month') - (interval '1 month')) as interval_5
+    ";
+    let actual = execute(&mut ctx, sql).await;
+
+    let expected = vec![vec![
+        "0 years 0 mons 0 days 0 hours 0 mins 2.00 secs",
+        "0 years 0 mons 0 days 0 hours 0 mins 1.00 secs",
+        "0 years 0 mons 1 days 0 hours 0 mins 1.00 secs",
+        "0 years 2 mons 0 days 0 hours 0 mins 0.00 secs",
+        "0 years 1 mons 0 days 0 hours 0 mins 0.00 secs",
+    ]];
+    assert_eq!(expected, actual);
+    Ok(())
+}
+
+#[tokio::test]
 async fn crypto_expressions() -> Result<()> {
     let mut ctx = ExecutionContext::new();
     let sql = "SELECT
