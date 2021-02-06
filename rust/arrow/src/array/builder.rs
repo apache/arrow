@@ -297,14 +297,17 @@ impl BooleanBufferBuilder {
         Self { buffer, len: 0 }
     }
 
+    #[inline]
     pub fn len(&self) -> usize {
         self.len
     }
 
+    #[inline]
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
 
+    #[inline]
     pub fn capacity(&self) -> usize {
         self.buffer.capacity() * 8
     }
@@ -369,6 +372,13 @@ impl BooleanBufferBuilder {
         let buf = std::mem::replace(&mut self.buffer, MutableBuffer::new(0));
         self.len = 0;
         buf.into()
+    }
+}
+
+impl From<BooleanBufferBuilder> for Buffer {
+    #[inline]
+    fn from(builder: BooleanBufferBuilder) -> Self {
+        builder.buffer.into()
     }
 }
 

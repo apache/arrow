@@ -46,6 +46,7 @@ impl<'a, T: ArrowPrimitiveType> PrimitiveIter<'a, T> {
 impl<'a, T: ArrowPrimitiveType> std::iter::Iterator for PrimitiveIter<'a, T> {
     type Item = Option<T::Native>;
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         if self.current == self.current_end {
             None

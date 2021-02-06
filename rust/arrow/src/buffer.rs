@@ -990,6 +990,14 @@ impl MutableBuffer {
     pub fn extend_zeros(&mut self, additional: usize) {
         self.resize(self.len + additional, 0);
     }
+
+    /// # Safety
+    /// The caller must ensure that the buffer was properly initialized up to `len`.
+    #[inline]
+    pub(crate) unsafe fn set_len(&mut self, len: usize) {
+        assert!(len <= self.capacity());
+        self.len = len;
+    }
 }
 
 /// # Safety
