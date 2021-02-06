@@ -57,7 +57,6 @@ endforeach()
 add_arrow_test(cls_arrow_test
                SOURCES
                cls_arrow_test.cc
-               cls_arrow_test_utils.cc
                EXTRA_LINK_LIBS
                ${ARROW_DATASET_TEST_LINK_LIBS}
                PREFIX

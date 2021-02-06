@@ -16,8 +16,6 @@
 // under the License.
 #define _FILE_OFFSET_BITS 64
 
-#include "arrow/adapters/arrow-rados-cls/cls_arrow_test_utils.h"
-
 #include <iostream>
 #include <random>
 
@@ -28,7 +26,7 @@
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/expression.h"
 #include "arrow/dataset/file_base.h"
-#include "arrow/dataset/file_parquet_rados.h"
+#include "arrow/dataset/file_rados_parquet.h"
 #include "arrow/dataset/rados_utils.h"
 #include "arrow/filesystem/api.h"
 #include "arrow/io/api.h"
@@ -47,6 +45,8 @@ std::shared_ptr<arrow::dataset::Dataset> GetDatasetFromDirectory(
   s.recursive = true;
 
   arrow::dataset::FileSystemFactoryOptions options;
+  options.partitioning = std::make_shared<arrow::dataset::HivePartitioning>(
+      arrow::schema({arrow::field("payment_type", arrow::int32()), arrow::field("VendorID", arrow::int32())}));
   auto factory =
       arrow::dataset::FileSystemDatasetFactory::Make(fs, s, format, options).ValueOrDie();
 
@@ -88,7 +88,7 @@ std::shared_ptr<arrow::dataset::Scanner> GetScannerFromDataset(
   return scanner_builder->Finish().ValueOrDie();
 }
 
-TEST(TestClsSDK, EndtoEnd) {
+TEST(TestClsSDK, SimpleQuery) {
   std::string path_to_config = "/etc/ceph/ceph.conf";
   auto format = arrow::dataset::RadosParquetFileFormat::Make(path_to_config).ValueOrDie();
 
@@ -97,10 +97,26 @@ TEST(TestClsSDK, EndtoEnd) {
   auto dataset = GetDatasetFromPath(fs, format, path);
 
   std::vector<std::string> columns = {"fare_amount", "total_amount"};
-  // arrow::dataset::Expression filter = arrow::dataset::greater(
-  //     arrow::dataset::field_ref("total_amount"), arrow::dataset::literal(double(150.0f)));
-
   auto scanner = GetScannerFromDataset(dataset, columns, arrow::dataset::literal(true), false);
+
+  auto table = scanner->ToTable().ValueOrDie();
+  std::cout << "Table size: " << table->num_rows() << "\n";
+  std::cout << "Table: " << table->ToString() << "\n";
+}
+
+TEST(TestClsSDK, QueryOnPartitionKey) {
+  std::string path_to_config = "/etc/ceph/ceph.conf";
+  auto format = arrow::dataset::RadosParquetFileFormat::Make(path_to_config).ValueOrDie();
+
+  std::string path;
+  auto fs = GetFileSystemFromUri("file:///mnt/cephfs/nyc", &path);
+  auto dataset = GetDatasetFromPath(fs, format, path);
+
+  std::vector<std::string> columns = {"fare_amount", "VendorID", "payment_type"};
+  auto filter = arrow::dataset::greater(
+      arrow::dataset::field_ref("payment_type"), arrow::dataset::literal(2));
+
+  auto scanner = GetScannerFromDataset(dataset, columns, filter, false);
 
   auto table = scanner->ToTable().ValueOrDie();
   std::cout << "Table size: " << table->num_rows() << "\n";

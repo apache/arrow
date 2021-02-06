@@ -14,7 +14,7 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-#include "arrow/dataset/file_parquet_rados.h"
+#include "arrow/dataset/file_rados_parquet.h"
 
 #include "arrow/api.h"
 #include "arrow/dataset/dataset_internal.h"
@@ -74,12 +74,6 @@ class RadosParquetScanTask : public ScanTask {
   std::shared_ptr<DirectObjectAccess> doa_;
 };
 
-Result<bool> RadosParquetFileFormat::IsSupported(const FileSource& source) const {
-  return true;
-}
-
-bool RadosParquetFileFormat::Equals(const FileFormat& other) const { return true; }
-
 Result<std::shared_ptr<RadosParquetFileFormat>> RadosParquetFileFormat::Make(
     const std::string& path_to_config) {
   auto cluster = std::make_shared<RadosCluster>(path_to_config);
@@ -119,8 +113,8 @@ Result<ScanTaskIterator> RadosParquetFileFormat::ScanFile(
     std::shared_ptr<ScanOptions> options, std::shared_ptr<ScanContext> context,
     FileFragment* file) const {
   options->partition_expression = file->partition_expression();
-  ARROW_ASSIGN_OR_RAISE(options->dataset_schema, file->ReadPhysicalSchema());
-
+  options->dataset_schema = file->dataset_schema();
+  options->bypass_fap_scantask = true;
   ScanTaskVector v{std::make_shared<RadosParquetScanTask>(
       std::move(options), std::move(context), file->source(), std::move(doa_))};
   return MakeVectorIterator(v);

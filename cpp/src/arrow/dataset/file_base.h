@@ -150,6 +150,9 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
                                                      Expression partition_expression);
 
   Result<std::shared_ptr<FileFragment>> MakeFragment(
+    FileSource source, Expression partition_expression, int flag, std::shared_ptr<Schema> dataset_schema);
+
+  Result<std::shared_ptr<FileFragment>> MakeFragment(
       FileSource source, std::shared_ptr<Schema> physical_schema = NULLPTR);
 
   virtual Result<std::shared_ptr<FileWriter>> MakeWriter(
@@ -171,17 +174,22 @@ class ARROW_DS_EXPORT FileFragment : public Fragment {
   const FileSource& source() const { return source_; }
   const std::shared_ptr<FileFormat>& format() const { return format_; }
 
+  const std::shared_ptr<Schema>& dataset_schema() const { return dataset_schema_; }
+
  protected:
   FileFragment(FileSource source, std::shared_ptr<FileFormat> format,
-               Expression partition_expression, std::shared_ptr<Schema> physical_schema)
+               Expression partition_expression, std::shared_ptr<Schema> physical_schema,
+               std::shared_ptr<Schema> dataset_schema)
       : Fragment(std::move(partition_expression), std::move(physical_schema)),
         source_(std::move(source)),
-        format_(std::move(format)) {}
+        format_(std::move(format)),
+        dataset_schema_(std::move(dataset_schema)) {}
 
   Result<std::shared_ptr<Schema>> ReadPhysicalSchemaImpl() override;
 
   FileSource source_;
   std::shared_ptr<FileFormat> format_;
+  std::shared_ptr<Schema> dataset_schema_;
 
   friend class FileFormat;
 };

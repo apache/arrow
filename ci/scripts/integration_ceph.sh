@@ -118,25 +118,15 @@ unzip nyc.zip
 cp -r nyc /mnt/cephfs/
 sleep 15
 
-# run the end-to-end tests
+# run the end-to-end C++ tests
 TESTS=debug/arrow-cls-cls-arrow-test
 if [ -f "$TESTS" ]; then
     debug/arrow-cls-cls-arrow-test
 fi
 
 if [ ! -z "$ARROW_PYTHON" ]; then
-# write a simple python snippet
-cat > test_rados_parquet.py <<EOF
-import pyarrow.dataset as ds
-
-fmt = ds.RadosParquetFileFormat(b"/etc/ceph/ceph.conf")
-dataset = ds.dataset("file:///mnt/cephfs/nyc/", format=fmt)
-print(dataset.files)
-print(dataset.to_table(columns=['DOLocationID', 'total_amount', 'fare_amount'], filter=( ds.field('total_amount') > 200 )).to_pandas())
-EOF
-
-# execute the script
-python test_rados_parquet.py
+# run the end-to-end python tests
+python /arrow/python/pyarrow/tests/rados_parquet_example.py
 fi
 
 # unmount cephfs

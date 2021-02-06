@@ -109,9 +109,8 @@ inline Result<ScanTaskIterator> GetScanTaskIterator(
              context](std::shared_ptr<Fragment> fragment) -> Result<ScanTaskIterator> {
     ARROW_ASSIGN_OR_RAISE(auto scan_task_it, fragment->Scan(options, context));
 
-    if (fragment->type_name() == "rados") {
+    if (options->bypass_fap_scantask)
       return std::move(scan_task_it);
-    }
 
     auto partition = fragment->partition_expression();
     // Apply the filter and/or projection to incoming RecordBatches by

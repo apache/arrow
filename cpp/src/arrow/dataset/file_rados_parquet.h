@@ -157,9 +157,11 @@ class ARROW_DS_EXPORT RadosParquetFileFormat : public FileFormat {
 
   bool splittable() const { return true; }
 
-  bool Equals(const FileFormat& other) const override;
+  bool Equals(const FileFormat& other) const override {
+    return type_name() == other.type_name();
+  }
 
-  Result<bool> IsSupported(const FileSource& source) const override;
+  Result<bool> IsSupported(const FileSource& source) const override { return true; }
 
   Result<std::shared_ptr<Schema>> Inspect(const FileSource& source) const override;
 

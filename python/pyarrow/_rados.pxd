@@ -25,7 +25,7 @@ from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_dataset cimport *
 from pyarrow.lib cimport _Weakrefable
 
-cdef extern from "arrow/dataset/file_parquet_rados.h" namespace "arrow::dataset" nogil:
+cdef extern from "arrow/dataset/file_rados_parquet.h" namespace "arrow::dataset" nogil:
     cdef cppclass CRadosParquetFileFormat "arrow::dataset::RadosParquetFileFormat"(
             CFileFormat):
         @staticmethod
