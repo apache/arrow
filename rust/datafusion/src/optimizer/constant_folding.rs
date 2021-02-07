@@ -20,8 +20,10 @@
 
 use std::sync::Arc;
 
+use arrow::datatypes::DataType;
+
 use crate::error::Result;
-use crate::logical_plan::{Expr, LogicalPlan, Operator};
+use crate::logical_plan::{DFSchemaRef, Expr, LogicalPlan, Operator};
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::utils;
 use crate::scalar::ScalarValue;
@@ -29,8 +31,10 @@ use crate::scalar::ScalarValue;
 /// Optimizer that simplifies comparison expressions involving boolean literals.
 ///
 /// Recursively go through all expressionss and simplify the following cases:
-/// * `expr = ture` to `expr`
-/// * `expr = false` to `!expr`
+/// * `expr = ture` and `expr != false` to `expr` when `expr` is of boolean type
+/// * `expr = false` and `expr != true` to `!expr` when `expr` is of boolean type
+/// * `true = true` and `false = false` to `true`
+/// * `false = true` and `true = false` to `false`
 pub struct ConstantFolding {}
 
 impl ConstantFolding {
@@ -44,7 +48,7 @@ impl OptimizerRule for ConstantFolding {
     fn optimize(&self, plan: &LogicalPlan) -> Result<LogicalPlan> {
         match plan {
             LogicalPlan::Filter { predicate, input } => Ok(LogicalPlan::Filter {
-                predicate: optimize_expr(predicate),
+                predicate: optimize_expr(predicate, plan.schema())?,
                 input: Arc::new(self.optimize(input)?),
             }),
             // Rest: recurse into plan, apply optimization where possible
@@ -80,21 +84,35 @@ impl OptimizerRule for ConstantFolding {
 }
 
 /// Recursively transverses the logical plan.
-fn optimize_expr(e: &Expr) -> Expr {
-    match e {
+fn optimize_expr(e: &Expr, schema: &DFSchemaRef) -> Result<Expr> {
+    Ok(match e {
         Expr::BinaryExpr { left, op, right } => {
-            let left = optimize_expr(left);
-            let right = optimize_expr(right);
+            let left = optimize_expr(left, schema)?;
+            let right = optimize_expr(right, schema)?;
             match op {
                 Operator::Eq => match (&left, &right) {
-                    (Expr::Literal(ScalarValue::Boolean(b)), _) => match b {
-                        Some(true) => right,
-                        Some(false) | None => Expr::Not(Box::new(right)),
-                    },
-                    (_, Expr::Literal(ScalarValue::Boolean(b))) => match b {
-                        Some(true) => left,
-                        Some(false) | None => Expr::Not(Box::new(left)),
-                    },
+                    (
+                        Expr::Literal(ScalarValue::Boolean(l)),
+                        Expr::Literal(ScalarValue::Boolean(r)),
+                    ) => Expr::Literal(ScalarValue::Boolean(Some(
+                        l.unwrap_or(false) == r.unwrap_or(false),
+                    ))),
+                    (Expr::Literal(ScalarValue::Boolean(b)), _)
+                        if right.get_type(schema)? == DataType::Boolean =>
+                    {
+                        match b {
+                            Some(true) => right,
+                            Some(false) | None => Expr::Not(Box::new(right)),
+                        }
+                    }
+                    (_, Expr::Literal(ScalarValue::Boolean(b)))
+                        if left.get_type(schema)? == DataType::Boolean =>
+                    {
+                        match b {
+                            Some(true) => left,
+                            Some(false) | None => Expr::Not(Box::new(left)),
+                        }
+                    }
                     _ => Expr::BinaryExpr {
                         left: Box::new(left),
                         op: Operator::Eq,
@@ -102,14 +120,28 @@ fn optimize_expr(e: &Expr) -> Expr {
                     },
                 },
                 Operator::NotEq => match (&left, &right) {
-                    (Expr::Literal(ScalarValue::Boolean(b)), _) => match b {
-                        Some(false) | None => right,
-                        Some(true) => Expr::Not(Box::new(right)),
-                    },
-                    (_, Expr::Literal(ScalarValue::Boolean(b))) => match b {
-                        Some(false) | None => left,
-                        Some(true) => Expr::Not(Box::new(left)),
-                    },
+                    (
+                        Expr::Literal(ScalarValue::Boolean(l)),
+                        Expr::Literal(ScalarValue::Boolean(r)),
+                    ) => Expr::Literal(ScalarValue::Boolean(Some(
+                        l.unwrap_or(false) != r.unwrap_or(false),
+                    ))),
+                    (Expr::Literal(ScalarValue::Boolean(b)), _)
+                        if right.get_type(schema)? == DataType::Boolean =>
+                    {
+                        match b {
+                            Some(false) | None => right,
+                            Some(true) => Expr::Not(Box::new(right)),
+                        }
+                    }
+                    (_, Expr::Literal(ScalarValue::Boolean(b)))
+                        if left.get_type(schema)? == DataType::Boolean =>
+                    {
+                        match b {
+                            Some(false) | None => left,
+                            Some(true) => Expr::Not(Box::new(left)),
+                        }
+                    }
                     _ => Expr::BinaryExpr {
                         left: Box::new(left),
                         op: Operator::NotEq,
@@ -123,7 +155,7 @@ fn optimize_expr(e: &Expr) -> Expr {
                 },
             }
         }
-        Expr::Not(expr) => Expr::Not(Box::new(optimize_expr(&expr))),
+        Expr::Not(expr) => Expr::Not(Box::new(optimize_expr(&expr, schema)?)),
         Expr::Case {
             expr,
             when_then_expr,
@@ -135,8 +167,10 @@ fn optimize_expr(e: &Expr) -> Expr {
                     expr: None,
                     when_then_expr: when_then_expr
                         .iter()
-                        .map(|(when, then)| (Box::new(optimize_expr(when)), then.clone()))
-                        .collect(),
+                        .map(|(when, then)| {
+                            Ok((Box::new(optimize_expr(when, schema)?), then.clone()))
+                        })
+                        .collect::<Result<_>>()?,
                     else_expr: else_expr.clone(),
                 }
             } else {
@@ -161,33 +195,163 @@ fn optimize_expr(e: &Expr) -> Expr {
         | Expr::AggregateUDF { .. }
         | Expr::Sort { .. }
         | Expr::Wildcard => e.clone(),
-    }
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::logical_plan::{col, lit, LogicalPlanBuilder};
-    use crate::test::*;
+    use crate::logical_plan::{col, lit, DFField, DFSchema, LogicalPlanBuilder};
+
+    use arrow::datatypes::*;
+
+    fn test_table_scan() -> Result<LogicalPlan> {
+        let schema = Schema::new(vec![
+            Field::new("a", DataType::Boolean, false),
+            Field::new("b", DataType::Boolean, false),
+            Field::new("c", DataType::Boolean, false),
+            Field::new("d", DataType::UInt32, false),
+        ]);
+        LogicalPlanBuilder::scan_empty("test", &schema, None)?.build()
+    }
+
+    fn expr_test_schema() -> DFSchemaRef {
+        Arc::new(
+            DFSchema::new(vec![
+                DFField::new(None, "c1", DataType::Utf8, true),
+                DFField::new(None, "c2", DataType::Boolean, true),
+            ])
+            .unwrap(),
+        )
+    }
 
     #[test]
     fn optimize_expr_eq() -> Result<()> {
+        let schema = expr_test_schema();
+        assert_eq!(col("c2").get_type(&schema)?, DataType::Boolean);
+
         assert_eq!(
-            optimize_expr(&Expr::BinaryExpr {
-                left: Box::new(lit(1)),
-                op: Operator::Eq,
-                right: Box::new(lit(true)),
-            }),
-            lit(1),
+            optimize_expr(
+                &Expr::BinaryExpr {
+                    left: Box::new(lit(true)),
+                    op: Operator::Eq,
+                    right: Box::new(lit(true)),
+                },
+                &schema
+            )?,
+            lit(true),
         );
 
         assert_eq!(
-            optimize_expr(&Expr::BinaryExpr {
+            optimize_expr(
+                &Expr::BinaryExpr {
+                    left: Box::new(lit(true)),
+                    op: Operator::Eq,
+                    right: Box::new(lit(false)),
+                },
+                &schema
+            )?,
+            lit(false),
+        );
+
+        assert_eq!(
+            optimize_expr(
+                &Expr::BinaryExpr {
+                    left: Box::new(col("c2")),
+                    op: Operator::Eq,
+                    right: Box::new(lit(true)),
+                },
+                &schema
+            )?,
+            col("c2"),
+        );
+
+        assert_eq!(
+            optimize_expr(
+                &Expr::BinaryExpr {
+                    left: Box::new(col("c2")),
+                    op: Operator::Eq,
+                    right: Box::new(lit(false)),
+                },
+                &schema
+            )?,
+            col("c2").not(),
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn optimize_expr_eq_skip_nonboolean_type() -> Result<()> {
+        let schema = expr_test_schema();
+
+        // when one of the operand is not of boolean type, folding the other boolean constant will
+        // change return type of expression to non-boolean.
+        assert_eq!(col("c1").get_type(&schema)?, DataType::Utf8);
+
+        assert_eq!(
+            optimize_expr(
+                &Expr::BinaryExpr {
+                    left: Box::new(col("c1")),
+                    op: Operator::Eq,
+                    right: Box::new(lit(true)),
+                },
+                &schema
+            )?,
+            Expr::BinaryExpr {
+                left: Box::new(col("c1")),
+                op: Operator::Eq,
+                right: Box::new(lit(true)),
+            },
+        );
+
+        assert_eq!(
+            optimize_expr(
+                &Expr::BinaryExpr {
+                    left: Box::new(col("c1")),
+                    op: Operator::Eq,
+                    right: Box::new(lit(false)),
+                },
+                &schema
+            )?,
+            Expr::BinaryExpr {
+                left: Box::new(col("c1")),
+                op: Operator::Eq,
+                right: Box::new(lit(false)),
+            },
+        );
+
+        // test constant operands
+        assert_eq!(
+            optimize_expr(
+                &Expr::BinaryExpr {
+                    left: Box::new(lit(1)),
+                    op: Operator::Eq,
+                    right: Box::new(lit(true)),
+                },
+                &schema
+            )?,
+            Expr::BinaryExpr {
+                left: Box::new(lit(1)),
+                op: Operator::Eq,
+                right: Box::new(lit(true)),
+            },
+        );
+
+        assert_eq!(
+            optimize_expr(
+                &Expr::BinaryExpr {
+                    left: Box::new(lit("a")),
+                    op: Operator::Eq,
+                    right: Box::new(lit(false)),
+                },
+                &schema
+            )?,
+            Expr::BinaryExpr {
                 left: Box::new(lit("a")),
                 op: Operator::Eq,
                 right: Box::new(lit(false)),
-            }),
-            lit("a").not(),
+            },
         );
 
         Ok(())
@@ -195,45 +359,132 @@ mod tests {
 
     #[test]
     fn optimize_expr_not_eq() -> Result<()> {
+        let schema = expr_test_schema();
+        assert_eq!(col("c2").get_type(&schema)?, DataType::Boolean);
+
         assert_eq!(
-            optimize_expr(&Expr::BinaryExpr {
-                left: Box::new(lit(1)),
-                op: Operator::NotEq,
-                right: Box::new(lit(true)),
-            }),
-            lit(1).not(),
+            optimize_expr(
+                &Expr::BinaryExpr {
+                    left: Box::new(col("c2")),
+                    op: Operator::NotEq,
+                    right: Box::new(lit(true)),
+                },
+                &schema
+            )?,
+            col("c2").not(),
         );
 
         assert_eq!(
-            optimize_expr(&Expr::BinaryExpr {
-                left: Box::new(lit("a")),
-                op: Operator::NotEq,
-                right: Box::new(lit(false)),
-            }),
-            lit("a"),
+            optimize_expr(
+                &Expr::BinaryExpr {
+                    left: Box::new(col("c2")),
+                    op: Operator::NotEq,
+                    right: Box::new(lit(false)),
+                },
+                &schema
+            )?,
+            col("c2"),
+        );
+
+        // test constant
+        assert_eq!(
+            optimize_expr(
+                &Expr::BinaryExpr {
+                    left: Box::new(lit(true)),
+                    op: Operator::NotEq,
+                    right: Box::new(lit(true)),
+                },
+                &schema
+            )?,
+            lit(false),
+        );
+
+        assert_eq!(
+            optimize_expr(
+                &Expr::BinaryExpr {
+                    left: Box::new(lit(true)),
+                    op: Operator::NotEq,
+                    right: Box::new(lit(false)),
+                },
+                &schema
+            )?,
+            lit(true),
         );
 
         Ok(())
     }
 
     #[test]
-    fn optimize_expr_not_not_eq() -> Result<()> {
+    fn optimize_expr_not_eq_skip_nonboolean_type() -> Result<()> {
+        let schema = expr_test_schema();
+
+        // when one of the operand is not of boolean type, folding the other boolean constant will
+        // change return type of expression to non-boolean.
+        assert_eq!(col("c1").get_type(&schema)?, DataType::Utf8);
+
         assert_eq!(
-            optimize_expr(&Expr::Not(Box::new(Expr::BinaryExpr {
-                left: Box::new(lit(1)),
+            optimize_expr(
+                &Expr::BinaryExpr {
+                    left: Box::new(col("c1")),
+                    op: Operator::NotEq,
+                    right: Box::new(lit(true)),
+                },
+                &schema
+            )?,
+            Expr::BinaryExpr {
+                left: Box::new(col("c1")),
                 op: Operator::NotEq,
                 right: Box::new(lit(true)),
-            }))),
-            lit(1).not().not(),
+            },
         );
 
         assert_eq!(
-            optimize_expr(&Expr::Not(Box::new(Expr::BinaryExpr {
+            optimize_expr(
+                &Expr::BinaryExpr {
+                    left: Box::new(col("c1")),
+                    op: Operator::NotEq,
+                    right: Box::new(lit(false)),
+                },
+                &schema
+            )?,
+            Expr::BinaryExpr {
+                left: Box::new(col("c1")),
+                op: Operator::NotEq,
+                right: Box::new(lit(false)),
+            },
+        );
+
+        // test constants
+        assert_eq!(
+            optimize_expr(
+                &Expr::Not(Box::new(Expr::BinaryExpr {
+                    left: Box::new(lit(1)),
+                    op: Operator::NotEq,
+                    right: Box::new(lit(true)),
+                })),
+                &schema
+            )?,
+            Expr::Not(Box::new(Expr::BinaryExpr {
+                left: Box::new(lit(1)),
+                op: Operator::NotEq,
+                right: Box::new(lit(true)),
+            })),
+        );
+
+        assert_eq!(
+            optimize_expr(
+                &Expr::Not(Box::new(Expr::BinaryExpr {
+                    left: Box::new(lit("a")),
+                    op: Operator::NotEq,
+                    right: Box::new(lit(false)),
+                })),
+                &schema
+            )?,
+            Expr::Not(Box::new(Expr::BinaryExpr {
                 left: Box::new(lit("a")),
                 op: Operator::NotEq,
                 right: Box::new(lit(false)),
-            }))),
-            lit("a").not(),
+            })),
         );
 
         Ok(())
@@ -241,22 +492,27 @@ mod tests {
 
     #[test]
     fn optimize_expr_case_when_then_else() -> Result<()> {
+        let schema = expr_test_schema();
+
         assert_eq!(
-            optimize_expr(&Box::new(Expr::Case {
-                expr: None,
-                when_then_expr: vec![(
-                    Box::new(Expr::BinaryExpr {
-                        left: Box::new(lit("a")),
-                        op: Operator::NotEq,
-                        right: Box::new(lit(false)),
-                    }),
-                    Box::new(lit("ok")),
-                )],
-                else_expr: Some(Box::new(lit("not ok"))),
-            })),
+            optimize_expr(
+                &Box::new(Expr::Case {
+                    expr: None,
+                    when_then_expr: vec![(
+                        Box::new(Expr::BinaryExpr {
+                            left: Box::new(col("c2")),
+                            op: Operator::NotEq,
+                            right: Box::new(lit(false)),
+                        }),
+                        Box::new(lit("ok")),
+                    )],
+                    else_expr: Some(Box::new(lit("not ok"))),
+                }),
+                &schema
+            )?,
             Expr::Case {
                 expr: None,
-                when_then_expr: vec![(Box::new(lit("a")), Box::new(lit("ok")))],
+                when_then_expr: vec![(Box::new(col("c2")), Box::new(lit("ok")))],
                 else_expr: Some(Box::new(lit("not ok"))),
             }
         );
@@ -265,7 +521,7 @@ mod tests {
     }
 
     fn assert_optimized_plan_eq(plan: &LogicalPlan, expected: &str) {
-        let mut rule = ConstantFolding::new();
+        let rule = ConstantFolding::new();
         let optimized_plan = rule.optimize(plan).expect("failed to optimize plan");
         let formatted_plan = format!("{:?}", optimized_plan);
         assert_eq!(formatted_plan, expected);
@@ -275,15 +531,15 @@ mod tests {
     fn optimize_plan_eq_expr() -> Result<()> {
         let table_scan = test_table_scan()?;
         let plan = LogicalPlanBuilder::from(&table_scan)
-            .filter(col("a").eq(lit(true)))?
-            .filter(col("b").eq(lit(false)))?
-            .project(vec![col("a")])?
+            .filter(col("b").eq(lit(true)))?
+            .filter(col("c").eq(lit(false)))?
+            .project(&[col("a")])?
             .build()?;
 
         let expected = "\
         Projection: #a\
-        \n  Filter: NOT #b\
-        \n    Filter: #a\
+        \n  Filter: NOT #c\
+        \n    Filter: #b\
         \n      TableScan: test projection=None";
 
         assert_optimized_plan_eq(&plan, expected);
@@ -294,17 +550,17 @@ mod tests {
     fn optimize_plan_not_eq_expr() -> Result<()> {
         let table_scan = test_table_scan()?;
         let plan = LogicalPlanBuilder::from(&table_scan)
-            .filter(col("a").not_eq(lit(true)))?
-            .filter(col("b").not_eq(lit(false)))?
+            .filter(col("b").not_eq(lit(true)))?
+            .filter(col("c").not_eq(lit(false)))?
             .limit(1)?
-            .project(vec![col("a")])?
+            .project(&[col("a")])?
             .build()?;
 
         let expected = "\
         Projection: #a\
         \n  Limit: 1\
-        \n    Filter: #b\
-        \n      Filter: NOT #a\
+        \n    Filter: #c\
+        \n      Filter: NOT #b\
         \n        TableScan: test projection=None";
 
         assert_optimized_plan_eq(&plan, expected);
@@ -315,13 +571,13 @@ mod tests {
     fn optimize_plan_and_expr() -> Result<()> {
         let table_scan = test_table_scan()?;
         let plan = LogicalPlanBuilder::from(&table_scan)
-            .filter(col("a").not_eq(lit(true)).and(col("b").eq(lit(true))))?
-            .project(vec![col("a")])?
+            .filter(col("b").not_eq(lit(true)).and(col("c").eq(lit(true))))?
+            .project(&[col("a")])?
             .build()?;
 
         let expected = "\
         Projection: #a\
-        \n  Filter: NOT #a And #b\
+        \n  Filter: NOT #b And #c\
         \n    TableScan: test projection=None";
 
         assert_optimized_plan_eq(&plan, expected);
@@ -332,13 +588,13 @@ mod tests {
     fn optimize_plan_or_expr() -> Result<()> {
         let table_scan = test_table_scan()?;
         let plan = LogicalPlanBuilder::from(&table_scan)
-            .filter(col("a").not_eq(lit(true)).or(col("b").eq(lit(false))))?
-            .project(vec![col("a")])?
+            .filter(col("b").not_eq(lit(true)).or(col("c").eq(lit(false))))?
+            .project(&[col("a")])?
             .build()?;
 
         let expected = "\
         Projection: #a\
-        \n  Filter: NOT #a Or NOT #b\
+        \n  Filter: NOT #b Or NOT #c\
         \n    TableScan: test projection=None";
 
         assert_optimized_plan_eq(&plan, expected);
@@ -349,13 +605,13 @@ mod tests {
     fn optimize_plan_not_expr() -> Result<()> {
         let table_scan = test_table_scan()?;
         let plan = LogicalPlanBuilder::from(&table_scan)
-            .filter(col("a").eq(lit(false)).not())?
-            .project(vec![col("a")])?
+            .filter(col("b").eq(lit(false)).not())?
+            .project(&[col("a")])?
             .build()?;
 
         let expected = "\
         Projection: #a\
-        \n  Filter: NOT NOT #a\
+        \n  Filter: NOT NOT #b\
         \n    TableScan: test projection=None";
 
         assert_optimized_plan_eq(&plan, expected);
