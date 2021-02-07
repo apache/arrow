@@ -31,10 +31,11 @@ use crate::scalar::ScalarValue;
 /// Optimizer that simplifies comparison expressions involving boolean literals.
 ///
 /// Recursively go through all expressionss and simplify the following cases:
-/// * `expr = ture` and `expr != false` to `expr` when `expr` is of boolean type
+/// * `expr = true` and `expr != false` to `expr` when `expr` is of boolean type
 /// * `expr = false` and `expr != true` to `!expr` when `expr` is of boolean type
 /// * `true = true` and `false = false` to `true`
 /// * `false = true` and `true = false` to `false`
+/// * `!!expr` to `expr`
 pub struct ConstantFolding {}
 
 impl ConstantFolding {
@@ -155,7 +156,10 @@ fn optimize_expr(e: &Expr, schema: &DFSchemaRef) -> Result<Expr> {
                 },
             }
         }
-        Expr::Not(expr) => Expr::Not(Box::new(optimize_expr(&expr, schema)?)),
+        Expr::Not(expr) => match &**expr {
+            Expr::Not(inner) => optimize_expr(&inner, schema)?,
+            _ => Expr::Not(Box::new(optimize_expr(&expr, schema)?)),
+        },
         Expr::Case {
             expr,
             when_then_expr,
@@ -223,6 +227,22 @@ mod tests {
             ])
             .unwrap(),
         )
+    }
+
+    #[test]
+    fn optimize_expr_not_not() -> Result<()> {
+        let schema = expr_test_schema();
+        assert_eq!(
+            optimize_expr(
+                &Expr::Not(Box::new(Expr::Not(Box::new(Expr::Not(Box::new(col(
+                    "c2"
+                ))))))),
+                &schema
+            )?,
+            col("c2").not(),
+        );
+
+        Ok(())
     }
 
     #[test]
