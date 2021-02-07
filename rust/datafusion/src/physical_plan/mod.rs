@@ -44,7 +44,7 @@ pub trait RecordBatchStream: Stream<Item = ArrowResult<RecordBatch>> {
 }
 
 /// Trait for a stream of record batches.
-pub type SendableRecordBatchStream = Pin<Box<dyn RecordBatchStream + Send>>;
+pub type SendableRecordBatchStream = Pin<Box<dyn RecordBatchStream + Send + Sync>>;
 
 /// Physical query planner that converts a `LogicalPlan` to an
 /// `ExecutionPlan` suitable for execution.
