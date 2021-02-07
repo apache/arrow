@@ -18,6 +18,7 @@
 //! This module contains functions and structs supporting user-defined aggregate functions.
 
 use fmt::{Debug, Formatter};
+use std::any::Any;
 use std::fmt;
 
 use arrow::{
@@ -132,6 +133,11 @@ pub struct AggregateFunctionExpr {
 }
 
 impl AggregateExpr for AggregateFunctionExpr {
+    /// Return a reference to Any that can be used for downcasting
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn expressions(&self) -> Vec<Arc<dyn PhysicalExpr>> {
         self.args.clone()
     }

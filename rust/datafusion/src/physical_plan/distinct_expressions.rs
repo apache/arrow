@@ -17,6 +17,7 @@
 
 //! Implementations for DISTINCT expressions, e.g. `COUNT(DISTINCT c)`
 
+use std::any::Any;
 use std::convert::TryFrom;
 use std::fmt::Debug;
 use std::hash::Hash;
@@ -70,6 +71,11 @@ impl DistinctCount {
 }
 
 impl AggregateExpr for DistinctCount {
+    /// Return a reference to Any that can be used for downcasting
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn field(&self) -> Result<Field> {
         Ok(Field::new(&self.name, self.data_type.clone(), true))
     }

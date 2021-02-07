@@ -17,6 +17,7 @@
 
 //! Defines physical expressions that can evaluated at runtime during query execution
 
+use std::any::Any;
 use std::convert::TryFrom;
 use std::sync::Arc;
 
@@ -58,6 +59,11 @@ impl Max {
 }
 
 impl AggregateExpr for Max {
+    /// Return a reference to Any that can be used for downcasting
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn field(&self) -> Result<Field> {
         Ok(Field::new(
             &self.name,
@@ -310,6 +316,11 @@ impl Min {
 }
 
 impl AggregateExpr for Min {
+    /// Return a reference to Any that can be used for downcasting
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn field(&self) -> Result<Field> {
         Ok(Field::new(
             &self.name,

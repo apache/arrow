@@ -17,6 +17,7 @@
 
 //! Defines physical expressions that can evaluated at runtime during query execution
 
+use std::any::Any;
 use std::convert::TryFrom;
 use std::sync::Arc;
 
@@ -75,6 +76,11 @@ impl Sum {
 }
 
 impl AggregateExpr for Sum {
+    /// Return a reference to Any that can be used for downcasting
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn field(&self) -> Result<Field> {
         Ok(Field::new(
             &self.name,
