@@ -162,7 +162,7 @@ fn optimize_expr(e: &Expr, schema: &DFSchemaRef) -> Result<Expr> {
                 },
                 _ => Expr::BinaryExpr {
                     left: Box::new(left),
-                    op: op.clone(),
+                    op: *op,
                     right: Box::new(right),
                 },
             }
@@ -183,10 +183,16 @@ fn optimize_expr(e: &Expr, schema: &DFSchemaRef) -> Result<Expr> {
                     when_then_expr: when_then_expr
                         .iter()
                         .map(|(when, then)| {
-                            Ok((Box::new(optimize_expr(when, schema)?), then.clone()))
+                            Ok((
+                                Box::new(optimize_expr(when, schema)?),
+                                Box::new(optimize_expr(then, schema)?),
+                            ))
                         })
                         .collect::<Result<_>>()?,
-                    else_expr: else_expr.clone(),
+                    else_expr: match else_expr {
+                        Some(e) => Some(Box::new(optimize_expr(e, schema)?)),
+                        None => None,
+                    },
                 }
             } else {
                 // when base expression is specified, when_then_expr conditions are literal values
@@ -590,16 +596,19 @@ mod tests {
                             op: Operator::NotEq,
                             right: Box::new(lit(false)),
                         }),
-                        Box::new(lit("ok")),
+                        Box::new(lit("ok").eq(lit(true))),
                     )],
-                    else_expr: Some(Box::new(lit("not ok"))),
+                    else_expr: Some(Box::new(col("c2").eq(lit(true)))),
                 }),
                 &schema
             )?,
             Expr::Case {
                 expr: None,
-                when_then_expr: vec![(Box::new(col("c2")), Box::new(lit("ok")))],
-                else_expr: Some(Box::new(lit("not ok"))),
+                when_then_expr: vec![(
+                    Box::new(col("c2")),
+                    Box::new(lit("ok").eq(lit(true)))
+                )],
+                else_expr: Some(Box::new(col("c2"))),
             }
         );
 
