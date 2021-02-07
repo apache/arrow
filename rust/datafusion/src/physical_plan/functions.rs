@@ -119,6 +119,8 @@ pub enum BuiltinScalarFunction {
     Length,
     /// concat
     Concat,
+    /// split
+    SplitPart,
     /// lower
     Lower,
     /// upper
@@ -181,6 +183,7 @@ impl FromStr for BuiltinScalarFunction {
             "char_length" => BuiltinScalarFunction::Length,
             "character_length" => BuiltinScalarFunction::Length,
             "concat" => BuiltinScalarFunction::Concat,
+            "split_part" => BuiltinScalarFunction::SplitPart,
             "lower" => BuiltinScalarFunction::Lower,
             "trim" => BuiltinScalarFunction::Trim,
             "ltrim" => BuiltinScalarFunction::Ltrim,
@@ -238,6 +241,7 @@ pub fn return_type(
                 ));
             }
         }),
+        BuiltinScalarFunction::SplitPart => Ok(DataType::Utf8),
         BuiltinScalarFunction::Concat => Ok(DataType::Utf8),
         BuiltinScalarFunction::Lower => Ok(match arg_types[0] {
             DataType::LargeUtf8 => DataType::LargeUtf8,
@@ -428,6 +432,9 @@ pub fn create_physical_expr(
         BuiltinScalarFunction::Concat => {
             |args| Ok(Arc::new(string_expressions::concatenate(args)?))
         }
+        BuiltinScalarFunction::SplitPart => {
+            |args| Ok(Arc::new(string_expressions::split_part(args)?))
+        }
         BuiltinScalarFunction::Lower => |args| match args[0].data_type() {
             DataType::Utf8 => Ok(Arc::new(string_expressions::lower::<i32>(args)?)),
             DataType::LargeUtf8 => Ok(Arc::new(string_expressions::lower::<i64>(args)?)),
@@ -499,6 +506,9 @@ fn signature(fun: &BuiltinScalarFunction) -> Signature {
     // for now, the list is small, as we do not have many built-in functions.
     match fun {
         BuiltinScalarFunction::Concat => Signature::Variadic(vec![DataType::Utf8]),
+        BuiltinScalarFunction::SplitPart => {
+            Signature::Exact(vec![DataType::Utf8, DataType::Utf8, DataType::Int64])
+        }
         BuiltinScalarFunction::Upper
         | BuiltinScalarFunction::Lower
         | BuiltinScalarFunction::Length

@@ -19,7 +19,7 @@
 
 use crate::error::{DataFusionError, Result};
 use arrow::array::{
-    Array, ArrayRef, GenericStringArray, StringArray, StringBuilder,
+    Array, ArrayRef, GenericStringArray, Int64Array, StringArray, StringBuilder,
     StringOffsetSizeTrait,
 };
 
@@ -32,6 +32,58 @@ macro_rules! downcast_vec {
                 _ => Err(DataFusionError::Internal("failed to downcast".to_string())),
             })
     }};
+}
+
+/// split string columns, return value at index
+pub fn split_part(args: &[ArrayRef]) -> Result<StringArray> {
+    let haystack = &args[0]
+        .as_any()
+        .downcast_ref::<StringArray>()
+        .ok_or_else(|| {
+            DataFusionError::Internal(
+                "could not cast split_part input to StringArray".to_string(),
+            )
+        })?;
+
+    let needle = &args[1]
+        .as_any()
+        .downcast_ref::<StringArray>()
+        .ok_or_else(|| {
+            DataFusionError::Internal(
+                "could not cast split_part input to StringArray".to_string(),
+            )
+        })?;
+
+    let part = &args[2]
+        .as_any()
+        .downcast_ref::<Int64Array>()
+        .ok_or_else(|| {
+            DataFusionError::Internal(
+                "could not cast split_part input to Int64Array".to_string(),
+            )
+        })?;
+
+    let mut builder = StringBuilder::new(args.len());
+
+    for index in 0..args[0].len() {
+        if haystack.is_null(index) || needle.is_null(index) || part.is_null(index) {
+            builder.append_null()?;
+            continue;
+        }
+
+        let hs = haystack.value(index);
+        let ndl = needle.value(index);
+
+        // rust is 0 indexed, PostgreSQL is 1 indexed
+        let pnum = part.value(index) - 1;
+
+        match hs.split(ndl).nth(pnum as usize) {
+            Some(i) => builder.append_value(i)?,
+            None => builder.append_value("")?,
+        };
+    }
+
+    Ok(builder.finish())
 }
 
 /// concatenate string columns together.

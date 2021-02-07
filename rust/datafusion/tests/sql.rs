@@ -1555,6 +1555,31 @@ async fn query_large_length() -> Result<()> {
 }
 
 #[tokio::test]
+async fn query_split_part() -> Result<()> {
+    let schema = Arc::new(Schema::new(vec![Field::new("c1", DataType::Utf8, true)]));
+
+    let data = RecordBatch::try_new(
+        schema.clone(),
+        vec![Arc::new(StringArray::from(vec![
+            "hello-world",
+            "a",
+            "-",
+            "---",
+        ]))],
+    )?;
+
+    let table = MemTable::try_new(schema, vec![vec![data]])?;
+
+    let mut ctx = ExecutionContext::new();
+    ctx.register_table("test", Box::new(table));
+    let sql = "SELECT split_part(c1,'-',1) FROM test";
+    let actual = execute(&mut ctx, sql).await;
+    let expected = vec![vec!["hello"], vec!["a"], vec![""], vec![""]];
+    assert_eq!(expected, actual);
+    Ok(())
+}
+
+#[tokio::test]
 async fn query_not() -> Result<()> {
     let schema = Arc::new(Schema::new(vec![Field::new("c1", DataType::Boolean, true)]));
 

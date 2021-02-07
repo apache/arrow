@@ -848,6 +848,14 @@ pub fn length(e: Expr) -> Expr {
     }
 }
 
+/// returns the provided index of a split string
+pub fn split(args: Vec<Expr>) -> Expr {
+    Expr::ScalarFunction {
+        fun: functions::BuiltinScalarFunction::SplitPart,
+        args,
+    }
+}
+
 /// returns the concatenation of string expressions
 pub fn concat(args: Vec<Expr>) -> Expr {
     Expr::ScalarFunction {
