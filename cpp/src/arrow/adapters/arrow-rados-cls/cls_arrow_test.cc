@@ -46,7 +46,8 @@ std::shared_ptr<arrow::dataset::Dataset> GetDatasetFromDirectory(
 
   arrow::dataset::FileSystemFactoryOptions options;
   options.partitioning = std::make_shared<arrow::dataset::HivePartitioning>(
-      arrow::schema({arrow::field("payment_type", arrow::int32()), arrow::field("VendorID", arrow::int32())}));
+      arrow::schema({arrow::field("payment_type", arrow::int32()),
+                     arrow::field("VendorID", arrow::int32())}));
   auto factory =
       arrow::dataset::FileSystemDatasetFactory::Make(fs, s, format, options).ValueOrDie();
 
@@ -97,7 +98,8 @@ TEST(TestClsSDK, SimpleQuery) {
   auto dataset = GetDatasetFromPath(fs, format, path);
 
   std::vector<std::string> columns = {"fare_amount", "total_amount"};
-  auto scanner = GetScannerFromDataset(dataset, columns, arrow::dataset::literal(true), false);
+  auto scanner =
+      GetScannerFromDataset(dataset, columns, arrow::dataset::literal(true), false);
 
   auto table = scanner->ToTable().ValueOrDie();
   std::cout << "Table size: " << table->num_rows() << "\n";
@@ -113,8 +115,8 @@ TEST(TestClsSDK, QueryOnPartitionKey) {
   auto dataset = GetDatasetFromPath(fs, format, path);
 
   std::vector<std::string> columns = {"fare_amount", "VendorID", "payment_type"};
-  auto filter = arrow::dataset::greater(
-      arrow::dataset::field_ref("payment_type"), arrow::dataset::literal(2));
+  auto filter = arrow::dataset::greater(arrow::dataset::field_ref("payment_type"),
+                                        arrow::dataset::literal(2));
 
   auto scanner = GetScannerFromDataset(dataset, columns, filter, false);
 

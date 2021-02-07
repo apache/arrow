@@ -30,7 +30,7 @@ union {
   char bytes_[8];
 } converter_;
 
-Status int64_to_char(char* buffer, int64_t num) {
+Status Int64ToChar(char* buffer, int64_t num) {
   /// Pass the integer through the union to
   /// get the byte representation.
   num = BitUtil::ToLittleEndian(num);
@@ -39,7 +39,7 @@ Status int64_to_char(char* buffer, int64_t num) {
   return Status::OK();
 }
 
-Status char_to_int64(char* buffer, int64_t& num) {
+Status CharToInt64(char* buffer, int64_t& num) {
   /// Pass the byte representation through the union to
   /// get the integer.
   memcpy(converter_.bytes_, buffer, 8);
@@ -61,21 +61,21 @@ Status SerializeScanRequestToBufferlist(Expression filter, Expression part_expr,
 
   // convert filter Expression size to buffer.
   char* filter_size_buffer = new char[8];
-  ARROW_RETURN_NOT_OK(int64_to_char(filter_size_buffer, filter_buffer->size()));
+  ARROW_RETURN_NOT_OK(Int64ToChar(filter_size_buffer, filter_buffer->size()));
 
   // convert partition expression size to buffer.
   char* part_expr_size_buffer = new char[8];
-  ARROW_RETURN_NOT_OK(int64_to_char(part_expr_size_buffer, part_expr_buffer->size()));
+  ARROW_RETURN_NOT_OK(Int64ToChar(part_expr_size_buffer, part_expr_buffer->size()));
 
   // convert projection schema size to buffer.
   char* projection_schema_size_buffer = new char[8];
   ARROW_RETURN_NOT_OK(
-      int64_to_char(projection_schema_size_buffer, projection_schema_buffer->size()));
+      Int64ToChar(projection_schema_size_buffer, projection_schema_buffer->size()));
 
   // convert dataset schema to buffer
   char* dataset_schema_size_buffer = new char[8];
   ARROW_RETURN_NOT_OK(
-      int64_to_char(dataset_schema_size_buffer, dataset_schema_buffer->size()));
+      Int64ToChar(dataset_schema_size_buffer, dataset_schema_buffer->size()));
 
   // append the filter expression size and data.
   bl->append(filter_size_buffer, 8);
@@ -104,29 +104,28 @@ Status DeserializeScanRequestFromBufferlist(Expression* filter, Expression* part
   int64_t filter_size = 0;
   char* filter_size_buffer = new char[8];
   itr.copy(8, filter_size_buffer);
-  ARROW_RETURN_NOT_OK(char_to_int64(filter_size_buffer, filter_size));
+  ARROW_RETURN_NOT_OK(CharToInt64(filter_size_buffer, filter_size));
   char* filter_buffer = new char[filter_size];
   itr.copy(filter_size, filter_buffer);
 
   int64_t part_expr_size = 0;
   char* part_expr_size_buffer = new char[8];
   itr.copy(8, part_expr_size_buffer);
-  ARROW_RETURN_NOT_OK(char_to_int64(part_expr_size_buffer, part_expr_size));
+  ARROW_RETURN_NOT_OK(CharToInt64(part_expr_size_buffer, part_expr_size));
   char* part_expr_buffer = new char[part_expr_size];
   itr.copy(part_expr_size, part_expr_buffer);
 
   int64_t projection_schema_size = 0;
   char* projection_schema_size_buffer = new char[8];
   itr.copy(8, projection_schema_size_buffer);
-  ARROW_RETURN_NOT_OK(
-      char_to_int64(projection_schema_size_buffer, projection_schema_size));
+  ARROW_RETURN_NOT_OK(CharToInt64(projection_schema_size_buffer, projection_schema_size));
   char* projection_schema_buffer = new char[projection_schema_size];
   itr.copy(projection_schema_size, projection_schema_buffer);
 
   int64_t dataset_schema_size = 0;
   char* dataset_schema_size_buffer = new char[8];
   itr.copy(8, dataset_schema_size_buffer);
-  ARROW_RETURN_NOT_OK(char_to_int64(dataset_schema_size_buffer, dataset_schema_size));
+  ARROW_RETURN_NOT_OK(CharToInt64(dataset_schema_size_buffer, dataset_schema_size));
   char* dataset_schema_buffer = new char[dataset_schema_size];
   itr.copy(dataset_schema_size, dataset_schema_buffer);
 

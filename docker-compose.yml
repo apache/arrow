@@ -779,17 +779,17 @@ services:
     #   docker-compose build ubuntu-cpp-cls
     #   docker-compose run --rm ubuntu-cpp-cls
     # Parameters:
-    #   ARCH: amd64
-    #   UBUNTU: 20.04
-    image: ${REPO}:${ARCH}-ubuntu-20.04-cpp
+    #   ARCH: amd64, arm64v8, ...
+    #   UBUNTU: 16.04, 18.04, 20.04
+    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
     build:
       context: .
-      dockerfile: ci/docker/ubuntu-20.04-cpp.dockerfile
+      dockerfile: ci/docker/ubuntu-${UBUNTU}-cpp.dockerfile
       cache_from:
-        - ${REPO}:${ARCH}-ubuntu-20.04-cpp
+        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
       args:
         arch: ${ARCH}
-        base: "${ARCH}/ubuntu:20.04"
+        base: "${ARCH}/ubuntu:${UBUNTU}"
         clang_tools: ${CLANG_TOOLS}
         llvm: ${LLVM}
     shm_size: *shm-size

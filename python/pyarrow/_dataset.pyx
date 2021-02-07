@@ -631,7 +631,7 @@ cdef class FileFormat(_Weakrefable):
         self.init(sp)
         return self
 
-    cdef inline shared_ptr[CFileFormat] unwrap(self) nogil: 
+    cdef inline shared_ptr[CFileFormat] unwrap(self) nogil:
         return self.wrapped
 
     def inspect(self, file, filesystem=None):

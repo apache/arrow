@@ -60,14 +60,17 @@ Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
 }
 
 Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
-    FileSource source, Expression partition_expression, int flag, std::shared_ptr<Schema> dataset_schema) {
-  
-  /// the flag helps to differentiate the signature of the functions.
-  /// would be removed later, when dataset_schema becomes the norm and not
-  /// the exception.
-  return std::shared_ptr<FileFragment>(
-      new FileFragment(std::move(source), shared_from_this(),
-                       std::move(partition_expression), nullptr, std::move(dataset_schema)));
+    FileSource source, Expression partition_expression, int flag,
+    std::shared_ptr<Schema> dataset_schema) {
+  if (type_name() == "rados-parquet") {
+    /// don't create a parquet file fragment, just create a FileFragment..
+    return std::shared_ptr<FileFragment>(new FileFragment(
+        std::move(source), shared_from_this(), std::move(partition_expression), nullptr,
+        std::move(dataset_schema)));
+  } else {
+    /// whereas here it creates a ParquetFileFragment
+    return MakeFragment(std::move(source), std::move(partition_expression), nullptr);
+  }
 }
 
 Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
@@ -78,9 +81,9 @@ Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
 Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
     FileSource source, Expression partition_expression,
     std::shared_ptr<Schema> physical_schema) {
-  return std::shared_ptr<FileFragment>(
-      new FileFragment(std::move(source), shared_from_this(),
-                       std::move(partition_expression), std::move(physical_schema), nullptr));
+  return std::shared_ptr<FileFragment>(new FileFragment(
+      std::move(source), shared_from_this(), std::move(partition_expression),
+      std::move(physical_schema), nullptr));
 }
 
 Result<std::shared_ptr<Schema>> FileFragment::ReadPhysicalSchemaImpl() {

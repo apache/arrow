@@ -19,6 +19,5 @@
 
 set -ex
 
-# only for ubuntu:20.04 right now
 apt update
-apt install -y ceph-common ceph-osd ceph-mon ceph-mgr 
+apt install -y ceph-common ceph-osd ceph-mon ceph-mgr ceph-mds ceph-fuse

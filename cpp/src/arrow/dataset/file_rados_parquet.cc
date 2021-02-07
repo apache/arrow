@@ -22,11 +22,10 @@
 #include "arrow/dataset/file_base.h"
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/path_util.h"
+#include "arrow/filesystem/util_internal.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
-#include "arrow/filesystem/util_internal.h"
-
 
 namespace arrow {
 namespace dataset {
@@ -48,17 +47,16 @@ class RadosParquetScanTask : public ScanTask {
         options_->filter, options_->partition_expression, options_->projector.schema(),
         options_->dataset_schema, in));
 
-    auto path =
-        fs::internal::RemoveAncestor("/mnt/cephfs/", source_.path()).value().to_string();
-
-    Status s = doa_->Exec(path, "scan", in, out);
+    Status s = doa_->Exec(source_.path(), "scan", in, out);
     if (!s.ok()) {
       return Status::ExecutionError(s.message());
     }
 
-    char *scanned_table_buffer = new char[out->length()];
+    char* scanned_table_buffer = new char[out->length()];
     librados::bufferlist::iterator itr = out->begin();
     itr.copy(out->length(), scanned_table_buffer);
+    /// copying out from the bufferist into a char pointer
+    /// fixed the segmentation fault issue. Maybe we can use shallow copy.
 
     RecordBatchVector batches;
     auto buffer = std::make_shared<Buffer>((uint8_t*)scanned_table_buffer, out->length());
@@ -78,16 +76,14 @@ Result<std::shared_ptr<RadosParquetFileFormat>> RadosParquetFileFormat::Make(
     const std::string& path_to_config) {
   auto cluster = std::make_shared<RadosCluster>(path_to_config);
   RETURN_NOT_OK(cluster->Connect());
-  auto doa = std::make_shared<arrow::dataset::DirectObjectAccess>();
-  RETURN_NOT_OK(doa->Init(cluster));
+  auto doa = std::make_shared<arrow::dataset::DirectObjectAccess>(cluster);
   return std::make_shared<RadosParquetFileFormat>(doa);
 }
 
 RadosParquetFileFormat::RadosParquetFileFormat(const std::string& path_to_config) {
   auto cluster = std::make_shared<RadosCluster>(path_to_config);
   cluster->Connect();
-  auto doa = std::make_shared<arrow::dataset::DirectObjectAccess>();
-  doa->Init(cluster);
+  auto doa = std::make_shared<arrow::dataset::DirectObjectAccess>(cluster);
   doa_ = doa;
 }
 
@@ -96,10 +92,7 @@ Result<std::shared_ptr<Schema>> RadosParquetFileFormat::Inspect(
   std::shared_ptr<librados::bufferlist> in = std::make_shared<librados::bufferlist>();
   std::shared_ptr<librados::bufferlist> out = std::make_shared<librados::bufferlist>();
 
-  auto path =
-      fs::internal::RemoveAncestor("/mnt/cephfs/", source.path()).value().to_string();
-
-  Status s = doa_->Exec(path, "read_schema", in, out);
+  Status s = doa_->Exec(source.path(), "read_schema", in, out);
   if (!s.ok()) return Status::ExecutionError(s.message());
 
   std::vector<std::shared_ptr<Schema>> schemas;
