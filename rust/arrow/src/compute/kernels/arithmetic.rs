@@ -30,7 +30,9 @@ use num::{One, Zero};
 use crate::buffer::Buffer;
 #[cfg(simd)]
 use crate::buffer::MutableBuffer;
-use crate::compute::{kernels::arity::unary, util::combine_option_bitmap};
+use crate::compute::{
+    kernels::arity::binary, kernels::arity::unary, util::combine_option_bitmap,
+};
 use crate::datatypes;
 use crate::datatypes::ArrowNumericType;
 use crate::error::{ArrowError, Result};
@@ -134,55 +136,6 @@ where
         array.data_ref().null_buffer().cloned(),
         0,
         vec![result.into()],
-        vec![],
-    );
-    Ok(PrimitiveArray::<T>::from(Arc::new(data)))
-}
-
-/// Helper function to perform math lambda function on values from two arrays. If either
-/// left or right value is null then the output value is also null, so `1 + null` is
-/// `null`.
-///
-/// # Errors
-///
-/// This function errors if the arrays have different lengths
-pub fn math_op<T, F>(
-    left: &PrimitiveArray<T>,
-    right: &PrimitiveArray<T>,
-    op: F,
-) -> Result<PrimitiveArray<T>>
-where
-    T: ArrowNumericType,
-    F: Fn(T::Native, T::Native) -> T::Native,
-{
-    if left.len() != right.len() {
-        return Err(ArrowError::ComputeError(
-            "Cannot perform math operation on arrays of different length".to_string(),
-        ));
-    }
-
-    let null_bit_buffer =
-        combine_option_bitmap(left.data_ref(), right.data_ref(), left.len())?;
-
-    let values = left
-        .values()
-        .iter()
-        .zip(right.values().iter())
-        .map(|(l, r)| op(*l, *r));
-    // JUSTIFICATION
-    //  Benefit
-    //      ~60% speedup
-    //  Soundness
-    //      `values` is an iterator with a known size.
-    let buffer = unsafe { Buffer::from_trusted_len_iter(values) };
-
-    let data = ArrayData::new(
-        T::DATA_TYPE,
-        left.len(),
-        None,
-        null_bit_buffer,
-        0,
-        vec![buffer],
         vec![],
     );
     Ok(PrimitiveArray::<T>::from(Arc::new(data)))
@@ -523,7 +476,7 @@ where
     #[cfg(simd)]
     return simd_math_op(&left, &right, |a, b| a + b, |a, b| a + b);
     #[cfg(not(simd))]
-    return math_op(left, right, |a, b| a + b);
+    return binary(left, right, std::ops::Add::add);
 }
 
 /// Perform `left - right` operation on two arrays. If either left or right value is null
@@ -543,7 +496,7 @@ where
     #[cfg(simd)]
     return simd_math_op(&left, &right, |a, b| a - b, |a, b| a - b);
     #[cfg(not(simd))]
-    return math_op(left, right, |a, b| a - b);
+    return binary(left, right, |a, b| a - b);
 }
 
 /// Perform `-` operation on an array. If value is null then the result is also null.
@@ -553,9 +506,9 @@ where
     T::Native: Neg<Output = T::Native>,
 {
     #[cfg(simd)]
-    return simd_signed_unary_math_op(array, |x| -x, |x| -x);
+    return simd_signed_unary_math_op(array, std::ops::Neg::neg, std::ops::Neg::neg);
     #[cfg(not(simd))]
-    return Ok(unary(array, |x| -x));
+    return Ok(unary(array, std::ops::Neg::neg));
 }
 
 /// Raise array with floating point values to the power of a scalar.
@@ -597,7 +550,7 @@ where
     #[cfg(simd)]
     return simd_math_op(&left, &right, |a, b| a * b, |a, b| a * b);
     #[cfg(not(simd))]
-    return math_op(left, right, |a, b| a * b);
+    return binary(left, right, std::ops::Mul::mul);
 }
 
 /// Perform `left / right` operation on two arrays. If either left or right value is null
@@ -668,7 +621,7 @@ mod tests {
             .err()
             .expect("should have failed due to different lengths");
         assert_eq!(
-            "ComputeError(\"Cannot perform math operation on arrays of different length\")",
+            "ComputeError(\"Cannot perform operation on arrays of different length\")",
             format!("{:?}", e)
         );
     }

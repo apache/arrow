@@ -249,6 +249,55 @@ impl<T: ArrowPrimitiveType> fmt::Debug for PrimitiveArray<T> {
     }
 }
 
+impl<T: ArrowPrimitiveType> TypedArray for PrimitiveArray<T> {
+    type Value = T::Native;
+
+    /// Creates a PrimitiveArray based on an iterator of values without null
+    fn from_iter_values<I: IntoIterator<Item = Self::Value>>(iter: I) -> Self
+    where
+        Self::Value: Sized,
+    {
+        let val_buf: Buffer = iter.into_iter().collect();
+        let data = ArrayData::new(
+            T::DATA_TYPE,
+            val_buf.len() / mem::size_of::<<T as ArrowPrimitiveType>::Native>(),
+            None,
+            None,
+            0,
+            vec![val_buf],
+            vec![],
+        );
+        PrimitiveArray::from(Arc::new(data))
+    }
+}
+
+impl<'a, T: ArrowPrimitiveType> TypedArrayRef for &'a PrimitiveArray<T> {
+    type ValueRef = T::Native;
+    type ValueIter = std::iter::Copied<std::slice::Iter<'a, T::Native>>;
+    type OptionValueIter = PrimitiveIter<'a, T>;
+
+    fn iter(self) -> Self::OptionValueIter {
+        IntoIterator::into_iter(self)
+    }
+
+    fn iter_values(self) -> Self::ValueIter {
+        self.values().iter().copied()
+    }
+
+    /// Returns the primitive value at index `i`.
+    ///
+    /// # Safety
+    /// caller must ensure that the passed in offset is less than the array len()
+    unsafe fn value_unchecked(self, i: usize) -> T::Native {
+        *(self.values().get_unchecked(i))
+    }
+
+    /// Returns the primitive value at index `i`.
+    fn value(self, i: usize) -> T::Native {
+        self.values()[i]
+    }
+}
+
 impl<'a, T: ArrowPrimitiveType> IntoIterator for &'a PrimitiveArray<T> {
     type Item = Option<<T as ArrowPrimitiveType>::Native>;
     type IntoIter = PrimitiveIter<'a, T>;

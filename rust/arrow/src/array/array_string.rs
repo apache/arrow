@@ -22,7 +22,8 @@ use std::{any::Any, iter::FromIterator};
 
 use super::{
     array::print_long_array, raw_pointer::RawPtrBox, Array, ArrayData, ArrayDataRef,
-    GenericListArray, GenericStringIter, OffsetSizeTrait,
+    GenericListArray, GenericStringIter, GenericStringValueIter, OffsetSizeTrait,
+    TypedArrayRef,
 };
 use crate::buffer::Buffer;
 use crate::util::bit_util;
@@ -284,6 +285,60 @@ impl<OffsetSize: StringOffsetSizeTrait> Array for GenericStringArray<OffsetSize>
     /// Returns the total number of bytes of memory occupied physically by this [$name].
     fn get_array_memory_size(&self) -> usize {
         self.data.get_array_memory_size() + mem::size_of_val(self)
+    }
+}
+
+impl<'a, OffsetSize: StringOffsetSizeTrait> TypedArrayRef
+    for &'a GenericStringArray<OffsetSize>
+{
+    type ValueRef = &'a str;
+    type ValueIter = GenericStringValueIter<'a, OffsetSize>;
+    type OptionValueIter = GenericStringIter<'a, OffsetSize>;
+
+    fn iter(self) -> Self::OptionValueIter {
+        IntoIterator::into_iter(self)
+    }
+
+    fn iter_values(self) -> Self::ValueIter {
+        GenericStringValueIter::new(self)
+    }
+
+    /// Returns the element at index
+    /// # Safety
+    /// caller is responsible for ensuring that index is within the array bounds
+    unsafe fn value_unchecked(self, i: usize) -> &'a str {
+        let end = self.value_offsets().get_unchecked(i + 1);
+        let start = self.value_offsets().get_unchecked(i);
+
+        // Soundness
+        // pointer alignment & location is ensured by RawPtrBox
+        // buffer bounds/offset is ensured by the value_offset invariants
+        // ISSUE: utf-8 well formedness is not checked
+        let slice = std::slice::from_raw_parts(
+            self.value_data.as_ptr().offset(start.to_isize()),
+            (*end - *start).to_usize().unwrap(),
+        );
+        std::str::from_utf8_unchecked(slice)
+    }
+
+    /// Returns the element at index `i` as &str
+    fn value(self, i: usize) -> &'a str {
+        assert!(i < self.data.len(), "StringArray out of bounds access");
+        //Soundness: length checked above, offset buffer length is 1 larger than logical array length
+        let end = unsafe { self.value_offsets().get_unchecked(i + 1) };
+        let start = unsafe { self.value_offsets().get_unchecked(i) };
+
+        // Soundness
+        // pointer alignment & location is ensured by RawPtrBox
+        // buffer bounds/offset is ensured by the value_offset invariants
+        // ISSUE: utf-8 well formedness is not checked
+        unsafe {
+            let slice = std::slice::from_raw_parts(
+                self.value_data.as_ptr().offset(start.to_isize()),
+                (*end - *start).to_usize().unwrap(),
+            );
+            std::str::from_utf8_unchecked(slice)
+        }
     }
 }
 

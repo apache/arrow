@@ -25,7 +25,8 @@ use std::{
 
 use super::{
     array::print_long_array, raw_pointer::RawPtrBox, Array, ArrayData, ArrayDataRef,
-    FixedSizeListArray, GenericBinaryIter, GenericListArray, OffsetSizeTrait,
+    FixedSizeListArray, GenericBinaryIter, GenericBinaryValueIter, GenericListArray,
+    OffsetSizeTrait, TypedArrayRef,
 };
 use crate::buffer::Buffer;
 use crate::util::bit_util;
@@ -159,6 +160,34 @@ impl<OffsetSize: BinaryOffsetSizeTrait> GenericBinaryArray<OffsetSize> {
 
         let data = builder.build();
         Self::from(data)
+    }
+}
+
+impl<'a, OffsetSize: BinaryOffsetSizeTrait> TypedArrayRef
+    for &'a GenericBinaryArray<OffsetSize>
+{
+    type ValueRef = &'a [u8];
+    type ValueIter = GenericBinaryValueIter<'a, OffsetSize>;
+    type OptionValueIter = GenericBinaryIter<'a, OffsetSize>;
+
+    fn iter(self) -> Self::OptionValueIter {
+        IntoIterator::into_iter(self)
+    }
+
+    fn iter_values(self) -> Self::ValueIter {
+        Self::ValueIter::new(&self)
+    }
+
+    /// Returns the element at index `i` as bytes slice
+    /// # Safety
+    /// Caller is responsible for ensuring that the index is within the bounds of the array
+    unsafe fn value_unchecked(self, i: usize) -> &'a [u8] {
+        GenericBinaryArray::value_unchecked(self, i)
+    }
+
+    /// Returns the element at index `i` as bytes slice
+    fn value(self, i: usize) -> &'a [u8] {
+        GenericBinaryArray::value(self, i)
     }
 }
 

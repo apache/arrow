@@ -33,56 +33,77 @@ use crate::datatypes::{ArrowNumericType, DataType};
 use crate::error::{ArrowError, Result};
 use crate::util::bit_util;
 
-/// Helper function to perform boolean lambda function on values from two arrays, this
-/// version does not attempt to use SIMD.
-macro_rules! compare_op {
-    ($left: expr, $right:expr, $op:expr) => {{
-        if $left.len() != $right.len() {
-            return Err(ArrowError::ComputeError(
-                "Cannot perform comparison operation on arrays of different length"
-                    .to_string(),
-            ));
-        }
+#[allow(clippy::unnecessary_wraps)]
+fn compare_op_scalar<'a, A, S, F>(
+    left: &'a A,
+    right: S,
+    predicate: F,
+) -> Result<BooleanArray>
+where
+    &'a A: TypedArrayRef,
+    A: Array,
+    S: Copy,
+    F: FnMut(<&'a A as TypedArrayRef>::ValueRef, S) -> bool,
+{
+    let null_bit_buffer = left.data().null_buffer().cloned();
 
-        let null_bit_buffer =
-            combine_option_bitmap($left.data_ref(), $right.data_ref(), $left.len())?;
+    let bool_buf = {
+        let mut predicate_ref = predicate;
+        left.iter_values()
+            .map(|left| predicate_ref(left, right))
+            .collect()
+    };
 
-        let buffer = (0..$left.len())
-            .map(|i| $op($left.value(i), $right.value(i)))
-            .collect();
-
-        let data = ArrayData::new(
-            DataType::Boolean,
-            $left.len(),
-            None,
-            null_bit_buffer,
-            0,
-            vec![buffer],
-            vec![],
-        );
-        Ok(BooleanArray::from(Arc::new(data)))
-    }};
+    let data = ArrayData::new(
+        DataType::Boolean,
+        left.len(),
+        None,
+        null_bit_buffer,
+        0,
+        vec![bool_buf],
+        vec![],
+    );
+    Ok(BooleanArray::from(Arc::new(data)))
 }
 
-macro_rules! compare_op_scalar {
-    ($left: expr, $right:expr, $op:expr) => {{
-        let null_bit_buffer = $left.data().null_buffer().cloned();
+fn compare_op<'a, A, F>(left: &'a A, right: &'a A, predicate: F) -> Result<BooleanArray>
+where
+    A: Array,
+    &'a A: TypedArrayRef,
+    F: FnMut(
+        <&'a A as TypedArrayRef>::ValueRef,
+        <&'a A as TypedArrayRef>::ValueRef,
+    ) -> bool,
+{
+    if left.len() != right.len() {
+        return Err(ArrowError::ComputeError(
+            "Cannot perform comparison operation on arrays of different length"
+                .to_string(),
+        ));
+    };
 
-        let buffer = (0..$left.len())
-            .map(|i| $op($left.value(i), $right))
-            .collect();
+    let null_bit_buffer =
+        combine_option_bitmap(left.data_ref(), right.data_ref(), left.len())?;
 
-        let data = ArrayData::new(
-            DataType::Boolean,
-            $left.len(),
-            None,
-            null_bit_buffer,
-            0,
-            vec![buffer],
-            vec![],
-        );
-        Ok(BooleanArray::from(Arc::new(data)))
-    }};
+    let bool_buf = {
+        let mut predicate_ref = predicate;
+        left.iter_values()
+            .zip(right.iter_values())
+            .map(|(left, right)| predicate_ref(left, right))
+            .collect()
+    };
+
+    let data = ArrayData::new(
+        DataType::Boolean,
+        left.len(),
+        None,
+        null_bit_buffer,
+        0,
+        vec![bool_buf],
+        vec![],
+    );
+
+    Ok(BooleanArray::from(Arc::new(data)))
 }
 
 pub fn no_simd_compare_op<T, F>(
@@ -94,7 +115,7 @@ where
     T: ArrowNumericType,
     F: Fn(T::Native, T::Native) -> bool,
 {
-    compare_op!(left, right, op)
+    compare_op(left, right, op)
 }
 
 pub fn no_simd_compare_op_scalar<T, F>(
@@ -106,7 +127,7 @@ where
     T: ArrowNumericType,
     F: Fn(T::Native, T::Native) -> bool,
 {
-    compare_op_scalar!(left, right, op)
+    compare_op_scalar(left, right, |l: T::Native, r: T::Native| op(l, r))
 }
 
 pub fn like_utf8<OffsetSize: StringOffsetSizeTrait>(
@@ -124,26 +145,27 @@ pub fn like_utf8<OffsetSize: StringOffsetSizeTrait>(
     let null_bit_buffer =
         combine_option_bitmap(left.data_ref(), right.data_ref(), left.len())?;
 
-    let mut result = BooleanBufferBuilder::new(left.len());
-    for i in 0..left.len() {
-        let haystack = left.value(i);
-        let pat = right.value(i);
-        let re = if let Some(ref regex) = map.get(pat) {
-            regex
-        } else {
-            let re_pattern = pat.replace("%", ".*").replace("_", ".");
-            let re = Regex::new(&format!("^{}$", re_pattern)).map_err(|e| {
-                ArrowError::ComputeError(format!(
-                    "Unable to build regex from LIKE pattern: {}",
-                    e
-                ))
-            })?;
-            map.insert(pat, re);
-            map.get(pat).unwrap()
-        };
+    let bool_buf = left
+        .iter_values()
+        .zip(right.iter_values())
+        .map(|(haystack, pat)| {
+            let re = if let Some(ref regex) = map.get(pat) {
+                regex
+            } else {
+                let re_pattern = pat.replace("%", ".*").replace("_", ".");
+                let re = Regex::new(&format!("^{}$", re_pattern)).map_err(|e| {
+                    ArrowError::ComputeError(format!(
+                        "Unable to build regex from LIKE pattern: {}",
+                        e
+                    ))
+                })?;
+                map.insert(pat, re);
+                map.get(pat).unwrap()
+            };
 
-        result.append(re.is_match(haystack));
-    }
+            Ok(re.is_match(haystack))
+        })
+        .collect::<Result<Buffer>>()?;
 
     let data = ArrayData::new(
         DataType::Boolean,
@@ -151,7 +173,7 @@ pub fn like_utf8<OffsetSize: StringOffsetSizeTrait>(
         None,
         null_bit_buffer,
         0,
-        vec![result.finish()],
+        vec![bool_buf],
         vec![],
     );
     Ok(BooleanArray::from(Arc::new(data)))
@@ -166,34 +188,24 @@ pub fn like_utf8_scalar<OffsetSize: StringOffsetSizeTrait>(
     right: &str,
 ) -> Result<BooleanArray> {
     let null_bit_buffer = left.data().null_buffer().cloned();
-    let bytes = bit_util::ceil(left.len(), 8);
-    let mut bool_buf = MutableBuffer::from_len_zeroed(bytes);
-    let bool_slice = bool_buf.as_slice_mut();
-
-    if !right.contains(is_like_pattern) {
+    let bool_buf: Buffer = if !right.contains(is_like_pattern) {
         // fast path, can use equals
-        for i in 0..left.len() {
-            if left.value(i) == right {
-                bit_util::set_bit(bool_slice, i);
-            }
-        }
+        left.iter_values()
+            .map(|left_value| left_value == right)
+            .collect()
     } else if right.ends_with('%') && !right[..right.len() - 1].contains(is_like_pattern)
     {
         // fast path, can use starts_with
         let starts_with = &right[..right.len() - 1];
-        for i in 0..left.len() {
-            if left.value(i).starts_with(starts_with) {
-                bit_util::set_bit(bool_slice, i);
-            }
-        }
+        left.iter_values()
+            .map(|left_value| left_value.starts_with(starts_with))
+            .collect()
     } else if right.starts_with('%') && !right[1..].contains(is_like_pattern) {
         // fast path, can use ends_with
         let ends_with = &right[1..];
-        for i in 0..left.len() {
-            if left.value(i).ends_with(ends_with) {
-                bit_util::set_bit(bool_slice, i);
-            }
-        }
+        left.iter_values()
+            .map(|left_value| left_value.ends_with(ends_with))
+            .collect()
     } else {
         let re_pattern = right.replace("%", ".*").replace("_", ".");
         let re = Regex::new(&format!("^{}$", re_pattern)).map_err(|e| {
@@ -203,12 +215,9 @@ pub fn like_utf8_scalar<OffsetSize: StringOffsetSizeTrait>(
             ))
         })?;
 
-        for i in 0..left.len() {
-            let haystack = left.value(i);
-            if re.is_match(haystack) {
-                bit_util::set_bit(bool_slice, i);
-            }
-        }
+        left.iter_values()
+            .map(|left_value| re.is_match(left_value))
+            .collect()
     };
 
     let data = ArrayData::new(
@@ -217,7 +226,7 @@ pub fn like_utf8_scalar<OffsetSize: StringOffsetSizeTrait>(
         None,
         null_bit_buffer,
         0,
-        vec![bool_buf.into()],
+        vec![bool_buf],
         vec![],
     );
     Ok(BooleanArray::from(Arc::new(data)))
@@ -238,26 +247,27 @@ pub fn nlike_utf8<OffsetSize: StringOffsetSizeTrait>(
     let null_bit_buffer =
         combine_option_bitmap(left.data_ref(), right.data_ref(), left.len())?;
 
-    let mut result = BooleanBufferBuilder::new(left.len());
-    for i in 0..left.len() {
-        let haystack = left.value(i);
-        let pat = right.value(i);
-        let re = if let Some(ref regex) = map.get(pat) {
-            regex
-        } else {
-            let re_pattern = pat.replace("%", ".*").replace("_", ".");
-            let re = Regex::new(&format!("^{}$", re_pattern)).map_err(|e| {
-                ArrowError::ComputeError(format!(
-                    "Unable to build regex from LIKE pattern: {}",
-                    e
-                ))
-            })?;
-            map.insert(pat, re);
-            map.get(pat).unwrap()
-        };
+    let bool_buf = left
+        .iter_values()
+        .zip(right.iter_values())
+        .map(|(haystack, pat)| {
+            let re = if let Some(ref regex) = map.get(pat) {
+                regex
+            } else {
+                let re_pattern = pat.replace("%", ".*").replace("_", ".");
+                let re = Regex::new(&format!("^{}$", re_pattern)).map_err(|e| {
+                    ArrowError::ComputeError(format!(
+                        "Unable to build regex from LIKE pattern: {}",
+                        e
+                    ))
+                })?;
+                map.insert(pat, re);
+                map.get(pat).unwrap()
+            };
 
-        result.append(!re.is_match(haystack));
-    }
+            Ok(!re.is_match(haystack))
+        })
+        .collect::<Result<Buffer>>()?;
 
     let data = ArrayData::new(
         DataType::Boolean,
@@ -265,7 +275,7 @@ pub fn nlike_utf8<OffsetSize: StringOffsetSizeTrait>(
         None,
         null_bit_buffer,
         0,
-        vec![result.finish()],
+        vec![bool_buf],
         vec![],
     );
     Ok(BooleanArray::from(Arc::new(data)))
@@ -276,24 +286,24 @@ pub fn nlike_utf8_scalar<OffsetSize: StringOffsetSizeTrait>(
     right: &str,
 ) -> Result<BooleanArray> {
     let null_bit_buffer = left.data().null_buffer().cloned();
-    let mut result = BooleanBufferBuilder::new(left.len());
-
-    if !right.contains(is_like_pattern) {
+    let bool_buf: Buffer = if !right.contains(is_like_pattern) {
         // fast path, can use equals
-        for i in 0..left.len() {
-            result.append(left.value(i) != right);
-        }
+        left.iter_values()
+            .map(|left_value| left_value != right)
+            .collect()
     } else if right.ends_with('%') && !right[..right.len() - 1].contains(is_like_pattern)
     {
-        // fast path, can use ends_with
-        for i in 0..left.len() {
-            result.append(!left.value(i).starts_with(&right[..right.len() - 1]));
-        }
-    } else if right.starts_with('%') && !right[1..].contains(is_like_pattern) {
         // fast path, can use starts_with
-        for i in 0..left.len() {
-            result.append(!left.value(i).ends_with(&right[1..]));
-        }
+        let starts_with = &right[..right.len() - 1];
+        left.iter_values()
+            .map(|left_value| !left_value.starts_with(starts_with))
+            .collect()
+    } else if right.starts_with('%') && !right[1..].contains(is_like_pattern) {
+        // fast path, can use ends_with
+        let ends_with = &right[1..];
+        left.iter_values()
+            .map(|left_value| !left_value.ends_with(ends_with))
+            .collect()
     } else {
         let re_pattern = right.replace("%", ".*").replace("_", ".");
         let re = Regex::new(&format!("^{}$", re_pattern)).map_err(|e| {
@@ -302,11 +312,11 @@ pub fn nlike_utf8_scalar<OffsetSize: StringOffsetSizeTrait>(
                 e
             ))
         })?;
-        for i in 0..left.len() {
-            let haystack = left.value(i);
-            result.append(!re.is_match(haystack));
-        }
-    }
+
+        left.iter_values()
+            .map(|left_value| !re.is_match(left_value))
+            .collect()
+    };
 
     let data = ArrayData::new(
         DataType::Boolean,
@@ -314,7 +324,7 @@ pub fn nlike_utf8_scalar<OffsetSize: StringOffsetSizeTrait>(
         None,
         null_bit_buffer,
         0,
-        vec![result.finish()],
+        vec![bool_buf],
         vec![],
     );
     Ok(BooleanArray::from(Arc::new(data)))
@@ -324,84 +334,84 @@ pub fn eq_utf8<OffsetSize: StringOffsetSizeTrait>(
     left: &GenericStringArray<OffsetSize>,
     right: &GenericStringArray<OffsetSize>,
 ) -> Result<BooleanArray> {
-    compare_op!(left, right, |a, b| a == b)
+    compare_op(left, right, |a, b| a == b)
 }
 
 pub fn eq_utf8_scalar<OffsetSize: StringOffsetSizeTrait>(
     left: &GenericStringArray<OffsetSize>,
     right: &str,
 ) -> Result<BooleanArray> {
-    compare_op_scalar!(left, right, |a, b| a == b)
+    compare_op_scalar(left, right, |a, b| a == b)
 }
 
 pub fn neq_utf8<OffsetSize: StringOffsetSizeTrait>(
     left: &GenericStringArray<OffsetSize>,
     right: &GenericStringArray<OffsetSize>,
 ) -> Result<BooleanArray> {
-    compare_op!(left, right, |a, b| a != b)
+    compare_op(left, right, |a, b| a != b)
 }
 
 pub fn neq_utf8_scalar<OffsetSize: StringOffsetSizeTrait>(
     left: &GenericStringArray<OffsetSize>,
     right: &str,
 ) -> Result<BooleanArray> {
-    compare_op_scalar!(left, right, |a, b| a != b)
+    compare_op_scalar(left, right, |a, b| a != b)
 }
 
 pub fn lt_utf8<OffsetSize: StringOffsetSizeTrait>(
     left: &GenericStringArray<OffsetSize>,
     right: &GenericStringArray<OffsetSize>,
 ) -> Result<BooleanArray> {
-    compare_op!(left, right, |a, b| a < b)
+    compare_op(left, right, |a, b| a < b)
 }
 
 pub fn lt_utf8_scalar<OffsetSize: StringOffsetSizeTrait>(
     left: &GenericStringArray<OffsetSize>,
     right: &str,
 ) -> Result<BooleanArray> {
-    compare_op_scalar!(left, right, |a, b| a < b)
+    compare_op_scalar(left, right, |a, b| a < b)
 }
 
 pub fn lt_eq_utf8<OffsetSize: StringOffsetSizeTrait>(
     left: &GenericStringArray<OffsetSize>,
     right: &GenericStringArray<OffsetSize>,
 ) -> Result<BooleanArray> {
-    compare_op!(left, right, |a, b| a <= b)
+    compare_op(left, right, |a, b| a <= b)
 }
 
 pub fn lt_eq_utf8_scalar<OffsetSize: StringOffsetSizeTrait>(
     left: &GenericStringArray<OffsetSize>,
     right: &str,
 ) -> Result<BooleanArray> {
-    compare_op_scalar!(left, right, |a, b| a <= b)
+    compare_op_scalar(left, right, |a, b| a <= b)
 }
 
 pub fn gt_utf8<OffsetSize: StringOffsetSizeTrait>(
     left: &GenericStringArray<OffsetSize>,
     right: &GenericStringArray<OffsetSize>,
 ) -> Result<BooleanArray> {
-    compare_op!(left, right, |a, b| a > b)
+    compare_op(left, right, |a, b| a > b)
 }
 
 pub fn gt_utf8_scalar<OffsetSize: StringOffsetSizeTrait>(
     left: &GenericStringArray<OffsetSize>,
     right: &str,
 ) -> Result<BooleanArray> {
-    compare_op_scalar!(left, right, |a, b| a > b)
+    compare_op_scalar(left, right, |a, b| a > b)
 }
 
 pub fn gt_eq_utf8<OffsetSize: StringOffsetSizeTrait>(
     left: &GenericStringArray<OffsetSize>,
     right: &GenericStringArray<OffsetSize>,
 ) -> Result<BooleanArray> {
-    compare_op!(left, right, |a, b| a >= b)
+    compare_op(left, right, |a, b| a >= b)
 }
 
 pub fn gt_eq_utf8_scalar<OffsetSize: StringOffsetSizeTrait>(
     left: &GenericStringArray<OffsetSize>,
     right: &str,
 ) -> Result<BooleanArray> {
-    compare_op_scalar!(left, right, |a, b| a >= b)
+    compare_op_scalar(left, right, |a, b| a >= b)
 }
 
 /// Helper function to perform boolean lambda function on values from two arrays using
@@ -585,7 +595,7 @@ where
     #[cfg(simd)]
     return simd_compare_op(left, right, T::eq, |a, b| a == b);
     #[cfg(not(simd))]
-    return compare_op!(left, right, |a, b| a == b);
+    return compare_op(left, right, |a, b| a == b);
 }
 
 /// Perform `left == right` operation on an array and a scalar value.
@@ -596,7 +606,7 @@ where
     #[cfg(simd)]
     return simd_compare_op_scalar(left, right, T::eq, |a, b| a == b);
     #[cfg(not(simd))]
-    return compare_op_scalar!(left, right, |a, b| a == b);
+    return compare_op_scalar(left, right, |a, b| a == b);
 }
 
 /// Perform `left != right` operation on two arrays.
@@ -607,7 +617,7 @@ where
     #[cfg(simd)]
     return simd_compare_op(left, right, T::ne, |a, b| a != b);
     #[cfg(not(simd))]
-    return compare_op!(left, right, |a, b| a != b);
+    return compare_op(left, right, |a, b| a != b);
 }
 
 /// Perform `left != right` operation on an array and a scalar value.
@@ -618,7 +628,7 @@ where
     #[cfg(simd)]
     return simd_compare_op_scalar(left, right, T::ne, |a, b| a != b);
     #[cfg(not(simd))]
-    return compare_op_scalar!(left, right, |a, b| a != b);
+    return compare_op_scalar(left, right, |a, b| a != b);
 }
 
 /// Perform `left < right` operation on two arrays. Null values are less than non-null
@@ -630,7 +640,7 @@ where
     #[cfg(simd)]
     return simd_compare_op(left, right, T::lt, |a, b| a < b);
     #[cfg(not(simd))]
-    return compare_op!(left, right, |a, b| a < b);
+    return compare_op(left, right, |a, b| a < b);
 }
 
 /// Perform `left < right` operation on an array and a scalar value.
@@ -642,7 +652,7 @@ where
     #[cfg(simd)]
     return simd_compare_op_scalar(left, right, T::lt, |a, b| a < b);
     #[cfg(not(simd))]
-    return compare_op_scalar!(left, right, |a, b| a < b);
+    return compare_op_scalar(left, right, |a, b| a < b);
 }
 
 /// Perform `left <= right` operation on two arrays. Null values are less than non-null
@@ -657,7 +667,7 @@ where
     #[cfg(simd)]
     return simd_compare_op(left, right, T::le, |a, b| a <= b);
     #[cfg(not(simd))]
-    return compare_op!(left, right, |a, b| a <= b);
+    return compare_op(left, right, |a, b| a <= b);
 }
 
 /// Perform `left <= right` operation on an array and a scalar value.
@@ -669,7 +679,7 @@ where
     #[cfg(simd)]
     return simd_compare_op_scalar(left, right, T::le, |a, b| a <= b);
     #[cfg(not(simd))]
-    return compare_op_scalar!(left, right, |a, b| a <= b);
+    return compare_op_scalar(left, right, |a, b| a <= b);
 }
 
 /// Perform `left > right` operation on two arrays. Non-null values are greater than null
@@ -681,7 +691,7 @@ where
     #[cfg(simd)]
     return simd_compare_op(left, right, T::gt, |a, b| a > b);
     #[cfg(not(simd))]
-    return compare_op!(left, right, |a, b| a > b);
+    return compare_op(left, right, |a, b| a > b);
 }
 
 /// Perform `left > right` operation on an array and a scalar value.
@@ -693,7 +703,7 @@ where
     #[cfg(simd)]
     return simd_compare_op_scalar(left, right, T::gt, |a, b| a > b);
     #[cfg(not(simd))]
-    return compare_op_scalar!(left, right, |a, b| a > b);
+    return compare_op_scalar(left, right, |a, b| a > b);
 }
 
 /// Perform `left >= right` operation on two arrays. Non-null values are greater than null
@@ -708,7 +718,7 @@ where
     #[cfg(simd)]
     return simd_compare_op(left, right, T::ge, |a, b| a >= b);
     #[cfg(not(simd))]
-    return compare_op!(left, right, |a, b| a >= b);
+    return compare_op(left, right, |a, b| a >= b);
 }
 
 /// Perform `left >= right` operation on an array and a scalar value.
@@ -720,7 +730,7 @@ where
     #[cfg(simd)]
     return simd_compare_op_scalar(left, right, T::ge, |a, b| a >= b);
     #[cfg(not(simd))]
-    return compare_op_scalar!(left, right, |a, b| a >= b);
+    return compare_op_scalar(left, right, |a, b| a >= b);
 }
 
 /// Checks if a `GenericListArray` contains a value in the `PrimitiveArray`
@@ -749,23 +759,22 @@ where
         };
     let not_both_null_bitmap = not_both_null_bit_buffer.as_slice();
 
-    let mut bool_buf = MutableBuffer::from_len_zeroed(num_bytes);
-    let bool_slice = bool_buf.as_slice_mut();
-
     // if both array slots are valid, check if list contains primitive
-    for i in 0..left_len {
-        if bit_util::get_bit(not_both_null_bitmap, i) {
-            let list = right.value(i);
-            let list = list.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
+    let bool_buf: Buffer = (0..left_len)
+        .map(|i| {
+            if bit_util::get_bit(not_both_null_bitmap, i) {
+                let list = right.value(i);
+                let list = list.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
 
-            for j in 0..list.len() {
-                if list.is_valid(j) && (left.value(i) == list.value(j)) {
-                    bit_util::set_bit(bool_slice, i);
-                    continue;
+                for j in 0..list.len() {
+                    if list.is_valid(j) && (left.value(i) == list.value(j)) {
+                        return true;
+                    }
                 }
             }
-        }
-    }
+            false
+        })
+        .collect();
 
     let data = ArrayData::new(
         DataType::Boolean,
@@ -773,7 +782,7 @@ where
         None,
         None,
         0,
-        vec![bool_buf.into()],
+        vec![bool_buf],
         vec![],
     );
     Ok(BooleanArray::from(Arc::new(data)))
@@ -804,26 +813,25 @@ where
         };
     let not_both_null_bitmap = not_both_null_bit_buffer.as_slice();
 
-    let mut bool_buf = MutableBuffer::from_len_zeroed(num_bytes);
-    let bool_slice = &mut bool_buf;
+    let bool_buf: Buffer = (0..left_len)
+        .map(|i| {
+            // contains(null, null) = false
+            if bit_util::get_bit(not_both_null_bitmap, i) {
+                let list = right.value(i);
+                let list = list
+                    .as_any()
+                    .downcast_ref::<GenericStringArray<OffsetSize>>()
+                    .unwrap();
 
-    for i in 0..left_len {
-        // contains(null, null) = false
-        if bit_util::get_bit(not_both_null_bitmap, i) {
-            let list = right.value(i);
-            let list = list
-                .as_any()
-                .downcast_ref::<GenericStringArray<OffsetSize>>()
-                .unwrap();
-
-            for j in 0..list.len() {
-                if list.is_valid(j) && (left.value(i) == list.value(j)) {
-                    bit_util::set_bit(bool_slice, i);
-                    continue;
+                for j in 0..list.len() {
+                    if list.is_valid(j) && (left.value(i) == list.value(j)) {
+                        return true;
+                    }
                 }
             }
-        }
-    }
+            false
+        })
+        .collect();
 
     let data = ArrayData::new(
         DataType::Boolean,
@@ -831,7 +839,7 @@ where
         None,
         None,
         0,
-        vec![bool_buf.into()],
+        vec![bool_buf],
         vec![],
     );
     Ok(BooleanArray::from(Arc::new(data)))

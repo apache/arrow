@@ -24,7 +24,7 @@ use num::Num;
 
 use super::{
     array::print_long_array, make_array, raw_pointer::RawPtrBox, Array, ArrayDataRef,
-    ArrayRef, GenericListArrayIter,
+    ArrayRef, GenericListArrayIter, GenericListArrayValueIter, TypedArrayRef,
 };
 use crate::datatypes::ArrowNativeType;
 use crate::datatypes::*;
@@ -178,6 +178,32 @@ impl<OffsetSize: 'static + OffsetSizeTrait> Array for GenericListArray<OffsetSiz
     /// Returns the total number of bytes of memory occupied physically by this [ListArray].
     fn get_array_memory_size(&self) -> usize {
         self.data.get_array_memory_size() + mem::size_of_val(self)
+    }
+}
+
+impl<'a, OffsetSize: OffsetSizeTrait> TypedArrayRef for &'a GenericListArray<OffsetSize> {
+    type ValueRef = ArrayRef;
+    type ValueIter = GenericListArrayValueIter<'a, OffsetSize>;
+    type OptionValueIter = GenericListArrayIter<'a, OffsetSize>;
+
+    fn iter(self) -> Self::OptionValueIter {
+        IntoIterator::into_iter(self)
+    }
+
+    fn iter_values(self) -> Self::ValueIter {
+        Self::ValueIter::new(self)
+    }
+
+    /// Returns ith value of this list array.
+    /// # Safety
+    /// Caller must ensure that the index is within the array bounds
+    unsafe fn value_unchecked(self, i: usize) -> ArrayRef {
+        GenericListArray::value_unchecked(self, i)
+    }
+
+    /// Returns ith value of this list array.
+    fn value(self, i: usize) -> ArrayRef {
+        GenericListArray::value(self, i)
     }
 }
 

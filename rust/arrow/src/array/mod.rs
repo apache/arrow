@@ -102,6 +102,7 @@ mod null;
 mod ord;
 mod raw_pointer;
 mod transform;
+mod value_iterator;
 
 use crate::datatypes::*;
 
@@ -109,6 +110,8 @@ use crate::datatypes::*;
 
 pub use self::array::Array;
 pub use self::array::ArrayRef;
+pub use self::array::TypedArray;
+pub use self::array::TypedArrayRef;
 pub use self::data::ArrayData;
 pub use self::data::ArrayDataBuilder;
 pub use self::data::ArrayDataRef;
@@ -260,6 +263,7 @@ pub use self::transform::MutableArrayData;
 // --------------------- Array Iterator ---------------------
 
 pub use self::iterator::*;
+pub use self::value_iterator::*;
 
 // --------------------- Array Equality ---------------------
 

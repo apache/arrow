@@ -212,6 +212,32 @@ pub trait Array: fmt::Debug + Send + Sync + JsonEqual {
     }
 }
 
+pub trait TypedArray {
+    type Value: ?Sized;
+
+    /// Creates a PrimitiveArray based on an iterator of values without nulls
+    fn from_iter_values<I: IntoIterator<Item = Self::Value>>(iter: I) -> Self
+    where
+        Self::Value: Sized;
+}
+
+pub trait TypedArrayRef: IntoIterator {
+    type ValueRef;
+    type ValueIter: Iterator<Item = Self::ValueRef>;
+    type OptionValueIter: Iterator<Item = Option<Self::ValueRef>>;
+    fn iter(self) -> Self::OptionValueIter;
+
+    fn iter_values(self) -> Self::ValueIter;
+
+    /// Returns the element at index `i` as bytes slice
+    /// # Safety
+    /// Caller is responsible for ensuring that the index is within the bounds of the array
+    unsafe fn value_unchecked(self, i: usize) -> Self::ValueRef;
+
+    /// Returns the element at index `i`
+    fn value(self, i: usize) -> Self::ValueRef;
+}
+
 /// A reference-counted reference to a generic `Array`.
 pub type ArrayRef = Arc<Array>;
 

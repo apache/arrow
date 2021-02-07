@@ -100,6 +100,58 @@ impl Array for BooleanArray {
     }
 }
 
+impl TypedArray for BooleanArray {
+    type Value = bool;
+    fn from_iter_values<I: IntoIterator<Item = bool>>(iter: I) -> Self
+    where
+        Self::Value: Sized,
+    {
+        let iter = iter.into_iter();
+        let (_, data_len) = iter.size_hint();
+        let data_len = data_len.expect("Iterator must be sized"); // panic if no upper bound.
+
+        let data = ArrayData::new(
+            DataType::Boolean,
+            data_len,
+            None,
+            None,
+            0,
+            vec![iter.collect()],
+            vec![],
+        );
+        BooleanArray::from(Arc::new(data))
+    }
+}
+
+impl<'a> TypedArrayRef for &'a BooleanArray {
+    type ValueRef = bool;
+    type ValueIter = BooleanValueIter<'a>;
+    type OptionValueIter = BooleanIter<'a>;
+
+    fn iter(self) -> Self::OptionValueIter {
+        IntoIterator::into_iter(self)
+    }
+
+    fn iter_values(self) -> Self::ValueIter {
+        Self::ValueIter::new(&self)
+    }
+
+    /// Returns the boolean value at index `i`.
+    unsafe fn value_unchecked(self, i: usize) -> bool {
+        let offset = i + self.offset();
+        bit_util::get_bit_raw(self.raw_values.as_ptr(), offset)
+    }
+
+    /// Returns the boolean value at index `i`.
+    fn value(self, i: usize) -> bool {
+        if i >= self.len() {
+            panic!("index out of range");
+        }
+        let offset = i + self.offset();
+        unsafe { bit_util::get_bit_raw(self.raw_values.as_ptr(), offset) }
+    }
+}
+
 impl From<Vec<bool>> for BooleanArray {
     fn from(data: Vec<bool>) -> Self {
         let mut mut_buf = MutableBuffer::new_null(data.len());
