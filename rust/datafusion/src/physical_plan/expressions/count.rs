@@ -17,6 +17,7 @@
 
 //! Defines physical expressions that can evaluated at runtime during query execution
 
+use std::any::Any;
 use std::sync::Arc;
 
 use crate::error::Result;
@@ -54,6 +55,11 @@ impl Count {
 }
 
 impl AggregateExpr for Count {
+    /// Return a reference to Any that can be used for downcasting
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn field(&self) -> Result<Field> {
         Ok(Field::new(
             &self.name,
