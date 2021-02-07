@@ -58,11 +58,10 @@ namespace internal {
 
 /// \brief Swap endian of each element in a generic ArrayData
 /// \param[in] data the array contents
-/// \param[in] type the array type
 /// \return the resulting Array instance whose elements were swapped
 ARROW_EXPORT
 Result<std::shared_ptr<ArrayData>> SwapEndianArrayData(
-    std::shared_ptr<ArrayData>& data, const std::shared_ptr<DataType>& type);
+    const std::shared_ptr<ArrayData>& data);
 
 /// Given a number of ArrayVectors, treat each ArrayVector as the
 /// chunks of a chunked array.  Then rechunk each ArrayVector such that

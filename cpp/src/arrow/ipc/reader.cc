@@ -505,8 +505,7 @@ Result<std::shared_ptr<RecordBatch>> LoadRecordBatchSubset(
   if (context.swap_endian) {
     for (int i = 0; i < static_cast<int>(filtered_columns.size()); ++i) {
       ARROW_ASSIGN_OR_RAISE(filtered_columns[i],
-                            arrow::internal::SwapEndianArrayData(
-                                filtered_columns[i], filtered_columns[i]->type));
+                            arrow::internal::SwapEndianArrayData(filtered_columns[i]));
     }
   }
   return RecordBatch::Make(filtered_schema, metadata->length(),
@@ -670,11 +669,11 @@ Status UnpackSchemaMessage(const void* opaque_schema, const IpcReadOptions& opti
   // for fast lookups
   RETURN_NOT_OK(GetInclusionMaskAndOutSchema(*schema, options.included_fields,
                                              field_inclusion_mask, out_schema));
-  *swap_endian = options.ensure_native_endian && !out_schema->get()->IsNativeEndianness();
+  *swap_endian = options.ensure_native_endian && !out_schema->get()->is_native_endian();
   if (*swap_endian) {
     // create a new schema with native endianness before swapping endian in ArrayData
-    *schema = schema->get()->WithNativeEndianness();
-    *out_schema = out_schema->get()->WithNativeEndianness();
+    *schema = schema->get()->WithEndianness(Endianness::Native);
+    *out_schema = out_schema->get()->WithEndianness(Endianness::Native);
   }
   return Status::OK();
 }
@@ -748,8 +747,7 @@ Status ReadDictionary(const Buffer& metadata, const IpcReadContext& context,
 
   // swap endian in dict_data if necessary (swap_endian == true)
   if (context.swap_endian) {
-    ARROW_ASSIGN_OR_RAISE(
-        dict_data, ::arrow::internal::SwapEndianArrayData(dict_data, dict_data->type));
+    ARROW_ASSIGN_OR_RAISE(dict_data, ::arrow::internal::SwapEndianArrayData(dict_data));
   }
 
   if (dictionary_batch->isDelta()) {
@@ -925,6 +923,8 @@ class RecordBatchStreamReaderImpl : public RecordBatchStreamReader {
 
   DictionaryMemo dictionary_memo_;
   std::shared_ptr<Schema> schema_, out_schema_;
+
+  bool swap_endian_;
 };
 
 // ----------------------------------------------------------------------
@@ -1137,6 +1137,8 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
   std::shared_ptr<Schema> out_schema_;
 
   ReadStats stats_;
+
+  bool swap_endian_;
 };
 
 Result<std::shared_ptr<RecordBatchFileReader>> RecordBatchFileReader::Open(

@@ -475,6 +475,16 @@ TEST_F(TestSchema, Basics) {
 
   ASSERT_EQ(schema->fingerprint(), schema2->fingerprint());
   ASSERT_NE(schema->fingerprint(), schema3->fingerprint());
+
+  auto schema4 = ::arrow::schema({f0}, Endianness::Little);
+  auto schema5 = ::arrow::schema({f0}, Endianness::Little);
+  auto schema6 = ::arrow::schema({f0}, Endianness::Big);
+
+  AssertSchemaEqual(schema4, schema5);
+  AssertSchemaNotEqual(schema4, schema6);
+
+  ASSERT_EQ(schema4->fingerprint(), schema5->fingerprint());
+  ASSERT_NE(schema4->fingerprint(), schema6->fingerprint());
 }
 
 TEST_F(TestSchema, ToString) {
