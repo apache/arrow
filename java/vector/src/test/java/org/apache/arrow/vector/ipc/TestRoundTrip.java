@@ -91,15 +91,12 @@ public class TestRoundTrip extends BaseFileTest {
 
   @Parameterized.Parameters(name = "options = {0}")
   public static Collection<Object[]> getWriteOption() {
-    final IpcOption legacy = new IpcOption();
-    legacy.metadataVersion = MetadataVersion.V4;
-    legacy.write_legacy_ipc_format = true;
-    final IpcOption version4 = new IpcOption();
-    version4.metadataVersion = MetadataVersion.V4;
+    final IpcOption legacy = new IpcOption(true, MetadataVersion.V4);
+    final IpcOption version4 = new IpcOption(false, MetadataVersion.V4);
     return Arrays.asList(
         new Object[] {"V4Legacy", legacy},
         new Object[] {"V4", version4},
-        new Object[] {"V5", new IpcOption()}
+        new Object[] {"V5", IpcOption.DEFAULT}
     );
   }
 

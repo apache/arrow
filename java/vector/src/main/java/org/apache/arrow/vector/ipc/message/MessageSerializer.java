@@ -106,7 +106,7 @@ public class MessageSerializer {
 
   public static int writeMessageBuffer(WriteChannel out, int messageLength, ByteBuffer messageBuffer)
       throws IOException {
-    return writeMessageBuffer(out, messageLength, messageBuffer, new IpcOption());
+    return writeMessageBuffer(out, messageLength, messageBuffer, IpcOption.DEFAULT);
   }
 
   /**
@@ -147,7 +147,7 @@ public class MessageSerializer {
    * Serialize a schema object.
    */
   public static long serialize(WriteChannel out, Schema schema) throws IOException {
-    return serialize(out, schema, new IpcOption());
+    return serialize(out, schema, IpcOption.DEFAULT);
   }
 
   /**
@@ -176,7 +176,7 @@ public class MessageSerializer {
    */
   @Deprecated
   public static ByteBuffer serializeMetadata(Schema schema) {
-    return serializeMetadata(schema, new IpcOption());
+    return serializeMetadata(schema, IpcOption.DEFAULT);
   }
 
   /**
@@ -234,7 +234,7 @@ public class MessageSerializer {
    * Serializes an ArrowRecordBatch. Returns the offset and length of the written batch.
    */
   public static ArrowBlock serialize(WriteChannel out, ArrowRecordBatch batch) throws IOException {
-    return serialize(out, batch, new IpcOption());
+    return serialize(out, batch, IpcOption.DEFAULT);
   }
 
   /**
@@ -315,7 +315,7 @@ public class MessageSerializer {
    */
   @Deprecated
   public static ByteBuffer serializeMetadata(ArrowMessage message) {
-    return serializeMetadata(message, new IpcOption());
+    return serializeMetadata(message, IpcOption.DEFAULT);
   }
 
   /**
@@ -450,7 +450,7 @@ public class MessageSerializer {
   }
 
   public static ArrowBlock serialize(WriteChannel out, ArrowDictionaryBatch batch) throws IOException {
-    return serialize(out, batch, new IpcOption());
+    return serialize(out, batch, IpcOption.DEFAULT);
   }
 
   /**
@@ -638,7 +638,7 @@ public class MessageSerializer {
       byte headerType,
       int headerOffset,
       long bodyLength) {
-    return serializeMessage(builder, headerType, headerOffset, bodyLength, new IpcOption());
+    return serializeMessage(builder, headerType, headerOffset, bodyLength, IpcOption.DEFAULT);
   }
 
   /**

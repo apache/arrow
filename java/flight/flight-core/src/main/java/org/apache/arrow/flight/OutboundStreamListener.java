@@ -55,7 +55,7 @@ public interface OutboundStreamListener {
    * <p>This method must be called before all others, except {@link #putMetadata(ArrowBuf)}.
    */
   default void start(VectorSchemaRoot root) {
-    start(root, null, new IpcOption());
+    start(root, null, IpcOption.DEFAULT);
   }
 
   /**
@@ -64,7 +64,7 @@ public interface OutboundStreamListener {
    * <p>This method must be called before all others, except {@link #putMetadata(ArrowBuf)}.
    */
   default void start(VectorSchemaRoot root, DictionaryProvider dictionaries) {
-    start(root, dictionaries, new IpcOption());
+    start(root, dictionaries, IpcOption.DEFAULT);
   }
 
   /**
