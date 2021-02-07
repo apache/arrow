@@ -20,11 +20,6 @@
 use std::{convert::TryFrom, fmt, iter::repeat, sync::Arc};
 
 use arrow::array::{
-    Array, BooleanArray, Date32Array, Float32Array, Float64Array, Int16Array, Int32Array,
-    Int64Array, Int8Array, LargeStringArray, ListArray, StringArray, UInt16Array,
-    UInt32Array, UInt64Array, UInt8Array,
-};
-use arrow::array::{
     Int16Builder, Int32Builder, Int64Builder, Int8Builder, ListBuilder,
     TimestampMicrosecondArray, TimestampNanosecondArray, UInt16Builder, UInt32Builder,
     UInt64Builder, UInt8Builder,
@@ -32,6 +27,15 @@ use arrow::array::{
 use arrow::{
     array::ArrayRef,
     datatypes::{DataType, Field},
+};
+use arrow::{
+    array::{
+        Array, BooleanArray, Date32Array, Float32Array, Float64Array, Int16Array,
+        Int32Array, Int64Array, Int8Array, IntervalDayTimeArray, IntervalYearMonthArray,
+        LargeStringArray, ListArray, StringArray, UInt16Array, UInt32Array, UInt64Array,
+        UInt8Array,
+    },
+    datatypes::IntervalUnit,
 };
 
 use crate::error::{DataFusionError, Result};
@@ -75,6 +79,10 @@ pub enum ScalarValue {
     TimeMicrosecond(Option<i64>),
     /// Timestamp Nanoseconds
     TimeNanosecond(Option<i64>),
+    /// Interval with YearMonth unit
+    IntervalYearMonth(Option<i32>),
+    /// Interval with DayTime unit
+    IntervalDayTime(Option<i64>),
 }
 
 macro_rules! typed_cast {
@@ -148,6 +156,10 @@ impl ScalarValue {
                 DataType::List(Box::new(Field::new("item", data_type.clone(), true)))
             }
             ScalarValue::Date32(_) => DataType::Date32,
+            ScalarValue::IntervalYearMonth(_) => {
+                DataType::Interval(IntervalUnit::YearMonth)
+            }
+            ScalarValue::IntervalDayTime(_) => DataType::Interval(IntervalUnit::DayTime),
         }
     }
 
@@ -316,6 +328,22 @@ impl ScalarValue {
                     Arc::new(Date32Array::from_iter_values(repeat(*value).take(size)))
                 }
                 None => Arc::new(repeat(None).take(size).collect::<Date32Array>()),
+            },
+            ScalarValue::IntervalDayTime(e) => match e {
+                Some(value) => Arc::new(IntervalDayTimeArray::from_iter_values(
+                    repeat(*value).take(size),
+                )),
+                None => {
+                    Arc::new(repeat(None).take(size).collect::<IntervalDayTimeArray>())
+                }
+            },
+            ScalarValue::IntervalYearMonth(e) => match e {
+                Some(value) => Arc::new(IntervalYearMonthArray::from_iter_values(
+                    repeat(*value).take(size),
+                )),
+                None => {
+                    Arc::new(repeat(None).take(size).collect::<IntervalYearMonthArray>())
+                }
             },
         }
     }
@@ -552,6 +580,8 @@ impl fmt::Display for ScalarValue {
                 None => write!(f, "NULL")?,
             },
             ScalarValue::Date32(e) => format_option!(f, e)?,
+            ScalarValue::IntervalDayTime(e) => format_option!(f, e)?,
+            ScalarValue::IntervalYearMonth(e) => format_option!(f, e)?,
         };
         Ok(())
     }
@@ -579,6 +609,12 @@ impl fmt::Debug for ScalarValue {
             ScalarValue::LargeUtf8(Some(_)) => write!(f, "LargeUtf8(\"{}\")", self),
             ScalarValue::List(_, _) => write!(f, "List([{}])", self),
             ScalarValue::Date32(_) => write!(f, "Date32(\"{}\")", self),
+            ScalarValue::IntervalDayTime(_) => {
+                write!(f, "IntervalDayTime(\"{}\")", self)
+            }
+            ScalarValue::IntervalYearMonth(_) => {
+                write!(f, "IntervalYearMonth(\"{}\")", self)
+            }
         }
     }
 }
