@@ -40,10 +40,10 @@ namespace arrow {
 namespace dataset {
 
 /// \brief Convert a 64-bit integer to a buffer.
-ARROW_DS_EXPORT Status int64_to_char(char* buffer, int64_t num);
+ARROW_DS_EXPORT Status Int64ToChar(char* buffer, int64_t num);
 
 /// \brief Convert a buffer to 64-bit integer.
-ARROW_DS_EXPORT Status char_to_int64(char* buffer, int64_t& num);
+ARROW_DS_EXPORT Status CharToInt64(char* buffer, int64_t& num);
 
 /// \brief Serialize Expression(s) and Schema to a bufferlist.
 ARROW_DS_EXPORT Status SerializeScanRequestToBufferlist(

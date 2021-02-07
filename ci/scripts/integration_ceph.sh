@@ -25,14 +25,14 @@ test_dir=${build_dir}/test-cluster
 
 pushd ${build_dir}
 
-# get rid of process and directories leftovers
-pkill ceph-mon || true
-pkill ceph-osd || true
-rm -fr ${test_dir}
+    # get rid of process and directories leftovers
+    pkill ceph-mon || true
+    pkill ceph-osd || true
+    rm -fr ${test_dir}
 
-# cluster wide parameters
-mkdir -p ${test_dir}/log
-cat >> /etc/ceph/ceph.conf <<EOF
+    # cluster wide parameters
+    mkdir -p ${test_dir}/log
+    cat >> /etc/ceph/ceph.conf <<EOF
 [global]
 fsid = $(uuidgen)
 osd crush chooseleaf type = 0
@@ -42,13 +42,13 @@ auth service required = none
 auth client required = none
 osd pool default size = 1
 EOF
-export CEPH_ARGS="--conf /etc/ceph/ceph.conf"
+    export CEPH_ARGS="--conf /etc/ceph/ceph.conf"
 
-# start a MON daemon
-MON_DATA=${test_dir}/mon
-mkdir -p $MON_DATA
+    # start a MON daemon
+    MON_DATA=${test_dir}/mon
+    mkdir -p $MON_DATA
 
-cat >> /etc/ceph/ceph.conf <<EOF
+    cat >> /etc/ceph/ceph.conf <<EOF
 [mon.0]
 log file = ${test_dir}/log/mon.log
 chdir = ""
@@ -59,16 +59,16 @@ mon addr = 127.0.0.1
 mon_allow_pool_delete = true
 EOF
 
-ceph-mon --id 0 --mkfs --keyring /dev/null
-touch ${MON_DATA}/keyring
-cp ${MON_DATA}/keyring /etc/ceph/keyring
-ceph-mon --id 0
+    ceph-mon --id 0 --mkfs --keyring /dev/null
+    touch ${MON_DATA}/keyring
+    cp ${MON_DATA}/keyring /etc/ceph/keyring
+    ceph-mon --id 0
 
-# start a OSD daemon
-OSD_DATA=${test_dir}/osd
-mkdir ${OSD_DATA}
+    # start a OSD daemon
+    OSD_DATA=${test_dir}/osd
+    mkdir ${OSD_DATA}
 
-cat >> /etc/ceph/ceph.conf <<EOF
+    cat >> /etc/ceph/ceph.conf <<EOF
 [osd.0]
 log file = ${test_dir}/log/osd.log
 chdir = ""
@@ -79,57 +79,57 @@ osd objectstore = memstore
 osd class load list = lock log numops refcount replica_log statelog timeindex user version arrow
 EOF
 
-OSD_ID=$(ceph osd create)
-ceph osd crush add osd.${OSD_ID} 1 root=default host=localhost
-ceph-osd --id ${OSD_ID} --mkjournal --mkfs
-ceph-osd --id ${OSD_ID}
+    OSD_ID=$(ceph osd create)
+    ceph osd crush add osd.${OSD_ID} 1 root=default host=localhost
+    ceph-osd --id ${OSD_ID} --mkjournal --mkfs
+    ceph-osd --id ${OSD_ID}
 
-# start a MDS daemon
-MDS_DATA=${TEST_DIR}/mds
-mkdir -p $MDS_DATA
+    # start a MDS daemon
+    MDS_DATA=${TEST_DIR}/mds
+    mkdir -p $MDS_DATA
 
-ceph osd pool create cephfs_data 64
-ceph osd pool create cephfs_metadata 64
-ceph fs new cephfs cephfs_metadata cephfs_data
+    ceph osd pool create cephfs_data 64
+    ceph osd pool create cephfs_metadata 64
+    ceph fs new cephfs cephfs_metadata cephfs_data
 
-ceph-mds --id a
-while [[ ! $(ceph mds stat | grep "up:active") ]]; do sleep 1; done
+    ceph-mds --id a
+    while [[ ! $(ceph mds stat | grep "up:active") ]]; do sleep 1; done
 
-# start a MGR daemon
-ceph-mgr --id 0
+    # start a MGR daemon
+    ceph-mgr --id 0
 
-export CEPH_CONF="/etc/ceph/ceph.conf"
+    export CEPH_CONF="/etc/ceph/ceph.conf"
 
-# copy the CLS libs to the appropriate locations.
-mkdir -p /usr/lib/x86_64-linux-gnu/rados-classes/
-mkdir -p /usr/lib/aarch64-linux-gnu/rados-classes/
-cp debug/libcls_arrow* /usr/lib/x86_64-linux-gnu/rados-classes/
-cp debug/libcls_arrow* /usr/lib/aarch64-linux-gnu/rados-classes/
+    # copy the CLS libs to the appropriate locations.
+    mkdir -p /usr/lib/x86_64-linux-gnu/rados-classes/
+    mkdir -p /usr/lib/aarch64-linux-gnu/rados-classes/
+    cp debug/libcls_arrow* /usr/lib/x86_64-linux-gnu/rados-classes/
+    cp debug/libcls_arrow* /usr/lib/aarch64-linux-gnu/rados-classes/
 
-# mount a ceph filesystem to /mnt/cephfs in the user-space using ceph-fuse
-mkdir -p /mnt/cephfs
-ceph-fuse --id client.admin -m 127.0.0.1:6789  --client_fs cephfs /mnt/cephfs
-sleep 5
+    # mount a ceph filesystem to /mnt/cephfs in the user-space using ceph-fuse
+    mkdir -p /mnt/cephfs
+    ceph-fuse --id client.admin -m 127.0.0.1:6789  --client_fs cephfs /mnt/cephfs
+    sleep 5
 
-# download an example dataset and copy into the mounted dir
-rm -rf nyc*
-wget https://raw.githubusercontent.com/JayjeetAtGithub/zips/main/nyc.zip
-unzip nyc.zip
-cp -r nyc /mnt/cephfs/
-sleep 15
+    # download an example dataset and copy into the mounted dir
+    rm -rf nyc*
+    wget https://raw.githubusercontent.com/JayjeetAtGithub/zips/main/nyc.zip # try to get this dataset into the source tree
+    unzip nyc.zip
+    cp -r nyc /mnt/cephfs/
+    sleep 15
 
-# run the end-to-end C++ tests
-TESTS=debug/arrow-cls-cls-arrow-test
-if [ -f "$TESTS" ]; then
-    debug/arrow-cls-cls-arrow-test
-fi
+    # run the end-to-end C++ tests
+    TESTS=debug/arrow-cls-cls-arrow-test
+    if [ -f "$TESTS" ]; then
+        debug/arrow-cls-cls-arrow-test
+    fi
 
-if [ ! -z "$ARROW_PYTHON" ]; then
-# run the end-to-end python tests
-python /arrow/python/pyarrow/tests/rados_parquet_example.py
-fi
+    if [ ! -z "$ARROW_PYTHON" ]; then
+    # run the end-to-end python tests
+    python /arrow/python/pyarrow/tests/rados_parquet_example.py
+    fi
 
-# unmount cephfs
-umount /mnt/cephfs
+    # unmount cephfs
+    umount /mnt/cephfs
 
 popd

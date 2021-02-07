@@ -26,7 +26,9 @@ cdef class RadosParquetFileFormat(FileFormat):
         CRadosParquetFileFormat* rados_parquet_format
 
     def __init__(self, path_to_config):
-        self.init(shared_ptr[CFileFormat](new CRadosParquetFileFormat(path_to_config)))
+        self.init(shared_ptr[CFileFormat](
+            new CRadosParquetFileFormat(path_to_config))
+        )
 
     cdef void init(self, const shared_ptr[CFileFormat]& sp):
         FileFormat.init(self, sp)

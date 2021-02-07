@@ -150,7 +150,8 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
                                                      Expression partition_expression);
 
   Result<std::shared_ptr<FileFragment>> MakeFragment(
-    FileSource source, Expression partition_expression, int flag, std::shared_ptr<Schema> dataset_schema);
+      FileSource source, Expression partition_expression, int flag,
+      std::shared_ptr<Schema> dataset_schema);
 
   Result<std::shared_ptr<FileFragment>> MakeFragment(
       FileSource source, std::shared_ptr<Schema> physical_schema = NULLPTR);

@@ -20,6 +20,10 @@
 
 #pragma once
 
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+
 #include <functional>
 #include <memory>
 #include <sstream>
@@ -27,8 +31,6 @@
 #include <utility>
 #include <vector>
 
-#include <cephfs/ceph_ll_client.h>
-#include <cephfs/libcephfs.h>
 #include "arrow/api.h"
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/discovery.h"
@@ -91,38 +93,17 @@ class ARROW_DS_EXPORT RadosCluster {
 
 class ARROW_DS_EXPORT DirectObjectAccess {
  public:
-  Status Init(std::shared_ptr<RadosCluster> cluster) {
-    cluster_ = cluster;
-    const char id[] = "client.admin";
-
-    if (ceph_create(&cmount_, cluster->user_name.c_str()))
-      return Status::Invalid("libcephfs::ceph_create returned non-zero exit code.");
-
-    if (ceph_conf_read_file(cmount_, cluster->ceph_config_path.c_str()))
-      return Status::Invalid(
-          "libcephfs::ceph_conf_read_file returned non-zero exit code.");
-
-    if (ceph_init(cmount_))
-      return Status::Invalid("libcephfs::ceph_init returned non-zero exit code.");
-
-    if (ceph_select_filesystem(cmount_, "cephfs"))
-      return Status::Invalid(
-          "libcephfs::ceph_select_filesystem returned non-zero exit code.");
-
-    if (ceph_mount(cmount_, "/"))
-      return Status::Invalid("libcephfs::ceph_mount returned non-zero exit code.");
-
-    return Status::OK();
-  }
+  explicit DirectObjectAccess(const std::shared_ptr<RadosCluster>& cluster)
+      : cluster_(std::move(cluster)) {}
 
   Status Exec(const std::string& path, const std::string& fn,
               std::shared_ptr<librados::bufferlist>& in,
               std::shared_ptr<librados::bufferlist>& out) {
-    struct ceph_statx stx;
-    if (ceph_statx(cmount_, path.c_str(), &stx, 0, 0))
-      return Status::IOError("libcephfs::ceph_statx failed");
+    struct stat dir_st;
+    if (stat(path.c_str(), &dir_st) < 0)
+      return Status::ExecutionError("stat returned non-zero exit code.");
 
-    uint64_t inode = stx.stx_ino;
+    uint64_t inode = dir_st.st_ino;
 
     std::stringstream ss;
     ss << std::hex << inode;
@@ -140,7 +121,6 @@ class ARROW_DS_EXPORT DirectObjectAccess {
 
  protected:
   std::shared_ptr<RadosCluster> cluster_;
-  struct ceph_mount_info* cmount_;
 };
 
 class ARROW_DS_EXPORT RadosParquetFileFormat : public FileFormat {

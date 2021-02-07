@@ -47,7 +47,7 @@ class RandomAccessObject : public arrow::io::RandomAccessFile {
       content_length_ = size;
       return arrow::Status::OK();
     } else {
-      return arrow::Status::ExecutionError("Can't read the object");
+      return arrow::Status::ExecutionError("cls_cxx_stat returned non-zero exit code.");
     }
   }
 

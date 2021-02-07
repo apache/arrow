@@ -15,9 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import pyarrow
 import pyarrow.dataset as ds
-import pyarrow.parquet as pq
+
 
 def test_discovery():
     format_ = ds.RadosParquetFileFormat(b"/etc/ceph/ceph.conf")
@@ -25,20 +24,25 @@ def test_discovery():
     assert len(dataset.files) == 8
 
     print(dataset.to_table(
-        columns=['DOLocationID', 'total_amount', 'fare_amount'], 
-        filter=( ds.field('total_amount') > 200 )).to_pandas()
+        columns=['DOLocationID', 'total_amount', 'fare_amount'],
+        filter=(ds.field('total_amount') > 200)).to_pandas()
     )
+
 
 def test_parition_pruning():
     format_ = ds.RadosParquetFileFormat(b"/etc/ceph/ceph.conf")
     dataset = ds.dataset(
-        "file:///mnt/cephfs/nyc/", 
-        format=format_, 
-        partitioning=["payment_type", "VendorID"], 
+        "file:///mnt/cephfs/nyc/",
+        format=format_,
+        partitioning=["payment_type", "VendorID"],
         partition_base_dir="/mnt/cephfs/nyc"
     )
-    table = dataset.to_table(columns=["VendorID", "payment_type", "fare_amount"], filter=(ds.field("payment_type") > 2))
+    table = dataset.to_table(
+        columns=["VendorID", "payment_type", "fare_amount"],
+        filter=(ds.field("payment_type") > 2)
+    )
     print(table.to_pandas())
+
 
 if __name__ == "__main__":
     test_discovery()
