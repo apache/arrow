@@ -306,6 +306,10 @@ pub fn parquet_to_arrow_field(parquet_column: &ColumnDescriptor) -> Result<Field
         .map(|opt| opt.unwrap())
 }
 
+pub fn decimal_length_from_precision(precision: usize) -> usize {
+    (10.0_f64.powi(precision as i32).log2() / 8.0).ceil() as usize
+}
+
 /// Convert an arrow field to a parquet `Type`
 fn arrow_to_parquet_type(field: &Field) -> Result<Type> {
     let name = field.name().as_str();
@@ -409,13 +413,15 @@ fn arrow_to_parquet_type(field: &Field) -> Result<Type> {
                 .with_length(*length)
                 .build()
         }
-        DataType::Decimal(precision, _) => Type::primitive_type_builder(
-            name,
-            PhysicalType::FIXED_LEN_BYTE_ARRAY,
-        )
-        .with_repetition(repetition)
-        .with_length((10.0_f64.powi(*precision as i32).log2() / 8.0).ceil() as i32)
-        .build(),
+        DataType::Decimal(precision, scale) => {
+            Type::primitive_type_builder(name, PhysicalType::FIXED_LEN_BYTE_ARRAY)
+                .with_repetition(repetition)
+                .with_length(decimal_length_from_precision(*precision) as i32)
+                .with_logical_type(LogicalType::DECIMAL)
+                .with_precision(*precision as i32)
+                .with_scale(*scale as i32)
+                .build()
+        }
         DataType::Utf8 | DataType::LargeUtf8 => {
             Type::primitive_type_builder(name, PhysicalType::BYTE_ARRAY)
                 .with_logical_type(LogicalType::UTF8)
