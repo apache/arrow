@@ -36,6 +36,7 @@ use crate::scalar::ScalarValue;
 /// * `true = true` and `false = false` to `true`
 /// * `false = true` and `true = false` to `false`
 /// * `!!expr` to `expr`
+/// * `expr = null` and `expr != null` to `null`
 pub struct ConstantFolding {}
 
 impl ConstantFolding {
@@ -95,15 +96,19 @@ fn optimize_expr(e: &Expr, schema: &DFSchemaRef) -> Result<Expr> {
                     (
                         Expr::Literal(ScalarValue::Boolean(l)),
                         Expr::Literal(ScalarValue::Boolean(r)),
-                    ) => Expr::Literal(ScalarValue::Boolean(Some(
-                        l.unwrap_or(false) == r.unwrap_or(false),
-                    ))),
+                    ) => match (l, r) {
+                        (Some(l), Some(r)) => {
+                            Expr::Literal(ScalarValue::Boolean(Some(l == r)))
+                        }
+                        _ => Expr::Literal(ScalarValue::Boolean(None)),
+                    },
                     (Expr::Literal(ScalarValue::Boolean(b)), _)
                         if right.get_type(schema)? == DataType::Boolean =>
                     {
                         match b {
                             Some(true) => right,
-                            Some(false) | None => Expr::Not(Box::new(right)),
+                            Some(false) => Expr::Not(Box::new(right)),
+                            None => Expr::Literal(ScalarValue::Boolean(None)),
                         }
                     }
                     (_, Expr::Literal(ScalarValue::Boolean(b)))
@@ -111,7 +116,8 @@ fn optimize_expr(e: &Expr, schema: &DFSchemaRef) -> Result<Expr> {
                     {
                         match b {
                             Some(true) => left,
-                            Some(false) | None => Expr::Not(Box::new(left)),
+                            Some(false) => Expr::Not(Box::new(left)),
+                            None => Expr::Literal(ScalarValue::Boolean(None)),
                         }
                     }
                     _ => Expr::BinaryExpr {
@@ -124,23 +130,28 @@ fn optimize_expr(e: &Expr, schema: &DFSchemaRef) -> Result<Expr> {
                     (
                         Expr::Literal(ScalarValue::Boolean(l)),
                         Expr::Literal(ScalarValue::Boolean(r)),
-                    ) => Expr::Literal(ScalarValue::Boolean(Some(
-                        l.unwrap_or(false) != r.unwrap_or(false),
-                    ))),
+                    ) => match (l, r) {
+                        (Some(l), Some(r)) => {
+                            Expr::Literal(ScalarValue::Boolean(Some(l != r)))
+                        }
+                        _ => Expr::Literal(ScalarValue::Boolean(None)),
+                    },
                     (Expr::Literal(ScalarValue::Boolean(b)), _)
                         if right.get_type(schema)? == DataType::Boolean =>
                     {
                         match b {
-                            Some(false) | None => right,
                             Some(true) => Expr::Not(Box::new(right)),
+                            Some(false) => right,
+                            None => Expr::Literal(ScalarValue::Boolean(None)),
                         }
                     }
                     (_, Expr::Literal(ScalarValue::Boolean(b)))
                         if left.get_type(schema)? == DataType::Boolean =>
                     {
                         match b {
-                            Some(false) | None => left,
                             Some(true) => Expr::Not(Box::new(left)),
+                            Some(false) => left,
+                            None => Expr::Literal(ScalarValue::Boolean(None)),
                         }
                     }
                     _ => Expr::BinaryExpr {
@@ -240,6 +251,61 @@ mod tests {
                 &schema
             )?,
             col("c2").not(),
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn optimize_expr_null_comparision() -> Result<()> {
+        let schema = expr_test_schema();
+
+        assert_eq!(
+            optimize_expr(
+                &Expr::BinaryExpr {
+                    left: Box::new(lit(true)),
+                    op: Operator::Eq,
+                    right: Box::new(Expr::Literal(ScalarValue::Boolean(None))),
+                },
+                &schema
+            )?,
+            Expr::Literal(ScalarValue::Boolean(None)),
+        );
+
+        assert_eq!(
+            optimize_expr(
+                &Expr::BinaryExpr {
+                    left: Box::new(Expr::Literal(ScalarValue::Boolean(None))),
+                    op: Operator::NotEq,
+                    right: Box::new(Expr::Literal(ScalarValue::Boolean(None))),
+                },
+                &schema
+            )?,
+            Expr::Literal(ScalarValue::Boolean(None)),
+        );
+
+        assert_eq!(
+            optimize_expr(
+                &Expr::BinaryExpr {
+                    left: Box::new(col("c2")),
+                    op: Operator::NotEq,
+                    right: Box::new(Expr::Literal(ScalarValue::Boolean(None))),
+                },
+                &schema
+            )?,
+            Expr::Literal(ScalarValue::Boolean(None)),
+        );
+
+        assert_eq!(
+            optimize_expr(
+                &Expr::BinaryExpr {
+                    left: Box::new(Expr::Literal(ScalarValue::Boolean(None))),
+                    op: Operator::Eq,
+                    right: Box::new(col("c2")),
+                },
+                &schema
+            )?,
+            Expr::Literal(ScalarValue::Boolean(None)),
         );
 
         Ok(())
