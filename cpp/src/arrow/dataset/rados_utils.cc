@@ -93,10 +93,10 @@ Status SerializeScanRequestToBufferlist(Expression filter, Expression part_expr,
   bl->append(dataset_schema_size_buffer, 8);
   bl->append((char*)dataset_schema_buffer->data(), dataset_schema_buffer->size());
 
-  delete filter_size_buffer;
-  delete part_expr_size_buffer;
-  delete projection_schema_size_buffer;
-  delete dataset_schema_size_buffer;
+  delete [] filter_size_buffer;
+  delete [] part_expr_size_buffer;
+  delete [] projection_schema_size_buffer;
+  delete [] dataset_schema_size_buffer;
 
   return Status::OK();
 }
@@ -158,14 +158,14 @@ Status DeserializeScanRequestFromBufferlist(Expression* filter, Expression* part
                         ipc::ReadSchema(&dataset_schema_reader, &empty_memo));
   *dataset_schema = dataset_schema_;
 
-  delete filter_size_buffer;
-  delete filter_buffer;
-  delete part_expr_size_buffer;
-  delete part_expr_buffer;
-  delete projection_schema_size_buffer;
-  delete projection_schema_buffer;
-  delete dataset_schema_size_buffer;
-  delete dataset_schema_buffer;
+  delete [] filter_size_buffer;
+  delete [] filter_buffer;
+  delete [] part_expr_size_buffer;
+  delete [] part_expr_buffer;
+  delete [] projection_schema_size_buffer;
+  delete [] projection_schema_buffer;
+  delete [] dataset_schema_size_buffer;
+  delete [] dataset_schema_buffer;
 
   return Status::OK();
 }
