@@ -1204,10 +1204,6 @@ never exposed. Before sending data to another system expecting Arrow
 data, these custom vectors should be converted to a type that exist in
 the Arrow spec.
 
-References
-----------
-* Apache Drill Documentation - `Value Vectors`_
-
 .. _Flatbuffers: http://github.com/google/flatbuffers
 .. _Flatbuffers protocol definition files: https://github.com/apache/arrow/tree/master/format
 .. _Schema.fbs: https://github.com/apache/arrow/blob/master/format/Schema.fbs
@@ -1217,4 +1213,3 @@ References
 .. _Endianness: https://en.wikipedia.org/wiki/Endianness
 .. _SIMD: https://software.intel.com/en-us/cpp-compiler-developer-guide-and-reference-introduction-to-the-simd-data-layout-templates
 .. _Parquet: https://parquet.apache.org/documentation/latest/
-.. _Value Vectors: https://drill.apache.org/docs/value-vectors/
