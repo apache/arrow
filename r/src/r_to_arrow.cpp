@@ -790,7 +790,8 @@ class RDictionaryConverter<ValueType, enable_if_has_string_view<ValueType>>
     if (this->dict_type_->ordered() && !result_type->ordered()) {
       // TODO: we should not have to do that, there is probably something wrong
       //       in the DictionaryBuilder code
-      result->data()->type = arrow::dictionary(result_type->index_type(), result_type->value_type(), true);
+      result->data()->type =
+          arrow::dictionary(result_type->index_type(), result_type->value_type(), true);
     }
 
     return result;
@@ -884,7 +885,8 @@ class RStructConverter : public StructConverter<RConverter, RConverterTrait> {
     for (R_xlen_t i = 0; i < n_columns; i++) {
       auto status = children_[i]->Extend(VECTOR_ELT(x, i), size);
       if (!status.ok()) {
-        return Status::Invalid("Problem with column ", (i + 1), " (", fields[i]->name(), "): ", status.ToString());
+        return Status::Invalid("Problem with column ", (i + 1), " (", fields[i]->name(),
+                               "): ", status.ToString());
       }
     }
 
