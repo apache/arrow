@@ -732,6 +732,18 @@ mod tests {
         ];
         assert_batches_eq!(expected, &results);
 
+        Ok(())
+    }
+    
+    #[tokio::test]
+    async fn register_deregister() -> Result<()> {
+        let tmp_dir = TempDir::new()?;
+        let partition_count = 4;
+        let mut ctx = create_ctx(&tmp_dir, partition_count)?;
+
+        let provider = test::create_table_dual();
+        ctx.register_table("dual", provider);
+
         assert_eq!(ctx.deregister_table("dual"), true);
         assert_eq!(ctx.deregister_table("dual"), false);
 
