@@ -398,8 +398,7 @@ class RPrimitiveConverter<
     return Status::OK();
   }
 
-  template <>
-  Status AppendRangeSameTypeALTREP<int64_t>(SEXP x, int64_t size) {
+  Status AppendRangeSameTypeALTREP_int64(SEXP x, int64_t size) {
     // if it is altrep, then we use cpp11 looping
     // without needing to convert
     RETURN_NOT_OK(this->primitive_builder_->Reserve(size));
@@ -422,6 +421,8 @@ class RPrimitiveConverter<
     if (std::is_same<typename T::c_type, r_value_type>::value) {
       if (!ALTREP(x)) {
         return AppendRangeSameTypeNotALTREP<r_value_type>(x, size);
+      } else if (std::is_same<r_value_type, int64_t>::value) {
+        return AppendRangeSameTypeALTREP_int64(x, size);
       } else {
         return AppendRangeSameTypeALTREP<r_value_type>(x, size);
       }
