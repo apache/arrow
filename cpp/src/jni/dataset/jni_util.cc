@@ -162,18 +162,6 @@ std::shared_ptr<ReservationListener> ReservationListenableMemoryPool::get_listen
 
 ReservationListenableMemoryPool::~ReservationListenableMemoryPool() {}
 
-void ThrowPendingException(const std::string& message) {
-  throw JniPendingException(message);
-}
-
-void JniAssertOkOrThrow(arrow::Status status) {
-  if (!status.ok()) {
-    ThrowPendingException(status.message());
-  }
-}
-
-void JniThrow(std::string message) { ThrowPendingException(message); }
-
 jclass CreateGlobalClassReference(JNIEnv* env, const char* class_name) {
   jclass local_class = env->FindClass(class_name);
   jclass global_class = (jclass)env->NewGlobalRef(local_class);

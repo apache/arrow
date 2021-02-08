@@ -30,25 +30,6 @@ namespace arrow {
 namespace dataset {
 namespace jni {
 
-class JniPendingException : public std::runtime_error {
- public:
-  explicit JniPendingException(const std::string& arg) : runtime_error(arg) {}
-};
-
-void ThrowPendingException(const std::string& message);
-
-template <typename T>
-T JniGetOrThrow(arrow::Result<T> result) {
-  if (!result.status().ok()) {
-    ThrowPendingException(result.status().message());
-  }
-  return std::move(result).ValueOrDie();
-}
-
-void JniAssertOkOrThrow(arrow::Status status);
-
-void JniThrow(std::string message);
-
 jclass CreateGlobalClassReference(JNIEnv* env, const char* class_name);
 
 arrow::Result<jmethodID> GetMethodID(JNIEnv* env, jclass this_class, const char* name,
@@ -61,29 +42,40 @@ std::string JStringToCString(JNIEnv* env, jstring string);
 
 std::vector<std::string> ToStringVector(JNIEnv* env, jobjectArray& str_array);
 
+arrow::Result<jbyteArray> ToSchemaByteArray(JNIEnv* env,
+                                            std::shared_ptr<arrow::Schema> schema);
+
+arrow::Result<std::shared_ptr<arrow::Schema>> FromSchemaByteArray(JNIEnv* env,
+                                                                  jbyteArray schemaBytes);
+
+/// \brief Create a new shared_ptr on heap from shared_ptr t to prevent
+/// the managed object from being garbage-collected.
+///
+/// \return address of the newly created shared pointer
 template <typename T>
 jlong CreateNativeRef(std::shared_ptr<T> t) {
   std::shared_ptr<T>* retained_ptr = new std::shared_ptr<T>(t);
   return reinterpret_cast<jlong>(retained_ptr);
 }
 
+/// \brief Get the shared_ptr that was derived via function CreateNativeRef.
+///
+/// \param[in] ref address of the shared_ptr
+/// \return the shared_ptr object
 template <typename T>
 std::shared_ptr<T> RetrieveNativeInstance(jlong ref) {
   std::shared_ptr<T>* retrieved_ptr = reinterpret_cast<std::shared_ptr<T>*>(ref);
   return *retrieved_ptr;
 }
 
+/// \brief Destroy a shared_ptr using its memory address.
+///
+/// \param[in] ref address of the shared_ptr
 template <typename T>
 void ReleaseNativeRef(jlong ref) {
   std::shared_ptr<T>* retrieved_ptr = reinterpret_cast<std::shared_ptr<T>*>(ref);
   delete retrieved_ptr;
 }
-
-arrow::Result<jbyteArray> ToSchemaByteArray(JNIEnv* env,
-                                            std::shared_ptr<arrow::Schema> schema);
-
-arrow::Result<std::shared_ptr<arrow::Schema>> FromSchemaByteArray(JNIEnv* env,
-                                                                  jbyteArray schemaBytes);
 
 /// Listener to act on reservations/unreservations from ReservationListenableMemoryPool.
 ///

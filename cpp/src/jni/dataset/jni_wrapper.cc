@@ -51,6 +51,31 @@ jlong default_memory_pool_id = -1L;
 
 jint JNI_VERSION = JNI_VERSION_1_6;
 
+class JniPendingException : public std::runtime_error {
+ public:
+  explicit JniPendingException(const std::string& arg) : runtime_error(arg) {}
+};
+
+void ThrowPendingException(const std::string& message) {
+  throw JniPendingException(message);
+}
+
+template <typename T>
+T JniGetOrThrow(arrow::Result<T> result) {
+  if (!result.status().ok()) {
+    ThrowPendingException(result.status().message());
+  }
+  return std::move(result).ValueOrDie();
+}
+
+void JniAssertOkOrThrow(arrow::Status status) {
+  if (!status.ok()) {
+    ThrowPendingException(status.message());
+  }
+}
+
+void JniThrow(std::string message) { ThrowPendingException(message); }
+
 arrow::Result<std::shared_ptr<arrow::dataset::FileFormat>> GetFileFormat(
     jint file_format_id) {
   switch (file_format_id) {
@@ -181,11 +206,6 @@ using arrow::dataset::jni::ToStringVector;
 
 using arrow::dataset::jni::ReservationListenableMemoryPool;
 using arrow::dataset::jni::ReservationListener;
-
-using arrow::dataset::jni::JniAssertOkOrThrow;
-using arrow::dataset::jni::JniGetOrThrow;
-using arrow::dataset::jni::JniPendingException;
-using arrow::dataset::jni::JniThrow;
 
 #define JNI_METHOD_START try {
 // macro ended
