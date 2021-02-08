@@ -380,34 +380,16 @@ class RPrimitiveConverter<
     return Status::OK();
   }
 
-  template <typename r_value_type>
-  Status AppendRangeSameTypeALTREP(SEXP x, int64_t size) {
+  template <typename r_value_type, typename vector, typename Extract>
+  Status AppendRangeSameTypeALTREP(SEXP x, int64_t size, Extract extract) {
     // if it is altrep, then we use cpp11 looping
     // without needing to convert
     RETURN_NOT_OK(this->primitive_builder_->Reserve(size));
-    cpp11::r_vector<r_value_type> vec(x);
+    vector vec(x);
     auto it = vec.begin();
     for (R_xlen_t i = 0; i < size; i++, ++it) {
-      r_value_type value = *it;
-      if (is_NA<int64_t>(value)) {
-        this->primitive_builder_->UnsafeAppendNull();
-      } else {
-        this->primitive_builder_->UnsafeAppend(value);
-      }
-    }
-    return Status::OK();
-  }
-
-  Status AppendRangeSameTypeALTREP_int64(SEXP x, int64_t size) {
-    // if it is altrep, then we use cpp11 looping
-    // without needing to convert
-    RETURN_NOT_OK(this->primitive_builder_->Reserve(size));
-    cpp11::r_vector<double> vec(x);
-    auto it = vec.begin();
-    for (R_xlen_t i = 0; i < size; i++, ++it) {
-      double d = *it;
-      int64_t value = *reinterpret_cast<int64_t*>(&d);
-      if (is_NA<int64_t>(value)) {
+      r_value_type value = extract(*it);
+      if (is_NA<r_value_type>(value)) {
         this->primitive_builder_->UnsafeAppendNull();
       } else {
         this->primitive_builder_->UnsafeAppend(value);
@@ -422,9 +404,13 @@ class RPrimitiveConverter<
       if (!ALTREP(x)) {
         return AppendRangeSameTypeNotALTREP<r_value_type>(x, size);
       } else if (std::is_same<r_value_type, int64_t>::value) {
-        return AppendRangeSameTypeALTREP_int64(x, size);
+        auto extract = [](double d) { return *reinterpret_cast<int64_t*>(&d); };
+        return AppendRangeSameTypeALTREP<int64_t, cpp11::doubles, decltype(extract)>(
+            x, size, extract);
       } else {
-        return AppendRangeSameTypeALTREP<r_value_type>(x, size);
+        auto extract = [](r_value_type value) { return value; };
+        return AppendRangeSameTypeALTREP<r_value_type, cpp11::r_vector<r_value_type>,
+                                         decltype(extract)>(x, size, extract);
       }
     }
 
