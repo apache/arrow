@@ -142,12 +142,9 @@ async fn benchmark(opt: BenchmarkOpt) -> Result<Vec<arrow::record_batch::RecordB
             println!("Loading table '{}' into memory", table);
             let start = Instant::now();
 
-            let memtable = MemTable::load(
-                table_provider.as_ref(),
-                opt.batch_size,
-                Some(opt.partitions),
-            )
-            .await?;
+            let memtable =
+                MemTable::load(table_provider, opt.batch_size, Some(opt.partitions))
+                    .await?;
             println!(
                 "Loaded table '{}' into memory in {} ms",
                 table,
