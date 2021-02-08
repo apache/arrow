@@ -128,6 +128,11 @@ TEST(ExpressionUtils, StripOrderPreservingCasts) {
   Expect(cast(field_ref("u32"), uint16()), no_change);
   Expect(cast(field_ref("u32"), uint8()), no_change);
 
+  Expect(cast(field_ref("u32"), int64()), field_ref("u32"));
+  Expect(cast(field_ref("u32"), int32()), field_ref("u32"));
+  Expect(cast(field_ref("u32"), int16()), no_change);
+  Expect(cast(field_ref("u32"), int8()), no_change);
+
   // Casting float to int can affect ordering.
   // For example, let
   //   a = 3.5, b = 3.0, assert(a > b)
@@ -411,7 +416,7 @@ TEST(Expression, BindWithImplicitCasts) {
                   cmp(cast(field_ref("i32"), int64()), field_ref("i64")));
 
     ExpectBindsTo(cmp(field_ref("i8"), field_ref("u32")),
-                  cmp(cast(field_ref("i8"), int32()), cast(field_ref("u32"), int32())));
+                  cmp(cast(field_ref("i8"), int64()), cast(field_ref("u32"), int64())));
 
     // cast dictionary to value type
     ExpectBindsTo(cmp(field_ref("dict_str"), field_ref("str")),
