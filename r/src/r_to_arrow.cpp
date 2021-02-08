@@ -880,7 +880,10 @@ class RStructConverter : public StructConverter<RConverter, RConverterTrait> {
     }
 
     for (R_xlen_t i = 0; i < n_columns; i++) {
-      RETURN_NOT_OK(children_[i]->Extend(VECTOR_ELT(x, i), size));
+      auto status = children_[i]->Extend(VECTOR_ELT(x, i), size);
+      if (!status.ok()) {
+        return Status::Invalid("Problem with column ", (i + 1), " (", fields[i]->name(), "): ", status.ToString());
+      }
     }
 
     return Status::OK();
