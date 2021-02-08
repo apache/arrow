@@ -173,10 +173,10 @@ struct RVectorVisitor {
       typename std::conditional<std::is_same<T, int64_t>::value, double, T>::type;
 
   template <typename AppendNull, typename AppendValue>
-  static Status Visit(SEXP x, R_xlen_t start, R_xlen_t size, AppendNull&& append_null,
+  static Status Visit(SEXP x, int64_t size, AppendNull&& append_null,
                       AppendValue&& append_value) {
     cpp11::r_vector<data_type> values(x);
-    auto it = values.begin() + start;
+    auto it = values.begin();
 
     for (R_xlen_t i = 0; i < size; i++, ++it) {
       auto value = GetValue(*it);
@@ -318,13 +318,13 @@ class RPrimitiveConverter<
     auto rtype = GetVectorType(x);
     switch (rtype) {
       case UINT8:
-        return AppendRangeDispatch<unsigned char>(x, 0, size);
+        return AppendRangeDispatch<unsigned char>(x, size);
       case INT32:
-        return AppendRangeDispatch<int>(x, 0, size);
+        return AppendRangeDispatch<int>(x, size);
       case FLOAT64:
-        return AppendRangeDispatch<double>(x, 0, size);
+        return AppendRangeDispatch<double>(x, size);
       case INT64:
-        return AppendRangeDispatch<int64_t>(x, 0, size);
+        return AppendRangeDispatch<int64_t>(x, size);
 
       default:
         break;
@@ -335,7 +335,7 @@ class RPrimitiveConverter<
 
  private:
   template <typename r_value_type>
-  Status AppendRangeLoopDifferentType(SEXP x, R_xlen_t start, R_xlen_t size) {
+  Status AppendRangeLoopDifferentType(SEXP x, int64_t size) {
     RETURN_NOT_OK(this->Reserve(size));
 
     auto append_value = [this](r_value_type value) {
@@ -348,12 +348,12 @@ class RPrimitiveConverter<
       this->primitive_builder_->UnsafeAppendNull();
       return Status::OK();
     };
-    return RVectorVisitor<r_value_type>::Visit(x, start, size, append_null, append_value);
+    return RVectorVisitor<r_value_type>::Visit(x, size, append_null, append_value);
   }
 
   template <typename r_value_type>
-  Status AppendRangeSameTypeNotALTREP(SEXP x, R_xlen_t start, R_xlen_t size) {
-    auto p = reinterpret_cast<const r_value_type*>(DATAPTR_RO(x)) + start;
+  Status AppendRangeSameTypeNotALTREP(SEXP x, int64_t size) {
+    auto p = reinterpret_cast<const r_value_type*>(DATAPTR_RO(x));
     auto p_end = p + size;
 
     auto first_na = std::find_if(p, p_end, is_NA<r_value_type>);
@@ -381,12 +381,12 @@ class RPrimitiveConverter<
   }
 
   template <typename r_value_type>
-  Status AppendRangeSameTypeALTREP(SEXP x, R_xlen_t start, R_xlen_t size) {
+  Status AppendRangeSameTypeALTREP(SEXP x, int64_t size) {
     // if it is altrep, then we use cpp11 looping
     // without needing to convert
     RETURN_NOT_OK(this->primitive_builder_->Reserve(size));
     cpp11::r_vector<r_value_type> vec(x);
-    auto it = vec.begin() + start;
+    auto it = vec.begin();
     for (R_xlen_t i = 0; i < size; i++, ++it) {
       r_value_type value = *it;
       if (is_NA<int64_t>(value)) {
@@ -399,12 +399,12 @@ class RPrimitiveConverter<
   }
 
   template <>
-  Status AppendRangeSameTypeALTREP<int64_t>(SEXP x, R_xlen_t start, R_xlen_t size) {
+  Status AppendRangeSameTypeALTREP<int64_t>(SEXP x, int64_t size) {
     // if it is altrep, then we use cpp11 looping
     // without needing to convert
     RETURN_NOT_OK(this->primitive_builder_->Reserve(size));
     cpp11::r_vector<double> vec(x);
-    auto it = vec.begin() + start;
+    auto it = vec.begin();
     for (R_xlen_t i = 0; i < size; i++, ++it) {
       double d = *it;
       int64_t value = *reinterpret_cast<int64_t*>(&d);
@@ -418,17 +418,17 @@ class RPrimitiveConverter<
   }
 
   template <typename r_value_type>
-  Status AppendRangeDispatch(SEXP x, R_xlen_t start, R_xlen_t size) {
+  Status AppendRangeDispatch(SEXP x, int64_t size) {
     if (std::is_same<typename T::c_type, r_value_type>::value) {
       if (!ALTREP(x)) {
-        return AppendRangeSameTypeNotALTREP<r_value_type>(x, start, size);
+        return AppendRangeSameTypeNotALTREP<r_value_type>(x, size);
       } else {
-        return AppendRangeSameTypeALTREP<r_value_type>(x, start, size);
+        return AppendRangeSameTypeALTREP<r_value_type>(x, size);
       }
     }
 
     // here if underlying types differ so going
-    return AppendRangeLoopDifferentType<r_value_type>(x, start, size);
+    return AppendRangeLoopDifferentType<r_value_type>(x, size);
   }
 };
 
@@ -451,7 +451,7 @@ class RPrimitiveConverter<T, enable_if_t<is_boolean_type<T>::value>>
       this->primitive_builder_->UnsafeAppendNull();
       return Status::OK();
     };
-    return RVectorVisitor<cpp11::r_bool>::Visit(x, 0, size, append_null, append_value);
+    return RVectorVisitor<cpp11::r_bool>::Visit(x, size, append_null, append_value);
   }
 };
 
@@ -464,13 +464,13 @@ class RPrimitiveConverter<T, enable_if_t<is_date_type<T>::value>>
 
     switch (GetVectorType(x)) {
       case DATE_INT:
-        return AppendRange_Date<int>(x, 0, size);
+        return AppendRange_Date<int>(x, size);
 
       case DATE_DBL:
-        return AppendRange_Date<double>(x, 0, size);
+        return AppendRange_Date<double>(x, size);
 
       case POSIXCT:
-        return AppendRange_Posixct(x, 0, size);
+        return AppendRange_Posixct(x, size);
 
       default:
         break;
@@ -481,7 +481,7 @@ class RPrimitiveConverter<T, enable_if_t<is_date_type<T>::value>>
 
  private:
   template <typename r_value_type>
-  Status AppendRange_Date(SEXP x, R_xlen_t start, R_xlen_t size) {
+  Status AppendRange_Date(SEXP x, int64_t size) {
     auto append_null = [this]() {
       this->primitive_builder_->UnsafeAppendNull();
       return Status::OK();
@@ -491,10 +491,10 @@ class RPrimitiveConverter<T, enable_if_t<is_date_type<T>::value>>
       return Status::OK();
     };
 
-    return RVectorVisitor<r_value_type>::Visit(x, start, size, append_null, append_value);
+    return RVectorVisitor<r_value_type>::Visit(x, size, append_null, append_value);
   }
 
-  Status AppendRange_Posixct(SEXP x, R_xlen_t start, R_xlen_t size) {
+  Status AppendRange_Posixct(SEXP x, int64_t size) {
     auto append_null = [this]() {
       this->primitive_builder_->UnsafeAppendNull();
       return Status::OK();
@@ -504,7 +504,7 @@ class RPrimitiveConverter<T, enable_if_t<is_date_type<T>::value>>
       return Status::OK();
     };
 
-    return RVectorVisitor<double>::Visit(x, start, size, append_null, append_value);
+    return RVectorVisitor<double>::Visit(x, size, append_null, append_value);
   }
 
   static int FromRDate(const Date32Type*, int from) { return from; }
@@ -578,7 +578,7 @@ class RPrimitiveConverter<T, enable_if_t<is_time_type<T>::value>>
       this->primitive_builder_->UnsafeAppendNull();
       return Status::OK();
     };
-    return RVectorVisitor<double>::Visit(x, 0, size, append_null, append_value);
+    return RVectorVisitor<double>::Visit(x, size, append_null, append_value);
   }
 };
 
@@ -605,7 +605,7 @@ class RPrimitiveConverter<T, enable_if_t<is_timestamp_type<T>::value>>
       this->primitive_builder_->UnsafeAppendNull();
       return Status::OK();
     };
-    return RVectorVisitor<double>::Visit(x, 0, size, append_null, append_value);
+    return RVectorVisitor<double>::Visit(x, size, append_null, append_value);
   }
 };
 
@@ -659,7 +659,7 @@ class RPrimitiveConverter<T, enable_if_binary<T>>
       this->primitive_builder_->UnsafeAppendNull();
       return Status::OK();
     };
-    return RVectorVisitor<SEXP>::Visit(x, 0, size, append_null, append_value);
+    return RVectorVisitor<SEXP>::Visit(x, size, append_null, append_value);
   }
 };
 
@@ -685,7 +685,7 @@ class RPrimitiveConverter<T, enable_if_t<std::is_same<T, FixedSizeBinaryType>::v
       this->primitive_builder_->UnsafeAppendNull();
       return Status::OK();
     };
-    return RVectorVisitor<SEXP>::Visit(x, 0, size, append_null, append_value);
+    return RVectorVisitor<SEXP>::Visit(x, size, append_null, append_value);
   }
 };
 
@@ -780,7 +780,7 @@ class RDictionaryConverter<ValueType, enable_if_has_string_view<ValueType>>
       return this->value_builder_->Append(CHAR(s));
     };
     auto append_null = [this]() { return this->value_builder_->AppendNull(); };
-    return RVectorVisitor<int>::Visit(x, 0, size, append_null, append_value);
+    return RVectorVisitor<int>::Visit(x, size, append_null, append_value);
   }
 
   Result<std::shared_ptr<Array>> ToArray() override {
@@ -831,7 +831,7 @@ class RListConverter : public ListConverter<T, RConverter, RConverterTrait> {
       return this->value_converter_.get()->Extend(value, n);
     };
     auto append_null = [this]() { return this->list_builder_->AppendNull(); };
-    return RVectorVisitor<SEXP>::Visit(x, 0, size, append_null, append_value);
+    return RVectorVisitor<SEXP>::Visit(x, size, append_null, append_value);
   }
 };
 
