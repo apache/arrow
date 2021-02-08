@@ -734,7 +734,7 @@ mod tests {
 
         Ok(())
     }
-    
+
     #[tokio::test]
     async fn register_deregister() -> Result<()> {
         let tmp_dir = TempDir::new()?;
