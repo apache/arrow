@@ -288,12 +288,9 @@ impl ExecutionContext {
     }
 
     /// Deregisters the named table.
-    /// 
+    ///
     /// Returns true if the table was successfully de-reregistered.
-    pub fn deregister_table(
-        &mut self,
-        name: &str
-    ) -> bool {
+    pub fn deregister_table(&mut self, name: &str) -> bool {
         self.state
             .lock()
             .unwrap()
