@@ -558,8 +558,8 @@ where
     return Ok(unary(array, |x| -x));
 }
 
-/// Raise array to the power of a scalar.
-pub fn pow_scalar<T>(
+/// Raise array with floating point values to the power of a scalar.
+pub fn powf_scalar<T>(
     array: &PrimitiveArray<T>,
     raise: T::Native,
 ) -> Result<PrimitiveArray<T>>
@@ -853,11 +853,11 @@ mod tests {
     #[test]
     fn test_primitive_array_raise_power_scalar() {
         let a = Float64Array::from(vec![1.0, 2.0, 3.0]);
-        let actual = pow_scalar(&a, 2.0).unwrap();
+        let actual = powf_scalar(&a, 2.0).unwrap();
         let expected = Float64Array::from(vec![1.0, 4.0, 9.0]);
         assert_eq!(expected, actual);
         let a = Float64Array::from(vec![Some(1.0), None, Some(3.0)]);
-        let actual = pow_scalar(&a, 2.0).unwrap();
+        let actual = powf_scalar(&a, 2.0).unwrap();
         let expected = Float64Array::from(vec![Some(1.0), None, Some(9.0)]);
         assert_eq!(expected, actual);
     }
