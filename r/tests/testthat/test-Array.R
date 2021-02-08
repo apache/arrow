@@ -231,8 +231,6 @@ test_that("Array supports unordered factors (ARROW-3355)", {
 })
 
 test_that("Array supports ordered factors (ARROW-3355)", {
-  skip("until converter api handles them")
-
   # without NA
   f <- ordered(c("itsy", "bitsy", "spider", "spider"))
   arr_fac <- expect_array_roundtrip(f, dictionary(int8(), utf8(), ordered = TRUE))

@@ -788,7 +788,9 @@ class RDictionaryConverter<ValueType, enable_if_has_string_view<ValueType>>
 
     auto result_type = checked_cast<DictionaryType*>(result->type().get());
     if (this->dict_type_->ordered() && !result_type->ordered()) {
-      return Status::Invalid("converter api seems to lose dictionary orderness");
+      // TODO: we should not have to do that, there is probably something wrong
+      //       in the DictionaryBuilder code
+      result->data()->type = arrow::dictionary(result_type->index_type(), result_type->value_type(), true);
     }
 
     return result;
