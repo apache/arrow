@@ -648,6 +648,27 @@ class FilterOptions(_FilterOptions):
     def __init__(self, null_selection_behavior='drop'):
         self._set_options(null_selection_behavior)
 
+cdef class _DictionaryEncodeOptions(FunctionOptions):
+    cdef:
+        unique_ptr[CDictionaryEncodeOptions] dictionary_encode_options
+
+    cdef const CFunctionOptions* get_options(self) except NULL:
+        return self.dictionary_encode_options.get()
+
+    def _set_options(self, null_encoding_behavior):
+        if null_encoding_behavior == 'encode':
+            self.dictionary_encode_options.reset(
+                new CDictionaryEncodeOptions(CDictionaryEncodeNullEncodingBehavior_ENCODE))
+        elif null_encoding_behavior == 'mask':
+            self.dictionary_encode_options.reset(
+                new CDictionaryEncodeOptions(CDictionaryEncodeNullEncodingBehavior_MASK))
+        else:
+            raise ValueError('"{}" is not a valid null_encoding_behavior'.format(null_encoding_behavior))
+
+class DictionaryEncodeOptions(_DictionaryEncodeOptions):
+    def __init__(self, null_encoding_behavior='mask'):
+        self._set_options(null_encoding_behavior)
+
 
 cdef class _TakeOptions(FunctionOptions):
     cdef:

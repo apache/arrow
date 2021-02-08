@@ -30,6 +30,7 @@ from pyarrow._compute import (  # noqa
     ArraySortOptions,
     CastOptions,
     CountOptions,
+    DictionaryEncodeOptions,
     FilterOptions,
     MatchSubstringOptions,
     MinMaxOptions,
@@ -68,14 +69,14 @@ def _get_arg_names(func):
             arg_names = ["left", "right"]
         else:
             raise NotImplementedError(
-                f"unsupported arity: {func.arity} (function: {func.name})")
+                f"unsupported arity: {func.arity} (function: {func.name})"
+            )
 
     return arg_names
 
 
 def _decorate_compute_function(wrapper, exposed_name, func, option_class):
-    wrapper.__arrow_compute_function__ = dict(name=func.name,
-                                              arity=func.arity)
+    wrapper.__arrow_compute_function__ = dict(name=func.name, arity=func.arity)
     wrapper.__name__ = exposed_name
     wrapper.__qualname__ = exposed_name
 
@@ -85,47 +86,64 @@ def _decorate_compute_function(wrapper, exposed_name, func, option_class):
     summary = cpp_doc.summary
     if not summary:
         arg_str = "arguments" if func.arity > 1 else "argument"
-        summary = ("Call compute function {!r} with the given {}"
-                   .format(func.name, arg_str))
+        summary = "Call compute function {!r} with the given {}".format(
+            func.name, arg_str
+        )
 
     description = cpp_doc.description
     arg_names = _get_arg_names(func)
 
-    doc_pieces.append("""\
+    doc_pieces.append(
+        """\
         {}.
 
-        """.format(summary))
+        """.format(
+            summary
+        )
+    )
 
     if description:
         doc_pieces.append("{}\n\n".format(description))
 
-    doc_pieces.append("""\
+    doc_pieces.append(
+        """\
         Parameters
         ----------
-        """)
+        """
+    )
 
     for arg_name in arg_names:
-        if func.kind in ('vector', 'scalar_aggregate'):
-            arg_type = 'Array-like'
+        if func.kind in ("vector", "scalar_aggregate"):
+            arg_type = "Array-like"
         else:
-            arg_type = 'Array-like or scalar-like'
-        doc_pieces.append("""\
+            arg_type = "Array-like or scalar-like"
+        doc_pieces.append(
+            """\
             {} : {}
                 Argument to compute function
-            """.format(arg_name, arg_type))
+            """.format(
+                arg_name, arg_type
+            )
+        )
 
-    doc_pieces.append("""\
+    doc_pieces.append(
+        """\
         memory_pool : pyarrow.MemoryPool, optional
             If not passed, will allocate memory from the default memory pool.
-        """)
+        """
+    )
     if option_class is not None:
-        doc_pieces.append("""\
+        doc_pieces.append(
+            """\
             options : pyarrow.compute.{0}, optional
                 Parameters altering compute function semantics
             **kwargs : optional
                 Parameters for {0} constructor.  Either `options`
                 or `**kwargs` can be passed, but not both at the same time.
-            """.format(option_class.__name__))
+            """.format(
+                option_class.__name__
+            )
+        )
 
     wrapper.__doc__ = "".join(dedent(s) for s in doc_pieces)
     return wrapper
@@ -138,8 +156,9 @@ def _get_options_class(func):
     try:
         return globals()[class_name]
     except KeyError:
-        warnings.warn("Python binding for {} not exposed"
-                      .format(class_name), RuntimeWarning)
+        warnings.warn(
+            "Python binding for {} not exposed".format(class_name), RuntimeWarning
+        )
         return None
 
 
@@ -149,8 +168,8 @@ def _handle_options(name, option_class, options, kwargs):
             return option_class(**kwargs)
         raise TypeError(
             "Function {!r} called with both an 'options' argument "
-            "and additional named arguments"
-            .format(name))
+            "and additional named arguments".format(name)
+        )
 
     if options is not None:
         if isinstance(options, dict):
@@ -158,20 +177,25 @@ def _handle_options(name, option_class, options, kwargs):
         elif isinstance(options, option_class):
             return options
         raise TypeError(
-            "Function {!r} expected a {} parameter, got {}"
-            .format(name, option_class, type(options)))
+            "Function {!r} expected a {} parameter, got {}".format(
+                name, option_class, type(options)
+            )
+        )
 
     return options
 
 
-_wrapper_template = dedent("""\
+_wrapper_template = dedent(
+    """\
     def make_wrapper(func, option_class):
         def {func_name}({args_sig}{kwonly}, memory_pool=None):
             return func.call([{args_sig}], None, memory_pool)
         return {func_name}
-    """)
+    """
+)
 
-_wrapper_options_template = dedent("""\
+_wrapper_options_template = dedent(
+    """\
     def make_wrapper(func, option_class):
         def {func_name}({args_sig}{kwonly}, options=None, memory_pool=None,
                         **kwargs):
@@ -179,14 +203,15 @@ _wrapper_options_template = dedent("""\
                                       kwargs)
             return func.call([{args_sig}], options, memory_pool)
         return {func_name}
-    """)
+    """
+)
 
 
 def _wrap_function(name, func):
     option_class = _get_options_class(func)
     arg_names = _get_arg_names(func)
-    args_sig = ', '.join(arg_names)
-    kwonly = '' if arg_names[-1].startswith('*') else ', *'
+    args_sig = ", ".join(arg_names)
+    kwonly = "" if arg_names[-1].startswith("*") else ", *"
 
     # Generate templated wrapper, so that the signature matches
     # the documented argument names.
@@ -195,9 +220,10 @@ def _wrap_function(name, func):
         template = _wrapper_options_template
     else:
         template = _wrapper_template
-    exec(template.format(func_name=name, args_sig=args_sig, kwonly=kwonly),
-         globals(), ns)
-    wrapper = ns['make_wrapper'](func, option_class)
+    exec(
+        template.format(func_name=name, args_sig=args_sig, kwonly=kwonly), globals(), ns
+    )
+    wrapper = ns["make_wrapper"](func, option_class)
 
     return _decorate_compute_function(wrapper, name, func, option_class)
 
@@ -213,8 +239,7 @@ def _make_global_functions():
     reg = function_registry()
 
     # Avoid clashes with Python keywords
-    rewrites = {'and': 'and_',
-                'or': 'or_'}
+    rewrites = {"and": "and_", "or": "or_"}
 
     for cpp_name in reg.list_functions():
         name = rewrites.get(cpp_name, cpp_name)
@@ -298,8 +323,7 @@ def match_substring(array, pattern):
     -------
     result : pyarrow.Array or pyarrow.ChunkedArray
     """
-    return call_function("match_substring", [array],
-                         MatchSubstringOptions(pattern))
+    return call_function("match_substring", [array], MatchSubstringOptions(pattern))
 
 
 def sum(array):
@@ -314,7 +338,7 @@ def sum(array):
     -------
     sum : pyarrow.Scalar
     """
-    return call_function('sum', [array])
+    return call_function("sum", [array])
 
 
 def mode(array, n=1):
@@ -346,7 +370,7 @@ def mode(array, n=1):
     return call_function("mode", [array], options)
 
 
-def filter(data, mask, null_selection_behavior='drop'):
+def filter(data, mask, null_selection_behavior="drop"):
     """
     Select values (or records) from array- or table-like data given boolean
     filter, where true values are selected.
@@ -387,7 +411,7 @@ def filter(data, mask, null_selection_behavior='drop'):
     ]
     """
     options = FilterOptions(null_selection_behavior)
-    return call_function('filter', [data, mask], options)
+    return call_function("filter", [data, mask], options)
 
 
 def take(data, indices, *, boundscheck=True, memory_pool=None):
@@ -428,7 +452,7 @@ def take(data, indices, *, boundscheck=True, memory_pool=None):
     ]
     """
     options = TakeOptions(boundscheck=boundscheck)
-    return call_function('take', [data, indices], options, memory_pool)
+    return call_function("take", [data, indices], options, memory_pool)
 
 
 def fill_null(values, fill_value):
