@@ -171,11 +171,12 @@ template <typename T>
 struct RVectorVisitor {
   using data_type =
       typename std::conditional<std::is_same<T, int64_t>::value, double, T>::type;
+  using r_vector_type = cpp11::r_vector<data_type>;
 
   template <typename AppendNull, typename AppendValue>
   static Status Visit(SEXP x, int64_t size, AppendNull&& append_null,
                       AppendValue&& append_value) {
-    cpp11::r_vector<data_type> values(x);
+    r_vector_type values(x);
     auto it = values.begin();
 
     for (R_xlen_t i = 0; i < size; i++, ++it) {
@@ -196,7 +197,9 @@ struct RVectorVisitor {
 
 template <>
 int64_t RVectorVisitor<int64_t>::GetValue(double x) {
-  return *reinterpret_cast<int64_t*>(&x);
+  int64_t value;
+  memcpy(&value, &x, sizeof(int64_t));
+  return value;
 }
 
 class RConverter : public Converter<SEXP, RConversionOptions> {
@@ -309,12 +312,6 @@ class RPrimitiveConverter<T, enable_if_null<T>>
   }
 };
 
-int64_t int64_from_double(double d) {
-  int64_t value;
-  memcpy(&value, &d, sizeof(int64_t));
-  return value;
-}
-
 template <typename T>
 class RPrimitiveConverter<
     T, enable_if_t<is_integer_type<T>::value || is_floating_type<T>::value>>
@@ -386,15 +383,15 @@ class RPrimitiveConverter<
     return Status::OK();
   }
 
-  template <typename r_value_type, typename vector, typename Extract>
-  Status AppendRangeSameTypeALTREP(SEXP x, int64_t size, Extract extract) {
+  template <typename r_value_type>
+  Status AppendRangeSameTypeALTREP(SEXP x, int64_t size) {
     // if it is altrep, then we use cpp11 looping
     // without needing to convert
     RETURN_NOT_OK(this->primitive_builder_->Reserve(size));
-    vector vec(x);
+    typename RVectorVisitor<r_value_type>::r_vector_type vec(x);
     auto it = vec.begin();
     for (R_xlen_t i = 0; i < size; i++, ++it) {
-      r_value_type value = extract(*it);
+      r_value_type value = RVectorVisitor<r_value_type>::GetValue(*it);
       if (is_NA<r_value_type>(value)) {
         this->primitive_builder_->UnsafeAppendNull();
       } else {
@@ -409,14 +406,8 @@ class RPrimitiveConverter<
     if (std::is_same<typename T::c_type, r_value_type>::value) {
       if (!ALTREP(x)) {
         return AppendRangeSameTypeNotALTREP<r_value_type>(x, size);
-      } else if (std::is_same<r_value_type, int64_t>::value) {
-        return AppendRangeSameTypeALTREP<int64_t, cpp11::doubles,
-                                         decltype(int64_from_double)>(x, size,
-                                                                      int64_from_double);
       } else {
-        auto extract = [](r_value_type value) { return value; };
-        return AppendRangeSameTypeALTREP<r_value_type, cpp11::r_vector<r_value_type>,
-                                         decltype(extract)>(x, size, extract);
+        return AppendRangeSameTypeALTREP<r_value_type>(x, size);
       }
     }
 
