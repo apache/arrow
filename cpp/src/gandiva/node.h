@@ -71,7 +71,8 @@ class GANDIVA_EXPORT LiteralNode : public Node {
       ss << std::string("null");
       return ss.str();
     }
-    if (return_type()->id() == arrow::Type::STRING || return_type()->id() == arrow::Type::LARGE_STRING) {
+    if (return_type()->id() == arrow::Type::STRING ||
+        return_type()->id() == arrow::Type::LARGE_STRING) {
       ss << "'" << gandiva::ToString(holder_) << "'";
     } else {
       ss << gandiva::ToString(holder_);
