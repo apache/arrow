@@ -29,6 +29,8 @@
 
 using arrow::internal::checked_cast;
 
+std::shared_ptr<arrow::Array> Array__from_vector(SEXP x, SEXP type);
+
 namespace arrow {
 namespace r {
 
