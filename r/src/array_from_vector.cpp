@@ -1392,7 +1392,7 @@ std::shared_ptr<arrow::Array> Array__from_vector(
   // special case when we can just use the data from the R vector
   // directly. This still needs to handle the null bitmap
   if (arrow::r::can_reuse_memory(x, type)) {
-    return arrow::r::Array__from_vector_reuse_memory(x);
+    return arrow::r::vec_to_arrow__reuse_memory(x);
   }
 
   // factors only when type has been inferred

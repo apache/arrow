@@ -960,7 +960,7 @@ std::shared_ptr<Array> MakeSimpleArray(SEXP x) {
   return std::make_shared<typename TypeTraits<Type>::ArrayType>(data);
 }
 
-std::shared_ptr<arrow::Array> Array__from_vector_reuse_memory(SEXP x) {
+std::shared_ptr<arrow::Array> vec_to_arrow__reuse_memory(SEXP x) {
   auto type = TYPEOF(x);
 
   if (type == INTSXP) {
@@ -991,7 +991,7 @@ std::shared_ptr<arrow::Array> vec_to_arrow(SEXP x,
 
   // maybe short circuit when zero-copy is possible
   if (can_reuse_memory(x, options.type)) {
-    return Array__from_vector_reuse_memory(x);
+    return vec_to_arrow__reuse_memory(x);
   }
 
   // otherwise go through the converter api

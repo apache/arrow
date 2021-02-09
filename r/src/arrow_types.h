@@ -83,7 +83,7 @@ auto ValueOrStop(R&& result) -> decltype(std::forward<R>(result).ValueOrDie()) {
 namespace r {
 
 std::shared_ptr<arrow::DataType> InferArrowType(SEXP x);
-std::shared_ptr<arrow::Array> Array__from_vector_reuse_memory(SEXP x);
+std::shared_ptr<arrow::Array> vec_to_arrow__reuse_memory(SEXP x);
 bool can_reuse_memory(SEXP x, const std::shared_ptr<arrow::DataType>& type);
 
 Status count_fields(SEXP lst, int* out);
