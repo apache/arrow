@@ -45,7 +45,7 @@ env:
 jobs:
 
   docker:
-    name: AMD64 Debian 9 Java JNI (Gandiva, Plasma, ORC)
+    name: AMD64 Debian 9 Java JNI (Gandiva, Plasma, ORC, Dataset)
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:

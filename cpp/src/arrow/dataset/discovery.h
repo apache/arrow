@@ -216,6 +216,16 @@ class ARROW_DS_EXPORT FileSystemDatasetFactory : public DatasetFactory {
       std::shared_ptr<fs::FileSystem> filesystem, fs::FileSelector selector,
       std::shared_ptr<FileFormat> format, FileSystemFactoryOptions options);
 
+  /// \brief Build a FileSystemDatasetFactory from an uri including filesystem
+  /// information.
+  ///
+  /// \param[in] uri passed to FileSystemDataset
+  /// \param[in] format passed to FileSystemDataset
+  /// \param[in] options see FileSystemFactoryOptions for more information.
+  static Result<std::shared_ptr<DatasetFactory>> Make(std::string uri,
+                                                      std::shared_ptr<FileFormat> format,
+                                                      FileSystemFactoryOptions options);
+
   Result<std::vector<std::shared_ptr<Schema>>> InspectSchemas(
       InspectOptions options) override;
 
