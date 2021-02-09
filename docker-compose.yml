@@ -1147,9 +1147,16 @@ services:
     volumes: *conda-volumes
     environment:
       <<: *ccache
+      ARROW_BUILD_STATIC: "OFF"
+      ARROW_COMPUTE: "OFF"
+      ARROW_CSV: "OFF"
+      ARROW_FLIGHT: "ON"
+      ARROW_GANDIVA: "OFF"
+      ARROW_PARQUET: "OFF"
+      ARROW_S3: "OFF"
       # tell archery where the arrow binaries are located
       ARROW_CPP_EXE_PATH: /build/cpp/debug
-    # Running integration tests serially until ARROW-8176 resolved
+      CMAKE_UNITY_BUILD: "ON"
     command:
       ["/arrow/ci/scripts/rust_build.sh /arrow /build &&
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&

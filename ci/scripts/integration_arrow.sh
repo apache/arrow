@@ -22,11 +22,12 @@ set -ex
 arrow_dir=${1}
 source_dir=${1}/cpp
 build_dir=${2}/cpp
-gold_dir_0_14_1=$arrow_dir/testing/data/arrow-ipc-stream/integration/0.14.1
-gold_dir_0_17_1=$arrow_dir/testing/data/arrow-ipc-stream/integration/0.17.1
+
+gold_dir=$arrow_dir/testing/data/arrow-ipc-stream/integration
 
 pip install -e $arrow_dir/dev/archery
 
 archery integration --with-all --run-flight \
-    --gold-dirs=$gold_dir_0_14_1 \
-    --gold-dirs=$gold_dir_0_17_1 \
+    --gold-dirs=$gold_dir/0.14.1 \
+    --gold-dirs=$gold_dir/0.17.1 \
+    --gold-dirs=$gold_dir/2.0.0-compression \
