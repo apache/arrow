@@ -487,6 +487,53 @@ cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
         const shared_ptr[const CKeyValueMetadata]& key_value_metadata,
         shared_ptr[CSchema]* out)
 
+    cdef cppclass DecryptionKeyRetriever:
+        c_string GetKey(const c_string& key_metadata)
+
+    cdef cppclass IntKeyIdReceiver:
+        PutKey(uint32_t key_id, const c_string& key)
+        c_string GetKey(const c_string& key_metadata)
+
+    cdef cppclass IntKeyIdReceiver:
+        PutKey(const c_string& key_id, const c_string& key)
+        c_string GetKey(const c_string& key_metadata)
+
+    cdef cppclass ColumnDecryptionProperties:
+        cdef cppclass Builder:
+            Builder(const c_string& name)
+            Builder(const shared_ptr[ColumnPath]& path)
+            Builder* key(const c_string& key)
+            shared_ptr[ColumnDecryptionProperties] build()
+        c_string column_path()
+        c_string key()
+        c_bool is_utilizied()
+        c_bool set_utilized()
+        WipeOutDecryptionKey()
+        shared_ptr[ColumnDecryptionProperties] DeepClone()
+
+    cdef cppclass FileDecryptionProperties:
+        cdef class Builder:
+            Builder()
+            Builder* footer_key(const c_string footer_key)
+            Builder* column_keys(const c_map[c_string,shared_ptr[ColumnDecryptionProperties]]& column_decryption_properties)
+            Builder* key_retriever(const shared_ptr[DecryptionKeyRetriever]& key_retriever)
+            Builder* disable_footer_signature_verification()
+            Builder* aad_prefix(const c_string& aad_prefix)
+            # TODO Builder* aad_prefix_verifier(shared_ptr[AADPrefixVerifier] aad_prefix_verifier]
+            Builder* plaintext_files_allowed()
+            shared_ptr[FileDecryptionProperties] build()
+        c_string column_key()
+        c_string footer_key()
+        c_string aad_prefix()
+        const shared_ptr[DecryptionKeyRetriever]& key_retriever()
+        c_bool check_plaintext_footer_integrity()
+        c_bool plaintext_files_allowed()
+        # TODO shared_ptr[AADPrefixVerifier]& aad_prefix_verifier()
+        WipeOutDecryptionKeys()
+        c_bool is_utilizied()
+        set_utilized()
+        shared_ptr[FileDecryptionProperties] DeepClone()
+
 cdef extern from "parquet/arrow/schema.h" namespace "parquet::arrow" nogil:
 
     CStatus ToParquetSchema(
