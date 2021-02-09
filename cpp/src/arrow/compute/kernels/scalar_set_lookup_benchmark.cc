@@ -32,6 +32,9 @@ constexpr auto kSeed = 0x94378165;
 static void SetLookupBenchmarkString(benchmark::State& state,
                                      const std::string& func_name,
                                      const int64_t value_set_length) {
+  // As the set lookup functions don't support duplicate values in the value_set,
+  // we need to choose random generation parameters that minimize the risk of
+  // duplicates (including nulls).
   const int64_t array_length = 1 << 18;
   const int32_t value_min_size = (value_set_length < 64) ? 2 : 10;
   const int32_t value_max_size = 32;

@@ -120,27 +120,27 @@ Result<std::shared_ptr<ArrayData>> GetTakeIndicesImpl(
     BitBlockCounter is_valid_counter(filter_is_valid, filter.offset, filter.length);
     while (position < filter.length) {
       // true OR NOT valid
-      BitBlockCount or_not_block = filter_counter.NextOrNotWord();
-      if (or_not_block.NoneSet()) {
-        position += or_not_block.length;
-        position_with_offset += or_not_block.length;
+      BitBlockCount selected_or_null_block = filter_counter.NextOrNotWord();
+      if (selected_or_null_block.NoneSet()) {
+        position += selected_or_null_block.length;
+        position_with_offset += selected_or_null_block.length;
         continue;
       }
-      RETURN_NOT_OK(builder.Reserve(or_not_block.popcount));
+      RETURN_NOT_OK(builder.Reserve(selected_or_null_block.popcount));
 
-      // If the values are all valid and the or_not_block is full, then we
-      // can infer that all the values are true and skip the bit checking
+      // If the values are all valid and the selected_or_null_block is full,
+      // then we can infer that all the values are true and skip the bit checking
       BitBlockCount is_valid_block = is_valid_counter.NextWord();
 
-      if (or_not_block.AllSet() && is_valid_block.AllSet()) {
+      if (selected_or_null_block.AllSet() && is_valid_block.AllSet()) {
         // All the values are selected and non-null
-        for (int64_t i = 0; i < or_not_block.length; ++i) {
+        for (int64_t i = 0; i < selected_or_null_block.length; ++i) {
           builder.UnsafeAppend(position++);
         }
-        position_with_offset += or_not_block.length;
+        position_with_offset += selected_or_null_block.length;
       } else {
         // Some of the values are false or null
-        for (int64_t i = 0; i < or_not_block.length; ++i) {
+        for (int64_t i = 0; i < selected_or_null_block.length; ++i) {
           if (BitUtil::GetBit(filter_is_valid, position_with_offset)) {
             if (BitUtil::GetBit(filter_data, position_with_offset)) {
               builder.UnsafeAppend(position);
