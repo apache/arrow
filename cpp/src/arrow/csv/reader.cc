@@ -40,7 +40,7 @@
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
-#include "arrow/util/async_iterator.h"
+#include "arrow/util/async_generator.h"
 #include "arrow/util/future.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
@@ -106,7 +106,7 @@ class CSVBufferIterator {
       AsyncGenerator<std::shared_ptr<Buffer>> buffer_iterator) {
     Transformer<std::shared_ptr<Buffer>, std::shared_ptr<Buffer>> fn =
         CSVBufferIterator();
-    return TransformAsyncGenerator(std::move(buffer_iterator), fn);
+    return MakeAsyncGenerator(std::move(buffer_iterator), fn);
   }
 
   Result<TransformFlow<std::shared_ptr<Buffer>>> operator()(std::shared_ptr<Buffer> buf) {
@@ -261,7 +261,7 @@ class ThreadedBlockReader : public BlockReader {
     // Wrap shared pointer in callable
     Transformer<std::shared_ptr<Buffer>, util::optional<CSVBlock>> block_reader_fn =
         [block_reader](std::shared_ptr<Buffer> next) { return (*block_reader)(next); };
-    return TransformAsyncGenerator(std::move(buffer_generator), block_reader_fn);
+    return MakeAsyncGenerator(std::move(buffer_generator), block_reader_fn);
   }
 
   Result<TransformFlow<util::optional<CSVBlock>>> operator()(
@@ -828,9 +828,11 @@ class AsyncThreadedTableReader
   AsyncThreadedTableReader(MemoryPool* pool, std::shared_ptr<io::InputStream> input,
                            const ReadOptions& read_options,
                            const ParseOptions& parse_options,
-                           const ConvertOptions& convert_options, Executor* thread_pool)
+                           const ConvertOptions& convert_options, Executor* cpu_executor,
+                           Executor* io_executor)
       : BaseTableReader(pool, input, read_options, parse_options, convert_options),
-        thread_pool_(thread_pool) {}
+        cpu_executor_(cpu_executor),
+        io_executor_(io_executor) {}
 
   ~AsyncThreadedTableReader() override {
     if (task_group_) {
@@ -845,10 +847,10 @@ class AsyncThreadedTableReader
                           io::MakeInputStreamIterator(input_, read_options_.block_size));
 
     ARROW_ASSIGN_OR_RAISE(auto bg_it, MakeBackgroundGenerator(std::move(istream_it)));
-    bg_it = TransferGenerator(std::move(bg_it), thread_pool_);
+    bg_it = MakeTransferredGenerator(std::move(bg_it), cpu_executor_);
 
-    int32_t block_queue_size = thread_pool_->GetCapacity();
-    auto rh_it = AddReadahead(std::move(bg_it), block_queue_size);
+    int32_t block_queue_size = cpu_executor_->GetCapacity();
+    auto rh_it = MakeReadaheadGenerator(std::move(bg_it), block_queue_size);
     buffer_generator_ = CSVBufferIterator::MakeAsync(std::move(rh_it));
     return Status::OK();
   }
@@ -856,7 +858,7 @@ class AsyncThreadedTableReader
   Result<std::shared_ptr<Table>> Read() override { return ReadAsync().result(); }
 
   Future<std::shared_ptr<Table>> ReadAsync() override {
-    task_group_ = internal::TaskGroup::MakeThreaded(thread_pool_);
+    task_group_ = internal::TaskGroup::MakeThreaded(cpu_executor_);
 
     auto self = shared_from_this();
     return ProcessFirstBuffer().Then([self](const std::shared_ptr<Buffer> first_buffer) {
@@ -912,7 +914,8 @@ class AsyncThreadedTableReader
     });
   }
 
-  Executor* thread_pool_;
+  Executor* cpu_executor_;
+  Executor* io_executor_;
   AsyncGenerator<std::shared_ptr<Buffer>> buffer_generator_;
 };
 
@@ -925,9 +928,9 @@ Result<std::shared_ptr<TableReader>> TableReader::Make(
     const ParseOptions& parse_options, const ConvertOptions& convert_options) {
   std::shared_ptr<BaseTableReader> reader;
   if (read_options.use_threads) {
-    reader = std::make_shared<AsyncThreadedTableReader>(pool, input, read_options,
-                                                        parse_options, convert_options,
-                                                        async_context.executor);
+    reader = std::make_shared<AsyncThreadedTableReader>(
+        pool, input, read_options, parse_options, convert_options, async_context.executor,
+        internal::GetCpuThreadPool());
   } else {
     reader = std::make_shared<SerialTableReader>(pool, input, read_options, parse_options,
                                                  convert_options);

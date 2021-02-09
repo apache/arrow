@@ -236,7 +236,8 @@ class ReadaheadGenerator {
 ///
 /// This generator itself is async-reentrant.
 template <typename T>
-AsyncGenerator<T> AddReadahead(AsyncGenerator<T> source_generator, int max_readahead) {
+AsyncGenerator<T> MakeReadaheadGenerator(AsyncGenerator<T> source_generator,
+                                         int max_readahead) {
   return ReadaheadGenerator<T>(std::move(source_generator), max_readahead);
 }
 
@@ -249,8 +250,8 @@ AsyncGenerator<T> AddReadahead(AsyncGenerator<T> source_generator, int max_reada
 ///
 /// This generator is not async-reentrant
 template <typename T, typename V>
-AsyncGenerator<V> TransformAsyncGenerator(AsyncGenerator<T> generator,
-                                          Transformer<T, V> transformer) {
+AsyncGenerator<V> MakeAsyncGenerator(AsyncGenerator<T> generator,
+                                     Transformer<T, V> transformer) {
   return TransformingGenerator<T, V>(generator, transformer);
 }
 
@@ -282,8 +283,8 @@ class TransferringGenerator {
 /// Keep in mind that continuations called on an already completed future will
 /// always be run synchronously and so no transfer will happen in that case.
 template <typename T>
-AsyncGenerator<T> TransferGenerator(AsyncGenerator<T> source,
-                                    internal::Executor* executor) {
+AsyncGenerator<T> MakeTransferredGenerator(AsyncGenerator<T> source,
+                                           internal::Executor* executor) {
   return TransferringGenerator<T>(std::move(source), executor);
 }
 
@@ -375,7 +376,7 @@ Result<Iterator<T>> MakeReadaheadIterator(Iterator<T> it, int readahead_queue_si
   ARROW_ASSIGN_OR_RAISE(auto background_generator,
                         MakeBackgroundGenerator(std::move(it)));
   auto readahead_generator =
-      AddReadahead(std::move(background_generator), readahead_queue_size);
+      MakeReadaheadGenerator(std::move(background_generator), readahead_queue_size);
   return MakeGeneratorIterator(std::move(readahead_generator));
 }
 

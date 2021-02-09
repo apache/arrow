@@ -26,7 +26,7 @@
 #include <vector>
 
 #include "arrow/testing/gtest_util.h"
-#include "arrow/util/async_iterator.h"
+#include "arrow/util/async_generator.h"
 #include "arrow/util/iterator.h"
 
 namespace arrow {
@@ -182,7 +182,7 @@ std::function<Future<TestInt>()> BackgroundAsyncVectorIt(std::vector<TestInt> v)
       });
   EXPECT_OK_AND_ASSIGN(auto background,
                        MakeBackgroundGenerator<TestInt>(std::move(slow_iterator)));
-  return TransferGenerator(background, pool);
+  return MakeTransferredGenerator(background, pool);
 }
 
 std::vector<TestInt> RangeVector(unsigned int max) {
@@ -593,7 +593,7 @@ TEST(TestAsyncUtil, SynchronousFinish) {
     return Future<TestInt>::MakeFinished(IterationTraits<TestInt>::End());
   };
   Transformer<TestInt, TestStr> skip_all = [](TestInt value) { return TransformSkip(); };
-  auto transformed = TransformAsyncGenerator(generator, skip_all);
+  auto transformed = MakeAsyncGenerator(generator, skip_all);
   auto future = CollectAsyncGenerator(transformed);
   ASSERT_TRUE(future.is_finished());
   ASSERT_OK_AND_ASSIGN(auto actual, future.result());
@@ -610,7 +610,7 @@ TEST(TestAsyncUtil, GeneratorIterator) {
   ASSERT_OK_AND_EQ(IterationTraits<TestInt>::End(), iterator.Next());
 }
 
-TEST(TestAsyncUtil, TransferGenerator) {
+TEST(TestAsyncUtil, MakeTransferredGenerator) {
   std::mutex mutex;
   std::condition_variable cv;
   std::atomic<bool> finished(false);
@@ -630,7 +630,7 @@ TEST(TestAsyncUtil, TransferGenerator) {
   };
 
   auto transferred =
-      TransferGenerator<TestInt>(std::move(slow_generator), thread_pool.get());
+      MakeTransferredGenerator<TestInt>(std::move(slow_generator), thread_pool.get());
 
   auto current_thread_id = std::this_thread::get_id();
   auto fut = transferred().Then([&current_thread_id](const Result<TestInt>& result) {
@@ -659,7 +659,7 @@ TEST(TestAsyncUtil, StackOverflow) {
   };
   Transformer<TestInt, TestStr> discard =
       [](TestInt next) -> Result<TransformFlow<TestStr>> { return TransformSkip(); };
-  auto transformed = TransformAsyncGenerator(generator, discard);
+  auto transformed = MakeAsyncGenerator(generator, discard);
   auto collected_future = CollectAsyncGenerator(transformed);
   ASSERT_FINISHES_OK_AND_ASSIGN(auto collected, collected_future);
   ASSERT_EQ(0, collected.size());
@@ -697,7 +697,7 @@ TEST(TestAsyncUtil, BackgroundRepeatEnd) {
   ASSERT_OK_AND_ASSIGN(auto background_gen, MakeBackgroundGenerator(std::move(iterator)));
 
   background_gen =
-      TransferGenerator(std::move(background_gen), internal::GetCpuThreadPool());
+      MakeTransferredGenerator(std::move(background_gen), internal::GetCpuThreadPool());
 
   auto one = background_gen();
   auto two = background_gen();
@@ -733,7 +733,7 @@ TEST(TestAsyncUtil, Readahead) {
       return Future<TestInt>::MakeFinished(IterationTraits<TestInt>::End());
     }
   };
-  auto readahead = AddReadahead<TestInt>(source, 10);
+  auto readahead = MakeReadaheadGenerator<TestInt>(source, 10);
   // Should not pump until first item requested
   ASSERT_EQ(0, num_delivered);
 
@@ -771,7 +771,7 @@ TEST(TestAsyncUtil, ReadaheadFailed) {
       return TestInt(count);
     });
   };
-  auto readahead = AddReadahead<TestInt>(source, 10);
+  auto readahead = MakeReadaheadGenerator<TestInt>(source, 10);
   ASSERT_FINISHES_ERR(Invalid, readahead());
   SleepABit();
 
@@ -798,7 +798,7 @@ TEST(TestAsyncUtil, ReadaheadFailed) {
 TEST(TestAsyncIteratorTransform, SkipSome) {
   auto original = AsyncVectorIt({1, 2, 3});
   auto filter = MakeFilter([](TestInt& t) { return t.value != 2; });
-  auto filtered = TransformAsyncGenerator(std::move(original), filter);
+  auto filtered = MakeAsyncGenerator(std::move(original), filter);
   AssertAsyncGeneratorMatch({"1", "3"}, std::move(filtered));
 }
 
