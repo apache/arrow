@@ -462,9 +462,10 @@ where
     Ok(())
 }
 
-/// SIMD vectorized version of `divide`, the divide kernel needs it's own implementation as there
-/// is a need to handle situations where a divide by `0` occurs.  This is complicated by `NULL`
-/// slots and padding.
+/// SIMD vectorized version of `divide`.
+///
+/// The divide kernels need their own implementation as there is a need to handle situations
+/// where a divide by `0` occurs.  This is complicated by `NULL` slots and padding.
 #[cfg(simd)]
 fn simd_divide<T>(
     left: &PrimitiveArray<T>,
