@@ -846,7 +846,7 @@ class RStructConverter : public StructConverter<RConverter, RConverterTrait> {
     }
 
     auto fields = this->struct_type_->fields();
-    if (n_columns != fields.size()) {
+    if (static_cast<int64_t>(n_columns) != fields.size()) {
       return Status::RError("Number of fields in struct (", fields.size(),
                             ") incompatible with number of columns in the data frame (",
                             n_columns, ")");
