@@ -58,6 +58,11 @@ fn bench_divide(arr_a: &ArrayRef, arr_b: &ArrayRef) {
     criterion::black_box(divide(&arr_a, &arr_b).unwrap());
 }
 
+fn bench_divide_scalar(array: &ArrayRef, divisor: f32) {
+    let array = array.as_any().downcast_ref::<Float32Array>().unwrap();
+    criterion::black_box(divide_scalar(&array, divisor).unwrap());
+}
+
 fn bench_limit(arr_a: &ArrayRef, max: usize) {
     criterion::black_box(limit(arr_a, max));
 }
@@ -65,6 +70,7 @@ fn bench_limit(arr_a: &ArrayRef, max: usize) {
 fn add_benchmark(c: &mut Criterion) {
     let arr_a = create_array(512, false);
     let arr_b = create_array(512, false);
+    let scalar = 1.12358;
 
     c.bench_function("add 512", |b| b.iter(|| bench_add(&arr_a, &arr_b)));
     c.bench_function("subtract 512", |b| {
@@ -74,6 +80,9 @@ fn add_benchmark(c: &mut Criterion) {
         b.iter(|| bench_multiply(&arr_a, &arr_b))
     });
     c.bench_function("divide 512", |b| b.iter(|| bench_divide(&arr_a, &arr_b)));
+    c.bench_function("divide_scalar 512", |b| {
+        b.iter(|| bench_divide_scalar(&arr_a, scalar))
+    });
     c.bench_function("limit 512, 512", |b| b.iter(|| bench_limit(&arr_a, 512)));
 
     let arr_a_nulls = create_array(512, false);
@@ -83,6 +92,9 @@ fn add_benchmark(c: &mut Criterion) {
     });
     c.bench_function("divide_nulls_512", |b| {
         b.iter(|| bench_divide(&arr_a_nulls, &arr_b_nulls))
+    });
+    c.bench_function("divide_scalar_nulls_512", |b| {
+        b.iter(|| bench_divide_scalar(&arr_a_nulls, scalar))
     });
 }
 

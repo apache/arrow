@@ -906,6 +906,18 @@ mod tests {
     }
 
     #[test]
+    fn test_primitive_array_divide_scalar() {
+        let a = Int32Array::from(vec![15, 14, 9, 8, 1]);
+        let b = 3;
+        let c = divide_scalar(&a, b).unwrap();
+        assert_eq!(5, c.value(0));
+        assert_eq!(4, c.value(1));
+        assert_eq!(3, c.value(2));
+        assert_eq!(2, c.value(3));
+        assert_eq!(0, c.value(4));
+    }
+
+    #[test]
     fn test_primitive_array_divide_sliced() {
         let a = Int32Array::from(vec![0, 0, 0, 15, 15, 8, 1, 9, 0]);
         let b = Int32Array::from(vec![0, 0, 0, 5, 6, 8, 9, 1, 0]);
