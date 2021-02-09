@@ -605,6 +605,8 @@ where
 
     /// Writes a SIMD result back to a slice
     fn write(simd_result: Self::Simd, slice: &mut [Self::Native]);
+
+    fn unary_op<F: Fn(Self::Simd) -> Self::Simd>(a: Self::Simd, op: F) -> Self::Simd;
 }
 
 #[cfg(not(simd))]
@@ -806,6 +808,14 @@ macro_rules! make_numeric_type {
             fn write(simd_result: Self::Simd, slice: &mut [Self::Native]) {
                 unsafe { simd_result.write_to_slice_unaligned_unchecked(slice) };
             }
+
+            #[inline]
+            fn unary_op<F: Fn(Self::Simd) -> Self::Simd>(
+                a: Self::Simd,
+                op: F,
+            ) -> Self::Simd {
+                op(a)
+            }
         }
 
         #[cfg(not(simd))]
@@ -908,6 +918,32 @@ make_signed_numeric_type!(Int32Type, i32x16);
 make_signed_numeric_type!(Int64Type, i64x8);
 make_signed_numeric_type!(Float32Type, f32x16);
 make_signed_numeric_type!(Float64Type, f64x8);
+
+#[cfg(simd)]
+pub trait ArrowFloatNumericType: ArrowNumericType {
+    fn pow(base: Self::Simd, raise: Self::Simd) -> Self::Simd;
+}
+
+#[cfg(not(simd))]
+pub trait ArrowFloatNumericType: ArrowNumericType {}
+
+macro_rules! make_float_numeric_type {
+    ($impl_ty:ty, $simd_ty:ident) => {
+        #[cfg(simd)]
+        impl ArrowFloatNumericType for $impl_ty {
+            #[inline]
+            fn pow(base: Self::Simd, raise: Self::Simd) -> Self::Simd {
+                base.powf(raise)
+            }
+        }
+
+        #[cfg(not(simd))]
+        impl ArrowFloatNumericType for $impl_ty {}
+    };
+}
+
+make_float_numeric_type!(Float32Type, f32x16);
+make_float_numeric_type!(Float64Type, f64x8);
 
 /// A subtype of primitive type that represents temporal values.
 pub trait ArrowTemporalType: ArrowPrimitiveType {}
