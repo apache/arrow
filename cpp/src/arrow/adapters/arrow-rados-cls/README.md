@@ -10,6 +10,12 @@ our SkyhookDM project we pushdown compute operations into the storage layer, we 
 * `arrow/dataset/rados.h`: Contains the interface to the `librados` SDK.
 * `arrow/dataset/rados_utils.h`: Contains functions for (de)serializing query options, query results, etc.
 
+# APIs
+
+`RadosParquetFileFormat`: 
+`DirectObjectAccrss`:
+`RadosCluster`:
+
 # Setting up Development Environment
 
 ```bash
@@ -23,7 +29,7 @@ docker-compose run ubuntu-python-cls
 
 # Getting started with the C++ API
 
-
+Please look at the C++ end-to-end tests to get familiar with the API.
 
 # Getting started with the Python API
 
