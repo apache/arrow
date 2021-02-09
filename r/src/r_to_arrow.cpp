@@ -997,6 +997,7 @@ std::shared_ptr<arrow::Array> vec_to_arrow(SEXP x,
   // otherwise go through the converter api
   auto converter = ValueOrStop(MakeConverter<RConverter, RConverterTrait>(
       options.type, options, gc_memory_pool()));
+
   StopIfNotOk(converter->Extend(x, options.size));
   return ValueOrStop(converter->ToArray());
 }
@@ -1009,10 +1010,11 @@ SEXP vec_to_arrow(SEXP x, SEXP s_type) {
   if (Rf_inherits(x, "Array")) return x;
   bool type_inferred = Rf_isNull(s_type);
   std::shared_ptr<arrow::DataType> type;
+
   if (type_inferred) {
-    type = cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(s_type);
-  } else {
     type = type = arrow::r::InferArrowType(x);
+  } else {
+    type = cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(s_type);
   }
   return cpp11::to_r6(arrow::r::vec_to_arrow(x, type, type_inferred));
 }
