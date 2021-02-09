@@ -24,7 +24,7 @@ on:
     types: ['requested']
 
 jobs:
-  cancel-duplicate-workflow-runs:
+  cancel-stale-workflow-runs:
     name: "Cancel stale workflow runs"
     runs-on: ubuntu-latest
     steps:
