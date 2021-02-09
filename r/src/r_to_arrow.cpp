@@ -309,6 +309,12 @@ class RPrimitiveConverter<T, enable_if_null<T>>
   }
 };
 
+int64_t int64_from_double(double d) {
+  int64_t value;
+  memcpy(&value, &d, sizeof(int64_t));
+  return value;
+}
+
 template <typename T>
 class RPrimitiveConverter<
     T, enable_if_t<is_integer_type<T>::value || is_floating_type<T>::value>>
@@ -404,9 +410,9 @@ class RPrimitiveConverter<
       if (!ALTREP(x)) {
         return AppendRangeSameTypeNotALTREP<r_value_type>(x, size);
       } else if (std::is_same<r_value_type, int64_t>::value) {
-        auto extract = [](double d) { return *reinterpret_cast<int64_t*>(&d); };
-        return AppendRangeSameTypeALTREP<int64_t, cpp11::doubles, decltype(extract)>(
-            x, size, extract);
+        return AppendRangeSameTypeALTREP<int64_t, cpp11::doubles,
+                                         decltype(int64_from_double)>(x, size,
+                                                                      int64_from_double);
       } else {
         auto extract = [](r_value_type value) { return value; };
         return AppendRangeSameTypeALTREP<r_value_type, cpp11::r_vector<r_value_type>,
