@@ -265,7 +265,7 @@ arrow::Status CollectTableColumns(
       columns[j] = std::make_shared<arrow::ChunkedArray>(
           cpp11::as_cpp<std::shared_ptr<arrow::Array>>(x));
     } else {
-      auto array = arrow::r::Array__from_vector(x, schema->field(j)->type(), inferred);
+      auto array = arrow::r::vec_to_arrow(x, schema->field(j)->type(), inferred);
       columns[j] = std::make_shared<arrow::ChunkedArray>(array);
     }
   };
