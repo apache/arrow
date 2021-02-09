@@ -256,6 +256,49 @@ where
     Ok(PrimitiveArray::<T>::from(Arc::new(data)))
 }
 
+/// Scalar-divisor version of `math_divide`.
+fn math_divide_scalar<T>(
+    array: &PrimitiveArray<T>,
+    divisor: T::Native,
+) -> Result<PrimitiveArray<T>>
+where
+    T: ArrowNumericType,
+    T::Native: Div<Output = T::Native> + Zero,
+{
+    if divisor.is_zero() {
+        return Err(ArrowError::DivideByZero);
+    }
+
+    let null_bit_buffer = array.data_ref().null_buffer().cloned();
+
+    let buffer = if let Some(b) = &null_bit_buffer {
+        let values = array.values().iter().enumerate().map(|(i, value)| {
+            let is_valid = unsafe { bit_util::get_bit_raw(b.as_ptr(), i) };
+            if is_valid {
+                *value / divisor
+            } else {
+                T::default_value()
+            }
+        });
+        unsafe { Buffer::from_trusted_len_iter(values) }
+    } else {
+        // no value is null
+        let values = array.values().iter().map(|value| *value / divisor);
+        unsafe { Buffer::from_trusted_len_iter(values) }
+    };
+
+    let data = ArrayData::new(
+        T::DATA_TYPE,
+        array.len(),
+        None,
+        null_bit_buffer,
+        0,
+        vec![buffer],
+        vec![],
+    );
+    Ok(PrimitiveArray::<T>::from(Arc::new(data)))
+}
+
 /// SIMD vectorized version of `math_op` above.
 #[cfg(simd)]
 fn simd_math_op<T, SIMD_OP, SCALAR_OP>(
@@ -620,6 +663,26 @@ where
     return simd_divide(&left, &right);
     #[cfg(not(simd))]
     return math_divide(&left, &right);
+}
+
+/// Divide every value in an array by a scalar. If any value in the array is null then the
+/// result is also null. If the scalar is zero then the result of this operation will be
+/// `Err(ArrowError::DivideByZero)`.
+pub fn divide_scalar<T>(
+    array: &PrimitiveArray<T>,
+    divisor: T::Native,
+) -> Result<PrimitiveArray<T>>
+where
+    T: datatypes::ArrowNumericType,
+    T::Native: Add<Output = T::Native>
+        + Sub<Output = T::Native>
+        + Mul<Output = T::Native>
+        + Div<Output = T::Native>
+        + Zero
+        + One,
+{
+    #[cfg(not(simd))]
+    return math_divide_scalar(&array, divisor);
 }
 
 #[cfg(test)]
