@@ -959,8 +959,14 @@ impl Decoder {
             }
             DataType::Struct(fields) => {
                 // extract list values, with non-lists converted to Value::Null
-                let len = rows.len();
-                let num_bytes = bit_util::ceil(len, 8);
+                let array_item_count = rows
+                    .iter()
+                    .map(|row| match row {
+                        Value::Array(values) => values.len(),
+                        _ => 1,
+                    })
+                    .sum();
+                let num_bytes = bit_util::ceil(array_item_count, 8);
                 let mut null_buffer = MutableBuffer::from_len_zeroed(num_bytes);
                 let mut struct_index = 0;
                 let rows: Vec<Value> = rows
@@ -2672,5 +2678,78 @@ mod tests {
         assert_eq!(1, aa.value(0));
         assert_eq!(1, aa.value(3));
         assert_eq!(5, aa.value(7));
+    }
+
+    #[test]
+    fn test_json_read_nested_list() {
+        let schema = Schema::new(vec![Field::new(
+            "c1",
+            DataType::List(Box::new(Field::new(
+                "item",
+                DataType::List(Box::new(Field::new("item", DataType::Utf8, true))),
+                true,
+            ))),
+            true,
+        )]);
+
+        let decoder = Decoder::new(Arc::new(schema), 1024, None);
+        let batch = decoder
+            .next_batch(
+                &mut vec![
+                    Ok(serde_json::json!({
+                        "c1": [],
+                    })),
+                    Ok(serde_json::json!({
+                        "c1": [["a", "b"], ["c"], ["e", "f"], ["g"], ["h"], ["i"], ["j"], ["k"]],
+                    })),
+                    Ok(serde_json::json!({
+                        "c1": [["foo"], ["bar"]],
+                    })),
+                ]
+                .into_iter(),
+            )
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(batch.num_columns(), 1);
+        assert_eq!(batch.num_rows(), 3);
+    }
+
+    #[test]
+    fn test_json_read_list_of_structs() {
+        let schema = Schema::new(vec![Field::new(
+            "c1",
+            DataType::List(Box::new(Field::new(
+                "item",
+                DataType::Struct(vec![Field::new("a", DataType::Int64, true)]),
+                true,
+            ))),
+            true,
+        )]);
+
+        let decoder = Decoder::new(Arc::new(schema), 1024, None);
+        let batch = decoder
+            .next_batch(
+                // NOTE: total struct element count needs to be greater than
+                // bit_util::ceil(array_count, 8) to test validity bit buffer length calculation
+                // logic
+                &mut vec![
+                    Ok(serde_json::json!({
+                        "c1": [{"a": 1}],
+                    })),
+                    Ok(serde_json::json!({
+                        "c1": [{"a": 2}, {"a": 3}, {"a": 4}, {"a": 5}, {"a": 6}, {"a": 7}],
+                    })),
+                    Ok(serde_json::json!({
+                        "c1": [{"a": 10}, {"a": 11}],
+                    })),
+                ]
+                .into_iter(),
+            )
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(batch.num_columns(), 1);
+        assert_eq!(batch.num_rows(), 3);
     }
 }
