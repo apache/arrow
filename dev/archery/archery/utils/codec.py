@@ -48,6 +48,8 @@ class BenchmarkCodec:
             "unit": b.unit,
             "less_is_better": b.less_is_better,
             "values": b.values,
+            "time_unit": b.time_unit,
+            "times": b.times,
         }
 
     @staticmethod

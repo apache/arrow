@@ -152,11 +152,13 @@ class GoogleBenchmark(Benchmark):
         _, runs = partition(lambda b: b.is_aggregate, runs)
         self.runs = sorted(runs, key=lambda b: b.value)
         unit = self.runs[0].unit
+        time_unit = self.runs[0].time_unit
         less_is_better = not unit.endswith("per_second")
         values = [b.value for b in self.runs]
+        times = [b.real_time for b in self.runs]
         # Slight kludge to extract the UserCounters for each benchmark
         self.counters = self.runs[0].counters
-        super().__init__(name, unit, less_is_better, values)
+        super().__init__(name, unit, less_is_better, values, time_unit, times)
 
     def __repr__(self):
         return "GoogleBenchmark[name={},runs={}]".format(self.names, self.runs)
