@@ -388,6 +388,36 @@ cdef class ChunkedArray(_PandasConvertible):
         """
         return _pc().take(self, indices)
 
+    def unify_dictionaries(self, MemoryPool memory_pool=None):
+        """
+        Unify dictionaries across all chunks.
+
+        This method returns an equivalent chunked array, but where all
+        chunks share the same dictionary values.  Dictionary indices are
+        transposed accordingly.
+
+        If there are no dictionaries in the chunked array, it is returned
+        unchanged.
+
+        Parameters
+        ----------
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required, otherwise use default pool
+
+        Returns
+        -------
+        result : ChunkedArray
+        """
+        cdef:
+            CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
+            shared_ptr[CChunkedArray] c_result
+
+        with nogil:
+            c_result = GetResultValue(CDictionaryUnifier.UnifyChunkedArray(
+                self.sp_chunked_array, pool))
+
+        return pyarrow_wrap_chunked_array(c_result)
+
     @property
     def num_chunks(self):
         """
@@ -1350,6 +1380,35 @@ cdef class Table(_PandasConvertible):
             combined = GetResultValue(self.table.CombineChunks(pool))
 
         return pyarrow_wrap_table(combined)
+
+    def unify_dictionaries(self, MemoryPool memory_pool=None):
+        """
+        Unify dictionaries across all chunks.
+
+        This method returns an equivalent table, but where all chunks of
+        each column share the same dictionary values.  Dictionary indices
+        are transposed accordingly.
+
+        Columns without dictionaries are returned unchanged.
+
+        Parameters
+        ----------
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required, otherwise use default pool
+
+        Returns
+        -------
+        result : Table
+        """
+        cdef:
+            CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
+            shared_ptr[CTable] c_result
+
+        with nogil:
+            c_result = GetResultValue(CDictionaryUnifier.UnifyTable(
+                deref(self.table), pool))
+
+        return pyarrow_wrap_table(c_result)
 
     def __eq__(self, other):
         try:

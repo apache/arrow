@@ -1001,6 +1001,16 @@ class ARROW_EXPORT IpcFormatWriter : public RecordBatchWriter {
     return Status::OK();
   }
 
+  Status WriteTable(const Table& table, int64_t max_chunksize) override {
+    if (is_file_format_ && options_.unify_dictionaries) {
+      ARROW_ASSIGN_OR_RAISE(auto unified_table,
+                            DictionaryUnifier::UnifyTable(table, options_.memory_pool));
+      return RecordBatchWriter::WriteTable(*unified_table, max_chunksize);
+    } else {
+      return RecordBatchWriter::WriteTable(table, max_chunksize);
+    }
+  }
+
   Status Close() override {
     RETURN_NOT_OK(CheckStarted());
     return payload_writer_->Close();

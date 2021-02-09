@@ -134,6 +134,10 @@
 
 namespace arrow {
 
+inline void PrintTo(StatusCode code, std::ostream* os) {
+  *os << Status::CodeAsString(code);
+}
+
 // ----------------------------------------------------------------------
 // Useful testing::Types declarations
 

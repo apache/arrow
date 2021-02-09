@@ -31,6 +31,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/ubsan.h"
+#include "arrow/visitor_inline.h"
 
 namespace arrow {
 namespace internal {
@@ -463,6 +464,65 @@ INSTANTIATE_ALL()
 #undef INSTANTIATE
 #undef INSTANTIATE_ALL
 #undef INSTANTIATE_ALL_DEST
+
+namespace {
+
+template <typename SrcType>
+struct TransposeIntsDest {
+  const SrcType* src;
+  uint8_t* dest;
+  int64_t dest_offset;
+  int64_t length;
+  const int32_t* transpose_map;
+
+  template <typename T>
+  enable_if_integer<T, Status> Visit(const T&) {
+    using DestType = typename T::c_type;
+    TransposeInts(src, reinterpret_cast<DestType*>(dest) + dest_offset, length,
+                  transpose_map);
+    return Status::OK();
+  }
+
+  Status Visit(const DataType& type) {
+    return Status::TypeError("TransposeInts received non-integer dest_type");
+  }
+
+  Status operator()(const DataType& type) { return VisitTypeInline(type, this); }
+};
+
+struct TransposeIntsSrc {
+  const uint8_t* src;
+  uint8_t* dest;
+  int64_t src_offset;
+  int64_t dest_offset;
+  int64_t length;
+  const int32_t* transpose_map;
+  const DataType& dest_type;
+
+  template <typename T>
+  enable_if_integer<T, Status> Visit(const T&) {
+    using SrcType = typename T::c_type;
+    return TransposeIntsDest<SrcType>{reinterpret_cast<const SrcType*>(src) + src_offset,
+                                      dest, dest_offset, length,
+                                      transpose_map}(dest_type);
+  }
+
+  Status Visit(const DataType& type) {
+    return Status::TypeError("TransposeInts received non-integer dest_type");
+  }
+
+  Status operator()(const DataType& type) { return VisitTypeInline(type, this); }
+};
+
+};  // namespace
+
+Status TransposeInts(const DataType& src_type, const DataType& dest_type,
+                     const uint8_t* src, uint8_t* dest, int64_t src_offset,
+                     int64_t dest_offset, int64_t length, const int32_t* transpose_map) {
+  TransposeIntsSrc transposer{src,    dest,          src_offset, dest_offset,
+                              length, transpose_map, dest_type};
+  return transposer(src_type);
+}
 
 template <typename T>
 static std::string FormatInt(T val) {

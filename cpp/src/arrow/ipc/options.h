@@ -84,6 +84,24 @@ struct ARROW_EXPORT IpcWriteOptions {
   /// then a delta is never emitted, for compatibility with the read path.
   bool emit_dictionary_deltas = false;
 
+  /// \brief Whether to unify dictionaries for the IPC file format
+  ///
+  /// The IPC file format doesn't support dictionary replacements or deltas.
+  /// Therefore, chunks of a column with a dictionary type must have the same
+  /// dictionary in each record batch.
+  ///
+  /// If this option is true, RecordBatchWriter::WriteTable will attempt
+  /// to unify dictionaries across each table column.  If this option is
+  /// false, unequal dictionaries across a table column will simply raise
+  /// an error.
+  ///
+  /// Note that enabling this option has a runtime cost. Also, not all types
+  /// currently support dictionary unification.
+  ///
+  /// This option is ignored for IPC streams, which support dictionary replacement
+  /// and deltas.
+  bool unify_dictionaries = false;
+
   /// \brief Format version to use for IPC messages and their metadata.
   ///
   /// Presently using V5 version (readable by 1.0.0 and later).

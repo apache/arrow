@@ -1034,6 +1034,16 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CConcatenateTablesOptions options,
         CMemoryPool* memory_pool)
 
+    cdef cppclass CDictionaryUnifier" arrow::DictionaryUnifier":
+        @staticmethod
+        CResult[shared_ptr[CChunkedArray]] UnifyChunkedArray(
+            shared_ptr[CChunkedArray] array, CMemoryPool* pool)
+
+        @staticmethod
+        CResult[shared_ptr[CTable]] UnifyTable(
+            const CTable& table, CMemoryPool* pool)
+
+
 cdef extern from "arrow/builder.h" namespace "arrow" nogil:
 
     cdef cppclass CArrayBuilder" arrow::ArrayBuilder":
