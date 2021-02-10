@@ -379,19 +379,6 @@ bool Expression::IsSatisfiable() const {
 
 namespace {
 
-Result<std::unique_ptr<compute::KernelState>> InitKernelState(
-    const Expression::Call& call, compute::ExecContext* exec_context) {
-  if (!call.kernel->init) return nullptr;
-
-  compute::KernelContext kernel_context(exec_context);
-  compute::KernelInitArgs kernel_init_args{call.kernel, GetDescriptors(call.arguments),
-                                           call.options.get()};
-
-  auto kernel_state = call.kernel->init(&kernel_context, kernel_init_args);
-  RETURN_NOT_OK(kernel_context.status());
-  return std::move(kernel_state);
-}
-
 // Produce a bound Expression from unbound Call and bound arguments.
 Result<Expression> BindNonRecursive(Expression::Call call, bool insert_implicit_casts,
                                     compute::ExecContext* exec_context) {
@@ -436,8 +423,13 @@ Result<Expression> BindNonRecursive(Expression::Call call, bool insert_implicit_
   }
 
   compute::KernelContext kernel_context(exec_context);
-  ARROW_ASSIGN_OR_RAISE(call.kernel_state, InitKernelState(call, exec_context));
-  kernel_context.SetState(call.kernel_state.get());
+  if (call.kernel->init) {
+    call.kernel_state =
+        call.kernel->init(&kernel_context, {call.kernel, descrs, call.options.get()});
+
+    RETURN_NOT_OK(kernel_context.status());
+    kernel_context.SetState(call.kernel_state.get());
+  }
 
   ARROW_ASSIGN_OR_RAISE(
       call.descr, call.kernel->signature->out_type().Resolve(&kernel_context, descrs));
