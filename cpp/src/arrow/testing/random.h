@@ -325,7 +325,8 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \param[in] force_empty_nulls if true, null map entries must have 0 length
   ///
   /// \return a generated Array
-  std::shared_ptr<Array> Map(const std::shared_ptr<Array>& keys, const std::shared_ptr<Array>& items, int64_t size,
+  std::shared_ptr<Array> Map(const std::shared_ptr<Array>& keys,
+                             const std::shared_ptr<Array>& items, int64_t size,
                              double null_probability, bool force_empty_nulls = false);
 
   /// \brief Generate a random SparseUnionArray

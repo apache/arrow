@@ -16,8 +16,6 @@
 # under the License.
 
 import pytest
-import decimal
-import datetime
 
 import pyarrow as pa
 
@@ -25,12 +23,6 @@ import pyarrow as pa
 # Ignore these with pytest ... -m 'not orc'
 pytestmark = pytest.mark.orc
 
-
-try:
-    from pandas.testing import assert_frame_equal
-    import pandas as pd
-except ImportError:
-    pass
 
 def test_orcfile_readwrite():
     from pyarrow import orc
