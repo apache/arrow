@@ -107,6 +107,10 @@ name = "filter_kernels"
 harness = false
 
 [[bench]]
+name = "math_kernels"
+harness = false
+
+[[bench]]
 name = "take_kernels"
 harness = false
 

@@ -142,83 +142,6 @@ where
     ))
 }
 
-// only added here to test that it's accurate
-pub fn haversine_no_unary<T>(
-    lat_a: &PrimitiveArray<T>,
-    lng_a: &PrimitiveArray<T>,
-    lat_b: &PrimitiveArray<T>,
-    lng_b: &PrimitiveArray<T>,
-    radius: impl num::traits::Float,
-) -> Result<PrimitiveArray<T>>
-where
-    T: ArrowPrimitiveType + ArrowNumericType,
-    T::Native: num::traits::Float + Div<Output = T::Native> + Zero + num::NumCast,
-{
-    // isolate imports only used by this function
-    use super::arithmetic::divide;
-    use std::sync::Arc;
-
-    // Check array lengths, must all equal
-    let len = lat_a.len();
-    if lat_b.len() != len || lng_a.len() != len || lng_b.len() != len {
-        return Err(ArrowError::ComputeError(
-            "Cannot perform math operation on arrays of different length".to_string(),
-        ));
-    }
-
-    // there doesn't seem to be a way to satify the type system without branching
-    let (one, two, radius) = match T::DATA_TYPE {
-        crate::datatypes::DataType::Float32 => {
-            let one = Float32Array::from(vec![1.0; len]);
-            let two = Float32Array::from(vec![2.0; len]);
-            let radius =
-                Float32Array::from(vec![num::cast::<_, f32>(radius).unwrap(); len]);
-            // cast to array then back to T
-            (
-                Arc::new(one) as ArrayRef,
-                Arc::new(two) as ArrayRef,
-                Arc::new(radius) as ArrayRef,
-            )
-        }
-        crate::datatypes::DataType::Float64 => {
-            let one = Float64Array::from(vec![1.0; len]);
-            let two = Float64Array::from(vec![2.0; len]);
-            let radius =
-                Float64Array::from(vec![num::cast::<_, f64>(radius).unwrap(); len]);
-            // cast to array then back to T
-            (
-                Arc::new(one) as ArrayRef,
-                Arc::new(two) as ArrayRef,
-                Arc::new(radius) as ArrayRef,
-            )
-        }
-        _ => unreachable!("This function should only be callable from floats"),
-    };
-    let one = one.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
-    let two = two.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
-    let radius = radius.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
-
-    let lat_delta = to_radians(&subtract(lat_b, lat_a)?);
-    let lng_delta = to_radians(&subtract(lng_b, lng_a)?);
-    let lat_a_rad = to_radians(lat_a);
-    let lat_b_rad = to_radians(lat_b);
-
-    let v1 = &sin(&divide(&lat_delta, &two)?);
-    let v2 = sin(&divide(&lng_delta, &two)?);
-
-    let a = add(
-        &multiply(&v1, &v1)?,
-        &multiply(
-            &multiply(&v2, &v2)?,
-            &multiply(&cos(&lat_a_rad), &cos(&lat_b_rad))?,
-        )?,
-    )?;
-    let c: PrimitiveArray<T> =
-        multiply(&atan2(&sqrt(&a), &sqrt(&subtract(&one, &a)?))?, &two)?;
-
-    multiply(&c, &radius)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -237,15 +160,29 @@ mod tests {
     }
 
     #[test]
-    fn test_haversine_no_unary_non_null() {
-        let lat_a = Float64Array::from(vec![38.898556]);
-        let lng_a = Float64Array::from(vec![-77.037852]);
-        let lat_b = Float64Array::from(vec![38.897147]);
-        let lng_b = Float64Array::from(vec![-77.043934]);
+    fn test_haversine_null() {
+        // If any of the array slots is null, the result should be null
+        let lat_a = Float64Array::from(vec![38.898556; 4]);
+        let lng_a =
+            Float64Array::from(vec![Some(-77.037852), None, None, Some(-77.037852)]);
+        let lat_b = Float64Array::from(vec![
+            Some(38.897147),
+            Some(38.897147),
+            None,
+            Some(38.897147),
+        ]);
+        let lng_b = Float64Array::from(vec![
+            None,
+            Some(-77.043934),
+            Some(-77.043934),
+            Some(-77.043934),
+        ]);
 
         let radius = 6371000.0;
 
-        let result = haversine_no_unary(&lat_a, &lng_a, &lat_b, &lng_b, radius).unwrap();
-        assert_eq!(result.value(0), 549.1557912038084);
+        let result = haversine(&lat_a, &lng_a, &lat_b, &lng_b, radius).unwrap();
+        let expected =
+            Float64Array::from(vec![None, None, None, Some(549.1557912038084)]);
+        assert_eq!(&result, &expected);
     }
 }
