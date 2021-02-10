@@ -17,14 +17,14 @@
 
 #include "arrow/testing/random.h"
 
+#include <gtest/gtest.h>
+
 #include <algorithm>
 #include <limits>
 #include <memory>
 #include <random>
 #include <type_traits>
 #include <vector>
-
-#include <gtest/gtest.h>
 
 #include "arrow/array.h"
 #include "arrow/array/builder_primitive.h"
@@ -335,6 +335,13 @@ std::shared_ptr<Array> RandomArrayGenerator::FixedSizeBinary(int64_t size,
                                                 std::move(null_bitmap), null_count);
 }
 
+// std::shared_ptr<Array> RandomArrayGenerator::Struct(const ArrayVector& children, int64_t size,
+//                                 double null_probability){
+//   std::shared_ptr<Buffer> bitmap = rand.NullBitmap(size, null_probability);
+//   std::shared_ptr<Array> array0 = std::make_shared<StructArray>(
+//       table_schema->field(0)->type(), num_rows, av0, bitmap); }                               
+    //                            }
+
 std::shared_ptr<Array> RandomArrayGenerator::Offsets(int64_t size, int32_t first_offset,
                                                      int32_t last_offset,
                                                      double null_probability,
@@ -387,6 +394,16 @@ std::shared_ptr<Array> RandomArrayGenerator::List(const Array& values, int64_t s
                          static_cast<int32_t>(values.offset() + values.length()),
                          null_probability, force_empty_nulls);
   return *::arrow::ListArray::FromArrays(*offsets, values);
+}
+
+std::shared_ptr<Array> RandomArrayGenerator::Map(const std::shared_ptr<Array>& keys, const std::shared_ptr<Array>& items,
+                                                 int64_t size, double null_probability,
+                                                 bool force_empty_nulls) {
+  DCHECK_EQ(keys->length(), items->length());
+  auto offsets = Offsets(size, static_cast<int32_t>(keys->offset()),
+                         static_cast<int32_t>(keys->offset() + keys->length()),
+                         null_probability, force_empty_nulls);
+  return *::arrow::MapArray::FromArrays(offsets, keys, items);
 }
 
 std::shared_ptr<Array> RandomArrayGenerator::SparseUnion(const ArrayVector& fields,

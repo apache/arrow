@@ -95,27 +95,38 @@ arrow::Status AppendMapBatch(const liborc::Type* type,
                              liborc::ColumnVectorBatch* column_vector_batch,
                              int64_t offset, int64_t length,
                              arrow::ArrayBuilder* abuilder) {
-  auto list_builder = checked_cast<arrow::ListBuilder*>(abuilder);
-  auto struct_builder =
-      checked_cast<arrow::StructBuilder*>(list_builder->value_builder());
+  auto builder = checked_cast<arrow::MapBuilder*>(abuilder);
   auto batch = checked_cast<liborc::MapVectorBatch*>(column_vector_batch);
   liborc::ColumnVectorBatch* keys = batch->keys.get();
-  liborc::ColumnVectorBatch* vals = batch->elements.get();
+  liborc::ColumnVectorBatch* items = batch->elements.get();
   const liborc::Type* key_type = type->getSubtype(0);
-  const liborc::Type* val_type = type->getSubtype(1);
+  const liborc::Type* item_type = type->getSubtype(1);
 
   const bool has_nulls = batch->hasNulls;
   for (int64_t i = offset; i < length + offset; i++) {
-    RETURN_NOT_OK(list_builder->Append());
-    int64_t start = batch->offsets[i];
-    int64_t list_length = batch->offsets[i + 1] - start;
-    if (list_length && (!has_nulls || batch->notNull[i])) {
-      RETURN_NOT_OK(struct_builder->AppendValues(list_length, NULLPTR));
-      RETURN_NOT_OK(arrow::adapters::orc::AppendBatch(key_type, keys, start, list_length,
-                                                      struct_builder->field_builder(0)));
-      RETURN_NOT_OK(arrow::adapters::orc::AppendBatch(val_type, vals, start, list_length,
-                                                      struct_builder->field_builder(1)));
+    if (!has_nulls || batch->notNull[i]) {
+      int64_t start = batch->offsets[i];
+      int64_t end = batch->offsets[i + 1];
+      RETURN_NOT_OK(builder->Append());
+      RETURN_NOT_OK(arrow::adapters::orc::AppendBatch(key_type, keys, start, end - start,
+                                                      builder->key_builder()));
+      RETURN_NOT_OK(arrow::adapters::orc::AppendBatch(
+          item_type, items, start, end - start, builder->item_builder()));
+    } else {
+      RETURN_NOT_OK(builder->AppendNull());
     }
+    // RETURN_NOT_OK(builder->Append());
+    // int64_t start = batch->offsets[i];
+    // int64_t list_length = batch->offsets[i + 1] - start;
+    // if (list_length && (!has_nulls || batch->notNull[i])) {
+    //   RETURN_NOT_OK(struct_builder->AppendValues(list_length, NULLPTR));
+    //   RETURN_NOT_OK(arrow::adapters::orc::AppendBatch(key_type, keys, start,
+    //   list_length,
+    //                                                   struct_builder->field_builder(0)));
+    //   RETURN_NOT_OK(arrow::adapters::orc::AppendBatch(val_type, vals, start,
+    //   list_length,
+    //                                                   struct_builder->field_builder(1)));
+    // }
   }
   return arrow::Status::OK();
 }
@@ -868,20 +879,19 @@ Status GetArrowType(const liborc::Type* type, std::shared_ptr<DataType>* out) {
       if (subtype_count != 2) {
         return Status::Invalid("Invalid Orc Map type");
       }
-      std::shared_ptr<DataType> key_type;
-      std::shared_ptr<DataType> valtype;
+      std::shared_ptr<DataType> key_type, item_type;
       RETURN_NOT_OK(GetArrowType(type->getSubtype(0), &key_type));
-      RETURN_NOT_OK(GetArrowType(type->getSubtype(1), &valtype));
-      *out = list(struct_({field("key", key_type), field("value", valtype)}));
+      RETURN_NOT_OK(GetArrowType(type->getSubtype(1), &item_type));
+      *out = map(key_type, item_type);
       break;
     }
     case liborc::STRUCT: {
       std::vector<std::shared_ptr<Field>> fields;
       for (int child = 0; child < subtype_count; ++child) {
-        std::shared_ptr<DataType> elemtype;
-        RETURN_NOT_OK(GetArrowType(type->getSubtype(child), &elemtype));
+        std::shared_ptr<DataType> elem_type;
+        RETURN_NOT_OK(GetArrowType(type->getSubtype(child), &elem_type));
         std::string name = type->getFieldName(child);
-        fields.push_back(field(name, elemtype));
+        fields.push_back(field(name, elem_type));
       }
       *out = struct_(fields);
       break;
@@ -890,9 +900,9 @@ Status GetArrowType(const liborc::Type* type, std::shared_ptr<DataType>* out) {
       std::vector<std::shared_ptr<Field>> fields;
       std::vector<int8_t> type_codes;
       for (int child = 0; child < subtype_count; ++child) {
-        std::shared_ptr<DataType> elemtype;
-        RETURN_NOT_OK(GetArrowType(type->getSubtype(child), &elemtype));
-        fields.push_back(field("_union_" + std::to_string(child), elemtype));
+        std::shared_ptr<DataType> elem_type;
+        RETURN_NOT_OK(GetArrowType(type->getSubtype(child), &elem_type));
+        fields.push_back(field("_union_" + std::to_string(child), elem_type));
         type_codes.push_back(static_cast<int8_t>(child));
       }
       *out = sparse_union(fields, type_codes);
@@ -957,50 +967,50 @@ Status GetORCType(const DataType& type, ORC_UNIQUE_PTR<liborc::Type>* out) {
     case Type::type::LIST:
     case Type::type::FIXED_SIZE_LIST:
     case Type::type::LARGE_LIST: {
-      std::shared_ptr<DataType> arrowChildType =
+      std::shared_ptr<DataType> arrow_child_type =
           static_cast<const BaseListType&>(type).value_type();
-      ORC_UNIQUE_PTR<liborc::Type> orcSubtype;
-      RETURN_NOT_OK(GetORCType(*arrowChildType, &orcSubtype));
-      *out = liborc::createListType(std::move(orcSubtype));
+      ORC_UNIQUE_PTR<liborc::Type> orc_subtype;
+      RETURN_NOT_OK(GetORCType(*arrow_child_type, &orc_subtype));
+      *out = liborc::createListType(std::move(orc_subtype));
       break;
     }
     case Type::type::STRUCT: {
       *out = liborc::createStructType();
-      std::vector<std::shared_ptr<Field>> arrowFields =
+      std::vector<std::shared_ptr<Field>> arrow_fields =
           checked_cast<const StructType&>(type).fields();
-      for (std::vector<std::shared_ptr<Field>>::iterator it = arrowFields.begin();
-           it != arrowFields.end(); ++it) {
-        std::string fieldName = (*it)->name();
-        std::shared_ptr<DataType> arrowChildType = (*it)->type();
-        ORC_UNIQUE_PTR<liborc::Type> orcSubtype;
-        RETURN_NOT_OK(GetORCType(*arrowChildType, &orcSubtype));
-        (*out)->addStructField(fieldName, std::move(orcSubtype));
+      for (std::vector<std::shared_ptr<Field>>::iterator it = arrow_fields.begin();
+           it != arrow_fields.end(); ++it) {
+        std::string field_name = (*it)->name();
+        std::shared_ptr<DataType> arrow_child_type = (*it)->type();
+        ORC_UNIQUE_PTR<liborc::Type> orc_subtype;
+        RETURN_NOT_OK(GetORCType(*arrow_child_type, &orc_subtype));
+        (*out)->addStructField(field_name, std::move(orc_subtype));
       }
       break;
     }
     case Type::type::MAP: {
-      std::shared_ptr<DataType> keyArrowType =
+      std::shared_ptr<DataType> key_arrow_type =
           checked_cast<const MapType&>(type).key_type();
-      std::shared_ptr<DataType> itemArrowType =
+      std::shared_ptr<DataType> item_arrow_type =
           checked_cast<const MapType&>(type).item_type();
-      ORC_UNIQUE_PTR<liborc::Type> keyORCType, itemORCType;
-      RETURN_NOT_OK(GetORCType(*keyArrowType, &keyORCType));
-      RETURN_NOT_OK(GetORCType(*itemArrowType, &itemORCType));
-      *out = liborc::createMapType(std::move(keyORCType), std::move(itemORCType));
+      ORC_UNIQUE_PTR<liborc::Type> key_orc_type, item_orc_type;
+      RETURN_NOT_OK(GetORCType(*key_arrow_type, &key_orc_type));
+      RETURN_NOT_OK(GetORCType(*item_arrow_type, &item_orc_type));
+      *out = liborc::createMapType(std::move(key_orc_type), std::move(item_orc_type));
       break;
     }
     case Type::type::DENSE_UNION:
     case Type::type::SPARSE_UNION: {
       *out = liborc::createUnionType();
-      std::vector<std::shared_ptr<Field>> arrowFields =
+      std::vector<std::shared_ptr<Field>> arrow_fields =
           checked_cast<const UnionType&>(type).fields();
-      for (std::vector<std::shared_ptr<Field>>::iterator it = arrowFields.begin();
-           it != arrowFields.end(); ++it) {
-        std::string fieldName = (*it)->name();
-        std::shared_ptr<DataType> arrowChildType = (*it)->type();
-        ORC_UNIQUE_PTR<liborc::Type> orcSubtype;
-        RETURN_NOT_OK(GetORCType(*arrowChildType, &orcSubtype));
-        (*out)->addUnionChild(std::move(orcSubtype));
+      for (std::vector<std::shared_ptr<Field>>::iterator it = arrow_fields.begin();
+           it != arrow_fields.end(); ++it) {
+        std::string field_name = (*it)->name();
+        std::shared_ptr<DataType> arrow_child_type = (*it)->type();
+        ORC_UNIQUE_PTR<liborc::Type> orc_subtype;
+        RETURN_NOT_OK(GetORCType(*arrow_child_type, &orc_subtype));
+        (*out)->addUnionChild(std::move(orc_subtype));
       }
       break;
     }
@@ -1016,11 +1026,11 @@ Status GetORCType(const Schema& schema, ORC_UNIQUE_PTR<liborc::Type>* out) {
   *out = liborc::createStructType();
   for (int i = 0; i < numFields; i++) {
     std::shared_ptr<Field> field = schema.field(i);
-    std::string fieldName = field->name();
-    std::shared_ptr<DataType> arrowChildType = field->type();
-    ORC_UNIQUE_PTR<liborc::Type> orcSubtype;
-    RETURN_NOT_OK(GetORCType(*arrowChildType, &orcSubtype));
-    (*out)->addStructField(fieldName, std::move(orcSubtype));
+    std::string field_name = field->name();
+    std::shared_ptr<DataType> arrow_child_type = field->type();
+    ORC_UNIQUE_PTR<liborc::Type> orc_subtype;
+    RETURN_NOT_OK(GetORCType(*arrow_child_type, &orc_subtype));
+    (*out)->addStructField(field_name, std::move(orc_subtype));
   }
   return arrow::Status::OK();
 }

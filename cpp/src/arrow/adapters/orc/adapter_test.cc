@@ -95,7 +95,7 @@ void randintpartition(int64_t n, T sum, std::vector<U>* out) {
 }
 
 std::shared_ptr<ChunkedArray> GenerateRandomChunkedArray(
-    std::shared_ptr<DataType> data_type, int64_t size, int64_t min_num_chunks,
+    const std::shared_ptr<DataType>& data_type, int64_t size, int64_t min_num_chunks,
     int64_t max_num_chunks, double null_probability) {
   arrow::random::RandomArrayGenerator rand(kRandomSeed);
   std::vector<int64_t> num_chunks(1, 0);
@@ -110,8 +110,9 @@ std::shared_ptr<ChunkedArray> GenerateRandomChunkedArray(
   return std::make_shared<ChunkedArray>(arrays);
 }
 
-std::shared_ptr<Table> GenerateRandomTable(std::shared_ptr<Schema> schema, int64_t size,
-                                           int64_t min_num_chunks, int64_t max_num_chunks,
+std::shared_ptr<Table> GenerateRandomTable(const std::shared_ptr<Schema>& schema,
+                                           int64_t size, int64_t min_num_chunks,
+                                           int64_t max_num_chunks,
                                            double null_probability) {
   int num_cols = schema->num_fields();
   ChunkedArrayVector cv;
@@ -121,84 +122,6 @@ std::shared_ptr<Table> GenerateRandomTable(std::shared_ptr<Schema> schema, int64
                                             null_probability));
   }
   return Table::Make(schema, cv);
-}
-
-Result<std::shared_ptr<DataType>> ORCWriteReadTypeCast(
-    const std::shared_ptr<DataType>& data_type) {
-  switch (data_type->id()) {
-    case Type::type::BOOL:
-    case Type::type::INT8:
-    case Type::type::INT16:
-    case Type::type::INT32:
-    case Type::type::INT64:
-    case Type::type::FLOAT:
-    case Type::type::DOUBLE:
-    case Type::type::TIMESTAMP:
-    case Type::type::DATE32:
-    case Type::type::DECIMAL128:
-    case Type::type::STRING:
-    case Type::type::BINARY:
-      return data_type;
-    case Type::type::DATE64:
-      return timestamp(TimeUnit::MILLI);
-    case Type::type::LARGE_STRING:
-      return utf8();
-    case Type::type::LARGE_BINARY:
-    case Type::type::FIXED_SIZE_BINARY:
-      return binary();
-    case Type::type::LIST:
-    case Type::type::LARGE_LIST:
-    case Type::type::FIXED_SIZE_LIST: {
-      Result<std::shared_ptr<DataType>> maybe_data_type =
-          ORCWriteReadTypeCast(data_type->field(0)->type());
-      if (maybe_data_type.ok()) {
-        return list(maybe_data_type.ValueOrDie());
-      } else {
-        return maybe_data_type.status();
-      }
-    }
-    case Type::type::MAP: {
-      Result<std::shared_ptr<DataType>> maybe_key_type = ORCWriteReadTypeCast(
-                                            data_type->field(0)->type()),
-                                        maybe_item_type = ORCWriteReadTypeCast(
-                                            data_type->field(1)->type());
-      if (!maybe_key_type.ok()) {
-        return maybe_key_type.status();
-      } else if (!maybe_item_type.ok()) {
-        return maybe_item_type.status();
-      } else {
-        return map(maybe_key_type.ValueOrDie(), maybe_item_type.ValueOrDie());
-      }
-    }
-    case Type::type::STRUCT: {
-      int num_fields = data_type->num_fields();
-      std::vector<std::shared_ptr<Field>> new_fields(num_fields, nullptr);
-      for (int i = 0; i < num_fields; i++) {
-        std::shared_ptr<Field> current_field = data_type->field(i);
-        Result<std::shared_ptr<DataType>> maybe_data_type =
-            ORCWriteReadTypeCast(current_field->type());
-        if (maybe_data_type.ok()) {
-          new_fields[i] = current_field->WithType(maybe_data_type.ValueOrDie());
-        } else {
-          return maybe_data_type.status();
-        }
-      }
-      return struct_(new_fields);
-    }
-    default:
-      return Status::Invalid("Unknown or unsupported Arrow type kind");  // Unsupported
-  }
-}
-
-Result<std::shared_ptr<Array>> ORCWriteReadArrayCast(
-    const std::shared_ptr<Array>& array) {
-  Result<std::shared_ptr<DataType>> maybe_output_type =
-      ORCWriteReadTypeCast(array->type());
-  if (maybe_output_type.ok()) {
-    return compute::Cast(*array, maybe_output_type.ValueOrDie());
-  } else {
-    return maybe_output_type.status();
-  }
 }
 
 void AssertTableWriteReadEqual(const std::shared_ptr<Table>& input_table,
@@ -344,7 +267,8 @@ TEST(TestAdapterWriteTrivial, writeZeroRowsNoConversion) {
               field("binary", binary()),
               field("struct", struct_({field("a", utf8()), field("b", int64())})),
               field("list", list(int32())),
-              field("lsl", list(struct_({field("lsl0", list(int32()))})))}),
+              field("lsl", list(struct_({field("lsl0", list(int32()))}))),
+              field("map", map(utf8(), utf8()))}),
       {R"([])"});
   AssertTableWriteReadEqual(table, table, kDefaultSmallMemStreamSize / 16);
 }
@@ -358,7 +282,8 @@ TEST(TestAdapterWriteTrivial, writeChunklessNoConversion) {
               field("binary", binary()),
               field("struct", struct_({field("a", utf8()), field("b", int64())})),
               field("list", list(int32())),
-              field("lsl", list(struct_({field("lsl0", list(int32()))})))}),
+              field("lsl", list(struct_({field("lsl0", list(int32()))}))),
+              field("map", map(utf8(), utf8()))}),
       {});
   AssertTableWriteReadEqual(table, table, kDefaultSmallMemStreamSize / 16);
 }
@@ -373,8 +298,7 @@ TEST(TestAdapterWriteTrivial, writeZeroRowsWithConversion) {
                   field("fixed_size_binary0", fixed_size_binary(0)),
                   field("fixed_size_binary", fixed_size_binary(5)),
                   field("large_list", large_list(int32())),
-                  field("fixed_size_list", fixed_size_list(int32(), 3)),
-                  field("map", map(utf8(), utf8()))}),
+                  field("fixed_size_list", fixed_size_list(int32(), 3))}),
           {R"([])"}),
       expected_output_table = TableFromJSON(
           schema({field("date64", timestamp(TimeUnit::NANO)),
@@ -384,9 +308,7 @@ TEST(TestAdapterWriteTrivial, writeZeroRowsWithConversion) {
                   field("large_binary", binary()), field("fixed_size_binary0", binary()),
                   field("fixed_size_binary", binary()),
                   field("large_list", list(int32())),
-                  field("fixed_size_list", list(int32())),
-                  field("map",
-                        list(struct_({field("key", utf8()), field("value", utf8())})))}),
+                  field("fixed_size_list", list(int32()))}),
           {R"([])"});
   AssertTableWriteReadEqual(input_table, expected_output_table,
                             kDefaultSmallMemStreamSize / 16);
@@ -402,8 +324,7 @@ TEST(TestAdapterWriteTrivial, writeChunklessWithConversion) {
                   field("fixed_size_binary0", fixed_size_binary(0)),
                   field("fixed_size_binary", fixed_size_binary(5)),
                   field("large_list", large_list(int32())),
-                  field("fixed_size_list", fixed_size_list(int32(), 3)),
-                  field("map", map(utf8(), utf8()))}),
+                  field("fixed_size_list", fixed_size_list(int32(), 3))}),
           {}),
       expected_output_table = TableFromJSON(
           schema({field("date64", timestamp(TimeUnit::NANO)),
@@ -413,9 +334,7 @@ TEST(TestAdapterWriteTrivial, writeChunklessWithConversion) {
                   field("large_binary", binary()), field("fixed_size_binary0", binary()),
                   field("fixed_size_binary", binary()),
                   field("large_list", list(int32())),
-                  field("fixed_size_list", list(int32())),
-                  field("map",
-                        list(struct_({field("key", utf8()), field("value", utf8())})))}),
+                  field("fixed_size_list", list(int32()))}),
           {});
   AssertTableWriteReadEqual(input_table, expected_output_table,
                             kDefaultSmallMemStreamSize / 16);
@@ -824,504 +743,418 @@ TEST(TestAdapterWriteConvert, writeMixed) {
 }
 
 // Nested types
-TEST(TestAdapterWriteNested, writeMixedListStruct) {
-  std::vector<std::shared_ptr<Field>> table_fields0{
-      std::make_shared<Field>("a", utf8()), std::make_shared<Field>("b", int32())};
-  std::vector<std::shared_ptr<Field>> table_fields{
-      field("struct", struct_(table_fields0)), field("list", list(int32()))};
-  std::shared_ptr<Schema> table_schema = std::make_shared<Schema>(table_fields);
-  auto sharedPtrArrowType0 = table_fields[0]->type();
-  auto sharedPtrArrowType1 = table_fields[1]->type();
-
-  int64_t num_rows = 10000;
-  int64_t numCols0 = table_fields0.size();
-
-  //#0 struct<a:string,b:int>
-  ArrayBuilderMatrix builders0(numCols0, ArrayBuilderVector(5, NULLPTR));
-
-  for (int i = 0; i < 5; i++) {
-    builders0[0][i] =
-        std::static_pointer_cast<ArrayBuilder>(std::make_shared<StringBuilder>());
-    builders0[1][i] =
-        std::static_pointer_cast<ArrayBuilder>(std::make_shared<Int32Builder>());
-  }
-  std::string str;
-  char string_[10];
-  for (int i = 0; i < num_rows; i++) {
-    int chunk = i < (num_rows / 2) ? 1 : 3;
-    str = "Test " + std::to_string(i);
-    snprintf(string_, sizeof(string_), "%s", str.c_str());
-    if (i % 2) {
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<StringBuilder>(builders0[0][chunk])->Append(string_));
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<Int32Builder>(builders0[1][chunk])->AppendNull());
-    } else {
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<StringBuilder>(builders0[0][chunk])->AppendNull());
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<Int32Builder>(builders0[1][chunk])->Append(i));
-    }
-  }
-
-  int arrayBitmapSize = num_rows / 16;
-  uint8_t bitmaps0[2][arrayBitmapSize];
-  for (int i = 0; i < arrayBitmapSize; i++) {
-    for (int j = 0; j < 2; j++) {
-      bitmaps0[j][i] = 153;  // 10011001
-    }
-  }
-
-  std::vector<std::shared_ptr<BufferBuilder>> bufferBuilders0(
-      2, std::make_shared<BufferBuilder>());
-  std::vector<std::shared_ptr<Buffer>> bitmapBuffers0(2, NULLPTR);
-
-  for (int i = 0; i < 2; i++) {
-    ARROW_EXPECT_OK(bufferBuilders0[i]->Resize(arrayBitmapSize));
-    ARROW_EXPECT_OK(bufferBuilders0[i]->Append(bitmaps0[i], arrayBitmapSize));
-    ARROW_EXPECT_OK(bufferBuilders0[i]->Finish(&bitmapBuffers0[i]));
-  }
-
-  ArrayMatrix subarrays0(5, ArrayVector(numCols0, NULLPTR));
-  ArrayVector av0;
-  av0.reserve(5);
-
-  for (int i = 0; i < 5; i++) {
-    for (int col = 0; col < numCols0; col++) {
-      ARROW_EXPECT_OK(builders0[col][i]->Finish(&subarrays0[i][col]));
-    }
-    if (i == 1 || i == 3) {
-      av0.push_back(std::make_shared<StructArray>(
-          sharedPtrArrowType0, num_rows / 2, subarrays0[i], bitmapBuffers0[(i - 1) / 2]));
-    } else {
-      av0.push_back(std::make_shared<StructArray>(sharedPtrArrowType0, 0, subarrays0[i]));
-    }
-  }
-
-  std::shared_ptr<ChunkedArray> carray0 = std::make_shared<ChunkedArray>(av0);
-
-  //#1 List
-
-  ArrayBuilderVector valuesBuilders1(5, NULLPTR), offsetsBuilders1(3, NULLPTR);
-  ArrayVector valuesArrays1(5, NULLPTR), offsetsArrays1(3, NULLPTR);
-
-  for (int i = 0; i < 5; i++) {
-    valuesBuilders1[i] =
-        std::static_pointer_cast<ArrayBuilder>(std::make_shared<Int32Builder>());
-  }
-  for (int i = 0; i < 3; i++) {
-    offsetsBuilders1[i] =
-        std::static_pointer_cast<ArrayBuilder>(std::make_shared<Int32Builder>());
-  }
-  int arrayOffsetSize = num_rows / 2 + 1;
-  int32_t offsets1[2][arrayOffsetSize];
-
-  offsets1[0][0] = 0;
-  offsets1[1][0] = 0;
-  for (int i = 0; i < num_rows; i++) {
-    int offsetsChunk = i < (num_rows / 2) ? 0 : 1;
-    int valuesChunk = 2 * offsetsChunk + 1;
-    int offsetsOffset = offsetsChunk * num_rows / 2;
-    switch (i % 4) {
-      case 0: {
-        offsets1[offsetsChunk][i + 1 - offsetsOffset] =
-            offsets1[offsetsChunk][i - offsetsOffset];
-        break;
-      }
-      case 1: {
-        ARROW_EXPECT_OK(
-            std::static_pointer_cast<Int32Builder>(valuesBuilders1[valuesChunk])
-                ->Append(i - 1));
-        offsets1[offsetsChunk][i + 1 - offsetsOffset] =
-            offsets1[offsetsChunk][i - offsetsOffset] + 1;
-        break;
-      }
-      case 2: {
-        for (int j = 0; j < 8; j++) {
-          ARROW_EXPECT_OK(valuesBuilders1[valuesChunk]->AppendNull());
-        }
-        offsets1[offsetsChunk][i + 1 - offsetsOffset] =
-            offsets1[offsetsChunk][i - offsetsOffset] + 8;
-        break;
-      }
-      default: {
-        for (int j = 0; j < 3; j++) {
-          ARROW_EXPECT_OK(valuesBuilders1[valuesChunk]->AppendNull());
-        }
-        ARROW_EXPECT_OK(
-            std::static_pointer_cast<Int32Builder>(valuesBuilders1[valuesChunk])
-                ->Append(i - 1));
-        for (int j = 0; j < 3; j++) {
-          ARROW_EXPECT_OK(valuesBuilders1[valuesChunk]->AppendNull());
-        }
-        offsets1[offsetsChunk][i + 1 - offsetsOffset] =
-            offsets1[offsetsChunk][i - offsetsOffset] + 7;
-      }
-    }
-  }
-
-  uint8_t bitmaps1[2][arrayBitmapSize];
-  for (int i = 0; i < arrayBitmapSize; i++) {
-    for (int j = 0; j < 2; j++) {
-      bitmaps1[j][i] = 165;  // 10100101
-    }
-  }
-
-  BufferBuilderVector bitmapBufferBuilders1(2, std::make_shared<BufferBuilder>()),
-      offsetsBufferBuilders1(2, std::make_shared<BufferBuilder>());
-  BufferVector bitmapBuffers1(2, NULLPTR), offsetsBuffers1(2, NULLPTR);
-
-  int arrayOffsetSizeBytes = 4 * arrayOffsetSize;
-
-  for (int i = 0; i < 2; i++) {
-    ARROW_EXPECT_OK(bitmapBufferBuilders1[i]->Resize(arrayBitmapSize));
-    ARROW_EXPECT_OK(bitmapBufferBuilders1[i]->Append(bitmaps1[i], arrayBitmapSize));
-    ARROW_EXPECT_OK(bitmapBufferBuilders1[i]->Finish(&bitmapBuffers1[i]));
-    ARROW_EXPECT_OK(offsetsBufferBuilders1[i]->Resize(arrayOffsetSizeBytes));
-    ARROW_EXPECT_OK(offsetsBufferBuilders1[i]->Append(offsets1[i], arrayOffsetSizeBytes));
-    ARROW_EXPECT_OK(offsetsBufferBuilders1[i]->Finish(&offsetsBuffers1[i]));
-  }
-  for (int i = 0; i < 3; i++) {
-    ARROW_EXPECT_OK(
-        std::static_pointer_cast<Int32Builder>(offsetsBuilders1[i])->Append(0));
-    ARROW_EXPECT_OK(offsetsBuilders1[i]->Finish(&offsetsArrays1[i]));
-  }
-
-  ArrayVector av1;
-  av1.reserve(5);
-
-  for (int i = 0; i < 5; i++) {
-    ARROW_EXPECT_OK(valuesBuilders1[i]->Finish(&valuesArrays1[i]));
-    if (i == 1 || i == 3) {
-      av1.push_back(std::make_shared<ListArray>(
-          sharedPtrArrowType1, num_rows / 2, offsetsBuffers1[(i - 1) / 2],
-          valuesArrays1[i], bitmapBuffers1[(i - 1) / 2]));
-    } else {
-      av1.push_back(
-          ListArray::FromArrays(*offsetsArrays1[i / 2], *valuesArrays1[i]).ValueOrDie());
-    }
-  }
-
-  std::shared_ptr<ChunkedArray> carray1 = std::make_shared<ChunkedArray>(av1);
-
-  ChunkedArrayVector cv{carray0, carray1};
-  std::shared_ptr<Table> table = Table::Make(table_schema, cv);
-  AssertTableWriteReadEqual(table, table);
+TEST(TestAdapterWriteNested, ListTest) {
+  int64_t num_rows = 2;
+  static constexpr random::SeedType kRandomSeed2 = 0x0ff1ce;
+  arrow::random::RandomArrayGenerator rand(kRandomSeed2);
+  std::shared_ptr<Array> value_array = rand.ArrayOf(int32(), 2 * num_rows, 0.2);
+  std::shared_ptr<Array> array = rand.List(*value_array, num_rows, 1);
+  RecordProperty("bitmap", *(array->null_bitmap_data()));
+  RecordProperty("length", array->length());
+  RecordProperty("array", array->ToString());
 }
-TEST(TestAdapterWriteNested, writeMixedConvert) {
-  std::vector<std::shared_ptr<Field>> input_fields{
-      field("large_list", large_list(int32())),
-      field("fixed_size_list", fixed_size_list(int32(), 3)),
-      field("map", map(int32(), int32()))},
-      output_fields{
-          field("large_list", list(int32())), field("fixed_size_list", list(int32())),
-          field("map", list(struct_({field("key", int32()), field("value", int32())})))};
-
-  std::shared_ptr<Schema> input_schema = std::make_shared<Schema>(input_fields);
-  std::shared_ptr<Schema> output_schema = std::make_shared<Schema>(output_fields);
-
+TEST(TestAdapterWriteNested, writeList) {
+  std::shared_ptr<Schema> table_schema = schema({field("list", list(int32()))});
   int64_t num_rows = 10000;
-  int64_t numCols = input_fields.size();
+  arrow::random::RandomArrayGenerator rand(kRandomSeed);
+  auto value_array = rand.ArrayOf(int32(), 5 * num_rows, 0.6);
+  std::shared_ptr<Array> array = rand.List(*value_array, num_rows + 1, 0.8);
+  std::shared_ptr<ChunkedArray> chunked_array = std::make_shared<ChunkedArray>(array);
+  std::shared_ptr<Table> table = Table::Make(table_schema, {chunked_array});
 
-  ArrayBuilderVector valuesBuilders0In(5, NULLPTR), offsetsBuilders0In(3, NULLPTR),
-      valuesBuilders1In(5, NULLPTR), keysBuilders2In(5, NULLPTR),
-      itemsBuilders2In(5, NULLPTR), offsetsBuilders2In(3, NULLPTR);
-  ArrayVector valuesArrays0In(5, NULLPTR), offsetsArrays0In(3, NULLPTR),
-      valuesArrays1In(5, NULLPTR), keysArrays2In(5, NULLPTR), itemsArrays2In(5, NULLPTR),
-      offsetsArrays2In(3, NULLPTR);
-  std::shared_ptr<ArrayBuilder>
-      valuesBuilder0Out =
-          std::static_pointer_cast<ArrayBuilder>(std::make_shared<Int32Builder>()),
-      valuesBuilder1Out =
-          std::static_pointer_cast<ArrayBuilder>(std::make_shared<Int32Builder>()),
-      keysBuilder2Out =
-          std::static_pointer_cast<ArrayBuilder>(std::make_shared<Int32Builder>()),
-      itemsBuilder2Out =
-          std::static_pointer_cast<ArrayBuilder>(std::make_shared<Int32Builder>());
-  std::shared_ptr<Array> valuesArray0Out, valuesArray1Out, keysArray2Out, itemsArray2Out;
-
-  for (int i = 0; i < 5; i++) {
-    valuesBuilders0In[i] =
-        std::static_pointer_cast<ArrayBuilder>(std::make_shared<Int32Builder>());
-    valuesBuilders1In[i] =
-        std::static_pointer_cast<ArrayBuilder>(std::make_shared<Int32Builder>());
-    keysBuilders2In[i] =
-        std::static_pointer_cast<ArrayBuilder>(std::make_shared<Int32Builder>());
-    itemsBuilders2In[i] =
-        std::static_pointer_cast<ArrayBuilder>(std::make_shared<Int32Builder>());
-  }
-  for (int i = 0; i < 3; i++) {
-    offsetsBuilders0In[i] =
-        std::static_pointer_cast<ArrayBuilder>(std::make_shared<Int64Builder>());
-    offsetsBuilders2In[i] =
-        std::static_pointer_cast<ArrayBuilder>(std::make_shared<Int32Builder>());
-  }
-  int arrayOffsetSizeIn = num_rows / 2 + 1;
-  int arrayOffsetSizeOut = num_rows + 1;
-  int64_t offsets0In[2][arrayOffsetSizeIn];
-  int32_t offsets2In[2][arrayOffsetSizeIn];
-  int32_t offsetsOut[numCols][arrayOffsetSizeOut];
-
-  offsets0In[0][0] = 0;
-  offsets0In[1][0] = 0;
-  offsets2In[0][0] = 0;
-  offsets2In[1][0] = 0;
-  for (int col = 0; col < numCols; col++) {
-    offsetsOut[col][0] = 0;
-  }
-  for (int i = 0; i < num_rows; i++) {
-    int offsetsChunk = i < (num_rows / 2) ? 0 : 1;
-    int valuesChunk = 2 * offsetsChunk + 1;
-    int offsetsOffset = offsetsChunk * num_rows / 2;
-    switch (i % 4) {
-      case 0: {
-        offsets0In[offsetsChunk][i + 1 - offsetsOffset] =
-            offsets0In[offsetsChunk][i - offsetsOffset];
-        offsetsOut[0][i + 1] = offsetsOut[0][i];
-        for (int j = 0; j < 4; j++) {
-          ARROW_EXPECT_OK(
-              std::static_pointer_cast<Int32Builder>(keysBuilders2In[valuesChunk])
-                  ->Append(2 * i + j));
-          ARROW_EXPECT_OK(
-              std::static_pointer_cast<Int32Builder>(itemsBuilders2In[valuesChunk])
-                  ->Append((2 * i + j) % 8));
-          ARROW_EXPECT_OK(
-              std::static_pointer_cast<Int32Builder>(keysBuilder2Out)->Append(2 * i + j));
-          ARROW_EXPECT_OK(std::static_pointer_cast<Int32Builder>(itemsBuilder2Out)
-                              ->Append((2 * i + j) % 8));
-        }
-        offsets2In[offsetsChunk][i + 1 - offsetsOffset] =
-            offsets2In[offsetsChunk][i - offsetsOffset] + 4;
-        offsetsOut[2][i + 1] = offsetsOut[2][i] + 4;
-        break;
-      }
-      case 1: {
-        ARROW_EXPECT_OK(
-            std::static_pointer_cast<Int32Builder>(valuesBuilders0In[valuesChunk])
-                ->Append(i - 1));
-        ARROW_EXPECT_OK(
-            std::static_pointer_cast<Int32Builder>(valuesBuilder0Out)->Append(i - 1));
-        offsets0In[offsetsChunk][i + 1 - offsetsOffset] =
-            offsets0In[offsetsChunk][i - offsetsOffset] + 1;
-        offsetsOut[0][i + 1] = offsetsOut[0][i] + 1;
-        for (int j = 0; j < 3; j++) {
-          ARROW_EXPECT_OK(
-              std::static_pointer_cast<Int32Builder>(keysBuilders2In[valuesChunk])
-                  ->Append(2 * i + 2 + j));
-          ARROW_EXPECT_OK(std::static_pointer_cast<Int32Builder>(keysBuilder2Out)
-                              ->Append(2 * i + 2 + j));
-          if (j != 1) {
-            ARROW_EXPECT_OK(itemsBuilders2In[valuesChunk]->AppendNull());
-            ARROW_EXPECT_OK(itemsBuilder2Out->AppendNull());
-          } else {
-            ARROW_EXPECT_OK(
-                std::static_pointer_cast<Int32Builder>(itemsBuilders2In[valuesChunk])
-                    ->Append((2 * i + 2 + j) % 8));
-            ARROW_EXPECT_OK(std::static_pointer_cast<Int32Builder>(itemsBuilder2Out)
-                                ->Append((2 * i + j + 2) % 8));
-          }
-        }
-        offsets2In[offsetsChunk][i + 1 - offsetsOffset] =
-            offsets2In[offsetsChunk][i - offsetsOffset] + 3;
-        offsetsOut[2][i + 1] = offsetsOut[2][i] + 3;
-        break;
-      }
-      case 2: {
-        for (int j = 0; j < 8; j++) {
-          ARROW_EXPECT_OK(valuesBuilders0In[valuesChunk]->AppendNull());
-          ARROW_EXPECT_OK(valuesBuilder0Out->AppendNull());
-        }
-        offsets0In[offsetsChunk][i + 1 - offsetsOffset] =
-            offsets0In[offsetsChunk][i - offsetsOffset] + 8;
-        offsetsOut[0][i + 1] = offsetsOut[0][i] + 8;
-        ARROW_EXPECT_OK(
-            std::static_pointer_cast<Int32Builder>(keysBuilders2In[valuesChunk])
-                ->Append(2 * i + 3));
-        ARROW_EXPECT_OK(
-            std::static_pointer_cast<Int32Builder>(itemsBuilders2In[valuesChunk])
-                ->Append((2 * i + 3) % 8));
-
-        offsets2In[offsetsChunk][i + 1 - offsetsOffset] =
-            offsets2In[offsetsChunk][i - offsetsOffset] + 1;
-        ARROW_EXPECT_OK(
-            std::static_pointer_cast<Int32Builder>(keysBuilder2Out)->Append(2 * i + 3));
-        ARROW_EXPECT_OK(std::static_pointer_cast<Int32Builder>(itemsBuilder2Out)
-                            ->Append((2 * i + 3) % 8));
-        offsetsOut[2][i + 1] = offsetsOut[2][i] + 1;
-        break;
-      }
-      default: {
-        for (int j = 0; j < 3; j++) {
-          ARROW_EXPECT_OK(valuesBuilders0In[valuesChunk]->AppendNull());
-          ARROW_EXPECT_OK(valuesBuilder0Out->AppendNull());
-        }
-        ARROW_EXPECT_OK(
-            std::static_pointer_cast<Int32Builder>(valuesBuilders0In[valuesChunk])
-                ->Append(i - 1));
-        ARROW_EXPECT_OK(
-            std::static_pointer_cast<Int32Builder>(valuesBuilder0Out)->Append(i - 1));
-        for (int j = 0; j < 3; j++) {
-          ARROW_EXPECT_OK(valuesBuilders0In[valuesChunk]->AppendNull());
-          ARROW_EXPECT_OK(valuesBuilder0Out->AppendNull());
-        }
-        offsets0In[offsetsChunk][i + 1 - offsetsOffset] =
-            offsets0In[offsetsChunk][i - offsetsOffset] + 7;
-        offsetsOut[0][i + 1] = offsetsOut[0][i] + 7;
-        offsets2In[offsetsChunk][i + 1 - offsetsOffset] =
-            offsets2In[offsetsChunk][i - offsetsOffset];
-        offsetsOut[2][i + 1] = offsetsOut[2][i];
-      }
-    }
-    ARROW_EXPECT_OK(std::static_pointer_cast<Int32Builder>(valuesBuilders1In[valuesChunk])
-                        ->Append(2 * i));
-    ARROW_EXPECT_OK(valuesBuilders1In[valuesChunk]->AppendNull());
-    ARROW_EXPECT_OK(valuesBuilders1In[valuesChunk]->AppendNull());
-    ARROW_EXPECT_OK(
-        std::static_pointer_cast<Int32Builder>(valuesBuilder1Out)->Append(2 * i));
-    ARROW_EXPECT_OK(valuesBuilder1Out->AppendNull());
-    ARROW_EXPECT_OK(valuesBuilder1Out->AppendNull());
-    offsetsOut[1][i + 1] = offsetsOut[1][i] + 3;
-  }
-
-  int arrayBitmapSizeIn = num_rows / 16, arrayBitmapSizeOut = num_rows / 8;
-
-  uint8_t bitmapsIn[numCols][2][arrayBitmapSizeIn],
-      bitmapsOut[numCols][arrayBitmapSizeOut];
-  for (int i = 0; i < arrayBitmapSizeIn; i++) {
-    for (int j = 0; j < 2; j++) {
-      bitmapsIn[0][j][i] = 90;   // 01011010
-      bitmapsIn[1][j][i] = 195;  // 11000011
-      bitmapsIn[2][j][i] = 255;  // 11111111
-    }
-  }
-  for (int i = 0; i < arrayBitmapSizeOut; i++) {
-    bitmapsOut[0][i] = 90;   // 01011010
-    bitmapsOut[1][i] = 195;  // 11000011
-    // This is a reader bug we need to fix
-    bitmapsOut[2][i] = 255;  // 11111111
-  }
-
-  BufferBuilderMatrix bitmapBufferBuildersIn(numCols, BufferBuilderVector(2, NULLPTR));
-  BufferMatrix bitmapBuffersIn(numCols, BufferVector(2, NULLPTR));
-  for (int i = 0; i < numCols; i++) {
-    for (int j = 0; j < 2; j++) {
-      bitmapBufferBuildersIn[i][j] = std::make_shared<BufferBuilder>();
-    }
-  }
-
-  BufferBuilderVector offsetsBufferBuilders0In(2, std::make_shared<BufferBuilder>()),
-      offsetsBufferBuilders2In(2, std::make_shared<BufferBuilder>());
-  BufferVector offsetsBuffers0In(2, NULLPTR), offsetsBuffers2In(2, NULLPTR);
-  BufferBuilderVector bitmapBufferBuildersOut(numCols, std::make_shared<BufferBuilder>()),
-      offsetsBufferBuildersOut(numCols, std::make_shared<BufferBuilder>());
-  BufferVector bitmapBuffersOut(numCols, NULLPTR), offsetsBuffersOut(numCols, NULLPTR);
-
-  int arrayOffsetSizeBytesInLarge = 8 * arrayOffsetSizeIn;
-  int arrayOffsetSizeBytesInNormal = 4 * arrayOffsetSizeIn;
-  int arrayOffsetSizeBytesOutNormal = 4 * arrayOffsetSizeOut;
-
-  for (int j = 0; j < numCols; j++) {
-    for (int i = 0; i < 2; i++) {
-      ARROW_EXPECT_OK(bitmapBufferBuildersIn[j][i]->Resize(arrayBitmapSizeIn));
-      ARROW_EXPECT_OK(
-          bitmapBufferBuildersIn[j][i]->Append(bitmapsIn[j][i], arrayBitmapSizeIn));
-      ARROW_EXPECT_OK(bitmapBufferBuildersIn[j][i]->Finish(&bitmapBuffersIn[j][i]));
-    }
-  }
-
-  for (int i = 0; i < 2; i++) {
-    ARROW_EXPECT_OK(offsetsBufferBuilders0In[i]->Resize(arrayOffsetSizeBytesInLarge));
-    ARROW_EXPECT_OK(
-        offsetsBufferBuilders0In[i]->Append(offsets0In[i], arrayOffsetSizeBytesInLarge));
-    ARROW_EXPECT_OK(offsetsBufferBuilders0In[i]->Finish(&offsetsBuffers0In[i]));
-
-    ARROW_EXPECT_OK(offsetsBufferBuilders2In[i]->Resize(arrayOffsetSizeBytesInNormal));
-    ARROW_EXPECT_OK(
-        offsetsBufferBuilders2In[i]->Append(offsets2In[i], arrayOffsetSizeBytesInNormal));
-    ARROW_EXPECT_OK(offsetsBufferBuilders2In[i]->Finish(&offsetsBuffers2In[i]));
-  }
-
-  for (int j = 0; j < numCols; j++) {
-    ARROW_EXPECT_OK(bitmapBufferBuildersOut[j]->Resize(arrayBitmapSizeOut));
-    ARROW_EXPECT_OK(
-        bitmapBufferBuildersOut[j]->Append(bitmapsOut[j], arrayBitmapSizeOut));
-    ARROW_EXPECT_OK(bitmapBufferBuildersOut[j]->Finish(&bitmapBuffersOut[j]));
-    ARROW_EXPECT_OK(offsetsBufferBuildersOut[j]->Resize(arrayOffsetSizeBytesOutNormal));
-    ARROW_EXPECT_OK(offsetsBufferBuildersOut[j]->Append(offsetsOut[j],
-                                                        arrayOffsetSizeBytesOutNormal));
-    ARROW_EXPECT_OK(offsetsBufferBuildersOut[j]->Finish(&offsetsBuffersOut[j]));
-  }
-
-  for (int i = 0; i < 3; i++) {
-    ARROW_EXPECT_OK(
-        std::static_pointer_cast<Int64Builder>(offsetsBuilders0In[i])->Append(0));
-    ARROW_EXPECT_OK(offsetsBuilders0In[i]->Finish(&offsetsArrays0In[i]));
-    ARROW_EXPECT_OK(
-        std::static_pointer_cast<Int32Builder>(offsetsBuilders2In[i])->Append(0));
-    ARROW_EXPECT_OK(offsetsBuilders2In[i]->Finish(&offsetsArrays2In[i]));
-  }
-
-  ArrayMatrix arraysIn(numCols, ArrayVector(5, NULLPTR));
-  ArrayVector arraysOut(numCols, NULLPTR);
-
-  ChunkedArrayVector cvIn, cvOut;
-  cvIn.reserve(numCols);
-  cvOut.reserve(numCols);
-
-  for (int i = 0; i < 5; i++) {
-    ARROW_EXPECT_OK(valuesBuilders0In[i]->Finish(&valuesArrays0In[i]));
-    ARROW_EXPECT_OK(valuesBuilders1In[i]->Finish(&valuesArrays1In[i]));
-    ARROW_EXPECT_OK(keysBuilders2In[i]->Finish(&keysArrays2In[i]));
-    ARROW_EXPECT_OK(itemsBuilders2In[i]->Finish(&itemsArrays2In[i]));
-    if (i == 1 || i == 3) {
-      arraysIn[0][i] = std::make_shared<LargeListArray>(
-          input_fields[0]->type(), num_rows / 2, offsetsBuffers0In[(i - 1) / 2],
-          valuesArrays0In[i], bitmapBuffersIn[0][(i - 1) / 2]);
-      arraysIn[1][i] = std::make_shared<FixedSizeListArray>(
-          input_fields[1]->type(), num_rows / 2, valuesArrays1In[i],
-          bitmapBuffersIn[1][(i - 1) / 2]);
-      arraysIn[2][i] = std::make_shared<MapArray>(
-          input_fields[2]->type(), num_rows / 2, offsetsBuffers2In[(i - 1) / 2],
-          keysArrays2In[i], itemsArrays2In[i], bitmapBuffersIn[2][(i - 1) / 2]);
-    } else {
-      arraysIn[0][i] =
-          LargeListArray::FromArrays(*offsetsArrays0In[i / 2], *valuesArrays0In[i])
-              .ValueOrDie();
-      arraysIn[1][i] = std::static_pointer_cast<FixedSizeListArray>(
-          FixedSizeListArray::FromArrays(valuesArrays1In[i], 3).ValueOrDie());
-      arraysIn[2][i] = std::static_pointer_cast<MapArray>(
-          MapArray::FromArrays(offsetsArrays2In[i / 2], keysArrays2In[i],
-                               itemsArrays2In[i])
-              .ValueOrDie());
-    }
-  }
-  ARROW_EXPECT_OK(valuesBuilder0Out->Finish(&valuesArray0Out));
-  ARROW_EXPECT_OK(valuesBuilder1Out->Finish(&valuesArray1Out));
-  ARROW_EXPECT_OK(keysBuilder2Out->Finish(&keysArray2Out));
-  ARROW_EXPECT_OK(itemsBuilder2Out->Finish(&itemsArray2Out));
-  arraysOut[0] = std::make_shared<ListArray>(output_fields[0]->type(), num_rows,
-                                             offsetsBuffersOut[0], valuesArray0Out,
-                                             bitmapBuffersOut[0]);
-  arraysOut[1] = std::make_shared<ListArray>(output_fields[1]->type(), num_rows,
-                                             offsetsBuffersOut[1], valuesArray1Out,
-                                             bitmapBuffersOut[1]);
-
-  ArrayVector children20{keysArray2Out, itemsArray2Out};
-  auto arraysOut20 = std::make_shared<StructArray>(
-      output_fields[2]->type()->field(0)->type(), 2 * num_rows, children20);
-  arraysOut[2] =
-      std::make_shared<ListArray>(output_fields[2]->type(), num_rows,
-                                  offsetsBuffersOut[2], arraysOut20, bitmapBuffersOut[2]);
-
-  for (int col = 0; col < numCols; col++) {
-    cvIn.push_back(std::make_shared<ChunkedArray>(arraysIn[col]));
-    cvOut.push_back(std::make_shared<ChunkedArray>(arraysOut[col]));
-  }
-
-  std::shared_ptr<Table> input_table = Table::Make(input_schema, cvIn),
-                         expected_output_table = Table::Make(output_schema, cvOut);
-  AssertTableWriteReadEqual(input_table, expected_output_table);
+  std::shared_ptr<io::BufferOutputStream> buffer_output_stream =
+      io::BufferOutputStream::Create(kDefaultSmallMemStreamSize * 15).ValueOrDie();
+  std::unique_ptr<adapters::orc::ORCFileWriter> writer =
+      adapters::orc::ORCFileWriter::Open(*buffer_output_stream).ValueOrDie();
+  ARROW_EXPECT_OK(writer->Write(*table));
+  ARROW_EXPECT_OK(writer->Close());
+  std::shared_ptr<Buffer> buffer = buffer_output_stream->Finish().ValueOrDie();
+  std::shared_ptr<io::RandomAccessFile> in_stream(new io::BufferReader(buffer));
+  std::unique_ptr<adapters::orc::ORCFileReader> reader;
+  ARROW_EXPECT_OK(
+      adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool(), &reader));
+  std::shared_ptr<Table> actual_output_table;
+  ARROW_EXPECT_OK(reader->Read(&actual_output_table));
+  auto actual_array =
+      std::static_pointer_cast<ListArray>(actual_output_table->column(0)->chunk(0));
+  auto expected_array = std::static_pointer_cast<ListArray>(table->column(0)->chunk(0));
+  AssertArraysEqual(*(actual_array->offsets()), *(expected_array->offsets()));
+  AssertArraysEqual(*(actual_array->values()), *(expected_array->values()));
+  AssertBufferEqual(*(actual_array->null_bitmap()), *(expected_array->null_bitmap()));
+  ASSERT_TRUE(actual_array->type()->Equals(*(expected_array->type()), true));
+  RecordProperty("output_type", actual_array->type()->ToString());
+  RecordProperty("input_type", expected_array->type()->ToString());
+  RecordProperty("array_equality", actual_array->Equals(*expected_array));
 }
+TEST(TestAdapterWriteNested, writeMap) {
+  std::shared_ptr<Schema> table_schema = schema({field("map", map(int32(), int32()))});
+  int64_t num_rows = 2;
+  arrow::random::RandomArrayGenerator rand(kRandomSeed);
+  auto map_type = std::static_pointer_cast<MapType>(table_schema->field(0)->type());
+  auto key_array = rand.ArrayOf(map_type->key_type(), 2 * num_rows, 0);
+  auto item_array = rand.ArrayOf(map_type->item_type(), 2 * num_rows, 0.2);
+  std::shared_ptr<Array> array = rand.Map(key_array, item_array, num_rows, 0.3);
+  std::shared_ptr<ChunkedArray> chunked_array = std::make_shared<ChunkedArray>(array);
+  std::shared_ptr<Table> table = Table::Make(table_schema, {chunked_array});
+  // AssertTableWriteReadEqual(table, table, kDefaultSmallMemStreamSize * 5);
+}
+TEST(TestAdapterWriteNested, writeStruct) {
+  std::vector<std::shared_ptr<Field>> subsubfields{
+      field("bool", boolean()),
+      field("int8", int8()),
+      field("int16", int16()),
+      field("int32", int32()),
+      field("int64", int64()),
+      field("decimal128nz", decimal(38, 6)),
+      field("decimal128z", decimal(38, 0)),
+      field("date32", date32()),
+      field("ts3", timestamp(TimeUnit::NANO)),
+      field("string", utf8()),
+      field("binary", binary())};
+  std::shared_ptr<Schema> table_schema =
+      schema({field("struct", struct_({field("struct2", struct_(subsubfields))}))});
+  int64_t num_rows = 10000;
+  int num_subsubcols = subsubfields.size();
+  arrow::random::RandomArrayGenerator rand(kRandomSeed);
+  ArrayVector av00(num_subsubcols), av0(1);
+  for (int i = 0; i < num_subsubcols; i++) {
+    av00[i] = rand.ArrayOf(subsubfields[i]->type(), num_rows, 0.9);
+  }
+  std::shared_ptr<Buffer> bitmap0 = rand.NullBitmap(num_rows, 0.8);
+  av0[0] = std::make_shared<StructArray>(table_schema->field(0)->type()->field(0)->type(),
+                                         num_rows, av00, bitmap0);
+  std::shared_ptr<Buffer> bitmap = rand.NullBitmap(num_rows, 0.7);
+  std::shared_ptr<Array> array = std::make_shared<StructArray>(
+      table_schema->field(0)->type(), num_rows, av0, bitmap);
+  std::shared_ptr<ChunkedArray> chunked_array = std::make_shared<ChunkedArray>(array);
+  std::shared_ptr<Table> table = Table::Make(table_schema, {chunked_array});
+  AssertTableWriteReadEqual(table, table, kDefaultSmallMemStreamSize * 10);
+}
+// TEST(TestAdapterWriteNested, writeMixedConvert) {
+//   std::vector<std::shared_ptr<Field>> input_fields{
+//       field("large_list", large_list(int32())),
+//       field("fixed_size_list", fixed_size_list(int32(), 3)),
+//       field("map", map(int32(), int32()))},
+//       output_fields{
+//           field("large_list", list(int32())), field("fixed_size_list",
+//           list(int32())), field("map", list(struct_({field("key", int32()),
+//           field("value", int32())})))};
+
+//   std::shared_ptr<Schema> input_schema = std::make_shared<Schema>(input_fields);
+//   std::shared_ptr<Schema> output_schema = std::make_shared<Schema>(output_fields);
+
+//   int64_t num_rows = 10000;
+//   int64_t numCols = input_fields.size();
+
+//   ArrayBuilderVector valuesBuilders0In(5, NULLPTR), offsetsBuilders0In(3, NULLPTR),
+//       valuesBuilders1In(5, NULLPTR), keysBuilders2In(5, NULLPTR),
+//       itemsBuilders2In(5, NULLPTR), offsetsBuilders2In(3, NULLPTR);
+//   ArrayVector valuesArrays0In(5, NULLPTR), offsetsArrays0In(3, NULLPTR),
+//       valuesArrays1In(5, NULLPTR), keysArrays2In(5, NULLPTR), itemsArrays2In(5,
+//       NULLPTR), offsetsArrays2In(3, NULLPTR);
+//   std::shared_ptr<ArrayBuilder>
+//       valuesBuilder0Out =
+//           std::static_pointer_cast<ArrayBuilder>(std::make_shared<Int32Builder>()),
+//       valuesBuilder1Out =
+//           std::static_pointer_cast<ArrayBuilder>(std::make_shared<Int32Builder>()),
+//       keysBuilder2Out =
+//           std::static_pointer_cast<ArrayBuilder>(std::make_shared<Int32Builder>()),
+//       itemsBuilder2Out =
+//           std::static_pointer_cast<ArrayBuilder>(std::make_shared<Int32Builder>());
+//   std::shared_ptr<Array> valuesArray0Out, valuesArray1Out, keysArray2Out,
+//   itemsArray2Out;
+
+//   for (int i = 0; i < 5; i++) {
+//     valuesBuilders0In[i] =
+//         std::static_pointer_cast<ArrayBuilder>(std::make_shared<Int32Builder>());
+//     valuesBuilders1In[i] =
+//         std::static_pointer_cast<ArrayBuilder>(std::make_shared<Int32Builder>());
+//     keysBuilders2In[i] =
+//         std::static_pointer_cast<ArrayBuilder>(std::make_shared<Int32Builder>());
+//     itemsBuilders2In[i] =
+//         std::static_pointer_cast<ArrayBuilder>(std::make_shared<Int32Builder>());
+//   }
+//   for (int i = 0; i < 3; i++) {
+//     offsetsBuilders0In[i] =
+//         std::static_pointer_cast<ArrayBuilder>(std::make_shared<Int64Builder>());
+//     offsetsBuilders2In[i] =
+//         std::static_pointer_cast<ArrayBuilder>(std::make_shared<Int32Builder>());
+//   }
+//   int arrayOffsetSizeIn = num_rows / 2 + 1;
+//   int arrayOffsetSizeOut = num_rows + 1;
+//   int64_t offsets0In[2][arrayOffsetSizeIn];
+//   int32_t offsets2In[2][arrayOffsetSizeIn];
+//   int32_t offsetsOut[numCols][arrayOffsetSizeOut];
+
+//   offsets0In[0][0] = 0;
+//   offsets0In[1][0] = 0;
+//   offsets2In[0][0] = 0;
+//   offsets2In[1][0] = 0;
+//   for (int col = 0; col < numCols; col++) {
+//     offsetsOut[col][0] = 0;
+//   }
+//   for (int i = 0; i < num_rows; i++) {
+//     int offsetsChunk = i < (num_rows / 2) ? 0 : 1;
+//     int valuesChunk = 2 * offsetsChunk + 1;
+//     int offsetsOffset = offsetsChunk * num_rows / 2;
+//     switch (i % 4) {
+//       case 0: {
+//         offsets0In[offsetsChunk][i + 1 - offsetsOffset] =
+//             offsets0In[offsetsChunk][i - offsetsOffset];
+//         offsetsOut[0][i + 1] = offsetsOut[0][i];
+//         for (int j = 0; j < 4; j++) {
+//           ARROW_EXPECT_OK(
+//               std::static_pointer_cast<Int32Builder>(keysBuilders2In[valuesChunk])
+//                   ->Append(2 * i + j));
+//           ARROW_EXPECT_OK(
+//               std::static_pointer_cast<Int32Builder>(itemsBuilders2In[valuesChunk])
+//                   ->Append((2 * i + j) % 8));
+//           ARROW_EXPECT_OK(
+//               std::static_pointer_cast<Int32Builder>(keysBuilder2Out)->Append(2 * i +
+//               j));
+//           ARROW_EXPECT_OK(std::static_pointer_cast<Int32Builder>(itemsBuilder2Out)
+//                               ->Append((2 * i + j) % 8));
+//         }
+//         offsets2In[offsetsChunk][i + 1 - offsetsOffset] =
+//             offsets2In[offsetsChunk][i - offsetsOffset] + 4;
+//         offsetsOut[2][i + 1] = offsetsOut[2][i] + 4;
+//         break;
+//       }
+//       case 1: {
+//         ARROW_EXPECT_OK(
+//             std::static_pointer_cast<Int32Builder>(valuesBuilders0In[valuesChunk])
+//                 ->Append(i - 1));
+//         ARROW_EXPECT_OK(
+//             std::static_pointer_cast<Int32Builder>(valuesBuilder0Out)->Append(i -
+//             1));
+//         offsets0In[offsetsChunk][i + 1 - offsetsOffset] =
+//             offsets0In[offsetsChunk][i - offsetsOffset] + 1;
+//         offsetsOut[0][i + 1] = offsetsOut[0][i] + 1;
+//         for (int j = 0; j < 3; j++) {
+//           ARROW_EXPECT_OK(
+//               std::static_pointer_cast<Int32Builder>(keysBuilders2In[valuesChunk])
+//                   ->Append(2 * i + 2 + j));
+//           ARROW_EXPECT_OK(std::static_pointer_cast<Int32Builder>(keysBuilder2Out)
+//                               ->Append(2 * i + 2 + j));
+//           if (j != 1) {
+//             ARROW_EXPECT_OK(itemsBuilders2In[valuesChunk]->AppendNull());
+//             ARROW_EXPECT_OK(itemsBuilder2Out->AppendNull());
+//           } else {
+//             ARROW_EXPECT_OK(
+//                 std::static_pointer_cast<Int32Builder>(itemsBuilders2In[valuesChunk])
+//                     ->Append((2 * i + 2 + j) % 8));
+//             ARROW_EXPECT_OK(std::static_pointer_cast<Int32Builder>(itemsBuilder2Out)
+//                                 ->Append((2 * i + j + 2) % 8));
+//           }
+//         }
+//         offsets2In[offsetsChunk][i + 1 - offsetsOffset] =
+//             offsets2In[offsetsChunk][i - offsetsOffset] + 3;
+//         offsetsOut[2][i + 1] = offsetsOut[2][i] + 3;
+//         break;
+//       }
+//       case 2: {
+//         for (int j = 0; j < 8; j++) {
+//           ARROW_EXPECT_OK(valuesBuilders0In[valuesChunk]->AppendNull());
+//           ARROW_EXPECT_OK(valuesBuilder0Out->AppendNull());
+//         }
+//         offsets0In[offsetsChunk][i + 1 - offsetsOffset] =
+//             offsets0In[offsetsChunk][i - offsetsOffset] + 8;
+//         offsetsOut[0][i + 1] = offsetsOut[0][i] + 8;
+//         ARROW_EXPECT_OK(
+//             std::static_pointer_cast<Int32Builder>(keysBuilders2In[valuesChunk])
+//                 ->Append(2 * i + 3));
+//         ARROW_EXPECT_OK(
+//             std::static_pointer_cast<Int32Builder>(itemsBuilders2In[valuesChunk])
+//                 ->Append((2 * i + 3) % 8));
+
+//         offsets2In[offsetsChunk][i + 1 - offsetsOffset] =
+//             offsets2In[offsetsChunk][i - offsetsOffset] + 1;
+//         ARROW_EXPECT_OK(
+//             std::static_pointer_cast<Int32Builder>(keysBuilder2Out)->Append(2 * i +
+//             3));
+//         ARROW_EXPECT_OK(std::static_pointer_cast<Int32Builder>(itemsBuilder2Out)
+//                             ->Append((2 * i + 3) % 8));
+//         offsetsOut[2][i + 1] = offsetsOut[2][i] + 1;
+//         break;
+//       }
+//       default: {
+//         for (int j = 0; j < 3; j++) {
+//           ARROW_EXPECT_OK(valuesBuilders0In[valuesChunk]->AppendNull());
+//           ARROW_EXPECT_OK(valuesBuilder0Out->AppendNull());
+//         }
+//         ARROW_EXPECT_OK(
+//             std::static_pointer_cast<Int32Builder>(valuesBuilders0In[valuesChunk])
+//                 ->Append(i - 1));
+//         ARROW_EXPECT_OK(
+//             std::static_pointer_cast<Int32Builder>(valuesBuilder0Out)->Append(i -
+//             1));
+//         for (int j = 0; j < 3; j++) {
+//           ARROW_EXPECT_OK(valuesBuilders0In[valuesChunk]->AppendNull());
+//           ARROW_EXPECT_OK(valuesBuilder0Out->AppendNull());
+//         }
+//         offsets0In[offsetsChunk][i + 1 - offsetsOffset] =
+//             offsets0In[offsetsChunk][i - offsetsOffset] + 7;
+//         offsetsOut[0][i + 1] = offsetsOut[0][i] + 7;
+//         offsets2In[offsetsChunk][i + 1 - offsetsOffset] =
+//             offsets2In[offsetsChunk][i - offsetsOffset];
+//         offsetsOut[2][i + 1] = offsetsOut[2][i];
+//       }
+//     }
+//     ARROW_EXPECT_OK(std::static_pointer_cast<Int32Builder>(valuesBuilders1In[valuesChunk])
+//                         ->Append(2 * i));
+//     ARROW_EXPECT_OK(valuesBuilders1In[valuesChunk]->AppendNull());
+//     ARROW_EXPECT_OK(valuesBuilders1In[valuesChunk]->AppendNull());
+//     ARROW_EXPECT_OK(
+//         std::static_pointer_cast<Int32Builder>(valuesBuilder1Out)->Append(2 * i));
+//     ARROW_EXPECT_OK(valuesBuilder1Out->AppendNull());
+//     ARROW_EXPECT_OK(valuesBuilder1Out->AppendNull());
+//     offsetsOut[1][i + 1] = offsetsOut[1][i] + 3;
+//   }
+
+//   int arrayBitmapSizeIn = num_rows / 16, arrayBitmapSizeOut = num_rows / 8;
+
+//   uint8_t bitmapsIn[numCols][2][arrayBitmapSizeIn],
+//       bitmapsOut[numCols][arrayBitmapSizeOut];
+//   for (int i = 0; i < arrayBitmapSizeIn; i++) {
+//     for (int j = 0; j < 2; j++) {
+//       bitmapsIn[0][j][i] = 90;   // 01011010
+//       bitmapsIn[1][j][i] = 195;  // 11000011
+//       bitmapsIn[2][j][i] = 255;  // 11111111
+//     }
+//   }
+//   for (int i = 0; i < arrayBitmapSizeOut; i++) {
+//     bitmapsOut[0][i] = 90;   // 01011010
+//     bitmapsOut[1][i] = 195;  // 11000011
+//     // This is a reader bug we need to fix
+//     bitmapsOut[2][i] = 255;  // 11111111
+//   }
+
+//   BufferBuilderMatrix bitmapBufferBuildersIn(numCols, BufferBuilderVector(2,
+//   NULLPTR)); BufferMatrix bitmapBuffersIn(numCols, BufferVector(2, NULLPTR)); for
+//   (int i = 0; i < numCols; i++) {
+//     for (int j = 0; j < 2; j++) {
+//       bitmapBufferBuildersIn[i][j] = std::make_shared<BufferBuilder>();
+//     }
+//   }
+
+//   BufferBuilderVector offsetsBufferBuilders0In(2, std::make_shared<BufferBuilder>()),
+//       offsetsBufferBuilders2In(2, std::make_shared<BufferBuilder>());
+//   BufferVector offsetsBuffers0In(2, NULLPTR), offsetsBuffers2In(2, NULLPTR);
+//   BufferBuilderVector bitmapBufferBuildersOut(numCols,
+//   std::make_shared<BufferBuilder>()),
+//       offsetsBufferBuildersOut(numCols, std::make_shared<BufferBuilder>());
+//   BufferVector bitmapBuffersOut(numCols, NULLPTR), offsetsBuffersOut(numCols,
+//   NULLPTR);
+
+//   int arrayOffsetSizeBytesInLarge = 8 * arrayOffsetSizeIn;
+//   int arrayOffsetSizeBytesInNormal = 4 * arrayOffsetSizeIn;
+//   int arrayOffsetSizeBytesOutNormal = 4 * arrayOffsetSizeOut;
+
+//   for (int j = 0; j < numCols; j++) {
+//     for (int i = 0; i < 2; i++) {
+//       ARROW_EXPECT_OK(bitmapBufferBuildersIn[j][i]->Resize(arrayBitmapSizeIn));
+//       ARROW_EXPECT_OK(
+//           bitmapBufferBuildersIn[j][i]->Append(bitmapsIn[j][i], arrayBitmapSizeIn));
+//       ARROW_EXPECT_OK(bitmapBufferBuildersIn[j][i]->Finish(&bitmapBuffersIn[j][i]));
+//     }
+//   }
+
+//   for (int i = 0; i < 2; i++) {
+//     ARROW_EXPECT_OK(offsetsBufferBuilders0In[i]->Resize(arrayOffsetSizeBytesInLarge));
+//     ARROW_EXPECT_OK(
+//         offsetsBufferBuilders0In[i]->Append(offsets0In[i],
+//         arrayOffsetSizeBytesInLarge));
+//     ARROW_EXPECT_OK(offsetsBufferBuilders0In[i]->Finish(&offsetsBuffers0In[i]));
+
+//     ARROW_EXPECT_OK(offsetsBufferBuilders2In[i]->Resize(arrayOffsetSizeBytesInNormal));
+//     ARROW_EXPECT_OK(
+//         offsetsBufferBuilders2In[i]->Append(offsets2In[i],
+//         arrayOffsetSizeBytesInNormal));
+//     ARROW_EXPECT_OK(offsetsBufferBuilders2In[i]->Finish(&offsetsBuffers2In[i]));
+//   }
+
+//   for (int j = 0; j < numCols; j++) {
+//     ARROW_EXPECT_OK(bitmapBufferBuildersOut[j]->Resize(arrayBitmapSizeOut));
+//     ARROW_EXPECT_OK(
+//         bitmapBufferBuildersOut[j]->Append(bitmapsOut[j], arrayBitmapSizeOut));
+//     ARROW_EXPECT_OK(bitmapBufferBuildersOut[j]->Finish(&bitmapBuffersOut[j]));
+//     ARROW_EXPECT_OK(offsetsBufferBuildersOut[j]->Resize(arrayOffsetSizeBytesOutNormal));
+//     ARROW_EXPECT_OK(offsetsBufferBuildersOut[j]->Append(offsetsOut[j],
+//                                                         arrayOffsetSizeBytesOutNormal));
+//     ARROW_EXPECT_OK(offsetsBufferBuildersOut[j]->Finish(&offsetsBuffersOut[j]));
+//   }
+
+//   for (int i = 0; i < 3; i++) {
+//     ARROW_EXPECT_OK(
+//         std::static_pointer_cast<Int64Builder>(offsetsBuilders0In[i])->Append(0));
+//     ARROW_EXPECT_OK(offsetsBuilders0In[i]->Finish(&offsetsArrays0In[i]));
+//     ARROW_EXPECT_OK(
+//         std::static_pointer_cast<Int32Builder>(offsetsBuilders2In[i])->Append(0));
+//     ARROW_EXPECT_OK(offsetsBuilders2In[i]->Finish(&offsetsArrays2In[i]));
+//   }
+
+//   ArrayMatrix arraysIn(numCols, ArrayVector(5, NULLPTR));
+//   ArrayVector arraysOut(numCols, NULLPTR);
+
+//   ChunkedArrayVector cvIn, cvOut;
+//   cvIn.reserve(numCols);
+//   cvOut.reserve(numCols);
+
+//   for (int i = 0; i < 5; i++) {
+//     ARROW_EXPECT_OK(valuesBuilders0In[i]->Finish(&valuesArrays0In[i]));
+//     ARROW_EXPECT_OK(valuesBuilders1In[i]->Finish(&valuesArrays1In[i]));
+//     ARROW_EXPECT_OK(keysBuilders2In[i]->Finish(&keysArrays2In[i]));
+//     ARROW_EXPECT_OK(itemsBuilders2In[i]->Finish(&itemsArrays2In[i]));
+//     if (i == 1 || i == 3) {
+//       arraysIn[0][i] = std::make_shared<LargeListArray>(
+//           input_fields[0]->type(), num_rows / 2, offsetsBuffers0In[(i - 1) / 2],
+//           valuesArrays0In[i], bitmapBuffersIn[0][(i - 1) / 2]);
+//       arraysIn[1][i] = std::make_shared<FixedSizeListArray>(
+//           input_fields[1]->type(), num_rows / 2, valuesArrays1In[i],
+//           bitmapBuffersIn[1][(i - 1) / 2]);
+//       arraysIn[2][i] = std::make_shared<MapArray>(
+//           input_fields[2]->type(), num_rows / 2, offsetsBuffers2In[(i - 1) / 2],
+//           keysArrays2In[i], itemsArrays2In[i], bitmapBuffersIn[2][(i - 1) / 2]);
+//     } else {
+//       arraysIn[0][i] =
+//           LargeListArray::FromArrays(*offsetsArrays0In[i / 2], *valuesArrays0In[i])
+//               .ValueOrDie();
+//       arraysIn[1][i] = std::static_pointer_cast<FixedSizeListArray>(
+//           FixedSizeListArray::FromArrays(valuesArrays1In[i], 3).ValueOrDie());
+//       arraysIn[2][i] = std::static_pointer_cast<MapArray>(
+//           MapArray::FromArrays(offsetsArrays2In[i / 2], keysArrays2In[i],
+//                                itemsArrays2In[i])
+//               .ValueOrDie());
+//     }
+//   }
+//   ARROW_EXPECT_OK(valuesBuilder0Out->Finish(&valuesArray0Out));
+//   ARROW_EXPECT_OK(valuesBuilder1Out->Finish(&valuesArray1Out));
+//   ARROW_EXPECT_OK(keysBuilder2Out->Finish(&keysArray2Out));
+//   ARROW_EXPECT_OK(itemsBuilder2Out->Finish(&itemsArray2Out));
+//   arraysOut[0] = std::make_shared<ListArray>(output_fields[0]->type(), num_rows,
+//                                              offsetsBuffersOut[0], valuesArray0Out,
+//                                              bitmapBuffersOut[0]);
+//   arraysOut[1] = std::make_shared<ListArray>(output_fields[1]->type(), num_rows,
+//                                              offsetsBuffersOut[1], valuesArray1Out,
+//                                              bitmapBuffersOut[1]);
+
+//   ArrayVector children20{keysArray2Out, itemsArray2Out};
+//   auto arraysOut20 = std::make_shared<StructArray>(
+//       output_fields[2]->type()->field(0)->type(), 2 * num_rows, children20);
+//   arraysOut[2] =
+//       std::make_shared<ListArray>(output_fields[2]->type(), num_rows,
+//                                   offsetsBuffersOut[2], arraysOut20,
+//                                   bitmapBuffersOut[2]);
+
+//   for (int col = 0; col < numCols; col++) {
+//     cvIn.push_back(std::make_shared<ChunkedArray>(arraysIn[col]));
+//     cvOut.push_back(std::make_shared<ChunkedArray>(arraysOut[col]));
+//   }
+
+//   std::shared_ptr<Table> input_table = Table::Make(input_schema, cvIn),
+//                          expected_output_table = Table::Make(output_schema, cvOut);
+//   AssertTableWriteReadEqual(input_table, expected_output_table);
+// }
 TEST(TestAdapterWriteNested, writeMixedListOfStruct) {
   std::vector<std::shared_ptr<Field>> table_fields{
       field("ls", list(struct_({field("a", int32())})))};
@@ -1459,202 +1292,5 @@ TEST(TestAdapterWriteNested, writeMixedListOfStruct) {
   ChunkedArrayVector cv{carray0};
   std::shared_ptr<Table> table = Table::Make(table_schema, cv);
   AssertTableWriteReadEqual(table, table);
-}
-TEST(TestAdapterWriteNested, writeMixedStructStruct) {
-  std::vector<std::shared_ptr<Field>> table_fields{field(
-      "struct",
-      struct_(
-          {field("struct2",
-                 struct_({field("bool", boolean()), field("int8", int8()),
-                          field("int16", int16()), field("int32", int32()),
-                          field("int64", int64()), field("decimal128nz", decimal(38, 6)),
-                          field("decimal128z", decimal(38, 0)), field("date32", date32()),
-                          field("ts3", timestamp(TimeUnit::NANO)),
-                          field("string", utf8()), field("binary", binary())}))}))};
-  std::shared_ptr<Schema> table_schema = std::make_shared<Schema>(table_fields);
-
-  int64_t num_rows = 10000;
-  int64_t numCols00 = (table_fields[0]->type()->field(0)->type()->fields()).size();
-  auto sharedPtrArrowType00 = table_fields[0]->type()->field(0)->type();
-  auto sharedPtrArrowType0 = table_fields[0]->type();
-
-  ArrayBuilderMatrix builders(numCols00, ArrayBuilderVector(5, NULLPTR));
-
-  for (int i = 0; i < 5; i++) {
-    builders[0][i] =
-        std::static_pointer_cast<ArrayBuilder>(std::make_shared<BooleanBuilder>());
-    builders[1][i] =
-        std::static_pointer_cast<ArrayBuilder>(std::make_shared<Int8Builder>());
-    builders[2][i] =
-        std::static_pointer_cast<ArrayBuilder>(std::make_shared<Int16Builder>());
-    builders[3][i] =
-        std::static_pointer_cast<ArrayBuilder>(std::make_shared<Int32Builder>());
-    builders[4][i] =
-        std::static_pointer_cast<ArrayBuilder>(std::make_shared<Int64Builder>());
-    builders[5][i] = std::static_pointer_cast<ArrayBuilder>(
-        std::make_shared<Decimal128Builder>(decimal(38, 6)));
-    builders[6][i] = std::static_pointer_cast<ArrayBuilder>(
-        std::make_shared<Decimal128Builder>(decimal(38, 0)));
-    builders[7][i] =
-        std::static_pointer_cast<ArrayBuilder>(std::make_shared<Date32Builder>());
-    builders[8][i] =
-        std::static_pointer_cast<ArrayBuilder>(std::make_shared<TimestampBuilder>(
-            timestamp(TimeUnit::NANO), default_memory_pool()));
-    builders[9][i] =
-        std::static_pointer_cast<ArrayBuilder>(std::make_shared<StringBuilder>());
-    builders[10][i] =
-        std::static_pointer_cast<ArrayBuilder>(std::make_shared<BinaryBuilder>());
-  }
-  char bin1[2], bin2[] = "", string_[12];
-  std::string str;
-  for (int64_t i = 0; i < num_rows / 2; i++) {
-    if (i % 2) {
-      bin1[0] = i % 256;
-      bin1[1] = (i - 1) % 256;
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<BooleanBuilder>(builders[0][1])->Append(true));
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<Int8Builder>(builders[1][1])->AppendNull());
-      ARROW_EXPECT_OK(std::static_pointer_cast<Int16Builder>(builders[2][1])->Append(i));
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<Int32Builder>(builders[3][1])->AppendNull());
-      ARROW_EXPECT_OK(std::static_pointer_cast<Int64Builder>(builders[4][1])->Append(i));
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<Decimal128Builder>(builders[5][1])->AppendNull());
-      ARROW_EXPECT_OK(std::static_pointer_cast<Decimal128Builder>(builders[6][1])
-                          ->Append(Decimal128(std::to_string(i))));
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<Date32Builder>(builders[7][1])->AppendNull());
-      ARROW_EXPECT_OK(std::static_pointer_cast<TimestampBuilder>(builders[8][1])
-                          ->Append(INT64_C(1605548719999999999) + 2 * i));
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<StringBuilder>(builders[9][1])->AppendNull());
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<BinaryBuilder>(builders[10][1])->Append(bin1, 2));
-    } else {
-      str = "Arrow " + std::to_string(2 * i);
-      snprintf(string_, sizeof(string_), "%s", str.c_str());
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<BooleanBuilder>(builders[0][1])->AppendNull());
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<Int8Builder>(builders[1][1])->Append(-(i % 128)));
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<Int16Builder>(builders[2][1])->AppendNull());
-      ARROW_EXPECT_OK(std::static_pointer_cast<Int32Builder>(builders[3][1])->Append(-i));
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<Int64Builder>(builders[4][1])->AppendNull());
-      ARROW_EXPECT_OK(std::static_pointer_cast<Decimal128Builder>(builders[5][1])
-                          ->Append(Decimal128(std::to_string(i) + ".567890")));
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<Decimal128Builder>(builders[6][1])->AppendNull());
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<Date32Builder>(builders[7][1])->Append(18600 + i));
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<TimestampBuilder>(builders[8][1])->AppendNull());
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<StringBuilder>(builders[9][1])->Append(string_));
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<BinaryBuilder>(builders[10][1])->AppendNull());
-    }
-  }
-  for (int64_t i = num_rows / 2; i < num_rows; i++) {
-    if (i % 2) {
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<BooleanBuilder>(builders[0][3])->Append(false));
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<Int8Builder>(builders[1][3])->AppendNull());
-      ARROW_EXPECT_OK(std::static_pointer_cast<Int16Builder>(builders[2][3])->Append(-i));
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<Int32Builder>(builders[3][3])->AppendNull());
-      ARROW_EXPECT_OK(std::static_pointer_cast<Int64Builder>(builders[4][3])->Append(-i));
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<Decimal128Builder>(builders[5][3])->AppendNull());
-      ARROW_EXPECT_OK(std::static_pointer_cast<Decimal128Builder>(builders[6][3])
-                          ->Append(Decimal128(std::to_string(-i))));
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<Date32Builder>(builders[7][3])->AppendNull());
-      ARROW_EXPECT_OK(std::static_pointer_cast<TimestampBuilder>(builders[8][3])
-                          ->Append(INT64_C(1606548719999999999) - INT64_C(29) * i));
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<StringBuilder>(builders[9][3])->AppendNull());
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<BinaryBuilder>(builders[10][3])->Append(bin2, 0));
-    } else {
-      str = "Arrow " + std::to_string(2 * i);
-      snprintf(string_, sizeof(string_), "%s", str.c_str());
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<BooleanBuilder>(builders[0][3])->AppendNull());
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<Int8Builder>(builders[1][3])->Append(i % 128));
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<Int16Builder>(builders[2][3])->AppendNull());
-      ARROW_EXPECT_OK(std::static_pointer_cast<Int32Builder>(builders[3][3])->Append(i));
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<Int64Builder>(builders[4][3])->AppendNull());
-      ARROW_EXPECT_OK(std::static_pointer_cast<Decimal128Builder>(builders[5][3])
-                          ->Append(Decimal128(std::to_string(-i) + ".543211")));
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<Decimal128Builder>(builders[6][3])->AppendNull());
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<Date32Builder>(builders[7][3])->Append(18600 - i));
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<TimestampBuilder>(builders[8][3])->AppendNull());
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<StringBuilder>(builders[9][3])->Append(string_));
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<BinaryBuilder>(builders[10][3])->AppendNull());
-    }
-  }
-
-  int arrayBitmapSize = num_rows / 16;
-  uint8_t bitmaps[2][arrayBitmapSize], bitmaps0[2][arrayBitmapSize];
-  for (int i = 0; i < arrayBitmapSize; i++) {
-    for (int j = 0; j < 2; j++) {
-      bitmaps0[j][i] = 191;  // 10111111
-      bitmaps[j][i] = 241;   // 11110001
-    }
-  }
-
-  std::vector<std::shared_ptr<BufferBuilder>> bufferBuilders(
-      2, std::make_shared<BufferBuilder>()),
-      bufferBuilders0(2, std::make_shared<BufferBuilder>());
-  std::vector<std::shared_ptr<Buffer>> bitmapBuffers(2, NULLPTR),
-      bitmapBuffers0(2, NULLPTR);
-
-  for (int i = 0; i < 2; i++) {
-    ARROW_EXPECT_OK(bufferBuilders[i]->Resize(arrayBitmapSize));
-    ARROW_EXPECT_OK(bufferBuilders[i]->Append(bitmaps[i], arrayBitmapSize));
-    ARROW_EXPECT_OK(bufferBuilders[i]->Finish(&bitmapBuffers[i]));
-    ARROW_EXPECT_OK(bufferBuilders0[i]->Resize(arrayBitmapSize));
-    ARROW_EXPECT_OK(bufferBuilders0[i]->Append(bitmaps0[i], arrayBitmapSize));
-    ARROW_EXPECT_OK(bufferBuilders0[i]->Finish(&bitmapBuffers0[i]));
-  }
-
-  ArrayMatrix subarrays00(5, ArrayVector(numCols00, NULLPTR)),
-      subarrays0(5, ArrayVector(1, NULLPTR));
-  ArrayVector av0;
-  av0.reserve(5);
-
-  for (int i = 0; i < 5; i++) {
-    for (int col = 0; col < numCols00; col++) {
-      ARROW_EXPECT_OK(builders[col][i]->Finish(&subarrays00[i][col]));
-    }
-    if (i == 1 || i == 3) {
-      subarrays0[i][0] =
-          std::make_shared<StructArray>(sharedPtrArrowType00, num_rows / 2,
-                                        subarrays00[i], bitmapBuffers0[(i - 1) / 2]);
-      av0.push_back(std::make_shared<StructArray>(
-          sharedPtrArrowType0, num_rows / 2, subarrays0[i], bitmapBuffers[(i - 1) / 2]));
-    } else {
-      subarrays0[i][0] =
-          std::make_shared<StructArray>(sharedPtrArrowType00, 0, subarrays00[i]);
-      av0.push_back(std::make_shared<StructArray>(sharedPtrArrowType0, 0, subarrays0[i]));
-    }
-  }
-
-  std::shared_ptr<ChunkedArray> carray0 = std::make_shared<ChunkedArray>(av0);
-  ChunkedArrayVector cv{carray0};
-  std::shared_ptr<Table> table = Table::Make(table_schema, cv);
-  AssertTableWriteReadEqual(table, table, 5 * kDefaultSmallMemStreamSize);
 }
 }  // namespace arrow
