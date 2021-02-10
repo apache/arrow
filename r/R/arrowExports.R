@@ -132,10 +132,6 @@ LargeListArray__raw_value_offsets <- function(array){
     .Call(`_arrow_LargeListArray__raw_value_offsets`, array)
 }
 
-ChunkedArray__from_list <- function(chunks, s_type){
-    .Call(`_arrow_ChunkedArray__from_list`, chunks, s_type)
-}
-
 Array__as_vector <- function(array){
     .Call(`_arrow_Array__as_vector`, array)
 }
@@ -246,6 +242,10 @@ ChunkedArray__Equals <- function(x, y){
 
 ChunkedArray__ToString <- function(x){
     .Call(`_arrow_ChunkedArray__ToString`, x)
+}
+
+ChunkedArray__from_list <- function(chunks, s_type){
+    .Call(`_arrow_ChunkedArray__from_list`, chunks, s_type)
 }
 
 util___Codec__Create <- function(codec, compression_level){

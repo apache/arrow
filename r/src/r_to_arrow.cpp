@@ -851,8 +851,8 @@ class RStructConverter : public StructConverter<RConverter, RConverterTrait> {
         auto field_name = fields[i]->name();
         if (field_name != name_i) {
           return Status::RError(
-            "Field name in position ", i, " (", field_name,
-                      ") does not match the name of the column of the data frame (", name_i, ")");
+              "Field name in position ", i, " (", field_name,
+              ") does not match the name of the column of the data frame (", name_i, ")");
         }
       }
 

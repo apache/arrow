@@ -289,15 +289,6 @@ BEGIN_CPP11
 	return cpp11::as_sexp(LargeListArray__raw_value_offsets(array));
 END_CPP11
 }
-// array_from_vector.cpp
-std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(cpp11::list chunks, SEXP s_type);
-extern "C" SEXP _arrow_ChunkedArray__from_list(SEXP chunks_sexp, SEXP s_type_sexp){
-BEGIN_CPP11
-	arrow::r::Input<cpp11::list>::type chunks(chunks_sexp);
-	arrow::r::Input<SEXP>::type s_type(s_type_sexp);
-	return cpp11::as_sexp(ChunkedArray__from_list(chunks, s_type));
-END_CPP11
-}
 // array_to_vector.cpp
 SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array);
 extern "C" SEXP _arrow_Array__as_vector(SEXP array_sexp){
@@ -531,6 +522,15 @@ extern "C" SEXP _arrow_ChunkedArray__ToString(SEXP x_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::ChunkedArray>&>::type x(x_sexp);
 	return cpp11::as_sexp(ChunkedArray__ToString(x));
+END_CPP11
+}
+// chunkedarray.cpp
+std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(cpp11::list chunks, SEXP s_type);
+extern "C" SEXP _arrow_ChunkedArray__from_list(SEXP chunks_sexp, SEXP s_type_sexp){
+BEGIN_CPP11
+	arrow::r::Input<cpp11::list>::type chunks(chunks_sexp);
+	arrow::r::Input<SEXP>::type s_type(s_type_sexp);
+	return cpp11::as_sexp(ChunkedArray__from_list(chunks, s_type));
 END_CPP11
 }
 // compression.cpp
@@ -3533,7 +3533,6 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_FixedSizeListArray__value_offset", (DL_FUNC) &_arrow_FixedSizeListArray__value_offset, 2}, 
 		{ "_arrow_ListArray__raw_value_offsets", (DL_FUNC) &_arrow_ListArray__raw_value_offsets, 1}, 
 		{ "_arrow_LargeListArray__raw_value_offsets", (DL_FUNC) &_arrow_LargeListArray__raw_value_offsets, 1}, 
-		{ "_arrow_ChunkedArray__from_list", (DL_FUNC) &_arrow_ChunkedArray__from_list, 2}, 
 		{ "_arrow_Array__as_vector", (DL_FUNC) &_arrow_Array__as_vector, 1}, 
 		{ "_arrow_ChunkedArray__as_vector", (DL_FUNC) &_arrow_ChunkedArray__as_vector, 1}, 
 		{ "_arrow_RecordBatch__to_dataframe", (DL_FUNC) &_arrow_RecordBatch__to_dataframe, 2}, 
@@ -3562,6 +3561,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ChunkedArray__Validate", (DL_FUNC) &_arrow_ChunkedArray__Validate, 1}, 
 		{ "_arrow_ChunkedArray__Equals", (DL_FUNC) &_arrow_ChunkedArray__Equals, 2}, 
 		{ "_arrow_ChunkedArray__ToString", (DL_FUNC) &_arrow_ChunkedArray__ToString, 1}, 
+		{ "_arrow_ChunkedArray__from_list", (DL_FUNC) &_arrow_ChunkedArray__from_list, 2}, 
 		{ "_arrow_util___Codec__Create", (DL_FUNC) &_arrow_util___Codec__Create, 2}, 
 		{ "_arrow_util___Codec__name", (DL_FUNC) &_arrow_util___Codec__name, 1}, 
 		{ "_arrow_util___Codec__IsAvailable", (DL_FUNC) &_arrow_util___Codec__IsAvailable, 1}, 
