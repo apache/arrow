@@ -22,7 +22,11 @@
 //! `RUSTFLAGS="-C target-feature=+avx2"` for example.  See the documentation
 //! [here](https://doc.rust-lang.org/stable/core/arch/) for more information.
 
+#[cfg(simd)]
+use std::borrow::BorrowMut;
 use std::ops::{Add, Div, Mul, Neg, Sub};
+#[cfg(simd)]
+use std::slice::{ChunksExact, ChunksExactMut};
 use std::sync::Arc;
 
 use num::{One, Zero};
@@ -30,16 +34,13 @@ use num::{One, Zero};
 use crate::buffer::Buffer;
 #[cfg(simd)]
 use crate::buffer::MutableBuffer;
-use crate::compute::{kernels::arity::unary, util::combine_option_bitmap};
+#[cfg(not(simd))]
+use crate::compute::kernels::arity::unary;
+use crate::compute::util::combine_option_bitmap;
 use crate::datatypes;
 use crate::datatypes::ArrowNumericType;
 use crate::error::{ArrowError, Result};
 use crate::{array::*, util::bit_util};
-use num::traits::Pow;
-#[cfg(simd)]
-use std::borrow::BorrowMut;
-#[cfg(simd)]
-use std::slice::{ChunksExact, ChunksExactMut};
 
 /// SIMD vectorized version of `unary_math_op` above specialized for signed numerical values.
 #[cfg(simd)]
@@ -67,55 +68,6 @@ where
             let simd_input = T::load_signed(input_slice);
             let simd_result = T::signed_unary_op(simd_input, &simd_op);
             T::write_signed(simd_result, result_slice);
-        });
-
-    let result_remainder = result_chunks.into_remainder();
-    let array_remainder = array_chunks.remainder();
-
-    result_remainder.into_iter().zip(array_remainder).for_each(
-        |(scalar_result, scalar_input)| {
-            *scalar_result = scalar_op(*scalar_input);
-        },
-    );
-
-    let data = ArrayData::new(
-        T::DATA_TYPE,
-        array.len(),
-        None,
-        array.data_ref().null_buffer().cloned(),
-        0,
-        vec![result.into()],
-        vec![],
-    );
-    Ok(PrimitiveArray::<T>::from(Arc::new(data)))
-}
-
-#[cfg(simd)]
-fn simd_float_unary_math_op<T, SIMD_OP, SCALAR_OP>(
-    array: &PrimitiveArray<T>,
-    simd_op: SIMD_OP,
-    scalar_op: SCALAR_OP,
-) -> Result<PrimitiveArray<T>>
-where
-    T: datatypes::ArrowFloatNumericType,
-    SIMD_OP: Fn(T::Simd) -> T::Simd,
-    SCALAR_OP: Fn(T::Native) -> T::Native,
-{
-    let lanes = T::lanes();
-    let buffer_size = array.len() * std::mem::size_of::<T::Native>();
-
-    let mut result = MutableBuffer::new(buffer_size).with_bitset(buffer_size, false);
-
-    let mut result_chunks = result.typed_data_mut().chunks_exact_mut(lanes);
-    let mut array_chunks = array.values().chunks_exact(lanes);
-
-    result_chunks
-        .borrow_mut()
-        .zip(array_chunks.borrow_mut())
-        .for_each(|(result_slice, input_slice)| {
-            let simd_input = T::load(input_slice);
-            let simd_result = T::unary_op(simd_input, &simd_op);
-            T::write(simd_result, result_slice);
         });
 
     let result_remainder = result_chunks.into_remainder();
@@ -558,28 +510,6 @@ where
     return Ok(unary(array, |x| -x));
 }
 
-/// Raise array with floating point values to the power of a scalar.
-pub fn powf_scalar<T>(
-    array: &PrimitiveArray<T>,
-    raise: T::Native,
-) -> Result<PrimitiveArray<T>>
-where
-    T: datatypes::ArrowFloatNumericType,
-    T::Native: Pow<T::Native, Output = T::Native>,
-{
-    #[cfg(simd)]
-    {
-        let raise_vector = T::init(raise);
-        return simd_float_unary_math_op(
-            array,
-            |x| T::pow(x, raise_vector),
-            |x| x.pow(raise),
-        );
-    }
-    #[cfg(not(simd))]
-    return Ok(unary(array, |x| x.pow(raise)));
-}
-
 /// Perform `left * right` operation on two arrays. If either left or right value is null
 /// then the result is also null.
 pub fn multiply<T>(
@@ -847,18 +777,6 @@ mod tests {
             .into_iter()
             .map(|i| Some(i + i))
             .collect();
-        assert_eq!(expected, actual);
-    }
-
-    #[test]
-    fn test_primitive_array_raise_power_scalar() {
-        let a = Float64Array::from(vec![1.0, 2.0, 3.0]);
-        let actual = powf_scalar(&a, 2.0).unwrap();
-        let expected = Float64Array::from(vec![1.0, 4.0, 9.0]);
-        assert_eq!(expected, actual);
-        let a = Float64Array::from(vec![Some(1.0), None, Some(3.0)]);
-        let actual = powf_scalar(&a, 2.0).unwrap();
-        let expected = Float64Array::from(vec![Some(1.0), None, Some(9.0)]);
         assert_eq!(expected, actual);
     }
 }

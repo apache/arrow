@@ -17,35 +17,74 @@
 
 //! Defines basic math kernels for `PrimitiveArrays`.
 
-use num::Float;
+use num::{traits::Pow, Float};
 
-use crate::datatypes::ArrowNumericType;
-use crate::{array::*, float_unary};
+use crate::datatypes::{ArrowFloatNumericType, ArrowNumericType};
+use crate::{array::*, float_unary_simd};
 
+#[cfg(simd)]
+use super::arity::simd_unary;
 use super::arity::unary;
 
-float_unary!(sqrt);
+float_unary_simd!(sqrt);
 
-pub fn powf<T>(array: &PrimitiveArray<T>, n: T::Native) -> PrimitiveArray<T>
+/// Raise a floating point array to the power of a float scalar.
+pub fn powf_scalar<T>(array: &PrimitiveArray<T>, raise: T::Native) -> PrimitiveArray<T>
 where
-    T: ArrowNumericType,
-    T::Native: num::traits::Float,
+    T: ArrowFloatNumericType,
+    T::Native: Pow<T::Native, Output = T::Native>,
 {
-    unary(array, |x| x.powf(n))
+    #[cfg(simd)]
+    {
+        let raise_vector = T::init(raise);
+        return simd_unary(array, |x| T::pow(x, raise_vector), |x| x.pow(raise));
+    }
+    #[cfg(not(simd))]
+    return unary(array, |x| x.pow(raise));
 }
 
-pub fn powi<T>(array: &PrimitiveArray<T>, n: i32) -> PrimitiveArray<T>
+/// Raise array with floating point values to the power of an integer scalar.
+///
+/// This function currently has no SIMD equivalent, but is included because:
+/// - `powi` is generally faster than `powf`
+/// - If there is a SIMD implementation in future,
+/// we might want to keep forwad compatibility.
+///
+/// If using SIMD, it will be quicker to use [`powf_scalar`] instead.
+pub fn powi<T>(array: &PrimitiveArray<T>, raise: i32) -> PrimitiveArray<T>
 where
-    T: ArrowNumericType,
-    T::Native: num::traits::Float,
+    T: ArrowFloatNumericType,
+    T::Native: Pow<i32, Output = T::Native>,
 {
-    unary(array, |x| x.powi(n))
+    // Note: packed_simd doesn't support `pow` or `powi`
+    unary(array, |x| x.pow(raise))
 }
 
-// pub fn pow<T>(array: &PrimitiveArray<T>, n: usize) -> PrimitiveArray<T>
-// where
-//     T: ArrowPrimitiveType,
-//     T::Native: num::Num
-// {
-//     unary::<_, _, T::Native>(array, |x| x.pow(n))
-// }
+/// Raise numeric array to the power of an integer scalar.
+///
+/// Due to the use of [num::traits::Pow], this function can take both integer
+/// and floating point arrays as an input.
+pub fn pow<T>(array: &PrimitiveArray<T>, power: isize) -> PrimitiveArray<T>
+where
+    T: ArrowNumericType,
+    T::Native: Pow<isize, Output = T::Native>,
+{
+    unary::<_, _, T>(array, |x| x.pow(power))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_primitive_array_raise_power_scalar() {
+        let a = Float64Array::from(vec![1.0, 2.0, 3.0]);
+        let actual = powf_scalar(&a, 2.0);
+        let expected = Float64Array::from(vec![1.0, 4.0, 9.0]);
+        assert_eq!(expected, actual);
+        let a = Float64Array::from(vec![Some(1.0), None, Some(3.0)]);
+        let actual = powf_scalar(&a, 2.0);
+        let expected = Float64Array::from(vec![Some(1.0), None, Some(9.0)]);
+        assert_eq!(expected, actual);
+    }
+}

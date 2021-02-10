@@ -17,9 +17,18 @@
 
 //! Defines kernels suitable to perform operations to primitive arrays.
 
+#[cfg(simd)]
+use std::sync::Arc;
+
 use crate::array::{Array, ArrayData, PrimitiveArray};
 use crate::buffer::Buffer;
+#[cfg(simd)]
+use crate::buffer::MutableBuffer;
 use crate::datatypes::ArrowPrimitiveType;
+#[cfg(simd)]
+use crate::datatypes::{ArrowFloatNumericType, ArrowNumericType};
+#[cfg(simd)]
+use std::borrow::BorrowMut;
 
 #[inline]
 pub(super) fn into_primitive_array_data<I: ArrowPrimitiveType, O: ArrowPrimitiveType>(
@@ -73,15 +82,132 @@ where
     PrimitiveArray::<O>::from(std::sync::Arc::new(data))
 }
 
+#[cfg(simd)]
+pub(crate) fn simd_unary_float<T, SIMD_OP, SCALAR_OP>(
+    array: &PrimitiveArray<T>,
+    simd_op: SIMD_OP,
+    scalar_op: SCALAR_OP,
+) -> PrimitiveArray<T>
+where
+    T: ArrowFloatNumericType,
+    SIMD_OP: Fn(T::Simd) -> T::Simd,
+    SCALAR_OP: Fn(T::Native) -> T::Native,
+{
+    let lanes = T::lanes();
+    let buffer_size = array.len() * std::mem::size_of::<T::Native>();
+
+    let mut result = MutableBuffer::new(buffer_size).with_bitset(buffer_size, false);
+
+    let mut result_chunks = result.typed_data_mut().chunks_exact_mut(lanes);
+    let mut array_chunks = array.values().chunks_exact(lanes);
+
+    result_chunks
+        .borrow_mut()
+        .zip(array_chunks.borrow_mut())
+        .for_each(|(result_slice, input_slice)| {
+            let simd_input = T::load(input_slice);
+            let simd_result = T::unary_op(simd_input, &simd_op);
+            T::write(simd_result, result_slice);
+        });
+
+    let result_remainder = result_chunks.into_remainder();
+    let array_remainder = array_chunks.remainder();
+
+    result_remainder.into_iter().zip(array_remainder).for_each(
+        |(scalar_result, scalar_input)| {
+            *scalar_result = scalar_op(*scalar_input);
+        },
+    );
+
+    let data = ArrayData::new(
+        T::DATA_TYPE,
+        array.len(),
+        None,
+        array.data_ref().null_buffer().cloned(),
+        0,
+        vec![result.into()],
+        vec![],
+    );
+    PrimitiveArray::<T>::from(Arc::new(data))
+}
+
+#[cfg(simd)]
+pub(crate) fn simd_unary<T, SIMD_OP, SCALAR_OP>(
+    array: &PrimitiveArray<T>,
+    simd_op: SIMD_OP,
+    scalar_op: SCALAR_OP,
+) -> PrimitiveArray<T>
+where
+    T: ArrowNumericType,
+    SIMD_OP: Fn(T::Simd) -> T::Simd,
+    SCALAR_OP: Fn(T::Native) -> T::Native,
+{
+    let lanes = T::lanes();
+    let buffer_size = array.len() * std::mem::size_of::<T::Native>();
+
+    let mut result = MutableBuffer::new(buffer_size).with_bitset(buffer_size, false);
+
+    let mut result_chunks = result.typed_data_mut().chunks_exact_mut(lanes);
+    let mut array_chunks = array.values().chunks_exact(lanes);
+
+    result_chunks
+        .borrow_mut()
+        .zip(array_chunks.borrow_mut())
+        .for_each(|(result_slice, input_slice)| {
+            let simd_input = T::load(input_slice);
+            let simd_result = T::unary_op(simd_input, &simd_op);
+            T::write(simd_result, result_slice);
+        });
+
+    let result_remainder = result_chunks.into_remainder();
+    let array_remainder = array_chunks.remainder();
+
+    result_remainder.into_iter().zip(array_remainder).for_each(
+        |(scalar_result, scalar_input)| {
+            *scalar_result = scalar_op(*scalar_input);
+        },
+    );
+
+    let data = ArrayData::new(
+        T::DATA_TYPE,
+        array.len(),
+        None,
+        array.data_ref().null_buffer().cloned(),
+        0,
+        vec![result.into()],
+        vec![],
+    );
+    PrimitiveArray::<T>::from(Arc::new(data))
+}
+
 #[macro_export]
 macro_rules! float_unary {
     ($name:ident) => {
         pub fn $name<T>(array: &PrimitiveArray<T>) -> PrimitiveArray<T>
         where
-            T: ArrowNumericType,
+            T: ArrowNumericType + ArrowFloatNumericType,
             T::Native: num::traits::Float,
         {
             return unary(array, |a| a.$name());
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! float_unary_simd {
+    ($name:ident) => {
+        /// Calculate the `$name` of a floating point array
+        pub fn $name<T>(array: &PrimitiveArray<T>) -> PrimitiveArray<T>
+        where
+            T: ArrowNumericType + ArrowFloatNumericType,
+            T::Native: num::traits::Float,
+        {
+            #[cfg(simd)]
+            {
+                return simd_unary(array, |x| T::$name(x), |x| x.$name());
+            }
+            #[cfg(not(simd))]
+            return unary(array, |x| x.$name());
         }
     };
 }
