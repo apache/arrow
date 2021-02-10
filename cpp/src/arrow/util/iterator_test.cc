@@ -712,9 +712,9 @@ TEST(TestAsyncUtil, BackgroundRepeatEnd) {
 }
 
 TEST(TestAsyncUtil, CompleteBackgroundStressTest) {
-  auto expected = RangeVector(100);
+  auto expected = RangeVector(20);
   std::vector<Future<std::vector<TestInt>>> futures;
-  for (unsigned int i = 0; i < 100; i++) {
+  for (unsigned int i = 0; i < 20; i++) {
     auto background = BackgroundAsyncVectorIt(expected);
     futures.push_back(CollectAsyncGenerator(background));
   }
