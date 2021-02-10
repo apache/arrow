@@ -1019,4 +1019,12 @@ SEXP vec_to_arrow(SEXP x, SEXP s_type) {
   return cpp11::to_r6(arrow::r::vec_to_arrow(x, type, type_inferred));
 }
 
+// [[arrow::export]]
+std::shared_ptr<arrow::Array> DictionaryArray__FromArrays(
+    const std::shared_ptr<arrow::DataType>& type,
+    const std::shared_ptr<arrow::Array>& indices,
+    const std::shared_ptr<arrow::Array>& dict) {
+  return ValueOrStop(arrow::DictionaryArray::FromArrays(type, indices, dict));
+}
+
 #endif
