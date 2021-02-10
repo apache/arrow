@@ -143,7 +143,7 @@ is signed. For example:
 +-------------------+----------------------+------------------------------------------------+
 | int16, uint32     | int64                |                                                |
 +-------------------+----------------------+------------------------------------------------+
-| uint64, int16     | int64                | NB: int64 cannot accommodate all uint64 values |
+| uint64, int16     | int64                | int64 cannot accommodate all uint64 values     |
 +-------------------+----------------------+------------------------------------------------+
 | float32, int32    | float32              | Promote RHS to float32                         |
 +-------------------+----------------------+------------------------------------------------+
@@ -152,9 +152,9 @@ is signed. For example:
 | float32, int64    | float32              | int64 is wider, still promotes to float32      |
 +-------------------+----------------------+------------------------------------------------+
 
-In particulary, note that comparing a `uint64` column to an `int16` column may
-emit an error if one of the LHS' values cannot be expressed as the common type
-`int64` (for example, `2 ** 63`).
+In particulary, note that comparing a ``uint64`` column to an ``int16`` column
+may emit an error if one of the ``uint64`` values cannot be expressed as the
+common type ``int64`` (for example, ``2 ** 63``).
 
 .. _compute-function-list:
 

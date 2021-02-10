@@ -161,7 +161,7 @@ Result<Datum> Cast(const Datum& value, std::shared_ptr<DataType> to_type,
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting datums
 ///
-/// \since 1.0.0
+/// \since 4.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<std::vector<Datum>> Cast(std::vector<Datum> values, std::vector<ValueDescr> descrs,

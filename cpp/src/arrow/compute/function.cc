@@ -38,8 +38,8 @@ static const FunctionDoc kEmptyFunctionDoc{};
 
 const FunctionDoc& FunctionDoc::Empty() { return kEmptyFunctionDoc; }
 
-Status CheckArityImpl(const Function* function, int passed_num_args,
-                      const char* passed_num_args_label) {
+static Status CheckArityImpl(const Function* function, int passed_num_args,
+                             const char* passed_num_args_label) {
   if (function->arity().is_varargs && passed_num_args < function->arity().num_args) {
     return Status::Invalid("VarArgs function ", function->name(), " needs at least ",
                            function->arity().num_args, " arguments but ",
