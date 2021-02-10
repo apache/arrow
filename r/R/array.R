@@ -62,6 +62,7 @@
 #' - `$type_id()`: type id
 #' - `$Equals(other)` : is this array equal to `other`
 #' - `$ApproxEquals(other)` :
+#' - `$Diff(other)` : return a string expressing the difference between two arrays
 #' - `$data()`: return the underlying [ArrayData][ArrayData]
 #' - `$as_vector()`: convert to an R vector
 #' - `$ToString()`: string representation of the array
@@ -94,6 +95,12 @@ Array <- R6Class("Array",
     },
     ApproxEquals = function(other) {
       inherits(other, "Array") && Array__ApproxEquals(self, other)
+    },
+    Diff = function(other) {
+      if (!inherits(other, "Array")) {
+        other <- Array$create(other)
+      }
+      Array__Diff(self, other)
     },
     data = function() Array__data(self),
     as_vector = function() Array__as_vector(self),

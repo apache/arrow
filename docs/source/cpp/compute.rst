@@ -104,6 +104,57 @@ exact semantics of the function::
 .. seealso::
    :doc:`Compute API reference <api/compute>`
 
+Implicit casts
+==============
+
+Functions may require conversion of their arguments before execution if a
+kernel does not match the argument types precisely. For example comparison
+of dictionary encoded arrays is not directly supported by any kernel, but an
+implicit cast can be made allowing comparison against the decoded array.
+
+Each function may define implicit cast behaviour as appropriate. For example
+comparison and arithmetic kernels require identically typed arguments, and
+support execution against differing numeric types by promoting their arguments
+to numeric type which can accommodate any value from either input.
+
+.. _common-numeric-type:
+
+Common numeric type
+~~~~~~~~~~~~~~~~~~~
+
+The common numeric type of a set of input numeric types is the smallest numeric
+type which can accommodate any value of any input. If any input is a floating
+point type the common numeric type is the widest floating point type among the
+inputs. Otherwise the common numeric type is integral and is signed if any input
+is signed. For example:
+
++-------------------+----------------------+------------------------------------------------+
+| Input types       | Common numeric type  | Notes                                          |
++===================+======================+================================================+
+| int32, int32      | int32                |                                                |
++-------------------+----------------------+------------------------------------------------+
+| int16, int32      | int32                | Max width is 32, promote LHS to int32          |
++-------------------+----------------------+------------------------------------------------+
+| uint16, int32     | int32                | One input signed, override unsigned            |
++-------------------+----------------------+------------------------------------------------+
+| uint32, int32     | int64                | Widen to accommodate range of uint32           |
++-------------------+----------------------+------------------------------------------------+
+| uint16, uint32    | uint32               | All inputs unsigned, maintain unsigned         |
++-------------------+----------------------+------------------------------------------------+
+| int16, uint32     | int64                |                                                |
++-------------------+----------------------+------------------------------------------------+
+| uint64, int16     | int64                | int64 cannot accommodate all uint64 values     |
++-------------------+----------------------+------------------------------------------------+
+| float32, int32    | float32              | Promote RHS to float32                         |
++-------------------+----------------------+------------------------------------------------+
+| float32, float64  | float64              |                                                |
++-------------------+----------------------+------------------------------------------------+
+| float32, int64    | float32              | int64 is wider, still promotes to float32      |
++-------------------+----------------------+------------------------------------------------+
+
+In particulary, note that comparing a ``uint64`` column to an ``int16`` column
+may emit an error if one of the ``uint64`` values cannot be expressed as the
+common type ``int64`` (for example, ``2 ** 63``).
 
 .. _compute-function-list:
 
@@ -196,9 +247,11 @@ Binary functions have the following semantics (which is sometimes called
 Arithmetic functions
 ~~~~~~~~~~~~~~~~~~~~
 
-These functions expect two inputs of the same type and apply a given binary
+These functions expect two inputs of numeric type and apply a given binary
 operation to each pair of elements gathered from the inputs.  If any of the
 input elements in a pair is null, the corresponding output element is null.
+Inputs will be cast to the :ref:`common numeric type <common-numeric-type>`
+(and dictionary decoded, if applicable) before the operation is applied.
 
 The default variant of these functions does not detect overflow (the result
 then typically wraps around).  Each function is also available in an
@@ -228,9 +281,12 @@ an ``Invalid`` :class:`Status` when overflow is detected.
 Comparisons
 ~~~~~~~~~~~
 
-Those functions expect two inputs of the same type and apply a given
-comparison operator.  If any of the input elements in a pair is null,
-the corresponding output element is null.
+These functions expect two inputs of numeric type (in which case they will be
+cast to the :ref:`common numeric type <common-numeric-type>` before comparison),
+or two inputs of Binary- or String-like types, or two inputs of Temporal types.
+If any input is dictionary encoded it will be expanded for the purposes of
+comparison. If any of the input elements in a pair is null, the corresponding
+output element is null.
 
 +--------------------------+------------+---------------------------------------------+---------------------+
 | Function names           | Arity      | Input types                                 | Output type         |
@@ -744,3 +800,4 @@ Structural transforms
 * \(2) For each value in the list child array, the index at which it is found
   in the list array is appended to the output.  Nulls in the parent list array
   are discarded.
+

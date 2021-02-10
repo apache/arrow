@@ -206,7 +206,7 @@ def test_filters_equivalency(tempdir, use_legacy_dataset):
     dataset = pq.ParquetDataset(
         base_path, filesystem=fs,
         filters=[('integer', '=', 1), ('string', '!=', 'b'),
-                 ('boolean', '==', True)],
+                 ('boolean', '==', 'True')],
         use_legacy_dataset=use_legacy_dataset,
     )
     table = dataset.read()

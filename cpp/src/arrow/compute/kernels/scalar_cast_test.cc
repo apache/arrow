@@ -75,6 +75,9 @@ static std::vector<std::shared_ptr<DataType>> kNumericTypes = {
     uint8(), int8(),   uint16(), int16(),   uint32(),
     int32(), uint64(), int64(),  float32(), float64()};
 
+static std::vector<std::shared_ptr<DataType>> kBaseBinaryTypes = {
+    binary(), utf8(), large_binary(), large_utf8()};
+
 static void AssertBufferSame(const Array& left, const Array& right, int buffer_index) {
   ASSERT_EQ(left.data()->buffers[buffer_index].get(),
             right.data()->buffers[buffer_index].get());
@@ -402,6 +405,75 @@ class TestCast : public TestBase {
     // Edge cases are tested in Decimal128::ToReal()
   }
 };
+
+TEST_F(TestCast, CanCast) {
+  auto ExpectCanCast = [](std::shared_ptr<DataType> from,
+                          std::vector<std::shared_ptr<DataType>> to_set,
+                          bool expected = true) {
+    for (auto to : to_set) {
+      EXPECT_EQ(CanCast(*from, *to), expected) << "  from: " << from->ToString() << "\n"
+                                               << "    to: " << to->ToString();
+    }
+  };
+
+  auto ExpectCannotCast = [ExpectCanCast](std::shared_ptr<DataType> from,
+                                          std::vector<std::shared_ptr<DataType>> to_set) {
+    ExpectCanCast(from, to_set, /*expected=*/false);
+  };
+
+  ExpectCanCast(null(), {boolean()});
+  ExpectCanCast(null(), kNumericTypes);
+  ExpectCanCast(null(), kBaseBinaryTypes);
+  ExpectCanCast(
+      null(), {date32(), date64(), time32(TimeUnit::MILLI), timestamp(TimeUnit::SECOND)});
+  ExpectCanCast(dictionary(uint16(), null()), {null()});
+
+  ExpectCanCast(boolean(), {boolean()});
+  ExpectCanCast(boolean(), kNumericTypes);
+  ExpectCanCast(boolean(), {utf8(), large_utf8()});
+  ExpectCanCast(dictionary(int32(), boolean()), {boolean()});
+
+  ExpectCannotCast(boolean(), {null()});
+  ExpectCannotCast(boolean(), {binary(), large_binary()});
+  ExpectCannotCast(boolean(), {date32(), date64(), time32(TimeUnit::MILLI),
+                               timestamp(TimeUnit::SECOND)});
+
+  for (auto from_numeric : kNumericTypes) {
+    ExpectCanCast(from_numeric, {boolean()});
+    ExpectCanCast(from_numeric, kNumericTypes);
+    ExpectCanCast(from_numeric, {utf8(), large_utf8()});
+    ExpectCanCast(dictionary(int32(), from_numeric), {from_numeric});
+
+    ExpectCannotCast(from_numeric, {null()});
+  }
+
+  for (auto from_base_binary : kBaseBinaryTypes) {
+    ExpectCanCast(from_base_binary, {boolean()});
+    ExpectCanCast(from_base_binary, kNumericTypes);
+    ExpectCanCast(from_base_binary, kBaseBinaryTypes);
+    ExpectCanCast(dictionary(int64(), from_base_binary), {from_base_binary});
+
+    // any cast which is valid for the dictionary is valid for the DictionaryArray
+    ExpectCanCast(dictionary(uint32(), from_base_binary), kBaseBinaryTypes);
+    ExpectCanCast(dictionary(int16(), from_base_binary), kNumericTypes);
+
+    ExpectCannotCast(from_base_binary, {null()});
+  }
+
+  ExpectCanCast(utf8(), {timestamp(TimeUnit::MILLI)});
+  ExpectCanCast(large_utf8(), {timestamp(TimeUnit::NANO)});
+  ExpectCannotCast(timestamp(TimeUnit::MICRO),
+                   kBaseBinaryTypes);  // no formatting supported
+
+  ExpectCannotCast(fixed_size_binary(3),
+                   {fixed_size_binary(3)});  // FIXME missing identity cast
+
+  ExtensionTypeGuard smallint_guard(smallint());
+  ExpectCanCast(smallint(), {int16()});  // cast storage
+  ExpectCanCast(smallint(),
+                kNumericTypes);  // any cast which is valid for storage is supported
+  ExpectCannotCast(null(), {smallint()});  // FIXME missing common cast from null
+}
 
 TEST_F(TestCast, SameTypeZeroCopy) {
   std::shared_ptr<Array> arr = ArrayFromJSON(int32(), "[0, null, 2, 3, 4]");
@@ -1855,7 +1927,7 @@ std::shared_ptr<Array> SmallintArrayFromJSON(const std::string& json_data) {
 
 TEST_F(TestCast, ExtensionTypeToIntDowncast) {
   auto smallint = std::make_shared<SmallintType>();
-  ASSERT_OK(RegisterExtensionType(smallint));
+  ExtensionTypeGuard smallint_guard(smallint);
 
   CastOptions options;
   options.allow_int_overflow = false;
@@ -1891,8 +1963,6 @@ TEST_F(TestCast, ExtensionTypeToIntDowncast) {
   // disallow overflow
   options.allow_int_overflow = false;
   ASSERT_RAISES(Invalid, Cast(*v3, uint8(), options));
-
-  ASSERT_OK(UnregisterExtensionType("smallint"));
 }
 
 }  // namespace compute

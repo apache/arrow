@@ -554,6 +554,7 @@ test_that("filter() on timestamp columns", {
   )
 
   # Now with bare string date
+  skip("Implement more aggressive implicit casting for scalars (ARROW-11402)")
   expect_equivalent(
     ds %>%
       filter(ts >= "2015-05-04") %>%
@@ -666,8 +667,6 @@ test_that("filter() with expressions", {
     )
   )
 
-  skip("Implicit casts aren't being inserted everywhere they need to be (ARROW-8919)")
-  # Error: NotImplemented: Function multiply_checked has no kernel matching input types (scalar[double], array[int32])
   expect_equivalent(
     ds %>%
       select(chr, dbl, int) %>%
@@ -680,8 +679,6 @@ test_that("filter() with expressions", {
     )
   )
 
-  skip("Implicit casts are only inserted for scalars (ARROW-8919)")
-  # Error: NotImplemented: Function add_checked has no kernel matching input types (array[double], array[int32])
   expect_equivalent(
     ds %>%
       select(chr, dbl, int) %>%
@@ -700,7 +697,7 @@ test_that("filter scalar validation doesn't crash (ARROW-7772)", {
     ds %>%
       filter(int == "fff", part == 1) %>%
       collect(),
-    "Failed to parse string: 'fff' as a scalar of type int32"
+    "equal has no kernel matching input types .array.int32., scalar.string.."
   )
 })
 

@@ -50,8 +50,8 @@ class ARROW_DS_EXPORT Expression {
     std::shared_ptr<std::atomic<size_t>> hash;
 
     // post-Bind properties:
-    const compute::Kernel* kernel = NULLPTR;
     std::shared_ptr<compute::Function> function;
+    const compute::Kernel* kernel = NULLPTR;
     std::shared_ptr<compute::KernelState> kernel_state;
     ValueDescr descr;
   };
@@ -104,6 +104,7 @@ class ARROW_DS_EXPORT Expression {
 
   /// The type and shape to which this expression will evaluate
   ValueDescr descr() const;
+  std::shared_ptr<DataType> type() const { return descr().type; }
   // XXX someday
   // NullGeneralization::type nullable() const;
 

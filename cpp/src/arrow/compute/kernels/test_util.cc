@@ -24,6 +24,8 @@
 #include "arrow/array.h"
 #include "arrow/chunked_array.h"
 #include "arrow/compute/exec.h"
+#include "arrow/compute/function.h"
+#include "arrow/compute/registry.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
 #include "arrow/testing/gtest_util.h"
@@ -171,6 +173,23 @@ void CheckScalarBinary(std::string func_name, std::shared_ptr<Array> left_input,
                        std::shared_ptr<Array> right_input,
                        std::shared_ptr<Array> expected, const FunctionOptions* options) {
   CheckScalar(std::move(func_name), {left_input, right_input}, expected, options);
+}
+
+void CheckDispatchBest(std::string func_name, std::vector<ValueDescr> original_values,
+                       std::vector<ValueDescr> expected_equivalent_values) {
+  ASSERT_OK_AND_ASSIGN(auto function, GetFunctionRegistry()->GetFunction(func_name));
+
+  auto values = original_values;
+  ASSERT_OK_AND_ASSIGN(auto actual_kernel, function->DispatchBest(&values));
+
+  ASSERT_OK_AND_ASSIGN(auto expected_kernel,
+                       function->DispatchExact(expected_equivalent_values));
+
+  EXPECT_EQ(actual_kernel, expected_kernel)
+      << "  DispatchBest" << ValueDescr::ToString(original_values) << " => "
+      << actual_kernel->signature->ToString() << "\n"
+      << "  DispatchExact" << ValueDescr::ToString(expected_equivalent_values) << " => "
+      << expected_kernel->signature->ToString();
 }
 
 }  // namespace compute

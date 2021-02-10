@@ -268,6 +268,13 @@ Result<std::shared_ptr<Scalar>> DictionaryScalar::GetEncodedValue() const {
   return value.dictionary->GetScalar(index_value);
 }
 
+std::shared_ptr<DictionaryScalar> DictionaryScalar::Make(std::shared_ptr<Scalar> index,
+                                                         std::shared_ptr<Array> dict) {
+  auto type = dictionary(index->type, dict->type());
+  return std::make_shared<DictionaryScalar>(ValueType{std::move(index), std::move(dict)},
+                                            std::move(type));
+}
+
 template <typename T>
 using scalar_constructor_has_arrow_type =
     std::is_constructible<typename TypeTraits<T>::ScalarType, std::shared_ptr<DataType>>;

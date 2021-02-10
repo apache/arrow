@@ -144,16 +144,6 @@ eval_array_expression <- function(x) {
       a
     }
   })
-  if (length(x$args) == 2L) {
-    # Insert implicit casts
-    if (inherits(x$args[[1]], "Scalar")) {
-      x$args[[1]] <- x$args[[1]]$cast(x$args[[2]]$type)
-    } else if (inherits(x$args[[2]], "Scalar")) {
-      x$args[[2]] <- x$args[[2]]$cast(x$args[[1]]$type)
-    } else if (x$fun == "is_in_meta_binary" && inherits(x$args[[2]], "Array")) {
-      x$args[[2]] <- x$args[[2]]$cast(x$args[[1]]$type)
-    }
-  }
   call_function(x$fun, args = x$args, options = x$options %||% empty_named_list())
 }
 

@@ -60,6 +60,7 @@ a == a
 \item \verb{$type_id()}: type id
 \item \verb{$Equals(other)} : is this array equal to \code{other}
 \item \verb{$ApproxEquals(other)} :
+\item \verb{$Diff(other)} : return a string expressing the difference between two arrays
 \item \verb{$data()}: return the underlying \link{ArrayData}
 \item \verb{$as_vector()}: convert to an R vector
 \item \verb{$ToString()}: string representation of the array

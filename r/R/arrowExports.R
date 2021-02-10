@@ -48,6 +48,10 @@ Array__ApproxEquals <- function(lhs, rhs){
     .Call(`_arrow_Array__ApproxEquals`, lhs, rhs)
 }
 
+Array__Diff <- function(lhs, rhs){
+    .Call(`_arrow_Array__Diff`, lhs, rhs)
+}
+
 Array__data <- function(array){
     .Call(`_arrow_Array__data`, array)
 }
