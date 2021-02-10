@@ -20,33 +20,35 @@
 
 use std::{iter::FromIterator, ops::Div};
 
-use num::{Float, Zero};
+use num::{traits::Pow, Float, Zero};
 
 use super::math::*;
+
+use crate::array::*;
 use crate::buffer::Buffer;
-use crate::datatypes::ArrowNumericType;
+#[cfg(simd)]
+use crate::compute::kernels::arity::simd_unary;
+use crate::datatypes::*;
+use crate::error::ArrowError;
 use crate::error::Result;
 use crate::{
-    array::*,
     compute::{add, math_op, multiply, subtract},
-    datatypes::ArrowPrimitiveType,
-    error::ArrowError,
-    float_unary,
+    float_unary, float_unary_simd,
 };
 
 use super::arity::{into_primitive_array_data, unary};
 
 float_unary!(to_degrees);
 float_unary!(to_radians);
-float_unary!(sin);
-float_unary!(cos);
+float_unary_simd!(sin);
+float_unary_simd!(cos);
 float_unary!(tan);
 float_unary!(asin);
 float_unary!(acos);
 float_unary!(atan);
 float_unary!(sinh);
 float_unary!(cosh);
-float_unary!(tanh);
+float_unary_simd!(tanh);
 float_unary!(asinh);
 float_unary!(acosh);
 float_unary!(atanh);
@@ -96,8 +98,13 @@ pub fn haversine<T>(
     radius: impl num::traits::Float,
 ) -> Result<PrimitiveArray<T>>
 where
-    T: ArrowPrimitiveType + ArrowNumericType,
-    T::Native: num::traits::Float + Div<Output = T::Native> + Zero + num::NumCast,
+    T: ArrowPrimitiveType + ArrowNumericType + ArrowFloatNumericType,
+    T::Native: num::traits::Float
+        + Div<Output = T::Native>
+        + Pow<T::Native, Output = T::Native>
+        + Pow<i32, Output = T::Native>
+        + Zero
+        + num::NumCast,
 {
     // Check array lengths, must all equal
     let len = lat_a.len();
@@ -121,13 +128,11 @@ where
     let v2: PrimitiveArray<T> = sin(&unary::<_, _, _>(&lng_delta, |x| x / two));
 
     let a = add(
-        // powf is slower than x * x
-        &unary::<_, _, _>(&v1, |x: T::Native| x * x),
+        &powi(&v1, 2),
         // This could be simplified if we had a ternary kernel that takes 3 args
         // F(T::Native, T::Native, T::Native) -> T::Native
         &multiply(
-            // powf is slower than x * x
-            &unary::<_, _, _>(&v2, |x: T::Native| x * x),
+            &powi(&v2, 2),
             &math_op(&lat_a_rad, &lat_b_rad, |x, y| (x.cos() * y.cos()))?,
         )?,
     )?;

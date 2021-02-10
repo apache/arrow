@@ -922,6 +922,10 @@ make_signed_numeric_type!(Float64Type, f64x8);
 #[cfg(simd)]
 pub trait ArrowFloatNumericType: ArrowNumericType {
     fn pow(base: Self::Simd, raise: Self::Simd) -> Self::Simd;
+    fn sqrt(value: Self::Simd) -> Self::Simd;
+    fn cos(value: Self::Simd) -> Self::Simd;
+    fn sin(value: Self::Simd) -> Self::Simd;
+    fn tanh(value: Self::Simd) -> Self::Simd;
 }
 
 #[cfg(not(simd))]
@@ -934,6 +938,26 @@ macro_rules! make_float_numeric_type {
             #[inline]
             fn pow(base: Self::Simd, raise: Self::Simd) -> Self::Simd {
                 base.powf(raise)
+            }
+
+            #[inline]
+            fn sqrt(value: Self::Simd) -> Self::Simd {
+                value.sqrt()
+            }
+
+            #[inline]
+            fn cos(value: Self::Simd) -> Self::Simd {
+                value.cos()
+            }
+
+            #[inline]
+            fn sin(value: Self::Simd) -> Self::Simd {
+                value.sin()
+            }
+
+            #[inline]
+            fn tanh(value: Self::Simd) -> Self::Simd {
+                value.tanh()
             }
         }
 
