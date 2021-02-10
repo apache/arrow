@@ -310,6 +310,9 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                     "NATURAL JOIN is not supported (https://issues.apache.org/jira/browse/ARROW-10727)".to_string(),
                 ))
             }
+            JoinConstraint::None => Err(DataFusionError::NotImplemented(
+                "NONE contraint is not supported".to_string(),
+            )),
         }
     }
 
@@ -714,7 +717,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
 
     fn sql_expr_to_logical_expr(&self, sql: &SQLExpr) -> Result<Expr> {
         match sql {
-            SQLExpr::Value(Value::Number(n)) => match n.parse::<i64>() {
+            SQLExpr::Value(Value::Number(n, _)) => match n.parse::<i64>() {
                 Ok(n) => Ok(lit(n)),
                 Err(_) => Ok(lit(n.parse::<f64>().unwrap())),
             },
@@ -833,7 +836,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                     match expr.as_ref() {
                         // optimization: if it's a number literal, we applly the negative operator
                         // here directly to calculate the new literal.
-                        SQLExpr::Value(Value::Number(n)) => match n.parse::<i64>() {
+                        SQLExpr::Value(Value::Number(n,_)) => match n.parse::<i64>() {
                             Ok(n) => Ok(lit(-n)),
                             Err(_) => Ok(lit(-n
                                 .parse::<f64>()
@@ -938,6 +941,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                             .iter()
                             .map(|a| match a {
                                 FunctionArg::Unnamed(SQLExpr::Value(Value::Number(
+                                    _,
                                     _,
                                 ))) => Ok(lit(1_u8)),
                                 FunctionArg::Unnamed(SQLExpr::Wildcard) => Ok(lit(1_u8)),
@@ -1405,7 +1409,8 @@ mod tests {
 
     #[test]
     fn test_timestamp_filter() {
-        let sql = "SELECT state FROM person WHERE birth_date < CAST (158412331400600000 as timestamp)";
+        let sql =
+            "SELECT state FROM person WHERE birth_date < CAST (158412331400600000 as timestamp)";
 
         let expected = "Projection: #state\
             \n  Filter: #birth_date Lt CAST(Int64(158412331400600000) AS Timestamp(Nanosecond, None))\
@@ -2052,7 +2057,8 @@ mod tests {
     fn select_simple_aggregate_with_groupby_non_column_expression_nested_and_not_resolvable(
     ) {
         // The query should fail, because age + 9 is not in the group by.
-        let sql = "SELECT ((age + 1) / 2) * (age + 9), MIN(first_name) FROM person GROUP BY age + 1";
+        let sql =
+            "SELECT ((age + 1) / 2) * (age + 9), MIN(first_name) FROM person GROUP BY age + 1";
         let err = logical_plan(sql).expect_err("query should have failed");
         assert_eq!(
             "Plan(\"Projection references non-aggregate values\")",
