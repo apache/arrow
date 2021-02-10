@@ -132,14 +132,6 @@ LargeListArray__raw_value_offsets <- function(array){
     .Call(`_arrow_LargeListArray__raw_value_offsets`, array)
 }
 
-Array__infer_type <- function(x){
-    .Call(`_arrow_Array__infer_type`, x)
-}
-
-Array__from_vector <- function(x, s_type){
-    .Call(`_arrow_Array__from_vector`, x, s_type)
-}
-
 ChunkedArray__from_list <- function(chunks, s_type){
     .Call(`_arrow_ChunkedArray__from_list`, chunks, s_type)
 }
@@ -1590,6 +1582,10 @@ GetCpuThreadPoolCapacity <- function(){
 
 SetCpuThreadPoolCapacity <- function(threads){
     invisible(.Call(`_arrow_SetCpuThreadPoolCapacity`, threads))
+}
+
+Array__infer_type <- function(x){
+    .Call(`_arrow_Array__infer_type`, x)
 }
 
 

@@ -1012,7 +1012,7 @@ SEXP vec_to_arrow(SEXP x, SEXP s_type) {
   std::shared_ptr<arrow::DataType> type;
 
   if (type_inferred) {
-    type = type = arrow::r::InferArrowType(x);
+    type = arrow::r::InferArrowType(x);
   } else {
     type = cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(s_type);
   }

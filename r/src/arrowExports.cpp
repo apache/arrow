@@ -290,23 +290,6 @@ BEGIN_CPP11
 END_CPP11
 }
 // array_from_vector.cpp
-std::shared_ptr<arrow::DataType> Array__infer_type(SEXP x);
-extern "C" SEXP _arrow_Array__infer_type(SEXP x_sexp){
-BEGIN_CPP11
-	arrow::r::Input<SEXP>::type x(x_sexp);
-	return cpp11::as_sexp(Array__infer_type(x));
-END_CPP11
-}
-// array_from_vector.cpp
-std::shared_ptr<arrow::Array> Array__from_vector(SEXP x, SEXP s_type);
-extern "C" SEXP _arrow_Array__from_vector(SEXP x_sexp, SEXP s_type_sexp){
-BEGIN_CPP11
-	arrow::r::Input<SEXP>::type x(x_sexp);
-	arrow::r::Input<SEXP>::type s_type(s_type_sexp);
-	return cpp11::as_sexp(Array__from_vector(x, s_type));
-END_CPP11
-}
-// array_from_vector.cpp
 std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(cpp11::list chunks, SEXP s_type);
 extern "C" SEXP _arrow_ChunkedArray__from_list(SEXP chunks_sexp, SEXP s_type_sexp){
 BEGIN_CPP11
@@ -3473,6 +3456,14 @@ BEGIN_CPP11
 	return R_NilValue;
 END_CPP11
 }
+// type_infer.cpp
+std::shared_ptr<arrow::DataType> Array__infer_type(SEXP x);
+extern "C" SEXP _arrow_Array__infer_type(SEXP x_sexp){
+BEGIN_CPP11
+	arrow::r::Input<SEXP>::type x(x_sexp);
+	return cpp11::as_sexp(Array__infer_type(x));
+END_CPP11
+}
 extern "C" SEXP _arrow_Table__Reset(SEXP r6) {
 BEGIN_CPP11
 arrow::r::r6_reset_pointer<arrow::Table>(r6);
@@ -3542,8 +3533,6 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_FixedSizeListArray__value_offset", (DL_FUNC) &_arrow_FixedSizeListArray__value_offset, 2}, 
 		{ "_arrow_ListArray__raw_value_offsets", (DL_FUNC) &_arrow_ListArray__raw_value_offsets, 1}, 
 		{ "_arrow_LargeListArray__raw_value_offsets", (DL_FUNC) &_arrow_LargeListArray__raw_value_offsets, 1}, 
-		{ "_arrow_Array__infer_type", (DL_FUNC) &_arrow_Array__infer_type, 1}, 
-		{ "_arrow_Array__from_vector", (DL_FUNC) &_arrow_Array__from_vector, 2}, 
 		{ "_arrow_ChunkedArray__from_list", (DL_FUNC) &_arrow_ChunkedArray__from_list, 2}, 
 		{ "_arrow_DictionaryArray__FromArrays", (DL_FUNC) &_arrow_DictionaryArray__FromArrays, 3}, 
 		{ "_arrow_Array__as_vector", (DL_FUNC) &_arrow_Array__as_vector, 1}, 
@@ -3907,6 +3896,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Table__from_dots", (DL_FUNC) &_arrow_Table__from_dots, 2}, 
 		{ "_arrow_GetCpuThreadPoolCapacity", (DL_FUNC) &_arrow_GetCpuThreadPoolCapacity, 0}, 
 		{ "_arrow_SetCpuThreadPoolCapacity", (DL_FUNC) &_arrow_SetCpuThreadPoolCapacity, 1}, 
+		{ "_arrow_Array__infer_type", (DL_FUNC) &_arrow_Array__infer_type, 1}, 
 		{ "_arrow_Table__Reset", (DL_FUNC) &_arrow_Table__Reset, 1}, 
 		{ "_arrow_RecordBatch__Reset", (DL_FUNC) &_arrow_RecordBatch__Reset, 1}, 
 		{NULL, NULL, 0}
