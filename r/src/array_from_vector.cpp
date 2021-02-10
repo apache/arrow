@@ -146,11 +146,6 @@ Status float_cast<double>(double x, float* out) {
 
 namespace r {
 
-class VectorConverter;
-
-Status GetConverter(const std::shared_ptr<DataType>& type,
-                    std::unique_ptr<VectorConverter>* out);
-
 class VectorConverter {
  public:
   virtual ~VectorConverter() = default;
@@ -755,56 +750,11 @@ class StringVectorConverter : public VectorConverter {
         std::unique_ptr<TYPE>(new TYPE(checked_cast<DATA_TYPE*>(type.get())->unit())); \
     return Status::OK()
 
-Status GetConverter(const std::shared_ptr<DataType>& type,
-                    std::unique_ptr<VectorConverter>* out) {
-  switch (type->id()) {
-    SIMPLE_CONVERTER_CASE(BINARY, BinaryVectorConverter<arrow::BinaryBuilder>);
-    SIMPLE_CONVERTER_CASE(LARGE_BINARY, BinaryVectorConverter<arrow::LargeBinaryBuilder>);
-    SIMPLE_CONVERTER_CASE(FIXED_SIZE_BINARY, FixedSizeBinaryVectorConverter);
-    SIMPLE_CONVERTER_CASE(BOOL, BooleanVectorConverter);
-    SIMPLE_CONVERTER_CASE(STRING, StringVectorConverter<arrow::StringBuilder>);
-    SIMPLE_CONVERTER_CASE(LARGE_STRING, StringVectorConverter<arrow::LargeStringBuilder>);
-    NUMERIC_CONVERTER(INT8, Int8Type);
-    NUMERIC_CONVERTER(INT16, Int16Type);
-    NUMERIC_CONVERTER(INT32, Int32Type);
-    NUMERIC_CONVERTER(INT64, Int64Type);
-    NUMERIC_CONVERTER(UINT8, UInt8Type);
-    NUMERIC_CONVERTER(UINT16, UInt16Type);
-    NUMERIC_CONVERTER(UINT32, UInt32Type);
-    NUMERIC_CONVERTER(UINT64, UInt64Type);
-
-    // TODO: not sure how to handle half floats
-    //       the python code uses npy_half
-    // NUMERIC_CONVERTER(HALF_FLOAT, HalfFloatType);
-    NUMERIC_CONVERTER(FLOAT, FloatType);
-    NUMERIC_CONVERTER(DOUBLE, DoubleType);
-
-    SIMPLE_CONVERTER_CASE(DATE32, Date32Converter);
-    SIMPLE_CONVERTER_CASE(DATE64, Date64Converter);
-
-    // TODO: probably after we merge ARROW-3628
-    // case Type::DECIMAL:
-
-    TIME_CONVERTER_CASE(TIME32, Time32Type, Time32Converter);
-    TIME_CONVERTER_CASE(TIME64, Time64Type, Time64Converter);
-    TIME_CONVERTER_CASE(TIMESTAMP, TimestampType, TimestampConverter);
-
-    case Type::NA:
-      *out = std::unique_ptr<NullVectorConverter>(new NullVectorConverter);
-      return Status::OK();
-
-    default:
-      break;
-  }
-  return Status::NotImplemented("type not implemented");
-}
-
 std::shared_ptr<arrow::Array> Array__from_vector(
     SEXP x, const std::shared_ptr<arrow::DataType>& type, bool type_inferred) {
 
   // general conversion with converter and builder
   std::unique_ptr<arrow::r::VectorConverter> converter;
-  StopIfNotOk(arrow::r::GetConverter(type, &converter));
 
   // Create ArrayBuilder for type
   std::unique_ptr<arrow::ArrayBuilder> type_builder;
