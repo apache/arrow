@@ -1307,6 +1307,8 @@ services:
       ARROW_HDFS_TEST_HOST: impala
       ARROW_HDFS_TEST_PORT: 8020
       ARROW_HDFS_TEST_USER: hdfs
+      ARROW_S3: "OFF"
+      CMAKE_UNITY_BUILD: "ON"
     shm_size: *shm-size
     volumes: &conda-maven-volumes
       - .:/arrow:delegated
