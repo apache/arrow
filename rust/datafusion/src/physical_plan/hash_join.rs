@@ -261,7 +261,7 @@ impl ExecutionPlan for HashJoinExec {
                     // Merge all batches into a single batch, so we
                     // can directly index into the arrays
                     let single_batch =
-                        concat_batches(&batches[0].schema(), &batches, num_rows)?;
+                        concat_batches(&self.left.schema(), &batches, num_rows)?;
 
                     let left_side = Arc::new((hashmap, single_batch));
 

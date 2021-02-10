@@ -179,7 +179,6 @@ async fn benchmark(opt: BenchmarkOpt) -> Result<Vec<arrow::record_batch::RecordB
 
 fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<LogicalPlan> {
     match query {
-
         // original
         // 1 => ctx.create_logical_plan(
         //     "select
@@ -271,7 +270,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                 s_acctbal desc,
                 n_name,
                 s_name,
-                p_partkey;"
+                p_partkey;",
         ),
 
         3 => ctx.create_logical_plan(
@@ -296,7 +295,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                 o_shippriority
             order by
                 revenue desc,
-                o_orderdate;"
+                o_orderdate;",
         ),
 
         4 => ctx.create_logical_plan(
@@ -320,7 +319,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
             group by
                 o_orderpriority
             order by
-                o_orderpriority;"
+                o_orderpriority;",
         ),
 
         // original
@@ -374,7 +373,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
             group by
                 n_name
             order by
-                revenue desc;"
+                revenue desc;",
         ),
 
         // original
@@ -398,7 +397,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                 l_shipdate >= date '1994-01-01'
                 and l_shipdate < date '1995-01-01'
                 and l_discount between 0.06 - 0.01 and 0.06 + 0.01
-                and l_quantity < 24;"
+                and l_quantity < 24;",
         ),
 
         7 => ctx.create_logical_plan(
@@ -440,7 +439,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
             order by
                 supp_nation,
                 cust_nation,
-                l_year;"
+                l_year;",
         ),
 
         8 => ctx.create_logical_plan(
@@ -480,7 +479,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
             group by
                 o_year
             order by
-                o_year;"
+                o_year;",
         ),
 
         9 => ctx.create_logical_plan(
@@ -515,7 +514,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                 o_year
             order by
                 nation,
-                o_year desc;"
+                o_year desc;",
         ),
 
         // 10 => ctx.create_logical_plan(
@@ -582,7 +581,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                 c_address,
                 c_comment
             order by
-                revenue desc;"
+                revenue desc;",
         ),
 
         11 => ctx.create_logical_plan(
@@ -612,7 +611,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                             and n_name = 'GERMANY'
                     )
             order by
-                value desc;"
+                value desc;",
         ),
 
         // original
@@ -676,7 +675,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
             group by
                 l_shipmode
             order by
-                l_shipmode;"
+                l_shipmode;",
         ),
 
         13 => ctx.create_logical_plan(
@@ -699,7 +698,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                 c_count
             order by
                 custdist desc,
-                c_count desc;"
+                c_count desc;",
         ),
 
         14 => ctx.create_logical_plan(
@@ -715,7 +714,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
             where
                 l_partkey = p_partkey
                 and l_shipdate >= date '1995-09-01'
-                and l_shipdate < date '1995-10-01';"
+                and l_shipdate < date '1995-10-01';",
         ),
 
         15 => ctx.create_logical_plan(
@@ -751,7 +750,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
             order by
                 s_suppkey;
 
-            drop view revenue0;"
+            drop view revenue0;",
         ),
 
         16 => ctx.create_logical_plan(
@@ -784,7 +783,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                 supplier_cnt desc,
                 p_brand,
                 p_type,
-                p_size;"
+                p_size;",
         ),
 
         17 => ctx.create_logical_plan(
@@ -804,7 +803,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                         lineitem
                     where
                         l_partkey = p_partkey
-                );"
+                );",
         ),
 
         18 => ctx.create_logical_plan(
@@ -839,7 +838,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                 o_totalprice
             order by
                 o_totalprice desc,
-                o_orderdate;"
+                o_orderdate;",
         ),
 
         19 => ctx.create_logical_plan(
@@ -877,7 +876,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                     and p_size between 1 and 15
                     and l_shipmode in ('AIR', 'AIR REG')
                     and l_shipinstruct = 'DELIVER IN PERSON'
-                );"
+                );",
         ),
 
         20 => ctx.create_logical_plan(
@@ -917,7 +916,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                 and s_nationkey = n_nationkey
                 and n_name = 'CANADA'
             order by
-                s_name;"
+                s_name;",
         ),
 
         21 => ctx.create_logical_plan(
@@ -959,7 +958,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                 s_name
             order by
                 numwait desc,
-                s_name;"
+                s_name;",
         ),
 
         22 => ctx.create_logical_plan(
@@ -999,7 +998,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
             group by
                 cntrycode
             order by
-                cntrycode;"
+                cntrycode;",
         ),
 
         _ => unimplemented!("invalid query. Expected value between 1 and 22"),
@@ -1351,6 +1350,41 @@ mod tests {
         verify_query(22).await
     }
 
+    #[tokio::test]
+    async fn run_q1() -> Result<()> {
+        run_query(1).await
+    }
+
+    #[tokio::test]
+    async fn run_q3() -> Result<()> {
+        run_query(3).await
+    }
+
+    #[tokio::test]
+    async fn run_q5() -> Result<()> {
+        run_query(5).await
+    }
+
+    #[tokio::test]
+    async fn run_q6() -> Result<()> {
+        run_query(6).await
+    }
+
+    #[tokio::test]
+    async fn run_q10() -> Result<()> {
+        run_query(10).await
+    }
+
+    #[tokio::test]
+    async fn run_q12() -> Result<()> {
+        run_query(12).await
+    }
+
+    #[tokio::test]
+    async fn run_q14() -> Result<()> {
+        run_query(14).await
+    }
+
     /// Specialised String representation
     fn col_str(column: &ArrayRef, row_index: usize) -> String {
         if column.is_null(row_index) {
@@ -1560,6 +1594,29 @@ mod tests {
                 })
                 .collect::<Vec<Field>>(),
         )
+    }
+
+    async fn run_query(n: usize) -> Result<()> {
+        // Tests running query with empty tables, to see whether they run succesfully.
+
+        let config = ExecutionConfig::new()
+            .with_concurrency(1)
+            .with_batch_size(10);
+        let mut ctx = ExecutionContext::with_config(config);
+
+        for &table in TABLES {
+            let schema = get_schema(table);
+            let batch = RecordBatch::new_empty(Arc::new(schema.to_owned()));
+
+            let provider = MemTable::try_new(Arc::new(schema), vec![vec![batch]])?;
+
+            ctx.register_table(table, Box::new(provider));
+        }
+
+        let plan = create_logical_plan(&mut ctx, n)?;
+        execute_query(&mut ctx, &plan, false).await?;
+
+        Ok(())
     }
 
     async fn verify_query(n: usize) -> Result<()> {

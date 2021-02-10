@@ -210,6 +210,9 @@ pub fn concat_batches(
     batches: &[RecordBatch],
     row_count: usize,
 ) -> ArrowResult<RecordBatch> {
+    if batches.is_empty() {
+        return Ok(RecordBatch::new_empty(schema.clone()));
+    }
     let mut arrays = Vec::with_capacity(schema.fields().len());
     for i in 0..schema.fields().len() {
         let array = concat(
