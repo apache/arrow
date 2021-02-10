@@ -29,8 +29,6 @@
 
 using arrow::internal::checked_cast;
 
-std::shared_ptr<arrow::Array> Array__from_vector(SEXP x, SEXP type);
-
 namespace arrow {
 namespace r {
 
@@ -291,8 +289,6 @@ struct VectorToArrayConverter {
   template <typename T>
   arrow::enable_if_t<std::is_same<DictionaryType, T>::value, Status> Visit(
       const T& type) {
-    // TODO: perhaps this replaces MakeFactorArrayImpl ?
-
     ARROW_RETURN_IF(!Rf_isFactor(x), Status::RError("Expecting a factor"));
     int64_t n = vctrs::short_vec_size(x);
 
@@ -336,82 +332,6 @@ struct VectorToArrayConverter {
   SEXP x;
   arrow::ArrayBuilder* builder;
 };
-
-template <typename Type>
-std::shared_ptr<Array> MakeFactorArrayImpl(cpp11::integers factor,
-                                           const std::shared_ptr<arrow::DataType>& type) {
-  using value_type = typename arrow::TypeTraits<Type>::ArrayType::value_type;
-  auto n = factor.size();
-
-  std::shared_ptr<Buffer> indices_buffer =
-      ValueOrStop(AllocateBuffer(n * sizeof(value_type), gc_memory_pool()));
-
-  std::vector<std::shared_ptr<Buffer>> buffers{nullptr, indices_buffer};
-
-  int64_t null_count = 0;
-  R_xlen_t i = 0;
-  auto p_factor = factor.begin();
-  auto p_indices = reinterpret_cast<value_type*>(indices_buffer->mutable_data());
-  for (; i < n; i++, ++p_indices, ++p_factor) {
-    if (*p_factor == NA_INTEGER) break;
-    *p_indices = *p_factor - 1;
-  }
-
-  if (i < n) {
-    // there are NA's so we need a null buffer
-    auto null_buffer =
-        ValueOrStop(AllocateBuffer(BitUtil::BytesForBits(n), gc_memory_pool()));
-    internal::FirstTimeBitmapWriter null_bitmap_writer(null_buffer->mutable_data(), 0, n);
-
-    // catch up
-    for (R_xlen_t j = 0; j < i; j++, null_bitmap_writer.Next()) {
-      null_bitmap_writer.Set();
-    }
-
-    // resume offset filling
-    for (; i < n; i++, ++p_indices, ++p_factor, null_bitmap_writer.Next()) {
-      if (*p_factor == NA_INTEGER) {
-        null_bitmap_writer.Clear();
-        null_count++;
-      } else {
-        null_bitmap_writer.Set();
-        *p_indices = *p_factor - 1;
-      }
-    }
-
-    null_bitmap_writer.Finish();
-    buffers[0] = std::move(null_buffer);
-  }
-
-  auto array_indices_data =
-      ArrayData::Make(std::make_shared<Type>(), n, std::move(buffers), null_count, 0);
-  auto array_indices = MakeArray(array_indices_data);
-
-  SEXP levels = Rf_getAttrib(factor, R_LevelsSymbol);
-  auto dict = VectorToArrayConverter::Visit(levels, utf8());
-
-  return ValueOrStop(DictionaryArray::FromArrays(type, array_indices, dict));
-}
-
-std::shared_ptr<Array> MakeFactorArray(cpp11::integers factor,
-                                       const std::shared_ptr<arrow::DataType>& type) {
-  const auto& dict_type = checked_cast<const arrow::DictionaryType&>(*type);
-  switch (dict_type.index_type()->id()) {
-    case Type::INT8:
-      return MakeFactorArrayImpl<arrow::Int8Type>(factor, type);
-    case Type::INT16:
-      return MakeFactorArrayImpl<arrow::Int16Type>(factor, type);
-    case Type::INT32:
-      return MakeFactorArrayImpl<arrow::Int32Type>(factor, type);
-    case Type::INT64:
-      return MakeFactorArrayImpl<arrow::Int64Type>(factor, type);
-    default:
-      break;
-  }
-
-  cpp11::stop("Cannot convert to dictionary with index_type '%s'",
-              dict_type.index_type()->ToString().c_str());
-}
 
 std::shared_ptr<Array> MakeStructArray(SEXP df, const std::shared_ptr<DataType>& type) {
   int n = type->num_fields();
@@ -1171,15 +1091,6 @@ Status GetConverter(const std::shared_ptr<DataType>& type,
   return Status::NotImplemented("type not implemented");
 }
 
-bool CheckCompatibleFactor(SEXP obj, const std::shared_ptr<arrow::DataType>& type) {
-  if (!Rf_inherits(obj, "factor")) {
-    return false;
-  }
-
-  const auto& dict_type = checked_cast<const arrow::DictionaryType&>(*type);
-  return dict_type.value_type()->Equals(utf8());
-}
-
 arrow::Status CheckCompatibleStruct(SEXP obj,
                                     const std::shared_ptr<arrow::DataType>& type) {
   if (!Rf_inherits(obj, "data.frame")) {
@@ -1230,19 +1141,6 @@ std::shared_ptr<arrow::Array> Array__from_vector(
   // directly. This still needs to handle the null bitmap
   if (arrow::r::can_reuse_memory(x, type)) {
     return arrow::r::vec_to_arrow__reuse_memory(x);
-  }
-
-  // factors only when type has been inferred
-  if (type->id() == Type::DICTIONARY) {
-    if (type_inferred || arrow::r::CheckCompatibleFactor(x, type)) {
-      // TODO: use VectorToArrayConverter instead, but it does not appear to work
-      // correctly with ordered dictionary yet
-      //
-      // return VectorToArrayConverter::Visit(x, type);
-      return arrow::r::MakeFactorArray(x, type);
-    }
-
-    cpp11::stop("Object incompatible with dictionary type");
   }
 
   if (type->id() == Type::LIST || type->id() == Type::LARGE_LIST ||
@@ -1323,14 +1221,6 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(cpp11::list chunks,
   }
 
   return std::make_shared<arrow::ChunkedArray>(std::move(vec));
-}
-
-// [[arrow::export]]
-std::shared_ptr<arrow::Array> DictionaryArray__FromArrays(
-    const std::shared_ptr<arrow::DataType>& type,
-    const std::shared_ptr<arrow::Array>& indices,
-    const std::shared_ptr<arrow::Array>& dict) {
-  return ValueOrStop(arrow::DictionaryArray::FromArrays(type, indices, dict));
 }
 
 #endif
