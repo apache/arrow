@@ -31,6 +31,7 @@
 
 #include "arrow/array.h"
 #include "arrow/array/builder_primitive.h"
+#include "arrow/io/memory.h"
 #include "arrow/table.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/bitmap_ops.h"

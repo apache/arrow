@@ -26,6 +26,7 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_block_counter.h"
+#include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
@@ -548,60 +549,22 @@ static Status CheckIndexBoundsImpl(const ArrayData& indices, uint64_t upper_limi
     return ((IsSigned && val < 0) ||
             (val >= 0 && static_cast<uint64_t>(val) >= upper_limit));
   };
-  auto IsOutOfBoundsMaybeNull = [&](IndexCType val, bool is_valid) -> bool {
-    return is_valid && ((IsSigned && val < 0) ||
-                        (val >= 0 && static_cast<uint64_t>(val) >= upper_limit));
-  };
-  OptionalBitBlockCounter indices_bit_counter(bitmap, indices.offset, indices.length);
-  int64_t position = 0;
-  int64_t offset_position = indices.offset;
-  while (position < indices.length) {
-    BitBlockCount block = indices_bit_counter.NextBlock();
-    bool block_out_of_bounds = false;
-    if (block.popcount == block.length) {
-      // Fast path: branchless
-      for (int64_t i = 0; i < block.length; ++i) {
-        block_out_of_bounds |= IsOutOfBounds(indices_data[i]);
-      }
-    } else if (block.popcount > 0) {
-      // Indices have nulls, must only boundscheck non-null values
-      int64_t i = 0;
-      for (int64_t chunk = 0; chunk < block.length / 8; ++chunk) {
-        // Let the compiler unroll this
-        for (int j = 0; j < 8; ++j) {
-          block_out_of_bounds |= IsOutOfBoundsMaybeNull(
-              indices_data[i], BitUtil::GetBit(bitmap, offset_position + i));
-          ++i;
+  return VisitSetBitRuns(
+      bitmap, indices.offset, indices.length, [&](int64_t offset, int64_t length) {
+        bool block_out_of_bounds = false;
+        for (int64_t i = 0; i < length; ++i) {
+          block_out_of_bounds |= IsOutOfBounds(indices_data[offset + i]);
         }
-      }
-      for (; i < block.length; ++i) {
-        block_out_of_bounds |= IsOutOfBoundsMaybeNull(
-            indices_data[i], BitUtil::GetBit(bitmap, offset_position + i));
-      }
-    }
-    if (ARROW_PREDICT_FALSE(block_out_of_bounds)) {
-      if (indices.GetNullCount() > 0) {
-        for (int64_t i = 0; i < block.length; ++i) {
-          if (IsOutOfBoundsMaybeNull(indices_data[i],
-                                     BitUtil::GetBit(bitmap, offset_position + i))) {
-            return Status::IndexError("Index ", FormatInt(indices_data[i]),
-                                      " out of bounds");
+        if (ARROW_PREDICT_FALSE(block_out_of_bounds)) {
+          for (int64_t i = 0; i < length; ++i) {
+            if (IsOutOfBounds(indices_data[offset + i])) {
+              return Status::IndexError("Index ", FormatInt(indices_data[offset + i]),
+                                        " out of bounds");
+            }
           }
         }
-      } else {
-        for (int64_t i = 0; i < block.length; ++i) {
-          if (IsOutOfBounds(indices_data[i])) {
-            return Status::IndexError("Index ", FormatInt(indices_data[i]),
-                                      " out of bounds");
-          }
-        }
-      }
-    }
-    indices_data += block.length;
-    position += block.length;
-    offset_position += block.length;
-  }
-  return Status::OK();
+        return Status::OK();
+      });
 }
 
 /// \brief Branchless boundschecking of the indices. Processes batches of

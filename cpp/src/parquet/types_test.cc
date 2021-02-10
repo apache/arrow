@@ -19,6 +19,7 @@
 
 #include <string>
 
+#include "arrow/util/bit_util.h"
 #include "parquet/types.h"
 
 namespace parquet {

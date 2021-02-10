@@ -442,7 +442,7 @@ namespace applicator {
 // static void Call(KernelContext*, const ArrayData& in, ArrayData* out)
 // static void Call(KernelContext*, const Scalar& in, Scalar* out)
 template <typename Operator>
-void SimpleUnary(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+static void SimpleUnary(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   if (batch[0].kind() == Datum::SCALAR) {
     Operator::Call(ctx, *batch[0].scalar(), out->scalar().get());
   } else if (batch.length > 0) {
@@ -464,7 +464,7 @@ void SimpleUnary(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
 // static void Call(KernelContext*, const Scalar& arg0, const Scalar& arg1,
 //                  Scalar* out)
 template <typename Operator>
-void SimpleBinary(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+static void SimpleBinary(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   if (batch.length == 0) return;
 
   if (batch[0].kind() == Datum::ARRAY) {

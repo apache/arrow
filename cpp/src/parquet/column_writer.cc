@@ -29,10 +29,12 @@
 #include "arrow/array.h"
 #include "arrow/buffer_builder.h"
 #include "arrow/compute/api.h"
+#include "arrow/io/memory.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_stream_utils.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
@@ -61,6 +63,8 @@ using arrow::BitUtil::BitWriter;
 using arrow::internal::checked_cast;
 using arrow::internal::checked_pointer_cast;
 using arrow::util::RleEncoder;
+
+namespace BitUtil = arrow::BitUtil;
 
 namespace parquet {
 

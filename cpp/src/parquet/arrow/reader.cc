@@ -30,6 +30,7 @@
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"
@@ -68,6 +69,8 @@ using arrow::internal::Iota;
 using ParquetReader = parquet::ParquetFileReader;
 
 using parquet::internal::RecordReader;
+
+namespace BitUtil = arrow::BitUtil;
 
 namespace parquet {
 namespace arrow {
