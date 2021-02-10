@@ -672,10 +672,8 @@ TEST(TestAsyncUtil, Background) {
   std::vector<TestInt> expected = {1, 2, 3};
   auto background = BackgroundAsyncVectorIt(expected);
   auto future = CollectAsyncGenerator(background);
-  ASSERT_FALSE(future.is_finished());
-  future.Wait();
-  ASSERT_TRUE(future.is_finished());
-  ASSERT_EQ(expected, *future.result());
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto collected, future);
+  ASSERT_EQ(expected, collected);
 }
 
 struct SlowEmptyIterator {

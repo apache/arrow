@@ -297,8 +297,8 @@ class BackgroundGenerator {
  public:
   explicit BackgroundGenerator(Iterator<T> it, internal::Executor* io_executor)
       : io_executor_(io_executor) {
-    task_ =
-        Task{std::make_shared<Iterator<T>>(std::move(it)), std::make_shared<bool>(false)};
+    task_ = Task{std::make_shared<Iterator<T>>(std::move(it)),
+                 std::make_shared<std::atomic<bool>>(false)};
   }
 
   ~BackgroundGenerator() {
@@ -335,7 +335,7 @@ class BackgroundGenerator {
     // a shared ptr.  This should be safe however because the background executor only
     // has a single thread so it can't access it_ across multiple threads.
     std::shared_ptr<Iterator<T>> it_;
-    std::shared_ptr<bool> done_;
+    std::shared_ptr<std::atomic<bool>> done_;
   };
 
   Task task_;
