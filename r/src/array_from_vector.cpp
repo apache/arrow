@@ -333,17 +333,6 @@ struct VectorToArrayConverter {
   arrow::ArrayBuilder* builder;
 };
 
-std::shared_ptr<Array> MakeStructArray(SEXP df, const std::shared_ptr<DataType>& type) {
-  int n = type->num_fields();
-  std::vector<std::shared_ptr<Array>> children(n);
-  for (int i = 0; i < n; i++) {
-    children[i] = vec_to_arrow(VECTOR_ELT(df, i), type->field(i)->type(), true);
-  }
-
-  int64_t rows = n ? children[0]->length() : 0;
-  return std::make_shared<StructArray>(type, rows, children);
-}
-
 template <typename T>
 int64_t time_cast(T value);
 
@@ -1091,42 +1080,6 @@ Status GetConverter(const std::shared_ptr<DataType>& type,
   return Status::NotImplemented("type not implemented");
 }
 
-arrow::Status CheckCompatibleStruct(SEXP obj,
-                                    const std::shared_ptr<arrow::DataType>& type) {
-  if (!Rf_inherits(obj, "data.frame")) {
-    return Status::RError("Conversion to struct arrays requires a data.frame");
-  }
-
-  // check the number of columns
-  int num_fields = type->num_fields();
-  if (XLENGTH(obj) != num_fields) {
-    return Status::RError("Number of fields in struct (", num_fields,
-                          ") incompatible with number of columns in the data frame (",
-                          XLENGTH(obj), ")");
-  }
-
-  // check the names of each column
-  //
-  // the columns themselves are not checked against the
-  // types of the fields, because Array__from_vector will error
-  // when not compatible.
-  cpp11::strings names = Rf_getAttrib(obj, R_NamesSymbol);
-
-  return cpp11::unwind_protect([&] {
-    for (int i = 0; i < num_fields; i++) {
-      const char* name_i = arrow::r::unsafe::utf8_string(names[i]);
-      auto field_name = type->field(i)->name();
-      if (field_name != name_i) {
-        return Status::RError(
-            "Field name in position ", i, " (", field_name,
-            ") does not match the name of the column of the data frame (", name_i, ")");
-      }
-    }
-
-    return Status::OK();
-  });
-}
-
 std::shared_ptr<arrow::Array> Array__from_vector(
     SEXP x, const std::shared_ptr<arrow::DataType>& type, bool type_inferred) {
   // new api
@@ -1146,21 +1099,6 @@ std::shared_ptr<arrow::Array> Array__from_vector(
   if (type->id() == Type::LIST || type->id() == Type::LARGE_LIST ||
       type->id() == Type::FIXED_SIZE_LIST) {
     return VectorToArrayConverter::Visit(x, type);
-  }
-
-  // struct types
-  if (type->id() == Type::STRUCT) {
-    if (!type_inferred) {
-      StopIfNotOk(arrow::r::CheckCompatibleStruct(x, type));
-    }
-    // TODO: when the type has been infered, we could go through
-    //       VectorToArrayConverter:
-    //
-    // else {
-    //   return VectorToArrayConverter::Visit(df, type);
-    // }
-
-    return arrow::r::MakeStructArray(x, type);
   }
 
   // general conversion with converter and builder

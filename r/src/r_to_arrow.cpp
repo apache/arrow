@@ -844,6 +844,21 @@ class RStructConverter : public StructConverter<RConverter, RConverterTrait> {
     }
 
     cpp11::strings x_names = Rf_getAttrib(x, R_NamesSymbol);
+
+    RETURN_NOT_OK(cpp11::unwind_protect([&] {
+      for (int i = 0; i < n_columns; i++) {
+        const char* name_i = arrow::r::unsafe::utf8_string(x_names[i]);
+        auto field_name = fields[i]->name();
+        if (field_name != name_i) {
+          return Status::RError(
+            "Field name in position ", i, " (", field_name,
+                      ") does not match the name of the column of the data frame (", name_i, ")");
+        }
+      }
+
+      return Status::OK();
+    }));
+
     for (R_xlen_t i = 0; i < n_columns; i++) {
       std::string name(x_names[i]);
       if (name != fields[i]->name()) {
