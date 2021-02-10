@@ -295,9 +295,8 @@ AsyncGenerator<T> MakeTransferredGenerator(AsyncGenerator<T> source,
 template <typename T>
 class BackgroundGenerator {
  public:
-  explicit BackgroundGenerator(Iterator<T> it,
-                               std::shared_ptr<internal::ThreadPool> background_executor)
-      : background_executor_(std::move(background_executor)) {
+  explicit BackgroundGenerator(Iterator<T> it, internal::Executor* io_executor)
+      : io_executor_(io_executor) {
     task_ =
         Task{std::make_shared<Iterator<T>>(std::move(it)), std::make_shared<bool>(false)};
   }
@@ -313,7 +312,7 @@ class BackgroundGenerator {
   ARROW_DISALLOW_COPY_AND_ASSIGN(BackgroundGenerator);
 
   Future<T> operator()() {
-    auto submitted_future = background_executor_->Submit(task_);
+    auto submitted_future = io_executor_->Submit(task_);
     if (!submitted_future.ok()) {
       return Future<T>::MakeFinished(submitted_future.status());
     }
@@ -340,16 +339,16 @@ class BackgroundGenerator {
   };
 
   Task task_;
-  std::shared_ptr<internal::ThreadPool> background_executor_;
+  internal::Executor* io_executor_;
 };
 
 /// \brief Creates an AsyncGenerator<T> by iterating over an Iterator<T> on a background
 /// thread
 template <typename T>
-static Result<AsyncGenerator<T>> MakeBackgroundGenerator(Iterator<T> iterator) {
-  ARROW_ASSIGN_OR_RAISE(auto background_executor, internal::ThreadPool::Make(1));
+static Result<AsyncGenerator<T>> MakeBackgroundGenerator(
+    Iterator<T> iterator, internal::Executor* io_executor) {
   auto background_iterator = std::make_shared<BackgroundGenerator<T>>(
-      std::move(iterator), std::move(background_executor));
+      std::move(iterator), std::move(io_executor));
   return [background_iterator]() { return (*background_iterator)(); };
 }
 
@@ -373,10 +372,16 @@ Result<Iterator<T>> MakeGeneratorIterator(AsyncGenerator<T> source) {
 
 template <typename T>
 Result<Iterator<T>> MakeReadaheadIterator(Iterator<T> it, int readahead_queue_size) {
+  ARROW_ASSIGN_OR_RAISE(auto io_executor, internal::ThreadPool::Make(1));
   ARROW_ASSIGN_OR_RAISE(auto background_generator,
-                        MakeBackgroundGenerator(std::move(it)));
+                        MakeBackgroundGenerator(std::move(it), io_executor.get()));
+  // Capture io_executor to keep it alive as long as owned_bg_generator is still
+  // referenced
+  AsyncGenerator<T> owned_bg_generator = [io_executor, background_generator]() {
+    return background_generator();
+  };
   auto readahead_generator =
-      MakeReadaheadGenerator(std::move(background_generator), readahead_queue_size);
+      MakeReadaheadGenerator(std::move(owned_bg_generator), readahead_queue_size);
   return MakeGeneratorIterator(std::move(readahead_generator));
 }
 

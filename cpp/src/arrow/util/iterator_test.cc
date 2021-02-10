@@ -181,7 +181,8 @@ std::function<Future<TestInt>()> BackgroundAsyncVectorIt(std::vector<TestInt> v)
         return TransformYield(item);
       });
   EXPECT_OK_AND_ASSIGN(auto background,
-                       MakeBackgroundGenerator<TestInt>(std::move(slow_iterator)));
+                       MakeBackgroundGenerator<TestInt>(std::move(slow_iterator),
+                                                        internal::GetCpuThreadPool()));
   return MakeTransferredGenerator(background, pool);
 }
 
@@ -693,8 +694,11 @@ struct SlowEmptyIterator {
 TEST(TestAsyncUtil, BackgroundRepeatEnd) {
   // Ensure that the background generator properly fulfills the asyncgenerator contract
   // and can be called after it ends.
+  ASSERT_OK_AND_ASSIGN(auto io_pool, internal::ThreadPool::Make(1));
+
   auto iterator = Iterator<TestInt>(SlowEmptyIterator());
-  ASSERT_OK_AND_ASSIGN(auto background_gen, MakeBackgroundGenerator(std::move(iterator)));
+  ASSERT_OK_AND_ASSIGN(auto background_gen,
+                       MakeBackgroundGenerator(std::move(iterator), io_pool.get()));
 
   background_gen =
       MakeTransferredGenerator(std::move(background_gen), internal::GetCpuThreadPool());

@@ -147,10 +147,6 @@
     }                                                        \
   } while (false)
 
-inline void PrintTo(StatusCode code, std::ostream* os) {
-  *os << Status::CodeAsString(code);
-}
-
 #define ASSERT_FINISHES_OK(expr)                                              \
   do {                                                                        \
     auto&& _fut = (expr);                                                     \
@@ -183,6 +179,10 @@ inline void PrintTo(StatusCode code, std::ostream* os) {
 namespace arrow {
 // ----------------------------------------------------------------------
 // Useful testing::Types declarations
+
+inline void PrintTo(StatusCode code, std::ostream* os) {
+  *os << Status::CodeAsString(code);
+}
 
 using NumericArrowTypes =
     ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
