@@ -222,11 +222,8 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
   int32_t buffer_size_;
 };
 
-HdfsReadableFile::HdfsReadableFile(MemoryPool* pool) {
-  if (pool == nullptr) {
-    pool = default_memory_pool();
-  }
-  impl_.reset(new HdfsReadableFileImpl(pool));
+HdfsReadableFile::HdfsReadableFile(const io::IOContext& io_context) {
+  impl_.reset(new HdfsReadableFileImpl(io_context.pool()));
 }
 
 HdfsReadableFile::~HdfsReadableFile() { DCHECK_OK(impl_->Close()); }
@@ -498,6 +495,7 @@ class HadoopFileSystem::HadoopFileSystemImpl {
   }
 
   Status OpenReadable(const std::string& path, int32_t buffer_size,
+                      const io::IOContext& io_context,
                       std::shared_ptr<HdfsReadableFile>* file) {
     hdfsFile handle = driver_->OpenFile(fs_, path.c_str(), O_RDONLY, buffer_size, 0, 0);
 
@@ -508,7 +506,7 @@ class HadoopFileSystem::HadoopFileSystemImpl {
     }
 
     // std::make_shared does not work with private ctors
-    *file = std::shared_ptr<HdfsReadableFile>(new HdfsReadableFile());
+    *file = std::shared_ptr<HdfsReadableFile>(new HdfsReadableFile(io_context));
     (*file)->impl_->set_members(path, driver_, fs_, handle);
     (*file)->impl_->set_buffer_size(buffer_size);
 
@@ -627,12 +625,24 @@ Status HadoopFileSystem::ListDirectory(const std::string& path,
 
 Status HadoopFileSystem::OpenReadable(const std::string& path, int32_t buffer_size,
                                       std::shared_ptr<HdfsReadableFile>* file) {
-  return impl_->OpenReadable(path, buffer_size, file);
+  return impl_->OpenReadable(path, buffer_size, io::default_io_context(), file);
 }
 
 Status HadoopFileSystem::OpenReadable(const std::string& path,
                                       std::shared_ptr<HdfsReadableFile>* file) {
-  return OpenReadable(path, kDefaultHdfsBufferSize, file);
+  return OpenReadable(path, kDefaultHdfsBufferSize, io::default_io_context(), file);
+}
+
+Status HadoopFileSystem::OpenReadable(const std::string& path, int32_t buffer_size,
+                                      const io::IOContext& io_context,
+                                      std::shared_ptr<HdfsReadableFile>* file) {
+  return impl_->OpenReadable(path, buffer_size, io_context, file);
+}
+
+Status HadoopFileSystem::OpenReadable(const std::string& path,
+                                      const io::IOContext& io_context,
+                                      std::shared_ptr<HdfsReadableFile>* file) {
+  return OpenReadable(path, kDefaultHdfsBufferSize, io_context, file);
 }
 
 Status HadoopFileSystem::OpenWritable(const std::string& path, bool append,

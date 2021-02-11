@@ -30,12 +30,12 @@ namespace internal {
 // arguments between 0 and `num_tasks - 1`, on an arbitrary number of threads.
 
 template <class FUNCTION>
-Status ParallelFor(int num_tasks, FUNCTION&& func) {
-  auto pool = internal::GetCpuThreadPool();
+Status ParallelFor(int num_tasks, FUNCTION&& func,
+                   Executor* executor = internal::GetCpuThreadPool()) {
   std::vector<Future<>> futures(num_tasks);
 
   for (int i = 0; i < num_tasks; ++i) {
-    ARROW_ASSIGN_OR_RAISE(futures[i], pool->Submit(func, i));
+    ARROW_ASSIGN_OR_RAISE(futures[i], executor->Submit(func, i));
   }
   auto st = Status::OK();
   for (auto& fut : futures) {
@@ -49,9 +49,10 @@ Status ParallelFor(int num_tasks, FUNCTION&& func) {
 // depending on the input boolean.
 
 template <class FUNCTION>
-Status OptionalParallelFor(bool use_threads, int num_tasks, FUNCTION&& func) {
+Status OptionalParallelFor(bool use_threads, int num_tasks, FUNCTION&& func,
+                           Executor* executor = internal::GetCpuThreadPool()) {
   if (use_threads) {
-    return ParallelFor(num_tasks, std::forward<FUNCTION>(func));
+    return ParallelFor(num_tasks, std::forward<FUNCTION>(func), executor);
   } else {
     for (int i = 0; i < num_tasks; ++i) {
       RETURN_NOT_OK(func(i));

@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "arrow/filesystem/filesystem.h"
+#include "arrow/util/string_view.h"
 #include "arrow/util/windows_fixup.h"
 
 namespace arrow {
@@ -43,7 +44,7 @@ struct MockDirInfo {
 struct MockFileInfo {
   std::string full_path;
   TimePoint mtime;
-  std::string data;
+  util::string_view data;
 
   bool operator==(const MockFileInfo& other) const {
     return mtime == other.mtime && full_path == other.full_path && data == other.data;
@@ -58,7 +59,8 @@ struct MockFileInfo {
 /// and bootstrapping FileSystem-based APIs.
 class ARROW_EXPORT MockFileSystem : public FileSystem {
  public:
-  explicit MockFileSystem(TimePoint current_time);
+  explicit MockFileSystem(TimePoint current_time,
+                          const io::IOContext& = io::default_io_context());
   ~MockFileSystem() override;
 
   std::string type_name() const override { return "mock"; }
@@ -98,7 +100,7 @@ class ARROW_EXPORT MockFileSystem : public FileSystem {
   std::vector<MockFileInfo> AllFiles();
 
   // Create a File with a content from a string.
-  Status CreateFile(const std::string& path, const std::string& content,
+  Status CreateFile(const std::string& path, util::string_view content,
                     bool recursive = true);
 
   // Create a MockFileSystem out of (empty) FileInfo. The content of every

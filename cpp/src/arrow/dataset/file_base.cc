@@ -160,6 +160,13 @@ Status FileWriter::Write(RecordBatchReader* batches) {
   return Status::OK();
 }
 
+Status FileWriter::Finish() {
+  RETURN_NOT_OK(FinishInternal());
+  return destination_->Close();
+}
+
+namespace {
+
 constexpr util::string_view kIntegerToken = "{i}";
 
 Status ValidateBasenameTemplate(util::string_view basename_template) {
@@ -256,6 +263,8 @@ class WriteQueue {
 
   std::shared_ptr<Schema> schema_;
 };
+
+}  // namespace
 
 Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_options,
                                 std::shared_ptr<Scanner> scanner) {

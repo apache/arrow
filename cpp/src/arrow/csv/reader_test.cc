@@ -108,7 +108,7 @@ TableReaderFactory MakeSerialFactory() {
     auto read_options = ReadOptions::Defaults();
     read_options.block_size = 1 << 10;
     read_options.use_threads = false;
-    return TableReader::Make(default_memory_pool(), io::AsyncContext(), input_stream,
+    return TableReader::Make(default_memory_pool(), io::IOContext(), input_stream,
                              read_options, ParseOptions::Defaults(),
                              ConvertOptions::Defaults());
   };
@@ -132,7 +132,7 @@ Result<TableReaderFactory> MakeAsyncFactory(
     read_options.use_threads = true;
     read_options.block_size = 1 << 10;
     auto table_reader = TableReader::Make(
-        default_memory_pool(), io::AsyncContext(thread_pool.get()), input_stream,
+        default_memory_pool(), io::IOContext(thread_pool.get()), input_stream,
         read_options, ParseOptions::Defaults(), ConvertOptions::Defaults());
     return table_reader;
   };
