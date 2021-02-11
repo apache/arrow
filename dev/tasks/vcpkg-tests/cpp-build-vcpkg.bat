@@ -77,7 +77,7 @@ cmake -G "Visual Studio 16 2019" -A x64 ^
       -DLZ4_MSVC_LIB_PREFIX="" ^
       -DLZ4_MSVC_STATIC_LIB_SUFFIX="" ^
       -D_VCPKG_INSTALLED_DIR="%VCPKG_INSTALLED%" ^
-      -VCPKG_MANIFEST_INSTALL=ON ^
+      -DVCPKG_MANIFEST_INSTALL=ON ^
       -DVCPKG_TARGET_TRIPLET="x64-windows" ^
       -DZSTD_MSVC_LIB_PREFIX="" ^
       .. || exit /B 1
