@@ -782,10 +782,8 @@ impl MutableBuffer {
     pub fn with_bitset(mut self, end: usize, val: bool) -> Self {
         assert!(end <= self.capacity);
         let v = if val { 255 } else { 0 };
-        unsafe {
-            std::ptr::write_bytes(self.data.as_ptr(), v, end);
-            self.len = end;
-        }
+        self.len = end;
+        self.as_slice_mut().fill(v);
         self
     }
 
@@ -795,10 +793,7 @@ impl MutableBuffer {
     /// `len` of the buffer and so can be used to initialize the memory region from
     /// `len` to `capacity`.
     pub fn set_null_bits(&mut self, start: usize, count: usize) {
-        assert!(start + count <= self.capacity);
-        unsafe {
-            std::ptr::write_bytes(self.data.as_ptr().add(start), 0, count);
-        }
+        self.as_slice_mut()[start..start + count].fill(0);
     }
 
     /// Ensures that this buffer has at least `self.len + additional` bytes. This re-allocates iff
@@ -847,10 +842,13 @@ impl MutableBuffer {
             let diff = new_len - self.len;
             self.reserve(diff);
             // write the value
-            unsafe { self.data.as_ptr().add(self.len).write_bytes(value, diff) };
+            let old_len = self.len;
+            self.len = new_len;
+            self.as_slice_mut()[old_len..new_len].fill(value);
+        } else {
+            // this truncates the buffer when new_len < self.len
+            self.len = new_len;
         }
-        // this truncates the buffer when new_len < self.len
-        self.len = new_len;
     }
 
     /// Returns whether this buffer is empty or not.
