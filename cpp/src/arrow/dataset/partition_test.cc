@@ -297,13 +297,16 @@ TEST_F(TestPartitioning, DiscoverSchemaSegfault) {
 
 TEST_F(TestPartitioning, HivePartitioning) {
   partitioning_ = std::make_shared<HivePartitioning>(
-      schema({field("alpha", int32()), field("beta", float32())}));
+      schema({field("alpha", int32()), field("beta", float32())}), ArrayVector(), "xyz");
 
   AssertParse("/alpha=0/beta=3.25", and_(equal(field_ref("alpha"), literal(0)),
                                          equal(field_ref("beta"), literal(3.25f))));
   AssertParse("/beta=3.25/alpha=0", and_(equal(field_ref("beta"), literal(3.25f)),
                                          equal(field_ref("alpha"), literal(0))));
   AssertParse("/alpha=0", equal(field_ref("alpha"), literal(0)));
+  AssertParse("/alpha=xyz/beta=3.25",
+              and_(equal(field_ref("alpha"), null_literal(int32())),
+                   equal(field_ref("beta"), literal(3.25f))));
   AssertParse("/beta=3.25", equal(field_ref("beta"), literal(3.25f)));
   AssertParse("", literal(true));
 
@@ -332,9 +335,18 @@ TEST_F(TestPartitioning, HivePartitioningFormat) {
   AssertFormat(and_(equal(field_ref("beta"), literal(3.25f)),
                     equal(field_ref("alpha"), literal(0))),
                "alpha=0/beta=3.25");
-  AssertFormat(equal(field_ref("alpha"), literal(0)), "alpha=0/beta=xyz");
-  AssertFormat(equal(field_ref("beta"), literal(3.25f)), "alpha=xyz/beta=3.25");
-  AssertFormat(literal(true), "alpha=xyz/beta=xyz");
+  AssertFormat(equal(field_ref("alpha"), literal(0)), "alpha=0");
+  AssertFormat(and_(equal(field_ref("alpha"), literal(0)),
+                    equal(field_ref("beta"), null_literal(float32()))),
+               "alpha=0/beta=xyz");
+  AssertFormat(and_(equal(field_ref("alpha"), null_literal(int32())),
+                    equal(field_ref("beta"), literal(3.25f))),
+               "alpha=xyz/beta=3.25");
+  AssertFormat(literal(true), "");
+
+  AssertFormat(and_(equal(field_ref("alpha"), null_literal(int32())),
+                    equal(field_ref("beta"), null_literal(float32()))),
+               "alpha=xyz/beta=xyz");
 
   ASSERT_OK_AND_ASSIGN(written_schema_,
                        written_schema_->AddField(0, field("gamma", utf8())));
@@ -342,9 +354,6 @@ TEST_F(TestPartitioning, HivePartitioningFormat) {
                      equal(field_ref("alpha"), literal(0)),
                      equal(field_ref("beta"), literal(3.25f))}),
                "alpha=0/beta=3.25");
-
-  AssertFormat(equal(field_ref("alpha"), literal(MakeNullScalar(int32()))),
-               "alpha=xyz/beta=xyz");
 
   // written_schema_ is incompatible with partitioning_'s schema
   written_schema_ = schema({field("alpha", utf8()), field("beta", utf8())});

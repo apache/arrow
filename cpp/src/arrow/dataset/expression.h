@@ -136,7 +136,7 @@ ARROW_DS_EXPORT
 Expression literal(Datum lit);
 
 ARROW_DS_EXPORT
-Expression null_literal();
+Expression null_literal(const std::shared_ptr<DataType>& type);
 
 template <typename Arg>
 Expression literal(Arg&& arg) {

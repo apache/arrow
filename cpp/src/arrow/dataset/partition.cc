@@ -147,7 +147,9 @@ Result<Expression> KeyValuePartitioning::ConvertKey(const Key& key) const {
 
   std::shared_ptr<Scalar> converted;
 
-  if (field->type()->id() == Type::DICTIONARY) {
+  if (key.null) {
+    converted = MakeNullScalar(field->type());
+  } else if (field->type()->id() == Type::DICTIONARY) {
     if (dictionaries_.empty() || dictionaries_[field_index] == nullptr) {
       return Status::Invalid("No dictionary provided for dictionary field ",
                              field->ToString());
@@ -230,7 +232,7 @@ std::vector<KeyValuePartitioning::Key> DirectoryPartitioning::ParseKeys(
   for (auto&& segment : fs::internal::SplitAbstractPath(path)) {
     if (i >= schema_->num_fields()) break;
 
-    keys.push_back({schema_->field(i++)->name(), std::move(segment)});
+    keys.push_back({schema_->field(i++)->name(), std::move(segment), false});
   }
 
   return keys;
@@ -419,9 +421,9 @@ util::optional<KeyValuePartitioning::Key> HivePartitioning::ParseKey(
 
   auto value = segment.substr(name_end + 1);
   if (value == null_fallback) {
-    return util::nullopt;
+    return Key{segment.substr(0, name_end), "", true};
   }
-  return Key{segment.substr(0, name_end), segment.substr(name_end + 1)};
+  return Key{segment.substr(0, name_end), segment.substr(name_end + 1), false};
 }
 
 std::vector<KeyValuePartitioning::Key> HivePartitioning::ParseKeys(
@@ -443,7 +445,9 @@ Result<std::string> HivePartitioning::FormatValues(const ScalarVector& values) c
   for (int i = 0; i < schema_->num_fields(); ++i) {
     const std::string& name = schema_->field(i)->name();
 
-    if (values[i] == nullptr || !values[i]->is_valid) {
+    if (values[i] == nullptr) {
+      segments[i] = "";
+    } else if (!values[i]->is_valid) {
       // If no key is available just provide a placeholder segment to maintain the
       // field_index <-> path nesting relation
       segments[i] = name + "=" + null_fallback_;

@@ -125,6 +125,7 @@ class ARROW_DS_EXPORT KeyValuePartitioning : public Partitioning {
   /// of a scalar value
   struct Key {
     std::string name, value;
+    bool null;
   };
 
   static Status SetDefaultValuesFromKeys(const Expression& expr,

@@ -250,6 +250,9 @@ TEST(Expression, Hash) {
   EXPECT_FALSE(set.emplace(literal(1)).second) << "already inserted";
   EXPECT_TRUE(set.emplace(literal(3)).second);
 
+  EXPECT_TRUE(set.emplace(null_literal(int32())).second);
+  EXPECT_FALSE(set.emplace(null_literal(int32())).second) << "already inserted";
+  EXPECT_TRUE(set.emplace(null_literal(float32())).second);
   // NB: no validation on construction; we couldn't execute
   //     add with zero arguments
   EXPECT_TRUE(set.emplace(call("add", {})).second);
@@ -258,7 +261,7 @@ TEST(Expression, Hash) {
   // NB: unbound expressions don't check for availability in any registry
   EXPECT_TRUE(set.emplace(call("widgetify", {})).second);
 
-  EXPECT_EQ(set.size(), 6);
+  EXPECT_EQ(set.size(), 8);
 }
 
 TEST(Expression, IsScalarExpression) {
@@ -1013,6 +1016,10 @@ TEST(Expression, SimplifyWithGuarantee) {
   Simplify{greater(field_ref("dict_i32"), literal(int64_t(1)))}
       .WithGuarantee(equal(field_ref("dict_i32"), literal(0)))
       .Expect(false);
+
+  Simplify{null_literal(int32())}
+      .WithGuarantee(null_literal(int32()))
+      .Expect(literal(true));
 }
 
 TEST(Expression, SimplifyThenExecute) {
