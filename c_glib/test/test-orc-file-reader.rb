@@ -40,7 +40,7 @@ bytes1: binary
 string1: string
 middle: struct<list: list<item: struct<int1: int32, string1: string>>>
 list: list<item: struct<int1: int32, string1: string>>
-map: list<item: struct<key: string, value: struct<int1: int32, string1: string>>>
+map: map<string, struct<int1: int32, string1: string>>
     SCHEMA
   end
 
