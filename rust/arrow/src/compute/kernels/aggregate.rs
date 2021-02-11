@@ -968,6 +968,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn test_float_aggregation_paths() {
         let a = Float64Array::from_iter_values(vec![1.0, 2.0, f64::NAN]);
         let b = Float64Array::from_iter_values(vec![f64::NAN, 1.0, 2.0]);
