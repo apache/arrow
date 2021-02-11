@@ -1805,7 +1805,6 @@ def test_open_dataset_from_fsspec(tempdir):
 @pytest.mark.pandas
 def test_filter_timestamp(tempdir):
     # ARROW-11379
-    import pyarrow.parquet as pq
     path = tempdir / "test_partition_timestamps"
 
     table = pa.table({
