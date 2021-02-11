@@ -615,18 +615,16 @@ mod tests {
             assert!(a.is_null(i));
         }
     }
-    
+
     #[test]
     fn test_null_dictionary() {
-        let values = vec![
-            None, None, None, None, None, None, None, None, None
-        ] as Vec<Option<&str>>;
+        let values = vec![None, None, None, None, None, None, None, None, None]
+            as Vec<Option<&str>>;
 
-        let array : DictionaryArray<Int8Type> = values.into_iter().collect();
+        let array: DictionaryArray<Int8Type> = values.into_iter().collect();
         let array = Arc::new(array) as ArrayRef;
 
         let null_array = new_null_array(array.data_type(), 9);
         assert_eq!(&array, &null_array);
     }
-
 }
