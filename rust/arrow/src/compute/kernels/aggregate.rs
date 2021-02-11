@@ -19,9 +19,14 @@
 
 use std::ops::Add;
 
-use crate::array::{Array, BooleanArray, GenericStringArray, PrimitiveArray, StringOffsetSizeTrait, Float64Array, Float32Array};
+use super::sort::{total_cmp_32, total_cmp_64};
+use crate::array::{
+    Array, BooleanArray, Float32Array, Float64Array, GenericStringArray, PrimitiveArray,
+    StringOffsetSizeTrait,
+};
 use crate::datatypes::{ArrowNativeType, ArrowNumericType, DataType};
 use num::{Float, NumCast};
+use std::cmp::Ordering;
 
 /// Generic test for NaN, the optimizer should be able to remove this for integer types.
 #[inline]
@@ -65,27 +70,150 @@ fn min_max_string<T: StringOffsetSizeTrait, F: Fn(&str, &str) -> bool>(
     Some(n)
 }
 
+#[derive(Debug)]
+pub enum NaNBehavior {
+    Propagate,
+    Ignore,
+    TotalOrdering,
+}
+
+impl Default for NaNBehavior {
+    fn default() -> Self {
+        NaNBehavior::TotalOrdering
+    }
+}
+
+/// Returns the minimum value in the array, according to the natural order.
+/// This kernel accepts Options to define the NaN behavior. Note that this is different than missing data.
+pub fn min_float<T>(
+    array: &PrimitiveArray<T>,
+    nan_behavior: Option<NaNBehavior>,
+) -> Option<T::Native>
+where
+    T: ArrowNumericType,
+    T::Native: Float,
+{
+    let nan_behavior = nan_behavior.unwrap_or_default();
+
+    fn ignore_path<F: Float>(min: &F, b: &F) -> bool {
+        // if evaluates to true b will be written to output
+        match (min.is_nan(), b.is_nan()) {
+            (true, true) => false,
+            // NaN < b
+            (true, false) => true,
+            // a < NaN
+            (false, true) => false,
+            (false, false) => min > b,
+        }
+    }
+
+    match array.data_type() {
+        DataType::Float32 => {
+            let array = array
+                .as_any()
+                .downcast_ref::<Float32Array>()
+                .expect("f32 array");
+            let out = match nan_behavior {
+                NaNBehavior::Propagate => {
+                    min_max_helper(array, |a, b| !ignore_path(a, b))
+                }
+                NaNBehavior::TotalOrdering => min_max_helper(array, |a, b| {
+                    total_cmp_32(*a, *b) == Ordering::Greater
+                }),
+                NaNBehavior::Ignore => min_max_helper(array, ignore_path),
+            };
+            out.map(|float| NumCast::from(float).expect("T::Native"))
+        }
+        DataType::Float64 => {
+            let array = array
+                .as_any()
+                .downcast_ref::<Float64Array>()
+                .expect("f64 array");
+            let out = match nan_behavior {
+                NaNBehavior::Propagate => {
+                    min_max_helper(array, |a, b| !ignore_path(a, b))
+                }
+                NaNBehavior::TotalOrdering => min_max_helper(array, |a, b| {
+                    total_cmp_64(*a, *b) == Ordering::Greater
+                }),
+                NaNBehavior::Ignore => min_max_helper(array, ignore_path),
+            };
+            out.map(|float| NumCast::from(float).expect("T::Native"))
+        }
+        _ => unreachable!(),
+    }
+}
+
+/// Returns the maximum value in the array, according to the natural order.
+/// This kernel accepts Options to define the NaN behavior. Note that this is different than missing data.
+pub fn max_float<T>(
+    array: &PrimitiveArray<T>,
+    nan_behavior: Option<NaNBehavior>,
+) -> Option<T::Native>
+where
+    T: ArrowNumericType,
+    T::Native: Float,
+{
+    let nan_behavior = nan_behavior.unwrap_or_default();
+
+    fn ignore_path<F: Float>(max: &F, b: &F) -> bool {
+        // if evaluates to true b will be written to output
+        match (max.is_nan(), b.is_nan()) {
+            (true, true) => false,
+            // NaN < b
+            (true, false) => true,
+            // a < NaN
+            (false, true) => false,
+            (false, false) => max < b,
+        }
+    }
+
+    match array.data_type() {
+        DataType::Float32 => {
+            let array = array
+                .as_any()
+                .downcast_ref::<Float32Array>()
+                .expect("f32 array");
+            let out = match nan_behavior {
+                NaNBehavior::Propagate => {
+                    min_max_helper(array, |a, b| !ignore_path(a, b))
+                }
+                NaNBehavior::TotalOrdering => {
+                    min_max_helper(array, |a, b| total_cmp_32(*a, *b) == Ordering::Less)
+                }
+                NaNBehavior::Ignore => min_max_helper(array, ignore_path),
+            };
+            out.map(|float| NumCast::from(float).expect("T::Native"))
+        }
+        DataType::Float64 => {
+            let array = array
+                .as_any()
+                .downcast_ref::<Float64Array>()
+                .expect("f64 array");
+            let out = match nan_behavior {
+                NaNBehavior::Propagate => {
+                    min_max_helper(array, |a, b| !ignore_path(a, b))
+                }
+                NaNBehavior::TotalOrdering => {
+                    min_max_helper(array, |a, b| total_cmp_64(*a, *b) == Ordering::Less)
+                }
+                NaNBehavior::Ignore => min_max_helper(array, ignore_path),
+            };
+            out.map(|float| NumCast::from(float).expect("T::Native"))
+        }
+        _ => unreachable!(),
+    }
+}
+
 /// Returns the minimum value in the array, according to the natural order.
 /// For floating point arrays any NaN values are considered to be greater than any other non-null value
 #[cfg(not(simd))]
 pub fn min<T>(array: &PrimitiveArray<T>) -> Option<T::Native>
 where
     T: ArrowNumericType,
-    T::Native: ArrowNativeType + NumCast,
+    T::Native: ArrowNativeType,
 {
-    match T::DATA_TYPE {
-        DataType::Float64 => {
-            let array = array.as_any().downcast_ref::<Float64Array>().unwrap();
-            min_max_float_helper(array, |a, b| a.is_nan() & !b.is_nan() || a > b).map(|v| NumCast::from(v).unwrap())
-        }
-        DataType::Float32 => {
-            let array = array.as_any().downcast_ref::<Float32Array>().unwrap();
-            min_max_float_helper(array, |a, b| a.is_nan() & !b.is_nan() || a > b).map(|v| NumCast::from(v).unwrap())
-        }
-        _ => {
-            min_max_helper(array, |a, b| a > b)
-        }
-    }
+    min_max_helper(array, |a, b| (is_nan(*a) & !is_nan(*b)) || a > b)
 }
 
 /// Returns the maximum value in the array, according to the natural order.
@@ -94,21 +222,9 @@ where
 pub fn max<T>(array: &PrimitiveArray<T>) -> Option<T::Native>
 where
     T: ArrowNumericType,
-    T::Native: ArrowNativeType + NumCast,
+    T::Native: ArrowNativeType,
 {
-    match T::DATA_TYPE {
-        DataType::Float64 => {
-            let array = array.as_any().downcast_ref::<Float64Array>().unwrap();
-            min_max_float_helper(array, |a, b| !a.is_nan() & b.is_nan() || a < b).map(|v| NumCast::from(v).unwrap())
-        }
-        DataType::Float32 => {
-            let array = array.as_any().downcast_ref::<Float32Array>().unwrap();
-            min_max_float_helper(array, |a, b| !a.is_nan() & b.is_nan() || a < b).map(|v| NumCast::from(v).unwrap())
-        }
-        _ => {
-            min_max_helper(array, |a, b| a < b)
-        }
-    }
+    min_max_helper(array, |a, b| (!is_nan(*a) & is_nan(*b)) || a < b)
 }
 
 /// Returns the maximum value in the string array, according to the natural order.
@@ -123,52 +239,6 @@ pub fn min_string<T: StringOffsetSizeTrait>(
     array: &GenericStringArray<T>,
 ) -> Option<&str> {
     min_max_string(array, |a, b| a > b)
-}
-
-
-/// Helper function to perform min/max lambda function on values from a float array.
-fn min_max_float_helper<T, F>(array: &PrimitiveArray<T>, cmp: F) -> Option<T::Native>
-    where
-        T: ArrowNumericType,
-        T::Native: Float,
-    F: Fn(&T::Native, &T::Native) -> bool,
-{
-    let null_count = array.null_count();
-
-    // Includes case array.len() == 0
-    if null_count == array.len() {
-        return None;
-    }
-
-    if array.len() == 1 {
-        return array.into_iter().next().unwrap()
-    }
-
-    let data = array.data();
-    let m = array.values();
-    let mut n;
-
-    if m[0].is_nan() && array.is_valid(0) || m[m.len() - 1].is_nan() && array.is_valid(m.len() -1) {
-        return Some(T::Native::nan())
-    }
-
-    if null_count == 0 {
-        // optimized path for arrays without null values
-        n = m[1..]
-            .iter()
-            .fold(m[0], |max, item| if cmp(&max, item) { *item } else { max });
-    } else {
-        n = T::default_value();
-        let mut has_value = false;
-        for (i, item) in m.iter().enumerate() {
-            if data.is_valid(i) && (!has_value || cmp(&n, item)) {
-                has_value = true;
-                n = *item
-            }
-        }
-    }
-    Some(n)
-
 }
 
 /// Helper function to perform min/max lambda function on values from a numeric array.
@@ -898,13 +968,29 @@ mod tests {
     }
 
     #[test]
-    fn test_primitive_nan_consistency() {
-        let a = Float64Array::from_iter_values(vec![1.0, f64::NAN]);
-        assert!(min(&a).unwrap().is_nan());
-        assert!(max(&a).unwrap().is_nan());
-        let a = Float64Array::from_iter_values(vec![f64::NAN, 1.0]);
-        assert!(min(&a).unwrap().is_nan());
-        assert!(max(&a).unwrap().is_nan());
+    fn test_float_aggregation_paths() {
+        let a = Float64Array::from_iter_values(vec![1.0, 2.0, f64::NAN]);
+        let b = Float64Array::from_iter_values(vec![f64::NAN, 1.0, 2.0]);
+        let c = Float64Array::from_iter_values(vec![2.0, f64::NAN, 1.0]);
+
+        for array in &[a, b, c] {
+            assert_eq!(min_float(array, Some(NaNBehavior::Ignore)).unwrap(), 1.0);
+            assert_eq!(
+                min_float(array, Some(NaNBehavior::TotalOrdering)).unwrap(),
+                1.0
+            );
+            assert!(min_float(array, Some(NaNBehavior::Propagate))
+                .unwrap()
+                .is_nan());
+
+            assert_eq!(max_float(array, Some(NaNBehavior::Ignore)).unwrap(), 2.0);
+            assert!(max_float(array, Some(NaNBehavior::TotalOrdering))
+                .unwrap()
+                .is_nan());
+            assert!(max_float(array, Some(NaNBehavior::Propagate))
+                .unwrap()
+                .is_nan());
+        }
     }
 
     #[test]
