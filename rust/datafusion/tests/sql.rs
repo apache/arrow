@@ -554,6 +554,7 @@ async fn csv_query_sqrt_sqrt() -> Result<()> {
     Ok(())
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn create_ctx() -> Result<ExecutionContext> {
     let mut ctx = ExecutionContext::new();
 

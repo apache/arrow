@@ -469,7 +469,7 @@ mod tests {
     }
 
     #[test]
-    fn stringified_plan() -> Result<()> {
+    fn stringified_plan() {
         let stringified_plan =
             StringifiedPlan::new(PlanType::LogicalPlan, "...the plan...");
         assert!(stringified_plan.should_display(true));
@@ -488,7 +488,5 @@ mod tests {
         );
         assert!(stringified_plan.should_display(true));
         assert!(!stringified_plan.should_display(false));
-
-        Ok(())
     }
 }

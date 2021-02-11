@@ -624,19 +624,17 @@ mod tests {
     use super::*;
 
     #[test]
-    fn scalar_list_null_to_array() -> Result<()> {
+    fn scalar_list_null_to_array() {
         let list_array_ref = ScalarValue::List(None, DataType::UInt64).to_array();
         let list_array = list_array_ref.as_any().downcast_ref::<ListArray>().unwrap();
 
         assert!(list_array.is_null(0));
         assert_eq!(list_array.len(), 1);
         assert_eq!(list_array.values().len(), 0);
-
-        Ok(())
     }
 
     #[test]
-    fn scalar_list_to_array() -> Result<()> {
+    fn scalar_list_to_array() {
         let list_array_ref = ScalarValue::List(
             Some(vec![
                 ScalarValue::UInt64(Some(100)),
@@ -660,7 +658,5 @@ mod tests {
         assert_eq!(prim_array.value(0), 100);
         assert!(prim_array.is_null(1));
         assert_eq!(prim_array.value(2), 101);
-
-        Ok(())
     }
 }

@@ -474,7 +474,7 @@ pub fn create_physical_expr(
         BuiltinScalarFunction::DateTrunc => {
             |args| Ok(Arc::new(datetime_expressions::date_trunc(args)?))
         }
-        BuiltinScalarFunction::Array => |args| Ok(array_expressions::array(args)?),
+        BuiltinScalarFunction::Array => |args| array_expressions::array(args),
     });
     // coerce
     let args = coerce(args, input_schema, &signature(fun))?;

@@ -77,20 +77,18 @@ mod tests {
     use std::sync::Arc;
 
     #[test]
-    fn test_concat_empty_vec() -> Result<()> {
+    fn test_concat_empty_vec() {
         let re = concat(&[]);
         assert!(re.is_err());
-        Ok(())
     }
 
     #[test]
-    fn test_concat_incompatible_datatypes() -> Result<()> {
+    fn test_concat_incompatible_datatypes() {
         let re = concat(&[
             &PrimitiveArray::<Int64Type>::from(vec![Some(-1), Some(2), None]),
             &StringArray::from(vec![Some("hello"), Some("bar"), Some("world")]),
         ]);
         assert!(re.is_err());
-        Ok(())
     }
 
     #[test]

@@ -27,6 +27,7 @@ use std::ops::Add;
 /// Combines the null bitmaps of two arrays using a bitwise `and` operation.
 ///
 /// This function is useful when implementing operations on higher level arrays.
+#[allow(clippy::unnecessary_wraps)]
 pub(super) fn combine_option_bitmap(
     left_data: &ArrayDataRef,
     right_data: &ArrayDataRef,
@@ -60,6 +61,7 @@ pub(super) fn combine_option_bitmap(
 /// Compares the null bitmaps of two arrays using a bitwise `or` operation.
 ///
 /// This function is useful when implementing operations on higher level arrays.
+#[allow(clippy::unnecessary_wraps)]
 pub(super) fn compare_option_bitmap(
     left_data: &ArrayDataRef,
     right_data: &ArrayDataRef,

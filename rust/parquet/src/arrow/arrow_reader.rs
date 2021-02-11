@@ -147,7 +147,7 @@ impl ArrowReader for ParquetFileArrowReader {
             self.file_reader.clone(),
         )?;
 
-        Ok(ParquetRecordBatchReader::try_new(batch_size, array_reader)?)
+        ParquetRecordBatchReader::try_new(batch_size, array_reader)
     }
 }
 

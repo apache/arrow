@@ -1153,7 +1153,7 @@ mod tests {
     }
 
     #[test]
-    fn test_bounded() -> Result<()> {
+    fn test_bounded() {
         let schema = Schema::new(vec![Field::new("int", DataType::UInt32, false)]);
         let data = vec![
             vec!["0"],
@@ -1196,7 +1196,6 @@ mod tests {
         assert_eq!(a, &UInt32Array::from(vec![4, 5]));
 
         assert!(csv.next().is_none());
-        Ok(())
     }
 
     #[test]

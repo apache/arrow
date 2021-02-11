@@ -821,6 +821,7 @@ const EPOCH_DAYS_FROM_CE: i32 = 719_163;
 /// Arrays should have the same primitive data type, otherwise this should fail.
 /// We do not perform this check on primitive data types as we only use this
 /// function internally, where it is guaranteed to be infallible.
+#[allow(clippy::unnecessary_wraps)]
 fn cast_array_data<TO>(array: &ArrayRef, to_type: DataType) -> Result<ArrayRef>
 where
     TO: ArrowNumericType,
@@ -838,6 +839,7 @@ where
 }
 
 /// Convert Array into a PrimitiveArray of type, and apply numeric cast
+#[allow(clippy::unnecessary_wraps)]
 fn cast_numeric_arrays<FROM, TO>(from: &ArrayRef) -> Result<ArrayRef>
 where
     FROM: ArrowNumericType,
@@ -869,6 +871,7 @@ where
 }
 
 /// Cast numeric types to Utf8
+#[allow(clippy::unnecessary_wraps)]
 fn cast_numeric_to_string<FROM>(array: &ArrayRef) -> Result<ArrayRef>
 where
     FROM: ArrowNumericType,
@@ -893,6 +896,7 @@ where
 }
 
 /// Cast numeric types to Utf8
+#[allow(clippy::unnecessary_wraps)]
 fn cast_string_to_numeric<T>(from: &ArrayRef) -> Result<ArrayRef>
 where
     T: ArrowNumericType,
@@ -959,6 +963,7 @@ where
 /// Cast Boolean types to numeric
 ///
 /// `false` returns 0 while `true` returns 1
+#[allow(clippy::unnecessary_wraps)]
 fn cast_bool_to_numeric<TO>(from: &ArrayRef) -> Result<ArrayRef>
 where
     TO: ArrowNumericType,

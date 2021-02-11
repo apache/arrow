@@ -24,6 +24,7 @@ use crate::{
 };
 use std::sync::Arc;
 
+#[allow(clippy::unnecessary_wraps)]
 fn generic_substring<OffsetSize: StringOffsetSizeTrait>(
     array: &GenericStringArray<OffsetSize>,
     start: OffsetSize,

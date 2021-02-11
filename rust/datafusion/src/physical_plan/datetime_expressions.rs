@@ -420,7 +420,7 @@ mod tests {
     }
 
     #[test]
-    fn string_to_timestamp_invalid() -> Result<()> {
+    fn string_to_timestamp_invalid() {
         // Test parsing invalid formats
 
         // It would be nice to make these messages better
@@ -430,8 +430,6 @@ mod tests {
             "Wed, 18 Feb 2015 23:16:09 GMT",
             "Error parsing 'Wed, 18 Feb 2015 23:16:09 GMT' as timestamp",
         );
-
-        Ok(())
     }
 
     // Parse a timestamp to timestamp int with a useful human readable error message
