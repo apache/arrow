@@ -141,7 +141,7 @@
 // unit test anyways.
 #define ASSERT_FINISHES_IMPL(fut)                            \
   do {                                                       \
-    ASSERT_TRUE(fut.Wait(2));                                \
+    ASSERT_TRUE(fut.Wait(10));                               \
     if (!fut.is_finished()) {                                \
       FAIL() << "Future did not finish in a timely fashion"; \
     }                                                        \
@@ -150,7 +150,7 @@
 #define ASSERT_FINISHES_OK(expr)                                              \
   do {                                                                        \
     auto&& _fut = (expr);                                                     \
-    ASSERT_TRUE(_fut.Wait(2));                                                \
+    ASSERT_TRUE(_fut.Wait(10));                                               \
     if (!_fut.is_finished()) {                                                \
       FAIL() << "Future did not finish in a timely fashion";                  \
     }                                                                         \
