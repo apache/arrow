@@ -887,7 +887,7 @@ class AsyncThreadedTableReader
         // The logic in VisitAsyncGenerator ensures that we will never be
         // passed an empty block (visit does not call with the end token) so
         // we can be assured maybe_block has a value.
-        DCHECK(maybe_block.block_index >= 0);
+        DCHECK_GE(maybe_block.block_index, 0);
         DCHECK(!maybe_block.consume_bytes);
 
         // Launch parse task
