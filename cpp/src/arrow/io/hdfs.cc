@@ -288,17 +288,15 @@ class HdfsOutputStream::HdfsOutputStreamImpl : public HdfsAnyFileImpl {
     return Status::OK();
   }
 
-  Status Write(const uint8_t* buffer, int64_t nbytes, int64_t* bytes_written) {
+  Status Write(const uint8_t* buffer, int64_t nbytes) {
     constexpr int64_t kMaxBlockSize = std::numeric_limits<int32_t>::max();
 
     std::lock_guard<std::mutex> guard(lock_);
-    *bytes_written = 0;
     while (nbytes > 0) {
       const auto block_size = static_cast<tSize>(std::min(kMaxBlockSize, nbytes));
       tSize ret = driver_->Write(fs_, file_, buffer, block_size);
       CHECK_FAILURE(ret, "Write");
       DCHECK_LE(ret, block_size);
-      *bytes_written += ret;
       buffer += ret;
       nbytes -= ret;
     }
@@ -314,13 +312,8 @@ Status HdfsOutputStream::Close() { return impl_->Close(); }
 
 bool HdfsOutputStream::closed() const { return impl_->closed(); }
 
-Status HdfsOutputStream::Write(const void* buffer, int64_t nbytes, int64_t* bytes_read) {
-  return impl_->Write(reinterpret_cast<const uint8_t*>(buffer), nbytes, bytes_read);
-}
-
 Status HdfsOutputStream::Write(const void* buffer, int64_t nbytes) {
-  int64_t bytes_written_dummy = 0;
-  return Write(buffer, nbytes, &bytes_written_dummy);
+  return impl_->Write(reinterpret_cast<const uint8_t*>(buffer), nbytes);
 }
 
 Status HdfsOutputStream::Flush() { return impl_->Flush(); }
