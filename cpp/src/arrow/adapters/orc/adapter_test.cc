@@ -753,12 +753,13 @@ TEST(TestAdapterWriteNested, ListTest) {
   RecordProperty("length", array->length());
   RecordProperty("array", array->ToString());
 }
-TEST(TestAdapterWriteNested, writeList) {
+
+TEST(TestAdapterWriteNested, WriteList) {
   std::shared_ptr<Schema> table_schema = schema({field("list", list(int32()))});
-  int64_t num_rows = 10000;
+  int64_t num_rows = 1000;
   arrow::random::RandomArrayGenerator rand(kRandomSeed);
   auto value_array = rand.ArrayOf(int32(), 5 * num_rows, 0.6);
-  std::shared_ptr<Array> array = rand.List(*value_array, num_rows + 1, 0.8);
+  std::shared_ptr<Array> array = rand.List(*value_array, num_rows, 0.8);
   std::shared_ptr<ChunkedArray> chunked_array = std::make_shared<ChunkedArray>(array);
   std::shared_ptr<Table> table = Table::Make(table_schema, {chunked_array});
 
@@ -775,18 +776,10 @@ TEST(TestAdapterWriteNested, writeList) {
       adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool(), &reader));
   std::shared_ptr<Table> actual_output_table;
   ARROW_EXPECT_OK(reader->Read(&actual_output_table));
-  auto actual_array =
-      std::static_pointer_cast<ListArray>(actual_output_table->column(0)->chunk(0));
-  auto expected_array = std::static_pointer_cast<ListArray>(table->column(0)->chunk(0));
-  AssertArraysEqual(*(actual_array->offsets()), *(expected_array->offsets()));
-  AssertArraysEqual(*(actual_array->values()), *(expected_array->values()));
-  AssertBufferEqual(*(actual_array->null_bitmap()), *(expected_array->null_bitmap()));
-  ASSERT_TRUE(actual_array->type()->Equals(*(expected_array->type()), true));
-  RecordProperty("output_type", actual_array->type()->ToString());
-  RecordProperty("input_type", expected_array->type()->ToString());
-  RecordProperty("array_equality", actual_array->Equals(*expected_array));
+  AssertTablesEqual(*table, *actual_output_table);
 }
-TEST(TestAdapterWriteNested, writeMap) {
+
+TEST(TestAdapterWriteNested, WriteMap) {
   std::shared_ptr<Schema> table_schema = schema({field("map", map(int32(), int32()))});
   int64_t num_rows = 2;
   arrow::random::RandomArrayGenerator rand(kRandomSeed);
@@ -798,7 +791,8 @@ TEST(TestAdapterWriteNested, writeMap) {
   std::shared_ptr<Table> table = Table::Make(table_schema, {chunked_array});
   // AssertTableWriteReadEqual(table, table, kDefaultSmallMemStreamSize * 5);
 }
-TEST(TestAdapterWriteNested, writeStruct) {
+
+TEST(TestAdapterWriteNested, WriteStruct) {
   std::vector<std::shared_ptr<Field>> subsubfields{
       field("bool", boolean()),
       field("int8", int8()),
@@ -830,7 +824,8 @@ TEST(TestAdapterWriteNested, writeStruct) {
   std::shared_ptr<Table> table = Table::Make(table_schema, {chunked_array});
   AssertTableWriteReadEqual(table, table, kDefaultSmallMemStreamSize * 10);
 }
-// TEST(TestAdapterWriteNested, writeMixedConvert) {
+
+// TEST(TestAdapterWriteNested, WriteMixedConvert) {
 //   std::vector<std::shared_ptr<Field>> input_fields{
 //       field("large_list", large_list(int32())),
 //       field("fixed_size_list", fixed_size_list(int32(), 3)),
@@ -1155,7 +1150,8 @@ TEST(TestAdapterWriteNested, writeStruct) {
 //                          expected_output_table = Table::Make(output_schema, cvOut);
 //   AssertTableWriteReadEqual(input_table, expected_output_table);
 // }
-TEST(TestAdapterWriteNested, writeMixedListOfStruct) {
+
+TEST(TestAdapterWriteNested, WriteMixedListOfStruct) {
   std::vector<std::shared_ptr<Field>> table_fields{
       field("ls", list(struct_({field("a", int32())})))};
   std::shared_ptr<Schema> table_schema = std::make_shared<Schema>(table_fields);
