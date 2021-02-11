@@ -162,10 +162,25 @@ Expression call(std::string function, std::vector<Expression> arguments,
 ARROW_DS_EXPORT
 std::vector<FieldRef> FieldsInExpression(const Expression&);
 
+/// Represents either a concrete value or a hint that a field is valid/invalid
+struct KnownFieldValue {
+  Datum datum;
+  bool valid;
+
+  KnownFieldValue(const Datum& datum)
+      : datum(datum), valid(datum.length() == datum.null_count()) {}
+  KnownFieldValue(bool is_valid) : datum(), valid(is_valid) {}
+
+  inline bool concrete() const { return datum.kind() != Datum::Kind::NONE; }
+  bool operator==(const KnownFieldValue& other) const {
+    return datum == other.datum && valid == other.valid;
+  }
+};
+
 /// Assemble a mapping from field references to known values.
 ARROW_DS_EXPORT
-Result<std::unordered_map<FieldRef, Datum, FieldRef::Hash>> ExtractKnownFieldValues(
-    const Expression& guaranteed_true_predicate);
+Result<std::unordered_map<FieldRef, KnownFieldValue, FieldRef::Hash>>
+ExtractKnownFieldValues(const Expression& guaranteed_true_predicate);
 
 /// \defgroup expression-passes Functions for modification of Expressions
 ///
@@ -194,7 +209,8 @@ Result<Expression> FoldConstants(Expression);
 /// Simplify Expressions by replacing with known values of the fields which it references.
 ARROW_DS_EXPORT
 Result<Expression> ReplaceFieldsWithKnownValues(
-    const std::unordered_map<FieldRef, Datum, FieldRef::Hash>& known_values, Expression);
+    const std::unordered_map<FieldRef, KnownFieldValue, FieldRef::Hash>& known_values,
+    Expression);
 
 /// Simplify an expression by replacing subexpressions based on a guarantee:
 /// a boolean expression which is guaranteed to evaluate to `true`. For example, this is
@@ -238,6 +254,10 @@ ARROW_DS_EXPORT Expression less_equal(Expression lhs, Expression rhs);
 ARROW_DS_EXPORT Expression greater(Expression lhs, Expression rhs);
 
 ARROW_DS_EXPORT Expression greater_equal(Expression lhs, Expression rhs);
+
+ARROW_DS_EXPORT Expression is_null(Expression lhs);
+
+ARROW_DS_EXPORT Expression is_valid(Expression lhs);
 
 ARROW_DS_EXPORT Expression and_(Expression lhs, Expression rhs);
 ARROW_DS_EXPORT Expression and_(const std::vector<Expression>&);

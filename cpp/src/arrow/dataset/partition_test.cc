@@ -304,9 +304,8 @@ TEST_F(TestPartitioning, HivePartitioning) {
   AssertParse("/beta=3.25/alpha=0", and_(equal(field_ref("beta"), literal(3.25f)),
                                          equal(field_ref("alpha"), literal(0))));
   AssertParse("/alpha=0", equal(field_ref("alpha"), literal(0)));
-  AssertParse("/alpha=xyz/beta=3.25",
-              and_(equal(field_ref("alpha"), null_literal(int32())),
-                   equal(field_ref("beta"), literal(3.25f))));
+  AssertParse("/alpha=xyz/beta=3.25", and_(is_null(field_ref("alpha")),
+                                           equal(field_ref("beta"), literal(3.25f))));
   AssertParse("/beta=3.25", equal(field_ref("beta"), literal(3.25f)));
   AssertParse("", literal(true));
 
@@ -336,16 +335,14 @@ TEST_F(TestPartitioning, HivePartitioningFormat) {
                     equal(field_ref("alpha"), literal(0))),
                "alpha=0/beta=3.25");
   AssertFormat(equal(field_ref("alpha"), literal(0)), "alpha=0");
-  AssertFormat(and_(equal(field_ref("alpha"), literal(0)),
-                    equal(field_ref("beta"), null_literal(float32()))),
+  AssertFormat(and_(equal(field_ref("alpha"), literal(0)), is_null(field_ref("beta"))),
                "alpha=0/beta=xyz");
-  AssertFormat(and_(equal(field_ref("alpha"), null_literal(int32())),
-                    equal(field_ref("beta"), literal(3.25f))),
-               "alpha=xyz/beta=3.25");
+  AssertFormat(
+      and_(is_null(field_ref("alpha")), equal(field_ref("beta"), literal(3.25f))),
+      "alpha=xyz/beta=3.25");
   AssertFormat(literal(true), "");
 
-  AssertFormat(and_(equal(field_ref("alpha"), null_literal(int32())),
-                    equal(field_ref("beta"), null_literal(float32()))),
+  AssertFormat(and_(is_null(field_ref("alpha")), is_null(field_ref("beta"))),
                "alpha=xyz/beta=xyz");
 
   ASSERT_OK_AND_ASSIGN(written_schema_,

@@ -74,15 +74,26 @@ Status KeyValuePartitioning::SetDefaultValuesFromKeys(const Expression& expr,
                                                       RecordBatchProjector* projector) {
   ARROW_ASSIGN_OR_RAISE(auto known_values, ExtractKnownFieldValues(expr));
   for (const auto& ref_value : known_values) {
-    if (!ref_value.second.is_scalar()) {
-      return Status::Invalid("non-scalar partition key ", ref_value.second.ToString());
+    const auto& known_value = ref_value.second;
+    if (known_value.concrete() && !known_value.datum.is_scalar()) {
+      return Status::Invalid("non-scalar partition key ", known_value.datum.ToString());
     }
 
     ARROW_ASSIGN_OR_RAISE(auto match,
                           ref_value.first.FindOneOrNone(*projector->schema()));
 
     if (match.empty()) continue;
-    RETURN_NOT_OK(projector->SetDefaultValue(match, ref_value.second.scalar()));
+
+    const auto& field = projector->schema()->field(match[0]);
+    if (known_value.concrete()) {
+      RETURN_NOT_OK(projector->SetDefaultValue(match, known_value.datum.scalar()));
+    } else if (known_value.valid) {
+      return Status::Invalid(
+          "Partition expression not defined enough to set default value for ",
+          ref_value.first.name());
+    } else {
+      RETURN_NOT_OK(projector->SetDefaultValue(match, MakeNullScalar(field->type())));
+    }
   }
   return Status::OK();
 }
@@ -148,7 +159,7 @@ Result<Expression> KeyValuePartitioning::ConvertKey(const Key& key) const {
   std::shared_ptr<Scalar> converted;
 
   if (key.null) {
-    converted = MakeNullScalar(field->type());
+    return is_null(field_ref(field->name()));
   } else if (field->type()->id() == Type::DICTIONARY) {
     if (dictionaries_.empty() || dictionaries_[field_index] == nullptr) {
       return Status::Invalid("No dictionary provided for dictionary field ",
@@ -198,27 +209,34 @@ Result<std::string> KeyValuePartitioning::Format(const Expression& expr) const {
 
   ARROW_ASSIGN_OR_RAISE(auto known_values, ExtractKnownFieldValues(expr));
   for (const auto& ref_value : known_values) {
-    if (!ref_value.second.is_scalar()) {
-      return Status::Invalid("non-scalar partition key ", ref_value.second.ToString());
+    const auto& known_value = ref_value.second;
+    if (known_value.concrete() && !known_value.datum.is_scalar()) {
+      return Status::Invalid("non-scalar partition key ", known_value.datum.ToString());
     }
 
     ARROW_ASSIGN_OR_RAISE(auto match, ref_value.first.FindOneOrNone(*schema_));
     if (match.empty()) continue;
 
-    auto value = ref_value.second.scalar();
-
     const auto& field = schema_->field(match[0]);
-    if (!value->type->Equals(field->type())) {
-      return Status::TypeError("scalar ", value->ToString(), " (of type ", *value->type,
-                               ") is invalid for ", field->ToString());
-    }
 
-    if (value->type->id() == Type::DICTIONARY) {
-      ARROW_ASSIGN_OR_RAISE(
-          value, checked_cast<const DictionaryScalar&>(*value).GetEncodedValue());
-    }
+    if (known_value.concrete()) {
+      auto value = known_value.datum.scalar();
+      if (!value->type->Equals(field->type())) {
+        return Status::TypeError("scalar ", value->ToString(), " (of type ", *value->type,
+                                 ") is invalid for ", field->ToString());
+      }
 
-    values[match[0]] = std::move(value);
+      if (value->type->id() == Type::DICTIONARY) {
+        ARROW_ASSIGN_OR_RAISE(
+            value, checked_cast<const DictionaryScalar&>(*value).GetEncodedValue());
+      }
+
+      values[match[0]] = std::move(value);
+    } else {
+      if (!known_value.valid) {
+        values[match[0]] = MakeNullScalar(field->type());
+      }
+    }
   }
 
   return FormatValues(values);
@@ -471,7 +489,9 @@ class HivePartitioningFactory : public KeyValuePartitioningFactory {
     for (auto path : paths) {
       for (auto&& segment : fs::internal::SplitAbstractPath(path)) {
         if (auto key = HivePartitioning::ParseKey(segment, null_fallback_)) {
-          RETURN_NOT_OK(InsertRepr(key->name, key->value));
+          if (!key->null) {
+            RETURN_NOT_OK(InsertRepr(key->name, key->value));
+          }
         }
       }
     }
