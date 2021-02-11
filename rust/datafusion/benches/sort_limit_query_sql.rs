@@ -74,7 +74,7 @@ fn create_context() -> Arc<Mutex<ExecutionContext>> {
     let partitions = 16;
 
     rt.block_on(async {
-        let mem_table = MemTable::load(&csv, 16 * 1024, Some(partitions))
+        let mem_table = MemTable::load(Box::new(csv), 16 * 1024, Some(partitions))
             .await
             .unwrap();
 
