@@ -12,7 +12,7 @@
     "ctestCommandArgs": "",
     "variables": [
         {
-          "name":"VCPKG_MANIFEST_INSTALL",
+          "name":"VCPKG_MANIFEST_MODE",
           "value":"OFF"
         }
       ]
