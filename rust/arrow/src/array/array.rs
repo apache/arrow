@@ -425,7 +425,7 @@ pub fn new_null_array(data_type: &DataType, length: usize) -> ArrayRef {
                 Some(length),
                 Some(MutableBuffer::new_null(length).into()),
                 0,
-                vec![MutableBuffer::new(0).into()], // keys are empty
+                vec![MutableBuffer::new(0).into()], // values are empty
                 vec![new_empty_array(value.as_ref()).data()],
             )))
         }
@@ -598,6 +598,9 @@ mod tests {
         let a = array.as_any().downcast_ref::<StringArray>().unwrap();
         assert_eq!(a.len(), 9);
         assert_eq!(a.value_offsets()[9], 0i32);
+        for i in 0..9 {
+            assert!(a.is_null(i));
+        }
     }
 
     #[test]
@@ -608,5 +611,22 @@ mod tests {
         let a = array.as_any().downcast_ref::<ListArray>().unwrap();
         assert_eq!(a.len(), 9);
         assert_eq!(a.value_offsets()[9], 0i32);
+        for i in 0..9 {
+            assert!(a.is_null(i));
+        }
     }
+    
+    #[test]
+    fn test_null_dictionary() {
+        let values = vec![
+            None, None, None, None, None, None, None, None, None
+        ] as Vec<Option<&str>>;
+
+        let array : DictionaryArray<Int8Type> = values.into_iter().collect();
+        let array = Arc::new(array) as ArrayRef;
+
+        let null_array = new_null_array(array.data_type(), 9);
+        assert_eq!(&array, &null_array);
+    }
+
 }
