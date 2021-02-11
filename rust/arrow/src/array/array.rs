@@ -22,10 +22,9 @@ use std::{any::Any, convert::TryFrom};
 use super::ArrayDataRef;
 use super::*;
 use crate::array::equal_json::JsonEqual;
-use crate::buffer::Buffer;
+use crate::buffer::{Buffer, MutableBuffer};
 use crate::error::Result;
 use crate::ffi;
-use crate::util::bit_util;
 
 /// Trait for dealing with different types of array at runtime when the type of the
 /// array is not known in advance.
@@ -330,11 +329,11 @@ pub fn new_empty_array(data_type: &DataType) -> ArrayRef {
 }
 /// Creates a new array with null slots of `length`
 pub fn new_array_with_nulls(data_type: &DataType, length: usize) -> ArrayRef {
-    let null_buf = Buffer::from(vec![0u8; bit_util::ceil(length, 8)]);
     match data_type {
-        DataType::Null => return Arc::new(NullArray::new(length)),
+        DataType::Null => Arc::new(NullArray::new(length)),
         DataType::Boolean => {
-            return make_array(Arc::new(ArrayData::new(
+            let null_buf: Buffer = MutableBuffer::new_null(length).into();
+            make_array(Arc::new(ArrayData::new(
                 data_type.clone(),
                 length,
                 Some(length),
@@ -351,10 +350,11 @@ pub fn new_array_with_nulls(data_type: &DataType, length: usize) -> ArrayRef {
             make_sized_array_with_nulls::<Int16Type>(data_type, length)
         }
         DataType::Float16 => unreachable!(),
-        DataType::Int32 | DataType::UInt32 | DataType::Float32 => {
-            make_sized_array_with_nulls::<Int32Type>(data_type, length)
-        }
-        DataType::Date32 | DataType::Time32(_) => {
+        DataType::Int32
+        | DataType::UInt32
+        | DataType::Float32
+        | DataType::Date32
+        | DataType::Time32(_) => {
             make_sized_array_with_nulls::<Int32Type>(data_type, length)
         }
         DataType::Int64
@@ -362,44 +362,45 @@ pub fn new_array_with_nulls(data_type: &DataType, length: usize) -> ArrayRef {
         | DataType::Float64
         | DataType::Date64
         | DataType::Timestamp(_, _)
-        | DataType::Time64(_) => {
+        | DataType::Time64(_)
+        | DataType::Duration(_) => {
             make_sized_array_with_nulls::<Int64Type>(data_type, length)
         }
-        DataType::Duration(_) => unimplemented!(),
-        DataType::Interval(_unit) => unimplemented!(),
-        DataType::FixedSizeBinary(_value_len) => {
-            unimplemented!()
-        }
+        DataType::Interval(unit) => match unit {
+            IntervalUnit::YearMonth => {
+                make_sized_array_with_nulls::<Int32Type>(data_type, length)
+            }
+            IntervalUnit::DayTime => {
+                make_sized_array_with_nulls::<Int64Type>(data_type, length)
+            }
+        },
+        DataType::FixedSizeBinary(value_len) => make_array(Arc::new(ArrayData::new(
+            data_type.clone(),
+            length,
+            Some(length),
+            Some(MutableBuffer::new_null(length).into()),
+            0,
+            vec![Buffer::from(vec![0u8; *value_len as usize * length])],
+            vec![],
+        ))),
         DataType::Binary | DataType::Utf8 => {
-            return make_offset_array_with_nulls::<i32>(
-                data_type,
-                &DataType::UInt8,
-                length,
-            )
+            make_binary_array_with_nulls::<i32>(data_type, length)
         }
         DataType::LargeBinary | DataType::LargeUtf8 => {
-            return make_offset_array_with_nulls::<i64>(
-                data_type,
-                &DataType::UInt8,
-                length,
-            )
+            make_binary_array_with_nulls::<i64>(data_type, length)
         }
         DataType::List(field) => {
-            return make_offset_array_with_nulls::<i32>(
-                data_type,
-                field.data_type(),
-                length,
-            )
+            make_list_array_with_nulls::<i32>(data_type, field.data_type(), length)
         }
         DataType::LargeList(field) => {
-            make_offset_array_with_nulls::<i64>(data_type, field.data_type(), length)
+            make_list_array_with_nulls::<i64>(data_type, field.data_type(), length)
         }
         DataType::FixedSizeList(field, value_len) => {
             make_array(Arc::new(ArrayData::new(
                 data_type.clone(),
                 length,
                 Some(length),
-                Some(null_buf),
+                Some(MutableBuffer::new_null(length).into()),
                 0,
                 vec![],
                 vec![new_array_with_nulls(
@@ -413,7 +414,7 @@ pub fn new_array_with_nulls(data_type: &DataType, length: usize) -> ArrayRef {
             data_type.clone(),
             length,
             Some(length),
-            Some(null_buf),
+            Some(MutableBuffer::new_null(length).into()),
             0,
             vec![],
             fields
@@ -421,24 +422,37 @@ pub fn new_array_with_nulls(data_type: &DataType, length: usize) -> ArrayRef {
                 .map(|field| Arc::new(ArrayData::new_empty(field.data_type())))
                 .collect(),
         ))),
-        DataType::Union(_) => unimplemented!(),
-        DataType::Dictionary(_, _) => unimplemented!(),
-        DataType::Decimal(_, _) => unimplemented!(),
+        DataType::Union(_) => {
+            unimplemented!("Creating null Union array not yet supported")
+        }
+        DataType::Dictionary(_, value) => {
+            make_array(Arc::new(ArrayData::new(
+                data_type.clone(),
+                length,
+                Some(length),
+                Some(MutableBuffer::new_null(length).into()),
+                0,
+                vec![MutableBuffer::new(0).into()], // keys are empty
+                vec![new_empty_array(value.as_ref()).data()],
+            )))
+        }
+        DataType::Decimal(_, _) => {
+            unimplemented!("Creating null Decimal array not yet supported")
+        }
     }
 }
 
 #[inline]
-fn make_offset_array_with_nulls<OffsetSize: OffsetSizeTrait>(
+fn make_list_array_with_nulls<OffsetSize: OffsetSizeTrait>(
     data_type: &DataType,
     child_data_type: &DataType,
     length: usize,
 ) -> ArrayRef {
-    let null_buf = Buffer::from(vec![0u8; bit_util::ceil(length, 8)]);
     make_array(Arc::new(ArrayData::new(
         data_type.clone(),
         length,
         Some(length),
-        Some(null_buf),
+        Some(MutableBuffer::new_null(length).into()),
         0,
         vec![Buffer::from(
             vec![OffsetSize::zero(); length + 1].to_byte_slice(),
@@ -448,16 +462,34 @@ fn make_offset_array_with_nulls<OffsetSize: OffsetSizeTrait>(
 }
 
 #[inline]
-fn make_sized_array_with_nulls<T: ArrowPrimitiveType>(
+fn make_binary_array_with_nulls<OffsetSize: OffsetSizeTrait>(
     data_type: &DataType,
     length: usize,
 ) -> ArrayRef {
-    let null_buf = Buffer::from(vec![0u8; bit_util::ceil(length, 8)]);
     make_array(Arc::new(ArrayData::new(
         data_type.clone(),
         length,
         Some(length),
-        Some(null_buf),
+        Some(MutableBuffer::new_null(length).into()),
+        0,
+        vec![
+            Buffer::from(vec![OffsetSize::zero(); length + 1].to_byte_slice()),
+            MutableBuffer::new(0).into(),
+        ],
+        vec![],
+    )))
+}
+
+#[inline]
+fn make_sized_array_with_nulls<T: ArrowPrimitiveType>(
+    data_type: &DataType,
+    length: usize,
+) -> ArrayRef {
+    make_array(Arc::new(ArrayData::new(
+        data_type.clone(),
+        length,
+        Some(length),
+        Some(MutableBuffer::new_null(length).into()),
         0,
         vec![Buffer::from(vec![0u8; length * T::get_byte_width()])],
         vec![],
@@ -545,5 +577,43 @@ mod tests {
         let a = array.as_any().downcast_ref::<ListArray>().unwrap();
         assert_eq!(a.len(), 0);
         assert_eq!(a.value_offsets()[0], 0i32);
+    }
+
+    #[test]
+    fn test_null_boolean() {
+        let array = new_array_with_nulls(&DataType::Boolean, 9);
+        let a = array.as_any().downcast_ref::<BooleanArray>().unwrap();
+        assert_eq!(a.len(), 9);
+        for i in 0..9 {
+            assert!(a.is_null(i));
+        }
+    }
+
+    #[test]
+    fn test_null_primitive() {
+        let array = new_array_with_nulls(&DataType::Int32, 9);
+        let a = array.as_any().downcast_ref::<Int32Array>().unwrap();
+        assert_eq!(a.len(), 9);
+        for i in 0..9 {
+            assert!(a.is_null(i));
+        }
+    }
+
+    #[test]
+    fn test_null_variable_sized() {
+        let array = new_array_with_nulls(&DataType::Utf8, 9);
+        let a = array.as_any().downcast_ref::<StringArray>().unwrap();
+        assert_eq!(a.len(), 9);
+        assert_eq!(a.value_offsets()[9], 0i32);
+    }
+
+    #[test]
+    fn test_null_list_primitive() {
+        let data_type =
+            DataType::List(Box::new(Field::new("item", DataType::Int32, true)));
+        let array = new_array_with_nulls(&data_type, 9);
+        let a = array.as_any().downcast_ref::<ListArray>().unwrap();
+        assert_eq!(a.len(), 9);
+        assert_eq!(a.value_offsets()[9], 0i32);
     }
 }
