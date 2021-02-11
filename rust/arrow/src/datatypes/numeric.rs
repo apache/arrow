@@ -15,6 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#[cfg(feature = "simd")]
+use packed_simd::*;
+#[cfg(feature = "simd")]
+use std::ops::{Add, BitAnd, BitAndAssign, BitOr, BitOrAssign, Div, Mul, Neg, Not, Sub};
+
 use super::*;
 
 /// A subtype of primitive type that represents numeric values.
