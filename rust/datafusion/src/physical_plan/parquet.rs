@@ -41,7 +41,7 @@ use crate::{
 };
 use arrow::record_batch::RecordBatch;
 use arrow::{
-    array::new_array_with_nulls,
+    array::new_null_array,
     error::{ArrowError, Result as ArrowResult},
 };
 use arrow::{
@@ -661,7 +661,7 @@ fn build_statistics_array(
         statistics
     } else {
         // no row group has statistics defined
-        return new_array_with_nulls(data_type, statistics_count);
+        return new_null_array(data_type, statistics_count);
     };
 
     let (data_size, arrow_type) = match first_group_stats {
@@ -674,7 +674,7 @@ fn build_statistics_array(
         }
         _ => {
             // type of statistics not supported
-            return new_array_with_nulls(data_type, statistics_count);
+            return new_null_array(data_type, statistics_count);
         }
     };
 
@@ -731,7 +731,7 @@ fn build_statistics_array(
     }
     // cast statistics array to required data type
     arrow::compute::cast(&statistics_array, data_type)
-        .unwrap_or_else(|_| new_array_with_nulls(data_type, statistics_count))
+        .unwrap_or_else(|_| new_null_array(data_type, statistics_count))
 }
 
 #[async_trait]

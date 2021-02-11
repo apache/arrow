@@ -327,8 +327,8 @@ pub fn new_empty_array(data_type: &DataType) -> ArrayRef {
     let data = ArrayData::new_empty(data_type);
     make_array(Arc::new(data))
 }
-/// Creates a new array with null slots of `length`
-pub fn new_array_with_nulls(data_type: &DataType, length: usize) -> ArrayRef {
+/// Creates a new array of `data_type` of length `length` filled entirely of `NULL` values
+pub fn new_null_array(data_type: &DataType, length: usize) -> ArrayRef {
     match data_type {
         DataType::Null => Arc::new(NullArray::new(length)),
         DataType::Boolean => {
@@ -344,35 +344,29 @@ pub fn new_array_with_nulls(data_type: &DataType, length: usize) -> ArrayRef {
             )))
         }
         DataType::Int8 | DataType::UInt8 => {
-            make_sized_array_with_nulls::<Int8Type>(data_type, length)
+            new_null_sized_array::<Int8Type>(data_type, length)
         }
         DataType::Int16 | DataType::UInt16 => {
-            make_sized_array_with_nulls::<Int16Type>(data_type, length)
+            new_null_sized_array::<Int16Type>(data_type, length)
         }
         DataType::Float16 => unreachable!(),
         DataType::Int32
         | DataType::UInt32
         | DataType::Float32
         | DataType::Date32
-        | DataType::Time32(_) => {
-            make_sized_array_with_nulls::<Int32Type>(data_type, length)
-        }
+        | DataType::Time32(_) => new_null_sized_array::<Int32Type>(data_type, length),
         DataType::Int64
         | DataType::UInt64
         | DataType::Float64
         | DataType::Date64
         | DataType::Timestamp(_, _)
         | DataType::Time64(_)
-        | DataType::Duration(_) => {
-            make_sized_array_with_nulls::<Int64Type>(data_type, length)
-        }
+        | DataType::Duration(_) => new_null_sized_array::<Int64Type>(data_type, length),
         DataType::Interval(unit) => match unit {
             IntervalUnit::YearMonth => {
-                make_sized_array_with_nulls::<Int32Type>(data_type, length)
+                new_null_sized_array::<Int32Type>(data_type, length)
             }
-            IntervalUnit::DayTime => {
-                make_sized_array_with_nulls::<Int64Type>(data_type, length)
-            }
+            IntervalUnit::DayTime => new_null_sized_array::<Int64Type>(data_type, length),
         },
         DataType::FixedSizeBinary(value_len) => make_array(Arc::new(ArrayData::new(
             data_type.clone(),
@@ -384,16 +378,16 @@ pub fn new_array_with_nulls(data_type: &DataType, length: usize) -> ArrayRef {
             vec![],
         ))),
         DataType::Binary | DataType::Utf8 => {
-            make_binary_array_with_nulls::<i32>(data_type, length)
+            new_null_binary_array::<i32>(data_type, length)
         }
         DataType::LargeBinary | DataType::LargeUtf8 => {
-            make_binary_array_with_nulls::<i64>(data_type, length)
+            new_null_binary_array::<i64>(data_type, length)
         }
         DataType::List(field) => {
-            make_list_array_with_nulls::<i32>(data_type, field.data_type(), length)
+            new_null_list_array::<i32>(data_type, field.data_type(), length)
         }
         DataType::LargeList(field) => {
-            make_list_array_with_nulls::<i64>(data_type, field.data_type(), length)
+            new_null_list_array::<i64>(data_type, field.data_type(), length)
         }
         DataType::FixedSizeList(field, value_len) => {
             make_array(Arc::new(ArrayData::new(
@@ -403,11 +397,10 @@ pub fn new_array_with_nulls(data_type: &DataType, length: usize) -> ArrayRef {
                 Some(MutableBuffer::new_null(length).into()),
                 0,
                 vec![],
-                vec![new_array_with_nulls(
-                    field.data_type(),
-                    *value_len as usize * length,
-                )
-                .data()],
+                vec![
+                    new_null_array(field.data_type(), *value_len as usize * length)
+                        .data(),
+                ],
             )))
         }
         DataType::Struct(fields) => make_array(Arc::new(ArrayData::new(
@@ -443,7 +436,7 @@ pub fn new_array_with_nulls(data_type: &DataType, length: usize) -> ArrayRef {
 }
 
 #[inline]
-fn make_list_array_with_nulls<OffsetSize: OffsetSizeTrait>(
+fn new_null_list_array<OffsetSize: OffsetSizeTrait>(
     data_type: &DataType,
     child_data_type: &DataType,
     length: usize,
@@ -462,7 +455,7 @@ fn make_list_array_with_nulls<OffsetSize: OffsetSizeTrait>(
 }
 
 #[inline]
-fn make_binary_array_with_nulls<OffsetSize: OffsetSizeTrait>(
+fn new_null_binary_array<OffsetSize: OffsetSizeTrait>(
     data_type: &DataType,
     length: usize,
 ) -> ArrayRef {
@@ -481,7 +474,7 @@ fn make_binary_array_with_nulls<OffsetSize: OffsetSizeTrait>(
 }
 
 #[inline]
-fn make_sized_array_with_nulls<T: ArrowPrimitiveType>(
+fn new_null_sized_array<T: ArrowPrimitiveType>(
     data_type: &DataType,
     length: usize,
 ) -> ArrayRef {
@@ -581,7 +574,7 @@ mod tests {
 
     #[test]
     fn test_null_boolean() {
-        let array = new_array_with_nulls(&DataType::Boolean, 9);
+        let array = new_null_array(&DataType::Boolean, 9);
         let a = array.as_any().downcast_ref::<BooleanArray>().unwrap();
         assert_eq!(a.len(), 9);
         for i in 0..9 {
@@ -591,7 +584,7 @@ mod tests {
 
     #[test]
     fn test_null_primitive() {
-        let array = new_array_with_nulls(&DataType::Int32, 9);
+        let array = new_null_array(&DataType::Int32, 9);
         let a = array.as_any().downcast_ref::<Int32Array>().unwrap();
         assert_eq!(a.len(), 9);
         for i in 0..9 {
@@ -601,7 +594,7 @@ mod tests {
 
     #[test]
     fn test_null_variable_sized() {
-        let array = new_array_with_nulls(&DataType::Utf8, 9);
+        let array = new_null_array(&DataType::Utf8, 9);
         let a = array.as_any().downcast_ref::<StringArray>().unwrap();
         assert_eq!(a.len(), 9);
         assert_eq!(a.value_offsets()[9], 0i32);
@@ -611,7 +604,7 @@ mod tests {
     fn test_null_list_primitive() {
         let data_type =
             DataType::List(Box::new(Field::new("item", DataType::Int32, true)));
-        let array = new_array_with_nulls(&data_type, 9);
+        let array = new_null_array(&data_type, 9);
         let a = array.as_any().downcast_ref::<ListArray>().unwrap();
         assert_eq!(a.len(), 9);
         assert_eq!(a.value_offsets()[9], 0i32);

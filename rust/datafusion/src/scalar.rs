@@ -85,7 +85,7 @@ macro_rules! build_list {
         match $VALUES {
             // the return on the macro is necessary, to short-circuit and return ArrayRef
             None => {
-                return new_array_with_nulls(
+                return new_null_array(
                     &DataType::List(Box::new(Field::new(
                         "item",
                         DataType::$SCALAR_TY,
@@ -208,67 +208,67 @@ impl ScalarValue {
                 Some(value) => {
                     Arc::new(Float64Array::from_iter_values(repeat(*value).take(size)))
                 }
-                None => new_array_with_nulls(&DataType::Float64, size),
+                None => new_null_array(&DataType::Float64, size),
             },
             ScalarValue::Float32(e) => match e {
                 Some(value) => {
                     Arc::new(Float32Array::from_iter_values(repeat(*value).take(size)))
                 }
-                None => new_array_with_nulls(&DataType::Float32, size),
+                None => new_null_array(&DataType::Float32, size),
             },
             ScalarValue::Int8(e) => match e {
                 Some(value) => {
                     Arc::new(Int8Array::from_iter_values(repeat(*value).take(size)))
                 }
-                None => new_array_with_nulls(&DataType::Int8, size),
+                None => new_null_array(&DataType::Int8, size),
             },
             ScalarValue::Int16(e) => match e {
                 Some(value) => {
                     Arc::new(Int16Array::from_iter_values(repeat(*value).take(size)))
                 }
-                None => new_array_with_nulls(&DataType::Int16, size),
+                None => new_null_array(&DataType::Int16, size),
             },
             ScalarValue::Int32(e) => match e {
                 Some(value) => {
                     Arc::new(Int32Array::from_iter_values(repeat(*value).take(size)))
                 }
-                None => new_array_with_nulls(&DataType::Int32, size),
+                None => new_null_array(&DataType::Int32, size),
             },
             ScalarValue::Int64(e) => match e {
                 Some(value) => {
                     Arc::new(Int64Array::from_iter_values(repeat(*value).take(size)))
                 }
-                None => new_array_with_nulls(&DataType::Int64, size),
+                None => new_null_array(&DataType::Int64, size),
             },
             ScalarValue::UInt8(e) => match e {
                 Some(value) => {
                     Arc::new(UInt8Array::from_iter_values(repeat(*value).take(size)))
                 }
-                None => new_array_with_nulls(&DataType::UInt8, size),
+                None => new_null_array(&DataType::UInt8, size),
             },
             ScalarValue::UInt16(e) => match e {
                 Some(value) => {
                     Arc::new(UInt16Array::from_iter_values(repeat(*value).take(size)))
                 }
-                None => new_array_with_nulls(&DataType::UInt16, size),
+                None => new_null_array(&DataType::UInt16, size),
             },
             ScalarValue::UInt32(e) => match e {
                 Some(value) => {
                     Arc::new(UInt32Array::from_iter_values(repeat(*value).take(size)))
                 }
-                None => new_array_with_nulls(&DataType::UInt32, size),
+                None => new_null_array(&DataType::UInt32, size),
             },
             ScalarValue::UInt64(e) => match e {
                 Some(value) => {
                     Arc::new(UInt64Array::from_iter_values(repeat(*value).take(size)))
                 }
-                None => new_array_with_nulls(&DataType::UInt64, size),
+                None => new_null_array(&DataType::UInt64, size),
             },
             ScalarValue::TimeMicrosecond(e) => match e {
                 Some(value) => Arc::new(TimestampMicrosecondArray::from_iter_values(
                     repeat(*value).take(size),
                 )),
-                None => new_array_with_nulls(
+                None => new_null_array(
                     &DataType::Timestamp(TimeUnit::Microsecond, None),
                     size,
                 ),
@@ -277,22 +277,21 @@ impl ScalarValue {
                 Some(value) => Arc::new(TimestampNanosecondArray::from_iter_values(
                     repeat(*value).take(size),
                 )),
-                None => new_array_with_nulls(
-                    &DataType::Timestamp(TimeUnit::Nanosecond, None),
-                    size,
-                ),
+                None => {
+                    new_null_array(&DataType::Timestamp(TimeUnit::Nanosecond, None), size)
+                }
             },
             ScalarValue::Utf8(e) => match e {
                 Some(value) => {
                     Arc::new(StringArray::from_iter_values(repeat(value).take(size)))
                 }
-                None => new_array_with_nulls(&DataType::Utf8, size),
+                None => new_null_array(&DataType::Utf8, size),
             },
             ScalarValue::LargeUtf8(e) => match e {
                 Some(value) => {
                     Arc::new(LargeStringArray::from_iter_values(repeat(value).take(size)))
                 }
-                None => new_array_with_nulls(&DataType::LargeUtf8, size),
+                None => new_null_array(&DataType::LargeUtf8, size),
             },
             ScalarValue::List(values, data_type) => Arc::new(match data_type {
                 DataType::Int8 => build_list!(Int8Builder, Int8, values, size),
@@ -309,7 +308,7 @@ impl ScalarValue {
                 Some(value) => {
                     Arc::new(Date32Array::from_iter_values(repeat(*value).take(size)))
                 }
-                None => new_array_with_nulls(&DataType::Date32, size),
+                None => new_null_array(&DataType::Date32, size),
             },
             ScalarValue::Date64(e) => match e {
                 Some(value) => {
@@ -321,18 +320,15 @@ impl ScalarValue {
                 Some(value) => Arc::new(IntervalDayTimeArray::from_iter_values(
                     repeat(*value).take(size),
                 )),
-                None => {
-                    new_array_with_nulls(&DataType::Interval(IntervalUnit::DayTime), size)
-                }
+                None => new_null_array(&DataType::Interval(IntervalUnit::DayTime), size),
             },
             ScalarValue::IntervalYearMonth(e) => match e {
                 Some(value) => Arc::new(IntervalYearMonthArray::from_iter_values(
                     repeat(*value).take(size),
                 )),
-                None => new_array_with_nulls(
-                    &DataType::Interval(IntervalUnit::YearMonth),
-                    size,
-                ),
+                None => {
+                    new_null_array(&DataType::Interval(IntervalUnit::YearMonth), size)
+                }
             },
         }
     }
