@@ -1802,6 +1802,7 @@ def test_open_dataset_from_fsspec(tempdir):
     assert dataset.schema.equals(table.schema)
 
 
+@pytest.mark.pandas
 def test_filter_timestamp(tempdir):
     # ARROW-11379
     import pyarrow.parquet as pq
@@ -1821,6 +1822,11 @@ def test_filter_timestamp(tempdir):
     dataset = ds.dataset(path, format="feather", partitioning=part)
 
     condition = ds.field("dates") > pd.Timestamp("2012-01-01")
+    table = dataset.to_table(filter=condition)
+    assert table.column('id').to_pylist() == [1, 3, 5, 7, 9]
+
+    import datetime
+    condition = ds.field("dates") > datetime.datetime(2012, 1, 1)
     table = dataset.to_table(filter=condition)
     assert table.column('id').to_pylist() == [1, 3, 5, 7, 9]
 
