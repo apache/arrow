@@ -1619,7 +1619,7 @@ mod tests {
     }
 
     #[test]
-    fn test_mutable_equal() -> Result<()> {
+    fn test_mutable_equal() {
         let mut buf = MutableBuffer::new(1);
         let mut buf2 = MutableBuffer::new(1);
 
@@ -1632,8 +1632,6 @@ mod tests {
 
         buf2.reserve(65);
         assert!(buf != buf2);
-
-        Ok(())
     }
 
     #[test]

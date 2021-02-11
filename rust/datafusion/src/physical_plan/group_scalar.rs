@@ -117,7 +117,7 @@ impl From<&GroupByScalar> for ScalarValue {
 mod tests {
     use super::*;
 
-    use crate::error::{DataFusionError, Result};
+    use crate::error::DataFusionError;
 
     macro_rules! scalar_eq_test {
         ($TYPE:expr, $VALUE:expr) => {{
@@ -132,12 +132,10 @@ mod tests {
     }
 
     #[test]
-    fn test_scalar_ne_non_std() -> Result<()> {
+    fn test_scalar_ne_non_std() {
         // Test only Scalars with non native Eq, Hash
         scalar_eq_test!(ScalarValue::Float32, Some(1.0));
         scalar_eq_test!(ScalarValue::Float64, Some(1.0));
-
-        Ok(())
     }
 
     macro_rules! scalar_ne_test {
@@ -153,16 +151,14 @@ mod tests {
     }
 
     #[test]
-    fn test_scalar_eq_non_std() -> Result<()> {
+    fn test_scalar_eq_non_std() {
         // Test only Scalars with non native Eq, Hash
         scalar_ne_test!(ScalarValue::Float32, Some(1.0), Some(2.0));
         scalar_ne_test!(ScalarValue::Float64, Some(1.0), Some(2.0));
-
-        Ok(())
     }
 
     #[test]
-    fn from_scalar_holding_none() -> Result<()> {
+    fn from_scalar_holding_none() {
         let scalar_value = ScalarValue::Int8(None);
         let result = GroupByScalar::try_from(&scalar_value);
 
@@ -173,12 +169,10 @@ mod tests {
             ),
             _ => panic!("Unexpected result"),
         }
-
-        Ok(())
     }
 
     #[test]
-    fn from_scalar_unsupported() -> Result<()> {
+    fn from_scalar_unsupported() {
         // Use any ScalarValue type not supported by GroupByScalar.
         let scalar_value = ScalarValue::LargeUtf8(Some("1.1".to_string()));
         let result = GroupByScalar::try_from(&scalar_value);
@@ -192,8 +186,6 @@ mod tests {
             ),
             _ => panic!("Unexpected result"),
         }
-
-        Ok(())
     }
 
     #[test]

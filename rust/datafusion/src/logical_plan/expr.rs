@@ -1137,11 +1137,10 @@ mod tests {
     }
 
     #[test]
-    fn case_when_different_literal_then_types() -> Result<()> {
+    fn case_when_different_literal_then_types() {
         let maybe_expr = when(col("state").eq(lit("CO")), lit(303))
             .when(col("state").eq(lit("NY")), lit("212"))
             .end();
         assert!(maybe_expr.is_err());
-        Ok(())
     }
 }

@@ -866,7 +866,7 @@ mod tests {
     }
 
     #[test]
-    fn default_extension_planner() -> Result<()> {
+    fn default_extension_planner() {
         let ctx_state = make_ctx_state();
         let planner = DefaultPhysicalPlanner::default();
         let logical_plan = LogicalPlan::Extension {
@@ -884,11 +884,10 @@ mod tests {
                 expected_error
             ),
         }
-        Ok(())
     }
 
     #[test]
-    fn bad_extension_planner() -> Result<()> {
+    fn bad_extension_planner() {
         // Test that creating an execution plan whose schema doesn't
         // match the logical plan's schema generates an error.
         let ctx_state = make_ctx_state();
@@ -930,7 +929,6 @@ mod tests {
                 expected_error
             ),
         }
-        Ok(())
     }
 
     #[test]

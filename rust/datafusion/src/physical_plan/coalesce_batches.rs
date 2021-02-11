@@ -241,7 +241,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn test_concat_batches() -> Result<()> {
         let schema = test_schema();
-        let partition = create_vec_batches(&schema, 10)?;
+        let partition = create_vec_batches(&schema, 10);
         let partitions = vec![partition];
 
         let output_partitions = coalesce_batches(&schema, partitions, 20).await?;
@@ -263,16 +263,13 @@ mod tests {
         Arc::new(Schema::new(vec![Field::new("c0", DataType::UInt32, false)]))
     }
 
-    fn create_vec_batches(
-        schema: &Arc<Schema>,
-        num_batches: usize,
-    ) -> Result<Vec<RecordBatch>> {
+    fn create_vec_batches(schema: &Arc<Schema>, num_batches: usize) -> Vec<RecordBatch> {
         let batch = create_batch(schema);
         let mut vec = Vec::with_capacity(num_batches);
         for _ in 0..num_batches {
             vec.push(batch.clone());
         }
-        Ok(vec)
+        vec
     }
 
     fn create_batch(schema: &Arc<Schema>) -> RecordBatch {

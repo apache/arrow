@@ -214,11 +214,10 @@ mod tests {
     }
 
     #[test]
-    fn invalid_cast() -> Result<()> {
+    fn invalid_cast() {
         // Ensure a useful error happens at plan time if invalid casts are used
         let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
         let result = cast(col("a"), &schema, DataType::LargeBinary);
         result.expect_err("expected Invalid CAST");
-        Ok(())
     }
 }

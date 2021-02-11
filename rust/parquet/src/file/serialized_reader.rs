@@ -451,7 +451,7 @@ mod tests {
     }
 
     #[test]
-    fn test_file_reader_into_iter() -> Result<()> {
+    fn test_file_reader_into_iter() {
         let path = get_test_path("alltypes_plain.parquet");
         let vec = vec![path.clone(), path]
             .iter()
@@ -463,12 +463,10 @@ mod tests {
         // rows in the parquet file are not sorted by "id"
         // each file contains [id:4, id:5, id:6, id:7, id:2, id:3, id:0, id:1]
         assert_eq!(vec, vec![4, 5, 6, 7, 2, 3, 0, 1, 4, 5, 6, 7, 2, 3, 0, 1]);
-
-        Ok(())
     }
 
     #[test]
-    fn test_file_reader_into_iter_project() -> Result<()> {
+    fn test_file_reader_into_iter_project() {
         let path = get_test_path("alltypes_plain.parquet");
         let result = vec![path]
             .iter()
@@ -487,8 +485,6 @@ mod tests {
             result,
             "{id: 4},{id: 5},{id: 6},{id: 7},{id: 2},{id: 3},{id: 0},{id: 1}"
         );
-
-        Ok(())
     }
 
     #[test]

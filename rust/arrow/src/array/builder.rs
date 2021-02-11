@@ -1499,6 +1499,7 @@ impl FieldData {
     }
 
     /// Appends a single value to this `FieldData`'s `values_buffer`.
+    #[allow(clippy::unnecessary_wraps)]
     fn append_to_values_buffer<T: ArrowPrimitiveType>(
         &mut self,
         v: T::Native,
@@ -1521,6 +1522,7 @@ impl FieldData {
     }
 
     /// Appends a null to this `FieldData`.
+    #[allow(clippy::unnecessary_wraps)]
     fn append_null<T: ArrowPrimitiveType>(&mut self) -> Result<()> {
         if let Some(b) = &mut self.bitmap_builder {
             let values_buffer = self

@@ -189,7 +189,7 @@ mod tests {
     use arrow::datatypes::{DataType, Field, Schema};
 
     #[test]
-    fn test_maybe_data_types() -> Result<()> {
+    fn test_maybe_data_types() {
         // this vec contains: arg1, arg2, expected result
         let cases = vec![
             // 2 entries, same values
@@ -223,7 +223,6 @@ mod tests {
         for case in cases {
             assert_eq!(maybe_data_types(&case.0, &case.1), case.2)
         }
-        Ok(())
     }
 
     #[test]
