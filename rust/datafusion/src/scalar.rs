@@ -20,7 +20,7 @@
 use std::{convert::TryFrom, fmt, iter::repeat, sync::Arc};
 
 use arrow::array::{
-    Int16Builder, Int32Builder, Int64Builder, Int8Builder, ListBuilder,
+    Date64Array, Int16Builder, Int32Builder, Int64Builder, Int8Builder, ListBuilder,
     TimestampMicrosecondArray, TimestampNanosecondArray, UInt16Builder, UInt32Builder,
     UInt64Builder, UInt8Builder,
 };
@@ -75,6 +75,8 @@ pub enum ScalarValue {
     List(Option<Vec<ScalarValue>>, DataType),
     /// Date stored as a signed 32bit int
     Date32(Option<i32>),
+    /// Date stored as a signed 64bit int
+    Date64(Option<i64>),
     /// Timestamp Microseconds
     TimeMicrosecond(Option<i64>),
     /// Timestamp Nanoseconds
@@ -156,6 +158,7 @@ impl ScalarValue {
                 DataType::List(Box::new(Field::new("item", data_type.clone(), true)))
             }
             ScalarValue::Date32(_) => DataType::Date32,
+            ScalarValue::Date64(_) => DataType::Date64,
             ScalarValue::IntervalYearMonth(_) => {
                 DataType::Interval(IntervalUnit::YearMonth)
             }
@@ -329,6 +332,12 @@ impl ScalarValue {
                 }
                 None => Arc::new(repeat(None).take(size).collect::<Date32Array>()),
             },
+            ScalarValue::Date64(e) => match e {
+                Some(value) => {
+                    Arc::new(Date64Array::from_iter_values(repeat(*value).take(size)))
+                }
+                None => Arc::new(repeat(None).take(size).collect::<Date64Array>()),
+            },
             ScalarValue::IntervalDayTime(e) => match e {
                 Some(value) => Arc::new(IntervalDayTimeArray::from_iter_values(
                     repeat(*value).take(size),
@@ -385,6 +394,9 @@ impl ScalarValue {
             }
             DataType::Date32 => {
                 typed_cast!(array, index, Date32Array, Date32)
+            }
+            DataType::Date64 => {
+                typed_cast!(array, index, Date64Array, Date64)
             }
             other => {
                 return Err(DataFusionError::NotImplemented(format!(
@@ -580,6 +592,7 @@ impl fmt::Display for ScalarValue {
                 None => write!(f, "NULL")?,
             },
             ScalarValue::Date32(e) => format_option!(f, e)?,
+            ScalarValue::Date64(e) => format_option!(f, e)?,
             ScalarValue::IntervalDayTime(e) => format_option!(f, e)?,
             ScalarValue::IntervalYearMonth(e) => format_option!(f, e)?,
         };
@@ -609,6 +622,7 @@ impl fmt::Debug for ScalarValue {
             ScalarValue::LargeUtf8(Some(_)) => write!(f, "LargeUtf8(\"{}\")", self),
             ScalarValue::List(_, _) => write!(f, "List([{}])", self),
             ScalarValue::Date32(_) => write!(f, "Date32(\"{}\")", self),
+            ScalarValue::Date64(_) => write!(f, "Date64(\"{}\")", self),
             ScalarValue::IntervalDayTime(_) => {
                 write!(f, "IntervalDayTime(\"{}\")", self)
             }
