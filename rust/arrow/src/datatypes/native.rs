@@ -239,3 +239,27 @@ impl JsonSerializable for f64 {
 
 impl ArrowNativeType for f32 {}
 impl ArrowNativeType for f64 {}
+
+/// Allows conversion from supported Arrow types to a byte slice.
+pub trait ToByteSlice {
+    /// Converts this instance into a byte slice
+    fn to_byte_slice(&self) -> &[u8];
+}
+
+impl<T: ArrowNativeType> ToByteSlice for [T] {
+    #[inline]
+    fn to_byte_slice(&self) -> &[u8] {
+        let raw_ptr = self.as_ptr() as *const T as *const u8;
+        unsafe {
+            std::slice::from_raw_parts(raw_ptr, self.len() * std::mem::size_of::<T>())
+        }
+    }
+}
+
+impl<T: ArrowNativeType> ToByteSlice for T {
+    #[inline]
+    fn to_byte_slice(&self) -> &[u8] {
+        let raw_ptr = self as *const T as *const u8;
+        unsafe { std::slice::from_raw_parts(raw_ptr, std::mem::size_of::<T>()) }
+    }
+}
