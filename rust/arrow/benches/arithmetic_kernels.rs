@@ -18,15 +18,16 @@
 #[macro_use]
 extern crate criterion;
 use criterion::Criterion;
+use rand::Rng;
 
 use std::sync::Arc;
 
 extern crate arrow;
 
-use arrow::compute::kernels::arithmetic::*;
 use arrow::compute::kernels::limit::*;
 use arrow::util::bench_util::*;
 use arrow::{array::*, datatypes::Float32Type};
+use arrow::{compute::kernels::arithmetic::*, util::test_util::seedable_rng};
 
 fn create_array(size: usize, with_nulls: bool) -> ArrayRef {
     let null_density = if with_nulls { 0.5 } else { 0.0 };
@@ -70,7 +71,7 @@ fn bench_limit(arr_a: &ArrayRef, max: usize) {
 fn add_benchmark(c: &mut Criterion) {
     let arr_a = create_array(512, false);
     let arr_b = create_array(512, false);
-    let scalar = 1.12358;
+    let scalar = seedable_rng().gen();
 
     c.bench_function("add 512", |b| b.iter(|| bench_add(&arr_a, &arr_b)));
     c.bench_function("subtract 512", |b| {
