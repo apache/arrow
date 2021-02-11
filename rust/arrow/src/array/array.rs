@@ -22,8 +22,10 @@ use std::{any::Any, convert::TryFrom};
 use super::ArrayDataRef;
 use super::*;
 use crate::array::equal_json::JsonEqual;
+use crate::buffer::Buffer;
 use crate::error::Result;
 use crate::ffi;
+use crate::util::bit_util;
 
 /// Trait for dealing with different types of array at runtime when the type of the
 /// array is not known in advance.
@@ -325,6 +327,141 @@ pub fn make_array(data: ArrayDataRef) -> ArrayRef {
 pub fn new_empty_array(data_type: &DataType) -> ArrayRef {
     let data = ArrayData::new_empty(data_type);
     make_array(Arc::new(data))
+}
+/// Creates a new array with null slots of `length`
+pub fn new_array_with_nulls(data_type: &DataType, length: usize) -> ArrayRef {
+    let null_buf = Buffer::from(vec![0u8; bit_util::ceil(length, 8)]);
+    match data_type {
+        DataType::Null => return Arc::new(NullArray::new(length)),
+        DataType::Boolean => {
+            return make_array(Arc::new(ArrayData::new(
+                data_type.clone(),
+                length,
+                Some(length),
+                Some(null_buf.clone()),
+                0,
+                vec![null_buf],
+                vec![],
+            )))
+        }
+        DataType::Int8 | DataType::UInt8 => {
+            make_sized_array_with_nulls::<Int8Type>(data_type, length)
+        }
+        DataType::Int16 | DataType::UInt16 => {
+            make_sized_array_with_nulls::<Int16Type>(data_type, length)
+        }
+        DataType::Float16 => unreachable!(),
+        DataType::Int32 | DataType::UInt32 | DataType::Float32 => {
+            make_sized_array_with_nulls::<Int32Type>(data_type, length)
+        }
+        DataType::Date32 | DataType::Time32(_) => {
+            make_sized_array_with_nulls::<Int32Type>(data_type, length)
+        }
+        DataType::Int64
+        | DataType::UInt64
+        | DataType::Float64
+        | DataType::Date64
+        | DataType::Timestamp(_, _)
+        | DataType::Time64(_) => {
+            make_sized_array_with_nulls::<Int64Type>(data_type, length)
+        }
+        DataType::Duration(_) => unimplemented!(),
+        DataType::Interval(_unit) => unimplemented!(),
+        DataType::FixedSizeBinary(_value_len) => {
+            unimplemented!()
+        }
+        DataType::Binary | DataType::Utf8 => {
+            return make_offset_array_with_nulls::<i32>(
+                data_type,
+                &DataType::UInt8,
+                length,
+            )
+        }
+        DataType::LargeBinary | DataType::LargeUtf8 => {
+            return make_offset_array_with_nulls::<i64>(
+                data_type,
+                &DataType::UInt8,
+                length,
+            )
+        }
+        DataType::List(field) => {
+            return make_offset_array_with_nulls::<i32>(
+                data_type,
+                field.data_type(),
+                length,
+            )
+        }
+        DataType::LargeList(field) => {
+            make_offset_array_with_nulls::<i64>(data_type, field.data_type(), length)
+        }
+        DataType::FixedSizeList(field, value_len) => {
+            make_array(Arc::new(ArrayData::new(
+                data_type.clone(),
+                length,
+                Some(length),
+                Some(null_buf),
+                0,
+                vec![],
+                vec![new_array_with_nulls(
+                    field.data_type(),
+                    *value_len as usize * length,
+                )
+                .data()],
+            )))
+        }
+        DataType::Struct(fields) => make_array(Arc::new(ArrayData::new(
+            data_type.clone(),
+            length,
+            Some(length),
+            Some(null_buf),
+            0,
+            vec![],
+            fields
+                .iter()
+                .map(|field| Arc::new(ArrayData::new_empty(field.data_type())))
+                .collect(),
+        ))),
+        DataType::Union(_) => unimplemented!(),
+        DataType::Dictionary(_, _) => unimplemented!(),
+        DataType::Decimal(_, _) => unimplemented!(),
+    }
+}
+
+#[inline]
+fn make_offset_array_with_nulls<OffsetSize: OffsetSizeTrait>(
+    data_type: &DataType,
+    child_data_type: &DataType,
+    length: usize,
+) -> ArrayRef {
+    let null_buf = Buffer::from(vec![0u8; bit_util::ceil(length, 8)]);
+    make_array(Arc::new(ArrayData::new(
+        data_type.clone(),
+        length,
+        Some(length),
+        Some(null_buf),
+        0,
+        vec![Buffer::from(
+            vec![OffsetSize::zero(); length + 1].to_byte_slice(),
+        )],
+        vec![Arc::new(ArrayData::new_empty(child_data_type))],
+    )))
+}
+
+#[inline]
+fn make_sized_array_with_nulls<T: ArrowPrimitiveType>(
+    data_type: &DataType,
+    length: usize,
+) -> ArrayRef {
+    let null_buf = Buffer::from(vec![0u8; bit_util::ceil(length, 8)]);
+    make_array(Arc::new(ArrayData::new(
+        data_type.clone(),
+        length,
+        Some(length),
+        Some(null_buf),
+        0,
+        vec![Buffer::from(vec![0u8; length * T::get_byte_width()])],
+        vec![],
+    )))
 }
 
 /// Creates a new array from two FFI pointers. Used to import arrays from the C Data Interface
