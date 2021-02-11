@@ -1802,26 +1802,27 @@ def test_open_dataset_from_fsspec(tempdir):
     assert dataset.schema.equals(table.schema)
 
 
-@pytest.mark.pandas
-@pytest.mark.parquet
 def test_filter_timestamp(tempdir):
     # ARROW-11379
-    import pandas as pd
+    import pyarrow.parquet as pq
     path = tempdir / "test_partition_timestamps"
 
-    df = pd.DataFrame({
-        "dates": list(pd.date_range("2012-01-01", periods=2, freq="D")) * 5,
-        "col": range(10)})
+    table = pa.table({
+        "dates": ['2012-01-01', '2012-01-02'] * 5,
+        "id": range(10)})
 
-    df.to_parquet(path, partition_cols=["dates"])
+    # write dataset partitioned on dates (as strings)
+    part = ds.partitioning(table.select(['dates']).schema, flavor="hive")
+    ds.write_dataset(table, path, partitioning=part, format="feather")
+
+    # read dataset partitioned on dates (as timestamps)
     part = ds.partitioning(pa.schema([("dates", pa.timestamp("s"))]),
                            flavor="hive")
-
-    dataset = ds.dataset(path, format="parquet", partitioning=part)
+    dataset = ds.dataset(path, format="feather", partitioning=part)
 
     condition = ds.field("dates") > pd.Timestamp("2012-01-01")
     table = dataset.to_table(filter=condition)
-    assert table.column('col').to_pylist() == [1, 3, 5, 7, 9]
+    assert table.column('id').to_pylist() == [1, 3, 5, 7, 9]
 
 
 @pytest.mark.parquet
