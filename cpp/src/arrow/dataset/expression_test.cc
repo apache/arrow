@@ -1017,8 +1017,12 @@ TEST(Expression, SimplifyWithGuarantee) {
       .WithGuarantee(equal(field_ref("dict_i32"), literal(0)))
       .Expect(false);
 
-  Simplify{null_literal(int32())}
-      .WithGuarantee(null_literal(int32()))
+  Simplify{equal(field_ref("i32"), literal(7))}
+      .WithGuarantee(equal(field_ref("i32"), literal(7)))
+      .Expect(literal(true));
+
+  Simplify{equal(field_ref("i32"), null_literal(int32()))}
+      .WithGuarantee(equal(field_ref("i32"), null_literal(int32())))
       .Expect(literal(true));
 }
 
