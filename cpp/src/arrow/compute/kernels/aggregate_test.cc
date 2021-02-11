@@ -45,6 +45,121 @@ using internal::checked_pointer_cast;
 
 namespace compute {
 
+// TODO(michalursa) add tests
+TEST(GroupBy, SumOnly) {
+  auto key = ArrayFromJSON(int64(),
+    "[1, 2, 1,"
+    "3, 2, 3]");
+  auto aggregand = ArrayFromJSON(float64(),
+    "[1.0, 0.0, null, "
+    "3.25, 0.125, -0.25]");
+
+  ASSERT_EQ(key->length(), aggregand->length());
+
+  GroupByOptions options;
+  options.aggregates = {GroupByOptions::Aggregate{"sum", nullptr}};
+
+  ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped, CallFunction(
+    "group_by", {
+      aggregand,
+      key,
+    },
+    &options
+  ));
+
+  Datum summed = aggregated_and_grouped.collection()[0];
+  Datum unique_keys = aggregated_and_grouped.collection()[1];
+
+  auto unique_keys_i64 = unique_keys.array_as<Int64Array>();
+  const int64_t* raw_values = unique_keys_i64->raw_values();
+  ASSERT_EQ(unique_keys_i64->length(), 3);
+  auto summed_f64 = summed.array_as<DoubleArray>();
+
+  for (int64_t i = 0; i < unique_keys_i64->length(); ++i) {
+    int64_t key = unique_keys_i64->Value(i);
+
+    if (key == 1) {
+      ASSERT_EQ(summed_f64->Value(i), 1.0);
+    }
+    if (key == 2) {
+      ASSERT_EQ(summed_f64->Value(i), 0.125);
+    }
+    if (key == 3) {
+      ASSERT_EQ(summed_f64->Value(i), 3.0);
+    }
+  }
+}
+
+TEST(GroupBy, NoAggs) {
+  auto key = ArrayFromJSON(int64(), "[1, 2, 1, 3, 2, 3]");
+
+  GroupByOptions options;
+  options.aggregates = {};
+
+  // TODO: not implemented yet
+  /*
+  ASSERT_OK_AND_ASSIGN(auto aggregated_and_grouped, CallFunction(
+    "group_by", {
+      key,
+    },
+    &options
+  ));
+  */
+}
+
+TEST(GroupBy, CountOnly) {
+  auto key = ArrayFromJSON(int64(), "[1, 2, 1, 3, 2, 3]");
+  auto aggregand = ArrayFromJSON(float64(), "[1.0, 0.0, null, 0.3, 0.1, -0.2]");
+
+  ASSERT_EQ(key->length(), aggregand->length());
+
+  CountOptions count_options{CountOptions::COUNT_NON_NULL};
+  GroupByOptions options;
+  options.aggregates = {
+    {
+      GroupByOptions::Aggregate{"count", &count_options},
+    }
+  };
+  // TODO: not implemented yet
+  /*
+  ASSERT_OK_AND_ASSIGN(auto aggregated_and_grouped, CallFunction(
+    "group_by", {
+      key,
+      key,
+    },
+    &options
+  ));
+  */
+}
+
+TEST(GroupBy, SumAndCount) {
+  auto key = ArrayFromJSON(int64(), "[1, 2, 1, 3, 2, 3]");
+  auto aggregand = ArrayFromJSON(float64(), "[1.0, 0.0, null, 0.3, 0.1, -0.2]");
+
+  ASSERT_EQ(key->length(), aggregand->length());
+
+  CountOptions count_options{CountOptions::COUNT_NON_NULL};
+  GroupByOptions options;
+  options.aggregates = {
+    {
+      GroupByOptions::Aggregate{"sum", nullptr},
+      GroupByOptions::Aggregate{"count", &count_options},
+    }
+  };
+
+  // TODO: not implemented yet
+  /*
+  ASSERT_OK_AND_ASSIGN(auto aggregated_and_grouped, CallFunction(
+    "group_by", {
+      aggregand,
+      key,
+      key,
+    },
+    &options
+  ));
+  */
+}
+
 //
 // Sum
 //

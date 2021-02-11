@@ -149,6 +149,15 @@ struct ARROW_EXPORT TDigestOptions : public FunctionOptions {
   uint32_t buffer_size;
 };
 
+// TODO(michalursa) add docstring
+struct ARROW_EXPORT GroupByOptions : public FunctionOptions {
+  struct Aggregate {
+    std::string name;
+    const FunctionOptions* options;
+  };
+  std::vector<Aggregate> aggregates;
+};
+
 /// @}
 
 /// \brief Count non-null (or null) values in an array.

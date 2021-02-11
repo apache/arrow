@@ -21,6 +21,7 @@
 #include "arrow/compute/kernels/common.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/make_unique.h"
+#include <map>
 
 namespace arrow {
 namespace compute {
@@ -42,9 +43,9 @@ void AggregateFinalize(KernelContext* ctx, Datum* out) {
 }  // namespace
 
 void AddAggKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
-                  ScalarAggregateFunction* func, SimdLevel::type simd_level) {
+                  ScalarAggregateFunction* func, SimdLevel::type simd_level, bool nomerge) {
   ScalarAggregateKernel kernel(std::move(sig), init, AggregateConsume, AggregateMerge,
-                               AggregateFinalize);
+                               AggregateFinalize, nomerge);
   // Set the simd level
   kernel.simd_level = simd_level;
   DCHECK_OK(func->AddKernel(kernel));
@@ -203,6 +204,102 @@ std::unique_ptr<KernelState> AllInit(KernelContext*, const KernelInitArgs& args)
   return ::arrow::internal::make_unique<BooleanAllImpl>();
 }
 
+struct GroupByImpl : public ScalarAggregator {
+  void Consume(KernelContext* ctx, const ExecBatch& batch) override {
+    std::vector<std::shared_ptr<ArrayData>> aggregands, keys;
+
+    size_t i;
+    for (i = 0; i < aggregates.size(); ++i) {
+      aggregands.push_back(batch[i].array());
+    }
+    while (i < static_cast<size_t>(batch.num_values())) {
+      keys.push_back(batch[i++].array());
+    }
+
+    auto key64 = batch[aggregates.size()].array_as<Int64Array>();
+    if (key64->null_count() != 0) {
+      ctx->SetStatus(Status::NotImplemented("nulls in key column"));
+      return;
+    }
+
+    const int64_t* key64_raw = key64->raw_values();
+
+    auto valuesDouble = batch[0].array_as<DoubleArray>();
+    const double* valuesDouble_raw = valuesDouble->raw_values();
+
+    for (int64_t i = 0; i < batch.length; ++i) {
+      uint64_t key = key64_raw[i];
+      double value = valuesDouble_raw[i];
+      uint32_t groupid;
+      auto iter = map_.find(key);
+      if (iter == map_.end()) {
+        groupid = static_cast<uint32_t>(keys_.size());
+        keys_.push_back(key);
+        sums_.push_back(0.0);
+        map_.insert(std::make_pair(key, groupid));
+      } else {
+        groupid = iter->second;
+      }
+      sums_[groupid] += value;
+    }
+  }
+
+  void MergeFrom(KernelContext* ctx, KernelState&& src) override {
+    // TODO(michalursa) merge two hash tables
+  }
+
+  void Finalize(KernelContext* ctx, Datum* out) override {
+    auto pool = ctx->memory_pool();
+    size_t length = keys_.size();
+    auto out_buffer = std::move(AllocateBuffer(sizeof(double) * length, pool)).ValueUnsafe();
+    auto out_values = out_buffer->mutable_data();
+    for (size_t i = 0; i < length; ++i) {
+      (reinterpret_cast<double*>(out_values))[i] = sums_[i];
+    }
+    std::shared_ptr<Buffer> null_bitmap = nullptr;
+    Datum datum_sum = ArrayData::Make(float64(), length, {null_bitmap, std::move(out_buffer)}, 0);
+
+    auto out_buffer_key = std::move(AllocateBuffer(sizeof(int64_t) * length, pool)).ValueUnsafe();
+    auto out_keys = out_buffer_key->mutable_data();
+    for (size_t i = 0; i < length; ++i) {
+      (reinterpret_cast<int64_t*>(out_keys))[i] = keys_[i];
+    }
+    std::shared_ptr<Buffer> null_bitmap_key = nullptr;
+    Datum datum_key = ArrayData::Make(int64(), length, {null_bitmap_key, std::move(out_buffer_key)}, 0);
+
+    *out = Datum({std::move(datum_sum), std::move(datum_key)});
+  }
+
+  std::map<uint64_t, uint32_t> map_;
+  std::vector<uint64_t> keys_;
+  std::vector<double> sums_;
+  std::vector<GroupByOptions::Aggregate> aggregates;
+};
+
+std::unique_ptr<KernelState> GroupByInit(KernelContext* ctx, const KernelInitArgs& args) {
+  // TODO(michalursa) do construction of group by implementation
+  auto impl = ::arrow::internal::make_unique<GroupByImpl>();
+  impl->aggregates = checked_cast<const GroupByOptions*>(args.options)->aggregates;
+
+  if (impl->aggregates.size() > args.inputs.size()) {
+    ctx->SetStatus(Status::Invalid("more aggegates than inputs!"));
+    return nullptr;
+  }
+
+  size_t n_keys = args.inputs.size() - impl->aggregates.size();
+  if (n_keys != 1) {
+    ctx->SetStatus(Status::NotImplemented("more than one key"));
+    return nullptr;
+  }
+
+  if (args.inputs.back().type->id() != Type::INT64) {
+    ctx->SetStatus(Status::NotImplemented("key of type", args.inputs.back().type->ToString()));
+    return nullptr;
+  }
+
+  return impl;
+}
+
 void AddBasicAggKernels(KernelInit init,
                         const std::vector<std::shared_ptr<DataType>>& types,
                         std::shared_ptr<DataType> out_ty, ScalarAggregateFunction* func,
@@ -259,6 +356,9 @@ const FunctionDoc all_doc{
     "Test whether all elements in a boolean array evaluate to true.",
     ("Null values are ignored."),
     {"array"}};
+
+// TODO(michalursa) add FunctionDoc for group_by
+const FunctionDoc group_by_doc{"", (""), {}};
 
 }  // namespace
 
@@ -342,6 +442,17 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   func = std::make_shared<ScalarAggregateFunction>("all", Arity::Unary(), &all_doc);
   aggregate::AddBasicAggKernels(aggregate::AllInit, {boolean()}, boolean(), func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
+
+  // group_by
+  func = std::make_shared<ScalarAggregateFunction>("group_by", Arity::VarArgs(), &group_by_doc);
+  // aggregate::AddBasicAggKernels(aggregate::GroupByInit, {null()}, null(), func.get());
+  {
+    InputType any_array(ValueDescr::ARRAY);
+    auto sig = KernelSignature::Make({any_array}, ValueDescr::Array(int64()), true);
+    AddAggKernel(std::move(sig), aggregate::GroupByInit, func.get(), SimdLevel::NONE, true);
+  }
+  DCHECK_OK(registry->AddFunction(std::move(func)));
+  // TODO(michalursa) add Kernels to the function named "group_by"
 }
 
 }  // namespace internal

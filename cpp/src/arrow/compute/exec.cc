@@ -850,11 +850,17 @@ class ScalarAggExecutor : public KernelExecutorImpl<ScalarAggregateKernel> {
     KernelContext batch_ctx(exec_context());
     batch_ctx.SetState(batch_state.get());
 
-    kernel_->consume(&batch_ctx, batch);
-    ARROW_CTX_RETURN_IF_ERROR(&batch_ctx);
+    if (kernel_->nomerge) {
+      kernel_->consume(kernel_ctx_, batch);
+      ARROW_CTX_RETURN_IF_ERROR(kernel_ctx_);
+    } else {
+      kernel_->consume(&batch_ctx, batch);
+      ARROW_CTX_RETURN_IF_ERROR(&batch_ctx);
 
-    kernel_->merge(kernel_ctx_, std::move(*batch_state), state());
-    ARROW_CTX_RETURN_IF_ERROR(kernel_ctx_);
+      kernel_->merge(kernel_ctx_, std::move(*batch_state), state());
+      ARROW_CTX_RETURN_IF_ERROR(kernel_ctx_);
+    }
+
     return Status::OK();
   }
 

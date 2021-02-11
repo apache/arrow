@@ -684,21 +684,23 @@ struct ScalarAggregateKernel : public Kernel {
 
   ScalarAggregateKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
                         ScalarAggregateConsume consume, ScalarAggregateMerge merge,
-                        ScalarAggregateFinalize finalize)
+                        ScalarAggregateFinalize finalize, bool nomerge = false)
       : Kernel(std::move(sig), init),
         consume(std::move(consume)),
         merge(std::move(merge)),
-        finalize(std::move(finalize)) {}
+        finalize(std::move(finalize)),
+        nomerge(nomerge) {}
 
   ScalarAggregateKernel(std::vector<InputType> in_types, OutputType out_type,
                         KernelInit init, ScalarAggregateConsume consume,
-                        ScalarAggregateMerge merge, ScalarAggregateFinalize finalize)
+                        ScalarAggregateMerge merge, ScalarAggregateFinalize finalize, bool nomerge = false)
       : ScalarAggregateKernel(KernelSignature::Make(std::move(in_types), out_type), init,
-                              consume, merge, finalize) {}
+                              consume, merge, finalize, nomerge) {}
 
   ScalarAggregateConsume consume;
   ScalarAggregateMerge merge;
   ScalarAggregateFinalize finalize;
+  bool nomerge;
 };
 
 }  // namespace compute
