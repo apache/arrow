@@ -649,7 +649,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
             .iter()
             .map(|e| {
                 Ok(Expr::Sort {
-                    expr: Box::new(self.sql_to_rex(&e.expr, &input_schema).unwrap()),
+                    expr: Box::new(self.sql_to_rex(&e.expr, &input_schema)?),
                     // by default asc
                     asc: e.asc.unwrap_or(true),
                     // by default nulls first to be consistent with spark
