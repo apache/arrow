@@ -119,6 +119,11 @@ Status ExprDecomposer::Visit(const FunctionNode& in_node) {
 
 // Decompose an IfNode
 Status ExprDecomposer::Visit(const IfNode& node) {
+  bool reuse_bitmap = false;
+  if (nested_if_else_) {
+    nested_if_else_ = false;
+    reuse_bitmap = true;
+  }
   PushConditionEntry(node);
   auto status = node.condition()->Accept(*this);
   ARROW_RETURN_NOT_OK(status);
@@ -126,13 +131,16 @@ Status ExprDecomposer::Visit(const IfNode& node) {
   PopConditionEntry(node);
 
   // Add a local bitmap to track the output validity.
-  int local_bitmap_idx = PushThenEntry(node);
+  int local_bitmap_idx = PushThenEntry(node, reuse_bitmap);
   status = node.then_node()->Accept(*this);
   ARROW_RETURN_NOT_OK(status);
   auto then_vv = result();
   PopThenEntry(node);
 
   PushElseEntry(node, local_bitmap_idx);
+  if (auto if_node = dynamic_cast<IfNode*>(node.else_node().get())) {
+    nested_if_else_ = true;
+  }
   status = node.else_node()->Accept(*this);
   ARROW_RETURN_NOT_OK(status);
   auto else_vv = result();
@@ -212,11 +220,12 @@ Status ExprDecomposer::Visit(const LiteralNode& node) {
 //    that has a match will do it).
 // Both of the above optimisations save CPU cycles during expression evaluation.
 
-int ExprDecomposer::PushThenEntry(const IfNode& node) {
+int ExprDecomposer::PushThenEntry(const IfNode& node, bool reuse_bitmap) {
   int local_bitmap_idx;
 
   if (!if_entries_stack_.empty() &&
-      if_entries_stack_.top()->entry_type_ == kStackEntryElse) {
+      reuse_bitmap) {
+    DCHECK_EQ(if_entries_stack_.top()->entry_type_, kStackEntryElse) << "PushThenEntry: unexpected state";
     auto top = if_entries_stack_.top().get();
 
     // inside a nested else statement (i.e if-else-if). use the parent's bitmap.
