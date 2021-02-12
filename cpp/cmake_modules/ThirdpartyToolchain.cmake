@@ -371,7 +371,6 @@ else()
     AWSSDK_SOURCE_URL
     "https://github.com/aws/aws-sdk-cpp/archive/${ARROW_AWSSDK_BUILD_VERSION}.tar.gz"
     "https://github.com/ursa-labs/thirdparty/releases/download/latest/aws-sdk-cpp-${ARROW_AWSSDK_BUILD_VERSION}.tar.gz"
-    "https://dl.bintray.com/ursalabs/arrow-awssdk/aws-sdk-cpp-${ARROW_AWSSDK_BUILD_VERSION}.tar.gz/aws-sdk-cpp-${ARROW_AWSSDK_BUILD_VERSION}.tar.gz"
     )
 endif()
 
@@ -462,7 +461,6 @@ else()
     "https://github.com/google/googletest/archive/release-${ARROW_GTEST_BUILD_VERSION}.tar.gz"
     "https://chromium.googlesource.com/external/github.com/google/googletest/+archive/release-${ARROW_GTEST_BUILD_VERSION}.tar.gz"
     "https://github.com/ursa-labs/thirdparty/releases/download/latest/gtest-${ARROW_GTEST_BUILD_VERSION}.tar.gz"
-    "https://dl.bintray.com/ursalabs/arrow-gtest/gtest-${ARROW_GTEST_BUILD_VERSION}.tar.gz"
     )
 endif()
 
@@ -568,7 +566,6 @@ else()
     "https://mirrors.sonic.net/apache/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
     "https://us.mirrors.quenda.co/apache/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
     "https://github.com/ursa-labs/thirdparty/releases/download/latest/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-    "https://dl.bintray.com/ursalabs/arrow-thrift/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
     )
 endif()
 
