@@ -40,6 +40,7 @@ use std::sync::Arc;
 
 use crate::compute::kernels::arithmetic::{divide, multiply};
 use crate::compute::kernels::arity::unary;
+use crate::compute::kernels::cast_utils::string_to_timestamp_nanos;
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 use crate::{array::*, compute::take};
@@ -74,6 +75,7 @@ pub fn can_cast_types(from_type: &DataType, to_type: &DataType) -> bool {
 
         (Utf8, Date32) => true,
         (Utf8, Date64) => true,
+        (Utf8, Timestamp(TimeUnit::Nanosecond, None)) => true,
         (Utf8, _) => DataType::is_numeric(to_type),
         (_, Utf8) => DataType::is_numeric(from_type) || from_type == &Binary,
 
@@ -405,6 +407,22 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
                             Ok(date_time) => {
                                 builder.append_value(date_time.timestamp_millis())?
                             }
+                            Err(_) => builder.append_null()?, // not a valid date
+                        };
+                    }
+                }
+                Ok(Arc::new(builder.finish()) as ArrayRef)
+            }
+            Timestamp(TimeUnit::Nanosecond, None) => {
+                let string_array = array.as_any().downcast_ref::<StringArray>().unwrap();
+                let mut builder =
+                    PrimitiveBuilder::<TimestampNanosecondType>::new(string_array.len());
+                for i in 0..string_array.len() {
+                    if string_array.is_null(i) {
+                        builder.append_null()?;
+                    } else {
+                        match string_to_timestamp_nanos(string_array.value(i)) {
+                            Ok(nanos) => builder.append_value(nanos)?,
                             Err(_) => builder.append_null()?, // not a valid date
                         };
                     }
@@ -1482,6 +1500,24 @@ mod tests {
         let c = b.as_any().downcast_ref::<Date32Array>().unwrap();
         assert_eq!(10000, c.value(0));
         assert_eq!(17890, c.value(1));
+        assert!(c.is_null(2));
+    }
+
+    #[test]
+    fn test_cast_string_to_timestamp() {
+        let a = StringArray::from(vec![
+            Some("2020-09-08T12:00:00+00:00"),
+            Some("Not a valid date"),
+            None,
+        ]);
+        let array = Arc::new(a) as ArrayRef;
+        let b = cast(&array, &DataType::Timestamp(TimeUnit::Nanosecond, None)).unwrap();
+        let c = b
+            .as_any()
+            .downcast_ref::<TimestampNanosecondArray>()
+            .unwrap();
+        assert_eq!(1599566400000000000, c.value(0));
+        assert!(c.is_null(1));
         assert!(c.is_null(2));
     }
 
