@@ -168,9 +168,10 @@ struct KnownFieldValue {
   bool valid;
 
   KnownFieldValue() : datum(), valid(false) {}
-  KnownFieldValue(const Datum& datum)
+  KnownFieldValue(const Datum& datum)  // NOLINT implicit conversion
       : datum(datum), valid(datum.length() != datum.null_count()) {}
-  KnownFieldValue(bool is_valid) : datum(), valid(is_valid) {}
+  KnownFieldValue(bool is_valid)  // NOLINT implicit conversion
+      : datum(), valid(is_valid) {}
 
   inline bool concrete() const { return datum.kind() != Datum::Kind::NONE; }
   bool operator==(const KnownFieldValue& other) const {

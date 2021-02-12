@@ -157,7 +157,8 @@ def _get_options_class(func):
         return globals()[class_name]
     except KeyError:
         warnings.warn(
-            "Python binding for {} not exposed".format(class_name), RuntimeWarning
+            "Python binding for {} not exposed".format(
+                class_name), RuntimeWarning
         )
         return None
 
@@ -221,7 +222,8 @@ def _wrap_function(name, func):
     else:
         template = _wrapper_template
     exec(
-        template.format(func_name=name, args_sig=args_sig, kwonly=kwonly), globals(), ns
+        template.format(func_name=name, args_sig=args_sig,
+                        kwonly=kwonly), globals(), ns
     )
     wrapper = ns["make_wrapper"](func, option_class)
 
