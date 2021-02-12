@@ -186,6 +186,7 @@ impl DefaultPhysicalPlanner {
             } => {
                 // Initially need to perform the aggregate and then merge the partitions
                 let input_exec = self.create_physical_plan(input, ctx_state)?;
+                let input_schema = input_exec.schema();
                 let physical_input_schema = input_exec.as_ref().schema();
                 let logical_input_schema = input.as_ref().schema();
 
@@ -219,6 +220,7 @@ impl DefaultPhysicalPlanner {
                     groups.clone(),
                     aggregates.clone(),
                     input_exec,
+                    input_schema.clone(),
                 )?);
 
                 let final_group: Vec<Arc<dyn PhysicalExpr>> =
@@ -235,6 +237,7 @@ impl DefaultPhysicalPlanner {
                         .collect(),
                     aggregates,
                     initial_aggr,
+                    input_schema,
                 )?))
             }
             LogicalPlan::Projection { input, expr, .. } => {

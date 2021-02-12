@@ -77,10 +77,14 @@ pub struct HashAggregateExec {
     group_expr: Vec<(Arc<dyn PhysicalExpr>, String)>,
     /// Aggregate expressions
     aggr_expr: Vec<Arc<dyn AggregateExpr>>,
-    /// Input plan
+    /// Input plan, could be a partial aggregate or the input to the aggregate
     input: Arc<dyn ExecutionPlan>,
     /// Schema after the aggregate is applied
     schema: SchemaRef,
+    /// Input schema before any aggregation is applied. For partial aggregate this will be the
+    /// same as input.schema() but for the final aggregate it will be the same as the input
+    /// to the partial aggregate
+    input_schema: SchemaRef,
 }
 
 fn create_schema(
@@ -123,6 +127,7 @@ impl HashAggregateExec {
         group_expr: Vec<(Arc<dyn PhysicalExpr>, String)>,
         aggr_expr: Vec<Arc<dyn AggregateExpr>>,
         input: Arc<dyn ExecutionPlan>,
+        input_schema: SchemaRef,
     ) -> Result<Self> {
         let schema = create_schema(&input.schema(), &group_expr, &aggr_expr, mode)?;
 
@@ -134,6 +139,7 @@ impl HashAggregateExec {
             aggr_expr,
             input,
             schema,
+            input_schema,
         })
     }
 
@@ -155,6 +161,11 @@ impl HashAggregateExec {
     /// Input plan
     pub fn input(&self) -> &Arc<dyn ExecutionPlan> {
         &self.input
+    }
+
+    /// Get the input schema before any aggregates are applied
+    pub fn input_schema(&self) -> SchemaRef {
+        self.input_schema.clone()
     }
 }
 
@@ -217,6 +228,7 @@ impl ExecutionPlan for HashAggregateExec {
                 self.group_expr.clone(),
                 self.aggr_expr.clone(),
                 children[0].clone(),
+                self.input_schema.clone(),
             )?)),
             _ => Err(DataFusionError::Internal(
                 "HashAggregateExec wrong number of children".to_string(),
@@ -1048,11 +1060,13 @@ mod tests {
             DataType::Float64,
         ))];
 
+        let input_schema = input.schema();
         let partial_aggregate = Arc::new(HashAggregateExec::try_new(
             AggregateMode::Partial,
             groups.clone(),
             aggregates.clone(),
             input,
+            input_schema.clone(),
         )?);
 
         let result = common::collect(partial_aggregate.execute(0).await?).await?;
@@ -1082,6 +1096,7 @@ mod tests {
                 .collect(),
             aggregates,
             merge,
+            input_schema,
         )?);
 
         let result = common::collect(merged_aggregate.execute(0).await?).await?;
