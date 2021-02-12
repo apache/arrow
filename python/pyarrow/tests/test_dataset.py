@@ -21,6 +21,7 @@ import posixpath
 import pathlib
 import pickle
 import textwrap
+import threading
 
 import numpy as np
 import pytest
@@ -327,6 +328,20 @@ def test_dataset(dataset):
     assert result['f64'] == [1., 1.]
     assert sorted(result['group']) == [1, 2]
     assert sorted(result['key']) == ['xxx', 'yyy']
+
+
+def test_dataset_execute_iterator(dataset):
+    # ARROW-11596: this would segfault due to Cython raising
+    # StopIteration without holding the GIL. (Fixed on Cython master,
+    # post 3.0a6)
+    tasks = dataset.scan()
+    task = next(tasks)
+    iterator = task.execute()
+    thread = threading.Thread(target=lambda: next(iterator))
+    thread.start()
+    thread.join()
+    with pytest.raises(StopIteration):
+        next(iterator)
 
 
 def test_scanner(dataset):

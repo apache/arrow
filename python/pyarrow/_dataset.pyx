@@ -2307,12 +2307,44 @@ cdef class ScanTask(_Weakrefable):
         -------
         record_batches : iterator of RecordBatch
         """
+        # Return an explicit iterator object instead of using a
+        # generator so that this method is eagerly evaluated (a
+        # generator would mean no work gets done until the first
+        # iteration). This also works around a bug in Cython's
+        # generator.
+        cdef CRecordBatchIterator iterator
+        with nogil:
+            iterator = move(GetResultValue(self.task.Execute()))
+        return RecordBatchIterator.wrap(self, move(iterator))
+
+
+cdef class RecordBatchIterator(_Weakrefable):
+    """An iterator over a sequence of record batches."""
+    cdef:
+        ScanTask task
+        CRecordBatchIterator iterator
+
+    def __init__(self):
+        _forbid_instantiation(self.__class__, subclasses_instead=False)
+
+    @staticmethod
+    cdef wrap(ScanTask task, CRecordBatchIterator iterator):
+        cdef RecordBatchIterator self = \
+            RecordBatchIterator.__new__(RecordBatchIterator)
+        self.task = task
+        self.iterator = move(iterator)
+        return self
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
         cdef shared_ptr[CRecordBatch] record_batch
         with nogil:
-            for maybe_batch in GetResultValue(self.task.Execute()):
-                record_batch = GetResultValue(move(maybe_batch))
-                with gil:
-                    yield pyarrow_wrap_batch(record_batch)
+            record_batch = GetResultValue(move(self.iterator.Next()))
+        if record_batch == NULL:
+            raise StopIteration
+        return pyarrow_wrap_batch(record_batch)
 
 
 _DEFAULT_BATCH_SIZE = 2**20
