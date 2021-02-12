@@ -116,6 +116,7 @@ void AssertArraysEqualWith(const Array& expected, const Array& actual, bool verb
     if (expected.data()->null_count != actual.data()->null_count) {
       diff << "Null counts differ. Expected " << expected.data()->null_count
            << " but was " << actual.data()->null_count << "\n";
+      ARROW_LOG(FATAL) << diff.str();
     }
     if (verbose) {
       ::arrow::PrettyPrintOptions options(/*indent=*/2);
