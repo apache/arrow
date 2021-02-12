@@ -28,6 +28,10 @@ internal enum Type : byte
  FixedSizeBinary = 15,
  FixedSizeList = 16,
  Map = 17,
+ Duration = 18,
+ LargeBinary = 19,
+ LargeUtf8 = 20,
+ LargeList = 21,
 };
 
 

@@ -34,24 +34,29 @@ internal struct RecordBatch : IFlatbufferObject
   /// single buffer for the validity (nulls) bitmap
   public Buffer? Buffers(int j) { int o = __p.__offset(8); return o != 0 ? (Buffer?)(new Buffer()).__assign(__p.__vector(o) + j * 16, __p.bb) : null; }
   public int BuffersLength { get { int o = __p.__offset(8); return o != 0 ? __p.__vector_len(o) : 0; } }
+  /// Optional compression of the message body
+  public BodyCompression? Compression { get { int o = __p.__offset(10); return o != 0 ? (BodyCompression?)(new BodyCompression()).__assign(__p.__indirect(o + __p.bb_pos), __p.bb) : null; } }
 
   public static Offset<RecordBatch> CreateRecordBatch(FlatBufferBuilder builder,
       long length = 0,
       VectorOffset nodesOffset = default(VectorOffset),
-      VectorOffset buffersOffset = default(VectorOffset)) {
-    builder.StartObject(3);
+      VectorOffset buffersOffset = default(VectorOffset),
+      Offset<BodyCompression> compressionOffset = default(Offset<BodyCompression>)) {
+    builder.StartObject(4);
     RecordBatch.AddLength(builder, length);
+    RecordBatch.AddCompression(builder, compressionOffset);
     RecordBatch.AddBuffers(builder, buffersOffset);
     RecordBatch.AddNodes(builder, nodesOffset);
     return RecordBatch.EndRecordBatch(builder);
   }
 
-  public static void StartRecordBatch(FlatBufferBuilder builder) { builder.StartObject(3); }
+  public static void StartRecordBatch(FlatBufferBuilder builder) { builder.StartObject(4); }
   public static void AddLength(FlatBufferBuilder builder, long length) { builder.AddLong(0, length, 0); }
   public static void AddNodes(FlatBufferBuilder builder, VectorOffset nodesOffset) { builder.AddOffset(1, nodesOffset.Value, 0); }
   public static void StartNodesVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(16, numElems, 8); }
   public static void AddBuffers(FlatBufferBuilder builder, VectorOffset buffersOffset) { builder.AddOffset(2, buffersOffset.Value, 0); }
   public static void StartBuffersVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(16, numElems, 8); }
+  public static void AddCompression(FlatBufferBuilder builder, Offset<BodyCompression> compressionOffset) { builder.AddOffset(3, compressionOffset.Value, 0); }
   public static Offset<RecordBatch> EndRecordBatch(FlatBufferBuilder builder) {
     int o = builder.EndObject();
     return new Offset<RecordBatch>(o);
