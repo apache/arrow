@@ -659,13 +659,15 @@ cdef class _DictionaryEncodeOptions(FunctionOptions):
     def _set_options(self, null_encoding_behavior):
         if null_encoding_behavior == 'encode':
             self.dictionary_encode_options.reset(
-                new CDictionaryEncodeOptions(CDictionaryEncodeNullEncodingBehavior_ENCODE))
+                new CDictionaryEncodeOptions(
+                    CDictionaryEncodeNullEncodingBehavior_ENCODE))
         elif null_encoding_behavior == 'mask':
             self.dictionary_encode_options.reset(
-                new CDictionaryEncodeOptions(CDictionaryEncodeNullEncodingBehavior_MASK))
+                new CDictionaryEncodeOptions(
+                    CDictionaryEncodeNullEncodingBehavior_MASK))
         else:
-            raise ValueError('"{}" is not a valid null_encoding_behavior'.format(
-                null_encoding_behavior))
+            raise ValueError('"{}" is not a valid null_encoding_behavior'
+                             .format(null_encoding_behavior))
 
 
 class DictionaryEncodeOptions(_DictionaryEncodeOptions):

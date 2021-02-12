@@ -1812,7 +1812,8 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
     cdef cppclass CDictionaryEncodeOptions \
             "arrow::compute::DictionaryEncodeOptions"(CFunctionOptions):
         CDictionaryEncodeOptions()
-        CDictionaryEncodeOptions(CDictionaryEncodeNullEncodingBehavior null_encoding)
+        CDictionaryEncodeOptions(
+            CDictionaryEncodeNullEncodingBehavior null_encoding)
         CDictionaryEncodeNullEncodingBehavior null_encoding
 
     cdef cppclass CTakeOptions \

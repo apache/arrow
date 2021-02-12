@@ -1614,7 +1614,11 @@ cdef class HivePartitioning(Partitioning):
     cdef:
         CHivePartitioning* hive_partitioning
 
-    def __init__(self, Schema schema not None, dictionaries=None, null_fallback="__HIVE_DEFAULT_PARTITION__"):
+    def __init__(self,
+                 Schema schema not None,
+                 dictionaries=None,
+                 null_fallback="__HIVE_DEFAULT_PARTITION__"):
+
         cdef:
             shared_ptr[CHivePartitioning] c_partitioning
             c_string c_null_fallback = tobytes(null_fallback)
@@ -1631,7 +1635,9 @@ cdef class HivePartitioning(Partitioning):
         self.hive_partitioning = <CHivePartitioning*> sp.get()
 
     @staticmethod
-    def discover(infer_dictionary=False, max_partition_dictionary_size=0, null_fallback="__HIVE_DEFAULT_PARTITION__"):
+    def discover(infer_dictionary=False,
+                 max_partition_dictionary_size=0,
+                 null_fallback="__HIVE_DEFAULT_PARTITION__"):
         """
         Discover a HivePartitioning.
 
