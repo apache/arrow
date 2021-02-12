@@ -167,8 +167,9 @@ struct KnownFieldValue {
   Datum datum;
   bool valid;
 
+  KnownFieldValue() : datum(), valid(false) {}
   KnownFieldValue(const Datum& datum)
-      : datum(datum), valid(datum.length() == datum.null_count()) {}
+      : datum(datum), valid(datum.length() != datum.null_count()) {}
   KnownFieldValue(bool is_valid) : datum(), valid(is_valid) {}
 
   inline bool concrete() const { return datum.kind() != Datum::Kind::NONE; }

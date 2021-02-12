@@ -489,6 +489,9 @@ def test_partition_keys():
     assert ds._get_partition_keys(a) == {"a": "a"}
     assert ds._get_partition_keys(a & b & c) == {f: f for f in "abc"}
 
+    null = ds.field("a").is_null()
+    assert ds._get_partition_keys(null) == {"a": None}
+
     nope = ds.field("d") >= 3
     assert ds._get_partition_keys(nope) == {}
     assert ds._get_partition_keys(a & nope) == {"a": "a"}
@@ -1710,16 +1713,17 @@ def test_open_dataset_partitioned_dictionary_type(
 @pytest.mark.pandas
 def test_dataset_partitioned_dictionary_type_reconstruct(tempdir):
     # https://issues.apache.org/jira/browse/ARROW-11400
-    table = pa.table({'part': np.repeat(['A', 'B'], 5), 'col': range(10)})
-    part = ds.partitioning(table.select(['part']).schema, flavor="hive")
+    table = pa.table({"part": np.repeat(["A", "B"], 5), "col": range(10)})
+    part = ds.partitioning(table.select(["part"]).schema, flavor="hive")
     ds.write_dataset(table, tempdir, partitioning=part, format="feather")
 
     dataset = ds.dataset(
-        tempdir, format="feather",
-        partitioning=ds.HivePartitioning.discover(infer_dictionary=True)
+        tempdir,
+        format="feather",
+        partitioning=ds.HivePartitioning.discover(infer_dictionary=True),
     )
     expected = pa.table(
-        {'col': table['col'], 'part': table['part'].dictionary_encode()}
+        {"col": table["col"], "part": table["part"].dictionary_encode()}
     )
     assert dataset.to_table().equals(expected)
     fragment = list(dataset.get_fragments())[0]
@@ -1732,8 +1736,10 @@ def test_dataset_partitioned_dictionary_type_reconstruct(tempdir):
     restored = pickle.loads(pickle.dumps(fragment))
     assert restored.to_table(schema=dataset.schema).equals(expected[:5])
     # to_pandas call triggers computation of the actual dictionary values
-    assert restored.to_table(schema=dataset.schema).to_pandas().equals(
-        expected[:5].to_pandas()
+    assert (
+        restored.to_table(schema=dataset.schema)
+        .to_pandas()
+        .equals(expected[:5].to_pandas())
     )
     assert restored.partition_expression.equals(part_expr)
 

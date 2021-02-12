@@ -206,6 +206,10 @@ cdef class Expression(_Weakrefable):
         """Checks whether the expression is not-null (valid)"""
         return Expression._call("is_valid", [self])
 
+    def is_null(self):
+        """Checks whether the expression is null"""
+        return Expression._call("is_null", [self])
+
     def cast(self, type, bint safe=True):
         """Explicitly change the expression's data type"""
         cdef shared_ptr[CCastOptions] c_options
@@ -2351,14 +2355,17 @@ def _get_partition_keys(Expression partition_expression):
     """
     cdef:
         CExpression expr = partition_expression.unwrap()
-        pair[CFieldRef, CDatum] ref_val
+        pair[CFieldRef, CKnownFieldValue] ref_val
 
     out = {}
     for ref_val in GetResultValue(CExtractKnownFieldValues(expr)):
         assert ref_val.first.name() != nullptr
-        assert ref_val.second.kind() == DatumType_SCALAR
-        val = pyarrow_wrap_scalar(ref_val.second.scalar())
-        out[frombytes(deref(ref_val.first.name()))] = val.as_py()
+        if ref_val.second.valid:
+            assert ref_val.second.datum.kind() == DatumType_SCALAR
+            val = pyarrow_wrap_scalar(ref_val.second.datum.scalar())
+            out[frombytes(deref(ref_val.first.name()))] = val.as_py()
+        else:
+            out[frombytes(deref(ref_val.first.name()))] = None
     return out
 
 
