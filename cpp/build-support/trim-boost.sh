@@ -29,7 +29,7 @@ set -eu
 # if version is not defined by the caller, set a default.
 : ${BOOST_VERSION:=1.71.0}
 : ${BOOST_FILE:=boost_${BOOST_VERSION//./_}}
-: ${BOOST_URL:=https://dl.bintray.com/boostorg/release/${BOOST_VERSION}/source/${BOOST_FILE}.tar.gz}
+: ${BOOST_URL:=https://sourceforge.net/projects/boost/files/boost/${BOOST_VERSION}/${BOOST_FILE}.tar.gz}
 
 # Arrow tests require these
 BOOST_LIBS="system.hpp filesystem.hpp"
