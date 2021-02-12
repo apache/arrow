@@ -287,6 +287,18 @@ impl ExecutionContext {
             .insert(name.to_string(), provider.into());
     }
 
+    /// Deregisters the named table.
+    ///
+    /// Returns true if the table was successfully de-reregistered.
+    pub fn deregister_table(&mut self, name: &str) -> bool {
+        self.state
+            .lock()
+            .unwrap()
+            .datasources
+            .remove(&name.to_string())
+            .is_some()
+    }
+
     /// Retrieves a DataFrame representing a table previously registered by calling the
     /// register_table function.
     ///
@@ -719,6 +731,21 @@ mod tests {
             "+----------------------+------------------------+",
         ];
         assert_batches_eq!(expected, &results);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn register_deregister() -> Result<()> {
+        let tmp_dir = TempDir::new()?;
+        let partition_count = 4;
+        let mut ctx = create_ctx(&tmp_dir, partition_count)?;
+
+        let provider = test::create_table_dual();
+        ctx.register_table("dual", provider);
+
+        assert_eq!(ctx.deregister_table("dual"), true);
+        assert_eq!(ctx.deregister_table("dual"), false);
 
         Ok(())
     }
@@ -1667,6 +1694,8 @@ mod tests {
         for i in 0..sum.len() {
             assert_eq!(a.value(i) + b.value(i), sum.value(i));
         }
+
+        ctx.deregister_table("t");
 
         Ok(())
     }
