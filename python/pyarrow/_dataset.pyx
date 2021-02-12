@@ -1120,6 +1120,10 @@ cdef class ParquetReadOptions(_Weakrefable):
     dictionary_columns : list of string, default None
         Names of columns which should be dictionary encoded as
         they are read.
+    pre_buffer : bool, default False
+        If enabled, pre-buffer the raw Parquet data instead of issuing one
+        read per column chunk. This can improve performance on high-latency
+        filesystems.
     enable_parallel_column_conversion : bool, default False
         EXPERIMENTAL: Parallelize conversion across columns. This option is
         ignored if a scan is already parallelized across input files to avoid
@@ -1131,17 +1135,20 @@ cdef class ParquetReadOptions(_Weakrefable):
         bint use_buffered_stream
         uint32_t buffer_size
         set dictionary_columns
+        bint pre_buffer
         bint enable_parallel_column_conversion
 
     def __init__(self, bint use_buffered_stream=False,
                  buffer_size=8192,
                  dictionary_columns=None,
+                 bint pre_buffer=False,
                  bint enable_parallel_column_conversion=False):
         self.use_buffered_stream = use_buffered_stream
         if buffer_size <= 0:
             raise ValueError("Buffer size must be larger than zero")
         self.buffer_size = buffer_size
         self.dictionary_columns = set(dictionary_columns or set())
+        self.pre_buffer = pre_buffer
         self.enable_parallel_column_conversion = \
             enable_parallel_column_conversion
 
@@ -1150,6 +1157,7 @@ cdef class ParquetReadOptions(_Weakrefable):
             self.use_buffered_stream == other.use_buffered_stream and
             self.buffer_size == other.buffer_size and
             self.dictionary_columns == other.dictionary_columns and
+            self.pre_buffer == other.pre_buffer and
             self.enable_parallel_column_conversion ==
             other.enable_parallel_column_conversion
         )
@@ -1261,6 +1269,7 @@ cdef class ParquetFileFormat(FileFormat):
         options = &(wrapped.get().reader_options)
         options.use_buffered_stream = read_options.use_buffered_stream
         options.buffer_size = read_options.buffer_size
+        options.pre_buffer = read_options.pre_buffer
         options.enable_parallel_column_conversion = \
             read_options.enable_parallel_column_conversion
         if read_options.dictionary_columns is not None:
@@ -1282,6 +1291,7 @@ cdef class ParquetFileFormat(FileFormat):
             buffer_size=options.buffer_size,
             dictionary_columns={frombytes(col)
                                 for col in options.dict_columns},
+            pre_buffer=options.pre_buffer,
             enable_parallel_column_conversion=(
                 options.enable_parallel_column_conversion
             )
