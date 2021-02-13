@@ -37,14 +37,14 @@ except ImportError:
 
 # Tests for ARROW-11497
 _test_data_simple = [
-    {'name': 'list1', 'items': [1, 2]},
-    {'name': 'list2', 'items': [0]},
+    {'items': [1, 2]},
+    {'items': [0]},
 ]
 
 _test_data_complex = [
-    {'name': 'list1', 'items': [
-        {'name': 'elem1', 'value': '1'}, {'name': 'elem2', 'value': '2'}]},
-    {'name': 'list2', 'items': [{'name': 'elem1', 'value': '0'}]},
+    {'items': [{'name': 'elem1', 'value': '1'},
+               {'name': 'elem2', 'value': '2'}]},
+    {'items': [{'name': 'elem1', 'value': '0'}]},
 ]
 
 parametrize_test_data = pytest.mark.parametrize(
@@ -75,8 +75,8 @@ def test_write_compliant_nested_type_enable(tempdir,
     new_table = _read_table(path)
     # Validate that "items" columns compliant to Parquet nested format
     # Should be like this: list<element: struct<name: string, value: string>>
-    assert isinstance(new_table.schema.types[1], pa.ListType)
-    assert new_table.schema.types[1].value_field.name == 'element'
+    assert isinstance(new_table.schema.types[0], pa.ListType)
+    assert new_table.schema.types[0].value_field.name == 'element'
 
     # Verify that the new table can be read/written correctly
     _check_roundtrip(new_table,
@@ -106,8 +106,8 @@ def test_write_compliant_nested_type_disable(tempdir,
 
     # Validate that "items" columns is not compliant to Parquet nested format
     # Should be like this: list<item: struct<name: string, value: string>>
-    assert isinstance(new_table.schema.types[1], pa.ListType)
-    assert new_table.schema.types[1].value_field.name == 'item'
+    assert isinstance(new_table.schema.types[0], pa.ListType)
+    assert new_table.schema.types[0].value_field.name == 'item'
 
     # Verify that the new table can be read/written correctly
     _check_roundtrip(new_table,
