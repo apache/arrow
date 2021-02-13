@@ -40,7 +40,7 @@
 //! let batch = csv.next().unwrap().unwrap();
 //! ```
 
-use csv_core::ReadFieldResult;
+use csv_core::ReadRecordResult;
 use lazy_static::lazy_static;
 use regex::{Regex, RegexBuilder};
 use std::collections::HashSet;
@@ -66,8 +66,7 @@ lazy_static! {
         .build()
         .unwrap();
     static ref DATE_RE: Regex = Regex::new(r"^\d{4}-\d\d-\d\d$").unwrap();
-    static ref DATETIME_RE: Regex =
-        Regex::new(r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d$").unwrap();
+    static ref DATETIME_RE: Regex = Regex::new(r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d$").unwrap();
 }
 
 /// Infer the data type of a record
@@ -388,19 +387,24 @@ impl<R: Read> Iterator for Reader<R> {
         self.offsets.push(0);
         let mut read = self.reader.read(buf_in).ok()?;
         let mut buf_in_start = 0;
+        let mut ends = vec![0; self.schema().fields().len()];
         while read_records <= std::cmp::min(self.batch_size, remaining) {
-            let (result, n_in, n_out) = self
-                .csv_reader
-                .read_field(&buf_in[buf_in_start..read], csv_buf);
+            let (result, n_in, n_out, n_ends) =
+                self.csv_reader
+                    .read_record(&buf_in[buf_in_start..read], csv_buf, &mut ends);
             buf_in_start += n_in;
             match result {
-                ReadFieldResult::InputEmpty | ReadFieldResult::End => {
+                ReadRecordResult::InputEmpty | ReadRecordResult::End => {
                     read = self.reader.read(buf_in).ok()?;
                     if read == 0 {
                         if n_out > 0 {
+                            self.data.extend_from_slice(&csv_buf[..n_out]);
+
+                            for end in ends.iter().take(n_ends) {
+                                self.offsets.push(current_offset + end);
+                            }
                             current_offset += n_out;
                             self.offsets.push(current_offset);
-                            self.data.extend_from_slice(&csv_buf[..n_out]);
                             read_records += 1;
                         }
                         println!("empty!");
@@ -408,14 +412,20 @@ impl<R: Read> Iterator for Reader<R> {
                     }
                     buf_in_start = 0;
                 }
-                ReadFieldResult::OutputFull => panic!("field too large"), // TODO: grow buffer
-                ReadFieldResult::Field { record_end } => {
-                    current_offset += n_out;
-                    self.offsets.push(current_offset);
+                ReadRecordResult::OutputFull => panic!("field too large"), // TODO: grow buffer
+                ReadRecordResult::Record => {
+                    assert!(n_ends == ends.len());
+
                     self.data.extend_from_slice(&csv_buf[..n_out]);
-                    if record_end {
-                        read_records += 1;
+                    assert!(n_ends == ends.len());
+                    for end in ends.iter().take(n_ends) {
+                        self.offsets.push(current_offset + end);
                     }
+                    current_offset += n_out;
+                    read_records += 1;
+                }
+                ReadRecordResult::OutputEndsFull => {
+                    panic!("more ends!")
                 }
             }
         }
@@ -462,143 +472,138 @@ fn parse(
         None => fields.iter().enumerate().map(|(i, _)| i).collect(),
     };
 
-    let arrays: Result<Vec<ArrayRef>> =
-        projection
-            .iter()
-            .map(|i| {
-                let i = *i;
-                let field = &fields[i];
-                match field.data_type() {
-                    &DataType::Boolean => build_boolean_array(
-                        line_number,
-                        row_data,
-                        row_offsets,
-                        i,
-                        fields.len(),
-                    ),
-                    &DataType::Int8 => build_primitive_array::<Int8Type>(
-                        line_number,
-                        row_data,
-                        row_offsets,
-                        i,
-                        fields.len(),
-                    ),
-                    &DataType::Int16 => build_primitive_array::<Int16Type>(
-                        line_number,
-                        row_data,
-                        row_offsets,
-                        i,
-                        fields.len(),
-                    ),
-                    &DataType::Int32 => build_primitive_array::<Int32Type>(
-                        line_number,
-                        row_data,
-                        row_offsets,
-                        i,
-                        fields.len(),
-                    ),
-                    &DataType::Int64 => build_primitive_array::<Int64Type>(
-                        line_number,
-                        row_data,
-                        row_offsets,
-                        i,
-                        fields.len(),
-                    ),
-                    &DataType::UInt8 => build_primitive_array::<UInt8Type>(
-                        line_number,
-                        row_data,
-                        row_offsets,
-                        i,
-                        fields.len(),
-                    ),
-                    &DataType::UInt16 => build_primitive_array::<UInt16Type>(
-                        line_number,
-                        row_data,
-                        row_offsets,
-                        i,
-                        fields.len(),
-                    ),
-                    &DataType::UInt32 => build_primitive_array::<UInt32Type>(
-                        line_number,
-                        row_data,
-                        row_offsets,
-                        i,
-                        fields.len(),
-                    ),
-                    &DataType::UInt64 => build_primitive_array::<UInt64Type>(
-                        line_number,
-                        row_data,
-                        row_offsets,
-                        i,
-                        fields.len(),
-                    ),
-                    &DataType::Float32 => build_primitive_array::<Float32Type>(
-                        line_number,
-                        row_data,
-                        row_offsets,
-                        i,
-                        fields.len(),
-                    ),
-                    &DataType::Float64 => build_primitive_array::<Float64Type>(
-                        line_number,
-                        row_data,
-                        row_offsets,
-                        i,
-                        fields.len(),
-                    ),
-                    &DataType::Date32 => build_primitive_array::<Date32Type>(
-                        line_number,
-                        row_data,
-                        row_offsets,
-                        i,
-                        fields.len(),
-                    ),
-                    &DataType::Date64 => build_primitive_array::<Date64Type>(
-                        line_number,
-                        row_data,
-                        row_offsets,
-                        i,
-                        fields.len(),
-                    ),
-                    &DataType::Timestamp(TimeUnit::Microsecond, _) => {
-                        build_primitive_array::<TimestampMicrosecondType>(
-                            line_number,
-                            row_data,
-                            row_offsets,
-                            i,
-                            fields.len(),
-                        )
-                    }
-                    &DataType::Timestamp(TimeUnit::Nanosecond, _) => {
-                        build_primitive_array::<TimestampNanosecondType>(
-                            line_number,
-                            row_data,
-                            row_offsets,
-                            i,
-                            fields.len(),
-                        )
-                    }
-                    &DataType::Utf8 => Ok(Arc::new(StringArray::from_iter_values(
-                        row_offsets.windows(2).skip(i).step_by(fields.len()).map(
-                            |window| {
-                                let str =
-                                    std::str::from_utf8(&row_data[window[0]..window[1]])
-                                        .unwrap()
-                                        .trim_matches('"');
-                                str
-                            },
-                        ),
-                    )) as ArrayRef),
-                    other => Err(ArrowError::ParseError(format!(
-                        "Unsupported data type {:?}",
-                        other
-                    ))),
+    let arrays: Result<Vec<ArrayRef>> = projection
+        .iter()
+        .map(|i| {
+            let i = *i;
+            let field = &fields[i];
+            match field.data_type() {
+                &DataType::Boolean => {
+                    build_boolean_array(line_number, row_data, row_offsets, i, fields.len())
                 }
-            })
-            .collect();
+                &DataType::Int8 => build_primitive_array::<Int8Type>(
+                    line_number,
+                    row_data,
+                    row_offsets,
+                    i,
+                    fields.len(),
+                ),
+                &DataType::Int16 => build_primitive_array::<Int16Type>(
+                    line_number,
+                    row_data,
+                    row_offsets,
+                    i,
+                    fields.len(),
+                ),
+                &DataType::Int32 => build_primitive_array::<Int32Type>(
+                    line_number,
+                    row_data,
+                    row_offsets,
+                    i,
+                    fields.len(),
+                ),
+                &DataType::Int64 => build_primitive_array::<Int64Type>(
+                    line_number,
+                    row_data,
+                    row_offsets,
+                    i,
+                    fields.len(),
+                ),
+                &DataType::UInt8 => build_primitive_array::<UInt8Type>(
+                    line_number,
+                    row_data,
+                    row_offsets,
+                    i,
+                    fields.len(),
+                ),
+                &DataType::UInt16 => build_primitive_array::<UInt16Type>(
+                    line_number,
+                    row_data,
+                    row_offsets,
+                    i,
+                    fields.len(),
+                ),
+                &DataType::UInt32 => build_primitive_array::<UInt32Type>(
+                    line_number,
+                    row_data,
+                    row_offsets,
+                    i,
+                    fields.len(),
+                ),
+                &DataType::UInt64 => build_primitive_array::<UInt64Type>(
+                    line_number,
+                    row_data,
+                    row_offsets,
+                    i,
+                    fields.len(),
+                ),
+                &DataType::Float32 => build_primitive_array::<Float32Type>(
+                    line_number,
+                    row_data,
+                    row_offsets,
+                    i,
+                    fields.len(),
+                ),
+                &DataType::Float64 => build_primitive_array::<Float64Type>(
+                    line_number,
+                    row_data,
+                    row_offsets,
+                    i,
+                    fields.len(),
+                ),
+                &DataType::Date32 => build_primitive_array::<Date32Type>(
+                    line_number,
+                    row_data,
+                    row_offsets,
+                    i,
+                    fields.len(),
+                ),
+                &DataType::Date64 => build_primitive_array::<Date64Type>(
+                    line_number,
+                    row_data,
+                    row_offsets,
+                    i,
+                    fields.len(),
+                ),
+                &DataType::Timestamp(TimeUnit::Microsecond, _) => {
+                    build_primitive_array::<TimestampMicrosecondType>(
+                        line_number,
+                        row_data,
+                        row_offsets,
+                        i,
+                        fields.len(),
+                    )
+                }
+                &DataType::Timestamp(TimeUnit::Nanosecond, _) => {
+                    build_primitive_array::<TimestampNanosecondType>(
+                        line_number,
+                        row_data,
+                        row_offsets,
+                        i,
+                        fields.len(),
+                    )
+                }
+                &DataType::Utf8 => Ok(Arc::new(StringArray::from_iter_values(
+                    row_offsets
+                        .windows(2)
+                        .skip(i)
+                        .step_by(fields.len())
+                        .map(|window| {
+                            let str = std::str::from_utf8(&row_data[window[0]..window[1]])
+                                .unwrap()
+                                .trim_matches('"');
+                            str
+                        }),
+                )) as ArrayRef),
+                other => Err(ArrowError::ParseError(format!(
+                    "Unsupported data type {:?}",
+                    other
+                ))),
+            }
+        })
+        .collect();
 
-    let projected_fields: Vec<Field> =
-        projection.iter().map(|i| fields[*i].clone()).collect();
+    let projected_fields: Vec<Field> = projection.iter().map(|i| fields[*i].clone()).collect();
 
     let projected_schema = Arc::new(Schema::new(projected_fields));
 
@@ -725,8 +730,7 @@ fn build_primitive_array<T: ArrowPrimitiveType + Parser>(
                 return Ok(None);
             }
 
-            let str = std::str::from_utf8(str)
-                .map_err(|_| ArrowError::ParseError(format!("x")))?;
+            let str = std::str::from_utf8(str).map_err(|_| ArrowError::ParseError(format!("x")))?;
             println!("{}, {} {} {}", str, T::DATA_TYPE, window[0], window[1]);
             let parsed = parse_item::<T>(str);
             match parsed {
@@ -972,21 +976,13 @@ mod tests {
             Field::new("lng", DataType::Float64, false),
         ]);
 
-        let file_with_headers =
-            File::open("test/data/uk_cities_with_headers.csv").unwrap();
+        let file_with_headers = File::open("test/data/uk_cities_with_headers.csv").unwrap();
         let file_without_headers = File::open("test/data/uk_cities.csv").unwrap();
         let both_files = file_with_headers
             .chain(Cursor::new("\n".to_string()))
             .chain(file_without_headers);
-        let mut csv = Reader::from_reader(
-            both_files,
-            Arc::new(schema),
-            true,
-            None,
-            1024,
-            None,
-            None,
-        );
+        let mut csv =
+            Reader::from_reader(both_files, Arc::new(schema), true, None, 1024, None, None);
         let batch = csv.next().unwrap().unwrap();
         assert_eq!(74, batch.num_rows());
         assert_eq!(3, batch.num_columns());
@@ -1101,6 +1097,7 @@ mod tests {
             Field::new("c_int", DataType::UInt64, false),
             Field::new("c_float", DataType::Float32, false),
             Field::new("c_string", DataType::Utf8, false),
+            Field::new("c_bool", DataType::Boolean, false),
         ]);
 
         let file = File::open("test/data/null_test.csv").unwrap();
