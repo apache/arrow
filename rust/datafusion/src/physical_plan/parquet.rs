@@ -39,8 +39,11 @@ use crate::{
     optimizer::utils,
     prelude::ExecutionConfig,
 };
-use arrow::error::{ArrowError, Result as ArrowResult};
 use arrow::record_batch::RecordBatch;
+use arrow::{
+    array::new_null_array,
+    error::{ArrowError, Result as ArrowResult},
+};
 use arrow::{
     array::{make_array, ArrayData, ArrayRef, BooleanArray, BooleanBufferBuilder},
     buffer::MutableBuffer,
@@ -646,13 +649,6 @@ enum StatisticsType {
     Max,
 }
 
-fn build_null_array(data_type: &DataType, length: usize) -> ArrayRef {
-    Arc::new(arrow::array::NullArray::new_with_type(
-        length,
-        data_type.clone(),
-    ))
-}
-
 fn build_statistics_array(
     statistics: &[Option<&ParquetStatistics>],
     statistics_type: StatisticsType,
@@ -665,7 +661,7 @@ fn build_statistics_array(
         statistics
     } else {
         // no row group has statistics defined
-        return build_null_array(data_type, statistics_count);
+        return new_null_array(data_type, statistics_count);
     };
 
     let (data_size, arrow_type) = match first_group_stats {
@@ -678,7 +674,7 @@ fn build_statistics_array(
         }
         _ => {
             // type of statistics not supported
-            return build_null_array(data_type, statistics_count);
+            return new_null_array(data_type, statistics_count);
         }
     };
 
@@ -735,7 +731,7 @@ fn build_statistics_array(
     }
     // cast statistics array to required data type
     arrow::compute::cast(&statistics_array, data_type)
-        .unwrap_or_else(|_| build_null_array(data_type, statistics_count))
+        .unwrap_or_else(|_| new_null_array(data_type, statistics_count))
 }
 
 #[async_trait]

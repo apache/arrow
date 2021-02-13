@@ -19,27 +19,10 @@
 
 use std::{convert::TryFrom, fmt, iter::repeat, sync::Arc};
 
-use arrow::array::{
-    Date64Array, Int16Builder, Int32Builder, Int64Builder, Int8Builder, ListBuilder,
-    TimestampMicrosecondArray, TimestampNanosecondArray, UInt16Builder, UInt32Builder,
-    UInt64Builder, UInt8Builder,
-};
-use arrow::{
-    array::ArrayRef,
-    datatypes::{DataType, Field},
-};
-use arrow::{
-    array::{
-        Array, BooleanArray, Date32Array, Float32Array, Float64Array, Int16Array,
-        Int32Array, Int64Array, Int8Array, IntervalDayTimeArray, IntervalYearMonthArray,
-        LargeStringArray, ListArray, StringArray, UInt16Array, UInt32Array, UInt64Array,
-        UInt8Array,
-    },
-    datatypes::IntervalUnit,
-};
+use arrow::array::*;
+use arrow::datatypes::{DataType, Field, IntervalUnit, TimeUnit};
 
 use crate::error::{DataFusionError, Result};
-use arrow::datatypes::TimeUnit;
 
 /// Represents a dynamically typed, nullable single value.
 /// This is the single-valued counter-part of arrow’s `Array`.
@@ -100,12 +83,16 @@ macro_rules! typed_cast {
 macro_rules! build_list {
     ($VALUE_BUILDER_TY:ident, $SCALAR_TY:ident, $VALUES:expr, $SIZE:expr) => {{
         match $VALUES {
+            // the return on the macro is necessary, to short-circuit and return ArrayRef
             None => {
-                let mut builder = ListBuilder::new($VALUE_BUILDER_TY::new(0));
-                for _ in 0..$SIZE {
-                    builder.append(false).unwrap();
-                }
-                builder.finish()
+                return new_null_array(
+                    &DataType::List(Box::new(Field::new(
+                        "item",
+                        DataType::$SCALAR_TY,
+                        true,
+                    ))),
+                    $SIZE,
+                )
             }
             Some(values) => {
                 let mut builder = ListBuilder::new($VALUE_BUILDER_TY::new(values.len()));
@@ -221,99 +208,90 @@ impl ScalarValue {
                 Some(value) => {
                     Arc::new(Float64Array::from_iter_values(repeat(*value).take(size)))
                 }
-                None => Arc::new(repeat(None).take(size).collect::<Float64Array>()),
+                None => new_null_array(&DataType::Float64, size),
             },
             ScalarValue::Float32(e) => match e {
                 Some(value) => {
                     Arc::new(Float32Array::from_iter_values(repeat(*value).take(size)))
                 }
-                None => Arc::new(repeat(None).take(size).collect::<Float32Array>()),
+                None => new_null_array(&DataType::Float32, size),
             },
             ScalarValue::Int8(e) => match e {
                 Some(value) => {
                     Arc::new(Int8Array::from_iter_values(repeat(*value).take(size)))
                 }
-                None => Arc::new(repeat(None).take(size).collect::<Int8Array>()),
+                None => new_null_array(&DataType::Int8, size),
             },
             ScalarValue::Int16(e) => match e {
                 Some(value) => {
                     Arc::new(Int16Array::from_iter_values(repeat(*value).take(size)))
                 }
-                None => Arc::new(repeat(None).take(size).collect::<Int16Array>()),
+                None => new_null_array(&DataType::Int16, size),
             },
             ScalarValue::Int32(e) => match e {
                 Some(value) => {
                     Arc::new(Int32Array::from_iter_values(repeat(*value).take(size)))
                 }
-                None => Arc::new(repeat(None).take(size).collect::<Int32Array>()),
+                None => new_null_array(&DataType::Int32, size),
             },
             ScalarValue::Int64(e) => match e {
                 Some(value) => {
                     Arc::new(Int64Array::from_iter_values(repeat(*value).take(size)))
                 }
-                None => Arc::new(repeat(None).take(size).collect::<Int64Array>()),
+                None => new_null_array(&DataType::Int64, size),
             },
             ScalarValue::UInt8(e) => match e {
                 Some(value) => {
                     Arc::new(UInt8Array::from_iter_values(repeat(*value).take(size)))
                 }
-                None => Arc::new(repeat(None).take(size).collect::<UInt8Array>()),
+                None => new_null_array(&DataType::UInt8, size),
             },
             ScalarValue::UInt16(e) => match e {
                 Some(value) => {
                     Arc::new(UInt16Array::from_iter_values(repeat(*value).take(size)))
                 }
-                None => Arc::new(repeat(None).take(size).collect::<UInt16Array>()),
+                None => new_null_array(&DataType::UInt16, size),
             },
             ScalarValue::UInt32(e) => match e {
                 Some(value) => {
                     Arc::new(UInt32Array::from_iter_values(repeat(*value).take(size)))
                 }
-                None => Arc::new(repeat(None).take(size).collect::<UInt32Array>()),
+                None => new_null_array(&DataType::UInt32, size),
             },
             ScalarValue::UInt64(e) => match e {
                 Some(value) => {
                     Arc::new(UInt64Array::from_iter_values(repeat(*value).take(size)))
                 }
-                None => Arc::new(repeat(None).take(size).collect::<UInt64Array>()),
+                None => new_null_array(&DataType::UInt64, size),
             },
             ScalarValue::TimeMicrosecond(e) => match e {
                 Some(value) => Arc::new(TimestampMicrosecondArray::from_iter_values(
                     repeat(*value).take(size),
                 )),
-                None => Arc::new(
-                    repeat(None)
-                        .take(size)
-                        .collect::<TimestampMicrosecondArray>(),
+                None => new_null_array(
+                    &DataType::Timestamp(TimeUnit::Microsecond, None),
+                    size,
                 ),
             },
             ScalarValue::TimeNanosecond(e) => match e {
                 Some(value) => Arc::new(TimestampNanosecondArray::from_iter_values(
                     repeat(*value).take(size),
                 )),
-                None => Arc::new(
-                    repeat(None)
-                        .take(size)
-                        .collect::<TimestampNanosecondArray>(),
-                ),
+                None => {
+                    new_null_array(&DataType::Timestamp(TimeUnit::Nanosecond, None), size)
+                }
             },
             ScalarValue::Utf8(e) => match e {
                 Some(value) => {
                     Arc::new(StringArray::from_iter_values(repeat(value).take(size)))
                 }
-                None => {
-                    Arc::new(repeat(None::<&str>).take(size).collect::<StringArray>())
-                }
+                None => new_null_array(&DataType::Utf8, size),
             },
             ScalarValue::LargeUtf8(e) => match e {
                 Some(value) => {
                     Arc::new(LargeStringArray::from_iter_values(repeat(value).take(size)))
                 }
-                None => Arc::new(
-                    repeat(None::<&str>)
-                        .take(size)
-                        .collect::<LargeStringArray>(),
-                ),
+                None => new_null_array(&DataType::LargeUtf8, size),
             },
             ScalarValue::List(values, data_type) => Arc::new(match data_type {
                 DataType::Int8 => build_list!(Int8Builder, Int8, values, size),
@@ -330,28 +308,26 @@ impl ScalarValue {
                 Some(value) => {
                     Arc::new(Date32Array::from_iter_values(repeat(*value).take(size)))
                 }
-                None => Arc::new(repeat(None).take(size).collect::<Date32Array>()),
+                None => new_null_array(&DataType::Date32, size),
             },
             ScalarValue::Date64(e) => match e {
                 Some(value) => {
                     Arc::new(Date64Array::from_iter_values(repeat(*value).take(size)))
                 }
-                None => Arc::new(repeat(None).take(size).collect::<Date64Array>()),
+                None => new_null_array(&DataType::Date64, size),
             },
             ScalarValue::IntervalDayTime(e) => match e {
                 Some(value) => Arc::new(IntervalDayTimeArray::from_iter_values(
                     repeat(*value).take(size),
                 )),
-                None => {
-                    Arc::new(repeat(None).take(size).collect::<IntervalDayTimeArray>())
-                }
+                None => new_null_array(&DataType::Interval(IntervalUnit::DayTime), size),
             },
             ScalarValue::IntervalYearMonth(e) => match e {
                 Some(value) => Arc::new(IntervalYearMonthArray::from_iter_values(
                     repeat(*value).take(size),
                 )),
                 None => {
-                    Arc::new(repeat(None).take(size).collect::<IntervalYearMonthArray>())
+                    new_null_array(&DataType::Interval(IntervalUnit::YearMonth), size)
                 }
             },
         }
