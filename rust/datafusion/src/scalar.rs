@@ -314,7 +314,7 @@ impl ScalarValue {
                 Some(value) => {
                     Arc::new(Date64Array::from_iter_values(repeat(*value).take(size)))
                 }
-                None => new_array_with_nulls(&DataType::Date64, size),
+                None => new_null_array(&DataType::Date64, size),
             },
             ScalarValue::IntervalDayTime(e) => match e {
                 Some(value) => Arc::new(IntervalDayTimeArray::from_iter_values(

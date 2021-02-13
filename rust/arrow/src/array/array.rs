@@ -329,6 +329,7 @@ pub fn new_empty_array(data_type: &DataType) -> ArrayRef {
 }
 /// Creates a new array of `data_type` of length `length` filled entirely of `NULL` values
 pub fn new_null_array(data_type: &DataType, length: usize) -> ArrayRef {
+    // context: https://github.com/apache/arrow/pull/9469#discussion_r574761687
     match data_type {
         DataType::Null => Arc::new(NullArray::new(length)),
         DataType::Boolean => {
@@ -343,30 +344,32 @@ pub fn new_null_array(data_type: &DataType, length: usize) -> ArrayRef {
                 vec![],
             )))
         }
-        DataType::Int8 | DataType::UInt8 => {
-            new_null_sized_array::<Int8Type>(data_type, length)
-        }
-        DataType::Int16 | DataType::UInt16 => {
-            new_null_sized_array::<Int16Type>(data_type, length)
-        }
+        DataType::Int8 => new_null_sized_array::<Int8Type>(data_type, length),
+        DataType::UInt8 => new_null_sized_array::<UInt8Type>(data_type, length),
+        DataType::Int16 => new_null_sized_array::<Int16Type>(data_type, length),
+        DataType::UInt16 => new_null_sized_array::<UInt16Type>(data_type, length),
         DataType::Float16 => unreachable!(),
-        DataType::Int32
-        | DataType::UInt32
-        | DataType::Float32
-        | DataType::Date32
-        | DataType::Time32(_) => new_null_sized_array::<Int32Type>(data_type, length),
-        DataType::Int64
-        | DataType::UInt64
-        | DataType::Float64
-        | DataType::Date64
-        | DataType::Timestamp(_, _)
-        | DataType::Time64(_)
-        | DataType::Duration(_) => new_null_sized_array::<Int64Type>(data_type, length),
+        DataType::Int32 => new_null_sized_array::<Int32Type>(data_type, length),
+        DataType::UInt32 => new_null_sized_array::<UInt32Type>(data_type, length),
+        DataType::Float32 => new_null_sized_array::<Float32Type>(data_type, length),
+        DataType::Date32 => new_null_sized_array::<Date32Type>(data_type, length),
+        // expanding this into Date23{unit}Type results in needless branching
+        DataType::Time32(_) => new_null_sized_array::<Int32Type>(data_type, length),
+        DataType::Int64 => new_null_sized_array::<Int64Type>(data_type, length),
+        DataType::UInt64 => new_null_sized_array::<UInt64Type>(data_type, length),
+        DataType::Float64 => new_null_sized_array::<Float64Type>(data_type, length),
+        DataType::Date64 => new_null_sized_array::<Date64Type>(data_type, length),
+        // expanding this into Timestamp{unit}Type results in needless branching
+        DataType::Timestamp(_, _) => new_null_sized_array::<Int64Type>(data_type, length),
+        DataType::Time64(_) => new_null_sized_array::<Int64Type>(data_type, length),
+        DataType::Duration(_) => new_null_sized_array::<Int64Type>(data_type, length),
         DataType::Interval(unit) => match unit {
             IntervalUnit::YearMonth => {
-                new_null_sized_array::<Int32Type>(data_type, length)
+                new_null_sized_array::<IntervalYearMonthType>(data_type, length)
             }
-            IntervalUnit::DayTime => new_null_sized_array::<Int64Type>(data_type, length),
+            IntervalUnit::DayTime => {
+                new_null_sized_array::<IntervalDayTimeType>(data_type, length)
+            }
         },
         DataType::FixedSizeBinary(value_len) => make_array(Arc::new(ArrayData::new(
             data_type.clone(),
