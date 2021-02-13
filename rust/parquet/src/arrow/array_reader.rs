@@ -1396,11 +1396,11 @@ impl<'a> ArrayReaderBuilder {
             self.file_reader.clone(),
         )?);
 
-        let arrow_type: Option<ArrowType> =
-            match self.get_arrow_field(&cur_type, context) {
-                Some(f) => Some(f.data_type().clone()),
-                _ => None,
-            };
+        let arrow_type: Option<ArrowType> = match self.get_arrow_field(&cur_type, context)
+        {
+            Some(f) => Some(f.data_type().clone()),
+            _ => None,
+        };
 
         match cur_type.get_physical_type() {
             PhysicalType::BOOLEAN => Ok(Box::new(PrimitiveArrayReader::<BoolType>::new(
