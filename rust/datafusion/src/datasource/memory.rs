@@ -107,7 +107,7 @@ impl MemTable {
 
     /// Create a mem table by reading from another data source
     pub async fn load(
-        t: Box<dyn TableProvider + Send + Sync>,
+        t: Arc<dyn TableProvider + Send + Sync>,
         batch_size: usize,
         output_partitions: Option<usize>,
     ) -> Result<Self> {

@@ -326,15 +326,15 @@ mod tests {
         Ok(())
     }
 
-    fn load_table(name: &str) -> Result<Box<dyn TableProvider>> {
+    fn load_table(name: &str) -> Result<Arc<dyn TableProvider>> {
         let testdata = arrow::util::test_util::parquet_test_data();
         let filename = format!("{}/{}", testdata, name);
         let table = ParquetTable::try_new(&filename, 2)?;
-        Ok(Box::new(table))
+        Ok(Arc::new(table))
     }
 
     async fn get_first_batch(
-        table: Box<dyn TableProvider>,
+        table: Arc<dyn TableProvider>,
         projection: &Option<Vec<usize>>,
     ) -> Result<RecordBatch> {
         let exec = table.scan(projection, 1024, &[])?;
