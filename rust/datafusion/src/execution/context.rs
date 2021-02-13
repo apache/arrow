@@ -273,18 +273,22 @@ impl ExecutionContext {
         Ok(())
     }
 
-    /// Registers a table using a custom TableProvider so that it can be referenced from SQL
-    /// statements executed against this context.
+    /// Registers a named table using a custom `TableProvider` so that
+    /// it can be referenced from SQL statements executed against this
+    /// context.
+    ///
+    /// Returns the `TableProvider` previously registered for this
+    /// name, if any
     pub fn register_table(
         &mut self,
         name: &str,
         provider: Arc<dyn TableProvider + Send + Sync>,
-    ) {
+    ) -> Option<Arc<dyn TableProvider + Send + Sync>> {
         self.state
             .lock()
             .unwrap()
             .datasources
-            .insert(name.to_string(), provider);
+            .insert(name.to_string(), provider)
     }
 
     /// Deregisters the named table.
