@@ -1215,6 +1215,9 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
                 self._properties["allow_truncated_timestamps"]
             ),
             writer_engine_version="V2",
+            use_compliant_nested_type=(
+                self._properties["use_compliant_nested_type"]
+            )
         )
 
     cdef void init(self, const shared_ptr[CFileWriteOptions]& sp):
@@ -1232,6 +1235,7 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
             use_deprecated_int96_timestamps=False,
             coerce_timestamps=None,
             allow_truncated_timestamps=False,
+            use_compliant_nested_type=False,
         )
         self._set_properties()
         self._set_arrow_properties()

@@ -541,6 +541,8 @@ data_page_version : {"1.0", "2.0"}, default "1.0"
     The serialized Parquet data page format version to write, defaults to
     1.0. This does not impact the file schema logical types and Arrow to
     Parquet type casting behavior; for that use the "version" option.
+use_compliant_nested_type : bool, default False
+    Write compliant Parquet nested type, defaults to disable.
 """
 
 
@@ -572,6 +574,7 @@ schema : arrow Schema
                  use_byte_stream_split=False,
                  writer_engine_version=None,
                  data_page_version='1.0',
+                 use_compliant_nested_type=False,
                  **options):
         if use_deprecated_int96_timestamps is None:
             # Use int96 timestamps for Spark
@@ -622,6 +625,7 @@ schema : arrow Schema
             use_byte_stream_split=use_byte_stream_split,
             writer_engine_version=engine_version,
             data_page_version=data_page_version,
+            use_compliant_nested_type=use_compliant_nested_type,
             **options)
         self.is_open = True
 
@@ -1775,6 +1779,7 @@ def write_table(table, where, row_group_size=None, version='1.0',
                 compression_level=None,
                 use_byte_stream_split=False,
                 data_page_version='1.0',
+                use_compliant_nested_type=False,
                 **kwargs):
     row_group_size = kwargs.pop('chunk_size', row_group_size)
     use_int96 = use_deprecated_int96_timestamps
@@ -1794,6 +1799,7 @@ def write_table(table, where, row_group_size=None, version='1.0',
                 compression_level=compression_level,
                 use_byte_stream_split=use_byte_stream_split,
                 data_page_version=data_page_version,
+                use_compliant_nested_type=use_compliant_nested_type,
                 **kwargs) as writer:
             writer.write_table(table, row_group_size=row_group_size)
     except Exception:
