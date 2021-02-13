@@ -36,7 +36,7 @@ fn main() {
 
     let mut csv = csv::Reader::new(file, Arc::new(schema), false, None, 1024, None, None);
     let _batch = csv.next().unwrap().unwrap();
-    #[cfg(feature = "prett  yprint")]
+    #[cfg(feature = "prettyprint")]
     {
         print_batches(&[_batch]).unwrap();
     }
