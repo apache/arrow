@@ -95,9 +95,13 @@ void CheckScalar(std::string func_name, const ArrayVector& inputs,
                  std::shared_ptr<Array> expected, const FunctionOptions* options) {
   CheckScalarNonRecursive(func_name, inputs, expected, options);
 
-  // Check all the input scalars
-  for (int64_t i = 0; i < inputs[0]->length(); ++i) {
-    CheckScalar(func_name, GetScalars(inputs, i), *expected->GetScalar(i), options);
+  // Check all the input scalars, if scalars are implemented
+  if (std::none_of(inputs.begin(), inputs.end(), [](const std::shared_ptr<Array>& array) {
+        return array->type_id() == Type::EXTENSION;
+      })) {
+    for (int64_t i = 0; i < inputs[0]->length(); ++i) {
+      CheckScalar(func_name, GetScalars(inputs, i), *expected->GetScalar(i), options);
+    }
   }
 
   // Since it's a scalar function, calling it on sliced inputs should

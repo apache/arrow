@@ -556,6 +556,12 @@ Status CastImpl(const ScalarType& from, StringScalar* to) {
   return Status::OK();
 }
 
+Status CastImpl(const Decimal128Scalar& from, StringScalar* to) {
+  auto from_type = checked_cast<const Decimal128Type*>(from.type.get());
+  to->value = Buffer::FromString(from.value.ToString(from_type->scale()));
+  return Status::OK();
+}
+
 struct CastImplVisitor {
   Status NotImplemented() {
     return Status::NotImplemented("cast to ", *to_type_, " from ", *from_.type);

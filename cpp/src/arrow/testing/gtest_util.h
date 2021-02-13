@@ -44,16 +44,12 @@
 // NOTE: failing must be inline in the macros below, to get correct file / line number
 // reporting on test failures.
 
-#define ASSERT_RAISES(ENUM, expr)                                                     \
-  do {                                                                                \
-    auto _res = (expr);                                                               \
-    ::arrow::Status _st = ::arrow::internal::GenericToStatus(_res);                   \
-    if (!_st.Is##ENUM()) {                                                            \
-      FAIL() << "Expected '" ARROW_STRINGIFY(expr) "' to fail with " ARROW_STRINGIFY( \
-                    ENUM) ", but got "                                                \
-             << _st.ToString();                                                       \
-    }                                                                                 \
-  } while (false)
+#define ASSERT_RAISES(ENUM, expr)                                                 \
+  for (::arrow::Status _st = ::arrow::internal::GenericToStatus((expr));          \
+       !_st.Is##ENUM();)                                                          \
+  FAIL() << "Expected '" ARROW_STRINGIFY(expr) "' to fail with " ARROW_STRINGIFY( \
+                ENUM) ", but got "                                                \
+         << _st.ToString()
 
 #define ASSERT_RAISES_WITH_MESSAGE(ENUM, message, expr)                               \
   do {                                                                                \
@@ -356,6 +352,14 @@ template <typename TYPE, typename C_TYPE = typename TYPE::c_type>
 void ArrayFromVector(const std::vector<C_TYPE>& values, std::shared_ptr<Array>* out) {
   auto type = TypeTraits<TYPE>::type_singleton();
   ArrayFromVector<TYPE, C_TYPE>(type, values, out);
+}
+
+template <typename TYPE, typename C_TYPE = typename TYPE::c_type>
+std::shared_ptr<Array> ArrayFromVector(std::vector<bool> is_valid,
+                                       std::vector<C_TYPE> values) {
+  std::shared_ptr<Array> out;
+  ArrayFromVector<TYPE, C_TYPE>(is_valid, values);
+  return out;
 }
 
 // ChunkedArrayFromVector: construct a ChunkedArray from vectors of C values
