@@ -312,18 +312,18 @@ impl<R: Read> Reader<R> {
         projection: Option<Vec<usize>>,
     ) -> Self {
         let mut reader_builder = csv_core::ReaderBuilder::new();
-        //reader_builder.has_headers(has_header);
+        let header_row = if has_header { 1 } else { 0 };
 
         if let Some(c) = delimiter {
             reader_builder.delimiter(c);
         }
 
         let (start, end) = match bounds {
-            None => (0, usize::MAX),
-            Some((start, end)) => (start, end),
+            None => (0 + header_row, usize::MAX),
+            Some((start, end)) => (start + header_row, end),
         };
 
-        //TODO: header, skipping
+        //TODO: header + skipping
 
         // First we will skip `start` rows
         // note that this skips by iteration. This is because in general it is not possible
