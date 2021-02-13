@@ -213,10 +213,7 @@ impl CsvExec {
     }
 
     /// Infer schema for given CSV dataset
-    pub fn try_infer_schema(
-        filenames: &[String],
-        options: &CsvReadOptions,
-    ) -> Result<Schema> {
+    pub fn try_infer_schema(filenames: &[String], options: &CsvReadOptions) -> Result<Schema> {
         Ok(csv::infer_schema_from_files(
             filenames,
             options.delimiter,
@@ -308,10 +305,7 @@ impl CsvStream {
 impl Stream for CsvStream {
     type Item = ArrowResult<RecordBatch>;
 
-    fn poll_next(
-        mut self: Pin<&mut Self>,
-        _: &mut Context<'_>,
-    ) -> Poll<Option<Self::Item>> {
+    fn poll_next(mut self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         Poll::Ready(self.reader.next())
     }
 }
@@ -362,8 +356,7 @@ mod tests {
         let testdata = arrow::util::test_util::arrow_test_data();
         let filename = "aggregate_test_100.csv";
         let path = format!("{}/csv/{}", testdata, filename);
-        let csv =
-            CsvExec::try_new(&path, CsvReadOptions::new().schema(&schema), None, 1024)?;
+        let csv = CsvExec::try_new(&path, CsvReadOptions::new().schema(&schema), None, 1024)?;
         assert_eq!(13, csv.schema.fields().len());
         assert_eq!(13, csv.projected_schema.fields().len());
         assert_eq!(13, csv.file_schema().fields().len());

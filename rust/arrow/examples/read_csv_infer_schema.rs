@@ -23,14 +23,14 @@ use arrow::util::pretty::print_batches;
 use std::fs::File;
 
 fn main() {
-    let file = File::open("test/data/uk_cities_with_headers.csv").unwrap();
-    let builder = csv::ReaderBuilder::new()
-        .has_header(true)
-        .infer_schema(Some(100));
-    let mut csv = builder.build(file).unwrap();
-    let _batch = csv.next().unwrap().unwrap();
-    #[cfg(feature = "prettyprint")]
-    {
-        print_batches(&[_batch]).unwrap();
-    }
+    // let file = File::open("test/data/uk_cities_with_headers.csv").unwrap();
+    // let builder = csv::ReaderBuilder::new()
+    //     .has_header(true)
+    //     .infer_schema(Some(100));
+    // let mut csv = builder.build(file).unwrap();
+    // let _batch = csv.next().unwrap().unwrap();
+    // #[cfg(feature = "prettyprint")]
+    // {
+    //     print_batches(&[_batch]).unwrap();
+    // }
 }

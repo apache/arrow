@@ -628,7 +628,7 @@ sed do eiusmod tempor,-556132.25,1,,2019-04-18T02:45:55.555000000,23:46:03\n";
         buf.set_position(0);
 
         let mut reader = Reader::new(
-            buf,
+            &mut buf,
             Arc::new(schema),
             false,
             None,
