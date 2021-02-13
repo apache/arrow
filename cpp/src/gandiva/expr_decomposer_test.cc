@@ -19,8 +19,6 @@
 
 #include <gtest/gtest.h>
 
-#include <iostream>
-
 #include "gandiva/annotator.h"
 #include "gandiva/dex.h"
 #include "gandiva/function_registry.h"
