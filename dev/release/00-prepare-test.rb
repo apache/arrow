@@ -289,6 +289,13 @@ class PrepareTest < Test::Unit::TestCase
                      ],
                    },
                    {
+                    path: "rust/datafusion-examples/Cargo.toml",
+                    hunks: [
+                      ["-version = \"#{@snapshot_version}\"",
+                       "+version = \"#{@release_version}\""],
+                    ],
+                   },
+                   {
                      path: "rust/datafusion/Cargo.toml",
                      hunks: [
                        ["-version = \"#{@snapshot_version}\"",
