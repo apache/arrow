@@ -293,6 +293,8 @@ class PrepareTest < Test::Unit::TestCase
                     hunks: [
                       ["-version = \"#{@snapshot_version}\"",
                        "+version = \"#{@release_version}\""],
+                      ["-arrow-flight = { path = \"../arrow-flight\", version = \"#{@snapshot_version}\" }",
+                       "+arrow-flight = { path = \"../arrow-flight\", version = \"#{@release_version}\" }"]
                     ],
                    },
                    {
@@ -304,8 +306,6 @@ class PrepareTest < Test::Unit::TestCase
                         "-parquet = { path = \"../parquet\", version = \"#{@snapshot_version}\", features = [\"arrow\"] }",
                         "+arrow = { path = \"../arrow\", version = \"#{@release_version}\", features = [\"prettyprint\"] }",
                         "+parquet = { path = \"../parquet\", version = \"#{@release_version}\", features = [\"arrow\"] }"],
-                       ["-arrow-flight = { path = \"../arrow-flight\", version = \"#{@snapshot_version}\" }",
-                        "+arrow-flight = { path = \"../arrow-flight\", version = \"#{@release_version}\" }"]
                      ],
                    },
                    {
