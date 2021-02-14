@@ -288,6 +288,13 @@ class PrepareTest < Test::Unit::TestCase
                      ],
                    },
                    {
+                     path: "rust/arrow-benches/Cargo.toml",
+                     hunks: [
+                       ["-version = \"#{@snapshot_version}\"",
+                        "+version = \"#{@release_version}\""],
+                     ],
+                   },
+                   {
                      path: "rust/benchmarks/Cargo.toml",
                      hunks: [
                        ["-version = \"#{@snapshot_version}\"",
