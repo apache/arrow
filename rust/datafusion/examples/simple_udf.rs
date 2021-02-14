@@ -22,8 +22,8 @@ use arrow::{
     util::pretty,
 };
 
-use datafusion::error::Result;
-use datafusion::{physical_plan::functions::ScalarFunctionImplementation, prelude::*};
+use datafusion::prelude::*;
+use datafusion::{error::Result, physical_plan::functions::make_scalar_function};
 use std::sync::Arc;
 
 // create local execution context with an in-memory table
@@ -60,7 +60,7 @@ async fn main() -> Result<()> {
     let mut ctx = create_context()?;
 
     // First, declare the actual implementation of the calculation
-    let pow: ScalarFunctionImplementation = Arc::new(|args: &[ArrayRef]| {
+    let pow = |args: &[ArrayRef]| {
         // in DataFusion, all `args` and output are dynamically-typed arrays, which means that we need to:
         // 1. cast the values to the type we want
         // 2. perform the computation for every element in the array (using a loop or SIMD) and construct the result
@@ -97,8 +97,11 @@ async fn main() -> Result<()> {
 
         // `Ok` because no error occurred during the calculation (we should add one if exponent was [0, 1[ and the base < 0 because that panics!)
         // `Arc` because arrays are immutable, thread-safe, trait objects.
-        Ok(Arc::new(array))
-    });
+        Ok(Arc::new(array) as ArrayRef)
+    };
+    // the function above expects an `ArrayRef`, but DataFusion may pass a scalar to a UDF.
+    // thus, we use `make_scalar_function` to decorare the closure so that it can handle both Arrays and Scalar values.
+    let pow = make_scalar_function(pow);
 
     // Next:
     // * give it a name so that it shows nicely when the plan is printed

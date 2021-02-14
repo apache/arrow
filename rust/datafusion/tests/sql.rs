@@ -28,7 +28,6 @@ use arrow::{
     util::display::array_value_to_string,
 };
 
-use datafusion::error::Result;
 use datafusion::execution::context::ExecutionContext;
 use datafusion::logical_plan::{LogicalPlan, ToDFSchema};
 use datafusion::prelude::create_udf;
@@ -36,6 +35,7 @@ use datafusion::{
     datasource::{csv::CsvReadOptions, MemTable},
     physical_plan::collect,
 };
+use datafusion::{error::Result, physical_plan::ColumnarValue};
 
 #[tokio::test]
 async fn nyc() -> Result<()> {
@@ -569,21 +569,19 @@ fn create_ctx() -> Result<ExecutionContext> {
     Ok(ctx)
 }
 
-fn custom_sqrt(args: &[ArrayRef]) -> Result<ArrayRef> {
-    let input = &args[0]
-        .as_any()
-        .downcast_ref::<Float64Array>()
-        .expect("cast failed");
+fn custom_sqrt(args: &[ColumnarValue]) -> Result<ColumnarValue> {
+    let arg = &args[0];
+    if let ColumnarValue::Array(v) = arg {
+        let input = v
+            .as_any()
+            .downcast_ref::<Float64Array>()
+            .expect("cast failed");
 
-    let mut builder = Float64Builder::new(input.len());
-    for i in 0..input.len() {
-        if input.is_null(i) {
-            builder.append_null()?;
-        } else {
-            builder.append_value(input.value(i).sqrt())?;
-        }
+        let array: Float64Array = input.iter().map(|v| v.map(|x| x.sqrt())).collect();
+        Ok(ColumnarValue::Array(Arc::new(array)))
+    } else {
+        unimplemented!()
     }
-    Ok(Arc::new(builder.finish()))
 }
 
 #[tokio::test]

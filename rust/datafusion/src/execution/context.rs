@@ -619,7 +619,7 @@ impl FunctionRegistry for ExecutionContextState {
 mod tests {
 
     use super::*;
-    use crate::physical_plan::functions::ScalarFunctionImplementation;
+    use crate::physical_plan::functions::make_scalar_function;
     use crate::physical_plan::{collect, collect_partitioned};
     use crate::test;
     use crate::variable::VarType;
@@ -1618,7 +1618,7 @@ mod tests {
         let provider = MemTable::try_new(Arc::new(schema), vec![vec![batch]])?;
         ctx.register_table("t", Box::new(provider));
 
-        let myfunc: ScalarFunctionImplementation = Arc::new(|args: &[ArrayRef]| {
+        let myfunc = |args: &[ArrayRef]| {
             let l = &args[0]
                 .as_any()
                 .downcast_ref::<Int32Array>()
@@ -1627,8 +1627,9 @@ mod tests {
                 .as_any()
                 .downcast_ref::<Int32Array>()
                 .expect("cast failed");
-            Ok(Arc::new(add(l, r)?))
-        });
+            Ok(Arc::new(add(l, r)?) as ArrayRef)
+        };
+        let myfunc = make_scalar_function(myfunc);
 
         ctx.register_udf(create_udf(
             "my_add",

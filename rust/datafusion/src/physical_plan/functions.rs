@@ -33,13 +33,16 @@ use super::{
     type_coercion::{coerce, data_types},
     ColumnarValue, PhysicalExpr,
 };
-use crate::error::{DataFusionError, Result};
 use crate::physical_plan::array_expressions;
 use crate::physical_plan::crypto_expressions;
 use crate::physical_plan::datetime_expressions;
 use crate::physical_plan::expressions::{nullif_func, SUPPORTED_NULLIF_TYPES};
 use crate::physical_plan::math_expressions;
 use crate::physical_plan::string_expressions;
+use crate::{
+    error::{DataFusionError, Result},
+    scalar::ScalarValue,
+};
 use arrow::{
     array::ArrayRef,
     compute::kernels::length::length,
@@ -72,7 +75,7 @@ pub enum Signature {
 
 /// Scalar function
 pub type ScalarFunctionImplementation =
-    Arc<dyn Fn(&[ArrayRef]) -> Result<ArrayRef> + Send + Sync>;
+    Arc<dyn Fn(&[ColumnarValue]) -> Result<ColumnarValue> + Send + Sync>;
 
 /// A function's return type
 pub type ReturnTypeFunction =
@@ -384,97 +387,32 @@ pub fn create_physical_expr(
         BuiltinScalarFunction::Abs => math_expressions::abs,
         BuiltinScalarFunction::Signum => math_expressions::signum,
         BuiltinScalarFunction::NullIf => nullif_func,
-        BuiltinScalarFunction::MD5 => |args| match args[0].data_type() {
-            DataType::Utf8 => Ok(Arc::new(crypto_expressions::md5::<i32>(args)?)),
-            DataType::LargeUtf8 => Ok(Arc::new(crypto_expressions::md5::<i64>(args)?)),
-            other => Err(DataFusionError::Internal(format!(
-                "Unsupported data type {:?} for function md5",
-                other,
-            ))),
+        BuiltinScalarFunction::MD5 => crypto_expressions::md5,
+        BuiltinScalarFunction::SHA224 => crypto_expressions::sha224,
+        BuiltinScalarFunction::SHA256 => crypto_expressions::sha256,
+        BuiltinScalarFunction::SHA384 => crypto_expressions::sha384,
+        BuiltinScalarFunction::SHA512 => crypto_expressions::sha512,
+        BuiltinScalarFunction::Length => |args| match &args[0] {
+            ColumnarValue::Scalar(v) => match v {
+                ScalarValue::Utf8(v) => Ok(ColumnarValue::Scalar(ScalarValue::Int32(
+                    v.as_ref().map(|x| x.len() as i32),
+                ))),
+                ScalarValue::LargeUtf8(v) => Ok(ColumnarValue::Scalar(
+                    ScalarValue::Int64(v.as_ref().map(|x| x.len() as i64)),
+                )),
+                _ => unreachable!(),
+            },
+            ColumnarValue::Array(v) => Ok(ColumnarValue::Array(length(v.as_ref())?)),
         },
-        BuiltinScalarFunction::SHA224 => |args| match args[0].data_type() {
-            DataType::Utf8 => Ok(Arc::new(crypto_expressions::sha224::<i32>(args)?)),
-            DataType::LargeUtf8 => Ok(Arc::new(crypto_expressions::sha224::<i64>(args)?)),
-            other => Err(DataFusionError::Internal(format!(
-                "Unsupported data type {:?} for function sha224",
-                other,
-            ))),
-        },
-        BuiltinScalarFunction::SHA256 => |args| match args[0].data_type() {
-            DataType::Utf8 => Ok(Arc::new(crypto_expressions::sha256::<i32>(args)?)),
-            DataType::LargeUtf8 => Ok(Arc::new(crypto_expressions::sha256::<i64>(args)?)),
-            other => Err(DataFusionError::Internal(format!(
-                "Unsupported data type {:?} for function sha256",
-                other,
-            ))),
-        },
-        BuiltinScalarFunction::SHA384 => |args| match args[0].data_type() {
-            DataType::Utf8 => Ok(Arc::new(crypto_expressions::sha384::<i32>(args)?)),
-            DataType::LargeUtf8 => Ok(Arc::new(crypto_expressions::sha384::<i64>(args)?)),
-            other => Err(DataFusionError::Internal(format!(
-                "Unsupported data type {:?} for function sha384",
-                other,
-            ))),
-        },
-        BuiltinScalarFunction::SHA512 => |args| match args[0].data_type() {
-            DataType::Utf8 => Ok(Arc::new(crypto_expressions::sha512::<i32>(args)?)),
-            DataType::LargeUtf8 => Ok(Arc::new(crypto_expressions::sha512::<i64>(args)?)),
-            other => Err(DataFusionError::Internal(format!(
-                "Unsupported data type {:?} for function sha512",
-                other,
-            ))),
-        },
-        BuiltinScalarFunction::Length => |args| Ok(length(args[0].as_ref())?),
-        BuiltinScalarFunction::Concat => {
-            |args| Ok(Arc::new(string_expressions::concatenate(args)?))
-        }
-        BuiltinScalarFunction::Lower => |args| match args[0].data_type() {
-            DataType::Utf8 => Ok(Arc::new(string_expressions::lower::<i32>(args)?)),
-            DataType::LargeUtf8 => Ok(Arc::new(string_expressions::lower::<i64>(args)?)),
-            other => Err(DataFusionError::Internal(format!(
-                "Unsupported data type {:?} for function lower",
-                other,
-            ))),
-        },
-        BuiltinScalarFunction::Trim => |args| match args[0].data_type() {
-            DataType::Utf8 => Ok(Arc::new(string_expressions::trim::<i32>(args)?)),
-            DataType::LargeUtf8 => Ok(Arc::new(string_expressions::trim::<i64>(args)?)),
-            other => Err(DataFusionError::Internal(format!(
-                "Unsupported data type {:?} for function trim",
-                other,
-            ))),
-        },
-        BuiltinScalarFunction::Ltrim => |args| match args[0].data_type() {
-            DataType::Utf8 => Ok(Arc::new(string_expressions::ltrim::<i32>(args)?)),
-            DataType::LargeUtf8 => Ok(Arc::new(string_expressions::ltrim::<i64>(args)?)),
-            other => Err(DataFusionError::Internal(format!(
-                "Unsupported data type {:?} for function ltrim",
-                other,
-            ))),
-        },
-        BuiltinScalarFunction::Rtrim => |args| match args[0].data_type() {
-            DataType::Utf8 => Ok(Arc::new(string_expressions::rtrim::<i32>(args)?)),
-            DataType::LargeUtf8 => Ok(Arc::new(string_expressions::rtrim::<i64>(args)?)),
-            other => Err(DataFusionError::Internal(format!(
-                "Unsupported data type {:?} for function rtrim",
-                other,
-            ))),
-        },
-        BuiltinScalarFunction::Upper => |args| match args[0].data_type() {
-            DataType::Utf8 => Ok(Arc::new(string_expressions::upper::<i32>(args)?)),
-            DataType::LargeUtf8 => Ok(Arc::new(string_expressions::upper::<i64>(args)?)),
-            other => Err(DataFusionError::Internal(format!(
-                "Unsupported data type {:?} for function upper",
-                other,
-            ))),
-        },
-        BuiltinScalarFunction::ToTimestamp => {
-            |args| Ok(Arc::new(datetime_expressions::to_timestamp(args)?))
-        }
-        BuiltinScalarFunction::DateTrunc => {
-            |args| Ok(Arc::new(datetime_expressions::date_trunc(args)?))
-        }
-        BuiltinScalarFunction::Array => |args| array_expressions::array(args),
+        BuiltinScalarFunction::Concat => string_expressions::concatenate,
+        BuiltinScalarFunction::Lower => string_expressions::lower,
+        BuiltinScalarFunction::Trim => string_expressions::trim,
+        BuiltinScalarFunction::Ltrim => string_expressions::ltrim,
+        BuiltinScalarFunction::Rtrim => string_expressions::rtrim,
+        BuiltinScalarFunction::Upper => string_expressions::upper,
+        BuiltinScalarFunction::ToTimestamp => datetime_expressions::to_timestamp,
+        BuiltinScalarFunction::DateTrunc => datetime_expressions::date_trunc,
+        BuiltinScalarFunction::Array => array_expressions::array,
     });
     // coerce
     let args = coerce(args, input_schema, &signature(fun))?;
@@ -622,21 +560,66 @@ impl PhysicalExpr for ScalarFunctionExpr {
         let inputs = self
             .args
             .iter()
-            .map(|e| e.evaluate(batch).map(|v| v.into_array(batch.num_rows())))
+            .map(|e| e.evaluate(batch))
             .collect::<Result<Vec<_>>>()?;
 
         // evaluate the function
         let fun = self.fun.as_ref();
-        (fun)(&inputs).map(|a| ColumnarValue::Array(a))
+        (fun)(&inputs)
     }
+}
+
+/// decorates a function to handle [`ScalarValue`]s by coverting them to arrays before calling the function
+/// and vice-versa after evaluation.
+pub fn make_scalar_function<F>(inner: F) -> ScalarFunctionImplementation
+where
+    F: Fn(&[ArrayRef]) -> Result<ArrayRef> + Sync + Send + 'static,
+{
+    Arc::new(move |args: &[ColumnarValue]| {
+        // first, identify if any of the arguments is an Array. If yes, store its `len`,
+        // as any scalar will need to be converted to an array of len `len`.
+        let len = args
+            .iter()
+            .fold(Option::<usize>::None, |acc, arg| match arg {
+                ColumnarValue::Scalar(_) => acc,
+                ColumnarValue::Array(a) => Some(a.len()),
+            });
+
+        // to array
+        let args = if let Some(len) = len {
+            args.iter()
+                .map(|arg| arg.clone().into_array(len))
+                .collect::<Vec<ArrayRef>>()
+        } else {
+            args.iter()
+                .map(|arg| arg.clone().into_array(1))
+                .collect::<Vec<ArrayRef>>()
+        };
+
+        let result = (inner)(&args);
+
+        // maybe back to scalar
+        if len.is_some() {
+            result.map(ColumnarValue::Array)
+        } else {
+            ScalarValue::try_from_array(&result?, 0).map(ColumnarValue::Scalar)
+        }
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{error::Result, physical_plan::expressions::lit, scalar::ScalarValue};
+    use crate::{
+        error::Result,
+        physical_plan::expressions::{col, lit},
+        scalar::ScalarValue,
+    };
     use arrow::{
-        array::{ArrayRef, FixedSizeListArray, Float64Array, Int32Array, StringArray},
+        array::{
+            ArrayRef, FixedSizeListArray, Float64Array, Int32Array, StringArray,
+            UInt32Array, UInt64Array,
+        },
         datatypes::Field,
         record_batch::RecordBatch,
     };
@@ -725,18 +708,21 @@ mod tests {
     }
 
     fn generic_test_array(
-        value1: ScalarValue,
-        value2: ScalarValue,
+        value1: ArrayRef,
+        value2: ArrayRef,
         expected_type: DataType,
         expected: &str,
     ) -> Result<()> {
         // any type works here: we evaluate against a literal of `value`
-        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
-        let columns: Vec<ArrayRef> = vec![Arc::new(Int32Array::from(vec![1]))];
+        let schema = Schema::new(vec![
+            Field::new("a", value1.data_type().clone(), false),
+            Field::new("b", value2.data_type().clone(), false),
+        ]);
+        let columns: Vec<ArrayRef> = vec![value1, value2];
 
         let expr = create_physical_expr(
             &BuiltinScalarFunction::Array,
-            &[lit(value1), lit(value2)],
+            &[col("a"), col("b")],
             &schema,
         )?;
 
@@ -766,24 +752,24 @@ mod tests {
     #[test]
     fn test_array() -> Result<()> {
         generic_test_array(
-            ScalarValue::Utf8(Some("aa".to_string())),
-            ScalarValue::Utf8(Some("aa".to_string())),
+            Arc::new(StringArray::from(vec!["aa"])),
+            Arc::new(StringArray::from(vec!["bb"])),
             DataType::Utf8,
-            "StringArray\n[\n  \"aa\",\n  \"aa\",\n]",
+            "StringArray\n[\n  \"aa\",\n  \"bb\",\n]",
         )?;
 
         // different types, to validate that casting happens
         generic_test_array(
-            ScalarValue::from(1u32),
-            ScalarValue::from(1u64),
+            Arc::new(UInt32Array::from(vec![1u32])),
+            Arc::new(UInt64Array::from(vec![1u64])),
             DataType::UInt64,
             "PrimitiveArray<UInt64>\n[\n  1,\n  1,\n]",
         )?;
 
         // different types (another order), to validate that casting happens
         generic_test_array(
-            ScalarValue::from(1u64),
-            ScalarValue::from(1u32),
+            Arc::new(UInt64Array::from(vec![1u64])),
+            Arc::new(UInt32Array::from(vec![1u32])),
             DataType::UInt64,
             "PrimitiveArray<UInt64>\n[\n  1,\n  1,\n]",
         )

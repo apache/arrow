@@ -19,8 +19,11 @@
 
 use std::{convert::TryFrom, fmt, iter::repeat, sync::Arc};
 
-use arrow::array::*;
 use arrow::datatypes::{DataType, Field, IntervalUnit, TimeUnit};
+use arrow::{
+    array::*,
+    datatypes::{ArrowNativeType, Float32Type, TimestampNanosecondType},
+};
 
 use crate::error::{DataFusionError, Result};
 
@@ -54,6 +57,10 @@ pub enum ScalarValue {
     Utf8(Option<String>),
     /// utf-8 encoded string representing a LargeString's arrow type.
     LargeUtf8(Option<String>),
+    /// binary
+    Binary(Option<Vec<u8>>),
+    /// large binary
+    LargeBinary(Option<Vec<u8>>),
     /// list of nested ScalarValue
     List(Option<Vec<ScalarValue>>, DataType),
     /// Date stored as a signed 32bit int
@@ -141,6 +148,8 @@ impl ScalarValue {
             ScalarValue::Float64(_) => DataType::Float64,
             ScalarValue::Utf8(_) => DataType::Utf8,
             ScalarValue::LargeUtf8(_) => DataType::LargeUtf8,
+            ScalarValue::Binary(_) => DataType::Binary,
+            ScalarValue::LargeBinary(_) => DataType::LargeBinary,
             ScalarValue::List(_, data_type) => {
                 DataType::List(Box::new(Field::new("item", data_type.clone(), true)))
             }
@@ -292,6 +301,28 @@ impl ScalarValue {
                     Arc::new(LargeStringArray::from_iter_values(repeat(value).take(size)))
                 }
                 None => new_null_array(&DataType::LargeUtf8, size),
+            },
+            ScalarValue::Binary(e) => match e {
+                Some(value) => Arc::new(
+                    repeat(Some(value.as_slice()))
+                        .take(size)
+                        .collect::<BinaryArray>(),
+                ),
+                None => {
+                    Arc::new(repeat(None::<&str>).take(size).collect::<BinaryArray>())
+                }
+            },
+            ScalarValue::LargeBinary(e) => match e {
+                Some(value) => Arc::new(
+                    repeat(Some(value.as_slice()))
+                        .take(size)
+                        .collect::<LargeBinaryArray>(),
+                ),
+                None => Arc::new(
+                    repeat(None::<&str>)
+                        .take(size)
+                        .collect::<LargeBinaryArray>(),
+                ),
             },
             ScalarValue::List(values, data_type) => Arc::new(match data_type {
                 DataType::Int8 => build_list!(Int8Builder, Int8, values, size),
@@ -489,7 +520,23 @@ impl TryFrom<ScalarValue> for i32 {
     }
 }
 
-impl_try_from!(Int64, i64);
+// special implementation for i64 because of TimeNanosecond
+impl TryFrom<ScalarValue> for i64 {
+    type Error = DataFusionError;
+
+    fn try_from(value: ScalarValue) -> Result<Self> {
+        match value {
+            ScalarValue::Int64(Some(inner_value))
+            | ScalarValue::TimeNanosecond(Some(inner_value)) => Ok(inner_value),
+            _ => Err(DataFusionError::Internal(format!(
+                "Cannot convert {:?} to {}",
+                value,
+                std::any::type_name::<Self>()
+            ))),
+        }
+    }
+}
+
 impl_try_from!(UInt8, u8);
 impl_try_from!(UInt16, u16);
 impl_try_from!(UInt32, u32);
@@ -556,6 +603,28 @@ impl fmt::Display for ScalarValue {
             ScalarValue::TimeNanosecond(e) => format_option!(f, e)?,
             ScalarValue::Utf8(e) => format_option!(f, e)?,
             ScalarValue::LargeUtf8(e) => format_option!(f, e)?,
+            ScalarValue::Binary(e) => match e {
+                Some(l) => write!(
+                    f,
+                    "{}",
+                    l.iter()
+                        .map(|v| format!("{}", v))
+                        .collect::<Vec<_>>()
+                        .join(",")
+                )?,
+                None => write!(f, "NULL")?,
+            },
+            ScalarValue::LargeBinary(e) => match e {
+                Some(l) => write!(
+                    f,
+                    "{}",
+                    l.iter()
+                        .map(|v| format!("{}", v))
+                        .collect::<Vec<_>>()
+                        .join(",")
+                )?,
+                None => write!(f, "NULL")?,
+            },
             ScalarValue::List(e, _) => match e {
                 Some(l) => write!(
                     f,
@@ -596,6 +665,10 @@ impl fmt::Debug for ScalarValue {
             ScalarValue::Utf8(Some(_)) => write!(f, "Utf8(\"{}\")", self),
             ScalarValue::LargeUtf8(None) => write!(f, "LargeUtf8({})", self),
             ScalarValue::LargeUtf8(Some(_)) => write!(f, "LargeUtf8(\"{}\")", self),
+            ScalarValue::Binary(None) => write!(f, "Binary({})", self),
+            ScalarValue::Binary(Some(_)) => write!(f, "Binary(\"{}\")", self),
+            ScalarValue::LargeBinary(None) => write!(f, "LargeBinary({})", self),
+            ScalarValue::LargeBinary(Some(_)) => write!(f, "LargeBinary(\"{}\")", self),
             ScalarValue::List(_, _) => write!(f, "List([{}])", self),
             ScalarValue::Date32(_) => write!(f, "Date32(\"{}\")", self),
             ScalarValue::Date64(_) => write!(f, "Date64(\"{}\")", self),
@@ -606,6 +679,24 @@ impl fmt::Debug for ScalarValue {
                 write!(f, "IntervalYearMonth(\"{}\")", self)
             }
         }
+    }
+}
+
+/// Trait used to map a NativeTime to a ScalarType.
+pub trait ScalarType<T: ArrowNativeType> {
+    /// returns a scalar from an optional T
+    fn scalar(r: Option<T>) -> ScalarValue;
+}
+
+impl ScalarType<f32> for Float32Type {
+    fn scalar(r: Option<f32>) -> ScalarValue {
+        ScalarValue::Float32(r)
+    }
+}
+
+impl ScalarType<i64> for TimestampNanosecondType {
+    fn scalar(r: Option<i64>) -> ScalarValue {
+        ScalarValue::TimeNanosecond(r)
     }
 }
 
