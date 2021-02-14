@@ -543,9 +543,9 @@ class PrepareTest < Test::Unit::TestCase
                    {
                     path: "rust/datafusion-examples/Cargo.toml",
                     hunks: [
-                      ["-version = \"#{@snapshot_version}\"",
-                       "+version = \"#{@release_version}\""],
-                    ],
+                      ["-version = \"#{@release_version}\"",
+                      "+version = \"#{@next_snapshot_version}\""],
+                  ],
                    },
                    {
                      path: "rust/datafusion/Cargo.toml",
