@@ -73,10 +73,11 @@ fn create_table(results: &[RecordBatch]) -> Result<Table> {
 mod tests {
     use crate::{
         array::{
-            self, Array, Date32Array, Date64Array, PrimitiveBuilder, StringBuilder,
-            StringDictionaryBuilder, Time32MillisecondArray, Time32SecondArray,
-            Time64MicrosecondArray, Time64NanosecondArray, TimestampMicrosecondArray,
-            TimestampMillisecondArray, TimestampNanosecondArray, TimestampSecondArray,
+            self, new_null_array, Array, Date32Array, Date64Array, PrimitiveBuilder,
+            StringBuilder, StringDictionaryBuilder, Time32MillisecondArray,
+            Time32SecondArray, Time64MicrosecondArray, Time64NanosecondArray,
+            TimestampMicrosecondArray, TimestampMillisecondArray,
+            TimestampNanosecondArray, TimestampSecondArray,
         },
         datatypes::{DataType, Field, Int32Type, Schema},
     };
@@ -129,6 +130,42 @@ mod tests {
         assert_eq!(expected, actual, "Actual result:\n{}", table);
 
         Ok(())
+    }
+
+    #[test]
+    fn test_pretty_format_null() {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("a", DataType::Utf8, true),
+            Field::new("b", DataType::Int32, true),
+            Field::new("c", DataType::Null, true),
+        ]));
+
+        let num_rows = 4;
+        let arrays = schema
+            .fields()
+            .iter()
+            .map(|f| new_null_array(f.data_type(), num_rows))
+            .collect();
+
+        // define data (null)
+        let batch = RecordBatch::try_new(schema, arrays).unwrap();
+
+        let table = pretty_format_batches(&[batch]).unwrap();
+
+        let expected = vec![
+            "+---+---+---+",
+            "| a | b | c |",
+            "+---+---+---+",
+            "|   |   |   |",
+            "|   |   |   |",
+            "|   |   |   |",
+            "|   |   |   |",
+            "+---+---+---+",
+        ];
+
+        let actual: Vec<&str> = table.lines().collect();
+
+        assert_eq!(expected, actual, "Actual result:\n{:#?}", table);
     }
 
     #[test]
