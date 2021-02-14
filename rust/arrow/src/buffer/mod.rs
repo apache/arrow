@@ -18,9 +18,52 @@
 //! This module contains two main structs: [Buffer] and [MutableBuffer]. A buffer represents
 //! a contiguous memory region that can be shared via `offsets`.
 
-mod immutable;
-pub use immutable::*;
+mod buffer;
+pub use buffer::*;
 mod mutable;
 pub use mutable::*;
 mod ops;
-pub(super) use ops::*;
+pub(crate) use ops::{buffer_bin_and, buffer_bin_or, buffer_unary_not};
+
+use crate::error::{ArrowError, Result};
+use std::ops::{BitAnd, BitOr, Not};
+
+impl<'a, 'b> BitAnd<&'b Buffer> for &'a Buffer {
+    type Output = Result<Buffer>;
+
+    fn bitand(self, rhs: &'b Buffer) -> Result<Buffer> {
+        if self.len() != rhs.len() {
+            return Err(ArrowError::ComputeError(
+                "Buffers must be the same size to apply Bitwise AND.".to_string(),
+            ));
+        }
+
+        let len_in_bits = self.len() * 8;
+        Ok(ops::buffer_bin_and(&self, 0, &rhs, 0, len_in_bits))
+    }
+}
+
+impl<'a, 'b> BitOr<&'b Buffer> for &'a Buffer {
+    type Output = Result<Buffer>;
+
+    fn bitor(self, rhs: &'b Buffer) -> Result<Buffer> {
+        if self.len() != rhs.len() {
+            return Err(ArrowError::ComputeError(
+                "Buffers must be the same size to apply Bitwise OR.".to_string(),
+            ));
+        }
+
+        let len_in_bits = self.len() * 8;
+
+        Ok(ops::buffer_bin_or(&self, 0, &rhs, 0, len_in_bits))
+    }
+}
+
+impl Not for &Buffer {
+    type Output = Buffer;
+
+    fn not(self) -> Buffer {
+        let len_in_bits = self.len() * 8;
+        ops::buffer_unary_not(&self, 0, len_in_bits)
+    }
+}

@@ -20,11 +20,8 @@ use crate::util::bit_util;
 #[cfg(feature = "simd")]
 use packed_simd::u8x64;
 
-use std::ops::{BitAnd, BitOr, Not};
-
 #[cfg(feature = "avx512")]
 use crate::arch::avx512::*;
-use crate::error::{ArrowError, Result};
 use crate::util::bit_util::ceil;
 #[cfg(any(feature = "simd", feature = "avx512"))]
 use std::borrow::BorrowMut;
@@ -37,7 +34,7 @@ use super::{Buffer, MutableBuffer};
 /// Contrary to the non-simd version `bitwise_bin_op_helper`, the offset and length is specified in bytes
 /// and this version does not support operations starting at arbitrary bit offsets.
 #[cfg(simd)]
-pub fn bitwise_bin_op_simd_helper<F_SIMD, F_SCALAR>(
+fn bitwise_bin_op_simd_helper<F_SIMD, F_SCALAR>(
     left: &Buffer,
     left_offset: usize,
     right: &Buffer,
@@ -86,7 +83,7 @@ where
 /// Contrary to the non-simd version `bitwise_unary_op_helper`, the offset and length is specified in bytes
 /// and this version does not support operations starting at arbitrary bit offsets.
 #[cfg(simd)]
-pub fn bitwise_unary_op_simd_helper<F_SIMD, F_SCALAR>(
+fn bitwise_unary_op_simd_helper<F_SIMD, F_SCALAR>(
     left: &Buffer,
     left_offset: usize,
     len: usize,
@@ -125,7 +122,7 @@ where
 
 /// Apply a bitwise operation `op` to two inputs and return the result as a Buffer.
 /// The inputs are treated as bitmaps, meaning that offsets and length are specified in number of bits.
-pub fn bitwise_bin_op_helper<F>(
+fn bitwise_bin_op_helper<F>(
     left: &Buffer,
     left_offset_in_bits: usize,
     right: &Buffer,
@@ -157,7 +154,7 @@ where
 
 /// Apply a bitwise operation `op` to one input and return the result as a Buffer.
 /// The input is treated as a bitmap, meaning that offset and length are specified in number of bits.
-pub fn bitwise_unary_op_helper<F>(
+pub(super) fn bitwise_unary_op_helper<F>(
     left: &Buffer,
     offset_in_bits: usize,
     len_in_bits: usize,
@@ -189,7 +186,7 @@ where
 }
 
 #[cfg(all(target_arch = "x86_64", feature = "avx512"))]
-pub fn buffer_bin_and(
+pub(crate) fn buffer_bin_and(
     left: &Buffer,
     left_offset_in_bits: usize,
     right: &Buffer,
@@ -247,7 +244,7 @@ pub fn buffer_bin_and(
 }
 
 #[cfg(all(feature = "simd", not(feature = "avx512")))]
-pub fn buffer_bin_and(
+pub(crate) fn buffer_bin_and(
     left: &Buffer,
     left_offset_in_bits: usize,
     right: &Buffer,
@@ -282,7 +279,7 @@ pub fn buffer_bin_and(
 // Note: do not target specific features like x86 without considering
 // other targets like wasm32, as those would fail to build
 #[cfg(all(not(any(feature = "simd", feature = "avx512"))))]
-pub fn buffer_bin_and(
+pub(crate) fn buffer_bin_and(
     left: &Buffer,
     left_offset_in_bits: usize,
     right: &Buffer,
@@ -300,7 +297,7 @@ pub fn buffer_bin_and(
 }
 
 #[cfg(all(target_arch = "x86_64", feature = "avx512"))]
-pub fn buffer_bin_or(
+pub(crate) fn buffer_bin_or(
     left: &Buffer,
     left_offset_in_bits: usize,
     right: &Buffer,
@@ -358,7 +355,7 @@ pub fn buffer_bin_or(
 }
 
 #[cfg(all(feature = "simd", not(feature = "avx512")))]
-pub fn buffer_bin_or(
+pub(crate) fn buffer_bin_or(
     left: &Buffer,
     left_offset_in_bits: usize,
     right: &Buffer,
@@ -391,7 +388,7 @@ pub fn buffer_bin_or(
 }
 
 #[cfg(all(not(any(feature = "simd", feature = "avx512"))))]
-pub fn buffer_bin_or(
+pub(crate) fn buffer_bin_or(
     left: &Buffer,
     left_offset_in_bits: usize,
     right: &Buffer,
@@ -408,7 +405,7 @@ pub fn buffer_bin_or(
     )
 }
 
-pub fn buffer_unary_not(
+pub(crate) fn buffer_unary_not(
     left: &Buffer,
     offset_in_bits: usize,
     len_in_bits: usize,
@@ -428,45 +425,5 @@ pub fn buffer_unary_not(
     #[allow(unreachable_code)]
     {
         bitwise_unary_op_helper(&left, offset_in_bits, len_in_bits, |a| !a)
-    }
-}
-
-impl<'a, 'b> BitAnd<&'b Buffer> for &'a Buffer {
-    type Output = Result<Buffer>;
-
-    fn bitand(self, rhs: &'b Buffer) -> Result<Buffer> {
-        if self.len() != rhs.len() {
-            return Err(ArrowError::ComputeError(
-                "Buffers must be the same size to apply Bitwise AND.".to_string(),
-            ));
-        }
-
-        let len_in_bits = self.len() * 8;
-        Ok(buffer_bin_and(&self, 0, &rhs, 0, len_in_bits))
-    }
-}
-
-impl<'a, 'b> BitOr<&'b Buffer> for &'a Buffer {
-    type Output = Result<Buffer>;
-
-    fn bitor(self, rhs: &'b Buffer) -> Result<Buffer> {
-        if self.len() != rhs.len() {
-            return Err(ArrowError::ComputeError(
-                "Buffers must be the same size to apply Bitwise OR.".to_string(),
-            ));
-        }
-
-        let len_in_bits = self.len() * 8;
-
-        Ok(buffer_bin_or(&self, 0, &rhs, 0, len_in_bits))
-    }
-}
-
-impl Not for &Buffer {
-    type Output = Buffer;
-
-    fn not(self) -> Buffer {
-        let len_in_bits = self.len() * 8;
-        buffer_unary_not(&self, 0, len_in_bits)
     }
 }
