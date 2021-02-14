@@ -25,7 +25,6 @@ authors = ["Apache Arrow <dev@arrow.apache.org>"]
 license = "Apache-2.0"
 keywords = [ "arrow" ]
 include = [
-    "benches/*.rs",
     "src/**/*.rs",
     "Cargo.toml",
 ]
@@ -63,85 +62,8 @@ prettyprint = ["prettytable-rs"]
 memory-check = []
 
 [dev-dependencies]
-criterion = "0.3"
 flate2 = "1"
 tempfile = "3"
 
 [build-dependencies]
 cfg_aliases = "0.1"
-
-[[bench]]
-name = "aggregate_kernels"
-harness = false
-
-[[bench]]
-name = "array_from_vec"
-harness = false
-
-[[bench]]
-name = "builder"
-harness = false
-
-[[bench]]
-name = "buffer_bit_ops"
-harness = false
-
-[[bench]]
-name = "boolean_kernels"
-harness = false
-
-[[bench]]
-name = "arithmetic_kernels"
-harness = false
-
-[[bench]]
-name = "cast_kernels"
-harness = false
-
-[[bench]]
-name = "comparison_kernels"
-harness = false
-
-[[bench]]
-name = "filter_kernels"
-harness = false
-
-[[bench]]
-name = "take_kernels"
-harness = false
-
-[[bench]]
-name = "length_kernel"
-harness = false
-
-[[bench]]
-name = "sort_kernel"
-harness = false
-
-[[bench]]
-name = "csv_writer"
-harness = false
-
-[[bench]]
-name = "json_reader"
-harness = false
-
-[[bench]]
-name = "equal"
-harness = false
-
-[[bench]]
-name = "array_slice"
-harness = false
-
-[[bench]]
-name = "concatenate_kernel"
-harness = false
-
-[[bench]]
-name = "mutable_array"
-harness = false
-
-[[bench]]
-name = "buffer_create"
-harness = false

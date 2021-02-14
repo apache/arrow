@@ -18,6 +18,7 @@
 [workspace]
 members = [
         "arrow",
+        "arrow-benches",
         "parquet",
         "parquet_derive",
         "parquet_derive_test",
