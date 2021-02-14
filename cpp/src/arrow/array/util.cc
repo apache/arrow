@@ -100,8 +100,8 @@ class ArrayDataEndianSwapper {
   }
 
   template <typename T>
-  Result<std::shared_ptr<Buffer>> ByteSwapBuffer(const std::shared_ptr<Buffer>& in_buffer,
-                                                 int64_t length) {
+  Result<std::shared_ptr<Buffer>> ByteSwapBuffer(
+      const std::shared_ptr<Buffer>& in_buffer) {
     if (sizeof(T) == 1) {
       // if data size is 1, element is not swapped. We can use the original buffer
       return in_buffer;
@@ -109,24 +109,22 @@ class ArrayDataEndianSwapper {
     auto in_data = reinterpret_cast<const T*>(in_buffer->data());
     ARROW_ASSIGN_OR_RAISE(auto out_buffer, AllocateBuffer(in_buffer->size()));
     auto out_data = reinterpret_cast<T*>(out_buffer->mutable_data());
+    int64_t length = in_buffer->size() / sizeof(T);
     for (int64_t i = 0; i < length; i++) {
       out_data[i] = BitUtil::ByteSwap(in_data[i]);
     }
-    assert(0 <= in_buffer->size() - length * sizeof(T));
-    std::memset(out_data + length, 0, in_buffer->size() - length * sizeof(T));
     return std::move(out_buffer);
   }
 
   template <typename VALUE_TYPE>
-  Status SwapOffsets(int index, int offset_length) {
+  Status SwapOffsets(int index) {
     if (data_->buffers[index] == nullptr || data_->buffers[index]->size() == 0) {
       out_->buffers[index] = data_->buffers[index];
       return Status::OK();
     }
     // Except union, offset has one more element rather than data->length
-    ARROW_ASSIGN_OR_RAISE(
-        out_->buffers[index],
-        ByteSwapBuffer<VALUE_TYPE>(data_->buffers[index], length_ + offset_length));
+    ARROW_ASSIGN_OR_RAISE(out_->buffers[index],
+                          ByteSwapBuffer<VALUE_TYPE>(data_->buffers[index]));
     return Status::OK();
   }
 
@@ -138,7 +136,7 @@ class ArrayDataEndianSwapper {
   Visit(const T& type) {
     using value_type = typename T::c_type;
     ARROW_ASSIGN_OR_RAISE(out_->buffers[1],
-                          ByteSwapBuffer<value_type>(data_->buffers[1], length_));
+                          ByteSwapBuffer<value_type>(data_->buffers[1]));
     return Status::OK();
   }
 
@@ -147,6 +145,7 @@ class ArrayDataEndianSwapper {
     ARROW_ASSIGN_OR_RAISE(auto new_buffer, AllocateBuffer(data_->buffers[1]->size()));
     auto new_data = reinterpret_cast<uint64_t*>(new_buffer->mutable_data());
     int64_t length = length_;
+    length = data_->buffers[1]->size() / (sizeof(uint64_t) * 2);
     for (int64_t i = 0; i < length; i++) {
       uint64_t tmp;
       auto idx = i * 2;
@@ -160,8 +159,6 @@ class ArrayDataEndianSwapper {
       new_data[idx + 1] = tmp;
 #endif
     }
-    assert(0 <= data_->buffers[1]->size() - length * 16);
-    std::memset(new_data + length * 2, 0, data_->buffers[1]->size() - length * 16);
     out_->buffers[1] = std::move(new_buffer);
     return Status::OK();
   }
@@ -171,6 +168,7 @@ class ArrayDataEndianSwapper {
     ARROW_ASSIGN_OR_RAISE(auto new_buffer, AllocateBuffer(data_->buffers[1]->size()));
     auto new_data = reinterpret_cast<uint64_t*>(new_buffer->mutable_data());
     int64_t length = length_;
+    length = data_->buffers[1]->size() / (sizeof(uint64_t) * 4);
     for (int64_t i = 0; i < length; i++) {
       uint64_t tmp0, tmp1, tmp2;
       auto idx = i * 4;
@@ -192,15 +190,12 @@ class ArrayDataEndianSwapper {
       new_data[idx + 3] = tmp0;
 #endif
     }
-    assert(0 <= data_->buffers[1]->size() - length * 32);
-    std::memset(new_data + length * 4, 0, data_->buffers[1]->size() - length * 32);
     out_->buffers[1] = std::move(new_buffer);
     return Status::OK();
   }
 
   Status Visit(const DayTimeIntervalType& type) {
-    ARROW_ASSIGN_OR_RAISE(out_->buffers[1],
-                          ByteSwapBuffer<uint32_t>(data_->buffers[1], length_ * 2));
+    ARROW_ASSIGN_OR_RAISE(out_->buffers[1], ByteSwapBuffer<uint32_t>(data_->buffers[1]));
     return Status::OK();
   }
 
@@ -219,7 +214,7 @@ class ArrayDataEndianSwapper {
   Status Visit(const UnionType& type) {
     out_->buffers[1] = data_->buffers[1];
     if (type.mode() == UnionMode::DENSE) {
-      RETURN_NOT_OK(SwapOffsets<int32_t>(2, 0));
+      RETURN_NOT_OK(SwapOffsets<int32_t>(2));
     }
     return Status::OK();
   }
@@ -228,7 +223,7 @@ class ArrayDataEndianSwapper {
   enable_if_t<std::is_same<BinaryType, T>::value || std::is_same<StringType, T>::value,
               Status>
   Visit(const T& type) {
-    RETURN_NOT_OK(SwapOffsets<int32_t>(1, 1));
+    RETURN_NOT_OK(SwapOffsets<int32_t>(1));
     out_->buffers[2] = data_->buffers[2];
     return Status::OK();
   }
@@ -238,28 +233,30 @@ class ArrayDataEndianSwapper {
                   std::is_same<LargeStringType, T>::value,
               Status>
   Visit(const T& type) {
-    RETURN_NOT_OK(SwapOffsets<int64_t>(1, 1));
+    RETURN_NOT_OK(SwapOffsets<int64_t>(1));
     out_->buffers[2] = data_->buffers[2];
     return Status::OK();
   }
 
   Status Visit(const ListType& type) {
-    RETURN_NOT_OK(SwapOffsets<int32_t>(1, 1));
+    RETURN_NOT_OK(SwapOffsets<int32_t>(1));
     return Status::OK();
   }
   Status Visit(const LargeListType& type) {
-    RETURN_NOT_OK(SwapOffsets<int64_t>(1, 1));
+    RETURN_NOT_OK(SwapOffsets<int64_t>(1));
     return Status::OK();
   }
 
   Status Visit(const DictionaryType& type) {
     RETURN_NOT_OK(SwapType(*type.index_type()));
+    // dictionary was already swapped in ReadDictionary() in ipc/reader.cc
     out_->dictionary = data_->dictionary;
     return Status::OK();
   }
 
   Status Visit(const ExtensionType& type) {
     RETURN_NOT_OK(SwapType(*type.storage_type()));
+    // dictionary was already swapped in ReadDictionary() in ipc/reader.cc
     out_->dictionary = data_->dictionary;
     return Status::OK();
   }
