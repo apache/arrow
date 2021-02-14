@@ -20,11 +20,8 @@ use crate::util::bit_util;
 #[cfg(feature = "simd")]
 use packed_simd::u8x64;
 
-use std::ops::{BitAnd, BitOr, Not};
-
 #[cfg(feature = "avx512")]
 use crate::arch::avx512::*;
-use crate::error::{ArrowError, Result};
 use crate::util::bit_util::ceil;
 #[cfg(any(feature = "simd", feature = "avx512"))]
 use std::borrow::BorrowMut;
@@ -428,45 +425,5 @@ pub fn buffer_unary_not(
     #[allow(unreachable_code)]
     {
         bitwise_unary_op_helper(&left, offset_in_bits, len_in_bits, |a| !a)
-    }
-}
-
-impl<'a, 'b> BitAnd<&'b Buffer> for &'a Buffer {
-    type Output = Result<Buffer>;
-
-    fn bitand(self, rhs: &'b Buffer) -> Result<Buffer> {
-        if self.len() != rhs.len() {
-            return Err(ArrowError::ComputeError(
-                "Buffers must be the same size to apply Bitwise AND.".to_string(),
-            ));
-        }
-
-        let len_in_bits = self.len() * 8;
-        Ok(buffer_bin_and(&self, 0, &rhs, 0, len_in_bits))
-    }
-}
-
-impl<'a, 'b> BitOr<&'b Buffer> for &'a Buffer {
-    type Output = Result<Buffer>;
-
-    fn bitor(self, rhs: &'b Buffer) -> Result<Buffer> {
-        if self.len() != rhs.len() {
-            return Err(ArrowError::ComputeError(
-                "Buffers must be the same size to apply Bitwise OR.".to_string(),
-            ));
-        }
-
-        let len_in_bits = self.len() * 8;
-
-        Ok(buffer_bin_or(&self, 0, &rhs, 0, len_in_bits))
-    }
-}
-
-impl Not for &Buffer {
-    type Output = Buffer;
-
-    fn not(self) -> Buffer {
-        let len_in_bits = self.len() * 8;
-        buffer_unary_not(&self, 0, len_in_bits)
     }
 }
