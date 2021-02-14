@@ -22,10 +22,7 @@
 #include <type_traits>
 
 #include "arrow/buffer.h"
-#include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
-#include "arrow/util/endian.h"
-#include "arrow/util/ubsan.h"
 
 namespace arrow {
 namespace internal {
