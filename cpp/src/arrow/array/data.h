@@ -231,6 +231,9 @@ struct ARROW_EXPORT ArrayData {
     return null_count.load() != 0 && buffers[0] != NULLPTR;
   }
 
+  /// Return true if both ArrayDatas are the same size and contain the same bytes
+  bool Equals(const ArrayData& other) const;
+
   std::shared_ptr<DataType> type;
   int64_t length;
   mutable std::atomic<int64_t> null_count;
