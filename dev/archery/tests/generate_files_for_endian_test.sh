@@ -16,6 +16,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# This script generates json and arrow files of each type (e.g. primitive) for integration endian test
+# Usage: generate_files_for_endian_test.sh
+#        ARROW_DIR : where Arrow repository exists
+#        TMP_DIR   : where files will be generated
+
 : ${ARROW_DIR:=/arrow}
 : ${TMP_DIR:=/tmp/arrow}
 
