@@ -541,6 +541,13 @@ class PrepareTest < Test::Unit::TestCase
                      ],
                    },
                    {
+                    path: "rust/datafusion-examples/Cargo.toml",
+                    hunks: [
+                      ["-version = \"#{@snapshot_version}\"",
+                       "+version = \"#{@release_version}\""],
+                    ],
+                   },
+                   {
                      path: "rust/datafusion/Cargo.toml",
                      hunks: [
                        ["-version = \"#{@release_version}\"",
@@ -549,8 +556,6 @@ class PrepareTest < Test::Unit::TestCase
                         "-parquet = { path = \"../parquet\", version = \"#{@release_version}\", features = [\"arrow\"] }",
                         "+arrow = { path = \"../arrow\", version = \"#{@next_snapshot_version}\", features = [\"prettyprint\"] }",
                         "+parquet = { path = \"../parquet\", version = \"#{@next_snapshot_version}\", features = [\"arrow\"] }"],
-                       ["-arrow-flight = { path = \"../arrow-flight\", version = \"#{@release_version}\" }",
-                        "+arrow-flight = { path = \"../arrow-flight\", version = \"#{@next_snapshot_version}\" }"]
                      ],
                    },
                    {
