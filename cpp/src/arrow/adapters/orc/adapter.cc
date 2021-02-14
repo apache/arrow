@@ -525,7 +525,7 @@ class ORCFileWriter::Impl {
     }
     int64_t num_rows = table.num_rows();
     const int num_cols_ = table.num_columns();
-    const int64_t batch_size = 1024;  // Doesn't matter what it is
+    constexpr int64_t batch_size = 1024;  // Doesn't matter what it is
     std::vector<int64_t> arrow_index_offset(num_cols_, 0);
     std::vector<int> arrow_chunk_offset(num_cols_, 0);
     std::unique_ptr<liborc::ColumnVectorBatch> batch =
@@ -564,11 +564,8 @@ Result<std::unique_ptr<ORCFileWriter>> ORCFileWriter::Open(
   std::unique_ptr<ORCFileWriter> result =
       std::unique_ptr<ORCFileWriter>(new ORCFileWriter());
   Status status = result->impl_->Open(output_stream);
-  if (status.ok()) {
-    return result;
-  } else {
-    return status;
-  }
+  RETURN_NOT_OK(status);
+  return result;
 }
 
 Status ORCFileWriter::Write(const Table& table) { return impl_->Write(table); }

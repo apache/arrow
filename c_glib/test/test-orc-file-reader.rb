@@ -80,19 +80,12 @@ map: map<string, struct<int1: int32, string1: string>>
     build_struct_array(middle_fields, middles)
   end
 
-  def key_value_fields
-    [
-      Arrow::Field.new("key", Arrow::StringDataType.new),
-      Arrow::Field.new("value", item_data_type),
-    ]
+  def map_data_type
+    Arrow::MapDataType.new(Arrow::StringDataType.new,item_data_type)
   end
 
-  def key_value_data_type
-    Arrow::StructDataType.new(key_value_fields)
-  end
-
-  def build_key_value_array(key_value_array)
-    build_list_array(key_value_data_type, key_value_array, field_name: "item")
+  def build_key_value_array(map_array)
+    build_map_array(map_data_type, map_array)
   end
 
   def middle_array
@@ -155,24 +148,17 @@ map: map<string, struct<int1: int32, string1: string>>
 
   def map_array
     build_key_value_array([
-                            [
-                            ],
-                            [
+                            {},
                               {
-                                "key" => "chani",
-                                "value" => {
+                                "chani" => {
                                   "int1" => 5,
                                   "string1" => "chani",
                                 },
-                              },
-                              {
-                                "key" => "mauddib",
-                                "value" => {
+                              "mauddib" => {
                                   "int1" => 1,
                                   "string1" => "mauddib",
                                 },
                               },
-                            ],
                           ])
   end
 

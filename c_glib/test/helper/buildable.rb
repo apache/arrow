@@ -159,6 +159,21 @@ module Helper
       builder.finish
     end
 
+    def build_map_array(key_data_type, item_data_type, values_list, key_name: "key", item_name: "item")
+      key_field = Arrow::Field.new(key_name, key_data_type)
+      item_field = Arrow::Field.new(item_name, item_data_type)
+      data_type = Arrow::MapDataType.new(key_field, item_field)
+      builder = Arrow::MapArrayBuilder.new(data_type)
+      values_list.each do |values|
+        if values.nil?
+          builder.append_null
+        else
+          append_to_builder(builder, values)
+        end
+      end
+      builder.finish
+    end
+
     def build_struct_array(fields, structs)
       data_type = Arrow::StructDataType.new(fields)
       builder = Arrow::StructArrayBuilder.new(data_type)
@@ -179,6 +194,12 @@ module Helper
         data_type = builder.value_data_type
         case data_type
         when Arrow::ListDataType, Arrow::LargeListDataType
+          builder.append_value
+          value_builder = builder.value_builder
+          value.each do |v|
+            append_to_builder(value_builder, v)
+          end
+        when Arrow::MapDataType
           builder.append_value
           value_builder = builder.value_builder
           value.each do |v|
