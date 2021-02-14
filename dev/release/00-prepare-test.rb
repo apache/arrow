@@ -519,9 +519,9 @@ class PrepareTest < Test::Unit::TestCase
                    {
                      path: "rust/arrow-benches/Cargo.toml",
                      hunks: [
-                       ["-version = \"#{@snapshot_version}\"",
-                        "+version = \"#{@release_version}\""],
-                     ],
+                      ["-version = \"#{@release_version}\"",
+                      "+version = \"#{@next_snapshot_version}\""],
+                   ],
                    },
                    {
                      path: "rust/arrow-flight/Cargo.toml",
