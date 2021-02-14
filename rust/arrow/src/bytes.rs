@@ -24,7 +24,7 @@ use std::ptr::NonNull;
 use std::sync::Arc;
 use std::{fmt::Debug, fmt::Formatter};
 
-use crate::{ffi, memory};
+use crate::{alloc, ffi};
 
 /// Mode of deallocating memory regions
 pub enum Deallocation {
@@ -126,7 +126,7 @@ impl Drop for Bytes {
     fn drop(&mut self) {
         match &self.deallocation {
             Deallocation::Native(capacity) => {
-                unsafe { memory::free_aligned(self.ptr, *capacity) };
+                unsafe { alloc::free_aligned::<u8>(self.ptr, *capacity) };
             }
             // foreign interface knows how to deallocate itself.
             Deallocation::Foreign(_) => (),

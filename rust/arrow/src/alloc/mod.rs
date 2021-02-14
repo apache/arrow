@@ -18,7 +18,7 @@
 //! Defines memory-related functions, such as allocate/deallocate/reallocate memory
 //! regions, cache and allocation alignments.
 
-use std::mem::align_of;
+use std::mem::size_of;
 use std::ptr::NonNull;
 use std::{
     alloc::{handle_alloc_error, Layout},
@@ -26,52 +26,50 @@ use std::{
 };
 
 mod alignment;
-pub use alignment::ALIGNMENT;
+mod types;
 
-///
-/// As you can see this is global and lives as long as the program lives.
-/// Be careful to not write anything to this pointer in any scenario.
-/// If you use allocation methods shown here you won't have any problems.
-const BYPASS_PTR: NonNull<u8> = unsafe { NonNull::new_unchecked(ALIGNMENT as *mut u8) };
+pub use alignment::ALIGNMENT;
+pub use types::NativeType;
 
 // If this number is not zero after all objects have been `drop`, there is a memory leak
 pub static mut ALLOCATIONS: AtomicIsize = AtomicIsize::new(0);
 
+#[inline]
+unsafe fn null_pointer<T: NativeType>() -> NonNull<T> {
+    NonNull::new_unchecked(ALIGNMENT as *mut T)
+}
+
 /// Allocates a cache-aligned memory region of `size` bytes with uninitialized values.
 /// This is more performant than using [allocate_aligned_zeroed] when all bytes will have
 /// an unknown or non-zero value and is semantically similar to `malloc`.
-pub fn allocate_aligned(size: usize) -> NonNull<u8> {
+pub fn allocate_aligned<T: NativeType>(size: usize) -> NonNull<T> {
     unsafe {
         if size == 0 {
-            // In a perfect world, there is no need to request zero size allocation.
-            // Currently, passing zero sized layout to alloc is UB.
-            // This will dodge allocator api for any type.
-            BYPASS_PTR
+            null_pointer()
         } else {
+            let size = size * size_of::<T>();
             ALLOCATIONS.fetch_add(size as isize, std::sync::atomic::Ordering::SeqCst);
 
             let layout = Layout::from_size_align_unchecked(size, ALIGNMENT);
-            let raw_ptr = std::alloc::alloc(layout);
+            let raw_ptr = std::alloc::alloc(layout) as *mut T;
             NonNull::new(raw_ptr).unwrap_or_else(|| handle_alloc_error(layout))
         }
     }
 }
 
-/// Allocates a cache-aligned memory region of `size` bytes with `0u8` on all of them.
+/// Allocates a cache-aligned memory region of `size` bytes with `0` on all of them.
 /// This is more performant than using [allocate_aligned] and setting all bytes to zero
 /// and is semantically similar to `calloc`.
-pub fn allocate_aligned_zeroed(size: usize) -> NonNull<u8> {
+pub fn allocate_aligned_zeroed<T: NativeType>(size: usize) -> NonNull<T> {
     unsafe {
         if size == 0 {
-            // In a perfect world, there is no need to request zero size allocation.
-            // Currently, passing zero sized layout to alloc is UB.
-            // This will dodge allocator api for any type.
-            BYPASS_PTR
+            null_pointer()
         } else {
+            let size = size * size_of::<T>();
             ALLOCATIONS.fetch_add(size as isize, std::sync::atomic::Ordering::SeqCst);
 
             let layout = Layout::from_size_align_unchecked(size, ALIGNMENT);
-            let raw_ptr = std::alloc::alloc_zeroed(layout);
+            let raw_ptr = std::alloc::alloc_zeroed(layout) as *mut T;
             NonNull::new(raw_ptr).unwrap_or_else(|| handle_alloc_error(layout))
         }
     }
@@ -85,11 +83,12 @@ pub fn allocate_aligned_zeroed(size: usize) -> NonNull<u8> {
 /// * ptr must denote a block of memory currently allocated via this allocator,
 ///
 /// * size must be the same size that was used to allocate that block of memory,
-pub unsafe fn free_aligned(ptr: NonNull<u8>, size: usize) {
-    if ptr != BYPASS_PTR {
+pub unsafe fn free_aligned<T: NativeType>(ptr: NonNull<T>, size: usize) {
+    if ptr != null_pointer() {
+        let size = size * size_of::<T>();
         ALLOCATIONS.fetch_sub(size as isize, std::sync::atomic::Ordering::SeqCst);
         std::alloc::dealloc(
-            ptr.as_ptr(),
+            ptr.as_ptr() as *mut u8,
             Layout::from_size_align_unchecked(size, ALIGNMENT),
         );
     }
@@ -106,18 +105,20 @@ pub unsafe fn free_aligned(ptr: NonNull<u8>, size: usize) {
 ///
 /// * new_size, when rounded up to the nearest multiple of [ALIGNMENT], must not overflow (i.e.,
 /// the rounded value must be less than usize::MAX).
-pub unsafe fn reallocate(
-    ptr: NonNull<u8>,
+pub unsafe fn reallocate<T: NativeType>(
+    ptr: NonNull<T>,
     old_size: usize,
     new_size: usize,
-) -> NonNull<u8> {
-    if ptr == BYPASS_PTR {
+) -> NonNull<T> {
+    let old_size = old_size * size_of::<T>();
+    let new_size = new_size * size_of::<T>();
+    if ptr == null_pointer() {
         return allocate_aligned(new_size);
     }
 
     if new_size == 0 {
         free_aligned(ptr, old_size);
-        return BYPASS_PTR;
+        return null_pointer();
     }
 
     ALLOCATIONS.fetch_add(
@@ -125,49 +126,11 @@ pub unsafe fn reallocate(
         std::sync::atomic::Ordering::SeqCst,
     );
     let raw_ptr = std::alloc::realloc(
-        ptr.as_ptr(),
+        ptr.as_ptr() as *mut u8,
         Layout::from_size_align_unchecked(old_size, ALIGNMENT),
         new_size,
-    );
+    ) as *mut T;
     NonNull::new(raw_ptr).unwrap_or_else(|| {
         handle_alloc_error(Layout::from_size_align_unchecked(new_size, ALIGNMENT))
     })
-}
-
-/// # Safety
-///
-/// Behavior is undefined if any of the following conditions are violated:
-///
-/// * `src` must be valid for reads of `len * size_of::<u8>()` bytes.
-///
-/// * `dst` must be valid for writes of `len * size_of::<u8>()` bytes.
-///
-/// * Both `src` and `dst` must be properly aligned.
-///
-/// `memcpy` creates a bitwise copy of `T`, regardless of whether `T` is [`Copy`]. If `T` is not
-/// [`Copy`], using both the values in the region beginning at `*src` and the region beginning at
-/// `*dst` can [violate memory safety][read-ownership].
-pub unsafe fn memcpy(dst: NonNull<u8>, src: NonNull<u8>, count: usize) {
-    if src != BYPASS_PTR {
-        std::ptr::copy_nonoverlapping(src.as_ptr(), dst.as_ptr(), count)
-    }
-}
-
-pub fn is_ptr_aligned<T>(p: NonNull<u8>) -> bool {
-    p.as_ptr().align_offset(align_of::<T>()) == 0
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_allocate() {
-        for _ in 0..10 {
-            let p = allocate_aligned(1024);
-            // make sure this is 64-byte aligned
-            assert_eq!(0, (p.as_ptr() as usize) % 64);
-            unsafe { free_aligned(p, 1024) };
-        }
-    }
 }

@@ -21,9 +21,7 @@ use std::ptr::NonNull;
 use std::sync::Arc;
 use std::{convert::AsRef, usize};
 
-use crate::memory;
 use crate::util::bit_chunk_iterator::BitChunks;
-use crate::util::bit_util;
 use crate::{
     bytes::{Bytes, Deallocation},
     datatypes::ArrowNativeType,
@@ -56,19 +54,11 @@ impl Buffer {
 
     /// Initializes a [Buffer] from a slice of items.
     pub fn from_slice_ref<U: ArrowNativeType, T: AsRef<[U]>>(items: &T) -> Self {
-        // allocate aligned memory buffer
         let slice = items.as_ref();
-        let len = slice.len() * std::mem::size_of::<U>();
-        let capacity = bit_util::round_upto_multiple_of_64(len);
-        let buffer = memory::allocate_aligned(capacity);
-        unsafe {
-            memory::memcpy(
-                buffer,
-                NonNull::new_unchecked(slice.as_ptr() as *mut u8),
-                len,
-            );
-            Buffer::build_with_arguments(buffer, len, Deallocation::Native(capacity))
-        }
+        let len = slice.len();
+        let mut buffer = MutableBuffer::with_capacity(len);
+        buffer.extend_from_slice(slice);
+        buffer.into()
     }
 
     /// Creates a buffer from an existing memory region (must already be byte-aligned), this
