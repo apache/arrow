@@ -380,7 +380,7 @@ mod tests {
     }
 
     #[test]
-    fn date_trunc_test() -> Result<()> {
+    fn date_trunc_test() {
         let cases = vec![
             (
                 "2020-09-08T13:42:29.190855Z",
@@ -435,7 +435,6 @@ mod tests {
             let result = date_trunc_single(granularity, original).unwrap();
             assert_eq!(result, expected);
         });
-        Ok(())
     }
 
     #[test]

@@ -722,7 +722,7 @@ mod tests {
 
         let expr = create_physical_expr(
             &BuiltinScalarFunction::Array,
-            &vec![col("a"), col("b")],
+            &[col("a"), col("b")],
             &schema,
         )?;
 
