@@ -87,7 +87,7 @@ fn generic_substring<OffsetSize: StringOffsetSizeTrait>(
         ],
         vec![],
     );
-    Ok(make_array(Arc::new(data)))
+    Ok(unsafe { make_array(Arc::new(data)) })
 }
 
 /// Returns an ArrayRef with a substring starting from `start` and with optional length `length` of each of the elements in `array`.

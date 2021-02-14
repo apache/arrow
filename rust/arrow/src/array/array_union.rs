@@ -264,7 +264,7 @@ impl From<ArrayDataRef> for UnionArray {
     fn from(data: ArrayDataRef) -> Self {
         let mut boxed_fields = vec![];
         for cd in data.child_data() {
-            boxed_fields.push(make_array(cd.clone()));
+            boxed_fields.push(unsafe { make_array(cd.clone()) });
         }
         Self { data, boxed_fields }
     }

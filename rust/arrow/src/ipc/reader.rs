@@ -192,7 +192,7 @@ fn create_array(
                 .build();
             node_index += 1;
             // no buffer increases
-            make_array(data)
+            unsafe { make_array(data) }
         }
         _ => {
             let array = create_primitive_array(
@@ -333,7 +333,7 @@ fn create_primitive_array(
         t => panic!("Data type {:?} either unsupported or not primitive", t),
     };
 
-    make_array(array_data)
+    unsafe { make_array(array_data) }
 }
 
 /// Reads the correct number of buffers based on list type and null_count, and creates a
@@ -354,7 +354,7 @@ fn create_list_array(
         if null_count > 0 {
             builder = builder.null_bit_buffer(buffers[0].clone())
         }
-        make_array(builder.build())
+        unsafe { make_array(builder.build()) }
     } else if let DataType::LargeList(_) = *data_type {
         let null_count = field_node.null_count() as usize;
         let mut builder = ArrayData::builder(data_type.clone())
@@ -365,7 +365,7 @@ fn create_list_array(
         if null_count > 0 {
             builder = builder.null_bit_buffer(buffers[0].clone())
         }
-        make_array(builder.build())
+        unsafe { make_array(builder.build()) }
     } else if let DataType::FixedSizeList(_, _) = *data_type {
         let null_count = field_node.null_count() as usize;
         let mut builder = ArrayData::builder(data_type.clone())
@@ -376,7 +376,7 @@ fn create_list_array(
         if null_count > 0 {
             builder = builder.null_bit_buffer(buffers[0].clone())
         }
-        make_array(builder.build())
+        unsafe { make_array(builder.build()) }
     } else {
         panic!("Cannot create list array from {:?}", data_type)
     }
@@ -400,7 +400,7 @@ fn create_dictionary_array(
         if null_count > 0 {
             builder = builder.null_bit_buffer(buffers[0].clone())
         }
-        make_array(builder.build())
+        unsafe { make_array(builder.build()) }
     } else {
         unreachable!("Cannot create dictionary array from {:?}", data_type)
     }

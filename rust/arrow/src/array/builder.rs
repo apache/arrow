@@ -1721,7 +1721,7 @@ impl UnionBuilder {
                 Some(mut bb) => arr_data_builder.null_bit_buffer(bb.finish()).build(),
                 None => arr_data_builder.build(),
             };
-            let array_ref = make_array(arr_data_ref);
+            let array_ref = unsafe { make_array(arr_data_ref) };
             children.push((type_id, (Field::new(&name, data_type, false), array_ref)))
         }
 

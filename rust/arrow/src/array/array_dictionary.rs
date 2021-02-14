@@ -155,7 +155,7 @@ impl<T: ArrowPrimitiveType> From<ArrayDataRef> for DictionaryArray<T> {
                 data.buffers().to_vec(),
                 vec![],
             )));
-            let values = make_array(data.child_data()[0].clone());
+            let values = unsafe { make_array(data.child_data()[0].clone()) };
             Self {
                 data,
                 keys,

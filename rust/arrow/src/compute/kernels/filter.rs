@@ -227,7 +227,7 @@ pub fn filter(array: &Array, filter: &BooleanArray) -> Result<ArrayRef> {
         MutableArrayData::new(vec![array.data_ref()], false, iter.filter_count);
     iter.for_each(|(start, end)| mutable.extend(0, start, end));
     let data = mutable.freeze();
-    Ok(make_array(Arc::new(data)))
+    Ok(unsafe { make_array(Arc::new(data)) })
 }
 
 /// Returns a new [RecordBatch] with arrays containing only values matching the filter.
@@ -241,7 +241,7 @@ pub fn filter_record_batch(
     let filtered_arrays = record_batch
         .columns()
         .iter()
-        .map(|a| make_array(Arc::new(filter(&a.data()))))
+        .map(|a| unsafe { make_array(Arc::new(filter(&a.data()))) })
         .collect();
     RecordBatch::try_new(record_batch.schema(), filtered_arrays)
 }
@@ -540,7 +540,7 @@ mod tests {
             .null_bit_buffer(Buffer::from([0b00000001]))
             .build();
 
-        assert_eq!(&make_array(expected), &result);
+        assert_eq!(&unsafe { make_array(expected) }, &result);
     }
 
     #[test]

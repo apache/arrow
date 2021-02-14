@@ -249,7 +249,7 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
         )),
         (List(_), List(ref to)) => {
             let data = array.data_ref();
-            let underlying_array = make_array(data.child_data()[0].clone());
+            let underlying_array = unsafe { make_array(data.child_data()[0].clone()) };
             let cast_array = cast(&underlying_array, to.data_type())?;
             let array_data = ArrayData::new(
                 to.data_type().clone(),

@@ -60,7 +60,7 @@ where
         vec![buffer],
         vec![],
     );
-    Ok(make_array(Arc::new(data)))
+    Ok(unsafe { make_array(Arc::new(data)) })
 }
 
 /// Returns an array of Int32/Int64 denoting the number of characters in each string in the array.
@@ -189,13 +189,15 @@ mod tests {
     #[test]
     fn offsets() -> Result<()> {
         let a = StringArray::from(vec!["hello", " ", "world"]);
-        let b = make_array(
-            ArrayData::builder(DataType::Utf8)
-                .len(2)
-                .offset(1)
-                .buffers(a.data_ref().buffers().to_vec())
-                .build(),
-        );
+        let b = unsafe {
+            make_array(
+                ArrayData::builder(DataType::Utf8)
+                    .len(2)
+                    .offset(1)
+                    .buffers(a.data_ref().buffers().to_vec())
+                    .build(),
+            )
+        };
         let result = length(b.as_ref())?;
 
         let expected = Int32Array::from(vec![1, 5]);

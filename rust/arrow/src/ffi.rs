@@ -655,7 +655,7 @@ mod tests {
 
         // (simulate consumer) import it
         let data = Arc::new(ArrayData::try_from(array)?);
-        let array = make_array(data);
+        let array = unsafe { make_array(data) };
 
         // perform some operation
         let array = array.as_any().downcast_ref::<Int32Array>().unwrap();
@@ -679,7 +679,7 @@ mod tests {
 
         // (simulate consumer) import it
         let data = Arc::new(ArrayData::try_from(array)?);
-        let array = make_array(data);
+        let array = unsafe { make_array(data) };
 
         // perform some operation
         let array = kernels::concat::concat(&[array.as_ref(), array.as_ref()]).unwrap();
@@ -723,7 +723,7 @@ mod tests {
 
         // (simulate consumer) import it
         let data = Arc::new(ArrayData::try_from(array)?);
-        let array = make_array(data);
+        let array = unsafe { make_array(data) };
 
         // perform some operation
         let array = kernels::concat::concat(&[array.as_ref(), array.as_ref()]).unwrap();
@@ -768,7 +768,7 @@ mod tests {
 
         // (simulate consumer) import it
         let data = Arc::new(ArrayData::try_from(array)?);
-        let array = make_array(data);
+        let array = unsafe { make_array(data) };
 
         // perform some operation
         let array = array.as_any().downcast_ref::<BooleanArray>().unwrap();
@@ -794,7 +794,7 @@ mod tests {
 
         // (simulate consumer) import it
         let data = Arc::new(ArrayData::try_from(array)?);
-        let array = make_array(data);
+        let array = unsafe { make_array(data) };
 
         // perform some operation
         let array = kernels::concat::concat(&[array.as_ref(), array.as_ref()]).unwrap();

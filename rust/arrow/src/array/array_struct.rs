@@ -90,7 +90,7 @@ impl From<ArrayDataRef> for StructArray {
             } else {
                 cd.clone()
             };
-            boxed_fields.push(make_array(child_data));
+            boxed_fields.push(unsafe { make_array(child_data) });
         }
         Self { data, boxed_fields }
     }

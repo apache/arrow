@@ -74,7 +74,7 @@ where
     );
 
     // Concatenate both arrays, add nulls after if shift > 0 else before
-    let null_arr = make_array(Arc::new(null_data));
+    let null_arr = unsafe { make_array(Arc::new(null_data)) };
     if offset > 0 {
         concat(&[null_arr.as_ref(), slice.as_ref()])
     } else {

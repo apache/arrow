@@ -139,7 +139,7 @@ impl<OffsetSize: OffsetSizeTrait> From<ArrayDataRef> for GenericListArray<Offset
             1,
             "ListArray should contain a single child array (values array)"
         );
-        let values = make_array(data.child_data()[0].clone());
+        let values = unsafe { make_array(data.child_data()[0].clone()) };
         let value_offsets = data.buffers()[0].as_ptr();
 
         let value_offsets = unsafe { RawPtrBox::<OffsetSize>::new(value_offsets) };
@@ -258,7 +258,7 @@ impl From<ArrayDataRef> for FixedSizeListArray {
             1,
             "FixedSizeListArray should contain a single child array (values array)"
         );
-        let values = make_array(data.child_data()[0].clone());
+        let values = unsafe { make_array(data.child_data()[0].clone()) };
         let length = match data.data_type() {
             DataType::FixedSizeList(_, len) => {
                 if *len > 0 {

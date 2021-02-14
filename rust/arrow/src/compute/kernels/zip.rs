@@ -68,7 +68,7 @@ pub fn zip(
     }
 
     let data = mutable.freeze();
-    Ok(make_array(Arc::new(data)))
+    Ok(unsafe { make_array(Arc::new(data)) })
 }
 
 #[cfg(test)]

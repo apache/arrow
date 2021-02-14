@@ -1200,7 +1200,7 @@ impl Decoder {
                             .null_bit_buffer(null_buffer.into())
                             .child_data(arrays.into_iter().map(|a| a.data()).collect())
                             .build();
-                        Ok(make_array(data))
+                        Ok(unsafe { make_array(data) })
                     }
                     _ => Err(ArrowError::JsonError(format!(
                         "{:?} type is not supported",
@@ -1965,7 +1965,7 @@ mod tests {
             .add_child_data(c)
             .null_bit_buffer(Buffer::from(vec![0b00000111]))
             .build();
-        let expected = make_array(a);
+        let expected = unsafe { make_array(a) };
 
         // compare `a` with result from json reader
         let batch = reader.next().unwrap().unwrap();
@@ -2040,7 +2040,7 @@ mod tests {
             .add_child_data(a)
             .null_bit_buffer(Buffer::from(vec![0b00010111]))
             .build();
-        let expected = make_array(a_list);
+        let expected = unsafe { make_array(a_list) };
 
         // compare `a` with result from json reader
         let batch = reader.next().unwrap().unwrap();

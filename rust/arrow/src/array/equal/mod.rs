@@ -1021,7 +1021,7 @@ mod tests {
         .add_child_data(strings.data_ref().clone())
         .add_child_data(ints.data_ref().clone())
         .build();
-        let a = crate::array::make_array(a);
+        let a = unsafe { crate::array::make_array(a) };
 
         let b = ArrayData::builder(DataType::Struct(vec![
             Field::new("f1", DataType::Utf8, true),
@@ -1032,7 +1032,7 @@ mod tests {
         .add_child_data(strings.data_ref().clone())
         .add_child_data(ints_non_null.data_ref().clone())
         .build();
-        let b = crate::array::make_array(b);
+        let b = unsafe { crate::array::make_array(b) };
 
         test_equal(a.data_ref(), b.data_ref(), true);
 
@@ -1047,7 +1047,7 @@ mod tests {
         .add_child_data(strings.data_ref().clone())
         .add_child_data(c_ints_non_null.data_ref().clone())
         .build();
-        let c = crate::array::make_array(c);
+        let c = unsafe { crate::array::make_array(c) };
 
         test_equal(a.data_ref(), c.data_ref(), false);
 
@@ -1061,7 +1061,7 @@ mod tests {
         .len(5)
         .add_child_data(a.data_ref().clone())
         .build();
-        let a = crate::array::make_array(a);
+        let a = unsafe { crate::array::make_array(a) };
 
         // reconstruct b, but with different data where the first struct is null
         let strings: ArrayRef = Arc::new(StringArray::from(vec![
@@ -1090,7 +1090,7 @@ mod tests {
         .len(5)
         .add_child_data(b)
         .build();
-        let b = crate::array::make_array(b);
+        let b = unsafe { crate::array::make_array(b) };
 
         test_equal(a.data_ref(), b.data_ref(), true);
     }
@@ -1122,7 +1122,7 @@ mod tests {
         .len(5)
         .add_child_data(strings1.data_ref().clone())
         .build();
-        let a = crate::array::make_array(a);
+        let a = unsafe { crate::array::make_array(a) };
 
         let b = ArrayData::builder(DataType::Struct(vec![Field::new(
             "f1",
@@ -1133,7 +1133,7 @@ mod tests {
         .len(5)
         .add_child_data(strings2.data_ref().clone())
         .build();
-        let b = crate::array::make_array(b);
+        let b = unsafe { crate::array::make_array(b) };
 
         test_equal(a.data_ref(), b.data_ref(), true);
 
@@ -1154,7 +1154,7 @@ mod tests {
         .len(5)
         .add_child_data(strings3.data_ref().clone())
         .build();
-        let c = crate::array::make_array(c);
+        let c = unsafe { crate::array::make_array(c) };
 
         test_equal(a.data_ref(), c.data_ref(), false);
     }

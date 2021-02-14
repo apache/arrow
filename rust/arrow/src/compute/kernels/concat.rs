@@ -67,7 +67,7 @@ pub fn concat(arrays: &[&Array]) -> Result<ArrayRef> {
         mutable.extend(i, 0, *len)
     }
 
-    Ok(make_array(Arc::new(mutable.freeze())))
+    Ok(unsafe { make_array(Arc::new(mutable.freeze())) })
 }
 
 #[cfg(test)]
