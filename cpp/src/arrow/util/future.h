@@ -545,7 +545,7 @@ class ARROW_MUST_USE_TYPE Future {
   FRIEND_TEST(FutureRefTest, ChainRemoved);
   FRIEND_TEST(FutureRefTest, TailRemoved);
   FRIEND_TEST(FutureRefTest, HeadRemoved);
-};  // namespace arrow
+};
 
 template <typename T>
 class WeakFuture {
