@@ -34,5 +34,5 @@ archery integration --with-all --run-flight \
 
 # TODO: support other languages
 archery integration --with-cpp=1 --run-flight \
-    --gold-dirs=$gold_dir/1.0.0_bigendian \
-    --gold-dirs=$gold_dir/1.0.0_littleendian \
+    --gold-dirs=$gold_dir/1.0.0-bigendian \
+    --gold-dirs=$gold_dir/1.0.0-littleendian \
