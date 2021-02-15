@@ -578,9 +578,9 @@ def test_reads_over_batch(tempdir):
     # Large list<int64> with mostly nones and one final
     # value.  This should force batched reads when
     # reading back.
-    table = Table.from_arrays([data], ['column'])
+    table = pa.Table.from_arrays([data], ['column'])
 
     path = tempdir / 'arrow-11607.parquet'
-    parquet.write_table(table, path)
-    table2 = parquet.read_table(path)
+    pq.write_table(table, path)
+    table2 = pq.read_table(path)
     assert table == table2
