@@ -107,6 +107,7 @@ cmake \
     -DCMAKE_UNITY_BUILD=ON \
     -DOPENSSL_USE_STATIC_LIBS=ON \
     -DThrift_ROOT=/opt/vcpkg/installed/x64-linux/lib \
+    -D_VCPKG_INSTALLED_DIR=/opt/vcpkg/installed \
     -DVCPKG_MANIFEST_MODE=OFF \
     -DVCPKG_TARGET_TRIPLET=x64-linux-static-${CMAKE_BUILD_TYPE} \
     -G ${CMAKE_GENERATOR} \
