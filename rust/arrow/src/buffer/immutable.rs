@@ -36,7 +36,7 @@ use super::MutableBuffer;
 #[derive(Clone, PartialEq, Debug)]
 pub struct Buffer {
     /// the internal byte buffer.
-    data: Arc<Bytes>,
+    data: Arc<Bytes<u8>>,
 
     /// The offset into the buffer.
     offset: usize,
@@ -45,7 +45,7 @@ pub struct Buffer {
 impl Buffer {
     /// Auxiliary method to create a new Buffer
     #[inline]
-    pub fn from_bytes(bytes: Bytes) -> Self {
+    pub fn from_bytes(bytes: Bytes<u8>) -> Self {
         Buffer {
             data: Arc::new(bytes),
             offset: 0,

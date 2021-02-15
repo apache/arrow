@@ -17,20 +17,20 @@
 
 //! This module contains an implementation of a contiguous immutable memory region that knows
 //! how to de-allocate itself, [`Bytes`].
-//! Note that this is a low-level functionality of this crate.
 
 use core::slice;
-use std::ptr::NonNull;
-use std::sync::Arc;
 use std::{fmt::Debug, fmt::Formatter};
+use std::{ptr::NonNull, sync::Arc};
 
-use crate::{alloc, ffi};
+use crate::ffi;
+
+use super::{alloc, alloc::NativeType};
 
 /// Mode of deallocating memory regions
 pub enum Deallocation {
     /// Native deallocation, using Rust deallocator with Arrow-specific memory aligment
     Native(usize),
-    /// Foreign interface, via a callback
+    // Foreign interface, via a callback
     Foreign(Arc<ffi::FFI_ArrowArray>),
 }
 
@@ -55,9 +55,9 @@ impl Debug for Deallocation {
 /// and deallocated accordingly [`free_aligned`](memory::free_aligned).
 /// When the region is allocated by an foreign allocator, [Deallocation::Foreign], this calls the
 /// foreign deallocator to deallocate the region when it is no longer needed.
-pub struct Bytes {
+pub struct Bytes<T: NativeType> {
     /// The raw pointer to be begining of the region
-    ptr: NonNull<u8>,
+    ptr: NonNull<T>,
 
     /// The number of bytes visible to this region. This is always smaller than its capacity (when avaliable).
     len: usize,
@@ -66,7 +66,7 @@ pub struct Bytes {
     deallocation: Deallocation,
 }
 
-impl Bytes {
+impl<T: NativeType> Bytes<T> {
     /// Takes ownership of an allocated memory region,
     ///
     /// # Arguments
@@ -81,18 +81,19 @@ impl Bytes {
     /// bytes. If the `ptr` and `capacity` come from a `Buffer`, then this is guaranteed.
     #[inline]
     pub unsafe fn new(
-        ptr: std::ptr::NonNull<u8>,
+        ptr: std::ptr::NonNull<T>,
         len: usize,
         deallocation: Deallocation,
-    ) -> Bytes {
-        Bytes {
+    ) -> Self {
+        Self {
             ptr,
             len,
             deallocation,
         }
     }
 
-    fn as_slice(&self) -> &[u8] {
+    #[inline]
+    fn as_slice(&self) -> &[T] {
         self
     }
 
@@ -107,7 +108,7 @@ impl Bytes {
     }
 
     #[inline]
-    pub fn ptr(&self) -> NonNull<u8> {
+    pub fn ptr(&self) -> NonNull<T> {
         self.ptr
     }
 
@@ -121,12 +122,12 @@ impl Bytes {
     }
 }
 
-impl Drop for Bytes {
+impl<T: NativeType> Drop for Bytes<T> {
     #[inline]
     fn drop(&mut self) {
         match &self.deallocation {
             Deallocation::Native(capacity) => {
-                unsafe { alloc::free_aligned::<u8>(self.ptr, *capacity) };
+                unsafe { alloc::free_aligned(self.ptr, *capacity) };
             }
             // foreign interface knows how to deallocate itself.
             Deallocation::Foreign(_) => (),
@@ -134,21 +135,21 @@ impl Drop for Bytes {
     }
 }
 
-impl std::ops::Deref for Bytes {
-    type Target = [u8];
+impl<T: NativeType> std::ops::Deref for Bytes<T> {
+    type Target = [T];
 
-    fn deref(&self) -> &[u8] {
+    fn deref(&self) -> &[T] {
         unsafe { slice::from_raw_parts(self.ptr.as_ptr(), self.len) }
     }
 }
 
-impl PartialEq for Bytes {
-    fn eq(&self, other: &Bytes) -> bool {
+impl<T: NativeType> PartialEq for Bytes<T> {
+    fn eq(&self, other: &Bytes<T>) -> bool {
         self.as_slice() == other.as_slice()
     }
 }
 
-impl Debug for Bytes {
+impl<T: NativeType> Debug for Bytes<T> {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         write!(f, "Bytes {{ ptr: {:?}, len: {}, data: ", self.ptr, self.len,)?;
 
@@ -157,3 +158,7 @@ impl Debug for Bytes {
         write!(f, " }}")
     }
 }
+
+// This is sound because `Bytes` is an immutable container
+unsafe impl<T: NativeType> Send for Bytes<T> {}
+unsafe impl<T: NativeType> Sync for Bytes<T> {}
