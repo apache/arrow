@@ -46,7 +46,8 @@ COPY ci/vcpkg arrow/ci/vcpkg
 ARG build_type=release
 ENV CMAKE_BUILD_TYPE=${build_type} \
     VCPKG_OVERLAY_TRIPLETS=C:\\arrow\\ci\\vcpkg \
-    VCPKG_DEFAULT_TRIPLET=x64-windows-static-md-${build_type}
+    VCPKG_DEFAULT_TRIPLET=x64-windows-static-md-${build_type} \
+    VCPKG_FEATURE_FLAGS=-manifests
 RUN vcpkg install --clean-after-build \
         abseil \
         aws-sdk-cpp[config,cognito-identity,core,identity-management,s3,sts,transfer] \
