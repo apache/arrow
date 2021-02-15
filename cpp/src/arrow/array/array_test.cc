@@ -2602,7 +2602,6 @@ TEST(TestRechunkArraysConsistently, Plain) {
 // ----------------------------------------------------------------------
 // Test SwapEndianArrayData
 
-
 /// \brief Indicate if fields are equals.
 ///
 /// \param[in] target ArrayData to be converted and tested
@@ -2709,7 +2708,6 @@ std::shared_ptr<ArrayData> ReplaceBuffersInDictionary(
   test_data->dictionary = dict_array_data;
   return test_data;
 }
-
 
 TEST(TestSwapEndianArrayData, NonPrimitiveType) {
   auto array = ArrayFromJSON(binary(), R"(["0123", null, "45"])");
