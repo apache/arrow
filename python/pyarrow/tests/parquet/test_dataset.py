@@ -362,8 +362,6 @@ def test_filters_inclusive_datetime(tempdir):
         "id": range(10)
     }).to_parquet(path, use_deprecated_int96_timestamps=True)
 
-    import datetime
-
     table = pq.read_table(path, filters=[
         ("dates", "<=", datetime.datetime(2020, 1, 5))
     ])
