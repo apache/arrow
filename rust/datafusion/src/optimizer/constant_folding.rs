@@ -48,6 +48,12 @@ impl ConstantFolding {
 
 impl OptimizerRule for ConstantFolding {
     fn optimize(&self, plan: &LogicalPlan) -> Result<LogicalPlan> {
+        // We need to pass down the all schemas within the plan tree to `optimize_expr` in order to
+        // to evaluate expression types. For example, a projection plan's schema will only include
+        // projected columns. With just the projected schema, it's not possible to infer types for
+        // expressions that references non-projected columns within the same project plan or its
+        // children plans.
+
         match plan {
             LogicalPlan::Filter { predicate, input } => Ok(LogicalPlan::Filter {
                 predicate: optimize_expr(predicate, &plan.all_schemas())?,
@@ -91,20 +97,15 @@ impl OptimizerRule for ConstantFolding {
 
 fn is_boolean_type(expr: &Expr, schemas: &[&DFSchemaRef]) -> bool {
     for schema in schemas {
-        match expr.get_type(schema) {
-            Ok(dt) if dt == DataType::Boolean => {
-                return true;
-            }
-            _ => {
-                continue;
-            }
+        if let Ok(DataType::Boolean) = expr.get_type(schema) {
+            return true;
         }
     }
 
     false
 }
 
-/// Recursively transverses the logical plan.
+/// Recursively transverses the expression tree.
 fn optimize_expr(e: &Expr, schemas: &[&DFSchemaRef]) -> Result<Expr> {
     Ok(match e {
         Expr::BinaryExpr { left, op, right } => {
