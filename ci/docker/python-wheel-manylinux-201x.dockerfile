@@ -62,7 +62,8 @@ ARG build_type=release
 ENV CMAKE_BUILD_TYPE=${build_type} \
     VCPKG_FORCE_SYSTEM_BINARIES=1 \
     VCPKG_OVERLAY_TRIPLETS=/arrow/ci/vcpkg \
-    VCPKG_DEFAULT_TRIPLET=x64-linux-static-${build_type}
+    VCPKG_DEFAULT_TRIPLET=x64-linux-static-${build_type} \
+    VCPKG_FEATURE_FLAGS=-manifests
 
 # TODO(kszucs): factor out the package enumeration to a text file and reuse it
 # from the windows image and potentially in a future macos wheel build

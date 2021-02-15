@@ -47,6 +47,7 @@ set ARROW_WITH_ZLIB=ON
 set ARROW_WITH_ZSTD=ON
 set CMAKE_UNITY_BUILD=ON
 set CMAKE_GENERATOR=Visual Studio 15 2017 Win64
+set VCPKG_FEATURE_FLAGS=-manifests
 
 mkdir C:\arrow-build
 pushd C:\arrow-build

@@ -67,6 +67,7 @@ echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 : ${ARROW_WITH_ZSTD:=ON}
 : ${CMAKE_BUILD_TYPE:=release}
 : ${CMAKE_GENERATOR:=Ninja}
+: ${VCPKG_FEATURE_FLAGS:=-manifests}
 
 mkdir /tmp/arrow-build
 pushd /tmp/arrow-build
