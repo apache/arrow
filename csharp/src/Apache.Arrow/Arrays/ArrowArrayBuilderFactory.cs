@@ -58,8 +58,10 @@ namespace Apache.Arrow
                     return new Date32Array.Builder();
                 case ArrowTypeId.List:
                     return new ListArray.Builder(dataType as ListType);
-                case ArrowTypeId.Decimal:
-                    return new DecimalArray.Builder();
+                case ArrowTypeId.Decimal128:
+                    return new Decimal128Array.Builder(dataType as Decimal128Type);
+                case ArrowTypeId.Decimal256:
+                    return new Decimal256Array.Builder(dataType as Decimal256Type);
                 case ArrowTypeId.Struct:
                 case ArrowTypeId.Union:
                 case ArrowTypeId.Dictionary:

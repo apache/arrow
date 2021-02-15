@@ -78,7 +78,8 @@ namespace Apache.Arrow.Tests
             IArrowArrayVisitor<StringArray>,
             IArrowArrayVisitor<BinaryArray>,
             IArrowArrayVisitor<StructArray>,
-            IArrowArrayVisitor<DecimalArray>
+            IArrowArrayVisitor<Decimal128Array>,
+            IArrowArrayVisitor<Decimal256Array>
         {
             private readonly IArrowArray _expectedArray;
             private readonly ArrayTypeComparer _arrayTypeComparer;
@@ -104,8 +105,8 @@ namespace Apache.Arrow.Tests
             public void Visit(Date32Array array) => CompareArrays(array);
             public void Visit(Date64Array array) => CompareArrays(array);
             public void Visit(ListArray array) => CompareArrays(array);
-            public void Visit(DecimalArray array) => CompareArrays(array);
-
+            public void Visit(Decimal128Array array) => CompareArrays(array);
+            public void Visit(Decimal256Array array) => CompareArrays(array);
             public void Visit(StringArray array) => CompareBinaryArrays<StringArray>(array);
 
             public void Visit(BinaryArray array) => CompareBinaryArrays<BinaryArray>(array);
@@ -147,6 +148,40 @@ namespace Apache.Arrow.Tests
                 Assert.True(expectedArray.NullBitmapBuffer.Span.SequenceEqual(actualArray.NullBitmapBuffer.Span));
                 Assert.True(expectedArray.ValueOffsetsBuffer.Span.SequenceEqual(actualArray.ValueOffsetsBuffer.Span));
                 Assert.True(expectedArray.Values.Slice(0, expectedArray.Length).SequenceEqual(actualArray.Values.Slice(0, actualArray.Length)));
+            }
+
+            private void CompareArrays(Decimal128Array actualArray)
+            {
+                Assert.IsAssignableFrom<Decimal128Array>(_expectedArray);
+                Assert.IsAssignableFrom<Decimal128Array>(actualArray);
+
+                var expectedArray = (Decimal128Array)_expectedArray;
+
+                actualArray.Data.DataType.Accept(_arrayTypeComparer);
+
+                Assert.Equal(expectedArray.Length, actualArray.Length);
+                Assert.Equal(expectedArray.NullCount, actualArray.NullCount);
+                Assert.Equal(expectedArray.Offset, actualArray.Offset);
+
+                Assert.True(expectedArray.NullBitmapBuffer.Span.SequenceEqual(actualArray.NullBitmapBuffer.Span));
+                Assert.True(expectedArray.ValueBuffer.Span.Slice(0, expectedArray.Length).SequenceEqual(actualArray.ValueBuffer.Span.Slice(0, actualArray.Length)));
+            }
+
+            private void CompareArrays(Decimal256Array actualArray)
+            {
+                Assert.IsAssignableFrom<Decimal256Array>(_expectedArray);
+                Assert.IsAssignableFrom<Decimal256Array>(actualArray);
+
+                var expectedArray = (Decimal256Array)_expectedArray;
+
+                actualArray.Data.DataType.Accept(_arrayTypeComparer);
+
+                Assert.Equal(expectedArray.Length, actualArray.Length);
+                Assert.Equal(expectedArray.NullCount, actualArray.NullCount);
+                Assert.Equal(expectedArray.Offset, actualArray.Offset);
+
+                Assert.True(expectedArray.NullBitmapBuffer.Span.SequenceEqual(actualArray.NullBitmapBuffer.Span));
+                Assert.True(expectedArray.ValueBuffer.Span.Slice(0, expectedArray.Length).SequenceEqual(actualArray.ValueBuffer.Span.Slice(0, actualArray.Length)));
             }
 
             private void CompareArrays<T>(PrimitiveArray<T> actualArray)

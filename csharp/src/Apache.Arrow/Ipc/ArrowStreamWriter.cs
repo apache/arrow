@@ -47,7 +47,8 @@ namespace Apache.Arrow.Ipc
             IArrowArrayVisitor<StringArray>,
             IArrowArrayVisitor<BinaryArray>,
             IArrowArrayVisitor<StructArray>,
-            IArrowArrayVisitor<DecimalArray>
+            IArrowArrayVisitor<Decimal128Array>,
+            IArrowArrayVisitor<Decimal256Array>
         {
             public readonly struct Buffer
             {
@@ -87,7 +88,6 @@ namespace Apache.Arrow.Ipc
             public void Visit(BooleanArray array) => CreateBuffers(array);
             public void Visit(Date32Array array) => CreateBuffers(array);
             public void Visit(Date64Array array) => CreateBuffers(array);
-            public void Visit(DecimalArray array) => CreateBuffers(array);
 
             public void Visit(ListArray array)
             {
@@ -103,6 +103,18 @@ namespace Apache.Arrow.Ipc
             {
                 _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
                 _buffers.Add(CreateBuffer(array.ValueOffsetsBuffer));
+                _buffers.Add(CreateBuffer(array.ValueBuffer));
+            }
+
+            public void Visit(Decimal128Array array)
+            {
+                _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
+                _buffers.Add(CreateBuffer(array.ValueBuffer));
+            }
+
+            public void Visit(Decimal256Array array)
+            {
+                _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
                 _buffers.Add(CreateBuffer(array.ValueBuffer));
             }
 

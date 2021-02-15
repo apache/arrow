@@ -211,6 +211,23 @@ namespace Apache.Arrow
                 return new ArrowBuffer(memoryOwner);
             }
 
+            /// <summary>
+            /// Build an Arrow buffer from the appended contents so far of the specified byte size.
+            /// </summary>
+            /// <param name="allocator">Optional memory allocator.</param>
+            /// <returns>Returns an <see cref="ArrowBuffer"/> object.</returns>
+            public ArrowBuffer Build(int byteSize, MemoryAllocator allocator = default)
+            {
+                int currentBytesLength = Length * _size;
+                int bufferLength = checked((int)BitUtility.RoundUpToMultiplePowerOfTwo(currentBytesLength, byteSize));
+
+                MemoryAllocator memoryAllocator = allocator ?? MemoryAllocator.Default.Value;
+                IMemoryOwner<byte> memoryOwner = memoryAllocator.Allocate(bufferLength);
+                Memory.Slice(0, currentBytesLength).CopyTo(memoryOwner.Memory);
+
+                return new ArrowBuffer(memoryOwner);
+            }
+
             private void EnsureAdditionalCapacity(int additionalCapacity)
             {
                 EnsureCapacity(checked(Length + additionalCapacity));
