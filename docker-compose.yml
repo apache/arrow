@@ -55,6 +55,9 @@
 
 version: '3.5'
 
+x-build-args: &build-args
+  BUILDKIT_INLINE_CACHE: ${BUILDKIT_INLINE_CACHE}
+
 x-ccache: &ccache
   CCACHE_COMPILERCHECK: content
   CCACHE_COMPRESS: 1
@@ -178,6 +181,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-conda-cpp
       args:
+        <<: *build-args
         arch: ${ARCH}
         prefix: /opt/conda
     shm_size: &shm-size 2G
@@ -210,6 +214,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-conda-cpp
       args:
+        <<: *build-args
         arch: ${ARCH}
         prefix: /opt/conda
     shm_size: *shm-size
@@ -242,6 +247,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-debian-${DEBIAN}-cpp
       args:
+        <<: *build-args
         arch: ${ARCH}
         llvm: ${LLVM}
     shm_size: *shm-size
@@ -272,6 +278,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
       args:
+        <<: *build-args
         arch: ${ARCH}
         base: "${ARCH}/ubuntu:${UBUNTU}"
         clang_tools: ${CLANG_TOOLS}
@@ -303,6 +310,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-cpp
       args:
+        <<: *build-args
         arch: ${ARCH}
         base: nvidia/cuda:${CUDA}-devel-ubuntu${UBUNTU}
         clang_tools: ${CLANG_TOOLS}
@@ -332,6 +340,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
       args:
+        <<: *build-args
         arch: ${ARCH}
         clang_tools: ${CLANG_TOOLS}
         llvm: ${LLVM}
@@ -365,6 +374,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
       args:
+        <<: *build-args
         arch: ${ARCH}
         clang_tools: ${CLANG_TOOLS}
         llvm: ${LLVM}
@@ -396,6 +406,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-fedora-${FEDORA}-cpp
       args:
+        <<: *build-args
         arch: ${ARCH}
         llvm: ${LLVM}
     shm_size: *shm-size
@@ -426,6 +437,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-debian-${DEBIAN}-c-glib
       args:
+        <<: *build-args
         base: ${REPO}:${ARCH}-debian-${DEBIAN}-cpp
     shm_size: *shm-size
     ulimits: *ulimits
@@ -454,6 +466,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-c-glib
       args:
+        <<: *build-args
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
     shm_size: *shm-size
     ulimits: *ulimits
@@ -485,6 +498,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-debian-${DEBIAN}-ruby
       args:
+        <<: *build-args
         base: ${REPO}:${ARCH}-debian-${DEBIAN}-c-glib
     shm_size: *shm-size
     ulimits: *ulimits
@@ -514,6 +528,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-ruby
       args:
+        <<: *build-args
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-c-glib
     shm_size: *shm-size
     ulimits: *ulimits
@@ -539,6 +554,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-conda-python-${PYTHON}
       args:
+        <<: *build-args
         repo: ${REPO}
         arch: ${ARCH}
         python: ${PYTHON}
@@ -566,6 +582,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-python-3
       args:
+        <<: *build-args
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-cpp
     shm_size: *shm-size
     environment:
@@ -593,6 +610,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-debian-${DEBIAN}-python-3
       args:
+        <<: *build-args
         base: ${REPO}:${ARCH}-debian-${DEBIAN}-cpp
     shm_size: *shm-size
     environment:
@@ -615,6 +633,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
       args:
+        <<: *build-args
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
     shm_size: *shm-size
     environment:
@@ -637,6 +656,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-fedora-${FEDORA}-python-3
       args:
+        <<: *build-args
         base: ${REPO}:${ARCH}-fedora-${FEDORA}-cpp
     shm_size: *shm-size
     environment:
@@ -658,6 +678,8 @@ services:
       dockerfile: ci/docker/python-sdist.dockerfile
       cache_from:
         - ${REPO}:python-sdist
+      args:
+        <<: *build-args
     environment:
       PYARROW_VERSION: ${PYARROW_VERSION:-}
     volumes:
@@ -680,6 +702,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
       args:
+        <<: *build-args
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
     shm_size: *shm-size
     environment:
@@ -699,6 +722,7 @@ services:
     image: ${REPO}:python-${PYTHON}-wheel-manylinux-2010
     build:
       args:
+        <<: *build-args
         base: quay.io/pypa/manylinux2010_x86_64:2020-12-03-912b0de
         vcpkg: ${VCPKG}
         python: ${PYTHON}
@@ -720,6 +744,7 @@ services:
     image: ${REPO}:python-${PYTHON}-wheel-manylinux-2014
     build:
       args:
+        <<: *build-args
         base:  quay.io/pypa/manylinux2014_x86_64:2020-11-11-bc8ce45
         vcpkg: ${VCPKG}
         python: ${PYTHON}
@@ -789,6 +814,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-conda-python-${PYTHON}-pandas-${PANDAS}
       args:
+        <<: *build-args
         repo: ${REPO}
         arch: ${ARCH}
         python: ${PYTHON}
@@ -817,6 +843,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-conda-python-${PYTHON}-dask-${DASK}
       args:
+        <<: *build-args
         repo: ${REPO}
         arch: ${ARCH}
         python: ${PYTHON}
@@ -843,6 +870,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-conda-python-${PYTHON}-jpype
       args:
+        <<: *build-args
         repo: ${REPO}
         arch: ${ARCH}
         python: ${PYTHON}
@@ -875,6 +903,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-conda-python-${PYTHON}-turbodbc-${TURBODBC}
       args:
+        <<: *build-args
         repo: ${REPO}
         arch: ${ARCH}
         python: ${PYTHON}
@@ -905,6 +934,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-conda-python-${PYTHON}-kartothek-${KARTOTHEK}
       args:
+        <<: *build-args
         repo: ${REPO}
         arch: ${ARCH}
         python: ${PYTHON}
@@ -932,6 +962,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-r-${R}
       args:
+        <<: *build-args
         arch: ${ARCH}
         r: ${R}
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
@@ -962,6 +993,7 @@ services:
       cache_from:
         - ${REPO}:r-${R_ORG}-${R_IMAGE}-${R_TAG}
       args:
+        <<: *build-args
         base: ${R_ORG}/${R_IMAGE}:${R_TAG}
         r_dev: ${ARROW_R_DEV}
         devtoolset_version: ${DEVTOOLSET_VERSION}
@@ -993,6 +1025,7 @@ services:
       cache_from:
         - ${REPO}:amd64-ubuntu-18.04-r-sanitizer
       args:
+        <<: *build-args
         base: wch1/r-debug:latest
         r_bin: RDsan
     environment:
@@ -1015,6 +1048,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-debian-10-go-${GO}
       args:
+        <<: *build-args
         arch: ${ARCH}
         go: ${GO}
     shm_size: *shm-size
@@ -1037,6 +1071,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-debian-10-js-${NODE}
       args:
+        <<: *build-args
         arch: ${ARCH}
         node: ${NODE}
     shm_size: *shm-size
@@ -1059,6 +1094,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-ubuntu-18.04-csharp-${DOTNET}
       args:
+        <<: *build-args
         dotnet: ${DOTNET}
         platform: bionic  # use bionic-arm64v8 for ARM
     shm_size: *shm-size
@@ -1082,6 +1118,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-debian-9-java-${JDK}-maven-${MAVEN}
       args:
+        <<: *build-args
         arch: ${ARCH}
         jdk: ${JDK}
         maven: ${MAVEN}
@@ -1107,6 +1144,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-debian-9-java-jni
       args:
+        <<: *build-args
         base: ${REPO}:${ARCH}-debian-9-java-${JDK}-maven-${MAVEN}
         llvm: ${LLVM}
     shm_size: *shm-size
@@ -1136,6 +1174,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-conda-integration
       args:
+        <<: *build-args
         repo: ${REPO}
         arch: ${ARCH}
         jdk: ${JDK}
@@ -1180,6 +1219,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-docs
       args:
+        <<: *build-args
         jdk: ${JDK}
         node: ${NODE}
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
@@ -1212,6 +1252,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-lint
       args:
+        <<: *build-args
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
         clang_tools: ${CLANG_TOOLS}
         rust: ${RUST}
@@ -1291,6 +1332,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-conda-python-${PYTHON}-hdfs-${HDFS}
       args:
+        <<: *build-args
         repo: ${REPO}
         arch: ${ARCH}
         python: ${PYTHON}
@@ -1332,6 +1374,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-conda-python-${PYTHON}-spark-${SPARK}
       args:
+        <<: *build-args
         repo: ${REPO}
         arch: ${ARCH}
         python: ${PYTHON}
