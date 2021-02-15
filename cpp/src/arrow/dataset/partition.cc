@@ -98,12 +98,16 @@ Status KeyValuePartitioning::SetDefaultValuesFromKeys(const Expression& expr,
   return Status::OK();
 }
 
-inline Expression ConjunctionFromGroupingRow(Scalar* row) {
+Expression ConjunctionFromGroupingRow(Scalar* row) {
   ScalarVector* values = &checked_cast<StructScalar*>(row)->value;
   std::vector<Expression> equality_expressions(values->size());
   for (size_t i = 0; i < values->size(); ++i) {
     const std::string& name = row->type->field(static_cast<int>(i))->name();
-    equality_expressions[i] = equal(field_ref(name), literal(std::move(values->at(i))));
+    if (values->at(i)->is_valid) {
+      equality_expressions[i] = equal(field_ref(name), literal(std::move(values->at(i))));
+    } else {
+      equality_expressions[i] = is_null(field_ref(name));
+    }
   }
   return and_(std::move(equality_expressions));
 }
@@ -272,7 +276,7 @@ Result<std::string> DirectoryPartitioning::FormatValues(
   std::vector<std::string> segments(static_cast<size_t>(schema_->num_fields()));
 
   for (int i = 0; i < schema_->num_fields(); ++i) {
-    if (values[i] != nullptr) {
+    if (values[i] != nullptr && values[i]->is_valid) {
       segments[i] = values[i]->ToString();
       continue;
     }
@@ -432,7 +436,7 @@ std::shared_ptr<PartitioningFactory> DirectoryPartitioning::MakeFactory(
 util::optional<KeyValuePartitioning::Key> HivePartitioning::ParseKey(
     const std::string& segment, const std::string& null_fallback) {
   auto name_end = string_view(segment).find_first_of('=');
-  // Keep for backwards compatibility, this would be produced by arrow <= 3
+  // Not round-trippable
   if (name_end == string_view::npos) {
     return util::nullopt;
   }
@@ -513,7 +517,8 @@ class HivePartitioningFactory : public KeyValuePartitioningFactory {
       // drop fields which aren't in field_names_
       auto out_schema = SchemaFromColumnNames(schema, field_names_);
 
-      return std::make_shared<HivePartitioning>(std::move(out_schema), dictionaries_);
+      return std::make_shared<HivePartitioning>(std::move(out_schema), dictionaries_,
+                                                null_fallback_);
     }
   }
 

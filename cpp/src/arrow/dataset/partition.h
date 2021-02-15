@@ -202,6 +202,7 @@ class ARROW_DS_EXPORT HivePartitioning : public KeyValuePartitioning {
         null_fallback_(null_fallback) {}
 
   std::string type_name() const override { return "hive"; }
+  std::string null_fallback() const { return null_fallback_; }
 
   static util::optional<Key> ParseKey(const std::string& segment,
                                       const std::string& null_fallback);
