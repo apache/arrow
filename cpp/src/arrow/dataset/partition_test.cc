@@ -458,6 +458,55 @@ TEST_F(TestPartitioning, HiveDictionaryHasUniqueValues) {
   AssertParseError("/alpha=yosemite");  // not in inspected dictionary
 }
 
+TEST_F(TestPartitioning, SetDefaultValuesConcrete) {
+  auto small_schm = schema({field("c", int32())});
+  auto schm = schema({field("a", int32()), field("b", utf8())});
+  auto full_schm = schema({field("a", int32()), field("b", utf8()), field("c", int32())});
+  RecordBatchProjector record_batch_projector(full_schm);
+  HivePartitioning part(schm);
+  part.SetDefaultValuesFromKeys(
+      and_(equal(field_ref("a"), literal(10)), equal(field_ref("b"), literal("y"))),
+      &record_batch_projector);
+
+  auto in_rb = RecordBatchFromJSON(small_schm, R"([{"c": 0},
+                                                  {"c": 1},
+                                                  {"c": 2},
+                                                  {"c": 3}
+                                                ])");
+
+  EXPECT_OK_AND_ASSIGN(auto out_rb, record_batch_projector.Project(*in_rb));
+  auto expected_rb = RecordBatchFromJSON(full_schm, R"([{"a": 10,  "b": "y", "c": 0},
+                                                        {"a": 10, "b": "y", "c": 1},
+                                                        {"a": 10,  "b": "y", "c": 2},
+                                                        {"a": 10, "b": "y", "c": 3}
+                                                      ])");
+  AssertBatchesEqual(*expected_rb, *out_rb);
+}
+
+TEST_F(TestPartitioning, SetDefaultValuesNull) {
+  auto small_schm = schema({field("c", int32())});
+  auto schm = schema({field("a", int32()), field("b", utf8())});
+  auto full_schm = schema({field("a", int32()), field("b", utf8()), field("c", int32())});
+  RecordBatchProjector record_batch_projector(full_schm);
+  HivePartitioning part(schm);
+  part.SetDefaultValuesFromKeys(and_(is_null(field_ref("a")), is_null(field_ref("b"))),
+                                &record_batch_projector);
+
+  auto in_rb = RecordBatchFromJSON(small_schm, R"([{"c": 0},
+                                                  {"c": 1},
+                                                  {"c": 2},
+                                                  {"c": 3}
+                                                ])");
+
+  EXPECT_OK_AND_ASSIGN(auto out_rb, record_batch_projector.Project(*in_rb));
+  auto expected_rb = RecordBatchFromJSON(full_schm, R"([{"a": null,  "b": null, "c": 0},
+                                                        {"a": null,  "b": null, "c": 1},
+                                                        {"a": null,  "b": null, "c": 2},
+                                                        {"a": null,  "b": null, "c": 3}
+                                                      ])");
+  AssertBatchesEqual(*expected_rb, *out_rb);
+}
+
 TEST_F(TestPartitioning, EtlThenHive) {
   FieldVector etl_fields{field("year", int16()), field("month", int8()),
                          field("day", int8()), field("hour", int8())};
