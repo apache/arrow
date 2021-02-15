@@ -877,7 +877,7 @@ class AsyncThreadedTableReader
     task_group_ = internal::TaskGroup::MakeThreaded(cpu_executor_);
 
     auto self = shared_from_this();
-    return ProcessFirstBuffer().Then([self](const std::shared_ptr<Buffer> first_buffer) {
+    return ProcessFirstBuffer().Then([self](std::shared_ptr<Buffer> first_buffer) {
       auto block_generator = ThreadedBlockReader::MakeAsyncIterator(
           self->buffer_generator_, MakeChunker(self->parse_options_),
           std::move(first_buffer));
