@@ -196,28 +196,25 @@ fn optimize_expr(e: &Expr, schemas: &[&DFSchemaRef]) -> Result<Expr> {
             when_then_expr,
             else_expr,
         } => {
-            if expr.is_none() {
-                // recurse into CASE WHEN condition expressions
-                Expr::Case {
-                    expr: None,
-                    when_then_expr: when_then_expr
-                        .iter()
-                        .map(|(when, then)| {
-                            Ok((
-                                Box::new(optimize_expr(when, schemas)?),
-                                Box::new(optimize_expr(then, schemas)?),
-                            ))
-                        })
-                        .collect::<Result<_>>()?,
-                    else_expr: match else_expr {
-                        Some(e) => Some(Box::new(optimize_expr(e, schemas)?)),
-                        None => None,
-                    },
-                }
-            } else {
-                // when base expression is specified, when_then_expr conditions are literal values
-                // so we can just skip this case
-                e.clone()
+            // recurse into CASE WHEN condition expressions
+            Expr::Case {
+                expr: match expr {
+                    Some(e) => Some(Box::new(optimize_expr(e, schemas)?)),
+                    None => None,
+                },
+                when_then_expr: when_then_expr
+                    .iter()
+                    .map(|(when, then)| {
+                        Ok((
+                            Box::new(optimize_expr(when, schemas)?),
+                            Box::new(optimize_expr(then, schemas)?),
+                        ))
+                    })
+                    .collect::<Result<_>>()?,
+                else_expr: match else_expr {
+                    Some(e) => Some(Box::new(optimize_expr(e, schemas)?)),
+                    None => None,
+                },
             }
         }
         Expr::Alias(expr, name) => {
