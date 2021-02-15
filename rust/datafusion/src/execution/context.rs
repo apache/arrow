@@ -631,7 +631,9 @@ mod tests {
         datasource::MemTable, logical_plan::create_udaf,
         physical_plan::expressions::AvgAccumulator,
     };
-    use arrow::array::{ArrayRef, Float64Array, Int32Array};
+    use arrow::array::{
+        Array, ArrayRef, DictionaryArray, Float64Array, Int32Array, Int64Array,
+    };
     use arrow::compute::add;
     use arrow::datatypes::*;
     use arrow::record_batch::RecordBatch;
@@ -1296,6 +1298,83 @@ mod tests {
         assert_batches_sorted_eq!(expected, &results);
 
         Ok(())
+    }
+
+    #[tokio::test]
+    async fn group_by_dictionary() {
+        async fn run_test_case<K: ArrowDictionaryKeyType>() {
+            let mut ctx = ExecutionContext::new();
+
+            // input data looks like:
+            // A, 1
+            // B, 2
+            // A, 2
+            // A, 4
+            // C, 1
+            // A, 1
+
+            let dict_array: DictionaryArray<K> =
+                vec!["A", "B", "A", "A", "C", "A"].into_iter().collect();
+            let dict_array = Arc::new(dict_array);
+
+            let val_array: Int64Array = vec![1, 2, 2, 4, 1, 1].into();
+            let val_array = Arc::new(val_array);
+
+            let schema = Arc::new(Schema::new(vec![
+                Field::new("dict", dict_array.data_type().clone(), false),
+                Field::new("val", val_array.data_type().clone(), false),
+            ]));
+
+            let batch = RecordBatch::try_new(schema.clone(), vec![dict_array, val_array])
+                .unwrap();
+
+            let provider = MemTable::try_new(schema.clone(), vec![vec![batch]]).unwrap();
+            ctx.register_table("t", Box::new(provider));
+
+            let results = plan_and_collect(
+                &mut ctx,
+                "SELECT dict, count(val) FROM t GROUP BY dict",
+            )
+            .await
+            .expect("ran plan correctly");
+
+            let expected = vec![
+                "+------+------------+",
+                "| dict | COUNT(val) |",
+                "+------+------------+",
+                "| A    | 4          |",
+                "| B    | 1          |",
+                "| C    | 1          |",
+                "+------+------------+",
+            ];
+            assert_batches_sorted_eq!(expected, &results);
+
+            // Now, use dict as an aggregate
+            let results =
+                plan_and_collect(&mut ctx, "SELECT val, count(dict) FROM t GROUP BY val")
+                    .await
+                    .expect("ran plan correctly");
+
+            let expected = vec![
+                "+-----+-------------+",
+                "| val | COUNT(dict) |",
+                "+-----+-------------+",
+                "| 1   | 3           |",
+                "| 2   | 2           |",
+                "| 4   | 1           |",
+                "+-----+-------------+",
+            ];
+            assert_batches_sorted_eq!(expected, &results);
+        }
+
+        run_test_case::<Int8Type>().await;
+        run_test_case::<Int16Type>().await;
+        run_test_case::<Int32Type>().await;
+        run_test_case::<Int64Type>().await;
+        run_test_case::<UInt8Type>().await;
+        run_test_case::<UInt16Type>().await;
+        run_test_case::<UInt32Type>().await;
+        run_test_case::<UInt64Type>().await;
     }
 
     async fn run_count_distinct_integers_aggregated_scenario(
