@@ -231,26 +231,32 @@ class DockerCompose(Command):
     def build(self, service_name, use_cache=True, use_leaf_cache=True,
               using_docker=False, using_buildx=False):
         def _build(service, use_cache):
+            if 'build' not in service:
+                # nothing to do
+                return
+
             args = []
             cache_from = list(service.get('build', {}).get('cache_from', []))
             if use_cache:
-                pass
-                # for image in cache_from:
-                #     if image not in self.pull_memory:
-                #         try:
-                #             self._execute_docker('pull', image)
-                #         except Exception as e:
-                #             print(e)
-                #         finally:
-                #             self.pull_memory.add(image)
+                for image in cache_from:
+                    if image not in self.pull_memory:
+                        try:
+                            self._execute_docker('pull', image)
+                        except Exception as e:
+                            print(e)
+                        finally:
+                            self.pull_memory.add(image)
             else:
                 args.append('--no-cache')
 
-            if using_buildx:
-                if 'build' not in service:
-                    # nothing to do
-                    return
+            # turn on inline build cache, this is a docker buildx feature
+            # used to bundle the image build cache to the pushed image manifest
+            # so the build cache can be reused across hosts, documented at
+            # https://github.com/docker/buildx#--cache-tonametypetypekeyvalue
+            if self.config.env.get('BUILDKIT_INLINE_CACHE') == '1':
+                args.extend(['--build-arg', 'BUILDKIT_INLINE_CACHE=1'])
 
+            if using_buildx:
                 for k, v in service['build'].get('args', {}).items():
                     args.extend(['--build-arg', '{}={}'.format(k, v)])
 
@@ -273,9 +279,6 @@ class DockerCompose(Command):
                 ])
                 self._execute_docker("buildx", "build", *args)
             elif using_docker:
-                if 'build' not in service:
-                    # nothing to do
-                    return
                 # better for caching
                 for k, v in service['build'].get('args', {}).items():
                     args.extend(['--build-arg', '{}={}'.format(k, v)])
