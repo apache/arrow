@@ -205,7 +205,7 @@
                 </plugin>
                 <plugin>
                     <artifactId>maven-site-plugin</artifactId>
-                    <version>3.3</version>
+                    <version>3.4</version>
                 </plugin>
                 <plugin>
                     <artifactId>maven-source-plugin</artifactId>
