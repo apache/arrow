@@ -862,4 +862,65 @@ TEST_F(TestProjector, TestToDate) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
+// ARROW-11617
+TEST_F(TestProjector, TestIfElseOpt) {
+  // schema for input
+  auto field0 = field("f0", int32());
+  auto field1 = field("f1", int32());
+  auto field2 = field("f2", int32());
+  auto schema = arrow::schema({field0, field1, field2});
+
+  auto f0 = std::make_shared<FieldNode>(field0);
+  auto f1 = std::make_shared<FieldNode>(field1);
+  auto f2 = std::make_shared<FieldNode>(field2);
+
+  // output fields
+  auto field_result = field("out", int32());
+
+  // Expr - (f0, f1 - null; f2 non null)
+  //
+  // if (is not null(f0))
+  // then f0
+  // else add((
+  //    if (is not null (f1))
+  //    then f1
+  //    else f2
+  //  ), f1)
+
+  auto cond_node_inner = TreeExprBuilder::MakeFunction("isnotnull", {f1}, boolean());
+  auto if_node_inner = TreeExprBuilder::MakeIf(cond_node_inner, f1, f2, int32());
+
+  auto cond_node_outer = TreeExprBuilder::MakeFunction("isnotnull", {f0}, boolean());
+  auto else_node_outer =
+      TreeExprBuilder::MakeFunction("add", {if_node_inner, f1}, int32());
+
+  auto if_node_outer =
+      TreeExprBuilder::MakeIf(cond_node_outer, f1, else_node_outer, int32());
+  auto expr = TreeExprBuilder::MakeExpression(if_node_outer, field_result);
+
+  // Build a projector for the expressions.
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok());
+
+  // Create a row-batch with some sample data
+  int num_records = 1;
+  auto array0 = MakeArrowArrayInt32({0}, {false});
+  auto array1 = MakeArrowArrayInt32({0}, {false});
+  auto array2 = MakeArrowArrayInt32({99}, {true});
+  // expected output
+  auto exp = MakeArrowArrayInt32({0}, {false});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1, array2});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
+}
+
 }  // namespace gandiva
