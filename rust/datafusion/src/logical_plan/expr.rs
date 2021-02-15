@@ -770,6 +770,12 @@ impl Literal for String {
     }
 }
 
+impl Literal for ScalarValue {
+    fn lit(&self) -> Expr {
+        Expr::Literal(self.clone())
+    }
+}
+
 macro_rules! make_literal {
     ($TYPE:ty, $SCALAR:ident) => {
         #[allow(missing_docs)]
