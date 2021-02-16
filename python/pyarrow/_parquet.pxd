@@ -333,7 +333,7 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         void disable_buffered_stream()
         void set_buffer_size(int64_t buf_size)
         int64_t buffer_size() const
-
+        file_decryption_properties(shared_ptr[FileDecryptionProperties] decryption)
     CReaderProperties default_reader_properties()
 
     cdef cppclass ArrowReaderProperties:
@@ -389,46 +389,6 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
     cdef enum ParquetCipherType" parquet::ParquetCipher::type"::
          AES_GCM_V1 "parquet::ParquetCipher::AES_GCM_V1"
          AES_GCM_CTR_V1 "parquet::ParquetCipher::AES_GCM_CTR_V1"
-
-    cdef cppclass ColumnEncryptionProperties:
-        cppclass Builder:
-            Builder(const c_string& name)
-            Builder(const shared_ptr[ColumnPath]& path)
-            Builder* key(c_string column_key)
-            Builder* key_metadata(const c_string& key_metadata)
-            Builder* key_id(const c_string& key_id)
-            shared_ptr[ColumnEncryptionProperties] build()
-        c_string column_path()
-        c_bool is_encrypted()
-        c_bool is_encrypted_with_footer_key()
-        c_string key()
-        c_string key_metadata()
-        WipeOutEncryptionKey()
-        c_bool is_utilized()
-        shared_ptr[ColumnEncryptionProperties] DeepClone()
-
-    cdef cppclass FileEncryptionProperties:
-        cppclass Builder:
-            Builder(const c_string& footer_key)
-            Builder* set_plaintxt_footer()
-            Builder* algorithm(ParquetCipherType parquet_cipher)
-            Builder* footer_key_id(const c_string& key_id)
-            Builder* footer_key_metadata(const c_string& footer_key_metadata)
-            Builder* aad_prefix(const c_string& aad_prefix)
-            Builder* disable_aad_prefix_storage()
-            Builder* encrypted_columns(const c_map[c_string,shared_ptr[ColumnEncryptionProperties]]& encrypted_columns)
-            shared_ptr[FileEncryptionProperties] build()
-        c_bool encrypted_footer()
-        # EncryptionAlgorithm algorithm()
-        c_string() footer_key()
-        c_string footer_key_metadata()
-        c_string file_aad()
-        shared_ptr[c_map[c_string,shared_ptr[ColumnEncryptionProperties]]] column_encryption_properties(const c_string& column_path)
-        c_bool is_utilized()
-        set_utilized()
-        WipeOutEncryptionKeys()
-        shared_ptr[FileEncryptionProperties] DeepClone(c_string new_aad_prefix)
-        c_map[c_string,shared_ptr[ColumnEncryptionProperties]] encrypted_columns()
 
 
 cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
