@@ -479,8 +479,7 @@ void DoRoundTripWithBatches(
 void CheckSimpleRoundtrip(
     const std::shared_ptr<Table>& table, int64_t row_group_size,
     const std::shared_ptr<ArrowWriterProperties>& arrow_writer_properties =
-        default_arrow_writer_properties(),
-    ArrowReaderProperties arrow_reader_properties = default_arrow_reader_properties()) {
+        default_arrow_writer_properties()) {
   std::shared_ptr<Table> result;
   ASSERT_NO_FATAL_FAILURE(DoSimpleRoundtrip(table, false /* use_threads */,
                                             row_group_size, {}, &result,
@@ -2524,37 +2523,22 @@ TEST(TestArrowReadWrite, TableWithChunkedColumns) {
 TEST(TestArrowReadWrite, ManySmallLists) {
   // ARROW-11607: The actual scenaio this forces is no data reads for
   // a first batch, and then a single element read for the second batch.
+
+  // Constructs
   std::shared_ptr<::arrow::Int32Builder> value_builder =
       std::make_shared<::arrow::Int32Builder>();
-
-  // Long stream of nulls with 1 at the end.
-  constexpr int64_t kValueSize = 64;
+  constexpr int64_t kNullCount = 6;
   auto type = ::arrow::list(::arrow::int32());
-  ::arrow::ListBuilder list_builder(default_memory_pool(), value_builder, type);
-  ASSERT_OK(list_builder.AppendNulls(kValueSize));
-  std::shared_ptr<Buffer> value_buffer;
-  ASSERT_OK(list_builder.Append());
-  ASSERT_OK(value_builder->Append(1));
-
   std::vector<std::shared_ptr<Array>> arrays(1);
-  ASSERT_OK(list_builder.Finish(&arrays[0]));
-  ASSERT_EQ(static_cast<::arrow::Int32Array&>(
-                *static_cast<ListArray&>(*arrays[0]).value_slice(kValueSize))
-                .Value(0),
-            1);
-  ASSERT_EQ(arrays[0]->length(), kValueSize + 1);
+  arrays[0] = ArrayFromJSON(type, R"([null, null, null, null, null, null, [1]])");
 
   auto field = ::arrow::field("fname", type);
   auto schema = ::arrow::schema({field});
   auto table = Table::Make(schema, {std::make_shared<ChunkedArray>(arrays)});
-  ASSERT_EQ(table->num_rows(), kValueSize + 1);
-  std::shared_ptr<Table> result;
+  ASSERT_EQ(table->num_rows(), kNullCount + 1);
 
-  ArrowReaderProperties read_options(/*use_threads=*/true);
-  read_options.set_batch_size(kValueSize - 1);
-
-  CheckSimpleRoundtrip(table, kValueSize, default_arrow_writer_properties(),
-                       std::move(read_options));
+  CheckSimpleRoundtrip(table, /*row_group_size=*/kNullCount,
+                       default_arrow_writer_properties());
 }
 
 TEST(TestArrowReadWrite, TableWithDuplicateColumns) {
