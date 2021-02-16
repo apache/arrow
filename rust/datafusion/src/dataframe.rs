@@ -206,6 +206,22 @@ pub trait DataFrame: Send + Sync {
     /// ```
     async fn collect(&self) -> Result<Vec<RecordBatch>>;
 
+    /// Executes this DataFrame and collects all results into a vector of vector of RecordBatch
+    /// maintaining the input partitioning.
+    ///
+    /// ```
+    /// # use datafusion::prelude::*;
+    /// # use datafusion::error::Result;
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<()> {
+    /// let mut ctx = ExecutionContext::new();
+    /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
+    /// let batches = df.collect_partitioned().await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    async fn collect_partitioned(&self) -> Result<Vec<Vec<RecordBatch>>>;
+
     /// Returns the schema describing the output of this DataFrame in terms of columns returned,
     /// where each column has a name, data type, and nullability attribute.
 
