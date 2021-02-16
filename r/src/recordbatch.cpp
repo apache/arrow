@@ -96,12 +96,16 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__SelectColumns(
     const std::shared_ptr<arrow::RecordBatch>& batch, cpp11::integers indices) {
   R_xlen_t n = indices.size();
   auto nrows = batch->num_rows();
+  auto ncols = batch->num_columns();
 
   std::vector<std::shared_ptr<arrow::Field>> fields(n);
   std::vector<std::shared_ptr<arrow::Array>> columns(n);
 
   for (R_xlen_t i = 0; i < n; i++) {
     int pos = indices[i];
+    if (pos < 0 || pos > ncols - 1) {
+      cpp11::stop("Invalid column index %d to select columns.", pos);
+    }
     fields[i] = batch->schema()->field(pos);
     columns[i] = batch->column(pos);
   }
