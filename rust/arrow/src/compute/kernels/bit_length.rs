@@ -24,8 +24,7 @@ use crate::{
 };
 use std::sync::Arc;
 
-#[allow(clippy::unnecessary_wraps)]
-fn length_string<OffsetSize>(array: &Array, data_type: DataType) -> Result<ArrayRef>
+fn bit_length_string<OffsetSize>(array: &Array, data_type: DataType) -> ArrayRef
 where
     OffsetSize: OffsetSizeTrait,
 {
@@ -36,7 +35,10 @@ where
     let slice: &[OffsetSize] =
         &unsafe { offsets.typed_data::<OffsetSize>() }[array.offset()..];
 
-    let lengths = slice.windows(2).map(|offset| offset[1] - offset[0]);
+    let bit_size = OffsetSize::from_usize(8).unwrap();
+    let lengths = slice
+        .windows(2)
+        .map(|offset| (offset[1] - offset[0]) * bit_size);
 
     // JUSTIFICATION
     //  Benefit
@@ -60,20 +62,20 @@ where
         vec![buffer],
         vec![],
     );
-    Ok(make_array(Arc::new(data)))
+    make_array(Arc::new(data))
 }
 
-/// Returns an array of Int32/Int64 denoting the number of bytes in each string in the array.
+/// Returns an array of Int32/Int64 denoting the number of bits in each string in the array.
 ///
 /// * this only accepts StringArray/Utf8 and LargeString/LargeUtf8
-/// * length of null is null.
-/// * length is in number of bytes
-pub fn length(array: &Array) -> Result<ArrayRef> {
+/// * bit_length of null is null.
+/// * bit_length is in number of bits
+pub fn bit_length(array: &Array) -> Result<ArrayRef> {
     match array.data_type() {
-        DataType::Utf8 => length_string::<i32>(array, DataType::Int32),
-        DataType::LargeUtf8 => length_string::<i64>(array, DataType::Int64),
+        DataType::Utf8 => Ok(bit_length_string::<i32>(array, DataType::Int32)),
+        DataType::LargeUtf8 => Ok(bit_length_string::<i64>(array, DataType::Int64)),
         _ => Err(ArrowError::ComputeError(format!(
-            "length not supported for {:?}",
+            "bit_length not supported for {:?}",
             array.data_type()
         ))),
     }
@@ -90,16 +92,16 @@ mod tests {
 
         // a large array
         let mut values = vec!["one", "on", "o", ""];
-        let mut expected = vec![3, 2, 1, 0];
+        let mut expected = vec![24, 16, 8, 0];
         for _ in 0..10 {
             values = double_vec(values);
             expected = double_vec(expected);
         }
 
         vec![
-            (vec!["hello", " ", "world"], 3, vec![5, 1, 5]),
-            (vec!["hello", " ", "world", "!"], 4, vec![5, 1, 5, 1]),
-            (vec!["💖"], 1, vec![4]),
+            (vec!["hello", " ", "world", "!"], 4, vec![40, 8, 40, 8]),
+            (vec!["💖"], 1, vec![32]),
+            (vec!["josé"], 1, vec![40]),
             (values, 4096, expected),
         ]
     }
@@ -108,7 +110,7 @@ mod tests {
     fn test_string() -> Result<()> {
         cases().into_iter().try_for_each(|(input, len, expected)| {
             let array = StringArray::from(input);
-            let result = length(&array)?;
+            let result = bit_length(&array)?;
             assert_eq!(len, result.len());
             let result = result.as_any().downcast_ref::<Int32Array>().unwrap();
             expected.iter().enumerate().for_each(|(i, value)| {
@@ -122,7 +124,7 @@ mod tests {
     fn test_large_string() -> Result<()> {
         cases().into_iter().try_for_each(|(input, len, expected)| {
             let array = LargeStringArray::from(input);
-            let result = length(&array)?;
+            let result = bit_length(&array)?;
             assert_eq!(len, result.len());
             let result = result.as_any().downcast_ref::<Int64Array>().unwrap();
             expected.iter().enumerate().for_each(|(i, value)| {
@@ -136,7 +138,7 @@ mod tests {
         vec![(
             vec![Some("one"), None, Some("three"), Some("four")],
             4,
-            vec![Some(3), None, Some(5), Some(4)],
+            vec![Some(24), None, Some(40), Some(32)],
         )]
     }
 
@@ -146,7 +148,7 @@ mod tests {
             .into_iter()
             .try_for_each(|(input, len, expected)| {
                 let array = StringArray::from(input);
-                let result = length(&array)?;
+                let result = bit_length(&array)?;
                 assert_eq!(len, result.len());
                 let result = result.as_any().downcast_ref::<Int32Array>().unwrap();
 
@@ -162,7 +164,7 @@ mod tests {
             .into_iter()
             .try_for_each(|(input, len, expected)| {
                 let array = LargeStringArray::from(input);
-                let result = length(&array)?;
+                let result = bit_length(&array)?;
                 assert_eq!(len, result.len());
                 let result = result.as_any().downcast_ref::<Int64Array>().unwrap();
 
@@ -177,12 +179,12 @@ mod tests {
             })
     }
 
-    /// Tests that length is not valid for u64.
+    /// Tests that bit_length is not valid for u64.
     #[test]
     fn wrong_type() {
         let array: UInt64Array = vec![1u64].into();
 
-        assert!(length(&array).is_err());
+        assert!(bit_length(&array).is_err());
     }
 
     /// Tests with an offset
@@ -196,9 +198,9 @@ mod tests {
                 .buffers(a.data_ref().buffers().to_vec())
                 .build(),
         );
-        let result = length(b.as_ref())?;
+        let result = bit_length(b.as_ref())?;
 
-        let expected = Int32Array::from(vec![1, 5]);
+        let expected = Int32Array::from(vec![8, 40]);
         assert_eq!(expected.data(), result.data());
 
         Ok(())

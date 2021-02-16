@@ -20,6 +20,7 @@
 pub mod aggregate;
 pub mod arithmetic;
 pub mod arity;
+pub mod bit_length;
 pub mod boolean;
 pub mod cast;
 pub mod cast_utils;

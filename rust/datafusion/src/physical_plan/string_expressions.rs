@@ -24,9 +24,13 @@ use crate::{
     scalar::ScalarValue,
 };
 use arrow::{
-    array::{Array, GenericStringArray, StringArray, StringOffsetSizeTrait},
+    array::{
+        Array, ArrayRef, GenericStringArray, Int32Array, Int64Array, StringArray,
+        StringOffsetSizeTrait,
+    },
     datatypes::DataType,
 };
+use unicode_segmentation::UnicodeSegmentation;
 
 use super::ColumnarValue;
 
@@ -113,6 +117,40 @@ where
             ))),
         },
     }
+}
+
+/// Returns number of characters in the string.
+/// character_length_i32('josé') = 4
+pub fn character_length_i32(args: &[ArrayRef]) -> Result<ArrayRef> {
+    let string_array: &GenericStringArray<i32> = args[0]
+        .as_any()
+        .downcast_ref::<GenericStringArray<i32>>()
+        .unwrap();
+
+    // first map is the iterator, second is for the `Option<_>`
+    let result = string_array
+        .iter()
+        .map(|x| x.map(|x: &str| x.graphemes(true).count() as i32))
+        .collect::<Int32Array>();
+
+    Ok(Arc::new(result) as ArrayRef)
+}
+
+/// Returns number of characters in the string.
+/// character_length_i64('josé') = 4
+pub fn character_length_i64(args: &[ArrayRef]) -> Result<ArrayRef> {
+    let string_array: &GenericStringArray<i64> = args[0]
+        .as_any()
+        .downcast_ref::<GenericStringArray<i64>>()
+        .unwrap();
+
+    // first map is the iterator, second is for the `Option<_>`
+    let result = string_array
+        .iter()
+        .map(|x| x.map(|x: &str| x.graphemes(true).count() as i64))
+        .collect::<Int64Array>();
+
+    Ok(Arc::new(result) as ArrayRef)
 }
 
 /// concatenate string columns together.
