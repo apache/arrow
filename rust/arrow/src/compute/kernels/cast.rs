@@ -38,6 +38,7 @@
 use std::str;
 use std::sync::Arc;
 
+use crate::buffer::MutableBuffer;
 use crate::compute::kernels::arithmetic::{divide, multiply};
 use crate::compute::kernels::arity::unary;
 use crate::datatypes::*;
@@ -257,48 +258,8 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
         (_, Struct(_)) => Err(ArrowError::ComputeError(
             "Cannot cast to struct from other types".to_string(),
         )),
-        (List(_), List(ref to)) => {
-            let data = array.data_ref();
-            let underlying_array = make_array(data.child_data()[0].clone());
-            let cast_array = cast(&underlying_array, to.data_type())?;
-            let array_data = ArrayData::new(
-                to.data_type().clone(),
-                array.len(),
-                Some(cast_array.null_count()),
-                cast_array
-                    .data()
-                    .null_bitmap()
-                    .clone()
-                    .map(|bitmap| bitmap.bits),
-                array.offset(),
-                // reuse offset buffer
-                data.buffers().to_vec(),
-                vec![cast_array.data()],
-            );
-            let list = ListArray::from(Arc::new(array_data));
-            Ok(Arc::new(list) as ArrayRef)
-        }
-        (LargeList(_), LargeList(ref to)) => {
-            let data = array.data_ref();
-            let underlying_array = make_array(data.child_data()[0].clone());
-            let cast_array = cast(&underlying_array, to.data_type())?;
-            let array_data = ArrayData::new(
-                to.data_type().clone(),
-                array.len(),
-                Some(cast_array.null_count()),
-                cast_array
-                    .data()
-                    .null_bitmap()
-                    .clone()
-                    .map(|bitmap| bitmap.bits),
-                array.offset(),
-                // reuse offset buffer
-                data.buffers().to_vec(),
-                vec![cast_array.data()],
-            );
-            let list = LargeListArray::from(Arc::new(array_data));
-            Ok(Arc::new(list) as ArrayRef)
-        }
+        (List(_), List(ref to)) => cast_list_inner::<i32>(&**array, to),
+        (LargeList(_), LargeList(ref to)) => cast_list_inner::<i64>(&**array, to),
         (List(list_from), LargeList(list_to)) => {
             if list_to.data_type() != list_from.data_type() {
                 Err(ArrowError::ComputeError(
@@ -320,53 +281,8 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
         (List(_), _) => Err(ArrowError::ComputeError(
             "Cannot cast list to non-list data types".to_string(),
         )),
-        (_, List(ref to)) => {
-            // cast primitive to list's primitive
-            let cast_array = cast(array, to.data_type())?;
-            // create offsets, where if array.len() = 2, we have [0,1,2]
-            let offsets: Vec<i32> = (0..=array.len() as i32).collect();
-            let value_offsets = Buffer::from_slice_ref(&offsets);
-            let list_data = ArrayData::new(
-                to.data_type().clone(),
-                array.len(),
-                Some(cast_array.null_count()),
-                cast_array
-                    .data()
-                    .null_bitmap()
-                    .clone()
-                    .map(|bitmap| bitmap.bits),
-                0,
-                vec![value_offsets],
-                vec![cast_array.data()],
-            );
-            let list_array = Arc::new(ListArray::from(Arc::new(list_data))) as ArrayRef;
-
-            Ok(list_array)
-        }
-        (_, LargeList(ref to)) => {
-            // cast primitive to list's primitive
-            let cast_array = cast(array, to.data_type())?;
-            // create offsets, where if array.len() = 2, we have [0,1,2]
-            let offsets: Vec<i64> = (0..=array.len() as i64).collect();
-            let value_offsets = Buffer::from_slice_ref(&offsets);
-            let list_data = ArrayData::new(
-                to.data_type().clone(),
-                array.len(),
-                Some(cast_array.null_count()),
-                cast_array
-                    .data()
-                    .null_bitmap()
-                    .clone()
-                    .map(|bitmap| bitmap.bits),
-                0,
-                vec![value_offsets],
-                vec![cast_array.data()],
-            );
-            let list_array =
-                Arc::new(LargeListArray::from(Arc::new(list_data))) as ArrayRef;
-
-            Ok(list_array)
-        }
+        (_, List(ref to)) => cast_primitive_to_list::<i32>(array, to),
+        (_, LargeList(ref to)) => cast_primitive_to_list::<i64>(array, to),
         (Dictionary(index_type, _), _) => match **index_type {
             DataType::Int8 => dictionary_cast::<Int8Type>(array, to_type),
             DataType::Int16 => dictionary_cast::<Int16Type>(array, to_type),
@@ -1261,6 +1177,68 @@ where
         }
     }
     Ok(Arc::new(b.finish()))
+}
+
+/// Helper function that takes a primitive array and casts to a (generic) list array.
+fn cast_primitive_to_list<OffsetSize: OffsetSizeTrait + NumCast>(
+    array: &ArrayRef,
+    to: &Field,
+) -> Result<ArrayRef> {
+    // cast primitive to list's primitive
+    let cast_array = cast(array, to.data_type())?;
+    // create offsets, where if array.len() = 2, we have [0,1,2]
+    // Safety:
+    // Length of range can be trusted.
+    // Note: could not yet create a generic range in stable Rust.
+    let offsets = unsafe {
+        MutableBuffer::from_trusted_len_iter(
+            (0..=array.len()).map(|i| OffsetSize::from(i).expect("integer")),
+        )
+    };
+
+    let list_data = ArrayData::new(
+        to.data_type().clone(),
+        array.len(),
+        Some(cast_array.null_count()),
+        cast_array
+            .data()
+            .null_bitmap()
+            .clone()
+            .map(|bitmap| bitmap.bits),
+        0,
+        vec![offsets.into()],
+        vec![cast_array.data()],
+    );
+    let list_array =
+        Arc::new(GenericListArray::<OffsetSize>::from(Arc::new(list_data))) as ArrayRef;
+
+    Ok(list_array)
+}
+
+/// Helper function that takes an Generic list container and casts the inner datatype.
+fn cast_list_inner<OffsetSize: OffsetSizeTrait>(
+    array: &dyn Array,
+    to: &Field,
+) -> Result<ArrayRef> {
+    let data = array.data_ref();
+    let underlying_array = make_array(data.child_data()[0].clone());
+    let cast_array = cast(&underlying_array, to.data_type())?;
+    let array_data = ArrayData::new(
+        to.data_type().clone(),
+        array.len(),
+        Some(cast_array.null_count()),
+        cast_array
+            .data()
+            .null_bitmap()
+            .clone()
+            .map(|bitmap| bitmap.bits),
+        array.offset(),
+        // reuse offset buffer
+        data.buffers().to_vec(),
+        vec![cast_array.data()],
+    );
+    let list = GenericListArray::<OffsetSize>::from(Arc::new(array_data));
+    Ok(Arc::new(list) as ArrayRef)
 }
 
 /// Cast the container type of List/Largelist array but not the inner types.
