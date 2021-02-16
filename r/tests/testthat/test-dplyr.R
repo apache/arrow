@@ -534,6 +534,25 @@ test_that("group_by then rename", {
   )
 })
 
+test_that("group_by with .drop", {
+  expect_identical(
+    Table$create(tbl) %>% 
+      group_by(chr, .drop = TRUE) %>%
+      group_vars(), 
+    "chr"
+  )
+  expect_dplyr_equal(
+    input %>%
+      group_by(chr, .drop = TRUE) %>%
+      collect(),
+    tbl
+  )
+  expect_error(
+    Table$create(tbl) %>% group_by(chr, .drop = FALSE),
+    "not supported"
+  )
+})
+
 test_that("pull", {
   expect_dplyr_equal(
     input %>% pull(),
