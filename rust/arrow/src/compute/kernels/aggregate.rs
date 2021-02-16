@@ -22,7 +22,7 @@ use std::ops::Add;
 use crate::array::{
     Array, BooleanArray, GenericStringArray, PrimitiveArray, StringOffsetSizeTrait,
 };
-use crate::datatypes::{ArrowNativeType, ArrowNumericType};
+use crate::datatypes::ArrowNativeType;
 
 /// Generic test for NaN, the optimizer should be able to remove this for integer types.
 #[inline]
@@ -69,10 +69,9 @@ fn min_max_string<T: StringOffsetSizeTrait, F: Fn(&str, &str) -> bool>(
 /// Returns the minimum value in the array, according to the natural order.
 /// For floating point arrays any NaN values are considered to be greater than any other non-null value
 #[cfg(not(simd))]
-pub fn min<T>(array: &PrimitiveArray<T>) -> Option<T::Native>
+pub fn min<T>(array: &PrimitiveArray<T>) -> Option<T>
 where
-    T: ArrowNumericType,
-    T::Native: ArrowNativeType,
+    T: ArrowNativeType,
 {
     min_max_helper(array, |a, b| (is_nan(*a) & !is_nan(*b)) || a > b)
 }
@@ -80,10 +79,9 @@ where
 /// Returns the maximum value in the array, according to the natural order.
 /// For floating point arrays any NaN values are considered to be greater than any other non-null value
 #[cfg(not(simd))]
-pub fn max<T>(array: &PrimitiveArray<T>) -> Option<T::Native>
+pub fn max<T>(array: &PrimitiveArray<T>) -> Option<T>
 where
-    T: ArrowNumericType,
-    T::Native: ArrowNativeType,
+    T: ArrowNativeType,
 {
     min_max_helper(array, |a, b| (!is_nan(*a) & is_nan(*b)) || a < b)
 }
@@ -103,10 +101,10 @@ pub fn min_string<T: StringOffsetSizeTrait>(
 }
 
 /// Helper function to perform min/max lambda function on values from a numeric array.
-fn min_max_helper<T, F>(array: &PrimitiveArray<T>, cmp: F) -> Option<T::Native>
+fn min_max_helper<T, F>(array: &PrimitiveArray<T>, cmp: F) -> Option<T>
 where
-    T: ArrowNumericType,
-    F: Fn(&T::Native, &T::Native) -> bool,
+    T: ArrowNativeType,
+    F: Fn(&T, &T) -> bool,
 {
     let null_count = array.null_count();
 
@@ -191,10 +189,10 @@ pub fn max_boolean(array: &BooleanArray) -> Option<bool> {
 ///
 /// Returns `None` if the array is empty or only contains null values.
 #[cfg(not(simd))]
-pub fn sum<T>(array: &PrimitiveArray<T>) -> Option<T::Native>
+pub fn sum<T>(array: &PrimitiveArray<T>) -> Option<T>
 where
-    T: ArrowNumericType,
-    T::Native: Add<Output = T::Native>,
+    T: ArrowNativeType,
+    T: Add<Output = T>,
 {
     let null_count = array.null_count();
 
@@ -202,7 +200,7 @@ where
         return None;
     }
 
-    let data: &[T::Native] = array.values();
+    let data: &[T] = array.values();
 
     match array.data().null_buffer() {
         None => {
@@ -276,13 +274,13 @@ mod simd {
         );
 
         /// Updates the accumulator with one value
-        fn accumulate_scalar(accumulator: &mut Self::ScalarAccumulator, value: T::Native);
+        fn accumulate_scalar(accumulator: &mut Self::ScalarAccumulator, value: T);
 
         /// Reduces the vector lanes of the simd accumulator and the scalar accumulator to a single value
         fn reduce(
             simd_accumulator: Self::SimdAccumulator,
             scalar_accumulator: Self::ScalarAccumulator,
-        ) -> Option<T::Native>;
+        ) -> Option<T>;
     }
 
     pub(super) struct SumAggregate<T: ArrowNumericType> {
@@ -291,9 +289,9 @@ mod simd {
 
     impl<T: ArrowNumericType> SimdAggregate<T> for SumAggregate<T>
     where
-        T::Native: Add<Output = T::Native>,
+        T: Add<Output = T>,
     {
-        type ScalarAccumulator = T::Native;
+        type ScalarAccumulator = T;
         type SimdAccumulator = T::Simd;
 
         fn init_accumulator_scalar() -> Self::ScalarAccumulator {
@@ -319,14 +317,14 @@ mod simd {
             *accumulator = *accumulator + blended;
         }
 
-        fn accumulate_scalar(accumulator: &mut T::Native, value: T::Native) {
+        fn accumulate_scalar(accumulator: &mut T, value: T) {
             *accumulator = *accumulator + value
         }
 
         fn reduce(
             simd_accumulator: Self::SimdAccumulator,
             scalar_accumulator: Self::ScalarAccumulator,
-        ) -> Option<T::Native> {
+        ) -> Option<T> {
             // we can't use T::lanes() as the slice len because it is not const,
             // instead always reserve the maximum number of lanes
             let mut tmp = [T::default_value(); 64];
@@ -351,9 +349,9 @@ mod simd {
 
     impl<T: ArrowNumericType> SimdAggregate<T> for MinAggregate<T>
     where
-        T::Native: PartialOrd,
+        T: PartialOrd,
     {
-        type ScalarAccumulator = (T::Native, bool);
+        type ScalarAccumulator = (T, bool);
         type SimdAccumulator = (T::Simd, T::SimdMask);
 
         fn init_accumulator_scalar() -> Self::ScalarAccumulator {
@@ -389,10 +387,7 @@ mod simd {
             accumulator.1 |= vecmask;
         }
 
-        fn accumulate_scalar(
-            accumulator: &mut Self::ScalarAccumulator,
-            value: T::Native,
-        ) {
+        fn accumulate_scalar(accumulator: &mut Self::ScalarAccumulator, value: T) {
             if !accumulator.1 {
                 accumulator.0 = value;
             } else {
@@ -407,7 +402,7 @@ mod simd {
         fn reduce(
             simd_accumulator: Self::SimdAccumulator,
             scalar_accumulator: Self::ScalarAccumulator,
-        ) -> Option<T::Native> {
+        ) -> Option<T> {
             // we can't use T::lanes() as the slice len because it is not const,
             // instead always reserve the maximum number of lanes
             let mut tmp = [T::default_value(); 64];
@@ -439,9 +434,9 @@ mod simd {
 
     impl<T: ArrowNumericType> SimdAggregate<T> for MaxAggregate<T>
     where
-        T::Native: PartialOrd,
+        T: PartialOrd,
     {
-        type ScalarAccumulator = (T::Native, bool);
+        type ScalarAccumulator = (T, bool);
         type SimdAccumulator = (T::Simd, T::SimdMask);
 
         fn init_accumulator_scalar() -> Self::ScalarAccumulator {
@@ -477,10 +472,7 @@ mod simd {
             accumulator.1 |= vecmask;
         }
 
-        fn accumulate_scalar(
-            accumulator: &mut Self::ScalarAccumulator,
-            value: T::Native,
-        ) {
+        fn accumulate_scalar(accumulator: &mut Self::ScalarAccumulator, value: T) {
             if !accumulator.1 {
                 accumulator.0 = value;
             } else {
@@ -495,7 +487,7 @@ mod simd {
         fn reduce(
             simd_accumulator: Self::SimdAccumulator,
             scalar_accumulator: Self::ScalarAccumulator,
-        ) -> Option<T::Native> {
+        ) -> Option<T> {
             // we can't use T::lanes() as the slice len because it is not const,
             // instead always reserve the maximum number of lanes
             let mut tmp = [T::default_value(); 64];
@@ -523,14 +515,14 @@ mod simd {
 
     pub(super) fn simd_aggregation<T: ArrowNumericType, A: SimdAggregate<T>>(
         array: &PrimitiveArray<T>,
-    ) -> Option<T::Native> {
+    ) -> Option<T> {
         let null_count = array.null_count();
 
         if null_count == array.len() {
             return None;
         }
 
-        let data: &[T::Native] = array.values();
+        let data: &[T] = array.values();
 
         let mut chunk_acc = A::init_accumulator_chunk();
         let mut rem_acc = A::init_accumulator_scalar();
@@ -590,9 +582,9 @@ mod simd {
 ///
 /// Returns `None` if the array is empty or only contains null values.
 #[cfg(simd)]
-pub fn sum<T: ArrowNumericType>(array: &PrimitiveArray<T>) -> Option<T::Native>
+pub fn sum<T: ArrowNumericType>(array: &PrimitiveArray<T>) -> Option<T>
 where
-    T::Native: Add<Output = T::Native>,
+    T: Add<Output = T>,
 {
     use simd::*;
 
@@ -602,9 +594,9 @@ where
 #[cfg(simd)]
 /// Returns the minimum value in the array, according to the natural order.
 /// For floating point arrays any NaN values are considered to be greater than any other non-null value
-pub fn min<T: ArrowNumericType>(array: &PrimitiveArray<T>) -> Option<T::Native>
+pub fn min<T: ArrowNumericType>(array: &PrimitiveArray<T>) -> Option<T>
 where
-    T::Native: PartialOrd,
+    T: PartialOrd,
 {
     use simd::*;
 
@@ -614,9 +606,9 @@ where
 #[cfg(simd)]
 /// Returns the maximum value in the array, according to the natural order.
 /// For floating point arrays any NaN values are considered to be greater than any other non-null value
-pub fn max<T: ArrowNumericType>(array: &PrimitiveArray<T>) -> Option<T::Native>
+pub fn max<T: ArrowNumericType>(array: &PrimitiveArray<T>) -> Option<T>
 where
-    T::Native: PartialOrd,
+    T: PartialOrd,
 {
     use simd::*;
 

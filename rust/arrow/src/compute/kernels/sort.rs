@@ -96,9 +96,9 @@ pub fn sort_to_indices(
         DataType::Int16 => sort_primitive::<Int16Type, _>(values, v, n, cmp, &options),
         DataType::Int32 => sort_primitive::<Int32Type, _>(values, v, n, cmp, &options),
         DataType::Int64 => sort_primitive::<Int64Type, _>(values, v, n, cmp, &options),
-        DataType::UInt8 => sort_primitive::<UInt8Type, _>(values, v, n, cmp, &options),
+        DataType::UInt8 => sort_primitive::<u8, _>(values, v, n, cmp, &options),
         DataType::UInt16 => sort_primitive::<UInt16Type, _>(values, v, n, cmp, &options),
-        DataType::UInt32 => sort_primitive::<UInt32Type, _>(values, v, n, cmp, &options),
+        DataType::UInt32 => sort_primitive::<u32, _>(values, v, n, cmp, &options),
         DataType::UInt64 => sort_primitive::<UInt64Type, _>(values, v, n, cmp, &options),
         DataType::Float32 => {
             sort_primitive::<Float32Type, _>(values, v, n, total_cmp_32, &options)
@@ -156,9 +156,9 @@ pub fn sort_to_indices(
             DataType::Int16 => sort_list::<i32, Int16Type>(values, v, n, &options),
             DataType::Int32 => sort_list::<i32, Int32Type>(values, v, n, &options),
             DataType::Int64 => sort_list::<i32, Int64Type>(values, v, n, &options),
-            DataType::UInt8 => sort_list::<i32, UInt8Type>(values, v, n, &options),
+            DataType::UInt8 => sort_list::<i32, u8>(values, v, n, &options),
             DataType::UInt16 => sort_list::<i32, UInt16Type>(values, v, n, &options),
-            DataType::UInt32 => sort_list::<i32, UInt32Type>(values, v, n, &options),
+            DataType::UInt32 => sort_list::<i32, u32>(values, v, n, &options),
             DataType::UInt64 => sort_list::<i32, UInt64Type>(values, v, n, &options),
             t => Err(ArrowError::ComputeError(format!(
                 "Sort not supported for list type {:?}",
@@ -170,9 +170,9 @@ pub fn sort_to_indices(
             DataType::Int16 => sort_list::<i64, Int16Type>(values, v, n, &options),
             DataType::Int32 => sort_list::<i64, Int32Type>(values, v, n, &options),
             DataType::Int64 => sort_list::<i64, Int64Type>(values, v, n, &options),
-            DataType::UInt8 => sort_list::<i64, UInt8Type>(values, v, n, &options),
+            DataType::UInt8 => sort_list::<i64, u8>(values, v, n, &options),
             DataType::UInt16 => sort_list::<i64, UInt16Type>(values, v, n, &options),
-            DataType::UInt32 => sort_list::<i64, UInt32Type>(values, v, n, &options),
+            DataType::UInt32 => sort_list::<i64, u32>(values, v, n, &options),
             DataType::UInt64 => sort_list::<i64, UInt64Type>(values, v, n, &options),
             t => Err(ArrowError::ComputeError(format!(
                 "Sort not supported for list type {:?}",
@@ -184,9 +184,9 @@ pub fn sort_to_indices(
             DataType::Int16 => sort_list::<i32, Int16Type>(values, v, n, &options),
             DataType::Int32 => sort_list::<i32, Int32Type>(values, v, n, &options),
             DataType::Int64 => sort_list::<i32, Int64Type>(values, v, n, &options),
-            DataType::UInt8 => sort_list::<i32, UInt8Type>(values, v, n, &options),
+            DataType::UInt8 => sort_list::<i32, u8>(values, v, n, &options),
             DataType::UInt16 => sort_list::<i32, UInt16Type>(values, v, n, &options),
-            DataType::UInt32 => sort_list::<i32, UInt32Type>(values, v, n, &options),
+            DataType::UInt32 => sort_list::<i32, u32>(values, v, n, &options),
             DataType::UInt64 => sort_list::<i32, UInt64Type>(values, v, n, &options),
             t => Err(ArrowError::ComputeError(format!(
                 "Sort not supported for list type {:?}",
@@ -209,15 +209,11 @@ pub fn sort_to_indices(
                 DataType::Int64 => {
                     sort_string_dictionary::<Int64Type>(values, v, n, &options)
                 }
-                DataType::UInt8 => {
-                    sort_string_dictionary::<UInt8Type>(values, v, n, &options)
-                }
+                DataType::UInt8 => sort_string_dictionary::<u8>(values, v, n, &options),
                 DataType::UInt16 => {
                     sort_string_dictionary::<UInt16Type>(values, v, n, &options)
                 }
-                DataType::UInt32 => {
-                    sort_string_dictionary::<UInt32Type>(values, v, n, &options)
-                }
+                DataType::UInt32 => sort_string_dictionary::<u32>(values, v, n, &options),
                 DataType::UInt64 => {
                     sort_string_dictionary::<UInt64Type>(values, v, n, &options)
                 }
@@ -326,9 +322,8 @@ fn sort_primitive<T, F>(
     options: &SortOptions,
 ) -> Result<UInt32Array>
 where
-    T: ArrowPrimitiveType,
-    T::Native: std::cmp::PartialOrd,
-    F: Fn(T::Native, T::Native) -> std::cmp::Ordering,
+    T: ArrowNativeType + std::cmp::PartialOrd,
+    F: Fn(T, T) -> std::cmp::Ordering,
 {
     let values = as_primitive_array::<T>(values);
     let descending = options.descending;
@@ -337,7 +332,7 @@ where
     let mut valids = value_indices
         .into_iter()
         .map(|index| (index, values.value(index as usize)))
-        .collect::<Vec<(u32, T::Native)>>();
+        .collect::<Vec<(u32, T)>>();
 
     let mut nulls = null_indices;
 
@@ -718,12 +713,12 @@ mod tests {
     }
 
     fn test_sort_to_indices_primitive_arrays<T>(
-        data: Vec<Option<T::Native>>,
+        data: Vec<Option<T>>,
         options: Option<SortOptions>,
         expected_data: Vec<u32>,
     ) where
-        T: ArrowPrimitiveType,
-        PrimitiveArray<T>: From<Vec<Option<T::Native>>>,
+        T: ArrowNativeType,
+        PrimitiveArray<T>: From<Vec<Option<T>>>,
     {
         let output = PrimitiveArray::<T>::from(data);
         let expected = UInt32Array::from(expected_data);
@@ -732,12 +727,12 @@ mod tests {
     }
 
     fn test_sort_primitive_arrays<T>(
-        data: Vec<Option<T::Native>>,
+        data: Vec<Option<T>>,
         options: Option<SortOptions>,
-        expected_data: Vec<Option<T::Native>>,
+        expected_data: Vec<Option<T>>,
     ) where
-        T: ArrowPrimitiveType,
-        PrimitiveArray<T>: From<Vec<Option<T::Native>>>,
+        T: ArrowNativeType,
+        PrimitiveArray<T>: From<Vec<Option<T>>>,
     {
         let output = PrimitiveArray::<T>::from(data);
         let expected = Arc::new(PrimitiveArray::<T>::from(expected_data)) as ArrayRef;
@@ -812,13 +807,13 @@ mod tests {
     }
 
     fn test_sort_list_arrays<T>(
-        data: Vec<Option<Vec<Option<T::Native>>>>,
+        data: Vec<Option<Vec<Option<T>>>>,
         options: Option<SortOptions>,
-        expected_data: Vec<Option<Vec<Option<T::Native>>>>,
+        expected_data: Vec<Option<Vec<Option<T>>>>,
         fixed_length: Option<i32>,
     ) where
-        T: ArrowPrimitiveType,
-        PrimitiveArray<T>: From<Vec<Option<T::Native>>>,
+        T: ArrowNativeType,
+        PrimitiveArray<T>: From<Vec<Option<T>>>,
     {
         // for FixedSizedList
         if let Some(length) = fixed_length {
@@ -1056,7 +1051,7 @@ mod tests {
     #[test]
     fn test_sort_primitives() {
         // default case
-        test_sort_primitive_arrays::<UInt8Type>(
+        test_sort_primitive_arrays::<u8>(
             vec![None, Some(3), Some(5), Some(2), Some(3), None],
             None,
             vec![None, None, Some(2), Some(3), Some(3), Some(5)],
@@ -1066,7 +1061,7 @@ mod tests {
             None,
             vec![None, None, Some(2), Some(3), Some(3), Some(5)],
         );
-        test_sort_primitive_arrays::<UInt32Type>(
+        test_sort_primitive_arrays::<u32>(
             vec![None, Some(3), Some(5), Some(2), Some(3), None],
             None,
             vec![None, None, Some(2), Some(3), Some(3), Some(5)],
@@ -1595,7 +1590,7 @@ mod tests {
                 options: None,
             },
             SortColumn {
-                values: Arc::new(PrimitiveArray::<UInt32Type>::from(vec![
+                values: Arc::new(PrimitiveArray::<u32>::from(vec![
                     Some(101),
                     Some(8),
                     Some(7),
@@ -1620,7 +1615,7 @@ mod tests {
                 Some(0),
                 Some(2),
             ])) as ArrayRef,
-            Arc::new(PrimitiveArray::<UInt32Type>::from(vec![
+            Arc::new(PrimitiveArray::<u32>::from(vec![
                 Some(7),
                 Some(101),
                 Some(102),

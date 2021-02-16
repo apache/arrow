@@ -130,9 +130,9 @@ pub fn array_to_json_array(array: &ArrayRef) -> Vec<Value> {
         DataType::Int16 => primitive_array_to_json::<Int16Type>(array),
         DataType::Int32 => primitive_array_to_json::<Int32Type>(array),
         DataType::Int64 => primitive_array_to_json::<Int64Type>(array),
-        DataType::UInt8 => primitive_array_to_json::<UInt8Type>(array),
+        DataType::UInt8 => primitive_array_to_json::<u8>(array),
         DataType::UInt16 => primitive_array_to_json::<UInt16Type>(array),
-        DataType::UInt32 => primitive_array_to_json::<UInt32Type>(array),
+        DataType::UInt32 => primitive_array_to_json::<u32>(array),
         DataType::UInt64 => primitive_array_to_json::<UInt64Type>(array),
         DataType::Float32 => primitive_array_to_json::<Float32Type>(array),
         DataType::Float64 => primitive_array_to_json::<Float64Type>(array),
@@ -216,13 +216,13 @@ fn set_column_for_json_rows(
             set_column_by_primitive_type::<Int64Type>(rows, row_count, array, col_name)
         }
         DataType::UInt8 => {
-            set_column_by_primitive_type::<UInt8Type>(rows, row_count, array, col_name)
+            set_column_by_primitive_type::<u8>(rows, row_count, array, col_name)
         }
         DataType::UInt16 => {
             set_column_by_primitive_type::<UInt16Type>(rows, row_count, array, col_name)
         }
         DataType::UInt32 => {
-            set_column_by_primitive_type::<UInt32Type>(rows, row_count, array, col_name)
+            set_column_by_primitive_type::<u32>(rows, row_count, array, col_name)
         }
         DataType::UInt64 => {
             set_column_by_primitive_type::<UInt64Type>(rows, row_count, array, col_name)

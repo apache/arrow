@@ -425,15 +425,11 @@ fn parse(
                 &DataType::Int64 => {
                     build_primitive_array::<Int64Type>(line_number, rows, i)
                 }
-                &DataType::UInt8 => {
-                    build_primitive_array::<UInt8Type>(line_number, rows, i)
-                }
+                &DataType::UInt8 => build_primitive_array::<u8>(line_number, rows, i),
                 &DataType::UInt16 => {
                     build_primitive_array::<UInt16Type>(line_number, rows, i)
                 }
-                &DataType::UInt32 => {
-                    build_primitive_array::<UInt32Type>(line_number, rows, i)
-                }
+                &DataType::UInt32 => build_primitive_array::<u32>(line_number, rows, i),
                 &DataType::UInt64 => {
                     build_primitive_array::<UInt64Type>(line_number, rows, i)
                 }
@@ -498,11 +494,11 @@ impl Parser for Float64Type {
 
 impl Parser for UInt64Type {}
 
-impl Parser for UInt32Type {}
+impl Parser for u32 {}
 
 impl Parser for UInt16Type {}
 
-impl Parser for UInt8Type {}
+impl Parser for u8 {}
 
 impl Parser for Int64Type {}
 

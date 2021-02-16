@@ -524,12 +524,13 @@ impl ArrayBuilder for BooleanBuilder {
 
 ///  Array builder for fixed-width primitive types
 #[derive(Debug)]
-pub struct PrimitiveBuilder<T: ArrowPrimitiveType> {
-    values_builder: BufferBuilder<T::Native>,
+pub struct PrimitiveBuilder<T: ArrowNativeType> {
+    data_type: DataType,
+    values_builder: BufferBuilder<T>,
     bitmap_builder: BooleanBufferBuilder,
 }
 
-impl<T: ArrowPrimitiveType> ArrayBuilder for PrimitiveBuilder<T> {
+impl<T: ArrowNativeType> ArrayBuilder for PrimitiveBuilder<T> {
     /// Returns the builder as a non-mutable `Any` reference.
     fn as_any(&self) -> &Any {
         self
@@ -561,11 +562,12 @@ impl<T: ArrowPrimitiveType> ArrayBuilder for PrimitiveBuilder<T> {
     }
 }
 
-impl<T: ArrowPrimitiveType> PrimitiveBuilder<T> {
+impl<T: ArrowNativeType> PrimitiveBuilder<T> {
     /// Creates a new primitive array builder
-    pub fn new(capacity: usize) -> Self {
+    pub fn new(capacity: usize, data_type: DataType) -> Self {
         Self {
-            values_builder: BufferBuilder::<T::Native>::new(capacity),
+            data_type,
+            values_builder: BufferBuilder::<T>::new(capacity),
             bitmap_builder: BooleanBufferBuilder::new(capacity),
         }
     }
@@ -576,7 +578,7 @@ impl<T: ArrowPrimitiveType> PrimitiveBuilder<T> {
     }
 
     /// Appends a value of type `T` into the builder
-    pub fn append_value(&mut self, v: T::Native) -> Result<()> {
+    pub fn append_value(&mut self, v: T) -> Result<()> {
         self.bitmap_builder.append(true);
         self.values_builder.append(v);
         Ok(())
@@ -590,7 +592,7 @@ impl<T: ArrowPrimitiveType> PrimitiveBuilder<T> {
     }
 
     /// Appends an `Option<T>` into the builder
-    pub fn append_option(&mut self, v: Option<T::Native>) -> Result<()> {
+    pub fn append_option(&mut self, v: Option<T>) -> Result<()> {
         match v {
             None => self.append_null()?,
             Some(v) => self.append_value(v)?,
@@ -599,18 +601,14 @@ impl<T: ArrowPrimitiveType> PrimitiveBuilder<T> {
     }
 
     /// Appends a slice of type `T` into the builder
-    pub fn append_slice(&mut self, v: &[T::Native]) -> Result<()> {
+    pub fn append_slice(&mut self, v: &[T]) -> Result<()> {
         self.bitmap_builder.append_n(v.len(), true);
         self.values_builder.append_slice(v);
         Ok(())
     }
 
     /// Appends values from a slice of type `T` and a validity boolean slice
-    pub fn append_values(
-        &mut self,
-        values: &[T::Native],
-        is_valid: &[bool],
-    ) -> Result<()> {
+    pub fn append_values(&mut self, values: &[T], is_valid: &[bool]) -> Result<()> {
         if values.len() != is_valid.len() {
             return Err(ArrowError::InvalidArgumentError(
                 "Value and validity lengths must be equal".to_string(),
@@ -626,7 +624,7 @@ impl<T: ArrowPrimitiveType> PrimitiveBuilder<T> {
         let len = self.len();
         let null_bit_buffer = self.bitmap_builder.finish();
         let null_count = len - null_bit_buffer.count_set_bits();
-        let mut builder = ArrayData::builder(T::DATA_TYPE)
+        let mut builder = ArrayData::builder(self.data_type.clone())
             .len(len)
             .add_buffer(self.values_builder.finish());
         if null_count > 0 {
@@ -635,7 +633,9 @@ impl<T: ArrowPrimitiveType> PrimitiveBuilder<T> {
         let data = builder.build();
         PrimitiveArray::<T>::from(data)
     }
+}
 
+impl<T: ArrowDictionaryKeyType> PrimitiveBuilder<T> {
     /// Builds the `DictionaryArray` and reset this builder.
     pub fn finish_dict(&mut self, values: ArrayRef) -> DictionaryArray<T> {
         let len = self.len();
@@ -1075,7 +1075,7 @@ impl<OffsetSize: BinaryOffsetSizeTrait> GenericBinaryBuilder<OffsetSize> {
     /// Creates a new `GenericBinaryBuilder`, `capacity` is the number of bytes in the values
     /// array
     pub fn new(capacity: usize) -> Self {
-        let values_builder = UInt8Builder::new(capacity);
+        let values_builder = UInt8Builder::new(capacity, DataType::UInt8);
         Self {
             builder: GenericListBuilder::new(values_builder),
         }
@@ -1120,7 +1120,7 @@ impl<OffsetSize: StringOffsetSizeTrait> GenericStringBuilder<OffsetSize> {
     /// Creates a new `StringBuilder`,
     /// `capacity` is the number of bytes of string data to pre-allocate space for in this builder
     pub fn new(capacity: usize) -> Self {
-        let values_builder = UInt8Builder::new(capacity);
+        let values_builder = UInt8Builder::new(capacity, DataType::UInt8);
         Self {
             builder: GenericListBuilder::new(values_builder),
         }
@@ -1130,7 +1130,7 @@ impl<OffsetSize: StringOffsetSizeTrait> GenericStringBuilder<OffsetSize> {
     /// `data_capacity` is the number of bytes of string data to pre-allocate space for in this builder
     /// `item_capacity` is the number of items to pre-allocate space for in this builder
     pub fn with_capacity(item_capacity: usize, data_capacity: usize) -> Self {
-        let values_builder = UInt8Builder::new(data_capacity);
+        let values_builder = UInt8Builder::new(data_capacity, DataType::UInt8);
         Self {
             builder: GenericListBuilder::with_capacity(values_builder, item_capacity),
         }
@@ -1166,7 +1166,7 @@ impl FixedSizeBinaryBuilder {
     /// Creates a new `BinaryBuilder`, `capacity` is the number of bytes in the values
     /// array
     pub fn new(capacity: usize, byte_width: i32) -> Self {
-        let values_builder = UInt8Builder::new(capacity);
+        let values_builder = UInt8Builder::new(capacity, DataType::UInt8);
         Self {
             builder: FixedSizeListBuilder::new(values_builder, byte_width),
         }
@@ -1203,7 +1203,7 @@ impl DecimalBuilder {
     /// Creates a new `BinaryBuilder`, `capacity` is the number of bytes in the values
     /// array
     pub fn new(capacity: usize, precision: usize, scale: usize) -> Self {
-        let values_builder = UInt8Builder::new(capacity);
+        let values_builder = UInt8Builder::new(capacity, DataType::UInt8);
         let byte_width = 16;
         Self {
             builder: FixedSizeListBuilder::new(values_builder, byte_width),
@@ -1329,71 +1329,40 @@ impl ArrayBuilder for StructBuilder {
 /// This function is useful to construct arrays from an arbitrary vectors with known/expected
 /// schema.
 pub fn make_builder(datatype: &DataType, capacity: usize) -> Box<ArrayBuilder> {
+    let datatype = datatype.clone();
     match datatype {
         DataType::Null => unimplemented!(),
         DataType::Boolean => Box::new(BooleanBuilder::new(capacity)),
-        DataType::Int8 => Box::new(Int8Builder::new(capacity)),
-        DataType::Int16 => Box::new(Int16Builder::new(capacity)),
-        DataType::Int32 => Box::new(Int32Builder::new(capacity)),
-        DataType::Int64 => Box::new(Int64Builder::new(capacity)),
-        DataType::UInt8 => Box::new(UInt8Builder::new(capacity)),
-        DataType::UInt16 => Box::new(UInt16Builder::new(capacity)),
-        DataType::UInt32 => Box::new(UInt32Builder::new(capacity)),
-        DataType::UInt64 => Box::new(UInt64Builder::new(capacity)),
-        DataType::Float32 => Box::new(Float32Builder::new(capacity)),
-        DataType::Float64 => Box::new(Float64Builder::new(capacity)),
+        DataType::Int8 => Box::new(Int8Builder::new(capacity, datatype)),
+        DataType::Int16 => Box::new(Int16Builder::new(capacity, datatype)),
+        DataType::Int32
+        | DataType::Date32
+        | DataType::Time32(_)
+        | DataType::Interval(IntervalUnit::YearMonth) => {
+            Box::new(Int32Builder::new(capacity, datatype))
+        }
+        DataType::Int64
+        | DataType::Date64
+        | DataType::Time64(_)
+        | DataType::Duration(_)
+        | DataType::Timestamp(_, _)
+        | DataType::Interval(IntervalUnit::DayTime) => {
+            Box::new(Int64Builder::new(capacity, datatype))
+        }
+        DataType::UInt8 => Box::new(UInt8Builder::new(capacity, datatype)),
+        DataType::UInt16 => Box::new(UInt16Builder::new(capacity, datatype)),
+        DataType::UInt32 => Box::new(UInt32Builder::new(capacity, datatype)),
+        DataType::UInt64 => Box::new(UInt64Builder::new(capacity, datatype)),
+        DataType::Float32 => Box::new(Float32Builder::new(capacity, datatype)),
+        DataType::Float64 => Box::new(Float64Builder::new(capacity, datatype)),
         DataType::Binary => Box::new(BinaryBuilder::new(capacity)),
         DataType::FixedSizeBinary(len) => {
-            Box::new(FixedSizeBinaryBuilder::new(capacity, *len))
+            Box::new(FixedSizeBinaryBuilder::new(capacity, len))
         }
         DataType::Decimal(precision, scale) => {
-            Box::new(DecimalBuilder::new(capacity, *precision, *scale))
+            Box::new(DecimalBuilder::new(capacity, precision, scale))
         }
         DataType::Utf8 => Box::new(StringBuilder::new(capacity)),
-        DataType::Date32 => Box::new(Date32Builder::new(capacity)),
-        DataType::Date64 => Box::new(Date64Builder::new(capacity)),
-        DataType::Time32(TimeUnit::Second) => {
-            Box::new(Time32SecondBuilder::new(capacity))
-        }
-        DataType::Time32(TimeUnit::Millisecond) => {
-            Box::new(Time32MillisecondBuilder::new(capacity))
-        }
-        DataType::Time64(TimeUnit::Microsecond) => {
-            Box::new(Time64MicrosecondBuilder::new(capacity))
-        }
-        DataType::Time64(TimeUnit::Nanosecond) => {
-            Box::new(Time64NanosecondBuilder::new(capacity))
-        }
-        DataType::Timestamp(TimeUnit::Second, _) => {
-            Box::new(TimestampSecondBuilder::new(capacity))
-        }
-        DataType::Timestamp(TimeUnit::Millisecond, _) => {
-            Box::new(TimestampMillisecondBuilder::new(capacity))
-        }
-        DataType::Timestamp(TimeUnit::Microsecond, _) => {
-            Box::new(TimestampMicrosecondBuilder::new(capacity))
-        }
-        DataType::Timestamp(TimeUnit::Nanosecond, _) => {
-            Box::new(TimestampNanosecondBuilder::new(capacity))
-        }
-        DataType::Interval(IntervalUnit::YearMonth) => {
-            Box::new(IntervalYearMonthBuilder::new(capacity))
-        }
-        DataType::Interval(IntervalUnit::DayTime) => {
-            Box::new(IntervalDayTimeBuilder::new(capacity))
-        }
-        DataType::Duration(TimeUnit::Second) => {
-            Box::new(DurationSecondBuilder::new(capacity))
-        }
-        DataType::Duration(TimeUnit::Millisecond) => {
-            Box::new(DurationMillisecondBuilder::new(capacity))
-        }
-        DataType::Duration(TimeUnit::Microsecond) => {
-            Box::new(DurationMicrosecondBuilder::new(capacity))
-        }
-        DataType::Duration(TimeUnit::Nanosecond) => {
-            Box::new(DurationNanosecondBuilder::new(capacity))
-        }
         DataType::Struct(fields) => {
             Box::new(StructBuilder::from_fields(fields.clone(), capacity))
         }
@@ -1500,15 +1469,12 @@ impl FieldData {
 
     /// Appends a single value to this `FieldData`'s `values_buffer`.
     #[allow(clippy::unnecessary_wraps)]
-    fn append_to_values_buffer<T: ArrowPrimitiveType>(
-        &mut self,
-        v: T::Native,
-    ) -> Result<()> {
+    fn append_to_values_buffer<T: ArrowNativeType>(&mut self, v: T) -> Result<()> {
         let values_buffer = self
             .values_buffer
             .take()
             .expect("Values buffer was never created");
-        let mut builder: BufferBuilder<T::Native> =
+        let mut builder: BufferBuilder<T> =
             mutable_buffer_to_builder(values_buffer, self.slots);
         builder.append(v);
         let mutable_buffer = builder_to_mutable_buffer(builder);
@@ -1523,13 +1489,13 @@ impl FieldData {
 
     /// Appends a null to this `FieldData`.
     #[allow(clippy::unnecessary_wraps)]
-    fn append_null<T: ArrowPrimitiveType>(&mut self) -> Result<()> {
+    fn append_null<T: ArrowNativeType>(&mut self) -> Result<()> {
         if let Some(b) = &mut self.bitmap_builder {
             let values_buffer = self
                 .values_buffer
                 .take()
                 .expect("Values buffer was never created");
-            let mut builder: BufferBuilder<T::Native> =
+            let mut builder: BufferBuilder<T> =
                 mutable_buffer_to_builder(values_buffer, self.slots);
             builder.advance(1);
             let mutable_buffer = builder_to_mutable_buffer(builder);
@@ -1548,30 +1514,30 @@ impl FieldData {
     ///
     /// Note, this method does **not** update the length of the `UnionArray` (this is done by the
     /// main append operation) and assumes that it is called from a method that is generic over `T`
-    /// where `T` satisfies the bound `ArrowPrimitiveType`.
+    /// where `T` satisfies the bound `ArrowNativeType`.
     fn append_null_dynamic(&mut self) -> Result<()> {
         match self.data_type {
             DataType::Null => unimplemented!(),
-            DataType::Int8 => self.append_null::<Int8Type>()?,
-            DataType::Int16 => self.append_null::<Int16Type>()?,
+            DataType::Int8 => self.append_null::<i8>()?,
+            DataType::Int16 => self.append_null::<i16>()?,
             DataType::Int32
             | DataType::Date32
             | DataType::Time32(_)
             | DataType::Interval(IntervalUnit::YearMonth) => {
-                self.append_null::<Int32Type>()?
+                self.append_null::<i32>()?
             }
             DataType::Int64
             | DataType::Timestamp(_, _)
             | DataType::Date64
             | DataType::Time64(_)
             | DataType::Interval(IntervalUnit::DayTime)
-            | DataType::Duration(_) => self.append_null::<Int64Type>()?,
-            DataType::UInt8 => self.append_null::<UInt8Type>()?,
-            DataType::UInt16 => self.append_null::<UInt16Type>()?,
-            DataType::UInt32 => self.append_null::<UInt32Type>()?,
-            DataType::UInt64 => self.append_null::<UInt64Type>()?,
-            DataType::Float32 => self.append_null::<Float32Type>()?,
-            DataType::Float64 => self.append_null::<Float64Type>()?,
+            | DataType::Duration(_) => self.append_null::<i64>()?,
+            DataType::UInt8 => self.append_null::<u8>()?,
+            DataType::UInt16 => self.append_null::<u16>()?,
+            DataType::UInt32 => self.append_null::<u32>()?,
+            DataType::UInt64 => self.append_null::<u64>()?,
+            DataType::Float32 => self.append_null::<f32>()?,
+            DataType::Float64 => self.append_null::<f64>()?,
             _ => unreachable!("All cases of types that satisfy the trait bounds over T are covered above."),
         };
         Ok(())
@@ -1643,11 +1609,7 @@ impl UnionBuilder {
     }
 
     /// Appends a value to this builder.
-    pub fn append<T: ArrowPrimitiveType>(
-        &mut self,
-        type_name: &str,
-        v: T::Native,
-    ) -> Result<()> {
+    pub fn append<T: ArrowNativeType>(&mut self, type_name: &str, v: T) -> Result<()> {
         let type_name = type_name.to_string();
 
         let mut field_data = match self.fields.remove(&type_name) {
@@ -1742,18 +1704,18 @@ impl UnionBuilder {
 #[derive(Debug)]
 pub struct PrimitiveDictionaryBuilder<K, V>
 where
-    K: ArrowPrimitiveType,
-    V: ArrowPrimitiveType,
+    K: ArrowNativeType,
+    V: ArrowNativeType,
 {
     keys_builder: PrimitiveBuilder<K>,
     values_builder: PrimitiveBuilder<V>,
-    map: HashMap<Box<[u8]>, K::Native>,
+    map: HashMap<Box<[u8]>, K>,
 }
 
 impl<K, V> PrimitiveDictionaryBuilder<K, V>
 where
-    K: ArrowPrimitiveType,
-    V: ArrowPrimitiveType,
+    K: ArrowNativeType,
+    V: ArrowNativeType,
 {
     /// Creates a new `PrimitiveDictionaryBuilder` from a keys builder and a value builder.
     pub fn new(
@@ -1770,8 +1732,8 @@ where
 
 impl<K, V> ArrayBuilder for PrimitiveDictionaryBuilder<K, V>
 where
-    K: ArrowPrimitiveType,
-    V: ArrowPrimitiveType,
+    K: ArrowNativeType,
+    V: ArrowNativeType,
 {
     /// Returns the builder as an non-mutable `Any` reference.
     fn as_any(&self) -> &Any {
@@ -1806,23 +1768,23 @@ where
 
 impl<K, V> PrimitiveDictionaryBuilder<K, V>
 where
-    K: ArrowPrimitiveType,
-    V: ArrowPrimitiveType,
+    K: ArrowDictionaryKeyType,
+    V: ArrowNativeType,
 {
     /// Append a primitive value to the array. Return an existing index
     /// if already present in the values array or a new index if the
     /// value is appended to the values array.
-    pub fn append(&mut self, value: V::Native) -> Result<K::Native> {
+    pub fn append(&mut self, value: V) -> Result<K> {
         if let Some(&key) = self.map.get(value.to_byte_slice()) {
             // Append existing value.
             self.keys_builder.append_value(key)?;
             Ok(key)
         } else {
             // Append new value.
-            let key = K::Native::from_usize(self.values_builder.len())
+            let key = K::from_usize(self.values_builder.len())
                 .ok_or(ArrowError::DictionaryKeyOverflowError)?;
             self.values_builder.append_value(value)?;
-            self.keys_builder.append_value(key as K::Native)?;
+            self.keys_builder.append_value(key as K)?;
             self.map.insert(value.to_byte_slice().into(), key);
             Ok(key)
         }
@@ -1888,7 +1850,7 @@ where
 {
     keys_builder: PrimitiveBuilder<K>,
     values_builder: StringBuilder,
-    map: HashMap<Box<[u8]>, K::Native>,
+    map: HashMap<Box<[u8]>, K>,
 }
 
 impl<K> StringDictionaryBuilder<K>
@@ -1935,14 +1897,13 @@ where
         let dict_len = dictionary_values.len();
         let mut values_builder =
             StringBuilder::with_capacity(dict_len, dictionary_values.value_data().len());
-        let mut map: HashMap<Box<[u8]>, K::Native> = HashMap::with_capacity(dict_len);
+        let mut map: HashMap<Box<[u8]>, K> = HashMap::with_capacity(dict_len);
         for i in 0..dict_len {
             if dictionary_values.is_valid(i) {
                 let value = dictionary_values.value(i);
                 map.insert(
                     value.as_bytes().into(),
-                    K::Native::from_usize(i)
-                        .ok_or(ArrowError::DictionaryKeyOverflowError)?,
+                    K::from_usize(i).ok_or(ArrowError::DictionaryKeyOverflowError)?,
                 );
                 values_builder.append_value(value)?;
             } else {
@@ -1999,17 +1960,17 @@ where
     /// Append a primitive value to the array. Return an existing index
     /// if already present in the values array or a new index if the
     /// value is appended to the values array.
-    pub fn append(&mut self, value: &str) -> Result<K::Native> {
+    pub fn append(&mut self, value: &str) -> Result<K> {
         if let Some(&key) = self.map.get(value.as_bytes()) {
             // Append existing value.
             self.keys_builder.append_value(key)?;
             Ok(key)
         } else {
             // Append new value.
-            let key = K::Native::from_usize(self.values_builder.len())
+            let key = K::from_usize(self.values_builder.len())
                 .ok_or(ArrowError::DictionaryKeyOverflowError)?;
             self.values_builder.append_value(value)?;
-            self.keys_builder.append_value(key as K::Native)?;
+            self.keys_builder.append_value(key as K)?;
             self.map.insert(value.as_bytes().into(), key);
             Ok(key)
         }
@@ -2128,7 +2089,7 @@ mod tests {
 
     #[test]
     fn test_append_values() -> Result<()> {
-        let mut a = Int8Builder::new(0);
+        let mut a = Int8Builder::new(0, DataType::Int8);
         a.append_value(1)?;
         a.append_null()?;
         a.append_value(-2)?;
@@ -2219,7 +2180,7 @@ mod tests {
 
     #[test]
     fn test_primitive_array_builder_i32() {
-        let mut builder = Int32Array::builder(5);
+        let mut builder = Int32Array::builder(5, DataType::Int32);
         for i in 0..5 {
             builder.append_value(i).unwrap();
         }
@@ -2236,7 +2197,7 @@ mod tests {
 
     #[test]
     fn test_primitive_array_builder_date32() {
-        let mut builder = Date32Array::builder(5);
+        let mut builder = Int32Array::builder(5, DataType::Int32);
         for i in 0..5 {
             builder.append_value(i).unwrap();
         }
@@ -2297,7 +2258,7 @@ mod tests {
     fn test_primitive_array_builder_append_option() {
         let arr1 = Int32Array::from(vec![Some(0), None, Some(2), None, Some(4)]);
 
-        let mut builder = Int32Array::builder(5);
+        let mut builder = Int32Array::builder(5, DataType::Int32);
         builder.append_option(Some(0)).unwrap();
         builder.append_option(None).unwrap();
         builder.append_option(Some(2)).unwrap();
@@ -2321,7 +2282,7 @@ mod tests {
     fn test_primitive_array_builder_append_null() {
         let arr1 = Int32Array::from(vec![Some(0), Some(2), None, None, Some(4)]);
 
-        let mut builder = Int32Array::builder(5);
+        let mut builder = Int32Array::builder(5, DataType::Int32);
         builder.append_value(0).unwrap();
         builder.append_value(2).unwrap();
         builder.append_null().unwrap();
@@ -2345,7 +2306,7 @@ mod tests {
     fn test_primitive_array_builder_append_slice() {
         let arr1 = Int32Array::from(vec![Some(0), Some(2), None, None, Some(4)]);
 
-        let mut builder = Int32Array::builder(5);
+        let mut builder = Int32Array::builder(5, DataType::Int32);
         builder.append_slice(&[0, 2]).unwrap();
         builder.append_null().unwrap();
         builder.append_null().unwrap();
@@ -2366,7 +2327,7 @@ mod tests {
 
     #[test]
     fn test_primitive_array_builder_finish() {
-        let mut builder = Int32Builder::new(5);
+        let mut builder = Int32Builder::new(5, DataType::Int32);
         builder.append_slice(&[2, 4, 6, 8]).unwrap();
         let mut arr = builder.finish();
         assert_eq!(4, arr.len());
@@ -2984,8 +2945,8 @@ mod tests {
 
     #[test]
     fn test_primitive_dictionary_builder() {
-        let key_builder = PrimitiveBuilder::<UInt8Type>::new(3);
-        let value_builder = PrimitiveBuilder::<UInt32Type>::new(2);
+        let key_builder = PrimitiveBuilder::<u8>::new(3);
+        let value_builder = PrimitiveBuilder::<u32>::new(2);
         let mut builder = PrimitiveDictionaryBuilder::new(key_builder, value_builder);
         builder.append(12345678).unwrap();
         builder.append_null().unwrap();
@@ -3096,8 +3057,8 @@ mod tests {
     #[test]
     #[should_panic(expected = "DictionaryKeyOverflowError")]
     fn test_primitive_dictionary_overflow() {
-        let key_builder = PrimitiveBuilder::<UInt8Type>::new(257);
-        let value_builder = PrimitiveBuilder::<UInt32Type>::new(257);
+        let key_builder = PrimitiveBuilder::<u8>::new(257);
+        let value_builder = PrimitiveBuilder::<u32>::new(257);
         let mut builder = PrimitiveDictionaryBuilder::new(key_builder, value_builder);
         // 256 unique keys.
         for i in 0..256 {

@@ -36,7 +36,7 @@ pub trait JsonEqual {
 }
 
 /// Implement array equals for numeric type
-impl<T: ArrowPrimitiveType> JsonEqual for PrimitiveArray<T> {
+impl<T: ArrowNativeType> JsonEqual for PrimitiveArray<T> {
     fn equals_json(&self, json: &[&Value]) -> bool {
         self.len() == json.len()
             && (0..self.len()).all(|i| match json[i] {
@@ -63,7 +63,7 @@ impl JsonEqual for BooleanArray {
     }
 }
 
-impl<T: ArrowPrimitiveType> PartialEq<Value> for PrimitiveArray<T> {
+impl<T: ArrowNativeType> PartialEq<Value> for PrimitiveArray<T> {
     fn eq(&self, json: &Value) -> bool {
         match json {
             Value::Array(array) => self.equals_json_values(&array),
@@ -72,7 +72,7 @@ impl<T: ArrowPrimitiveType> PartialEq<Value> for PrimitiveArray<T> {
     }
 }
 
-impl<T: ArrowPrimitiveType> PartialEq<PrimitiveArray<T>> for Value {
+impl<T: ArrowNativeType> PartialEq<PrimitiveArray<T>> for Value {
     fn eq(&self, arrow: &PrimitiveArray<T>) -> bool {
         match self {
             Value::Array(array) => arrow.equals_json_values(&array),
@@ -113,14 +113,14 @@ impl<OffsetSize: OffsetSizeTrait> PartialEq<GenericListArray<OffsetSize>> for Va
     }
 }
 
-impl<T: ArrowPrimitiveType> JsonEqual for DictionaryArray<T> {
+impl<T: ArrowDictionaryKeyType> JsonEqual for DictionaryArray<T> {
     fn equals_json(&self, json: &[&Value]) -> bool {
         // todo: this is wrong: we must test the values also
         self.keys().equals_json(json)
     }
 }
 
-impl<T: ArrowPrimitiveType> PartialEq<Value> for DictionaryArray<T> {
+impl<T: ArrowDictionaryKeyType> PartialEq<Value> for DictionaryArray<T> {
     fn eq(&self, json: &Value) -> bool {
         match json {
             Value::Array(json_array) => self.equals_json_values(json_array),
@@ -129,7 +129,7 @@ impl<T: ArrowPrimitiveType> PartialEq<Value> for DictionaryArray<T> {
     }
 }
 
-impl<T: ArrowPrimitiveType> PartialEq<DictionaryArray<T>> for Value {
+impl<T: ArrowDictionaryKeyType> PartialEq<DictionaryArray<T>> for Value {
     fn eq(&self, arrow: &DictionaryArray<T>) -> bool {
         match self {
             Value::Array(json_array) => arrow.equals_json_values(json_array),
@@ -509,7 +509,7 @@ mod tests {
     fn test_list_json_equal() {
         // Test equal case
         let arrow_array = create_list_array(
-            &mut ListBuilder::new(Int32Builder::new(10)),
+            &mut ListBuilder::new(Int32Builder::new(10, DataType::Int32)),
             &[Some(&[1, 2, 3]), None, Some(&[4, 5, 6])],
         )
         .unwrap();
@@ -528,7 +528,7 @@ mod tests {
 
         // Test unequal case
         let arrow_array = create_list_array(
-            &mut ListBuilder::new(Int32Builder::new(10)),
+            &mut ListBuilder::new(Int32Builder::new(10, DataType::Int32)),
             &[Some(&[1, 2, 3]), None, Some(&[4, 5, 6])],
         )
         .unwrap();
@@ -547,7 +547,7 @@ mod tests {
 
         // Test incorrect type case
         let arrow_array = create_list_array(
-            &mut ListBuilder::new(Int32Builder::new(10)),
+            &mut ListBuilder::new(Int32Builder::new(10, DataType::Int32)),
             &[Some(&[1, 2, 3]), None, Some(&[4, 5, 6])],
         )
         .unwrap();
@@ -567,7 +567,7 @@ mod tests {
     fn test_fixed_size_list_json_equal() {
         // Test equal case
         let arrow_array = create_fixed_size_list_array(
-            &mut FixedSizeListBuilder::new(Int32Builder::new(10), 3),
+            &mut FixedSizeListBuilder::new(Int32Builder::new(10, DataType::Int32), 3),
             &[Some(&[1, 2, 3]), None, Some(&[4, 5, 6])],
         )
         .unwrap();
@@ -588,7 +588,7 @@ mod tests {
 
         // Test unequal case
         let arrow_array = create_fixed_size_list_array(
-            &mut FixedSizeListBuilder::new(Int32Builder::new(10), 3),
+            &mut FixedSizeListBuilder::new(Int32Builder::new(10, DataType::Int32), 3),
             &[Some(&[1, 2, 3]), None, Some(&[4, 5, 6])],
         )
         .unwrap();
@@ -607,7 +607,7 @@ mod tests {
 
         // Test incorrect type case
         let arrow_array = create_fixed_size_list_array(
-            &mut FixedSizeListBuilder::new(Int32Builder::new(10), 3),
+            &mut FixedSizeListBuilder::new(Int32Builder::new(10, DataType::Int32), 3),
             &[Some(&[1, 2, 3]), None, Some(&[4, 5, 6])],
         )
         .unwrap();

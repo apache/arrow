@@ -25,8 +25,8 @@ use super::{
     make_array, Array, ArrayData, ArrayDataRef, ArrayRef, PrimitiveArray,
     PrimitiveBuilder, StringArray, StringBuilder, StringDictionaryBuilder,
 };
-use crate::datatypes::ArrowNativeType;
-use crate::datatypes::{ArrowDictionaryKeyType, ArrowPrimitiveType, DataType};
+use crate::datatypes::ArrowDictionaryKeyType;
+use crate::datatypes::DataType;
 
 /// A dictionary array where each element is a single value indexed by an integer key.
 /// This is mostly used to represent strings or a limited set of primitive types as integers,
@@ -51,7 +51,7 @@ use crate::datatypes::{ArrowDictionaryKeyType, ArrowPrimitiveType, DataType};
 /// let array : DictionaryArray<Int8Type> = test.into_iter().collect();
 /// assert_eq!(array.keys(), &Int8Array::from(vec![0, 0, 1, 2]));
 /// ```
-pub struct DictionaryArray<K: ArrowPrimitiveType> {
+pub struct DictionaryArray<K: ArrowDictionaryKeyType> {
     /// Data of this dictionary. Note that this is _not_ compatible with the C Data interface,
     /// as, in the current implementation, `values` below are the first child of this struct.
     data: ArrayDataRef,
@@ -69,7 +69,7 @@ pub struct DictionaryArray<K: ArrowPrimitiveType> {
     is_ordered: bool,
 }
 
-impl<'a, K: ArrowPrimitiveType> DictionaryArray<K> {
+impl<'a, K: ArrowDictionaryKeyType> DictionaryArray<K> {
     /// Return an iterator to the keys of this dictionary.
     pub fn keys(&self) -> &PrimitiveArray<K> {
         &self.keys
@@ -91,13 +91,13 @@ impl<'a, K: ArrowPrimitiveType> DictionaryArray<K> {
     }
 
     /// Returns the lookup key by doing reverse dictionary lookup
-    pub fn lookup_key(&self, value: &str) -> Option<K::Native> {
+    pub fn lookup_key(&self, value: &str) -> Option<K> {
         let rd_buf: &StringArray =
             self.values.as_any().downcast_ref::<StringArray>().unwrap();
 
         (0..rd_buf.len())
             .position(|i| rd_buf.value(i) == value)
-            .map(K::Native::from_usize)
+            .map(K::from_usize)
             .flatten()
     }
 
@@ -128,7 +128,7 @@ impl<'a, K: ArrowPrimitiveType> DictionaryArray<K> {
 }
 
 /// Constructs a `DictionaryArray` from an array data reference.
-impl<T: ArrowPrimitiveType> From<ArrayDataRef> for DictionaryArray<T> {
+impl<T: ArrowDictionaryKeyType> From<ArrayDataRef> for DictionaryArray<T> {
     fn from(data: ArrayDataRef) -> Self {
         assert_eq!(
             data.buffers().len(),
@@ -169,13 +169,13 @@ impl<T: ArrowPrimitiveType> From<ArrayDataRef> for DictionaryArray<T> {
 }
 
 /// Constructs a `DictionaryArray` from an iterator of optional strings.
-impl<'a, T: ArrowPrimitiveType + ArrowDictionaryKeyType> FromIterator<Option<&'a str>>
+impl<'a, T: ArrowDictionaryKeyType + ArrowDictionaryKeyType> FromIterator<Option<&'a str>>
     for DictionaryArray<T>
 {
     fn from_iter<I: IntoIterator<Item = Option<&'a str>>>(iter: I) -> Self {
         let it = iter.into_iter();
         let (lower, _) = it.size_hint();
-        let key_builder = PrimitiveBuilder::<T>::new(lower);
+        let key_builder = PrimitiveBuilder::<T>::new(lower, T::DATA_TYPE);
         let value_builder = StringBuilder::new(256);
         let mut builder = StringDictionaryBuilder::new(key_builder, value_builder);
         it.for_each(|i| {
@@ -197,13 +197,13 @@ impl<'a, T: ArrowPrimitiveType + ArrowDictionaryKeyType> FromIterator<Option<&'a
 }
 
 /// Constructs a `DictionaryArray` from an iterator of strings.
-impl<'a, T: ArrowPrimitiveType + ArrowDictionaryKeyType> FromIterator<&'a str>
+impl<'a, T: ArrowDictionaryKeyType + ArrowDictionaryKeyType> FromIterator<&'a str>
     for DictionaryArray<T>
 {
     fn from_iter<I: IntoIterator<Item = &'a str>>(iter: I) -> Self {
         let it = iter.into_iter();
         let (lower, _) = it.size_hint();
-        let key_builder = PrimitiveBuilder::<T>::new(lower);
+        let key_builder = PrimitiveBuilder::<T>::new(lower, T::DATA_TYPE);
         let value_builder = StringBuilder::new(256);
         let mut builder = StringDictionaryBuilder::new(key_builder, value_builder);
         it.for_each(|i| {
@@ -216,7 +216,7 @@ impl<'a, T: ArrowPrimitiveType + ArrowDictionaryKeyType> FromIterator<&'a str>
     }
 }
 
-impl<T: ArrowPrimitiveType> Array for DictionaryArray<T> {
+impl<T: ArrowDictionaryKeyType> Array for DictionaryArray<T> {
     fn as_any(&self) -> &Any {
         self
     }
@@ -242,7 +242,7 @@ impl<T: ArrowPrimitiveType> Array for DictionaryArray<T> {
     }
 }
 
-impl<T: ArrowPrimitiveType> fmt::Debug for DictionaryArray<T> {
+impl<T: ArrowDictionaryKeyType> fmt::Debug for DictionaryArray<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         writeln!(
             f,
@@ -256,10 +256,7 @@ impl<T: ArrowPrimitiveType> fmt::Debug for DictionaryArray<T> {
 mod tests {
     use super::*;
 
-    use crate::{
-        array::Int16Array,
-        datatypes::{Int32Type, Int8Type, UInt32Type, UInt8Type},
-    };
+    use crate::array::Int16Array;
     use crate::{
         array::Int16DictionaryArray, array::PrimitiveDictionaryBuilder,
         datatypes::DataType,
@@ -319,8 +316,8 @@ mod tests {
 
     #[test]
     fn test_dictionary_array_fmt_debug() {
-        let key_builder = PrimitiveBuilder::<UInt8Type>::new(3);
-        let value_builder = PrimitiveBuilder::<UInt32Type>::new(2);
+        let key_builder = PrimitiveBuilder::<u8>::new(3, DataType::UInt8);
+        let value_builder = PrimitiveBuilder::<u32>::new(2, DataType::UInt32);
         let mut builder = PrimitiveDictionaryBuilder::new(key_builder, value_builder);
         builder.append(12345678).unwrap();
         builder.append_null().unwrap();
@@ -331,8 +328,8 @@ mod tests {
             format!("{:?}", array)
         );
 
-        let key_builder = PrimitiveBuilder::<UInt8Type>::new(20);
-        let value_builder = PrimitiveBuilder::<UInt32Type>::new(2);
+        let key_builder = PrimitiveBuilder::<u8>::new(20, DataType::UInt8);
+        let value_builder = PrimitiveBuilder::<u32>::new(2, DataType::UInt32);
         let mut builder = PrimitiveDictionaryBuilder::new(key_builder, value_builder);
         for _ in 0..20 {
             builder.append(1).unwrap();

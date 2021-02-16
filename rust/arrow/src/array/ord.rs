@@ -39,13 +39,10 @@ fn cmp_nans_last<T: Float>(a: &T, b: &T) -> Ordering {
     }
 }
 
-fn compare_primitives<'a, T: ArrowPrimitiveType>(
+fn compare_primitives<'a, T: ArrowNativeType + Ord>(
     left: &'a Array,
     right: &'a Array,
-) -> DynComparator<'a>
-where
-    T::Native: Ord,
-{
+) -> DynComparator<'a> {
     let left = left.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
     let right = right.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
     Box::new(move |i, j| left.value(i).cmp(&right.value(j)))
@@ -57,13 +54,10 @@ fn compare_boolean<'a>(left: &'a Array, right: &'a Array) -> DynComparator<'a> {
     Box::new(move |i, j| left.value(i).cmp(&right.value(j)))
 }
 
-fn compare_float<'a, T: ArrowPrimitiveType>(
+fn compare_float<'a, T: ArrowNativeType + Float>(
     left: &'a Array,
     right: &'a Array,
-) -> DynComparator<'a>
-where
-    T::Native: Float,
-{
+) -> DynComparator<'a> {
     let left = left.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
     let right = right.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
     Box::new(move |i, j| cmp_nans_last(&left.value(i), &right.value(j)))
@@ -136,41 +130,23 @@ pub fn build_compare<'a>(left: &'a Array, right: &'a Array) -> Result<DynCompara
             ));
         }
         (Boolean, Boolean) => compare_boolean(left, right),
-        (UInt8, UInt8) => compare_primitives::<UInt8Type>(left, right),
-        (UInt16, UInt16) => compare_primitives::<UInt16Type>(left, right),
-        (UInt32, UInt32) => compare_primitives::<UInt32Type>(left, right),
-        (UInt64, UInt64) => compare_primitives::<UInt64Type>(left, right),
-        (Int8, Int8) => compare_primitives::<Int8Type>(left, right),
-        (Int16, Int16) => compare_primitives::<Int16Type>(left, right),
-        (Int32, Int32) => compare_primitives::<Int32Type>(left, right),
-        (Int64, Int64) => compare_primitives::<Int64Type>(left, right),
-        (Float32, Float32) => compare_float::<Float32Type>(left, right),
-        (Float64, Float64) => compare_float::<Float64Type>(left, right),
-        (Date32, Date32) => compare_primitives::<Date32Type>(left, right),
-        (Date64, Date64) => compare_primitives::<Date64Type>(left, right),
-        (Time32(Second), Time32(Second)) => {
-            compare_primitives::<Time32SecondType>(left, right)
-        }
-        (Time32(Millisecond), Time32(Millisecond)) => {
-            compare_primitives::<Time32MillisecondType>(left, right)
-        }
-        (Time64(Microsecond), Time64(Microsecond)) => {
-            compare_primitives::<Time64MicrosecondType>(left, right)
-        }
-        (Time64(Nanosecond), Time64(Nanosecond)) => {
-            compare_primitives::<Time64NanosecondType>(left, right)
-        }
-        (Timestamp(Second, _), Timestamp(Second, _)) => {
-            compare_primitives::<TimestampSecondType>(left, right)
-        }
-        (Timestamp(Millisecond, _), Timestamp(Millisecond, _)) => {
-            compare_primitives::<TimestampMillisecondType>(left, right)
-        }
-        (Timestamp(Microsecond, _), Timestamp(Microsecond, _)) => {
-            compare_primitives::<TimestampMicrosecondType>(left, right)
-        }
-        (Timestamp(Nanosecond, _), Timestamp(Nanosecond, _)) => {
-            compare_primitives::<TimestampNanosecondType>(left, right)
+        (UInt8, UInt8) => compare_primitives::<u8>(left, right),
+        (UInt16, UInt16) => compare_primitives::<u16>(left, right),
+        (UInt32, UInt32) => compare_primitives::<u32>(left, right),
+        (UInt64, UInt64) => compare_primitives::<u64>(left, right),
+        (Int8, Int8) => compare_primitives::<i8>(left, right),
+        (Int16, Int16) => compare_primitives::<i16>(left, right),
+        (Int32, Int32) => compare_primitives::<i32>(left, right),
+        (Int64, Int64) => compare_primitives::<i64>(left, right),
+        (Float32, Float32) => compare_float::<f32>(left, right),
+        (Float64, Float64) => compare_float::<f64>(left, right),
+        (Date32, Date32) => compare_primitives::<i32>(left, right),
+        (Date64, Date64) => compare_primitives::<i64>(left, right),
+        (Time32(_), Time32(_)) => compare_primitives::<i32>(left, right),
+        (Time32(_), Time32(_)) => compare_primitives::<i32>(left, right),
+        (Time64(_), Time64(_)) => compare_primitives::<i64>(left, right),
+        (Timestamp(_, None), Timestamp(_, None)) => {
+            compare_primitives::<i64>(left, right)
         }
         (Interval(YearMonth), Interval(YearMonth)) => {
             compare_primitives::<IntervalYearMonthType>(left, right)
@@ -210,9 +186,9 @@ pub fn build_compare<'a>(left: &'a Array, right: &'a Array) -> Result<DynCompara
                         "Can't compare arrays of different types".to_string(),
                     ));
                 }
-                (UInt8, UInt8) => compare_dict_string::<UInt8Type>(left, right),
+                (UInt8, UInt8) => compare_dict_string::<u8>(left, right),
                 (UInt16, UInt16) => compare_dict_string::<UInt16Type>(left, right),
-                (UInt32, UInt32) => compare_dict_string::<UInt32Type>(left, right),
+                (UInt32, UInt32) => compare_dict_string::<u32>(left, right),
                 (UInt64, UInt64) => compare_dict_string::<UInt64Type>(left, right),
                 (Int8, Int8) => compare_dict_string::<Int8Type>(left, right),
                 (Int16, Int16) => compare_dict_string::<Int16Type>(left, right),

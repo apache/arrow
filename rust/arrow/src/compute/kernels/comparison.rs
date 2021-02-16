@@ -29,7 +29,7 @@ use std::sync::Arc;
 use crate::array::*;
 use crate::buffer::{Buffer, MutableBuffer};
 use crate::compute::util::combine_option_bitmap;
-use crate::datatypes::{ArrowNumericType, DataType};
+use crate::datatypes::{ArrowNativeType, DataType};
 use crate::error::{ArrowError, Result};
 use crate::util::bit_util;
 
@@ -91,20 +91,20 @@ pub fn no_simd_compare_op<T, F>(
     op: F,
 ) -> Result<BooleanArray>
 where
-    T: ArrowNumericType,
-    F: Fn(T::Native, T::Native) -> bool,
+    T: ArrowNativeType,
+    F: Fn(T, T) -> bool,
 {
     compare_op!(left, right, op)
 }
 
 pub fn no_simd_compare_op_scalar<T, F>(
     left: &PrimitiveArray<T>,
-    right: T::Native,
+    right: T,
     op: F,
 ) -> Result<BooleanArray>
 where
-    T: ArrowNumericType,
-    F: Fn(T::Native, T::Native) -> bool,
+    T: ArrowNativeType,
+    F: Fn(T, T) -> bool,
 {
     compare_op_scalar!(left, right, op)
 }
@@ -414,9 +414,9 @@ fn simd_compare_op<T, SIMD_OP, SCALAR_OP>(
     scalar_op: SCALAR_OP,
 ) -> Result<BooleanArray>
 where
-    T: ArrowNumericType,
+    T: ArrowNativeType,
     SIMD_OP: Fn(T::Simd, T::Simd) -> T::SimdMask,
-    SCALAR_OP: Fn(T::Native, T::Native) -> bool,
+    SCALAR_OP: Fn(T, T) -> bool,
 {
     use std::borrow::BorrowMut;
 
@@ -499,14 +499,14 @@ where
 #[cfg(simd)]
 fn simd_compare_op_scalar<T, SIMD_OP, SCALAR_OP>(
     left: &PrimitiveArray<T>,
-    right: T::Native,
+    right: T,
     simd_op: SIMD_OP,
     scalar_op: SCALAR_OP,
 ) -> Result<BooleanArray>
 where
-    T: ArrowNumericType,
+    T: ArrowNativeType,
     SIMD_OP: Fn(T::Simd, T::Simd) -> T::SimdMask,
-    SCALAR_OP: Fn(T::Native, T::Native) -> bool,
+    SCALAR_OP: Fn(T, T) -> bool,
 {
     use std::borrow::BorrowMut;
 
@@ -580,7 +580,7 @@ where
 /// Perform `left == right` operation on two arrays.
 pub fn eq<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<BooleanArray>
 where
-    T: ArrowNumericType,
+    T: ArrowNativeType,
 {
     #[cfg(simd)]
     return simd_compare_op(left, right, T::eq, |a, b| a == b);
@@ -589,9 +589,9 @@ where
 }
 
 /// Perform `left == right` operation on an array and a scalar value.
-pub fn eq_scalar<T>(left: &PrimitiveArray<T>, right: T::Native) -> Result<BooleanArray>
+pub fn eq_scalar<T>(left: &PrimitiveArray<T>, right: T) -> Result<BooleanArray>
 where
-    T: ArrowNumericType,
+    T: ArrowNativeType,
 {
     #[cfg(simd)]
     return simd_compare_op_scalar(left, right, T::eq, |a, b| a == b);
@@ -602,7 +602,7 @@ where
 /// Perform `left != right` operation on two arrays.
 pub fn neq<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<BooleanArray>
 where
-    T: ArrowNumericType,
+    T: ArrowNativeType,
 {
     #[cfg(simd)]
     return simd_compare_op(left, right, T::ne, |a, b| a != b);
@@ -611,9 +611,9 @@ where
 }
 
 /// Perform `left != right` operation on an array and a scalar value.
-pub fn neq_scalar<T>(left: &PrimitiveArray<T>, right: T::Native) -> Result<BooleanArray>
+pub fn neq_scalar<T>(left: &PrimitiveArray<T>, right: T) -> Result<BooleanArray>
 where
-    T: ArrowNumericType,
+    T: ArrowNativeType,
 {
     #[cfg(simd)]
     return simd_compare_op_scalar(left, right, T::ne, |a, b| a != b);
@@ -625,7 +625,7 @@ where
 /// values.
 pub fn lt<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<BooleanArray>
 where
-    T: ArrowNumericType,
+    T: ArrowNativeType,
 {
     #[cfg(simd)]
     return simd_compare_op(left, right, T::lt, |a, b| a < b);
@@ -635,9 +635,9 @@ where
 
 /// Perform `left < right` operation on an array and a scalar value.
 /// Null values are less than non-null values.
-pub fn lt_scalar<T>(left: &PrimitiveArray<T>, right: T::Native) -> Result<BooleanArray>
+pub fn lt_scalar<T>(left: &PrimitiveArray<T>, right: T) -> Result<BooleanArray>
 where
-    T: ArrowNumericType,
+    T: ArrowNativeType,
 {
     #[cfg(simd)]
     return simd_compare_op_scalar(left, right, T::lt, |a, b| a < b);
@@ -652,7 +652,7 @@ pub fn lt_eq<T>(
     right: &PrimitiveArray<T>,
 ) -> Result<BooleanArray>
 where
-    T: ArrowNumericType,
+    T: ArrowNativeType,
 {
     #[cfg(simd)]
     return simd_compare_op(left, right, T::le, |a, b| a <= b);
@@ -662,9 +662,9 @@ where
 
 /// Perform `left <= right` operation on an array and a scalar value.
 /// Null values are less than non-null values.
-pub fn lt_eq_scalar<T>(left: &PrimitiveArray<T>, right: T::Native) -> Result<BooleanArray>
+pub fn lt_eq_scalar<T>(left: &PrimitiveArray<T>, right: T) -> Result<BooleanArray>
 where
-    T: ArrowNumericType,
+    T: ArrowNativeType,
 {
     #[cfg(simd)]
     return simd_compare_op_scalar(left, right, T::le, |a, b| a <= b);
@@ -676,7 +676,7 @@ where
 /// values.
 pub fn gt<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<BooleanArray>
 where
-    T: ArrowNumericType,
+    T: ArrowNativeType,
 {
     #[cfg(simd)]
     return simd_compare_op(left, right, T::gt, |a, b| a > b);
@@ -686,9 +686,9 @@ where
 
 /// Perform `left > right` operation on an array and a scalar value.
 /// Non-null values are greater than null values.
-pub fn gt_scalar<T>(left: &PrimitiveArray<T>, right: T::Native) -> Result<BooleanArray>
+pub fn gt_scalar<T>(left: &PrimitiveArray<T>, right: T) -> Result<BooleanArray>
 where
-    T: ArrowNumericType,
+    T: ArrowNativeType,
 {
     #[cfg(simd)]
     return simd_compare_op_scalar(left, right, T::gt, |a, b| a > b);
@@ -703,7 +703,7 @@ pub fn gt_eq<T>(
     right: &PrimitiveArray<T>,
 ) -> Result<BooleanArray>
 where
-    T: ArrowNumericType,
+    T: ArrowNativeType,
 {
     #[cfg(simd)]
     return simd_compare_op(left, right, T::ge, |a, b| a >= b);
@@ -713,9 +713,9 @@ where
 
 /// Perform `left >= right` operation on an array and a scalar value.
 /// Non-null values are greater than null values.
-pub fn gt_eq_scalar<T>(left: &PrimitiveArray<T>, right: T::Native) -> Result<BooleanArray>
+pub fn gt_eq_scalar<T>(left: &PrimitiveArray<T>, right: T) -> Result<BooleanArray>
 where
-    T: ArrowNumericType,
+    T: ArrowNativeType,
 {
     #[cfg(simd)]
     return simd_compare_op_scalar(left, right, T::ge, |a, b| a >= b);
@@ -729,7 +729,7 @@ pub fn contains<T, OffsetSize>(
     right: &GenericListArray<OffsetSize>,
 ) -> Result<BooleanArray>
 where
-    T: ArrowNumericType,
+    T: ArrowNativeType,
     OffsetSize: OffsetSizeTrait,
 {
     let left_len = left.len();
@@ -851,7 +851,6 @@ fn new_all_set_buffer(len: usize) -> Buffer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::datatypes::Int8Type;
     use crate::{array::Int32Array, array::Int64Array, datatypes::Field};
 
     /// Evaluate `KERNEL` with two vectors as inputs and assert against the expected output.

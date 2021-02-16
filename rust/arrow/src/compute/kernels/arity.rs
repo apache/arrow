@@ -19,15 +19,16 @@
 
 use crate::array::{Array, ArrayData, PrimitiveArray};
 use crate::buffer::Buffer;
-use crate::datatypes::ArrowPrimitiveType;
+use crate::datatypes::{ArrowNativeType, DataType};
 
 #[inline]
-fn into_primitive_array_data<I: ArrowPrimitiveType, O: ArrowPrimitiveType>(
+fn into_primitive_array_data<I: ArrowNativeType, O: ArrowNativeType>(
     array: &PrimitiveArray<I>,
     buffer: Buffer,
+    data_type: DataType,
 ) -> ArrayData {
     ArrayData::new(
-        O::DATA_TYPE,
+        data_type,
         array.len(),
         None,
         array.data_ref().null_buffer().cloned(),
@@ -55,11 +56,15 @@ fn into_primitive_array_data<I: ArrowPrimitiveType, O: ArrowPrimitiveType>(
 /// assert_eq!(c, Int32Array::from(vec![Some(11), Some(15), None]));
 /// # }
 /// ```
-pub fn unary<I, F, O>(array: &PrimitiveArray<I>, op: F) -> PrimitiveArray<O>
+pub fn unary<I, F, O>(
+    array: &PrimitiveArray<I>,
+    op: F,
+    data_type: DataType,
+) -> PrimitiveArray<O>
 where
-    I: ArrowPrimitiveType,
-    O: ArrowPrimitiveType,
-    F: Fn(I::Native) -> O::Native,
+    I: ArrowNativeType,
+    O: ArrowNativeType,
+    F: Fn(I) -> O,
 {
     let values = array.values().iter().map(|v| op(*v));
     // JUSTIFICATION
@@ -69,6 +74,6 @@ where
     //      `values` is an iterator with a known size because arrays are sized.
     let buffer = unsafe { Buffer::from_trusted_len_iter(values) };
 
-    let data = into_primitive_array_data::<_, O>(array, buffer);
+    let data = into_primitive_array_data::<_, O>(array, buffer, data_type);
     PrimitiveArray::<O>::from(std::sync::Arc::new(data))
 }

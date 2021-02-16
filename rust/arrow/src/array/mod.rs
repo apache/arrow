@@ -133,26 +133,27 @@ pub use self::array::make_array;
 pub use self::array::new_empty_array;
 pub use self::array::new_null_array;
 
-pub type Int8Array = PrimitiveArray<Int8Type>;
-pub type Int16Array = PrimitiveArray<Int16Type>;
-pub type Int32Array = PrimitiveArray<Int32Type>;
-pub type Int64Array = PrimitiveArray<Int64Type>;
-pub type UInt8Array = PrimitiveArray<UInt8Type>;
-pub type UInt16Array = PrimitiveArray<UInt16Type>;
-pub type UInt32Array = PrimitiveArray<UInt32Type>;
-pub type UInt64Array = PrimitiveArray<UInt64Type>;
-pub type Float32Array = PrimitiveArray<Float32Type>;
-pub type Float64Array = PrimitiveArray<Float64Type>;
+pub type Int8Array = PrimitiveArray<i8>;
+pub type Int16Array = PrimitiveArray<i16>;
+pub type Int32Array = PrimitiveArray<i32>;
+pub type Int64Array = PrimitiveArray<i64>;
+pub type UInt8Array = PrimitiveArray<u8>;
+pub type UInt16Array = PrimitiveArray<u16>;
+pub type UInt32Array = PrimitiveArray<u32>;
+pub type UInt64Array = PrimitiveArray<u64>;
+pub type Float32Array = PrimitiveArray<f32>;
+pub type Float64Array = PrimitiveArray<f64>;
 
-pub type Int8DictionaryArray = DictionaryArray<Int8Type>;
-pub type Int16DictionaryArray = DictionaryArray<Int16Type>;
-pub type Int32DictionaryArray = DictionaryArray<Int32Type>;
-pub type Int64DictionaryArray = DictionaryArray<Int64Type>;
-pub type UInt8DictionaryArray = DictionaryArray<UInt8Type>;
-pub type UInt16DictionaryArray = DictionaryArray<UInt16Type>;
-pub type UInt32DictionaryArray = DictionaryArray<UInt32Type>;
-pub type UInt64DictionaryArray = DictionaryArray<UInt64Type>;
+pub type Int8DictionaryArray = DictionaryArray<i8>;
+pub type Int16DictionaryArray = DictionaryArray<i16>;
+pub type Int32DictionaryArray = DictionaryArray<i32>;
+pub type Int64DictionaryArray = DictionaryArray<i64>;
+pub type UInt8DictionaryArray = DictionaryArray<u8>;
+pub type UInt16DictionaryArray = DictionaryArray<u16>;
+pub type UInt32DictionaryArray = DictionaryArray<u32>;
+pub type UInt64DictionaryArray = DictionaryArray<u64>;
 
+/*
 pub type TimestampSecondArray = PrimitiveArray<TimestampSecondType>;
 pub type TimestampMillisecondArray = PrimitiveArray<TimestampMillisecondType>;
 pub type TimestampMicrosecondArray = PrimitiveArray<TimestampMicrosecondType>;
@@ -169,6 +170,7 @@ pub type DurationSecondArray = PrimitiveArray<DurationSecondType>;
 pub type DurationMillisecondArray = PrimitiveArray<DurationMillisecondType>;
 pub type DurationMicrosecondArray = PrimitiveArray<DurationMicrosecondType>;
 pub type DurationNanosecondArray = PrimitiveArray<DurationNanosecondType>;
+*/
 
 pub use self::array_binary::BinaryOffsetSizeTrait;
 pub use self::array_binary::GenericBinaryArray;
@@ -227,16 +229,16 @@ pub use self::builder::StringDictionaryBuilder;
 pub use self::builder::StructBuilder;
 pub use self::builder::UnionBuilder;
 
-pub type Int8Builder = PrimitiveBuilder<Int8Type>;
-pub type Int16Builder = PrimitiveBuilder<Int16Type>;
-pub type Int32Builder = PrimitiveBuilder<Int32Type>;
-pub type Int64Builder = PrimitiveBuilder<Int64Type>;
-pub type UInt8Builder = PrimitiveBuilder<UInt8Type>;
-pub type UInt16Builder = PrimitiveBuilder<UInt16Type>;
-pub type UInt32Builder = PrimitiveBuilder<UInt32Type>;
-pub type UInt64Builder = PrimitiveBuilder<UInt64Type>;
-pub type Float32Builder = PrimitiveBuilder<Float32Type>;
-pub type Float64Builder = PrimitiveBuilder<Float64Type>;
+pub type Int8Builder = PrimitiveBuilder<i8>;
+pub type Int16Builder = PrimitiveBuilder<i16>;
+pub type Int32Builder = PrimitiveBuilder<i32>;
+pub type Int64Builder = PrimitiveBuilder<i64>;
+pub type UInt8Builder = PrimitiveBuilder<u8>;
+pub type UInt16Builder = PrimitiveBuilder<u16>;
+pub type UInt32Builder = PrimitiveBuilder<u32>;
+pub type UInt64Builder = PrimitiveBuilder<u64>;
+pub type Float32Builder = PrimitiveBuilder<f32>;
+pub type Float64Builder = PrimitiveBuilder<f64>;
 
 pub type TimestampSecondBuilder = PrimitiveBuilder<TimestampSecondType>;
 pub type TimestampMillisecondBuilder = PrimitiveBuilder<TimestampMillisecondType>;

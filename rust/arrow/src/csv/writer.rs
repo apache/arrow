@@ -47,7 +47,7 @@
 //!     None,
 //!     Some(-556132.25),
 //! ]);
-//! let c3 = PrimitiveArray::<UInt32Type>::from(vec![3, 2, 1]);
+//! let c3 = PrimitiveArray::<u32>::from(vec![3, 2, 1]);
 //! let c4 = BooleanArray::from(vec![Some(true), Some(false), None]);
 //!
 //! let batch = RecordBatch::try_new(
@@ -79,8 +79,7 @@ const DEFAULT_TIMESTAMP_FORMAT: &str = "%FT%H:%M:%S.%9f";
 
 fn write_primitive_value<T>(array: &ArrayRef, i: usize) -> String
 where
-    T: ArrowNumericType,
-    T::Native: lexical_core::ToLexical,
+    T: ArrowNativeType + lexical_core::ToLexical,
 {
     let c = array.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
     lexical_to_string(c.value(i))
@@ -147,9 +146,9 @@ impl<W: Write> Writer<W> {
                 DataType::Int16 => write_primitive_value::<Int16Type>(col, row_index),
                 DataType::Int32 => write_primitive_value::<Int32Type>(col, row_index),
                 DataType::Int64 => write_primitive_value::<Int64Type>(col, row_index),
-                DataType::UInt8 => write_primitive_value::<UInt8Type>(col, row_index),
+                DataType::UInt8 => write_primitive_value::<u8>(col, row_index),
                 DataType::UInt16 => write_primitive_value::<UInt16Type>(col, row_index),
-                DataType::UInt32 => write_primitive_value::<UInt32Type>(col, row_index),
+                DataType::UInt32 => write_primitive_value::<u32>(col, row_index),
                 DataType::UInt64 => write_primitive_value::<UInt64Type>(col, row_index),
                 DataType::Boolean => {
                     let c = col.as_any().downcast_ref::<BooleanArray>().unwrap();
@@ -432,7 +431,7 @@ mod tests {
             None,
             Some(-556132.25),
         ]);
-        let c3 = PrimitiveArray::<UInt32Type>::from(vec![3, 2, 1]);
+        let c3 = PrimitiveArray::<u32>::from(vec![3, 2, 1]);
         let c4 = BooleanArray::from(vec![Some(true), Some(false), None]);
         let c5 = TimestampMillisecondArray::from_opt_vec(
             vec![None, Some(1555584887378), Some(1555555555555)],
@@ -499,7 +498,7 @@ sed do eiusmod tempor,-556132.25,1,,2019-04-18T02:45:55.555000000,23:46:03
             None,
             Some(-556132.25),
         ]);
-        let c3 = PrimitiveArray::<UInt32Type>::from(vec![3, 2, 1]);
+        let c3 = PrimitiveArray::<u32>::from(vec![3, 2, 1]);
         let c4 = BooleanArray::from(vec![Some(true), Some(false), None]);
         let c6 = Time32SecondArray::from(vec![1234, 24680, 85563]);
 
@@ -560,7 +559,7 @@ sed do eiusmod tempor,-556132.25,1,,2019-04-18T02:45:55.555000000,23:46:03
             None,
             Some(-556132.25),
         ]);
-        let c3 = PrimitiveArray::<UInt32Type>::from(vec![3, 2, 1]);
+        let c3 = PrimitiveArray::<u32>::from(vec![3, 2, 1]);
         let c4 = BooleanArray::from(vec![Some(true), Some(false), None]);
         let c5 = TimestampMillisecondArray::from_opt_vec(
             vec![None, Some(1555584887378), Some(1555555555555)],

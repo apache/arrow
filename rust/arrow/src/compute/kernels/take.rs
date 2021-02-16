@@ -82,8 +82,7 @@ pub fn take<IndexType>(
     options: Option<TakeOptions>,
 ) -> Result<ArrayRef>
 where
-    IndexType: ArrowNumericType,
-    IndexType::Native: ToPrimitive,
+    IndexType: ArrowNativeType + ToPrimitive,
 {
     take_impl(values, indices, options)
 }
@@ -94,8 +93,7 @@ fn take_impl<IndexType>(
     options: Option<TakeOptions>,
 ) -> Result<ArrayRef>
 where
-    IndexType: ArrowNumericType,
-    IndexType::Native: ToPrimitive,
+    IndexType: ArrowNativeType + ToPrimitive,
 {
     let options = options.unwrap_or_default();
     if options.check_bounds {
@@ -118,40 +116,20 @@ where
             let values = values.as_any().downcast_ref::<BooleanArray>().unwrap();
             Ok(Arc::new(take_boolean(values, indices)?))
         }
-        DataType::Int8 => downcast_take!(Int8Type, values, indices),
-        DataType::Int16 => downcast_take!(Int16Type, values, indices),
-        DataType::Int32 => downcast_take!(Int32Type, values, indices),
-        DataType::Int64 => downcast_take!(Int64Type, values, indices),
-        DataType::UInt8 => downcast_take!(UInt8Type, values, indices),
-        DataType::UInt16 => downcast_take!(UInt16Type, values, indices),
-        DataType::UInt32 => downcast_take!(UInt32Type, values, indices),
-        DataType::UInt64 => downcast_take!(UInt64Type, values, indices),
-        DataType::Float32 => downcast_take!(Float32Type, values, indices),
-        DataType::Float64 => downcast_take!(Float64Type, values, indices),
-        DataType::Date32 => downcast_take!(Date32Type, values, indices),
-        DataType::Date64 => downcast_take!(Date64Type, values, indices),
-        DataType::Time32(Second) => downcast_take!(Time32SecondType, values, indices),
-        DataType::Time32(Millisecond) => {
-            downcast_take!(Time32MillisecondType, values, indices)
+        DataType::Int8 => downcast_take!(i8, values, indices),
+        DataType::Int16 => downcast_take!(i16, values, indices),
+        DataType::Int32 | DataType::Time32 => downcast_take!(i32, values, indices),
+        DataType::Int64 | DataType::Time64 | DataType::Timestamp(_, _) => {
+            downcast_take!(i64, values, indices)
         }
-        DataType::Time64(Microsecond) => {
-            downcast_take!(Time64MicrosecondType, values, indices)
-        }
-        DataType::Time64(Nanosecond) => {
-            downcast_take!(Time64NanosecondType, values, indices)
-        }
-        DataType::Timestamp(Second, _) => {
-            downcast_take!(TimestampSecondType, values, indices)
-        }
-        DataType::Timestamp(Millisecond, _) => {
-            downcast_take!(TimestampMillisecondType, values, indices)
-        }
-        DataType::Timestamp(Microsecond, _) => {
-            downcast_take!(TimestampMicrosecondType, values, indices)
-        }
-        DataType::Timestamp(Nanosecond, _) => {
-            downcast_take!(TimestampNanosecondType, values, indices)
-        }
+        DataType::UInt8 => downcast_take!(u8, values, indices),
+        DataType::UInt16 => downcast_take!(u16, values, indices),
+        DataType::UInt32 => downcast_take!(u32, values, indices),
+        DataType::UInt64 => downcast_take!(u64, values, indices),
+        DataType::Float32 => downcast_take!(f32, values, indices),
+        DataType::Float64 => downcast_take!(f64, values, indices),
+        DataType::Date32 => downcast_take!(i32, values, indices),
+        DataType::Date64 => downcast_take!(i64, values, indices),
         DataType::Interval(IntervalUnit::YearMonth) => {
             downcast_take!(IntervalYearMonthType, values, indices)
         }
@@ -189,14 +167,14 @@ where
                 .as_any()
                 .downcast_ref::<GenericListArray<i32>>()
                 .unwrap();
-            Ok(Arc::new(take_list::<_, Int32Type>(values, indices)?))
+            Ok(Arc::new(take_list::<_, i32>(values, indices)?))
         }
         DataType::LargeList(_) => {
             let values = values
                 .as_any()
                 .downcast_ref::<GenericListArray<i64>>()
                 .unwrap();
-            Ok(Arc::new(take_list::<_, Int64Type>(values, indices)?))
+            Ok(Arc::new(take_list::<_, i64>(values, indices)?))
         }
         DataType::FixedSizeList(_, length) => {
             let values = values
@@ -223,14 +201,14 @@ where
             Ok(Arc::new(StructArray::from(pairs)) as ArrayRef)
         }
         DataType::Dictionary(key_type, _) => match key_type.as_ref() {
-            DataType::Int8 => downcast_dict_take!(Int8Type, values, indices),
-            DataType::Int16 => downcast_dict_take!(Int16Type, values, indices),
-            DataType::Int32 => downcast_dict_take!(Int32Type, values, indices),
-            DataType::Int64 => downcast_dict_take!(Int64Type, values, indices),
-            DataType::UInt8 => downcast_dict_take!(UInt8Type, values, indices),
-            DataType::UInt16 => downcast_dict_take!(UInt16Type, values, indices),
-            DataType::UInt32 => downcast_dict_take!(UInt32Type, values, indices),
-            DataType::UInt64 => downcast_dict_take!(UInt64Type, values, indices),
+            DataType::Int8 => downcast_dict_take!(i8, values, indices),
+            DataType::Int16 => downcast_dict_take!(i16, values, indices),
+            DataType::Int32 => downcast_dict_take!(i32, values, indices),
+            DataType::Int64 => downcast_dict_take!(i64, values, indices),
+            DataType::UInt8 => downcast_dict_take!(u8, values, indices),
+            DataType::UInt16 => downcast_dict_take!(u16, values, indices),
+            DataType::UInt32 => downcast_dict_take!(u32, values, indices),
+            DataType::UInt64 => downcast_dict_take!(u64, values, indices),
             t => unimplemented!("Take not supported for dictionary key type {:?}", t),
         },
         t => unimplemented!("Take not supported for data type {:?}", t),
@@ -268,10 +246,8 @@ fn take_primitive<T, I>(
     indices: &PrimitiveArray<I>,
 ) -> Result<PrimitiveArray<T>>
 where
-    T: ArrowPrimitiveType,
-    T::Native: num::Num,
-    I: ArrowNumericType,
-    I::Native: ToPrimitive,
+    T: ArrowNativeType,
+    I: ArrowNativeType,
 {
     let data_len = indices.len();
 
@@ -321,7 +297,7 @@ where
     }
 
     let data = ArrayData::new(
-        T::DATA_TYPE,
+        values.data_type().clone(),
         indices.len(),
         None,
         nulls,
@@ -338,8 +314,7 @@ fn take_boolean<IndexType>(
     indices: &PrimitiveArray<IndexType>,
 ) -> Result<BooleanArray>
 where
-    IndexType: ArrowNumericType,
-    IndexType::Native: ToPrimitive,
+    IndexType: ArrowNativeType + ToPrimitive,
 {
     let data_len = indices.len();
 
@@ -414,8 +389,7 @@ fn take_string<OffsetSize, IndexType>(
 ) -> Result<GenericStringArray<OffsetSize>>
 where
     OffsetSize: Zero + AddAssign + StringOffsetSizeTrait,
-    IndexType: ArrowNumericType,
-    IndexType::Native: ToPrimitive,
+    IndexType: ArrowNativeType + ToPrimitive,
 {
     let data_len = indices.len();
 
@@ -526,15 +500,13 @@ where
 /// applying `take` on the inner array, then reconstructing a list array
 /// with the indexed offsets
 fn take_list<IndexType, OffsetType>(
-    values: &GenericListArray<OffsetType::Native>,
+    values: &GenericListArray<OffsetType>,
     indices: &PrimitiveArray<IndexType>,
-) -> Result<GenericListArray<OffsetType::Native>>
+) -> Result<GenericListArray<OffsetType>>
 where
-    IndexType: ArrowNumericType,
-    IndexType::Native: ToPrimitive,
-    OffsetType: ArrowNumericType,
-    OffsetType::Native: ToPrimitive + OffsetSizeTrait,
-    PrimitiveArray<OffsetType>: From<Vec<Option<OffsetType::Native>>>,
+    IndexType: ArrowNativeType + ToPrimitive,
+    OffsetType: OffsetSizeTrait,
+    PrimitiveArray<OffsetType>: From<Vec<Option<OffsetType>>>,
 {
     // TODO: Some optimizations can be done here such as if it is
     // taking the whole list or a contiguous sublist
@@ -578,14 +550,13 @@ where
 fn take_fixed_size_list<IndexType>(
     values: &FixedSizeListArray,
     indices: &PrimitiveArray<IndexType>,
-    length: <UInt32Type as ArrowPrimitiveType>::Native,
+    length: u32,
 ) -> Result<FixedSizeListArray>
 where
-    IndexType: ArrowNumericType,
-    IndexType::Native: ToPrimitive,
+    IndexType: ArrowNativeType + ToPrimitive,
 {
     let list_indices = take_value_indices_from_fixed_size_list(values, indices, length)?;
-    let taken = take_impl::<UInt32Type>(values.values().as_ref(), &list_indices, None)?;
+    let taken = take_impl::<u32>(values.values().as_ref(), &list_indices, None)?;
 
     // determine null count and null buffer, which are a function of `values` and `indices`
     let num_bytes = bit_util::ceil(indices.len(), 8);
@@ -620,10 +591,8 @@ fn take_dict<T, I>(
     indices: &PrimitiveArray<I>,
 ) -> Result<DictionaryArray<T>>
 where
-    T: ArrowPrimitiveType,
-    T::Native: num::Num,
-    I: ArrowNumericType,
-    I::Native: ToPrimitive,
+    T: ArrowDictionaryKeyType,
+    I: ArrowNativeType + num::Num,
 {
     let new_keys = take_primitive::<T, I>(&values.keys_array(), indices)?;
     let new_keys_data = new_keys.data_ref();
@@ -659,13 +628,13 @@ mod tests {
     }
 
     fn test_take_primitive_arrays<T>(
-        data: Vec<Option<T::Native>>,
+        data: Vec<Option<T>>,
         index: &UInt32Array,
         options: Option<TakeOptions>,
-        expected_data: Vec<Option<T::Native>>,
+        expected_data: Vec<Option<T>>,
     ) where
-        T: ArrowPrimitiveType,
-        PrimitiveArray<T>: From<Vec<Option<T::Native>>>,
+        T: ArrowNativeType,
+        PrimitiveArray<T>: From<Vec<Option<T>>>,
     {
         let output = PrimitiveArray::<T>::from(data);
         let expected = Arc::new(PrimitiveArray::<T>::from(expected_data)) as ArrayRef;
@@ -674,15 +643,14 @@ mod tests {
     }
 
     fn test_take_impl_primitive_arrays<T, I>(
-        data: Vec<Option<T::Native>>,
+        data: Vec<Option<T>>,
         index: &PrimitiveArray<I>,
         options: Option<TakeOptions>,
-        expected_data: Vec<Option<T::Native>>,
+        expected_data: Vec<Option<T>>,
     ) where
-        T: ArrowPrimitiveType,
-        PrimitiveArray<T>: From<Vec<Option<T::Native>>>,
-        I: ArrowNumericType,
-        I::Native: ToPrimitive,
+        T: ArrowNativeType,
+        PrimitiveArray<T>: From<Vec<Option<T>>>,
+        I: ArrowNativeType + ToPrimitive,
     {
         let output = PrimitiveArray::<T>::from(data);
         let expected = PrimitiveArray::<T>::from(expected_data);
@@ -743,7 +711,7 @@ mod tests {
         );
 
         // uint8
-        test_take_primitive_arrays::<UInt8Type>(
+        test_take_primitive_arrays::<u8>(
             vec![Some(0), None, Some(2), Some(3), None],
             &index,
             None,
@@ -759,7 +727,7 @@ mod tests {
         );
 
         // uint32
-        test_take_primitive_arrays::<UInt32Type>(
+        test_take_primitive_arrays::<u32>(
             vec![Some(0), None, Some(2), Some(3), None],
             &index,
             None,
@@ -889,7 +857,7 @@ mod tests {
         let index = UInt8Array::from(vec![Some(3), None, Some(1), Some(3), Some(2)]);
 
         // int16
-        test_take_impl_primitive_arrays::<Int16Type, UInt8Type>(
+        test_take_impl_primitive_arrays::<Int16Type, u8>(
             vec![Some(0), None, Some(2), Some(3), None],
             &index,
             None,
@@ -897,7 +865,7 @@ mod tests {
         );
 
         // duration_millisecond
-        test_take_impl_primitive_arrays::<DurationMillisecondType, UInt8Type>(
+        test_take_impl_primitive_arrays::<DurationMillisecondType, u8>(
             vec![Some(0), None, Some(2), Some(-15), None],
             &index,
             None,
@@ -905,7 +873,7 @@ mod tests {
         );
 
         // float32
-        test_take_impl_primitive_arrays::<Float32Type, UInt8Type>(
+        test_take_impl_primitive_arrays::<Float32Type, u8>(
             vec![Some(0.0), None, Some(2.21), Some(-3.1), None],
             &index,
             None,
@@ -1167,7 +1135,7 @@ mod tests {
     fn do_take_fixed_size_list_test<T>(
         length: <Int32Type as ArrowPrimitiveType>::Native,
         input_data: Vec<Option<Vec<Option<T::Native>>>>,
-        indices: Vec<<UInt32Type as ArrowPrimitiveType>::Native>,
+        indices: Vec<<u32 as ArrowPrimitiveType>::Native>,
         expected_data: Vec<Option<Vec<Option<T::Native>>>>,
     ) where
         T: ArrowPrimitiveType,
@@ -1231,7 +1199,7 @@ mod tests {
             ],
         );
 
-        do_take_fixed_size_list_test::<UInt8Type>(
+        do_take_fixed_size_list_test::<u8>(
             1,
             vec![
                 Some(vec![Some(1)]),
@@ -1368,7 +1336,7 @@ mod tests {
 
     #[test]
     fn test_take_dict() {
-        let keys_builder = Int16Builder::new(8);
+        let keys_builder = Int16Builder::new(8, DataType::Int16);
         let values_builder = StringBuilder::new(4);
 
         let mut dict_builder = StringDictionaryBuilder::new(keys_builder, values_builder);

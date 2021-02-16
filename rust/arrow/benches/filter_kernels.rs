@@ -21,7 +21,7 @@ use arrow::util::bench_util::*;
 
 use arrow::array::*;
 use arrow::compute::{build_filter, filter};
-use arrow::datatypes::{Float32Type, UInt8Type};
+use arrow::datatypes::{u8, Float32Type};
 
 use criterion::{criterion_group, criterion_main, Criterion};
 
@@ -43,7 +43,7 @@ fn add_benchmark(c: &mut Criterion) {
     let dense_filter = build_filter(&dense_filter_array).unwrap();
     let sparse_filter = build_filter(&sparse_filter_array).unwrap();
 
-    let data_array = create_primitive_array::<UInt8Type>(size, 0.0);
+    let data_array = create_primitive_array::<u8>(size, 0.0);
 
     c.bench_function("filter u8", |b| {
         b.iter(|| bench_filter(&data_array, &filter_array))
@@ -65,7 +65,7 @@ fn add_benchmark(c: &mut Criterion) {
         b.iter(|| bench_built_filter(&sparse_filter, &data_array))
     });
 
-    let data_array = create_primitive_array::<UInt8Type>(size, 0.5);
+    let data_array = create_primitive_array::<u8>(size, 0.5);
     c.bench_function("filter context u8 w NULLs", |b| {
         b.iter(|| bench_built_filter(&filter, &data_array))
     });

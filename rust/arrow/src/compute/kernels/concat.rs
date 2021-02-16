@@ -223,9 +223,7 @@ mod tests {
 
     #[test]
     fn test_concat_primitive_list_arrays() -> Result<()> {
-        fn populate_list1(
-            b: &mut ListBuilder<PrimitiveBuilder<Int64Type>>,
-        ) -> Result<()> {
+        fn populate_list1(b: &mut ListBuilder<PrimitiveBuilder<i64>>) -> Result<()> {
             b.values().append_value(-1)?;
             b.values().append_value(-1)?;
             b.values().append_value(2)?;
@@ -239,9 +237,7 @@ mod tests {
             Ok(())
         }
 
-        fn populate_list2(
-            b: &mut ListBuilder<PrimitiveBuilder<Int64Type>>,
-        ) -> Result<()> {
+        fn populate_list2(b: &mut ListBuilder<PrimitiveBuilder<i64>>) -> Result<()> {
             b.append(false)?;
             b.values().append_value(100)?;
             b.values().append_null()?;
@@ -252,9 +248,7 @@ mod tests {
             Ok(())
         }
 
-        fn populate_list3(
-            b: &mut ListBuilder<PrimitiveBuilder<Int64Type>>,
-        ) -> Result<()> {
+        fn populate_list3(b: &mut ListBuilder<PrimitiveBuilder<i64>>) -> Result<()> {
             b.values().append_value(1000)?;
             b.values().append_value(1001)?;
             b.append(true)?;

@@ -21,8 +21,8 @@
 
 use crate::array::Array;
 use crate::datatypes::{
-    ArrowNativeType, ArrowPrimitiveType, DataType, Int16Type, Int32Type, Int64Type,
-    Int8Type, TimeUnit, UInt16Type, UInt32Type, UInt64Type, UInt8Type,
+    u32, u8, ArrowNativeType, ArrowPrimitiveType, DataType, Int16Type, Int32Type,
+    Int64Type, Int8Type, TimeUnit, UInt16Type, UInt64Type,
 };
 use crate::{array, datatypes::IntervalUnit};
 
@@ -257,9 +257,9 @@ pub fn array_value_to_string(column: &array::ArrayRef, row: usize) -> Result<Str
             DataType::Int16 => dict_array_value_to_string::<Int16Type>(column, row),
             DataType::Int32 => dict_array_value_to_string::<Int32Type>(column, row),
             DataType::Int64 => dict_array_value_to_string::<Int64Type>(column, row),
-            DataType::UInt8 => dict_array_value_to_string::<UInt8Type>(column, row),
+            DataType::UInt8 => dict_array_value_to_string::<u8>(column, row),
             DataType::UInt16 => dict_array_value_to_string::<UInt16Type>(column, row),
-            DataType::UInt32 => dict_array_value_to_string::<UInt32Type>(column, row),
+            DataType::UInt32 => dict_array_value_to_string::<u32>(column, row),
             DataType::UInt64 => dict_array_value_to_string::<UInt64Type>(column, row),
             _ => Err(ArrowError::InvalidArgumentError(format!(
                 "Pretty printing not supported for {:?} due to index type",

@@ -23,7 +23,7 @@ use std::sync::Arc;
 
 use crate::{
     array::{make_array, ArrayData, PrimitiveArray},
-    datatypes::ArrowPrimitiveType,
+    datatypes::ArrowNativeType,
     error::Result,
 };
 use crate::{
@@ -48,7 +48,7 @@ use crate::{
 /// ```
 pub fn shift<T>(values: &PrimitiveArray<T>, offset: i64) -> Result<ArrayRef>
 where
-    T: ArrowPrimitiveType,
+    T: ArrowNativeType,
 {
     // Compute slice
     let slice_offset = clamp(-offset, 0, values.len() as i64) as usize;
@@ -64,7 +64,7 @@ where
     null_data.extend_zeros(nulls * T::get_byte_width());
 
     let null_data = ArrayData::new(
-        T::DATA_TYPE,
+        values.data_type().clone(),
         nulls as usize,
         Some(nulls),
         Some(null_array.into()),

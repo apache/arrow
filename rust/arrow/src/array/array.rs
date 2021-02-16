@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use std::fmt;
 use std::sync::Arc;
 use std::{any::Any, convert::TryFrom};
+use std::{fmt, u8};
 
 use super::ArrayDataRef;
 use super::*;
@@ -222,59 +222,27 @@ pub fn make_array(data: ArrayDataRef) -> ArrayRef {
         DataType::Boolean => Arc::new(BooleanArray::from(data)) as ArrayRef,
         DataType::Int8 => Arc::new(Int8Array::from(data)) as ArrayRef,
         DataType::Int16 => Arc::new(Int16Array::from(data)) as ArrayRef,
-        DataType::Int32 => Arc::new(Int32Array::from(data)) as ArrayRef,
-        DataType::Int64 => Arc::new(Int64Array::from(data)) as ArrayRef,
+        DataType::Int32
+        | DataType::Date32
+        | DataType::Time32(_)
+        | DataType::Interval(IntervalUnit::YearMonth) => {
+            Arc::new(Int32Array::from(data)) as ArrayRef
+        }
+        DataType::Int64
+        | DataType::Date64
+        | DataType::Time64(_)
+        | DataType::Timestamp(_, _)
+        | DataType::Duration(_)
+        | DataType::Interval(IntervalUnit::DayTime) => {
+            Arc::new(Int64Array::from(data)) as ArrayRef
+        }
         DataType::UInt8 => Arc::new(UInt8Array::from(data)) as ArrayRef,
         DataType::UInt16 => Arc::new(UInt16Array::from(data)) as ArrayRef,
         DataType::UInt32 => Arc::new(UInt32Array::from(data)) as ArrayRef,
         DataType::UInt64 => Arc::new(UInt64Array::from(data)) as ArrayRef,
         DataType::Float16 => panic!("Float16 datatype not supported"),
-        DataType::Float32 => Arc::new(Float32Array::from(data)) as ArrayRef,
-        DataType::Float64 => Arc::new(Float64Array::from(data)) as ArrayRef,
-        DataType::Date32 => Arc::new(Date32Array::from(data)) as ArrayRef,
-        DataType::Date64 => Arc::new(Date64Array::from(data)) as ArrayRef,
-        DataType::Time32(TimeUnit::Second) => {
-            Arc::new(Time32SecondArray::from(data)) as ArrayRef
-        }
-        DataType::Time32(TimeUnit::Millisecond) => {
-            Arc::new(Time32MillisecondArray::from(data)) as ArrayRef
-        }
-        DataType::Time64(TimeUnit::Microsecond) => {
-            Arc::new(Time64MicrosecondArray::from(data)) as ArrayRef
-        }
-        DataType::Time64(TimeUnit::Nanosecond) => {
-            Arc::new(Time64NanosecondArray::from(data)) as ArrayRef
-        }
-        DataType::Timestamp(TimeUnit::Second, _) => {
-            Arc::new(TimestampSecondArray::from(data)) as ArrayRef
-        }
-        DataType::Timestamp(TimeUnit::Millisecond, _) => {
-            Arc::new(TimestampMillisecondArray::from(data)) as ArrayRef
-        }
-        DataType::Timestamp(TimeUnit::Microsecond, _) => {
-            Arc::new(TimestampMicrosecondArray::from(data)) as ArrayRef
-        }
-        DataType::Timestamp(TimeUnit::Nanosecond, _) => {
-            Arc::new(TimestampNanosecondArray::from(data)) as ArrayRef
-        }
-        DataType::Interval(IntervalUnit::YearMonth) => {
-            Arc::new(IntervalYearMonthArray::from(data)) as ArrayRef
-        }
-        DataType::Interval(IntervalUnit::DayTime) => {
-            Arc::new(IntervalDayTimeArray::from(data)) as ArrayRef
-        }
-        DataType::Duration(TimeUnit::Second) => {
-            Arc::new(DurationSecondArray::from(data)) as ArrayRef
-        }
-        DataType::Duration(TimeUnit::Millisecond) => {
-            Arc::new(DurationMillisecondArray::from(data)) as ArrayRef
-        }
-        DataType::Duration(TimeUnit::Microsecond) => {
-            Arc::new(DurationMicrosecondArray::from(data)) as ArrayRef
-        }
-        DataType::Duration(TimeUnit::Nanosecond) => {
-            Arc::new(DurationNanosecondArray::from(data)) as ArrayRef
-        }
+        DataType::Float32 => Arc::new(PrimitiveArray::<f32>::from(data)) as ArrayRef,
+        DataType::Float64 => Arc::new(PrimitiveArray::<f64>::from(data)) as ArrayRef,
         DataType::Binary => Arc::new(BinaryArray::from(data)) as ArrayRef,
         DataType::LargeBinary => Arc::new(LargeBinaryArray::from(data)) as ArrayRef,
         DataType::FixedSizeBinary(_) => {
@@ -290,30 +258,14 @@ pub fn make_array(data: ArrayDataRef) -> ArrayRef {
             Arc::new(FixedSizeListArray::from(data)) as ArrayRef
         }
         DataType::Dictionary(ref key_type, _) => match key_type.as_ref() {
-            DataType::Int8 => {
-                Arc::new(DictionaryArray::<Int8Type>::from(data)) as ArrayRef
-            }
-            DataType::Int16 => {
-                Arc::new(DictionaryArray::<Int16Type>::from(data)) as ArrayRef
-            }
-            DataType::Int32 => {
-                Arc::new(DictionaryArray::<Int32Type>::from(data)) as ArrayRef
-            }
-            DataType::Int64 => {
-                Arc::new(DictionaryArray::<Int64Type>::from(data)) as ArrayRef
-            }
-            DataType::UInt8 => {
-                Arc::new(DictionaryArray::<UInt8Type>::from(data)) as ArrayRef
-            }
-            DataType::UInt16 => {
-                Arc::new(DictionaryArray::<UInt16Type>::from(data)) as ArrayRef
-            }
-            DataType::UInt32 => {
-                Arc::new(DictionaryArray::<UInt32Type>::from(data)) as ArrayRef
-            }
-            DataType::UInt64 => {
-                Arc::new(DictionaryArray::<UInt64Type>::from(data)) as ArrayRef
-            }
+            DataType::Int8 => Arc::new(DictionaryArray::<i8>::from(data)) as ArrayRef,
+            DataType::Int16 => Arc::new(DictionaryArray::<i16>::from(data)) as ArrayRef,
+            DataType::Int32 => Arc::new(DictionaryArray::<i32>::from(data)) as ArrayRef,
+            DataType::Int64 => Arc::new(DictionaryArray::<i64>::from(data)) as ArrayRef,
+            DataType::UInt8 => Arc::new(DictionaryArray::<u8>::from(data)) as ArrayRef,
+            DataType::UInt16 => Arc::new(DictionaryArray::<u16>::from(data)) as ArrayRef,
+            DataType::UInt32 => Arc::new(DictionaryArray::<u32>::from(data)) as ArrayRef,
+            DataType::UInt64 => Arc::new(DictionaryArray::<u64>::from(data)) as ArrayRef,
             dt => panic!("Unexpected dictionary key type {:?}", dt),
         },
         DataType::Null => Arc::new(NullArray::from(data)) as ArrayRef,
@@ -344,24 +296,22 @@ pub fn new_null_array(data_type: &DataType, length: usize) -> ArrayRef {
                 vec![],
             )))
         }
-        DataType::Int8 => new_null_sized_array::<Int8Type>(data_type, length),
-        DataType::UInt8 => new_null_sized_array::<UInt8Type>(data_type, length),
-        DataType::Int16 => new_null_sized_array::<Int16Type>(data_type, length),
-        DataType::UInt16 => new_null_sized_array::<UInt16Type>(data_type, length),
+        DataType::Int8 => new_null_sized_array::<i8>(data_type, length),
+        DataType::UInt8 => new_null_sized_array::<u8>(data_type, length),
+        DataType::Int16 => new_null_sized_array::<i16>(data_type, length),
+        DataType::UInt16 => new_null_sized_array::<u16>(data_type, length),
         DataType::Float16 => unreachable!(),
-        DataType::Int32 => new_null_sized_array::<Int32Type>(data_type, length),
-        DataType::UInt32 => new_null_sized_array::<UInt32Type>(data_type, length),
-        DataType::Float32 => new_null_sized_array::<Float32Type>(data_type, length),
-        DataType::Date32 => new_null_sized_array::<Date32Type>(data_type, length),
-        // expanding this into Date23{unit}Type results in needless branching
-        DataType::Time32(_) => new_null_sized_array::<Int32Type>(data_type, length),
-        DataType::Int64 => new_null_sized_array::<Int64Type>(data_type, length),
-        DataType::UInt64 => new_null_sized_array::<UInt64Type>(data_type, length),
-        DataType::Float64 => new_null_sized_array::<Float64Type>(data_type, length),
-        DataType::Date64 => new_null_sized_array::<Date64Type>(data_type, length),
-        // expanding this into Timestamp{unit}Type results in needless branching
-        DataType::Timestamp(_, _) => new_null_sized_array::<Int64Type>(data_type, length),
-        DataType::Time64(_) => new_null_sized_array::<Int64Type>(data_type, length),
+        DataType::Int32 | DataType::Date32 | DataType::Time32(_) => {
+            new_null_sized_array::<i32>(data_type, length)
+        }
+        DataType::UInt32 => new_null_sized_array::<u32>(data_type, length),
+        DataType::Float32 => new_null_sized_array::<f32>(data_type, length),
+        DataType::Int64
+        | DataType::Date64
+        | DataType::Timestamp(_, _)
+        | DataType::Time64(_) => new_null_sized_array::<i64>(data_type, length),
+        DataType::UInt64 => new_null_sized_array::<u64>(data_type, length),
+        DataType::Float64 => new_null_sized_array::<f64>(data_type, length),
         DataType::Duration(_) => new_null_sized_array::<Int64Type>(data_type, length),
         DataType::Interval(unit) => match unit {
             IntervalUnit::YearMonth => {
@@ -477,7 +427,7 @@ fn new_null_binary_array<OffsetSize: OffsetSizeTrait>(
 }
 
 #[inline]
-fn new_null_sized_array<T: ArrowPrimitiveType>(
+fn new_null_sized_array<T: ArrowNativeType>(
     data_type: &DataType,
     length: usize,
 ) -> ArrayRef {

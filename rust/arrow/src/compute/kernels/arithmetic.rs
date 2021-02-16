@@ -25,14 +25,14 @@
 use std::ops::{Add, Div, Mul, Neg, Sub};
 use std::sync::Arc;
 
-use num::{One, Zero};
+use num::{Float, One, Signed, Zero};
 
 use crate::buffer::Buffer;
 #[cfg(simd)]
 use crate::buffer::MutableBuffer;
 use crate::compute::{kernels::arity::unary, util::combine_option_bitmap};
 use crate::datatypes;
-use crate::datatypes::ArrowNumericType;
+use crate::datatypes::ArrowNativeType;
 use crate::error::{ArrowError, Result};
 use crate::{array::*, util::bit_util};
 use num::traits::Pow;
@@ -51,10 +51,10 @@ fn simd_signed_unary_math_op<T, SIMD_OP, SCALAR_OP>(
 where
     T: datatypes::ArrowSignedNumericType,
     SIMD_OP: Fn(T::SignedSimd) -> T::SignedSimd,
-    SCALAR_OP: Fn(T::Native) -> T::Native,
+    SCALAR_OP: Fn(T) -> T,
 {
     let lanes = T::lanes();
-    let buffer_size = array.len() * std::mem::size_of::<T::Native>();
+    let buffer_size = array.len() * std::mem::size_of::<T>();
     let mut result = MutableBuffer::new(buffer_size).with_bitset(buffer_size, false);
 
     let mut result_chunks = result.typed_data_mut().chunks_exact_mut(lanes);
@@ -99,10 +99,10 @@ fn simd_float_unary_math_op<T, SIMD_OP, SCALAR_OP>(
 where
     T: datatypes::ArrowFloatNumericType,
     SIMD_OP: Fn(T::Simd) -> T::Simd,
-    SCALAR_OP: Fn(T::Native) -> T::Native,
+    SCALAR_OP: Fn(T) -> T,
 {
     let lanes = T::lanes();
-    let buffer_size = array.len() * std::mem::size_of::<T::Native>();
+    let buffer_size = array.len() * std::mem::size_of::<T>();
 
     let mut result = MutableBuffer::new(buffer_size).with_bitset(buffer_size, false);
 
@@ -152,8 +152,8 @@ pub fn math_op<T, F>(
     op: F,
 ) -> Result<PrimitiveArray<T>>
 where
-    T: ArrowNumericType,
-    F: Fn(T::Native, T::Native) -> T::Native,
+    T: ArrowNativeType,
+    F: Fn(T, T) -> T,
 {
     if left.len() != right.len() {
         return Err(ArrowError::ComputeError(
@@ -177,7 +177,7 @@ where
     let buffer = unsafe { Buffer::from_trusted_len_iter(values) };
 
     let data = ArrayData::new(
-        T::DATA_TYPE,
+        left.data_type().clone(),
         left.len(),
         None,
         null_bit_buffer,
@@ -200,8 +200,8 @@ fn math_divide<T>(
     right: &PrimitiveArray<T>,
 ) -> Result<PrimitiveArray<T>>
 where
-    T: ArrowNumericType,
-    T::Native: Div<Output = T::Native> + Zero,
+    T: ArrowNativeType,
+    T: Div<Output = T> + Zero,
 {
     if left.len() != right.len() {
         return Err(ArrowError::ComputeError(
@@ -223,7 +223,7 @@ where
                         Ok(*left / *right)
                     }
                 } else {
-                    Ok(T::default_value())
+                    Ok(T::default())
                 }
             },
         );
@@ -245,7 +245,7 @@ where
     }?;
 
     let data = ArrayData::new(
-        T::DATA_TYPE,
+        left.data_type().clone(),
         left.len(),
         None,
         null_bit_buffer,
@@ -265,9 +265,9 @@ fn simd_math_op<T, SIMD_OP, SCALAR_OP>(
     scalar_op: SCALAR_OP,
 ) -> Result<PrimitiveArray<T>>
 where
-    T: ArrowNumericType,
+    T: ArrowNativeType,
     SIMD_OP: Fn(T::Simd, T::Simd) -> T::Simd,
-    SCALAR_OP: Fn(T::Native, T::Native) -> T::Native,
+    SCALAR_OP: Fn(T, T) -> T,
 {
     if left.len() != right.len() {
         return Err(ArrowError::ComputeError(
@@ -279,7 +279,7 @@ where
         combine_option_bitmap(left.data_ref(), right.data_ref(), left.len())?;
 
     let lanes = T::lanes();
-    let buffer_size = left.len() * std::mem::size_of::<T::Native>();
+    let buffer_size = left.len() * std::mem::size_of::<T>();
     let mut result = MutableBuffer::new(buffer_size).with_bitset(buffer_size, false);
 
     let mut result_chunks = result.typed_data_mut().chunks_exact_mut(lanes);
@@ -324,16 +324,16 @@ where
 /// is returned. The contents of no-valid lanes are undefined.
 #[cfg(simd)]
 #[inline]
-fn simd_checked_divide<T: ArrowNumericType>(
+fn simd_checked_divide<T: ArrowNativeType>(
     valid_mask: Option<u64>,
     left: T::Simd,
     right: T::Simd,
 ) -> Result<T::Simd>
 where
-    T::Native: One + Zero,
+    T: One + Zero,
 {
-    let zero = T::init(T::Native::zero());
-    let one = T::init(T::Native::one());
+    let zero = T::init(T::zero());
+    let one = T::init(T::one());
 
     let right_no_invalid_zeros = match valid_mask {
         Some(mask) => {
@@ -357,14 +357,14 @@ where
 /// If any of the values marked as valid in `valid_mask` are `0` then an `ArrowError::DivideByZero` is returned.
 #[cfg(simd)]
 #[inline]
-fn simd_checked_divide_remainder<T: ArrowNumericType>(
+fn simd_checked_divide_remainder<T: ArrowNativeType>(
     valid_mask: Option<u64>,
-    left_chunks: ChunksExact<T::Native>,
-    right_chunks: ChunksExact<T::Native>,
-    result_chunks: ChunksExactMut<T::Native>,
+    left_chunks: ChunksExact<T>,
+    right_chunks: ChunksExact<T>,
+    result_chunks: ChunksExactMut<T>,
 ) -> Result<()>
 where
-    T::Native: Zero + Div<Output = T::Native>,
+    T: Zero + Div<Output = T>,
 {
     let result_remainder = result_chunks.into_remainder();
     let left_remainder = left_chunks.remainder();
@@ -376,7 +376,7 @@ where
         .enumerate()
         .try_for_each(|(i, (result_scalar, (left_scalar, right_scalar)))| {
             if valid_mask.map(|mask| mask & (1 << i) != 0).unwrap_or(true) {
-                if *right_scalar == T::Native::zero() {
+                if *right_scalar == T::zero() {
                     return Err(ArrowError::DivideByZero);
                 }
                 *result_scalar = *left_scalar / *right_scalar;
@@ -396,8 +396,8 @@ fn simd_divide<T>(
     right: &PrimitiveArray<T>,
 ) -> Result<PrimitiveArray<T>>
 where
-    T: ArrowNumericType,
-    T::Native: One + Zero + Div<Output = T::Native>,
+    T: ArrowNativeType,
+    T: One + Zero + Div<Output = T>,
 {
     if left.len() != right.len() {
         return Err(ArrowError::ComputeError(
@@ -410,7 +410,7 @@ where
         combine_option_bitmap(left.data_ref(), right.data_ref(), left.len())?;
 
     let lanes = T::lanes();
-    let buffer_size = left.len() * std::mem::size_of::<T::Native>();
+    let buffer_size = left.len() * std::mem::size_of::<T>();
     let mut result = MutableBuffer::new(buffer_size).with_bitset(buffer_size, false);
 
     match &null_bit_buffer {
@@ -513,12 +513,8 @@ pub fn add<T>(
     right: &PrimitiveArray<T>,
 ) -> Result<PrimitiveArray<T>>
 where
-    T: ArrowNumericType,
-    T::Native: Add<Output = T::Native>
-        + Sub<Output = T::Native>
-        + Mul<Output = T::Native>
-        + Div<Output = T::Native>
-        + Zero,
+    T: ArrowNativeType,
+    T: Add<Output = T> + Sub<Output = T> + Mul<Output = T> + Div<Output = T> + Zero,
 {
     #[cfg(simd)]
     return simd_math_op(&left, &right, |a, b| a + b, |a, b| a + b);
@@ -533,12 +529,8 @@ pub fn subtract<T>(
     right: &PrimitiveArray<T>,
 ) -> Result<PrimitiveArray<T>>
 where
-    T: datatypes::ArrowNumericType,
-    T::Native: Add<Output = T::Native>
-        + Sub<Output = T::Native>
-        + Mul<Output = T::Native>
-        + Div<Output = T::Native>
-        + Zero,
+    T: datatypes::ArrowNativeType,
+    T: Add<Output = T> + Sub<Output = T> + Mul<Output = T> + Div<Output = T> + Zero,
 {
     #[cfg(simd)]
     return simd_math_op(&left, &right, |a, b| a - b, |a, b| a - b);
@@ -549,23 +541,20 @@ where
 /// Perform `-` operation on an array. If value is null then the result is also null.
 pub fn negate<T>(array: &PrimitiveArray<T>) -> Result<PrimitiveArray<T>>
 where
-    T: datatypes::ArrowSignedNumericType,
-    T::Native: Neg<Output = T::Native>,
+    T: ArrowNativeType + Signed,
+    T: Neg<Output = T>,
 {
     #[cfg(simd)]
     return simd_signed_unary_math_op(array, |x| -x, |x| -x);
     #[cfg(not(simd))]
-    return Ok(unary(array, |x| -x));
+    return Ok(unary(array, |x| -x, array.data_type().clone()));
 }
 
 /// Raise array with floating point values to the power of a scalar.
-pub fn powf_scalar<T>(
-    array: &PrimitiveArray<T>,
-    raise: T::Native,
-) -> Result<PrimitiveArray<T>>
+pub fn powf_scalar<T>(array: &PrimitiveArray<T>, raise: T) -> Result<PrimitiveArray<T>>
 where
-    T: datatypes::ArrowFloatNumericType,
-    T::Native: Pow<T::Native, Output = T::Native>,
+    T: ArrowNativeType + Float,
+    T: Pow<T, Output = T>,
 {
     #[cfg(simd)]
     {
@@ -577,7 +566,7 @@ where
         );
     }
     #[cfg(not(simd))]
-    return Ok(unary(array, |x| x.pow(raise)));
+    return Ok(unary(array, |x| x.pow(raise), array.data_type().clone()));
 }
 
 /// Perform `left * right` operation on two arrays. If either left or right value is null
@@ -587,12 +576,8 @@ pub fn multiply<T>(
     right: &PrimitiveArray<T>,
 ) -> Result<PrimitiveArray<T>>
 where
-    T: datatypes::ArrowNumericType,
-    T::Native: Add<Output = T::Native>
-        + Sub<Output = T::Native>
-        + Mul<Output = T::Native>
-        + Div<Output = T::Native>
-        + Zero,
+    T: datatypes::ArrowNativeType,
+    T: Add<Output = T> + Sub<Output = T> + Mul<Output = T> + Div<Output = T> + Zero,
 {
     #[cfg(simd)]
     return simd_math_op(&left, &right, |a, b| a * b, |a, b| a * b);
@@ -608,13 +593,8 @@ pub fn divide<T>(
     right: &PrimitiveArray<T>,
 ) -> Result<PrimitiveArray<T>>
 where
-    T: datatypes::ArrowNumericType,
-    T::Native: Add<Output = T::Native>
-        + Sub<Output = T::Native>
-        + Mul<Output = T::Native>
-        + Div<Output = T::Native>
-        + Zero
-        + One,
+    T: datatypes::ArrowNativeType,
+    T: Add<Output = T> + Sub<Output = T> + Mul<Output = T> + Div<Output = T> + Zero + One,
 {
     #[cfg(simd)]
     return simd_divide(&left, &right);

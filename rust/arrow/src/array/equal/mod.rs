@@ -28,7 +28,7 @@ use super::{
 
 use crate::{
     buffer::Buffer,
-    datatypes::{ArrowPrimitiveType, DataType, IntervalUnit},
+    datatypes::{ArrowNativeType, DataType, IntervalUnit},
 };
 
 mod boolean;
@@ -75,7 +75,7 @@ impl PartialEq for NullArray {
     }
 }
 
-impl<T: ArrowPrimitiveType> PartialEq for PrimitiveArray<T> {
+impl<T: ArrowNativeType> PartialEq for PrimitiveArray<T> {
     fn eq(&self, other: &PrimitiveArray<T>) -> bool {
         equal(self.data().as_ref(), other.data().as_ref())
     }
@@ -297,7 +297,7 @@ mod tests {
     };
     use crate::array::{GenericStringArray, Int32Array};
     use crate::buffer::Buffer;
-    use crate::datatypes::{Field, Int16Type, ToByteSlice};
+    use crate::datatypes::{Field, ToByteSlice};
 
     use super::*;
 
@@ -591,7 +591,7 @@ mod tests {
     fn create_list_array<U: AsRef<[i32]>, T: AsRef<[Option<U>]>>(
         data: T,
     ) -> ArrayDataRef {
-        let mut builder = ListBuilder::new(Int32Builder::new(10));
+        let mut builder = ListBuilder::new(Int32Builder::new(10, DataType::Int32));
         for d in data.as_ref() {
             if let Some(v) = d {
                 builder.values().append_slice(v.as_ref()).unwrap();
@@ -864,7 +864,8 @@ mod tests {
     fn create_fixed_size_list_array<U: AsRef<[i32]>, T: AsRef<[Option<U>]>>(
         data: T,
     ) -> ArrayDataRef {
-        let mut builder = FixedSizeListBuilder::new(Int32Builder::new(10), 3);
+        let mut builder =
+            FixedSizeListBuilder::new(Int32Builder::new(10, DataType::Int32), 3);
 
         for d in data.as_ref() {
             if let Some(v) = d {
@@ -1162,7 +1163,7 @@ mod tests {
     fn create_dictionary_array(values: &[&str], keys: &[Option<&str>]) -> ArrayDataRef {
         let values = StringArray::from(values.to_vec());
         let mut builder = StringDictionaryBuilder::new_with_dictionary(
-            PrimitiveBuilder::<Int16Type>::new(3),
+            PrimitiveBuilder::<i16>::new(3, DataType::Int16),
             &values,
         )
         .unwrap();

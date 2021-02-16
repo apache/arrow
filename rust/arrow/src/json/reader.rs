@@ -627,7 +627,7 @@ impl Decoder {
                     Box::new(DataType::UInt8),
                     Box::new(DataType::Utf8),
                 );
-                self.list_array_string_array_builder::<UInt8Type>(&dtype, col_name, rows)
+                self.list_array_string_array_builder::<u8>(&dtype, col_name, rows)
             }
             DataType::UInt16 => {
                 let dtype = DataType::Dictionary(
@@ -641,7 +641,7 @@ impl Decoder {
                     Box::new(DataType::UInt32),
                     Box::new(DataType::Utf8),
                 );
-                self.list_array_string_array_builder::<UInt32Type>(&dtype, col_name, rows)
+                self.list_array_string_array_builder::<u32>(&dtype, col_name, rows)
             }
             DataType::UInt64 => {
                 let dtype = DataType::Dictionary(
@@ -797,15 +797,11 @@ impl Decoder {
                 DataType::Int64 => {
                     self.build_dictionary_array::<Int64Type>(rows, col_name)
                 }
-                DataType::UInt8 => {
-                    self.build_dictionary_array::<UInt8Type>(rows, col_name)
-                }
+                DataType::UInt8 => self.build_dictionary_array::<u8>(rows, col_name),
                 DataType::UInt16 => {
                     self.build_dictionary_array::<UInt16Type>(rows, col_name)
                 }
-                DataType::UInt32 => {
-                    self.build_dictionary_array::<UInt32Type>(rows, col_name)
-                }
+                DataType::UInt32 => self.build_dictionary_array::<u32>(rows, col_name),
                 DataType::UInt64 => {
                     self.build_dictionary_array::<UInt64Type>(rows, col_name)
                 }
@@ -923,9 +919,9 @@ impl Decoder {
             DataType::Int16 => self.read_primitive_list_values::<Int16Type>(rows),
             DataType::Int32 => self.read_primitive_list_values::<Int32Type>(rows),
             DataType::Int64 => self.read_primitive_list_values::<Int64Type>(rows),
-            DataType::UInt8 => self.read_primitive_list_values::<UInt8Type>(rows),
+            DataType::UInt8 => self.read_primitive_list_values::<u8>(rows),
             DataType::UInt16 => self.read_primitive_list_values::<UInt16Type>(rows),
-            DataType::UInt32 => self.read_primitive_list_values::<UInt32Type>(rows),
+            DataType::UInt32 => self.read_primitive_list_values::<u32>(rows),
             DataType::UInt64 => self.read_primitive_list_values::<UInt64Type>(rows),
             DataType::Float16 => {
                 return Err(ArrowError::JsonError("Float16 not supported".to_string()))
@@ -1061,13 +1057,13 @@ impl Decoder {
                         self.build_primitive_array::<UInt64Type>(rows, field.name())
                     }
                     DataType::UInt32 => {
-                        self.build_primitive_array::<UInt32Type>(rows, field.name())
+                        self.build_primitive_array::<u32>(rows, field.name())
                     }
                     DataType::UInt16 => {
                         self.build_primitive_array::<UInt16Type>(rows, field.name())
                     }
                     DataType::UInt8 => {
-                        self.build_primitive_array::<UInt8Type>(rows, field.name())
+                        self.build_primitive_array::<u8>(rows, field.name())
                     }
                     // TODO: this is incomplete
                     DataType::Timestamp(unit, _) => match unit {
@@ -2633,7 +2629,7 @@ mod tests {
         let aa = batch
             .column(a.0)
             .as_any()
-            .downcast_ref::<Date64Array>()
+            .downcast_ref::<PrimitiveArray<i64>>()
             .unwrap();
         assert_eq!(true, aa.is_valid(0));
         assert_eq!(false, aa.is_valid(1));
@@ -2672,7 +2668,7 @@ mod tests {
         let aa = batch
             .column(a.0)
             .as_any()
-            .downcast_ref::<Time64NanosecondArray>()
+            .downcast_ref::<PrimitiveArray<i64>>()
             .unwrap();
         assert_eq!(true, aa.is_valid(0));
         assert_eq!(false, aa.is_valid(1));

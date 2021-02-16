@@ -27,8 +27,8 @@ use crate::util::test_util::seedable_rng;
 /// Creates an random (but fixed-seeded) array of a given size and null density
 pub fn create_primitive_array<T>(size: usize, null_density: f32) -> PrimitiveArray<T>
 where
-    T: ArrowPrimitiveType,
-    Standard: Distribution<T::Native>,
+    T: ArrowNativeType,
+    Standard: Distribution<T>,
 {
     let mut rng = seedable_rng();
 

@@ -98,24 +98,22 @@ pub(super) fn compare_option_bitmap(
 /// an array of the indices `[5..10, 0..2]` and offsets `[0,5,7]` (5 elements and 2
 /// elements)
 pub(super) fn take_value_indices_from_list<IndexType, OffsetType>(
-    list: &GenericListArray<OffsetType::Native>,
+    list: &GenericListArray<OffsetType>,
     indices: &PrimitiveArray<IndexType>,
-) -> Result<(PrimitiveArray<OffsetType>, Vec<OffsetType::Native>)>
+) -> Result<(PrimitiveArray<OffsetType>, Vec<OffsetType>)>
 where
-    IndexType: ArrowNumericType,
-    IndexType::Native: ToPrimitive,
-    OffsetType: ArrowNumericType,
-    OffsetType::Native: OffsetSizeTrait + Add + Zero + One,
-    PrimitiveArray<OffsetType>: From<Vec<Option<OffsetType::Native>>>,
+    IndexType: ArrowNativeType + ToPrimitive,
+    OffsetType: ArrowNativeType + OffsetSizeTrait + Add + Zero + One,
+    PrimitiveArray<OffsetType>: From<Vec<Option<OffsetType>>>,
 {
     // TODO: benchmark this function, there might be a faster unsafe alternative
-    let offsets: &[OffsetType::Native] = list.value_offsets();
+    let offsets: &[OffsetType] = list.value_offsets();
 
     let mut new_offsets = Vec::with_capacity(indices.len());
     let mut values = Vec::new();
-    let mut current_offset = OffsetType::Native::zero();
+    let mut current_offset = OffsetType::zero();
     // add first offset
-    new_offsets.push(OffsetType::Native::zero());
+    new_offsets.push(OffsetType::zero());
     // compute the value indices, and set offsets accordingly
     for i in 0..indices.len() {
         if indices.is_valid(i) {
@@ -132,7 +130,7 @@ where
             // if start == end, this slot is empty
             while curr < end {
                 values.push(Some(curr));
-                curr += OffsetType::Native::one();
+                curr += OffsetType::one();
             }
         } else {
             new_offsets.push(current_offset);
@@ -146,11 +144,10 @@ where
 pub(super) fn take_value_indices_from_fixed_size_list<IndexType>(
     list: &FixedSizeListArray,
     indices: &PrimitiveArray<IndexType>,
-    length: <UInt32Type as ArrowPrimitiveType>::Native,
-) -> Result<PrimitiveArray<UInt32Type>>
+    length: u32,
+) -> Result<PrimitiveArray<u32>>
 where
-    IndexType: ArrowNumericType,
-    IndexType::Native: ToPrimitive,
+    IndexType: ArrowNativeType + ToPrimitive,
 {
     let mut values = vec![];
 
@@ -159,14 +156,13 @@ where
             let index = ToPrimitive::to_usize(&indices.value(i)).ok_or_else(|| {
                 ArrowError::ComputeError("Cast to usize failed".to_string())
             })?;
-            let start =
-                list.value_offset(index) as <UInt32Type as ArrowPrimitiveType>::Native;
+            let start = list.value_offset(index) as u32;
 
             values.extend(start..start + length);
         }
     }
 
-    Ok(PrimitiveArray::<UInt32Type>::from(values))
+    Ok(PrimitiveArray::<u32>::from(values))
 }
 
 #[cfg(test)]
@@ -255,33 +251,30 @@ pub(super) mod tests {
     }
 
     pub(crate) fn build_generic_list<S, T>(
-        data: Vec<Option<Vec<T::Native>>>,
+        data: Vec<Option<Vec<T>>>,
     ) -> GenericListArray<S>
     where
         S: OffsetSizeTrait + 'static,
-        T: ArrowPrimitiveType,
-        PrimitiveArray<T>: From<Vec<Option<T::Native>>>,
+        T: ArrowNativeType,
+        PrimitiveArray<T>: From<Vec<Option<T>>>,
     {
         let data = data
             .into_iter()
             .map(|subarray| {
-                subarray.map(|item| {
-                    item.into_iter()
-                        .map(Some)
-                        .collect::<Vec<Option<T::Native>>>()
-                })
+                subarray
+                    .map(|item| item.into_iter().map(Some).collect::<Vec<Option<T>>>())
             })
             .collect();
         build_generic_list_nullable(data)
     }
 
     pub(crate) fn build_generic_list_nullable<S, T>(
-        data: Vec<Option<Vec<Option<T::Native>>>>,
+        data: Vec<Option<Vec<Option<T>>>>,
     ) -> GenericListArray<S>
     where
         S: OffsetSizeTrait + 'static,
-        T: ArrowPrimitiveType,
-        PrimitiveArray<T>: From<Vec<Option<T::Native>>>,
+        T: ArrowNativeType,
+        PrimitiveArray<T>: From<Vec<Option<T>>>,
     {
         use std::any::TypeId;
 
@@ -339,33 +332,30 @@ pub(super) mod tests {
     }
 
     pub(crate) fn build_fixed_size_list<T>(
-        data: Vec<Option<Vec<T::Native>>>,
-        length: <Int32Type as ArrowPrimitiveType>::Native,
+        data: Vec<Option<Vec<T>>>,
+        length: i32,
     ) -> FixedSizeListArray
     where
-        T: ArrowPrimitiveType,
-        PrimitiveArray<T>: From<Vec<Option<T::Native>>>,
+        T: ArrowNativeType,
+        PrimitiveArray<T>: From<Vec<Option<T>>>,
     {
         let data = data
             .into_iter()
             .map(|subarray| {
-                subarray.map(|item| {
-                    item.into_iter()
-                        .map(Some)
-                        .collect::<Vec<Option<T::Native>>>()
-                })
+                subarray
+                    .map(|item| item.into_iter().map(Some).collect::<Vec<Option<T>>>())
             })
             .collect();
         build_fixed_size_list_nullable(data, length)
     }
 
     pub(crate) fn build_fixed_size_list_nullable<T>(
-        list_values: Vec<Option<Vec<Option<T::Native>>>>,
-        length: <Int32Type as ArrowPrimitiveType>::Native,
+        list_values: Vec<Option<Vec<Option<T>>>>,
+        length: i32,
     ) -> FixedSizeListArray
     where
-        T: ArrowPrimitiveType,
-        PrimitiveArray<T>: From<Vec<Option<T::Native>>>,
+        T: ArrowNativeType,
+        PrimitiveArray<T>: From<Vec<Option<T>>>,
     {
         let mut values = vec![];
         let mut list_null_count = 0;

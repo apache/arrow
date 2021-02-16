@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use crate::datatypes::ArrowPrimitiveType;
+use crate::datatypes::ArrowNativeType;
 
 use super::{
     Array, ArrayRef, BinaryOffsetSizeTrait, BooleanArray, GenericBinaryArray,
@@ -26,13 +26,13 @@ use super::{
 /// an iterator that returns Some(T) or None, that can be used on any PrimitiveArray
 // Note: This implementation is based on std's [Vec]s' [IntoIter].
 #[derive(Debug)]
-pub struct PrimitiveIter<'a, T: ArrowPrimitiveType> {
+pub struct PrimitiveIter<'a, T: ArrowNativeType> {
     array: &'a PrimitiveArray<T>,
     current: usize,
     current_end: usize,
 }
 
-impl<'a, T: ArrowPrimitiveType> PrimitiveIter<'a, T> {
+impl<'a, T: ArrowNativeType> PrimitiveIter<'a, T> {
     /// create a new iterator
     pub fn new(array: &'a PrimitiveArray<T>) -> Self {
         PrimitiveIter::<T> {
@@ -43,8 +43,8 @@ impl<'a, T: ArrowPrimitiveType> PrimitiveIter<'a, T> {
     }
 }
 
-impl<'a, T: ArrowPrimitiveType> std::iter::Iterator for PrimitiveIter<'a, T> {
-    type Item = Option<T::Native>;
+impl<'a, T: ArrowNativeType> std::iter::Iterator for PrimitiveIter<'a, T> {
+    type Item = Option<T>;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
@@ -68,7 +68,7 @@ impl<'a, T: ArrowPrimitiveType> std::iter::Iterator for PrimitiveIter<'a, T> {
     }
 }
 
-impl<'a, T: ArrowPrimitiveType> std::iter::DoubleEndedIterator for PrimitiveIter<'a, T> {
+impl<'a, T: ArrowNativeType> std::iter::DoubleEndedIterator for PrimitiveIter<'a, T> {
     fn next_back(&mut self) -> Option<Self::Item> {
         if self.current_end == self.current {
             None
@@ -84,7 +84,7 @@ impl<'a, T: ArrowPrimitiveType> std::iter::DoubleEndedIterator for PrimitiveIter
 }
 
 /// all arrays have known size.
-impl<'a, T: ArrowPrimitiveType> std::iter::ExactSizeIterator for PrimitiveIter<'a, T> {}
+impl<'a, T: ArrowNativeType> std::iter::ExactSizeIterator for PrimitiveIter<'a, T> {}
 
 /// an iterator that returns Some(bool) or None.
 // Note: This implementation is based on std's [Vec]s' [IntoIter].

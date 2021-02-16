@@ -25,10 +25,10 @@ use crate::error::{ArrowError, Result};
 /// Extracts the hours of a given temporal array as an array of integers
 pub fn hour<T>(array: &PrimitiveArray<T>) -> Result<Int32Array>
 where
-    T: ArrowTemporalType + ArrowNumericType,
-    i64: std::convert::From<T::Native>,
+    T: ArrowNativeType,
+    i64: std::convert::From<T>,
 {
-    let mut b = Int32Builder::new(array.len());
+    let mut b = Int32Builder::new(array.len(), DataType::Int32);
     match array.data_type() {
         &DataType::Time32(_) | &DataType::Time64(_) => {
             for i in 0..array.len() {
@@ -70,10 +70,10 @@ where
 /// Extracts the years of a given temporal array as an array of integers
 pub fn year<T>(array: &PrimitiveArray<T>) -> Result<Int32Array>
 where
-    T: ArrowTemporalType + ArrowNumericType,
-    i64: std::convert::From<T::Native>,
+    T: ArrowNativeType,
+    i64: std::convert::From<T>,
 {
-    let mut b = Int32Builder::new(array.len());
+    let mut b = Int32Builder::new(array.len(), DataType::Int32);
     match array.data_type() {
         &DataType::Date32 | &DataType::Date64 | &DataType::Timestamp(_, _) => {
             for i in 0..array.len() {

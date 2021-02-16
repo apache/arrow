@@ -21,7 +21,7 @@ pub mod aggregate;
 pub mod arithmetic;
 pub mod arity;
 pub mod boolean;
-pub mod cast;
+//pub mod cast;
 pub mod cast_utils;
 pub mod comparison;
 pub mod concat;

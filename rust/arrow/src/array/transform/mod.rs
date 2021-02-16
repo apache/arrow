@@ -409,8 +409,8 @@ mod tests {
     use crate::{
         array::{
             Array, ArrayDataRef, ArrayRef, BooleanArray, DictionaryArray,
-            FixedSizeBinaryArray, Int16Array, Int16Type, Int32Array, Int64Array,
-            Int64Builder, ListBuilder, NullArray, PrimitiveBuilder, StringArray,
+            FixedSizeBinaryArray, Int16Array, Int32Array, Int64Array, Int64Builder,
+            ListBuilder, NullArray, PrimitiveBuilder, StringArray,
             StringDictionaryBuilder, StructArray, UInt8Array,
         },
         buffer::Buffer,
@@ -480,7 +480,7 @@ mod tests {
 
     #[test]
     fn test_list_null_offset() -> Result<()> {
-        let int_builder = Int64Builder::new(24);
+        let int_builder = Int64Builder::new(24, DataType::Int64);
         let mut builder = ListBuilder::<Int64Builder>::new(int_builder);
         builder.values().append_slice(&[1, 2, 3])?;
         builder.append(true)?;
@@ -497,7 +497,7 @@ mod tests {
         let result = mutable.freeze();
         let array = ListArray::from(Arc::new(result));
 
-        let int_builder = Int64Builder::new(24);
+        let int_builder = Int64Builder::new(24, DataType::Int64);
         let mut builder = ListBuilder::<Int64Builder>::new(int_builder);
         builder.values().append_slice(&[1, 2, 3])?;
         builder.append(true)?;
@@ -644,7 +644,7 @@ mod tests {
     fn create_dictionary_array(values: &[&str], keys: &[Option<&str>]) -> ArrayDataRef {
         let values = StringArray::from(values.to_vec());
         let mut builder = StringDictionaryBuilder::new_with_dictionary(
-            PrimitiveBuilder::<Int16Type>::new(3),
+            PrimitiveBuilder::<Int16Type>::new(3, DataType::Int16),
             &values,
         )
         .unwrap();
@@ -855,7 +855,8 @@ mod tests {
 
     #[test]
     fn test_list_append() -> Result<()> {
-        let mut builder = ListBuilder::<Int64Builder>::new(Int64Builder::new(24));
+        let mut builder =
+            ListBuilder::<Int64Builder>::new(Int64Builder::new(24, DataType::Int64));
         builder.values().append_slice(&[1, 2, 3])?;
         builder.append(true)?;
         builder.values().append_slice(&[4, 5])?;
@@ -865,7 +866,7 @@ mod tests {
         builder.append(true)?;
         let a = builder.finish().data();
 
-        let a_builder = Int64Builder::new(24);
+        let a_builder = Int64Builder::new(24, DataType::Int64);
         let mut a_builder = ListBuilder::<Int64Builder>::new(a_builder);
         a_builder.values().append_slice(&[12, 13])?;
         a_builder.append(true)?;
@@ -924,7 +925,8 @@ mod tests {
 
     #[test]
     fn test_list_nulls_append() -> Result<()> {
-        let mut builder = ListBuilder::<Int64Builder>::new(Int64Builder::new(32));
+        let mut builder =
+            ListBuilder::<Int64Builder>::new(Int64Builder::new(32, DataType::Int64));
         builder.values().append_slice(&[1, 2, 3])?;
         builder.append(true)?;
         builder.values().append_slice(&[4, 5])?;
@@ -938,7 +940,8 @@ mod tests {
         let a = builder.finish();
         let a = a.data();
 
-        let mut builder = ListBuilder::<Int64Builder>::new(Int64Builder::new(32));
+        let mut builder =
+            ListBuilder::<Int64Builder>::new(Int64Builder::new(32, DataType::Int64));
         builder.values().append_slice(&[12, 13])?;
         builder.append(true)?;
         builder.append(false)?;

@@ -23,7 +23,7 @@ use crate::datatypes::*;
 /// Force downcast ArrayRef to PrimitiveArray<T>
 pub fn as_primitive_array<T>(arr: &ArrayRef) -> &PrimitiveArray<T>
 where
-    T: ArrowPrimitiveType,
+    T: ArrowNativeType,
 {
     arr.as_any()
         .downcast_ref::<PrimitiveArray<T>>()

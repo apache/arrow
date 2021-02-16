@@ -30,7 +30,7 @@ use crate::buffer::{
     buffer_bin_and, buffer_bin_or, buffer_unary_not, Buffer, MutableBuffer,
 };
 use crate::compute::util::combine_option_bitmap;
-use crate::datatypes::{ArrowNumericType, DataType};
+use crate::datatypes::{ArrowNativeType, DataType};
 use crate::error::{ArrowError, Result};
 use crate::util::bit_util::ceil;
 
@@ -234,7 +234,7 @@ pub fn nullif<T>(
     right: &BooleanArray,
 ) -> Result<PrimitiveArray<T>>
 where
-    T: ArrowNumericType,
+    T: ArrowNativeType,
 {
     if left.len() != right.len() {
         return Err(ArrowError::ComputeError(
@@ -295,14 +295,14 @@ where
         left_data
             .buffers()
             .iter()
-            .map(|buf| buf.slice(left.offset() * T::get_byte_width()))
+            .map(|buf| buf.slice(left.offset() * std::mem::size_of::<T>()))
             .collect::<Vec<_>>()
     };
 
     // Construct new array with same values but modified null bitmap
     // TODO: shift data buffer as needed
     let data = ArrayData::new(
-        T::DATA_TYPE,
+        left.data_type().clone(),
         left.len(),
         None, // force new to compute the number of null bits
         modified_null_buffer,
