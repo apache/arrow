@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+use std::any::Any;
 use std::fmt;
 use std::mem;
-use std::any::Any;
 
 use num::Num;
 
@@ -32,8 +32,6 @@ use crate::{datatypes::ArrowNativeType, error::ArrowError};
 pub trait OffsetSizeTrait: ArrowNativeType + Num + Ord + std::ops::AddAssign {
     fn is_large() -> bool;
 
-    fn prefix() -> &'static str;
-
     fn to_isize(&self) -> isize;
 }
 
@@ -41,10 +39,6 @@ impl OffsetSizeTrait for i32 {
     #[inline]
     fn is_large() -> bool {
         false
-    }
-
-    fn prefix() -> &'static str {
-        ""
     }
 
     fn to_isize(&self) -> isize {
@@ -56,10 +50,6 @@ impl OffsetSizeTrait for i64 {
     #[inline]
     fn is_large() -> bool {
         true
-    }
-
-    fn prefix() -> &'static str {
-        "Large"
     }
 
     fn to_isize(&self) -> isize {
@@ -239,7 +229,9 @@ impl<OffsetSize: 'static + OffsetSizeTrait> Array for GenericListArray<OffsetSiz
 
 impl<OffsetSize: OffsetSizeTrait> fmt::Debug for GenericListArray<OffsetSize> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}ListArray\n[\n", OffsetSize::prefix())?;
+        let prefix = if OffsetSize::is_large() { "Large" } else { "" };
+
+        write!(f, "{}ListArray\n[\n", prefix)?;
         print_long_array(self, f, |array, index, f| {
             fmt::Debug::fmt(&array.value(index), f)
         })?;
