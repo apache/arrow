@@ -209,14 +209,19 @@ class ParquetFile:
     buffer_size : int, default 0
         If positive, perform read buffering when deserializing individual
         column chunks. Otherwise IO calls are unbuffered.
+    low_level_decryption: LowLevelDecryptionProperties, default None
+        Low-level decryption properties. Note that a nicer high-level API
+        should be available eventually.
     """
 
     def __init__(self, source, metadata=None, common_metadata=None,
-                 read_dictionary=None, memory_map=False, buffer_size=0):
+                 read_dictionary=None, memory_map=False, buffer_size=0,
+                 low_level_decryption=None):
         self.reader = ParquetReader()
         self.reader.open(source, use_memory_map=memory_map,
                          buffer_size=buffer_size,
-                         read_dictionary=read_dictionary, metadata=metadata)
+                         read_dictionary=read_dictionary, metadata=metadata,
+                         lldecrypt=low_level_decryption)
         self.common_metadata = common_metadata
         self._nested_paths_by_prefix = self._build_nested_paths()
 

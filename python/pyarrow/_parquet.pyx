@@ -905,6 +905,40 @@ cdef ParquetCompression compression_from_name(name):
         return ParquetCompression_UNCOMPRESSED
 
 
+cdef class LowLevelDecryptionProperties(_Weakrefable):
+    """Wrapper for FileDecryptionProperties."""
+    cdef:
+        shared_ptr[FileDecryptionProperties] decryption_properties
+
+    def __cinit__(self,
+                  footer_key,
+                  # Map column name to key:
+                  column_keys,
+                  disable_footer_signature_verification=False,
+                  plaintext_files_allowed=False):
+        cdef c_map[c_string,shared_ptr[ColumnDecryptionProperties]] c_column_keys
+        cdef FileDecryptionProperties.Builder builder
+
+        builder = FileDecryptionProperties.Builder()
+
+        if footer_key is not None:
+            builder = builder.footer_key(key)
+
+        if column_keys is not None:
+            for column, key in column_keys.items():
+                c_column_keys[column] = ColumnDecryptionProperties.Builder(
+                    column).key(key).build()
+            builder = builder.column_keys(c_column_keys)
+
+        if disable_footer_signature_verification:
+            builder = builder.disable_footer_signature_verification()
+
+        if plaintext_files_allowed:
+            builder = builder.plaintext_files_allowed()
+
+        self.decryption_properties = builder.build()
+
+
 cdef class ParquetReader(_Weakrefable):
     cdef:
         object source
@@ -921,7 +955,7 @@ cdef class ParquetReader(_Weakrefable):
 
     def open(self, object source, bint use_memory_map=True,
              read_dictionary=None, FileMetaData metadata=None,
-             int buffer_size=0):
+             int buffer_size=0, LowLevelDecryptionProperties lldecrypt=None):
         cdef:
             shared_ptr[CRandomAccessFile] rd_handle
             shared_ptr[CFileMetaData] c_metadata
@@ -941,6 +975,9 @@ cdef class ParquetReader(_Weakrefable):
             properties.disable_buffered_stream()
         else:
             raise ValueError('Buffer size must be larger than zero')
+
+        if lldecrypt is not None:
+            properties.file_decryption_properties(lldecrypt.decryption_properties)
 
         self.source = source
 
