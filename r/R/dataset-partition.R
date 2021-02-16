@@ -25,12 +25,17 @@
 #' `DirectoryPartitioning` describes how to interpret raw path segments, in
 #' order. For example, `schema(year = int16(), month = int8())` would define
 #' partitions for file paths like "2019/01/file.parquet",
-#' "2019/02/file.parquet", etc.
+#' "2019/02/file.parquet", etc.  In this scheme null values will be skipped.
+#' In the previous example, if the month was null, the files would be placed
+#' in 2019/file.parquet.  An error will be raised if an outer directory is
+#' null and an inner directory is not.
 #'
 #' `HivePartitioning` is for Hive-style partitioning, which embeds field
 #' names and values in path segments, such as
 #' "/year=2019/month=2/data.parquet". Because fields are named in the path
-#' segments, order does not matter.
+#' segments, order does not matter.  This partitioning scheme allows null
+#' values.  They will be replaced by a configurable `null_fallback` which
+#' defaults to `__HIVE_DEFAULT_PARTITION__`.
 #'
 #' `PartitioningFactory` subclasses instruct the `DatasetFactory` to detect
 #' partition features from the file paths.
@@ -79,12 +84,12 @@ HivePartitioning$create <- dataset___HivePartitioning
 #' hive_partition(year = int16(), month = int8())
 #' }
 #' @export
-hive_partition <- function(...) {
+hive_partition <- function(..., null_fallback = "__HIVE_DEFAULT_PARTITION__") {
   schm <- schema(...)
   if (length(schm) == 0) {
-    HivePartitioningFactory$create()
+    HivePartitioningFactory$create(null_fallback)
   } else {
-    HivePartitioning$create(schm)
+    HivePartitioning$create(schm, null_fallback)
   }
 }
 

@@ -41,6 +41,9 @@
 #' will yield `"part-0.feather", ...`.
 #' @param hive_style logical: write partition segments as Hive-style
 #' (`key1=value1/key2=value2/file.ext`) or as just bare values. Default is `TRUE`.
+#' @param hive_null_fallback If writing partition segments as Hive-style
+#' directories then this value will be used in place of any null value in a
+#' patition column.
 #' @param ... additional format-specific arguments. For available Parquet
 #' options, see [write_parquet()]. The available Feather options are
 #' - `use_legacy_format` logical: write data formatted so that Arrow libraries
@@ -60,6 +63,7 @@ write_dataset <- function(dataset,
                           partitioning = dplyr::group_vars(dataset),
                           basename_template = paste0("part-{i}.", as.character(format)),
                           hive_style = TRUE,
+                          hive_null_fallback = "__HIVE_DEFAULT_PARTITION__",
                           ...) {
   if (inherits(dataset, "arrow_dplyr_query")) {
     # We can select a subset of columns but we can't rename them
@@ -79,7 +83,7 @@ write_dataset <- function(dataset,
   if (!inherits(partitioning, "Partitioning")) {
     partition_schema <- scanner$schema[partitioning]
     if (isTRUE(hive_style)) {
-      partitioning <- HivePartitioning$create(partition_schema)
+      partitioning <- HivePartitioning$create(partition_schema, hive_null_fallback)
     } else {
       partitioning <- DirectoryPartitioning$create(partition_schema)
     }
