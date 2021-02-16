@@ -152,10 +152,19 @@ struct ARROW_EXPORT TDigestOptions : public FunctionOptions {
 // TODO(michalursa) add docstring
 struct ARROW_EXPORT GroupByOptions : public FunctionOptions {
   struct Aggregate {
-    std::string name;
+    /// the name of the aggregation function
+    std::string function;
+
+    /// options for the aggregation function
     const FunctionOptions* options;
+
+    /// the name of the resulting column in output
+    std::string name;
   };
   std::vector<Aggregate> aggregates;
+
+  /// the names of key columns
+  std::vector<std::string> key_names;
 };
 
 /// @}
