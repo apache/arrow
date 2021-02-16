@@ -660,7 +660,7 @@ TEST(TestTimestampScalars, Cast) {
 
   ASSERT_OK_AND_ASSIGN(auto str,
                        TimestampScalar(1024, timestamp(TimeUnit::MILLI)).CastTo(utf8()));
-  EXPECT_EQ(*str, StringScalar("1024"));
+  EXPECT_EQ(*str, StringScalar("1970-01-01 00:00:01.024"));
   ASSERT_OK_AND_ASSIGN(auto i64,
                        TimestampScalar(1024, timestamp(TimeUnit::MILLI)).CastTo(int64()));
   EXPECT_EQ(*i64, Int64Scalar(1024));

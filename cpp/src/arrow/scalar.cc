@@ -516,20 +516,6 @@ Status CastImpl(const DateScalar<D>& from, TimestampScalar* to) {
       .Value(&to->value);
 }
 
-// timestamp to string
-Status CastImpl(const TimestampScalar& from, StringScalar* to) {
-  to->value = FormatToBuffer(internal::StringFormatter<Int64Type>{}, from);
-  return Status::OK();
-}
-
-// date to string
-template <typename D>
-Status CastImpl(const DateScalar<D>& from, StringScalar* to) {
-  TimestampScalar ts({}, timestamp(TimeUnit::MILLI));
-  RETURN_NOT_OK(CastImpl(from, &ts));
-  return CastImpl(ts, to);
-}
-
 // string to any
 template <typename ScalarType>
 Status CastImpl(const StringScalar& from, ScalarType* to) {
