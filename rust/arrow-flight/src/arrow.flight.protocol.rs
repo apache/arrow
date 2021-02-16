@@ -499,9 +499,8 @@ pub mod flight_service_server {
     #[async_trait]
     pub trait FlightService: Send + Sync + 'static {
         #[doc = "Server streaming response type for the Handshake method."]
-        type HandshakeStream: Stream<
-            Item = Result<super::HandshakeResponse, tonic::Status>,
-        > + Send
+        type HandshakeStream: Stream<Item = Result<super::HandshakeResponse, tonic::Status>>
+            + Send
             + Sync
             + 'static;
         #[doc = ""]
