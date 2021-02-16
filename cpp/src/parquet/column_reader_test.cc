@@ -94,7 +94,8 @@ class TestPrimitiveReader : public ::testing::Test {
     int total_values_read = 0;
     int batch_actual = 0;
 
-    TypedColumnReader<Type>* reader = static_cast<TypedColumnReader<Type>*>(reader_.get());
+    TypedColumnReader<Type>* reader =
+        static_cast<TypedColumnReader<Type>*>(reader_.get());
     int32_t batch_size = 8;
     int batch = 0;
     // This will cover both the cases
@@ -139,7 +140,8 @@ class TestPrimitiveReader : public ::testing::Test {
     int64_t levels_read = 0;
     int64_t values_read;
 
-    TypedColumnReader<Type>* reader = static_cast<TypedColumnReader<Type>*>(reader_.get());
+    TypedColumnReader<Type>* reader =
+        static_cast<TypedColumnReader<Type>*>(reader_.get());
     int32_t batch_size = 8;
     int batch = 0;
     // This will cover both the cases
@@ -149,8 +151,8 @@ class TestPrimitiveReader : public ::testing::Test {
       SUPPRESS_DEPRECATION_WARNING;
       batch = static_cast<int>(reader->ReadBatchSpaced(
           batch_size, dresult.data() + levels_actual, rresult.data() + levels_actual,
-          vresult_ptr + batch_actual, valid_bits.data() + batch_actual, 0,
-          &levels_read, &values_read, &null_count));
+          vresult_ptr + batch_actual, valid_bits.data() + batch_actual, 0, &levels_read,
+          &values_read, &null_count));
       UNSUPPRESS_DEPRECATION_WARNING;
       total_values_read += batch - static_cast<int>(null_count);
       batch_actual += batch;
@@ -183,8 +185,7 @@ class TestPrimitiveReader : public ::testing::Test {
   c_type* ResultsPointer(std::vector<c_type>& vresult,
                          std::vector<uint8_t>& vresult_bool);
 
-  bool CompareResults(std::vector<c_type>& vresult,
-                     std::vector<uint8_t>& vresult_bool);
+  bool CompareResults(std::vector<c_type>& vresult, std::vector<uint8_t>& vresult_bool);
 
   void Clear() {
     values_.clear();
@@ -195,17 +196,15 @@ class TestPrimitiveReader : public ::testing::Test {
   }
 
   void ExecutePlain(int num_pages, int levels_per_page, const ColumnDescriptor* d) {
-    num_values_ =
-        MakePages<Type>(d, num_pages, levels_per_page, def_levels_, rep_levels_,
-                             values_, data_buffer_, pages_, Encoding::PLAIN);
+    num_values_ = MakePages<Type>(d, num_pages, levels_per_page, def_levels_, rep_levels_,
+                                  values_, data_buffer_, pages_, Encoding::PLAIN);
     num_levels_ = num_pages * levels_per_page;
     InitReader(d);
     CheckResults();
     Clear();
 
-    num_values_ =
-        MakePages<Type>(d, num_pages, levels_per_page, def_levels_, rep_levels_,
-                             values_, data_buffer_, pages_, Encoding::PLAIN);
+    num_values_ = MakePages<Type>(d, num_pages, levels_per_page, def_levels_, rep_levels_,
+                                  values_, data_buffer_, pages_, Encoding::PLAIN);
     num_levels_ = num_pages * levels_per_page;
     InitReader(d);
     CheckResultsSpaced();
@@ -214,16 +213,16 @@ class TestPrimitiveReader : public ::testing::Test {
 
   void ExecuteDict(int num_pages, int levels_per_page, const ColumnDescriptor* d) {
     num_values_ =
-        MakePages<Type>(d, num_pages, levels_per_page, def_levels_, rep_levels_,
-                             values_, data_buffer_, pages_, Encoding::RLE_DICTIONARY);
+        MakePages<Type>(d, num_pages, levels_per_page, def_levels_, rep_levels_, values_,
+                        data_buffer_, pages_, Encoding::RLE_DICTIONARY);
     num_levels_ = num_pages * levels_per_page;
     InitReader(d);
     CheckResults();
     Clear();
 
     num_values_ =
-        MakePages<Type>(d, num_pages, levels_per_page, def_levels_, rep_levels_,
-                             values_, data_buffer_, pages_, Encoding::RLE_DICTIONARY);
+        MakePages<Type>(d, num_pages, levels_per_page, def_levels_, rep_levels_, values_,
+                        data_buffer_, pages_, Encoding::RLE_DICTIONARY);
     num_levels_ = num_pages * levels_per_page;
     InitReader(d);
     CheckResultsSpaced();
@@ -245,27 +244,25 @@ class TestPrimitiveReader : public ::testing::Test {
 
 template <typename Type>
 inline typename Type::c_type* TestPrimitiveReader<Type>::ResultsPointer(
-    std::vector<typename Type::c_type>& vresult,
-    std::vector<uint8_t>& vresult_bool) {
+    std::vector<typename Type::c_type>& vresult, std::vector<uint8_t>& vresult_bool) {
   return &vresult[0];
 }
 
 template <>
 inline bool* TestPrimitiveReader<BooleanType>::ResultsPointer(
-    std::vector<bool>& vresult,
-    std::vector<uint8_t>& vresult_bool) {
+    std::vector<bool>& vresult, std::vector<uint8_t>& vresult_bool) {
   return reinterpret_cast<bool*>(vresult_bool.data());
 }
 
 template <typename Type>
-inline bool TestPrimitiveReader<Type>::CompareResults(std::vector<c_type>& vresult,
-                                                     std::vector<uint8_t>& vresult_bool) {
+inline bool TestPrimitiveReader<Type>::CompareResults(
+    std::vector<c_type>& vresult, std::vector<uint8_t>& vresult_bool) {
   return vector_equal(values_, vresult);
 }
 
 template <>
-inline bool TestPrimitiveReader<BooleanType>::CompareResults(std::vector<bool>& vresult,
-                                                            std::vector<uint8_t>& vresult_bool) {
+inline bool TestPrimitiveReader<BooleanType>::CompareResults(
+    std::vector<bool>& vresult, std::vector<uint8_t>& vresult_bool) {
   vresult.assign(vresult_bool.begin(), vresult_bool.end());
   return vector_equal(values_, vresult);
 }
@@ -528,7 +525,7 @@ TEST_F(TestBooleanReader, TestBooleanNestedOptionalSkip) {
   const ColumnDescriptor descr(type, max_def_level_, max_rep_level_);
 
   MakePages<BooleanType>(&descr, num_pages, levels_per_page, def_levels_, rep_levels_,
-                       values_, data_buffer_, pages_, Encoding::PLAIN);
+                         values_, data_buffer_, pages_, Encoding::PLAIN);
   InitReader(&descr);
   std::vector<uint8_t> vresult(levels_per_page / 2, -1);
   bool* vresult_ptr = reinterpret_cast<bool*>(vresult.data());
@@ -551,7 +548,7 @@ TEST_F(TestBooleanReader, TestBooleanNestedOptionalSkip) {
   levels_processed += levels_skipped;
   // Read half a page
   int64_t levels_read = reader->ReadBatch(levels_per_page / 2, dresult.data(),
-    rresult.data(), vresult_ptr, &values_read);
+                                          rresult.data(), vresult_ptr, &values_read);
   std::vector<bool> vresult_bool(vresult.begin(), vresult.end());
   for (int i = levels_processed, j = 0; i < levels_processed + levels_read; i++) {
     if (def_levels_[i] == max_def_level_) {
@@ -570,8 +567,8 @@ TEST_F(TestBooleanReader, TestBooleanNestedOptionalSkip) {
   }
   levels_processed += levels_skipped;
   // Read half a page
-  levels_read = reader->ReadBatch(levels_per_page / 2, dresult.data(),
-    rresult.data(), vresult_ptr, &values_read);
+  levels_read = reader->ReadBatch(levels_per_page / 2, dresult.data(), rresult.data(),
+                                  vresult_ptr, &values_read);
   vresult_bool.assign(vresult.begin(), vresult.end());
   for (int i = levels_processed, j = 0; i < levels_processed + levels_read; i++) {
     if (def_levels_[i] == max_def_level_) {
@@ -590,8 +587,8 @@ TEST_F(TestBooleanReader, TestBooleanNestedOptionalSkip) {
   }
   levels_processed += levels_skipped;
   // Read half a page
-  levels_read = reader->ReadBatch(levels_per_page / 2, dresult.data(),
-    rresult.data(), vresult_ptr, &values_read);
+  levels_read = reader->ReadBatch(levels_per_page / 2, dresult.data(), rresult.data(),
+                                  vresult_ptr, &values_read);
   vresult_bool.assign(vresult.begin(), vresult.end());
   for (int i = levels_processed, j = 0; i < levels_processed + levels_read; i++) {
     if (def_levels_[i] == max_def_level_) {

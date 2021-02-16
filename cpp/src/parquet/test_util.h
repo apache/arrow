@@ -603,7 +603,7 @@ inline void InitValues<Int96>(int num_values, std::vector<Int96>& values,
 
 template <>
 inline void InitDictValues<bool>(int num_values, int num_dicts, std::vector<bool>& values,
-                           std::vector<uint8_t>& buffer) {
+                                 std::vector<uint8_t>& buffer) {
   // No op for bool
 }
 
