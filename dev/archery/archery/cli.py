@@ -769,7 +769,7 @@ def docker_compose(obj, src, dry_run):
                    "docker-compose. This may help to reuse cached layers.")
 @click.option('--using-docker-buildx', default=False, is_flag=True,
               envvar='ARCHERY_USE_DOCKER_BUILDX',
-              help="Use builx with docker CLI directly for building instead "
+              help="Use buildx with docker CLI directly for building instead "
                    "of calling docker-compose or the plain docker build "
                    "command. This option makes the build cache reusable "
                    "across hosts.")
@@ -827,7 +827,7 @@ def docker_compose_build(obj, image, *, force_pull, using_docker_cli,
                    "docker-compose. This may help to reuse cached layers.")
 @click.option('--using-docker-buildx', default=False, is_flag=True,
               envvar='ARCHERY_USE_DOCKER_BUILDX',
-              help="Use builx with docker CLI directly for building instead "
+              help="Use buildx with docker CLI directly for building instead "
                    "of calling docker-compose or the plain docker build "
                    "command. This option makes the build cache reusable "
                    "across hosts.")
