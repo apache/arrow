@@ -263,12 +263,33 @@ test_that("filter() with %in%", {
 })
 
 test_that("filter() with string ops", {
-  expect_dplyr_equal(
-    input %>%
-      filter(dbl > 2, toupper(chr) %in% c("D", "F")) %>%
-      collect(),
-    tbl
-  )
+  # Extra instrumentation to ensure that we're calling Arrow compute here
+  # because many base R string functions implicitly call as.character,
+  # which means they still work on Arrays but actually force data into R
+  # 1) wrapper that raises a warning if as.character is called. Can't wrap
+  #    the whole test because as.character apparently gets called in other
+  #    (presumably legitimate) places
+  # 2) Wrap the test in expect_warning(expr, NA) to catch the warning
+
+  with_no_as_character <- function(expr) {
+    trace(
+      "as.character",
+      tracer = quote(warning("as.character was called")),
+      print = FALSE,
+      where = toupper
+    )
+    on.exit(untrace("as.character", where = toupper))
+    force(expr)
+  }
+
+  expect_warning(
+    expect_dplyr_equal(
+      input %>%
+        filter(dbl > 2, with_no_as_character(toupper(chr)) %in% c("D", "F")) %>%
+        collect(),
+      tbl
+    ),
+  NA)
 
   expect_dplyr_equal(
     input %>%
