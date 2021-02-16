@@ -466,7 +466,7 @@ cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
             shared_ptr[ColumnDecryptionProperties] build()
         c_string column_path()
         c_string key()
-        c_bool is_utilizied()
+        c_bool is_utilized()
         c_bool set_utilized()
         WipeOutDecryptionKey()
         shared_ptr[ColumnDecryptionProperties] DeepClone()
@@ -490,7 +490,7 @@ cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
         c_bool plaintext_files_allowed()
         # TODO shared_ptr[AADPrefixVerifier]& aad_prefix_verifier()
         WipeOutDecryptionKeys()
-        c_bool is_utilizied()
+        c_bool is_utilized()
         set_utilized()
         shared_ptr[FileDecryptionProperties] DeepClone()
 
