@@ -35,7 +35,7 @@ namespace csv {
 //
 // The algorithm used here at a high level is to break RecordBatches/Tables into slices
 // and convert each slice independently.  A slice is then converted to CSV by first
-// scanning each column to determine how the size its contents will take in the CSV. For
+// scanning each column to determine the size of its contents when rendered as a string in CSV. For
 // non-string types this requires casting the value to string (which is cached).  This
 // data is used to understand the precise length of each row and a single allocation for
 // the final CSV data buffer. Once the final size is known each column is then iterated
