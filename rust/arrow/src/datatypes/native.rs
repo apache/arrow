@@ -169,6 +169,7 @@ impl ArrowNativeType for i64 {
     }
 
     /// Convert native type from i64.
+    #[inline]
     fn from_i64(val: i64) -> Option<Self> {
         Some(val)
     }
