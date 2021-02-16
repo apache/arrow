@@ -17,6 +17,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -243,6 +244,68 @@ void TestNoCopyTask(std::shared_ptr<TaskGroup> task_group) {
   ASSERT_EQ(0, *counter);
 }
 
+void TestFinishNotSticky(std::function<std::shared_ptr<TaskGroup>()> factory) {
+  // If a task is added that runs very quickly it might decrement the task counter back
+  // down to 0 and mark the completion future as complete before all tasks are added.
+  // The "finished future" of the task group could get stuck to complete.
+  //
+  // Instead the task group should not allow the finished future to be marked complete
+  // until after FinishAsync has been called.
+  const int NTASKS = 100;
+  for (int i = 0; i < NTASKS; ++i) {
+    auto task_group = factory();
+    // Add a task and let it complete
+    task_group->Append([] { return Status::OK(); });
+    // Wait a little bit, if the task group was going to lock the finish hopefully it
+    // would do so here while we wait
+    SleepFor(1e-2);
+
+    // Add a new task that will still be running
+    std::atomic<bool> ready(false);
+    std::mutex m;
+    std::condition_variable cv;
+    task_group->Append([&m, &cv, &ready] {
+      std::unique_lock<std::mutex> lk(m);
+      cv.wait(lk, [&ready] { return ready.load(); });
+      return Status::OK();
+    });
+
+    // Ensure task group not finished already
+    auto finished = task_group->FinishAsync();
+    ASSERT_FALSE(finished.is_finished());
+
+    std::unique_lock<std::mutex> lk(m);
+    ready = true;
+    lk.unlock();
+    cv.notify_one();
+
+    ASSERT_FINISHES_OK(finished);
+  }
+}
+
+void TestFinishNeverStarted(std::shared_ptr<TaskGroup> task_group) {
+  // If we call FinishAsync we are done adding tasks so if we never added any it should be
+  // completed
+  auto finished = task_group->FinishAsync();
+  ASSERT_TRUE(finished.Wait(1));
+}
+
+void TestFinishAlreadyCompleted(std::function<std::shared_ptr<TaskGroup>()> factory) {
+  // If we call FinishAsync we are done adding tasks so even if no tasks are running we
+  // should still be completed
+  const int NTASKS = 100;
+  for (int i = 0; i < NTASKS; ++i) {
+    auto task_group = factory();
+    // Add a task and let it complete
+    task_group->Append([] { return Status::OK(); });
+    // Wait a little bit, hopefully enough time for the task to finish on one of these
+    // iterations
+    SleepFor(1e-2);
+    auto finished = task_group->FinishAsync();
+    ASSERT_FINISHES_OK(finished);
+  }
+}
+
 TEST(SerialTaskGroup, Success) { TestTaskGroupSuccess(TaskGroup::MakeSerial()); }
 
 TEST(SerialTaskGroup, Errors) { TestTaskGroupErrors(TaskGroup::MakeSerial()); }
@@ -250,6 +313,14 @@ TEST(SerialTaskGroup, Errors) { TestTaskGroupErrors(TaskGroup::MakeSerial()); }
 TEST(SerialTaskGroup, TasksSpawnTasks) { TestTasksSpawnTasks(TaskGroup::MakeSerial()); }
 
 TEST(SerialTaskGroup, NoCopyTask) { TestNoCopyTask(TaskGroup::MakeSerial()); }
+
+TEST(SerialTaskGroup, FinishNeverStarted) {
+  TestFinishNeverStarted(TaskGroup::MakeSerial());
+}
+
+TEST(SerialTaskGroup, FinishAlreadyCompleted) {
+  TestFinishAlreadyCompleted([] { return TaskGroup::MakeSerial(); });
+}
 
 TEST(ThreadedTaskGroup, Success) {
   auto task_group = TaskGroup::MakeThreaded(GetCpuThreadPool());
@@ -289,6 +360,26 @@ TEST(ThreadedTaskGroup, StressFailingTaskGroupLifetime) {
 
   StressFailingTaskGroupLifetime(
       [&] { return TaskGroup::MakeThreaded(thread_pool.get()); });
+}
+
+TEST(ThreadedTaskGroup, FinishNotSticky) {
+  std::shared_ptr<ThreadPool> thread_pool;
+  ASSERT_OK_AND_ASSIGN(thread_pool, ThreadPool::Make(16));
+
+  TestFinishNotSticky([&] { return TaskGroup::MakeThreaded(thread_pool.get()); });
+}
+
+TEST(ThreadedTaskGroup, FinishNeverStarted) {
+  std::shared_ptr<ThreadPool> thread_pool;
+  ASSERT_OK_AND_ASSIGN(thread_pool, ThreadPool::Make(4));
+  TestFinishNeverStarted(TaskGroup::MakeThreaded(thread_pool.get()));
+}
+
+TEST(ThreadedTaskGroup, FinishAlreadyCompleted) {
+  std::shared_ptr<ThreadPool> thread_pool;
+  ASSERT_OK_AND_ASSIGN(thread_pool, ThreadPool::Make(16));
+
+  TestFinishAlreadyCompleted([&] { return TaskGroup::MakeThreaded(thread_pool.get()); });
 }
 
 }  // namespace internal

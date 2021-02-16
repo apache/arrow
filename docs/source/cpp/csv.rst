@@ -42,6 +42,7 @@ A CSV file is read from a :class:`~arrow::io::InputStream`.
    {
       // ...
       arrow::MemoryPool* pool = default_memory_pool();
+      arrow::io::AsyncContext async_context;
       std::shared_ptr<arrow::io::InputStream> input = ...;
 
       auto read_options = arrow::csv::ReadOptions::Defaults();
@@ -51,6 +52,7 @@ A CSV file is read from a :class:`~arrow::io::InputStream`.
       // Instantiate TableReader from input stream and options
       auto maybe_reader =
         arrow::csv::TableReader::Make(pool,
+                                      async_context,
                                       input,
                                       read_options,
                                       parse_options,

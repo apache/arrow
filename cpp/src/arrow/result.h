@@ -317,7 +317,7 @@ class ARROW_MUST_USE_TYPE Result : public util::EqualityComparable<Result<T>> {
     return ValueUnsafe();
   }
   const T& operator*() const& { return ValueOrDie(); }
-  const T* operator->() const& { return &ValueOrDie(); }
+  const T* operator->() const { return &ValueOrDie(); }
 
   /// Gets a mutable reference to the stored `T` value.
   ///
@@ -332,7 +332,7 @@ class ARROW_MUST_USE_TYPE Result : public util::EqualityComparable<Result<T>> {
     return ValueUnsafe();
   }
   T& operator*() & { return ValueOrDie(); }
-  T* operator->() & { return &ValueOrDie(); }
+  T* operator->() { return &ValueOrDie(); }
 
   /// Moves and returns the internally-stored `T` value.
   ///

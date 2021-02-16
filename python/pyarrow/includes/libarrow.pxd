@@ -1140,6 +1140,9 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         ObjectType_FILE" arrow::io::ObjectType::FILE"
         ObjectType_DIRECTORY" arrow::io::ObjectType::DIRECTORY"
 
+    cdef cppclass CAsyncContext" arrow::io::AsyncContext":
+        CAsyncContext()
+
     cdef cppclass FileStatistics:
         int64_t size
         ObjectType kind
@@ -1618,7 +1621,7 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
     cdef cppclass CCSVReader" arrow::csv::TableReader":
         @staticmethod
         CResult[shared_ptr[CCSVReader]] Make(
-            CMemoryPool*, shared_ptr[CInputStream],
+            CMemoryPool*, CAsyncContext, shared_ptr[CInputStream],
             CCSVReadOptions, CCSVParseOptions, CCSVConvertOptions)
 
         CResult[shared_ptr[CTable]] Read()
