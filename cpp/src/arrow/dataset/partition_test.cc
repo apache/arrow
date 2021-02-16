@@ -489,8 +489,8 @@ TEST_F(TestPartitioning, SetDefaultValuesNull) {
   auto full_schm = schema({field("a", int32()), field("b", utf8()), field("c", int32())});
   RecordBatchProjector record_batch_projector(full_schm);
   HivePartitioning part(schm);
-  part.SetDefaultValuesFromKeys(and_(is_null(field_ref("a")), is_null(field_ref("b"))),
-                                &record_batch_projector);
+  ARROW_EXPECT_OK(part.SetDefaultValuesFromKeys(
+      and_(is_null(field_ref("a")), is_null(field_ref("b"))), &record_batch_projector));
 
   auto in_rb = RecordBatchFromJSON(small_schm, R"([{"c": 0},
                                                   {"c": 1},
