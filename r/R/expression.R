@@ -51,8 +51,8 @@ Ops.array_expression <- function(e1, e2) {
 }
 
 build_array_expression <- function(.Generic, e1, e2, ...) {
-  if (.Generic %in% names(.unary_function_map)) {
-    expr <- array_expression(.unary_function_map[[.Generic]], e1)
+  if (.Generic %in% names(.unary_function_map) || nargs() == 2L) {
+    expr <- array_expression(.unary_function_map[[.Generic]] %||% .Generic, e1)
   } else {
     e1 <- .wrap_arrow(e1, .Generic)
     e2 <- .wrap_arrow(e2, .Generic)
@@ -79,7 +79,7 @@ build_array_expression <- function(.Generic, e1, e2, ...) {
       return(build_array_expression("-", e1, base))
     }
 
-    expr <- array_expression(.binary_function_map[[.Generic]], e1, e2, ...)
+    expr <- array_expression(.binary_function_map[[.Generic]] %||% .Generic, e1, e2, ...)
   }
   expr
 }
@@ -110,7 +110,14 @@ cast_array_expression <- function(x, to_type, safe = TRUE, ...) {
 .unary_function_map <- list(
   "!" = "invert",
   "is.na" = "is_null",
-  "is.nan" = "is_nan"
+  "is.nan" = "is_nan",
+  "nchar" = "binary_length",
+  "tolower" = "utf8_lower",
+  "toupper" = "utf8_upper",
+  # stringr spellings of those
+  "str_length" = "binary_length",
+  "str_to_lower" = "utf8_lower",
+  "str_to_upper" = "utf8_upper"
 )
 
 .binary_function_map <- list(
@@ -228,8 +235,8 @@ Expression$scalar <- function(x) {
 }
 
 build_dataset_expression <- function(.Generic, e1, e2, ...) {
-  if (.Generic %in% names(.unary_function_map)) {
-    expr <- Expression$create(.unary_function_map[[.Generic]], e1)
+  if (.Generic %in% names(.unary_function_map) || nargs() == 2L) {
+    expr <- Expression$create(.unary_function_map[[.Generic]] %||% .Generic, e1)
   } else if (.Generic == "%in%") {
     # Special-case %in%, which is different from the Array function name
     expr <- Expression$create("is_in", e1,
@@ -260,7 +267,7 @@ build_dataset_expression <- function(.Generic, e1, e2, ...) {
       return(e1 - e2 * ( e1 %/% e2 ))
     }
 
-    expr <- Expression$create(.binary_function_map[[.Generic]], e1, e2, ...)
+    expr <- Expression$create(.binary_function_map[[.Generic]] %||% .Generic, e1, e2, ...)
   }
   expr
 }

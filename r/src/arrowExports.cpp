@@ -642,6 +642,13 @@ BEGIN_CPP11
 	return cpp11::as_sexp(compute__CallFunction(func_name, args, options));
 END_CPP11
 }
+// compute.cpp
+std::vector<std::string> list_compute_functions();
+extern "C" SEXP _arrow_list_compute_functions(){
+BEGIN_CPP11
+	return cpp11::as_sexp(list_compute_functions());
+END_CPP11
+}
 // csv.cpp
 std::shared_ptr<arrow::csv::ReadOptions> csv___ReadOptions__initialize(cpp11::list options);
 extern "C" SEXP _arrow_csv___ReadOptions__initialize(SEXP options_sexp){
@@ -3583,6 +3590,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_RecordBatch__cast", (DL_FUNC) &_arrow_RecordBatch__cast, 3}, 
 		{ "_arrow_Table__cast", (DL_FUNC) &_arrow_Table__cast, 3}, 
 		{ "_arrow_compute__CallFunction", (DL_FUNC) &_arrow_compute__CallFunction, 3}, 
+		{ "_arrow_list_compute_functions", (DL_FUNC) &_arrow_list_compute_functions, 0}, 
 		{ "_arrow_csv___ReadOptions__initialize", (DL_FUNC) &_arrow_csv___ReadOptions__initialize, 1}, 
 		{ "_arrow_csv___ParseOptions__initialize", (DL_FUNC) &_arrow_csv___ParseOptions__initialize, 1}, 
 		{ "_arrow_csv___ReadOptions__column_names", (DL_FUNC) &_arrow_csv___ReadOptions__column_names, 1}, 

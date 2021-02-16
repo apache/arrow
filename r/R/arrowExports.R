@@ -296,6 +296,10 @@ compute__CallFunction <- function(func_name, args, options){
     .Call(`_arrow_compute__CallFunction`, func_name, args, options)
 }
 
+list_compute_functions <- function(){
+    .Call(`_arrow_list_compute_functions`)
+}
+
 csv___ReadOptions__initialize <- function(options){
     .Call(`_arrow_csv___ReadOptions__initialize`, options)
 }
