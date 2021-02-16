@@ -996,6 +996,8 @@ static inline int offset_bit_width(Type::type type_id) {
     case Type::STRING:
     case Type::BINARY:
     case Type::LIST:
+    case Type::MAP:
+    case Type::DENSE_UNION:
       return 32;
     case Type::LARGE_STRING:
     case Type::LARGE_BINARY:

@@ -94,8 +94,8 @@ struct Utf8Validator {
 };
 
 template <typename I, typename O>
-static void CastBinaryToBinaryOffsets(KernelContext* ctx, const ArrayData& input,
-                                      ArrayData* output) {
+void CastBinaryToBinaryOffsets(KernelContext* ctx, const ArrayData& input,
+                               ArrayData* output) {
   static_assert(std::is_same<I, O>::value, "Cast same-width offsets (no-op)");
 }
 
@@ -145,8 +145,7 @@ void CastBinaryToBinaryOffsets<int64_t, int32_t>(KernelContext* ctx,
 }
 
 template <typename O, typename I>
-static void BinaryToBinaryCastExec(KernelContext* ctx, const ExecBatch& batch,
-                                   Datum* out) {
+void BinaryToBinaryCastExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   DCHECK(out->is_array());
   const CastOptions& options = checked_cast<const CastState&>(*ctx->state()).options;
   const ArrayData& input = *batch[0].array();

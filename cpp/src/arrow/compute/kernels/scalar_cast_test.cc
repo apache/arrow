@@ -71,6 +71,9 @@ static std::vector<std::shared_ptr<DataType>> kNumericTypes = {
     uint8(), int8(),   uint16(), int16(),   uint32(),
     int32(), uint64(), int64(),  float32(), float64()};
 
+static std::vector<std::shared_ptr<DataType>> kDictionaryIndexTypes = {
+    int8(), uint8(), int16(), uint16(), int32(), uint32(), int64(), uint64()};
+
 static std::vector<std::shared_ptr<DataType>> kBaseBinaryTypes = {
     binary(), utf8(), large_binary(), large_utf8()};
 
@@ -259,8 +262,9 @@ TEST(Cast, ToIntUpcast) {
 }
 
 TEST(Cast, OverflowInNullSlot) {
-  CheckCast(ArrayFromJSON(int32(), "[0, null, 2000, 1000, 0]"),
-            ArrayFromJSON(int16(), "[0, null, 2000, 1000, 0]"));
+  CheckCast(
+      MaskArrayWithNullsAt(ArrayFromJSON(int32(), "[0, 87654321, 2000, 1000, 0]"), {1}),
+      ArrayFromJSON(int16(), "[0, null, 2000, 1000, 0]"));
 }
 
 TEST(Cast, ToIntDowncastSafe) {
@@ -1327,49 +1331,41 @@ TEST(Cast, ListToPrimitive) {
 }
 
 TEST(Cast, ListToList) {
-  auto list_int32 = checked_pointer_cast<ListArray>(ArrayFromJSON(
-      list(int32()), "[[0], [1], null, [2, 3, 4], [5, 6], null, [], [7], [8, 9]]"));
+  using make_list_t = std::shared_ptr<DataType>(const std::shared_ptr<DataType>&);
+  for (auto make_list : std::vector<make_list_t*>{&list, &large_list}) {
+    auto list_int32 =
+        ArrayFromJSON(make_list(int32()),
+                      "[[0], [1], null, [2, 3, 4], [5, 6], null, [], [7], [8, 9]]")
+            ->data();
 
-  auto list_int64 = std::make_shared<ListArray>(
-      list(int64()), list_int32->length(), list_int32->value_offsets(),
-      *Cast(*list_int32->values(), int64()), list_int32->null_bitmap());
-  ASSERT_OK(list_int64->ValidateFull());
+    auto list_int64 = list_int32->Copy();
+    list_int64->type = make_list(int64());
+    list_int64->child_data[0] = Cast(list_int32->child_data[0], int64())->array();
+    ASSERT_OK(MakeArray(list_int64)->ValidateFull());
 
-  auto list_float32 = std::make_shared<ListArray>(
-      list(float32()), list_int32->length(), list_int32->value_offsets(),
-      *Cast(*list_int32->values(), float32()), list_int32->null_bitmap());
-  ASSERT_OK(list_float32->ValidateFull());
+    auto list_float32 = list_int32->Copy();
+    list_float32->type = make_list(float32());
+    list_float32->child_data[0] = Cast(list_int32->child_data[0], float32())->array();
+    ASSERT_OK(MakeArray(list_float32)->ValidateFull());
 
-  CheckCast(list_int32, list_float32);
-  CheckCast(list_float32, list_int64);
-  CheckCast(list_int64, list_float32);
+    CheckCast(MakeArray(list_int32), MakeArray(list_float32));
+    CheckCast(MakeArray(list_float32), MakeArray(list_int64));
+    CheckCast(MakeArray(list_int64), MakeArray(list_float32));
 
-  CheckCast(list_int32, list_int64);
-  CheckCast(list_float32, list_int32);
-  CheckCast(list_int64, list_int32);
+    CheckCast(MakeArray(list_int32), MakeArray(list_int64));
+    CheckCast(MakeArray(list_float32), MakeArray(list_int32));
+    CheckCast(MakeArray(list_int64), MakeArray(list_int32));
+  }
 }
 
-TEST(Cast, LargeListToLargeList) {
-  auto list_int32 = checked_pointer_cast<LargeListArray>(ArrayFromJSON(
-      large_list(int32()), "[[0], [1], null, [2, 3, 4], [5, 6], null, [], [7], [8, 9]]"));
+TEST(Cast, ListToListOptionsPassthru) {
+  auto list_int32 = ArrayFromJSON(list(int32()), "[[87654321]]");
 
-  auto list_int64 = std::make_shared<LargeListArray>(
-      large_list(int64()), list_int32->length(), list_int32->value_offsets(),
-      *Cast(*list_int32->values(), int64()), list_int32->null_bitmap());
-  ASSERT_OK(list_int64->ValidateFull());
+  auto options = CastOptions::Safe(list(int16()));
+  CheckCastFails(list_int32, options);
 
-  auto list_float32 = std::make_shared<LargeListArray>(
-      large_list(float32()), list_int32->length(), list_int32->value_offsets(),
-      *Cast(*list_int32->values(), float32()), list_int32->null_bitmap());
-  ASSERT_OK(list_float32->ValidateFull());
-
-  CheckCast(list_int32, list_float32);
-  CheckCast(list_float32, list_int64);
-  CheckCast(list_int64, list_float32);
-
-  CheckCast(list_int32, list_int64);
-  CheckCast(list_float32, list_int32);
-  CheckCast(list_int64, list_int32);
+  options.allow_int_overflow = true;
+  CheckCast(list_int32, ArrayFromJSON(list(int16()), "[[32689]]"), options);
 }
 
 TEST(Cast, IdentityCasts) {
@@ -1457,7 +1453,7 @@ TEST(Cast, FromDictionary) {
   }
 
   for (auto dict : dictionaries) {
-    for (auto index_type : all_dictionary_index_types()) {
+    for (auto index_type : kDictionaryIndexTypes) {
       auto indices = ArrayFromJSON(index_type, "[4, 0, 1, 2, 0, 4, null, 2]");
       ASSERT_OK_AND_ASSIGN(auto expected, Take(*dict, *indices));
 
