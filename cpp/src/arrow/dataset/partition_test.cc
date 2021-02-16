@@ -464,9 +464,9 @@ TEST_F(TestPartitioning, SetDefaultValuesConcrete) {
   auto full_schm = schema({field("a", int32()), field("b", utf8()), field("c", int32())});
   RecordBatchProjector record_batch_projector(full_schm);
   HivePartitioning part(schm);
-  part.SetDefaultValuesFromKeys(
-      and_(equal(field_ref("a"), literal(10)), equal(field_ref("b"), literal("y"))),
-      &record_batch_projector);
+  ARROW_EXPECT_OK(part.SetDefaultValuesFromKeys(
+      and_(equal(field_ref("a"), literal(10)), is_valid(field_ref("b"))),
+      &record_batch_projector));
 
   auto in_rb = RecordBatchFromJSON(small_schm, R"([{"c": 0},
                                                   {"c": 1},
@@ -475,10 +475,10 @@ TEST_F(TestPartitioning, SetDefaultValuesConcrete) {
                                                 ])");
 
   EXPECT_OK_AND_ASSIGN(auto out_rb, record_batch_projector.Project(*in_rb));
-  auto expected_rb = RecordBatchFromJSON(full_schm, R"([{"a": 10,  "b": "y", "c": 0},
-                                                        {"a": 10, "b": "y", "c": 1},
-                                                        {"a": 10,  "b": "y", "c": 2},
-                                                        {"a": 10, "b": "y", "c": 3}
+  auto expected_rb = RecordBatchFromJSON(full_schm, R"([{"a": 10,  "b": null, "c": 0},
+                                                        {"a": 10,  "b": null, "c": 1},
+                                                        {"a": 10,  "b": null, "c": 2},
+                                                        {"a": 10,  "b": null, "c": 3}
                                                       ])");
   AssertBatchesEqual(*expected_rb, *out_rb);
 }

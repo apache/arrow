@@ -88,9 +88,9 @@ Status KeyValuePartitioning::SetDefaultValuesFromKeys(const Expression& expr,
     if (known_value.concrete()) {
       RETURN_NOT_OK(projector->SetDefaultValue(match, known_value.datum.scalar()));
     } else if (known_value.valid) {
-      return Status::Invalid(
-          "Partition expression not defined enough to set default value for ",
-          ref_value.first.name());
+      // We know some information about the value but nothing concrete enough to set.  Can
+      // happen if expression is something like is_valid(field_ref("a"))
+      continue;
     } else {
       RETURN_NOT_OK(projector->SetDefaultValue(match, MakeNullScalar(field->type())));
     }
