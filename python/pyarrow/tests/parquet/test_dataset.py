@@ -353,6 +353,23 @@ def test_filters_cutoff_exclusive_datetime(tempdir, use_legacy_dataset):
 
 
 @pytest.mark.pandas
+def test_filters_inclusive_datetime(tempdir):
+    # ARROW-11480
+    path = tempdir / 'timestamps.parquet'
+
+    pd.DataFrame({
+        "dates": pd.date_range("2020-01-01", periods=10, freq="D"),
+        "id": range(10)
+    }).to_parquet(path, use_deprecated_int96_timestamps=True)
+
+    table = pq.read_table(path, filters=[
+        ("dates", "<=", datetime.datetime(2020, 1, 5))
+    ])
+
+    assert table.column('id').to_pylist() == [0, 1, 2, 3, 4]
+
+
+@pytest.mark.pandas
 @parametrize_legacy_dataset
 def test_filters_inclusive_integer(tempdir, use_legacy_dataset):
     fs = LocalFileSystem._get_instance()
