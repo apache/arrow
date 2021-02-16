@@ -35,17 +35,17 @@ namespace csv {
 //
 // The algorithm used here at a high level is to break RecordBatches/Tables into slices
 // and convert each slice independently.  A slice is then converted to CSV by first
-// scanning each column to determine the size of its contents when rendered as a string in CSV. For
-// non-string types this requires casting the value to string (which is cached).  This
-// data is used to understand the precise length of each row and a single allocation for
-// the final CSV data buffer. Once the final size is known each column is then iterated
-// over again to place its contents into the CSV data buffer. The rationale for choosing
-// this approach is it allows for reuse of the cast functionality in the compute module //
-// and inline data visiting functionality in the core library. A performance comparison
-// has not been done using a naive single-pass approach. This approach might still be
-// competitive due to reduction in the number of per row branches necessary with a single
-// pass approach. Profiling would likely yield further opportunities for optimization with
-// this approach.
+// scanning each column to determine the size of its contents when rendered as a string in
+// CSV. For non-string types this requires casting the value to string (which is cached).
+// This data is used to understand the precise length of each row and a single allocation
+// for the final CSV data buffer. Once the final size is known each column is then
+// iterated over again to place its contents into the CSV data buffer. The rationale for
+// choosing this approach is it allows for reuse of the cast functionality in the compute
+// module // and inline data visiting functionality in the core library. A performance
+// comparison has not been done using a naive single-pass approach. This approach might
+// still be competitive due to reduction in the number of per row branches necessary with
+// a single pass approach. Profiling would likely yield further opportunities for
+// optimization with this approach.
 
 namespace {
 
@@ -153,7 +153,8 @@ class QuotedColumnPopulator : public ColumnPopulator {
         *input.data(),
         [&](arrow::util::string_view s) {
           int64_t escaped_count = CountEscapes(s);
-          *extra_chars = escaped_count + kQuoteCount;
+          // TODO: Maybe use 64 bit row lengths or safe cast?
+          *extra_chars = static_cast<int>(escaped_count) + kQuoteCount;
           extra_chars++;
         },
         [&]() {
@@ -348,7 +349,7 @@ class CsvConverter {
       offsets[row] += offsets[row - 1] + /*delimiter lengths*/ batch.num_columns();
     }
     // Resize the target buffer to required size. We assume batch to batch sizes
-    // should be pretty close so don't shrink the buffer to avoid allocation churn. 
+    // should be pretty close so don't shrink the buffer to avoid allocation churn.
     RETURN_NOT_OK(data_buffer_->Resize(offsets.back(), /*shrink_to_fit=*/false));
 
     // Calculate pointers to the start of each row.

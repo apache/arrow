@@ -32,7 +32,8 @@ from pyarrow.lib cimport (check_status, Field, MemoryPool, Schema,
                           maybe_unbox_memory_pool, get_input_stream,
                           get_writer, native_transcoding_input_stream,
                           pyarrow_wrap_schema, pyarrow_wrap_table,
-                          pyarrow_wrap_data_type, pyarrow_unwrap_data_type, Table, RecordBatch)
+                          pyarrow_wrap_data_type, pyarrow_unwrap_data_type,
+                          Table, RecordBatch)
 from pyarrow.lib import frombytes, tobytes
 from pyarrow.util import _stringify_path
 
@@ -805,12 +806,12 @@ def write_csv(output_file, data, include_header=True,
     if isinstance(data, RecordBatch):
         batch = (<RecordBatch>data).batch
         with nogil:
-          check_status(WriteCsv(deref(batch), c_write_options, c_memory_pool,
-                                stream.get()))
+            check_status(WriteCsv(deref(batch), c_write_options, c_memory_pool,
+                                  stream.get()))
     elif isinstance(data, Table):
         table = (<Table>data).table
         with nogil:
-          check_status(WriteCsv(deref(table), c_write_options, c_memory_pool,
-                                stream.get()))
+            check_status(WriteCsv(deref(table), c_write_options, c_memory_pool,
+                                  stream.get()))
     else:
         raise ValueError(type(data))

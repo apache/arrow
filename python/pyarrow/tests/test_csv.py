@@ -1260,7 +1260,7 @@ def test_read_csv_does_not_close_passed_file_handles():
 
 
 def test_write_read_round_trip():
-    t = pa.Table.from_arrays([[1,2,3], ["a", "b", "c"]], ["c1", "c2"])
+    t = pa.Table.from_arrays([[1, 2, 3], ["a", "b", "c"]], ["c1", "c2"])
     record_batch = t.to_batches(max_chunksize=4)[0]
     for data in [t, record_batch]:
         # test with header
