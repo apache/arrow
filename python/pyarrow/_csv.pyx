@@ -765,6 +765,7 @@ def open_csv(input_file, read_options=None, parse_options=None,
                  maybe_unbox_memory_pool(memory_pool))
     return reader
 
+
 def write_csv(output_file, data, include_header=True,
               MemoryPool memory_pool=None):
     """
@@ -792,12 +793,12 @@ def write_csv(output_file, data, include_header=True,
         CRecordBatch* batch
         CTable* table
     try:
-       where = _stringify_path(output_file)
+        where = _stringify_path(output_file)
     except TypeError:
-       get_writer(output_file, &stream)
+        get_writer(output_file, &stream)
     else:
-       c_where = tobytes(where)
-       stream = GetResultValue(FileOutputStream.Open(c_where))
+        c_where = tobytes(where)
+        stream = GetResultValue(FileOutputStream.Open(c_where))
 
     c_write_options.include_header = include_header
     c_memory_pool = maybe_unbox_memory_pool(memory_pool)
@@ -805,11 +806,11 @@ def write_csv(output_file, data, include_header=True,
         batch = (<RecordBatch>data).batch
         with nogil:
           check_status(WriteCsv(deref(batch), c_write_options, c_memory_pool,
-                       stream.get()))
+                                stream.get()))
     elif isinstance(data, Table):
         table = (<Table>data).table
         with nogil:
           check_status(WriteCsv(deref(table), c_write_options, c_memory_pool,
-                       stream.get()))
+                                stream.get()))
     else:
-       raise ValueError(type(data))
+        raise ValueError(type(data))
