@@ -2521,7 +2521,7 @@ TEST(TestArrowReadWrite, TableWithChunkedColumns) {
 }
 
 TEST(TestArrowReadWrite, ManySmallLists) {
-  // ARROW-11607: The actual scenaio this forces is no data reads for
+  // ARROW-11607: The actual scenario this forces is no data reads for
   // a first batch, and then a single element read for the second batch.
 
   // Constructs
