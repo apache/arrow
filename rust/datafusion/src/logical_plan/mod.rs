@@ -29,7 +29,6 @@ mod extension;
 mod operators;
 mod plan;
 mod registry;
-mod temporal;
 pub use builder::LogicalPlanBuilder;
 pub use dfschema::{DFField, DFSchema, DFSchemaRef, ToDFSchema};
 pub use display::display_schema;
@@ -46,4 +45,3 @@ pub use plan::{
     JoinType, LogicalPlan, Partitioning, PlanType, PlanVisitor, StringifiedPlan,
 };
 pub use registry::FunctionRegistry;
-pub use temporal::DatePart;
