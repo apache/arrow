@@ -20,7 +20,6 @@
 use std::cmp::Ordering;
 
 use crate::array::*;
-use crate::datatypes::TimeUnit;
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 
@@ -122,7 +121,6 @@ where
 pub fn build_compare<'a>(left: &'a Array, right: &'a Array) -> Result<DynComparator<'a>> {
     use DataType::*;
     use IntervalUnit::*;
-    use TimeUnit::*;
     Ok(match (left.data_type(), right.data_type()) {
         (a, b) if a != b => {
             return Err(ArrowError::InvalidArgumentError(
@@ -149,23 +147,10 @@ pub fn build_compare<'a>(left: &'a Array, right: &'a Array) -> Result<DynCompara
             compare_primitives::<i64>(left, right)
         }
         (Interval(YearMonth), Interval(YearMonth)) => {
-            compare_primitives::<IntervalYearMonthType>(left, right)
+            compare_primitives::<i32>(left, right)
         }
-        (Interval(DayTime), Interval(DayTime)) => {
-            compare_primitives::<IntervalDayTimeType>(left, right)
-        }
-        (Duration(Second), Duration(Second)) => {
-            compare_primitives::<DurationSecondType>(left, right)
-        }
-        (Duration(Millisecond), Duration(Millisecond)) => {
-            compare_primitives::<DurationMillisecondType>(left, right)
-        }
-        (Duration(Microsecond), Duration(Microsecond)) => {
-            compare_primitives::<DurationMicrosecondType>(left, right)
-        }
-        (Duration(Nanosecond), Duration(Nanosecond)) => {
-            compare_primitives::<DurationNanosecondType>(left, right)
-        }
+        (Interval(DayTime), Interval(DayTime)) => compare_primitives::<i64>(left, right),
+        (Duration(_), Duration(_)) => compare_primitives::<i64>(left, right),
         (Utf8, Utf8) => compare_string::<i32>(left, right),
         (LargeUtf8, LargeUtf8) => compare_string::<i64>(left, right),
         (
@@ -187,13 +172,13 @@ pub fn build_compare<'a>(left: &'a Array, right: &'a Array) -> Result<DynCompara
                     ));
                 }
                 (UInt8, UInt8) => compare_dict_string::<u8>(left, right),
-                (UInt16, UInt16) => compare_dict_string::<UInt16Type>(left, right),
+                (UInt16, UInt16) => compare_dict_string::<u16>(left, right),
                 (UInt32, UInt32) => compare_dict_string::<u32>(left, right),
-                (UInt64, UInt64) => compare_dict_string::<UInt64Type>(left, right),
-                (Int8, Int8) => compare_dict_string::<Int8Type>(left, right),
-                (Int16, Int16) => compare_dict_string::<Int16Type>(left, right),
-                (Int32, Int32) => compare_dict_string::<Int32Type>(left, right),
-                (Int64, Int64) => compare_dict_string::<Int64Type>(left, right),
+                (UInt64, UInt64) => compare_dict_string::<u64>(left, right),
+                (Int8, Int8) => compare_dict_string::<i8>(left, right),
+                (Int16, Int16) => compare_dict_string::<i16>(left, right),
+                (Int32, Int32) => compare_dict_string::<i32>(left, right),
+                (Int64, Int64) => compare_dict_string::<i64>(left, right),
                 (lhs, _) => {
                     return Err(ArrowError::InvalidArgumentError(format!(
                         "Dictionaries do not support keys of type {:?}",
@@ -274,7 +259,7 @@ pub mod tests {
     #[test]
     fn test_dict() -> Result<()> {
         let data = vec!["a", "b", "c", "a", "a", "c", "c"];
-        let array = DictionaryArray::<Int16Type>::from_iter(data.into_iter());
+        let array = DictionaryArray::<i16>::from_iter(data.into_iter());
 
         let cmp = build_compare(&array, &array)?;
 

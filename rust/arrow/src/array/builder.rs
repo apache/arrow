@@ -1812,13 +1812,13 @@ where
 ///     Int8Array, StringArray,
 ///     PrimitiveBuilder, StringBuilder, StringDictionaryBuilder,
 ///   },
-///   datatypes::Int8Type,
+///   datatypes::i8,
 /// };
 ///
 /// // Create a dictionary array indexed by bytes whose values are Strings.
 /// // It can thus hold up to 256 distinct string values.
 ///
-/// let key_builder = PrimitiveBuilder::<Int8Type>::new(100);
+/// let key_builder = PrimitiveBuilder::<i8>::new(100);
 /// let value_builder = StringBuilder::new(100);
 /// let mut builder = StringDictionaryBuilder::new(key_builder, value_builder);
 ///
@@ -1873,13 +1873,13 @@ where
     /// # Example
     ///
     /// ```
-    /// use arrow::datatypes::Int16Type;
+    /// use arrow::datatypes::i16;
     /// use arrow::array::{StringArray, StringDictionaryBuilder, PrimitiveBuilder, Int16Array};
     /// use std::convert::TryFrom;
     ///
     /// let dictionary_values = StringArray::from(vec![None, Some("abc"), Some("def")]);
     ///
-    /// let mut builder = StringDictionaryBuilder::new_with_dictionary(PrimitiveBuilder::<Int16Type>::new(3), &dictionary_values).unwrap();
+    /// let mut builder = StringDictionaryBuilder::new_with_dictionary(PrimitiveBuilder::<i16>::new(3), &dictionary_values).unwrap();
     /// builder.append("def").unwrap();
     /// builder.append_null().unwrap();
     /// builder.append("abc").unwrap();
@@ -2213,23 +2213,6 @@ mod tests {
     }
 
     #[test]
-    fn test_primitive_array_builder_timestamp_second() {
-        let mut builder = TimestampSecondArray::builder(5);
-        for i in 0..5 {
-            builder.append_value(i).unwrap();
-        }
-        let arr = builder.finish();
-        assert_eq!(5, arr.len());
-        assert_eq!(0, arr.offset());
-        assert_eq!(0, arr.null_count());
-        for i in 0..5 {
-            assert!(!arr.is_null(i));
-            assert!(arr.is_valid(i));
-            assert_eq!(i as i64, arr.value(i));
-        }
-    }
-
-    #[test]
     fn test_primitive_array_builder_bool() {
         // 00000010 01001000
         let buf = Buffer::from([72_u8, 2_u8]);
@@ -2341,7 +2324,7 @@ mod tests {
 
     #[test]
     fn test_list_array_builder() {
-        let values_builder = Int32Builder::new(10);
+        let values_builder = Int32Builder::new(10, DataType::Int32);
         let mut builder = ListBuilder::new(values_builder);
 
         //  [[0, 1, 2], [3, 4, 5], [6, 7]]
@@ -2377,7 +2360,7 @@ mod tests {
 
     #[test]
     fn test_large_list_array_builder() {
-        let values_builder = Int32Builder::new(10);
+        let values_builder = Int32Builder::new(10, DataType::Int32);
         let mut builder = LargeListBuilder::new(values_builder);
 
         //  [[0, 1, 2], [3, 4, 5], [6, 7]]
@@ -2413,7 +2396,7 @@ mod tests {
 
     #[test]
     fn test_list_array_builder_nulls() {
-        let values_builder = Int32Builder::new(10);
+        let values_builder = Int32Builder::new(10, DataType::Int32);
         let mut builder = ListBuilder::new(values_builder);
 
         //  [[0, 1, 2], null, [3, null, 5], [6, 7]]
@@ -2440,7 +2423,7 @@ mod tests {
 
     #[test]
     fn test_large_list_array_builder_nulls() {
-        let values_builder = Int32Builder::new(10);
+        let values_builder = Int32Builder::new(10, DataType::Int32);
         let mut builder = LargeListBuilder::new(values_builder);
 
         //  [[0, 1, 2], null, [3, null, 5], [6, 7]]
@@ -2467,7 +2450,7 @@ mod tests {
 
     #[test]
     fn test_fixed_size_list_array_builder() {
-        let values_builder = Int32Builder::new(10);
+        let values_builder = Int32Builder::new(10, DataType::Int32);
         let mut builder = FixedSizeListBuilder::new(values_builder, 3);
 
         //  [[0, 1, 2], null, [3, null, 5], [6, 7, null]]
@@ -2498,7 +2481,7 @@ mod tests {
 
     #[test]
     fn test_list_array_builder_finish() {
-        let values_builder = Int32Array::builder(5);
+        let values_builder = Int32Array::builder(5, DataType::Int32);
         let mut builder = ListBuilder::new(values_builder);
 
         builder.values().append_slice(&[1, 2, 3]).unwrap();
@@ -2519,7 +2502,7 @@ mod tests {
 
     #[test]
     fn test_fixed_size_list_array_builder_empty() {
-        let values_builder = Int32Array::builder(5);
+        let values_builder = Int32Array::builder(5, DataType::Int32);
         let mut builder = FixedSizeListBuilder::new(values_builder, 3);
 
         let arr = builder.finish();
@@ -2529,7 +2512,7 @@ mod tests {
 
     #[test]
     fn test_fixed_size_list_array_builder_finish() {
-        let values_builder = Int32Array::builder(5);
+        let values_builder = Int32Array::builder(5, DataType::Int32);
         let mut builder = FixedSizeListBuilder::new(values_builder, 3);
 
         builder.values().append_slice(&[1, 2, 3]).unwrap();
@@ -2550,7 +2533,7 @@ mod tests {
 
     #[test]
     fn test_list_list_array_builder() {
-        let primitive_builder = Int32Builder::new(10);
+        let primitive_builder = Int32Builder::new(10, DataType::Int32);
         let values_builder = ListBuilder::new(primitive_builder);
         let mut builder = ListBuilder::new(values_builder);
 
@@ -2756,7 +2739,7 @@ mod tests {
     #[test]
     fn test_struct_array_builder() {
         let string_builder = StringBuilder::new(4);
-        let int_builder = Int32Builder::new(4);
+        let int_builder = Int32Builder::new(4, DataType::Int32);
 
         let mut fields = Vec::new();
         let mut field_builders = Vec::new();
@@ -2838,7 +2821,7 @@ mod tests {
 
     #[test]
     fn test_struct_array_builder_finish() {
-        let int_builder = Int32Builder::new(10);
+        let int_builder = Int32Builder::new(10, DataType::Int32);
         let bool_builder = BooleanBuilder::new(10);
 
         let mut fields = Vec::new();
@@ -2932,7 +2915,7 @@ mod tests {
 
     #[test]
     fn test_struct_array_builder_field_builder_type_mismatch() {
-        let int_builder = Int32Builder::new(10);
+        let int_builder = Int32Builder::new(10, DataType::Int32);
 
         let mut fields = Vec::new();
         let mut field_builders = Vec::new();
@@ -2945,8 +2928,8 @@ mod tests {
 
     #[test]
     fn test_primitive_dictionary_builder() {
-        let key_builder = PrimitiveBuilder::<u8>::new(3);
-        let value_builder = PrimitiveBuilder::<u32>::new(2);
+        let key_builder = PrimitiveBuilder::<u8>::new(3, DataType::UInt8);
+        let value_builder = PrimitiveBuilder::<u32>::new(2, DataType::UInt32);
         let mut builder = PrimitiveDictionaryBuilder::new(key_builder, value_builder);
         builder.append(12345678).unwrap();
         builder.append_null().unwrap();
@@ -2972,7 +2955,7 @@ mod tests {
 
     #[test]
     fn test_string_dictionary_builder() {
-        let key_builder = PrimitiveBuilder::<Int8Type>::new(5);
+        let key_builder = PrimitiveBuilder::<i8>::new(5);
         let value_builder = StringBuilder::new(2);
         let mut builder = StringDictionaryBuilder::new(key_builder, value_builder);
         builder.append("abc").unwrap();
@@ -2999,7 +2982,7 @@ mod tests {
     fn test_string_dictionary_builder_with_existing_dictionary() {
         let dictionary = StringArray::from(vec![None, Some("def"), Some("abc")]);
 
-        let key_builder = PrimitiveBuilder::<Int8Type>::new(6);
+        let key_builder = PrimitiveBuilder::<i8>::new(6, DataType::Int8);
         let mut builder =
             StringDictionaryBuilder::new_with_dictionary(key_builder, &dictionary)
                 .unwrap();
@@ -3031,7 +3014,7 @@ mod tests {
         let dictionary: Vec<Option<&str>> = vec![None];
         let dictionary = StringArray::from(dictionary);
 
-        let key_builder = PrimitiveBuilder::<Int16Type>::new(4);
+        let key_builder = PrimitiveBuilder::<i16>::new(4, DataType::Int16);
         let mut builder =
             StringDictionaryBuilder::new_with_dictionary(key_builder, &dictionary)
                 .unwrap();
@@ -3057,8 +3040,8 @@ mod tests {
     #[test]
     #[should_panic(expected = "DictionaryKeyOverflowError")]
     fn test_primitive_dictionary_overflow() {
-        let key_builder = PrimitiveBuilder::<u8>::new(257);
-        let value_builder = PrimitiveBuilder::<u32>::new(257);
+        let key_builder = PrimitiveBuilder::<u8>::new(257, DataType::UInt8);
+        let value_builder = PrimitiveBuilder::<u32>::new(257, DataType::UInt32);
         let mut builder = PrimitiveDictionaryBuilder::new(key_builder, value_builder);
         // 256 unique keys.
         for i in 0..256 {

@@ -27,10 +27,8 @@ use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 
 /// Computes the strides required assuming a row major memory layout
-fn compute_row_major_strides<T: ArrowPrimitiveType>(
-    shape: &[usize],
-) -> Result<Vec<usize>> {
-    let mut remaining_bytes = mem::size_of::<T::Native>();
+fn compute_row_major_strides<T: ArrowNativeType>(shape: &[usize]) -> Result<Vec<usize>> {
+    let mut remaining_bytes = mem::size_of::<T>();
 
     for i in shape {
         if let Some(val) = remaining_bytes.checked_mul(*i) {
@@ -52,10 +50,10 @@ fn compute_row_major_strides<T: ArrowPrimitiveType>(
 }
 
 /// Computes the strides required assuming a column major memory layout
-fn compute_column_major_strides<T: ArrowPrimitiveType>(
+fn compute_column_major_strides<T: ArrowNativeType>(
     shape: &[usize],
 ) -> Result<Vec<usize>> {
-    let mut remaining_bytes = mem::size_of::<T::Native>();
+    let mut remaining_bytes = mem::size_of::<T>();
     let mut strides = Vec::<usize>::new();
 
     for i in shape {
@@ -75,7 +73,7 @@ fn compute_column_major_strides<T: ArrowPrimitiveType>(
 
 /// Tensor of primitive types
 #[derive(Debug)]
-pub struct Tensor<'a, T: ArrowPrimitiveType> {
+pub struct Tensor<'a, T: ArrowNativeType> {
     data_type: DataType,
     buffer: Buffer,
     shape: Option<Vec<usize>>,
@@ -84,19 +82,18 @@ pub struct Tensor<'a, T: ArrowPrimitiveType> {
     _marker: PhantomData<T>,
 }
 
-pub type BooleanTensor<'a> = Tensor<'a, BooleanType>;
-pub type Int8Tensor<'a> = Tensor<'a, Int8Type>;
-pub type Int16Tensor<'a> = Tensor<'a, Int16Type>;
-pub type Int32Tensor<'a> = Tensor<'a, Int32Type>;
-pub type Int64Tensor<'a> = Tensor<'a, Int64Type>;
+pub type Int8Tensor<'a> = Tensor<'a, i8>;
+pub type Int16Tensor<'a> = Tensor<'a, i16>;
+pub type Int32Tensor<'a> = Tensor<'a, i32>;
+pub type Int64Tensor<'a> = Tensor<'a, i64>;
 pub type UInt8Tensor<'a> = Tensor<'a, u8>;
-pub type UInt16Tensor<'a> = Tensor<'a, UInt16Type>;
+pub type UInt16Tensor<'a> = Tensor<'a, u16>;
 pub type UInt32Tensor<'a> = Tensor<'a, u32>;
-pub type UInt64Tensor<'a> = Tensor<'a, UInt64Type>;
-pub type Float32Tensor<'a> = Tensor<'a, Float32Type>;
-pub type Float64Tensor<'a> = Tensor<'a, Float64Type>;
+pub type UInt64Tensor<'a> = Tensor<'a, u64>;
+pub type Float32Tensor<'a> = Tensor<'a, f32>;
+pub type Float64Tensor<'a> = Tensor<'a, f64>;
 
-impl<'a, T: ArrowPrimitiveType> Tensor<'a, T> {
+impl<'a, T: ArrowNativeType> Tensor<'a, T> {
     /// Creates a new `Tensor`
     pub fn try_new(
         buffer: Buffer,
@@ -304,15 +301,15 @@ mod tests {
     fn test_compute_row_major_strides() {
         assert_eq!(
             vec![48_usize, 8],
-            compute_row_major_strides::<Int64Type>(&[4_usize, 6]).unwrap()
+            compute_row_major_strides::<i64>(&[4_usize, 6]).unwrap()
         );
         assert_eq!(
             vec![24_usize, 4],
-            compute_row_major_strides::<Int32Type>(&[4_usize, 6]).unwrap()
+            compute_row_major_strides::<i32>(&[4_usize, 6]).unwrap()
         );
         assert_eq!(
             vec![6_usize, 1],
-            compute_row_major_strides::<Int8Type>(&[4_usize, 6]).unwrap()
+            compute_row_major_strides::<i8>(&[4_usize, 6]).unwrap()
         );
     }
 
@@ -320,15 +317,15 @@ mod tests {
     fn test_compute_column_major_strides() {
         assert_eq!(
             vec![8_usize, 32],
-            compute_column_major_strides::<Int64Type>(&[4_usize, 6]).unwrap()
+            compute_column_major_strides::<i64>(&[4_usize, 6]).unwrap()
         );
         assert_eq!(
             vec![4_usize, 16],
-            compute_column_major_strides::<Int32Type>(&[4_usize, 6]).unwrap()
+            compute_column_major_strides::<i32>(&[4_usize, 6]).unwrap()
         );
         assert_eq!(
             vec![1_usize, 4],
-            compute_column_major_strides::<Int8Type>(&[4_usize, 6]).unwrap()
+            compute_column_major_strides::<i8>(&[4_usize, 6]).unwrap()
         );
     }
 

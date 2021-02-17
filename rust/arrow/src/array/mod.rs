@@ -87,6 +87,7 @@ mod array_binary;
 mod array_boolean;
 mod array_dictionary;
 mod array_list;
+mod primitive;
 mod array_primitive;
 mod array_string;
 mod array_struct;
@@ -106,6 +107,8 @@ mod transform;
 use crate::datatypes::*;
 
 // --------------------- Array & ArrayData ---------------------
+
+pub use primitive::*;
 
 pub use self::array::Array;
 pub use self::array::ArrayRef;
@@ -195,23 +198,6 @@ pub type UInt64BufferBuilder = BufferBuilder<u64>;
 pub type Float32BufferBuilder = BufferBuilder<f32>;
 pub type Float64BufferBuilder = BufferBuilder<f64>;
 
-pub type TimestampSecondBufferBuilder = BufferBuilder<TimestampSecondType>;
-pub type TimestampMillisecondBufferBuilder = BufferBuilder<TimestampMillisecondType>;
-pub type TimestampMicrosecondBufferBuilder = BufferBuilder<TimestampMicrosecondType>;
-pub type TimestampNanosecondBufferBuilder = BufferBuilder<TimestampNanosecondType>;
-pub type Date32BufferBuilder = BufferBuilder<Date32Type>;
-pub type Date64BufferBuilder = BufferBuilder<Date64Type>;
-pub type Time32SecondBufferBuilder = BufferBuilder<Time32SecondType>;
-pub type Time32MillisecondBufferBuilder = BufferBuilder<Time32MillisecondType>;
-pub type Time64MicrosecondBufferBuilder = BufferBuilder<Time64MicrosecondType>;
-pub type Time64NanosecondBufferBuilder = BufferBuilder<Time64NanosecondType>;
-pub type IntervalYearMonthBufferBuilder = BufferBuilder<IntervalYearMonthType>;
-pub type IntervalDayTimeBufferBuilder = BufferBuilder<IntervalDayTimeType>;
-pub type DurationSecondBufferBuilder = BufferBuilder<DurationSecondType>;
-pub type DurationMillisecondBufferBuilder = BufferBuilder<DurationMillisecondType>;
-pub type DurationMicrosecondBufferBuilder = BufferBuilder<DurationMicrosecondType>;
-pub type DurationNanosecondBufferBuilder = BufferBuilder<DurationNanosecondType>;
-
 pub use self::builder::ArrayBuilder;
 pub use self::builder::BinaryBuilder;
 pub use self::builder::BooleanBuilder;
@@ -239,23 +225,6 @@ pub type UInt32Builder = PrimitiveBuilder<u32>;
 pub type UInt64Builder = PrimitiveBuilder<u64>;
 pub type Float32Builder = PrimitiveBuilder<f32>;
 pub type Float64Builder = PrimitiveBuilder<f64>;
-
-pub type TimestampSecondBuilder = PrimitiveBuilder<TimestampSecondType>;
-pub type TimestampMillisecondBuilder = PrimitiveBuilder<TimestampMillisecondType>;
-pub type TimestampMicrosecondBuilder = PrimitiveBuilder<TimestampMicrosecondType>;
-pub type TimestampNanosecondBuilder = PrimitiveBuilder<TimestampNanosecondType>;
-pub type Date32Builder = PrimitiveBuilder<Date32Type>;
-pub type Date64Builder = PrimitiveBuilder<Date64Type>;
-pub type Time32SecondBuilder = PrimitiveBuilder<Time32SecondType>;
-pub type Time32MillisecondBuilder = PrimitiveBuilder<Time32MillisecondType>;
-pub type Time64MicrosecondBuilder = PrimitiveBuilder<Time64MicrosecondType>;
-pub type Time64NanosecondBuilder = PrimitiveBuilder<Time64NanosecondType>;
-pub type IntervalYearMonthBuilder = PrimitiveBuilder<IntervalYearMonthType>;
-pub type IntervalDayTimeBuilder = PrimitiveBuilder<IntervalDayTimeType>;
-pub type DurationSecondBuilder = PrimitiveBuilder<DurationSecondType>;
-pub type DurationMillisecondBuilder = PrimitiveBuilder<DurationMillisecondType>;
-pub type DurationMicrosecondBuilder = PrimitiveBuilder<DurationMicrosecondType>;
-pub type DurationNanosecondBuilder = PrimitiveBuilder<DurationNanosecondType>;
 
 pub use self::transform::MutableArrayData;
 

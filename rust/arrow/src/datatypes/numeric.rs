@@ -20,7 +20,7 @@ use packed_simd::*;
 #[cfg(feature = "simd")]
 use std::ops::{Add, BitAnd, BitAndAssign, BitOr, BitOrAssign, Div, Mul, Neg, Not, Sub};
 
-use super::*;
+use super::ArrowNativeType;
 
 /// A subtype of primitive type that represents numeric values.
 ///
@@ -110,7 +110,7 @@ where
 }
 
 #[cfg(not(simd))]
-pub trait ArrowNumericType: ArrowPrimitiveType {}
+pub trait ArrowNumericType: ArrowNativeType {}
 
 macro_rules! make_numeric_type {
     ($impl_ty:ty, $native_ty:ty, $simd_ty:ident, $simd_mask_ty:ident) => {
@@ -323,33 +323,16 @@ macro_rules! make_numeric_type {
     };
 }
 
-make_numeric_type!(Int8Type, i8, i8x64, m8x64);
-make_numeric_type!(Int16Type, i16, i16x32, m16x32);
-make_numeric_type!(Int32Type, i32, i32x16, m32x16);
-make_numeric_type!(Int64Type, i64, i64x8, m64x8);
+make_numeric_type!(i8, i8, i8x64, m8x64);
+make_numeric_type!(i16, i16, i16x32, m16x32);
+make_numeric_type!(i32, i32, i32x16, m32x16);
+make_numeric_type!(i64, i64, i64x8, m64x8);
 make_numeric_type!(u8, u8, u8x64, m8x64);
-make_numeric_type!(UInt16Type, u16, u16x32, m16x32);
+make_numeric_type!(u16, u16, u16x32, m16x32);
 make_numeric_type!(u32, u32, u32x16, m32x16);
-make_numeric_type!(UInt64Type, u64, u64x8, m64x8);
-make_numeric_type!(Float32Type, f32, f32x16, m32x16);
-make_numeric_type!(Float64Type, f64, f64x8, m64x8);
-
-make_numeric_type!(TimestampSecondType, i64, i64x8, m64x8);
-make_numeric_type!(TimestampMillisecondType, i64, i64x8, m64x8);
-make_numeric_type!(TimestampMicrosecondType, i64, i64x8, m64x8);
-make_numeric_type!(TimestampNanosecondType, i64, i64x8, m64x8);
-make_numeric_type!(Date32Type, i32, i32x16, m32x16);
-make_numeric_type!(Date64Type, i64, i64x8, m64x8);
-make_numeric_type!(Time32SecondType, i32, i32x16, m32x16);
-make_numeric_type!(Time32MillisecondType, i32, i32x16, m32x16);
-make_numeric_type!(Time64MicrosecondType, i64, i64x8, m64x8);
-make_numeric_type!(Time64NanosecondType, i64, i64x8, m64x8);
-make_numeric_type!(IntervalYearMonthType, i32, i32x16, m32x16);
-make_numeric_type!(IntervalDayTimeType, i64, i64x8, m64x8);
-make_numeric_type!(DurationSecondType, i64, i64x8, m64x8);
-make_numeric_type!(DurationMillisecondType, i64, i64x8, m64x8);
-make_numeric_type!(DurationMicrosecondType, i64, i64x8, m64x8);
-make_numeric_type!(DurationNanosecondType, i64, i64x8, m64x8);
+make_numeric_type!(u64, u64, u64x8, m64x8);
+make_numeric_type!(f32, f32, f32x16, m32x16);
+make_numeric_type!(f64, f64, f64x8, m64x8);
 
 /// A subtype of primitive type that represents signed numeric values.
 ///
@@ -412,12 +395,12 @@ macro_rules! make_signed_numeric_type {
     };
 }
 
-make_signed_numeric_type!(Int8Type, i8x64);
-make_signed_numeric_type!(Int16Type, i16x32);
-make_signed_numeric_type!(Int32Type, i32x16);
-make_signed_numeric_type!(Int64Type, i64x8);
-make_signed_numeric_type!(Float32Type, f32x16);
-make_signed_numeric_type!(Float64Type, f64x8);
+make_signed_numeric_type!(i8, i8x64);
+make_signed_numeric_type!(i16, i16x32);
+make_signed_numeric_type!(i32, i32x16);
+make_signed_numeric_type!(i64, i64x8);
+make_signed_numeric_type!(f32, f32x16);
+make_signed_numeric_type!(f64, f64x8);
 
 #[cfg(simd)]
 pub trait ArrowFloatNumericType: ArrowNumericType {
@@ -442,15 +425,12 @@ macro_rules! make_float_numeric_type {
     };
 }
 
-make_float_numeric_type!(Float32Type, f32x16);
-make_float_numeric_type!(Float64Type, f64x8);
+make_float_numeric_type!(f32, f32x16);
+make_float_numeric_type!(f64, f64x8);
 
 #[cfg(all(test, simd_x86))]
 mod tests {
-    use crate::datatypes::{
-        ArrowNumericType, Float32Type, Float64Type, Int32Type, Int64Type, Int8Type,
-        UInt16Type,
-    };
+    use crate::datatypes::{f32, f64, i32, i64, i8, u16, ArrowNumericType};
     use packed_simd::*;
     use FromCast;
 
@@ -470,7 +450,7 @@ mod tests {
     #[test]
     fn test_mask_f64() {
         let mask = 0b10101010;
-        let actual = Float64Type::mask_from_u64(mask);
+        let actual = f64::mask_from_u64(mask);
         let expected = expected_mask!(i64, mask);
         let expected = m64x8::from_cast(i64x8::from_slice_unaligned(expected.as_slice()));
 
@@ -480,7 +460,7 @@ mod tests {
     #[test]
     fn test_mask_u64() {
         let mask = 0b01010101;
-        let actual = Int64Type::mask_from_u64(mask);
+        let actual = i64::mask_from_u64(mask);
         let expected = expected_mask!(i64, mask);
         let expected = m64x8::from_cast(i64x8::from_slice_unaligned(expected.as_slice()));
 
@@ -490,7 +470,7 @@ mod tests {
     #[test]
     fn test_mask_f32() {
         let mask = 0b10101010_10101010;
-        let actual = Float32Type::mask_from_u64(mask);
+        let actual = f32::mask_from_u64(mask);
         let expected = expected_mask!(i32, mask);
         let expected =
             m32x16::from_cast(i32x16::from_slice_unaligned(expected.as_slice()));
@@ -501,7 +481,7 @@ mod tests {
     #[test]
     fn test_mask_i32() {
         let mask = 0b01010101_01010101;
-        let actual = Int32Type::mask_from_u64(mask);
+        let actual = i32::mask_from_u64(mask);
         let expected = expected_mask!(i32, mask);
         let expected =
             m32x16::from_cast(i32x16::from_slice_unaligned(expected.as_slice()));
@@ -512,7 +492,7 @@ mod tests {
     #[test]
     fn test_mask_u16() {
         let mask = 0b01010101_01010101_10101010_10101010;
-        let actual = UInt16Type::mask_from_u64(mask);
+        let actual = u16::mask_from_u64(mask);
         let expected = expected_mask!(i16, mask);
         dbg!(&expected);
         let expected =
@@ -525,7 +505,7 @@ mod tests {
     fn test_mask_i8() {
         let mask =
             0b01010101_01010101_10101010_10101010_01010101_01010101_10101010_10101010;
-        let actual = Int8Type::mask_from_u64(mask);
+        let actual = i8::mask_from_u64(mask);
         let expected = expected_mask!(i8, mask);
         let expected = m8x64::from_cast(i8x64::from_slice_unaligned(expected.as_slice()));
 

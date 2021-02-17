@@ -41,7 +41,7 @@
 //!     "consectetur adipiscing elit",
 //!     "sed do eiusmod tempor",
 //! ]);
-//! let c2 = PrimitiveArray::<Float64Type>::from(vec![
+//! let c2 = PrimitiveArray::<f64>::from(vec![
 //!     Some(123.564532),
 //!     None,
 //!     Some(-556132.25),

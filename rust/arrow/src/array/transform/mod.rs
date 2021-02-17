@@ -644,7 +644,7 @@ mod tests {
     fn create_dictionary_array(values: &[&str], keys: &[Option<&str>]) -> ArrayDataRef {
         let values = StringArray::from(values.to_vec());
         let mut builder = StringDictionaryBuilder::new_with_dictionary(
-            PrimitiveBuilder::<Int16Type>::new(3, DataType::Int16),
+            PrimitiveBuilder::<i16>::new(3, DataType::Int16),
             &values,
         )
         .unwrap();

@@ -36,9 +36,9 @@ use crate::datatypes::DataType;
 ///
 /// ```
 /// use arrow::array::{DictionaryArray, Int8Array};
-/// use arrow::datatypes::Int8Type;
+/// use arrow::datatypes::i8;
 /// let test = vec!["a", "a", "b", "c"];
-/// let array : DictionaryArray<Int8Type> = test.iter().map(|&x| if x == "b" {None} else {Some(x)}).collect();
+/// let array : DictionaryArray<i8> = test.iter().map(|&x| if x == "b" {None} else {Some(x)}).collect();
 /// assert_eq!(array.keys(), &Int8Array::from(vec![Some(0), Some(0), None, Some(1)]));
 /// ```
 ///
@@ -46,9 +46,9 @@ use crate::datatypes::DataType;
 ///
 /// ```
 /// use arrow::array::{DictionaryArray, Int8Array};
-/// use arrow::datatypes::Int8Type;
+/// use arrow::datatypes::i8;
 /// let test = vec!["a", "a", "b", "c"];
-/// let array : DictionaryArray<Int8Type> = test.into_iter().collect();
+/// let array : DictionaryArray<i8> = test.into_iter().collect();
 /// assert_eq!(array.keys(), &Int8Array::from(vec![0, 0, 1, 2]));
 /// ```
 pub struct DictionaryArray<K: ArrowDictionaryKeyType> {
@@ -344,7 +344,7 @@ mod tests {
     #[test]
     fn test_dictionary_array_from_iter() {
         let test = vec!["a", "a", "b", "c"];
-        let array: DictionaryArray<Int8Type> = test
+        let array: DictionaryArray<i8> = test
             .iter()
             .map(|&x| if x == "b" { None } else { Some(x) })
             .collect();
@@ -353,7 +353,7 @@ mod tests {
             format!("{:?}", array)
         );
 
-        let array: DictionaryArray<Int8Type> = test.into_iter().collect();
+        let array: DictionaryArray<i8> = test.into_iter().collect();
         assert_eq!(
             "DictionaryArray {keys: PrimitiveArray<Int8>\n[\n  0,\n  0,\n  1,\n  2,\n] values: StringArray\n[\n  \"a\",\n  \"b\",\n  \"c\",\n]}\n",
             format!("{:?}", array)
@@ -363,13 +363,13 @@ mod tests {
     #[test]
     fn test_dictionary_array_reverse_lookup_key() {
         let test = vec!["a", "a", "b", "c"];
-        let array: DictionaryArray<Int8Type> = test.into_iter().collect();
+        let array: DictionaryArray<i8> = test.into_iter().collect();
 
         assert_eq!(array.lookup_key("c"), Some(2));
 
         // Direction of building a dictionary is the iterator direction
         let test = vec!["t3", "t3", "t2", "t2", "t1", "t3", "t4", "t1", "t0"];
-        let array: DictionaryArray<Int8Type> = test.into_iter().collect();
+        let array: DictionaryArray<i8> = test.into_iter().collect();
 
         assert_eq!(array.lookup_key("t1"), Some(2));
         assert_eq!(array.lookup_key("non-existent"), None);
@@ -378,7 +378,7 @@ mod tests {
     #[test]
     fn test_dictionary_keys_as_primitive_array() {
         let test = vec!["a", "b", "c", "a"];
-        let array: DictionaryArray<Int8Type> = test.into_iter().collect();
+        let array: DictionaryArray<i8> = test.into_iter().collect();
 
         let keys = array.keys_array();
         assert_eq!(&DataType::Int8, keys.data_type());
@@ -389,7 +389,7 @@ mod tests {
     #[test]
     fn test_dictionary_keys_as_primitive_array_with_null() {
         let test = vec![Some("a"), None, Some("b"), None, None, Some("a")];
-        let array: DictionaryArray<Int32Type> = test.into_iter().collect();
+        let array: DictionaryArray<i32> = test.into_iter().collect();
 
         let keys = array.keys_array();
         assert_eq!(&DataType::Int32, keys.data_type());

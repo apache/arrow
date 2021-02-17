@@ -25,17 +25,17 @@ use criterion::Criterion;
 extern crate arrow;
 
 use arrow::util::bench_util::*;
-use arrow::{array::*, datatypes::Float32Type};
+use arrow::{array::*, datatypes::DataType};
 
 fn bench_equal<A: Array + PartialEq<A>>(arr_a: &A) {
     criterion::black_box(arr_a == arr_a);
 }
 
 fn add_benchmark(c: &mut Criterion) {
-    let arr_a = create_primitive_array::<Float32Type>(512, 0.0);
+    let arr_a = create_primitive_array::<f32>(512, 0.0, DataType::Float32);
     c.bench_function("equal_512", |b| b.iter(|| bench_equal(&arr_a)));
 
-    let arr_a_nulls = create_primitive_array::<Float32Type>(512, 0.5);
+    let arr_a_nulls = create_primitive_array::<f32>(512, 0.5, DataType::Float32);
     c.bench_function("equal_nulls_512", |b| b.iter(|| bench_equal(&arr_a_nulls)));
 
     let arr_a = create_string_array(512, 0.0);

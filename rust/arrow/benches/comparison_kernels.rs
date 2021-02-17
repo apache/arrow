@@ -21,10 +21,10 @@ use criterion::Criterion;
 
 extern crate arrow;
 
+use arrow::array::*;
 use arrow::compute::*;
 use arrow::datatypes::ArrowNumericType;
 use arrow::util::bench_util::*;
-use arrow::{array::*, datatypes::Float32Type};
 
 fn bench_eq<T>(arr_a: &PrimitiveArray<T>, arr_b: &PrimitiveArray<T>)
 where
@@ -121,8 +121,8 @@ fn bench_nlike_utf8_scalar(arr_a: &StringArray, value_b: &str) {
 
 fn add_benchmark(c: &mut Criterion) {
     let size = 65536;
-    let arr_a = create_primitive_array::<Float32Type>(size, 0.0);
-    let arr_b = create_primitive_array::<Float32Type>(size, 0.0);
+    let arr_a = create_primitive_array::<f32>(size, 0.0);
+    let arr_b = create_primitive_array::<f32>(size, 0.0);
 
     let arr_string = create_string_array(size, 0.0);
 

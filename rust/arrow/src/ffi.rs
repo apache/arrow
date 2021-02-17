@@ -638,8 +638,8 @@ mod tests {
     use super::*;
     use crate::array::{
         make_array, Array, ArrayData, BinaryOffsetSizeTrait, BooleanArray,
-        GenericBinaryArray, GenericStringArray, Int32Array, StringOffsetSizeTrait,
-        Time32MillisecondArray,
+        GenericBinaryArray, GenericStringArray, Int32Array, PrimitiveArray,
+        StringOffsetSizeTrait,
     };
     use crate::compute::kernels;
     use std::convert::TryFrom;
@@ -800,7 +800,7 @@ mod tests {
         let array = kernels::concat::concat(&[array.as_ref(), array.as_ref()]).unwrap();
         let array = array
             .as_any()
-            .downcast_ref::<Time32MillisecondArray>()
+            .downcast_ref::<PrimitiveArray<i32>>()
             .unwrap();
 
         // verify

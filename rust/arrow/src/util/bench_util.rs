@@ -25,7 +25,11 @@ use crate::datatypes::*;
 use crate::util::test_util::seedable_rng;
 
 /// Creates an random (but fixed-seeded) array of a given size and null density
-pub fn create_primitive_array<T>(size: usize, null_density: f32) -> PrimitiveArray<T>
+pub fn create_primitive_array<T>(
+    size: usize,
+    null_density: f32,
+    data_type: DataType,
+) -> PrimitiveArray<T>
 where
     T: ArrowNativeType,
     Standard: Distribution<T>,
@@ -40,7 +44,8 @@ where
                 Some(rng.gen())
             }
         })
-        .collect()
+        .collect::<Primitive>()
+        .to(data_type)
 }
 
 /// Creates an random (but fixed-seeded) array of a given size and null density

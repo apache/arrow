@@ -42,7 +42,7 @@
 //!     "consectetur adipiscing elit",
 //!     "sed do eiusmod tempor",
 //! ]);
-//! let c2 = PrimitiveArray::<Float64Type>::from(vec![
+//! let c2 = PrimitiveArray::<f64>::from(vec![
 //!     Some(123.564532),
 //!     None,
 //!     Some(-556132.25),
@@ -140,16 +140,16 @@ impl<W: Write> Writer<W> {
                 continue;
             }
             let string = match col.data_type() {
-                DataType::Float64 => write_primitive_value::<Float64Type>(col, row_index),
-                DataType::Float32 => write_primitive_value::<Float32Type>(col, row_index),
-                DataType::Int8 => write_primitive_value::<Int8Type>(col, row_index),
-                DataType::Int16 => write_primitive_value::<Int16Type>(col, row_index),
-                DataType::Int32 => write_primitive_value::<Int32Type>(col, row_index),
-                DataType::Int64 => write_primitive_value::<Int64Type>(col, row_index),
+                DataType::Float64 => write_primitive_value::<f64>(col, row_index),
+                DataType::Float32 => write_primitive_value::<f32>(col, row_index),
+                DataType::Int8 => write_primitive_value::<i8>(col, row_index),
+                DataType::Int16 => write_primitive_value::<i16>(col, row_index),
+                DataType::Int32 => write_primitive_value::<i32>(col, row_index),
+                DataType::Int64 => write_primitive_value::<i64>(col, row_index),
                 DataType::UInt8 => write_primitive_value::<u8>(col, row_index),
-                DataType::UInt16 => write_primitive_value::<UInt16Type>(col, row_index),
+                DataType::UInt16 => write_primitive_value::<u16>(col, row_index),
                 DataType::UInt32 => write_primitive_value::<u32>(col, row_index),
-                DataType::UInt64 => write_primitive_value::<UInt64Type>(col, row_index),
+                DataType::UInt64 => write_primitive_value::<u64>(col, row_index),
                 DataType::Boolean => {
                     let c = col.as_any().downcast_ref::<BooleanArray>().unwrap();
                     c.value(row_index).to_string()
@@ -426,11 +426,8 @@ mod tests {
             "consectetur adipiscing elit",
             "sed do eiusmod tempor",
         ]);
-        let c2 = PrimitiveArray::<Float64Type>::from(vec![
-            Some(123.564532),
-            None,
-            Some(-556132.25),
-        ]);
+        let c2 =
+            PrimitiveArray::<f64>::from(vec![Some(123.564532), None, Some(-556132.25)]);
         let c3 = PrimitiveArray::<u32>::from(vec![3, 2, 1]);
         let c4 = BooleanArray::from(vec![Some(true), Some(false), None]);
         let c5 = TimestampMillisecondArray::from_opt_vec(
@@ -493,11 +490,8 @@ sed do eiusmod tempor,-556132.25,1,,2019-04-18T02:45:55.555000000,23:46:03
             "consectetur adipiscing elit",
             "sed do eiusmod tempor",
         ]);
-        let c2 = PrimitiveArray::<Float64Type>::from(vec![
-            Some(123.564532),
-            None,
-            Some(-556132.25),
-        ]);
+        let c2 =
+            PrimitiveArray::<f64>::from(vec![Some(123.564532), None, Some(-556132.25)]);
         let c3 = PrimitiveArray::<u32>::from(vec![3, 2, 1]);
         let c4 = BooleanArray::from(vec![Some(true), Some(false), None]);
         let c6 = Time32SecondArray::from(vec![1234, 24680, 85563]);
@@ -554,11 +548,8 @@ sed do eiusmod tempor,-556132.25,1,,2019-04-18T02:45:55.555000000,23:46:03
             "consectetur adipiscing elit",
             "sed do eiusmod tempor",
         ]);
-        let c2 = PrimitiveArray::<Float64Type>::from(vec![
-            Some(123.564532),
-            None,
-            Some(-556132.25),
-        ]);
+        let c2 =
+            PrimitiveArray::<f64>::from(vec![Some(123.564532), None, Some(-556132.25)]);
         let c3 = PrimitiveArray::<u32>::from(vec![3, 2, 1]);
         let c4 = BooleanArray::from(vec![Some(true), Some(false), None]);
         let c5 = TimestampMillisecondArray::from_opt_vec(

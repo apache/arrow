@@ -27,7 +27,6 @@ use crate::error::{ArrowError, Result};
 use crate::buffer::MutableBuffer;
 use num::ToPrimitive;
 use std::sync::Arc;
-use TimeUnit::*;
 
 /// Sort the `ArrayRef` using `SortOptions`.
 ///
@@ -92,102 +91,70 @@ pub fn sort_to_indices(
 
     match values.data_type() {
         DataType::Boolean => sort_boolean(values, v, n, &options),
-        DataType::Int8 => sort_primitive::<Int8Type, _>(values, v, n, cmp, &options),
-        DataType::Int16 => sort_primitive::<Int16Type, _>(values, v, n, cmp, &options),
-        DataType::Int32 => sort_primitive::<Int32Type, _>(values, v, n, cmp, &options),
-        DataType::Int64 => sort_primitive::<Int64Type, _>(values, v, n, cmp, &options),
+        DataType::Int8 => sort_primitive::<i8, _>(values, v, n, cmp, &options),
+        DataType::Int16 => sort_primitive::<i16, _>(values, v, n, cmp, &options),
+        DataType::Int32
+        | DataType::Date32
+        | DataType::Time32(_)
+        | DataType::Interval(IntervalUnit::YearMonth) => {
+            sort_primitive::<i32, _>(values, v, n, cmp, &options)
+        }
+        DataType::Int64
+        | DataType::Date64
+        | DataType::Time64(_)
+        | DataType::Timestamp(_, None)
+        | DataType::Duration(_)
+        | DataType::Interval(IntervalUnit::DayTime) => {
+            sort_primitive::<i64, _>(values, v, n, cmp, &options)
+        }
         DataType::UInt8 => sort_primitive::<u8, _>(values, v, n, cmp, &options),
-        DataType::UInt16 => sort_primitive::<UInt16Type, _>(values, v, n, cmp, &options),
+        DataType::UInt16 => sort_primitive::<u16, _>(values, v, n, cmp, &options),
         DataType::UInt32 => sort_primitive::<u32, _>(values, v, n, cmp, &options),
-        DataType::UInt64 => sort_primitive::<UInt64Type, _>(values, v, n, cmp, &options),
+        DataType::UInt64 => sort_primitive::<u64, _>(values, v, n, cmp, &options),
         DataType::Float32 => {
-            sort_primitive::<Float32Type, _>(values, v, n, total_cmp_32, &options)
+            sort_primitive::<f32, _>(values, v, n, total_cmp_32, &options)
         }
         DataType::Float64 => {
-            sort_primitive::<Float64Type, _>(values, v, n, total_cmp_64, &options)
-        }
-        DataType::Date32 => sort_primitive::<Date32Type, _>(values, v, n, cmp, &options),
-        DataType::Date64 => sort_primitive::<Date64Type, _>(values, v, n, cmp, &options),
-        DataType::Time32(Second) => {
-            sort_primitive::<Time32SecondType, _>(values, v, n, cmp, &options)
-        }
-        DataType::Time32(Millisecond) => {
-            sort_primitive::<Time32MillisecondType, _>(values, v, n, cmp, &options)
-        }
-        DataType::Time64(Microsecond) => {
-            sort_primitive::<Time64MicrosecondType, _>(values, v, n, cmp, &options)
-        }
-        DataType::Time64(Nanosecond) => {
-            sort_primitive::<Time64NanosecondType, _>(values, v, n, cmp, &options)
-        }
-        DataType::Timestamp(Second, _) => {
-            sort_primitive::<TimestampSecondType, _>(values, v, n, cmp, &options)
-        }
-        DataType::Timestamp(Millisecond, _) => {
-            sort_primitive::<TimestampMillisecondType, _>(values, v, n, cmp, &options)
-        }
-        DataType::Timestamp(Microsecond, _) => {
-            sort_primitive::<TimestampMicrosecondType, _>(values, v, n, cmp, &options)
-        }
-        DataType::Timestamp(Nanosecond, _) => {
-            sort_primitive::<TimestampNanosecondType, _>(values, v, n, cmp, &options)
-        }
-        DataType::Interval(IntervalUnit::YearMonth) => {
-            sort_primitive::<IntervalYearMonthType, _>(values, v, n, cmp, &options)
-        }
-        DataType::Interval(IntervalUnit::DayTime) => {
-            sort_primitive::<IntervalDayTimeType, _>(values, v, n, cmp, &options)
-        }
-        DataType::Duration(TimeUnit::Second) => {
-            sort_primitive::<DurationSecondType, _>(values, v, n, cmp, &options)
-        }
-        DataType::Duration(TimeUnit::Millisecond) => {
-            sort_primitive::<DurationMillisecondType, _>(values, v, n, cmp, &options)
-        }
-        DataType::Duration(TimeUnit::Microsecond) => {
-            sort_primitive::<DurationMicrosecondType, _>(values, v, n, cmp, &options)
-        }
-        DataType::Duration(TimeUnit::Nanosecond) => {
-            sort_primitive::<DurationNanosecondType, _>(values, v, n, cmp, &options)
+            sort_primitive::<f64, _>(values, v, n, total_cmp_64, &options)
         }
         DataType::Utf8 => sort_string(values, v, n, &options),
         DataType::List(field) => match field.data_type() {
-            DataType::Int8 => sort_list::<i32, Int8Type>(values, v, n, &options),
-            DataType::Int16 => sort_list::<i32, Int16Type>(values, v, n, &options),
-            DataType::Int32 => sort_list::<i32, Int32Type>(values, v, n, &options),
-            DataType::Int64 => sort_list::<i32, Int64Type>(values, v, n, &options),
+            DataType::Int8 => sort_list::<i32, i8>(values, v, n, &options),
+            DataType::Int16 => sort_list::<i32, i16>(values, v, n, &options),
+            DataType::Int32 => sort_list::<i32, i32>(values, v, n, &options),
+            DataType::Int64 => sort_list::<i32, i64>(values, v, n, &options),
             DataType::UInt8 => sort_list::<i32, u8>(values, v, n, &options),
-            DataType::UInt16 => sort_list::<i32, UInt16Type>(values, v, n, &options),
+            DataType::UInt16 => sort_list::<i32, u16>(values, v, n, &options),
             DataType::UInt32 => sort_list::<i32, u32>(values, v, n, &options),
-            DataType::UInt64 => sort_list::<i32, UInt64Type>(values, v, n, &options),
+            DataType::UInt64 => sort_list::<i32, u64>(values, v, n, &options),
             t => Err(ArrowError::ComputeError(format!(
                 "Sort not supported for list type {:?}",
                 t
             ))),
         },
         DataType::LargeList(field) => match field.data_type() {
-            DataType::Int8 => sort_list::<i64, Int8Type>(values, v, n, &options),
-            DataType::Int16 => sort_list::<i64, Int16Type>(values, v, n, &options),
-            DataType::Int32 => sort_list::<i64, Int32Type>(values, v, n, &options),
-            DataType::Int64 => sort_list::<i64, Int64Type>(values, v, n, &options),
+            DataType::Int8 => sort_list::<i64, i8>(values, v, n, &options),
+            DataType::Int16 => sort_list::<i64, i16>(values, v, n, &options),
+            DataType::Int32 => sort_list::<i64, i32>(values, v, n, &options),
+            DataType::Int64 => sort_list::<i64, i64>(values, v, n, &options),
             DataType::UInt8 => sort_list::<i64, u8>(values, v, n, &options),
-            DataType::UInt16 => sort_list::<i64, UInt16Type>(values, v, n, &options),
+            DataType::UInt16 => sort_list::<i64, u16>(values, v, n, &options),
             DataType::UInt32 => sort_list::<i64, u32>(values, v, n, &options),
-            DataType::UInt64 => sort_list::<i64, UInt64Type>(values, v, n, &options),
+            DataType::UInt64 => sort_list::<i64, u64>(values, v, n, &options),
             t => Err(ArrowError::ComputeError(format!(
                 "Sort not supported for list type {:?}",
                 t
             ))),
         },
         DataType::FixedSizeList(field, _) => match field.data_type() {
-            DataType::Int8 => sort_list::<i32, Int8Type>(values, v, n, &options),
-            DataType::Int16 => sort_list::<i32, Int16Type>(values, v, n, &options),
-            DataType::Int32 => sort_list::<i32, Int32Type>(values, v, n, &options),
-            DataType::Int64 => sort_list::<i32, Int64Type>(values, v, n, &options),
+            DataType::Int8 => sort_list::<i32, i8>(values, v, n, &options),
+            DataType::Int16 => sort_list::<i32, i16>(values, v, n, &options),
+            DataType::Int32 => sort_list::<i32, i32>(values, v, n, &options),
+            DataType::Int64 => sort_list::<i32, i64>(values, v, n, &options),
             DataType::UInt8 => sort_list::<i32, u8>(values, v, n, &options),
-            DataType::UInt16 => sort_list::<i32, UInt16Type>(values, v, n, &options),
+            DataType::UInt16 => sort_list::<i32, u16>(values, v, n, &options),
             DataType::UInt32 => sort_list::<i32, u32>(values, v, n, &options),
-            DataType::UInt64 => sort_list::<i32, UInt64Type>(values, v, n, &options),
+            DataType::UInt64 => sort_list::<i32, u64>(values, v, n, &options),
             t => Err(ArrowError::ComputeError(format!(
                 "Sort not supported for list type {:?}",
                 t
@@ -197,26 +164,14 @@ pub fn sort_to_indices(
             if *value_type.as_ref() == DataType::Utf8 =>
         {
             match key_type.as_ref() {
-                DataType::Int8 => {
-                    sort_string_dictionary::<Int8Type>(values, v, n, &options)
-                }
-                DataType::Int16 => {
-                    sort_string_dictionary::<Int16Type>(values, v, n, &options)
-                }
-                DataType::Int32 => {
-                    sort_string_dictionary::<Int32Type>(values, v, n, &options)
-                }
-                DataType::Int64 => {
-                    sort_string_dictionary::<Int64Type>(values, v, n, &options)
-                }
+                DataType::Int8 => sort_string_dictionary::<i8>(values, v, n, &options),
+                DataType::Int16 => sort_string_dictionary::<i16>(values, v, n, &options),
+                DataType::Int32 => sort_string_dictionary::<i32>(values, v, n, &options),
+                DataType::Int64 => sort_string_dictionary::<i64>(values, v, n, &options),
                 DataType::UInt8 => sort_string_dictionary::<u8>(values, v, n, &options),
-                DataType::UInt16 => {
-                    sort_string_dictionary::<UInt16Type>(values, v, n, &options)
-                }
+                DataType::UInt16 => sort_string_dictionary::<u16>(values, v, n, &options),
                 DataType::UInt32 => sort_string_dictionary::<u32>(values, v, n, &options),
-                DataType::UInt64 => {
-                    sort_string_dictionary::<UInt64Type>(values, v, n, &options)
-                }
+                DataType::UInt64 => sort_string_dictionary::<u64>(values, v, n, &options),
                 t => Err(ArrowError::ComputeError(format!(
                     "Sort not supported for dictionary key type {:?}",
                     t
@@ -488,8 +443,7 @@ fn sort_list<S, T>(
 ) -> Result<UInt32Array>
 where
     S: OffsetSizeTrait,
-    T: ArrowPrimitiveType,
-    T::Native: std::cmp::PartialOrd,
+    T: ArrowNativeType + std::cmp::PartialOrd,
 {
     let mut valids: Vec<(u32, ArrayRef)> = values
         .as_any()
@@ -564,11 +518,11 @@ pub struct SortColumn {
 /// use std::sync::Arc;
 /// use arrow::array::{ArrayRef, StringArray, PrimitiveArray, as_primitive_array};
 /// use arrow::compute::kernels::sort::{SortColumn, SortOptions, lexsort};
-/// use arrow::datatypes::Int64Type;
+/// use arrow::datatypes::i64;
 ///
 /// let sorted_columns = lexsort(&vec![
 ///     SortColumn {
-///         values: Arc::new(PrimitiveArray::<Int64Type>::from(vec![
+///         values: Arc::new(PrimitiveArray::<i64>::from(vec![
 ///             None,
 ///             Some(-2),
 ///             Some(89),
@@ -592,7 +546,7 @@ pub struct SortColumn {
 ///     },
 /// ]).unwrap();
 ///
-/// assert_eq!(as_primitive_array::<Int64Type>(&sorted_columns[0]).value(1), -64);
+/// assert_eq!(as_primitive_array::<i64>(&sorted_columns[0]).value(1), -64);
 /// assert!(sorted_columns[0].is_null(0));
 /// ```
 pub fn lexsort(columns: &[SortColumn]) -> Result<Vec<ArrayRef>> {
@@ -855,27 +809,27 @@ mod tests {
 
     #[test]
     fn test_sort_to_indices_primitives() {
-        test_sort_to_indices_primitive_arrays::<Int8Type>(
+        test_sort_to_indices_primitive_arrays::<i8>(
             vec![None, Some(0), Some(2), Some(-1), Some(0), None],
             None,
             vec![0, 5, 3, 1, 4, 2],
         );
-        test_sort_to_indices_primitive_arrays::<Int16Type>(
+        test_sort_to_indices_primitive_arrays::<i16>(
             vec![None, Some(0), Some(2), Some(-1), Some(0), None],
             None,
             vec![0, 5, 3, 1, 4, 2],
         );
-        test_sort_to_indices_primitive_arrays::<Int32Type>(
+        test_sort_to_indices_primitive_arrays::<i32>(
             vec![None, Some(0), Some(2), Some(-1), Some(0), None],
             None,
             vec![0, 5, 3, 1, 4, 2],
         );
-        test_sort_to_indices_primitive_arrays::<Int64Type>(
+        test_sort_to_indices_primitive_arrays::<i64>(
             vec![None, Some(0), Some(2), Some(-1), Some(0), None],
             None,
             vec![0, 5, 3, 1, 4, 2],
         );
-        test_sort_to_indices_primitive_arrays::<Float32Type>(
+        test_sort_to_indices_primitive_arrays::<f32>(
             vec![
                 None,
                 Some(-0.05),
@@ -887,7 +841,7 @@ mod tests {
             None,
             vec![0, 5, 3, 1, 4, 2],
         );
-        test_sort_to_indices_primitive_arrays::<Float64Type>(
+        test_sort_to_indices_primitive_arrays::<f64>(
             vec![
                 None,
                 Some(-0.05),
@@ -901,7 +855,7 @@ mod tests {
         );
 
         // descending
-        test_sort_to_indices_primitive_arrays::<Int8Type>(
+        test_sort_to_indices_primitive_arrays::<i8>(
             vec![None, Some(0), Some(2), Some(-1), Some(0), None],
             Some(SortOptions {
                 descending: true,
@@ -910,7 +864,7 @@ mod tests {
             vec![2, 1, 4, 3, 5, 0], // [2, 4, 1, 3, 5, 0]
         );
 
-        test_sort_to_indices_primitive_arrays::<Int16Type>(
+        test_sort_to_indices_primitive_arrays::<i16>(
             vec![None, Some(0), Some(2), Some(-1), Some(0), None],
             Some(SortOptions {
                 descending: true,
@@ -919,7 +873,7 @@ mod tests {
             vec![2, 1, 4, 3, 5, 0],
         );
 
-        test_sort_to_indices_primitive_arrays::<Int32Type>(
+        test_sort_to_indices_primitive_arrays::<i32>(
             vec![None, Some(0), Some(2), Some(-1), Some(0), None],
             Some(SortOptions {
                 descending: true,
@@ -928,7 +882,7 @@ mod tests {
             vec![2, 1, 4, 3, 5, 0],
         );
 
-        test_sort_to_indices_primitive_arrays::<Int64Type>(
+        test_sort_to_indices_primitive_arrays::<i64>(
             vec![None, Some(0), Some(2), Some(-1), Some(0), None],
             Some(SortOptions {
                 descending: true,
@@ -937,7 +891,7 @@ mod tests {
             vec![2, 1, 4, 3, 5, 0],
         );
 
-        test_sort_to_indices_primitive_arrays::<Float32Type>(
+        test_sort_to_indices_primitive_arrays::<f32>(
             vec![
                 None,
                 Some(0.005),
@@ -953,7 +907,7 @@ mod tests {
             vec![2, 1, 4, 3, 5, 0],
         );
 
-        test_sort_to_indices_primitive_arrays::<Float64Type>(
+        test_sort_to_indices_primitive_arrays::<f64>(
             vec![None, Some(0.0), Some(2.0), Some(-1.0), Some(0.0), None],
             Some(SortOptions {
                 descending: true,
@@ -963,7 +917,7 @@ mod tests {
         );
 
         // descending, nulls first
-        test_sort_to_indices_primitive_arrays::<Int8Type>(
+        test_sort_to_indices_primitive_arrays::<i8>(
             vec![None, Some(0), Some(2), Some(-1), Some(0), None],
             Some(SortOptions {
                 descending: true,
@@ -972,7 +926,7 @@ mod tests {
             vec![5, 0, 2, 1, 4, 3], // [5, 0, 2, 4, 1, 3]
         );
 
-        test_sort_to_indices_primitive_arrays::<Int16Type>(
+        test_sort_to_indices_primitive_arrays::<i16>(
             vec![None, Some(0), Some(2), Some(-1), Some(0), None],
             Some(SortOptions {
                 descending: true,
@@ -981,7 +935,7 @@ mod tests {
             vec![5, 0, 2, 1, 4, 3], // [5, 0, 2, 4, 1, 3]
         );
 
-        test_sort_to_indices_primitive_arrays::<Int32Type>(
+        test_sort_to_indices_primitive_arrays::<i32>(
             vec![None, Some(0), Some(2), Some(-1), Some(0), None],
             Some(SortOptions {
                 descending: true,
@@ -990,7 +944,7 @@ mod tests {
             vec![5, 0, 2, 1, 4, 3],
         );
 
-        test_sort_to_indices_primitive_arrays::<Int64Type>(
+        test_sort_to_indices_primitive_arrays::<i64>(
             vec![None, Some(0), Some(2), Some(-1), Some(0), None],
             Some(SortOptions {
                 descending: true,
@@ -999,7 +953,7 @@ mod tests {
             vec![5, 0, 2, 1, 4, 3],
         );
 
-        test_sort_to_indices_primitive_arrays::<Float32Type>(
+        test_sort_to_indices_primitive_arrays::<f32>(
             vec![None, Some(0.1), Some(0.2), Some(-1.3), Some(0.01), None],
             Some(SortOptions {
                 descending: true,
@@ -1008,7 +962,7 @@ mod tests {
             vec![5, 0, 2, 1, 4, 3],
         );
 
-        test_sort_to_indices_primitive_arrays::<Float64Type>(
+        test_sort_to_indices_primitive_arrays::<f64>(
             vec![None, Some(10.1), Some(100.2), Some(-1.3), Some(10.01), None],
             Some(SortOptions {
                 descending: true,
@@ -1056,7 +1010,7 @@ mod tests {
             None,
             vec![None, None, Some(2), Some(3), Some(3), Some(5)],
         );
-        test_sort_primitive_arrays::<UInt16Type>(
+        test_sort_primitive_arrays::<u16>(
             vec![None, Some(3), Some(5), Some(2), Some(3), None],
             None,
             vec![None, None, Some(2), Some(3), Some(3), Some(5)],
@@ -1066,14 +1020,14 @@ mod tests {
             None,
             vec![None, None, Some(2), Some(3), Some(3), Some(5)],
         );
-        test_sort_primitive_arrays::<UInt64Type>(
+        test_sort_primitive_arrays::<u64>(
             vec![None, Some(3), Some(5), Some(2), Some(3), None],
             None,
             vec![None, None, Some(2), Some(3), Some(3), Some(5)],
         );
 
         // descending
-        test_sort_primitive_arrays::<Int8Type>(
+        test_sort_primitive_arrays::<i8>(
             vec![None, Some(0), Some(2), Some(-1), Some(0), None],
             Some(SortOptions {
                 descending: true,
@@ -1081,7 +1035,7 @@ mod tests {
             }),
             vec![Some(2), Some(0), Some(0), Some(-1), None, None],
         );
-        test_sort_primitive_arrays::<Int16Type>(
+        test_sort_primitive_arrays::<i16>(
             vec![None, Some(0), Some(2), Some(-1), Some(0), None],
             Some(SortOptions {
                 descending: true,
@@ -1089,7 +1043,7 @@ mod tests {
             }),
             vec![Some(2), Some(0), Some(0), Some(-1), None, None],
         );
-        test_sort_primitive_arrays::<Int32Type>(
+        test_sort_primitive_arrays::<i32>(
             vec![None, Some(0), Some(2), Some(-1), Some(0), None],
             Some(SortOptions {
                 descending: true,
@@ -1097,7 +1051,7 @@ mod tests {
             }),
             vec![Some(2), Some(0), Some(0), Some(-1), None, None],
         );
-        test_sort_primitive_arrays::<Int16Type>(
+        test_sort_primitive_arrays::<i16>(
             vec![None, Some(0), Some(2), Some(-1), Some(0), None],
             Some(SortOptions {
                 descending: true,
@@ -1107,7 +1061,7 @@ mod tests {
         );
 
         // descending, nulls first
-        test_sort_primitive_arrays::<Int8Type>(
+        test_sort_primitive_arrays::<i8>(
             vec![None, Some(0), Some(2), Some(-1), Some(0), None],
             Some(SortOptions {
                 descending: true,
@@ -1115,7 +1069,7 @@ mod tests {
             }),
             vec![None, None, Some(2), Some(0), Some(0), Some(-1)],
         );
-        test_sort_primitive_arrays::<Int16Type>(
+        test_sort_primitive_arrays::<i16>(
             vec![None, Some(0), Some(2), Some(-1), Some(0), None],
             Some(SortOptions {
                 descending: true,
@@ -1123,7 +1077,7 @@ mod tests {
             }),
             vec![None, None, Some(2), Some(0), Some(0), Some(-1)],
         );
-        test_sort_primitive_arrays::<Int32Type>(
+        test_sort_primitive_arrays::<i32>(
             vec![None, Some(0), Some(2), Some(-1), Some(0), None],
             Some(SortOptions {
                 descending: true,
@@ -1131,7 +1085,7 @@ mod tests {
             }),
             vec![None, None, Some(2), Some(0), Some(0), Some(-1)],
         );
-        test_sort_primitive_arrays::<Int64Type>(
+        test_sort_primitive_arrays::<i64>(
             vec![None, Some(0), Some(2), Some(-1), Some(0), None],
             Some(SortOptions {
                 descending: true,
@@ -1139,7 +1093,7 @@ mod tests {
             }),
             vec![None, None, Some(2), Some(0), Some(0), Some(-1)],
         );
-        test_sort_primitive_arrays::<Float32Type>(
+        test_sort_primitive_arrays::<f32>(
             vec![None, Some(0.0), Some(2.0), Some(-1.0), Some(0.0), None],
             Some(SortOptions {
                 descending: true,
@@ -1147,7 +1101,7 @@ mod tests {
             }),
             vec![None, None, Some(2.0), Some(0.0), Some(0.0), Some(-1.0)],
         );
-        test_sort_primitive_arrays::<Float64Type>(
+        test_sort_primitive_arrays::<f64>(
             vec![None, Some(0.0), Some(2.0), Some(-1.0), Some(f64::NAN), None],
             Some(SortOptions {
                 descending: true,
@@ -1155,7 +1109,7 @@ mod tests {
             }),
             vec![None, None, Some(f64::NAN), Some(2.0), Some(0.0), Some(-1.0)],
         );
-        test_sort_primitive_arrays::<Float64Type>(
+        test_sort_primitive_arrays::<f64>(
             vec![Some(f64::NAN), Some(f64::NAN), Some(f64::NAN), Some(1.0)],
             Some(SortOptions {
                 descending: true,
@@ -1165,7 +1119,7 @@ mod tests {
         );
 
         // int8 nulls first
-        test_sort_primitive_arrays::<Int8Type>(
+        test_sort_primitive_arrays::<i8>(
             vec![None, Some(0), Some(2), Some(-1), Some(0), None],
             Some(SortOptions {
                 descending: false,
@@ -1173,7 +1127,7 @@ mod tests {
             }),
             vec![None, None, Some(-1), Some(0), Some(0), Some(2)],
         );
-        test_sort_primitive_arrays::<Int16Type>(
+        test_sort_primitive_arrays::<i16>(
             vec![None, Some(0), Some(2), Some(-1), Some(0), None],
             Some(SortOptions {
                 descending: false,
@@ -1181,7 +1135,7 @@ mod tests {
             }),
             vec![None, None, Some(-1), Some(0), Some(0), Some(2)],
         );
-        test_sort_primitive_arrays::<Int32Type>(
+        test_sort_primitive_arrays::<i32>(
             vec![None, Some(0), Some(2), Some(-1), Some(0), None],
             Some(SortOptions {
                 descending: false,
@@ -1189,7 +1143,7 @@ mod tests {
             }),
             vec![None, None, Some(-1), Some(0), Some(0), Some(2)],
         );
-        test_sort_primitive_arrays::<Int64Type>(
+        test_sort_primitive_arrays::<i64>(
             vec![None, Some(0), Some(2), Some(-1), Some(0), None],
             Some(SortOptions {
                 descending: false,
@@ -1197,7 +1151,7 @@ mod tests {
             }),
             vec![None, None, Some(-1), Some(0), Some(0), Some(2)],
         );
-        test_sort_primitive_arrays::<Float32Type>(
+        test_sort_primitive_arrays::<f32>(
             vec![None, Some(0.0), Some(2.0), Some(-1.0), Some(0.0), None],
             Some(SortOptions {
                 descending: false,
@@ -1205,7 +1159,7 @@ mod tests {
             }),
             vec![None, None, Some(-1.0), Some(0.0), Some(0.0), Some(2.0)],
         );
-        test_sort_primitive_arrays::<Float64Type>(
+        test_sort_primitive_arrays::<f64>(
             vec![None, Some(0.0), Some(2.0), Some(-1.0), Some(f64::NAN), None],
             Some(SortOptions {
                 descending: false,
@@ -1213,7 +1167,7 @@ mod tests {
             }),
             vec![None, None, Some(-1.0), Some(0.0), Some(2.0), Some(f64::NAN)],
         );
-        test_sort_primitive_arrays::<Float64Type>(
+        test_sort_primitive_arrays::<f64>(
             vec![Some(f64::NAN), Some(f64::NAN), Some(f64::NAN), Some(1.0)],
             Some(SortOptions {
                 descending: false,
@@ -1381,7 +1335,7 @@ mod tests {
 
     #[test]
     fn test_sort_string_dicts() {
-        test_sort_string_dict_arrays::<Int8Type>(
+        test_sort_string_dict_arrays::<i8>(
             vec![
                 None,
                 Some("bad"),
@@ -1401,7 +1355,7 @@ mod tests {
             ],
         );
 
-        test_sort_string_dict_arrays::<Int16Type>(
+        test_sort_string_dict_arrays::<i16>(
             vec![
                 None,
                 Some("bad"),
@@ -1424,7 +1378,7 @@ mod tests {
             ],
         );
 
-        test_sort_string_dict_arrays::<Int32Type>(
+        test_sort_string_dict_arrays::<i32>(
             vec![
                 None,
                 Some("bad"),
@@ -1447,7 +1401,7 @@ mod tests {
             ],
         );
 
-        test_sort_string_dict_arrays::<Int16Type>(
+        test_sort_string_dict_arrays::<i16>(
             vec![
                 None,
                 Some("bad"),
@@ -1473,7 +1427,7 @@ mod tests {
 
     #[test]
     fn test_sort_list() {
-        test_sort_list_arrays::<Int8Type>(
+        test_sort_list_arrays::<i8>(
             vec![
                 Some(vec![Some(1)]),
                 Some(vec![Some(4)]),
@@ -1493,7 +1447,7 @@ mod tests {
             Some(1),
         );
 
-        test_sort_list_arrays::<Int32Type>(
+        test_sort_list_arrays::<i32>(
             vec![
                 Some(vec![Some(1), Some(0)]),
                 Some(vec![Some(4), Some(3), Some(2), Some(1)]),
@@ -1515,7 +1469,7 @@ mod tests {
             None,
         );
 
-        test_sort_list_arrays::<Int32Type>(
+        test_sort_list_arrays::<i32>(
             vec![
                 None,
                 Some(vec![Some(4), None, Some(2)]),
@@ -1541,7 +1495,7 @@ mod tests {
     #[test]
     fn test_lex_sort_single_column() {
         let input = vec![SortColumn {
-            values: Arc::new(PrimitiveArray::<Int64Type>::from(vec![
+            values: Arc::new(PrimitiveArray::<i64>::from(vec![
                 Some(17),
                 Some(2),
                 Some(-1),
@@ -1549,7 +1503,7 @@ mod tests {
             ])) as ArrayRef,
             options: None,
         }];
-        let expected = vec![Arc::new(PrimitiveArray::<Int64Type>::from(vec![
+        let expected = vec![Arc::new(PrimitiveArray::<i64>::from(vec![
             Some(-1),
             Some(0),
             Some(2),
@@ -1562,7 +1516,7 @@ mod tests {
     fn test_lex_sort_unaligned_rows() {
         let input = vec![
             SortColumn {
-                values: Arc::new(PrimitiveArray::<Int64Type>::from(vec![None, Some(-1)]))
+                values: Arc::new(PrimitiveArray::<i64>::from(vec![None, Some(-1)]))
                     as ArrayRef,
                 options: None,
             },
@@ -1581,7 +1535,7 @@ mod tests {
     fn test_lex_sort_mixed_types() {
         let input = vec![
             SortColumn {
-                values: Arc::new(PrimitiveArray::<Int64Type>::from(vec![
+                values: Arc::new(PrimitiveArray::<i64>::from(vec![
                     Some(0),
                     Some(2),
                     Some(-1),
@@ -1599,7 +1553,7 @@ mod tests {
                 options: None,
             },
             SortColumn {
-                values: Arc::new(PrimitiveArray::<Int64Type>::from(vec![
+                values: Arc::new(PrimitiveArray::<i64>::from(vec![
                     Some(-1),
                     Some(-2),
                     Some(-3),
@@ -1609,7 +1563,7 @@ mod tests {
             },
         ];
         let expected = vec![
-            Arc::new(PrimitiveArray::<Int64Type>::from(vec![
+            Arc::new(PrimitiveArray::<i64>::from(vec![
                 Some(-1),
                 Some(0),
                 Some(0),
@@ -1621,7 +1575,7 @@ mod tests {
                 Some(102),
                 Some(8),
             ])) as ArrayRef,
-            Arc::new(PrimitiveArray::<Int64Type>::from(vec![
+            Arc::new(PrimitiveArray::<i64>::from(vec![
                 Some(-3),
                 Some(-1),
                 Some(-4),
@@ -1633,7 +1587,7 @@ mod tests {
         // test mix of string and in64 with option
         let input = vec![
             SortColumn {
-                values: Arc::new(PrimitiveArray::<Int64Type>::from(vec![
+                values: Arc::new(PrimitiveArray::<i64>::from(vec![
                     Some(0),
                     Some(2),
                     Some(-1),
@@ -1658,7 +1612,7 @@ mod tests {
             },
         ];
         let expected = vec![
-            Arc::new(PrimitiveArray::<Int64Type>::from(vec![
+            Arc::new(PrimitiveArray::<i64>::from(vec![
                 Some(2),
                 Some(0),
                 Some(0),
@@ -1676,7 +1630,7 @@ mod tests {
         // test sort with nulls first
         let input = vec![
             SortColumn {
-                values: Arc::new(PrimitiveArray::<Int64Type>::from(vec![
+                values: Arc::new(PrimitiveArray::<i64>::from(vec![
                     None,
                     Some(-1),
                     Some(2),
@@ -1701,7 +1655,7 @@ mod tests {
             },
         ];
         let expected = vec![
-            Arc::new(PrimitiveArray::<Int64Type>::from(vec![
+            Arc::new(PrimitiveArray::<i64>::from(vec![
                 None,
                 None,
                 Some(2),
@@ -1719,7 +1673,7 @@ mod tests {
         // test sort with nulls last
         let input = vec![
             SortColumn {
-                values: Arc::new(PrimitiveArray::<Int64Type>::from(vec![
+                values: Arc::new(PrimitiveArray::<i64>::from(vec![
                     None,
                     Some(-1),
                     Some(2),
@@ -1744,7 +1698,7 @@ mod tests {
             },
         ];
         let expected = vec![
-            Arc::new(PrimitiveArray::<Int64Type>::from(vec![
+            Arc::new(PrimitiveArray::<i64>::from(vec![
                 Some(2),
                 Some(-1),
                 None,
@@ -1762,7 +1716,7 @@ mod tests {
         // test sort with opposite options
         let input = vec![
             SortColumn {
-                values: Arc::new(PrimitiveArray::<Int64Type>::from(vec![
+                values: Arc::new(PrimitiveArray::<i64>::from(vec![
                     None,
                     Some(-1),
                     Some(2),
@@ -1789,7 +1743,7 @@ mod tests {
             },
         ];
         let expected = vec![
-            Arc::new(PrimitiveArray::<Int64Type>::from(vec![
+            Arc::new(PrimitiveArray::<i64>::from(vec![
                 Some(-1),
                 Some(-1),
                 Some(2),

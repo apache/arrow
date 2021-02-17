@@ -413,32 +413,16 @@ fn parse(
             let field = &fields[i];
             match field.data_type() {
                 &DataType::Boolean => build_boolean_array(line_number, rows, i),
-                &DataType::Int8 => {
-                    build_primitive_array::<Int8Type>(line_number, rows, i)
-                }
-                &DataType::Int16 => {
-                    build_primitive_array::<Int16Type>(line_number, rows, i)
-                }
-                &DataType::Int32 => {
-                    build_primitive_array::<Int32Type>(line_number, rows, i)
-                }
-                &DataType::Int64 => {
-                    build_primitive_array::<Int64Type>(line_number, rows, i)
-                }
+                &DataType::Int8 => build_primitive_array::<i8>(line_number, rows, i),
+                &DataType::Int16 => build_primitive_array::<i16>(line_number, rows, i),
+                &DataType::Int32 => build_primitive_array::<i32>(line_number, rows, i),
+                &DataType::Int64 => build_primitive_array::<i64>(line_number, rows, i),
                 &DataType::UInt8 => build_primitive_array::<u8>(line_number, rows, i),
-                &DataType::UInt16 => {
-                    build_primitive_array::<UInt16Type>(line_number, rows, i)
-                }
+                &DataType::UInt16 => build_primitive_array::<u16>(line_number, rows, i),
                 &DataType::UInt32 => build_primitive_array::<u32>(line_number, rows, i),
-                &DataType::UInt64 => {
-                    build_primitive_array::<UInt64Type>(line_number, rows, i)
-                }
-                &DataType::Float32 => {
-                    build_primitive_array::<Float32Type>(line_number, rows, i)
-                }
-                &DataType::Float64 => {
-                    build_primitive_array::<Float64Type>(line_number, rows, i)
-                }
+                &DataType::UInt64 => build_primitive_array::<u64>(line_number, rows, i),
+                &DataType::Float32 => build_primitive_array::<f32>(line_number, rows, i),
+                &DataType::Float64 => build_primitive_array::<f64>(line_number, rows, i),
                 &DataType::Date32 => {
                     build_primitive_array::<Date32Type>(line_number, rows, i)
                 }
@@ -481,32 +465,32 @@ trait Parser: ArrowPrimitiveType {
     }
 }
 
-impl Parser for Float32Type {
+impl Parser for f32 {
     fn parse(string: &str) -> Option<f32> {
         lexical_core::parse(string.as_bytes()).ok()
     }
 }
-impl Parser for Float64Type {
+impl Parser for f64 {
     fn parse(string: &str) -> Option<f64> {
         lexical_core::parse(string.as_bytes()).ok()
     }
 }
 
-impl Parser for UInt64Type {}
+impl Parser for u64 {}
 
 impl Parser for u32 {}
 
-impl Parser for UInt16Type {}
+impl Parser for u16 {}
 
 impl Parser for u8 {}
 
-impl Parser for Int64Type {}
+impl Parser for i64 {}
 
-impl Parser for Int32Type {}
+impl Parser for i32 {}
 
-impl Parser for Int16Type {}
+impl Parser for i16 {}
 
-impl Parser for Int8Type {}
+impl Parser for i8 {}
 
 /// Number of days between 0001-01-01 and 1970-01-01
 const EPOCH_DAYS_FROM_CE: i32 = 719_163;
@@ -1216,20 +1200,18 @@ mod tests {
 
     #[test]
     fn test_parsing_float() {
-        assert_eq!(Some(12.34), parse_item::<Float64Type>("12.34"));
-        assert_eq!(Some(-12.34), parse_item::<Float64Type>("-12.34"));
-        assert_eq!(Some(12.0), parse_item::<Float64Type>("12"));
-        assert_eq!(Some(0.0), parse_item::<Float64Type>("0"));
-        assert!(parse_item::<Float64Type>("nan").unwrap().is_nan());
-        assert!(parse_item::<Float64Type>("NaN").unwrap().is_nan());
-        assert!(parse_item::<Float64Type>("inf").unwrap().is_infinite());
-        assert!(parse_item::<Float64Type>("inf").unwrap().is_sign_positive());
-        assert!(parse_item::<Float64Type>("-inf").unwrap().is_infinite());
-        assert!(parse_item::<Float64Type>("-inf")
-            .unwrap()
-            .is_sign_negative());
-        assert_eq!(None, parse_item::<Float64Type>(""));
-        assert_eq!(None, parse_item::<Float64Type>("dd"));
-        assert_eq!(None, parse_item::<Float64Type>("12.34.56"));
+        assert_eq!(Some(12.34), parse_item::<f64>("12.34"));
+        assert_eq!(Some(-12.34), parse_item::<f64>("-12.34"));
+        assert_eq!(Some(12.0), parse_item::<f64>("12"));
+        assert_eq!(Some(0.0), parse_item::<f64>("0"));
+        assert!(parse_item::<f64>("nan").unwrap().is_nan());
+        assert!(parse_item::<f64>("NaN").unwrap().is_nan());
+        assert!(parse_item::<f64>("inf").unwrap().is_infinite());
+        assert!(parse_item::<f64>("inf").unwrap().is_sign_positive());
+        assert!(parse_item::<f64>("-inf").unwrap().is_infinite());
+        assert!(parse_item::<f64>("-inf").unwrap().is_sign_negative());
+        assert_eq!(None, parse_item::<f64>(""));
+        assert_eq!(None, parse_item::<f64>("dd"));
+        assert_eq!(None, parse_item::<f64>("12.34.56"));
     }
 }

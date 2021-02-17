@@ -295,28 +295,28 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
             Ok(list_array)
         }
         (Dictionary(index_type, _), _) => match **index_type {
-            DataType::Int8 => dictionary_cast::<Int8Type>(array, to_type),
-            DataType::Int16 => dictionary_cast::<Int16Type>(array, to_type),
-            DataType::Int32 => dictionary_cast::<Int32Type>(array, to_type),
-            DataType::Int64 => dictionary_cast::<Int64Type>(array, to_type),
+            DataType::Int8 => dictionary_cast::<i8>(array, to_type),
+            DataType::Int16 => dictionary_cast::<i16>(array, to_type),
+            DataType::Int32 => dictionary_cast::<i32>(array, to_type),
+            DataType::Int64 => dictionary_cast::<i64>(array, to_type),
             DataType::UInt8 => dictionary_cast::<u8>(array, to_type),
-            DataType::UInt16 => dictionary_cast::<UInt16Type>(array, to_type),
+            DataType::UInt16 => dictionary_cast::<u16>(array, to_type),
             DataType::UInt32 => dictionary_cast::<u32>(array, to_type),
-            DataType::UInt64 => dictionary_cast::<UInt64Type>(array, to_type),
+            DataType::UInt64 => dictionary_cast::<u64>(array, to_type),
             _ => Err(ArrowError::ComputeError(format!(
                 "Casting from dictionary type {:?} to {:?} not supported",
                 from_type, to_type,
             ))),
         },
         (_, Dictionary(index_type, value_type)) => match **index_type {
-            DataType::Int8 => cast_to_dictionary::<Int8Type>(array, value_type),
-            DataType::Int16 => cast_to_dictionary::<Int16Type>(array, value_type),
-            DataType::Int32 => cast_to_dictionary::<Int32Type>(array, value_type),
-            DataType::Int64 => cast_to_dictionary::<Int64Type>(array, value_type),
+            DataType::Int8 => cast_to_dictionary::<i8>(array, value_type),
+            DataType::Int16 => cast_to_dictionary::<i16>(array, value_type),
+            DataType::Int32 => cast_to_dictionary::<i32>(array, value_type),
+            DataType::Int64 => cast_to_dictionary::<i64>(array, value_type),
             DataType::UInt8 => cast_to_dictionary::<u8>(array, value_type),
-            DataType::UInt16 => cast_to_dictionary::<UInt16Type>(array, value_type),
+            DataType::UInt16 => cast_to_dictionary::<u16>(array, value_type),
             DataType::UInt32 => cast_to_dictionary::<u32>(array, value_type),
-            DataType::UInt64 => cast_to_dictionary::<UInt64Type>(array, value_type),
+            DataType::UInt64 => cast_to_dictionary::<u64>(array, value_type),
             _ => Err(ArrowError::ComputeError(format!(
                 "Casting from type {:?} to dictionary type {:?} not supported",
                 from_type, to_type,
@@ -324,15 +324,15 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
         },
         (_, Boolean) => match from_type {
             UInt8 => cast_numeric_to_bool::<u8>(array),
-            UInt16 => cast_numeric_to_bool::<UInt16Type>(array),
+            UInt16 => cast_numeric_to_bool::<u16>(array),
             UInt32 => cast_numeric_to_bool::<u32>(array),
-            UInt64 => cast_numeric_to_bool::<UInt64Type>(array),
-            Int8 => cast_numeric_to_bool::<Int8Type>(array),
-            Int16 => cast_numeric_to_bool::<Int16Type>(array),
-            Int32 => cast_numeric_to_bool::<Int32Type>(array),
-            Int64 => cast_numeric_to_bool::<Int64Type>(array),
-            Float32 => cast_numeric_to_bool::<Float32Type>(array),
-            Float64 => cast_numeric_to_bool::<Float64Type>(array),
+            UInt64 => cast_numeric_to_bool::<u64>(array),
+            Int8 => cast_numeric_to_bool::<i8>(array),
+            Int16 => cast_numeric_to_bool::<i16>(array),
+            Int32 => cast_numeric_to_bool::<i32>(array),
+            Int64 => cast_numeric_to_bool::<i64>(array),
+            Float32 => cast_numeric_to_bool::<f32>(array),
+            Float64 => cast_numeric_to_bool::<f64>(array),
             Utf8 => Err(ArrowError::ComputeError(format!(
                 "Casting from {:?} to {:?} not supported",
                 from_type, to_type,
@@ -344,15 +344,15 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
         },
         (Boolean, _) => match to_type {
             UInt8 => cast_bool_to_numeric::<u8>(array),
-            UInt16 => cast_bool_to_numeric::<UInt16Type>(array),
+            UInt16 => cast_bool_to_numeric::<u16>(array),
             UInt32 => cast_bool_to_numeric::<u32>(array),
-            UInt64 => cast_bool_to_numeric::<UInt64Type>(array),
-            Int8 => cast_bool_to_numeric::<Int8Type>(array),
-            Int16 => cast_bool_to_numeric::<Int16Type>(array),
-            Int32 => cast_bool_to_numeric::<Int32Type>(array),
-            Int64 => cast_bool_to_numeric::<Int64Type>(array),
-            Float32 => cast_bool_to_numeric::<Float32Type>(array),
-            Float64 => cast_bool_to_numeric::<Float64Type>(array),
+            UInt64 => cast_bool_to_numeric::<u64>(array),
+            Int8 => cast_bool_to_numeric::<i8>(array),
+            Int16 => cast_bool_to_numeric::<i16>(array),
+            Int32 => cast_bool_to_numeric::<i32>(array),
+            Int64 => cast_bool_to_numeric::<i64>(array),
+            Float32 => cast_bool_to_numeric::<f32>(array),
+            Float64 => cast_bool_to_numeric::<f64>(array),
             Utf8 => {
                 let array = array.as_any().downcast_ref::<BooleanArray>().unwrap();
                 Ok(Arc::new(
@@ -369,19 +369,20 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
         },
         (Utf8, _) => match to_type {
             UInt8 => cast_string_to_numeric::<u8>(array),
-            UInt16 => cast_string_to_numeric::<UInt16Type>(array),
+            UInt16 => cast_string_to_numeric::<u16>(array),
             UInt32 => cast_string_to_numeric::<u32>(array),
-            UInt64 => cast_string_to_numeric::<UInt64Type>(array),
-            Int8 => cast_string_to_numeric::<Int8Type>(array),
-            Int16 => cast_string_to_numeric::<Int16Type>(array),
-            Int32 => cast_string_to_numeric::<Int32Type>(array),
-            Int64 => cast_string_to_numeric::<Int64Type>(array),
-            Float32 => cast_string_to_numeric::<Float32Type>(array),
-            Float64 => cast_string_to_numeric::<Float64Type>(array),
+            UInt64 => cast_string_to_numeric::<u64>(array),
+            Int8 => cast_string_to_numeric::<i8>(array),
+            Int16 => cast_string_to_numeric::<i16>(array),
+            Int32 => cast_string_to_numeric::<i32>(array),
+            Int64 => cast_string_to_numeric::<i64>(array),
+            Float32 => cast_string_to_numeric::<f32>(array),
+            Float64 => cast_string_to_numeric::<f64>(array),
             Date32 => {
                 use chrono::Datelike;
                 let string_array = array.as_any().downcast_ref::<StringArray>().unwrap();
-                let mut builder = PrimitiveBuilder::<Date32Type>::new(string_array.len());
+                let mut builder =
+                    PrimitiveBuilder::<i32>::new(string_array.len(), DataType::Date32);
                 for i in 0..string_array.len() {
                     if string_array.is_null(i) {
                         builder.append_null()?;
@@ -398,7 +399,8 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
             }
             Date64 => {
                 let string_array = array.as_any().downcast_ref::<StringArray>().unwrap();
-                let mut builder = PrimitiveBuilder::<Date64Type>::new(string_array.len());
+                let mut builder =
+                    PrimitiveBuilder::<i64>::new(string_array.len(), DataType::Date64);
                 for i in 0..string_array.len() {
                     if string_array.is_null(i) {
                         builder.append_null()?;
@@ -436,15 +438,15 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
         },
         (_, Utf8) => match from_type {
             UInt8 => cast_numeric_to_string::<u8>(array),
-            UInt16 => cast_numeric_to_string::<UInt16Type>(array),
+            UInt16 => cast_numeric_to_string::<u16>(array),
             UInt32 => cast_numeric_to_string::<u32>(array),
-            UInt64 => cast_numeric_to_string::<UInt64Type>(array),
-            Int8 => cast_numeric_to_string::<Int8Type>(array),
-            Int16 => cast_numeric_to_string::<Int16Type>(array),
-            Int32 => cast_numeric_to_string::<Int32Type>(array),
-            Int64 => cast_numeric_to_string::<Int64Type>(array),
-            Float32 => cast_numeric_to_string::<Float32Type>(array),
-            Float64 => cast_numeric_to_string::<Float64Type>(array),
+            UInt64 => cast_numeric_to_string::<u64>(array),
+            Int8 => cast_numeric_to_string::<i8>(array),
+            Int16 => cast_numeric_to_string::<i16>(array),
+            Int32 => cast_numeric_to_string::<i32>(array),
+            Int64 => cast_numeric_to_string::<i64>(array),
+            Float32 => cast_numeric_to_string::<f32>(array),
+            Float64 => cast_numeric_to_string::<f64>(array),
             Binary => {
                 let array = array.as_any().downcast_ref::<BinaryArray>().unwrap();
                 Ok(Arc::new(
@@ -463,143 +465,138 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
         },
 
         // start numeric casts
-        (UInt8, UInt16) => cast_numeric_arrays::<u8, UInt16Type>(array),
+        (UInt8, UInt16) => cast_numeric_arrays::<u8, u16>(array),
         (UInt8, UInt32) => cast_numeric_arrays::<u8, u32>(array),
-        (UInt8, UInt64) => cast_numeric_arrays::<u8, UInt64Type>(array),
-        (UInt8, Int8) => cast_numeric_arrays::<u8, Int8Type>(array),
-        (UInt8, Int16) => cast_numeric_arrays::<u8, Int16Type>(array),
-        (UInt8, Int32) => cast_numeric_arrays::<u8, Int32Type>(array),
-        (UInt8, Int64) => cast_numeric_arrays::<u8, Int64Type>(array),
-        (UInt8, Float32) => cast_numeric_arrays::<u8, Float32Type>(array),
-        (UInt8, Float64) => cast_numeric_arrays::<u8, Float64Type>(array),
+        (UInt8, UInt64) => cast_numeric_arrays::<u8, u64>(array),
+        (UInt8, Int8) => cast_numeric_arrays::<u8, i8>(array),
+        (UInt8, Int16) => cast_numeric_arrays::<u8, i16>(array),
+        (UInt8, Int32) => cast_numeric_arrays::<u8, i32>(array),
+        (UInt8, Int64) => cast_numeric_arrays::<u8, i64>(array),
+        (UInt8, Float32) => cast_numeric_arrays::<u8, f32>(array),
+        (UInt8, Float64) => cast_numeric_arrays::<u8, f64>(array),
 
-        (UInt16, UInt8) => cast_numeric_arrays::<UInt16Type, u8>(array),
-        (UInt16, UInt32) => cast_numeric_arrays::<UInt16Type, u32>(array),
-        (UInt16, UInt64) => cast_numeric_arrays::<UInt16Type, UInt64Type>(array),
-        (UInt16, Int8) => cast_numeric_arrays::<UInt16Type, Int8Type>(array),
-        (UInt16, Int16) => cast_numeric_arrays::<UInt16Type, Int16Type>(array),
-        (UInt16, Int32) => cast_numeric_arrays::<UInt16Type, Int32Type>(array),
-        (UInt16, Int64) => cast_numeric_arrays::<UInt16Type, Int64Type>(array),
-        (UInt16, Float32) => cast_numeric_arrays::<UInt16Type, Float32Type>(array),
-        (UInt16, Float64) => cast_numeric_arrays::<UInt16Type, Float64Type>(array),
+        (UInt16, UInt8) => cast_numeric_arrays::<u16, u8>(array),
+        (UInt16, UInt32) => cast_numeric_arrays::<u16, u32>(array),
+        (UInt16, UInt64) => cast_numeric_arrays::<u16, u64>(array),
+        (UInt16, Int8) => cast_numeric_arrays::<u16, i8>(array),
+        (UInt16, Int16) => cast_numeric_arrays::<u16, i16>(array),
+        (UInt16, Int32) => cast_numeric_arrays::<u16, i32>(array),
+        (UInt16, Int64) => cast_numeric_arrays::<u16, i64>(array),
+        (UInt16, Float32) => cast_numeric_arrays::<u16, f32>(array),
+        (UInt16, Float64) => cast_numeric_arrays::<u16, f64>(array),
 
         (UInt32, UInt8) => cast_numeric_arrays::<u32, u8>(array),
-        (UInt32, UInt16) => cast_numeric_arrays::<u32, UInt16Type>(array),
-        (UInt32, UInt64) => cast_numeric_arrays::<u32, UInt64Type>(array),
-        (UInt32, Int8) => cast_numeric_arrays::<u32, Int8Type>(array),
-        (UInt32, Int16) => cast_numeric_arrays::<u32, Int16Type>(array),
-        (UInt32, Int32) => cast_numeric_arrays::<u32, Int32Type>(array),
-        (UInt32, Int64) => cast_numeric_arrays::<u32, Int64Type>(array),
-        (UInt32, Float32) => cast_numeric_arrays::<u32, Float32Type>(array),
-        (UInt32, Float64) => cast_numeric_arrays::<u32, Float64Type>(array),
+        (UInt32, UInt16) => cast_numeric_arrays::<u32, u16>(array),
+        (UInt32, UInt64) => cast_numeric_arrays::<u32, u64>(array),
+        (UInt32, Int8) => cast_numeric_arrays::<u32, i8>(array),
+        (UInt32, Int16) => cast_numeric_arrays::<u32, i16>(array),
+        (UInt32, Int32) => cast_numeric_arrays::<u32, i32>(array),
+        (UInt32, Int64) => cast_numeric_arrays::<u32, i64>(array),
+        (UInt32, Float32) => cast_numeric_arrays::<u32, f32>(array),
+        (UInt32, Float64) => cast_numeric_arrays::<u32, f64>(array),
 
-        (UInt64, UInt8) => cast_numeric_arrays::<UInt64Type, u8>(array),
-        (UInt64, UInt16) => cast_numeric_arrays::<UInt64Type, UInt16Type>(array),
-        (UInt64, UInt32) => cast_numeric_arrays::<UInt64Type, u32>(array),
-        (UInt64, Int8) => cast_numeric_arrays::<UInt64Type, Int8Type>(array),
-        (UInt64, Int16) => cast_numeric_arrays::<UInt64Type, Int16Type>(array),
-        (UInt64, Int32) => cast_numeric_arrays::<UInt64Type, Int32Type>(array),
-        (UInt64, Int64) => cast_numeric_arrays::<UInt64Type, Int64Type>(array),
-        (UInt64, Float32) => cast_numeric_arrays::<UInt64Type, Float32Type>(array),
-        (UInt64, Float64) => cast_numeric_arrays::<UInt64Type, Float64Type>(array),
+        (UInt64, UInt8) => cast_numeric_arrays::<u64, u8>(array),
+        (UInt64, UInt16) => cast_numeric_arrays::<u64, u16>(array),
+        (UInt64, UInt32) => cast_numeric_arrays::<u64, u32>(array),
+        (UInt64, Int8) => cast_numeric_arrays::<u64, i8>(array),
+        (UInt64, Int16) => cast_numeric_arrays::<u64, i16>(array),
+        (UInt64, Int32) => cast_numeric_arrays::<u64, i32>(array),
+        (UInt64, Int64) => cast_numeric_arrays::<u64, i64>(array),
+        (UInt64, Float32) => cast_numeric_arrays::<u64, f32>(array),
+        (UInt64, Float64) => cast_numeric_arrays::<u64, f64>(array),
 
-        (Int8, UInt8) => cast_numeric_arrays::<Int8Type, u8>(array),
-        (Int8, UInt16) => cast_numeric_arrays::<Int8Type, UInt16Type>(array),
-        (Int8, UInt32) => cast_numeric_arrays::<Int8Type, u32>(array),
-        (Int8, UInt64) => cast_numeric_arrays::<Int8Type, UInt64Type>(array),
-        (Int8, Int16) => cast_numeric_arrays::<Int8Type, Int16Type>(array),
-        (Int8, Int32) => cast_numeric_arrays::<Int8Type, Int32Type>(array),
-        (Int8, Int64) => cast_numeric_arrays::<Int8Type, Int64Type>(array),
-        (Int8, Float32) => cast_numeric_arrays::<Int8Type, Float32Type>(array),
-        (Int8, Float64) => cast_numeric_arrays::<Int8Type, Float64Type>(array),
+        (Int8, UInt8) => cast_numeric_arrays::<i8, u8>(array),
+        (Int8, UInt16) => cast_numeric_arrays::<i8, u16>(array),
+        (Int8, UInt32) => cast_numeric_arrays::<i8, u32>(array),
+        (Int8, UInt64) => cast_numeric_arrays::<i8, u64>(array),
+        (Int8, Int16) => cast_numeric_arrays::<i8, i16>(array),
+        (Int8, Int32) => cast_numeric_arrays::<i8, i32>(array),
+        (Int8, Int64) => cast_numeric_arrays::<i8, i64>(array),
+        (Int8, Float32) => cast_numeric_arrays::<i8, f32>(array),
+        (Int8, Float64) => cast_numeric_arrays::<i8, f64>(array),
 
-        (Int16, UInt8) => cast_numeric_arrays::<Int16Type, u8>(array),
-        (Int16, UInt16) => cast_numeric_arrays::<Int16Type, UInt16Type>(array),
-        (Int16, UInt32) => cast_numeric_arrays::<Int16Type, u32>(array),
-        (Int16, UInt64) => cast_numeric_arrays::<Int16Type, UInt64Type>(array),
-        (Int16, Int8) => cast_numeric_arrays::<Int16Type, Int8Type>(array),
-        (Int16, Int32) => cast_numeric_arrays::<Int16Type, Int32Type>(array),
-        (Int16, Int64) => cast_numeric_arrays::<Int16Type, Int64Type>(array),
-        (Int16, Float32) => cast_numeric_arrays::<Int16Type, Float32Type>(array),
-        (Int16, Float64) => cast_numeric_arrays::<Int16Type, Float64Type>(array),
+        (Int16, UInt8) => cast_numeric_arrays::<i16, u8>(array),
+        (Int16, UInt16) => cast_numeric_arrays::<i16, u16>(array),
+        (Int16, UInt32) => cast_numeric_arrays::<i16, u32>(array),
+        (Int16, UInt64) => cast_numeric_arrays::<i16, u64>(array),
+        (Int16, Int8) => cast_numeric_arrays::<i16, i8>(array),
+        (Int16, Int32) => cast_numeric_arrays::<i16, i32>(array),
+        (Int16, Int64) => cast_numeric_arrays::<i16, i64>(array),
+        (Int16, Float32) => cast_numeric_arrays::<i16, f32>(array),
+        (Int16, Float64) => cast_numeric_arrays::<i16, f64>(array),
 
-        (Int32, UInt8) => cast_numeric_arrays::<Int32Type, u8>(array),
-        (Int32, UInt16) => cast_numeric_arrays::<Int32Type, UInt16Type>(array),
-        (Int32, UInt32) => cast_numeric_arrays::<Int32Type, u32>(array),
-        (Int32, UInt64) => cast_numeric_arrays::<Int32Type, UInt64Type>(array),
-        (Int32, Int8) => cast_numeric_arrays::<Int32Type, Int8Type>(array),
-        (Int32, Int16) => cast_numeric_arrays::<Int32Type, Int16Type>(array),
-        (Int32, Int64) => cast_numeric_arrays::<Int32Type, Int64Type>(array),
-        (Int32, Float32) => cast_numeric_arrays::<Int32Type, Float32Type>(array),
-        (Int32, Float64) => cast_numeric_arrays::<Int32Type, Float64Type>(array),
+        (Int32, UInt8) => cast_numeric_arrays::<i32, u8>(array),
+        (Int32, UInt16) => cast_numeric_arrays::<i32, u16>(array),
+        (Int32, UInt32) => cast_numeric_arrays::<i32, u32>(array),
+        (Int32, UInt64) => cast_numeric_arrays::<i32, u64>(array),
+        (Int32, Int8) => cast_numeric_arrays::<i32, i8>(array),
+        (Int32, Int16) => cast_numeric_arrays::<i32, i16>(array),
+        (Int32, Int64) => cast_numeric_arrays::<i32, i64>(array),
+        (Int32, Float32) => cast_numeric_arrays::<i32, f32>(array),
+        (Int32, Float64) => cast_numeric_arrays::<i32, f64>(array),
 
-        (Int64, UInt8) => cast_numeric_arrays::<Int64Type, u8>(array),
-        (Int64, UInt16) => cast_numeric_arrays::<Int64Type, UInt16Type>(array),
-        (Int64, UInt32) => cast_numeric_arrays::<Int64Type, u32>(array),
-        (Int64, UInt64) => cast_numeric_arrays::<Int64Type, UInt64Type>(array),
-        (Int64, Int8) => cast_numeric_arrays::<Int64Type, Int8Type>(array),
-        (Int64, Int16) => cast_numeric_arrays::<Int64Type, Int16Type>(array),
-        (Int64, Int32) => cast_numeric_arrays::<Int64Type, Int32Type>(array),
-        (Int64, Float32) => cast_numeric_arrays::<Int64Type, Float32Type>(array),
-        (Int64, Float64) => cast_numeric_arrays::<Int64Type, Float64Type>(array),
+        (Int64, UInt8) => cast_numeric_arrays::<i64, u8>(array),
+        (Int64, UInt16) => cast_numeric_arrays::<i64, u16>(array),
+        (Int64, UInt32) => cast_numeric_arrays::<i64, u32>(array),
+        (Int64, UInt64) => cast_numeric_arrays::<i64, u64>(array),
+        (Int64, Int8) => cast_numeric_arrays::<i64, i8>(array),
+        (Int64, Int16) => cast_numeric_arrays::<i64, i16>(array),
+        (Int64, Int32) => cast_numeric_arrays::<i64, i32>(array),
+        (Int64, Float32) => cast_numeric_arrays::<i64, f32>(array),
+        (Int64, Float64) => cast_numeric_arrays::<i64, f64>(array),
 
-        (Float32, UInt8) => cast_numeric_arrays::<Float32Type, u8>(array),
-        (Float32, UInt16) => cast_numeric_arrays::<Float32Type, UInt16Type>(array),
-        (Float32, UInt32) => cast_numeric_arrays::<Float32Type, u32>(array),
-        (Float32, UInt64) => cast_numeric_arrays::<Float32Type, UInt64Type>(array),
-        (Float32, Int8) => cast_numeric_arrays::<Float32Type, Int8Type>(array),
-        (Float32, Int16) => cast_numeric_arrays::<Float32Type, Int16Type>(array),
-        (Float32, Int32) => cast_numeric_arrays::<Float32Type, Int32Type>(array),
-        (Float32, Int64) => cast_numeric_arrays::<Float32Type, Int64Type>(array),
-        (Float32, Float64) => cast_numeric_arrays::<Float32Type, Float64Type>(array),
+        (Float32, UInt8) => cast_numeric_arrays::<f32, u8>(array),
+        (Float32, UInt16) => cast_numeric_arrays::<f32, u16>(array),
+        (Float32, UInt32) => cast_numeric_arrays::<f32, u32>(array),
+        (Float32, UInt64) => cast_numeric_arrays::<f32, u64>(array),
+        (Float32, Int8) => cast_numeric_arrays::<f32, i8>(array),
+        (Float32, Int16) => cast_numeric_arrays::<f32, i16>(array),
+        (Float32, Int32) => cast_numeric_arrays::<f32, i32>(array),
+        (Float32, Int64) => cast_numeric_arrays::<f32, i64>(array),
+        (Float32, Float64) => cast_numeric_arrays::<f32, f64>(array),
 
-        (Float64, UInt8) => cast_numeric_arrays::<Float64Type, u8>(array),
-        (Float64, UInt16) => cast_numeric_arrays::<Float64Type, UInt16Type>(array),
-        (Float64, UInt32) => cast_numeric_arrays::<Float64Type, u32>(array),
-        (Float64, UInt64) => cast_numeric_arrays::<Float64Type, UInt64Type>(array),
-        (Float64, Int8) => cast_numeric_arrays::<Float64Type, Int8Type>(array),
-        (Float64, Int16) => cast_numeric_arrays::<Float64Type, Int16Type>(array),
-        (Float64, Int32) => cast_numeric_arrays::<Float64Type, Int32Type>(array),
-        (Float64, Int64) => cast_numeric_arrays::<Float64Type, Int64Type>(array),
-        (Float64, Float32) => cast_numeric_arrays::<Float64Type, Float32Type>(array),
+        (Float64, UInt8) => cast_numeric_arrays::<f64, u8>(array),
+        (Float64, UInt16) => cast_numeric_arrays::<f64, u16>(array),
+        (Float64, UInt32) => cast_numeric_arrays::<f64, u32>(array),
+        (Float64, UInt64) => cast_numeric_arrays::<f64, u64>(array),
+        (Float64, Int8) => cast_numeric_arrays::<f64, i8>(array),
+        (Float64, Int16) => cast_numeric_arrays::<f64, i16>(array),
+        (Float64, Int32) => cast_numeric_arrays::<f64, i32>(array),
+        (Float64, Int64) => cast_numeric_arrays::<f64, i64>(array),
+        (Float64, Float32) => cast_numeric_arrays::<f64, f32>(array),
         // end numeric casts
 
         // temporal casts
-        (Int32, Date32) => cast_array_data::<Date32Type>(array, to_type.clone()),
-        (Int32, Time32(TimeUnit::Second)) => {
-            cast_array_data::<Time32SecondType>(array, to_type.clone())
-        }
-        (Int32, Time32(TimeUnit::Millisecond)) => {
-            cast_array_data::<Time32MillisecondType>(array, to_type.clone())
-        }
+        (Int32, Date32) => cast_array_data::<i32>(array, to_type.clone()),
+        (Int32, Time32(_)) => cast_array_data::<i32>(array, to_type.clone()),
         // No support for microsecond/nanosecond with i32
-        (Date32, Int32) => cast_array_data::<Int32Type>(array, to_type.clone()),
-        (Time32(_), Int32) => cast_array_data::<Int32Type>(array, to_type.clone()),
-        (Int64, Date64) => cast_array_data::<Date64Type>(array, to_type.clone()),
+        (Date32, Int32) => cast_array_data::<i32>(array, to_type.clone()),
+        (Time32(_), Int32) => cast_array_data::<i32>(array, to_type.clone()),
+        (Int64, Date64) => cast_array_data::<i64>(array, to_type.clone()),
         // No support for second/milliseconds with i64
-        (Int64, Time64(TimeUnit::Microsecond)) => {
-            cast_array_data::<Time64MicrosecondType>(array, to_type.clone())
-        }
-        (Int64, Time64(TimeUnit::Nanosecond)) => {
-            cast_array_data::<Time64NanosecondType>(array, to_type.clone())
-        }
+        (Int64, Time64(_)) => cast_array_data::<i64>(array, to_type.clone()),
 
-        (Date64, Int64) => cast_array_data::<Int64Type>(array, to_type.clone()),
-        (Time64(_), Int64) => cast_array_data::<Int64Type>(array, to_type.clone()),
+        (Date64, Int64) => cast_array_data::<i64>(array, to_type.clone()),
+        (Time64(_), Int64) => cast_array_data::<i64>(array, to_type.clone()),
         (Date32, Date64) => {
             let date_array = array.as_any().downcast_ref::<Int32Array>().unwrap();
 
-            let values =
-                unary::<_, _, Date64Type>(date_array, |x| x as i64 * MILLISECONDS_IN_DAY);
+            let values = unary::<_, _, i64>(
+                date_array,
+                |x| x as i64 * MILLISECONDS_IN_DAY,
+                DataType::Date64,
+            );
 
             Ok(Arc::new(values) as ArrayRef)
         }
         (Date64, Date32) => {
             let date_array = array.as_any().downcast_ref::<Int64Array>().unwrap();
 
-            let values = unary::<_, _, Date32Type>(date_array, |x| {
-                (x / MILLISECONDS_IN_DAY) as i32
-            });
+            let values = unary::<_, _, i32>(
+                date_array,
+                |x| (x / MILLISECONDS_IN_DAY) as i32,
+                DataType::Date32,
+            );
 
             Ok(Arc::new(values) as ArrayRef)
         }
@@ -689,7 +686,7 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
                 _ => unreachable!("array type not supported"),
             }
         }
-        (Timestamp(_, _), Int64) => cast_array_data::<Int64Type>(array, to_type.clone()),
+        (Timestamp(_, _), Int64) => cast_array_data::<i64>(array, to_type.clone()),
         (Int64, Timestamp(to_unit, _)) => {
             use TimeUnit::*;
             match to_unit {
@@ -769,17 +766,23 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
                     let time_array = PrimitiveArray::<i64>::from(array.data());
                     Ok(Arc::new(divide(
                         &time_array,
-                        &PrimitiveArray::<i64>::from(vec![from_size / to_size; array.len()]),
+                        &PrimitiveArray::<i64>::from(vec![
+                            from_size / to_size;
+                            array.len()
+                        ]),
                     )?) as ArrayRef)
                 }
                 std::cmp::Ordering::Equal => {
-                    cast_array_data::<Date64Type>(array, to_type.clone())
+                    cast_array_data::<i64>(array, to_type.clone())
                 }
                 std::cmp::Ordering::Greater => {
                     let time_array = PrimitiveArray::<i64>::from(array.data());
                     Ok(Arc::new(multiply(
                         &time_array,
-                        &PrimitiveArray::<i64>::from(vec![to_size / from_size; array.len()]),
+                        &PrimitiveArray::<i64>::from(vec![
+                            to_size / from_size;
+                            array.len()
+                        ]),
                     )?) as ArrayRef)
                 }
             }
@@ -842,7 +845,7 @@ const EPOCH_DAYS_FROM_CE: i32 = 719_163;
 #[allow(clippy::unnecessary_wraps)]
 fn cast_array_data<TO>(array: &ArrayRef, to_type: DataType) -> Result<ArrayRef>
 where
-    TO: ArrowNumericType,
+    TO: ArrowNativeType,
 {
     let data = Arc::new(ArrayData::new(
         to_type,
@@ -860,10 +863,8 @@ where
 #[allow(clippy::unnecessary_wraps)]
 fn cast_numeric_arrays<FROM, TO>(from: &ArrayRef) -> Result<ArrayRef>
 where
-    FROM: ArrowNumericType,
-    TO: ArrowNumericType,
-    FROM::Native: num::NumCast,
-    TO::Native: num::NumCast,
+    FROM: ArrowNativeType + num::NumCast,
+    TO: ArrowNativeType + num::NumCast,
 {
     Ok(Arc::new(numeric_cast::<FROM, TO>(
         from.as_any()
@@ -878,9 +879,7 @@ where
     T: ArrowNativeType + num::NumCast,
     R: ArrowNativeType + num::NumCast,
 {
-    let iter = from
-        .iter()
-        .map(|v| v.and_then(num::cast::cast::<T, R>));
+    let iter = from.iter().map(|v| v.and_then(num::cast::cast::<T, R>));
     // Soundness:
     //  The iterator is trustedLen because it comes from an `PrimitiveArray`.
     unsafe { PrimitiveArray::<R>::from_trusted_len_iter(iter) }
@@ -890,8 +889,7 @@ where
 #[allow(clippy::unnecessary_wraps)]
 fn cast_numeric_to_string<FROM>(array: &ArrayRef) -> Result<ArrayRef>
 where
-    FROM: ArrowNumericType,
-    FROM::Native: lexical_core::ToLexical,
+    FROM: ArrowNativeType + lexical_core::ToLexical,
 {
     Ok(Arc::new(numeric_to_string_cast::<FROM>(
         array
@@ -903,8 +901,7 @@ where
 
 fn numeric_to_string_cast<T>(from: &PrimitiveArray<T>) -> StringArray
 where
-    T: ArrowPrimitiveType + ArrowNumericType,
-    T::Native: lexical_core::ToLexical,
+    T: ArrowNativeType + lexical_core::ToLexical,
 {
     from.iter()
         .map(|maybe_value| maybe_value.map(lexical_to_string))
@@ -913,20 +910,22 @@ where
 
 /// Cast numeric types to Utf8
 #[allow(clippy::unnecessary_wraps)]
-fn cast_string_to_numeric<T>(from: &ArrayRef) -> Result<ArrayRef>
+fn cast_string_to_numeric<T>(from: &ArrayRef, to_datatype: DataType) -> Result<ArrayRef>
 where
-    T: ArrowNumericType,
-    <T as ArrowPrimitiveType>::Native: lexical_core::FromLexical,
+    T: ArrowNativeType + lexical_core::FromLexical,
 {
     Ok(Arc::new(string_to_numeric_cast::<T>(
         from.as_any().downcast_ref::<StringArray>().unwrap(),
+        to_datatype,
     )))
 }
 
-fn string_to_numeric_cast<T>(from: &StringArray) -> PrimitiveArray<T>
+fn string_to_numeric_cast<T>(
+    from: &StringArray,
+    to_datatype: DataType,
+) -> PrimitiveArray<T>
 where
-    T: ArrowNumericType,
-    <T as ArrowPrimitiveType>::Native: lexical_core::FromLexical,
+    T: ArrowNativeType + lexical_core::FromLexical,
 {
     let iter = (0..from.len()).map(|i| {
         if from.is_null(i) {
@@ -947,7 +946,7 @@ where
 /// Any zero value returns `false` while non-zero returns `true`
 fn cast_numeric_to_bool<FROM>(from: &ArrayRef) -> Result<ArrayRef>
 where
-    FROM: ArrowNumericType,
+    FROM: ArrowNativeType,
 {
     numeric_to_bool_cast::<FROM>(
         from.as_any()
@@ -959,7 +958,7 @@ where
 
 fn numeric_to_bool_cast<T>(from: &PrimitiveArray<T>) -> Result<BooleanArray>
 where
-    T: ArrowPrimitiveType + ArrowNumericType,
+    T: ArrowNativeType,
 {
     let mut b = BooleanBuilder::new(from.len());
 
@@ -982,7 +981,7 @@ where
 #[allow(clippy::unnecessary_wraps)]
 fn cast_bool_to_numeric<TO>(from: &ArrayRef) -> Result<ArrayRef>
 where
-    TO: ArrowNumericType,
+    TO: ArrowNativeType,
     TO::Native: num::cast::NumCast,
 {
     Ok(Arc::new(bool_to_numeric_cast::<TO>(
@@ -992,7 +991,7 @@ where
 
 fn bool_to_numeric_cast<T>(from: &BooleanArray) -> PrimitiveArray<T>
 where
-    T: ArrowNumericType,
+    T: ArrowNativeType,
     T::Native: num::NumCast,
 {
     let iter = (0..from.len()).map(|i| {
@@ -1066,14 +1065,14 @@ fn dictionary_cast<K: ArrowDictionaryKeyType>(
 
             // create the appropriate array type
             let new_array: ArrayRef = match **to_index_type {
-                Int8 => Arc::new(DictionaryArray::<Int8Type>::from(data)),
-                Int16 => Arc::new(DictionaryArray::<Int16Type>::from(data)),
-                Int32 => Arc::new(DictionaryArray::<Int32Type>::from(data)),
-                Int64 => Arc::new(DictionaryArray::<Int64Type>::from(data)),
+                Int8 => Arc::new(DictionaryArray::<i8>::from(data)),
+                Int16 => Arc::new(DictionaryArray::<i16>::from(data)),
+                Int32 => Arc::new(DictionaryArray::<i32>::from(data)),
+                Int64 => Arc::new(DictionaryArray::<i64>::from(data)),
                 UInt8 => Arc::new(DictionaryArray::<u8>::from(data)),
-                UInt16 => Arc::new(DictionaryArray::<UInt16Type>::from(data)),
+                UInt16 => Arc::new(DictionaryArray::<u16>::from(data)),
                 UInt32 => Arc::new(DictionaryArray::<u32>::from(data)),
-                UInt64 => Arc::new(DictionaryArray::<UInt64Type>::from(data)),
+                UInt64 => Arc::new(DictionaryArray::<u64>::from(data)),
                 _ => {
                     return Err(ArrowError::ComputeError(format!(
                         "Unsupported type {:?} for dictionary index",
@@ -1133,14 +1132,14 @@ fn cast_to_dictionary<K: ArrowDictionaryKeyType>(
     use DataType::*;
 
     match *dict_value_type {
-        Int8 => pack_numeric_to_dictionary::<K, Int8Type>(array, dict_value_type),
-        Int16 => pack_numeric_to_dictionary::<K, Int16Type>(array, dict_value_type),
-        Int32 => pack_numeric_to_dictionary::<K, Int32Type>(array, dict_value_type),
-        Int64 => pack_numeric_to_dictionary::<K, Int64Type>(array, dict_value_type),
+        Int8 => pack_numeric_to_dictionary::<K, i8>(array, dict_value_type),
+        Int16 => pack_numeric_to_dictionary::<K, i16>(array, dict_value_type),
+        Int32 => pack_numeric_to_dictionary::<K, i32>(array, dict_value_type),
+        Int64 => pack_numeric_to_dictionary::<K, i64>(array, dict_value_type),
         UInt8 => pack_numeric_to_dictionary::<K, u8>(array, dict_value_type),
-        UInt16 => pack_numeric_to_dictionary::<K, UInt16Type>(array, dict_value_type),
+        UInt16 => pack_numeric_to_dictionary::<K, u16>(array, dict_value_type),
         UInt32 => pack_numeric_to_dictionary::<K, u32>(array, dict_value_type),
-        UInt64 => pack_numeric_to_dictionary::<K, UInt64Type>(array, dict_value_type),
+        UInt64 => pack_numeric_to_dictionary::<K, u64>(array, dict_value_type),
         Utf8 => pack_string_to_dictionary::<K>(array),
         _ => Err(ArrowError::ComputeError(format!(
             "Internal Error: Unsupported output type for dictionary packing: {:?}",
@@ -1157,7 +1156,7 @@ fn pack_numeric_to_dictionary<K, V>(
 ) -> Result<ArrayRef>
 where
     K: ArrowDictionaryKeyType,
-    V: ArrowNumericType,
+    V: ArrowNativeType,
 {
     // attempt to cast the source array values to the target value type (the dictionary values type)
     let cast_values = cast(array, &dict_value_type)?;
@@ -1624,7 +1623,7 @@ mod tests {
         ];
         assert_eq!(
             f64_expected,
-            get_cast_values::<Float64Type>(&f64_array, &DataType::Float64)
+            get_cast_values::<f64>(&f64_array, &DataType::Float64)
         );
 
         let f32_expected = vec![
@@ -1640,7 +1639,7 @@ mod tests {
         ];
         assert_eq!(
             f32_expected,
-            get_cast_values::<Float32Type>(&f64_array, &DataType::Float32)
+            get_cast_values::<f32>(&f64_array, &DataType::Float32)
         );
 
         let i64_expected = vec![
@@ -1656,7 +1655,7 @@ mod tests {
         ];
         assert_eq!(
             i64_expected,
-            get_cast_values::<Int64Type>(&f64_array, &DataType::Int64)
+            get_cast_values::<i64>(&f64_array, &DataType::Int64)
         );
 
         let i32_expected = vec![
@@ -1672,7 +1671,7 @@ mod tests {
         ];
         assert_eq!(
             i32_expected,
-            get_cast_values::<Int32Type>(&f64_array, &DataType::Int32)
+            get_cast_values::<i32>(&f64_array, &DataType::Int32)
         );
 
         let i16_expected = vec![
@@ -1680,7 +1679,7 @@ mod tests {
         ];
         assert_eq!(
             i16_expected,
-            get_cast_values::<Int16Type>(&f64_array, &DataType::Int16)
+            get_cast_values::<i16>(&f64_array, &DataType::Int16)
         );
 
         let i8_expected = vec![
@@ -1688,7 +1687,7 @@ mod tests {
         ];
         assert_eq!(
             i8_expected,
-            get_cast_values::<Int8Type>(&f64_array, &DataType::Int8)
+            get_cast_values::<i8>(&f64_array, &DataType::Int8)
         );
 
         let u64_expected = vec![
@@ -1704,7 +1703,7 @@ mod tests {
         ];
         assert_eq!(
             u64_expected,
-            get_cast_values::<UInt64Type>(&f64_array, &DataType::UInt64)
+            get_cast_values::<u64>(&f64_array, &DataType::UInt64)
         );
 
         let u32_expected = vec![
@@ -1728,7 +1727,7 @@ mod tests {
         ];
         assert_eq!(
             u16_expected,
-            get_cast_values::<UInt16Type>(&f64_array, &DataType::UInt16)
+            get_cast_values::<u16>(&f64_array, &DataType::UInt16)
         );
 
         let u8_expected = vec![
@@ -1768,7 +1767,7 @@ mod tests {
         ];
         assert_eq!(
             f64_expected,
-            get_cast_values::<Float64Type>(&f32_array, &DataType::Float64)
+            get_cast_values::<f64>(&f32_array, &DataType::Float64)
         );
 
         let f32_expected = vec![
@@ -1784,7 +1783,7 @@ mod tests {
         ];
         assert_eq!(
             f32_expected,
-            get_cast_values::<Float32Type>(&f32_array, &DataType::Float32)
+            get_cast_values::<f32>(&f32_array, &DataType::Float32)
         );
 
         let i64_expected = vec![
@@ -1800,7 +1799,7 @@ mod tests {
         ];
         assert_eq!(
             i64_expected,
-            get_cast_values::<Int64Type>(&f32_array, &DataType::Int64)
+            get_cast_values::<i64>(&f32_array, &DataType::Int64)
         );
 
         let i32_expected = vec![
@@ -1816,7 +1815,7 @@ mod tests {
         ];
         assert_eq!(
             i32_expected,
-            get_cast_values::<Int32Type>(&f32_array, &DataType::Int32)
+            get_cast_values::<i32>(&f32_array, &DataType::Int32)
         );
 
         let i16_expected = vec![
@@ -1824,7 +1823,7 @@ mod tests {
         ];
         assert_eq!(
             i16_expected,
-            get_cast_values::<Int16Type>(&f32_array, &DataType::Int16)
+            get_cast_values::<i16>(&f32_array, &DataType::Int16)
         );
 
         let i8_expected = vec![
@@ -1832,7 +1831,7 @@ mod tests {
         ];
         assert_eq!(
             i8_expected,
-            get_cast_values::<Int8Type>(&f32_array, &DataType::Int8)
+            get_cast_values::<i8>(&f32_array, &DataType::Int8)
         );
 
         let u64_expected = vec![
@@ -1848,7 +1847,7 @@ mod tests {
         ];
         assert_eq!(
             u64_expected,
-            get_cast_values::<UInt64Type>(&f32_array, &DataType::UInt64)
+            get_cast_values::<u64>(&f32_array, &DataType::UInt64)
         );
 
         let u32_expected = vec![
@@ -1864,7 +1863,7 @@ mod tests {
         ];
         assert_eq!(
             u16_expected,
-            get_cast_values::<UInt16Type>(&f32_array, &DataType::UInt16)
+            get_cast_values::<u16>(&f32_array, &DataType::UInt16)
         );
 
         let u8_expected = vec![
@@ -1896,7 +1895,7 @@ mod tests {
         ];
         assert_eq!(
             f64_expected,
-            get_cast_values::<Float64Type>(&u64_array, &DataType::Float64)
+            get_cast_values::<f64>(&u64_array, &DataType::Float64)
         );
 
         let f32_expected = vec![
@@ -1908,38 +1907,38 @@ mod tests {
         ];
         assert_eq!(
             f32_expected,
-            get_cast_values::<Float32Type>(&u64_array, &DataType::Float32)
+            get_cast_values::<f32>(&u64_array, &DataType::Float32)
         );
 
         let i64_expected = vec!["0", "255", "65535", "4294967295", "null"];
         assert_eq!(
             i64_expected,
-            get_cast_values::<Int64Type>(&u64_array, &DataType::Int64)
+            get_cast_values::<i64>(&u64_array, &DataType::Int64)
         );
 
         let i32_expected = vec!["0", "255", "65535", "null", "null"];
         assert_eq!(
             i32_expected,
-            get_cast_values::<Int32Type>(&u64_array, &DataType::Int32)
+            get_cast_values::<i32>(&u64_array, &DataType::Int32)
         );
 
         let i16_expected = vec!["0", "255", "null", "null", "null"];
         assert_eq!(
             i16_expected,
-            get_cast_values::<Int16Type>(&u64_array, &DataType::Int16)
+            get_cast_values::<i16>(&u64_array, &DataType::Int16)
         );
 
         let i8_expected = vec!["0", "null", "null", "null", "null"];
         assert_eq!(
             i8_expected,
-            get_cast_values::<Int8Type>(&u64_array, &DataType::Int8)
+            get_cast_values::<i8>(&u64_array, &DataType::Int8)
         );
 
         let u64_expected =
             vec!["0", "255", "65535", "4294967295", "18446744073709551615"];
         assert_eq!(
             u64_expected,
-            get_cast_values::<UInt64Type>(&u64_array, &DataType::UInt64)
+            get_cast_values::<u64>(&u64_array, &DataType::UInt64)
         );
 
         let u32_expected = vec!["0", "255", "65535", "4294967295", "null"];
@@ -1951,7 +1950,7 @@ mod tests {
         let u16_expected = vec!["0", "255", "65535", "null", "null"];
         assert_eq!(
             u16_expected,
-            get_cast_values::<UInt16Type>(&u64_array, &DataType::UInt16)
+            get_cast_values::<u16>(&u64_array, &DataType::UInt16)
         );
 
         let u8_expected = vec!["0", "255", "null", "null", "null"];
@@ -1974,43 +1973,43 @@ mod tests {
         let f64_expected = vec!["0.0", "255.0", "65535.0", "4294967295.0"];
         assert_eq!(
             f64_expected,
-            get_cast_values::<Float64Type>(&u32_array, &DataType::Float64)
+            get_cast_values::<f64>(&u32_array, &DataType::Float64)
         );
 
         let f32_expected = vec!["0.0", "255.0", "65535.0", "4294967300.0"];
         assert_eq!(
             f32_expected,
-            get_cast_values::<Float32Type>(&u32_array, &DataType::Float32)
+            get_cast_values::<f32>(&u32_array, &DataType::Float32)
         );
 
         let i64_expected = vec!["0", "255", "65535", "4294967295"];
         assert_eq!(
             i64_expected,
-            get_cast_values::<Int64Type>(&u32_array, &DataType::Int64)
+            get_cast_values::<i64>(&u32_array, &DataType::Int64)
         );
 
         let i32_expected = vec!["0", "255", "65535", "null"];
         assert_eq!(
             i32_expected,
-            get_cast_values::<Int32Type>(&u32_array, &DataType::Int32)
+            get_cast_values::<i32>(&u32_array, &DataType::Int32)
         );
 
         let i16_expected = vec!["0", "255", "null", "null"];
         assert_eq!(
             i16_expected,
-            get_cast_values::<Int16Type>(&u32_array, &DataType::Int16)
+            get_cast_values::<i16>(&u32_array, &DataType::Int16)
         );
 
         let i8_expected = vec!["0", "null", "null", "null"];
         assert_eq!(
             i8_expected,
-            get_cast_values::<Int8Type>(&u32_array, &DataType::Int8)
+            get_cast_values::<i8>(&u32_array, &DataType::Int8)
         );
 
         let u64_expected = vec!["0", "255", "65535", "4294967295"];
         assert_eq!(
             u64_expected,
-            get_cast_values::<UInt64Type>(&u32_array, &DataType::UInt64)
+            get_cast_values::<u64>(&u32_array, &DataType::UInt64)
         );
 
         let u32_expected = vec!["0", "255", "65535", "4294967295"];
@@ -2022,7 +2021,7 @@ mod tests {
         let u16_expected = vec!["0", "255", "65535", "null"];
         assert_eq!(
             u16_expected,
-            get_cast_values::<UInt16Type>(&u32_array, &DataType::UInt16)
+            get_cast_values::<u16>(&u32_array, &DataType::UInt16)
         );
 
         let u8_expected = vec!["0", "255", "null", "null"];
@@ -2040,43 +2039,43 @@ mod tests {
         let f64_expected = vec!["0.0", "255.0", "65535.0"];
         assert_eq!(
             f64_expected,
-            get_cast_values::<Float64Type>(&u16_array, &DataType::Float64)
+            get_cast_values::<f64>(&u16_array, &DataType::Float64)
         );
 
         let f32_expected = vec!["0.0", "255.0", "65535.0"];
         assert_eq!(
             f32_expected,
-            get_cast_values::<Float32Type>(&u16_array, &DataType::Float32)
+            get_cast_values::<f32>(&u16_array, &DataType::Float32)
         );
 
         let i64_expected = vec!["0", "255", "65535"];
         assert_eq!(
             i64_expected,
-            get_cast_values::<Int64Type>(&u16_array, &DataType::Int64)
+            get_cast_values::<i64>(&u16_array, &DataType::Int64)
         );
 
         let i32_expected = vec!["0", "255", "65535"];
         assert_eq!(
             i32_expected,
-            get_cast_values::<Int32Type>(&u16_array, &DataType::Int32)
+            get_cast_values::<i32>(&u16_array, &DataType::Int32)
         );
 
         let i16_expected = vec!["0", "255", "null"];
         assert_eq!(
             i16_expected,
-            get_cast_values::<Int16Type>(&u16_array, &DataType::Int16)
+            get_cast_values::<i16>(&u16_array, &DataType::Int16)
         );
 
         let i8_expected = vec!["0", "null", "null"];
         assert_eq!(
             i8_expected,
-            get_cast_values::<Int8Type>(&u16_array, &DataType::Int8)
+            get_cast_values::<i8>(&u16_array, &DataType::Int8)
         );
 
         let u64_expected = vec!["0", "255", "65535"];
         assert_eq!(
             u64_expected,
-            get_cast_values::<UInt64Type>(&u16_array, &DataType::UInt64)
+            get_cast_values::<u64>(&u16_array, &DataType::UInt64)
         );
 
         let u32_expected = vec!["0", "255", "65535"];
@@ -2088,7 +2087,7 @@ mod tests {
         let u16_expected = vec!["0", "255", "65535"];
         assert_eq!(
             u16_expected,
-            get_cast_values::<UInt16Type>(&u16_array, &DataType::UInt16)
+            get_cast_values::<u16>(&u16_array, &DataType::UInt16)
         );
 
         let u8_expected = vec!["0", "255", "null"];
@@ -2106,43 +2105,43 @@ mod tests {
         let f64_expected = vec!["0.0", "255.0"];
         assert_eq!(
             f64_expected,
-            get_cast_values::<Float64Type>(&u8_array, &DataType::Float64)
+            get_cast_values::<f64>(&u8_array, &DataType::Float64)
         );
 
         let f32_expected = vec!["0.0", "255.0"];
         assert_eq!(
             f32_expected,
-            get_cast_values::<Float32Type>(&u8_array, &DataType::Float32)
+            get_cast_values::<f32>(&u8_array, &DataType::Float32)
         );
 
         let i64_expected = vec!["0", "255"];
         assert_eq!(
             i64_expected,
-            get_cast_values::<Int64Type>(&u8_array, &DataType::Int64)
+            get_cast_values::<i64>(&u8_array, &DataType::Int64)
         );
 
         let i32_expected = vec!["0", "255"];
         assert_eq!(
             i32_expected,
-            get_cast_values::<Int32Type>(&u8_array, &DataType::Int32)
+            get_cast_values::<i32>(&u8_array, &DataType::Int32)
         );
 
         let i16_expected = vec!["0", "255"];
         assert_eq!(
             i16_expected,
-            get_cast_values::<Int16Type>(&u8_array, &DataType::Int16)
+            get_cast_values::<i16>(&u8_array, &DataType::Int16)
         );
 
         let i8_expected = vec!["0", "null"];
         assert_eq!(
             i8_expected,
-            get_cast_values::<Int8Type>(&u8_array, &DataType::Int8)
+            get_cast_values::<i8>(&u8_array, &DataType::Int8)
         );
 
         let u64_expected = vec!["0", "255"];
         assert_eq!(
             u64_expected,
-            get_cast_values::<UInt64Type>(&u8_array, &DataType::UInt64)
+            get_cast_values::<u64>(&u8_array, &DataType::UInt64)
         );
 
         let u32_expected = vec!["0", "255"];
@@ -2154,7 +2153,7 @@ mod tests {
         let u16_expected = vec!["0", "255"];
         assert_eq!(
             u16_expected,
-            get_cast_values::<UInt16Type>(&u8_array, &DataType::UInt16)
+            get_cast_values::<u16>(&u8_array, &DataType::UInt16)
         );
 
         let u8_expected = vec!["0", "255"];
@@ -2192,7 +2191,7 @@ mod tests {
         ];
         assert_eq!(
             f64_expected,
-            get_cast_values::<Float64Type>(&i64_array, &DataType::Float64)
+            get_cast_values::<f64>(&i64_array, &DataType::Float64)
         );
 
         let f32_expected = vec![
@@ -2208,7 +2207,7 @@ mod tests {
         ];
         assert_eq!(
             f32_expected,
-            get_cast_values::<Float32Type>(&i64_array, &DataType::Float32)
+            get_cast_values::<f32>(&i64_array, &DataType::Float32)
         );
 
         let i64_expected = vec![
@@ -2224,7 +2223,7 @@ mod tests {
         ];
         assert_eq!(
             i64_expected,
-            get_cast_values::<Int64Type>(&i64_array, &DataType::Int64)
+            get_cast_values::<i64>(&i64_array, &DataType::Int64)
         );
 
         let i32_expected = vec![
@@ -2240,7 +2239,7 @@ mod tests {
         ];
         assert_eq!(
             i32_expected,
-            get_cast_values::<Int32Type>(&i64_array, &DataType::Int32)
+            get_cast_values::<i32>(&i64_array, &DataType::Int32)
         );
 
         let i16_expected = vec![
@@ -2248,7 +2247,7 @@ mod tests {
         ];
         assert_eq!(
             i16_expected,
-            get_cast_values::<Int16Type>(&i64_array, &DataType::Int16)
+            get_cast_values::<i16>(&i64_array, &DataType::Int16)
         );
 
         let i8_expected = vec![
@@ -2256,7 +2255,7 @@ mod tests {
         ];
         assert_eq!(
             i8_expected,
-            get_cast_values::<Int8Type>(&i64_array, &DataType::Int8)
+            get_cast_values::<i8>(&i64_array, &DataType::Int8)
         );
 
         let u64_expected = vec![
@@ -2272,7 +2271,7 @@ mod tests {
         ];
         assert_eq!(
             u64_expected,
-            get_cast_values::<UInt64Type>(&i64_array, &DataType::UInt64)
+            get_cast_values::<u64>(&i64_array, &DataType::UInt64)
         );
 
         let u32_expected = vec![
@@ -2296,7 +2295,7 @@ mod tests {
         ];
         assert_eq!(
             u16_expected,
-            get_cast_values::<UInt16Type>(&i64_array, &DataType::UInt16)
+            get_cast_values::<u16>(&i64_array, &DataType::UInt16)
         );
 
         let u8_expected = vec![
@@ -2332,7 +2331,7 @@ mod tests {
         ];
         assert_eq!(
             f64_expected,
-            get_cast_values::<Float64Type>(&i32_array, &DataType::Float64)
+            get_cast_values::<f64>(&i32_array, &DataType::Float64)
         );
 
         let f32_expected = vec![
@@ -2346,26 +2345,26 @@ mod tests {
         ];
         assert_eq!(
             f32_expected,
-            get_cast_values::<Float32Type>(&i32_array, &DataType::Float32)
+            get_cast_values::<f32>(&i32_array, &DataType::Float32)
         );
 
         let i16_expected = vec!["null", "-32768", "-128", "0", "127", "32767", "null"];
         assert_eq!(
             i16_expected,
-            get_cast_values::<Int16Type>(&i32_array, &DataType::Int16)
+            get_cast_values::<i16>(&i32_array, &DataType::Int16)
         );
 
         let i8_expected = vec!["null", "null", "-128", "0", "127", "null", "null"];
         assert_eq!(
             i8_expected,
-            get_cast_values::<Int8Type>(&i32_array, &DataType::Int8)
+            get_cast_values::<i8>(&i32_array, &DataType::Int8)
         );
 
         let u64_expected =
             vec!["null", "null", "null", "0", "127", "32767", "2147483647"];
         assert_eq!(
             u64_expected,
-            get_cast_values::<UInt64Type>(&i32_array, &DataType::UInt64)
+            get_cast_values::<u64>(&i32_array, &DataType::UInt64)
         );
 
         let u32_expected =
@@ -2378,7 +2377,7 @@ mod tests {
         let u16_expected = vec!["null", "null", "null", "0", "127", "32767", "null"];
         assert_eq!(
             u16_expected,
-            get_cast_values::<UInt16Type>(&i32_array, &DataType::UInt16)
+            get_cast_values::<u16>(&i32_array, &DataType::UInt16)
         );
 
         let u8_expected = vec!["null", "null", "null", "0", "127", "null", "null"];
@@ -2402,43 +2401,43 @@ mod tests {
         let f64_expected = vec!["-32768.0", "-128.0", "0.0", "127.0", "32767.0"];
         assert_eq!(
             f64_expected,
-            get_cast_values::<Float64Type>(&i16_array, &DataType::Float64)
+            get_cast_values::<f64>(&i16_array, &DataType::Float64)
         );
 
         let f32_expected = vec!["-32768.0", "-128.0", "0.0", "127.0", "32767.0"];
         assert_eq!(
             f32_expected,
-            get_cast_values::<Float32Type>(&i16_array, &DataType::Float32)
+            get_cast_values::<f32>(&i16_array, &DataType::Float32)
         );
 
         let i64_expected = vec!["-32768", "-128", "0", "127", "32767"];
         assert_eq!(
             i64_expected,
-            get_cast_values::<Int64Type>(&i16_array, &DataType::Int64)
+            get_cast_values::<i64>(&i16_array, &DataType::Int64)
         );
 
         let i32_expected = vec!["-32768", "-128", "0", "127", "32767"];
         assert_eq!(
             i32_expected,
-            get_cast_values::<Int32Type>(&i16_array, &DataType::Int32)
+            get_cast_values::<i32>(&i16_array, &DataType::Int32)
         );
 
         let i16_expected = vec!["-32768", "-128", "0", "127", "32767"];
         assert_eq!(
             i16_expected,
-            get_cast_values::<Int16Type>(&i16_array, &DataType::Int16)
+            get_cast_values::<i16>(&i16_array, &DataType::Int16)
         );
 
         let i8_expected = vec!["null", "-128", "0", "127", "null"];
         assert_eq!(
             i8_expected,
-            get_cast_values::<Int8Type>(&i16_array, &DataType::Int8)
+            get_cast_values::<i8>(&i16_array, &DataType::Int8)
         );
 
         let u64_expected = vec!["null", "null", "0", "127", "32767"];
         assert_eq!(
             u64_expected,
-            get_cast_values::<UInt64Type>(&i16_array, &DataType::UInt64)
+            get_cast_values::<u64>(&i16_array, &DataType::UInt64)
         );
 
         let u32_expected = vec!["null", "null", "0", "127", "32767"];
@@ -2450,7 +2449,7 @@ mod tests {
         let u16_expected = vec!["null", "null", "0", "127", "32767"];
         assert_eq!(
             u16_expected,
-            get_cast_values::<UInt16Type>(&i16_array, &DataType::UInt16)
+            get_cast_values::<u16>(&i16_array, &DataType::UInt16)
         );
 
         let u8_expected = vec!["null", "null", "0", "127", "null"];
@@ -2468,43 +2467,43 @@ mod tests {
         let f64_expected = vec!["-128.0", "0.0", "127.0"];
         assert_eq!(
             f64_expected,
-            get_cast_values::<Float64Type>(&i8_array, &DataType::Float64)
+            get_cast_values::<f64>(&i8_array, &DataType::Float64)
         );
 
         let f32_expected = vec!["-128.0", "0.0", "127.0"];
         assert_eq!(
             f32_expected,
-            get_cast_values::<Float32Type>(&i8_array, &DataType::Float32)
+            get_cast_values::<f32>(&i8_array, &DataType::Float32)
         );
 
         let i64_expected = vec!["-128", "0", "127"];
         assert_eq!(
             i64_expected,
-            get_cast_values::<Int64Type>(&i8_array, &DataType::Int64)
+            get_cast_values::<i64>(&i8_array, &DataType::Int64)
         );
 
         let i32_expected = vec!["-128", "0", "127"];
         assert_eq!(
             i32_expected,
-            get_cast_values::<Int32Type>(&i8_array, &DataType::Int32)
+            get_cast_values::<i32>(&i8_array, &DataType::Int32)
         );
 
         let i16_expected = vec!["-128", "0", "127"];
         assert_eq!(
             i16_expected,
-            get_cast_values::<Int16Type>(&i8_array, &DataType::Int16)
+            get_cast_values::<i16>(&i8_array, &DataType::Int16)
         );
 
         let i8_expected = vec!["-128", "0", "127"];
         assert_eq!(
             i8_expected,
-            get_cast_values::<Int8Type>(&i8_array, &DataType::Int8)
+            get_cast_values::<i8>(&i8_array, &DataType::Int8)
         );
 
         let u64_expected = vec!["null", "0", "127"];
         assert_eq!(
             u64_expected,
-            get_cast_values::<UInt64Type>(&i8_array, &DataType::UInt64)
+            get_cast_values::<u64>(&i8_array, &DataType::UInt64)
         );
 
         let u32_expected = vec!["null", "0", "127"];
@@ -2516,7 +2515,7 @@ mod tests {
         let u16_expected = vec!["null", "0", "127"];
         assert_eq!(
             u16_expected,
-            get_cast_values::<UInt16Type>(&i8_array, &DataType::UInt16)
+            get_cast_values::<u16>(&i8_array, &DataType::UInt16)
         );
 
         let u8_expected = vec!["null", "0", "127"];
@@ -2529,7 +2528,7 @@ mod tests {
     /// Convert `array` into a vector of strings by casting to data type dt
     fn get_cast_values<T>(array: &ArrayRef, dt: &DataType) -> Vec<String>
     where
-        T: ArrowNumericType,
+        T: ArrowNativeType,
     {
         let c = cast(&array, dt).unwrap();
         let a = c.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
@@ -2549,7 +2548,7 @@ mod tests {
         // FROM a dictionary with of Utf8 values
         use DataType::*;
 
-        let keys_builder = PrimitiveBuilder::<Int8Type>::new(10);
+        let keys_builder = PrimitiveBuilder::<i8>::new(10, DataType::Int8);
         let values_builder = StringBuilder::new(10);
         let mut builder = StringDictionaryBuilder::new(keys_builder, values_builder);
         builder.append("one").unwrap();
@@ -2610,8 +2609,8 @@ mod tests {
         // that are out of bounds for a particular other kind of
         // index.
 
-        let keys_builder = PrimitiveBuilder::<Int32Type>::new(10);
-        let values_builder = PrimitiveBuilder::<Int64Type>::new(10);
+        let keys_builder = PrimitiveBuilder::<i32>::new(10, DataType::Int32);
+        let values_builder = PrimitiveBuilder::<i64>::new(10, DataType::Int64);
         let mut builder = PrimitiveDictionaryBuilder::new(keys_builder, values_builder);
 
         // add 200 distinct values (which can be stored by a
@@ -2641,7 +2640,7 @@ mod tests {
         // Same test as test_cast_dict_to_dict_bad_index_value but use
         // string values (and encode the expected behavior here);
 
-        let keys_builder = PrimitiveBuilder::<Int32Type>::new(10);
+        let keys_builder = PrimitiveBuilder::<i32>::new(10, DataType::Int32);
         let values_builder = StringBuilder::new(10);
         let mut builder = StringDictionaryBuilder::new(keys_builder, values_builder);
 
@@ -2672,8 +2671,8 @@ mod tests {
         // FROM a dictionary with of INT32 values
         use DataType::*;
 
-        let keys_builder = PrimitiveBuilder::<Int8Type>::new(10);
-        let values_builder = PrimitiveBuilder::<Int32Type>::new(10);
+        let keys_builder = PrimitiveBuilder::<i8>::new(10, DataType::Int8);
+        let values_builder = PrimitiveBuilder::<i32>::new(10, DataType::Int32);
         let mut builder = PrimitiveDictionaryBuilder::new(keys_builder, values_builder);
         builder.append(1).unwrap();
         builder.append_null().unwrap();
@@ -2696,7 +2695,7 @@ mod tests {
     fn test_cast_primitive_array_to_dict() {
         use DataType::*;
 
-        let mut builder = PrimitiveBuilder::<Int32Type>::new(10);
+        let mut builder = PrimitiveBuilder::<i32>::new(10, DataType::Int32);
         builder.append_value(1).unwrap();
         builder.append_null().unwrap();
         builder.append_value(3).unwrap();
@@ -2742,7 +2741,7 @@ mod tests {
         // Cast to a dictionary (same value type, Utf8)
         let cast_type = DataType::Int32;
         let cast_array = cast(&array, &cast_type).expect("cast failed");
-        let cast_array = as_primitive_array::<Int32Type>(&cast_array);
+        let cast_array = as_primitive_array::<i32>(&cast_array);
         assert_eq!(cast_array.data_type(), &cast_type);
         assert_eq!(cast_array, &expected);
     }
@@ -2862,22 +2861,22 @@ mod tests {
         vec![
             Arc::new(BinaryArray::from(binary_data.clone())),
             Arc::new(LargeBinaryArray::from(binary_data.clone())),
-            make_dictionary_primitive::<Int8Type>(),
-            make_dictionary_primitive::<Int16Type>(),
-            make_dictionary_primitive::<Int32Type>(),
-            make_dictionary_primitive::<Int64Type>(),
+            make_dictionary_primitive::<i8>(),
+            make_dictionary_primitive::<i16>(),
+            make_dictionary_primitive::<i32>(),
+            make_dictionary_primitive::<i64>(),
             make_dictionary_primitive::<u8>(),
-            make_dictionary_primitive::<UInt16Type>(),
+            make_dictionary_primitive::<u16>(),
             make_dictionary_primitive::<u32>(),
-            make_dictionary_primitive::<UInt64Type>(),
-            make_dictionary_utf8::<Int8Type>(),
-            make_dictionary_utf8::<Int16Type>(),
-            make_dictionary_utf8::<Int32Type>(),
-            make_dictionary_utf8::<Int64Type>(),
+            make_dictionary_primitive::<u64>(),
+            make_dictionary_utf8::<i8>(),
+            make_dictionary_utf8::<i16>(),
+            make_dictionary_utf8::<i32>(),
+            make_dictionary_utf8::<i64>(),
             make_dictionary_utf8::<u8>(),
-            make_dictionary_utf8::<UInt16Type>(),
+            make_dictionary_utf8::<u16>(),
             make_dictionary_utf8::<u32>(),
-            make_dictionary_utf8::<UInt64Type>(),
+            make_dictionary_utf8::<u64>(),
             Arc::new(make_list_array()),
             Arc::new(make_large_list_array()),
             Arc::new(make_fixed_size_list_array()),
@@ -3018,16 +3017,16 @@ mod tests {
 
     fn make_union_array() -> UnionArray {
         let mut builder = UnionBuilder::new_dense(7);
-        builder.append::<Int32Type>("a", 1).unwrap();
-        builder.append::<Int64Type>("b", 2).unwrap();
+        builder.append::<i32>("a", 1).unwrap();
+        builder.append::<i64>("b", 2).unwrap();
         builder.build().unwrap()
     }
 
     /// Creates a dictionary with primitive dictionary values, and keys of type K
     fn make_dictionary_primitive<K: ArrowDictionaryKeyType>() -> ArrayRef {
-        let keys_builder = PrimitiveBuilder::<K>::new(2);
+        let keys_builder = PrimitiveBuilder::<K>::new(2, K::DATA_TYPE);
         // Pick Int32 arbitrarily for dictionary values
-        let values_builder = PrimitiveBuilder::<Int32Type>::new(2);
+        let values_builder = PrimitiveBuilder::<i32>::new(2, DataType::Int32);
         let mut b = PrimitiveDictionaryBuilder::new(keys_builder, values_builder);
         b.append(1).unwrap();
         b.append(2).unwrap();
@@ -3036,7 +3035,7 @@ mod tests {
 
     /// Creates a dictionary with utf8 values, and keys of type K
     fn make_dictionary_utf8<K: ArrowDictionaryKeyType>() -> ArrayRef {
-        let keys_builder = PrimitiveBuilder::<K>::new(2);
+        let keys_builder = PrimitiveBuilder::<K>::new(2, K::DATA_TYPE);
         // Pick Int32 arbitrarily for dictionary values
         let values_builder = StringBuilder::new(2);
         let mut b = StringDictionaryBuilder::new(keys_builder, values_builder);

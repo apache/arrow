@@ -40,11 +40,7 @@ fn record_batches_to_csv() {
         "consectetur adipiscing elit",
         "sed do eiusmod tempor",
     ]);
-    let c2 = PrimitiveArray::<Float64Type>::from(vec![
-        Some(123.564532),
-        None,
-        Some(-556132.25),
-    ]);
+    let c2 = PrimitiveArray::<f64>::from(vec![Some(123.564532), None, Some(-556132.25)]);
     let c3 = PrimitiveArray::<u32>::from(vec![3, 2, 1]);
     let c4 = BooleanArray::from(vec![Some(true), Some(false), None]);
 

@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use super::{ArrowNativeType, DataType, IntervalUnit, TimeUnit};
+use super::{ArrowNativeType, DataType};
 
 /// A subtype of native types that represents legal dictionary keys.
 /// See <https://arrow.apache.org/docs/format/Columnar.html>

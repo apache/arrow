@@ -614,7 +614,7 @@ mod tests {
     fn test_primitive_from_iter_values() {
         // Test building a primitive array with from_iter_values
 
-        let arr: PrimitiveArray<Int32Type> = PrimitiveArray::from_iter_values(0..10);
+        let arr: PrimitiveArray<i32> = PrimitiveArray::from_iter_values(0..10);
         assert_eq!(10, arr.len());
         assert_eq!(0, arr.null_count());
         for i in 0..10i32 {

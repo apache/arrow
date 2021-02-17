@@ -29,13 +29,13 @@
 //!
 //! ```
 //! use arrow::array::UnionBuilder;
-//! use arrow::datatypes::{Float64Type, Int32Type};
+//! use arrow::datatypes::{f64, i32};
 //!
 //! # fn main() -> arrow::error::Result<()> {
 //! let mut builder = UnionBuilder::new_dense(3);
-//! builder.append::<Int32Type>("a", 1).unwrap();
-//! builder.append::<Float64Type>("b", 3.0).unwrap();
-//! builder.append::<Int32Type>("a", 4).unwrap();
+//! builder.append::<i32>("a", 1).unwrap();
+//! builder.append::<f64>("b", 3.0).unwrap();
+//! builder.append::<i32>("a", 4).unwrap();
 //! let union = builder.build().unwrap();
 //!
 //! assert_eq!(union.type_id(0), 0_i8);
@@ -53,13 +53,13 @@
 //! # Example: Sparse Memory Layout
 //! ```
 //! use arrow::array::UnionBuilder;
-//! use arrow::datatypes::{Float64Type, Int32Type};
+//! use arrow::datatypes::{f64, i32};
 //!
 //! # fn main() -> arrow::error::Result<()> {
 //! let mut builder = UnionBuilder::new_sparse(3);
-//! builder.append::<Int32Type>("a", 1).unwrap();
-//! builder.append::<Float64Type>("b", 3.0).unwrap();
-//! builder.append::<Int32Type>("a", 4).unwrap();
+//! builder.append::<i32>("a", 1).unwrap();
+//! builder.append::<f64>("b", 3.0).unwrap();
+//! builder.append::<i32>("a", 4).unwrap();
 //! let union = builder.build().unwrap();
 //!
 //! assert_eq!(union.type_id(0), 0_i8);
@@ -349,13 +349,13 @@ mod tests {
     #[test]
     fn test_dense_i32() {
         let mut builder = UnionBuilder::new_dense(7);
-        builder.append::<Int32Type>("a", 1).unwrap();
-        builder.append::<Int32Type>("b", 2).unwrap();
-        builder.append::<Int32Type>("c", 3).unwrap();
-        builder.append::<Int32Type>("a", 4).unwrap();
-        builder.append::<Int32Type>("c", 5).unwrap();
-        builder.append::<Int32Type>("a", 6).unwrap();
-        builder.append::<Int32Type>("b", 7).unwrap();
+        builder.append::<i32>("a", 1).unwrap();
+        builder.append::<i32>("b", 2).unwrap();
+        builder.append::<i32>("c", 3).unwrap();
+        builder.append::<i32>("a", 4).unwrap();
+        builder.append::<i32>("c", 5).unwrap();
+        builder.append::<i32>("a", 6).unwrap();
+        builder.append::<i32>("b", 7).unwrap();
         let union = builder.build().unwrap();
 
         let expected_type_ids = vec![0_i8, 1, 2, 0, 2, 0, 1];
@@ -418,11 +418,11 @@ mod tests {
     #[test]
     fn test_dense_mixed() {
         let mut builder = UnionBuilder::new_dense(7);
-        builder.append::<Int32Type>("a", 1).unwrap();
-        builder.append::<Int64Type>("c", 3).unwrap();
-        builder.append::<Int32Type>("a", 4).unwrap();
-        builder.append::<Int64Type>("c", 5).unwrap();
-        builder.append::<Int32Type>("a", 6).unwrap();
+        builder.append::<i32>("a", 1).unwrap();
+        builder.append::<i64>("c", 3).unwrap();
+        builder.append::<i32>("a", 4).unwrap();
+        builder.append::<i64>("c", 5).unwrap();
+        builder.append::<i32>("a", 6).unwrap();
         let union = builder.build().unwrap();
 
         assert_eq!(5, union.len());
@@ -468,11 +468,11 @@ mod tests {
     #[test]
     fn test_dense_mixed_with_nulls() {
         let mut builder = UnionBuilder::new_dense(7);
-        builder.append::<Int32Type>("a", 1).unwrap();
-        builder.append::<Int64Type>("c", 3).unwrap();
-        builder.append::<Int32Type>("a", 10).unwrap();
+        builder.append::<i32>("a", 1).unwrap();
+        builder.append::<i64>("c", 3).unwrap();
+        builder.append::<i32>("a", 10).unwrap();
         builder.append_null().unwrap();
-        builder.append::<Int32Type>("a", 6).unwrap();
+        builder.append::<i32>("a", 6).unwrap();
         let union = builder.build().unwrap();
 
         assert_eq!(5, union.len());
@@ -516,11 +516,11 @@ mod tests {
     #[test]
     fn test_dense_mixed_with_nulls_and_offset() {
         let mut builder = UnionBuilder::new_dense(7);
-        builder.append::<Int32Type>("a", 1).unwrap();
-        builder.append::<Int64Type>("c", 3).unwrap();
-        builder.append::<Int32Type>("a", 10).unwrap();
+        builder.append::<i32>("a", 1).unwrap();
+        builder.append::<i64>("c", 3).unwrap();
+        builder.append::<i32>("a", 10).unwrap();
         builder.append_null().unwrap();
-        builder.append::<Int32Type>("a", 6).unwrap();
+        builder.append::<i32>("a", 6).unwrap();
         let union = builder.build().unwrap();
 
         let slice = union.slice(2, 3);
@@ -642,13 +642,13 @@ mod tests {
     #[test]
     fn test_sparse_i32() {
         let mut builder = UnionBuilder::new_sparse(7);
-        builder.append::<Int32Type>("a", 1).unwrap();
-        builder.append::<Int32Type>("b", 2).unwrap();
-        builder.append::<Int32Type>("c", 3).unwrap();
-        builder.append::<Int32Type>("a", 4).unwrap();
-        builder.append::<Int32Type>("c", 5).unwrap();
-        builder.append::<Int32Type>("a", 6).unwrap();
-        builder.append::<Int32Type>("b", 7).unwrap();
+        builder.append::<i32>("a", 1).unwrap();
+        builder.append::<i32>("b", 2).unwrap();
+        builder.append::<i32>("c", 3).unwrap();
+        builder.append::<i32>("a", 4).unwrap();
+        builder.append::<i32>("c", 5).unwrap();
+        builder.append::<i32>("a", 6).unwrap();
+        builder.append::<i32>("b", 7).unwrap();
         let union = builder.build().unwrap();
 
         let expected_type_ids = vec![0_i8, 1, 2, 0, 2, 0, 1];
@@ -694,11 +694,11 @@ mod tests {
     #[test]
     fn test_sparse_mixed() {
         let mut builder = UnionBuilder::new_sparse(5);
-        builder.append::<Int32Type>("a", 1).unwrap();
-        builder.append::<Float64Type>("c", 3.0).unwrap();
-        builder.append::<Int32Type>("a", 4).unwrap();
-        builder.append::<Float64Type>("c", 5.0).unwrap();
-        builder.append::<Int32Type>("a", 6).unwrap();
+        builder.append::<i32>("a", 1).unwrap();
+        builder.append::<f64>("c", 3.0).unwrap();
+        builder.append::<i32>("a", 4).unwrap();
+        builder.append::<f64>("c", 5.0).unwrap();
+        builder.append::<i32>("a", 6).unwrap();
         let union = builder.build().unwrap();
 
         let expected_type_ids = vec![0_i8, 1, 0, 1, 0];
@@ -757,10 +757,10 @@ mod tests {
     #[test]
     fn test_sparse_mixed_with_nulls() {
         let mut builder = UnionBuilder::new_sparse(5);
-        builder.append::<Int32Type>("a", 1).unwrap();
+        builder.append::<i32>("a", 1).unwrap();
         builder.append_null().unwrap();
-        builder.append::<Float64Type>("c", 3.0).unwrap();
-        builder.append::<Int32Type>("a", 4).unwrap();
+        builder.append::<f64>("c", 3.0).unwrap();
+        builder.append::<i32>("a", 4).unwrap();
         let union = builder.build().unwrap();
 
         let expected_type_ids = vec![0_i8, 0, 1, 0];
@@ -810,11 +810,11 @@ mod tests {
     #[test]
     fn test_sparse_mixed_with_nulls_and_offset() {
         let mut builder = UnionBuilder::new_sparse(5);
-        builder.append::<Int32Type>("a", 1).unwrap();
+        builder.append::<i32>("a", 1).unwrap();
         builder.append_null().unwrap();
-        builder.append::<Float64Type>("c", 3.0).unwrap();
+        builder.append::<f64>("c", 3.0).unwrap();
         builder.append_null().unwrap();
-        builder.append::<Int32Type>("a", 4).unwrap();
+        builder.append::<i32>("a", 4).unwrap();
         let union = builder.build().unwrap();
 
         let slice = union.slice(1, 4);

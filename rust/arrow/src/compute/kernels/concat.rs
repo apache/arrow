@@ -85,7 +85,7 @@ mod tests {
     #[test]
     fn test_concat_incompatible_datatypes() {
         let re = concat(&[
-            &PrimitiveArray::<Int64Type>::from(vec![Some(-1), Some(2), None]),
+            &PrimitiveArray::<i64>::from(vec![Some(-1), Some(2), None]),
             &StringArray::from(vec![Some("hello"), Some("bar"), Some("world")]),
         ]);
         assert!(re.is_err());
@@ -119,23 +119,12 @@ mod tests {
     #[test]
     fn test_concat_primitive_arrays() -> Result<()> {
         let arr = concat(&[
-            &PrimitiveArray::<Int64Type>::from(vec![
-                Some(-1),
-                Some(-1),
-                Some(2),
-                None,
-                None,
-            ]),
-            &PrimitiveArray::<Int64Type>::from(vec![
-                Some(101),
-                Some(102),
-                Some(103),
-                None,
-            ]),
-            &PrimitiveArray::<Int64Type>::from(vec![Some(256), Some(512), Some(1024)]),
+            &PrimitiveArray::<i64>::from(vec![Some(-1), Some(-1), Some(2), None, None]),
+            &PrimitiveArray::<i64>::from(vec![Some(101), Some(102), Some(103), None]),
+            &PrimitiveArray::<i64>::from(vec![Some(256), Some(512), Some(1024)]),
         ])?;
 
-        let expected_output = Arc::new(PrimitiveArray::<Int64Type>::from(vec![
+        let expected_output = Arc::new(PrimitiveArray::<i64>::from(vec![
             Some(-1),
             Some(-1),
             Some(2),
@@ -157,25 +146,16 @@ mod tests {
 
     #[test]
     fn test_concat_primitive_array_slices() -> Result<()> {
-        let input_1 = PrimitiveArray::<Int64Type>::from(vec![
-            Some(-1),
-            Some(-1),
-            Some(2),
-            None,
-            None,
-        ])
-        .slice(1, 3);
+        let input_1 =
+            PrimitiveArray::<i64>::from(vec![Some(-1), Some(-1), Some(2), None, None])
+                .slice(1, 3);
 
-        let input_2 = PrimitiveArray::<Int64Type>::from(vec![
-            Some(101),
-            Some(102),
-            Some(103),
-            None,
-        ])
-        .slice(1, 3);
+        let input_2 =
+            PrimitiveArray::<i64>::from(vec![Some(101), Some(102), Some(103), None])
+                .slice(1, 3);
         let arr = concat(&[input_1.as_ref(), input_2.as_ref()])?;
 
-        let expected_output = Arc::new(PrimitiveArray::<Int64Type>::from(vec![
+        let expected_output = Arc::new(PrimitiveArray::<i64>::from(vec![
             Some(-1),
             Some(2),
             None,
@@ -255,15 +235,18 @@ mod tests {
             Ok(())
         }
 
-        let mut builder_in1 = ListBuilder::new(PrimitiveArray::<Int64Type>::builder(0));
-        let mut builder_in2 = ListBuilder::new(PrimitiveArray::<Int64Type>::builder(0));
-        let mut builder_in3 = ListBuilder::new(PrimitiveArray::<Int64Type>::builder(0));
+        let mut builder_in1 =
+            ListBuilder::new(PrimitiveArray::<i64>::builder(0, DataType::Int64));
+        let mut builder_in2 =
+            ListBuilder::new(PrimitiveArray::<i64>::builder(0, DataType::Int64));
+        let mut builder_in3 =
+            ListBuilder::new(PrimitiveArray::<i64>::builder(0, DataType::Int64));
         populate_list1(&mut builder_in1)?;
         populate_list2(&mut builder_in2)?;
         populate_list3(&mut builder_in3)?;
 
         let mut builder_expected =
-            ListBuilder::new(PrimitiveArray::<Int64Type>::builder(0));
+            ListBuilder::new(PrimitiveArray::<i64>::builder(0, DataType::Int64));
         populate_list1(&mut builder_expected)?;
         populate_list2(&mut builder_expected)?;
         populate_list3(&mut builder_expected)?;
@@ -284,36 +267,33 @@ mod tests {
     #[test]
     fn test_concat_struct_arrays() -> Result<()> {
         let field = Field::new("field", DataType::Int64, true);
-        let input_primitive_1: ArrayRef =
-            Arc::new(PrimitiveArray::<Int64Type>::from(vec![
-                Some(-1),
-                Some(-1),
-                Some(2),
-                None,
-                None,
-            ]));
+        let input_primitive_1: ArrayRef = Arc::new(PrimitiveArray::<i64>::from(vec![
+            Some(-1),
+            Some(-1),
+            Some(2),
+            None,
+            None,
+        ]));
         let input_struct_1 = StructArray::from(vec![(field.clone(), input_primitive_1)]);
 
-        let input_primitive_2: ArrayRef =
-            Arc::new(PrimitiveArray::<Int64Type>::from(vec![
-                Some(101),
-                Some(102),
-                Some(103),
-                None,
-            ]));
+        let input_primitive_2: ArrayRef = Arc::new(PrimitiveArray::<i64>::from(vec![
+            Some(101),
+            Some(102),
+            Some(103),
+            None,
+        ]));
         let input_struct_2 = StructArray::from(vec![(field.clone(), input_primitive_2)]);
 
-        let input_primitive_3: ArrayRef =
-            Arc::new(PrimitiveArray::<Int64Type>::from(vec![
-                Some(256),
-                Some(512),
-                Some(1024),
-            ]));
+        let input_primitive_3: ArrayRef = Arc::new(PrimitiveArray::<i64>::from(vec![
+            Some(256),
+            Some(512),
+            Some(1024),
+        ]));
         let input_struct_3 = StructArray::from(vec![(field, input_primitive_3)]);
 
         let arr = concat(&[&input_struct_1, &input_struct_2, &input_struct_3])?;
 
-        let expected_primitive_output = Arc::new(PrimitiveArray::<Int64Type>::from(vec![
+        let expected_primitive_output = Arc::new(PrimitiveArray::<i64>::from(vec![
             Some(-1),
             Some(-1),
             Some(2),
@@ -341,23 +321,21 @@ mod tests {
     #[test]
     fn test_concat_struct_array_slices() -> Result<()> {
         let field = Field::new("field", DataType::Int64, true);
-        let input_primitive_1: ArrayRef =
-            Arc::new(PrimitiveArray::<Int64Type>::from(vec![
-                Some(-1),
-                Some(-1),
-                Some(2),
-                None,
-                None,
-            ]));
+        let input_primitive_1: ArrayRef = Arc::new(PrimitiveArray::<i64>::from(vec![
+            Some(-1),
+            Some(-1),
+            Some(2),
+            None,
+            None,
+        ]));
         let input_struct_1 = StructArray::from(vec![(field.clone(), input_primitive_1)]);
 
-        let input_primitive_2: ArrayRef =
-            Arc::new(PrimitiveArray::<Int64Type>::from(vec![
-                Some(101),
-                Some(102),
-                Some(103),
-                None,
-            ]));
+        let input_primitive_2: ArrayRef = Arc::new(PrimitiveArray::<i64>::from(vec![
+            Some(101),
+            Some(102),
+            Some(103),
+            None,
+        ]));
         let input_struct_2 = StructArray::from(vec![(field, input_primitive_2)]);
 
         let arr = concat(&[
@@ -365,7 +343,7 @@ mod tests {
             input_struct_2.slice(1, 2).as_ref(),
         ])?;
 
-        let expected_primitive_output = Arc::new(PrimitiveArray::<Int64Type>::from(vec![
+        let expected_primitive_output = Arc::new(PrimitiveArray::<i64>::from(vec![
             Some(-1),
             Some(2),
             None,

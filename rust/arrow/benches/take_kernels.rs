@@ -47,10 +47,10 @@ fn bench_take(values: &dyn Array, indices: &UInt32Array) {
 }
 
 fn add_benchmark(c: &mut Criterion) {
-    let values = create_primitive_array::<Int32Type>(512, 0.0);
+    let values = create_primitive_array::<i32>(512, 0.0);
     let indices = create_random_index(512, 0.0);
     c.bench_function("take i32 512", |b| b.iter(|| bench_take(&values, &indices)));
-    let values = create_primitive_array::<Int32Type>(1024, 0.0);
+    let values = create_primitive_array::<i32>(1024, 0.0);
     let indices = create_random_index(1024, 0.0);
     c.bench_function("take i32 1024", |b| {
         b.iter(|| bench_take(&values, &indices))
@@ -60,7 +60,7 @@ fn add_benchmark(c: &mut Criterion) {
     c.bench_function("take i32 nulls 512", |b| {
         b.iter(|| bench_take(&values, &indices))
     });
-    let values = create_primitive_array::<Int32Type>(1024, 0.0);
+    let values = create_primitive_array::<i32>(1024, 0.0);
     let indices = create_random_index(1024, 0.5);
     c.bench_function("take i32 nulls 1024", |b| {
         b.iter(|| bench_take(&values, &indices))

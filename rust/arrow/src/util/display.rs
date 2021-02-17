@@ -19,11 +19,8 @@
 //! purposes. See the `pretty` crate for additional functions for
 //! record batch pretty printing.
 
-use crate::array::Array;
-use crate::datatypes::{
-    u32, u8, ArrowNativeType, ArrowPrimitiveType, DataType, Int16Type, Int32Type,
-    Int64Type, Int8Type, TimeUnit, UInt16Type, UInt64Type,
-};
+use crate::{array::Array, datatypes::ArrowDictionaryKeyType};
+use crate::datatypes::{ArrowNativeType, DataType, TimeUnit};
 use crate::{array, datatypes::IntervalUnit};
 
 use array::DictionaryArray;
@@ -253,14 +250,14 @@ pub fn array_value_to_string(column: &array::ArrayRef, row: usize) -> Result<Str
         },
         DataType::List(_) => make_string_from_list!(column, row),
         DataType::Dictionary(index_type, _value_type) => match **index_type {
-            DataType::Int8 => dict_array_value_to_string::<Int8Type>(column, row),
-            DataType::Int16 => dict_array_value_to_string::<Int16Type>(column, row),
-            DataType::Int32 => dict_array_value_to_string::<Int32Type>(column, row),
-            DataType::Int64 => dict_array_value_to_string::<Int64Type>(column, row),
+            DataType::Int8 => dict_array_value_to_string::<i8>(column, row),
+            DataType::Int16 => dict_array_value_to_string::<i16>(column, row),
+            DataType::Int32 => dict_array_value_to_string::<i32>(column, row),
+            DataType::Int64 => dict_array_value_to_string::<i64>(column, row),
             DataType::UInt8 => dict_array_value_to_string::<u8>(column, row),
-            DataType::UInt16 => dict_array_value_to_string::<UInt16Type>(column, row),
+            DataType::UInt16 => dict_array_value_to_string::<u16>(column, row),
             DataType::UInt32 => dict_array_value_to_string::<u32>(column, row),
-            DataType::UInt64 => dict_array_value_to_string::<UInt64Type>(column, row),
+            DataType::UInt64 => dict_array_value_to_string::<u64>(column, row),
             _ => Err(ArrowError::InvalidArgumentError(format!(
                 "Pretty printing not supported for {:?} due to index type",
                 column.data_type()
@@ -274,7 +271,7 @@ pub fn array_value_to_string(column: &array::ArrayRef, row: usize) -> Result<Str
 }
 
 /// Converts the value of the dictionary array at `row` to a String
-fn dict_array_value_to_string<K: ArrowPrimitiveType>(
+fn dict_array_value_to_string<K: ArrowDictionaryKeyType>(
     colum: &array::ArrayRef,
     row: usize,
 ) -> Result<String> {

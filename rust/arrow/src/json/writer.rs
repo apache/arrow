@@ -126,16 +126,16 @@ pub fn array_to_json_array(array: &ArrayRef) -> Vec<Value> {
                 None => Value::Null,
             })
             .collect(),
-        DataType::Int8 => primitive_array_to_json::<Int8Type>(array),
-        DataType::Int16 => primitive_array_to_json::<Int16Type>(array),
-        DataType::Int32 => primitive_array_to_json::<Int32Type>(array),
-        DataType::Int64 => primitive_array_to_json::<Int64Type>(array),
+        DataType::Int8 => primitive_array_to_json::<i8>(array),
+        DataType::Int16 => primitive_array_to_json::<i16>(array),
+        DataType::Int32 => primitive_array_to_json::<i32>(array),
+        DataType::Int64 => primitive_array_to_json::<i64>(array),
         DataType::UInt8 => primitive_array_to_json::<u8>(array),
-        DataType::UInt16 => primitive_array_to_json::<UInt16Type>(array),
+        DataType::UInt16 => primitive_array_to_json::<u16>(array),
         DataType::UInt32 => primitive_array_to_json::<u32>(array),
-        DataType::UInt64 => primitive_array_to_json::<UInt64Type>(array),
-        DataType::Float32 => primitive_array_to_json::<Float32Type>(array),
-        DataType::Float64 => primitive_array_to_json::<Float64Type>(array),
+        DataType::UInt64 => primitive_array_to_json::<u64>(array),
+        DataType::Float32 => primitive_array_to_json::<f32>(array),
+        DataType::Float64 => primitive_array_to_json::<f64>(array),
         DataType::List(_) => as_list_array(array)
             .iter()
             .map(|maybe_value| match maybe_value {
@@ -204,34 +204,34 @@ fn set_column_for_json_rows(
 ) {
     match array.data_type() {
         DataType::Int8 => {
-            set_column_by_primitive_type::<Int8Type>(rows, row_count, array, col_name)
+            set_column_by_primitive_type::<i8>(rows, row_count, array, col_name)
         }
         DataType::Int16 => {
-            set_column_by_primitive_type::<Int16Type>(rows, row_count, array, col_name)
+            set_column_by_primitive_type::<i16>(rows, row_count, array, col_name)
         }
         DataType::Int32 => {
-            set_column_by_primitive_type::<Int32Type>(rows, row_count, array, col_name)
+            set_column_by_primitive_type::<i32>(rows, row_count, array, col_name)
         }
         DataType::Int64 => {
-            set_column_by_primitive_type::<Int64Type>(rows, row_count, array, col_name)
+            set_column_by_primitive_type::<i64>(rows, row_count, array, col_name)
         }
         DataType::UInt8 => {
             set_column_by_primitive_type::<u8>(rows, row_count, array, col_name)
         }
         DataType::UInt16 => {
-            set_column_by_primitive_type::<UInt16Type>(rows, row_count, array, col_name)
+            set_column_by_primitive_type::<u16>(rows, row_count, array, col_name)
         }
         DataType::UInt32 => {
             set_column_by_primitive_type::<u32>(rows, row_count, array, col_name)
         }
         DataType::UInt64 => {
-            set_column_by_primitive_type::<UInt64Type>(rows, row_count, array, col_name)
+            set_column_by_primitive_type::<u64>(rows, row_count, array, col_name)
         }
         DataType::Float32 => {
-            set_column_by_primitive_type::<Float32Type>(rows, row_count, array, col_name)
+            set_column_by_primitive_type::<f32>(rows, row_count, array, col_name)
         }
         DataType::Float64 => {
-            set_column_by_primitive_type::<Float64Type>(rows, row_count, array, col_name)
+            set_column_by_primitive_type::<f64>(rows, row_count, array, col_name)
         }
         DataType::Null => {
             // when value is null, we simply skip setting the key

@@ -25,11 +25,11 @@ extern crate arrow;
 
 use arrow::compute::kernels::sort::{lexsort, SortColumn};
 use arrow::util::bench_util::*;
-use arrow::{array::*, datatypes::Float32Type};
+use arrow::{array::*, datatypes::DataType};
 
 fn create_array(size: usize, with_nulls: bool) -> ArrayRef {
     let null_density = if with_nulls { 0.5 } else { 0.0 };
-    let array = create_primitive_array::<Float32Type>(size, null_density);
+    let array = create_primitive_array::<f32>(size, null_density, DataType::Float32);
     Arc::new(array)
 }
 

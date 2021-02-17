@@ -29,7 +29,6 @@ use crate::util::bit_util;
 use crate::{array::*, buffer::buffer_bin_and};
 
 use num::{ToPrimitive, Zero};
-use TimeUnit::*;
 
 macro_rules! downcast_take {
     ($type: ty, $values: expr, $indices: expr) => {{
@@ -118,8 +117,18 @@ where
         }
         DataType::Int8 => downcast_take!(i8, values, indices),
         DataType::Int16 => downcast_take!(i16, values, indices),
-        DataType::Int32 | DataType::Time32 => downcast_take!(i32, values, indices),
-        DataType::Int64 | DataType::Time64 | DataType::Timestamp(_, _) => {
+        DataType::Int32
+        | DataType::Date32
+        | DataType::Time32(_)
+        | DataType::Interval(IntervalUnit::YearMonth) => {
+            downcast_take!(i32, values, indices)
+        }
+        DataType::Int64
+        | DataType::Date64
+        | DataType::Time64(_)
+        | DataType::Timestamp(_, _)
+        | DataType::Duration(_)
+        | DataType::Interval(IntervalUnit::DayTime) => {
             downcast_take!(i64, values, indices)
         }
         DataType::UInt8 => downcast_take!(u8, values, indices),
@@ -128,26 +137,6 @@ where
         DataType::UInt64 => downcast_take!(u64, values, indices),
         DataType::Float32 => downcast_take!(f32, values, indices),
         DataType::Float64 => downcast_take!(f64, values, indices),
-        DataType::Date32 => downcast_take!(i32, values, indices),
-        DataType::Date64 => downcast_take!(i64, values, indices),
-        DataType::Interval(IntervalUnit::YearMonth) => {
-            downcast_take!(IntervalYearMonthType, values, indices)
-        }
-        DataType::Interval(IntervalUnit::DayTime) => {
-            downcast_take!(IntervalDayTimeType, values, indices)
-        }
-        DataType::Duration(TimeUnit::Second) => {
-            downcast_take!(DurationSecondType, values, indices)
-        }
-        DataType::Duration(TimeUnit::Millisecond) => {
-            downcast_take!(DurationMillisecondType, values, indices)
-        }
-        DataType::Duration(TimeUnit::Microsecond) => {
-            downcast_take!(DurationMicrosecondType, values, indices)
-        }
-        DataType::Duration(TimeUnit::Nanosecond) => {
-            downcast_take!(DurationNanosecondType, values, indices)
-        }
         DataType::Utf8 => {
             let values = values
                 .as_any()
@@ -679,7 +668,7 @@ mod tests {
         let index = UInt32Array::from(vec![Some(3), None, Some(1), Some(3), Some(2)]);
 
         // int8
-        test_take_primitive_arrays::<Int8Type>(
+        test_take_primitive_arrays::<i8>(
             vec![Some(0), None, Some(2), Some(3), None],
             &index,
             None,
@@ -687,7 +676,7 @@ mod tests {
         );
 
         // int16
-        test_take_primitive_arrays::<Int16Type>(
+        test_take_primitive_arrays::<i16>(
             vec![Some(0), None, Some(2), Some(3), None],
             &index,
             None,
@@ -695,7 +684,7 @@ mod tests {
         );
 
         // int32
-        test_take_primitive_arrays::<Int32Type>(
+        test_take_primitive_arrays::<i32>(
             vec![Some(0), None, Some(2), Some(3), None],
             &index,
             None,
@@ -703,7 +692,7 @@ mod tests {
         );
 
         // int64
-        test_take_primitive_arrays::<Int64Type>(
+        test_take_primitive_arrays::<i64>(
             vec![Some(0), None, Some(2), Some(3), None],
             &index,
             None,
@@ -719,7 +708,7 @@ mod tests {
         );
 
         // uint16
-        test_take_primitive_arrays::<UInt16Type>(
+        test_take_primitive_arrays::<u16>(
             vec![Some(0), None, Some(2), Some(3), None],
             &index,
             None,
@@ -735,55 +724,7 @@ mod tests {
         );
 
         // int64
-        test_take_primitive_arrays::<Int64Type>(
-            vec![Some(0), None, Some(2), Some(-15), None],
-            &index,
-            None,
-            vec![Some(-15), None, None, Some(-15), Some(2)],
-        );
-
-        // interval_year_month
-        test_take_primitive_arrays::<IntervalYearMonthType>(
-            vec![Some(0), None, Some(2), Some(-15), None],
-            &index,
-            None,
-            vec![Some(-15), None, None, Some(-15), Some(2)],
-        );
-
-        // interval_day_time
-        test_take_primitive_arrays::<IntervalDayTimeType>(
-            vec![Some(0), None, Some(2), Some(-15), None],
-            &index,
-            None,
-            vec![Some(-15), None, None, Some(-15), Some(2)],
-        );
-
-        // duration_second
-        test_take_primitive_arrays::<DurationSecondType>(
-            vec![Some(0), None, Some(2), Some(-15), None],
-            &index,
-            None,
-            vec![Some(-15), None, None, Some(-15), Some(2)],
-        );
-
-        // duration_millisecond
-        test_take_primitive_arrays::<DurationMillisecondType>(
-            vec![Some(0), None, Some(2), Some(-15), None],
-            &index,
-            None,
-            vec![Some(-15), None, None, Some(-15), Some(2)],
-        );
-
-        // duration_microsecond
-        test_take_primitive_arrays::<DurationMicrosecondType>(
-            vec![Some(0), None, Some(2), Some(-15), None],
-            &index,
-            None,
-            vec![Some(-15), None, None, Some(-15), Some(2)],
-        );
-
-        // duration_nanosecond
-        test_take_primitive_arrays::<DurationNanosecondType>(
+        test_take_primitive_arrays::<i64>(
             vec![Some(0), None, Some(2), Some(-15), None],
             &index,
             None,
@@ -791,7 +732,7 @@ mod tests {
         );
 
         // float32
-        test_take_primitive_arrays::<Float32Type>(
+        test_take_primitive_arrays::<f32>(
             vec![Some(0.0), None, Some(2.21), Some(-3.1), None],
             &index,
             None,
@@ -799,7 +740,7 @@ mod tests {
         );
 
         // float64
-        test_take_primitive_arrays::<Float64Type>(
+        test_take_primitive_arrays::<f64>(
             vec![Some(0.0), None, Some(2.21), Some(-3.1), None],
             &index,
             None,
@@ -812,7 +753,7 @@ mod tests {
         let index = Int64Array::from(vec![Some(3), None, Some(1), Some(3), Some(2)]);
 
         // int16
-        test_take_impl_primitive_arrays::<Int16Type, Int64Type>(
+        test_take_impl_primitive_arrays::<i16, i64>(
             vec![Some(0), None, Some(2), Some(3), None],
             &index,
             None,
@@ -820,7 +761,7 @@ mod tests {
         );
 
         // int64
-        test_take_impl_primitive_arrays::<Int64Type, Int64Type>(
+        test_take_impl_primitive_arrays::<i64, i64>(
             vec![Some(0), None, Some(2), Some(-15), None],
             &index,
             None,
@@ -828,23 +769,15 @@ mod tests {
         );
 
         // uint64
-        test_take_impl_primitive_arrays::<UInt64Type, Int64Type>(
+        test_take_impl_primitive_arrays::<u64, i64>(
             vec![Some(0), None, Some(2), Some(3), None],
             &index,
             None,
             vec![Some(3), None, None, Some(3), Some(2)],
         );
 
-        // duration_millisecond
-        test_take_impl_primitive_arrays::<DurationMillisecondType, Int64Type>(
-            vec![Some(0), None, Some(2), Some(-15), None],
-            &index,
-            None,
-            vec![Some(-15), None, None, Some(-15), Some(2)],
-        );
-
         // float32
-        test_take_impl_primitive_arrays::<Float32Type, Int64Type>(
+        test_take_impl_primitive_arrays::<f32, i64>(
             vec![Some(0.0), None, Some(2.21), Some(-3.1), None],
             &index,
             None,
@@ -857,23 +790,15 @@ mod tests {
         let index = UInt8Array::from(vec![Some(3), None, Some(1), Some(3), Some(2)]);
 
         // int16
-        test_take_impl_primitive_arrays::<Int16Type, u8>(
+        test_take_impl_primitive_arrays::<i16, u8>(
             vec![Some(0), None, Some(2), Some(3), None],
             &index,
             None,
             vec![Some(3), None, None, Some(3), Some(2)],
         );
 
-        // duration_millisecond
-        test_take_impl_primitive_arrays::<DurationMillisecondType, u8>(
-            vec![Some(0), None, Some(2), Some(-15), None],
-            &index,
-            None,
-            vec![Some(-15), None, None, Some(-15), Some(2)],
-        );
-
         // float32
-        test_take_impl_primitive_arrays::<Float32Type, u8>(
+        test_take_impl_primitive_arrays::<f32, u8>(
             vec![Some(0.0), None, Some(2.21), Some(-3.1), None],
             &index,
             None,
@@ -1133,13 +1058,13 @@ mod tests {
     }
 
     fn do_take_fixed_size_list_test<T>(
-        length: <Int32Type as ArrowPrimitiveType>::Native,
-        input_data: Vec<Option<Vec<Option<T::Native>>>>,
-        indices: Vec<<u32 as ArrowPrimitiveType>::Native>,
-        expected_data: Vec<Option<Vec<Option<T::Native>>>>,
+        length: i32,
+        input_data: Vec<Option<Vec<Option<T>>>>,
+        indices: Vec<u32>,
+        expected_data: Vec<Option<Vec<Option<T>>>>,
     ) where
-        T: ArrowPrimitiveType,
-        PrimitiveArray<T>: From<Vec<Option<T::Native>>>,
+        T: ArrowNativeType,
+        PrimitiveArray<T>: From<Vec<Option<T>>>,
     {
         let indices = UInt32Array::from(indices);
 
@@ -1184,7 +1109,7 @@ mod tests {
 
     #[test]
     fn test_take_fixed_size_list() {
-        do_take_fixed_size_list_test::<Int32Type>(
+        do_take_fixed_size_list_test::<i32>(
             3,
             vec![
                 Some(vec![None, Some(1), Some(2)]),
@@ -1219,7 +1144,7 @@ mod tests {
             ],
         );
 
-        do_take_fixed_size_list_test::<UInt64Type>(
+        do_take_fixed_size_list_test::<u64>(
             3,
             vec![
                 Some(vec![Some(10), Some(11), Some(12)]),
@@ -1326,7 +1251,7 @@ mod tests {
         let take_opt = TakeOptions { check_bounds: true };
 
         // int64
-        test_take_primitive_arrays::<Int64Type>(
+        test_take_primitive_arrays::<i64>(
             vec![Some(0), None, Some(2), Some(3), None],
             &index,
             Some(take_opt),
@@ -1367,7 +1292,7 @@ mod tests {
         let result = take(&array, &indices, None).unwrap();
         let result = result
             .as_any()
-            .downcast_ref::<DictionaryArray<Int16Type>>()
+            .downcast_ref::<DictionaryArray<i16>>()
             .unwrap();
 
         let result_values: StringArray = result.values().data().into();

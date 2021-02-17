@@ -35,17 +35,17 @@ fn bench_concat_arrays(arrays: &[&dyn Array]) {
 }
 
 fn add_benchmark(c: &mut Criterion) {
-    let v1 = create_primitive_array::<Int32Type>(1024, 0.0);
-    let v2 = create_primitive_array::<Int32Type>(1024, 0.0);
+    let v1 = create_primitive_array::<i32>(1024, 0.0);
+    let v2 = create_primitive_array::<i32>(1024, 0.0);
     c.bench_function("concat i32 1024", |b| b.iter(|| bench_concat(&v1, &v2)));
 
-    let v1 = create_primitive_array::<Int32Type>(1024, 0.5);
-    let v2 = create_primitive_array::<Int32Type>(1024, 0.5);
+    let v1 = create_primitive_array::<i32>(1024, 0.5);
+    let v2 = create_primitive_array::<i32>(1024, 0.5);
     c.bench_function("concat i32 nulls 1024", |b| {
         b.iter(|| bench_concat(&v1, &v2))
     });
 
-    let small_array = create_primitive_array::<Int32Type>(4, 0.0);
+    let small_array = create_primitive_array::<i32>(4, 0.0);
     let arrays: Vec<_> = (0..1024).map(|_| &small_array as &dyn Array).collect();
     c.bench_function("concat 1024 arrays i32 4", |b| {
         b.iter(|| bench_concat_arrays(&arrays))

@@ -599,28 +599,28 @@ impl Decoder {
                     Box::new(DataType::Int8),
                     Box::new(DataType::Utf8),
                 );
-                self.list_array_string_array_builder::<Int8Type>(&dtype, col_name, rows)
+                self.list_array_string_array_builder::<i8>(&dtype, col_name, rows)
             }
             DataType::Int16 => {
                 let dtype = DataType::Dictionary(
                     Box::new(DataType::Int16),
                     Box::new(DataType::Utf8),
                 );
-                self.list_array_string_array_builder::<Int16Type>(&dtype, col_name, rows)
+                self.list_array_string_array_builder::<i16>(&dtype, col_name, rows)
             }
             DataType::Int32 => {
                 let dtype = DataType::Dictionary(
                     Box::new(DataType::Int32),
                     Box::new(DataType::Utf8),
                 );
-                self.list_array_string_array_builder::<Int32Type>(&dtype, col_name, rows)
+                self.list_array_string_array_builder::<i32>(&dtype, col_name, rows)
             }
             DataType::Int64 => {
                 let dtype = DataType::Dictionary(
                     Box::new(DataType::Int64),
                     Box::new(DataType::Utf8),
                 );
-                self.list_array_string_array_builder::<Int64Type>(&dtype, col_name, rows)
+                self.list_array_string_array_builder::<i64>(&dtype, col_name, rows)
             }
             DataType::UInt8 => {
                 let dtype = DataType::Dictionary(
@@ -634,7 +634,7 @@ impl Decoder {
                     Box::new(DataType::UInt16),
                     Box::new(DataType::Utf8),
                 );
-                self.list_array_string_array_builder::<UInt16Type>(&dtype, col_name, rows)
+                self.list_array_string_array_builder::<u16>(&dtype, col_name, rows)
             }
             DataType::UInt32 => {
                 let dtype = DataType::Dictionary(
@@ -648,7 +648,7 @@ impl Decoder {
                     Box::new(DataType::UInt64),
                     Box::new(DataType::Utf8),
                 );
-                self.list_array_string_array_builder::<UInt64Type>(&dtype, col_name, rows)
+                self.list_array_string_array_builder::<u64>(&dtype, col_name, rows)
             }
             ref e => Err(ArrowError::JsonError(format!(
                 "Data type is currently not supported for dictionaries in list : {:?}",
@@ -787,24 +787,14 @@ impl Decoder {
     ) -> Result<ArrayRef> {
         if let DataType::Utf8 = *value_type {
             match *key_type {
-                DataType::Int8 => self.build_dictionary_array::<Int8Type>(rows, col_name),
-                DataType::Int16 => {
-                    self.build_dictionary_array::<Int16Type>(rows, col_name)
-                }
-                DataType::Int32 => {
-                    self.build_dictionary_array::<Int32Type>(rows, col_name)
-                }
-                DataType::Int64 => {
-                    self.build_dictionary_array::<Int64Type>(rows, col_name)
-                }
+                DataType::Int8 => self.build_dictionary_array::<i8>(rows, col_name),
+                DataType::Int16 => self.build_dictionary_array::<i16>(rows, col_name),
+                DataType::Int32 => self.build_dictionary_array::<i32>(rows, col_name),
+                DataType::Int64 => self.build_dictionary_array::<i64>(rows, col_name),
                 DataType::UInt8 => self.build_dictionary_array::<u8>(rows, col_name),
-                DataType::UInt16 => {
-                    self.build_dictionary_array::<UInt16Type>(rows, col_name)
-                }
+                DataType::UInt16 => self.build_dictionary_array::<u16>(rows, col_name),
                 DataType::UInt32 => self.build_dictionary_array::<u32>(rows, col_name),
-                DataType::UInt64 => {
-                    self.build_dictionary_array::<UInt64Type>(rows, col_name)
-                }
+                DataType::UInt64 => self.build_dictionary_array::<u64>(rows, col_name),
                 _ => Err(ArrowError::JsonError(
                     "unsupported dictionary key type".to_string(),
                 )),
@@ -915,19 +905,19 @@ impl Decoder {
                     .null_bit_buffer(bool_nulls.into())
                     .build()
             }
-            DataType::Int8 => self.read_primitive_list_values::<Int8Type>(rows),
-            DataType::Int16 => self.read_primitive_list_values::<Int16Type>(rows),
-            DataType::Int32 => self.read_primitive_list_values::<Int32Type>(rows),
-            DataType::Int64 => self.read_primitive_list_values::<Int64Type>(rows),
+            DataType::Int8 => self.read_primitive_list_values::<i8>(rows),
+            DataType::Int16 => self.read_primitive_list_values::<i16>(rows),
+            DataType::Int32 => self.read_primitive_list_values::<i32>(rows),
+            DataType::Int64 => self.read_primitive_list_values::<i64>(rows),
             DataType::UInt8 => self.read_primitive_list_values::<u8>(rows),
-            DataType::UInt16 => self.read_primitive_list_values::<UInt16Type>(rows),
+            DataType::UInt16 => self.read_primitive_list_values::<u16>(rows),
             DataType::UInt32 => self.read_primitive_list_values::<u32>(rows),
-            DataType::UInt64 => self.read_primitive_list_values::<UInt64Type>(rows),
+            DataType::UInt64 => self.read_primitive_list_values::<u64>(rows),
             DataType::Float16 => {
                 return Err(ArrowError::JsonError("Float16 not supported".to_string()))
             }
-            DataType::Float32 => self.read_primitive_list_values::<Float32Type>(rows),
-            DataType::Float64 => self.read_primitive_list_values::<Float64Type>(rows),
+            DataType::Float32 => self.read_primitive_list_values::<f32>(rows),
+            DataType::Float64 => self.read_primitive_list_values::<f64>(rows),
             DataType::Timestamp(_, _)
             | DataType::Date32
             | DataType::Date64
@@ -1036,31 +1026,31 @@ impl Decoder {
                     }
                     DataType::Boolean => self.build_boolean_array(rows, field.name()),
                     DataType::Float64 => {
-                        self.build_primitive_array::<Float64Type>(rows, field.name())
+                        self.build_primitive_array::<f64>(rows, field.name())
                     }
                     DataType::Float32 => {
-                        self.build_primitive_array::<Float32Type>(rows, field.name())
+                        self.build_primitive_array::<f32>(rows, field.name())
                     }
                     DataType::Int64 => {
-                        self.build_primitive_array::<Int64Type>(rows, field.name())
+                        self.build_primitive_array::<i64>(rows, field.name())
                     }
                     DataType::Int32 => {
-                        self.build_primitive_array::<Int32Type>(rows, field.name())
+                        self.build_primitive_array::<i32>(rows, field.name())
                     }
                     DataType::Int16 => {
-                        self.build_primitive_array::<Int16Type>(rows, field.name())
+                        self.build_primitive_array::<i16>(rows, field.name())
                     }
                     DataType::Int8 => {
-                        self.build_primitive_array::<Int8Type>(rows, field.name())
+                        self.build_primitive_array::<i8>(rows, field.name())
                     }
                     DataType::UInt64 => {
-                        self.build_primitive_array::<UInt64Type>(rows, field.name())
+                        self.build_primitive_array::<u64>(rows, field.name())
                     }
                     DataType::UInt32 => {
                         self.build_primitive_array::<u32>(rows, field.name())
                     }
                     DataType::UInt16 => {
-                        self.build_primitive_array::<UInt16Type>(rows, field.name())
+                        self.build_primitive_array::<u16>(rows, field.name())
                     }
                     DataType::UInt8 => {
                         self.build_primitive_array::<u8>(rows, field.name())
@@ -2115,7 +2105,7 @@ mod tests {
         let dd = batch
             .column(d.0)
             .as_any()
-            .downcast_ref::<DictionaryArray<Int16Type>>()
+            .downcast_ref::<DictionaryArray<i16>>()
             .unwrap();
         assert_eq!(false, dd.is_valid(0));
         assert_eq!(true, dd.is_valid(1));
@@ -2305,7 +2295,7 @@ mod tests {
         let evs_list = evs_list.values();
         let evs_list = evs_list
             .as_any()
-            .downcast_ref::<DictionaryArray<UInt64Type>>()
+            .downcast_ref::<DictionaryArray<u64>>()
             .unwrap();
         assert_eq!(6, evs_list.len());
         assert_eq!(true, evs_list.is_valid(1));
@@ -2366,7 +2356,7 @@ mod tests {
         let evs_list = evs_list.values();
         let evs_list = evs_list
             .as_any()
-            .downcast_ref::<DictionaryArray<UInt64Type>>()
+            .downcast_ref::<DictionaryArray<u64>>()
             .unwrap();
         assert_eq!(8, evs_list.len());
         assert_eq!(true, evs_list.is_valid(1));
@@ -2594,7 +2584,7 @@ mod tests {
         let aa = batch
             .column(a.0)
             .as_any()
-            .downcast_ref::<TimestampMillisecondArray>()
+            .downcast_ref::<PrimitiveArray<i64>>()
             .unwrap();
         assert_eq!(true, aa.is_valid(0));
         assert_eq!(false, aa.is_valid(1));

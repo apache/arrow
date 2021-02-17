@@ -1118,13 +1118,13 @@ mod tests {
     #[test]
     fn test_length_of_result_buffer() {
         // `item_count` is chosen to not be a multiple of the number of SIMD lanes for this
-        // type (`Int8Type`), 64.
+        // type (`i8`), 64.
         let item_count = 130;
 
         let select_mask: BooleanArray = vec![true; item_count].into();
 
-        let array_a: PrimitiveArray<Int8Type> = vec![1; item_count].into();
-        let array_b: PrimitiveArray<Int8Type> = vec![2; item_count].into();
+        let array_a: PrimitiveArray<i8> = vec![1; item_count].into();
+        let array_b: PrimitiveArray<i8> = vec![2; item_count].into();
         let result_mask = gt_eq(&array_a, &array_b).unwrap();
 
         assert_eq!(

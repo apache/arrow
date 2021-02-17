@@ -31,11 +31,11 @@ use arrow::datatypes::*;
 use arrow::util::bench_util::*;
 use arrow::util::test_util::seedable_rng;
 
-fn build_array<T: ArrowPrimitiveType>(size: usize) -> ArrayRef
+fn build_array<T: ArrowNativeType>(size: usize, data_type: DataType) -> ArrayRef
 where
-    Standard: Distribution<T::Native>,
+    Standard: Distribution<T>,
 {
-    let array = create_primitive_array::<T>(size, 0.1);
+    let array = create_primitive_array::<T>(size, 0.1, data_type);
     Arc::new(array)
 }
 
@@ -87,18 +87,20 @@ fn cast_array(array: &ArrayRef, to_type: DataType) {
 }
 
 fn add_benchmark(c: &mut Criterion) {
-    let i32_array = build_array::<Int32Type>(512);
-    let i64_array = build_array::<Int64Type>(512);
-    let f32_array = build_array::<Float32Type>(512);
-    let f32_utf8_array = cast(&build_array::<Float32Type>(512), &DataType::Utf8).unwrap();
+    let i32_array = build_array::<i32>(512, DataType::Int32);
+    let i64_array = build_array::<i64>(512, DataType::Int64);
+    let f32_array = build_array::<f32>(512, DataType::Float32);
+    let f32_utf8_array = cast(&f32_array, &DataType::Utf8).unwrap();
 
-    let f64_array = build_array::<Float64Type>(512);
-    let date64_array = build_array::<Date64Type>(512);
-    let date32_array = build_array::<Date32Type>(512);
-    let time32s_array = build_array::<Time32SecondType>(512);
-    let time64ns_array = build_array::<Time64NanosecondType>(512);
-    let time_ns_array = build_array::<TimestampNanosecondType>(512);
-    let time_ms_array = build_array::<TimestampMillisecondType>(512);
+    let f64_array = build_array::<f64>(512, DataType::Float64);
+    let date64_array = build_array::<i64>(512, DataType::Date64);
+    let date32_array = build_array::<i32>(512, DataType::Date32);
+    let time32s_array = build_array::<i32>(512, DataType::Time32(TimeUnit::Second));
+    let time64ns_array = build_array::<i64>(512, DataType::Time64(TimeUnit::Nanosecond));
+    let time_ns_array =
+        build_array::<i64>(512, DataType::Timestamp(TimeUnit::Nanosecond, None));
+    let time_ms_array =
+        build_array::<i64>(512, DataType::Timestamp(TimeUnit::Millisecond, None));
     let utf8_date_array = build_utf8_date_array(512, true);
     let utf8_date_time_array = build_utf8_date_time_array(512, true);
 

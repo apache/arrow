@@ -48,11 +48,11 @@ fn into_primitive_array_data<I: ArrowNativeType, O: ArrowNativeType>(
 /// # Example
 /// ```rust
 /// # use arrow::array::Int32Array;
-/// # use arrow::datatypes::Int32Type;
+/// # use arrow::datatypes::i32;
 /// # use arrow::compute::kernels::arity::unary;
 /// # fn main() {
 /// let array = Int32Array::from(vec![Some(5), Some(7), None]);
-/// let c = unary::<_, _, Int32Type>(&array, |x| x * 2 + 1);
+/// let c = unary::<_, _, i32>(&array, |x| x * 2 + 1);
 /// assert_eq!(c, Int32Array::from(vec![Some(11), Some(15), None]));
 /// # }
 /// ```

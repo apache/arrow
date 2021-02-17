@@ -301,7 +301,10 @@ pub fn new_null_array(data_type: &DataType, length: usize) -> ArrayRef {
         DataType::Int16 => new_null_sized_array::<i16>(data_type, length),
         DataType::UInt16 => new_null_sized_array::<u16>(data_type, length),
         DataType::Float16 => unreachable!(),
-        DataType::Int32 | DataType::Date32 | DataType::Time32(_) => {
+        DataType::Int32
+        | DataType::Date32
+        | DataType::Time32(_)
+        | DataType::Interval(IntervalUnit::YearMonth) => {
             new_null_sized_array::<i32>(data_type, length)
         }
         DataType::UInt32 => new_null_sized_array::<u32>(data_type, length),
@@ -309,18 +312,11 @@ pub fn new_null_array(data_type: &DataType, length: usize) -> ArrayRef {
         DataType::Int64
         | DataType::Date64
         | DataType::Timestamp(_, _)
-        | DataType::Time64(_) => new_null_sized_array::<i64>(data_type, length),
+        | DataType::Time64(_)
+        | DataType::Interval(IntervalUnit::DayTime)
+        | DataType::Duration(_) => new_null_sized_array::<i64>(data_type, length),
         DataType::UInt64 => new_null_sized_array::<u64>(data_type, length),
         DataType::Float64 => new_null_sized_array::<f64>(data_type, length),
-        DataType::Duration(_) => new_null_sized_array::<Int64Type>(data_type, length),
-        DataType::Interval(unit) => match unit {
-            IntervalUnit::YearMonth => {
-                new_null_sized_array::<IntervalYearMonthType>(data_type, length)
-            }
-            IntervalUnit::DayTime => {
-                new_null_sized_array::<IntervalDayTimeType>(data_type, length)
-            }
-        },
         DataType::FixedSizeBinary(value_len) => make_array(Arc::new(ArrayData::new(
             data_type.clone(),
             length,
@@ -574,7 +570,7 @@ mod tests {
         let values = vec![None, None, None, None, None, None, None, None, None]
             as Vec<Option<&str>>;
 
-        let array: DictionaryArray<Int8Type> = values.into_iter().collect();
+        let array: DictionaryArray<i8> = values.into_iter().collect();
         let array = Arc::new(array) as ArrayRef;
 
         let null_array = new_null_array(array.data_type(), 9);

@@ -394,7 +394,7 @@ pub(super) mod tests {
 
     #[test]
     fn test_take_value_index_from_list() {
-        let list = build_generic_list::<i32, Int32Type>(vec![
+        let list = build_generic_list::<i32, i32>(vec![
             Some(vec![0, 1]),
             Some(vec![2, 3, 4]),
             Some(vec![5, 6, 7, 8, 9]),
@@ -409,7 +409,7 @@ pub(super) mod tests {
 
     #[test]
     fn test_take_value_index_from_large_list() {
-        let list = build_generic_list::<i64, Int32Type>(vec![
+        let list = build_generic_list::<i64, i32>(vec![
             Some(vec![0, 1]),
             Some(vec![2, 3, 4]),
             Some(vec![5, 6, 7, 8, 9]),
@@ -417,7 +417,7 @@ pub(super) mod tests {
         let indices = UInt32Array::from(vec![2, 0]);
 
         let (indexed, offsets) =
-            take_value_indices_from_list::<_, Int64Type>(&list, &indices).unwrap();
+            take_value_indices_from_list::<_, i64>(&list, &indices).unwrap();
 
         assert_eq!(indexed, Int64Array::from(vec![5, 6, 7, 8, 9, 0, 1]));
         assert_eq!(offsets, vec![0, 5, 7]);
@@ -425,7 +425,7 @@ pub(super) mod tests {
 
     #[test]
     fn test_take_value_index_from_fixed_list() {
-        let list = build_fixed_size_list_nullable::<Int32Type>(
+        let list = build_fixed_size_list_nullable::<i32>(
             vec![
                 Some(vec![Some(1), Some(2), None]),
                 Some(vec![Some(4), None, Some(6)]),
