@@ -130,33 +130,6 @@ int64_t ArrayData::GetNullCount() const {
   return precomputed;
 }
 
-bool ArrayData::Equals(const ArrayData& other) const {
-  if (this == &other) {
-    return true;
-  }
-
-  if (offset != other.offset || !type->Equals(other.type) ||
-      buffers.size() != other.buffers.size() ||
-      child_data.size() != other.child_data.size()) {
-    return false;
-  }
-
-  for (size_t i = 0; i < buffers.size(); i++) {
-    if (buffers[i] != other.buffers[i] && !buffers[i]->Equals(*other.buffers[i].get())) {
-      return false;
-    }
-  }
-
-  for (size_t i = 0; i < child_data.size(); i++) {
-    if (child_data[i] != other.child_data[i] &&
-        !child_data[i]->Equals(*other.child_data[i].get())) {
-      return false;
-    }
-  }
-
-  return (dictionary == other.dictionary || dictionary->Equals(*other.dictionary.get()));
-}
-
 // ----------------------------------------------------------------------
 // Implement ArrayData::View
 

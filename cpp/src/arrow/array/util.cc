@@ -79,10 +79,7 @@ class ArrayDataEndianSwapper {
  public:
   ArrayDataEndianSwapper(const std::shared_ptr<ArrayData>& data, int64_t length)
       : data_(data), length_(length) {
-    const std::shared_ptr<DataType>& type = data->type;
-    std::vector<std::shared_ptr<Buffer>> buffers(data->buffers.size(), nullptr);
-    std::vector<std::shared_ptr<ArrayData>> child_data(data->child_data.size(), nullptr);
-    out_ = ArrayData::Make(type, data->length, buffers, child_data, data->null_count, 0);
+    out_ = data->Copy();
   }
 
   Status SwapType(const DataType& type) {
@@ -91,7 +88,7 @@ class ArrayDataEndianSwapper {
     return Status::OK();
   }
 
-  Status SwapChildren(const std::vector<std::shared_ptr<Field>>& child_fields) {
+  Status SwapChildren(const FieldVector& child_fields) {
     for (size_t i = 0; i < child_fields.size(); i++) {
       ARROW_ASSIGN_OR_RAISE(out_->child_data[i],
                             internal::SwapEndianArrayData(data_->child_data[i]));
@@ -199,16 +196,11 @@ class ArrayDataEndianSwapper {
     return Status::OK();
   }
 
-  Status ReuseDataBuffer() {
-    out_->buffers[1] = data_->buffers[1];
-    return Status::OK();
-  }
-
   Status Visit(const NullType& type) { return Status::OK(); }
-  Status Visit(const BooleanType& type) { return ReuseDataBuffer(); }
-  Status Visit(const Int8Type& type) { return ReuseDataBuffer(); }
-  Status Visit(const UInt8Type& type) { return ReuseDataBuffer(); }
-  Status Visit(const FixedSizeBinaryType& type) { return ReuseDataBuffer(); }
+  Status Visit(const BooleanType& type) { return Status::OK(); }
+  Status Visit(const Int8Type& type) { return Status::OK(); }
+  Status Visit(const UInt8Type& type) { return Status::OK(); }
+  Status Visit(const FixedSizeBinaryType& type) { return Status::OK(); }
   Status Visit(const FixedSizeListType& type) { return Status::OK(); }
   Status Visit(const StructType& type) { return Status::OK(); }
   Status Visit(const UnionType& type) {
@@ -250,14 +242,12 @@ class ArrayDataEndianSwapper {
   Status Visit(const DictionaryType& type) {
     RETURN_NOT_OK(SwapType(*type.index_type()));
     // dictionary was already swapped in ReadDictionary() in ipc/reader.cc
-    out_->dictionary = data_->dictionary;
     return Status::OK();
   }
 
   Status Visit(const ExtensionType& type) {
     RETURN_NOT_OK(SwapType(*type.storage_type()));
     // dictionary was already swapped in ReadDictionary() in ipc/reader.cc
-    out_->dictionary = data_->dictionary;
     return Status::OK();
   }
 
@@ -278,7 +268,7 @@ Result<std::shared_ptr<ArrayData>> SwapEndianArrayData(
   const std::shared_ptr<DataType>& type = data->type;
   ArrayDataEndianSwapper swapper_visitor(data, data->length);
   DCHECK_OK(VisitTypeInline(*type, &swapper_visitor));
-  DCHECK_OK(swapper_visitor.SwapChildren((*type).fields()));
+  RETURN_NOT_OK(swapper_visitor.SwapChildren((*type).fields()));
   std::shared_ptr<ArrayData> out = std::move(swapper_visitor.out_);
   // copy null_bitmap
   out->buffers[0] = data->buffers[0];
