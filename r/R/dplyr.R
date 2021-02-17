@@ -381,8 +381,25 @@ summarise.arrow_dplyr_query <- function(.data, ...) {
 }
 summarise.Dataset <- summarise.ArrowTabular <- summarise.arrow_dplyr_query
 
-group_by.arrow_dplyr_query <- function(.data, ..., .add = FALSE, add = .add) {
+group_by.arrow_dplyr_query <- function(.data,
+                                       ...,
+                                       .add = FALSE,
+                                       add = .add,
+                                       .drop = TRUE) {
+  if (!isTRUE(.drop)) {
+    stop(".drop argument not supported for Arrow objects", call. = FALSE)
+  }
   .data <- arrow_dplyr_query(.data)
+  # ... can contain expressions (i.e. can add (or rename?) columns)
+  # Check for those (they show up as named expressions)
+  new_groups <- enquos(...)
+  new_groups <- new_groups[nzchar(names(new_groups))]
+  if (length(new_groups)) {
+    # TODO(ARROW-11658): either find a way to let group_by_prepare handle this
+    # (it may call mutate() for us)
+    # or essentially reimplement it here (see dplyr:::add_computed_columns)
+    stop("Cannot create or rename columns in group_by on Arrow objects", call. = FALSE)
+  }
   if (".add" %in% names(formals(dplyr::group_by))) {
     # dplyr >= 1.0
     gv <- dplyr::group_by_prepare(.data, ..., .add = .add)$group_names

@@ -446,6 +446,14 @@ test_that("group_by groupings are recorded", {
   expect_identical(collect(batch), tbl)
 })
 
+test_that("group_by doesn't yet support creating/renaming", {
+  expect_error(
+    record_batch(tbl) %>%
+      group_by(chr, numbers = int),
+    "Cannot create or rename columns in group_by on Arrow objects"
+  )
+})
+
 test_that("ungroup", {
   expect_dplyr_equal(
     input %>%
@@ -531,6 +539,25 @@ test_that("group_by then rename", {
       select(string = chr, int) %>%
       collect(),
     tbl
+  )
+})
+
+test_that("group_by with .drop", {
+  expect_identical(
+    Table$create(tbl) %>% 
+      group_by(chr, .drop = TRUE) %>%
+      group_vars(), 
+    "chr"
+  )
+  expect_dplyr_equal(
+    input %>%
+      group_by(chr, .drop = TRUE) %>%
+      collect(),
+    tbl
+  )
+  expect_error(
+    Table$create(tbl) %>% group_by(chr, .drop = FALSE),
+    "not supported"
   )
 })
 
