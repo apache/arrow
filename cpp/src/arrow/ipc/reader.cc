@@ -111,12 +111,22 @@ Status InvalidMessageType(MessageType expected, MessageType actual) {
 
 /// \brief Structure to keep common arguments to be passed
 struct IpcReadContext {
-  IpcReadContext(DictionaryMemo* memo, const IpcReadOptions& option, bool swap)
-      : dictionary_memo(memo), options(option), swap_endian(swap) {}
+  IpcReadContext(DictionaryMemo* memo, const IpcReadOptions& option, bool swap,
+                 MetadataVersion version = MetadataVersion::V5,
+                 Compression::type kind = Compression::UNCOMPRESSED)
+      : dictionary_memo(memo),
+        options(option),
+        metadata_version(version),
+        compression(kind),
+        swap_endian(swap) {}
 
   DictionaryMemo* dictionary_memo;
 
   const IpcReadOptions& options;
+
+  MetadataVersion metadata_version;
+
+  Compression::type compression;
 
   /// \brief LoadRecordBatch() or LoadRecordBatchSubset() swaps endianness of elements
   /// if this flag is true
@@ -455,9 +465,8 @@ Status DecompressBuffers(Compression::type compression, const IpcReadOptions& op
 Result<std::shared_ptr<RecordBatch>> LoadRecordBatchSubset(
     const flatbuf::RecordBatch* metadata, const std::shared_ptr<Schema>& schema,
     const std::vector<bool>* inclusion_mask, const IpcReadContext& context,
-    MetadataVersion metadata_version, Compression::type compression,
     io::RandomAccessFile* file) {
-  ArrayLoader loader(metadata, metadata_version, context.options, file);
+  ArrayLoader loader(metadata, context.metadata_version, context.options, file);
 
   ArrayDataVector columns(schema->num_fields());
   ArrayDataVector filtered_columns;
@@ -497,8 +506,9 @@ Result<std::shared_ptr<RecordBatch>> LoadRecordBatchSubset(
     filtered_schema = schema;
     filtered_columns = std::move(columns);
   }
-  if (compression != Compression::UNCOMPRESSED) {
-    RETURN_NOT_OK(DecompressBuffers(compression, context.options, &filtered_columns));
+  if (context.compression != Compression::UNCOMPRESSED) {
+    RETURN_NOT_OK(
+        DecompressBuffers(context.compression, context.options, &filtered_columns));
   }
 
   // swap endian in a set of ArrayData if necessary (swap_endian == true)
@@ -515,14 +525,11 @@ Result<std::shared_ptr<RecordBatch>> LoadRecordBatchSubset(
 Result<std::shared_ptr<RecordBatch>> LoadRecordBatch(
     const flatbuf::RecordBatch* metadata, const std::shared_ptr<Schema>& schema,
     const std::vector<bool>& inclusion_mask, const IpcReadContext& context,
-    MetadataVersion metadata_version, Compression::type compression,
     io::RandomAccessFile* file) {
   if (inclusion_mask.size() > 0) {
-    return LoadRecordBatchSubset(metadata, schema, &inclusion_mask, context,
-                                 metadata_version, compression, file);
+    return LoadRecordBatchSubset(metadata, schema, &inclusion_mask, context, file);
   } else {
-    return LoadRecordBatchSubset(metadata, schema, /*param_name=*/nullptr, context,
-                                 metadata_version, compression, file);
+    return LoadRecordBatchSubset(metadata, schema, /*param_name=*/nullptr, context, file);
   }
 }
 
@@ -600,7 +607,7 @@ Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(
 
 Result<std::shared_ptr<RecordBatch>> ReadRecordBatchInternal(
     const Buffer& metadata, const std::shared_ptr<Schema>& schema,
-    const std::vector<bool>& inclusion_mask, const IpcReadContext& context,
+    const std::vector<bool>& inclusion_mask, IpcReadContext& context,
     io::RandomAccessFile* file) {
   const flatbuf::Message* message = nullptr;
   RETURN_NOT_OK(internal::VerifyMessage(metadata.data(), metadata.size(), &message));
@@ -612,15 +619,15 @@ Result<std::shared_ptr<RecordBatch>> ReadRecordBatchInternal(
 
   Compression::type compression;
   RETURN_NOT_OK(GetCompression(batch, &compression));
-  if (compression == Compression::UNCOMPRESSED &&
+  if (context.compression == Compression::UNCOMPRESSED &&
       message->version() == flatbuf::MetadataVersion::V4) {
     // Possibly obtain codec information from experimental serialization format
     // in 0.17.x
     RETURN_NOT_OK(GetCompressionExperimental(message, &compression));
   }
-  return LoadRecordBatch(batch, schema, inclusion_mask, context,
-                         internal::GetMetadataVersion(message->version()), compression,
-                         file);
+  context.compression = compression;
+  context.metadata_version = internal::GetMetadataVersion(message->version());
+  return LoadRecordBatch(batch, schema, inclusion_mask, context, file);
 }
 
 // If we are selecting only certain fields, populate an inclusion mask for fast lookups.
