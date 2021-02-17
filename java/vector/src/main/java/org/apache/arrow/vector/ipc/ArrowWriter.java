@@ -65,7 +65,7 @@ public abstract class ArrowWriter implements AutoCloseable {
   protected IpcOption option;
 
   protected ArrowWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out) {
-    this (root, provider, out, new IpcOption());
+    this (root, provider, out, IpcOption.DEFAULT);
   }
 
   /**

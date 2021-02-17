@@ -43,6 +43,8 @@ chrono = "0.4"
 num-bigint = "0.3"
 arrow = { path = "../arrow", version = "4.0.0-SNAPSHOT", optional = true }
 base64 = { version = "0.12", optional = true }
+clap = { version = "2.33.3", optional = true }
+serde_json = { version = "1.0", features = ["preserve_order"], optional = true }
 
 [dev-dependencies]
 rand = "0.8"
@@ -56,3 +58,16 @@ serde_json = { version = "1.0", features = ["preserve_order"] }
 
 [features]
 default = ["arrow", "snap", "brotli", "flate2", "lz4", "zstd", "base64"]
+cli = ["serde_json", "base64", "clap"]
+
+[[ bin ]]
+name = "parquet-read"
+required-features = ["cli"]
+
+[[ bin ]]
+name = "parquet-schema"
+required-features = ["cli"]
+
+[[ bin ]]
+name = "parquet-rowcount"
+required-features = ["cli"]

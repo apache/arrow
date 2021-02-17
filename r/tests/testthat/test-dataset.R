@@ -492,7 +492,7 @@ test_that("filter() with %in%", {
     tibble(int = df1$int[c(3, 4, 6)], part = 1)
   )
 
-# ARROW-9606: bug in %in% filter on partition column with >1 partition columns
+  # ARROW-9606: bug in %in% filter on partition column with >1 partition columns
   ds <- open_dataset(hive_dir)
   expect_equivalent(
     ds %>%
@@ -500,6 +500,25 @@ test_that("filter() with %in%", {
       select(names(df2)) %>%
       collect(),
     df2
+  )
+})
+
+test_that("filter() with strings", {
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
+  expect_equivalent(
+    ds %>%
+      select(chr, part) %>%
+      filter(chr == "b", part == 1) %>%
+      collect(),
+    tibble(chr = "b", part = 1)
+  )
+
+  expect_equivalent(
+    ds %>%
+      select(chr, part) %>%
+      filter(toupper(chr) == "B", part == 1) %>%
+      collect(),
+    tibble(chr = "b", part = 1)
   )
 })
 
@@ -554,6 +573,7 @@ test_that("filter() on timestamp columns", {
   )
 
   # Now with bare string date
+  skip("Implement more aggressive implicit casting for scalars (ARROW-11402)")
   expect_equivalent(
     ds %>%
       filter(ts >= "2015-05-04") %>%
@@ -666,8 +686,6 @@ test_that("filter() with expressions", {
     )
   )
 
-  skip("Implicit casts aren't being inserted everywhere they need to be (ARROW-8919)")
-  # Error: NotImplemented: Function multiply_checked has no kernel matching input types (scalar[double], array[int32])
   expect_equivalent(
     ds %>%
       select(chr, dbl, int) %>%
@@ -680,8 +698,6 @@ test_that("filter() with expressions", {
     )
   )
 
-  skip("Implicit casts are only inserted for scalars (ARROW-8919)")
-  # Error: NotImplemented: Function add_checked has no kernel matching input types (array[double], array[int32])
   expect_equivalent(
     ds %>%
       select(chr, dbl, int) %>%
@@ -700,7 +716,7 @@ test_that("filter scalar validation doesn't crash (ARROW-7772)", {
     ds %>%
       filter(int == "fff", part == 1) %>%
       collect(),
-    "Failed to parse string: 'fff' as a scalar of type int32"
+    "equal has no kernel matching input types .array.int32., scalar.string.."
   )
 })
 

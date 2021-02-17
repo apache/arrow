@@ -32,6 +32,7 @@
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_decimal.h"
 #include "arrow/array/builder_dict.h"
+#include "arrow/array/builder_nested.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api.h"
@@ -80,6 +81,7 @@ using arrow::TimeUnit;
 using arrow::compute::DictionaryEncode;
 using arrow::internal::checked_cast;
 using arrow::internal::checked_pointer_cast;
+using arrow::internal::Iota;
 using arrow::io::BufferReader;
 
 using arrow::randint;
@@ -443,15 +445,58 @@ void DoSimpleRoundtrip(const std::shared_ptr<Table>& table, bool use_threads,
   }
 }
 
-void CheckSimpleRoundtrip(const std::shared_ptr<Table>& table, int64_t row_group_size,
-                          const std::shared_ptr<ArrowWriterProperties>& arrow_properties =
-                              default_arrow_writer_properties()) {
+void DoRoundTripWithBatches(
+    const std::shared_ptr<Table>& table, bool use_threads, int64_t row_group_size,
+    const std::vector<int>& column_subset, std::shared_ptr<Table>* out,
+    const std::shared_ptr<ArrowWriterProperties>& arrow_writer_properties =
+        default_arrow_writer_properties()) {
+  std::shared_ptr<Buffer> buffer;
+  ASSERT_NO_FATAL_FAILURE(
+      WriteTableToBuffer(table, row_group_size, arrow_writer_properties, &buffer));
+
+  std::unique_ptr<FileReader> reader;
+  FileReaderBuilder builder;
+  ASSERT_OK_NO_THROW(builder.Open(std::make_shared<BufferReader>(buffer)));
+  ArrowReaderProperties arrow_reader_properties;
+  arrow_reader_properties.set_batch_size(row_group_size - 1);
+  ASSERT_OK_NO_THROW(builder.memory_pool(::arrow::default_memory_pool())
+                         ->properties(arrow_reader_properties)
+                         ->Build(&reader));
+  std::unique_ptr<::arrow::RecordBatchReader> batch_reader;
+  if (column_subset.size() > 0) {
+    ASSERT_OK_NO_THROW(reader->GetRecordBatchReader(
+        Iota(reader->parquet_reader()->metadata()->num_row_groups()), column_subset,
+        &batch_reader));
+  } else {
+    // Read everything
+
+    ASSERT_OK_NO_THROW(reader->GetRecordBatchReader(
+        Iota(reader->parquet_reader()->metadata()->num_row_groups()), &batch_reader));
+  }
+  ASSERT_OK_AND_ASSIGN(*out, Table::FromRecordBatchReader(batch_reader.get()));
+}
+
+void CheckSimpleRoundtrip(
+    const std::shared_ptr<Table>& table, int64_t row_group_size,
+    const std::shared_ptr<ArrowWriterProperties>& arrow_writer_properties =
+        default_arrow_writer_properties()) {
   std::shared_ptr<Table> result;
-  ASSERT_NO_FATAL_FAILURE(DoSimpleRoundtrip(
-      table, false /* use_threads */, row_group_size, {}, &result, arrow_properties));
+  ASSERT_NO_FATAL_FAILURE(DoSimpleRoundtrip(table, false /* use_threads */,
+                                            row_group_size, {}, &result,
+                                            arrow_writer_properties));
   ::arrow::AssertSchemaEqual(*table->schema(), *result->schema(),
                              /*check_metadata=*/false);
   ASSERT_OK(result->ValidateFull());
+
+  ::arrow::AssertTablesEqual(*table, *result, false);
+
+  ASSERT_NO_FATAL_FAILURE(DoRoundTripWithBatches(table, false /* use_threads */,
+                                                 row_group_size, {}, &result,
+                                                 arrow_writer_properties));
+  ::arrow::AssertSchemaEqual(*table->schema(), *result->schema(),
+                             /*check_metadata=*/false);
+  ASSERT_OK(result->ValidateFull());
+
   ::arrow::AssertTablesEqual(*table, *result, false);
 }
 
@@ -2473,6 +2518,27 @@ TEST(TestArrowReadWrite, TableWithChunkedColumns) {
     ASSERT_NO_FATAL_FAILURE(CheckSimpleRoundtrip(table, 3));
     ASSERT_NO_FATAL_FAILURE(CheckSimpleRoundtrip(table, 10));
   }
+}
+
+TEST(TestArrowReadWrite, ManySmallLists) {
+  // ARROW-11607: The actual scenario this forces is no data reads for
+  // a first batch, and then a single element read for the second batch.
+
+  // Constructs
+  std::shared_ptr<::arrow::Int32Builder> value_builder =
+      std::make_shared<::arrow::Int32Builder>();
+  constexpr int64_t kNullCount = 6;
+  auto type = ::arrow::list(::arrow::int32());
+  std::vector<std::shared_ptr<Array>> arrays(1);
+  arrays[0] = ArrayFromJSON(type, R"([null, null, null, null, null, null, [1]])");
+
+  auto field = ::arrow::field("fname", type);
+  auto schema = ::arrow::schema({field});
+  auto table = Table::Make(schema, {std::make_shared<ChunkedArray>(arrays)});
+  ASSERT_EQ(table->num_rows(), kNullCount + 1);
+
+  CheckSimpleRoundtrip(table, /*row_group_size=*/kNullCount,
+                       default_arrow_writer_properties());
 }
 
 TEST(TestArrowReadWrite, TableWithDuplicateColumns) {

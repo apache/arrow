@@ -451,6 +451,96 @@ TEST(TestCompareTimestamps, Basics) {
   CheckArrayCase(seconds_utc, CompareOperator::EQUAL, "[false, false, true]");
 }
 
+TEST(TestCompareKernel, DispatchBest) {
+  for (std::string name :
+       {"equal", "not_equal", "less", "less_equal", "greater", "greater_equal"}) {
+    CheckDispatchBest(name, {int32(), int32()}, {int32(), int32()});
+    CheckDispatchBest(name, {int32(), null()}, {int32(), int32()});
+    CheckDispatchBest(name, {null(), int32()}, {int32(), int32()});
+
+    CheckDispatchBest(name, {int32(), int8()}, {int32(), int32()});
+    CheckDispatchBest(name, {int32(), int16()}, {int32(), int32()});
+    CheckDispatchBest(name, {int32(), int32()}, {int32(), int32()});
+    CheckDispatchBest(name, {int32(), int64()}, {int64(), int64()});
+
+    CheckDispatchBest(name, {int32(), uint8()}, {int32(), int32()});
+    CheckDispatchBest(name, {int32(), uint16()}, {int32(), int32()});
+    CheckDispatchBest(name, {int32(), uint32()}, {int64(), int64()});
+    CheckDispatchBest(name, {int32(), uint64()}, {int64(), int64()});
+
+    CheckDispatchBest(name, {uint8(), uint8()}, {uint8(), uint8()});
+    CheckDispatchBest(name, {uint8(), uint16()}, {uint16(), uint16()});
+
+    CheckDispatchBest(name, {int32(), float32()}, {float32(), float32()});
+    CheckDispatchBest(name, {float32(), int64()}, {float32(), float32()});
+    CheckDispatchBest(name, {float64(), int32()}, {float64(), float64()});
+
+    CheckDispatchBest(name, {dictionary(int8(), float64()), float64()},
+                      {float64(), float64()});
+    CheckDispatchBest(name, {dictionary(int8(), float64()), int16()},
+                      {float64(), float64()});
+
+    CheckDispatchBest(name, {timestamp(TimeUnit::MICRO), date64()},
+                      {timestamp(TimeUnit::MICRO), timestamp(TimeUnit::MICRO)});
+
+    CheckDispatchBest(name, {timestamp(TimeUnit::MILLI), timestamp(TimeUnit::MICRO)},
+                      {timestamp(TimeUnit::MICRO), timestamp(TimeUnit::MICRO)});
+
+    CheckDispatchBest(name, {utf8(), binary()}, {binary(), binary()});
+    CheckDispatchBest(name, {large_utf8(), binary()}, {large_binary(), large_binary()});
+  }
+}
+
+TEST(TestCompareKernel, GreaterWithImplicitCasts) {
+  CheckScalarBinary("greater", ArrayFromJSON(int32(), "[0, 1, 2, null]"),
+                    ArrayFromJSON(float64(), "[0.5, 1.0, 1.5, 2.0]"),
+                    ArrayFromJSON(boolean(), "[false, false, true, null]"));
+
+  CheckScalarBinary("greater", ArrayFromJSON(int8(), "[-16, 0, 16, null]"),
+                    ArrayFromJSON(uint32(), "[3, 4, 5, 7]"),
+                    ArrayFromJSON(boolean(), "[false, false, true, null]"));
+
+  CheckScalarBinary("greater", ArrayFromJSON(int8(), "[-16, 0, 16, null]"),
+                    ArrayFromJSON(uint8(), "[255, 254, 1, 0]"),
+                    ArrayFromJSON(boolean(), "[false, false, true, null]"));
+
+  CheckScalarBinary("greater",
+                    ArrayFromJSON(dictionary(int32(), int32()), "[0, 1, 2, null]"),
+                    ArrayFromJSON(uint32(), "[3, 4, 5, 7]"),
+                    ArrayFromJSON(boolean(), "[false, false, false, null]"));
+
+  CheckScalarBinary("greater", ArrayFromJSON(int32(), "[0, 1, 2, null]"),
+                    std::make_shared<NullArray>(4),
+                    ArrayFromJSON(boolean(), "[null, null, null, null]"));
+
+  CheckScalarBinary("greater",
+                    ArrayFromJSON(timestamp(TimeUnit::SECOND),
+                                  R"(["1970-01-01","2000-02-29","1900-02-28"])"),
+                    ArrayFromJSON(date64(), "[86400000, 0, 86400000]"),
+                    ArrayFromJSON(boolean(), "[false, true, false]"));
+
+  CheckScalarBinary("greater",
+                    ArrayFromJSON(dictionary(int32(), int8()), "[3, -3, -28, null]"),
+                    ArrayFromJSON(uint32(), "[3, 4, 5, 7]"),
+                    ArrayFromJSON(boolean(), "[false, false, false, null]"));
+}
+
+TEST(TestCompareKernel, GreaterWithImplicitCastsUint64EdgeCase) {
+  // int64 is as wide as we can promote
+  CheckDispatchBest("greater", {int8(), uint64()}, {int64(), int64()});
+
+  // this works sometimes
+  CheckScalarBinary("greater", ArrayFromJSON(int8(), "[-1]"),
+                    ArrayFromJSON(uint64(), "[0]"), ArrayFromJSON(boolean(), "[false]"));
+
+  // ... but it can result in impossible implicit casts in  the presence of uint64, since
+  // some uint64 values cannot be cast to int64:
+  ASSERT_RAISES(
+      Invalid,
+      CallFunction("greater", {ArrayFromJSON(int64(), "[-1]"),
+                               ArrayFromJSON(uint64(), "[18446744073709551615]")}));
+}
+
 class TestStringCompareKernel : public ::testing::Test {};
 
 TEST_F(TestStringCompareKernel, SimpleCompareArrayScalar) {
@@ -459,85 +549,74 @@ TEST_F(TestStringCompareKernel, SimpleCompareArrayScalar) {
   CompareOptions eq(CompareOperator::EQUAL);
   ValidateCompare<StringType>(eq, "[]", one, "[]");
   ValidateCompare<StringType>(eq, "[null]", one, "[null]");
-  ValidateCompare<StringType>(eq, "[\"zero\",\"zero\",\"one\",\"one\",\"two\",\"two\"]",
-                              one, "[0,0,1,1,0,0]");
-  ValidateCompare<StringType>(
-      eq, "[\"zero\",\"one\",\"two\",\"three\",\"four\",\"five\"]", one, "[0,1,0,0,0,0]");
-  ValidateCompare<StringType>(
-      eq, "[\"five\",\"four\",\"three\",\"two\",\"one\",\"zero\"]", one, "[0,0,0,0,1,0]");
-  ValidateCompare<StringType>(eq, "[null,\"zero\",\"one\",\"one\"]", one, "[null,0,1,1]");
+  ValidateCompare<StringType>(eq, R"(["zero","zero","one","one","two","two"])", one,
+                              "[0,0,1,1,0,0]");
+  ValidateCompare<StringType>(eq, R"(["zero","one","two","three","four","five"])", one,
+                              "[0,1,0,0,0,0]");
+  ValidateCompare<StringType>(eq, R"(["five","four","three","two","one","zero"])", one,
+                              "[0,0,0,0,1,0]");
+  ValidateCompare<StringType>(eq, R"([null,"zero","one","one"])", one, "[null,0,1,1]");
 
   Datum na(std::make_shared<StringScalar>());
-  ValidateCompare<StringType>(eq, "[null,\"zero\",\"one\",\"one\"]", na,
+  ValidateCompare<StringType>(eq, R"([null,"zero","one","one"])", na,
                               "[null,null,null,null]");
-  ValidateCompare<StringType>(eq, na, "[null,\"zero\",\"one\",\"one\"]",
+  ValidateCompare<StringType>(eq, na, R"([null,"zero","one","one"])",
                               "[null,null,null,null]");
 
   CompareOptions neq(CompareOperator::NOT_EQUAL);
   ValidateCompare<StringType>(neq, "[]", one, "[]");
   ValidateCompare<StringType>(neq, "[null]", one, "[null]");
-  ValidateCompare<StringType>(neq, "[\"zero\",\"zero\",\"one\",\"one\",\"two\",\"two\"]",
-                              one, "[1,1,0,0,1,1]");
-  ValidateCompare<StringType>(neq,
-                              "[\"zero\",\"one\",\"two\",\"three\",\"four\",\"five\"]",
-                              one, "[1,0,1,1,1,1]");
-  ValidateCompare<StringType>(neq,
-                              "[\"five\",\"four\",\"three\",\"two\",\"one\",\"zero\"]",
-                              one, "[1,1,1,1,0,1]");
-  ValidateCompare<StringType>(neq, "[null,\"zero\",\"one\",\"one\"]", one,
-                              "[null,1,0,0]");
+  ValidateCompare<StringType>(neq, R"(["zero","zero","one","one","two","two"])", one,
+                              "[1,1,0,0,1,1]");
+  ValidateCompare<StringType>(neq, R"(["zero","one","two","three","four","five"])", one,
+                              "[1,0,1,1,1,1]");
+  ValidateCompare<StringType>(neq, R"(["five","four","three","two","one","zero"])", one,
+                              "[1,1,1,1,0,1]");
+  ValidateCompare<StringType>(neq, R"([null,"zero","one","one"])", one, "[null,1,0,0]");
 
   CompareOptions gt(CompareOperator::GREATER);
   ValidateCompare<StringType>(gt, "[]", one, "[]");
   ValidateCompare<StringType>(gt, "[null]", one, "[null]");
-  ValidateCompare<StringType>(gt, "[\"zero\",\"zero\",\"one\",\"one\",\"two\",\"two\"]",
-                              one, "[1,1,0,0,1,1]");
-  ValidateCompare<StringType>(
-      gt, "[\"zero\",\"one\",\"two\",\"three\",\"four\",\"five\"]", one, "[1,0,1,1,0,0]");
-  ValidateCompare<StringType>(gt,
-                              "[\"four\",\"five\",\"six\",\"seven\",\"eight\",\"nine\"]",
-                              one, "[0,0,1,1,0,0]");
-  ValidateCompare<StringType>(gt, "[null,\"zero\",\"one\",\"one\"]", one, "[null,1,0,0]");
+  ValidateCompare<StringType>(gt, R"(["zero","zero","one","one","two","two"])", one,
+                              "[1,1,0,0,1,1]");
+  ValidateCompare<StringType>(gt, R"(["zero","one","two","three","four","five"])", one,
+                              "[1,0,1,1,0,0]");
+  ValidateCompare<StringType>(gt, R"(["four","five","six","seven","eight","nine"])", one,
+                              "[0,0,1,1,0,0]");
+  ValidateCompare<StringType>(gt, R"([null,"zero","one","one"])", one, "[null,1,0,0]");
 
   CompareOptions gte(CompareOperator::GREATER_EQUAL);
   ValidateCompare<StringType>(gte, "[]", one, "[]");
   ValidateCompare<StringType>(gte, "[null]", one, "[null]");
-  ValidateCompare<StringType>(gte, "[\"zero\",\"zero\",\"one\",\"one\",\"two\",\"two\"]",
-                              one, "[1,1,1,1,1,1]");
-  ValidateCompare<StringType>(gte,
-                              "[\"zero\",\"one\",\"two\",\"three\",\"four\",\"five\"]",
-                              one, "[1,1,1,1,0,0]");
-  ValidateCompare<StringType>(gte,
-                              "[\"four\",\"five\",\"six\",\"seven\",\"eight\",\"nine\"]",
-                              one, "[0,0,1,1,0,0]");
-  ValidateCompare<StringType>(gte, "[null,\"zero\",\"one\",\"one\"]", one,
-                              "[null,1,1,1]");
+  ValidateCompare<StringType>(gte, R"(["zero","zero","one","one","two","two"])", one,
+                              "[1,1,1,1,1,1]");
+  ValidateCompare<StringType>(gte, R"(["zero","one","two","three","four","five"])", one,
+                              "[1,1,1,1,0,0]");
+  ValidateCompare<StringType>(gte, R"(["four","five","six","seven","eight","nine"])", one,
+                              "[0,0,1,1,0,0]");
+  ValidateCompare<StringType>(gte, R"([null,"zero","one","one"])", one, "[null,1,1,1]");
 
   CompareOptions lt(CompareOperator::LESS);
   ValidateCompare<StringType>(lt, "[]", one, "[]");
   ValidateCompare<StringType>(lt, "[null]", one, "[null]");
-  ValidateCompare<StringType>(lt, "[\"zero\",\"zero\",\"one\",\"one\",\"two\",\"two\"]",
-                              one, "[0,0,0,0,0,0]");
-  ValidateCompare<StringType>(
-      lt, "[\"zero\",\"one\",\"two\",\"three\",\"four\",\"five\"]", one, "[0,0,0,0,1,1]");
-  ValidateCompare<StringType>(lt,
-                              "[\"four\",\"five\",\"six\",\"seven\",\"eight\",\"nine\"]",
-                              one, "[1,1,0,0,1,1]");
-  ValidateCompare<StringType>(lt, "[null,\"zero\",\"one\",\"one\"]", one, "[null,0,0,0]");
+  ValidateCompare<StringType>(lt, R"(["zero","zero","one","one","two","two"])", one,
+                              "[0,0,0,0,0,0]");
+  ValidateCompare<StringType>(lt, R"(["zero","one","two","three","four","five"])", one,
+                              "[0,0,0,0,1,1]");
+  ValidateCompare<StringType>(lt, R"(["four","five","six","seven","eight","nine"])", one,
+                              "[1,1,0,0,1,1]");
+  ValidateCompare<StringType>(lt, R"([null,"zero","one","one"])", one, "[null,0,0,0]");
 
   CompareOptions lte(CompareOperator::LESS_EQUAL);
   ValidateCompare<StringType>(lte, "[]", one, "[]");
   ValidateCompare<StringType>(lte, "[null]", one, "[null]");
-  ValidateCompare<StringType>(lte, "[\"zero\",\"zero\",\"one\",\"one\",\"two\",\"two\"]",
-                              one, "[0,0,1,1,0,0]");
-  ValidateCompare<StringType>(lte,
-                              "[\"zero\",\"one\",\"two\",\"three\",\"four\",\"five\"]",
-                              one, "[0,1,0,0,1,1]");
-  ValidateCompare<StringType>(lte,
-                              "[\"four\",\"five\",\"six\",\"seven\",\"eight\",\"nine\"]",
-                              one, "[1,1,0,0,1,1]");
-  ValidateCompare<StringType>(lte, "[null,\"zero\",\"one\",\"one\"]", one,
-                              "[null,0,1,1]");
+  ValidateCompare<StringType>(lte, R"(["zero","zero","one","one","two","two"])", one,
+                              "[0,0,1,1,0,0]");
+  ValidateCompare<StringType>(lte, R"(["zero","one","two","three","four","five"])", one,
+                              "[0,1,0,0,1,1]");
+  ValidateCompare<StringType>(lte, R"(["four","five","six","seven","eight","nine"])", one,
+                              "[1,1,0,0,1,1]");
+  ValidateCompare<StringType>(lte, R"([null,"zero","one","one"])", one, "[null,0,1,1]");
 }
 
 TEST_F(TestStringCompareKernel, RandomCompareArrayScalar) {
@@ -563,7 +642,7 @@ TEST_F(TestStringCompareKernel, RandomCompareArrayArray) {
   for (size_t i = 3; i < 5; i++) {
     for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
       for (auto op : {EQUAL, NOT_EQUAL, GREATER, LESS_EQUAL}) {
-        const int64_t length = static_cast<int64_t>(1ULL << i);
+        auto length = static_cast<int64_t>(1ULL << i);
         auto lhs = Datum(rand.String(length << i, 0, 16, null_probability));
         auto rhs = Datum(rand.String(length << i, 0, 16, null_probability));
         auto options = CompareOptions(op);

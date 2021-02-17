@@ -75,6 +75,7 @@ pub async fn run_scenario(host: &str, port: &str) -> Result {
     Ok(())
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn middleware_interceptor(mut req: Request<()>) -> Result<Request<()>, Status> {
     let metadata = req.metadata_mut();
     metadata.insert("x-middleware", "expected value".parse().unwrap());

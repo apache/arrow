@@ -85,12 +85,12 @@ impl ExecutionPlan for MemoryExec {
 impl MemoryExec {
     /// Create a new execution plan for reading in-memory record batches
     pub fn try_new(
-        partitions: &Vec<Vec<RecordBatch>>,
+        partitions: &[Vec<RecordBatch>],
         schema: SchemaRef,
         projection: Option<Vec<usize>>,
     ) -> Result<Self> {
         Ok(Self {
-            partitions: partitions.clone(),
+            partitions: partitions.to_vec(),
             schema,
             projection,
         })

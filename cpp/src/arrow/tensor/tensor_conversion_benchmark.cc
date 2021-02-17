@@ -159,7 +159,6 @@ class MatrixConversionFixture : public benchmark::Fixture {
       TensorConversionFixture<STRIDED, value_type_name##Type, IndexType>
 
 DEFINE_TYPED_TENSOR_CONVERSION_FIXTURE(Int8);
-DEFINE_TYPED_TENSOR_CONVERSION_FIXTURE(Int16);
 DEFINE_TYPED_TENSOR_CONVERSION_FIXTURE(Float);
 DEFINE_TYPED_TENSOR_CONVERSION_FIXTURE(Double);
 
@@ -175,7 +174,6 @@ DEFINE_TYPED_TENSOR_CONVERSION_FIXTURE(Double);
       MatrixConversionFixture<STRIDED, value_type_name##Type, IndexType>
 
 DEFINE_TYPED_MATRIX_CONVERSION_FIXTURE(Int8);
-DEFINE_TYPED_MATRIX_CONVERSION_FIXTURE(Int16);
 DEFINE_TYPED_MATRIX_CONVERSION_FIXTURE(Float);
 DEFINE_TYPED_MATRIX_CONVERSION_FIXTURE(Double);
 
@@ -191,6 +189,8 @@ DEFINE_TYPED_MATRIX_CONVERSION_FIXTURE(Double);
                        .Value(&sparse_tensor));                                  \
     }                                                                            \
     benchmark::DoNotOptimize(sparse_tensor);                                     \
+    state.SetItemsProcessed(state.iterations() * this->tensor_->size());         \
+    state.SetBytesProcessed(state.iterations() * this->tensor_->data()->size()); \
   }
 
 #define BENCHMARK_CONVERT_TENSOR(kind, format, value_type_name, index_type_name)       \
@@ -199,71 +199,31 @@ DEFINE_TYPED_MATRIX_CONVERSION_FIXTURE(Double);
                             index_type_name);                                          \
   BENCHMARK_CONVERT_TENSOR_(Strided, kind, format, value_type_name, index_type_name)
 
-BENCHMARK_CONVERT_TENSOR(Tensor, COO, Int8, Int8);
-BENCHMARK_CONVERT_TENSOR(Tensor, COO, Int8, Int16);
 BENCHMARK_CONVERT_TENSOR(Tensor, COO, Int8, Int32);
 BENCHMARK_CONVERT_TENSOR(Tensor, COO, Int8, Int64);
-BENCHMARK_CONVERT_TENSOR(Tensor, COO, Int16, Int8);
-BENCHMARK_CONVERT_TENSOR(Tensor, COO, Int16, Int16);
-BENCHMARK_CONVERT_TENSOR(Tensor, COO, Int16, Int32);
-BENCHMARK_CONVERT_TENSOR(Tensor, COO, Int16, Int64);
-BENCHMARK_CONVERT_TENSOR(Tensor, COO, Float, Int8);
-BENCHMARK_CONVERT_TENSOR(Tensor, COO, Float, Int16);
 BENCHMARK_CONVERT_TENSOR(Tensor, COO, Float, Int32);
 BENCHMARK_CONVERT_TENSOR(Tensor, COO, Float, Int64);
-BENCHMARK_CONVERT_TENSOR(Tensor, COO, Double, Int8);
-BENCHMARK_CONVERT_TENSOR(Tensor, COO, Double, Int16);
 BENCHMARK_CONVERT_TENSOR(Tensor, COO, Double, Int32);
 BENCHMARK_CONVERT_TENSOR(Tensor, COO, Double, Int64);
 
 BENCHMARK_CONVERT_TENSOR(Matrix, CSR, Int8, Int8);
 BENCHMARK_CONVERT_TENSOR(Matrix, CSR, Int8, Int16);
-BENCHMARK_CONVERT_TENSOR(Matrix, CSR, Int8, Int32);
-BENCHMARK_CONVERT_TENSOR(Matrix, CSR, Int8, Int64);
-BENCHMARK_CONVERT_TENSOR(Matrix, CSR, Int16, Int8);
-BENCHMARK_CONVERT_TENSOR(Matrix, CSR, Int16, Int16);
-BENCHMARK_CONVERT_TENSOR(Matrix, CSR, Int16, Int32);
-BENCHMARK_CONVERT_TENSOR(Matrix, CSR, Int16, Int64);
-BENCHMARK_CONVERT_TENSOR(Matrix, CSR, Float, Int8);
-BENCHMARK_CONVERT_TENSOR(Matrix, CSR, Float, Int16);
 BENCHMARK_CONVERT_TENSOR(Matrix, CSR, Float, Int32);
 BENCHMARK_CONVERT_TENSOR(Matrix, CSR, Float, Int64);
-BENCHMARK_CONVERT_TENSOR(Matrix, CSR, Double, Int8);
-BENCHMARK_CONVERT_TENSOR(Matrix, CSR, Double, Int16);
 BENCHMARK_CONVERT_TENSOR(Matrix, CSR, Double, Int32);
 BENCHMARK_CONVERT_TENSOR(Matrix, CSR, Double, Int64);
 
-BENCHMARK_CONVERT_TENSOR(Matrix, CSC, Int8, Int8);
-BENCHMARK_CONVERT_TENSOR(Matrix, CSC, Int8, Int16);
 BENCHMARK_CONVERT_TENSOR(Matrix, CSC, Int8, Int32);
 BENCHMARK_CONVERT_TENSOR(Matrix, CSC, Int8, Int64);
-BENCHMARK_CONVERT_TENSOR(Matrix, CSC, Int16, Int8);
-BENCHMARK_CONVERT_TENSOR(Matrix, CSC, Int16, Int16);
-BENCHMARK_CONVERT_TENSOR(Matrix, CSC, Int16, Int32);
-BENCHMARK_CONVERT_TENSOR(Matrix, CSC, Int16, Int64);
-BENCHMARK_CONVERT_TENSOR(Matrix, CSC, Float, Int8);
-BENCHMARK_CONVERT_TENSOR(Matrix, CSC, Float, Int16);
 BENCHMARK_CONVERT_TENSOR(Matrix, CSC, Float, Int32);
 BENCHMARK_CONVERT_TENSOR(Matrix, CSC, Float, Int64);
-BENCHMARK_CONVERT_TENSOR(Matrix, CSC, Double, Int8);
-BENCHMARK_CONVERT_TENSOR(Matrix, CSC, Double, Int16);
 BENCHMARK_CONVERT_TENSOR(Matrix, CSC, Double, Int32);
 BENCHMARK_CONVERT_TENSOR(Matrix, CSC, Double, Int64);
 
-BENCHMARK_CONVERT_TENSOR(Tensor, CSF, Int8, Int8);
-BENCHMARK_CONVERT_TENSOR(Tensor, CSF, Int8, Int16);
 BENCHMARK_CONVERT_TENSOR(Tensor, CSF, Int8, Int32);
 BENCHMARK_CONVERT_TENSOR(Tensor, CSF, Int8, Int64);
-BENCHMARK_CONVERT_TENSOR(Tensor, CSF, Int16, Int8);
-BENCHMARK_CONVERT_TENSOR(Tensor, CSF, Int16, Int16);
-BENCHMARK_CONVERT_TENSOR(Tensor, CSF, Int16, Int32);
-BENCHMARK_CONVERT_TENSOR(Tensor, CSF, Int16, Int64);
-BENCHMARK_CONVERT_TENSOR(Tensor, CSF, Float, Int8);
-BENCHMARK_CONVERT_TENSOR(Tensor, CSF, Float, Int16);
 BENCHMARK_CONVERT_TENSOR(Tensor, CSF, Float, Int32);
 BENCHMARK_CONVERT_TENSOR(Tensor, CSF, Float, Int64);
-BENCHMARK_CONVERT_TENSOR(Tensor, CSF, Double, Int8);
-BENCHMARK_CONVERT_TENSOR(Tensor, CSF, Double, Int16);
 BENCHMARK_CONVERT_TENSOR(Tensor, CSF, Double, Int32);
 BENCHMARK_CONVERT_TENSOR(Tensor, CSF, Double, Int64);
 

@@ -208,7 +208,7 @@ mod brotli_codec {
                 BROTLI_DEFAULT_COMPRESSION_QUALITY,
                 BROTLI_DEFAULT_LG_WINDOW_SIZE,
             );
-            encoder.write_all(&input_buf[..])?;
+            encoder.write_all(input_buf)?;
             encoder.flush().map_err(|e| e.into())
         }
     }
@@ -308,7 +308,7 @@ mod zstd_codec {
 
         fn compress(&mut self, input_buf: &[u8], output_buf: &mut Vec<u8>) -> Result<()> {
             let mut encoder = zstd::Encoder::new(output_buf, ZSTD_COMPRESSION_LEVEL)?;
-            encoder.write_all(&input_buf[..])?;
+            encoder.write_all(input_buf)?;
             match encoder.finish() {
                 Ok(_) => Ok(()),
                 Err(e) => Err(e.into()),

@@ -44,7 +44,7 @@ pub trait RecordBatchStream: Stream<Item = ArrowResult<RecordBatch>> {
 }
 
 /// Trait for a stream of record batches.
-pub type SendableRecordBatchStream = Pin<Box<dyn RecordBatchStream + Send>>;
+pub type SendableRecordBatchStream = Pin<Box<dyn RecordBatchStream + Send + Sync>>;
 
 /// Physical query planner that converts a `LogicalPlan` to an
 /// `ExecutionPlan` suitable for execution.
@@ -159,6 +159,7 @@ pub enum Distribution {
 }
 
 /// Represents the result from an expression
+#[derive(Clone)]
 pub enum ColumnarValue {
     /// Array of values
     Array(ArrayRef),
@@ -202,6 +203,9 @@ pub trait PhysicalExpr: Send + Sync + Display + Debug {
 /// * knows its accumulator's state's field
 /// * knows the expressions from whose its accumulator will receive values
 pub trait AggregateExpr: Send + Sync + Debug {
+    /// Returns the aggregate expression as [`Any`](std::any::Any) so that it can be
+    /// downcast to a specific implementation.
+    fn as_any(&self) -> &dyn Any;
     /// the field of the final result of this aggregation.
     fn field(&self) -> Result<Field>;
 
@@ -232,10 +236,10 @@ pub trait Accumulator: Send + Sync + Debug {
     fn state(&self) -> Result<Vec<ScalarValue>>;
 
     /// updates the accumulator's state from a vector of scalars.
-    fn update(&mut self, values: &Vec<ScalarValue>) -> Result<()>;
+    fn update(&mut self, values: &[ScalarValue]) -> Result<()>;
 
     /// updates the accumulator's state from a vector of arrays.
-    fn update_batch(&mut self, values: &Vec<ArrayRef>) -> Result<()> {
+    fn update_batch(&mut self, values: &[ArrayRef]) -> Result<()> {
         if values.is_empty() {
             return Ok(());
         };
@@ -249,10 +253,10 @@ pub trait Accumulator: Send + Sync + Debug {
     }
 
     /// updates the accumulator's state from a vector of scalars.
-    fn merge(&mut self, states: &Vec<ScalarValue>) -> Result<()>;
+    fn merge(&mut self, states: &[ScalarValue]) -> Result<()>;
 
     /// updates the accumulator's state from a vector of states.
-    fn merge_batch(&mut self, states: &Vec<ArrayRef>) -> Result<()> {
+    fn merge_batch(&mut self, states: &[ArrayRef]) -> Result<()> {
         if states.is_empty() {
             return Ok(());
         };

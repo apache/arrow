@@ -690,6 +690,20 @@ pub fn and(left: Expr, right: Expr) -> Expr {
     }
 }
 
+/// Combines an array of filter expressions into a single filter expression
+/// consisting of the input filter expressions joined with logical AND.
+/// Returns None if the filters array is empty.
+pub fn combine_filters(filters: &[Expr]) -> Option<Expr> {
+    if filters.is_empty() {
+        return None;
+    }
+    let combined_filter = filters
+        .iter()
+        .skip(1)
+        .fold(filters[0].clone(), |acc, filter| and(acc, filter.clone()));
+    Some(combined_filter)
+}
+
 /// return a new expression with a logical OR
 pub fn or(left: Expr, right: Expr) -> Expr {
     Expr::BinaryExpr {
@@ -782,6 +796,12 @@ impl Literal for &str {
 impl Literal for String {
     fn lit(&self) -> Expr {
         Expr::Literal(ScalarValue::Utf8(Some((*self).to_owned())))
+    }
+}
+
+impl Literal for ScalarValue {
+    fn lit(&self) -> Expr {
+        Expr::Literal(self.clone())
     }
 }
 
@@ -917,9 +937,9 @@ pub fn create_udaf(
 
 fn fmt_function(
     f: &mut fmt::Formatter,
-    fun: &String,
+    fun: &str,
     distinct: bool,
-    args: &Vec<Expr>,
+    args: &[Expr],
 ) -> fmt::Result {
     let args: Vec<String> = args.iter().map(|arg| format!("{:?}", arg)).collect();
     let distinct_str = match distinct {
@@ -1027,7 +1047,7 @@ impl fmt::Debug for Expr {
 }
 
 fn create_function_name(
-    fun: &String,
+    fun: &str,
     distinct: bool,
     args: &[Expr],
     input_schema: &DFSchema,
@@ -1163,11 +1183,10 @@ mod tests {
     }
 
     #[test]
-    fn case_when_different_literal_then_types() -> Result<()> {
+    fn case_when_different_literal_then_types() {
         let maybe_expr = when(col("state").eq(lit("CO")), lit(303))
             .when(col("state").eq(lit("NY")), lit("212"))
             .end();
         assert!(maybe_expr.is_err());
-        Ok(())
     }
 }

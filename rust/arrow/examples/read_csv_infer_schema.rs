@@ -18,12 +18,11 @@
 extern crate arrow;
 
 use arrow::csv;
-use arrow::error::Result;
 #[cfg(feature = "prettyprint")]
 use arrow::util::pretty::print_batches;
 use std::fs::File;
 
-fn main() -> Result<()> {
+fn main() {
     let file = File::open("test/data/uk_cities_with_headers.csv").unwrap();
     let builder = csv::ReaderBuilder::new()
         .has_header(true)
@@ -34,5 +33,4 @@ fn main() -> Result<()> {
     {
         print_batches(&[_batch]).unwrap();
     }
-    Ok(())
 }

@@ -29,7 +29,7 @@ use std::io::{BufReader, BufWriter};
 use std::sync::Arc;
 use tempfile::TempDir;
 
-pub fn create_table_dual() -> Box<dyn TableProvider + Send + Sync> {
+pub fn create_table_dual() -> Arc<dyn TableProvider + Send + Sync> {
     let dual_schema = Arc::new(Schema::new(vec![
         Field::new("id", DataType::Int32, false),
         Field::new("name", DataType::Utf8, false),
@@ -43,7 +43,7 @@ pub fn create_table_dual() -> Box<dyn TableProvider + Send + Sync> {
     )
     .unwrap();
     let provider = MemTable::try_new(dual_schema, vec![vec![batch]]).unwrap();
-    Box::new(provider)
+    Arc::new(provider)
 }
 
 /// Generated partitioned copy of a CSV file

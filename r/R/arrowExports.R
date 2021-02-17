@@ -48,6 +48,10 @@ Array__ApproxEquals <- function(lhs, rhs){
     .Call(`_arrow_Array__ApproxEquals`, lhs, rhs)
 }
 
+Array__Diff <- function(lhs, rhs){
+    .Call(`_arrow_Array__Diff`, lhs, rhs)
+}
+
 Array__data <- function(array){
     .Call(`_arrow_Array__data`, array)
 }
@@ -290,6 +294,10 @@ Table__cast <- function(table, schema, options){
 
 compute__CallFunction <- function(func_name, args, options){
     .Call(`_arrow_compute__CallFunction`, func_name, args, options)
+}
+
+list_compute_functions <- function(){
+    .Call(`_arrow_list_compute_functions`)
 }
 
 csv___ReadOptions__initialize <- function(options){
@@ -1306,6 +1314,14 @@ RecordBatch__SelectColumns <- function(batch, indices){
 
 RecordBatch__Equals <- function(self, other, check_metadata){
     .Call(`_arrow_RecordBatch__Equals`, self, other, check_metadata)
+}
+
+RecordBatch__AddColumn <- function(batch, i, field, column){
+    .Call(`_arrow_RecordBatch__AddColumn`, batch, i, field, column)
+}
+
+RecordBatch__SetColumn <- function(batch, i, field, column){
+    .Call(`_arrow_RecordBatch__SetColumn`, batch, i, field, column)
 }
 
 RecordBatch__RemoveColumn <- function(batch, i){

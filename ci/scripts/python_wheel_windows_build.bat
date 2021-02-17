@@ -47,6 +47,7 @@ set ARROW_WITH_ZLIB=ON
 set ARROW_WITH_ZSTD=ON
 set CMAKE_UNITY_BUILD=ON
 set CMAKE_GENERATOR=Visual Studio 15 2017 Win64
+set VCPKG_FEATURE_FLAGS=-manifests
 
 mkdir C:\arrow-build
 pushd C:\arrow-build
@@ -83,6 +84,8 @@ cmake ^
     -DCMAKE_TOOLCHAIN_FILE=C:\vcpkg\scripts\buildsystems\vcpkg.cmake ^
     -DCMAKE_UNITY_BUILD=%CMAKE_UNITY_BUILD% ^
     -DMSVC_LINK_VERBOSE=ON ^
+    -D_VCPKG_INSTALLED_DIR=C:\vcpkg\installed ^
+    -DVCPKG_MANIFEST_MODE=OFF ^
     -DVCPKG_TARGET_TRIPLET=x64-windows-static-md-%CMAKE_BUILD_TYPE% ^
     -G "%CMAKE_GENERATOR%" ^
     C:\arrow\cpp || exit /B

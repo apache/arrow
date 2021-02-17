@@ -46,6 +46,7 @@ Suggests:
     pkgload,
     reticulate,
     rmarkdown,
+    stringr,
     testthat,
     tibble
 LinkingTo: cpp11 (>= 0.2.0)

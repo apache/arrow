@@ -206,7 +206,7 @@ def test_filters_equivalency(tempdir, use_legacy_dataset):
     dataset = pq.ParquetDataset(
         base_path, filesystem=fs,
         filters=[('integer', '=', 1), ('string', '!=', 'b'),
-                 ('boolean', '==', True)],
+                 ('boolean', '==', 'True')],
         use_legacy_dataset=use_legacy_dataset,
     )
     table = dataset.read()
@@ -350,6 +350,23 @@ def test_filters_cutoff_exclusive_datetime(tempdir, use_legacy_dataset):
         categories=np.array(date_keys, dtype='datetime64'))
 
     assert result_df['dates'].values == expected
+
+
+@pytest.mark.pandas
+def test_filters_inclusive_datetime(tempdir):
+    # ARROW-11480
+    path = tempdir / 'timestamps.parquet'
+
+    pd.DataFrame({
+        "dates": pd.date_range("2020-01-01", periods=10, freq="D"),
+        "id": range(10)
+    }).to_parquet(path, use_deprecated_int96_timestamps=True)
+
+    table = pq.read_table(path, filters=[
+        ("dates", "<=", datetime.datetime(2020, 1, 5))
+    ])
+
+    assert table.column('id').to_pylist() == [0, 1, 2, 3, 4]
 
 
 @pytest.mark.pandas

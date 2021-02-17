@@ -21,6 +21,7 @@
 
 * `value_counts()` to tabulate values in an `Array` or `ChunkedArray`, similar to `base::table()`.
 * `StructArray` objects gain data.frame-like methods, including `names()`, `$`, `[[`, and `dim()`.
+* RecordBatch columns can now be added, replaced, or removed by assigning (`<-`) with either `$` or `[[`
 
 # arrow 3.0.0
 

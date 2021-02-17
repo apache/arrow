@@ -85,6 +85,21 @@ TEST_F(TestIsInKernel, CallBinary) {
   AssertArraysEqual(*expected, *out.make_array());
 }
 
+TEST_F(TestIsInKernel, ImplicitlyCastValueSet) {
+  auto input = ArrayFromJSON(int8(), "[0, 1, 2, 3, 4, 5, 6, 7, 8]");
+
+  SetLookupOptions opts{ArrayFromJSON(int32(), "[2, 3, 5, 7]")};
+  ASSERT_OK_AND_ASSIGN(Datum out, CallFunction("is_in", {input}, &opts));
+
+  auto expected = ArrayFromJSON(boolean(), ("[false, false, true, true, false,"
+                                            "true, false, true, false]"));
+  AssertArraysEqual(*expected, *out.make_array());
+
+  // fails; value_set cannot be cast to int8
+  opts = SetLookupOptions{ArrayFromJSON(float32(), "[2.5, 3.1, 5.0]")};
+  ASSERT_RAISES(Invalid, CallFunction("is_in", {input}, &opts));
+}
+
 template <typename Type>
 class TestIsInKernelPrimitive : public ::testing::Test {};
 
@@ -585,6 +600,20 @@ TEST_F(TestIndexInKernel, ChunkedArrayInvoke) {
   CheckIndexInChunked(input, value_set, expected, /*skip_nulls=*/false);
   expected = ChunkedArrayFromJSON(int32(), {"[3, 1, 0, 3, null]", "[1, null, 3, null]"});
   CheckIndexInChunked(input, value_set, expected, /*skip_nulls=*/true);
+}
+
+TEST(TestSetLookup, DispatchBest) {
+  for (std::string name : {"is_in", "index_in"}) {
+    CheckDispatchBest(name, {int32()}, {int32()});
+    CheckDispatchBest(name, {dictionary(int32(), utf8())}, {utf8()});
+  }
+}
+
+TEST(TestSetLookup, IsInWithImplicitCasts) {
+  SetLookupOptions opts{ArrayFromJSON(utf8(), R"(["b", null])")};
+  CheckScalarUnary("is_in",
+                   ArrayFromJSON(dictionary(int32(), utf8()), R"(["a", "b", "c", null])"),
+                   ArrayFromJSON(boolean(), "[0, 1, 0, 1]"), &opts);
 }
 
 }  // namespace compute

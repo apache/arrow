@@ -199,4 +199,9 @@ SEXP compute__CallFunction(std::string func_name, cpp11::list args, cpp11::list 
   return from_datum(std::move(out));
 }
 
+// [[arrow::export]]
+std::vector<std::string> list_compute_functions() {
+  return arrow::compute::GetFunctionRegistry()->GetFunctionNames();
+}
+
 #endif

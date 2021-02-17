@@ -77,20 +77,18 @@ mod tests {
     use std::sync::Arc;
 
     #[test]
-    fn test_concat_empty_vec() -> Result<()> {
+    fn test_concat_empty_vec() {
         let re = concat(&[]);
         assert!(re.is_err());
-        Ok(())
     }
 
     #[test]
-    fn test_concat_incompatible_datatypes() -> Result<()> {
+    fn test_concat_incompatible_datatypes() {
         let re = concat(&[
             &PrimitiveArray::<Int64Type>::from(vec![Some(-1), Some(2), None]),
             &StringArray::from(vec![Some("hello"), Some("bar"), Some("world")]),
         ]);
         assert!(re.is_err());
-        Ok(())
     }
 
     #[test]
@@ -150,6 +148,40 @@ mod tests {
             Some(256),
             Some(512),
             Some(1024),
+        ])) as ArrayRef;
+
+        assert_eq!(&arr, &expected_output);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_concat_primitive_array_slices() -> Result<()> {
+        let input_1 = PrimitiveArray::<Int64Type>::from(vec![
+            Some(-1),
+            Some(-1),
+            Some(2),
+            None,
+            None,
+        ])
+        .slice(1, 3);
+
+        let input_2 = PrimitiveArray::<Int64Type>::from(vec![
+            Some(101),
+            Some(102),
+            Some(103),
+            None,
+        ])
+        .slice(1, 3);
+        let arr = concat(&[input_1.as_ref(), input_2.as_ref()])?;
+
+        let expected_output = Arc::new(PrimitiveArray::<Int64Type>::from(vec![
+            Some(-1),
+            Some(2),
+            None,
+            Some(102),
+            Some(103),
+            None,
         ])) as ArrayRef;
 
         assert_eq!(&arr, &expected_output);
@@ -251,6 +283,139 @@ mod tests {
         let array_expected = Arc::new(builder_expected.finish()) as ArrayRef;
 
         assert_eq!(&array_result, &array_expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_concat_struct_arrays() -> Result<()> {
+        let field = Field::new("field", DataType::Int64, true);
+        let input_primitive_1: ArrayRef =
+            Arc::new(PrimitiveArray::<Int64Type>::from(vec![
+                Some(-1),
+                Some(-1),
+                Some(2),
+                None,
+                None,
+            ]));
+        let input_struct_1 = StructArray::from(vec![(field.clone(), input_primitive_1)]);
+
+        let input_primitive_2: ArrayRef =
+            Arc::new(PrimitiveArray::<Int64Type>::from(vec![
+                Some(101),
+                Some(102),
+                Some(103),
+                None,
+            ]));
+        let input_struct_2 = StructArray::from(vec![(field.clone(), input_primitive_2)]);
+
+        let input_primitive_3: ArrayRef =
+            Arc::new(PrimitiveArray::<Int64Type>::from(vec![
+                Some(256),
+                Some(512),
+                Some(1024),
+            ]));
+        let input_struct_3 = StructArray::from(vec![(field, input_primitive_3)]);
+
+        let arr = concat(&[&input_struct_1, &input_struct_2, &input_struct_3])?;
+
+        let expected_primitive_output = Arc::new(PrimitiveArray::<Int64Type>::from(vec![
+            Some(-1),
+            Some(-1),
+            Some(2),
+            None,
+            None,
+            Some(101),
+            Some(102),
+            Some(103),
+            None,
+            Some(256),
+            Some(512),
+            Some(1024),
+        ])) as ArrayRef;
+
+        let actual_primitive = arr
+            .as_any()
+            .downcast_ref::<StructArray>()
+            .unwrap()
+            .column(0);
+        assert_eq!(actual_primitive, &expected_primitive_output);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_concat_struct_array_slices() -> Result<()> {
+        let field = Field::new("field", DataType::Int64, true);
+        let input_primitive_1: ArrayRef =
+            Arc::new(PrimitiveArray::<Int64Type>::from(vec![
+                Some(-1),
+                Some(-1),
+                Some(2),
+                None,
+                None,
+            ]));
+        let input_struct_1 = StructArray::from(vec![(field.clone(), input_primitive_1)]);
+
+        let input_primitive_2: ArrayRef =
+            Arc::new(PrimitiveArray::<Int64Type>::from(vec![
+                Some(101),
+                Some(102),
+                Some(103),
+                None,
+            ]));
+        let input_struct_2 = StructArray::from(vec![(field, input_primitive_2)]);
+
+        let arr = concat(&[
+            input_struct_1.slice(1, 3).as_ref(),
+            input_struct_2.slice(1, 2).as_ref(),
+        ])?;
+
+        let expected_primitive_output = Arc::new(PrimitiveArray::<Int64Type>::from(vec![
+            Some(-1),
+            Some(2),
+            None,
+            Some(102),
+            Some(103),
+        ])) as ArrayRef;
+
+        let actual_primitive = arr
+            .as_any()
+            .downcast_ref::<StructArray>()
+            .unwrap()
+            .column(0);
+        assert_eq!(actual_primitive, &expected_primitive_output);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_string_array_slices() -> Result<()> {
+        let input_1 = StringArray::from(vec!["hello", "A", "B", "C"]);
+        let input_2 = StringArray::from(vec!["world", "D", "E", "Z"]);
+
+        let arr = concat(&[input_1.slice(1, 3).as_ref(), input_2.slice(1, 2).as_ref()])?;
+
+        let expected_output = StringArray::from(vec!["A", "B", "C", "D", "E"]);
+
+        let actual_output = arr.as_any().downcast_ref::<StringArray>().unwrap();
+        assert_eq!(actual_output, &expected_output);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_string_array_with_null_slices() -> Result<()> {
+        let input_1 = StringArray::from(vec![Some("hello"), None, Some("A"), Some("C")]);
+        let input_2 = StringArray::from(vec![None, Some("world"), Some("D"), None]);
+
+        let arr = concat(&[input_1.slice(1, 3).as_ref(), input_2.slice(1, 2).as_ref()])?;
+
+        let expected_output =
+            StringArray::from(vec![None, Some("A"), Some("C"), Some("world"), Some("D")]);
+
+        let actual_output = arr.as_any().downcast_ref::<StringArray>().unwrap();
+        assert_eq!(actual_output, &expected_output);
 
         Ok(())
     }
