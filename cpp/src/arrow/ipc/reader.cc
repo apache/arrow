@@ -46,6 +46,7 @@
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/parallel.h"
@@ -107,6 +108,30 @@ Status InvalidMessageType(MessageType expected, MessageType actual) {
 
 // ----------------------------------------------------------------------
 // Record batch read path
+
+/// \brief Structure to keep common arguments to be passed
+struct IpcReadContext {
+  IpcReadContext(DictionaryMemo* memo, const IpcReadOptions& option, bool swap,
+                 MetadataVersion version = MetadataVersion::V5,
+                 Compression::type kind = Compression::UNCOMPRESSED)
+      : dictionary_memo(memo),
+        options(option),
+        metadata_version(version),
+        compression(kind),
+        swap_endian(swap) {}
+
+  DictionaryMemo* dictionary_memo;
+
+  const IpcReadOptions& options;
+
+  MetadataVersion metadata_version;
+
+  Compression::type compression;
+
+  /// \brief LoadRecordBatch() or LoadRecordBatchSubset() swaps endianness of elements
+  /// if this flag is true
+  const bool swap_endian;
+};
 
 /// The field_index and buffer_index are incremented based on how much of the
 /// batch is "consumed" (through nested data reconstruction, for example)
@@ -439,10 +464,9 @@ Status DecompressBuffers(Compression::type compression, const IpcReadOptions& op
 
 Result<std::shared_ptr<RecordBatch>> LoadRecordBatchSubset(
     const flatbuf::RecordBatch* metadata, const std::shared_ptr<Schema>& schema,
-    const std::vector<bool>* inclusion_mask, const DictionaryMemo* dictionary_memo,
-    const IpcReadOptions& options, MetadataVersion metadata_version,
-    Compression::type compression, io::RandomAccessFile* file) {
-  ArrayLoader loader(metadata, metadata_version, options, file);
+    const std::vector<bool>* inclusion_mask, const IpcReadContext& context,
+    io::RandomAccessFile* file) {
+  ArrayLoader loader(metadata, context.metadata_version, context.options, file);
 
   ArrayDataVector columns(schema->num_fields());
   ArrayDataVector filtered_columns;
@@ -472,7 +496,8 @@ Result<std::shared_ptr<RecordBatch>> LoadRecordBatchSubset(
 
   // Dictionary resolution needs to happen on the unfiltered columns,
   // because fields are mapped structurally (by path in the original schema).
-  RETURN_NOT_OK(ResolveDictionaries(columns, *dictionary_memo, options.memory_pool));
+  RETURN_NOT_OK(ResolveDictionaries(columns, *context.dictionary_memo,
+                                    context.options.memory_pool));
 
   if (inclusion_mask) {
     filtered_schema = ::arrow::schema(std::move(filtered_fields), schema->metadata());
@@ -481,25 +506,30 @@ Result<std::shared_ptr<RecordBatch>> LoadRecordBatchSubset(
     filtered_schema = schema;
     filtered_columns = std::move(columns);
   }
-  if (compression != Compression::UNCOMPRESSED) {
-    RETURN_NOT_OK(DecompressBuffers(compression, options, &filtered_columns));
+  if (context.compression != Compression::UNCOMPRESSED) {
+    RETURN_NOT_OK(
+        DecompressBuffers(context.compression, context.options, &filtered_columns));
   }
 
+  // swap endian in a set of ArrayData if necessary (swap_endian == true)
+  if (context.swap_endian) {
+    for (int i = 0; i < static_cast<int>(filtered_columns.size()); ++i) {
+      ARROW_ASSIGN_OR_RAISE(filtered_columns[i],
+                            arrow::internal::SwapEndianArrayData(filtered_columns[i]));
+    }
+  }
   return RecordBatch::Make(filtered_schema, metadata->length(),
                            std::move(filtered_columns));
 }
 
 Result<std::shared_ptr<RecordBatch>> LoadRecordBatch(
     const flatbuf::RecordBatch* metadata, const std::shared_ptr<Schema>& schema,
-    const std::vector<bool>& inclusion_mask, const DictionaryMemo* dictionary_memo,
-    const IpcReadOptions& options, MetadataVersion metadata_version,
-    Compression::type compression, io::RandomAccessFile* file) {
+    const std::vector<bool>& inclusion_mask, const IpcReadContext& context,
+    io::RandomAccessFile* file) {
   if (inclusion_mask.size() > 0) {
-    return LoadRecordBatchSubset(metadata, schema, &inclusion_mask, dictionary_memo,
-                                 options, metadata_version, compression, file);
+    return LoadRecordBatchSubset(metadata, schema, &inclusion_mask, context, file);
   } else {
-    return LoadRecordBatchSubset(metadata, schema, nullptr, dictionary_memo, options,
-                                 metadata_version, compression, file);
+    return LoadRecordBatchSubset(metadata, schema, /*param_name=*/nullptr, context, file);
   }
 }
 
@@ -577,8 +607,8 @@ Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(
 
 Result<std::shared_ptr<RecordBatch>> ReadRecordBatchInternal(
     const Buffer& metadata, const std::shared_ptr<Schema>& schema,
-    const std::vector<bool>& inclusion_mask, const DictionaryMemo* dictionary_memo,
-    const IpcReadOptions& options, io::RandomAccessFile* file) {
+    const std::vector<bool>& inclusion_mask, IpcReadContext& context,
+    io::RandomAccessFile* file) {
   const flatbuf::Message* message = nullptr;
   RETURN_NOT_OK(internal::VerifyMessage(metadata.data(), metadata.size(), &message));
   auto batch = message->header_as_RecordBatch();
@@ -589,15 +619,15 @@ Result<std::shared_ptr<RecordBatch>> ReadRecordBatchInternal(
 
   Compression::type compression;
   RETURN_NOT_OK(GetCompression(batch, &compression));
-  if (compression == Compression::UNCOMPRESSED &&
+  if (context.compression == Compression::UNCOMPRESSED &&
       message->version() == flatbuf::MetadataVersion::V4) {
     // Possibly obtain codec information from experimental serialization format
     // in 0.17.x
     RETURN_NOT_OK(GetCompressionExperimental(message, &compression));
   }
-  return LoadRecordBatch(batch, schema, inclusion_mask, dictionary_memo, options,
-                         internal::GetMetadataVersion(message->version()), compression,
-                         file);
+  context.compression = compression;
+  context.metadata_version = internal::GetMetadataVersion(message->version());
+  return LoadRecordBatch(batch, schema, inclusion_mask, context, file);
 }
 
 // If we are selecting only certain fields, populate an inclusion mask for fast lookups.
@@ -630,7 +660,8 @@ Status GetInclusionMaskAndOutSchema(const std::shared_ptr<Schema>& full_schema,
     included_fields.push_back(full_schema->field(i));
   }
 
-  *out_schema = schema(std::move(included_fields), full_schema->metadata());
+  *out_schema = schema(std::move(included_fields), full_schema->endianness(),
+                       full_schema->metadata());
   return Status::OK();
 }
 
@@ -638,25 +669,32 @@ Status UnpackSchemaMessage(const void* opaque_schema, const IpcReadOptions& opti
                            DictionaryMemo* dictionary_memo,
                            std::shared_ptr<Schema>* schema,
                            std::shared_ptr<Schema>* out_schema,
-                           std::vector<bool>* field_inclusion_mask) {
+                           std::vector<bool>* field_inclusion_mask, bool* swap_endian) {
   RETURN_NOT_OK(internal::GetSchema(opaque_schema, dictionary_memo, schema));
 
   // If we are selecting only certain fields, populate the inclusion mask now
   // for fast lookups
-  return GetInclusionMaskAndOutSchema(*schema, options.included_fields,
-                                      field_inclusion_mask, out_schema);
+  RETURN_NOT_OK(GetInclusionMaskAndOutSchema(*schema, options.included_fields,
+                                             field_inclusion_mask, out_schema));
+  *swap_endian = options.ensure_native_endian && !out_schema->get()->is_native_endian();
+  if (*swap_endian) {
+    // create a new schema with native endianness before swapping endian in ArrayData
+    *schema = schema->get()->WithEndianness(Endianness::Native);
+    *out_schema = out_schema->get()->WithEndianness(Endianness::Native);
+  }
+  return Status::OK();
 }
 
 Status UnpackSchemaMessage(const Message& message, const IpcReadOptions& options,
                            DictionaryMemo* dictionary_memo,
                            std::shared_ptr<Schema>* schema,
                            std::shared_ptr<Schema>* out_schema,
-                           std::vector<bool>* field_inclusion_mask) {
+                           std::vector<bool>* field_inclusion_mask, bool* swap_endian) {
   CHECK_MESSAGE_TYPE(MessageType::SCHEMA, message.type());
   CHECK_HAS_NO_BODY(message);
 
   return UnpackSchemaMessage(message.header(), options, dictionary_memo, schema,
-                             out_schema, field_inclusion_mask);
+                             out_schema, field_inclusion_mask, swap_endian);
 }
 
 Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(
@@ -666,15 +704,14 @@ Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(
   std::shared_ptr<Schema> out_schema;
   // Empty means do not use
   std::vector<bool> inclusion_mask;
-  RETURN_NOT_OK(GetInclusionMaskAndOutSchema(schema, options.included_fields,
+  IpcReadContext context(const_cast<DictionaryMemo*>(dictionary_memo), options, false);
+  RETURN_NOT_OK(GetInclusionMaskAndOutSchema(schema, context.options.included_fields,
                                              &inclusion_mask, &out_schema));
-  return ReadRecordBatchInternal(metadata, schema, inclusion_mask, dictionary_memo,
-                                 options, file);
+  return ReadRecordBatchInternal(metadata, schema, inclusion_mask, context, file);
 }
 
-Status ReadDictionary(const Buffer& metadata, DictionaryMemo* dictionary_memo,
-                      const IpcReadOptions& options, DictionaryKind* kind,
-                      io::RandomAccessFile* file) {
+Status ReadDictionary(const Buffer& metadata, const IpcReadContext& context,
+                      DictionaryKind* kind, io::RandomAccessFile* file) {
   const flatbuf::Message* message = nullptr;
   RETURN_NOT_OK(internal::VerifyMessage(metadata.data(), metadata.size(), &message));
   const auto dictionary_batch = message->header_as_DictionaryBatch();
@@ -701,42 +738,46 @@ Status ReadDictionary(const Buffer& metadata, DictionaryMemo* dictionary_memo,
 
   // Look up the dictionary value type, which must have been added to the
   // DictionaryMemo already prior to invoking this function
-  ARROW_ASSIGN_OR_RAISE(auto value_type, dictionary_memo->GetDictionaryType(id));
+  ARROW_ASSIGN_OR_RAISE(auto value_type, context.dictionary_memo->GetDictionaryType(id));
 
   // Load the dictionary data from the dictionary batch
   ArrayLoader loader(batch_meta, internal::GetMetadataVersion(message->version()),
-                     options, file);
-  const auto dict_data = std::make_shared<ArrayData>();
+                     context.options, file);
+  auto dict_data = std::make_shared<ArrayData>();
   const Field dummy_field("", value_type);
   RETURN_NOT_OK(loader.Load(&dummy_field, dict_data.get()));
 
   if (compression != Compression::UNCOMPRESSED) {
     ArrayDataVector dict_fields{dict_data};
-    RETURN_NOT_OK(DecompressBuffers(compression, options, &dict_fields));
+    RETURN_NOT_OK(DecompressBuffers(compression, context.options, &dict_fields));
+  }
+
+  // swap endian in dict_data if necessary (swap_endian == true)
+  if (context.swap_endian) {
+    ARROW_ASSIGN_OR_RAISE(dict_data, ::arrow::internal::SwapEndianArrayData(dict_data));
   }
 
   if (dictionary_batch->isDelta()) {
     if (kind != nullptr) {
       *kind = DictionaryKind::Delta;
     }
-    return dictionary_memo->AddDictionaryDelta(id, dict_data);
+    return context.dictionary_memo->AddDictionaryDelta(id, dict_data);
   }
   ARROW_ASSIGN_OR_RAISE(bool inserted,
-                        dictionary_memo->AddOrReplaceDictionary(id, dict_data));
+                        context.dictionary_memo->AddOrReplaceDictionary(id, dict_data));
   if (kind != nullptr) {
     *kind = inserted ? DictionaryKind::New : DictionaryKind::Replacement;
   }
   return Status::OK();
 }
 
-Status ReadDictionary(const Message& message, DictionaryMemo* dictionary_memo,
-                      const IpcReadOptions& options, DictionaryKind* kind) {
+Status ReadDictionary(const Message& message, const IpcReadContext& context,
+                      DictionaryKind* kind) {
   // Only invoke this method if we already know we have a dictionary message
   DCHECK_EQ(message.type(), MessageType::DICTIONARY_BATCH);
   CHECK_HAS_BODY(message);
   ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message.body()));
-  return ReadDictionary(*message.metadata(), dictionary_memo, options, kind,
-                        reader.get());
+  return ReadDictionary(*message.metadata(), context, kind, reader.get());
 }
 
 // ----------------------------------------------------------------------
@@ -755,8 +796,10 @@ class RecordBatchStreamReaderImpl : public RecordBatchStreamReader {
       return Status::Invalid("Tried reading schema message, was null or length 0");
     }
 
-    return UnpackSchemaMessage(*message, options, &dictionary_memo_, &schema_,
-                               &out_schema_, &field_inclusion_mask_);
+    RETURN_NOT_OK(UnpackSchemaMessage(*message, options, &dictionary_memo_, &schema_,
+                                      &out_schema_, &field_inclusion_mask_,
+                                      &swap_endian_));
+    return Status::OK();
   }
 
   Status ReadNext(std::shared_ptr<RecordBatch>* batch) override {
@@ -788,8 +831,9 @@ class RecordBatchStreamReaderImpl : public RecordBatchStreamReader {
 
     CHECK_HAS_BODY(*message);
     ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
+    IpcReadContext context(&dictionary_memo_, options_, swap_endian_);
     return ReadRecordBatchInternal(*message->metadata(), schema_, field_inclusion_mask_,
-                                   &dictionary_memo_, options_, reader.get())
+                                   context, reader.get())
         .Value(batch);
   }
 
@@ -819,8 +863,8 @@ class RecordBatchStreamReaderImpl : public RecordBatchStreamReader {
   // Read dictionary from dictionary batch
   Status ReadDictionary(const Message& message) {
     DictionaryKind kind;
-    RETURN_NOT_OK(
-        ::arrow::ipc::ReadDictionary(message, &dictionary_memo_, options_, &kind));
+    IpcReadContext context(&dictionary_memo_, options_, swap_endian_);
+    RETURN_NOT_OK(::arrow::ipc::ReadDictionary(message, context, &kind));
     switch (kind) {
       case DictionaryKind::New:
         break;
@@ -886,6 +930,8 @@ class RecordBatchStreamReaderImpl : public RecordBatchStreamReader {
 
   DictionaryMemo dictionary_memo_;
   std::shared_ptr<Schema> schema_, out_schema_;
+
+  bool swap_endian_;
 };
 
 // ----------------------------------------------------------------------
@@ -941,10 +987,10 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
 
     CHECK_HAS_BODY(*message);
     ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
-    ARROW_ASSIGN_OR_RAISE(
-        auto batch,
-        ReadRecordBatchInternal(*message->metadata(), schema_, field_inclusion_mask_,
-                                &dictionary_memo_, options_, reader.get()));
+    IpcReadContext context(&dictionary_memo_, options_, swap_endian_);
+    ARROW_ASSIGN_OR_RAISE(auto batch, ReadRecordBatchInternal(
+                                          *message->metadata(), schema_,
+                                          field_inclusion_mask_, context, reader.get()));
     ++stats_.num_record_batches;
     return batch;
   }
@@ -964,7 +1010,8 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
 
     // Get the schema and record any observed dictionaries
     RETURN_NOT_OK(UnpackSchemaMessage(footer_->schema(), options, &dictionary_memo_,
-                                      &schema_, &out_schema_, &field_inclusion_mask_));
+                                      &schema_, &out_schema_, &field_inclusion_mask_,
+                                      &swap_endian_));
     ++stats_.num_messages;
     return Status::OK();
   }
@@ -1008,8 +1055,8 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
       CHECK_HAS_BODY(*message);
       ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
       DictionaryKind kind;
-      RETURN_NOT_OK(ReadDictionary(*message->metadata(), &dictionary_memo_, options_,
-                                   &kind, reader.get()));
+      IpcReadContext context(&dictionary_memo_, options_, swap_endian_);
+      RETURN_NOT_OK(ReadDictionary(*message->metadata(), context, &kind, reader.get()));
       ++stats_.num_dictionary_batches;
       if (kind != DictionaryKind::New) {
         return Status::Invalid(
@@ -1097,6 +1144,8 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
   std::shared_ptr<Schema> out_schema_;
 
   ReadStats stats_;
+
+  bool swap_endian_;
 };
 
 Result<std::shared_ptr<RecordBatchFileReader>> RecordBatchFileReader::Open(
@@ -1192,7 +1241,8 @@ class StreamDecoder::StreamDecoderImpl : public MessageDecoderListener {
  private:
   Status OnSchemaMessageDecoded(std::unique_ptr<Message> message) {
     RETURN_NOT_OK(UnpackSchemaMessage(*message, options_, &dictionary_memo_, &schema_,
-                                      &out_schema_, &field_inclusion_mask_));
+                                      &out_schema_, &field_inclusion_mask_,
+                                      &swap_endian_));
 
     n_required_dictionaries_ = dictionary_memo_.fields().num_fields();
     if (n_required_dictionaries_ == 0) {
@@ -1220,15 +1270,17 @@ class StreamDecoder::StreamDecoderImpl : public MessageDecoderListener {
   }
 
   Status OnRecordBatchMessageDecoded(std::unique_ptr<Message> message) {
+    IpcReadContext context(&dictionary_memo_, options_, swap_endian_);
     if (message->type() == MessageType::DICTIONARY_BATCH) {
       return ReadDictionary(*message);
     } else {
       CHECK_HAS_BODY(*message);
       ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
+      IpcReadContext context(&dictionary_memo_, options_, swap_endian_);
       ARROW_ASSIGN_OR_RAISE(
           auto batch,
           ReadRecordBatchInternal(*message->metadata(), schema_, field_inclusion_mask_,
-                                  &dictionary_memo_, options_, reader.get()));
+                                  context, reader.get()));
       ++stats_.num_record_batches;
       return listener_->OnRecordBatchDecoded(std::move(batch));
     }
@@ -1237,8 +1289,8 @@ class StreamDecoder::StreamDecoderImpl : public MessageDecoderListener {
   // Read dictionary from dictionary batch
   Status ReadDictionary(const Message& message) {
     DictionaryKind kind;
-    RETURN_NOT_OK(
-        ::arrow::ipc::ReadDictionary(message, &dictionary_memo_, options_, &kind));
+    IpcReadContext context(&dictionary_memo_, options_, swap_endian_);
+    RETURN_NOT_OK(::arrow::ipc::ReadDictionary(message, context, &kind));
     ++stats_.num_dictionary_batches;
     switch (kind) {
       case DictionaryKind::New:
@@ -1262,6 +1314,7 @@ class StreamDecoder::StreamDecoderImpl : public MessageDecoderListener {
   DictionaryMemo dictionary_memo_;
   std::shared_ptr<Schema> schema_, out_schema_;
   ReadStats stats_;
+  bool swap_endian_;
 };
 
 StreamDecoder::StreamDecoder(std::shared_ptr<Listener> listener, IpcReadOptions options) {

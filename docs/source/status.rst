@@ -128,12 +128,16 @@ IPC Format
 +-----------------------------+-------+-------+-------+------------+-------+-------+-------+
 | Buffer compression          | ✓     |       |       |            |       |       | ✓     |
 +-----------------------------+-------+-------+-------+------------+-------+-------+-------+
+| Endianness conversion       | ✓ (2) |       |       |            |       |       |       |
++-----------------------------+-------+-------+-------+------------+-------+-------+-------+
 | Custom schema metadata      | ✓     | ✓     |       |            |       |  ✓    | ✓     |
 +-----------------------------+-------+-------+-------+------------+-------+-------+-------+
 
 Notes:
 
 * \(1) Delta dictionaries not supported on nested dictionaries
+
+* \(2) Data with non-native endianness can be byte-swapped automatically when reading.
 
 .. seealso::
    The :ref:`format-ipc` specification.

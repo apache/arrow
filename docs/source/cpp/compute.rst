@@ -120,7 +120,7 @@ to numeric type which can accommodate any value from either input.
 .. _common-numeric-type:
 
 Common numeric type
-~~~~~~~~~~~~~~~~~~~
+-------------------
 
 The common numeric type of a set of input numeric types is the smallest numeric
 type which can accommodate any value of any input. If any input is a floating
@@ -482,14 +482,14 @@ These functions trim off characters on both sides (trim), or the left (ltrim) or
 +--------------------------+------------+-------------------------+---------------------+----------------------------------------+---------+
 
 * \(1) Only characters specified in :member:`TrimOptions::characters` will be
-trimmed off. Both the input string as the `characters` argument are interepreted
-as ASCII characters.
+  trimmed off. Both the input string and the `characters` argument are
+  interpreted as ASCII characters.
 
 * \(2) Only trim off ASCII whitespace characters (``'\t'``, ``'\n'``, ``'\v'``,
-``'\f'``, ``'\r'``  and ``' '``).
+  ``'\f'``, ``'\r'``  and ``' '``).
 
 * \(3) Only characters specified in :member:`TrimOptions::characters` will be
-trimmed off.
+  trimmed off.
 
 * \(4) Only trim off Unicode whitespace characters.
 

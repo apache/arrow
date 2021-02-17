@@ -27,7 +27,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
-#include "arrow/util/bit_util.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/key_value_metadata.h"
 
 namespace arrow {
