@@ -115,10 +115,25 @@ struct CompareOptions : public FunctionOptions {
 };
 
 struct ARROW_EXPORT ProjectOptions : public FunctionOptions {
-  explicit ProjectOptions(std::vector<std::string> n) : field_names(std::move(n)) {}
+  ProjectOptions(std::vector<std::string> n, std::vector<bool> r,
+                 std::vector<std::shared_ptr<const KeyValueMetadata>> m)
+      : field_names(std::move(n)),
+        field_nullability(std::move(r)),
+        field_metadata(std::move(m)) {}
+
+  explicit ProjectOptions(std::vector<std::string> n)
+      : field_names(std::move(n)),
+        field_nullability(field_names.size(), true),
+        field_metadata(field_names.size(), NULLPTR) {}
 
   /// Names for wrapped columns
   std::vector<std::string> field_names;
+
+  /// Nullability bits for wrapped columns
+  std::vector<bool> field_nullability;
+
+  /// Metadata attached to wrapped columns
+  std::vector<std::shared_ptr<const KeyValueMetadata>> field_metadata;
 };
 
 /// @}

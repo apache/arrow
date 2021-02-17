@@ -44,6 +44,8 @@ ScanOptions::ScanOptions(std::shared_ptr<Schema> dataset_schema,
   for (const auto& field : projector.schema()->fields()) {
     project_args.push_back(field_ref(field->name()));
     project_options.field_names.push_back(field->name());
+    project_options.field_nullability.push_back(field->nullable());
+    project_options.field_metadata.push_back(field->metadata());
   }
   projection = call("project", std::move(project_args), std::move(project_options))
                    .Bind(*projector.schema())

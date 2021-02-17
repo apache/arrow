@@ -63,9 +63,15 @@ const FunctionDoc list_value_length_doc{
 Result<ValueDescr> ProjectResolve(KernelContext* ctx,
                                   const std::vector<ValueDescr>& descrs) {
   const auto& names = OptionsWrapper<ProjectOptions>::Get(ctx).field_names;
-  if (names.size() != descrs.size()) {
-    return Status::Invalid("project() was passed ", names.size(), " field ", "names but ",
-                           descrs.size(), " arguments");
+  const auto& nullable = OptionsWrapper<ProjectOptions>::Get(ctx).field_nullability;
+  const auto& metadata = OptionsWrapper<ProjectOptions>::Get(ctx).field_metadata;
+
+  if (names.size() != descrs.size() || nullable.size() != descrs.size() ||
+      metadata.size() != descrs.size()) {
+    return Status::Invalid("project() was passed ", descrs.size(), " arguments but ",
+                           names.size(), " field names, ", nullable.size(),
+                           " nullability bits, and ", metadata.size(),
+                           " nullability bits.");
   }
 
   size_t i = 0;
@@ -86,7 +92,7 @@ Result<ValueDescr> ProjectResolve(KernelContext* ctx,
       }
     }
 
-    fields[i] = field(names[i], descr.type);
+    fields[i] = field(names[i], descr.type, nullable[i], metadata[i]);
     ++i;
   }
 
