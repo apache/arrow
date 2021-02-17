@@ -18,16 +18,26 @@
 
 # This script generates json and arrow files of each type (e.g. primitive) for integration endian test
 # Usage: generate_files_for_endian_test.sh
-#        ARROW_DIR : where Arrow repository exists
-#        TMP_DIR   : where files will be generated
+#        ARROW_CPP_EXE_PATH : where Arrow C++ binaries can be found
+#        TMP_DIR            : where files will be generated
 
-: ${ARROW_DIR:=/arrow}
+set -e
+
+: ${ARROW_CPP_EXE_PATH:=/arrow/cpp/build/debug/}
 : ${TMP_DIR:=/tmp/arrow}
 
 json_dir=$TMP_DIR/arrow.$$
 mkdir -p $json_dir
-archery integration --with-cpp=1 --tempdir=$json_dir
-for f in $json_dir/*.json ; do $ARROW_DIR/cpp/build/debug/arrow-json-integration-test -mode JSON_TO_ARROW -json $f -arrow ${f%.*}.arrow_file -integration true ; done
-for f in $json_dir/*.arrow_file ; do $ARROW_DIR/cpp/build/debug/arrow-file-to-stream $f > ${f%.*}.stream; done
-for f in $json_dir/*.json ; do gzip $f ; done
+
+archery integration --stop-on-error --with-cpp=1 --tempdir=$json_dir
+
+for f in $json_dir/*.json ; do
+    $ARROW_CPP_EXE_PATH/arrow-json-integration-test -mode JSON_TO_ARROW -json $f -arrow ${f%.*}.arrow_file -integration true ;
+done
+for f in $json_dir/*.arrow_file ; do
+    $ARROW_CPP_EXE_PATH/arrow-file-to-stream $f > ${f%.*}.stream;
+done
+for f in $json_dir/*.json ; do
+    gzip $f ;
+done
 echo "The files are under $json_dir"

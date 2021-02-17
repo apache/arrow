@@ -1715,6 +1715,9 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
   std::unique_ptr<Impl> impl_;
 };
 
+ARROW_EXPORT
+std::string EndiannessToString(Endianness endianness);
+
 // ----------------------------------------------------------------------
 
 /// \brief Convenience class to incrementally construct/merge schemas.

@@ -1298,6 +1298,18 @@ void PrintTo(const FieldRef& ref, std::ostream* os) { *os << ref.ToString(); }
 // ----------------------------------------------------------------------
 // Schema implementation
 
+std::string EndiannessToString(Endianness endianness) {
+  switch (endianness) {
+    case Endianness::Little:
+      return "little";
+    case Endianness::Big:
+      return "big";
+    default:
+      DCHECK(false) << "invalid endianness";
+      return "???";
+  }
+}
+
 class Schema::Impl {
  public:
   Impl(std::vector<std::shared_ptr<Field>> fields, Endianness endianness,
@@ -1500,6 +1512,10 @@ std::string Schema::ToString(bool show_metadata) const {
     }
     buffer << field->ToString(show_metadata);
     ++i;
+  }
+
+  if (impl_->endianness_ != Endianness::Native) {
+    buffer << "\n-- endianness: " << EndiannessToString(impl_->endianness_) << " --";
   }
 
   if (show_metadata && HasMetadata()) {

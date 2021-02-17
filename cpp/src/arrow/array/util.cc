@@ -85,6 +85,10 @@ class ArrayDataEndianSwapper {
   Status SwapType(const DataType& type) {
     RETURN_NOT_OK(VisitTypeInline(type, this));
     RETURN_NOT_OK(SwapChildren(type.fields()));
+    if (internal::HasValidityBitmap(type.id())) {
+      // Copy null bitmap
+      out_->buffers[0] = data_->buffers[0];
+    }
     return Status::OK();
   }
 
@@ -240,14 +244,13 @@ class ArrayDataEndianSwapper {
   }
 
   Status Visit(const DictionaryType& type) {
-    RETURN_NOT_OK(SwapType(*type.index_type()));
     // dictionary was already swapped in ReadDictionary() in ipc/reader.cc
+    RETURN_NOT_OK(SwapType(*type.index_type()));
     return Status::OK();
   }
 
   Status Visit(const ExtensionType& type) {
     RETURN_NOT_OK(SwapType(*type.storage_type()));
-    // dictionary was already swapped in ReadDictionary() in ipc/reader.cc
     return Status::OK();
   }
 
@@ -265,15 +268,9 @@ Result<std::shared_ptr<ArrayData>> SwapEndianArrayData(
   if (data->offset != 0) {
     return Status::Invalid("Unsupported data format: data.offset != 0");
   }
-  const std::shared_ptr<DataType>& type = data->type;
-  ArrayDataEndianSwapper swapper_visitor(data, data->length);
-  DCHECK_OK(VisitTypeInline(*type, &swapper_visitor));
-  RETURN_NOT_OK(swapper_visitor.SwapChildren((*type).fields()));
-  std::shared_ptr<ArrayData> out = std::move(swapper_visitor.out_);
-  // copy null_bitmap
-  out->buffers[0] = data->buffers[0];
-  DCHECK(out);
-  return out;
+  ArrayDataEndianSwapper swapper(data, data->length);
+  RETURN_NOT_OK(swapper.SwapType(*data->type));
+  return std::move(swapper.out_);
 }
 
 }  // namespace internal
