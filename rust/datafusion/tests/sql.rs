@@ -2138,7 +2138,7 @@ async fn crypto_expressions() -> Result<()> {
 async fn extract_date_part() -> Result<()> {
     let mut ctx = ExecutionContext::new();
     let sql = "SELECT
-        date_part('hour', CAST('2020-01-01' AS DATE)) a
+        date_part('hour', CAST('2020-01-01' AS DATE)) a,
         EXTRACT(HOUR FROM CAST('2020-01-01' AS DATE)) b
     ";
     //EXTRACT(HOUR FROM to_timestamp('2020-09-08T12:00:00+00:00'))
