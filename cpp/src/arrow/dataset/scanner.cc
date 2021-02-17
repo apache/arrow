@@ -21,6 +21,7 @@
 #include <memory>
 #include <mutex>
 
+#include "arrow/compute/api_scalar.h"
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/scanner_internal.h"
@@ -33,12 +34,25 @@
 namespace arrow {
 namespace dataset {
 
-ScanOptions::ScanOptions(std::shared_ptr<Schema> schema)
-    : projector(RecordBatchProjector(std::move(schema))) {}
+ScanOptions::ScanOptions(std::shared_ptr<Schema> dataset_schema,
+                         std::shared_ptr<Schema> projected_schema)
+    : dataset_schema(std::move(dataset_schema)),
+      projector(RecordBatchProjector(std::move(projected_schema))) {
+  // assemble a trivial passtrhu projection
+  std::vector<Expression> project_args;
+  compute::ProjectOptions project_options{{}};
+  for (const auto& field : projector.schema()->fields()) {
+    project_args.push_back(field_ref(field->name()));
+    project_options.field_names.push_back(field->name());
+  }
+  projection = call("project", std::move(project_args), std::move(project_options))
+                   .Bind(*projector.schema())
+                   .ValueOrDie();
+}
 
 std::shared_ptr<ScanOptions> ScanOptions::ReplaceSchema(
-    std::shared_ptr<Schema> schema) const {
-  auto copy = ScanOptions::Make(std::move(schema));
+    std::shared_ptr<Schema> projected_schema) const {
+  auto copy = ScanOptions::Make(dataset_schema, std::move(projected_schema));
   copy->filter = filter;
   copy->batch_size = batch_size;
   return copy;
@@ -47,7 +61,7 @@ std::shared_ptr<ScanOptions> ScanOptions::ReplaceSchema(
 std::vector<std::string> ScanOptions::MaterializedFields() const {
   std::vector<std::string> fields;
 
-  for (const auto& f : schema()->fields()) {
+  for (const auto& f : projected_schema()->fields()) {
     fields.push_back(f->name());
   }
 
@@ -220,7 +234,7 @@ Result<std::shared_ptr<Table>> Scanner::ToTable() {
   // Wait for all tasks to complete, or the first error.
   RETURN_NOT_OK(task_group->Finish());
 
-  return Table::FromRecordBatches(scan_options_->schema(),
+  return Table::FromRecordBatches(scan_options_->projected_schema(),
                                   FlattenRecordBatchVector(std::move(state->batches)));
 }
 

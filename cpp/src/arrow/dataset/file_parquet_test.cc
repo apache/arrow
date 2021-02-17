@@ -193,7 +193,7 @@ class TestParquetFileFormat : public ArrowParquetWriterMixin {
 
   void CountRowGroupsInFragment(const std::shared_ptr<Fragment>& fragment,
                                 std::vector<int> expected_row_groups, Expression filter) {
-    schema_ = opts_->schema();
+    schema_ = opts_->projected_schema();
     ASSERT_OK_AND_ASSIGN(auto bound, filter.Bind(*schema_));
     auto parquet_fragment = checked_pointer_cast<ParquetFileFragment>(fragment);
     ASSERT_OK_AND_ASSIGN(auto fragments, parquet_fragment->SplitByRowGroup(bound))
@@ -309,8 +309,7 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReaderProjected) {
   schema_ = schema({field("f64", float64()), field("i64", int64()),
                     field("f32", float32()), field("i32", int32())});
 
-  opts_ = ScanOptions::Make(schema_);
-  opts_->projector = RecordBatchProjector(SchemaFromColumnNames(schema_, {"f64"}));
+  opts_ = ScanOptions::Make(schema_, SchemaFromColumnNames(schema_, {"f64"}));
   SetFilter(equal(field_ref("i32"), literal(0)));
 
   // NB: projector is applied by the scanner; FileFragment does not evaluate it so
@@ -345,8 +344,7 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReaderProjectedMissingCols) {
                                    field("f32", float32()), field("i32", int32())}));
 
   schema_ = reader->schema();
-  opts_ = ScanOptions::Make(schema_);
-  opts_->projector = RecordBatchProjector(SchemaFromColumnNames(schema_, {"f64"}));
+  opts_ = ScanOptions::Make(schema_, SchemaFromColumnNames(schema_, {"f64"}));
   SetFilter(equal(field_ref("i32"), literal(0)));
 
   auto readers = {reader.get(), reader_without_i32.get(), reader_without_f64.get()};

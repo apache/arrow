@@ -83,7 +83,7 @@ static inline Result<csv::ConvertOptions> GetConvertOptions(
 
   auto convert_options = csv::ConvertOptions::Defaults();
 
-  for (const auto& field : scan_options->schema()->fields()) {
+  for (const auto& field : scan_options->projected_schema()->fields()) {
     if (column_names.find(field->name()) == column_names.end()) continue;
     convert_options.column_types[field->name()] = field->type();
     convert_options.include_columns.push_back(field->name());
@@ -94,7 +94,8 @@ static inline Result<csv::ConvertOptions> GetConvertOptions(
   // the projected schema).
   for (const FieldRef& ref : FieldsInExpression(scan_options->filter)) {
     DCHECK(ref.name());
-    ARROW_ASSIGN_OR_RAISE(auto match, ref.FindOneOrNone(*scan_options->schema()));
+    ARROW_ASSIGN_OR_RAISE(auto match,
+                          ref.FindOneOrNone(*scan_options->projected_schema()));
 
     if (match.empty()) {
       // a field was filtered but not in the projected schema; be sure it is included

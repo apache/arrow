@@ -26,6 +26,7 @@
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/partition.h"
 #include "arrow/dataset/scanner.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 namespace dataset {
@@ -53,7 +54,6 @@ inline RecordBatchIterator FilterRecordBatch(RecordBatchIterator it, Expression 
       },
       std::move(it));
 }
-
 inline RecordBatchIterator ProjectRecordBatch(RecordBatchIterator it,
                                               RecordBatchProjector* projector,
                                               MemoryPool* pool) {
@@ -68,6 +68,23 @@ inline RecordBatchIterator ProjectRecordBatch(RecordBatchIterator it,
       std::move(it));
 }
 
+inline RecordBatchIterator ProjectRecordBatch(RecordBatchIterator it,
+                                              Expression projection, MemoryPool* pool) {
+  return MakeMaybeMapIterator(
+      [=](std::shared_ptr<RecordBatch> in) -> Result<std::shared_ptr<RecordBatch>> {
+        // The RecordBatchProjector is shared across ScanTasks of the same
+        // Fragment. The resize operation of missing columns is not thread safe.
+        // Ensure that each ScanTask gets his own projector.
+        compute::ExecContext exec_context{pool};
+        ARROW_ASSIGN_OR_RAISE(Datum projected, ExecuteScalarExpression(
+                                                   projection, Datum(in), &exec_context));
+
+        DCHECK_EQ(projected.type()->id(), Type::STRUCT);
+        return RecordBatch::FromStructArray(projected.array_as<StructArray>());
+      },
+      std::move(it));
+}
+
 class FilterAndProjectScanTask : public ScanTask {
  public:
   explicit FilterAndProjectScanTask(std::shared_ptr<ScanTask> task, Expression partition)
@@ -75,6 +92,7 @@ class FilterAndProjectScanTask : public ScanTask {
         task_(std::move(task)),
         partition_(std::move(partition)),
         filter_(options()->filter),
+        projection_(options()->projection),
         projector_(options()->projector) {}
 
   Result<RecordBatchIterator> Execute() override {
@@ -83,6 +101,9 @@ class FilterAndProjectScanTask : public ScanTask {
     ARROW_ASSIGN_OR_RAISE(Expression simplified_filter,
                           SimplifyWithGuarantee(filter_, partition_));
 
+    ARROW_ASSIGN_OR_RAISE(Expression simplified_projection,
+                          SimplifyWithGuarantee(projection_, partition_));
+
     RecordBatchIterator filter_it =
         FilterRecordBatch(std::move(it), simplified_filter, context_->pool);
 
@@ -90,12 +111,17 @@ class FilterAndProjectScanTask : public ScanTask {
         KeyValuePartitioning::SetDefaultValuesFromKeys(partition_, &projector_));
 
     return ProjectRecordBatch(std::move(filter_it), &projector_, context_->pool);
+
+    // FIXME
+    return ProjectRecordBatch(std::move(filter_it), simplified_projection,
+                              context_->pool);
   }
 
  private:
   std::shared_ptr<ScanTask> task_;
   Expression partition_;
   Expression filter_;
+  Expression projection_;
   RecordBatchProjector projector_;
 };
 
