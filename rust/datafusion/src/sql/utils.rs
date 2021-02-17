@@ -333,10 +333,6 @@ where
                 Ok(expr.clone())
             }
             Expr::Wildcard => Ok(Expr::Wildcard),
-            Expr::Extract { date_part, expr: e } => Ok(Expr::Extract {
-                date_part: *date_part,
-                expr: Box::new(clone_with_replacement(e, replacement_fn)?),
-            }),
         },
     }
 }

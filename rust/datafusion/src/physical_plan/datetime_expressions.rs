@@ -344,6 +344,38 @@ pub fn date_trunc(args: &[ColumnarValue]) -> Result<ColumnarValue> {
     })
 }
 
+/// DATE_PART SQL function
+pub fn date_part(args: &[ColumnarValue]) -> Result<ColumnarValue> {
+    if args.len() != 2 {
+        return Err(DataFusionError::Execution(
+            "Expected two arguments in DATE_PART".to_string(),
+        ));
+    }
+    let (date_part, array) = (&args[0], &args[1]);
+
+    let date_part = if let ColumnarValue::Scalar(ScalarValue::Utf8(Some(v))) = date_part {
+        v
+    } else {
+        return Err(DataFusionError::Execution(
+            "First argument of `DATE_PART` must be non-null scalar Utf8".to_string(),
+        ));
+    };
+
+    Ok(match array {
+        ColumnarValue::Array(array) => {
+            match date_part {
+                //"HOUR" => temporal::hour(array.as_any().downcast_ref::Pri)
+                _ => {
+                    unimplemented!()
+                }
+            }
+        }
+        ColumnarValue::Scalar(array) => {
+            unimplemented!()
+        }
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;

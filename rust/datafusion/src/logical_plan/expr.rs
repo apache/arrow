@@ -17,7 +17,6 @@
 
 //! This module provides an `Expr` enum for representing expressions such as `col = 5` or `SUM(col)`
 
-use super::temporal::DatePart;
 pub use super::Operator;
 
 use std::fmt;
@@ -170,13 +169,6 @@ pub enum Expr {
     },
     /// Represents a reference to all fields in a schema.
     Wildcard,
-    /// Extract date parts (day, hour, minute) from a date / time expression
-    Extract {
-        /// The date part, e.g. `DatePart::Hour`
-        date_part: DatePart,
-        /// The expression to extract the date part from
-        expr: Box<Expr>,
-    },
 }
 
 impl Expr {
@@ -245,25 +237,6 @@ impl Expr {
             Expr::Wildcard => Err(DataFusionError::Internal(
                 "Wildcard expressions are not valid in a logical query plan".to_owned(),
             )),
-            Expr::Extract {
-                date_part: DatePart::Hour,
-                expr,
-            } => {
-                let inner = expr.get_type(schema)?;
-                match inner {
-                    DataType::Date32
-                    | DataType::Date64
-                    | DataType::Time32(_)
-                    | DataType::Time64(_)
-                    | DataType::Timestamp(arrow::datatypes::TimeUnit::Nanosecond, None) => {
-                        Ok(DataType::Int32)
-                    }
-                    dt => Err(DataFusionError::Internal(format!(
-                        "Only Date and Time datatypes supported in Extract, got {}",
-                        dt
-                    ))),
-                }
-            }
         }
     }
 
@@ -319,7 +292,6 @@ impl Expr {
             Expr::Wildcard => Err(DataFusionError::Internal(
                 "Wildcard expressions are not valid in a logical query plan".to_owned(),
             )),
-            Expr::Extract { date_part: _, expr } => expr.nullable(input_schema),
         }
     }
 
@@ -552,7 +524,6 @@ impl Expr {
                     .try_fold(visitor, |visitor, arg| arg.accept(visitor))
             }
             Expr::Wildcard => Ok(visitor),
-            Expr::Extract { date_part: _, expr } => expr.accept(visitor),
         }?;
 
         visitor.post_visit(self)
@@ -1039,9 +1010,6 @@ impl fmt::Debug for Expr {
                 }
             }
             Expr::Wildcard => write!(f, "*"),
-            Expr::Extract { date_part, expr } => {
-                write!(f, "EXTRACT({} FROM {:?})", date_part, expr)
-            }
         }
     }
 }
@@ -1145,14 +1113,6 @@ fn create_name(e: &Expr, input_schema: &DFSchema) -> Result<String> {
             } else {
                 Ok(format!("{} IN ({:?})", expr, list))
             }
-        }
-        Expr::Extract {
-            date_part: DatePart::Hour,
-            expr,
-        } => {
-            let expr = create_name(expr, input_schema)?;
-
-            Ok(format!("EXTRACT(HOUR FROM {})", expr))
         }
         other => Err(DataFusionError::NotImplemented(format!(
             "Physical plan does not support logical expression {:?}",

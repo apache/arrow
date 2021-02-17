@@ -730,9 +730,12 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
             SQLExpr::Extract {
                 field: DateTimeField::Hour,
                 expr,
-            } => Ok(Expr::Extract {
-                date_part: DatePart::Hour,
-                expr: Box::new(self.sql_expr_to_logical_expr(expr)?),
+            } => Ok(Expr::ScalarFunction {
+                fun: functions::BuiltinScalarFunction::DatePart,
+                args: vec![
+                    Expr::Literal(ScalarValue::Utf8(Some("hour".to_string()))),
+                    self.sql_expr_to_logical_expr(expr)?,
+                ],
             }),
 
             SQLExpr::Value(Value::Interval {

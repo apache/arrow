@@ -105,11 +105,3 @@ impl PhysicalExpr for Extract {
         }
     }
 }
-
-/// Creates a expression Extract
-pub fn extract(
-    date_part: DatePart,
-    expr: Arc<dyn PhysicalExpr>,
-) -> Result<Arc<dyn PhysicalExpr>> {
-    Ok(Arc::new(Extract::new(date_part, expr)))
-}

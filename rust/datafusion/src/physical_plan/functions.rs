@@ -140,6 +140,8 @@ pub enum BuiltinScalarFunction {
     NullIf,
     /// Date truncate
     DateTrunc,
+    /// Date part
+    DatePart,
     /// MD5
     MD5,
     /// SHA224
