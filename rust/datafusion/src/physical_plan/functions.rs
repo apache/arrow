@@ -462,7 +462,7 @@ fn signature(fun: &BuiltinScalarFunction) -> Signature {
         ]),
         BuiltinScalarFunction::DatePart => {
             // TODO Utf8 -> Date32, Date64, timestamp etc.
-            Signature::Variadic(vec![DataType::Utf8, DataType::Date32])
+            Signature::Exact(vec![DataType::Utf8, DataType::Date32])
         }
         BuiltinScalarFunction::Array => {
             Signature::Variadic(array_expressions::SUPPORTED_ARRAY_TYPES.to_vec())
