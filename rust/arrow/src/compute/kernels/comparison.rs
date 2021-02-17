@@ -85,7 +85,7 @@ macro_rules! compare_op_scalar {
     }};
 }
 
-/// Evaluate `op(left, right)` for `PrimitiveArray`s using a specified
+/// Evaluate `op(left, right)` for [`PrimitiveArray`]s using a specified
 /// comparison function.
 pub fn no_simd_compare_op<T, F>(
     left: &PrimitiveArray<T>,
@@ -99,7 +99,7 @@ where
     compare_op!(left, right, op)
 }
 
-/// Evaluate `op(left, right)` for `PrimitiveArray` and scalar using
+/// Evaluate `op(left, right)` for [`PrimitiveArray`] and scalar using
 /// a specified comparison function.
 pub fn no_simd_compare_op_scalar<T, F>(
     left: &PrimitiveArray<T>,
@@ -769,7 +769,7 @@ where
     return compare_op_scalar!(left, right, |a, b| a >= b);
 }
 
-/// Checks if a `GenericListArray` contains a value in the `PrimitiveArray`
+/// Checks if a [`GenericListArray`] contains a value in the [`PrimitiveArray`]
 pub fn contains<T, OffsetSize>(
     left: &PrimitiveArray<T>,
     right: &GenericListArray<OffsetSize>,
@@ -825,7 +825,7 @@ where
     Ok(BooleanArray::from(Arc::new(data)))
 }
 
-/// Checks if a `GenericListArray` contains a value in the `GenericStringArray`
+/// Checks if a [`GenericListArray`] contains a value in the [`GenericStringArray`]
 pub fn contains_utf8<OffsetSize>(
     left: &GenericStringArray<OffsetSize>,
     right: &ListArray,
