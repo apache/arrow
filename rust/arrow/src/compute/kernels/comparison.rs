@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Defines basic comparison kernels for `PrimitiveArrays`.
+//! Defines basic comparison kernels for [`PrimitiveArray`]s.
 //!
 //! These kernels can leverage SIMD if available on your system.  Currently no runtime
 //! detection is provided, you should enable the specific SIMD intrinsics using
@@ -113,7 +113,7 @@ where
     compare_op_scalar!(left, right, op)
 }
 
-/// Perform SQL `left LIKE right` operation on `StringArray` / `LargeStringArray`.
+/// Perform SQL `left LIKE right` operation on [`StringArray`] / [`LargeStringArray`].
 ///
 /// There are two wildcards supported with the LIKE operator:
 ///
@@ -183,8 +183,8 @@ fn is_like_pattern(c: char) -> bool {
     c == '%' || c == '_'
 }
 
-/// Perform SQL `left LIKE right` operation on `StringArray` /
-/// `LargeStringArray` and a scalar.
+/// Perform SQL `left LIKE right` operation on [`StringArray`] /
+/// [`LargeStringArray`] and a scalar.
 ///
 /// See the documentation on [`like_utf8`] for more details.
 pub fn like_utf8_scalar<OffsetSize: StringOffsetSizeTrait>(
@@ -249,8 +249,8 @@ pub fn like_utf8_scalar<OffsetSize: StringOffsetSizeTrait>(
     Ok(BooleanArray::from(Arc::new(data)))
 }
 
-/// Perform SQL `left NOT LIKE right` operation on `StringArray` /
-/// `LargeStringArray`.
+/// Perform SQL `left NOT LIKE right` operation on [`StringArray`] /
+/// [`LargeStringArray`].
 ///
 /// See the documentation on [`like_utf8`] for more details.
 pub fn nlike_utf8<OffsetSize: StringOffsetSizeTrait>(
@@ -301,8 +301,8 @@ pub fn nlike_utf8<OffsetSize: StringOffsetSizeTrait>(
     Ok(BooleanArray::from(Arc::new(data)))
 }
 
-/// Perform SQL `left NOT LIKE right` operation on `StringArray` /
-/// `LargeStringArray` and a scalar.
+/// Perform SQL `left NOT LIKE right` operation on [`StringArray`] /
+/// [`LargeStringArray`] and a scalar.
 ///
 /// See the documentation on [`like_utf8`] for more details.
 pub fn nlike_utf8_scalar<OffsetSize: StringOffsetSizeTrait>(
@@ -354,7 +354,7 @@ pub fn nlike_utf8_scalar<OffsetSize: StringOffsetSizeTrait>(
     Ok(BooleanArray::from(Arc::new(data)))
 }
 
-/// Perform `left == right` operation on `StringArray` / `LargeStringArray`.
+/// Perform `left == right` operation on [`StringArray`] / [`LargeStringArray`].
 pub fn eq_utf8<OffsetSize: StringOffsetSizeTrait>(
     left: &GenericStringArray<OffsetSize>,
     right: &GenericStringArray<OffsetSize>,
@@ -362,7 +362,7 @@ pub fn eq_utf8<OffsetSize: StringOffsetSizeTrait>(
     compare_op!(left, right, |a, b| a == b)
 }
 
-/// Perform `left == right` operation on `StringArray` / `LargeStringArray` and a scalar.
+/// Perform `left == right` operation on [`StringArray`] / [`LargeStringArray`] and a scalar.
 pub fn eq_utf8_scalar<OffsetSize: StringOffsetSizeTrait>(
     left: &GenericStringArray<OffsetSize>,
     right: &str,
@@ -370,7 +370,7 @@ pub fn eq_utf8_scalar<OffsetSize: StringOffsetSizeTrait>(
     compare_op_scalar!(left, right, |a, b| a == b)
 }
 
-/// Perform `left != right` operation on `StringArray` / `LargeStringArray`.
+/// Perform `left != right` operation on [`StringArray`] / [`LargeStringArray`].
 pub fn neq_utf8<OffsetSize: StringOffsetSizeTrait>(
     left: &GenericStringArray<OffsetSize>,
     right: &GenericStringArray<OffsetSize>,
@@ -378,7 +378,7 @@ pub fn neq_utf8<OffsetSize: StringOffsetSizeTrait>(
     compare_op!(left, right, |a, b| a != b)
 }
 
-/// Perform `left != right` operation on `StringArray` / `LargeStringArray` and a scalar.
+/// Perform `left != right` operation on [`StringArray`] / [`LargeStringArray`] and a scalar.
 pub fn neq_utf8_scalar<OffsetSize: StringOffsetSizeTrait>(
     left: &GenericStringArray<OffsetSize>,
     right: &str,
@@ -386,7 +386,7 @@ pub fn neq_utf8_scalar<OffsetSize: StringOffsetSizeTrait>(
     compare_op_scalar!(left, right, |a, b| a != b)
 }
 
-/// Perform `left < right` operation on `StringArray` / `LargeStringArray`.
+/// Perform `left < right` operation on [`StringArray`] / [`LargeStringArray`].
 pub fn lt_utf8<OffsetSize: StringOffsetSizeTrait>(
     left: &GenericStringArray<OffsetSize>,
     right: &GenericStringArray<OffsetSize>,
@@ -394,7 +394,7 @@ pub fn lt_utf8<OffsetSize: StringOffsetSizeTrait>(
     compare_op!(left, right, |a, b| a < b)
 }
 
-/// Perform `left < right` operation on `StringArray` / `LargeStringArray` and a scalar.
+/// Perform `left < right` operation on [`StringArray`] / [`LargeStringArray`] and a scalar.
 pub fn lt_utf8_scalar<OffsetSize: StringOffsetSizeTrait>(
     left: &GenericStringArray<OffsetSize>,
     right: &str,
@@ -402,7 +402,7 @@ pub fn lt_utf8_scalar<OffsetSize: StringOffsetSizeTrait>(
     compare_op_scalar!(left, right, |a, b| a < b)
 }
 
-/// Perform `left <= right` operation on `StringArray` / `LargeStringArray`.
+/// Perform `left <= right` operation on [`StringArray`] / [`LargeStringArray`].
 pub fn lt_eq_utf8<OffsetSize: StringOffsetSizeTrait>(
     left: &GenericStringArray<OffsetSize>,
     right: &GenericStringArray<OffsetSize>,
@@ -410,7 +410,7 @@ pub fn lt_eq_utf8<OffsetSize: StringOffsetSizeTrait>(
     compare_op!(left, right, |a, b| a <= b)
 }
 
-/// Perform `left <= right` operation on `StringArray` / `LargeStringArray` and a scalar.
+/// Perform `left <= right` operation on [`StringArray`] / [`LargeStringArray`] and a scalar.
 pub fn lt_eq_utf8_scalar<OffsetSize: StringOffsetSizeTrait>(
     left: &GenericStringArray<OffsetSize>,
     right: &str,
@@ -418,7 +418,7 @@ pub fn lt_eq_utf8_scalar<OffsetSize: StringOffsetSizeTrait>(
     compare_op_scalar!(left, right, |a, b| a <= b)
 }
 
-/// Perform `left > right` operation on `StringArray` / `LargeStringArray`.
+/// Perform `left > right` operation on [`StringArray`] / [`LargeStringArray`].
 pub fn gt_utf8<OffsetSize: StringOffsetSizeTrait>(
     left: &GenericStringArray<OffsetSize>,
     right: &GenericStringArray<OffsetSize>,
@@ -426,7 +426,7 @@ pub fn gt_utf8<OffsetSize: StringOffsetSizeTrait>(
     compare_op!(left, right, |a, b| a > b)
 }
 
-/// Perform `left > right` operation on `StringArray` / `LargeStringArray` and a scalar.
+/// Perform `left > right` operation on [`StringArray`] / [`LargeStringArray`] and a scalar.
 pub fn gt_utf8_scalar<OffsetSize: StringOffsetSizeTrait>(
     left: &GenericStringArray<OffsetSize>,
     right: &str,
@@ -434,7 +434,7 @@ pub fn gt_utf8_scalar<OffsetSize: StringOffsetSizeTrait>(
     compare_op_scalar!(left, right, |a, b| a > b)
 }
 
-/// Perform `left >= right` operation on `StringArray` / `LargeStringArray`.
+/// Perform `left >= right` operation on [`StringArray`] / [`LargeStringArray`].
 pub fn gt_eq_utf8<OffsetSize: StringOffsetSizeTrait>(
     left: &GenericStringArray<OffsetSize>,
     right: &GenericStringArray<OffsetSize>,
@@ -442,7 +442,7 @@ pub fn gt_eq_utf8<OffsetSize: StringOffsetSizeTrait>(
     compare_op!(left, right, |a, b| a >= b)
 }
 
-/// Perform `left >= right` operation on `StringArray` / `LargeStringArray` and a scalar.
+/// Perform `left >= right` operation on [`StringArray`] / [`LargeStringArray`] and a scalar.
 pub fn gt_eq_utf8_scalar<OffsetSize: StringOffsetSizeTrait>(
     left: &GenericStringArray<OffsetSize>,
     right: &str,
