@@ -137,6 +137,78 @@ TEST(GroupBy, CountOnly) {
   }
 }
 
+TEST(GroupBy, CountAndSum) {
+  auto key = ArrayFromJSON(int64(),
+                           "[1, 2, 1,"
+                           "3, 2, 3]");
+  auto aggregand = ArrayFromJSON(float32(),
+                                 "[1.0, 0.0, null, "
+                                 "3.25, 0.125, -0.25]");
+
+  ASSERT_EQ(key->length(), aggregand->length());
+
+  GroupByOptions options;
+  CountOptions count_options;
+  count_options.count_mode = CountOptions::COUNT_NON_NULL;
+  options.aggregates = {
+      GroupByOptions::Aggregate{"count", &count_options, "f32 counted"},
+      GroupByOptions::Aggregate{"sum", nullptr, "f32 summed"},
+      GroupByOptions::Aggregate{"sum", nullptr, "i64 summed"},
+  };
+  options.key_names = {"i64 key"};
+
+  ASSERT_OK_AND_ASSIGN(Datum boxed,
+                       CallFunction("group_by",
+                                    {
+                                        // NB: passing the same aggregand twice
+                                        aggregand,
+                                        aggregand,
+                                        // NB: passing the key column also as an aggregand
+                                        key,
+                                        key,
+                                    },
+                                    &options));
+
+  auto aggregated_and_grouped = boxed.array_as<StructArray>();
+
+  auto f32_counted = checked_pointer_cast<Int64Array>(
+      aggregated_and_grouped->GetFieldByName("f32 counted"));
+
+  // NB: summing a float32 array results in float64 sums
+  auto f32_summed = checked_pointer_cast<DoubleArray>(
+      aggregated_and_grouped->GetFieldByName("f32 summed"));
+
+  auto i64_summed = checked_pointer_cast<Int64Array>(
+      aggregated_and_grouped->GetFieldByName("i64 summed"));
+
+  auto i64_key =
+      checked_pointer_cast<Int64Array>(aggregated_and_grouped->GetFieldByName("i64 key"));
+
+  ASSERT_EQ(i64_key->length(), 3);
+
+  for (int64_t i = 0; i < i64_key->length(); ++i) {
+    int64_t key = i64_key->Value(i);
+
+    if (key == 1) {
+      ASSERT_EQ(f32_counted->Value(i), 1);
+    } else {
+      ASSERT_EQ(f32_counted->Value(i), 2);
+    }
+
+    ASSERT_EQ(i64_summed->Value(i), key * 2);
+
+    if (key == 1) {
+      ASSERT_EQ(f32_summed->Value(i), 1.0);
+    }
+    if (key == 2) {
+      ASSERT_EQ(f32_summed->Value(i), 0.125);
+    }
+    if (key == 3) {
+      ASSERT_EQ(f32_summed->Value(i), 3.0);
+    }
+  }
+}
+
 //
 // Sum
 //

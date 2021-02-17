@@ -693,7 +693,8 @@ struct ScalarAggregateKernel : public Kernel {
 
   ScalarAggregateKernel(std::vector<InputType> in_types, OutputType out_type,
                         KernelInit init, ScalarAggregateConsume consume,
-                        ScalarAggregateMerge merge, ScalarAggregateFinalize finalize, bool nomerge = false)
+                        ScalarAggregateMerge merge, ScalarAggregateFinalize finalize,
+                        bool nomerge = false)
       : ScalarAggregateKernel(KernelSignature::Make(std::move(in_types), out_type), init,
                               consume, merge, finalize, nomerge) {}
 

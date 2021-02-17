@@ -162,6 +162,12 @@ class ARROW_EXPORT BufferBuilder {
     return Status::OK();
   }
 
+  Result<std::shared_ptr<Buffer>> Finish(bool shrink_to_fit = true) {
+    std::shared_ptr<Buffer> out;
+    ARROW_RETURN_NOT_OK(Finish(&out, shrink_to_fit));
+    return out;
+  }
+
   void Reset() {
     buffer_ = NULLPTR;
     capacity_ = size_ = 0;
@@ -254,6 +260,12 @@ class TypedBufferBuilder<
 
   Status Finish(std::shared_ptr<Buffer>* out, bool shrink_to_fit = true) {
     return bytes_builder_.Finish(out, shrink_to_fit);
+  }
+
+  Result<std::shared_ptr<Buffer>> Finish(bool shrink_to_fit = true) {
+    std::shared_ptr<Buffer> out;
+    ARROW_RETURN_NOT_OK(Finish(&out, shrink_to_fit));
+    return out;
   }
 
   void Reset() { bytes_builder_.Reset(); }
@@ -369,6 +381,12 @@ class TypedBufferBuilder<bool> {
                                  bytes_builder_.length());
     bit_length_ = false_count_ = 0;
     return bytes_builder_.Finish(out, shrink_to_fit);
+  }
+
+  Result<std::shared_ptr<Buffer>> Finish(bool shrink_to_fit = true) {
+    std::shared_ptr<Buffer> out;
+    ARROW_RETURN_NOT_OK(Finish(&out, shrink_to_fit));
+    return out;
   }
 
   void Reset() {
