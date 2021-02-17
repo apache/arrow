@@ -258,7 +258,7 @@ impl ExecutionContext {
         filename: &str,
         options: CsvReadOptions,
     ) -> Result<()> {
-        self.register_table(name, Box::new(CsvFile::try_new(filename, options)?));
+        self.register_table(name, Arc::new(CsvFile::try_new(filename, options)?));
         Ok(())
     }
 
@@ -269,34 +269,36 @@ impl ExecutionContext {
             &filename,
             self.state.lock().unwrap().config.concurrency,
         )?;
-        self.register_table(name, Box::new(table));
+        self.register_table(name, Arc::new(table));
         Ok(())
     }
 
-    /// Registers a table using a custom TableProvider so that it can be referenced from SQL
-    /// statements executed against this context.
+    /// Registers a named table using a custom `TableProvider` so that
+    /// it can be referenced from SQL statements executed against this
+    /// context.
+    ///
+    /// Returns the `TableProvider` previously registered for this
+    /// name, if any
     pub fn register_table(
         &mut self,
         name: &str,
-        provider: Box<dyn TableProvider + Send + Sync>,
-    ) {
+        provider: Arc<dyn TableProvider + Send + Sync>,
+    ) -> Option<Arc<dyn TableProvider + Send + Sync>> {
         self.state
             .lock()
             .unwrap()
             .datasources
-            .insert(name.to_string(), provider.into());
+            .insert(name.to_string(), provider)
     }
 
     /// Deregisters the named table.
     ///
-    /// Returns true if the table was successfully de-reregistered.
-    pub fn deregister_table(&mut self, name: &str) -> bool {
-        self.state
-            .lock()
-            .unwrap()
-            .datasources
-            .remove(&name.to_string())
-            .is_some()
+    /// Returns the registered provider, if any
+    pub fn deregister_table(
+        &mut self,
+        name: &str,
+    ) -> Option<Arc<dyn TableProvider + Send + Sync>> {
+        self.state.lock().unwrap().datasources.remove(name)
     }
 
     /// Retrieves a DataFrame representing a table previously registered by calling the
@@ -746,8 +748,8 @@ mod tests {
         let provider = test::create_table_dual();
         ctx.register_table("dual", provider);
 
-        assert_eq!(ctx.deregister_table("dual"), true);
-        assert_eq!(ctx.deregister_table("dual"), false);
+        assert!(ctx.deregister_table("dual").is_some());
+        assert!(ctx.deregister_table("dual").is_none());
 
         Ok(())
     }
@@ -1695,7 +1697,7 @@ mod tests {
         let mut ctx = ExecutionContext::new();
 
         let provider = MemTable::try_new(Arc::new(schema), vec![vec![batch]])?;
-        ctx.register_table("t", Box::new(provider));
+        ctx.register_table("t", Arc::new(provider));
 
         let myfunc = |args: &[ArrayRef]| {
             let l = &args[0]
@@ -1797,7 +1799,7 @@ mod tests {
 
         let provider =
             MemTable::try_new(Arc::new(schema), vec![vec![batch1], vec![batch2]])?;
-        ctx.register_table("t", Box::new(provider));
+        ctx.register_table("t", Arc::new(provider));
 
         let result = plan_and_collect(&mut ctx, "SELECT AVG(a) FROM t").await?;
 
@@ -1834,7 +1836,7 @@ mod tests {
 
         let provider =
             MemTable::try_new(Arc::new(schema), vec![vec![batch1], vec![batch2]])?;
-        ctx.register_table("t", Box::new(provider));
+        ctx.register_table("t", Arc::new(provider));
 
         // define a udaf, using a DataFusion's accumulator
         let my_avg = create_udaf(
