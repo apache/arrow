@@ -72,7 +72,7 @@ where
 
 fn octet_length<O: StringOffsetSizeTrait, T: ArrowPrimitiveType>(
     array: &dyn Array,
-) -> Result<ArrayRef>
+) -> ArrayRef
 where
     T::Native: StringOffsetSizeTrait,
 {
@@ -80,7 +80,7 @@ where
         .as_any()
         .downcast_ref::<GenericStringArray<O>>()
         .unwrap();
-    Ok(unary_offsets_string::<O, _>(array, T::DATA_TYPE, |x| x))
+    unary_offsets_string::<O, _>(array, T::DATA_TYPE, |x| x)
 }
 
 fn bit_length_impl<O: StringOffsetSizeTrait, T: ArrowPrimitiveType>(
@@ -106,8 +106,8 @@ where
 /// * length is in number of bytes
 pub fn length(array: &Array) -> Result<ArrayRef> {
     match array.data_type() {
-        DataType::Utf8 => octet_length::<i32, Int32Type>(array),
-        DataType::LargeUtf8 => octet_length::<i64, Int64Type>(array),
+        DataType::Utf8 => Ok(octet_length::<i32, Int32Type>(array)),
+        DataType::LargeUtf8 => Ok(octet_length::<i64, Int64Type>(array)),
         _ => Err(ArrowError::ComputeError(format!(
             "length not supported for {:?}",
             array.data_type()
