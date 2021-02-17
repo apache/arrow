@@ -540,7 +540,7 @@ TEST_F(TestBooleanReader, TestBooleanNestedOptionalSkip) {
   // Skip full page
   int64_t levels_skipped = reader->Skip(levels_per_page);
   ASSERT_EQ(levels_per_page, levels_skipped);
-  for (int i = 0; i < levels_skipped; i++) {
+  for (int64_t i = 0; i < levels_skipped; i++) {
     if (def_levels_[i] == max_def_level_) {
       values_it++;
     }
@@ -550,7 +550,7 @@ TEST_F(TestBooleanReader, TestBooleanNestedOptionalSkip) {
   int64_t levels_read = reader->ReadBatch(levels_per_page / 2, dresult.data(),
                                           rresult.data(), vresult_ptr, &values_read);
   std::vector<bool> vresult_bool(vresult.begin(), vresult.end());
-  for (int i = levels_processed, j = 0; i < levels_processed + levels_read; i++) {
+  for (int64_t i = levels_processed, j = 0; i < levels_processed + levels_read; i++) {
     if (def_levels_[i] == max_def_level_) {
       ASSERT_EQ(*(values_it++), vresult[j++]);
     }
@@ -560,7 +560,7 @@ TEST_F(TestBooleanReader, TestBooleanNestedOptionalSkip) {
   // Skip across two pages
   levels_skipped = reader->Skip(levels_per_page * 5 / 4);
   ASSERT_EQ(levels_per_page * 5 / 4, levels_skipped);
-  for (int i = levels_processed; i < levels_processed + levels_skipped; i++) {
+  for (int64_t i = levels_processed; i < levels_processed + levels_skipped; i++) {
     if (def_levels_[i] == max_def_level_) {
       values_it++;
     }
@@ -570,7 +570,7 @@ TEST_F(TestBooleanReader, TestBooleanNestedOptionalSkip) {
   levels_read = reader->ReadBatch(levels_per_page / 2, dresult.data(), rresult.data(),
                                   vresult_ptr, &values_read);
   vresult_bool.assign(vresult.begin(), vresult.end());
-  for (int i = levels_processed, j = 0; i < levels_processed + levels_read; i++) {
+  for (int64_t i = levels_processed, j = 0; i < levels_processed + levels_read; i++) {
     if (def_levels_[i] == max_def_level_) {
       ASSERT_EQ(*(values_it++), vresult[j++]);
     }
@@ -580,7 +580,7 @@ TEST_F(TestBooleanReader, TestBooleanNestedOptionalSkip) {
   // Skip within one page
   levels_skipped = reader->Skip(levels_per_page / 8);
   ASSERT_EQ(levels_per_page / 8, levels_skipped);
-  for (int i = levels_processed; i < levels_processed + levels_skipped; i++) {
+  for (int64_t i = levels_processed; i < levels_processed + levels_skipped; i++) {
     if (def_levels_[i] == max_def_level_) {
       values_it++;
     }
@@ -590,7 +590,7 @@ TEST_F(TestBooleanReader, TestBooleanNestedOptionalSkip) {
   levels_read = reader->ReadBatch(levels_per_page / 2, dresult.data(), rresult.data(),
                                   vresult_ptr, &values_read);
   vresult_bool.assign(vresult.begin(), vresult.end());
-  for (int i = levels_processed, j = 0; i < levels_processed + levels_read; i++) {
+  for (int64_t i = levels_processed, j = 0; i < levels_processed + levels_read; i++) {
     if (def_levels_[i] == max_def_level_) {
       ASSERT_EQ(*(values_it++), vresult[j++]);
     }
