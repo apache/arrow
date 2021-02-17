@@ -82,6 +82,9 @@ groups:
   ruby:
     - test-*ruby*
 
+  vcpkg:
+    - test-*vcpkg*
+
   integration:
     - test-*dask*
     - test-*hdfs*
@@ -1808,6 +1811,12 @@ tasks:
       env:
         UBUNTU: 18.04
       run: ubuntu-docs
+
+  ############################## vcpkg tests ##################################
+
+  test-build-vcpkg-win:
+    ci: github
+    template: vcpkg-tests/github.windows.yml
 
   ############################## Integration tests ############################
 
