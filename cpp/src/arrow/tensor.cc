@@ -167,15 +167,13 @@ Status CheckTensorStridesValidity(const std::shared_ptr<Buffer>& data,
   int64_t largest_offset = 0;
   for (size_t i = 0; i < ndim; ++i) {
     if (shape[i] == 0) continue;
+    if (strides[i] < 0) {
+      // TODO(mrkn): Support negative strides for sharing views
+      return Status::Invalid("negative strides not supported");
+    }
 
     int64_t dim_offset;
     if (!internal::MultiplyWithOverflow(shape[i] - 1, strides[i], &dim_offset)) {
-      if (dim_offset <= 0) {
-        // Ignore the negative dim_offset here because we are interested in only the
-        // largest offset
-        continue;
-      }
-
       if (!internal::AddWithOverflow(largest_offset, dim_offset, &largest_offset)) {
         continue;
       }

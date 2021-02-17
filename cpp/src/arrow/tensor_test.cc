@@ -243,7 +243,7 @@ TEST(TestTensor, MakeFailureCases) {
   // negative items in shape
   ASSERT_RAISES(Invalid, Tensor::Make(float64(), data, {-3, 6}));
 
-  // overflow in stride computation
+  // overflow in positive strides computation
   constexpr uint64_t total_length =
       1 + static_cast<uint64_t>(std::numeric_limits<int64_t>::max());
   EXPECT_RAISES_WITH_MESSAGE_THAT(
@@ -252,12 +252,10 @@ TEST(TestTensor, MakeFailureCases) {
           "Row-major strides computed from shape would not fit in 64-bit integer"),
       Tensor::Make(float64(), data, {2, 2, static_cast<int64_t>(total_length / 4)}));
 
-  // overflow by negative multiplication in strides validity check
+  // negative strides are prohibited
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, testing::HasSubstr("would not fit in 64-bit integer"),
-      Tensor::Make(
-          float64(), data, {0, 4, 0},
-          {sizeof(double), -static_cast<int64_t>(total_length / 2), sizeof(double)}));
+      Invalid, testing::HasSubstr("negative strides not supported"),
+      Tensor::Make(float64(), data, {18}, {-(int)sizeof(double)}));
 
   // invalid stride length
   ASSERT_RAISES(Invalid, Tensor::Make(float64(), data, shape, {sizeof(double)}));
