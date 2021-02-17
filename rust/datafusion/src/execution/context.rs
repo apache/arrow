@@ -1331,7 +1331,7 @@ mod tests {
                 .unwrap();
 
             let provider = MemTable::try_new(schema.clone(), vec![vec![batch]]).unwrap();
-            ctx.register_table("t", Box::new(provider));
+            ctx.register_table("t", Arc::new(provider));
 
             let results = plan_and_collect(
                 &mut ctx,
