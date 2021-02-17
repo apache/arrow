@@ -15,9 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <math.h>
-
 #include <gtest/gtest.h>
+#include <cmath>
 #include "gandiva/execution_context.h"
 #include "gandiva/precompiled/types.h"
 
@@ -91,14 +90,14 @@ TEST(TestExtendedMathOps, TestRoundDecimal) {
   EXPECT_FLOAT_EQ(round_float32(1234.245f), 1234);
   EXPECT_FLOAT_EQ(round_float32(-11.7892f), -12);
   EXPECT_FLOAT_EQ(round_float32(1.4999999f), 1);
-  EXPECT_EQ(signbit(round_float32(0)), 0);
+  EXPECT_EQ(std::signbit(round_float32(0)), 0);
   EXPECT_FLOAT_EQ(round_float32_int32(1234.789f, 2), 1234.79f);
   EXPECT_FLOAT_EQ(round_float32_int32(1234.12345f, -3), 1000);
   EXPECT_FLOAT_EQ(round_float32_int32(-1234.4567f, 3), -1234.457f);
   EXPECT_FLOAT_EQ(round_float32_int32(-1234.4567f, -3), -1000);
   EXPECT_FLOAT_EQ(round_float32_int32(1234.4567f, 0), 1234);
   EXPECT_FLOAT_EQ(round_float32_int32(1.5499999523162842f, 1), 1.5f);
-  EXPECT_EQ(signbit(round_float32_int32(0, 5)), 0);
+  EXPECT_EQ(std::signbit(round_float32_int32(0, 5)), 0);
   EXPECT_FLOAT_EQ(round_float32_int32(static_cast<float>(1.55), 1), 1.5f);
   EXPECT_FLOAT_EQ(round_float32_int32(static_cast<float>(9.134123), 2), 9.13f);
   EXPECT_FLOAT_EQ(round_float32_int32(static_cast<float>(-1.923), 1), -1.9f);
@@ -106,13 +105,13 @@ TEST(TestExtendedMathOps, TestRoundDecimal) {
   VerifyFuzzyEquals(round_float64(1234.245), 1234);
   VerifyFuzzyEquals(round_float64(-11.7892), -12);
   VerifyFuzzyEquals(round_float64(1.4999999), 1);
-  EXPECT_EQ(signbit(round_float64(0)), 0);
+  EXPECT_EQ(std::signbit(round_float64(0)), 0);
   VerifyFuzzyEquals(round_float64_int32(1234.789, 2), 1234.79);
   VerifyFuzzyEquals(round_float64_int32(1234.12345, -3), 1000);
   VerifyFuzzyEquals(round_float64_int32(-1234.4567, 3), -1234.457);
   VerifyFuzzyEquals(round_float64_int32(-1234.4567, -3), -1000);
   VerifyFuzzyEquals(round_float64_int32(1234.4567, 0), 1234);
-  EXPECT_EQ(signbit(round_float64_int32(0, -2)), 0);
+  EXPECT_EQ(std::signbit(round_float64_int32(0, -2)), 0);
   VerifyFuzzyEquals(round_float64_int32((double)INT_MAX + 1, 0), (double)INT_MAX + 1);
   VerifyFuzzyEquals(round_float64_int32((double)INT_MIN - 1, 0), (double)INT_MIN - 1);
 }
