@@ -1126,9 +1126,18 @@ test_that("Dataset writing: partition on null", {
   expect_true(dir.exists(dst_dir))
   expect_identical(dir(dst_dir), c("lgl=false", "lgl=true", "lgl=xyz"))
 
-  ds_readback = open_dataset(dst_dir, partitioning)
-  print(ds_readback$schema)
-  expect_identical(collect(select(ds, int)), collect(select(ds_readback, int)))
+  ds_readback <- open_dataset(dst_dir, partitioning = hive_partition(lgl = boolean(), null_fallback="xyz"))
+
+  expect_identical(
+    ds %>%
+      select(int, lgl) %>%
+      collect() %>%
+      arrange(lgl, int),
+    ds_readback %>%
+      select(int, lgl) %>%
+      collect() %>%
+      arrange(lgl, int)
+  )
 })
 
 test_that("Dataset writing: from data.frame", {
