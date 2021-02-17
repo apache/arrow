@@ -86,7 +86,9 @@ pub fn can_cast_types(from_type: &DataType, to_type: &DataType) -> bool {
         (Utf8, Date64) => true,
         (Utf8, Timestamp(TimeUnit::Nanosecond, None)) => true,
         (Utf8, _) => DataType::is_numeric(to_type),
-        (_, Utf8) => DataType::is_numeric(from_type) || from_type == &Binary,
+        (_, Utf8) | (_, LargeUtf8) => {
+            DataType::is_numeric(from_type) || from_type == &Binary
+        }
 
         // start numeric casts
         (UInt8, UInt16) => true,
