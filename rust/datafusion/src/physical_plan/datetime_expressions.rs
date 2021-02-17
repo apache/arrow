@@ -23,13 +23,18 @@ use crate::{
     error::{DataFusionError, Result},
     scalar::{ScalarType, ScalarValue},
 };
-use arrow::temporal_conversions::timestamp_ns_to_datetime;
+use arrow::{
+    array::{Array, GenericStringArray, PrimitiveArray, StringOffsetSizeTrait},
+    datatypes::{ArrowPrimitiveType, DataType, TimestampNanosecondType},
+};
 use arrow::{
     array::{
-        Array, GenericStringArray, PrimitiveArray, StringOffsetSizeTrait,
-        TimestampNanosecondArray,
+        Date32Array, Date64Array, TimestampMicrosecondArray, TimestampMillisecondArray,
+        TimestampNanosecondArray, TimestampSecondArray,
     },
-    datatypes::{ArrowPrimitiveType, DataType, TimestampNanosecondType},
+    compute::kernels::temporal,
+    datatypes::TimeUnit,
+    temporal_conversions::timestamp_ns_to_datetime,
 };
 use chrono::prelude::*;
 use chrono::Duration;
@@ -361,19 +366,55 @@ pub fn date_part(args: &[ColumnarValue]) -> Result<ColumnarValue> {
         ));
     };
 
-    Ok(match array {
-        ColumnarValue::Array(array) => {
-            match date_part {
-                //"HOUR" => temporal::hour(array.as_any().downcast_ref::Pri)
-                _ => {
-                    unimplemented!()
-                }
+    let array = match array {
+        ColumnarValue::Array(array) => array.clone(),
+        ColumnarValue::Scalar(scalar) => scalar.to_array(),
+    };
+
+    match array.data_type() {
+        DataType::Date32 => {
+            let array = array.as_any().downcast_ref::<Date32Array>().unwrap();
+            Ok(ColumnarValue::Array(Arc::new(temporal::hour(array)?)))
+        }
+        DataType::Date64 => {
+            let array = array.as_any().downcast_ref::<Date64Array>().unwrap();
+            Ok(ColumnarValue::Array(Arc::new(temporal::hour(array)?)))
+        }
+        DataType::Timestamp(time_unit, None) => match time_unit {
+            TimeUnit::Second => {
+                let array = array
+                    .as_any()
+                    .downcast_ref::<TimestampSecondArray>()
+                    .unwrap();
+                Ok(ColumnarValue::Array(Arc::new(temporal::hour(array)?)))
             }
-        }
-        ColumnarValue::Scalar(array) => {
-            unimplemented!()
-        }
-    })
+            TimeUnit::Millisecond => {
+                let array = array
+                    .as_any()
+                    .downcast_ref::<TimestampMillisecondArray>()
+                    .unwrap();
+                Ok(ColumnarValue::Array(Arc::new(temporal::hour(array)?)))
+            }
+            TimeUnit::Microsecond => {
+                let array = array
+                    .as_any()
+                    .downcast_ref::<TimestampMicrosecondArray>()
+                    .unwrap();
+                Ok(ColumnarValue::Array(Arc::new(temporal::hour(array)?)))
+            }
+            TimeUnit::Nanosecond => {
+                let array = array
+                    .as_any()
+                    .downcast_ref::<TimestampNanosecondArray>()
+                    .unwrap();
+                Ok(ColumnarValue::Array(Arc::new(temporal::hour(array)?)))
+            }
+        },
+        datatype => Err(DataFusionError::Internal(format!(
+            "Extract does not support datatype {:?}",
+            datatype
+        ))),
+    }
 }
 
 #[cfg(test)]

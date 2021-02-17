@@ -193,6 +193,7 @@ impl FromStr for BuiltinScalarFunction {
             "upper" => BuiltinScalarFunction::Upper,
             "to_timestamp" => BuiltinScalarFunction::ToTimestamp,
             "date_trunc" => BuiltinScalarFunction::DateTrunc,
+            "date_part" => BuiltinScalarFunction::DatePart,
             "array" => BuiltinScalarFunction::Array,
             "nullif" => BuiltinScalarFunction::NullIf,
             "md5" => BuiltinScalarFunction::MD5,
@@ -300,6 +301,7 @@ pub fn return_type(
         BuiltinScalarFunction::DateTrunc => {
             Ok(DataType::Timestamp(TimeUnit::Nanosecond, None))
         }
+        BuiltinScalarFunction::DatePart => Ok(DataType::Int32),
         BuiltinScalarFunction::Array => Ok(DataType::FixedSizeList(
             Box::new(Field::new("item", arg_types[0].clone(), true)),
             arg_types.len() as i32,
@@ -414,6 +416,7 @@ pub fn create_physical_expr(
         BuiltinScalarFunction::Upper => string_expressions::upper,
         BuiltinScalarFunction::ToTimestamp => datetime_expressions::to_timestamp,
         BuiltinScalarFunction::DateTrunc => datetime_expressions::date_trunc,
+        BuiltinScalarFunction::DatePart => datetime_expressions::date_part,
         BuiltinScalarFunction::Array => array_expressions::array,
     });
     // coerce
@@ -454,6 +457,10 @@ fn signature(fun: &BuiltinScalarFunction) -> Signature {
         }
         BuiltinScalarFunction::ToTimestamp => Signature::Uniform(1, vec![DataType::Utf8]),
         BuiltinScalarFunction::DateTrunc => Signature::Exact(vec![
+            DataType::Utf8,
+            DataType::Timestamp(TimeUnit::Nanosecond, None),
+        ]),
+        BuiltinScalarFunction::DatePart => Signature::Exact(vec![
             DataType::Utf8,
             DataType::Timestamp(TimeUnit::Nanosecond, None),
         ]),

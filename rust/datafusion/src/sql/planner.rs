@@ -21,7 +21,6 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use crate::datasource::TableProvider;
-use crate::logical_plan::DatePart;
 use crate::logical_plan::Expr::Alias;
 use crate::logical_plan::{
     and, lit, DFSchema, Expr, LogicalPlan, LogicalPlanBuilder, Operator, PlanType,
