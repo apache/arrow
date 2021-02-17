@@ -25,10 +25,10 @@ use crate::{
 };
 use arrow::{
     array::{
-        Array, ArrayRef, GenericStringArray, Int32Array, Int64Array, StringArray,
+        Array, ArrayRef, GenericStringArray, PrimitiveArray, StringArray,
         StringOffsetSizeTrait,
     },
-    datatypes::DataType,
+    datatypes::{ArrowNativeType, ArrowPrimitiveType, DataType},
 };
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -120,35 +120,22 @@ where
 }
 
 /// Returns number of characters in the string.
-/// character_length_i32('josé') = 4
-pub fn character_length_i32(args: &[ArrayRef]) -> Result<ArrayRef> {
-    let string_array: &GenericStringArray<i32> = args[0]
+/// character_length('josé') = 4
+pub fn character_length<T: ArrowPrimitiveType>(args: &[ArrayRef]) -> Result<ArrayRef>
+where
+    T::Native: StringOffsetSizeTrait,
+{
+    let string_array: &GenericStringArray<T::Native> = args[0]
         .as_any()
-        .downcast_ref::<GenericStringArray<i32>>()
+        .downcast_ref::<GenericStringArray<T::Native>>()
         .unwrap();
 
-    // first map is the iterator, second is for the `Option<_>`
     let result = string_array
         .iter()
-        .map(|x| x.map(|x: &str| x.graphemes(true).count() as i32))
-        .collect::<Int32Array>();
-
-    Ok(Arc::new(result) as ArrayRef)
-}
-
-/// Returns number of characters in the string.
-/// character_length_i64('josé') = 4
-pub fn character_length_i64(args: &[ArrayRef]) -> Result<ArrayRef> {
-    let string_array: &GenericStringArray<i64> = args[0]
-        .as_any()
-        .downcast_ref::<GenericStringArray<i64>>()
-        .unwrap();
-
-    // first map is the iterator, second is for the `Option<_>`
-    let result = string_array
-        .iter()
-        .map(|x| x.map(|x: &str| x.graphemes(true).count() as i64))
-        .collect::<Int64Array>();
+        .map(|x| {
+            x.map(|x: &str| T::Native::from_usize(x.graphemes(true).count()).unwrap())
+        })
+        .collect::<PrimitiveArray<T>>();
 
     Ok(Arc::new(result) as ArrayRef)
 }

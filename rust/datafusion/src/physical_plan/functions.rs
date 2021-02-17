@@ -45,10 +45,9 @@ use crate::{
 };
 use arrow::{
     array::ArrayRef,
-    compute::kernels::bit_length::bit_length,
-    compute::kernels::length::length,
+    compute::kernels::length::{bit_length, length},
     datatypes::TimeUnit,
-    datatypes::{DataType, Field, Schema},
+    datatypes::{DataType, Field, Int32Type, Int64Type, Schema},
     record_batch::RecordBatch,
 };
 use fmt::{Debug, Formatter};
@@ -441,12 +440,12 @@ pub fn create_physical_expr(
             },
         },
         BuiltinScalarFunction::CharacterLength => |args| match args[0].data_type() {
-            DataType::Utf8 => {
-                make_scalar_function(string_expressions::character_length_i32)(args)
-            }
-            DataType::LargeUtf8 => {
-                make_scalar_function(string_expressions::character_length_i64)(args)
-            }
+            DataType::Utf8 => make_scalar_function(
+                string_expressions::character_length::<Int32Type>,
+            )(args),
+            DataType::LargeUtf8 => make_scalar_function(
+                string_expressions::character_length::<Int64Type>,
+            )(args),
             other => Err(DataFusionError::Internal(format!(
                 "Unsupported data type {:?} for function character_length",
                 other,
@@ -685,8 +684,6 @@ mod tests {
     /// $ARRAY_TYPE is the column type after function applied
     macro_rules! test_function {
         ($FUNC:ident, $ARGS:expr, $EXPECTED:expr, $EXPECTED_TYPE:ty, $DATA_TYPE: ident, $ARRAY_TYPE:ident) => {
-            println!("{:?}", BuiltinScalarFunction::$FUNC);
-
             // used to provide type annotation
             let expected: Result<Option<$EXPECTED_TYPE>> = $EXPECTED;
 

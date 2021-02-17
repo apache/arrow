@@ -21,7 +21,7 @@ use criterion::Criterion;
 
 extern crate arrow;
 
-use arrow::{array::*, compute::kernels::bit_length::bit_length};
+use arrow::{array::*, compute::kernels::length::bit_length};
 
 fn bench_bit_length(array: &StringArray) {
     criterion::black_box(bit_length(array).unwrap());
