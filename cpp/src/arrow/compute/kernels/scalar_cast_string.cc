@@ -94,26 +94,45 @@ struct Utf8Validator {
 };
 
 template <typename I, typename O>
-struct CastBinaryToBinaryOffsets;
-
-// Cast same-width offsets (no-op)
-template <>
-struct CastBinaryToBinaryOffsets<int32_t, int32_t> {
-  static void CastOffsets(KernelContext* ctx, const ArrayData& input, ArrayData* output) {
-  }
-};
-template <>
-struct CastBinaryToBinaryOffsets<int64_t, int64_t> {
-  static void CastOffsets(KernelContext* ctx, const ArrayData& input, ArrayData* output) {
-  }
-};
+void CastBinaryToBinaryOffsets(KernelContext* ctx, const ArrayData& input,
+                               ArrayData* output) {
+  static_assert(std::is_same<I, O>::value, "Cast same-width offsets (no-op)");
+}
 
 // Upcast offsets
 template <>
-struct CastBinaryToBinaryOffsets<int32_t, int64_t> {
-  static void CastOffsets(KernelContext* ctx, const ArrayData& input, ArrayData* output) {
-    using input_offset_type = int32_t;
-    using output_offset_type = int64_t;
+void CastBinaryToBinaryOffsets<int32_t, int64_t>(KernelContext* ctx,
+                                                 const ArrayData& input,
+                                                 ArrayData* output) {
+  using input_offset_type = int32_t;
+  using output_offset_type = int64_t;
+  KERNEL_ASSIGN_OR_RAISE(
+      output->buffers[1], ctx,
+      ctx->Allocate((output->length + output->offset + 1) * sizeof(output_offset_type)));
+  memset(output->buffers[1]->mutable_data(), 0,
+         output->offset * sizeof(output_offset_type));
+  ::arrow::internal::CastInts(input.GetValues<input_offset_type>(1),
+                              output->GetMutableValues<output_offset_type>(1),
+                              output->length + 1);
+}
+
+// Downcast offsets
+template <>
+void CastBinaryToBinaryOffsets<int64_t, int32_t>(KernelContext* ctx,
+                                                 const ArrayData& input,
+                                                 ArrayData* output) {
+  using input_offset_type = int64_t;
+  using output_offset_type = int32_t;
+
+  constexpr input_offset_type kMaxOffset = std::numeric_limits<output_offset_type>::max();
+
+  auto input_offsets = input.GetValues<input_offset_type>(1);
+
+  // Binary offsets are ascending, so it's enough to check the last one for overflow.
+  if (input_offsets[input.length] > kMaxOffset) {
+    ctx->SetStatus(Status::Invalid("Failed casting from ", input.type->ToString(), " to ",
+                                   output->type->ToString(), ": input array too large"));
+  } else {
     KERNEL_ASSIGN_OR_RAISE(output->buffers[1], ctx,
                            ctx->Allocate((output->length + output->offset + 1) *
                                          sizeof(output_offset_type)));
@@ -123,66 +142,32 @@ struct CastBinaryToBinaryOffsets<int32_t, int64_t> {
                                 output->GetMutableValues<output_offset_type>(1),
                                 output->length + 1);
   }
-};
-
-// Downcast offsets
-template <>
-struct CastBinaryToBinaryOffsets<int64_t, int32_t> {
-  static void CastOffsets(KernelContext* ctx, const ArrayData& input, ArrayData* output) {
-    using input_offset_type = int64_t;
-    using output_offset_type = int32_t;
-
-    constexpr input_offset_type kMaxOffset =
-        std::numeric_limits<output_offset_type>::max();
-
-    auto input_offsets = input.GetValues<input_offset_type>(1);
-
-    // Binary offsets are ascending, so it's enough to check the last one for overflow.
-    if (input_offsets[input.length] > kMaxOffset) {
-      ctx->SetStatus(Status::Invalid("Failed casting from ", input.type->ToString(),
-                                     " to ", output->type->ToString(),
-                                     ": input array too large"));
-    } else {
-      KERNEL_ASSIGN_OR_RAISE(output->buffers[1], ctx,
-                             ctx->Allocate((output->length + output->offset + 1) *
-                                           sizeof(output_offset_type)));
-      memset(output->buffers[1]->mutable_data(), 0,
-             output->offset * sizeof(output_offset_type));
-      ::arrow::internal::CastInts(input.GetValues<input_offset_type>(1),
-                                  output->GetMutableValues<output_offset_type>(1),
-                                  output->length + 1);
-    }
-  }
-};
+}
 
 template <typename O, typename I>
-struct BinaryToBinaryCastFunctor {
-  using input_offset_type = typename I::offset_type;
-  using output_offset_type = typename O::offset_type;
+void BinaryToBinaryCastExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  DCHECK(out->is_array());
+  const CastOptions& options = checked_cast<const CastState&>(*ctx->state()).options;
+  const ArrayData& input = *batch[0].array();
 
-  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    DCHECK(out->is_array());
-    const CastOptions& options = checked_cast<const CastState&>(*ctx->state()).options;
-    const ArrayData& input = *batch[0].array();
+  if (!I::is_utf8 && O::is_utf8 && !options.allow_invalid_utf8) {
+    InitializeUTF8();
 
-    if (!I::is_utf8 && O::is_utf8 && !options.allow_invalid_utf8) {
-      InitializeUTF8();
-
-      ArrayDataVisitor<I> visitor;
-      Utf8Validator validator;
-      Status st = visitor.Visit(input, &validator);
-      if (!st.ok()) {
-        ctx->SetStatus(st);
-        return;
-      }
+    ArrayDataVisitor<I> visitor;
+    Utf8Validator validator;
+    Status st = visitor.Visit(input, &validator);
+    if (!st.ok()) {
+      ctx->SetStatus(st);
+      return;
     }
-
-    // Start with a zero-copy cast, but change indices to expected size
-    ZeroCopyCastExec(ctx, batch, out);
-    CastBinaryToBinaryOffsets<input_offset_type, output_offset_type>::CastOffsets(
-        ctx, input, out->mutable_array());
   }
-};
+
+  // Start with a zero-copy cast, but change indices to expected size
+  ZeroCopyCastExec(ctx, batch, out);
+
+  CastBinaryToBinaryOffsets<typename I::offset_type, typename O::offset_type>(
+      ctx, input, out->mutable_array());
+}
 
 #if defined(_MSC_VER)
 #pragma warning(pop)
@@ -216,7 +201,7 @@ void AddBinaryToBinaryCast(CastFunction* func) {
 
   DCHECK_OK(func->AddKernel(
       InType::type_id, {in_ty}, out_ty,
-      TrivialScalarUnaryAsArraysExec(BinaryToBinaryCastFunctor<OutType, InType>::Exec),
+      TrivialScalarUnaryAsArraysExec(BinaryToBinaryCastExec<OutType, InType>),
       NullHandling::COMPUTED_NO_PREALLOCATE));
 }
 

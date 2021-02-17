@@ -44,16 +44,14 @@
 // NOTE: failing must be inline in the macros below, to get correct file / line number
 // reporting on test failures.
 
-#define ASSERT_RAISES(ENUM, expr)                                                     \
-  do {                                                                                \
-    auto _res = (expr);                                                               \
-    ::arrow::Status _st = ::arrow::internal::GenericToStatus(_res);                   \
-    if (!_st.Is##ENUM()) {                                                            \
-      FAIL() << "Expected '" ARROW_STRINGIFY(expr) "' to fail with " ARROW_STRINGIFY( \
-                    ENUM) ", but got "                                                \
-             << _st.ToString();                                                       \
-    }                                                                                 \
-  } while (false)
+// NOTE: using a for loop for this macro allows extra failure messages to be
+// appended with operator<<
+#define ASSERT_RAISES(ENUM, expr)                                                 \
+  for (::arrow::Status _st = ::arrow::internal::GenericToStatus((expr));          \
+       !_st.Is##ENUM();)                                                          \
+  FAIL() << "Expected '" ARROW_STRINGIFY(expr) "' to fail with " ARROW_STRINGIFY( \
+                ENUM) ", but got "                                                \
+         << _st.ToString()
 
 #define ASSERT_RAISES_WITH_MESSAGE(ENUM, message, expr)                               \
   do {                                                                                \

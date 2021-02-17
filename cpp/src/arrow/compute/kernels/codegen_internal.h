@@ -663,14 +663,13 @@ struct ScalarUnaryNotNullStateful {
     static void Exec(const ThisType& functor, KernelContext* ctx, const ArrayData& arg0,
                      Datum* out) {
       ArrayData* out_arr = out->mutable_array();
-      auto out_data = out_arr->GetMutableValues<uint8_t>(1);
+      auto out_data = out_arr->GetMutableValues<Decimal128>(1);
       VisitArrayValuesInline<Arg0Type>(
           arg0,
           [&](Arg0Value v) {
-            functor.op.template Call<OutValue, Arg0Value>(ctx, v).ToBytes(out_data);
-            out_data += 16;
+            *out_data++ = functor.op.template Call<OutValue, Arg0Value>(ctx, v);
           },
-          [&]() { out_data += 16; });
+          [&]() { ++out_data; });
     }
   };
 
