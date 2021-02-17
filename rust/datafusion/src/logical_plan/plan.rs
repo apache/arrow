@@ -197,6 +197,40 @@ impl LogicalPlan {
         }
     }
 
+    /// Get a vector of references to all schemas in every node of the logical plan
+    pub fn all_schemas(&self) -> Vec<&DFSchemaRef> {
+        match self {
+            LogicalPlan::TableScan {
+                projected_schema, ..
+            } => vec![&projected_schema],
+            LogicalPlan::Aggregate { input, schema, .. }
+            | LogicalPlan::Projection { input, schema, .. } => {
+                let mut schemas = input.all_schemas();
+                schemas.insert(0, &schema);
+                schemas
+            }
+            LogicalPlan::Join {
+                left,
+                right,
+                schema,
+                ..
+            } => {
+                let mut schemas = left.all_schemas();
+                schemas.extend(right.all_schemas());
+                schemas.insert(0, &schema);
+                schemas
+            }
+            LogicalPlan::Extension { node } => vec![&node.schema()],
+            LogicalPlan::Explain { schema, .. }
+            | LogicalPlan::EmptyRelation { schema, .. }
+            | LogicalPlan::CreateExternalTable { schema, .. } => vec![&schema],
+            LogicalPlan::Limit { input, .. }
+            | LogicalPlan::Repartition { input, .. }
+            | LogicalPlan::Sort { input, .. }
+            | LogicalPlan::Filter { input, .. } => input.all_schemas(),
+        }
+    }
+
     /// Returns the (fixed) output schema for explain plans
     pub fn explain_schema() -> SchemaRef {
         SchemaRef::new(Schema::new(vec![

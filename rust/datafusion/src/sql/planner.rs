@@ -2342,6 +2342,17 @@ mod tests {
     }
 
     #[test]
+    fn boolean_literal_in_condition_expression() {
+        let sql = "SELECT order_id \
+        FROM orders \
+        WHERE delivered = false OR delivered = true";
+        let expected = "Projection: #order_id\
+            \n  Filter: #delivered Eq Boolean(false) Or #delivered Eq Boolean(true)\
+            \n    TableScan: orders projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
     fn select_typedstring() {
         let sql = "SELECT date '2020-12-10' AS date FROM person";
         let expected = "Projection: CAST(Utf8(\"2020-12-10\") AS Date32) AS date\
@@ -2389,6 +2400,7 @@ mod tests {
                     Field::new("o_item_id", DataType::Utf8, false),
                     Field::new("qty", DataType::Int32, false),
                     Field::new("price", DataType::Float64, false),
+                    Field::new("delivered", DataType::Boolean, false),
                 ])),
                 "lineitem" => Some(Schema::new(vec![
                     Field::new("l_item_id", DataType::UInt32, false),

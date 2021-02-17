@@ -40,6 +40,7 @@ use crate::execution::dataframe_impl::DataFrameImpl;
 use crate::logical_plan::{
     FunctionRegistry, LogicalPlan, LogicalPlanBuilder, ToDFSchema,
 };
+use crate::optimizer::constant_folding::ConstantFolding;
 use crate::optimizer::filter_push_down::FilterPushDown;
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::projection_push_down::ProjectionPushDown;
@@ -514,6 +515,7 @@ impl ExecutionConfig {
             concurrency: num_cpus::get(),
             batch_size: 32768,
             optimizers: vec![
+                Arc::new(ConstantFolding::new()),
                 Arc::new(ProjectionPushDown::new()),
                 Arc::new(FilterPushDown::new()),
                 Arc::new(HashBuildProbeOrder::new()),
@@ -836,7 +838,7 @@ mod tests {
                     projected_schema,
                     ..
                 } => {
-                    assert_eq!(source.schema().fields().len(), 2);
+                    assert_eq!(source.schema().fields().len(), 3);
                     assert_eq!(projected_schema.fields().len(), 1);
                 }
                 _ => panic!("input to projection should be TableScan"),
@@ -1142,6 +1144,28 @@ mod tests {
             "| 2  | 5.5     |",
             "| 3  | 5.5     |",
             "+----+---------+",
+        ];
+        assert_batches_sorted_eq!(expected, &results);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn boolean_literal() -> Result<()> {
+        let results =
+            execute("SELECT c1, c3 FROM test WHERE c1 > 2 AND c3 = true", 4).await?;
+        assert_eq!(results.len(), 1);
+
+        let expected = vec![
+            "+----+------+",
+            "| c1 | c3   |",
+            "+----+------+",
+            "| 3  | true |",
+            "| 3  | true |",
+            "| 3  | true |",
+            "| 3  | true |",
+            "| 3  | true |",
+            "+----+------+",
         ];
         assert_batches_sorted_eq!(expected, &results);
 
@@ -1955,6 +1979,7 @@ mod tests {
         let schema = Arc::new(Schema::new(vec![
             Field::new("c1", DataType::UInt32, false),
             Field::new("c2", DataType::UInt64, false),
+            Field::new("c3", DataType::Boolean, false),
         ]));
 
         // generate a partitioned file
@@ -1965,7 +1990,7 @@ mod tests {
 
             // generate some data
             for i in 0..=10 {
-                let data = format!("{},{}\n", partition, i);
+                let data = format!("{},{},{}\n", partition, i, i % 2 == 0);
                 file.write_all(data.as_bytes())?;
             }
         }
