@@ -72,7 +72,10 @@ inline RecordBatchIterator ProjectRecordBatch(RecordBatchIterator it,
               projected, MakeArrayFromScalar(*projected.scalar(), in->num_rows(), pool));
         }
 
-        return RecordBatch::FromStructArray(projected.array_as<StructArray>());
+        ARROW_ASSIGN_OR_RAISE(
+            auto out, RecordBatch::FromStructArray(projected.array_as<StructArray>()));
+
+        return out->ReplaceSchemaMetadata(in->schema()->metadata());
       },
       std::move(it));
 }

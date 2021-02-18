@@ -34,12 +34,6 @@
 namespace arrow {
 namespace dataset {
 
-ScanOptions::ScanOptions(std::shared_ptr<Schema> dataset_schema)
-    : dataset_schema(std::move(dataset_schema)) {
-  // FIXME binding should be done in ScannerBuilder and nowhere else
-  DCHECK_OK(SetProjection(this, this->dataset_schema->field_names()));
-}
-
 std::vector<std::string> ScanOptions::MaterializedFields() const {
   std::vector<std::string> fields;
 
@@ -90,8 +84,9 @@ ScannerBuilder::ScannerBuilder(std::shared_ptr<Dataset> dataset,
                                std::shared_ptr<ScanContext> scan_context)
     : dataset_(std::move(dataset)),
       fragment_(nullptr),
-      scan_options_(ScanOptions::Make(dataset_->schema())),
+      scan_options_(std::make_shared<ScanOptions>()),
       scan_context_(std::move(scan_context)) {
+  scan_options_->dataset_schema = dataset_->schema();
   DCHECK_OK(Filter(literal(true)));
 }
 
@@ -100,21 +95,19 @@ ScannerBuilder::ScannerBuilder(std::shared_ptr<Schema> schema,
                                std::shared_ptr<ScanContext> scan_context)
     : dataset_(nullptr),
       fragment_(std::move(fragment)),
-      fragment_schema_(schema),
-      scan_options_(ScanOptions::Make(std::move(schema))),
+      scan_options_(std::make_shared<ScanOptions>()),
       scan_context_(std::move(scan_context)) {
+  scan_options_->dataset_schema = std::move(schema);
   DCHECK_OK(Filter(literal(true)));
 }
 
 const std::shared_ptr<Schema>& ScannerBuilder::schema() const {
-  return fragment_ ? fragment_schema_ : dataset_->schema();
+  return scan_options_->dataset_schema;
 }
 
 Status ScannerBuilder::Project(std::vector<std::string> columns) {
   RETURN_NOT_OK(schema()->CanReferenceFieldsByNames(columns));
-  has_projection_ = true;
-  project_columns_ = std::move(columns);
-  return Status::OK();
+  return SetProjection(scan_options_.get(), columns);
 }
 
 Status ScannerBuilder::Filter(const Expression& filter) {
@@ -138,17 +131,15 @@ Status ScannerBuilder::BatchSize(int64_t batch_size) {
   return Status::OK();
 }
 
-Result<std::shared_ptr<Scanner>> ScannerBuilder::Finish() const {
-  auto scan_options = std::make_shared<ScanOptions>(*scan_options_);
-  if (has_projection_ && !project_columns_.empty()) {
-    RETURN_NOT_OK(SetProjection(scan_options.get(), project_columns_));
+Result<std::shared_ptr<Scanner>> ScannerBuilder::Finish() {
+  if (!scan_options_->projection.IsBound()) {
+    RETURN_NOT_OK(Project(scan_options_->dataset_schema->field_names()));
   }
 
   if (dataset_ == nullptr) {
-    return std::make_shared<Scanner>(fragment_, std::move(scan_options), scan_context_);
+    return std::make_shared<Scanner>(fragment_, scan_options_, scan_context_);
   }
-
-  return std::make_shared<Scanner>(dataset_, std::move(scan_options), scan_context_);
+  return std::make_shared<Scanner>(dataset_, scan_options_, scan_context_);
 }
 
 using arrow::internal::TaskGroup;

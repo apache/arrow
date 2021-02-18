@@ -209,24 +209,35 @@ using testing::IsEmpty;
 TEST(ScanOptions, TestMaterializedFields) {
   auto i32 = field("i32", int32());
   auto i64 = field("i64", int64());
+  auto opts = std::make_shared<ScanOptions>();
 
-  auto opts = ScanOptions::Make(schema({}));
+  // empty dataset, project nothing = nothing materialized
+  opts->dataset_schema = schema({});
+  ASSERT_OK(SetProjection(opts.get(), {}));
   EXPECT_THAT(opts->MaterializedFields(), IsEmpty());
 
+  // non-empty dataset, project nothing = nothing materialized
+  opts->dataset_schema = schema({i32, i64});
+  EXPECT_THAT(opts->MaterializedFields(), IsEmpty());
+
+  // project nothing, filter on i32 = materialize i32
   opts->filter = equal(field_ref("i32"), literal(10));
   EXPECT_THAT(opts->MaterializedFields(), ElementsAre("i32"));
 
-  opts = ScanOptions::Make(schema({i32, i64}));
+  // project i32 & i64, filter nothing = materialize i32 & i64
+  opts->filter = literal(true);
+  ASSERT_OK(SetProjection(opts.get(), {"i32", "i64"}));
   EXPECT_THAT(opts->MaterializedFields(), ElementsAre("i32", "i64"));
 
-  opts = ScanOptions::Make(schema({i32, i64}));
-  // FIXME resolve the projected schema in MakeProjection
+  // project i32, filter nothing = materialize i32
   ASSERT_OK(SetProjection(opts.get(), {"i32"}));
   EXPECT_THAT(opts->MaterializedFields(), ElementsAre("i32"));
 
+  // project i32, filter on i32 = materialize i32 (reported twice)
   opts->filter = equal(field_ref("i32"), literal(10));
   EXPECT_THAT(opts->MaterializedFields(), ElementsAre("i32", "i32"));
 
+  // project i32, filter on i64 = materialize i32 & i64
   opts->filter = equal(field_ref("i64"), literal(10));
   EXPECT_THAT(opts->MaterializedFields(), ElementsAre("i32", "i64"));
 }

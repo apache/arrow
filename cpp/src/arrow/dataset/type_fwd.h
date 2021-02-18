@@ -77,8 +77,7 @@ class DirectoryPartitioning;
 class HivePartitioning;
 
 struct ScanContext;
-
-class ScanOptions;
+struct ScanOptions;
 
 class Scanner;
 

@@ -50,14 +50,7 @@ struct ARROW_DS_EXPORT ScanContext {
   std::shared_ptr<internal::TaskGroup> TaskGroup() const;
 };
 
-class ARROW_DS_EXPORT ScanOptions {
- public:
-  virtual ~ScanOptions() = default;
-
-  static std::shared_ptr<ScanOptions> Make(std::shared_ptr<Schema> dataset_schema) {
-    return std::shared_ptr<ScanOptions>(new ScanOptions(std::move(dataset_schema)));
-  }
-
+struct ARROW_DS_EXPORT ScanOptions {
   // Filter and projection
   Expression filter = literal(true);
   Expression projection;
@@ -65,7 +58,7 @@ class ARROW_DS_EXPORT ScanOptions {
   // Schema with which batches will be read from disk
   std::shared_ptr<Schema> dataset_schema;
 
-  // Schema to which record batches will be reconciled
+  // Schema of projected record batches
   std::shared_ptr<Schema> projected_schema;
 
   // Maximum row count for scanned batches.
@@ -86,11 +79,6 @@ class ARROW_DS_EXPORT ScanOptions {
   // This is used by Fragments implementation to apply the column
   // sub-selection optimization.
   std::vector<std::string> MaterializedFields() const;
-
- private:
-  explicit ScanOptions(std::shared_ptr<Schema> dataset_schema);
-
-  std::shared_ptr<Schema> projected_schema_;
 };
 
 /// \brief Read record batches from a range of a single data fragment. A
@@ -236,18 +224,15 @@ class ARROW_DS_EXPORT ScannerBuilder {
   Status BatchSize(int64_t batch_size);
 
   /// \brief Return the constructed now-immutable Scanner object
-  Result<std::shared_ptr<Scanner>> Finish() const;
+  Result<std::shared_ptr<Scanner>> Finish();
 
   const std::shared_ptr<Schema>& schema() const;
 
  private:
   std::shared_ptr<Dataset> dataset_;
   std::shared_ptr<Fragment> fragment_;
-  std::shared_ptr<Schema> fragment_schema_;
   std::shared_ptr<ScanOptions> scan_options_;
   std::shared_ptr<ScanContext> scan_context_;
-  bool has_projection_ = false;
-  std::vector<std::string> project_columns_;
 };
 
 }  // namespace dataset

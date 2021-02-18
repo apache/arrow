@@ -1520,13 +1520,14 @@ def test_construct_empty_dataset():
     assert table.num_rows == 0
     assert table.num_columns == 0
 
+
+def test_construct_dataset_with_invalid_schema():
     empty = ds.dataset([], schema=pa.schema([
         ('a', pa.int64()),
         ('a', pa.string())
     ]))
-    table = empty.to_table()
-    assert table.num_rows == 0
-    assert table.num_columns == 2
+    with pytest.raises(ValueError, match='Field.*not unique'):
+        empty.to_table()
 
 
 def test_construct_from_invalid_sources_raise(multisourcefs):
