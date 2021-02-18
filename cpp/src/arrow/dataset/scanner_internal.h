@@ -21,6 +21,8 @@
 #include <utility>
 
 #include "arrow/array/array_nested.h"
+#include "arrow/array/util.h"
+#include "arrow/compute/api_scalar.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec.h"
 #include "arrow/dataset/dataset_internal.h"
@@ -54,32 +56,22 @@ inline RecordBatchIterator FilterRecordBatch(RecordBatchIterator it, Expression 
       },
       std::move(it));
 }
-inline RecordBatchIterator ProjectRecordBatch(RecordBatchIterator it,
-                                              RecordBatchProjector* projector,
-                                              MemoryPool* pool) {
-  return MakeMaybeMapIterator(
-      [=](std::shared_ptr<RecordBatch> in) {
-        // The RecordBatchProjector is shared across ScanTasks of the same
-        // Fragment. The resize operation of missing columns is not thread safe.
-        // Ensure that each ScanTask gets his own projector.
-        RecordBatchProjector local_projector{*projector};
-        return local_projector.Project(*in, pool);
-      },
-      std::move(it));
-}
 
 inline RecordBatchIterator ProjectRecordBatch(RecordBatchIterator it,
                                               Expression projection, MemoryPool* pool) {
   return MakeMaybeMapIterator(
       [=](std::shared_ptr<RecordBatch> in) -> Result<std::shared_ptr<RecordBatch>> {
-        // The RecordBatchProjector is shared across ScanTasks of the same
-        // Fragment. The resize operation of missing columns is not thread safe.
-        // Ensure that each ScanTask gets his own projector.
         compute::ExecContext exec_context{pool};
         ARROW_ASSIGN_OR_RAISE(Datum projected, ExecuteScalarExpression(
                                                    projection, Datum(in), &exec_context));
 
         DCHECK_EQ(projected.type()->id(), Type::STRUCT);
+        if (projected.shape() == ValueDescr::SCALAR) {
+          // Only virtual columns are projected. Broadcast to an array
+          ARROW_ASSIGN_OR_RAISE(
+              projected, MakeArrayFromScalar(*projected.scalar(), in->num_rows(), pool));
+        }
+
         return RecordBatch::FromStructArray(projected.array_as<StructArray>());
       },
       std::move(it));
@@ -92,8 +84,7 @@ class FilterAndProjectScanTask : public ScanTask {
         task_(std::move(task)),
         partition_(std::move(partition)),
         filter_(options()->filter),
-        projection_(options()->projection),
-        projector_(options()->projector) {}
+        projection_(options()->projection) {}
 
   Result<RecordBatchIterator> Execute() override {
     ARROW_ASSIGN_OR_RAISE(auto it, task_->Execute());
@@ -107,12 +98,6 @@ class FilterAndProjectScanTask : public ScanTask {
     RecordBatchIterator filter_it =
         FilterRecordBatch(std::move(it), simplified_filter, context_->pool);
 
-    RETURN_NOT_OK(
-        KeyValuePartitioning::SetDefaultValuesFromKeys(partition_, &projector_));
-
-    return ProjectRecordBatch(std::move(filter_it), &projector_, context_->pool);
-
-    // FIXME
     return ProjectRecordBatch(std::move(filter_it), simplified_projection,
                               context_->pool);
   }
@@ -122,7 +107,6 @@ class FilterAndProjectScanTask : public ScanTask {
   Expression partition_;
   Expression filter_;
   Expression projection_;
-  RecordBatchProjector projector_;
 };
 
 /// \brief GetScanTaskIterator transforms an Iterator<Fragment> in a
@@ -151,6 +135,26 @@ inline Result<ScanTaskIterator> GetScanTaskIterator(
 
   // Iterator<ScanTask>
   return MakeFlattenIterator(std::move(maybe_scantask_it));
+}
+
+// FIXME delete this
+inline Status SetProjection(ScanOptions* options, const std::vector<std::string>& names) {
+  options->projected_schema = SchemaFromColumnNames(options->dataset_schema, names);
+
+  std::vector<Expression> project_args;
+  compute::ProjectOptions project_options{{}};
+
+  for (const auto& field : options->projected_schema->fields()) {
+    project_args.push_back(field_ref(field->name()));
+    project_options.field_names.push_back(field->name());
+    project_options.field_nullability.push_back(field->nullable());
+    project_options.field_metadata.push_back(field->metadata());
+  }
+
+  ARROW_ASSIGN_OR_RAISE(options->projection, call("project", std::move(project_args),
+                                                  std::move(project_options))
+                                                 .Bind(*options->dataset_schema));
+  return Status::OK();
 }
 
 }  // namespace dataset

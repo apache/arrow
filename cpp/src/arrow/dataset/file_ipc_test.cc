@@ -25,6 +25,7 @@
 #include "arrow/dataset/discovery.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/partition.h"
+#include "arrow/dataset/scanner_internal.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/reader.h"
@@ -253,7 +254,8 @@ TEST_F(TestIpcFileFormat, ScanRecordBatchReaderProjected) {
   schema_ = schema({field("f64", float64()), field("i64", int64()),
                     field("f32", float32()), field("i32", int32())});
 
-  opts_ = ScanOptions::Make(schema_, SchemaFromColumnNames(schema_, {"f64"}));
+  opts_ = ScanOptions::Make(schema_);
+  ASSERT_OK(SetProjection(opts_.get(), {"f64"}));
   opts_->filter = equal(field_ref("i32"), literal(0));
 
   // NB: projector is applied by the scanner; FileFragment does not evaluate it so
@@ -288,7 +290,8 @@ TEST_F(TestIpcFileFormat, ScanRecordBatchReaderProjectedMissingCols) {
                                    field("f32", float32()), field("i32", int32())}));
 
   schema_ = reader->schema();
-  opts_ = ScanOptions::Make(schema_, SchemaFromColumnNames(schema_, {"f64"}));
+  opts_ = ScanOptions::Make(schema_);
+  ASSERT_OK(SetProjection(opts_.get(), {"f64"}));
   opts_->filter = equal(field_ref("i32"), literal(0));
 
   auto readers = {reader.get(), reader_without_i32.get(), reader_without_f64.get()};

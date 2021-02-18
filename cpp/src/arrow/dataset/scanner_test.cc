@@ -19,6 +19,7 @@
 
 #include <memory>
 
+#include "arrow/dataset/scanner_internal.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
@@ -111,8 +112,10 @@ TEST_F(TestScanner, MaterializeMissingColumn) {
   auto batch_missing_f64 =
       ConstantArrayGenerator::Zeroes(kBatchSize, schema({field("i32", int32())}));
 
-  ASSERT_OK(options_->projector.SetDefaultValue(schema_->GetFieldIndex("f64"),
-                                                MakeScalar(2.5)));
+  auto fragment_missing_f64 = std::make_shared<InMemoryFragment>(
+      RecordBatchVector{static_cast<size_t>(kNumberChildDatasets * kNumberBatches),
+                        batch_missing_f64},
+      equal(field_ref("f64"), literal(2.5)));
 
   ASSERT_OK_AND_ASSIGN(auto f64, ArrayFromBuilderVisitor(float64(), kBatchSize,
                                                          [&](DoubleBuilder* builder) {
@@ -121,7 +124,10 @@ TEST_F(TestScanner, MaterializeMissingColumn) {
   auto batch_with_f64 =
       RecordBatch::Make(schema_, f64->length(), {batch_missing_f64->column(0), f64});
 
-  AssertScannerEqualsRepetitionsOf(MakeScanner(batch_missing_f64), batch_with_f64);
+  ScannerBuilder builder{schema_, fragment_missing_f64, ctx_};
+  ASSERT_OK_AND_ASSIGN(auto scanner, builder.Finish());
+
+  AssertScannerEqualsRepetitionsOf(*scanner, batch_with_f64);
 }
 
 TEST_F(TestScanner, ToTable) {
@@ -213,7 +219,9 @@ TEST(ScanOptions, TestMaterializedFields) {
   opts = ScanOptions::Make(schema({i32, i64}));
   EXPECT_THAT(opts->MaterializedFields(), ElementsAre("i32", "i64"));
 
-  opts = opts->ReplaceSchema(schema({i32}));
+  opts = ScanOptions::Make(schema({i32, i64}));
+  // FIXME resolve the projected schema in MakeProjection
+  ASSERT_OK(SetProjection(opts.get(), {"i32"}));
   EXPECT_THAT(opts->MaterializedFields(), ElementsAre("i32"));
 
   opts->filter = equal(field_ref("i32"), literal(10));

@@ -579,6 +579,30 @@ TEST(Expression, ExecuteDictionaryTransparent) {
     {"a": "",   "b": ""},
     {"a": "hi", "b": "hello"}
   ])"));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto expr, project({field_ref("i32"), field_ref("dict_str")}, {"i32", "dict_str"})
+                     .Bind(*kBoringSchema));
+
+  ASSERT_OK_AND_ASSIGN(
+      expr, SimplifyWithGuarantee(expr, equal(field_ref("dict_str"), literal("eh"))));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto res,
+      ExecuteScalarExpression(expr, ArrayFromJSON(struct_({field("i32", int32())}), R"([
+    {"i32": 0},
+    {"i32": 1},
+    {"i32": 2}
+  ])")));
+
+  AssertDatumsEqual(
+      res, ArrayFromJSON(struct_({field("i32", int32()),
+                                  field("dict_str", dictionary(int32(), utf8()))}),
+                         R"([
+    {"i32": 0, "dict_str": "eh"},
+    {"i32": 1, "dict_str": "eh"},
+    {"i32": 2, "dict_str": "eh"}
+  ])"));
 }
 
 void ExpectIdenticalIfUnchanged(Expression modified, Expression original) {
@@ -756,6 +780,10 @@ TEST(Expression, ReplaceFieldsWithKnownValues) {
   ExpectReplacesTo(equal(field_ref("i32"), literal(1)), i32_is_3,
                    equal(literal(3), literal(1)));
 
+  Datum dict_str{
+      DictionaryScalar::Make(MakeScalar(0), ArrayFromJSON(utf8(), R"(["3"])"))};
+  ExpectReplacesTo(field_ref("dict_str"), {{"dict_str", dict_str}}, literal(dict_str));
+
   ExpectReplacesTo(call("add",
                         {
                             call("subtract",
@@ -787,6 +815,18 @@ TEST(Expression, ReplaceFieldsWithKnownValues) {
 
   ExpectReplacesTo(is_valid(field_ref("str")), i32_valid_str_null,
                    is_valid(null_literal(utf8())));
+
+  ASSERT_OK_AND_ASSIGN(auto expr, field_ref("dict_str").Bind(*kBoringSchema));
+  Datum dict_i32{
+      DictionaryScalar::Make(MakeScalar<int32_t>(0), ArrayFromJSON(int32(), R"([3])"))};
+  // Unsupported cast dictionary(int32(), int32()) -> dictionary(int32(), utf8())
+  ASSERT_RAISES(NotImplemented,
+                ReplaceFieldsWithKnownValues({{"dict_str", dict_i32}}, expr));
+  // Unsupported cast dictionary(int8(), utf8()) -> dictionary(int32(), utf8())
+  dict_str = Datum{
+      DictionaryScalar::Make(MakeScalar<int8_t>(0), ArrayFromJSON(utf8(), R"(["a"])"))};
+  ASSERT_RAISES(NotImplemented,
+                ReplaceFieldsWithKnownValues({{"dict_str", dict_str}}, expr));
 }
 
 struct {
@@ -1171,6 +1211,37 @@ TEST(Expression, SerializationRoundTrips) {
                          equal(field_ref("hour"), literal(int8_t(0))),
                          equal(field_ref("alpha"), literal(int32_t(0))),
                          equal(field_ref("beta"), literal(3.25f))}));
+}
+
+TEST(Projection, AugmentWithNull) {
+  auto just_i32 = ArrayFromJSON(struct_({kBoringSchema->GetFieldByName("i32")}),
+                                R"([{"i32": 0}, {"i32": 1}, {"i32": 2}])");
+
+  {
+    ASSERT_OK_AND_ASSIGN(auto proj, project({field_ref("f64"), field_ref("i32")},
+                                            {"projected double", "projected int"})
+                                        .Bind(*kBoringSchema));
+
+    auto expected = ArrayFromJSON(
+        struct_({field("projected double", float64()), field("projected int", int32())}),
+        R"([[null, 0], [null, 1], [null, 2]])");
+    ASSERT_OK_AND_ASSIGN(auto actual, ExecuteScalarExpression(proj, just_i32));
+
+    AssertDatumsEqual(Datum(expected), actual);
+  }
+
+  {
+    ASSERT_OK_AND_ASSIGN(
+        auto proj,
+        project({field_ref("f64")}, {"projected double"}).Bind(*kBoringSchema));
+
+    // NB: only a scalar was projected, this is *not* automatically broadcast to an array.
+    ASSERT_OK_AND_ASSIGN(auto expected, StructScalar::Make({MakeNullScalar(float64())},
+                                                           {"projected double"}));
+    ASSERT_OK_AND_ASSIGN(auto actual, ExecuteScalarExpression(proj, just_i32));
+
+    AssertDatumsEqual(Datum(expected), actual);
+  }
 }
 
 }  // namespace dataset

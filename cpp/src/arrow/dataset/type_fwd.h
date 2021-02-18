@@ -88,7 +88,5 @@ class ScanTask;
 using ScanTaskVector = std::vector<std::shared_ptr<ScanTask>>;
 using ScanTaskIterator = Iterator<std::shared_ptr<ScanTask>>;
 
-class RecordBatchProjector;
-
 }  // namespace dataset
 }  // namespace arrow

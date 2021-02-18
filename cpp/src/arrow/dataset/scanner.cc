@@ -34,36 +34,16 @@
 namespace arrow {
 namespace dataset {
 
-ScanOptions::ScanOptions(std::shared_ptr<Schema> dataset_schema,
-                         std::shared_ptr<Schema> projected_schema)
-    : dataset_schema(std::move(dataset_schema)),
-      projector(RecordBatchProjector(std::move(projected_schema))) {
-  // assemble a trivial passtrhu projection
-  std::vector<Expression> project_args;
-  compute::ProjectOptions project_options{{}};
-  for (const auto& field : projector.schema()->fields()) {
-    project_args.push_back(field_ref(field->name()));
-    project_options.field_names.push_back(field->name());
-    project_options.field_nullability.push_back(field->nullable());
-    project_options.field_metadata.push_back(field->metadata());
-  }
-  projection = call("project", std::move(project_args), std::move(project_options))
-                   .Bind(*projector.schema())
-                   .ValueOrDie();
-}
-
-std::shared_ptr<ScanOptions> ScanOptions::ReplaceSchema(
-    std::shared_ptr<Schema> projected_schema) const {
-  auto copy = ScanOptions::Make(dataset_schema, std::move(projected_schema));
-  copy->filter = filter;
-  copy->batch_size = batch_size;
-  return copy;
+ScanOptions::ScanOptions(std::shared_ptr<Schema> dataset_schema)
+    : dataset_schema(std::move(dataset_schema)) {
+  // FIXME binding should be done in ScannerBuilder and nowhere else
+  DCHECK_OK(SetProjection(this, this->dataset_schema->field_names()));
 }
 
 std::vector<std::string> ScanOptions::MaterializedFields() const {
   std::vector<std::string> fields;
 
-  for (const auto& f : projected_schema()->fields()) {
+  for (const auto& f : projected_schema->fields()) {
     fields.push_back(f->name());
   }
 
@@ -159,12 +139,9 @@ Status ScannerBuilder::BatchSize(int64_t batch_size) {
 }
 
 Result<std::shared_ptr<Scanner>> ScannerBuilder::Finish() const {
-  std::shared_ptr<ScanOptions> scan_options;
+  auto scan_options = std::make_shared<ScanOptions>(*scan_options_);
   if (has_projection_ && !project_columns_.empty()) {
-    scan_options =
-        scan_options_->ReplaceSchema(SchemaFromColumnNames(schema(), project_columns_));
-  } else {
-    scan_options = std::make_shared<ScanOptions>(*scan_options_);
+    RETURN_NOT_OK(SetProjection(scan_options.get(), project_columns_));
   }
 
   if (dataset_ == nullptr) {
@@ -236,7 +213,7 @@ Result<std::shared_ptr<Table>> Scanner::ToTable() {
   // Wait for all tasks to complete, or the first error.
   RETURN_NOT_OK(task_group->Finish());
 
-  return Table::FromRecordBatches(scan_options_->projected_schema(),
+  return Table::FromRecordBatches(scan_options_->projected_schema,
                                   FlattenRecordBatchVector(std::move(state->batches)));
 }
 

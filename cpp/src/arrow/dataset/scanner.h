@@ -54,34 +54,19 @@ class ARROW_DS_EXPORT ScanOptions {
  public:
   virtual ~ScanOptions() = default;
 
-  static std::shared_ptr<ScanOptions> Make(std::shared_ptr<Schema> dataset_schema,
-                                           std::shared_ptr<Schema> projected_schema) {
-    return std::shared_ptr<ScanOptions>(
-        new ScanOptions(std::move(dataset_schema), std::move(projected_schema)));
-  }
-
   static std::shared_ptr<ScanOptions> Make(std::shared_ptr<Schema> dataset_schema) {
-    auto projected_schema = dataset_schema;
-    return Make(std::move(dataset_schema), std::move(projected_schema));
+    return std::shared_ptr<ScanOptions>(new ScanOptions(std::move(dataset_schema)));
   }
-
-  // Construct a copy of these options with a different schema.
-  // The projector will be reconstructed.
-  std::shared_ptr<ScanOptions> ReplaceSchema(
-      std::shared_ptr<Schema> projected_schema) const;
 
   // Filter and projection
   Expression filter = literal(true);
   Expression projection;
 
-  // Schema with which batches may be read from disk
+  // Schema with which batches will be read from disk
   std::shared_ptr<Schema> dataset_schema;
 
   // Schema to which record batches will be reconciled
-  const std::shared_ptr<Schema>& projected_schema() const { return projector.schema(); }
-
-  // Projector for reconciling the final RecordBatch to the requested schema.
-  RecordBatchProjector projector;
+  std::shared_ptr<Schema> projected_schema;
 
   // Maximum row count for scanned batches.
   int64_t batch_size = kDefaultBatchSize;
@@ -103,8 +88,9 @@ class ARROW_DS_EXPORT ScanOptions {
   std::vector<std::string> MaterializedFields() const;
 
  private:
-  explicit ScanOptions(std::shared_ptr<Schema> dataset_schema,
-                       std::shared_ptr<Schema> projected_schema);
+  explicit ScanOptions(std::shared_ptr<Schema> dataset_schema);
+
+  std::shared_ptr<Schema> projected_schema_;
 };
 
 /// \brief Read record batches from a range of a single data fragment. A
@@ -186,7 +172,7 @@ class ARROW_DS_EXPORT Scanner {
   Result<FragmentIterator> GetFragments();
 
   const std::shared_ptr<Schema>& schema() const {
-    return scan_options_->projected_schema();
+    return scan_options_->projected_schema;
   }
 
   const std::shared_ptr<ScanOptions>& options() const { return scan_options_; }
