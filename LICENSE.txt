@@ -2119,6 +2119,11 @@ DEALINGS IN THE SOFTWARE.
 
 --------------------------------------------------------------------------------
 
+Some source code from Folly (https://github.com/facebook/folly) has been adapted
+for PyArrow. Folly is released under the Apache License, Version 2.0.
+
+--------------------------------------------------------------------------------
+
 The file cpp/src/arrow/vendored/musl/strptime.c has the following license
 
 Copyright © 2005-2020 Rich Felker, et al.

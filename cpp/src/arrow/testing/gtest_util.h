@@ -521,6 +521,50 @@ void PrintTo(const Result<T>& result, std::ostream* os) {
   }
 }
 
+// A data type with only move constructors.
+struct MoveOnlyDataType {
+  explicit MoveOnlyDataType(int x) : data(new int(x)) {}
+
+  MoveOnlyDataType(const MoveOnlyDataType& other) = delete;
+  MoveOnlyDataType& operator=(const MoveOnlyDataType& other) = delete;
+
+  MoveOnlyDataType(MoveOnlyDataType&& other) { MoveFrom(&other); }
+  MoveOnlyDataType& operator=(MoveOnlyDataType&& other) {
+    MoveFrom(&other);
+    return *this;
+  }
+
+  ~MoveOnlyDataType() { Destroy(); }
+
+  void Destroy() {
+    if (data != nullptr) {
+      delete data;
+      data = nullptr;
+      moves = -1;
+    }
+  }
+
+  void MoveFrom(MoveOnlyDataType* other) {
+    Destroy();
+    data = other->data;
+    other->data = nullptr;
+    moves = other->moves + 1;
+  }
+
+  int ToInt() const { return data == nullptr ? -42 : *data; }
+
+  bool operator==(int other) const { return data != nullptr && *data == other; }
+  bool operator==(const MoveOnlyDataType& other) const {
+    return data != nullptr && other.data != nullptr && *data == *other.data;
+  }
+  friend bool operator==(int left, const MoveOnlyDataType& right) {
+    return right == left;
+  }
+
+  int* data = nullptr;
+  int moves = 0;
+};
+
 }  // namespace arrow
 
 namespace nonstd {
