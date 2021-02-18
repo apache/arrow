@@ -157,7 +157,10 @@ impl ExecutionPlan for RepartitionExec {
                     }
                     Ok(())
                 });
-                join_handle.await.map(|_| ()).map_err(|e| DataFusionError::Execution(e.to_string()))?;
+                join_handle
+                    .await
+                    .map(|_| ())
+                    .map_err(|e| DataFusionError::Execution(e.to_string()))?;
             }
         }
 
