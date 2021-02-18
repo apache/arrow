@@ -16,8 +16,6 @@
 // under the License.
 
 #include <algorithm>
-#include <boost/lockfree/spsc_queue.hpp>
-#include <iostream>
 #include <iterator>
 #include <thread>
 #include <vector>
@@ -83,57 +81,7 @@ void throughput(benchmark::State& state) {
   state.SetItemsProcessed(state.iterations() * kSize);
 }
 
-void throughput_boost(benchmark::State& state) {
-  boost::lockfree::spsc_queue<std::shared_ptr<Buffer>> queue(16);
-
-  std::vector<std::shared_ptr<Buffer>> one;
-  std::vector<std::shared_ptr<Buffer>> two;
-  one.reserve(kSize);
-  two.resize(kSize);
-  const uint8_t data[1] = {0};
-  for (int64_t i = 0; i < kSize; i++) {
-    one.push_back(std::make_shared<Buffer>(data, 1));
-  }
-
-  std::vector<std::shared_ptr<Buffer>>* source = &one;
-  std::vector<std::shared_ptr<Buffer>>* sink = &two;
-  std::vector<std::shared_ptr<Buffer>>* swap = &one;
-
-  for (auto _ : state) {
-    std::thread producer([&queue, source] {
-      auto itr = source->begin();
-      auto end = source->end();
-      while (itr != end) {
-        while (!queue.push(*itr)) {
-        }
-        itr++;
-      }
-    });
-
-    std::thread consumer([&queue, sink] {
-      auto itr = sink->begin();
-      auto end = sink->end();
-      while (itr != end) {
-        while (queue.read_available() <= 0) {
-        }
-        (*itr).swap(queue.front());
-        queue.pop();
-        itr++;
-      }
-    });
-
-    producer.join();
-    consumer.join();
-    swap = source;
-    source = sink;
-    sink = swap;
-  }
-
-  state.SetItemsProcessed(state.iterations() * kSize);
-}
-
 BENCHMARK(throughput)->UseRealTime();
-BENCHMARK(throughput_boost)->UseRealTime();
 
 }  // namespace util
 }  // namespace arrow

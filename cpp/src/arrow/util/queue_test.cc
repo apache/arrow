@@ -31,16 +31,5 @@ TEST(TestQueue, TestMoveOnly) {
   ASSERT_EQ(42, *out.data);
 }
 
-// Just make something rediculously large enough that allocation will fail
-struct LargeDataType {
-  uint64_t a, b, c, d, e, f, g, h;
-};
-
-// A warning for future users of SpscQueue, it can throw if allocation fails
-TEST(TestQueue, TestCreateLargeThrows) {
-  ASSERT_THROW(SpscQueue<LargeDataType> queue(std::numeric_limits<uint32_t>::max()),
-               std::bad_alloc);
-}
-
 }  // namespace util
 }  // namespace arrow
