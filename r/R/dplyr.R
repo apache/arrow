@@ -57,8 +57,7 @@ arrow_dplyr_query <- function(.data) {
 print.arrow_dplyr_query <- function(x, ...) {
   schm <- x$.data$schema
   cols <- get_field_names(x)
-  # TODO: selected_columns is no longer a character vector
-  # TODO: if cols are expressions, we won't know what their type will be at this time
+  # TODO: if cols are expressions, they won't be in the schema
   fields <- map_chr(cols, ~schm$GetFieldByName(.)$ToString())
   # Strip off the field names as they are in the dataset and add the renamed ones
   fields <- paste(names(cols), sub("^.*?: ", "", fields), sep = ": ", collapse = "\n")
@@ -356,7 +355,7 @@ ensure_group_vars <- function(x) {
     # Before pulling data from Arrow, make sure all group vars are in the projection
     gv <- set_names(setdiff(dplyr::group_vars(x), names(x)))
     if (length(gv)) {
-      # TODO: selected_columns is no longer a character vector, so assemble refs (correctly!)
+      # selected_columns is no longer a character vector, so assemble refs
       if (query_on_dataset(x)) {
         gv <- set_names(lapply(gv, Expression$field_ref), gv)
       } else {

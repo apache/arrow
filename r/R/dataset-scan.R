@@ -72,9 +72,6 @@ Scanner$create <- function(dataset,
     if (inherits(dataset$.data, "ArrowTabular")) {
       # To handle mutate() on Table/RecordBatch, we need to collect(as_data_frame=FALSE) now
       dataset <- dplyr::collect(dataset, as_data_frame = FALSE)
-      # Slight hack: replace selected_columns with named character vector,
-      # which ScannerBuilder$Project can handle.
-      # We can't keep array_refs here because they don't translate to 
     }
     return(Scanner$create(
       dataset$.data,
