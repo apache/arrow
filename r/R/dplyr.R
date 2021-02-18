@@ -295,11 +295,16 @@ arrow_mask <- function(.data) {
     f_env <- new_environment(array_function_list)
   }
 
-  # Add the column references
-  env_bind(f_env, !!!.data$selected_columns)
-  # Then bind the data pronoun
-  env_bind(f_env, .data = .data$selected_columns)
-  new_data_mask(f_env)
+  # Add the column references and make the mask
+  out <- new_data_mask(
+    new_environment(.data$selected_columns, parent = f_env),
+    f_env
+  )
+  # Then insert the data pronoun
+  # TODO: figure out what rlang::as_data_pronoun does/why we should use it
+  # (because if we do we get `Error: Can't modify the data pronoun` in mutate())
+  out$.data <- .data$selected_columns
+  out
 }
 
 set_filters <- function(.data, expressions) {
@@ -470,25 +475,31 @@ mutate.arrow_dplyr_query <- function(.data,
     # Nothing to do
     return(.data)
   }
+
   .data <- arrow_dplyr_query(.data)
   if (query_on_dataset(.data)) {
     not_implemented_for_dataset("mutate()")
   }
+
   .keep <- match.arg(.keep)
   # Restrict the cases we support for now
   stopifnot(
     .keep %in% c("all", "none"),
     is.null(.before),
     is.null(.after),
+    # mutate() on a grouped dataset does calculations within groups
+    # This doesn't matter on scalar ops (arithmetic etc.) but it does
+    # for things with aggregations (e.g. subtracting the mean)
     length(group_vars(.data)) == 0
   )
-  
+
   mask <- arrow_mask(.data)
   results <- list()
   for (new_var in names(exprs)) {
-    results[[new_var]] <- mask[[new_var]] <- arrow_eval(exprs[[new_var]], mask)
-    # TODO also update .data pronoun
+    results[[new_var]] <- arrow_eval(exprs[[new_var]], mask)
     # TODO: check for try-error
+    # Put it in the data mask too
+    mask[[new_var]] <- mask$.data[[new_var]] <- results[[new_var]]
   }
 
   if (.keep == "all") {
@@ -497,6 +508,7 @@ mutate.arrow_dplyr_query <- function(.data,
     }
   } else if (.keep == "none") {
     .data$selected_columns <- results
+    # "none" (i.e. transmute) still keeps group vars
     .data <- ensure_group_vars(.data)
   }
   .data

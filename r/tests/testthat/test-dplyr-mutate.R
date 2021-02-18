@@ -53,3 +53,36 @@ test_that("transmute", {
     tbl
   )
 })
+
+test_that("mutate and refer to previous mutants", {
+  expect_dplyr_equal(
+    input %>%
+      select(int, padded_strings) %>%
+      mutate(
+        line_lengths = nchar(padded_strings),
+        longer = line_lengths * 10
+      ) %>%
+      filter(line_lengths > 15) %>%
+      collect(),
+    tbl
+  )
+})
+
+
+test_that("mutate with .data pronoun", {
+  expect_dplyr_equal(
+    input %>%
+      select(int, padded_strings) %>%
+      mutate(
+        line_lengths = nchar(padded_strings),
+        longer = .data$line_lengths * 10
+      ) %>%
+      filter(line_lengths > 15) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("handle bad expressions", {
+
+})
