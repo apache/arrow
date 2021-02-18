@@ -18,6 +18,7 @@
 # distutils: language = c++
 # cython: language_level = 3
 
+from libcpp.map cimport map as c_map
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport (CChunkedArray, CSchema, CStatus,
                                         CTable, CMemoryPool, CBuffer,
@@ -333,7 +334,7 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         void disable_buffered_stream()
         void set_buffer_size(int64_t buf_size)
         int64_t buffer_size() const
-        file_decryption_properties(shared_ptr[FileDecryptionProperties] decryption)
+        void file_decryption_properties(shared_ptr[FileDecryptionProperties] decryption)
     CReaderProperties default_reader_properties()
 
     cdef cppclass ArrowReaderProperties:
@@ -386,7 +387,7 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             shared_ptr[ArrowWriterProperties] build()
         c_bool support_deprecated_int96_timestamps()
 
-    cdef enum ParquetCipherType" parquet::ParquetCipher::type"::
+    cdef enum ParquetCipherType" parquet::ParquetCipher::type":
          AES_GCM_V1 "parquet::ParquetCipher::AES_GCM_V1"
          AES_GCM_CTR_V1 "parquet::ParquetCipher::AES_GCM_CTR_V1"
 
@@ -458,8 +459,10 @@ cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
         PutKey(const c_string& key_id, const c_string& key)
         c_string GetKey(const c_string& key_metadata)
 
+
+cdef extern from "parquet/encryption.h" namespace "parquet" nogil:
     cdef cppclass ColumnDecryptionProperties:
-        cdef cppclass Builder:
+        cppclass Builder:
             Builder(const c_string& name)
             Builder(const shared_ptr[ColumnPath]& path)
             Builder* key(const c_string& key)
@@ -472,7 +475,7 @@ cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
         shared_ptr[ColumnDecryptionProperties] DeepClone()
 
     cdef cppclass FileDecryptionProperties:
-        cdef class Builder:
+        cppclass Builder:
             Builder()
             Builder* footer_key(const c_string footer_key)
             Builder* column_keys(const c_map[c_string,shared_ptr[ColumnDecryptionProperties]]& column_decryption_properties)

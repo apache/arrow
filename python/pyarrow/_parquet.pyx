@@ -918,23 +918,24 @@ cdef class LowLevelDecryptionProperties(_Weakrefable):
                   plaintext_files_allowed=False):
         cdef c_map[c_string,shared_ptr[ColumnDecryptionProperties]] c_column_keys
         cdef FileDecryptionProperties.Builder builder
+        cdef c_string column, key
 
         builder = FileDecryptionProperties.Builder()
 
         if footer_key is not None:
-            builder = builder.footer_key(key)
+            builder.footer_key(footer_key)
 
         if column_keys is not None:
             for column, key in column_keys.items():
                 c_column_keys[column] = ColumnDecryptionProperties.Builder(
                     column).key(key).build()
-            builder = builder.column_keys(c_column_keys)
+            builder.column_keys(c_column_keys)
 
         if disable_footer_signature_verification:
-            builder = builder.disable_footer_signature_verification()
+            builder.disable_footer_signature_verification()
 
         if plaintext_files_allowed:
-            builder = builder.plaintext_files_allowed()
+            builder.plaintext_files_allowed()
 
         self.decryption_properties = builder.build()
 
@@ -964,6 +965,7 @@ cdef class ParquetReader(_Weakrefable):
                 default_arrow_reader_properties())
             c_string path
             FileReaderBuilder builder
+            shared_ptr[FileDecryptionProperties] decryption_properties
 
         if metadata is not None:
             c_metadata = metadata.sp_metadata
@@ -977,7 +979,8 @@ cdef class ParquetReader(_Weakrefable):
             raise ValueError('Buffer size must be larger than zero')
 
         if lldecrypt is not None:
-            properties.file_decryption_properties(lldecrypt.decryption_properties)
+            decryption_properties = lldecrypt.decryption_properties
+            properties.file_decryption_properties(decryption_properties)
 
         self.source = source
 
