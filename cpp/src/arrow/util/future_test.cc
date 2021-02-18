@@ -513,7 +513,7 @@ TEST(FutureStessTest, TryAddCallback) {
   for (unsigned int n = 0; n < 1; n++) {
     auto fut = Future<>::Make();
     std::atomic<unsigned int> callbacks_added(0);
-    std::atomic<bool> finished;
+    std::atomic<bool> finished(false);
     std::mutex mutex;
     std::condition_variable cv;
     std::thread::id callback_adder_thread_id;

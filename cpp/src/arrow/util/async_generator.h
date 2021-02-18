@@ -182,7 +182,7 @@ class ReadaheadGenerator {
  public:
   ReadaheadGenerator(AsyncGenerator<T> source_generator, int max_readahead)
       : source_generator_(std::move(source_generator)), max_readahead_(max_readahead) {
-    auto finished = std::make_shared<std::atomic<bool>>();
+    auto finished = std::make_shared<std::atomic<bool>>(false);
     mark_finished_if_done_ = [finished](const Result<T>& next_result) {
       if (!next_result.ok()) {
         finished->store(true);
