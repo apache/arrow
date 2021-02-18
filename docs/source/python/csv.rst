@@ -76,6 +76,7 @@ Customized conversion
 
 To alter how CSV data is converted to Arrow types and data, you should create
 a :class:`ConvertOptions` instance and pass it to :func:`read_csv`::
+
    import pyarrow as pa
    import pyarrow.csv as csv
 
@@ -83,11 +84,6 @@ a :class:`ConvertOptions` instance and pass it to :func:`read_csv`::
     column_types={
         'total_bill': pa.decimal128(precision=10, scale=2),
         'tip': pa.decimal128(precision=10, scale=2),
-        'sex': pa.string(),
-        'smoker': pa.string(),
-        'day': pa.string(),
-        'time': pa.string(),
-        'size': pa.int64()
     }
    ))
 
