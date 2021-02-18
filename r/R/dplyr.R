@@ -200,29 +200,8 @@ filter.arrow_dplyr_query <- function(.data, ..., .preserve = FALSE) {
   }
 
   .data <- arrow_dplyr_query(.data)
-  # The filter() method works by evaluating the filters to generate Expressions
-  # with references to Arrays (if .data is Table/RecordBatch) or Fields (if
-  # .data is a Dataset).
-  dm <- filter_mask(.data)
-  filters <- lapply(filts, function (f) {
-    # This should yield an Expression as long as the filter function(s) are
-    # implemented in Arrow.
-    tryCatch(eval_tidy(f, dm), error = function(e) {
-      # Look for the cases where bad input was given, i.e. this would fail
-      # in regular dplyr anyway, and let those raise those as errors;
-      # else, for things not supported by Arrow return a "try-error",
-      # which we'll handle differently
-      msg <- conditionMessage(e)
-      # TODO: internationalization?
-      if (grepl("object '.*'.not.found", msg)) {
-        stop(e)
-      }
-      if (grepl('could not find function ".*"', msg)) {
-        stop(e)
-      }
-      invisible(structure(msg, class = "try-error", condition = e))
-    })
-  })
+  # tidy-eval the filter expressions inside an Arrow data_mask
+  filters <- lapply(filts, arrow_eval, arrow_mask(.data))
   bad_filters <- map_lgl(filters, ~inherits(., "try-error"))
   if (any(bad_filters)) {
     bads <- oxford_paste(map_chr(filts, as_label)[bad_filters], quote = FALSE)
@@ -250,6 +229,30 @@ filter.arrow_dplyr_query <- function(.data, ..., .preserve = FALSE) {
   set_filters(.data, filters)
 }
 filter.Dataset <- filter.ArrowTabular <- filter.arrow_dplyr_query
+
+arrow_eval <- function (expr, mask) {
+  # filter(), mutate(), etc. work by evaluating the quoted `exprs` to generate Expressions
+  # with references to Arrays (if .data is Table/RecordBatch) or Fields (if
+  # .data is a Dataset).
+
+  # This yields an Expression as long as the `exprs` are implemented in Arrow.
+  # Otherwise, it returns a try-error
+  tryCatch(eval_tidy(expr, mask), error = function(e) {
+    # Look for the cases where bad input was given, i.e. this would fail
+    # in regular dplyr anyway, and let those raise those as errors;
+    # else, for things not supported by Arrow return a "try-error",
+    # which we'll handle differently
+    msg <- conditionMessage(e)
+    # TODO: internationalization?
+    if (grepl("object '.*'.not.found", msg)) {
+      stop(e)
+    }
+    if (grepl('could not find function ".*"', msg)) {
+      stop(e)
+    }
+    invisible(structure(msg, class = "try-error", condition = e))
+  })
+}
 
 # Helper to assemble the functions that go in the NSE data mask
 # The only difference between the Dataset and the Table/RecordBatch versions
@@ -284,8 +287,8 @@ build_function_list <- function(FUN) {
 dataset_function_list <- build_function_list(build_dataset_expression)
 array_function_list <- build_function_list(build_array_expression)
 
-# Create a data mask for evaluating a filter expression
-filter_mask <- function(.data) {
+# Create a data mask for evaluating a dplyr expression
+arrow_mask <- function(.data) {
   if (query_on_dataset(.data)) {
     f_env <- new_environment(dataset_function_list)
   } else {
@@ -457,18 +460,51 @@ ungroup.arrow_dplyr_query <- function(x, ...) {
 }
 ungroup.Dataset <- ungroup.ArrowTabular <- force
 
-mutate.arrow_dplyr_query <- function(.data, ...) {
+mutate.arrow_dplyr_query <- function(.data,
+                                     ...,
+                                     .keep = c("all", "used", "unused", "none"),
+                                     .before = NULL,
+                                     .after = NULL) {
+  exprs <- quos(...)
+  if (length(exprs) == 0) {
+    # Nothing to do
+    return(.data)
+  }
   .data <- arrow_dplyr_query(.data)
   if (query_on_dataset(.data)) {
     not_implemented_for_dataset("mutate()")
   }
-  # TODO: see if we can defer evaluating the expressions and not collect here.
-  # It's different from filters (as currently implemented) because the basic
-  # vector transformation functions aren't yet implemented in Arrow C++.
-  dplyr::mutate(dplyr::collect(.data), ...)
+  .keep <- match.arg(.keep)
+  # Restrict the cases we support for now
+  stopifnot(
+    .keep %in% c("all", "none"),
+    is.null(.before),
+    is.null(.after),
+    length(group_vars(.data)) == 0
+  )
+  
+  mask <- arrow_mask(.data)
+  results <- list()
+  for (new_var in names(exprs)) {
+    results[[new_var]] <- mask[[new_var]] <- arrow_eval(exprs[[new_var]], mask)
+    # TODO also update .data pronoun
+    # TODO: check for try-error
+  }
+
+  if (.keep == "all") {
+    for (new_var in names(results)) {
+      .data$selected_columns[[new_var]] <- results[[new_var]]
+    }
+  } else if (.keep == "none") {
+    .data$selected_columns <- results
+    .data <- ensure_group_vars(.data)
+  }
+  .data
 }
 mutate.Dataset <- mutate.ArrowTabular <- mutate.arrow_dplyr_query
-# TODO: add transmute() that does what summarise() does (select only the vars we need)
+
+transmute.arrow_dplyr_query <- function(.data, ...) dplyr::mutate(.data, ..., .keep = "none")
+transmute.Dataset <- transmute.ArrowTabular <- transmute.arrow_dplyr_query
 
 arrange.arrow_dplyr_query <- function(.data, ...) {
   .data <- arrow_dplyr_query(.data)

@@ -25,25 +25,31 @@ tbl$verses <- verses[[1]]
 # nchar =   3  5  7  9 11 13 15 17 19 21
 tbl$padded_strings <- stringr::str_pad(letters[1:10], width = 2*(1:10)+1, side = "both")
 
-test_that("mutate", {
+test_that("mutate() is lazy", {
+  expect_is(
+    tbl %>% record_batch() %>% mutate(int = int + 6L),
+    "arrow_dplyr_query"
+  )
+})
+
+test_that("basic mutate", {
   expect_dplyr_equal(
     input %>%
       select(int, chr) %>%
       filter(int > 5) %>%
       mutate(int = int + 6L) %>%
-      summarize(min_int = min(int)),
+      collect(),
     tbl
   )
 })
 
 test_that("transmute", {
-  skip("TODO: reimplement transmute (with dplyr 1.0, it no longer just works via mutate)")
   expect_dplyr_equal(
     input %>%
       select(int, chr) %>%
       filter(int > 5) %>%
       transmute(int = int + 6L) %>%
-      summarize(min_int = min(int)),
+      collect(),
     tbl
   )
 })
