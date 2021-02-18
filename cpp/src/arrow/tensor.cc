@@ -184,7 +184,7 @@ Status CheckTensorStridesValidity(const std::shared_ptr<Buffer>& data,
   }
 
   const int byte_width = internal::GetByteWidth(*type);
-  if (largest_offset + byte_width > data->size()) {
+  if (largest_offset > data->size() - byte_width) {
     return Status::Invalid("strides must not involve buffer over run");
   }
   return Status::OK();
