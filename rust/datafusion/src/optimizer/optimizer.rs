@@ -26,7 +26,7 @@ use crate::logical_plan::LogicalPlan;
 /// way.
 pub trait OptimizerRule {
     /// Rewrite `plan` to an optimized form
-    fn optimize(&self, plan: LogicalPlan) -> Result<LogicalPlan>;
+    fn optimize(&self, plan: &LogicalPlan) -> Result<LogicalPlan>;
 
     /// A human readable name for this optimizer rule
     fn name(&self) -> &str;
