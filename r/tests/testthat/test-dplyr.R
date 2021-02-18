@@ -247,7 +247,7 @@ test_that("Print method", {
 int: int32
 chr: string
 
-* Filter: and(and(greater(<Array>, 2), or(equal(<Array>, "d"), equal(<Array>, "f"))), less(<Array>, 5))
+* Filter: and(and(greater(dbl, 2), or(equal(chr, "d"), equal(chr, "f"))), less(int, 5))
 See $.data for the source Arrow object',
   fixed = TRUE
   )
@@ -642,11 +642,6 @@ test_that("head", {
     group_by(int) %>%
     head(2)
   expect_is(b4, "arrow_dplyr_query")
-  # print(b4)
-  print(as.data.frame(b4))
-  print(    expected %>%
-      rename(strng = chr) %>%
-      group_by(int))
   expect_equal(
     as.data.frame(b4),
     expected %>%

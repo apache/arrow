@@ -209,9 +209,13 @@ print.array_expression <- function(x, ...) {
       deparse(arg)
     }
   })
-  # Prune this for readability
-  function_name <- sub("_kleene", "", x$fun)
-  paste0(function_name, "(", paste(printed_args, collapse = ", "), ")")
+  if (identical(x$fun, "array_ref")) {
+    x$args$field_name
+  } else {
+    # Prune this for readability
+    function_name <- sub("_kleene", "", x$fun)
+    paste0(function_name, "(", paste(printed_args, collapse = ", "), ")")
+  }
 }
 
 ###########

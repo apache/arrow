@@ -56,7 +56,7 @@ arrow_dplyr_query <- function(.data) {
 #' @export
 print.arrow_dplyr_query <- function(x, ...) {
   schm <- x$.data$schema
-  cols <- x$selected_columns
+  cols <- get_field_names(x)
   # TODO: selected_columns is no longer a character vector
   # TODO: if cols are expressions, we won't know what their type will be at this time
   fields <- map_chr(cols, ~schm$GetFieldByName(.)$ToString())
@@ -78,6 +78,13 @@ print.arrow_dplyr_query <- function(x, ...) {
   }
   cat("See $.data for the source Arrow object\n")
   invisible(x)
+}
+
+get_field_names <- function(selected_cols) {
+  if (inherits(selected_cols, "arrow_dplyr_query")) {
+    selected_cols <- selected_cols$selected_columns
+  }
+  map_chr(selected_cols, ~.$field_name %||% .$args$field_name %||% "")
 }
 
 # These are the names reflecting all select/rename, not what is in Arrow
@@ -351,9 +358,9 @@ ensure_group_vars <- function(x) {
     if (length(gv)) {
       # TODO: selected_columns is no longer a character vector, so assemble refs (correctly!)
       if (query_on_dataset(x)) {
-        gv <- lapply(gv, Expression$field_ref)
+        gv <- set_names(lapply(gv, Expression$field_ref), gv)
       } else {
-        gv <- lapply(gv, function(var) x$.data[[var]])
+        gv <- set_names(lapply(gv, function(x) array_expression("array_ref", field_name = x)), gv)
       }
     }
     x$selected_columns <- c(x$selected_columns, gv)

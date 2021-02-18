@@ -63,7 +63,7 @@ write_dataset <- function(dataset,
                           ...) {
   if (inherits(dataset, "arrow_dplyr_query")) {
     # We can select a subset of columns but we can't rename them
-    if (!all(map_chr(dataset$selected_columns, ~.$field_name) == names(dataset$selected_columns))) {
+    if (!all(get_field_names(dataset) == names(dataset$selected_columns))) {
       stop("Renaming columns when writing a dataset is not yet supported", call. = FALSE)
     }
     # partitioning vars need to be in the `select` schema

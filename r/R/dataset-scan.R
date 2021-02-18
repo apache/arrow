@@ -69,10 +69,16 @@ Scanner$create <- function(dataset,
                            batch_size = NULL,
                            ...) {
   if (inherits(dataset, "arrow_dplyr_query")) {
+    if (inherits(dataset$.data, "ArrowTabular")) {
+      # To handle mutate() on Table/RecordBatch, we need to collect(as_data_frame=FALSE) now
+      dataset <- dplyr::collect(dataset, as_data_frame = FALSE)
+      # Slight hack: replace selected_columns with named character vector,
+      # which ScannerBuilder$Project can handle.
+      # We can't keep array_refs here because they don't translate to 
+    }
     return(Scanner$create(
       dataset$.data,
-      # Note: selected_columns is no longer a character vector
-      map_chr(dataset$selected_columns, ~.$field_name),
+      dataset$selected_columns,
       dataset$filtered_rows,
       use_threads,
       ...
@@ -153,6 +159,12 @@ map_batches <- function(X, FUN, ..., .data.frame = TRUE) {
 ScannerBuilder <- R6Class("ScannerBuilder", inherit = ArrowObject,
   public = list(
     Project = function(cols) {
+      # cols is either a character vector or a named list of Expressions
+      if (!is.character(cols)) {
+        # We don't yet support mutate() on datasets, so this is just a list
+        # of FieldRefs, and we need to back out the field names
+        cols <- get_field_names(cols)
+      }
       assert_is(cols, "character")
       dataset___ScannerBuilder__Project(self, cols)
       self
