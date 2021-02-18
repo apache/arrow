@@ -71,7 +71,8 @@ Scanner$create <- function(dataset,
   if (inherits(dataset, "arrow_dplyr_query")) {
     return(Scanner$create(
       dataset$.data,
-      dataset$selected_columns,
+      # Note: selected_columns is no longer a character vector
+      map_chr(dataset$selected_columns, ~.$field_name),
       dataset$filtered_rows,
       use_threads,
       ...

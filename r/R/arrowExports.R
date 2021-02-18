@@ -744,6 +744,10 @@ dataset___expr__field_ref <- function(name){
     .Call(`_arrow_dataset___expr__field_ref`, name)
 }
 
+dataset___expr__get_field_ref_name <- function(ref){
+    .Call(`_arrow_dataset___expr__get_field_ref_name`, ref)
+}
+
 dataset___expr__scalar <- function(x){
     .Call(`_arrow_dataset___expr__scalar`, x)
 }

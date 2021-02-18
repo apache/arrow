@@ -48,6 +48,13 @@ std::shared_ptr<ds::Expression> dataset___expr__field_ref(std::string name) {
 }
 
 // [[arrow::export]]
+std::string dataset___expr__get_field_ref_name(
+    const std::shared_ptr<ds::Expression>& ref) {
+  auto refname = ref->field_ref()->name();
+  return *refname;
+}
+
+// [[arrow::export]]
 std::shared_ptr<ds::Expression> dataset___expr__scalar(
     const std::shared_ptr<arrow::Scalar>& x) {
   return std::make_shared<ds::Expression>(ds::literal(std::move(x)));

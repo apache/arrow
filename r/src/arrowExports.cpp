@@ -1569,6 +1569,14 @@ BEGIN_CPP11
 END_CPP11
 }
 // expression.cpp
+std::string dataset___expr__get_field_ref_name(const std::shared_ptr<ds::Expression>& ref);
+extern "C" SEXP _arrow_dataset___expr__get_field_ref_name(SEXP ref_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<ds::Expression>&>::type ref(ref_sexp);
+	return cpp11::as_sexp(dataset___expr__get_field_ref_name(ref));
+END_CPP11
+}
+// expression.cpp
 std::shared_ptr<ds::Expression> dataset___expr__scalar(const std::shared_ptr<arrow::Scalar>& x);
 extern "C" SEXP _arrow_dataset___expr__scalar(SEXP x_sexp){
 BEGIN_CPP11
@@ -3702,6 +3710,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_FixedSizeListType__list_size", (DL_FUNC) &_arrow_FixedSizeListType__list_size, 1}, 
 		{ "_arrow_dataset___expr__call", (DL_FUNC) &_arrow_dataset___expr__call, 3}, 
 		{ "_arrow_dataset___expr__field_ref", (DL_FUNC) &_arrow_dataset___expr__field_ref, 1}, 
+		{ "_arrow_dataset___expr__get_field_ref_name", (DL_FUNC) &_arrow_dataset___expr__get_field_ref_name, 1}, 
 		{ "_arrow_dataset___expr__scalar", (DL_FUNC) &_arrow_dataset___expr__scalar, 1}, 
 		{ "_arrow_dataset___expr__ToString", (DL_FUNC) &_arrow_dataset___expr__ToString, 1}, 
 		{ "_arrow_ipc___WriteFeather__Table", (DL_FUNC) &_arrow_ipc___WriteFeather__Table, 6}, 

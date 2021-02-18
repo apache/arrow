@@ -30,14 +30,19 @@ arrow_dplyr_query <- function(.data) {
   if (inherits(.data, "arrow_dplyr_query")) {
     return(.data)
   }
+  # selected_columns is a named list:
+  # * contents are references/expressions pointing to the data
+  # * names are the names they should be in the end (i.e. this
+  #   records any renaming)
+  if (inherits(.data, "Dataset")) {
+    selected_columns <- lapply(names(.data), Expression$field_ref)
+  } else {
+    selected_columns <- lapply(names(.data), function(x) array_expression("array_ref", field_name = x))
+  }
   structure(
     list(
       .data = .data$clone(),
-      # selected_columns is a named character vector:
-      # * vector contents are the names of the columns in the data
-      # * vector names are the names they should be in the end (i.e. this
-      #   records any renaming)
-      selected_columns = set_names(names(.data)),
+      selected_columns = set_names(selected_columns, names(.data)),
       # filtered_rows will be an Expression
       filtered_rows = TRUE,
       # group_by_vars is a character vector of columns (as renamed)
@@ -52,6 +57,8 @@ arrow_dplyr_query <- function(.data) {
 print.arrow_dplyr_query <- function(x, ...) {
   schm <- x$.data$schema
   cols <- x$selected_columns
+  # TODO: selected_columns is no longer a character vector
+  # TODO: if cols are expressions, we won't know what their type will be at this time
   fields <- map_chr(cols, ~schm$GetFieldByName(.)$ToString())
   # Strip off the field names as they are in the dataset and add the renamed ones
   fields <- paste(names(cols), sub("^.*?: ", "", fields), sep = ": ", collapse = "\n")
@@ -89,7 +96,7 @@ dim.arrow_dplyr_query <- function(x) {
     rows <- NA_integer_
   } else {
     # Evaluate the filter expression to a BooleanArray and count
-    rows <- as.integer(sum(eval_array_expression(x$filtered_rows), na.rm = TRUE))
+    rows <- as.integer(sum(eval_array_expression(x$filtered_rows, x$.data), na.rm = TRUE))
   }
   c(rows, cols)
 }
@@ -275,18 +282,14 @@ array_function_list <- build_function_list(build_array_expression)
 filter_mask <- function(.data) {
   if (query_on_dataset(.data)) {
     f_env <- new_environment(dataset_function_list)
-    var_binder <- function(x) Expression$field_ref(x)
   } else {
     f_env <- new_environment(array_function_list)
-    var_binder <- function(x) .data$.data[[x]]
   }
 
   # Add the column references
-  # Renaming is handled automatically by the named list
-  data_pronoun <- lapply(.data$selected_columns, var_binder)
-  env_bind(f_env, !!!data_pronoun)
+  env_bind(f_env, !!!.data$selected_columns)
   # Then bind the data pronoun
-  env_bind(f_env, .data = data_pronoun)
+  env_bind(f_env, .data = .data$selected_columns)
   new_data_mask(f_env)
 }
 
@@ -309,8 +312,26 @@ collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
     # See dataset.R for Dataset and Scanner(Builder) classes
     tab <- Scanner$create(x)$ToTable()
   } else {
-    # This is a Table/RecordBatch. See record-batch.R for the [ method
-    tab <- x$.data[x$filtered_rows, x$selected_columns, keep_na = FALSE]
+    # This is a Table or RecordBatch
+
+    # Filter and select the data referenced in selected columns
+    if (isTRUE(x$filtered_rows)) {
+      filter <- TRUE
+    } else {
+      filter <- eval_array_expression(x$filtered_rows, x$.data)
+    }
+    tab <- x$.data[filter, find_array_refs(x$selected_columns), keep_na = FALSE]
+    # Now evaluate those expressions on the filtered table
+    cols <- lapply(x$selected_columns, eval_array_expression, data = tab)
+    if (length(cols) == 0) {
+      tab <- tab[, integer(0)]
+    } else {
+      if (inherits(x$.data, "Table")) {
+        tab <- Table$create(!!!cols)
+      } else {
+        tab <- RecordBatch$create(!!!cols)
+      }
+    }
   }
   if (as_data_frame) {
     df <- as.data.frame(tab)
@@ -327,6 +348,14 @@ ensure_group_vars <- function(x) {
   if (inherits(x, "arrow_dplyr_query")) {
     # Before pulling data from Arrow, make sure all group vars are in the projection
     gv <- set_names(setdiff(dplyr::group_vars(x), names(x)))
+    if (length(gv)) {
+      # TODO: selected_columns is no longer a character vector, so assemble refs (correctly!)
+      if (query_on_dataset(x)) {
+        gv <- lapply(gv, Expression$field_ref)
+      } else {
+        gv <- lapply(gv, function(var) x$.data[[var]])
+      }
+    }
     x$selected_columns <- c(x$selected_columns, gv)
   }
   x
@@ -337,21 +366,20 @@ restore_dplyr_features <- function(df, query) {
   # After calling collect(), make sure these features are carried over
 
   grouped <- length(query$group_by_vars) > 0
-  renamed <- !identical(names(df), names(query))
-  if (is.data.frame(df)) {
+  renamed <- ncol(df) && !identical(names(df), names(query))
+  if (renamed) {
     # In case variables were renamed, apply those names
-    if (renamed && ncol(df)) {
-      names(df) <- names(query)
-    }
+    names(df) <- names(query)
+  }
+  if (grouped) {
     # Preserve groupings, if present
-    if (grouped) {
+    if (is.data.frame(df)) {
       df <- dplyr::grouped_df(df, dplyr::group_vars(query))
+    } else {
+      # This is a Table, via collect(as_data_frame = FALSE)
+      df <- arrow_dplyr_query(df)
+      df$group_by_vars <- query$group_by_vars
     }
-  } else if (grouped || renamed) {
-    # This is a Table, via collect(as_data_frame = FALSE)
-    df <- arrow_dplyr_query(df)
-    names(df$selected_columns) <- names(query)
-    df$group_by_vars <- query$group_by_vars
   }
   df
 }
