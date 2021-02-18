@@ -86,7 +86,9 @@ pub fn can_cast_types(from_type: &DataType, to_type: &DataType) -> bool {
         (Utf8, Date64) => true,
         (Utf8, Timestamp(TimeUnit::Nanosecond, None)) => true,
         (Utf8, _) => DataType::is_numeric(to_type),
-        (_, Utf8) => DataType::is_numeric(from_type) || from_type == &Binary,
+        (_, Utf8) | (_, LargeUtf8) => {
+            DataType::is_numeric(from_type) || from_type == &Binary
+        }
 
         // start numeric casts
         (UInt8, UInt16) => true,
@@ -426,16 +428,16 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
             ))),
         },
         (_, Utf8) => match from_type {
-            UInt8 => cast_numeric_to_string::<UInt8Type>(array),
-            UInt16 => cast_numeric_to_string::<UInt16Type>(array),
-            UInt32 => cast_numeric_to_string::<UInt32Type>(array),
-            UInt64 => cast_numeric_to_string::<UInt64Type>(array),
-            Int8 => cast_numeric_to_string::<Int8Type>(array),
-            Int16 => cast_numeric_to_string::<Int16Type>(array),
-            Int32 => cast_numeric_to_string::<Int32Type>(array),
-            Int64 => cast_numeric_to_string::<Int64Type>(array),
-            Float32 => cast_numeric_to_string::<Float32Type>(array),
-            Float64 => cast_numeric_to_string::<Float64Type>(array),
+            UInt8 => cast_numeric_to_string::<UInt8Type, i32>(array),
+            UInt16 => cast_numeric_to_string::<UInt16Type, i32>(array),
+            UInt32 => cast_numeric_to_string::<UInt32Type, i32>(array),
+            UInt64 => cast_numeric_to_string::<UInt64Type, i32>(array),
+            Int8 => cast_numeric_to_string::<Int8Type, i32>(array),
+            Int16 => cast_numeric_to_string::<Int16Type, i32>(array),
+            Int32 => cast_numeric_to_string::<Int32Type, i32>(array),
+            Int64 => cast_numeric_to_string::<Int64Type, i32>(array),
+            Float32 => cast_numeric_to_string::<Float32Type, i32>(array),
+            Float64 => cast_numeric_to_string::<Float64Type, i32>(array),
             Binary => {
                 let array = array.as_any().downcast_ref::<BinaryArray>().unwrap();
                 Ok(Arc::new(
@@ -445,6 +447,33 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
                             maybe_value.and_then(|value| str::from_utf8(value).ok())
                         })
                         .collect::<StringArray>(),
+                ))
+            }
+            _ => Err(ArrowError::ComputeError(format!(
+                "Casting from {:?} to {:?} not supported",
+                from_type, to_type,
+            ))),
+        },
+        (_, LargeUtf8) => match from_type {
+            UInt8 => cast_numeric_to_string::<UInt8Type, i64>(array),
+            UInt16 => cast_numeric_to_string::<UInt16Type, i64>(array),
+            UInt32 => cast_numeric_to_string::<UInt32Type, i64>(array),
+            UInt64 => cast_numeric_to_string::<UInt64Type, i64>(array),
+            Int8 => cast_numeric_to_string::<Int8Type, i64>(array),
+            Int16 => cast_numeric_to_string::<Int16Type, i64>(array),
+            Int32 => cast_numeric_to_string::<Int32Type, i64>(array),
+            Int64 => cast_numeric_to_string::<Int64Type, i64>(array),
+            Float32 => cast_numeric_to_string::<Float32Type, i64>(array),
+            Float64 => cast_numeric_to_string::<Float64Type, i64>(array),
+            Binary => {
+                let array = array.as_any().downcast_ref::<BinaryArray>().unwrap();
+                Ok(Arc::new(
+                    array
+                        .iter()
+                        .map(|maybe_value| {
+                            maybe_value.and_then(|value| str::from_utf8(value).ok())
+                        })
+                        .collect::<LargeStringArray>(),
                 ))
             }
             _ => Err(ArrowError::ComputeError(format!(
@@ -885,12 +914,13 @@ where
 
 /// Cast numeric types to Utf8
 #[allow(clippy::unnecessary_wraps)]
-fn cast_numeric_to_string<FROM>(array: &ArrayRef) -> Result<ArrayRef>
+fn cast_numeric_to_string<FROM, OffsetSize>(array: &ArrayRef) -> Result<ArrayRef>
 where
     FROM: ArrowNumericType,
     FROM::Native: lexical_core::ToLexical,
+    OffsetSize: StringOffsetSizeTrait,
 {
-    Ok(Arc::new(numeric_to_string_cast::<FROM>(
+    Ok(Arc::new(numeric_to_string_cast::<FROM, OffsetSize>(
         array
             .as_any()
             .downcast_ref::<PrimitiveArray<FROM>>()
@@ -898,10 +928,13 @@ where
     )))
 }
 
-fn numeric_to_string_cast<T>(from: &PrimitiveArray<T>) -> StringArray
+fn numeric_to_string_cast<T, OffsetSize>(
+    from: &PrimitiveArray<T>,
+) -> GenericStringArray<OffsetSize>
 where
     T: ArrowPrimitiveType + ArrowNumericType,
     T::Native: lexical_core::ToLexical,
+    OffsetSize: StringOffsetSizeTrait,
 {
     from.iter()
         .map(|maybe_value| maybe_value.map(lexical_to_string))
@@ -1722,6 +1755,27 @@ mod tests {
         assert_eq!(864000003, c.value(0));
         assert_eq!(1545696002, c.value(1));
         assert!(c.is_null(2));
+    }
+
+    #[test]
+    fn test_cast_to_strings() {
+        let a = Arc::new(Int32Array::from(vec![1, 2, 3])) as ArrayRef;
+        let out = cast(&a, &DataType::Utf8).unwrap();
+        let out = out
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .unwrap()
+            .into_iter()
+            .collect::<Vec<_>>();
+        assert_eq!(out, vec![Some("1"), Some("2"), Some("3")]);
+        let out = cast(&a, &DataType::LargeUtf8).unwrap();
+        let out = out
+            .as_any()
+            .downcast_ref::<LargeStringArray>()
+            .unwrap()
+            .into_iter()
+            .collect::<Vec<_>>();
+        assert_eq!(out, vec![Some("1"), Some("2"), Some("3")]);
     }
 
     #[test]
