@@ -114,7 +114,6 @@ if(ARROW_DEPENDENCY_SOURCE STREQUAL "VCPKG")
         "vcpkg toolchain file not found at path specified in -DCMAKE_TOOLCHAIN_FILE"
       )
     endif()
-    message(STATUS "Using vcpkg toolchain file: ${CMAKE_TOOLCHAIN_FILE}")
   else()
     if(DEFINED VCPKG_ROOT)
       # Get it from the CMake variable VCPKG_ROOT
@@ -168,6 +167,7 @@ if(ARROW_DEPENDENCY_SOURCE STREQUAL "VCPKG")
     )
     message(STATUS "Found vcpkg toolchain file: ${CMAKE_TOOLCHAIN_FILE}")
   endif()
+  message(STATUS "Using CMAKE_TOOLCHAIN_FILE: ${CMAKE_TOOLCHAIN_FILE}")
   message(STATUS "Using VCPKG_ROOT: ${VCPKG_ROOT}")
 
   # Get VCPKG_TARGET_TRIPLET and _VCPKG_INSTALLED_DIR
