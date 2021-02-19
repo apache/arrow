@@ -98,7 +98,132 @@ endif()
 
 message(STATUS "Using ${ARROW_DEPENDENCY_SOURCE} approach to find dependencies")
 
-if(ARROW_DEPENDENCY_SOURCE STREQUAL "CONDA")
+if(ARROW_DEPENDENCY_SOURCE STREQUAL "VCPKG")
+
+  # Get VCPKG_ROOT and check that it really contains vcpkg
+  #
+  if(DEFINED VCPKG_ROOT)
+    # Get it from the CMake variable VCPKG_ROOT
+    find_program(_VCPKG_BIN vcpkg PATHS "${VCPKG_ROOT}" NO_DEFAULT_PATH)
+    if(NOT _VCPKG_BIN)
+      message(FATAL_ERROR "vcpkg not found in directory specified in -DVCPKG_ROOT")
+    endif()
+  elseif(DEFINED ENV{VCPKG_ROOT})
+    # Get it from the environment variable VCPKG_ROOT
+    set(VCPKG_ROOT ENV{VCPKG_ROOT})
+    find_program(_VCPKG_BIN vcpkg PATHS "${VCPKG_ROOT}" NO_DEFAULT_PATH)
+    if(NOT _VCPKG_BIN)
+      message(FATAL_ERROR "vcpkg not found in directory in environment variable VCPKG_ROOT")
+    endif()
+  else()
+    # Get it from the file vcpkg.path.txt
+    find_program(_VCPKG_BIN vcpkg)
+    if(_VCPKG_BIN)
+      get_filename_component(VCPKG_ROOT, "${_VCPKG_BIN}", DIRECTORY)
+    else()
+      if(WIN32)
+        set(_VCPKG_PATH_TXT "$ENV{LOCALAPPDATA}/vcpkg/vcpkg.path.txt")
+      else()
+        set(_VCPKG_PATH_TXT "$ENV{HOME}/.vcpkg/vcpkg.path.txt")
+      endif()
+      if(EXISTS "${_VCPKG_PATH_TXT}")
+        file(STRINGS "${_VCPKG_PATH_TXT}" VCPKG_ROOT)
+      else()
+        message(
+          FATAL_ERROR
+          "vcpkg not found. Install vcpkg if not installed, "
+          "then run vcpkg integrate install "
+          "or set environment variable VCPKG_ROOT."
+        )
+      endif()
+      find_program(_VCPKG_BIN vcpkg PATHS "${VCPKG_ROOT}" NO_DEFAULT_PATH)
+      if(NOT _VCPKG_BIN)
+        message(
+          FATAL_ERROR
+          "vcpkg not found. Re-run vcpkg integrate install "
+          "or set environment variable VCPKG_ROOT."
+        )
+      endif()
+    endif
+  endif()
+  set(
+    CMAKE_TOOLCHAIN_FILE
+    "${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+    CACHE STRING ""
+  )
+  message(STATUS "Found vcpkg toolchain file: ${CMAKE_TOOLCHAIN_FILE}")
+
+  # Get VCPKG_TARGET_TRIPLET and _VCPKG_INSTALLED_DIR
+  #
+  if(DEFINED ENV{VCPKG_DEFAULT_TRIPLET} AND NOT DEFINED VCPKG_TARGET_TRIPLET)
+    set(VCPKG_TARGET_TRIPLET "$ENV{VCPKG_DEFAULT_TRIPLET}" CACHE STRING "")
+  endif()
+  # vcpkg can install packages in two different places
+  set(_INST_ARROW_SOURCE_DIR "${ARROW_SOURCE_DIR}/vcpkg_installed") # try here first
+  set(_INST_VCPKG_ROOT "${VCPKG_ROOT}/installed")
+  set(_INST_NOWHERE "notfound")
+  # Don't look for installed packages in _INST_ARROW_SOURCE_DIR if manifest mode is off
+  if(NOT VCPKG_MANIFEST_MODE)
+    set(_INST_ARROW_SOURCE_DIR "skip")
+  endif()
+  # Iterate over the places
+  foreach(_INST_DIR IN LISTS _INST_ARROW_SOURCE_DIR _INST_VCPKG_ROOT _INST_NOWHERE)
+    elseif(_INST_DIR STREQUAL "notfound")
+      message(
+        FATAL_ERROR
+        "vcpkg installed directory not found. "
+        "Install packages with vcpkg before executing cmake."
+      )
+    elseif(_INST_DIR STREQUAL "skip" OR NOT EXISTS "${_INST_DIR}")
+      continue()
+    endif()
+    if(DEFINED VCPKG_TARGET_TRIPLET)
+      # Check if a subdirectory named VCPKG_TARGET_TRIPLET
+      # exists in the vcpkg installed directory
+      if(EXISTS "${_INST_DIR}/${VCPKG_TARGET_TRIPLET}")
+        set(_VCPKG_INSTALLED_DIR "${_INST_DIR}")
+        break()
+      endif()
+    else()
+      # Infer VCPKG_TARGET_TRIPLET from the name of the
+      # subdirectory in the vcpkg installed directory
+      file(GLOB _VCPKG_TRIPLET_SUBDIRS RELATIVE "${_INST_DIR}")
+      list(REMOVE_ITEM _VCPKG_TRIPLET_SUBDIRS "vcpkg")
+      list(LENGTH _VCPKG_TRIPLET_SUBDIRS _NUM_VCPKG_TRIPLET_SUBDIRS)
+      if(_NUM_VCPKG_TRIPLET_SUBDIRS EQUAL 1)
+        list(GET _VCPKG_TRIPLET_SUBDIRS 0 VCPKG_TARGET_TRIPLET)
+        set(_VCPKG_INSTALLED_DIR "${_INST_DIR}")
+        break()
+      endif()
+    endif()
+  endforeach()
+  if(NOT DEFINED VCPKG_TARGET_TRIPLET)
+    message(
+      FATAL_ERROR
+      "Could not infer VCPKG_TARGET_TRIPLET. "
+      "Specify triplet with -DVCPKG_TARGET_TRIPLET."
+    )
+  elseif(NOT DEFINED _VCPKG_INSTALLED_DIR)
+    message(
+      FATAL_ERROR
+      "Could not find installed vcpkg packages "
+      "for triplet ${VCPKG_TARGET_TRIPLET}. "
+      "Install packages with vcpkg before executing cmake."
+    )
+  endif()
+  message(STATUS "Using VCPKG_TARGET_TRIPLET: ${VCPKG_TARGET_TRIPLET}")
+  message(STATUS "Using _VCPKG_INSTALLED_DIR: ${_VCPKG_INSTALLED_DIR}")
+  # Set ARROW_PACKAGE_PREFIX
+  set(ARROW_PACKAGE_PREFIX "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}")
+  message(STATUS "Using ARROW_PACKAGE_PREFIX: ${ARROW_PACKAGE_PREFIX}")
+
+  set(ARROW_ACTUAL_DEPENDENCY_SOURCE "SYSTEM")
+
+  # TODO(ianmcook): Set other variables needed when using vcpkg for dependencies
+  
+endif()
+
+elseif(ARROW_DEPENDENCY_SOURCE STREQUAL "CONDA")
   if(MSVC)
     set(ARROW_PACKAGE_PREFIX "$ENV{CONDA_PREFIX}/Library")
   else()
