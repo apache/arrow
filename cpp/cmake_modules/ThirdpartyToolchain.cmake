@@ -119,7 +119,7 @@ if(ARROW_DEPENDENCY_SOURCE STREQUAL "VCPKG")
     # Get it from the file vcpkg.path.txt
     find_program(_VCPKG_BIN vcpkg)
     if(_VCPKG_BIN)
-      get_filename_component(VCPKG_ROOT, "${_VCPKG_BIN}", DIRECTORY)
+      get_filename_component(VCPKG_ROOT "${_VCPKG_BIN}" DIRECTORY)
     else()
       if(WIN32)
         set(_VCPKG_PATH_TXT "$ENV{LOCALAPPDATA}/vcpkg/vcpkg.path.txt")
