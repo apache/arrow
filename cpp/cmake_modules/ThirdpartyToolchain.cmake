@@ -234,10 +234,10 @@ if(ARROW_DEPENDENCY_SOURCE STREQUAL "VCPKG")
     )
   endif()
   message(STATUS "Found installed package directory: ${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}")
-  if(WIN32)
+  if(WIN32) # TODO(ianmcook): should this use MSVC or MSVC_TOOLCHAIN instead of WIN32
     set(ARROW_PACKAGE_PREFIX "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}")
     message(STATUS "Using ARROW_PACKAGE_PREFIX: ${ARROW_PACKAGE_PREFIX}")
-  else()
+  endif()
   message(STATUS "Using VCPKG_TARGET_TRIPLET: ${VCPKG_TARGET_TRIPLET}")
   message(STATUS "Using _VCPKG_INSTALLED_DIR: ${_VCPKG_INSTALLED_DIR}")
   set(ARROW_VCPKG ON) # this is used in other CMake scripts
