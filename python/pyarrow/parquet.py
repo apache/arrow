@@ -541,8 +541,31 @@ data_page_version : {"1.0", "2.0"}, default "1.0"
     The serialized Parquet data page format version to write, defaults to
     1.0. This does not impact the file schema logical types and Arrow to
     Parquet type casting behavior; for that use the "version" option.
-use_compliant_nested_type : bool, default False
-    Write compliant Parquet nested type, defaults to disable.
+use_compliant_nested_type: bool, default False
+    Whether to write compliant Parquet nested type (lists) as defined
+    `here <https://github.com/apache/parquet-format/blob/master/
+    LogicalTypes.md#nested-types>`_, defaults to ``False``.
+    For ``use_compliant_nested_type=True``, this will write into a list
+    with 3-level structure where the middle level, named ``list``,
+    is a repeated group with a single field named ``element``
+    ::
+      <list-repetition> group <name> (LIST) {
+        repeated group list {
+          <element-repetition> <element-type> element;
+        }
+      }
+
+    For ``use_compliant_nested_type=False``, this will also write into a list
+    with 3-level structure, where the name of the single field of the middle
+    level ``list`` is taken from the element name for nested columns in Arrow,
+    which defaults to ``item``
+    ::
+      <list-repetition> group <name> (LIST) {
+        repeated group list {
+          <element-repetition> <element-type> item;
+       }
+      }
+
 """
 
 
