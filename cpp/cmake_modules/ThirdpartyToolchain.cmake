@@ -233,12 +233,13 @@ if(ARROW_DEPENDENCY_SOURCE STREQUAL "VCPKG")
       "Install packages with vcpkg before executing cmake."
     )
   endif()
-  set(ARROW_PACKAGE_PREFIX "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}")
-  message(STATUS "Found installed package directory: ${ARROW_PACKAGE_PREFIX}")
-  message(STATUS "Using ARROW_PACKAGE_PREFIX: ${ARROW_PACKAGE_PREFIX}")
+  message(STATUS "Found installed package directory: ${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}")
+  if(MSVC)
+    set(ARROW_PACKAGE_PREFIX "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}")
+    message(STATUS "Using ARROW_PACKAGE_PREFIX: ${ARROW_PACKAGE_PREFIX}")
+  endif()
   message(STATUS "Using VCPKG_TARGET_TRIPLET: ${VCPKG_TARGET_TRIPLET}")
   message(STATUS "Using _VCPKG_INSTALLED_DIR: ${_VCPKG_INSTALLED_DIR}")
-
   set(ARROW_VCPKG ON) # this is used in other CMake scripts
   set(ARROW_ACTUAL_DEPENDENCY_SOURCE "SYSTEM")
 
