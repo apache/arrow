@@ -3008,7 +3008,7 @@ if(ARROW_S3)
   # See https://aws.amazon.com/blogs/developer/developer-experience-of-the-aws-sdk-for-c-now-simplified-by-cmake/
 
   # Workaround to force AWS CMake configuration to look for shared libraries
-  if(DEFINED ENV{CONDA_PREFIX})
+  if(ARROW_VCPKG OR DEFINED ENV{CONDA_PREFIX})
     if(DEFINED BUILD_SHARED_LIBS)
       set(BUILD_SHARED_LIBS_WAS_SET TRUE)
       set(BUILD_SHARED_LIBS_VALUE ${BUILD_SHARED_LIBS})
@@ -3016,15 +3016,6 @@ if(ARROW_S3)
       set(BUILD_SHARED_LIBS_WAS_SET FALSE)
     endif()
     set(BUILD_SHARED_LIBS "ON")
-  endif()
-
-  if(ARROW_VCPKG)
-    if(NOT DEFINED ENV{OPENSSL_INCLUDE_DIR})
-      set(ENV{OPENSSL_INCLUDE_DIR} "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/include")
-    endif()
-    if(NOT DEFINED ENV{OPENSSL_ROOT_DIR})
-      set(ENV{OPENSSL_ROOT_DIR} "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}")
-    endif()
   endif()
 
   # Need to customize the find_package() call, so cannot call resolve_dependency()
@@ -3050,7 +3041,7 @@ if(ARROW_S3)
   endif()
 
   # Restore previous value of BUILD_SHARED_LIBS
-  if(DEFINED ENV{CONDA_PREFIX})
+  if(ARROW_VCPKG OR DEFINED ENV{CONDA_PREFIX})
     if(BUILD_SHARED_LIBS_WAS_SET)
       set(BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS_VALUE})
     else()
