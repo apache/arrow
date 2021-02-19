@@ -115,18 +115,6 @@ arrow::Status AppendMapBatch(const liborc::Type* type,
     } else {
       RETURN_NOT_OK(builder->AppendNull());
     }
-    // RETURN_NOT_OK(builder->Append());
-    // int64_t start = batch->offsets[i];
-    // int64_t list_length = batch->offsets[i + 1] - start;
-    // if (list_length && (!has_nulls || batch->notNull[i])) {
-    //   RETURN_NOT_OK(struct_builder->AppendValues(list_length, NULLPTR));
-    //   RETURN_NOT_OK(arrow::adapters::orc::AppendBatch(key_type, keys, start,
-    //   list_length,
-    //                                                   struct_builder->field_builder(0)));
-    //   RETURN_NOT_OK(arrow::adapters::orc::AppendBatch(val_type, vals, start,
-    //   list_length,
-    //                                                   struct_builder->field_builder(1)));
-    // }
   }
   return arrow::Status::OK();
 }
