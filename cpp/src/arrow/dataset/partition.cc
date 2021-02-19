@@ -74,31 +74,20 @@ Status KeyValuePartitioning::SetDefaultValuesFromKeys(const Expression& expr,
                                                       RecordBatchProjector* projector) {
   ARROW_ASSIGN_OR_RAISE(auto known_values, ExtractKnownFieldValues(expr));
   for (const auto& ref_value : known_values) {
-    const auto& known_value = ref_value.second;
-    if (known_value.concrete() && !known_value.datum.is_scalar()) {
-      return Status::Invalid("non-scalar partition key ", known_value.datum.ToString());
+    if (!ref_value.second.is_scalar()) {
+      return Status::Invalid("non-scalar partition key ", ref_value.second.ToString());
     }
 
     ARROW_ASSIGN_OR_RAISE(auto match,
                           ref_value.first.FindOneOrNone(*projector->schema()));
 
     if (match.empty()) continue;
-
-    const auto& field = projector->schema()->field(match[0]);
-    if (known_value.concrete()) {
-      RETURN_NOT_OK(projector->SetDefaultValue(match, known_value.datum.scalar()));
-    } else if (known_value.valid) {
-      // We know some information about the value but nothing concrete enough to set.  Can
-      // happen if expression is something like is_valid(field_ref("a"))
-      continue;
-    } else {
-      RETURN_NOT_OK(projector->SetDefaultValue(match, MakeNullScalar(field->type())));
-    }
+    RETURN_NOT_OK(projector->SetDefaultValue(match, ref_value.second.scalar()));
   }
   return Status::OK();
 }
 
-Expression ConjunctionFromGroupingRow(Scalar* row) {
+inline Expression ConjunctionFromGroupingRow(Scalar* row) {
   ScalarVector* values = &checked_cast<StructScalar*>(row)->value;
   std::vector<Expression> equality_expressions(values->size());
   for (size_t i = 0; i < values->size(); ++i) {
@@ -213,34 +202,37 @@ Result<std::string> KeyValuePartitioning::Format(const Expression& expr) const {
 
   ARROW_ASSIGN_OR_RAISE(auto known_values, ExtractKnownFieldValues(expr));
   for (const auto& ref_value : known_values) {
-    const auto& known_value = ref_value.second;
-    if (known_value.concrete() && !known_value.datum.is_scalar()) {
-      return Status::Invalid("non-scalar partition key ", known_value.datum.ToString());
+    if (!ref_value.second.is_scalar()) {
+      return Status::Invalid("non-scalar partition key ", ref_value.second.ToString());
     }
 
     ARROW_ASSIGN_OR_RAISE(auto match, ref_value.first.FindOneOrNone(*schema_));
     if (match.empty()) continue;
 
+    auto value = ref_value.second.scalar();
+
     const auto& field = schema_->field(match[0]);
-
-    if (known_value.concrete()) {
-      auto value = known_value.datum.scalar();
-      if (!value->type->Equals(field->type())) {
-        return Status::TypeError("scalar ", value->ToString(), " (of type ", *value->type,
-                                 ") is invalid for ", field->ToString());
-      }
-
-      if (value->type->id() == Type::DICTIONARY) {
-        ARROW_ASSIGN_OR_RAISE(
-            value, checked_cast<const DictionaryScalar&>(*value).GetEncodedValue());
-      }
-
-      values[match[0]] = std::move(value);
-    } else {
-      if (!known_value.valid) {
-        values[match[0]] = MakeNullScalar(field->type());
+    if (!value->type->Equals(field->type())) {
+      if (value->is_valid) {
+        auto maybe_converted = compute::Cast(value, field->type());
+        if (!maybe_converted.ok()) {
+          return Status::TypeError("Error converting scalar ", value->ToString(),
+                                   " (of type ", *value->type,
+                                   ") to a partition key for ", field->ToString(), ": ",
+                                   maybe_converted.status().message());
+        }
+        value = maybe_converted->scalar();
+      } else {
+        value = MakeNullScalar(field->type());
       }
     }
+
+    if (value->type->id() == Type::DICTIONARY) {
+      ARROW_ASSIGN_OR_RAISE(
+          value, checked_cast<const DictionaryScalar&>(*value).GetEncodedValue());
+    }
+
+    values[match[0]] = std::move(value);
   }
 
   return FormatValues(values);

@@ -26,6 +26,7 @@ import numpy as np
 import pytest
 
 import pyarrow as pa
+import pyarrow.csv
 import pyarrow.fs as fs
 from pyarrow.tests.util import change_cwd, _filesystem_uri
 

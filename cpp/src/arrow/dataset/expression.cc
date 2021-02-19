@@ -95,6 +95,8 @@ namespace {
 
 std::string PrintDatum(const Datum& datum) {
   if (datum.is_scalar()) {
+    if (!datum.scalar()->is_valid) return "null";
+
     switch (datum.type()->id()) {
       case Type::STRING:
       case Type::LARGE_STRING:
@@ -110,6 +112,7 @@ std::string PrintDatum(const Datum& datum) {
       default:
         break;
     }
+
     return datum.scalar()->ToString();
   }
   return datum.ToString();
@@ -684,27 +687,27 @@ std::vector<Expression> GuaranteeConjunctionMembers(
 // conjunction_members
 Status ExtractKnownFieldValuesImpl(
     std::vector<Expression>* conjunction_members,
-    std::unordered_map<FieldRef, KnownFieldValue, FieldRef::Hash>* known_values) {
-  auto unconsumed_end = std::partition(
-      conjunction_members->begin(), conjunction_members->end(),
-      [](const Expression& expr) {
-        // search for an equality conditions between a field and a literal
-        auto call = expr.call();
-        if (!call) return true;
+    std::unordered_map<FieldRef, Datum, FieldRef::Hash>* known_values) {
+  auto unconsumed_end =
+      std::partition(conjunction_members->begin(), conjunction_members->end(),
+                     [](const Expression& expr) {
+                       // search for an equality conditions between a field and a literal
+                       auto call = expr.call();
+                       if (!call) return true;
 
-        if (call->function_name == "equal") {
-          auto ref = call->arguments[0].field_ref();
-          auto lit = call->arguments[1].literal();
-          return !(ref && lit);
-        }
+                       if (call->function_name == "equal") {
+                         auto ref = call->arguments[0].field_ref();
+                         auto lit = call->arguments[1].literal();
+                         return !(ref && lit);
+                       }
 
-        if (call->function_name == "is_null" || call->function_name == "is_valid") {
-          auto ref = call->arguments[0].field_ref();
-          return !ref;
-        }
+                       if (call->function_name == "is_null") {
+                         auto ref = call->arguments[0].field_ref();
+                         return !ref;
+                       }
 
-        return true;
-      });
+                       return true;
+                     });
 
   for (auto it = unconsumed_end; it != conjunction_members->end(); ++it) {
     auto call = CallNotNull(*it);
@@ -715,10 +718,7 @@ Status ExtractKnownFieldValuesImpl(
       known_values->emplace(*ref, *lit);
     } else if (call->function_name == "is_null") {
       auto ref = call->arguments[0].field_ref();
-      known_values->emplace(*ref, false);
-    } else if (call->function_name == "is_valid") {
-      auto ref = call->arguments[0].field_ref();
-      known_values->emplace(*ref, true);
+      known_values->emplace(*ref, std::make_shared<NullScalar>());
     }
   }
 
@@ -729,16 +729,16 @@ Status ExtractKnownFieldValuesImpl(
 
 }  // namespace
 
-Result<std::unordered_map<FieldRef, KnownFieldValue, FieldRef::Hash>>
-ExtractKnownFieldValues(const Expression& guaranteed_true_predicate) {
+Result<std::unordered_map<FieldRef, Datum, FieldRef::Hash>> ExtractKnownFieldValues(
+    const Expression& guaranteed_true_predicate) {
   auto conjunction_members = GuaranteeConjunctionMembers(guaranteed_true_predicate);
-  std::unordered_map<FieldRef, KnownFieldValue, FieldRef::Hash> known_values;
+  std::unordered_map<FieldRef, Datum, FieldRef::Hash> known_values;
   RETURN_NOT_OK(ExtractKnownFieldValuesImpl(&conjunction_members, &known_values));
   return known_values;
 }
 
 Result<Expression> ReplaceFieldsWithKnownValues(
-    const std::unordered_map<FieldRef, KnownFieldValue, FieldRef::Hash>& known_values,
+    const std::unordered_map<FieldRef, Datum, FieldRef::Hash>& known_values,
     Expression expr) {
   if (!expr.IsBound()) {
     return Status::Invalid(
@@ -751,11 +751,7 @@ Result<Expression> ReplaceFieldsWithKnownValues(
         if (auto ref = expr.field_ref()) {
           auto it = known_values.find(*ref);
           if (it != known_values.end()) {
-            const auto& known_value = it->second;
-            if (!known_value.concrete()) {
-              return expr;
-            }
-            auto lit = known_value.datum;
+            Datum lit = it->second;
             if (expr.type()->id() == Type::DICTIONARY) {
               if (lit.is_scalar()) {
                 // FIXME the "right" way to support this is adding support for scalars to
@@ -774,22 +770,6 @@ Result<Expression> ReplaceFieldsWithKnownValues(
             }
             ARROW_ASSIGN_OR_RAISE(lit, compute::Cast(lit, expr.type()));
             return literal(std::move(lit));
-          }
-        } else if (auto call = expr.call()) {
-          if (call->function_name == "is_null") {
-            if (auto ref = call->arguments[0].field_ref()) {
-              auto it = known_values.find(*ref);
-              if (it != known_values.end()) {
-                return literal(!it->second.valid);
-              }
-            }
-          } else if (call->function_name == "is_valid") {
-            if (auto ref = call->arguments[0].field_ref()) {
-              auto it = known_values.find(*ref);
-              if (it != known_values.end()) {
-                return literal(it->second.valid);
-              }
-            }
           }
         }
         return expr;
@@ -967,7 +947,7 @@ Result<Expression> SimplifyWithGuarantee(Expression expr,
                                          const Expression& guaranteed_true_predicate) {
   auto conjunction_members = GuaranteeConjunctionMembers(guaranteed_true_predicate);
 
-  std::unordered_map<FieldRef, KnownFieldValue, FieldRef::Hash> known_values;
+  std::unordered_map<FieldRef, Datum, FieldRef::Hash> known_values;
   RETURN_NOT_OK(ExtractKnownFieldValuesImpl(&conjunction_members, &known_values));
 
   ARROW_ASSIGN_OR_RAISE(expr,

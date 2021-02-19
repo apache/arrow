@@ -2361,17 +2361,14 @@ def _get_partition_keys(Expression partition_expression):
     """
     cdef:
         CExpression expr = partition_expression.unwrap()
-        pair[CFieldRef, CKnownFieldValue] ref_val
+        pair[CFieldRef, CDatum] ref_val
 
     out = {}
     for ref_val in GetResultValue(CExtractKnownFieldValues(expr)):
         assert ref_val.first.name() != nullptr
-        if ref_val.second.valid:
-            assert ref_val.second.datum.kind() == DatumType_SCALAR
-            val = pyarrow_wrap_scalar(ref_val.second.datum.scalar())
-            out[frombytes(deref(ref_val.first.name()))] = val.as_py()
-        else:
-            out[frombytes(deref(ref_val.first.name()))] = None
+        assert ref_val.second.kind() == DatumType_SCALAR
+        val = pyarrow_wrap_scalar(ref_val.second.scalar())
+        out[frombytes(deref(ref_val.first.name()))] = val.as_py()
     return out
 
 

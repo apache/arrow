@@ -315,14 +315,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             const CExpression& partition_expression,
             CRecordBatchProjector* projector)
 
-    cdef cppclass CKnownFieldValue "arrow::dataset::KnownFieldValue":
-        CDatum datum
-        c_bool valid
-        CKnownFieldValue(CDatum datum)
-        CKnownFieldValue(c_bool valid)
-        c_bool operator==(const CKnownFieldValue&) const
-
-    cdef CResult[unordered_map[CFieldRef, CKnownFieldValue, CFieldRefHash]] \
+    cdef CResult[unordered_map[CFieldRef, CDatum, CFieldRefHash]] \
         CExtractKnownFieldValues "arrow::dataset::ExtractKnownFieldValues"(
             const CExpression& partition_expression)
 

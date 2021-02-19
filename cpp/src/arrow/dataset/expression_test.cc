@@ -680,9 +680,8 @@ TEST(Expression, FoldConstantsBoolean) {
 
 TEST(Expression, ExtractKnownFieldValues) {
   struct {
-    void operator()(
-        Expression guarantee,
-        std::unordered_map<FieldRef, KnownFieldValue, FieldRef::Hash> expected) {
+    void operator()(Expression guarantee,
+                    std::unordered_map<FieldRef, Datum, FieldRef::Hash> expected) {
       ASSERT_OK_AND_ASSIGN(auto actual, ExtractKnownFieldValues(guarantee));
       EXPECT_THAT(actual, UnorderedElementsAreArray(expected))
           << "  guarantee: " << guarantee.ToString();
@@ -730,20 +729,20 @@ TEST(Expression, ExtractKnownFieldValues) {
 }
 
 TEST(Expression, ReplaceFieldsWithKnownValues) {
-  auto ExpectReplacesTo = [](Expression expr,
-                             const std::unordered_map<FieldRef, KnownFieldValue,
-                                                      FieldRef::Hash>& known_values,
-                             Expression unbound_expected) {
-    ASSERT_OK_AND_ASSIGN(expr, expr.Bind(*kBoringSchema));
-    ASSERT_OK_AND_ASSIGN(auto expected, unbound_expected.Bind(*kBoringSchema));
-    ASSERT_OK_AND_ASSIGN(auto replaced, ReplaceFieldsWithKnownValues(known_values, expr));
+  auto ExpectReplacesTo =
+      [](Expression expr,
+         const std::unordered_map<FieldRef, Datum, FieldRef::Hash>& known_values,
+         Expression unbound_expected) {
+        ASSERT_OK_AND_ASSIGN(expr, expr.Bind(*kBoringSchema));
+        ASSERT_OK_AND_ASSIGN(auto expected, unbound_expected.Bind(*kBoringSchema));
+        ASSERT_OK_AND_ASSIGN(auto replaced,
+                             ReplaceFieldsWithKnownValues(known_values, expr));
 
-    EXPECT_EQ(replaced, expected);
-    ExpectIdenticalIfUnchanged(replaced, expr);
-  };
+        EXPECT_EQ(replaced, expected);
+        ExpectIdenticalIfUnchanged(replaced, expr);
+      };
 
-  std::unordered_map<FieldRef, KnownFieldValue, FieldRef::Hash> i32_is_3{
-      {"i32", Datum(3)}};
+  std::unordered_map<FieldRef, Datum, FieldRef::Hash> i32_is_3{{"i32", Datum(3)}};
 
   ExpectReplacesTo(literal(1), i32_is_3, literal(1));
 
@@ -776,13 +775,18 @@ TEST(Expression, ReplaceFieldsWithKnownValues) {
                                    literal(2),
                                }));
 
-  std::unordered_map<FieldRef, KnownFieldValue, FieldRef::Hash> a_valid_b_invalid{
-      {"a", true}, {"b", false}};
+  std::unordered_map<FieldRef, Datum, FieldRef::Hash> i32_valid_str_null{
+      {"i32", Datum(3)}, {"str", MakeNullScalar(utf8())}};
 
-  ExpectReplacesTo(is_null(field_ref("a")), a_valid_b_invalid, literal(false));
-  ExpectReplacesTo(is_valid(field_ref("a")), a_valid_b_invalid, literal(true));
-  ExpectReplacesTo(is_null(field_ref("b")), a_valid_b_invalid, literal(true));
-  ExpectReplacesTo(is_valid(field_ref("b")), a_valid_b_invalid, literal(false));
+  ExpectReplacesTo(is_null(field_ref("i32")), i32_valid_str_null, is_null(literal(3)));
+
+  ExpectReplacesTo(is_valid(field_ref("i32")), i32_valid_str_null, is_valid(literal(3)));
+
+  ExpectReplacesTo(is_null(field_ref("str")), i32_valid_str_null,
+                   is_null(null_literal(utf8())));
+
+  ExpectReplacesTo(is_valid(field_ref("str")), i32_valid_str_null,
+                   is_valid(null_literal(utf8())));
 }
 
 struct {
@@ -1046,7 +1050,7 @@ TEST(Expression, SimplifyWithGuarantee) {
 
   Simplify{is_valid(field_ref("i32"))}
       .WithGuarantee(is_valid(field_ref("i32")))
-      .Expect(literal(true));
+      .Expect(is_valid(field_ref("i32")));
 }
 
 TEST(Expression, SimplifyThenExecute) {
