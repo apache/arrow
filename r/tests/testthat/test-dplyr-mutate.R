@@ -238,9 +238,65 @@ test_that("handle bad expressions", {
 })
 
 test_that("print a mutated dataset", {
+  expect_output(
+    Table$create(tbl) %>%
+      select(int) %>%
+      mutate(twice = int * 2) %>%
+      print(),
+'Table (query)
+int: int32
+twice: expr
 
+See $.data for the source Arrow object',
+  fixed = TRUE)
 })
 
 test_that("mutate and write_dataset", {
+  # See related test in test-dataset.R
 
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
+
+  first_date <- lubridate::ymd_hms("2015-04-29 03:12:39")
+  df1 <- tibble(
+    int = 1:10,
+    dbl = as.numeric(1:10),
+    lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
+    chr = letters[1:10],
+    fct = factor(LETTERS[1:10]),
+    ts = first_date + lubridate::days(1:10)
+  )
+
+  second_date <- lubridate::ymd_hms("2017-03-09 07:01:02")
+  df2 <- tibble(
+    int = 101:110,
+    dbl = c(as.numeric(51:59), NaN),
+    lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
+    chr = letters[10:1],
+    fct = factor(LETTERS[10:1]),
+    ts = second_date + lubridate::days(10:1)
+  )
+
+  dst_dir <- tempfile()
+  stacked <- record_batch(rbind(df1, df2))
+  stacked %>%
+    mutate(twice = int * 2) %>%
+    group_by(int) %>%
+    write_dataset(dst_dir, format = "feather")
+  expect_true(dir.exists(dst_dir))
+  expect_identical(dir(dst_dir), sort(paste("int", c(1:10, 101:110), sep = "=")))
+
+  new_ds <- open_dataset(dst_dir, format = "feather")
+
+  expect_equivalent(
+    new_ds %>%
+      select(string = chr, integer = int, twice) %>%
+      filter(integer > 6 & integer < 11) %>%
+      collect() %>%
+      summarize(mean = mean(integer)),
+    df1 %>%
+      select(string = chr, integer = int) %>%
+      mutate(twice = integer * 2) %>%
+      filter(integer > 6) %>%
+      summarize(mean = mean(integer))
+  )
 })

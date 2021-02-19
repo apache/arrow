@@ -52,8 +52,14 @@ arrow_dplyr_query <- function(.data) {
 print.arrow_dplyr_query <- function(x, ...) {
   schm <- x$.data$schema
   cols <- get_field_names(x)
-  # TODO: if cols are expressions, they won't be in the schema
-  fields <- map_chr(cols, ~schm$GetFieldByName(.)$ToString())
+  # If cols are expressions, they won't be in the schema and will be "" in cols
+  fields <- map_chr(cols, function(name) {
+    if (nzchar(name)) {
+      schm$GetFieldByName(name)$ToString()
+    } else {
+      "expr"
+    }
+  })
   # Strip off the field names as they are in the dataset and add the renamed ones
   fields <- paste(names(cols), sub("^.*?: ", "", fields), sep = ": ", collapse = "\n")
   cat(class(x$.data)[1], " (query)\n", sep = "")
@@ -346,6 +352,7 @@ collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
     } else {
       filter <- eval_array_expression(x$filtered_rows, x$.data)
     }
+    # TODO: shortcut if identical(names(x$.data), find_array_refs(x$selected_columns))?
     tab <- x$.data[filter, find_array_refs(x$selected_columns), keep_na = FALSE]
     # Now evaluate those expressions on the filtered table
     cols <- lapply(x$selected_columns, eval_array_expression, data = tab)
