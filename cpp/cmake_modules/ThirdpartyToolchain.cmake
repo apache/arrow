@@ -3011,7 +3011,7 @@ if(ARROW_S3)
   # See https://aws.amazon.com/blogs/developer/developer-experience-of-the-aws-sdk-for-c-now-simplified-by-cmake/
 
   # Workaround to force AWS CMake configuration to look for shared libraries
-  if(ARROW_VCPKG OR DEFINED ENV{CONDA_PREFIX})
+  if(DEFINED ENV{CONDA_PREFIX})
     if(DEFINED BUILD_SHARED_LIBS)
       set(BUILD_SHARED_LIBS_WAS_SET TRUE)
       set(BUILD_SHARED_LIBS_VALUE ${BUILD_SHARED_LIBS})
@@ -3044,7 +3044,7 @@ if(ARROW_S3)
   endif()
 
   # Restore previous value of BUILD_SHARED_LIBS
-  if(ARROW_VCPKG OR DEFINED ENV{CONDA_PREFIX})
+  if(DEFINED ENV{CONDA_PREFIX})
     if(BUILD_SHARED_LIBS_WAS_SET)
       set(BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS_VALUE})
     else()
