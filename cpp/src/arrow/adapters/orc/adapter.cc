@@ -516,8 +516,7 @@ class ORCFileWriter::Impl {
   Status Write(const Table& table) {
     std::unique_ptr<liborc::WriterOptions> orc_options =
         std::unique_ptr<liborc::WriterOptions>(new liborc::WriterOptions());
-    std::unique_ptr<liborc::Type> orc_schema;
-    RETURN_NOT_OK(GetORCType(*(table.schema()), &orc_schema));
+    std::unique_ptr<liborc::Type> orc_schema = GetORCType(*(table.schema())).ValueOrDie();
     try {
       writer_ = createWriter(*orc_schema, out_stream_.get(), *orc_options);
     } catch (const liborc::ParseError& e) {

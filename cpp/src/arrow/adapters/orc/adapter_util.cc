@@ -903,124 +903,109 @@ Status GetArrowType(const liborc::Type* type, std::shared_ptr<DataType>* out) {
   return arrow::Status::OK();
 }
 
-Status GetORCType(const DataType& type, ORC_UNIQUE_PTR<liborc::Type>* out) {
+Result<ORC_UNIQUE_PTR<liborc::Type>> GetORCType(const DataType& type) {
   Type::type kind = type.id();
   switch (kind) {
     case Type::type::BOOL:
-      *out = liborc::createPrimitiveType(liborc::TypeKind::BOOLEAN);
-      break;
+      return liborc::createPrimitiveType(liborc::TypeKind::BOOLEAN);
     case Type::type::INT8:
-      *out = liborc::createPrimitiveType(liborc::TypeKind::BYTE);
-      break;
+      return liborc::createPrimitiveType(liborc::TypeKind::BYTE);
     case Type::type::INT16:
-      *out = liborc::createPrimitiveType(liborc::TypeKind::SHORT);
-      break;
+      return liborc::createPrimitiveType(liborc::TypeKind::SHORT);
     case Type::type::INT32:
-      *out = liborc::createPrimitiveType(liborc::TypeKind::INT);
-      break;
+      return liborc::createPrimitiveType(liborc::TypeKind::INT);
     case Type::type::INT64:
-      *out = liborc::createPrimitiveType(liborc::TypeKind::LONG);
-      break;
+      return liborc::createPrimitiveType(liborc::TypeKind::LONG);
     case Type::type::FLOAT:
-      *out = liborc::createPrimitiveType(liborc::TypeKind::FLOAT);
-      break;
+      return liborc::createPrimitiveType(liborc::TypeKind::FLOAT);
     case Type::type::DOUBLE:
-      *out = liborc::createPrimitiveType(liborc::TypeKind::DOUBLE);
-      break;
+      return liborc::createPrimitiveType(liborc::TypeKind::DOUBLE);
     // Use STRING instead of VARCHAR for now, both use UTF-8
     case Type::type::STRING:
     case Type::type::LARGE_STRING:
-      *out = liborc::createPrimitiveType(liborc::TypeKind::STRING);
-      break;
+      return liborc::createPrimitiveType(liborc::TypeKind::STRING);
     case Type::type::BINARY:
     case Type::type::LARGE_BINARY:
     case Type::type::FIXED_SIZE_BINARY:
-      *out = liborc::createPrimitiveType(liborc::TypeKind::BINARY);
-      break;
+      return liborc::createPrimitiveType(liborc::TypeKind::BINARY);
     case Type::type::DATE32:
-      *out = liborc::createPrimitiveType(liborc::TypeKind::DATE);
-      break;
+      return liborc::createPrimitiveType(liborc::TypeKind::DATE);
     case Type::type::DATE64:
     case Type::type::TIMESTAMP:
-      *out = liborc::createPrimitiveType(liborc::TypeKind::TIMESTAMP);
-      break;
+      return liborc::createPrimitiveType(liborc::TypeKind::TIMESTAMP);
     case Type::type::DECIMAL128: {
       const uint64_t precision =
           static_cast<uint64_t>(static_cast<const Decimal128Type&>(type).precision());
       const uint64_t scale =
           static_cast<uint64_t>(static_cast<const Decimal128Type&>(type).scale());
-      *out = liborc::createDecimalType(precision, scale);
-      break;
+      return liborc::createDecimalType(precision, scale);
     }
     case Type::type::LIST:
     case Type::type::FIXED_SIZE_LIST:
     case Type::type::LARGE_LIST: {
       std::shared_ptr<DataType> arrow_child_type =
           static_cast<const BaseListType&>(type).value_type();
-      ORC_UNIQUE_PTR<liborc::Type> orc_subtype;
-      RETURN_NOT_OK(GetORCType(*arrow_child_type, &orc_subtype));
-      *out = liborc::createListType(std::move(orc_subtype));
-      break;
+      ORC_UNIQUE_PTR<liborc::Type> orc_subtype =
+          GetORCType(*arrow_child_type).ValueOrDie();
+      return liborc::createListType(std::move(orc_subtype));
     }
     case Type::type::STRUCT: {
-      *out = liborc::createStructType();
+      ORC_UNIQUE_PTR<liborc::Type> out_type = liborc::createStructType();
       std::vector<std::shared_ptr<Field>> arrow_fields =
           checked_cast<const StructType&>(type).fields();
       for (std::vector<std::shared_ptr<Field>>::iterator it = arrow_fields.begin();
            it != arrow_fields.end(); ++it) {
         std::string field_name = (*it)->name();
         std::shared_ptr<DataType> arrow_child_type = (*it)->type();
-        ORC_UNIQUE_PTR<liborc::Type> orc_subtype;
-        RETURN_NOT_OK(GetORCType(*arrow_child_type, &orc_subtype));
-        (*out)->addStructField(field_name, std::move(orc_subtype));
+        ORC_UNIQUE_PTR<liborc::Type> orc_subtype =
+            GetORCType(*arrow_child_type).ValueOrDie();
+        out_type->addStructField(field_name, std::move(orc_subtype));
       }
-      break;
+      return out_type;
     }
     case Type::type::MAP: {
       std::shared_ptr<DataType> key_arrow_type =
           checked_cast<const MapType&>(type).key_type();
       std::shared_ptr<DataType> item_arrow_type =
           checked_cast<const MapType&>(type).item_type();
-      ORC_UNIQUE_PTR<liborc::Type> key_orc_type, item_orc_type;
-      RETURN_NOT_OK(GetORCType(*key_arrow_type, &key_orc_type));
-      RETURN_NOT_OK(GetORCType(*item_arrow_type, &item_orc_type));
-      *out = liborc::createMapType(std::move(key_orc_type), std::move(item_orc_type));
-      break;
+      ORC_UNIQUE_PTR<liborc::Type> key_orc_type =
+                                       GetORCType(*key_arrow_type).ValueOrDie(),
+                                   item_orc_type =
+                                       GetORCType(*item_arrow_type).ValueOrDie();
+      return liborc::createMapType(std::move(key_orc_type), std::move(item_orc_type));
     }
     case Type::type::DENSE_UNION:
     case Type::type::SPARSE_UNION: {
-      *out = liborc::createUnionType();
+      ORC_UNIQUE_PTR<liborc::Type> out_type = liborc::createUnionType();
       std::vector<std::shared_ptr<Field>> arrow_fields =
           checked_cast<const UnionType&>(type).fields();
       for (std::vector<std::shared_ptr<Field>>::iterator it = arrow_fields.begin();
            it != arrow_fields.end(); ++it) {
         std::string field_name = (*it)->name();
         std::shared_ptr<DataType> arrow_child_type = (*it)->type();
-        ORC_UNIQUE_PTR<liborc::Type> orc_subtype;
-        RETURN_NOT_OK(GetORCType(*arrow_child_type, &orc_subtype));
-        (*out)->addUnionChild(std::move(orc_subtype));
+        ORC_UNIQUE_PTR<liborc::Type> orc_subtype =
+            GetORCType(*arrow_child_type).ValueOrDie();
+        out_type->addUnionChild(std::move(orc_subtype));
       }
-      break;
+      return out_type;
     }
     default: {
       return Status::Invalid("Unknown or unsupported Arrow type: ", type.ToString());
     }
   }
-  return arrow::Status::OK();
 }
 
-Status GetORCType(const Schema& schema, ORC_UNIQUE_PTR<liborc::Type>* out) {
+Result<ORC_UNIQUE_PTR<liborc::Type>> GetORCType(const Schema& schema) {
   int numFields = schema.num_fields();
-  *out = liborc::createStructType();
+  ORC_UNIQUE_PTR<liborc::Type> out_type = liborc::createStructType();
   for (int i = 0; i < numFields; i++) {
     std::shared_ptr<Field> field = schema.field(i);
     std::string field_name = field->name();
     std::shared_ptr<DataType> arrow_child_type = field->type();
-    ORC_UNIQUE_PTR<liborc::Type> orc_subtype;
-    RETURN_NOT_OK(GetORCType(*arrow_child_type, &orc_subtype));
-    (*out)->addStructField(field_name, std::move(orc_subtype));
+    ORC_UNIQUE_PTR<liborc::Type> orc_subtype = GetORCType(*arrow_child_type).ValueOrDie();
+    out_type->addStructField(field_name, std::move(orc_subtype));
   }
-  return arrow::Status::OK();
+  return out_type;
 }
 
 }  // namespace orc

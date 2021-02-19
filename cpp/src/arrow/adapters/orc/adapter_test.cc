@@ -768,43 +768,45 @@ TEST_F(TestORCWriterSingleArray, WriteStruct) {
       struct_({field("struct2", struct_(subsubfields))}), num_rows, av0, bitmap);
   AssertArrayWriteReadEqual(array, array, kDefaultSmallMemStreamSize * 10);
 }
-TEST_F(TestORCWriterSingleArray, WriteListOfStruct) {
-  std::shared_ptr<Schema> table_schema =
-      schema({field("ls", list(struct_({field("a", int32())})))});
-  int64_t num_rows = 2;
-  ArrayVector av00(1);
-  av00[0] = rand.ArrayOf(int32(), 2 * num_rows, 0);
-  // std::shared_ptr<Buffer> bitmap00 = rand.NullBitmap(5 * num_rows, 0);
-  std::shared_ptr<Array> value_array =
-      std::make_shared<StructArray>(struct_({field("a", int32())}), 2 * num_rows, av00);
-  std::shared_ptr<Array> array = rand.List(*value_array, num_rows, 0);
+// TEST_F(TestORCWriterSingleArray, WriteListOfStruct) {
+//   std::shared_ptr<Schema> table_schema =
+//       schema({field("ls", list(struct_({field("a", int32())})))});
+//   int64_t num_rows = 2;
+//   ArrayVector av00(1);
+//   av00[0] = rand.ArrayOf(int32(), 2 * num_rows, 0);
+//   // std::shared_ptr<Buffer> bitmap00 = rand.NullBitmap(5 * num_rows, 0);
+//   std::shared_ptr<Array> value_array =
+//       std::make_shared<StructArray>(struct_({field("a", int32())}), 2 * num_rows,
+//       av00);
+//   std::shared_ptr<Array> array = rand.List(*value_array, num_rows, 0);
 
-  // AssertArrayWriteReadEqual(array, array, kDefaultSmallMemStreamSize * 1000);
+//   // AssertArrayWriteReadEqual(array, array, kDefaultSmallMemStreamSize * 1000);
 
-  std::shared_ptr<Schema> input_schema = schema({field("col0", array->type())});
-  auto chunked_array = std::make_shared<ChunkedArray>(array);
-  std::shared_ptr<Table> table = Table::Make(input_schema, {chunked_array});
+//   std::shared_ptr<Schema> input_schema = schema({field("col0", array->type())});
+//   auto chunked_array = std::make_shared<ChunkedArray>(array);
+//   std::shared_ptr<Table> table = Table::Make(input_schema, {chunked_array});
 
-  std::shared_ptr<io::BufferOutputStream> buffer_output_stream =
-      io::BufferOutputStream::Create(kDefaultSmallMemStreamSize * 5).ValueOrDie();
-  std::unique_ptr<adapters::orc::ORCFileWriter> writer =
-      adapters::orc::ORCFileWriter::Open(*buffer_output_stream).ValueOrDie();
-  ARROW_EXPECT_OK(writer->Write(*table));
-  // ARROW_EXPECT_OK(writer->Close());
-  // std::shared_ptr<Buffer> buffer = buffer_output_stream->Finish().ValueOrDie();
-  // std::shared_ptr<io::RandomAccessFile> in_stream(new io::BufferReader(buffer));
-  // std::unique_ptr<adapters::orc::ORCFileReader> reader;
-  // ARROW_EXPECT_OK(
-  //     adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool(), &reader));
-  // std::shared_ptr<Table> actual_output_table;
-  // ARROW_EXPECT_OK(reader->Read(&actual_output_table));
-  // auto input_array = std::static_pointer_cast<ListArray>(array),
-  //      output_array =
-  //          std::static_pointer_cast<ListArray>(actual_output_table->column(0)->chunk(0));
-  // AssertArraysEqual(*(output_array->offsets()), *(input_array->offsets()), true);
-  // // RecordProperty("i_offsets", input_array->offsets()->ToString());
-  // // RecordProperty("o_offsets", output_array->offsets()->ToString());
-  // // AssertArraysEqual(*(output_array->values()), *(input_array->values()), true);
-  // AssertTableWriteReadEqual(table, table, kDefaultSmallMemStreamSize * 50);
-}
+//   std::shared_ptr<io::BufferOutputStream> buffer_output_stream =
+//       io::BufferOutputStream::Create(kDefaultSmallMemStreamSize * 5).ValueOrDie();
+//   std::unique_ptr<adapters::orc::ORCFileWriter> writer =
+//       adapters::orc::ORCFileWriter::Open(*buffer_output_stream).ValueOrDie();
+//   ARROW_EXPECT_OK(writer->Write(*table));
+//   // ARROW_EXPECT_OK(writer->Close());
+//   // std::shared_ptr<Buffer> buffer = buffer_output_stream->Finish().ValueOrDie();
+//   // std::shared_ptr<io::RandomAccessFile> in_stream(new io::BufferReader(buffer));
+//   // std::unique_ptr<adapters::orc::ORCFileReader> reader;
+//   // ARROW_EXPECT_OK(
+//   //     adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool(),
+//   &reader));
+//   // std::shared_ptr<Table> actual_output_table;
+//   // ARROW_EXPECT_OK(reader->Read(&actual_output_table));
+//   // auto input_array = std::static_pointer_cast<ListArray>(array),
+//   //      output_array =
+//   // std::static_pointer_cast<ListArray>(actual_output_table->column(0)->chunk(0));
+//   // AssertArraysEqual(*(output_array->offsets()), *(input_array->offsets()), true);
+//   // // RecordProperty("i_offsets", input_array->offsets()->ToString());
+//   // // RecordProperty("o_offsets", output_array->offsets()->ToString());
+//   // // AssertArraysEqual(*(output_array->values()), *(input_array->values()), true);
+//   // AssertTableWriteReadEqual(table, table, kDefaultSmallMemStreamSize * 50);
+// }
 }  // namespace arrow
