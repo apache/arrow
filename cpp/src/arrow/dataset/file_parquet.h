@@ -29,6 +29,7 @@
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
+#include "arrow/io/caching.h"
 #include "arrow/util/optional.h"
 
 namespace parquet {
@@ -94,6 +95,9 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
     ///
     /// @{
     std::unordered_set<std::string> dict_columns;
+    bool pre_buffer = false;
+    arrow::io::CacheOptions cache_options = arrow::io::CacheOptions::Defaults();
+    arrow::io::AsyncContext async_context;
     /// @}
 
     /// EXPERIMENTAL: Parallelize conversion across columns. This option is ignored if a
