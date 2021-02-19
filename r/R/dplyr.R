@@ -496,38 +496,20 @@ mutate.arrow_dplyr_query <- function(.data,
   .before <- enquo(.before)
   .after <- enquo(.after)
   # Restrict the cases we support for now
-  fall_back_to_r <- FALSE
   if (!quo_is_null(.before) || !quo_is_null(.after)) {
-    warning(
-      '.before and .after arguments are not supported in Arrow; pulling data into R',
-      call. = FALSE
-    )
-    fall_back_to_r <- TRUE
+    # TODO(ARROW-11701)
+    return(abandon_ship(call, .data, '.before and .after arguments are not supported in Arrow'))
   } else if (length(group_vars(.data)) > 0) {
     # mutate() on a grouped dataset does calculations within groups
     # This doesn't matter on scalar ops (arithmetic etc.) but it does
     # for things with aggregations (e.g. subtracting the mean)
-    warning(
-      'mutate() on grouped data not supported in Arrow; pulling data into R',
-      call. = FALSE
-    )
-    fall_back_to_r <- TRUE
+    return(abandon_ship(call, .data, 'mutate() on grouped data not supported in Arrow'))
   } else if (!all(nzchar(names(exprs)))) {
     # This is either user error or a function that returns a data.frame
     # e.g. across() that dplyr::mutate() will autosplice
-    warning(
-      'all ... expressions must be named: ',
-      'autosplicing multi-column results not supported in Arrow; ',
-      'pulling data into R',
-      call. = FALSE
-    )
-    fall_back_to_r <- TRUE
-  }
-  if (fall_back_to_r) {
-    # collect() and call mutate() on the data.frame
-    call$.data <- dplyr::collect(.data)
-    call[[1]] <- get("mutate", envir = asNamespace("dplyr"))
-    return(eval.parent(call))
+    # TODO(ARROW-16999)
+    msg <- 'all ... expressions must be named: autosplicing multi-column results not supported in Arrow'
+    return(abandon_ship(call, .data, msg))
   }
 
   mask <- arrow_mask(.data)
@@ -535,15 +517,8 @@ mutate.arrow_dplyr_query <- function(.data,
   for (new_var in names(exprs)) {
     results[[new_var]] <- arrow_eval(exprs[[new_var]], mask)
     if (inherits(results[[new_var]], "try-error")) {
-      warning(
-        'Expression ', as_label(exprs[[new_var]]),
-        ' not supported in Arrow; pulling data into R',
-        call. = FALSE
-      )
-      # collect() and call mutate() on the data.frame
-      call$.data <- dplyr::collect(.data)
-      call[[1]] <- get("mutate", envir = asNamespace("dplyr"))
-      return(eval.parent(call))
+      msg <- paste('Expression', as_label(exprs[[new_var]]), 'not supported in Arrow')
+      return(abandon_ship(call, .data, msg))
     }
     # Put it in the data mask too
     mask[[new_var]] <- mask$.data[[new_var]] <- results[[new_var]]
@@ -578,13 +553,37 @@ mutate.Dataset <- mutate.ArrowTabular <- mutate.arrow_dplyr_query
 transmute.arrow_dplyr_query <- function(.data, ...) dplyr::mutate(.data, ..., .keep = "none")
 transmute.Dataset <- transmute.ArrowTabular <- transmute.arrow_dplyr_query
 
+# Helper to handle unsupported dplyr features
+# * For Table/RecordBatch, we collect() and then call the dplyr method in R
+# * For Dataset, we just error
+abandon_ship <- function(call, .data, msg = NULL) {
+  dplyr_fun_name <- sub("^(.*?)\\..*", "\\1", as.character(call[[1]]))
+  if (query_on_dataset(.data)) {
+    if (is.null(msg)) {
+      # Default message: function not implemented
+      not_implemented_for_dataset(paste0(dplyr_fun_name, "()"))
+    } else {
+      stop(msg, call. = FALSE)
+    }
+  }
+
+  # else, collect and call dplyr method
+  if (!is.null(msg)) {
+    warning(msg, "; pulling data into R", immediate. = TRUE, call. = FALSE)
+  }
+  call$.data <- dplyr::collect(.data)
+  call[[1]] <- get(dplyr_fun_name, envir = asNamespace("dplyr"))
+  eval.parent(call, 2)
+}
+
 arrange.arrow_dplyr_query <- function(.data, ...) {
   .data <- arrow_dplyr_query(.data)
   if (query_on_dataset(.data)) {
     not_implemented_for_dataset("arrange()")
   }
-
-  dplyr::arrange(dplyr::collect(.data), ...)
+  # TODO(ARROW-11703) move this to Arrow
+  call <- match.call()
+  abandon_ship(call, .data)
 }
 arrange.Dataset <- arrange.ArrowTabular <- arrange.arrow_dplyr_query
 
