@@ -20,7 +20,6 @@
 use crate::error::Result;
 use crate::logical_plan::LogicalPlan;
 
-
 /// `OptimizerRule` transforms one ['LogicalPlan'] into another which
 /// computes the same results, but in a potentially more efficient
 /// way.
