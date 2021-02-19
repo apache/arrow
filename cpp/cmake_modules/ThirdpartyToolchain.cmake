@@ -169,11 +169,18 @@ if(ARROW_DEPENDENCY_SOURCE STREQUAL "VCPKG")
         "vcpkg installed directory not found. "
         "Install packages with vcpkg before executing cmake."
       )
-    elseif(_INST_DIR STREQUAL _INST_ARROW_SOURCE_DIR AND NOT VCPKG_MANIFEST_MODE)
-      # Don't look for packages in _INST_ARROW_SOURCE_DIR if manifest mode is off
-      continue()
     elseif(NOT EXISTS "${_INST_DIR}")
       continue()
+    elseif(_INST_DIR STREQUAL _INST_ARROW_SOURCE_DIR AND NOT VCPKG_MANIFEST_MODE)
+      # Do not look for packages in _INST_ARROW_SOURCE_DIR if manifest mode is off
+      message(
+        WARNING
+        "Skipped looking for installed packages in ${_INST_DIR} "
+        "because -DVCPKG_MANIFEST_MODE=OFF"
+      )
+      continue()
+    else()
+      message(STATUS "Looking for installed packages in ${_INST_DIR}")
     endif()
     if(DEFINED VCPKG_TARGET_TRIPLET)
       # Check if a subdirectory named VCPKG_TARGET_TRIPLET
@@ -209,12 +216,13 @@ if(ARROW_DEPENDENCY_SOURCE STREQUAL "VCPKG")
       "Install packages with vcpkg before executing cmake."
     )
   endif()
+  set(ARROW_PACKAGE_PREFIX "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}")
+  message(STATUS "Found installed package directory ${ARROW_PACKAGE_PREFIX}")
+  message(STATUS "Using ARROW_PACKAGE_PREFIX: ${ARROW_PACKAGE_PREFIX}")
   message(STATUS "Using VCPKG_TARGET_TRIPLET: ${VCPKG_TARGET_TRIPLET}")
   message(STATUS "Using _VCPKG_INSTALLED_DIR: ${_VCPKG_INSTALLED_DIR}")
-  # Set ARROW_PACKAGE_PREFIX
-  set(ARROW_PACKAGE_PREFIX "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}")
-  message(STATUS "Using ARROW_PACKAGE_PREFIX: ${ARROW_PACKAGE_PREFIX}")
 
+  set(ARROW_VCPKG ON) # this is used in other CMake scripts
   set(ARROW_ACTUAL_DEPENDENCY_SOURCE "SYSTEM")
 
   # TODO(ianmcook): Set other variables needed when using vcpkg for dependencies
