@@ -144,7 +144,7 @@ if(ARROW_DEPENDENCY_SOURCE STREQUAL "VCPKG")
           "or set environment variable VCPKG_ROOT."
         )
       endif()
-    endif
+    endif()
   endif()
   set(
     CMAKE_TOOLCHAIN_FILE
@@ -161,20 +161,18 @@ if(ARROW_DEPENDENCY_SOURCE STREQUAL "VCPKG")
   # vcpkg can install packages in two different places
   set(_INST_ARROW_SOURCE_DIR "${ARROW_SOURCE_DIR}/vcpkg_installed") # try here first
   set(_INST_VCPKG_ROOT "${VCPKG_ROOT}/installed")
-  set(_INST_NOWHERE "notfound")
-  # Don't look for installed packages in _INST_ARROW_SOURCE_DIR if manifest mode is off
-  if(NOT VCPKG_MANIFEST_MODE)
-    set(_INST_ARROW_SOURCE_DIR "skip")
-  endif()
   # Iterate over the places
-  foreach(_INST_DIR IN LISTS _INST_ARROW_SOURCE_DIR _INST_VCPKG_ROOT _INST_NOWHERE)
-    elseif(_INST_DIR STREQUAL "notfound")
+  foreach(_INST_DIR IN LISTS _INST_ARROW_SOURCE_DIR _INST_VCPKG_ROOT "notfound")
+    if(_INST_DIR STREQUAL "notfound")
       message(
         FATAL_ERROR
         "vcpkg installed directory not found. "
         "Install packages with vcpkg before executing cmake."
       )
-    elseif(_INST_DIR STREQUAL "skip" OR NOT EXISTS "${_INST_DIR}")
+    elseif(_INST_DIR STREQUAL _INST_ARROW_SOURCE_DIR AND NOT VCPKG_MANIFEST_MODE)
+      # Don't look for packages in _INST_ARROW_SOURCE_DIR if manifest mode is off
+      continue()
+    elseif(NOT EXISTS "${_INST_DIR}")
       continue()
     endif()
     if(DEFINED VCPKG_TARGET_TRIPLET)
@@ -220,8 +218,6 @@ if(ARROW_DEPENDENCY_SOURCE STREQUAL "VCPKG")
   set(ARROW_ACTUAL_DEPENDENCY_SOURCE "SYSTEM")
 
   # TODO(ianmcook): Set other variables needed when using vcpkg for dependencies
-  
-endif()
 
 elseif(ARROW_DEPENDENCY_SOURCE STREQUAL "CONDA")
   if(MSVC)
