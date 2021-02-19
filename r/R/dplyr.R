@@ -30,19 +30,14 @@ arrow_dplyr_query <- function(.data) {
   if (inherits(.data, "arrow_dplyr_query")) {
     return(.data)
   }
-  # selected_columns is a named list:
-  # * contents are references/expressions pointing to the data
-  # * names are the names they should be in the end (i.e. this
-  #   records any renaming)
-  if (inherits(.data, "Dataset")) {
-    selected_columns <- lapply(names(.data), Expression$field_ref)
-  } else {
-    selected_columns <- lapply(names(.data), function(x) array_expression("array_ref", field_name = x))
-  }
   structure(
     list(
       .data = .data$clone(),
-      selected_columns = set_names(selected_columns, names(.data)),
+      # selected_columns is a named list:
+      # * contents are references/expressions pointing to the data
+      # * names are the names they should be in the end (i.e. this
+      #   records any renaming)
+      selected_columns = make_field_refs(names(.data), dataset = inherits(.data, "Dataset")),
       # filtered_rows will be an Expression
       filtered_rows = TRUE,
       # group_by_vars is a character vector of columns (as renamed)
@@ -84,6 +79,15 @@ get_field_names <- function(selected_cols) {
     selected_cols <- selected_cols$selected_columns
   }
   map_chr(selected_cols, ~.$field_name %||% .$args$field_name %||% "")
+}
+
+make_field_refs <- function(field_names, dataset = TRUE) {
+  if (dataset) {
+    out <- lapply(field_names, Expression$field_ref)
+  } else {
+    out <- lapply(field_names, function(x) array_expression("array_ref", field_name = x))
+  }
+  set_names(out, field_names)
 }
 
 # These are the names reflecting all select/rename, not what is in Arrow
@@ -243,7 +247,7 @@ arrow_eval <- function (expr, mask) {
     # else, for things not supported by Arrow return a "try-error",
     # which we'll handle differently
     msg <- conditionMessage(e)
-    # TODO: internationalization?
+    # TODO(ARROW-11700): internationalization
     if (grepl("object '.*'.not.found", msg)) {
       stop(e)
     }
@@ -293,6 +297,14 @@ arrow_mask <- function(.data) {
     f_env <- new_environment(dataset_function_list)
   } else {
     f_env <- new_environment(array_function_list)
+  }
+
+  # Add functions that need to error hard and clear.
+  # Some R functions will still try to evaluate on an Expression
+  # and return NA with a warning
+  fail <- function(...) stop("Not implemented")
+  for (f in c("mean")) {
+    f_env[[f]] <- fail
   }
 
   # Add the column references and make the mask
@@ -363,14 +375,12 @@ ensure_group_vars <- function(x) {
     # Before pulling data from Arrow, make sure all group vars are in the projection
     gv <- set_names(setdiff(dplyr::group_vars(x), names(x)))
     if (length(gv)) {
-      # selected_columns is no longer a character vector, so assemble refs
-      if (query_on_dataset(x)) {
-        gv <- set_names(lapply(gv, Expression$field_ref), gv)
-      } else {
-        gv <- set_names(lapply(gv, function(x) array_expression("array_ref", field_name = x)), gv)
-      }
+      # Add them back
+      x$selected_columns <- c(
+        x$selected_columns,
+        make_field_refs(gv, dataset = query_on_dataset(.data))
+      )
     }
-    x$selected_columns <- c(x$selected_columns, gv)
   }
   x
 }
@@ -470,6 +480,7 @@ mutate.arrow_dplyr_query <- function(.data,
                                      .keep = c("all", "used", "unused", "none"),
                                      .before = NULL,
                                      .after = NULL) {
+  call <- match.call()
   exprs <- quos(...)
   if (length(exprs) == 0) {
     # Nothing to do
@@ -482,36 +493,85 @@ mutate.arrow_dplyr_query <- function(.data,
   }
 
   .keep <- match.arg(.keep)
+  .before <- enquo(.before)
+  .after <- enquo(.after)
   # Restrict the cases we support for now
-  stopifnot(
-    .keep %in% c("all", "none"),
-    is.null(.before),
-    is.null(.after),
+  fall_back_to_r <- FALSE
+  if (!quo_is_null(.before) || !quo_is_null(.after)) {
+    warning(
+      '.before and .after arguments are not supported in Arrow; pulling data into R',
+      call. = FALSE
+    )
+    fall_back_to_r <- TRUE
+  } else if (length(group_vars(.data)) > 0) {
     # mutate() on a grouped dataset does calculations within groups
     # This doesn't matter on scalar ops (arithmetic etc.) but it does
     # for things with aggregations (e.g. subtracting the mean)
-    length(group_vars(.data)) == 0
-  )
+    warning(
+      'mutate() on grouped data not supported in Arrow; pulling data into R',
+      call. = FALSE
+    )
+    fall_back_to_r <- TRUE
+  } else if (!all(nzchar(names(exprs)))) {
+    # This is either user error or a function that returns a data.frame
+    # e.g. across() that dplyr::mutate() will autosplice
+    warning(
+      'all ... expressions must be named: ',
+      'autosplicing multi-column results not supported in Arrow; ',
+      'pulling data into R',
+      call. = FALSE
+    )
+    fall_back_to_r <- TRUE
+  }
+  if (fall_back_to_r) {
+    # collect() and call mutate() on the data.frame
+    call$.data <- dplyr::collect(.data)
+    call[[1]] <- get("mutate", envir = asNamespace("dplyr"))
+    return(eval.parent(call))
+  }
 
   mask <- arrow_mask(.data)
   results <- list()
   for (new_var in names(exprs)) {
     results[[new_var]] <- arrow_eval(exprs[[new_var]], mask)
-    # TODO: check for try-error
+    if (inherits(results[[new_var]], "try-error")) {
+      warning(
+        'Expression ', as_label(exprs[[new_var]]),
+        ' not supported in Arrow; pulling data into R',
+        call. = FALSE
+      )
+      # collect() and call mutate() on the data.frame
+      call$.data <- dplyr::collect(.data)
+      call[[1]] <- get("mutate", envir = asNamespace("dplyr"))
+      return(eval.parent(call))
+    }
     # Put it in the data mask too
     mask[[new_var]] <- mask$.data[[new_var]] <- results[[new_var]]
   }
 
-  if (.keep == "all") {
-    for (new_var in names(results)) {
+  # Assign the new columns into the .data$selected_columns, respecting the .keep param
+  if (.keep == "none") {
+    .data$selected_columns <- results
+  } else {
+    if (.keep != "all") {
+      # "used" or "unused"
+      used_vars <- unlist(lapply(exprs, all.vars), use.names = FALSE)
+      old_vars <- names(.data$selected_columns)
+      if (.keep == "used") {
+        .data$selected_columns <- .data$selected_columns[intersect(old_vars, used_vars)]
+      } else {
+        # "unused"
+        .data$selected_columns <- .data$selected_columns[setdiff(old_vars, used_vars)]
+      }
+    }
+    # Note that this is names(exprs) not names(results):
+    # if results$new_var is NULL, that means we are supposed to remove it
+    for (new_var in names(exprs)) {
       .data$selected_columns[[new_var]] <- results[[new_var]]
     }
-  } else if (.keep == "none") {
-    .data$selected_columns <- results
-    # "none" (i.e. transmute) still keeps group vars
-    .data <- ensure_group_vars(.data)
   }
-  .data
+  # Even if "none", we still keep group vars
+  ensure_group_vars(.data)
 }
 mutate.Dataset <- mutate.ArrowTabular <- mutate.arrow_dplyr_query
 

@@ -68,7 +68,6 @@ test_that("mutate and refer to previous mutants", {
   )
 })
 
-
 test_that("mutate with .data pronoun", {
   expect_dplyr_equal(
     input %>%
@@ -83,6 +82,165 @@ test_that("mutate with .data pronoun", {
   )
 })
 
+test_that("mutate with single value for recycling", {
+
+})
+
+test_that("dplyr::mutate's examples", {
+  # Newly created variables are available immediately
+  expect_dplyr_equal(
+    input %>%
+      select(name, mass) %>%
+      mutate(
+        mass2 = mass * 2,
+        mass2_squared = mass2 * mass2
+      ) %>%
+      collect(),
+    starwars # this is a test dataset that ships with dplyr
+  )
+
+  # As well as adding new variables, you can use mutate() to
+  # remove variables and modify existing variables.
+  expect_dplyr_equal(
+    input %>%
+      select(name, height, mass, homeworld) %>%
+      mutate(
+        mass = NULL,
+        height = height * 0.0328084 # convert to feet
+      ) %>%
+      collect(),
+    starwars
+  )
+
+  # Examples we don't support should succeed
+  # but warn that they're pulling data into R to do so
+
+  # across + autosplicing: ARROW-11699
+  expect_warning(
+    expect_dplyr_equal(
+      input %>%
+        select(name, homeworld, species) %>%
+        mutate(across(!name, as.factor)) %>%
+        collect(),
+      starwars
+    ),
+    "not supported in Arrow"
+  )
+
+  # group_by then mutate
+  expect_warning(
+    expect_dplyr_equal(
+      input %>%
+        select(name, mass, homeworld) %>%
+        group_by(homeworld) %>%
+        mutate(rank = min_rank(desc(mass))) %>%
+        collect(),
+      starwars
+    ),
+    "not supported in Arrow"
+  )
+
+  # `.before` and `.after` experimental args: ARROW-11701
+  df <- tibble(x = 1, y = 2)
+  expect_dplyr_equal(
+    input %>% mutate(z = x + y) %>% collect(),
+    df
+  )
+  #> # A tibble: 1 x 3
+  #>       x     y     z
+  #>   <dbl> <dbl> <dbl>
+  #> 1     1     2     3
+  expect_warning(
+    expect_dplyr_equal(
+      input %>% mutate(z = x + y, .before = 1) %>% collect(),
+      df
+    ),
+    "not supported in Arrow"
+  )
+  #> # A tibble: 1 x 3
+  #>       z     x     y
+  #>   <dbl> <dbl> <dbl>
+  #> 1     3     1     2
+  expect_warning(
+    expect_dplyr_equal(
+      input %>% mutate(z = x + y, .after = x) %>% collect(),
+      df
+    ),
+    "not supported in Arrow"
+  )
+  #> # A tibble: 1 x 3
+  #>       x     z     y
+  #>   <dbl> <dbl> <dbl>
+  #> 1     1     3     2
+
+  # By default, mutate() keeps all columns from the input data.
+  # Experimental: You can override with `.keep`
+  df <- tibble(x = 1, y = 2, a = "a", b = "b")
+  expect_dplyr_equal(
+    input %>% mutate(z = x + y, .keep = "all") %>% collect(), # the default
+    df
+  )
+  #> # A tibble: 1 x 5
+  #>       x     y a     b         z
+  #>   <dbl> <dbl> <chr> <chr> <dbl>
+  #> 1     1     2 a     b         3
+  expect_dplyr_equal(
+    input %>% mutate(z = x + y, .keep = "used") %>% collect(),
+    df
+  )
+  #> # A tibble: 1 x 3
+  #>       x     y     z
+  #>   <dbl> <dbl> <dbl>
+  #> 1     1     2     3
+  expect_dplyr_equal(
+    input %>% mutate(z = x + y, .keep = "unused") %>% collect(),
+    df
+  )
+  #> # A tibble: 1 x 3
+  #>   a     b         z
+  #>   <chr> <chr> <dbl>
+  #> 1 a     b         3
+  expect_dplyr_equal(
+    input %>% mutate(z = x + y, .keep = "none") %>% collect(), # same as transmute()
+    df
+  )
+  #> # A tibble: 1 x 1
+  #>       z
+  #>   <dbl>
+  #> 1     3
+
+  # Grouping ----------------------------------------
+  # The mutate operation may yield different results on grouped
+  # tibbles because the expressions are computed within groups.
+  # The following normalises `mass` by the global average:
+  # TODO(ARROW-11702)
+  expect_warning(
+    expect_dplyr_equal(
+      input %>%
+        select(name, mass, species) %>%
+        mutate(mass_norm = mass / mean(mass, na.rm = TRUE)) %>%
+        collect(),
+      starwars
+    ),
+    "not supported in Arrow"
+  )
+})
+
 test_that("handle bad expressions", {
+  # TODO: search for functions other than mean() (see above test)
+  # that need to be forced to fail because they error ambiguously
+
+  skip("Error handling in arrow_eval() needs to be internationalized (ARROW-11700)")
+  expect_error(
+    Table$create(tbl) %>% mutate(newvar = NOTAVAR + 2),
+    "object 'NOTAVAR' not found"
+  )
+})
+
+test_that("print a mutated dataset", {
+
+})
+
+test_that("mutate and write_dataset", {
 
 })
