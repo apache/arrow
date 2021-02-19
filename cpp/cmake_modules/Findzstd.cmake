@@ -16,7 +16,11 @@
 # under the License.
 
 if(MSVC AND NOT DEFINED ZSTD_MSVC_LIB_PREFIX)
-  set(ZSTD_MSVC_LIB_PREFIX "lib")
+  if(ARROW_VCPKG)
+    set(ZSTD_MSVC_LIB_PREFIX "")
+  else()
+    set(ZSTD_MSVC_LIB_PREFIX "lib")
+  endif()
 endif()
 set(ZSTD_LIB_NAME_BASE "${ZSTD_MSVC_LIB_PREFIX}zstd")
 

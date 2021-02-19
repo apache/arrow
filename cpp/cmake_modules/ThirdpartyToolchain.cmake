@@ -225,8 +225,6 @@ if(ARROW_DEPENDENCY_SOURCE STREQUAL "VCPKG")
   set(ARROW_VCPKG ON) # this is used in other CMake scripts
   set(ARROW_ACTUAL_DEPENDENCY_SOURCE "SYSTEM")
 
-  # TODO(ianmcook): Set other variables needed when using vcpkg for dependencies
-
 elseif(ARROW_DEPENDENCY_SOURCE STREQUAL "CONDA")
   if(MSVC)
     set(ARROW_PACKAGE_PREFIX "$ENV{CONDA_PREFIX}/Library")
