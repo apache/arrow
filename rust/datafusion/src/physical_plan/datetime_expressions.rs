@@ -16,9 +16,9 @@
 // under the License.
 
 //! DateTime expressions
-
 use std::sync::Arc;
 
+use super::ColumnarValue;
 use crate::{
     error::{DataFusionError, Result},
     scalar::{ScalarType, ScalarValue},
@@ -39,8 +39,6 @@ use arrow::{
 use chrono::prelude::*;
 use chrono::Duration;
 use chrono::LocalResult;
-
-use super::ColumnarValue;
 
 #[inline]
 /// Accepts a string in RFC3339 / ISO8601 standard format and some
@@ -349,6 +347,55 @@ pub fn date_trunc(args: &[ColumnarValue]) -> Result<ColumnarValue> {
     })
 }
 
+macro_rules! extract_date_part {
+    ($ARRAY: expr, $FN:expr) => {
+        match $ARRAY.data_type() {
+            DataType::Date32 => {
+                let array = $ARRAY.as_any().downcast_ref::<Date32Array>().unwrap();
+                Ok(ColumnarValue::Array(Arc::new($FN(array)?)))
+            }
+            DataType::Date64 => {
+                let array = $ARRAY.as_any().downcast_ref::<Date64Array>().unwrap();
+                Ok(ColumnarValue::Array(Arc::new($FN(array)?)))
+            }
+            DataType::Timestamp(time_unit, None) => match time_unit {
+                TimeUnit::Second => {
+                    let array = $ARRAY
+                        .as_any()
+                        .downcast_ref::<TimestampSecondArray>()
+                        .unwrap();
+                    Ok(ColumnarValue::Array(Arc::new($FN(array)?)))
+                }
+                TimeUnit::Millisecond => {
+                    let array = $ARRAY
+                        .as_any()
+                        .downcast_ref::<TimestampMillisecondArray>()
+                        .unwrap();
+                    Ok(ColumnarValue::Array(Arc::new($FN(array)?)))
+                }
+                TimeUnit::Microsecond => {
+                    let array = $ARRAY
+                        .as_any()
+                        .downcast_ref::<TimestampMicrosecondArray>()
+                        .unwrap();
+                    Ok(ColumnarValue::Array(Arc::new($FN(array)?)))
+                }
+                TimeUnit::Nanosecond => {
+                    let array = $ARRAY
+                        .as_any()
+                        .downcast_ref::<TimestampNanosecondArray>()
+                        .unwrap();
+                    Ok(ColumnarValue::Array(Arc::new($FN(array)?)))
+                }
+            },
+            datatype => Err(DataFusionError::Internal(format!(
+                "Extract does not support datatype {:?}",
+                datatype
+            ))),
+        }
+    };
+}
+
 /// DATE_PART SQL function
 pub fn date_part(args: &[ColumnarValue]) -> Result<ColumnarValue> {
     if args.len() != 2 {
@@ -371,48 +418,12 @@ pub fn date_part(args: &[ColumnarValue]) -> Result<ColumnarValue> {
         ColumnarValue::Scalar(scalar) => scalar.to_array(),
     };
 
-    match array.data_type() {
-        DataType::Date32 => {
-            let array = array.as_any().downcast_ref::<Date32Array>().unwrap();
-            Ok(ColumnarValue::Array(Arc::new(temporal::hour(array)?)))
-        }
-        DataType::Date64 => {
-            let array = array.as_any().downcast_ref::<Date64Array>().unwrap();
-            Ok(ColumnarValue::Array(Arc::new(temporal::hour(array)?)))
-        }
-        DataType::Timestamp(time_unit, None) => match time_unit {
-            TimeUnit::Second => {
-                let array = array
-                    .as_any()
-                    .downcast_ref::<TimestampSecondArray>()
-                    .unwrap();
-                Ok(ColumnarValue::Array(Arc::new(temporal::hour(array)?)))
-            }
-            TimeUnit::Millisecond => {
-                let array = array
-                    .as_any()
-                    .downcast_ref::<TimestampMillisecondArray>()
-                    .unwrap();
-                Ok(ColumnarValue::Array(Arc::new(temporal::hour(array)?)))
-            }
-            TimeUnit::Microsecond => {
-                let array = array
-                    .as_any()
-                    .downcast_ref::<TimestampMicrosecondArray>()
-                    .unwrap();
-                Ok(ColumnarValue::Array(Arc::new(temporal::hour(array)?)))
-            }
-            TimeUnit::Nanosecond => {
-                let array = array
-                    .as_any()
-                    .downcast_ref::<TimestampNanosecondArray>()
-                    .unwrap();
-                Ok(ColumnarValue::Array(Arc::new(temporal::hour(array)?)))
-            }
-        },
-        datatype => Err(DataFusionError::Internal(format!(
-            "Extract does not support datatype {:?}",
-            datatype
+    match date_part.to_lowercase().as_str() {
+        "hour" => extract_date_part!(array, temporal::hour),
+        "year" => extract_date_part!(array, temporal::year),
+        _ => Err(DataFusionError::Execution(format!(
+            "Date part '{}' not supported",
+            date_part
         ))),
     }
 }

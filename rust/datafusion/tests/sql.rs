@@ -2138,14 +2138,16 @@ async fn crypto_expressions() -> Result<()> {
 async fn extract_date_part() -> Result<()> {
     let mut ctx = ExecutionContext::new();
     let sql = "SELECT
-        date_part('hour', CAST('2020-01-01' AS DATE)) a,
-        EXTRACT(HOUR FROM CAST('2020-01-01' AS DATE)) b,
-        EXTRACT(HOUR FROM to_timestamp('2020-09-08T12:00:00+00:00')) c
+        date_part('hour', CAST('2020-01-01' AS DATE)) AS hr1,
+        EXTRACT(HOUR FROM CAST('2020-01-01' AS DATE)) AS hr2,
+        EXTRACT(HOUR FROM to_timestamp('2020-09-08T12:00:00+00:00')) AS hr3,
+        date_part('YEAR', CAST('2000-01-01' AS DATE)) AS year1,
+        EXTRACT(year FROM to_timestamp('2020-09-08T12:00:00+00:00')) AS year2
     ";
 
     let actual = execute(&mut ctx, sql).await;
 
-    let expected = vec![vec!["0", "0", "12"]];
+    let expected = vec![vec!["0", "0", "12", "2000", "2020"]];
     assert_eq!(expected, actual);
     Ok(())
 }
