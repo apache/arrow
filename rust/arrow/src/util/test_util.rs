@@ -78,7 +78,7 @@ pub fn get_temp_file(file_name: &str, content: &[u8]) -> fs::File {
 pub fn arrow_test_data() -> String {
     match get_data_dir("ARROW_TEST_DATA", "../../testing/data") {
         Ok(pb) => pb.display().to_string(),
-        Err(err) => panic!(format!("failed to get arrow data dir: {}", err)),
+        Err(err) => panic!("failed to get arrow data dir: {}", err),
     }
 }
 
@@ -103,7 +103,7 @@ pub fn parquet_test_data() -> String {
         "../../cpp/submodules/parquet-testing/data",
     ) {
         Ok(pb) => pb.display().to_string(),
-        Err(err) => panic!(format!("failed to get parquet data dir: {}", err)),
+        Err(err) => panic!("failed to get parquet data dir: {}", err),
     }
 }
 
