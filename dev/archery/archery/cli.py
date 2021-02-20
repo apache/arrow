@@ -767,6 +767,12 @@ def docker_compose(obj, src, dry_run):
               envvar='ARCHERY_USE_DOCKER_CLI',
               help="Use docker CLI directly for building instead of calling "
                    "docker-compose. This may help to reuse cached layers.")
+@click.option('--using-docker-buildx', default=False, is_flag=True,
+              envvar='ARCHERY_USE_DOCKER_BUILDX',
+              help="Use buildx with docker CLI directly for building instead "
+                   "of calling docker-compose or the plain docker build "
+                   "command. This option makes the build cache reusable "
+                   "across hosts.")
 @click.option('--use-cache/--no-cache', default=True,
               help="Whether to use cache when building the image and its "
                    "ancestor images")
@@ -776,7 +782,7 @@ def docker_compose(obj, src, dry_run):
                    "image and its ancestors use --no-cache option.")
 @click.pass_obj
 def docker_compose_build(obj, image, *, force_pull, using_docker_cli,
-                         use_cache, use_leaf_cache):
+                         using_docker_buildx, use_cache, use_leaf_cache):
     """
     Execute docker-compose builds.
     """
@@ -784,13 +790,15 @@ def docker_compose_build(obj, image, *, force_pull, using_docker_cli,
 
     compose = obj['compose']
 
+    using_docker_cli |= using_docker_buildx
     try:
         if force_pull:
             compose.pull(image, pull_leaf=use_leaf_cache,
                          using_docker=using_docker_cli)
         compose.build(image, use_cache=use_cache,
                       use_leaf_cache=use_leaf_cache,
-                      using_docker=using_docker_cli)
+                      using_docker=using_docker_cli,
+                      using_buildx=using_docker_buildx)
     except UndefinedImage as e:
         raise click.ClickException(
             "There is no service/image defined in docker-compose.yml with "
@@ -817,6 +825,12 @@ def docker_compose_build(obj, image, *, force_pull, using_docker_cli,
               envvar='ARCHERY_USE_DOCKER_CLI',
               help="Use docker CLI directly for building instead of calling "
                    "docker-compose. This may help to reuse cached layers.")
+@click.option('--using-docker-buildx', default=False, is_flag=True,
+              envvar='ARCHERY_USE_DOCKER_BUILDX',
+              help="Use buildx with docker CLI directly for building instead "
+                   "of calling docker-compose or the plain docker build "
+                   "command. This option makes the build cache reusable "
+                   "across hosts.")
 @click.option('--use-cache/--no-cache', default=True,
               help="Whether to use cache when building the image and its "
                    "ancestor images")
@@ -828,7 +842,8 @@ def docker_compose_build(obj, image, *, force_pull, using_docker_cli,
               help="Set volume within the container")
 @click.pass_obj
 def docker_compose_run(obj, image, command, *, env, user, force_pull,
-                       force_build, build_only, using_docker_cli, use_cache,
+                       force_build, build_only, using_docker_cli,
+                       using_docker_buildx, use_cache,
                        use_leaf_cache, volume):
     """Execute docker-compose builds.
 
@@ -863,6 +878,7 @@ def docker_compose_run(obj, image, command, *, env, user, force_pull,
     from .docker import UndefinedImage
 
     compose = obj['compose']
+    using_docker_cli |= using_docker_buildx
 
     env = dict(kv.split('=', 1) for kv in env)
     try:
@@ -872,7 +888,8 @@ def docker_compose_run(obj, image, command, *, env, user, force_pull,
         if force_build:
             compose.build(image, use_cache=use_cache,
                           use_leaf_cache=use_leaf_cache,
-                          using_docker=using_docker_cli)
+                          using_docker=using_docker_cli,
+                          using_buildx=using_docker_buildx)
         if build_only:
             return
         compose.run(

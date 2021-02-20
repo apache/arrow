@@ -155,7 +155,7 @@ class ArrowMessage implements AutoCloseable {
   }
 
   public ArrowMessage(ArrowDictionaryBatch batch, IpcOption option) {
-    this.writeOption = new IpcOption();
+    this.writeOption = option;
     ByteBuffer serializedMessage = MessageSerializer.serializeMetadata(batch, writeOption);
     serializedMessage = serializedMessage.slice();
     this.message = MessageMetadataResult.create(serializedMessage, serializedMessage.remaining());
@@ -173,7 +173,7 @@ class ArrowMessage implements AutoCloseable {
    */
   public ArrowMessage(ArrowBuf appMetadata) {
     // No need to take IpcOption as it's not used to serialize this kind of message.
-    this.writeOption = new IpcOption();
+    this.writeOption = IpcOption.DEFAULT;
     this.message = null;
     this.bufs = ImmutableList.of();
     this.descriptor = null;
@@ -183,7 +183,7 @@ class ArrowMessage implements AutoCloseable {
 
   public ArrowMessage(FlightDescriptor descriptor) {
     // No need to take IpcOption as it's not used to serialize this kind of message.
-    this.writeOption = new IpcOption();
+    this.writeOption = IpcOption.DEFAULT;
     this.message = null;
     this.bufs = ImmutableList.of();
     this.descriptor = descriptor;
@@ -194,10 +194,10 @@ class ArrowMessage implements AutoCloseable {
   private ArrowMessage(FlightDescriptor descriptor, MessageMetadataResult message, ArrowBuf appMetadata,
                        ArrowBuf buf) {
     // No need to take IpcOption as this is used for deserialized ArrowMessage coming from the wire.
-    this.writeOption = new IpcOption();
-    if (message != null) {
-      this.writeOption.metadataVersion = MetadataVersion.fromFlatbufID(message.getMessage().version());
-    }
+    this.writeOption = message != null ?
+        // avoid writing legacy ipc format by default
+        new IpcOption(false, MetadataVersion.fromFlatbufID(message.getMessage().version())) :
+        IpcOption.DEFAULT;
     this.message = message;
     this.descriptor = descriptor;
     this.appMetadata = appMetadata;

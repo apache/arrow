@@ -441,6 +441,24 @@ def test_expression_construction():
         field != {1}
 
 
+def test_expression_boolean_operators():
+    # https://issues.apache.org/jira/browse/ARROW-11412
+    true = ds.scalar(True)
+    false = ds.scalar(False)
+
+    with pytest.raises(ValueError, match="cannot be evaluated to python True"):
+        true and false
+
+    with pytest.raises(ValueError, match="cannot be evaluated to python True"):
+        true or false
+
+    with pytest.raises(ValueError, match="cannot be evaluated to python True"):
+        bool(true)
+
+    with pytest.raises(ValueError, match="cannot be evaluated to python True"):
+        not true
+
+
 def test_partition_keys():
     a, b, c = [ds.field(f) == f for f in 'abc']
     assert ds._get_partition_keys(a) == {'a': 'a'}
@@ -457,22 +475,33 @@ def test_parquet_read_options():
                                   dictionary_columns=['a', 'b'])
     opts3 = ds.ParquetReadOptions(buffer_size=2**13, use_buffered_stream=True,
                                   dictionary_columns={'a', 'b'})
+    opts4 = ds.ParquetReadOptions(buffer_size=2**13, pre_buffer=True,
+                                  dictionary_columns={'a', 'b'})
 
     assert opts1.use_buffered_stream is False
     assert opts1.buffer_size == 2**13
+    assert opts1.pre_buffer is False
     assert opts1.dictionary_columns == set()
 
     assert opts2.use_buffered_stream is False
     assert opts2.buffer_size == 2**12
+    assert opts2.pre_buffer is False
     assert opts2.dictionary_columns == {'a', 'b'}
 
     assert opts3.use_buffered_stream is True
     assert opts3.buffer_size == 2**13
+    assert opts3.pre_buffer is False
     assert opts3.dictionary_columns == {'a', 'b'}
+
+    assert opts4.use_buffered_stream is False
+    assert opts4.buffer_size == 2**13
+    assert opts4.pre_buffer is True
+    assert opts4.dictionary_columns == {'a', 'b'}
 
     assert opts1 == opts1
     assert opts1 != opts2
     assert opts2 != opts3
+    assert opts3 != opts4
 
 
 def test_file_format_pickling():
@@ -503,9 +532,11 @@ def test_file_format_pickling():
         'subdir/2/yyy/file1.parquet',
     ]
 ])
-def test_filesystem_factory(mockfs, paths_or_selector):
+@pytest.mark.parametrize('pre_buffer', [False, True])
+def test_filesystem_factory(mockfs, paths_or_selector, pre_buffer):
     format = ds.ParquetFileFormat(
-        read_options=ds.ParquetReadOptions(dictionary_columns={"str"})
+        read_options=ds.ParquetReadOptions(dictionary_columns={"str"},
+                                           pre_buffer=pre_buffer)
     )
 
     options = ds.FileSystemFactoryOptions('subdir')
@@ -1612,6 +1643,37 @@ def test_open_dataset_partitioned_dictionary_type(tempdir, partitioning,
     assert dataset.schema.equals(expected_schema)
 
 
+@pytest.mark.pandas
+def test_dataset_partitioned_dictionary_type_reconstruct(tempdir):
+    # https://issues.apache.org/jira/browse/ARROW-11400
+    table = pa.table({'part': np.repeat(['A', 'B'], 5), 'col': range(10)})
+    part = ds.partitioning(table.select(['part']).schema, flavor="hive")
+    ds.write_dataset(table, tempdir, partitioning=part, format="feather")
+
+    dataset = ds.dataset(
+        tempdir, format="feather",
+        partitioning=ds.HivePartitioning.discover(infer_dictionary=True)
+    )
+    expected = pa.table(
+        {'col': table['col'], 'part': table['part'].dictionary_encode()}
+    )
+    assert dataset.to_table().equals(expected)
+    fragment = list(dataset.get_fragments())[0]
+    assert fragment.to_table(schema=dataset.schema).equals(expected[:5])
+    part_expr = fragment.partition_expression
+
+    restored = pickle.loads(pickle.dumps(dataset))
+    assert restored.to_table().equals(expected)
+
+    restored = pickle.loads(pickle.dumps(fragment))
+    assert restored.to_table(schema=dataset.schema).equals(expected[:5])
+    # to_pandas call triggers computation of the actual dictionary values
+    assert restored.to_table(schema=dataset.schema).to_pandas().equals(
+        expected[:5].to_pandas()
+    )
+    assert restored.partition_expression.equals(part_expr)
+
+
 @pytest.fixture
 def s3_example_simple(s3_connection, s3_server):
     from pyarrow.fs import FileSystem
@@ -1751,6 +1813,34 @@ def test_open_dataset_from_fsspec(tempdir):
     localfs = fsspec.filesystem("file")
     dataset = ds.dataset(path, filesystem=localfs)
     assert dataset.schema.equals(table.schema)
+
+
+@pytest.mark.pandas
+def test_filter_timestamp(tempdir):
+    # ARROW-11379
+    path = tempdir / "test_partition_timestamps"
+
+    table = pa.table({
+        "dates": ['2012-01-01', '2012-01-02'] * 5,
+        "id": range(10)})
+
+    # write dataset partitioned on dates (as strings)
+    part = ds.partitioning(table.select(['dates']).schema, flavor="hive")
+    ds.write_dataset(table, path, partitioning=part, format="feather")
+
+    # read dataset partitioned on dates (as timestamps)
+    part = ds.partitioning(pa.schema([("dates", pa.timestamp("s"))]),
+                           flavor="hive")
+    dataset = ds.dataset(path, format="feather", partitioning=part)
+
+    condition = ds.field("dates") > pd.Timestamp("2012-01-01")
+    table = dataset.to_table(filter=condition)
+    assert table.column('id').to_pylist() == [1, 3, 5, 7, 9]
+
+    import datetime
+    condition = ds.field("dates") > datetime.datetime(2012, 1, 1)
+    table = dataset.to_table(filter=condition)
+    assert table.column('id').to_pylist() == [1, 3, 5, 7, 9]
 
 
 @pytest.mark.parquet

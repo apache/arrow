@@ -63,6 +63,49 @@ example_with_times <- tibble::tibble(
   posixlt_tz = as.POSIXlt(lubridate::ymd_hms("2018-10-07 19:04:05", tz = "US/Eastern") + 1:10)
 )
 
+verses <- list(
+  # Since we tend to test with dataframes with 10 rows, here are verses from
+  # "Milonga del moro judío", by Jorge Drexler. They are décimas, 10-line
+  # poems with a particular meter and rhyme scheme.
+  # (They also have non-ASCII characters, which is nice for testing)
+  c(
+    "Por cada muro, un lamento",
+    "En Jerusalén la dorada",
+    "Y mil vidas malgastadas",
+    "Por cada mandamiento",
+    "Yo soy polvo de tu viento",
+    "Y aunque sangro de tu herida",
+    "Y cada piedra querida",
+    "Guarda mi amor más profundo",
+    "No hay una piedra en el mundo",
+    "Que valga lo que una vida"
+  ),
+  c(
+    "No hay muerto que no me duela",
+    "No hay un bando ganador",
+    "No hay nada más que dolor",
+    "Y otra vida que se vuela",
+    "La guerra es muy mala escuela",
+    "No importa el disfraz que viste",
+    "Perdonen que no me aliste",
+    "Bajo ninguna bandera",
+    "Vale más cualquier quimera",
+    "Que un trozo de tela triste"
+  ),
+  c(
+    "Y a nadie le di permiso",
+    "Para matar en mi nombre",
+    "Un hombre no es más que un hombre",
+    "Y si hay Dios, así lo quiso",
+    "El mismo suelo que piso",
+    "Seguirá, yo me habré ido",
+    "Rumbo también del olvido",
+    "No hay doctrina que no vaya",
+    "Y no hay pueblo que no se haya",
+    "Creído el pueblo elegido"
+  )
+)
+
 make_big_string <- function() {
   # This creates a character vector that would exceed the capacity of BinaryArray
   rep(purrr::map_chr(2047:2050, ~paste(sample(letters, ., replace = TRUE), collapse = "")), 2^18)

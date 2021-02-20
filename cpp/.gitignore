@@ -25,6 +25,9 @@ build/
 *-build/
 Testing/
 
+# Build directories created by Clion
+cmake-build-*/
+
 #########################################
 # Editor temporary/working/backup files #
 .#*

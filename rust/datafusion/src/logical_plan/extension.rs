@@ -73,7 +73,7 @@ pub trait UserDefinedLogicalNode: fmt::Debug {
     /// So, `self.from_template(exprs, ..).expressions() == exprs
     fn from_template(
         &self,
-        exprs: &Vec<Expr>,
-        inputs: &Vec<LogicalPlan>,
+        exprs: &[Expr],
+        inputs: &[LogicalPlan],
     ) -> Arc<dyn UserDefinedLogicalNode + Send + Sync>;
 }

@@ -32,3 +32,4 @@ pub use self::kernels::limit::*;
 pub use self::kernels::sort::*;
 pub use self::kernels::take::*;
 pub use self::kernels::temporal::*;
+pub use self::kernels::window::*;

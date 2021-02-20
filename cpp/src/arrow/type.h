@@ -30,6 +30,7 @@
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"  // IWYU pragma: export
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/variant.h"
 #include "arrow/util/visibility.h"
@@ -1339,42 +1340,6 @@ class ARROW_EXPORT DictionaryType : public FixedWidthType {
   bool ordered_;
 };
 
-/// \brief Helper class for incremental dictionary unification
-class ARROW_EXPORT DictionaryUnifier {
- public:
-  virtual ~DictionaryUnifier() = default;
-
-  /// \brief Construct a DictionaryUnifier
-  /// \param[in] value_type the data type of the dictionaries
-  /// \param[in] pool MemoryPool to use for memory allocations
-  static Result<std::unique_ptr<DictionaryUnifier>> Make(
-      std::shared_ptr<DataType> value_type, MemoryPool* pool = default_memory_pool());
-
-  /// \brief Append dictionary to the internal memo
-  virtual Status Unify(const Array& dictionary) = 0;
-
-  /// \brief Append dictionary and compute transpose indices
-  /// \param[in] dictionary the dictionary values to unify
-  /// \param[out] out_transpose a Buffer containing computed transpose indices
-  /// as int32_t values equal in length to the passed dictionary. The value in
-  /// each slot corresponds to the new index value for each original index
-  /// for a DictionaryArray with the old dictionary
-  virtual Status Unify(const Array& dictionary,
-                       std::shared_ptr<Buffer>* out_transpose) = 0;
-
-  /// \brief Return a result DictionaryType with the smallest possible index
-  /// type to accommodate the unified dictionary. The unifier cannot be used
-  /// after this is called
-  virtual Status GetResult(std::shared_ptr<DataType>* out_type,
-                           std::shared_ptr<Array>* out_dict) = 0;
-
-  /// \brief Return a unified dictionary with the given index type.  If
-  /// the index type is not large enough then an invalid status will be returned.
-  /// The unifier cannot be used after this is called
-  virtual Status GetResultWithIndexType(std::shared_ptr<DataType> index_type,
-                                        std::shared_ptr<Array>* out_dict) = 0;
-};
-
 // ----------------------------------------------------------------------
 // FieldRef
 
@@ -1640,6 +1605,16 @@ class ARROW_EXPORT FieldRef {
 // ----------------------------------------------------------------------
 // Schema
 
+enum class Endianness {
+  Little = 0,
+  Big = 1,
+#if ARROW_LITTLE_ENDIAN
+  Native = Little
+#else
+  Native = Big
+#endif
+};
+
 /// \class Schema
 /// \brief Sequence of arrow::Field objects describing the columns of a record
 /// batch or table data structure
@@ -1647,6 +1622,9 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
                             public util::EqualityComparable<Schema>,
                             public util::ToStringOstreamable<Schema> {
  public:
+  explicit Schema(std::vector<std::shared_ptr<Field>> fields, Endianness endianness,
+                  std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
+
   explicit Schema(std::vector<std::shared_ptr<Field>> fields,
                   std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
 
@@ -1657,6 +1635,17 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
   /// Returns true if all of the schema fields are equal
   bool Equals(const Schema& other, bool check_metadata = false) const;
   bool Equals(const std::shared_ptr<Schema>& other, bool check_metadata = false) const;
+
+  /// \brief Set endianness in the schema
+  ///
+  /// \return new Schema
+  std::shared_ptr<Schema> WithEndianness(Endianness endianness) const;
+
+  /// \brief Return endianness in the schema
+  Endianness endianness() const;
+
+  /// \brief Indicate if endianness is equal to platform-native endianness
+  bool is_native_endian() const;
 
   /// \brief Return the number of fields (columns) in the schema
   int num_fields() const;
@@ -1725,6 +1714,9 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
   class Impl;
   std::unique_ptr<Impl> impl_;
 };
+
+ARROW_EXPORT
+std::string EndiannessToString(Endianness endianness);
 
 // ----------------------------------------------------------------------
 

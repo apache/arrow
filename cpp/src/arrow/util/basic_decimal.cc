@@ -28,6 +28,7 @@
 #include <string>
 
 #include "arrow/util/bit_util.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/int128_internal.h"
 #include "arrow/util/int_util_internal.h"
 #include "arrow/util/logging.h"

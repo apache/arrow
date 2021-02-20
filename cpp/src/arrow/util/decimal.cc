@@ -29,8 +29,8 @@
 #include <string>
 
 #include "arrow/status.h"
-#include "arrow/util/bit_util.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/formatting.h"
 #include "arrow/util/int128_internal.h"
 #include "arrow/util/int_util_internal.h"

@@ -570,3 +570,17 @@ def test_empty_row_groups(tempdir):
 
     for i in range(num_groups):
         assert reader.read_row_group(i).equals(table)
+
+
+def test_reads_over_batch(tempdir):
+    data = [None] * (1 << 20)
+    data.append([1])
+    # Large list<int64> with mostly nones and one final
+    # value.  This should force batched reads when
+    # reading back.
+    table = pa.Table.from_arrays([data], ['column'])
+
+    path = tempdir / 'arrow-11607.parquet'
+    pq.write_table(table, path)
+    table2 = pq.read_table(path)
+    assert table == table2

@@ -149,6 +149,7 @@ pub mod ipc;
 pub mod json;
 pub mod memory;
 pub mod record_batch;
+pub mod temporal_conversions;
 pub mod tensor;
 pub mod util;
 mod zz_memory_check;

@@ -211,6 +211,7 @@ macro_rules! binary_primitive_array_op {
 
 /// The binary_array_op_scalar macro includes types that extend beyond the primitive,
 /// such as Utf8 strings.
+#[macro_export]
 macro_rules! binary_array_op_scalar {
     ($LEFT:expr, $RIGHT:expr, $OP:ident) => {{
         let result = match $LEFT.data_type() {

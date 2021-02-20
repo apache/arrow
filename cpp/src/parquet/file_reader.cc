@@ -27,6 +27,7 @@
 
 #include "arrow/io/caching.h"
 #include "arrow/io/file.h"
+#include "arrow/io/memory.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/ubsan.h"

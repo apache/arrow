@@ -26,8 +26,19 @@ public class IpcOption {
 
   // Write the pre-0.15.0 encapsulated IPC message format
   // consisting of a 4-byte prefix instead of 8 byte
-  public boolean write_legacy_ipc_format = false;
+  public final boolean write_legacy_ipc_format;
 
   // The metadata version. Defaults to V5.
-  public MetadataVersion metadataVersion = MetadataVersion.DEFAULT;
+  public final MetadataVersion metadataVersion;
+
+  public IpcOption() {
+    this(false, MetadataVersion.DEFAULT);
+  }
+
+  public IpcOption(boolean writeLegacyIpcFormat, MetadataVersion metadataVersion) {
+    this.write_legacy_ipc_format = writeLegacyIpcFormat;
+    this.metadataVersion = metadataVersion;
+  }
+
+  public static final IpcOption DEFAULT = new IpcOption();
 }

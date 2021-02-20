@@ -24,6 +24,7 @@ use crate::{
 };
 use std::sync::Arc;
 
+#[allow(clippy::unnecessary_wraps)]
 fn length_string<OffsetSize>(array: &Array, data_type: DataType) -> Result<ArrayRef>
 where
     OffsetSize: OffsetSizeTrait,
@@ -178,11 +179,10 @@ mod tests {
 
     /// Tests that length is not valid for u64.
     #[test]
-    fn wrong_type() -> Result<()> {
+    fn wrong_type() {
         let array: UInt64Array = vec![1u64].into();
 
         assert!(length(&array).is_err());
-        Ok(())
     }
 
     /// Tests with an offset

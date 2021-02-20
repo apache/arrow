@@ -149,12 +149,10 @@ mod tests {
 
     /// verify that expression errors when the input expression is not a boolean.
     #[test]
-    fn neg_op_not_null() -> Result<()> {
+    fn neg_op_not_null() {
         let schema = Schema::new(vec![Field::new("a", DataType::Utf8, true)]);
 
         let expr = not(col("a"), &schema);
         assert!(expr.is_err());
-
-        Ok(())
     }
 }

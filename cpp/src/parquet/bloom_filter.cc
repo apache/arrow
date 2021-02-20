@@ -18,6 +18,7 @@
 #include <cstdint>
 #include <cstring>
 
+#include "arrow/result.h"
 #include "arrow/util/logging.h"
 #include "parquet/bloom_filter.h"
 #include "parquet/exception.h"
@@ -38,7 +39,7 @@ void BlockSplitBloomFilter::Init(uint32_t num_bytes) {
 
   // Get next power of 2 if it is not power of 2.
   if ((num_bytes & (num_bytes - 1)) != 0) {
-    num_bytes = static_cast<uint32_t>(BitUtil::NextPower2(num_bytes));
+    num_bytes = static_cast<uint32_t>(::arrow::BitUtil::NextPower2(num_bytes));
   }
 
   if (num_bytes > kMaximumBloomFilterBytes) {

@@ -186,6 +186,7 @@ impl DefaultPhysicalPlanner {
             } => {
                 // Initially need to perform the aggregate and then merge the partitions
                 let input_exec = self.create_physical_plan(input, ctx_state)?;
+                let input_schema = input_exec.schema();
                 let physical_input_schema = input_exec.as_ref().schema();
                 let logical_input_schema = input.as_ref().schema();
 
@@ -219,6 +220,7 @@ impl DefaultPhysicalPlanner {
                     groups.clone(),
                     aggregates.clone(),
                     input_exec,
+                    input_schema.clone(),
                 )?);
 
                 let final_group: Vec<Arc<dyn PhysicalExpr>> =
@@ -235,6 +237,7 @@ impl DefaultPhysicalPlanner {
                         .collect(),
                     aggregates,
                     initial_aggr,
+                    input_schema,
                 )?))
             }
             LogicalPlan::Projection { input, expr, .. } => {
@@ -315,11 +318,7 @@ impl DefaultPhysicalPlanner {
                     })
                     .collect::<Result<Vec<_>>>()?;
 
-                Ok(Arc::new(SortExec::try_new(
-                    sort_expr,
-                    input,
-                    ctx_state.config.concurrency,
-                )?))
+                Ok(Arc::new(SortExec::try_new(sort_expr, input)?))
             }
             LogicalPlan::Join {
                 left,
@@ -363,11 +362,7 @@ impl DefaultPhysicalPlanner {
                     Arc::new(LocalLimitExec::new(input, limit))
                 };
 
-                Ok(Arc::new(GlobalLimitExec::new(
-                    input,
-                    limit,
-                    ctx_state.config.concurrency,
-                )))
+                Ok(Arc::new(GlobalLimitExec::new(input, limit)))
             }
             LogicalPlan::CreateExternalTable { .. } => {
                 // There is no default plan for "CREATE EXTERNAL
@@ -860,13 +855,13 @@ mod tests {
                 "Expression {:?} expected to error due to impossible coercion",
                 case
             );
-            assert!(logical_plan.is_err(), message);
+            assert!(logical_plan.is_err(), "{}", message);
         }
         Ok(())
     }
 
     #[test]
-    fn default_extension_planner() -> Result<()> {
+    fn default_extension_planner() {
         let ctx_state = make_ctx_state();
         let planner = DefaultPhysicalPlanner::default();
         let logical_plan = LogicalPlan::Extension {
@@ -884,11 +879,10 @@ mod tests {
                 expected_error
             ),
         }
-        Ok(())
     }
 
     #[test]
-    fn bad_extension_planner() -> Result<()> {
+    fn bad_extension_planner() {
         // Test that creating an execution plan whose schema doesn't
         // match the logical plan's schema generates an error.
         let ctx_state = make_ctx_state();
@@ -930,7 +924,6 @@ mod tests {
                 expected_error
             ),
         }
-        Ok(())
     }
 
     #[test]
@@ -980,6 +973,29 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn hash_agg_input_schema() -> Result<()> {
+        let testdata = arrow::util::test_util::arrow_test_data();
+        let path = format!("{}/csv/aggregate_test_100.csv", testdata);
+
+        let options = CsvReadOptions::new().schema_infer_max_records(100);
+        let logical_plan = LogicalPlanBuilder::scan_csv(&path, options, None)?
+            .aggregate(&[col("c1")], &[sum(col("c2"))])?
+            .build()?;
+
+        let execution_plan = plan(&logical_plan)?;
+        let final_hash_agg = execution_plan
+            .as_any()
+            .downcast_ref::<HashAggregateExec>()
+            .expect("hash aggregate");
+        assert_eq!("SUM(c2)", final_hash_agg.schema().field(1).name());
+        // we need access to the input to the partial aggregate so that other projects can
+        // implement serde
+        assert_eq!("c2", final_hash_agg.input_schema().field(1).name());
+
+        Ok(())
+    }
+
     /// An example extension node that doesn't do anything
     struct NoOpExtensionNode {
         schema: DFSchemaRef,
@@ -1025,8 +1041,8 @@ mod tests {
 
         fn from_template(
             &self,
-            _exprs: &Vec<Expr>,
-            _inputs: &Vec<LogicalPlan>,
+            _exprs: &[Expr],
+            _inputs: &[LogicalPlan],
         ) -> Arc<dyn UserDefinedLogicalNode + Send + Sync> {
             unimplemented!("NoOp");
         }

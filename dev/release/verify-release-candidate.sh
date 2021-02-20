@@ -158,7 +158,7 @@ test_apt() {
            "${target}" \
            /arrow/dev/release/verify-apt.sh \
            "${VERSION}" \
-           "yes" \
+           "rc" \
            "${BINTRAY_REPOSITORY}"; then
       echo "Failed to verify the APT repository for ${target}"
       exit 1
@@ -184,7 +184,7 @@ test_yum() {
            "${target}" \
            /arrow/dev/release/verify-yum.sh \
            "${VERSION}" \
-           "yes" \
+           "rc" \
            "${BINTRAY_REPOSITORY}"; then
       echo "Failed to verify the Yum repository for ${target}"
       exit 1

@@ -64,14 +64,22 @@ as.data.frame.ArrowTabular <- function(x, row.names = NULL, optional = FALSE, ..
   if (!missing(j)) {
     # Selecting columns is cheaper than filtering rows, so do it first.
     # That way, if we're filtering too, we have fewer arrays to filter/slice/take
+    if (is.character(j)) {
+      j_new <- match(j, names(x))
+      if (any(is.na(j_new))) {
+        stop("Column not found: ", oxford_paste(j[is.na(j_new)]), call. = FALSE)
+      }
+      j <- j_new
+    }
     if (is_integerish(j)) {
-      if (all(j < 0)) {
+      if (any(is.na(j))) {
+        stop("Column indices cannot be NA", call. = FALSE)
+      }
+      if (length(j) && all(j < 0)) {
         # in R, negative j means "everything but j"
         j <- setdiff(seq_len(x$num_columns), -1 * j)
       }
       x <- x$SelectColumns(as.integer(j) - 1L)
-    } else if (is.character(j)) {
-      x <- x$SelectColumns(match(j, names(x)) - 1L)
     }
 
     if (drop && ncol(x) == 1L) {

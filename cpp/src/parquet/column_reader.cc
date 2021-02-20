@@ -35,6 +35,7 @@
 #include "arrow/chunked_array.h"
 #include "arrow/type.h"
 #include "arrow/util/bit_stream_utils.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/int_util_internal.h"
@@ -56,6 +57,8 @@ using arrow::MemoryPool;
 using arrow::internal::AddWithOverflow;
 using arrow::internal::checked_cast;
 using arrow::internal::MultiplyWithOverflow;
+
+namespace BitUtil = arrow::BitUtil;
 
 namespace parquet {
 namespace {
@@ -1198,6 +1201,7 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>,
       auto result = values_;
       PARQUET_THROW_NOT_OK(result->Resize(bytes_for_values(values_written_), true));
       values_ = AllocateBuffer(this->pool_);
+      values_capacity_ = 0;
       return result;
     } else {
       return nullptr;

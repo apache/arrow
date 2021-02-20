@@ -40,7 +40,7 @@ conda build \
     --clobber-file "${CI_SUPPORT}/clobber_${CONFIG}.yaml" \
     --output-folder "${output_dir}"
 
-if [ ! -z "${R_CONFIG}" ]; then
+if [ ! -z "${R_CONFIG:-}" ]; then
   conda build \
       "${FEEDSTOCK_ROOT}/r-arrow" \
       -m "${CI_SUPPORT}/r/${R_CONFIG}.yaml" \

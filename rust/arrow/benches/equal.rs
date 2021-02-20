@@ -22,84 +22,34 @@
 extern crate criterion;
 use criterion::Criterion;
 
-use rand::distributions::Alphanumeric;
-use rand::Rng;
-use std::sync::Arc;
-
 extern crate arrow;
 
-use arrow::array::*;
-use arrow::util::test_util::seedable_rng;
+use arrow::util::bench_util::*;
+use arrow::{array::*, datatypes::Float32Type};
 
-fn create_string_array(size: usize, with_nulls: bool) -> ArrayRef {
-    // use random numbers to avoid spurious compiler optimizations wrt to branching
-    let mut rng = seedable_rng();
-    let mut builder = StringBuilder::new(size);
-
-    for _ in 0..size {
-        if with_nulls && rng.gen::<f32>() > 0.5 {
-            builder.append_null().unwrap();
-        } else {
-            let string = seedable_rng()
-                .sample_iter(&Alphanumeric)
-                .take(10)
-                .collect::<String>();
-            builder.append_value(&string).unwrap();
-        }
-    }
-    Arc::new(builder.finish())
-}
-
-fn create_bool_array(size: usize) -> ArrayRef {
-    // use random numbers to avoid spurious compiler optimizations wrt to branching
-    let mut rng = seedable_rng();
-    let mut builder = BooleanBuilder::new(size);
-
-    for _ in 0..size {
-        let val = rng.gen::<i32>();
-        builder.append_value(val % 2 == 0).unwrap();
-    }
-    Arc::new(builder.finish())
-}
-
-fn create_array(size: usize, with_nulls: bool) -> ArrayRef {
-    // use random numbers to avoid spurious compiler optimizations wrt to branching
-    let mut rng = seedable_rng();
-    let mut builder = Float32Builder::new(size);
-
-    for _ in 0..size {
-        if with_nulls && rng.gen::<f32>() > 0.5 {
-            builder.append_null().unwrap();
-        } else {
-            builder.append_value(rng.gen()).unwrap();
-        }
-    }
-    Arc::new(builder.finish())
-}
-
-fn bench_equal(arr_a: &ArrayRef) {
+fn bench_equal<A: Array + PartialEq<A>>(arr_a: &A) {
     criterion::black_box(arr_a == arr_a);
 }
 
 fn add_benchmark(c: &mut Criterion) {
-    let arr_a = create_array(512, false);
+    let arr_a = create_primitive_array::<Float32Type>(512, 0.0);
     c.bench_function("equal_512", |b| b.iter(|| bench_equal(&arr_a)));
 
-    let arr_a_nulls = create_array(512, true);
+    let arr_a_nulls = create_primitive_array::<Float32Type>(512, 0.5);
     c.bench_function("equal_nulls_512", |b| b.iter(|| bench_equal(&arr_a_nulls)));
 
-    let arr_a = create_string_array(512, false);
+    let arr_a = create_string_array(512, 0.0);
     c.bench_function("equal_string_512", |b| b.iter(|| bench_equal(&arr_a)));
 
-    let arr_a_nulls = create_string_array(512, true);
+    let arr_a_nulls = create_string_array(512, 0.5);
     c.bench_function("equal_string_nulls_512", |b| {
         b.iter(|| bench_equal(&arr_a_nulls))
     });
 
-    let arr_a = create_bool_array(512);
+    let arr_a = create_boolean_array(512, 0.0, 0.5);
     c.bench_function("equal_bool_512", |b| b.iter(|| bench_equal(&arr_a)));
 
-    let arr_a = create_bool_array(513);
+    let arr_a = create_boolean_array(513, 0.0, 0.5);
     c.bench_function("equal_bool_513", |b| b.iter(|| bench_equal(&arr_a)));
 }
 

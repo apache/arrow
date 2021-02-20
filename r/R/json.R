@@ -20,9 +20,9 @@
 #' Using [JsonTableReader]
 #'
 #' @inheritParams read_delim_arrow
-#' @param ... Additional options, passed to `json_table_reader()`
+#' @param ... Additional options passed to `JsonTableReader$create()`
 #'
-#' @return A `data.frame`, or an Table if `as_data_frame = FALSE`.
+#' @return A `data.frame`, or a Table if `as_data_frame = FALSE`.
 #' @export
 #' @examples
 #' \donttest{

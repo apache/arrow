@@ -19,6 +19,7 @@
 
 #include <string>
 
+#include "arrow/util/endian.h"
 #include "parquet/types.h"
 
 namespace parquet {

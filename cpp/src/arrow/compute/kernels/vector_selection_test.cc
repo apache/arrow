@@ -50,7 +50,9 @@ TEST(GetTakeIndices, Basics) {
     auto expected_indices = ArrayFromJSON(indices_type, indices_json);
     ASSERT_OK_AND_ASSIGN(auto indices,
                          internal::GetTakeIndices(*filter->data(), null_selection));
-    AssertArraysEqual(*expected_indices, *MakeArray(indices), /*verbose=*/true);
+    auto indices_array = MakeArray(indices);
+    ASSERT_OK(indices_array->ValidateFull());
+    AssertArraysEqual(*expected_indices, *indices_array, /*verbose=*/true);
   };
 
   // Drop null cases
@@ -64,6 +66,23 @@ TEST(GetTakeIndices, Basics) {
   CheckCase("[null, false, true, true]", "[null, 2, 3]", FilterOptions::EMIT_NULL);
 }
 
+TEST(GetTakeIndices, NullValidityBuffer) {
+  BooleanArray filter(1, *AllocateEmptyBitmap(1), /*null_bitmap=*/nullptr);
+  auto expected_indices = ArrayFromJSON(uint16(), "[]");
+
+  ASSERT_OK_AND_ASSIGN(auto indices,
+                       internal::GetTakeIndices(*filter.data(), FilterOptions::DROP));
+  auto indices_array = MakeArray(indices);
+  ASSERT_OK(indices_array->ValidateFull());
+  AssertArraysEqual(*expected_indices, *indices_array, /*verbose=*/true);
+
+  ASSERT_OK_AND_ASSIGN(
+      indices, internal::GetTakeIndices(*filter.data(), FilterOptions::EMIT_NULL));
+  indices_array = MakeArray(indices);
+  ASSERT_OK(indices_array->ValidateFull());
+  AssertArraysEqual(*expected_indices, *indices_array, /*verbose=*/true);
+}
+
 // TODO: Add slicing
 
 template <typename IndexArrayType>
@@ -74,6 +93,8 @@ void CheckGetTakeIndicesCase(const Array& untyped_filter) {
   // Verify DROP indices
   {
     IndexArrayType indices(drop_indices);
+    ASSERT_OK(indices.ValidateFull());
+
     int64_t out_position = 0;
     for (int64_t i = 0; i < filter.length(); ++i) {
       if (filter.IsValid(i)) {
@@ -83,6 +104,7 @@ void CheckGetTakeIndicesCase(const Array& untyped_filter) {
         }
       }
     }
+    ASSERT_EQ(out_position, indices.length());
     // Check that the end length agrees with the output of GetFilterOutputSize
     ASSERT_EQ(out_position,
               internal::GetFilterOutputSize(*filter.data(), FilterOptions::DROP));
@@ -91,10 +113,11 @@ void CheckGetTakeIndicesCase(const Array& untyped_filter) {
   ASSERT_OK_AND_ASSIGN(
       std::shared_ptr<ArrayData> emit_indices,
       internal::GetTakeIndices(*filter.data(), FilterOptions::EMIT_NULL));
-
   // Verify EMIT_NULL indices
   {
     IndexArrayType indices(emit_indices);
+    ASSERT_OK(indices.ValidateFull());
+
     int64_t out_position = 0;
     for (int64_t i = 0; i < filter.length(); ++i) {
       if (filter.IsValid(i)) {
@@ -108,6 +131,7 @@ void CheckGetTakeIndicesCase(const Array& untyped_filter) {
       }
     }
 
+    ASSERT_EQ(out_position, indices.length());
     // Check that the end length agrees with the output of GetFilterOutputSize
     ASSERT_EQ(out_position,
               internal::GetFilterOutputSize(*filter.data(), FilterOptions::EMIT_NULL));

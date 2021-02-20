@@ -22,10 +22,10 @@ of columns, as used in \code{dplyr::select()}.}
 \item{as_data_frame}{Should the function return a \code{data.frame} (default) or
 an Arrow \link{Table}?}
 
-\item{...}{Additional options, passed to \code{json_table_reader()}}
+\item{...}{Additional options passed to \code{JsonTableReader$create()}}
 }
 \value{
-A \code{data.frame}, or an Table if \code{as_data_frame = FALSE}.
+A \code{data.frame}, or a Table if \code{as_data_frame = FALSE}.
 }
 \description{
 Using \link{JsonTableReader}

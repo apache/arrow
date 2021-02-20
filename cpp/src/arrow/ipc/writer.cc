@@ -49,6 +49,7 @@
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"
@@ -999,6 +1000,16 @@ class ARROW_EXPORT IpcFormatWriter : public RecordBatchWriter {
     RETURN_NOT_OK(WritePayload(payload));
     ++stats_.num_record_batches;
     return Status::OK();
+  }
+
+  Status WriteTable(const Table& table, int64_t max_chunksize) override {
+    if (is_file_format_ && options_.unify_dictionaries) {
+      ARROW_ASSIGN_OR_RAISE(auto unified_table,
+                            DictionaryUnifier::UnifyTable(table, options_.memory_pool));
+      return RecordBatchWriter::WriteTable(*unified_table, max_chunksize);
+    } else {
+      return RecordBatchWriter::WriteTable(table, max_chunksize);
+    }
   }
 
   Status Close() override {

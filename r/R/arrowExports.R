@@ -48,6 +48,10 @@ Array__ApproxEquals <- function(lhs, rhs){
     .Call(`_arrow_Array__ApproxEquals`, lhs, rhs)
 }
 
+Array__Diff <- function(lhs, rhs){
+    .Call(`_arrow_Array__Diff`, lhs, rhs)
+}
+
 Array__data <- function(array){
     .Call(`_arrow_Array__data`, array)
 }
@@ -290,6 +294,10 @@ Table__cast <- function(table, schema, options){
 
 compute__CallFunction <- function(func_name, args, options){
     .Call(`_arrow_compute__CallFunction`, func_name, args, options)
+}
+
+list_compute_functions <- function(){
+    .Call(`_arrow_list_compute_functions`)
 }
 
 csv___ReadOptions__initialize <- function(options){

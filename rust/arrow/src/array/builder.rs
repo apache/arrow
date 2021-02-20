@@ -297,14 +297,17 @@ impl BooleanBufferBuilder {
         Self { buffer, len: 0 }
     }
 
+    #[inline]
     pub fn len(&self) -> usize {
         self.len
     }
 
+    #[inline]
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
 
+    #[inline]
     pub fn capacity(&self) -> usize {
         self.buffer.capacity() * 8
     }
@@ -369,6 +372,13 @@ impl BooleanBufferBuilder {
         let buf = std::mem::replace(&mut self.buffer, MutableBuffer::new(0));
         self.len = 0;
         buf.into()
+    }
+}
+
+impl From<BooleanBufferBuilder> for Buffer {
+    #[inline]
+    fn from(builder: BooleanBufferBuilder) -> Self {
+        builder.buffer.into()
     }
 }
 
@@ -1256,7 +1266,6 @@ impl DecimalBuilder {
 /// properly called to maintain the consistency of the data structure.
 pub struct StructBuilder {
     fields: Vec<Field>,
-    field_anys: Vec<Box<Any>>,
     field_builders: Vec<Box<ArrayBuilder>>,
     bitmap_builder: BooleanBufferBuilder,
     len: usize,
@@ -1266,7 +1275,6 @@ impl fmt::Debug for StructBuilder {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("StructBuilder")
             .field("fields", &self.fields)
-            .field("field_anys", &self.field_anys)
             .field("bitmap_builder", &self.bitmap_builder)
             .field("len", &self.len)
             .finish()
@@ -1394,25 +1402,9 @@ pub fn make_builder(datatype: &DataType, capacity: usize) -> Box<ArrayBuilder> {
 }
 
 impl StructBuilder {
-    pub fn new(fields: Vec<Field>, builders: Vec<Box<ArrayBuilder>>) -> Self {
-        let mut field_anys = Vec::with_capacity(builders.len());
-        let mut field_builders = Vec::with_capacity(builders.len());
-
-        // Create and maintain two references for each of the input builder. We need the
-        // extra `Any` reference because we need to cast the builder to a specific type
-        // in `field_builder()` by calling `downcast_mut`.
-        for f in builders.into_iter() {
-            let raw_f = Box::into_raw(f);
-            let raw_f_copy = raw_f;
-            unsafe {
-                field_anys.push(Box::from_raw(raw_f).into_box_any());
-                field_builders.push(Box::from_raw(raw_f_copy));
-            }
-        }
-
+    pub fn new(fields: Vec<Field>, field_builders: Vec<Box<ArrayBuilder>>) -> Self {
         Self {
             fields,
-            field_anys,
             field_builders,
             bitmap_builder: BooleanBufferBuilder::new(0),
             len: 0,
@@ -1431,7 +1423,7 @@ impl StructBuilder {
     /// Result will be `None` if the input type `T` provided doesn't match the actual
     /// field builder's type.
     pub fn field_builder<T: ArrayBuilder>(&mut self, i: usize) -> Option<&mut T> {
-        self.field_anys[i].downcast_mut::<T>()
+        self.field_builders[i].as_any_mut().downcast_mut::<T>()
     }
 
     /// Returns the number of fields for the struct this builder is building.
@@ -1475,14 +1467,6 @@ impl StructBuilder {
     }
 }
 
-impl Drop for StructBuilder {
-    fn drop(&mut self) {
-        // To avoid double drop on the field array builders.
-        let builders = std::mem::replace(&mut self.field_builders, Vec::new());
-        std::mem::forget(builders);
-    }
-}
-
 /// `FieldData` is a helper struct to track the state of the fields in the `UnionBuilder`.
 #[derive(Debug)]
 struct FieldData {
@@ -1515,6 +1499,7 @@ impl FieldData {
     }
 
     /// Appends a single value to this `FieldData`'s `values_buffer`.
+    #[allow(clippy::unnecessary_wraps)]
     fn append_to_values_buffer<T: ArrowPrimitiveType>(
         &mut self,
         v: T::Native,
@@ -1537,6 +1522,7 @@ impl FieldData {
     }
 
     /// Appends a null to this `FieldData`.
+    #[allow(clippy::unnecessary_wraps)]
     fn append_null<T: ArrowPrimitiveType>(&mut self) -> Result<()> {
         if let Some(b) = &mut self.bitmap_builder {
             let values_buffer = self

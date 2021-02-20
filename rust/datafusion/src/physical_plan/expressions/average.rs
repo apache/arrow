@@ -17,6 +17,7 @@
 
 //! Defines physical expressions that can evaluated at runtime during query execution
 
+use std::any::Any;
 use std::convert::TryFrom;
 use std::sync::Arc;
 
@@ -74,6 +75,11 @@ impl Avg {
 }
 
 impl AggregateExpr for Avg {
+    /// Return a reference to Any that can be used for downcasting
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn field(&self) -> Result<Field> {
         Ok(Field::new(&self.name, DataType::Float64, true))
     }
@@ -128,7 +134,7 @@ impl Accumulator for AvgAccumulator {
         Ok(vec![ScalarValue::from(self.count), self.sum.clone()])
     }
 
-    fn update(&mut self, values: &Vec<ScalarValue>) -> Result<()> {
+    fn update(&mut self, values: &[ScalarValue]) -> Result<()> {
         let values = &values[0];
 
         self.count += (!values.is_null()) as u64;
@@ -137,7 +143,7 @@ impl Accumulator for AvgAccumulator {
         Ok(())
     }
 
-    fn update_batch(&mut self, values: &Vec<ArrayRef>) -> Result<()> {
+    fn update_batch(&mut self, values: &[ArrayRef]) -> Result<()> {
         let values = &values[0];
 
         self.count += (values.len() - values.data().null_count()) as u64;
@@ -145,7 +151,7 @@ impl Accumulator for AvgAccumulator {
         Ok(())
     }
 
-    fn merge(&mut self, states: &Vec<ScalarValue>) -> Result<()> {
+    fn merge(&mut self, states: &[ScalarValue]) -> Result<()> {
         let count = &states[0];
         // counts are summed
         if let ScalarValue::UInt64(Some(c)) = count {
@@ -159,7 +165,7 @@ impl Accumulator for AvgAccumulator {
         Ok(())
     }
 
-    fn merge_batch(&mut self, states: &Vec<ArrayRef>) -> Result<()> {
+    fn merge_batch(&mut self, states: &[ArrayRef]) -> Result<()> {
         let counts = states[0].as_any().downcast_ref::<UInt64Array>().unwrap();
         // counts are summed
         self.count += compute::sum(counts).unwrap_or(0);

@@ -20,11 +20,13 @@
 use crate::error::Result;
 use crate::logical_plan::LogicalPlan;
 
-/// An optimizer rules performs a transformation on a logical plan to produce an optimized
-/// logical plan.
+/// `OptimizerRule` transforms one ['LogicalPlan'] into another which
+/// computes the same results, but in a potentially more efficient
+/// way.
 pub trait OptimizerRule {
-    /// Perform optimizations on the plan
+    /// Rewrite `plan` to an optimized form
     fn optimize(&self, plan: &LogicalPlan) -> Result<LogicalPlan>;
-    /// Produce a human readable name for this optimizer rule
+
+    /// A human readable name for this optimizer rule
     fn name(&self) -> &str;
 }

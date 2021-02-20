@@ -131,6 +131,7 @@ pub use self::null::NullArray;
 
 pub use self::array::make_array;
 pub use self::array::new_empty_array;
+pub use self::array::new_null_array;
 
 pub type Int8Array = PrimitiveArray<Int8Type>;
 pub type Int16Array = PrimitiveArray<Int16Type>;
@@ -271,8 +272,9 @@ pub use self::ord::{build_compare, DynComparator};
 // --------------------- Array downcast helper functions ---------------------
 
 pub use self::cast::{
-    as_boolean_array, as_dictionary_array, as_largestring_array, as_list_array,
-    as_null_array, as_primitive_array, as_string_array, as_struct_array,
+    as_boolean_array, as_dictionary_array, as_generic_list_array, as_large_list_array,
+    as_largestring_array, as_list_array, as_null_array, as_primitive_array,
+    as_string_array, as_struct_array,
 };
 
 // ------------------------------ C Data Interface ---------------------------

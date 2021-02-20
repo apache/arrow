@@ -534,6 +534,7 @@ class BenchmarkDecodeArrow : public ::benchmark::Fixture {
   void TearDown(const ::benchmark::State& state) override {
     buffer_.reset();
     input_array_.reset();
+    values_.clear();
   }
 
   void InitDataInputs() {

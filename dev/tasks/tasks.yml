@@ -82,6 +82,9 @@ groups:
   ruby:
     - test-*ruby*
 
+  vcpkg:
+    - test-*vcpkg*
+
   integration:
     - test-*dask*
     - test-*hdfs*
@@ -546,8 +549,8 @@ tasks:
     ci: github
     template: linux-packages/github.linux.amd64.yml
     params:
-      build_task: "apt:build"
       target: "debian-buster"
+      task_namespace: "apt"
       upload_extensions:
         - .ddeb
         - .deb
@@ -621,8 +624,8 @@ tasks:
     ci: travis
     template: linux-packages/travis.linux.arm64.yml
     params:
-      build_task: "apt:build"
       target: "debian-buster-arm64"
+      task_namespace: "apt"
       upload_extensions:
         - .ddeb
         - .deb
@@ -676,8 +679,8 @@ tasks:
     ci: github
     template: linux-packages/github.linux.amd64.yml
     params:
-      build_task: "apt:build"
       target: "ubuntu-xenial"
+      task_namespace: "apt"
       upload_extensions:
         - .ddeb
         - .deb
@@ -734,8 +737,8 @@ tasks:
     ci: travis
     template: linux-packages/travis.linux.arm64.yml
     params:
-      build_task: "apt:build"
       target: "ubuntu-xenial-arm64"
+      task_namespace: "apt"
       upload_extensions:
         - .ddeb
         - .deb
@@ -777,8 +780,8 @@ tasks:
     ci: github
     template: linux-packages/github.linux.amd64.yml
     params:
-      build_task: "apt:build"
       target: "ubuntu-bionic"
+      task_namespace: "apt"
       upload_extensions:
         - .ddeb
         - .deb
@@ -838,8 +841,8 @@ tasks:
     ci: travis
     template: linux-packages/travis.linux.arm64.yml
     params:
-      build_task: "apt:build"
       target: "ubuntu-bionic-arm64"
+      task_namespace: "apt"
       upload_extensions:
         - .ddeb
         - .deb
@@ -883,8 +886,8 @@ tasks:
     ci: github
     template: linux-packages/github.linux.amd64.yml
     params:
-      build_task: "apt:build"
       target: "ubuntu-focal"
+      task_namespace: "apt"
       upload_extensions:
         - .ddeb
         - .deb
@@ -944,8 +947,8 @@ tasks:
     ci: travis
     template: linux-packages/travis.linux.arm64.yml
     params:
-      build_task: "apt:build"
       target: "ubuntu-focal-arm64"
+      task_namespace: "apt"
       upload_extensions:
         - .ddeb
         - .deb
@@ -989,8 +992,8 @@ tasks:
     ci: github
     template: linux-packages/github.linux.amd64.yml
     params:
-      build_task: "apt:build"
       target: "ubuntu-groovy"
+      task_namespace: "apt"
       upload_extensions:
         - .ddeb
         - .deb
@@ -1050,8 +1053,8 @@ tasks:
     ci: travis
     template: linux-packages/travis.linux.arm64.yml
     params:
-      build_task: "apt:build"
       target: "ubuntu-groovy-arm64"
+      task_namespace: "apt"
       upload_extensions:
         - .ddeb
         - .deb
@@ -1095,8 +1098,8 @@ tasks:
     ci: github
     template: linux-packages/github.linux.amd64.yml
     params:
-      build_task: "yum:build"
       target: "centos-7"
+      task_namespace: yum
       upload_extensions:
         - .rpm
     artifacts:
@@ -1132,8 +1135,8 @@ tasks:
     ci: travis
     template: linux-packages/travis.linux.arm64.yml
     params:
-      build_task: "yum:build"
       target: "centos-7-aarch64"
+      task_namespace: yum
       upload_extensions:
         - .rpm
     artifacts:
@@ -1167,8 +1170,8 @@ tasks:
     ci: github
     template: linux-packages/github.linux.amd64.yml
     params:
-      build_task: "yum:build"
       target: "centos-8"
+      task_namespace: yum
       upload_extensions:
         - .rpm
     artifacts:
@@ -1226,8 +1229,8 @@ tasks:
     ci: travis
     template: linux-packages/travis.linux.arm64.yml
     params:
-      build_task: "yum:build"
       target: "centos-8-aarch64"
+      task_namespace: yum
       upload_extensions:
         - .rpm
     artifacts:
@@ -1276,23 +1279,21 @@ tasks:
   ############################## Homebrew Tasks ################################
 
   homebrew-cpp:
-    ci: travis
-    template: homebrew-formulae/travis.osx.yml
+    ci: github
+    template: homebrew-formulae/github.macos.yml
     params:
       formula: apache-arrow.rb
 
   homebrew-cpp-autobrew:
-    ci: travis
-    template: homebrew-formulae/travis.osx.yml
+    ci: github
+    template: homebrew-formulae/github.macos.yml
     params:
       formula: autobrew/apache-arrow.rb
 
   homebrew-r-autobrew:
     # This tests that the autobrew formula + script work in practice
-    ci: travis
-    template: homebrew-formulae/travis.osx.r.yml
-    params:
-      r_version: release
+    ci: github
+    template: r/github.macos.yml
 
   ############################## Gandiva Tasks ################################
 
@@ -1811,6 +1812,12 @@ tasks:
         UBUNTU: 18.04
       run: ubuntu-docs
 
+  ############################## vcpkg tests ##################################
+
+  test-build-vcpkg-win:
+    ci: github
+    template: vcpkg-tests/github.windows.yml
+
   ############################## Integration tests ############################
 
   test-conda-python-3.7-pandas-latest:
@@ -1945,7 +1952,8 @@ tasks:
       env:
         PYTHON: 3.7
         SPARK: "branch-3.0"
-      # use the master branch of spark, so prevent reusing any layers
+        TEST_PYARROW_ONLY: "true"
+      # use the branch-3.0 of spark, so prevent reusing any layers
       run: --no-leaf-cache conda-python-spark
 
   test-conda-python-3.8-spark-master:

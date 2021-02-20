@@ -50,6 +50,7 @@ DataFusion includes a simple command-line interactive SQL utility. See the [CLI 
 
 - [x] Projection
 - [x] Filter (WHERE)
+- [x] Filter post-aggregate (HAVING)
 - [x] Limit
 - [x] Aggregate
 - [x] UDFs (user-defined functions)

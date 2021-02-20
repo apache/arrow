@@ -700,6 +700,7 @@ def read_csv(input_file, read_options=None, parse_options=None,
         CCSVConvertOptions c_convert_options
         shared_ptr[CCSVReader] reader
         shared_ptr[CTable] table
+        CAsyncContext c_async_ctx = CAsyncContext()
 
     _get_reader(input_file, read_options, &stream)
     _get_read_options(read_options, &c_read_options)
@@ -707,7 +708,7 @@ def read_csv(input_file, read_options=None, parse_options=None,
     _get_convert_options(convert_options, &c_convert_options)
 
     reader = GetResultValue(CCSVReader.Make(
-        maybe_unbox_memory_pool(memory_pool), stream,
+        maybe_unbox_memory_pool(memory_pool), c_async_ctx, stream,
         c_read_options, c_parse_options, c_convert_options))
 
     with nogil:

@@ -77,6 +77,7 @@ import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.ipc.message.IpcOption;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
+import org.apache.arrow.vector.types.MetadataVersion;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
@@ -780,8 +781,7 @@ public class TestArrowReaderWriter {
     WriteChannel out = new WriteChannel(newChannel(outStream));
 
     // write legacy ipc format
-    IpcOption option = new IpcOption();
-    option.write_legacy_ipc_format = true;
+    IpcOption option = new IpcOption(true, MetadataVersion.DEFAULT);
     MessageSerializer.serialize(out, schema, option);
     MessageSerializer.serialize(out, batch);
 
@@ -794,7 +794,7 @@ public class TestArrowReaderWriter {
     readBatch.close();
 
     // write ipc format with continuation
-    option.write_legacy_ipc_format = false;
+    option = IpcOption.DEFAULT;
     MessageSerializer.serialize(out, schema, option);
     MessageSerializer.serialize(out, batch);
 

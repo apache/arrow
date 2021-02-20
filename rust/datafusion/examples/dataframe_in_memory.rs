@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use std::boxed::Box;
 use std::sync::Arc;
 
 use arrow::array::{Int32Array, StringArray};
@@ -50,7 +49,7 @@ async fn main() -> Result<()> {
 
     // declare a table in memory. In spark API, this corresponds to createDataFrame(...).
     let provider = MemTable::try_new(schema, vec![vec![batch]])?;
-    ctx.register_table("t", Box::new(provider));
+    ctx.register_table("t", Arc::new(provider));
     let df = ctx.table("t")?;
 
     // construct an expression corresponding to "SELECT a, b FROM t WHERE b = 10" in SQL

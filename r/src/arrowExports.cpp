@@ -108,6 +108,15 @@ BEGIN_CPP11
 END_CPP11
 }
 // array.cpp
+std::string Array__Diff(const std::shared_ptr<arrow::Array>& lhs, const std::shared_ptr<arrow::Array>& rhs);
+extern "C" SEXP _arrow_Array__Diff(SEXP lhs_sexp, SEXP rhs_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type lhs(lhs_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type rhs(rhs_sexp);
+	return cpp11::as_sexp(Array__Diff(lhs, rhs));
+END_CPP11
+}
+// array.cpp
 std::shared_ptr<arrow::ArrayData> Array__data(const std::shared_ptr<arrow::Array>& array);
 extern "C" SEXP _arrow_Array__data(SEXP array_sexp){
 BEGIN_CPP11
@@ -631,6 +640,13 @@ BEGIN_CPP11
 	arrow::r::Input<cpp11::list>::type args(args_sexp);
 	arrow::r::Input<cpp11::list>::type options(options_sexp);
 	return cpp11::as_sexp(compute__CallFunction(func_name, args, options));
+END_CPP11
+}
+// compute.cpp
+std::vector<std::string> list_compute_functions();
+extern "C" SEXP _arrow_list_compute_functions(){
+BEGIN_CPP11
+	return cpp11::as_sexp(list_compute_functions());
 END_CPP11
 }
 // csv.cpp
@@ -3512,6 +3528,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Array__type_id", (DL_FUNC) &_arrow_Array__type_id, 1}, 
 		{ "_arrow_Array__Equals", (DL_FUNC) &_arrow_Array__Equals, 2}, 
 		{ "_arrow_Array__ApproxEquals", (DL_FUNC) &_arrow_Array__ApproxEquals, 2}, 
+		{ "_arrow_Array__Diff", (DL_FUNC) &_arrow_Array__Diff, 2}, 
 		{ "_arrow_Array__data", (DL_FUNC) &_arrow_Array__data, 1}, 
 		{ "_arrow_Array__RangeEquals", (DL_FUNC) &_arrow_Array__RangeEquals, 5}, 
 		{ "_arrow_Array__View", (DL_FUNC) &_arrow_Array__View, 2}, 
@@ -3573,6 +3590,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_RecordBatch__cast", (DL_FUNC) &_arrow_RecordBatch__cast, 3}, 
 		{ "_arrow_Table__cast", (DL_FUNC) &_arrow_Table__cast, 3}, 
 		{ "_arrow_compute__CallFunction", (DL_FUNC) &_arrow_compute__CallFunction, 3}, 
+		{ "_arrow_list_compute_functions", (DL_FUNC) &_arrow_list_compute_functions, 0}, 
 		{ "_arrow_csv___ReadOptions__initialize", (DL_FUNC) &_arrow_csv___ReadOptions__initialize, 1}, 
 		{ "_arrow_csv___ParseOptions__initialize", (DL_FUNC) &_arrow_csv___ParseOptions__initialize, 1}, 
 		{ "_arrow_csv___ReadOptions__column_names", (DL_FUNC) &_arrow_csv___ReadOptions__column_names, 1}, 

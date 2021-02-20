@@ -98,14 +98,14 @@ pub fn optimize_explain(
     optimizer: &impl OptimizerRule,
     verbose: bool,
     plan: &LogicalPlan,
-    stringified_plans: &Vec<StringifiedPlan>,
+    stringified_plans: &[StringifiedPlan],
     schema: &Schema,
 ) -> Result<LogicalPlan> {
     // These are the fields of LogicalPlan::Explain It might be nice
     // to transform that enum Variant into its own struct and avoid
     // passing the fields individually
     let plan = Arc::new(optimizer.optimize(plan)?);
-    let mut stringified_plans = stringified_plans.clone();
+    let mut stringified_plans = stringified_plans.to_vec();
     let optimizer_name = optimizer.name().into();
     stringified_plans.push(StringifiedPlan::new(
         PlanType::OptimizedLogicalPlan { optimizer_name },
@@ -210,12 +210,12 @@ pub fn inputs(plan: &LogicalPlan) -> Vec<&LogicalPlan> {
 /// Returns a new logical plan based on the original one with inputs and expressions replaced
 pub fn from_plan(
     plan: &LogicalPlan,
-    expr: &Vec<Expr>,
-    inputs: &Vec<LogicalPlan>,
+    expr: &[Expr],
+    inputs: &[LogicalPlan],
 ) -> Result<LogicalPlan> {
     match plan {
         LogicalPlan::Projection { schema, .. } => Ok(LogicalPlan::Projection {
-            expr: expr.clone(),
+            expr: expr.to_vec(),
             input: Arc::new(inputs[0].clone()),
             schema: schema.clone(),
         }),
@@ -245,7 +245,7 @@ pub fn from_plan(
             schema: schema.clone(),
         }),
         LogicalPlan::Sort { .. } => Ok(LogicalPlan::Sort {
-            expr: expr.clone(),
+            expr: expr.to_vec(),
             input: Arc::new(inputs[0].clone()),
         }),
         LogicalPlan::Join {
@@ -339,7 +339,7 @@ pub fn expr_sub_expressions(expr: &Expr) -> Result<Vec<Expr>> {
 /// returns a new expression where the expressions in `expr` are replaced by the ones in
 /// `expressions`.
 /// This is used in conjunction with ``expr_expressions`` to re-write expressions.
-pub fn rewrite_expression(expr: &Expr, expressions: &Vec<Expr>) -> Result<Expr> {
+pub fn rewrite_expression(expr: &Expr, expressions: &[Expr]) -> Result<Expr> {
     match expr {
         Expr::BinaryExpr { op, .. } => Ok(Expr::BinaryExpr {
             left: Box::new(expressions[0].clone()),
@@ -350,20 +350,20 @@ pub fn rewrite_expression(expr: &Expr, expressions: &Vec<Expr>) -> Result<Expr> 
         Expr::IsNotNull(_) => Ok(Expr::IsNotNull(Box::new(expressions[0].clone()))),
         Expr::ScalarFunction { fun, .. } => Ok(Expr::ScalarFunction {
             fun: fun.clone(),
-            args: expressions.clone(),
+            args: expressions.to_vec(),
         }),
         Expr::ScalarUDF { fun, .. } => Ok(Expr::ScalarUDF {
             fun: fun.clone(),
-            args: expressions.clone(),
+            args: expressions.to_vec(),
         }),
         Expr::AggregateFunction { fun, distinct, .. } => Ok(Expr::AggregateFunction {
             fun: fun.clone(),
-            args: expressions.clone(),
+            args: expressions.to_vec(),
             distinct: *distinct,
         }),
         Expr::AggregateUDF { fun, .. } => Ok(Expr::AggregateUDF {
             fun: fun.clone(),
-            args: expressions.clone(),
+            args: expressions.to_vec(),
         }),
         Expr::Case { .. } => {
             let mut base_expr: Option<Box<Expr>> = None;
@@ -500,7 +500,7 @@ mod tests {
             &optimizer,
             true,
             &empty_plan,
-            &vec![StringifiedPlan::new(PlanType::LogicalPlan, "...")],
+            &[StringifiedPlan::new(PlanType::LogicalPlan, "...")],
             schema.as_ref(),
         )?;
 

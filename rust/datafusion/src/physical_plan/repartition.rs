@@ -247,7 +247,7 @@ mod tests {
     async fn one_to_many_round_robin() -> Result<()> {
         // define input partitions
         let schema = test_schema();
-        let partition = create_vec_batches(&schema, 50)?;
+        let partition = create_vec_batches(&schema, 50);
         let partitions = vec![partition];
 
         // repartition from 1 input to 4 output
@@ -267,7 +267,7 @@ mod tests {
     async fn many_to_one_round_robin() -> Result<()> {
         // define input partitions
         let schema = test_schema();
-        let partition = create_vec_batches(&schema, 50)?;
+        let partition = create_vec_batches(&schema, 50);
         let partitions = vec![partition.clone(), partition.clone(), partition.clone()];
 
         // repartition from 3 input to 1 output
@@ -284,7 +284,7 @@ mod tests {
     async fn many_to_many_round_robin() -> Result<()> {
         // define input partitions
         let schema = test_schema();
-        let partition = create_vec_batches(&schema, 50)?;
+        let partition = create_vec_batches(&schema, 50);
         let partitions = vec![partition.clone(), partition.clone(), partition.clone()];
 
         // repartition from 3 input to 5 output
@@ -305,13 +305,13 @@ mod tests {
         Arc::new(Schema::new(vec![Field::new("c0", DataType::UInt32, false)]))
     }
 
-    fn create_vec_batches(schema: &Arc<Schema>, n: usize) -> Result<Vec<RecordBatch>> {
+    fn create_vec_batches(schema: &Arc<Schema>, n: usize) -> Vec<RecordBatch> {
         let batch = create_batch(schema);
         let mut vec = Vec::with_capacity(n);
         for _ in 0..n {
             vec.push(batch.clone());
         }
-        Ok(vec)
+        vec
     }
 
     fn create_batch(schema: &Arc<Schema>) -> RecordBatch {

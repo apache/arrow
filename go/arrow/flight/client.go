@@ -18,9 +18,14 @@ package flight
 
 import (
 	"context"
+	"encoding/base64"
+	"io"
+	"strings"
 
+	"golang.org/x/xerrors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
 
@@ -33,6 +38,7 @@ type Client interface {
 	// Authenticate uses the ClientAuthHandler that was used when creating the client
 	// in order to use the Handshake endpoints of the service.
 	Authenticate(context.Context, ...grpc.CallOption) error
+	AuthenticateBasicToken(ctx context.Context, username string, password string, opts ...grpc.CallOption) (context.Context, error)
 	Close() error
 	// join the interface from the FlightServiceClient instead of re-defining all
 	// the endpoints here.
@@ -68,6 +74,40 @@ func NewFlightClient(addr string, auth ClientAuthHandler, opts ...grpc.DialOptio
 	}
 
 	return &client{conn: conn, FlightServiceClient: NewFlightServiceClient(conn), authHandler: auth}, nil
+}
+
+func (c *client) AuthenticateBasicToken(ctx context.Context, username, password string, opts ...grpc.CallOption) (context.Context, error) {
+	authCtx := metadata.AppendToOutgoingContext(ctx, "Authorization", "Basic "+base64.RawStdEncoding.EncodeToString([]byte(strings.Join([]string{username, password}, ":"))))
+
+	stream, err := c.FlightServiceClient.Handshake(authCtx, opts...)
+	if err != nil {
+		return ctx, err
+	}
+
+	header, err := stream.Header()
+	if err != nil {
+		return ctx, err
+	}
+
+	_, err = stream.Recv()
+	if err != nil && err != io.EOF {
+		return ctx, err
+	}
+
+	err = stream.CloseSend()
+	if err != nil {
+		return ctx, err
+	}
+
+	meta := stream.Trailer()
+	md := metadata.Join(header, meta)
+	for _, token := range md.Get("authorization") {
+		if token != "" {
+			return metadata.AppendToOutgoingContext(ctx, "Authorization", token), nil
+		}
+	}
+
+	return ctx, xerrors.Errorf("flight: no authorization header on the response")
 }
 
 func (c *client) Authenticate(ctx context.Context, opts ...grpc.CallOption) error {

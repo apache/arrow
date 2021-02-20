@@ -203,6 +203,8 @@ class IntegrationTestScenario : public flight::Scenario {
 }  // namespace arrow
 
 int main(int argc, char** argv) {
+  arrow::util::ArrowLog::InstallFailureSignalHandler();
+
   gflags::SetUsageMessage("Integration testing client for Flight.");
   gflags::ParseCommandLineFlags(&argc, &argv, true);
   std::shared_ptr<arrow::flight::Scenario> scenario;
@@ -222,5 +224,7 @@ int main(int argc, char** argv) {
   ABORT_NOT_OK(arrow::flight::Location::ForGrpcTcp(FLAGS_host, FLAGS_port, &location));
   ABORT_NOT_OK(arrow::flight::FlightClient::Connect(location, options, &client));
   ABORT_NOT_OK(scenario->RunClient(std::move(client)));
+
+  arrow::util::ArrowLog::UninstallSignalAction();
   return 0;
 }

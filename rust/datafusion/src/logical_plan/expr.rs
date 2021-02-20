@@ -15,7 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! This module provides an `Expr` enum for representing expressions such as `col = 5` or `SUM(col)`
+//! This module provides an `Expr` enum for representing expressions
+//! such as `col = 5` or `SUM(col)`. See examples on the [`Expr`] struct.
 
 pub use super::Operator;
 
@@ -34,20 +35,49 @@ use crate::{physical_plan::udaf::AggregateUDF, scalar::ScalarValue};
 use functions::{ReturnTypeFunction, ScalarFunctionImplementation, Signature};
 use std::collections::HashSet;
 
-/// `Expr` is a logical expression. A logical expression is something like `1 + 1`, or `CAST(c1 AS int)`.
-/// Logical expressions know how to compute its [arrow::datatypes::DataType] and nullability.
-/// `Expr` is a central struct of DataFusion's query API.
+/// `Expr` is a central struct of DataFusion's query API, and
+/// represent logical expressions such as `A + 1`, or `CAST(c1 AS
+/// int)`.
+///
+/// An `Expr` can compute its [DataType](arrow::datatypes::DataType)
+/// and nullability, and has functions for building up complex
+/// expressions.
 ///
 /// # Examples
 ///
+/// ## Create an expression `c1` referring to column named "c1"
 /// ```
-/// # use datafusion::logical_plan::Expr;
-/// # use datafusion::error::Result;
-/// # fn main() -> Result<()> {
-/// let expr = Expr::Column("c1".to_string()) + Expr::Column("c2".to_string());
-/// println!("{:?}", expr);
-/// # Ok(())
-/// # }
+/// # use datafusion::logical_plan::*;
+/// let expr = col("c1");
+/// assert_eq!(expr, Expr::Column("c1".to_string()));
+/// ```
+///
+/// ## Create the expression `c1 + c2` to add columns "c1" and "c2" together
+/// ```
+/// # use datafusion::logical_plan::*;
+/// let expr = col("c1") + col("c2");
+///
+/// assert!(matches!(expr, Expr::BinaryExpr { ..} ));
+/// if let Expr::BinaryExpr { left, right, op } = expr {
+///   assert_eq!(*left, col("c1"));
+///   assert_eq!(*right, col("c2"));
+///   assert_eq!(op, Operator::Plus);
+/// }
+/// ```
+///
+/// ## Create expression `c1 = 42` to compare the value in coumn "c1" to the literal value `42`
+/// ```
+/// # use datafusion::logical_plan::*;
+/// # use datafusion::scalar::*;
+/// let expr = col("c1").eq(lit(42));
+///
+/// assert!(matches!(expr, Expr::BinaryExpr { ..} ));
+/// if let Expr::BinaryExpr { left, right, op } = expr {
+///   assert_eq!(*left, col("c1"));
+///   let scalar = ScalarValue::Int32(Some(42));
+///   assert_eq!(*right, Expr::Literal(scalar));
+///   assert_eq!(op, Operator::Eq);
+/// }
 /// ```
 #[derive(Clone, PartialEq)]
 pub enum Expr {
@@ -433,9 +463,11 @@ impl Expr {
     /// and algorithms that walk the tree.
     ///
     /// For an expression tree such as
+    /// ```text
     /// BinaryExpr (GT)
     ///    left: Column("foo")
     ///    right: Column("bar")
+    /// ```
     ///
     /// The nodes are visited using the following order
     /// ```text
@@ -661,6 +693,20 @@ pub fn and(left: Expr, right: Expr) -> Expr {
     }
 }
 
+/// Combines an array of filter expressions into a single filter expression
+/// consisting of the input filter expressions joined with logical AND.
+/// Returns None if the filters array is empty.
+pub fn combine_filters(filters: &[Expr]) -> Option<Expr> {
+    if filters.is_empty() {
+        return None;
+    }
+    let combined_filter = filters
+        .iter()
+        .skip(1)
+        .fold(filters[0].clone(), |acc, filter| and(acc, filter.clone()));
+    Some(combined_filter)
+}
+
 /// return a new expression with a logical OR
 pub fn or(left: Expr, right: Expr) -> Expr {
     Expr::BinaryExpr {
@@ -753,6 +799,12 @@ impl Literal for &str {
 impl Literal for String {
     fn lit(&self) -> Expr {
         Expr::Literal(ScalarValue::Utf8(Some((*self).to_owned())))
+    }
+}
+
+impl Literal for ScalarValue {
+    fn lit(&self) -> Expr {
+        Expr::Literal(self.clone())
     }
 }
 
@@ -888,9 +940,9 @@ pub fn create_udaf(
 
 fn fmt_function(
     f: &mut fmt::Formatter,
-    fun: &String,
+    fun: &str,
     distinct: bool,
-    args: &Vec<Expr>,
+    args: &[Expr],
 ) -> fmt::Result {
     let args: Vec<String> = args.iter().map(|arg| format!("{:?}", arg)).collect();
     let distinct_str = match distinct {
@@ -995,7 +1047,7 @@ impl fmt::Debug for Expr {
 }
 
 fn create_function_name(
-    fun: &String,
+    fun: &str,
     distinct: bool,
     args: &[Expr],
     input_schema: &DFSchema,
@@ -1123,11 +1175,10 @@ mod tests {
     }
 
     #[test]
-    fn case_when_different_literal_then_types() -> Result<()> {
+    fn case_when_different_literal_then_types() {
         let maybe_expr = when(col("state").eq(lit("CO")), lit(303))
             .when(col("state").eq(lit("NY")), lit("212"))
             .end();
         assert!(maybe_expr.is_err());
-        Ok(())
     }
 }

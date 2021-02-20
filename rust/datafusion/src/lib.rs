@@ -20,7 +20,6 @@
     clippy::float_cmp,
     clippy::module_inception,
     clippy::new_without_default,
-    clippy::ptr_arg,
     clippy::type_complexity
 )]
 
