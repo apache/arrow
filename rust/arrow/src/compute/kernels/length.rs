@@ -85,7 +85,7 @@ where
 
 fn bit_length_impl<O: StringOffsetSizeTrait, T: ArrowPrimitiveType>(
     array: &dyn Array,
-) -> Result<ArrayRef>
+) -> ArrayRef
 where
     T::Native: StringOffsetSizeTrait,
 {
@@ -94,9 +94,9 @@ where
         .downcast_ref::<GenericStringArray<O>>()
         .unwrap();
     let bits_in_bytes = O::from_usize(8).unwrap();
-    Ok(unary_offsets_string::<O, _>(array, T::DATA_TYPE, |x| {
+    unary_offsets_string::<O, _>(array, T::DATA_TYPE, |x| {
         x * bits_in_bytes
-    }))
+    })
 }
 
 /// Returns an array of Int32/Int64 denoting the number of bytes in each string in the array.
@@ -122,8 +122,8 @@ pub fn length(array: &Array) -> Result<ArrayRef> {
 /// * bit_length is in number of bits
 pub fn bit_length(array: &Array) -> Result<ArrayRef> {
     match array.data_type() {
-        DataType::Utf8 => bit_length_impl::<i32, Int32Type>(array),
-        DataType::LargeUtf8 => bit_length_impl::<i64, Int64Type>(array),
+        DataType::Utf8 => Ok(bit_length_impl::<i32, Int32Type>(array)),
+        DataType::LargeUtf8 => Ok(bit_length_impl::<i64, Int64Type>(array)),
         _ => Err(ArrowError::ComputeError(format!(
             "bit_length not supported for {:?}",
             array.data_type()
