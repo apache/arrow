@@ -729,7 +729,7 @@ TEST(TestAsyncUtil, CompleteBackgroundStressTest) {
 template <typename T>
 class SlowSourcePreventingReentrant {
  public:
-  SlowSourcePreventingReentrant(AsyncGenerator<T> source)
+  explicit SlowSourcePreventingReentrant(AsyncGenerator<T> source)
       : state_(std::make_shared<State>(std::move(source))) {}
 
   Future<TestInt> operator()() {
@@ -749,7 +749,7 @@ class SlowSourcePreventingReentrant {
 
  private:
   struct State {
-    State(AsyncGenerator<T> source_)
+    explicit State(AsyncGenerator<T> source_)
         : source(std::move(source_)), in(false), valid(true) {}
 
     AsyncGenerator<T> source;
