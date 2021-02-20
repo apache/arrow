@@ -186,12 +186,11 @@ class SerialReadaheadGenerator {
       : state_(std::make_shared<State>(std::move(source_generator), max_readahead)) {}
 
   Future<T> operator()() {
-    // Lazy generator, need to wait for the first ask to prime the pump
     if (state_->first) {
+      // Lazy generator, need to wait for the first ask to prime the pump
       state_->first = false;
       auto next = state_->source();
-      next.AddCallback(Callback{state_});
-      return next;
+      return next.Then(Callback{state_});
     } else {
       // This generator is not async-reentrant.  We won't be called until the last
       // future finished so we know there is something in the queue
@@ -199,14 +198,14 @@ class SerialReadaheadGenerator {
       if (finished && state_->readahead_queue.isEmpty()) {
         return Future<T>::MakeFinished(IterationTraits<T>::End());
       }
-      DCHECK(!state_->readahead_queue.isEmpty());
-      auto next = *state_->readahead_queue.frontPtr();
+      auto next_ptr = state_->readahead_queue.frontPtr();
+      DCHECK(next_ptr != nullptr);
+      auto next = **next_ptr;
       state_->readahead_queue.popFront();
       auto last_available = state_->spaces_available.fetch_add(1);
       if (last_available == 0 && !finished) {
         // Reader idled out, we need to restart it
-        auto to_add_callback = state_->last_future;
-        to_add_callback.AddCallback(Callback{state_});
+        state_->Pump(state_);
       }
       return next;
     }
@@ -218,42 +217,44 @@ class SerialReadaheadGenerator {
         : first(true),
           source(std::move(source_)),
           finished(false),
-          spaces_available(max_readahead - 1),
-          readahead_queue(max_readahead),
-          last_future() {}
+          spaces_available(max_readahead),
+          readahead_queue(max_readahead) {}
 
-    // Only accessed by the consumer end, no need for atomic
+    void Pump(std::shared_ptr<State>& self) {
+      // Can't do readahead_queue.write(source().Then(Callback{self})) because then the
+      // callback might run immediately and add itself to the queue before this gets added
+      // to the queue messing up the order
+      auto next_slot = std::make_shared<Future<T>>();
+      auto written = readahead_queue.write(next_slot);
+      *next_slot = source().Then(Callback{self});
+      DCHECK(written);
+    }
+
+    // Only accessed by the consumer end
     bool first;
     // Accessed by both threads
     AsyncGenerator<T> source;
     std::atomic<bool> finished;
     std::atomic<uint32_t> spaces_available;
-    util::SpscQueue<Future<T>> readahead_queue;
-    // At first this field may seem unsafe but it is gated by spaces_available.  It will
-    // only be read when spaces_available is 0 and only be written when spaces_available >
-    // 0 so it should be impossible to simultaneously read/write and there should be a
-    // memory barrier in between
-    Future<T> last_future;
+    util::SpscQueue<std::shared_ptr<Future<T>>> readahead_queue;
   };
 
   struct Callback {
-    void operator()(const Result<T>& next_result) {
+    Result<T> operator()(const Result<T>& next_result) {
       if (!next_result.ok()) {
         state_->finished.store(true);
-        return;
+        return next_result;
       }
       const auto& next = *next_result;
       if (next == IterationTraits<T>::End()) {
         state_->finished = true;
-        return;
+        return next_result;
       }
-      auto next_future = state_->source();
-      state_->last_future = next_future;
       auto last_available = state_->spaces_available.fetch_sub(1);
-      state_->readahead_queue.write(next_future);
-      if (last_available != 1) {
-        next_future.AddCallback(Callback{state_});
+      if (last_available > 1) {
+        state_->Pump(state_);
       }
+      return next_result;
     }
 
     std::shared_ptr<State> state_;

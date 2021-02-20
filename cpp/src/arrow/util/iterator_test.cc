@@ -172,14 +172,18 @@ AsyncGenerator<TestInt> AsyncVectorIt(std::vector<TestInt> v) {
 constexpr auto kYieldDuration = std::chrono::microseconds(50);
 
 // Yields items with a small pause between each one from a background thread
-std::function<Future<TestInt>()> BackgroundAsyncVectorIt(std::vector<TestInt> v) {
+std::function<Future<TestInt>()> BackgroundAsyncVectorIt(std::vector<TestInt> v,
+                                                         bool sleep = true) {
   auto pool = internal::GetCpuThreadPool();
   auto iterator = VectorIt(v);
   auto slow_iterator = MakeTransformedIterator<TestInt, TestInt>(
-      std::move(iterator), [](TestInt item) -> Result<TransformFlow<TestInt>> {
-        std::this_thread::sleep_for(kYieldDuration);
+      std::move(iterator), [sleep](TestInt item) -> Result<TransformFlow<TestInt>> {
+        if (sleep) {
+          std::this_thread::sleep_for(kYieldDuration);
+        }
         return TransformYield(item);
       });
+
   EXPECT_OK_AND_ASSIGN(auto background,
                        MakeBackgroundGenerator<TestInt>(std::move(slow_iterator),
                                                         internal::GetCpuThreadPool()));
@@ -808,6 +812,24 @@ TEST(TestAsyncUtil, SerialReadaheadStress) {
           std::this_thread::sleep_for(kYieldDuration);
           return Status::OK();
         });
+    ASSERT_FINISHES_OK(visit_fut);
+    ASSERT_EQ(EXPECTED_SUM, sum);
+  }
+}
+
+TEST(TestAsyncUtil, SerialReadaheadStressFast) {
+  constexpr int NTASKS = 20;
+  constexpr int NITEMS = 50;
+  constexpr int EXPECTED_SUM = (NITEMS * (NITEMS - 1)) / 2;
+  for (int i = 0; i < NTASKS; i++) {
+    AsyncGenerator<TestInt> it = BackgroundAsyncVectorIt(RangeVector(NITEMS), false);
+    SerialReadaheadGenerator<TestInt> serial_readahead(it, 2);
+    unsigned int sum = 0;
+    auto visit_fut = VisitAsyncGenerator<TestInt>(serial_readahead,
+                                                  [&sum](TestInt test_int) -> Status {
+                                                    sum += test_int.value;
+                                                    return Status::OK();
+                                                  });
     ASSERT_FINISHES_OK(visit_fut);
     ASSERT_EQ(EXPECTED_SUM, sum);
   }
