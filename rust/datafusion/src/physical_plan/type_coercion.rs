@@ -70,7 +70,10 @@ pub fn data_types(
 ) -> Result<Vec<DataType>> {
     let valid_types = get_valid_types(signature, current_types)?;
 
-    if valid_types.contains(&current_types.to_owned()) {
+    if valid_types
+        .iter()
+        .any(|data_type| data_type == current_types)
+    {
         return Ok(current_types.to_vec());
     }
 
