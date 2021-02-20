@@ -462,28 +462,26 @@ fn signature(fun: &BuiltinScalarFunction) -> Signature {
             DataType::Utf8,
             DataType::Timestamp(TimeUnit::Nanosecond, None),
         ]),
-        BuiltinScalarFunction::DatePart => {
-            Signature::OneOf(vec![
-                Signature::Exact(vec![DataType::Utf8, DataType::Date32]),
-                Signature::Exact(vec![DataType::Utf8, DataType::Date64]),
-                Signature::Exact(vec![
-                    DataType::Utf8,
-                    DataType::Timestamp(TimeUnit::Second, None),
-                ]),
-                Signature::Exact(vec![
-                    DataType::Utf8,
-                    DataType::Timestamp(TimeUnit::Microsecond, None),
-                ]),
-                Signature::Exact(vec![
-                    DataType::Utf8,
-                    DataType::Timestamp(TimeUnit::Millisecond, None),
-                ]),
-                Signature::Exact(vec![
-                    DataType::Utf8,
-                    DataType::Timestamp(TimeUnit::Nanosecond, None),
-                ]),
-            ])
-        }
+        BuiltinScalarFunction::DatePart => Signature::OneOf(vec![
+            Signature::Exact(vec![DataType::Utf8, DataType::Date32]),
+            Signature::Exact(vec![DataType::Utf8, DataType::Date64]),
+            Signature::Exact(vec![
+                DataType::Utf8,
+                DataType::Timestamp(TimeUnit::Second, None),
+            ]),
+            Signature::Exact(vec![
+                DataType::Utf8,
+                DataType::Timestamp(TimeUnit::Microsecond, None),
+            ]),
+            Signature::Exact(vec![
+                DataType::Utf8,
+                DataType::Timestamp(TimeUnit::Millisecond, None),
+            ]),
+            Signature::Exact(vec![
+                DataType::Utf8,
+                DataType::Timestamp(TimeUnit::Nanosecond, None),
+            ]),
+        ]),
         BuiltinScalarFunction::Array => {
             Signature::Variadic(array_expressions::SUPPORTED_ARRAY_TYPES.to_vec())
         }
