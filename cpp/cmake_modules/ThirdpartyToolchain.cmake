@@ -863,7 +863,7 @@ macro(build_boost)
   endif()
 
   # This is needed by the thrift_ep build
-  set(BOOST_ROOT ${BOOST_PREFIX})
+  set(BOOST_ROOT ${BOOST_PREFIX} CACHE STRING "Root directory of the Boost library")
 
   if(ARROW_BOOST_REQUIRE_LIBRARY)
     if(MSVC_TOOLCHAIN AND NOT DEFINED BOOST_MSVC_LIB_PREFIX)
