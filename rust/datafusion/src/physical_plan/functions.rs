@@ -71,6 +71,8 @@ pub enum Signature {
     Exact(Vec<DataType>),
     /// fixed number of arguments of arbitrary types
     Any(usize),
+    /// One of a list of signatures
+    OneOf(Vec<Signature>),
 }
 
 /// Scalar function
@@ -461,8 +463,26 @@ fn signature(fun: &BuiltinScalarFunction) -> Signature {
             DataType::Timestamp(TimeUnit::Nanosecond, None),
         ]),
         BuiltinScalarFunction::DatePart => {
-            // TODO Utf8 -> Date32, Date64, timestamp etc.
-            Signature::Exact(vec![DataType::Utf8, DataType::Date32])
+            Signature::OneOf(vec![
+                Signature::Exact(vec![DataType::Utf8, DataType::Date32]),
+                Signature::Exact(vec![DataType::Utf8, DataType::Date64]),
+                Signature::Exact(vec![
+                    DataType::Utf8,
+                    DataType::Timestamp(TimeUnit::Second, None),
+                ]),
+                Signature::Exact(vec![
+                    DataType::Utf8,
+                    DataType::Timestamp(TimeUnit::Microsecond, None),
+                ]),
+                Signature::Exact(vec![
+                    DataType::Utf8,
+                    DataType::Timestamp(TimeUnit::Millisecond, None),
+                ]),
+                Signature::Exact(vec![
+                    DataType::Utf8,
+                    DataType::Timestamp(TimeUnit::Nanosecond, None),
+                ]),
+            ])
         }
         BuiltinScalarFunction::Array => {
             Signature::Variadic(array_expressions::SUPPORTED_ARRAY_TYPES.to_vec())
