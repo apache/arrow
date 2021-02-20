@@ -111,8 +111,8 @@ if(ARROW_DEPENDENCY_SOURCE STREQUAL "VCPKG")
     else()
       message(
         FATAL_ERROR
-        "vcpkg toolchain file not found at path specified in -DCMAKE_TOOLCHAIN_FILE"
-      )
+          "vcpkg toolchain file not found at path specified in -DCMAKE_TOOLCHAIN_FILE"
+        )
     endif()
   else()
     if(DEFINED VCPKG_ROOT)
@@ -145,18 +145,18 @@ if(ARROW_DEPENDENCY_SOURCE STREQUAL "VCPKG")
         else()
           message(
             FATAL_ERROR
-            "vcpkg not found. Install vcpkg if not installed, "
-            "then run vcpkg integrate install "
-            "or set environment variable VCPKG_ROOT."
-          )
+              "vcpkg not found. Install vcpkg if not installed, "
+              "then run vcpkg integrate install "
+              "or set environment variable VCPKG_ROOT."
+            )
         endif()
         find_program(_VCPKG_BIN vcpkg PATHS "${VCPKG_ROOT}" NO_DEFAULT_PATH)
         if(NOT _VCPKG_BIN)
           message(
             FATAL_ERROR
-            "vcpkg not found. Re-run vcpkg integrate install "
-            "or set environment variable VCPKG_ROOT."
-          )
+              "vcpkg not found. Re-run vcpkg integrate install "
+              "or set environment variable VCPKG_ROOT."
+            )
         endif()
       endif()
     endif()
@@ -164,7 +164,7 @@ if(ARROW_DEPENDENCY_SOURCE STREQUAL "VCPKG")
       CMAKE_TOOLCHAIN_FILE
       "${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
       CACHE STRING "Path to vcpkg CMake toolchain file"
-    )
+      )
     message(STATUS "Found vcpkg toolchain file: ${CMAKE_TOOLCHAIN_FILE}")
   endif()
   message(STATUS "Using CMAKE_TOOLCHAIN_FILE: ${CMAKE_TOOLCHAIN_FILE}")
@@ -177,7 +177,7 @@ if(ARROW_DEPENDENCY_SOURCE STREQUAL "VCPKG")
       VCPKG_TARGET_TRIPLET
       "$ENV{VCPKG_DEFAULT_TRIPLET}"
       CACHE STRING "vcpkg triplet for the target environment"
-    )
+      )
   endif()
   # explicitly set manifest mode on if it is not set and vcpkg.json exists
   if(NOT DEFINED VCPKG_MANIFEST_MODE AND EXISTS "${ARROW_SOURCE_DIR}/vcpkg.json")
@@ -190,19 +190,19 @@ if(ARROW_DEPENDENCY_SOURCE STREQUAL "VCPKG")
   foreach(_INST_DIR IN LISTS _INST_ARROW_SOURCE_DIR _INST_VCPKG_ROOT "notfound")
     if(_INST_DIR STREQUAL "notfound")
       message(
-        FATAL_ERROR
-        "vcpkg installed directory not found. "
-        "Install packages with vcpkg before executing cmake."
-      )
+          FATAL_ERROR
+            "vcpkg installed directory not found. "
+            "Install packages with vcpkg before executing cmake."
+        )
     elseif(NOT EXISTS "${_INST_DIR}")
       continue()
     elseif(_INST_DIR STREQUAL _INST_ARROW_SOURCE_DIR AND NOT VCPKG_MANIFEST_MODE)
       # Do not look for packages in _INST_ARROW_SOURCE_DIR if manifest mode is off
       message(
         STATUS
-        "Skipped looking for installed packages in ${_INST_DIR} "
-        "because -DVCPKG_MANIFEST_MODE=OFF"
-      )
+          "Skipped looking for installed packages in ${_INST_DIR} "
+          "because -DVCPKG_MANIFEST_MODE=OFF"
+        )
       continue()
     else()
       message(STATUS "Looking for installed packages in ${_INST_DIR}")
@@ -230,16 +230,16 @@ if(ARROW_DEPENDENCY_SOURCE STREQUAL "VCPKG")
   if(NOT DEFINED VCPKG_TARGET_TRIPLET)
     message(
       FATAL_ERROR
-      "Could not infer VCPKG_TARGET_TRIPLET. "
-      "Specify triplet with -DVCPKG_TARGET_TRIPLET."
-    )
+        "Could not infer VCPKG_TARGET_TRIPLET. "
+        "Specify triplet with -DVCPKG_TARGET_TRIPLET."
+      )
   elseif(NOT DEFINED _VCPKG_INSTALLED_DIR)
     message(
       FATAL_ERROR
-      "Could not find installed vcpkg packages "
-      "for triplet ${VCPKG_TARGET_TRIPLET}. "
-      "Install packages with vcpkg before executing cmake."
-    )
+        "Could not find installed vcpkg packages "
+        "for triplet ${VCPKG_TARGET_TRIPLET}. "
+        "Install packages with vcpkg before executing cmake."
+      )
   endif()
   set(_ARROW_VCPKG_PREFIX "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}")
   message(STATUS "Found vcpkg installed packages directory: ${_ARROW_VCPKG_PREFIX}")
@@ -1183,21 +1183,21 @@ if(ARROW_VCPKG)
       OPENSSL_INCLUDE_DIR
       "${_ARROW_VCPKG_PREFIX}/include"
       CACHE STRING "OpenSSL include directory"
-    )
+      )
   endif()
   if(NOT DEFINED OPENSSL_ROOT_DIR)
     set(
       OPENSSL_ROOT_DIR
       "${_ARROW_VCPKG_PREFIX}"
       CACHE STRING "Root directory of the OpenSSL installation"
-    )
+      )
   endif()
   if(NOT DEFINED OPENSSL_LIBRARIES)
     set(
       OPENSSL_LIBRARIES
       "${_ARROW_VCPKG_PREFIX}/lib"
       CACHE STRING "OpenSSL libraries"
-    )
+      )
   endif()
 elseif(BREW_BIN AND NOT OPENSSL_ROOT_DIR)
   execute_process(COMMAND ${BREW_BIN} --prefix "openssl@1.1"
