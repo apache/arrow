@@ -865,7 +865,7 @@ macro(build_boost)
   set(BOOST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/boost_ep-prefix/src/boost_ep")
 
   # This is needed by the thrift_ep build
-  set(BOOST_ROOT ${BOOST_PREFIX} CACHE STRING "Root directory of the Boost library")
+  set(BOOST_ROOT ${BOOST_PREFIX})
 
   if(ARROW_BOOST_REQUIRE_LIBRARY)
     set(BOOST_LIB_DIR "${BOOST_PREFIX}/stage/lib")
