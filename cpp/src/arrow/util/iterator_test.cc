@@ -726,6 +726,124 @@ TEST(TestAsyncUtil, CompleteBackgroundStressTest) {
   }
 }
 
+template <typename T>
+class SlowSourcePreventingReentrant {
+ public:
+  SlowSourcePreventingReentrant(AsyncGenerator<T> source)
+      : state_(std::make_shared<State>(std::move(source))) {}
+
+  Future<TestInt> operator()() {
+    if (state_->in.load()) {
+      state_->valid.store(false);
+    }
+    state_->in.store(true);
+    auto result = state_->source();
+    result.AddCallback(Callback{state_});
+    return result;
+  }
+
+  void AssertValid() {
+    EXPECT_EQ(true, state_->valid.load())
+        << "The generator was accessed in a reentrant manner";
+  }
+
+ private:
+  struct State {
+    State(AsyncGenerator<T> source_)
+        : source(std::move(source_)), in(false), valid(true) {}
+
+    AsyncGenerator<T> source;
+    std::atomic<bool> in;
+    std::atomic<bool> valid;
+  };
+  struct Callback {
+    void operator()(const Result<T>& result) { state_->in.store(false); }
+    std::shared_ptr<State> state_;
+  };
+
+  std::shared_ptr<State> state_;
+};
+
+TEST(TestAsyncUtil, SerialReadaheadSlowProducer) {
+  AsyncGenerator<TestInt> it = BackgroundAsyncVectorIt({1, 2, 3, 4, 5});
+  SlowSourcePreventingReentrant<TestInt> tracker(std::move(it));
+  SerialReadaheadGenerator<TestInt> serial_readahead(tracker, 2);
+  AssertAsyncGeneratorMatch({1, 2, 3, 4, 5},
+                            static_cast<AsyncGenerator<TestInt>>(serial_readahead));
+  tracker.AssertValid();
+}
+
+TEST(TestAsyncUtil, SerialReadaheadSlowConsumer) {
+  int num_delivered = 0;
+  auto source = [&num_delivered]() {
+    if (num_delivered < 5) {
+      return Future<TestInt>::MakeFinished(num_delivered++);
+    } else {
+      return Future<TestInt>::MakeFinished(IterationTraits<TestInt>::End());
+    }
+  };
+  SerialReadaheadGenerator<TestInt> serial_readahead(std::move(source), 3);
+  SleepABit();
+  ASSERT_EQ(0, num_delivered);
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto next, serial_readahead());
+  ASSERT_EQ(0, next.value);
+  ASSERT_EQ(3, num_delivered);
+  AssertAsyncGeneratorMatch({1, 2, 3, 4},
+                            static_cast<AsyncGenerator<TestInt>>(serial_readahead));
+}
+
+TEST(TestAsyncUtil, SerialReadaheadStress) {
+  constexpr int NTASKS = 20;
+  constexpr int NITEMS = 50;
+  constexpr int EXPECTED_SUM = (NITEMS * (NITEMS - 1)) / 2;
+  for (int i = 0; i < NTASKS; i++) {
+    AsyncGenerator<TestInt> it = BackgroundAsyncVectorIt(RangeVector(NITEMS));
+    SerialReadaheadGenerator<TestInt> serial_readahead(it, 2);
+    unsigned int sum = 0;
+    auto visit_fut = VisitAsyncGenerator<TestInt>(
+        serial_readahead, [&sum](TestInt test_int) -> Status {
+          sum += test_int.value;
+          // Normally sleeping in a visit function would be a faux-pas but we want to slow
+          // the reader down to match the producer to maximize the stress
+          std::this_thread::sleep_for(kYieldDuration);
+          return Status::OK();
+        });
+    ASSERT_FINISHES_OK(visit_fut);
+    ASSERT_EQ(EXPECTED_SUM, sum);
+  }
+}
+
+TEST(TestAsyncUtil, SerialReadaheadStressFailing) {
+  constexpr int NTASKS = 20;
+  constexpr int NITEMS = 50;
+  constexpr int EXPECTED_SUM = 45;
+  for (int i = 0; i < NTASKS; i++) {
+    AsyncGenerator<TestInt> it = BackgroundAsyncVectorIt(RangeVector(NITEMS));
+    AsyncGenerator<TestInt> fails_at_ten = [&it]() {
+      auto next = it();
+      return next.Then([](const Result<TestInt>& item) -> Result<TestInt> {
+        if (item->value >= 10) {
+          return Status::Invalid("XYZ");
+        } else {
+          return item;
+        }
+      });
+    };
+    SerialReadaheadGenerator<TestInt> serial_readahead(fails_at_ten, 2);
+    unsigned int sum = 0;
+    auto visit_fut = VisitAsyncGenerator<TestInt>(
+        serial_readahead, [&sum](TestInt test_int) -> Status {
+          sum += test_int.value;
+          // Normally sleeping in a visit function would be a faux-pas but we want to slow
+          // the reader down to match the producer to maximize the stress
+          std::this_thread::sleep_for(kYieldDuration);
+          return Status::OK();
+        });
+    ASSERT_FINISHES_ERR(Invalid, visit_fut);
+    ASSERT_EQ(EXPECTED_SUM, sum);
+  }
+}
+
 TEST(TestAsyncUtil, Readahead) {
   int num_delivered = 0;
   auto source = [&num_delivered]() {

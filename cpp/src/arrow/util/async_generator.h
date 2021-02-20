@@ -21,7 +21,9 @@
 #include "arrow/util/functional.h"
 #include "arrow/util/future.h"
 #include "arrow/util/iterator.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/optional.h"
+#include "arrow/util/queue.h"
 #include "arrow/util/thread_pool.h"
 
 namespace arrow {
@@ -178,6 +180,89 @@ class TransformingGenerator {
 };
 
 template <typename T>
+class SerialReadaheadGenerator {
+ public:
+  SerialReadaheadGenerator(AsyncGenerator<T> source_generator, int max_readahead)
+      : state_(std::make_shared<State>(std::move(source_generator), max_readahead)) {}
+
+  Future<T> operator()() {
+    // Lazy generator, need to wait for the first ask to prime the pump
+    if (state_->first) {
+      state_->first = false;
+      auto next = state_->source();
+      next.AddCallback(Callback{state_});
+      return next;
+    } else {
+      // This generator is not async-reentrant.  We won't be called until the last
+      // future finished so we know there is something in the queue
+      auto finished = state_->finished.load();
+      if (finished && state_->readahead_queue.isEmpty()) {
+        return Future<T>::MakeFinished(IterationTraits<T>::End());
+      }
+      DCHECK(!state_->readahead_queue.isEmpty());
+      auto next = *state_->readahead_queue.frontPtr();
+      state_->readahead_queue.popFront();
+      auto last_available = state_->spaces_available.fetch_add(1);
+      if (last_available == 0 && !finished) {
+        // Reader idled out, we need to restart it
+        auto to_add_callback = state_->last_future;
+        to_add_callback.AddCallback(Callback{state_});
+      }
+      return next;
+    }
+  }
+
+ private:
+  struct State {
+    State(AsyncGenerator<T> source_, int max_readahead)
+        : first(true),
+          source(std::move(source_)),
+          finished(false),
+          spaces_available(max_readahead - 1),
+          readahead_queue(max_readahead),
+          last_future() {}
+
+    // Only accessed by the consumer end, no need for atomic
+    bool first;
+    // Accessed by both threads
+    AsyncGenerator<T> source;
+    std::atomic<bool> finished;
+    std::atomic<uint32_t> spaces_available;
+    util::SpscQueue<Future<T>> readahead_queue;
+    // At first this field may seem unsafe but it is gated by spaces_available.  It will
+    // only be read when spaces_available is 0 and only be written when spaces_available >
+    // 0 so it should be impossible to simultaneously read/write and there should be a
+    // memory barrier in between
+    Future<T> last_future;
+  };
+
+  struct Callback {
+    void operator()(const Result<T>& next_result) {
+      if (!next_result.ok()) {
+        state_->finished.store(true);
+        return;
+      }
+      const auto& next = *next_result;
+      if (next == IterationTraits<T>::End()) {
+        state_->finished = true;
+        return;
+      }
+      auto next_future = state_->source();
+      state_->last_future = next_future;
+      auto last_available = state_->spaces_available.fetch_sub(1);
+      state_->readahead_queue.write(next_future);
+      if (last_available != 1) {
+        next_future.AddCallback(Callback{state_});
+      }
+    }
+
+    std::shared_ptr<State> state_;
+  };
+
+  std::shared_ptr<State> state_;
+};
+
+template <typename T>
 class ReadaheadGenerator {
  public:
   ReadaheadGenerator(AsyncGenerator<T> source_generator, int max_readahead)
@@ -239,6 +324,18 @@ template <typename T>
 AsyncGenerator<T> MakeReadaheadGenerator(AsyncGenerator<T> source_generator,
                                          int max_readahead) {
   return ReadaheadGenerator<T>(std::move(source_generator), max_readahead);
+}
+
+/// \brief Creates a generator that will pull from the source into a queue.  Unlike
+/// MakeReadaheadGenerator this will not pull reentrantly from the source.
+///
+/// The source generator does not need to be async-reentrant
+///
+/// This generator is not async-reentrant (even if the source is)
+template <typename T>
+AsyncGenerator<T> MakeSerialReadaheadGenerator(AsyncGenerator<T> source_generator,
+                                               int max_readahead) {
+  return SerialReadaheadGenerator<T>(std::move(source_generator), max_readahead);
 }
 
 /// \brief Transforms an async generator using a transformer function returning a new
