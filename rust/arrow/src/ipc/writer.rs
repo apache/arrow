@@ -460,7 +460,7 @@ impl<W: Write> FileWriter<W> {
 impl<W: Write> Drop for FileWriter<W> {
     fn drop(&mut self) {
         if !self.finished {
-            self.finish().unwrap();
+            let _ = self.finish();
         }
     }
 }
@@ -542,7 +542,7 @@ impl<W: Write> StreamWriter<W> {
 impl<W: Write> Drop for StreamWriter<W> {
     fn drop(&mut self) {
         if !self.finished {
-            self.finish().unwrap();
+            let _ = self.finish();
         }
     }
 }
