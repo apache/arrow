@@ -860,25 +860,13 @@ find_package(Threads REQUIRED)
 # Add Boost dependencies (code adapted from Apache Kudu)
 
 macro(build_boost)
-  if(ARROW_VCPKG)
-    set(BOOST_PREFIX "{_ARROW_VCPKG_PREFIX}/include")
-  else()
-    set(BOOST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/boost_ep-prefix/src/boost_ep")
-  endif()
+  set(BOOST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/boost_ep-prefix/src/boost_ep")
 
   # This is needed by the thrift_ep build
   set(BOOST_ROOT ${BOOST_PREFIX} CACHE STRING "Root directory of the Boost library")
 
   if(ARROW_BOOST_REQUIRE_LIBRARY)
-    set(BOOST_LIBRARY_PREFIX "lib")
-    if(ARROW_VCPKG)
-      set(BOOST_LIB_DIR "${_ARROW_VCPKG_PREFIX}/lib")
-      if(WIN32)
-        set(BOOST_LIBRARY_PREFIX "")
-      endif()
-    else()
-      set(BOOST_LIB_DIR "${BOOST_PREFIX}/stage/lib")
-    endif()
+    set(BOOST_LIB_DIR "${BOOST_PREFIX}/stage/lib")
     set(BOOST_BUILD_LINK "static")
     if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
       set(BOOST_BUILD_VARIANT "debug")
@@ -926,15 +914,15 @@ macro(build_boost)
     endif()
     set(
       BOOST_STATIC_SYSTEM_LIBRARY
-      "${BOOST_LIB_DIR}/${BOOST_LIBRARY_PREFIX}boost_system${BOOST_LIBRARY_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      "${BOOST_LIB_DIR}/libboost_system${BOOST_LIBRARY_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}"
       )
     set(
       BOOST_STATIC_FILESYSTEM_LIBRARY
-      "${BOOST_LIB_DIR}/${BOOST_LIBRARY_PREFIX}boost_filesystem${BOOST_LIBRARY_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      "${BOOST_LIB_DIR}/libboost_filesystem${BOOST_LIBRARY_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}"
       )
     set(
       BOOST_STATIC_REGEX_LIBRARY
-      "${BOOST_LIB_DIR}/${BOOST_LIBRARY_PREFIX}boost_regex${BOOST_LIBRARY_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      "${BOOST_LIB_DIR}/libboost_regex${BOOST_LIBRARY_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}"
       )
     set(BOOST_SYSTEM_LIBRARY boost_system_static)
     set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
