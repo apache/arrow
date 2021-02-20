@@ -39,6 +39,7 @@ pub use expr::{
     length, lit, ln, log10, log2, lower, ltrim, max, md5, min, octet_length, or, round,
     rtrim, sha224, sha256, sha384, sha512, signum, sin, sqrt, substr, sum, tan, trim,
     trunc, upper, when, Expr, ExpressionVisitor, Literal, Recursion,
+    ExprRewriter
 };
 pub use extension::UserDefinedLogicalNode;
 pub use operators::Operator;
