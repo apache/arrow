@@ -36,11 +36,11 @@ namespace csv {
 
 /// \brief Converts table to a CSV and writes the results to output.
 /// Experimental
-ARROW_EXPORT Status WriteCsv(const Table& table, const WriteOptions& options,
+ARROW_EXPORT Status WriteCSV(const Table& table, const WriteOptions& options,
                              MemoryPool* pool, arrow::io::OutputStream* output);
 /// \brief Converts batch to CSV and writes the results to output.
 /// Experimental
-ARROW_EXPORT Status WriteCsv(const RecordBatch& batch, const WriteOptions& options,
+ARROW_EXPORT Status WriteCSV(const RecordBatch& batch, const WriteOptions& options,
                              MemoryPool* pool, arrow::io::OutputStream* output);
 
 }  // namespace csv

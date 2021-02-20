@@ -23,6 +23,8 @@
 #include "arrow/result.h"
 #include "arrow/result_internal.h"
 #include "arrow/stl_allocator.h"
+#include "arrow/util/iterator.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"
 
 #include "arrow/visitor_inline.h"
@@ -41,13 +43,33 @@ namespace csv {
 // for the final CSV data buffer. Once the final size is known each column is then
 // iterated over again to place its contents into the CSV data buffer. The rationale for
 // choosing this approach is it allows for reuse of the cast functionality in the compute
-// module // and inline data visiting functionality in the core library. A performance
+// module and inline data visiting functionality in the core library. A performance
 // comparison has not been done using a naive single-pass approach. This approach might
 // still be competitive due to reduction in the number of per row branches necessary with
 // a single pass approach. Profiling would likely yield further opportunities for
 // optimization with this approach.
 
 namespace {
+
+struct SliceIteratorFunctor {
+  Result<std::shared_ptr<RecordBatch>> Next() {
+    if (current_offset < batch->num_rows()) {
+      std::shared_ptr<RecordBatch> next = batch->Slice(current_offset, slice_size);
+      current_offset += slice_size;
+      return next;
+    }
+    return IterationTraits<std::shared_ptr<RecordBatch>>::End();
+  }
+  const RecordBatch* const batch;
+  const int64_t slice_size;
+  int64_t current_offset;
+};
+
+RecordBatchIterator RecordBatchSliceIterator(const RecordBatch& batch,
+                                             int64_t slice_size) {
+  SliceIteratorFunctor functor = {&batch, slice_size, /*offset=*/static_cast<int64_t>(0)};
+  return RecordBatchIterator(std::move(functor));
+}
 
 // Counts the number of characters that need escaping in s.
 int64_t CountEscapes(util::string_view s) {
@@ -56,14 +78,18 @@ int64_t CountEscapes(util::string_view s) {
 
 // Matching quote pair character length.
 constexpr int64_t kQuoteCount = 2;
+constexpr int64_t kQuoteDelimiterCount = kQuoteCount + /*end_char*/ 1;
 
 // Interface for generating CSV data per column.
 // The intended usage is to iteratively call UpdateRowLengths for a column and
-// then PopulateColumns.
+// then PopulateColumns. PopulateColumns must be called in the reverse order of the
+// populators (it populates data backwards).
 class ColumnPopulator {
  public:
   ColumnPopulator(MemoryPool* pool, char end_char) : end_char_(end_char), pool_(pool) {}
+
   virtual ~ColumnPopulator() = default;
+
   // Adds the number of characters each entry in data will add to to elements
   // in row_lengths.
   Status UpdateRowLengths(const Array& data, int32_t* row_lengths) {
@@ -79,8 +105,12 @@ class ColumnPopulator {
   }
 
   // Places string data onto each row in output and updates the corresponding row
-  // row pointers in preparation for calls to other ColumnPopulators.
-  virtual void PopulateColumns(char** output) const = 0;
+  // row pointers in preparation for calls to other (preceding) ColumnPopulators.
+  // Args:
+  //   output: character buffer to write to.
+  //   offsets: an array of end of row column within the the output buffer (values are
+  //   one past the end of the position to write to).
+  virtual void PopulateColumns(char* output, int32_t* offsets) const = 0;
 
  protected:
   virtual Status UpdateRowLengths(int32_t* row_lengths) = 0;
@@ -91,16 +121,17 @@ class ColumnPopulator {
   MemoryPool* const pool_;
 };
 
-// Copies the contents of to out properly escaping any necessary charaters.
-char* Escape(arrow::util::string_view s, char* out) {
-  for (const char* val = s.data(); val < s.data() + s.length(); val++, out++) {
+// Copies the contents of to out properly escaping any necessary characters.
+// Returns the position prior to last copied character (out_end is decremented).
+char* EscapeReverse(arrow::util::string_view s, char* out_end) {
+  for (const char* val = s.data() + s.length() - 1; val >= s.data(); val--, out_end--) {
     if (*val == '"') {
-      *out = *val;
-      out++;
+      *out_end = *val;
+      out_end--;
     }
-    *out = *val;
+    *out_end = *val;
   }
-  return out;
+  return out_end;
 }
 
 // Populator for non-string types.  This populator relies on compute Cast functionality to
@@ -110,6 +141,7 @@ class UnquotedColumnPopulator : public ColumnPopulator {
  public:
   explicit UnquotedColumnPopulator(MemoryPool* memory_pool, char end_char)
       : ColumnPopulator(memory_pool, end_char) {}
+
   Status UpdateRowLengths(int32_t* row_lengths) override {
     for (int x = 0; x < casted_array_->length(); x++) {
       row_lengths[x] += casted_array_->value_length(x);
@@ -117,21 +149,21 @@ class UnquotedColumnPopulator : public ColumnPopulator {
     return Status::OK();
   }
 
-  void PopulateColumns(char** rows) const override {
+  void PopulateColumns(char* output, int32_t* offsets) const override {
     VisitArrayDataInline<StringType>(
         *casted_array_->data(),
         [&](arrow::util::string_view s) {
           int64_t next_column_offset = s.length() + /*end_char*/ 1;
-          memcpy(*rows, s.data(), s.length());
-          *(*rows + s.length()) = end_char_;
-          *rows += next_column_offset;
-          rows++;
+          memcpy((output + *offsets - next_column_offset), s.data(), s.length());
+          *(output + *offsets - 1) = end_char_;
+          *offsets -= next_column_offset;
+          offsets++;
         },
         [&]() {
           // Nulls are empty (unquoted) to distinguish with empty string.
-          **rows = end_char_;
-          *rows += 1;
-          rows++;
+          *(output + *offsets - 1) = end_char_;
+          *offsets -= 1;
+          offsets++;
         });
   }
 };
@@ -143,60 +175,64 @@ class UnquotedColumnPopulator : public ColumnPopulator {
 class QuotedColumnPopulator : public ColumnPopulator {
  public:
   QuotedColumnPopulator(MemoryPool* pool, char end_char)
-      : ColumnPopulator(pool, end_char) {}
+      : ColumnPopulator(pool, end_char),
+        row_needs_escaping_(::arrow::stl::allocator<bool>(pool)) {}
 
   Status UpdateRowLengths(int32_t* row_lengths) override {
     const StringArray& input = *casted_array_;
-    extra_chars_count_.resize(input.length());
-    auto extra_chars = extra_chars_count_.begin();
+    int row_number = 0;
+    row_needs_escaping_.resize(casted_array_->length());
     VisitArrayDataInline<StringType>(
         *input.data(),
         [&](arrow::util::string_view s) {
           int64_t escaped_count = CountEscapes(s);
           // TODO: Maybe use 64 bit row lengths or safe cast?
-          *extra_chars = static_cast<int>(escaped_count) + kQuoteCount;
-          extra_chars++;
+          row_needs_escaping_[row_number] = escaped_count > 0;
+          row_lengths[row_number] += s.length() + escaped_count + kQuoteCount;
+          row_number++;
         },
         [&]() {
-          *extra_chars = 0;
-          extra_chars++;
+          row_needs_escaping_[row_number] = false;
+          row_number++;
         });
-
-    for (int x = 0; x < input.length(); x++) {
-      row_lengths[x] += extra_chars_count_[x] + input.value_length(x);
-    }
     return Status::OK();
   }
 
-  void PopulateColumns(char** rows) const override {
-    const int32_t* extra_chars = extra_chars_count_.data();
+  void PopulateColumns(char* output, int32_t* offsets) const override {
+    auto needs_escaping = row_needs_escaping_.begin();
     VisitArrayDataInline<StringType>(
         *(casted_array_->data()),
         [&](arrow::util::string_view s) {
-          int64_t next_column_offset = *extra_chars + s.length() + /*end_char*/ 1;
-          **rows = '"';
-          if (*extra_chars == kQuoteCount) {
-            memcpy((*rows + 1), s.data(), s.length());
+          // still needs string content length to be added
+          char* row_end = output + *offsets;
+          int32_t next_column_offset = 0;
+          if (!*needs_escaping) {
+            next_column_offset = s.length() + kQuoteDelimiterCount;
+            memcpy(row_end - next_column_offset + /*quote_offset=*/1, s.data(),
+                   s.length());
           } else {
-            Escape(s, (*rows + 1));
+            // Adjust row_end by 3: 1 quote char, 1 end char and 1 to position at the
+            // first position to write to.
+            next_column_offset = row_end - EscapeReverse(s, row_end - 3);
           }
-          *(*rows + next_column_offset - 2) = '"';
-          *(*rows + next_column_offset - 1) = end_char_;
-          *rows += next_column_offset;
-          extra_chars++;
-          rows++;
+          *(row_end - next_column_offset) = '"';
+          *(row_end - 2) = '"';
+          *(row_end - 1) = end_char_;
+          *offsets -= next_column_offset;
+          offsets++;
+          needs_escaping++;
         },
         [&]() {
           // Nulls are empty (unquoted) to distinguish with empty string.
-          **rows = end_char_;
-          *rows += 1;
-          rows++;
-          extra_chars++;
+          *(output + *offsets - 1) = end_char_;
+          *offsets -= 1;
+          offsets++;
+          needs_escaping++;
         });
   }
 
  private:
-  std::vector<int32_t, std::allocator<int32_t>> extra_chars_count_;
+  std::vector<bool, ::arrow::stl::allocator<bool>> row_needs_escaping_;
 };
 
 struct PopulatorFactory {
@@ -218,7 +254,7 @@ struct PopulatorFactory {
   enable_if_t<is_nested_type<TypeClass>::value || is_extension_type<TypeClass>::value,
               Status>
   Visit(const TypeClass& type) {
-    return Status::Invalid("Nested and extension types not supported");
+    return Status::Invalid("Unsupported Type:", type.ToString());
   }
 
   template <typename TypeClass>
@@ -242,9 +278,9 @@ Result<std::unique_ptr<ColumnPopulator>> MakePopulator(const Field& field, char 
   return std::unique_ptr<ColumnPopulator>(factory.populator);
 }
 
-class CsvConverter {
+class CSVConverter {
  public:
-  static Result<std::unique_ptr<CsvConverter>> Make(std::shared_ptr<Schema> schema,
+  static Result<std::unique_ptr<CSVConverter>> Make(std::shared_ptr<Schema> schema,
                                                     MemoryPool* pool) {
     std::vector<std::unique_ptr<ColumnPopulator>> populators(schema->num_fields());
     for (int col = 0; col < schema->num_fields(); col++) {
@@ -252,23 +288,23 @@ class CsvConverter {
       ASSIGN_OR_RAISE(populators[col],
                       MakePopulator(*schema->field(col), end_char, pool));
     }
-    return std::unique_ptr<CsvConverter>(
-        new CsvConverter(std::move(schema), std::move(populators), pool));
+    return std::unique_ptr<CSVConverter>(
+        new CSVConverter(std::move(schema), std::move(populators), pool));
   }
-  static constexpr int64_t kColumnSizeGuess = 8;
-  Status WriteCsv(const RecordBatch& batch, const WriteOptions& options,
+
+  Status WriteCSV(const RecordBatch& batch, const WriteOptions& options,
                   io::OutputStream* out) {
     RETURN_NOT_OK(PrepareForContentsWrite(options, out));
-    RecordBatchIterator iterator = batch.SliceIterator(options.batch_size);
+    RecordBatchIterator iterator = RecordBatchSliceIterator(batch, options.batch_size);
     for (auto maybe_slice : iterator) {
       ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> slice, maybe_slice);
-      RETURN_NOT_OK(TranslateMininalBatch(*slice));
+      RETURN_NOT_OK(TranslateMinimalBatch(*slice));
       RETURN_NOT_OK(out->Write(data_buffer_));
     }
     return Status::OK();
   }
 
-  Status WriteCsv(const Table& table, const WriteOptions& options,
+  Status WriteCSV(const Table& table, const WriteOptions& options,
                   io::OutputStream* out) {
     TableBatchReader reader(table);
     reader.set_chunksize(options.batch_size);
@@ -276,7 +312,7 @@ class CsvConverter {
     std::shared_ptr<RecordBatch> batch;
     RETURN_NOT_OK(reader.ReadNext(&batch));
     while (batch != nullptr) {
-      RETURN_NOT_OK(TranslateMininalBatch(*batch));
+      RETURN_NOT_OK(TranslateMinimalBatch(*batch));
       RETURN_NOT_OK(out->Write(data_buffer_));
       RETURN_NOT_OK(reader.ReadNext(&batch));
     }
@@ -285,14 +321,12 @@ class CsvConverter {
   }
 
  private:
-  CsvConverter(std::shared_ptr<Schema> schema,
+  CSVConverter(std::shared_ptr<Schema> schema,
                std::vector<std::unique_ptr<ColumnPopulator>> populators, MemoryPool* pool)
-      : schema_(std::move(schema)),
-        column_populators_(std::move(populators)),
-        row_positions_(1024, nullptr, arrow::stl::allocator<char*>(pool)),
+      : column_populators_(std::move(populators)),
+        offsets_(0, 0, ::arrow::stl::allocator<char*>(pool)),
+        schema_(std::move(schema)),
         pool_(pool) {}
-
-  const std::shared_ptr<Schema> schema_;
 
   Status PrepareForContentsWrite(const WriteOptions& options, io::OutputStream* out) {
     if (data_buffer_ == nullptr) {
@@ -314,84 +348,85 @@ class CsvConverter {
       header_length += col_name.size();
       header_length += CountEscapes(col_name);
     }
-    return header_length + (3 * schema_->num_fields());
+    return header_length + (kQuoteDelimiterCount * schema_->num_fields());
   }
 
   Status WriteHeader(io::OutputStream* out) {
     RETURN_NOT_OK(data_buffer_->Resize(CalculateHeaderSize(), /*shrink_to_fit=*/false));
-    char* next = reinterpret_cast<char*>(data_buffer_->mutable_data());
-    for (int col = 0; col < schema_->num_fields(); col++) {
-      *next++ = '"';
-      next = Escape(schema_->field(col)->name(), next);
-      *next++ = '"';
-      *next++ = ',';
+    char* next =
+        reinterpret_cast<char*>(data_buffer_->mutable_data() + data_buffer_->size() - 1);
+    for (int col = schema_->num_fields() - 1; col >= 0; col--) {
+      *next-- = ',';
+      *next-- = '"';
+      next = EscapeReverse(schema_->field(col)->name(), next);
+      *next-- = '"';
     }
-    next--;
-    *next = '\n';
+    *(data_buffer_->mutable_data() + data_buffer_->size() - 1) = '\n';
+    DCHECK_EQ(reinterpret_cast<uint8_t*>(next + 1), data_buffer_->data());
     return out->Write(data_buffer_);
   }
 
-  Status TranslateMininalBatch(const RecordBatch& batch) {
+  Status TranslateMinimalBatch(const RecordBatch& batch) {
     if (batch.num_rows() == 0) {
       return Status::OK();
     }
-    std::vector<int32_t, arrow::stl::allocator<int32_t>> offsets(
-        batch.num_rows(), 0, arrow::stl::allocator<int32_t>(pool_));
+    offsets_.resize(batch.num_rows());
+    std::fill(offsets_.begin(), offsets_.end(), 0);
 
     // Calculate relative offsets for each row (excluding delimiters)
     for (size_t col = 0; col < column_populators_.size(); col++) {
       RETURN_NOT_OK(
-          column_populators_[col]->UpdateRowLengths(*batch.column(col), offsets.data()));
+          column_populators_[col]->UpdateRowLengths(*batch.column(col), offsets_.data()));
     }
     // Calculate cumulalative offsets for each row (including delimiters).
-    offsets[0] += batch.num_columns();
+    offsets_[0] += batch.num_columns();
     for (int64_t row = 1; row < batch.num_rows(); row++) {
-      offsets[row] += offsets[row - 1] + /*delimiter lengths*/ batch.num_columns();
+      offsets_[row] += offsets_[row - 1] + /*delimiter lengths*/ batch.num_columns();
     }
     // Resize the target buffer to required size. We assume batch to batch sizes
     // should be pretty close so don't shrink the buffer to avoid allocation churn.
-    RETURN_NOT_OK(data_buffer_->Resize(offsets.back(), /*shrink_to_fit=*/false));
+    RETURN_NOT_OK(data_buffer_->Resize(offsets_.back(), /*shrink_to_fit=*/false));
 
-    // Calculate pointers to the start of each row.
-    row_positions_.resize(batch.num_rows());
-    row_positions_[0] = reinterpret_cast<char*>(data_buffer_->mutable_data());
-    for (size_t row = 1; row < row_positions_.size(); row++) {
-      row_positions_[row] =
-          reinterpret_cast<char*>(data_buffer_->mutable_data()) + offsets[row - 1];
+    // Use the offsets to populate contents.
+    for (auto populator = column_populators_.rbegin();
+         populator != column_populators_.rend(); populator++) {
+      (*populator)
+          ->PopulateColumns(reinterpret_cast<char*>(data_buffer_->mutable_data()),
+                            offsets_.data());
     }
-    // Use the pointers to populate all of the data.
-    for (const auto& populator : column_populators_) {
-      populator->PopulateColumns(row_positions_.data());
-    }
+    DCHECK_EQ(0, offsets_[0]);
     return Status::OK();
   }
+
+  static constexpr int64_t kColumnSizeGuess = 8;
   std::vector<std::unique_ptr<ColumnPopulator>> column_populators_;
-  std::vector<char*, arrow::stl::allocator<char*>> row_positions_;
+  std::vector<int32_t, arrow::stl::allocator<int32_t>> offsets_;
   std::shared_ptr<ResizableBuffer> data_buffer_;
+  const std::shared_ptr<Schema> schema_;
   MemoryPool* pool_;
 };
 
 }  // namespace
 
-Status WriteCsv(const Table& table, const WriteOptions& options, MemoryPool* pool,
+Status WriteCSV(const Table& table, const WriteOptions& options, MemoryPool* pool,
                 arrow::io::OutputStream* output) {
   if (pool == nullptr) {
     pool = default_memory_pool();
   }
-  ASSIGN_OR_RAISE(std::unique_ptr<CsvConverter> converter,
-                  CsvConverter::Make(table.schema(), pool));
-  return converter->WriteCsv(table, options, output);
+  ASSIGN_OR_RAISE(std::unique_ptr<CSVConverter> converter,
+                  CSVConverter::Make(table.schema(), pool));
+  return converter->WriteCSV(table, options, output);
 }
 
-Status WriteCsv(const RecordBatch& batch, const WriteOptions& options, MemoryPool* pool,
+Status WriteCSV(const RecordBatch& batch, const WriteOptions& options, MemoryPool* pool,
                 arrow::io::OutputStream* output) {
   if (pool == nullptr) {
     pool = default_memory_pool();
   }
 
-  ASSIGN_OR_RAISE(std::unique_ptr<CsvConverter> converter,
-                  CsvConverter::Make(batch.schema(), pool));
-  return converter->WriteCsv(batch, options, output);
+  ASSIGN_OR_RAISE(std::unique_ptr<CSVConverter> converter,
+                  CSVConverter::Make(batch.schema(), pool));
+  return converter->WriteCSV(batch, options, output);
 }
 
 }  // namespace csv

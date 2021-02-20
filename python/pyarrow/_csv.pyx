@@ -766,6 +766,28 @@ def open_csv(input_file, read_options=None, parse_options=None,
                  maybe_unbox_memory_pool(memory_pool))
     return reader
 
+cdef class WriterOptions(_Weakrefable):
+    """
+    Options for writing CSV files.
+
+    Parameters
+    ----------
+    include_header : bool, optional (default True)
+        Whether to include the header 
+    batch_size : int, optional (default 1024)
+        How many rows to process together when converting and writing
+        CSV
+    """
+    cdef:
+        CCSVWriteOptions options
+
+    # Avoid mistakingly creating attributes
+    __slots__ = ()
+
+    def __init__(include_header=True, batch_size=1024):
+        options.include_header = include_header
+        options.batch_size = 1024
+
 
 def write_csv(output_file, data, include_header=True,
               MemoryPool memory_pool=None):
@@ -777,11 +799,9 @@ def write_csv(output_file, data, include_header=True,
         The location of CSV data.
     data: The data to write.
         Either a pyarrow.RecordBatch or a pyarrow.Table
-    include_header: bool, optional
-        Include header based on schema field names when writing out
-        (defaults to true).
+    write_options: pyarrow.csv.WriteOptions
     memory_pool: MemoryPool, optional
-        Pool to allocate Table memory from
+        Pool for temporary allocations.
 
     Returns
     -------
@@ -793,6 +813,11 @@ def write_csv(output_file, data, include_header=True,
         CMemoryPool* c_memory_pool
         CRecordBatch* batch
         CTable* table
+    if write_options is None:
+        c_write_options = CCSVWriteOptions.Defaults()
+    else:
+        c_write_options = write_options.options
+
     try:
         where = _stringify_path(output_file)
     except TypeError:
@@ -806,12 +831,12 @@ def write_csv(output_file, data, include_header=True,
     if isinstance(data, RecordBatch):
         batch = (<RecordBatch>data).batch
         with nogil:
-            check_status(WriteCsv(deref(batch), c_write_options, c_memory_pool,
+            check_status(WriteCSV(deref(batch), c_write_options, c_memory_pool,
                                   stream.get()))
     elif isinstance(data, Table):
         table = (<Table>data).table
         with nogil:
-            check_status(WriteCsv(deref(table), c_write_options, c_memory_pool,
+            check_status(WriteCSV(deref(table), c_write_options, c_memory_pool,
                                   stream.get()))
     else:
         raise ValueError(type(data))

@@ -79,15 +79,15 @@ std::vector<TestParams> GenerateTestCases() {
        expected_header + expected_without_header}};
 }
 
-class TestWriteCsv : public ::testing::TestWithParam<TestParams> {};
+class TestWriteCSV : public ::testing::TestWithParam<TestParams> {};
 
-TEST_P(TestWriteCsv, TestWrite) {
+TEST_P(TestWriteCSV, TestWrite) {
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<io::BufferOutputStream> out,
                        io::BufferOutputStream::Create());
   WriteOptions options = GetParam().options;
 
   ASSERT_OK(
-      WriteCsv(*GetParam().record_batch, options, default_memory_pool(), out.get()));
+      WriteCSV(*GetParam().record_batch, options, default_memory_pool(), out.get()));
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> buffer, out->Finish());
   EXPECT_EQ(std::string(reinterpret_cast<const char*>(buffer->data()), buffer->size()),
             GetParam().expected_output);
@@ -96,7 +96,7 @@ TEST_P(TestWriteCsv, TestWrite) {
   // Batch size shouldn't matter.
   options.batch_size /= 2;
   ASSERT_OK(
-      WriteCsv(*GetParam().record_batch, options, default_memory_pool(), out.get()));
+      WriteCSV(*GetParam().record_batch, options, default_memory_pool(), out.get()));
   ASSERT_OK_AND_ASSIGN(buffer, out->Finish());
   EXPECT_EQ(std::string(reinterpret_cast<const char*>(buffer->data()), buffer->size()),
             GetParam().expected_output);
@@ -105,14 +105,14 @@ TEST_P(TestWriteCsv, TestWrite) {
   // Table and Record batch should work identically.
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Table> table,
                        Table::FromRecordBatches({GetParam().record_batch}));
-  ASSERT_OK(WriteCsv(*table, options, default_memory_pool(), out.get()));
+  ASSERT_OK(WriteCSV(*table, options, default_memory_pool(), out.get()));
   ASSERT_OK_AND_ASSIGN(buffer, out->Finish());
   EXPECT_EQ(std::string(reinterpret_cast<const char*>(buffer->data()), buffer->size()),
             GetParam().expected_output);
   ASSERT_OK(out->Reset());
 }
 
-INSTANTIATE_TEST_SUITE_P(WriteCsvTest, TestWriteCsv,
+INSTANTIATE_TEST_SUITE_P(WriteCSVTest, TestWriteCSV,
                          ::testing::ValuesIn(GenerateTestCases()));
 
 }  // namespace csv
