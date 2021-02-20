@@ -866,12 +866,17 @@ macro(build_boost)
   set(BOOST_ROOT ${BOOST_PREFIX})
 
   if(ARROW_BOOST_REQUIRE_LIBRARY)
-    set(BOOST_LIBRARY_PREFIX "lib")
+    if(MSVC_TOOLCHAIN AND NOT DEFINED BOOST_MSVC_LIB_PREFIX)
+      if(ARROW_VCPKG)
+        set(BOOST_MSVC_LIB_PREFIX "")
+      else()
+        set(BOOST_MSVC_LIB_PREFIX "lib")
+      endif()
+    endif()
+    set(BOOST_LIB_NAME_BASE "${BOOST_MSVC_LIB_PREFIX}boost")
+    
     if(ARROW_VCPKG)
       set(BOOST_LIB_DIR "${_ARROW_VCPKG_PREFIX}/lib")
-      if(WIN32)
-        set(BOOST_LIBRARY_PREFIX "")
-      endif()
     else()
       set(BOOST_LIB_DIR "${BOOST_PREFIX}/stage/lib")
     endif()
@@ -922,15 +927,15 @@ macro(build_boost)
     endif()
     set(
       BOOST_STATIC_SYSTEM_LIBRARY
-      "${BOOST_LIB_DIR}/${BOOST_LIBRARY_PREFIX}boost_system${BOOST_LIBRARY_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      "${BOOST_LIB_DIR}/${BOOST_LIB_NAME_BASE}_system${BOOST_LIBRARY_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}"
       )
     set(
       BOOST_STATIC_FILESYSTEM_LIBRARY
-      "${BOOST_LIB_DIR}/${BOOST_LIBRARY_PREFIX}boost_filesystem${BOOST_LIBRARY_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      "${BOOST_LIB_DIR}/${BOOST_LIB_NAME_BASE}_filesystem${BOOST_LIBRARY_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}"
       )
     set(
       BOOST_STATIC_REGEX_LIBRARY
-      "${BOOST_LIB_DIR}/${BOOST_LIBRARY_PREFIX}boost_regex${BOOST_LIBRARY_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      "${BOOST_LIB_DIR}/${BOOST_LIB_NAME_BASE}_regex${BOOST_LIBRARY_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}"
       )
     set(BOOST_SYSTEM_LIBRARY boost_system_static)
     set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
