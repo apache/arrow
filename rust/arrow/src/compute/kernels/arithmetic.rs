@@ -269,29 +269,14 @@ where
         return Err(ArrowError::DivideByZero);
     }
 
-    let null_bit_buffer = array.data_ref().null_buffer().cloned();
-
-    let buffer = if let Some(b) = &null_bit_buffer {
-        let values = array.values().iter().enumerate().map(|(i, value)| {
-            let is_valid = unsafe { bit_util::get_bit_raw(b.as_ptr(), i) };
-            if is_valid {
-                *value / divisor
-            } else {
-                T::default_value()
-            }
-        });
-        unsafe { Buffer::from_trusted_len_iter(values) }
-    } else {
-        // no value is null
-        let values = array.values().iter().map(|value| *value / divisor);
-        unsafe { Buffer::from_trusted_len_iter(values) }
-    };
+    let values = array.values().iter().map(|value| *value / divisor);
+    let buffer = unsafe { Buffer::from_trusted_len_iter(values) };
 
     let data = ArrayData::new(
         T::DATA_TYPE,
         array.len(),
         None,
-        null_bit_buffer,
+        array.data_ref().null_buffer().cloned(),
         0,
         vec![buffer],
         vec![],
@@ -434,7 +419,6 @@ where
 #[cfg(simd)]
 #[inline]
 fn simd_checked_divide_scalar_remainder<T: ArrowNumericType>(
-    valid_mask: Option<u64>,
     array_chunks: ChunksExact<T::Native>,
     divisor: T::Native,
     result_chunks: ChunksExactMut<T::Native>,
@@ -452,11 +436,8 @@ where
     result_remainder
         .iter_mut()
         .zip(array_remainder.iter())
-        .enumerate()
-        .for_each(|(i, (result_scalar, array_scalar))| {
-            if valid_mask.map(|mask| mask & (1 << i) != 0).unwrap_or(true) {
-                *result_scalar = *array_scalar / divisor;
-            }
+        .for_each(|(result_scalar, array_scalar)| {
+            *result_scalar = *array_scalar / divisor;
         });
 
     Ok(())
@@ -596,84 +577,31 @@ where
         return Err(ArrowError::DivideByZero);
     }
 
-    // Get the bitmap of nulls for the array.
-    let null_bit_buffer = array.data_ref().null_buffer().cloned();
-
     let lanes = T::lanes();
     let buffer_size = array.len() * std::mem::size_of::<T::Native>();
     let mut result = MutableBuffer::new(buffer_size).with_bitset(buffer_size, false);
 
-    match &null_bit_buffer {
-        Some(b) => {
-            // combine_option_bitmap returns a slice or new buffer starting at 0
-            let valid_chunks = b.bit_chunks(0, array.len());
+    let mut result_chunks = result.typed_data_mut().chunks_exact_mut(lanes);
+    let mut array_chunks = array.values().chunks_exact(lanes);
 
-            // process data in chunks of 64 elements since we also get 64 bits of validity information at a time
-            let mut result_chunks = result.typed_data_mut().chunks_exact_mut(64);
-            let mut array_chunks = array.values().chunks_exact(64);
+    result_chunks
+        .borrow_mut()
+        .zip(array_chunks.borrow_mut())
+        .for_each(|(result_slice, array_slice)| {
+            let simd_left = T::load(array_slice);
+            let simd_right = T::init(divisor);
 
-            valid_chunks
-                .iter()
-                .zip(result_chunks.borrow_mut().zip(array_chunks.borrow_mut()))
-                .for_each(|(mut mask, (result_slice, array_slice))| {
-                    // split chunks further into slices corresponding to the vector length
-                    // the compiler is able to unroll this inner loop and remove bounds checks
-                    // since the outer chunk size (64) is always a multiple of the number of lanes
-                    result_slice
-                        .chunks_exact_mut(lanes)
-                        .zip(array_slice.chunks_exact(lanes))
-                        .for_each(|(result_slice, array_slice)| {
-                            let simd_left = T::load(array_slice);
-                            let simd_right = T::init(divisor);
+            let simd_result = T::bin_op(simd_left, simd_right, |a, b| a / b);
+            T::write(simd_result, result_slice);
+        });
 
-                            // We know `divisor` is non-zero, so we can skip `simd_checked_divide()`
-                            // and just do the op.
-                            let simd_result =
-                                T::bin_op(simd_left, simd_right, |a, b| a / b);
-                            T::write(simd_result, result_slice);
-
-                            // skip the shift and avoid overflow for u8 type, which uses 64 lanes.
-                            mask >>= T::lanes() % 64;
-                        })
-                });
-
-            let valid_remainder = valid_chunks.remainder_bits();
-            simd_checked_divide_scalar_remainder::<T>(
-                Some(valid_remainder),
-                array_chunks,
-                divisor,
-                result_chunks,
-            )?;
-        }
-        None => {
-            let mut result_chunks = result.typed_data_mut().chunks_exact_mut(lanes);
-            let mut array_chunks = array.values().chunks_exact(lanes);
-
-            result_chunks
-                .borrow_mut()
-                .zip(array_chunks.borrow_mut())
-                .for_each(|(result_slice, array_slice)| {
-                    let simd_left = T::load(array_slice);
-                    let simd_right = T::init(divisor);
-
-                    let simd_result = T::bin_op(simd_left, simd_right, |a, b| a / b);
-                    T::write(simd_result, result_slice);
-                });
-
-            simd_checked_divide_scalar_remainder::<T>(
-                None,
-                array_chunks,
-                divisor,
-                result_chunks,
-            )?;
-        }
-    }
+    simd_checked_divide_scalar_remainder::<T>(array_chunks, divisor, result_chunks)?;
 
     let data = ArrayData::new(
         T::DATA_TYPE,
         array.len(),
         None,
-        null_bit_buffer,
+        array.data_ref().null_buffer().cloned(),
         0,
         vec![result.into()],
         vec![],
