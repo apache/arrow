@@ -199,7 +199,7 @@ if(ARROW_DEPENDENCY_SOURCE STREQUAL "VCPKG")
   endif()
   # explicitly set manifest mode on if it is not set and vcpkg.json exists
   if(NOT DEFINED VCPKG_MANIFEST_MODE AND EXISTS "${ARROW_SOURCE_DIR}/vcpkg.json")
-    set(VCPKG_MANIFEST_MODE ON)
+    set(VCPKG_MANIFEST_MODE ON CACHE BOOL "Use vcpkg.json manifest")
   endif()
   # vcpkg can install packages in two different places
   set(_INST_ARROW_SOURCE_DIR "${ARROW_SOURCE_DIR}/vcpkg_installed") # try here first
