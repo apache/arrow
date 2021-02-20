@@ -163,7 +163,7 @@ if(ARROW_DEPENDENCY_SOURCE STREQUAL "VCPKG")
     set(
       CMAKE_TOOLCHAIN_FILE
       "${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
-      CACHE STRING ""
+      CACHE STRING "Path to vcpkg CMake toolchain file"
     )
     message(STATUS "Found vcpkg toolchain file: ${CMAKE_TOOLCHAIN_FILE}")
   endif()
@@ -173,7 +173,11 @@ if(ARROW_DEPENDENCY_SOURCE STREQUAL "VCPKG")
   # Get VCPKG_TARGET_TRIPLET and _VCPKG_INSTALLED_DIR
   #
   if(DEFINED ENV{VCPKG_DEFAULT_TRIPLET} AND NOT DEFINED VCPKG_TARGET_TRIPLET)
-    set(VCPKG_TARGET_TRIPLET "$ENV{VCPKG_DEFAULT_TRIPLET}" CACHE STRING "")
+    set(
+      VCPKG_TARGET_TRIPLET
+      "$ENV{VCPKG_DEFAULT_TRIPLET}"
+      CACHE STRING "vcpkg triplet for the target environment"
+    )
   endif()
   # vcpkg can install packages in two different places
   set(_INST_ARROW_SOURCE_DIR "${ARROW_SOURCE_DIR}/vcpkg_installed") # try here first
@@ -1171,13 +1175,13 @@ endif()
 set(ARROW_OPENSSL_REQUIRED_VERSION "1.0.2")
 if(ARROW_VCPKG)
   if(NOT DEFINED OPENSSL_INCLUDE_DIR)
-    set(OPENSSL_INCLUDE_DIR "${_ARROW_VCPKG_PREFIX}/include" CACHE STRING "")
+    set(OPENSSL_INCLUDE_DIR "${_ARROW_VCPKG_PREFIX}/include")
   endif()
   if(NOT DEFINED OPENSSL_ROOT_DIR)
-    set(OPENSSL_ROOT_DIR "${_ARROW_VCPKG_PREFIX}" CACHE STRING "")
+    set(OPENSSL_ROOT_DIR "${_ARROW_VCPKG_PREFIX}")
   endif()
   if(NOT DEFINED OPENSSL_LIBRARIES)
-    set(OPENSSL_LIBRARIES "${_ARROW_VCPKG_PREFIX}/lib" CACHE STRING "")
+    set(OPENSSL_LIBRARIES "${_ARROW_VCPKG_PREFIX}/lib")
   endif()
 elseif(BREW_BIN AND NOT OPENSSL_ROOT_DIR)
   execute_process(COMMAND ${BREW_BIN} --prefix "openssl@1.1"
