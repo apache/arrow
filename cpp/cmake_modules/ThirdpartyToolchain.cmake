@@ -253,11 +253,13 @@ if(ARROW_DEPENDENCY_SOURCE STREQUAL "VCPKG")
         "for triplet ${VCPKG_TARGET_TRIPLET}. "
         "Install packages with vcpkg before executing cmake.")
   endif()
-  set(_ARROW_VCPKG_PREFIX "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}")
-  message(STATUS "Found vcpkg installed packages directory: ${_ARROW_VCPKG_PREFIX}")
-  include_directories(SYSTEM "${_ARROW_VCPKG_PREFIX}/lib")
-  include_directories(SYSTEM "${_ARROW_VCPKG_PREFIX}/include")
-  set(ARROW_PACKAGE_PREFIX "${_ARROW_VCPKG_PREFIX}")
+  set(ARROW_VCPKG_PREFIX
+      "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}"
+      CACHE STRING "Path to prefix subdirectory in vcpkg installed directory")
+  message(STATUS "Found vcpkg installed packages directory: ${ARROW_VCPKG_PREFIX}")
+  include_directories(SYSTEM "${ARROW_VCPKG_PREFIX}/lib")
+  include_directories(SYSTEM "${ARROW_VCPKG_PREFIX}/include")
+  set(ARROW_PACKAGE_PREFIX "${ARROW_VCPKG_PREFIX}")
   message(STATUS "Using ARROW_PACKAGE_PREFIX: ${ARROW_PACKAGE_PREFIX}")
   message(STATUS "Using VCPKG_TARGET_TRIPLET: ${VCPKG_TARGET_TRIPLET}")
   message(STATUS "Using _VCPKG_INSTALLED_DIR: ${_VCPKG_INSTALLED_DIR}")
@@ -1192,17 +1194,17 @@ set(ARROW_OPENSSL_REQUIRED_VERSION "1.0.2")
 if(ARROW_VCPKG)
   if(NOT DEFINED OPENSSL_INCLUDE_DIR)
     set(OPENSSL_INCLUDE_DIR
-        "${_ARROW_VCPKG_PREFIX}/include"
+        "${ARROW_VCPKG_PREFIX}/include"
         CACHE STRING "OpenSSL include directory")
   endif()
   if(NOT DEFINED OPENSSL_ROOT_DIR)
     set(OPENSSL_ROOT_DIR
-        "${_ARROW_VCPKG_PREFIX}"
+        "${ARROW_VCPKG_PREFIX}"
         CACHE STRING "Root directory of the OpenSSL installation")
   endif()
   if(NOT DEFINED OPENSSL_LIBRARIES)
     set(OPENSSL_LIBRARIES
-        "${_ARROW_VCPKG_PREFIX}/lib"
+        "${ARROW_VCPKG_PREFIX}/lib"
         CACHE STRING "OpenSSL libraries")
   endif()
 elseif(BREW_BIN AND NOT OPENSSL_ROOT_DIR)
@@ -1631,9 +1633,9 @@ if(ARROW_WITH_PROTOBUF)
   endif()
   if(ARROW_VCPKG)
     if(WIN32)
-      set(ARROW_PROTOBUF_PROTOC "${_ARROW_VCPKG_PREFIX}/tools/protobuf/protoc.exe")
+      set(ARROW_PROTOBUF_PROTOC "${ARROW_VCPKG_PREFIX}/tools/protobuf/protoc.exe")
     else()
-      set(ARROW_PROTOBUF_PROTOC "${_ARROW_VCPKG_PREFIX}/tools/protobuf/protoc")
+      set(ARROW_PROTOBUF_PROTOC "${ARROW_VCPKG_PREFIX}/tools/protobuf/protoc")
     endif()
   elseif(TARGET arrow::protobuf::protoc)
     set(ARROW_PROTOBUF_PROTOC arrow::protobuf::protoc)
