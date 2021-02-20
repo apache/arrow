@@ -1318,20 +1318,16 @@ where
     let offsets = unsafe { list_data.buffers()[0].typed_data::<OffsetSizeFrom>() };
 
     let mut offset_builder = BufferBuilder::<OffsetSizeTo>::new(offsets.len());
-    offsets.iter().try_for_each(|offset| {
-        let offset = match OffsetSizeTo::from(*offset) {
-            Some(idx) => idx,
-            None => {
-                return Err(ArrowError::ComputeError(
-                    "large-utf8 array too large to cast to utf8-array".into(),
-                ))
-            }
-        };
+    offsets.iter().try_for_each::<_, Result<_>>(|offset| {
+        let offset = OffsetSizeTo::from(*offset).ok_or_else(|| {
+            ArrowError::ComputeError(
+                "large-utf8 array too large to cast to utf8-array".into(),
+            )
+        })?;
         offset_builder.append(offset);
         Ok(())
     })?;
 
-    offset_builder.append(OffsetSizeTo::from_usize(str_values_buf.len()).unwrap());
     let offset_buffer = offset_builder.finish();
 
     let dtype = if matches!(std::mem::size_of::<OffsetSizeTo>(), 8) {
@@ -1835,22 +1831,42 @@ mod tests {
 
     #[test]
     fn test_str_to_str_casts() {
-        let a = Arc::new(LargeStringArray::from(vec!["foo", "bar", "ham"])) as ArrayRef;
-        let to = cast(&a, &DataType::Utf8).unwrap();
-        let from = cast(&to, &DataType::LargeUtf8).unwrap();
-        let expect = a
-            .as_any()
-            .downcast_ref::<LargeStringArray>()
-            .unwrap()
-            .into_iter()
-            .collect::<Vec<_>>();
-        let out = from
-            .as_any()
-            .downcast_ref::<LargeStringArray>()
-            .unwrap()
-            .into_iter()
-            .collect::<Vec<_>>();
-        assert_eq!(expect, out);
+        for data in vec![
+            vec![Some("foo"), Some("bar"), Some("ham")],
+            vec![Some("foo"), None, Some("bar")],
+        ] {
+            let a = Arc::new(LargeStringArray::from(data.clone())) as ArrayRef;
+            let to = cast(&a, &DataType::Utf8).unwrap();
+            let expect = a
+                .as_any()
+                .downcast_ref::<LargeStringArray>()
+                .unwrap()
+                .into_iter()
+                .collect::<Vec<_>>();
+            let out = to
+                .as_any()
+                .downcast_ref::<StringArray>()
+                .unwrap()
+                .into_iter()
+                .collect::<Vec<_>>();
+            assert_eq!(expect, out);
+
+            let a = Arc::new(StringArray::from(data)) as ArrayRef;
+            let to = cast(&a, &DataType::LargeUtf8).unwrap();
+            let expect = a
+                .as_any()
+                .downcast_ref::<StringArray>()
+                .unwrap()
+                .into_iter()
+                .collect::<Vec<_>>();
+            let out = to
+                .as_any()
+                .downcast_ref::<LargeStringArray>()
+                .unwrap()
+                .into_iter()
+                .collect::<Vec<_>>();
+            assert_eq!(expect, out);
+        }
     }
 
     #[test]
