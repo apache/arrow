@@ -1622,8 +1622,12 @@ if(ARROW_WITH_PROTOBUF)
 
   # Log protobuf paths as we often see issues with mixed sources for
   # the libraries and protoc.
-  get_target_property(PROTOBUF_PROTOC_EXECUTABLE ${ARROW_PROTOBUF_PROTOC}
-                      IMPORTED_LOCATION)
+  if(ARROW_VCPKG)
+    set(PROTOBUF_PROTOC_EXECUTABLE "${ARROW_PROTOBUF_PROTOC}")
+  else()
+    get_target_property(PROTOBUF_PROTOC_EXECUTABLE ${ARROW_PROTOBUF_PROTOC}
+                        IMPORTED_LOCATION)
+  endif()
   message(STATUS "Found protoc: ${PROTOBUF_PROTOC_EXECUTABLE}")
   # Protobuf_PROTOC_LIBRARY is set by all versions of FindProtobuf.cmake
   message(STATUS "Found libprotoc: ${Protobuf_PROTOC_LIBRARY}")
