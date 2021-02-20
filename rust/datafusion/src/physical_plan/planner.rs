@@ -855,7 +855,7 @@ mod tests {
                 "Expression {:?} expected to error due to impossible coercion",
                 case
             );
-            assert!(logical_plan.is_err(), message);
+            assert!(logical_plan.is_err(), "{}", message);
         }
         Ok(())
     }
