@@ -1620,9 +1620,9 @@ if(ARROW_WITH_PROTOBUF)
   # the libraries and protoc.
   if(ARROW_VCPKG)
     if(WIN32)
-      set(PROTOBUF_PROTOC_EXECUTABLE "${_ARROW_VCPKG_PREFIX}/tools/protobuf.exe")
+      set(PROTOBUF_PROTOC_EXECUTABLE "${_ARROW_VCPKG_PREFIX}/tools/protoc.exe")
     else()
-      set(PROTOBUF_PROTOC_EXECUTABLE "${_ARROW_VCPKG_PREFIX}/tools/protobuf")
+      set(PROTOBUF_PROTOC_EXECUTABLE "${_ARROW_VCPKG_PREFIX}/tools/protoc")
     endif()
   else()
     get_target_property(PROTOBUF_PROTOC_EXECUTABLE ${ARROW_PROTOBUF_PROTOC}
