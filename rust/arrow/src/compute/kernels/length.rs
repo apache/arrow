@@ -94,9 +94,7 @@ where
         .downcast_ref::<GenericStringArray<O>>()
         .unwrap();
     let bits_in_bytes = O::from_usize(8).unwrap();
-    unary_offsets_string::<O, _>(array, T::DATA_TYPE, |x| {
-        x * bits_in_bytes
-    })
+    unary_offsets_string::<O, _>(array, T::DATA_TYPE, |x| x * bits_in_bytes)
 }
 
 /// Returns an array of Int32/Int64 denoting the number of bytes in each string in the array.
