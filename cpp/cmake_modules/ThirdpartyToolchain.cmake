@@ -1177,7 +1177,7 @@ if(ARROW_VCPKG)
   if(NOT DEFINED OPENSSL_INCLUDE_DIR)
     set(
       OPENSSL_INCLUDE_DIR
-      "${_ARROW_VCPKG_PREFIX}/include"\
+      "${_ARROW_VCPKG_PREFIX}/include"
       CACHE STRING "OpenSSL include directory"
     )
   endif()
