@@ -231,7 +231,7 @@ class ConcreteFutureImpl : public FutureImpl {
 
   void AddCallback(Callback callback) {
     std::unique_lock<std::mutex> lock(mutex_);
-    if (all_callbacks_run) {
+    if (IsFutureFinished(state_)) {
       lock.unlock();
       std::move(callback)();
     } else {
@@ -241,7 +241,7 @@ class ConcreteFutureImpl : public FutureImpl {
 
   bool TryAddCallback(const std::function<Callback()>& callback_factory) {
     std::unique_lock<std::mutex> lock(mutex_);
-    if (all_callbacks_run) {
+    if (IsFutureFinished(state_)) {
       return false;
     } else {
       callbacks_.push_back(callback_factory());
@@ -250,40 +250,30 @@ class ConcreteFutureImpl : public FutureImpl {
   }
 
   void DoMarkFinishedOrFailed(FutureState state) {
-    // Lock the hypothetical waiter first, and the future after.
-    // This matches the locking order done in FutureWaiter constructor.
-    std::unique_lock<std::mutex> waiter_lock(global_waiter_mutex);
-    std::unique_lock<std::mutex> lock(mutex_);
+    {
+      // Lock the hypothetical waiter first, and the future after.
+      // This matches the locking order done in FutureWaiter constructor.
+      std::unique_lock<std::mutex> waiter_lock(global_waiter_mutex);
+      std::unique_lock<std::mutex> lock(mutex_);
 
-    DCHECK(!IsFutureFinished(state_)) << "Future already marked finished";
-    state_ = state;
-    if (waiter_ != nullptr) {
-      waiter_->MarkFutureFinishedUnlocked(waiter_arg_, state);
+      DCHECK(!IsFutureFinished(state_)) << "Future already marked finished";
+      state_ = state;
+      if (waiter_ != nullptr) {
+        waiter_->MarkFutureFinishedUnlocked(waiter_arg_, state);
+      }
     }
-
-    // Waiters are alerted before callbacks are run
-    waiter_lock.unlock();
     cv_.notify_all();
 
-    std::vector<Callback> callbacks_to_run = std::move(callbacks_);
-    lock.unlock();
-
-    while (true) {
-      // In fact, it is important not to hold the locks because the callback
-      // may be slow or do its own locking on other resources
-      for (auto&& callback : callbacks_to_run) {
-        std::move(callback)();
-      }
-
-      lock.lock();
-      if (callbacks_.empty()) {
-        all_callbacks_run = true;
-        break;
-      } else {
-        callbacks_to_run = std::move(callbacks_);
-        lock.unlock();
-      }
+    // run callbacks, lock not needed since the future is finsihed by this
+    // point so nothing else can modify the callbacks list and it is safe
+    // to iterate.
+    //
+    // In fact, it is important not to hold the locks because the callback
+    // may be slow or do its own locking on other resources
+    for (auto&& callback : callbacks_) {
+      std::move(callback)();
     }
+    callbacks_.clear();
   }
 
   void DoWait() {
@@ -304,7 +294,6 @@ class ConcreteFutureImpl : public FutureImpl {
   std::condition_variable cv_;
   FutureWaiter* waiter_ = nullptr;
   int waiter_arg_ = -1;
-  bool all_callbacks_run = false;
 };
 
 namespace {
@@ -322,7 +311,6 @@ std::unique_ptr<FutureImpl> FutureImpl::Make() {
 std::unique_ptr<FutureImpl> FutureImpl::MakeFinished(FutureState state) {
   std::unique_ptr<ConcreteFutureImpl> ptr(new ConcreteFutureImpl());
   ptr->state_ = state;
-  ptr->all_callbacks_run = true;
   return std::move(ptr);
 }
 

@@ -543,34 +543,6 @@ TEST(FutureStressTest, TryAddCallback) {
   }
 }
 
-TEST(FutureStressTest, TryAddCallbackPreservesOrdering) {
-  auto fut = Future<>::Make();
-  std::atomic<bool> first_callback_run(false);
-  fut.AddCallback([&first_callback_run](const Result<detail::Empty>) {
-    SleepFor(0.1);
-    first_callback_run.store(true);
-  });
-
-  std::thread finisher([&fut]() { fut.MarkFinished(); });
-
-  auto callback_factory = [&first_callback_run]() {
-    return [&first_callback_run](const Result<detail::Empty>&) {
-      EXPECT_EQ(true, first_callback_run.load());
-    };
-  };
-  // Future will be marked finished in another thread, eventually TryAddCallback will
-  // return false.  We want to ensure that all callbacks, either run synchronously or not,
-  // run after the first callback
-  while (fut.TryAddCallback(callback_factory)) {
-  }
-
-  // At this point, if we were to try and run it synchronously, we should expect all
-  // callbacks have run
-  EXPECT_EQ(true, first_callback_run.load());
-
-  finisher.join();
-}
-
 TEST(FutureCompletionTest, Void) {
   {
     // Simple callback
