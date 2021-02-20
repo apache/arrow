@@ -171,17 +171,13 @@ FileEncryptor::FileEncryptor() { schema_ = SetupEncryptionSchema(); }
 
 std::shared_ptr<GroupNode> FileEncryptor::SetupEncryptionSchema() {
   parquet::schema::NodeVector fields;
-  // Create a primitive node named 'boolean_field' with type:BOOLEAN,
-  // repetition:REQUIRED
+
   fields.push_back(PrimitiveNode::Make(kBooleanFieldName, Repetition::REQUIRED,
                                        Type::BOOLEAN, ConvertedType::NONE));
 
-  // Create a primitive node named 'int32_field' with type:INT32, repetition:REQUIRED,
-  // logical type:TIME_MILLIS
   fields.push_back(PrimitiveNode::Make(kInt32FieldName, Repetition::REQUIRED, Type::INT32,
                                        ConvertedType::TIME_MILLIS));
 
-  // Create a primitive node named 'int64_field' with type:INT64, repetition:REPEATED
   fields.push_back(PrimitiveNode::Make(kInt64FieldName, Repetition::REPEATED, Type::INT64,
                                        ConvertedType::NONE));
 
@@ -194,18 +190,13 @@ std::shared_ptr<GroupNode> FileEncryptor::SetupEncryptionSchema() {
   fields.push_back(PrimitiveNode::Make(kDoubleFieldName, Repetition::REQUIRED,
                                        Type::DOUBLE, ConvertedType::NONE));
 
-  // Create a primitive node named 'ba_field' with type:BYTE_ARRAY, repetition:OPTIONAL
   fields.push_back(PrimitiveNode::Make(kByteArrayFieldName, Repetition::OPTIONAL,
                                        Type::BYTE_ARRAY, ConvertedType::NONE));
 
-  // Create a primitive node named 'flba_field' with type:FIXED_LEN_BYTE_ARRAY,
-  // repetition:REQUIRED, field_length = kFixedLength
   fields.push_back(PrimitiveNode::Make(kFixedLenByteArrayFieldName, Repetition::REQUIRED,
                                        Type::FIXED_LEN_BYTE_ARRAY, ConvertedType::NONE,
                                        kFixedLength));
 
-  // Create a GroupNode named 'schema' using the primitive nodes defined above
-  // This GroupNode is the root node of the schema tree
   return std::static_pointer_cast<GroupNode>(
       GroupNode::Make("schema", Repetition::REQUIRED, fields));
 }
