@@ -96,6 +96,23 @@ if("${re2_SOURCE}" STREQUAL "" AND NOT "${RE2_SOURCE}" STREQUAL "")
   set(re2_SOURCE ${RE2_SOURCE})
 endif()
 
+# macro to list subdirectirectories (non-recursive)
+macro(list_subdirs SUBDIRS DIR)
+  file(
+    GLOB children_
+    RELATIVE ${DIR}
+    ${DIR}/*)
+  set(subdirs_ "")
+  foreach(child_ ${children_})
+    if(IS_DIRECTORY "${DIR}/${child_}")
+      list(APPEND subdirs_ ${child_})
+    endif()
+  endforeach()
+  set("${SUBDIRS}" ${subdirs_})
+  unset(children_)
+  unset(subdirs_)
+endmacro()
+
 message(STATUS "Using ${ARROW_DEPENDENCY_SOURCE} approach to find dependencies")
 
 if(ARROW_DEPENDENCY_SOURCE STREQUAL "VCPKG")
@@ -212,7 +229,7 @@ if(ARROW_DEPENDENCY_SOURCE STREQUAL "VCPKG")
     else()
       # Infer VCPKG_TARGET_TRIPLET from the name of the
       # subdirectory in the vcpkg installed directory
-      file(GLOB _VCPKG_TRIPLET_SUBDIRS RELATIVE "${_INST_DIR}")
+      list_subdirs(_VCPKG_TRIPLET_SUBDIRS "${_INST_DIR}")
       list(REMOVE_ITEM _VCPKG_TRIPLET_SUBDIRS "vcpkg")
       list(LENGTH _VCPKG_TRIPLET_SUBDIRS _NUM_VCPKG_TRIPLET_SUBDIRS)
       if(_NUM_VCPKG_TRIPLET_SUBDIRS EQUAL 1)
