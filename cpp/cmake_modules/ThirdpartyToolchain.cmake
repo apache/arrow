@@ -223,7 +223,9 @@ if(ARROW_DEPENDENCY_SOURCE STREQUAL "VCPKG")
       # Check if a subdirectory named VCPKG_TARGET_TRIPLET
       # exists in the vcpkg installed directory
       if(EXISTS "${_INST_DIR}/${VCPKG_TARGET_TRIPLET}")
-        set(_VCPKG_INSTALLED_DIR "${_INST_DIR}")
+        set(_VCPKG_INSTALLED_DIR
+          "${_INST_DIR}"
+          CACHE STRING "Path to vcpkg installed directory")
         break()
       endif()
     else()
@@ -234,7 +236,9 @@ if(ARROW_DEPENDENCY_SOURCE STREQUAL "VCPKG")
       list(LENGTH _VCPKG_TRIPLET_SUBDIRS _NUM_VCPKG_TRIPLET_SUBDIRS)
       if(_NUM_VCPKG_TRIPLET_SUBDIRS EQUAL 1)
         list(GET _VCPKG_TRIPLET_SUBDIRS 0 VCPKG_TARGET_TRIPLET)
-        set(_VCPKG_INSTALLED_DIR "${_INST_DIR}")
+        set(_VCPKG_INSTALLED_DIR
+          "${_INST_DIR}"
+          CACHE STRING "Path to vcpkg installed directory")
         break()
       endif()
     endif()
