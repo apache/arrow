@@ -1301,8 +1301,8 @@ fn cast_list_inner<OffsetSize: OffsetSizeTrait>(
     Ok(Arc::new(list) as ArrayRef)
 }
 
-/// Helper function to cast from Utf8 > LargeUtf8 and vice versa. If the LargeUtf8 it too large for
-/// a Utf8 array it will return an Error.
+/// Helper function to cast from `Utf8` to `LargeUtf8` and vice versa. If the `LargeUtf8` is too large for
+/// a `Utf8` array it will return an Error.
 fn cast_str_container<OffsetSizeFrom, OffsetSizeTo>(array: &dyn Array) -> Result<ArrayRef>
 where
     OffsetSizeFrom: StringOffsetSizeTrait + ToPrimitive,
