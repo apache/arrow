@@ -839,11 +839,8 @@ mod tests {
         let a = Int32Array::from(vec![15, 14, 9, 8, 1]);
         let b = 3;
         let c = divide_scalar(&a, b).unwrap();
-        assert_eq!(5, c.value(0));
-        assert_eq!(4, c.value(1));
-        assert_eq!(3, c.value(2));
-        assert_eq!(2, c.value(3));
-        assert_eq!(0, c.value(4));
+        let expected = Int32Array::from(vec![5, 4, 3, 2, 0]);
+        assert_eq!(c, expected);
     }
 
     #[test]
@@ -875,6 +872,16 @@ mod tests {
         assert_eq!(0, c.value(3));
         assert_eq!(true, c.is_null(4));
         assert_eq!(true, c.is_null(5));
+    }
+
+    #[test]
+    fn test_primitive_array_divide_scalar_with_nulls() {
+        let a = Int32Array::from(vec![Some(15), None, Some(8), Some(1), Some(9), None]);
+        let b = 3;
+        let c = divide_scalar(&a, b).unwrap();
+        let expected =
+            Int32Array::from(vec![Some(5), None, Some(2), Some(0), Some(3), None]);
+        assert_eq!(c, expected);
     }
 
     #[test]
