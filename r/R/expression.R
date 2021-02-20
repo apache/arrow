@@ -147,7 +147,7 @@ eval_array_expression <- function(x, data = NULL) {
   if (!is.null(data)) {
     x <- bind_array_refs(x, data)
   }
-  if (inherits(x, "ArrowDatum")) {
+  if (!inherits(x, "array_expression")) {
     # Nothing to evaluate
     return(x)
   }

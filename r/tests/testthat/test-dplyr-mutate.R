@@ -83,7 +83,16 @@ test_that("mutate with .data pronoun", {
 })
 
 test_that("mutate with single value for recycling", {
-
+  skip("Not implemented (ARROW-11705")
+  expect_dplyr_equal(
+    input %>%
+      select(int, padded_strings) %>%
+      mutate(
+        dr_bronner = 1 # ALL ONE!
+      ) %>%
+      collect(),
+    tbl
+  )
 })
 
 test_that("dplyr::mutate's examples", {
