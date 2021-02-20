@@ -15,7 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! This module provides an `Expr` enum for representing expressions such as `col = 5` or `SUM(col)`
+//! This module provides an `Expr` enum for representing expressions
+//! such as `col = 5` or `SUM(col)`. See examples on the [`Expr`] struct.
 
 pub use super::Operator;
 
@@ -34,20 +35,49 @@ use crate::{physical_plan::udaf::AggregateUDF, scalar::ScalarValue};
 use functions::{ReturnTypeFunction, ScalarFunctionImplementation, Signature};
 use std::collections::HashSet;
 
-/// `Expr` is a logical expression. A logical expression is something like `1 + 1`, or `CAST(c1 AS int)`.
-/// Logical expressions know how to compute its [arrow::datatypes::DataType] and nullability.
-/// `Expr` is a central struct of DataFusion's query API.
+/// `Expr` is a central struct of DataFusion's query API, and
+/// represent logical expressions such as `A + 1`, or `CAST(c1 AS
+/// int)`.
+///
+/// An `Expr` can compute its [DataType](arrow::datatypes::DataType)
+/// and nullability, and has functions for building up complex
+/// expressions.
 ///
 /// # Examples
 ///
+/// ## Create an expression `c1` referring to column named "c1"
 /// ```
-/// # use datafusion::logical_plan::Expr;
-/// # use datafusion::error::Result;
-/// # fn main() -> Result<()> {
-/// let expr = Expr::Column("c1".to_string()) + Expr::Column("c2".to_string());
-/// println!("{:?}", expr);
-/// # Ok(())
-/// # }
+/// # use datafusion::logical_plan::*;
+/// let expr = col("c1");
+/// assert_eq!(expr, Expr::Column("c1".to_string()));
+/// ```
+///
+/// ## Create the expression `c1 + c2` to add columns "c1" and "c2" together
+/// ```
+/// # use datafusion::logical_plan::*;
+/// let expr = col("c1") + col("c2");
+///
+/// assert!(matches!(expr, Expr::BinaryExpr { ..} ));
+/// if let Expr::BinaryExpr { left, right, op } = expr {
+///   assert_eq!(*left, col("c1"));
+///   assert_eq!(*right, col("c2"));
+///   assert_eq!(op, Operator::Plus);
+/// }
+/// ```
+///
+/// ## Create expression `c1 = 42` to compare the value in coumn "c1" to the literal value `42`
+/// ```
+/// # use datafusion::logical_plan::*;
+/// # use datafusion::scalar::*;
+/// let expr = col("c1").eq(lit(42));
+///
+/// assert!(matches!(expr, Expr::BinaryExpr { ..} ));
+/// if let Expr::BinaryExpr { left, right, op } = expr {
+///   assert_eq!(*left, col("c1"));
+///   let scalar = ScalarValue::Int32(Some(42));
+///   assert_eq!(*right, Expr::Literal(scalar));
+///   assert_eq!(op, Operator::Eq);
+/// }
 /// ```
 #[derive(Clone, PartialEq)]
 pub enum Expr {
@@ -433,9 +463,11 @@ impl Expr {
     /// and algorithms that walk the tree.
     ///
     /// For an expression tree such as
+    /// ```text
     /// BinaryExpr (GT)
     ///    left: Column("foo")
     ///    right: Column("bar")
+    /// ```
     ///
     /// The nodes are visited using the following order
     /// ```text

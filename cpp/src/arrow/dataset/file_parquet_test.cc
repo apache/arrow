@@ -263,6 +263,34 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReaderDictEncoded) {
   ASSERT_EQ(row_count, kNumRows);
 }
 
+TEST_F(TestParquetFileFormat, ScanRecordBatchReaderPreBuffer) {
+  auto reader = GetRecordBatchReader();
+  auto source = GetFileSource(reader.get());
+
+  opts_ = ScanOptions::Make(reader->schema());
+  SetFilter(literal(true));
+
+  format_->reader_options.pre_buffer = true;
+  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
+  ASSERT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(opts_, ctx_));
+
+  int64_t task_count = 0;
+  int64_t row_count = 0;
+
+  for (auto maybe_task : scan_task_it) {
+    ASSERT_OK_AND_ASSIGN(auto task, maybe_task);
+    task_count += 1;
+    ASSERT_OK_AND_ASSIGN(auto rb_it, task->Execute());
+    for (auto maybe_batch : rb_it) {
+      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+      row_count += batch->num_rows();
+    }
+  }
+
+  ASSERT_EQ(task_count, kBatchRepetitions);
+  ASSERT_EQ(row_count, kNumRows);
+}
+
 TEST_F(TestParquetFileFormat, OpenFailureWithRelevantError) {
   std::shared_ptr<Buffer> buf = std::make_shared<Buffer>(util::string_view(""));
   auto result = format_->Inspect(FileSource(buf));

@@ -464,7 +464,7 @@ TEST(FutureRefTest, HeadRemoved) {
   ASSERT_TRUE(ref.expired());
 }
 
-TEST(FutureStessTest, Callback) {
+TEST(FutureStressTest, Callback) {
   for (unsigned int n = 0; n < 1000; n++) {
     auto fut = Future<>::Make();
     std::atomic<unsigned int> count_finished_immediately(0);
@@ -509,11 +509,11 @@ TEST(FutureStessTest, Callback) {
   }
 }
 
-TEST(FutureStessTest, TryAddCallback) {
+TEST(FutureStressTest, TryAddCallback) {
   for (unsigned int n = 0; n < 1; n++) {
     auto fut = Future<>::Make();
     std::atomic<unsigned int> callbacks_added(0);
-    std::atomic<bool> finished;
+    std::atomic<bool> finished(false);
     std::mutex mutex;
     std::condition_variable cv;
     std::thread::id callback_adder_thread_id;
