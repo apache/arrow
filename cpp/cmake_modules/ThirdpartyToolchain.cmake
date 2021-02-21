@@ -226,7 +226,7 @@ if(ARROW_DEPENDENCY_SOURCE STREQUAL "VCPKG")
       if(EXISTS "${_INST_DIR}/${VCPKG_TARGET_TRIPLET}")
         set(_VCPKG_INSTALLED_DIR
             "${_INST_DIR}"
-            CACHE STRING "Path to vcpkg installed directory")
+            CACHE STRING "Path to vcpkg installed directory" FORCE)
         break()
       endif()
     else()
@@ -239,7 +239,7 @@ if(ARROW_DEPENDENCY_SOURCE STREQUAL "VCPKG")
         list(GET _VCPKG_TRIPLET_SUBDIRS 0 VCPKG_TARGET_TRIPLET)
         set(_VCPKG_INSTALLED_DIR
             "${_INST_DIR}"
-            CACHE STRING "Path to vcpkg installed directory")
+            CACHE STRING "Path to vcpkg installed directory" FORCE)
         break()
       endif()
     endif()
