@@ -183,15 +183,15 @@ set(ARROW_VCPKG_PREFIX
     CACHE STRING
     "Path to target triplet subdirectory in vcpkg installed directory")
 
-include_directories(SYSTEM "${ARROW_VCPKG_PREFIX}")
-include_directories(SYSTEM "${ARROW_VCPKG_PREFIX}/lib")
-include_directories(SYSTEM "${ARROW_VCPKG_PREFIX}/include")
+# include_directories(SYSTEM "${ARROW_VCPKG_PREFIX}")
+# include_directories(SYSTEM "${ARROW_VCPKG_PREFIX}/lib")
+# include_directories(SYSTEM "${ARROW_VCPKG_PREFIX}/include")
 
-set(ARROW_PACKAGE_PREFIX "${ARROW_VCPKG_PREFIX}")
+#set(ARROW_PACKAGE_PREFIX "${ARROW_VCPKG_PREFIX}" CACHE STRING "")
 
-message(STATUS "Using ARROW_PACKAGE_PREFIX: ${ARROW_PACKAGE_PREFIX}")
+#message(STATUS "Using ARROW_PACKAGE_PREFIX: ${ARROW_PACKAGE_PREFIX}")
 message(STATUS "Using VCPKG_TARGET_TRIPLET: ${VCPKG_TARGET_TRIPLET}")
 message(STATUS "Using _VCPKG_INSTALLED_DIR: ${_VCPKG_INSTALLED_DIR}")
 
-set(ARROW_VCPKG ON) # this is used in other CMake scripts
-set(ARROW_ACTUAL_DEPENDENCY_SOURCE "SYSTEM")
+set(ARROW_VCPKG ON CACHE BOOL "Use vcpkg for dependencies") # this is used in other CMake scripts
+set(ARROW_DEPENDENCY_SOURCE "SYSTEM" CACHE STRING "Use find_package or pkg-config to find dependencies not found by vcpkg")
