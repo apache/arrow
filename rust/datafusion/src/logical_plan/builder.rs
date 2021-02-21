@@ -277,15 +277,36 @@ fn build_join_schema(
                 .map(|on| on.1.to_string())
                 .collect::<HashSet<_>>();
 
-            let left_fields = left.fields().iter();
-
-            let right_fields = right
+            let mut left_fields: Vec<DFField> = left
                 .fields()
                 .iter()
-                .filter(|f| !duplicate_keys.contains(f.name()));
+                .map(|x| {
+                    DFField::new(
+                        Some(x.qualifier().unwrap_or(&"left".to_string())),
+                        x.name(),
+                        x.data_type().clone(),
+                        x.is_nullable(),
+                    )
+                })
+                .collect();
+
+            let right_fields: Vec<DFField> = right
+                .fields()
+                .iter()
+                .filter(|f| !duplicate_keys.contains(f.name()))
+                .map(|x| {
+                    DFField::new(
+                        Some(x.qualifier().unwrap_or(&"right".to_string())),
+                        x.name(),
+                        x.data_type().clone(),
+                        x.is_nullable(),
+                    )
+                })
+                .collect();
 
             // left then right
-            left_fields.chain(right_fields).cloned().collect()
+            left_fields.extend(right_fields);
+            left_fields
         }
         JoinType::Right => {
             // remove left-side join keys if they have the same names as the right-side

@@ -240,11 +240,9 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
             0 => Ok(left),
             n => {
                 let mut left = self.parse_relation_join(&left, &t.joins[0])?;
-                println!("xxx2");
                 for i in 1..n {
                     left = self.parse_relation_join(&left, &t.joins[i])?;
                 }
-                println!("xxx4");
 
                 Ok(left)
             }

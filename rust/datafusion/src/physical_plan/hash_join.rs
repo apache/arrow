@@ -106,7 +106,7 @@ impl HashJoinExec {
     ) -> Result<Self> {
         let left_schema = left.schema();
         let right_schema = right.schema();
-        check_join_is_valid(&left_schema, &right_schema, &on)?;
+        //check_join_is_valid(&left_schema, &right_schema, &on)?;
 
         let schema = Arc::new(build_join_schema(
             &left_schema,
