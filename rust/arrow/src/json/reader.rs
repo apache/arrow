@@ -2046,7 +2046,9 @@ mod tests {
         let read = batch.column(0);
         assert!(
             expected.data_ref() == read.data_ref(),
-            format!("{:?} != {:?}", expected.data(), read.data())
+            "{:?} != {:?}",
+            expected.data(),
+            read.data(),
         );
     }
 

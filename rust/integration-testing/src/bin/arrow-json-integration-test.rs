@@ -60,7 +60,7 @@ fn main() -> Result<()> {
         "JSON_TO_ARROW" => json_to_arrow(json_file, arrow_file, verbose),
         "ARROW_TO_JSON" => arrow_to_json(arrow_file, json_file, verbose),
         "VALIDATE" => validate(arrow_file, json_file, verbose),
-        _ => panic!(format!("mode {} not supported", mode)),
+        _ => panic!("mode {} not supported", mode),
     }
 }
 

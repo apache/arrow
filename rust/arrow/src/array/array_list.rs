@@ -23,11 +23,11 @@ use std::mem;
 use num::Num;
 
 use super::{
-    array::print_long_array, make_array, raw_pointer::RawPtrBox, Array, ArrayDataRef,
-    ArrayRef, GenericListArrayIter,
+    array::print_long_array, make_array, raw_pointer::RawPtrBox, Array, ArrayData,
+    ArrayDataRef, ArrayRef, BooleanBufferBuilder, GenericListArrayIter, PrimitiveArray,
 };
-use crate::datatypes::ArrowNativeType;
-use crate::datatypes::*;
+use crate::buffer::MutableBuffer;
+use crate::datatypes::{ArrowNativeType, ArrowPrimitiveType, DataType, Field};
 
 /// trait declaring an offset size, relevant for i32 vs i64 array types.
 pub trait OffsetSizeTrait: ArrowNativeType + Num + Ord + std::ops::AddAssign {
@@ -116,14 +116,68 @@ impl<OffsetSize: OffsetSizeTrait> GenericListArray<OffsetSize> {
     pub fn iter<'a>(&'a self) -> GenericListArrayIter<'a, OffsetSize> {
         GenericListArrayIter::<'a, OffsetSize>::new(&self)
     }
-}
 
-impl<'a, S: OffsetSizeTrait> IntoIterator for &'a GenericListArray<S> {
-    type Item = Option<ArrayRef>;
-    type IntoIter = GenericListArrayIter<'a, S>;
+    /// Creates a [`GenericListArray`] from an iterator of primitive values
+    /// # Example
+    /// ```
+    /// # use arrow::array::ListArray;
+    /// # use arrow::datatypes::Int32Type;
+    /// let data = vec![
+    ///    Some(vec![Some(0), Some(1), Some(2)]),
+    ///    None,
+    ///    Some(vec![Some(3), None, Some(5)]),
+    ///    Some(vec![Some(6), Some(7)]),
+    /// ];
+    /// let list_array = ListArray::from_iter_primitive::<Int32Type, _, _>(data);
+    /// println!("{:?}", list_array);
+    /// ```
+    pub fn from_iter_primitive<T, P, I>(iter: I) -> Self
+    where
+        T: ArrowPrimitiveType,
+        P: AsRef<[Option<<T as ArrowPrimitiveType>::Native>]>
+            + IntoIterator<Item = Option<<T as ArrowPrimitiveType>::Native>>,
+        I: IntoIterator<Item = Option<P>>,
+    {
+        let iterator = iter.into_iter();
+        let (lower, _) = iterator.size_hint();
 
-    fn into_iter(self) -> Self::IntoIter {
-        GenericListArrayIter::<'a, S>::new(self)
+        let mut offsets =
+            MutableBuffer::new((lower + 1) * std::mem::size_of::<OffsetSize>());
+        let mut length_so_far = OffsetSize::zero();
+        offsets.push(length_so_far);
+
+        let mut null_buf = BooleanBufferBuilder::new(lower);
+
+        let values: PrimitiveArray<T> = iterator
+            .filter_map(|maybe_slice| {
+                // regardless of whether the item is Some, the offsets and null buffers must be updated.
+                match &maybe_slice {
+                    Some(x) => {
+                        length_so_far +=
+                            OffsetSize::from_usize(x.as_ref().len()).unwrap();
+                        null_buf.append(true);
+                    }
+                    None => null_buf.append(false),
+                };
+                offsets.push(length_so_far);
+                maybe_slice
+            })
+            .flatten()
+            .collect();
+
+        let field = Box::new(Field::new("item", T::DATA_TYPE, true));
+        let data_type = if OffsetSize::prefix() == "Large" {
+            DataType::LargeList(field)
+        } else {
+            DataType::List(field)
+        };
+        let data = ArrayData::builder(data_type)
+            .len(null_buf.len())
+            .add_buffer(offsets.into())
+            .add_child_data(values.data())
+            .null_bit_buffer(null_buf.into())
+            .build();
+        Self::from(data)
     }
 }
 
@@ -324,11 +378,51 @@ impl fmt::Debug for FixedSizeListArray {
 #[cfg(test)]
 mod tests {
     use crate::{
-        array::ArrayData, array::Int32Array, buffer::Buffer, datatypes::Field, memory,
+        array::ArrayData,
+        array::Int32Array,
+        buffer::Buffer,
+        datatypes::Field,
+        datatypes::{Int32Type, ToByteSlice},
+        memory,
         util::bit_util,
     };
 
     use super::*;
+
+    fn create_from_buffers() -> ListArray {
+        // Construct a value array
+        let value_data = ArrayData::builder(DataType::Int32)
+            .len(8)
+            .add_buffer(Buffer::from(&[0, 1, 2, 3, 4, 5, 6, 7].to_byte_slice()))
+            .build();
+
+        // Construct a buffer for value offsets, for the nested array:
+        //  [[0, 1, 2], [3, 4, 5], [6, 7]]
+        let value_offsets = Buffer::from(&[0, 3, 6, 8].to_byte_slice());
+
+        // Construct a list array from the above two
+        let list_data_type =
+            DataType::List(Box::new(Field::new("item", DataType::Int32, true)));
+        let list_data = ArrayData::builder(list_data_type)
+            .len(3)
+            .add_buffer(value_offsets)
+            .add_child_data(value_data)
+            .build();
+        ListArray::from(list_data)
+    }
+
+    #[test]
+    fn test_from_iter_primitive() {
+        let data = vec![
+            Some(vec![Some(0), Some(1), Some(2)]),
+            Some(vec![Some(3), Some(4), Some(5)]),
+            Some(vec![Some(6), Some(7)]),
+        ];
+        let list_array = ListArray::from_iter_primitive::<Int32Type, _, _>(data);
+
+        let another = create_from_buffers();
+        assert_eq!(list_array, another)
+    }
 
     #[test]
     fn test_list_array() {
