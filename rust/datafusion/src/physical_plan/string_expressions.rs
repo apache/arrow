@@ -14,6 +14,10 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
+//
+// Some of these functions reference the Postgres documentation
+// or implementation to ensure compatibility and are subject to
+// the Postgres license.
 
 //! String expressions
 use std::cmp::Ordering;
