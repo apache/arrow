@@ -850,6 +850,8 @@ macro_rules! unary_scalar_expr {
 }
 
 // generate methods for creating the supported unary expressions
+
+// math functions
 unary_scalar_expr!(Sqrt, sqrt);
 unary_scalar_expr!(Sin, sin);
 unary_scalar_expr!(Cos, cos);
@@ -867,24 +869,22 @@ unary_scalar_expr!(Exp, exp);
 unary_scalar_expr!(Log, ln);
 unary_scalar_expr!(Log2, log2);
 unary_scalar_expr!(Log10, log10);
+
+// string functions
+unary_scalar_expr!(BitLength, bit_length);
+unary_scalar_expr!(CharacterLength, character_length);
+unary_scalar_expr!(CharacterLength, length);
 unary_scalar_expr!(Lower, lower);
-unary_scalar_expr!(Trim, trim);
 unary_scalar_expr!(Ltrim, ltrim);
-unary_scalar_expr!(Rtrim, rtrim);
-unary_scalar_expr!(Upper, upper);
 unary_scalar_expr!(MD5, md5);
+unary_scalar_expr!(OctetLength, octet_length);
+unary_scalar_expr!(Rtrim, rtrim);
 unary_scalar_expr!(SHA224, sha224);
 unary_scalar_expr!(SHA256, sha256);
 unary_scalar_expr!(SHA384, sha384);
 unary_scalar_expr!(SHA512, sha512);
-
-/// returns the length of a string in bytes
-pub fn length(e: Expr) -> Expr {
-    Expr::ScalarFunction {
-        fun: functions::BuiltinScalarFunction::Length,
-        args: vec![e],
-    }
-}
+unary_scalar_expr!(Trim, trim);
+unary_scalar_expr!(Upper, upper);
 
 /// returns the concatenation of string expressions
 pub fn concat(args: Vec<Expr>) -> Expr {

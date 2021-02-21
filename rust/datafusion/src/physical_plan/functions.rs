@@ -45,9 +45,9 @@ use crate::{
 };
 use arrow::{
     array::ArrayRef,
-    compute::kernels::length::length,
+    compute::kernels::length::{bit_length, length},
     datatypes::TimeUnit,
-    datatypes::{DataType, Field, Schema},
+    datatypes::{DataType, Field, Int32Type, Int64Type, Schema},
     record_batch::RecordBatch,
 };
 use fmt::{Debug, Formatter};
@@ -118,8 +118,6 @@ pub enum BuiltinScalarFunction {
     Abs,
     /// signum
     Signum,
-    /// length
-    Length,
     /// concat
     Concat,
     /// lower
@@ -150,6 +148,12 @@ pub enum BuiltinScalarFunction {
     SHA384,
     /// SHA512,
     SHA512,
+    /// bit_length
+    BitLength,
+    /// character_length
+    CharacterLength,
+    /// octet_length
+    OctetLength,
 }
 
 impl fmt::Display for BuiltinScalarFunction {
@@ -180,9 +184,6 @@ impl FromStr for BuiltinScalarFunction {
             "truc" => BuiltinScalarFunction::Trunc,
             "abs" => BuiltinScalarFunction::Abs,
             "signum" => BuiltinScalarFunction::Signum,
-            "length" => BuiltinScalarFunction::Length,
-            "char_length" => BuiltinScalarFunction::Length,
-            "character_length" => BuiltinScalarFunction::Length,
             "concat" => BuiltinScalarFunction::Concat,
             "lower" => BuiltinScalarFunction::Lower,
             "trim" => BuiltinScalarFunction::Trim,
@@ -198,6 +199,11 @@ impl FromStr for BuiltinScalarFunction {
             "sha256" => BuiltinScalarFunction::SHA256,
             "sha384" => BuiltinScalarFunction::SHA384,
             "sha512" => BuiltinScalarFunction::SHA512,
+            "bit_length" => BuiltinScalarFunction::BitLength,
+            "octet_length" => BuiltinScalarFunction::OctetLength,
+            "length" => BuiltinScalarFunction::CharacterLength,
+            "char_length" => BuiltinScalarFunction::CharacterLength,
+            "character_length" => BuiltinScalarFunction::CharacterLength,
             _ => {
                 return Err(DataFusionError::Plan(format!(
                     "There is no built-in function named {}",
@@ -231,16 +237,6 @@ pub fn return_type(
     // the return type of the built in function.
     // Some built-in functions' return type depends on the incoming type.
     match fun {
-        BuiltinScalarFunction::Length => Ok(match arg_types[0] {
-            DataType::LargeUtf8 => DataType::Int64,
-            DataType::Utf8 => DataType::Int32,
-            _ => {
-                // this error is internal as `data_types` should have captured this.
-                return Err(DataFusionError::Internal(
-                    "The length function can only accept strings.".to_string(),
-                ));
-            }
-        }),
         BuiltinScalarFunction::Concat => Ok(DataType::Utf8),
         BuiltinScalarFunction::Lower => Ok(match arg_types[0] {
             DataType::LargeUtf8 => DataType::LargeUtf8,
@@ -357,6 +353,36 @@ pub fn return_type(
                 ));
             }
         }),
+        BuiltinScalarFunction::BitLength => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::Int64,
+            DataType::Utf8 => DataType::Int32,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The bit_length function can only accept strings.".to_string(),
+                ));
+            }
+        }),
+        BuiltinScalarFunction::CharacterLength => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::Int64,
+            DataType::Utf8 => DataType::Int32,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The character_length function can only accept strings.".to_string(),
+                ));
+            }
+        }),
+        BuiltinScalarFunction::OctetLength => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::Int64,
+            DataType::Utf8 => DataType::Int32,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The octet_length function can only accept strings.".to_string(),
+                ));
+            }
+        }),
         _ => Ok(DataType::Float64),
     }
 }
@@ -392,18 +418,6 @@ pub fn create_physical_expr(
         BuiltinScalarFunction::SHA256 => crypto_expressions::sha256,
         BuiltinScalarFunction::SHA384 => crypto_expressions::sha384,
         BuiltinScalarFunction::SHA512 => crypto_expressions::sha512,
-        BuiltinScalarFunction::Length => |args| match &args[0] {
-            ColumnarValue::Scalar(v) => match v {
-                ScalarValue::Utf8(v) => Ok(ColumnarValue::Scalar(ScalarValue::Int32(
-                    v.as_ref().map(|x| x.len() as i32),
-                ))),
-                ScalarValue::LargeUtf8(v) => Ok(ColumnarValue::Scalar(
-                    ScalarValue::Int64(v.as_ref().map(|x| x.len() as i64)),
-                )),
-                _ => unreachable!(),
-            },
-            ColumnarValue::Array(v) => Ok(ColumnarValue::Array(length(v.as_ref())?)),
-        },
         BuiltinScalarFunction::Concat => string_expressions::concatenate,
         BuiltinScalarFunction::Lower => string_expressions::lower,
         BuiltinScalarFunction::Trim => string_expressions::trim,
@@ -413,6 +427,42 @@ pub fn create_physical_expr(
         BuiltinScalarFunction::ToTimestamp => datetime_expressions::to_timestamp,
         BuiltinScalarFunction::DateTrunc => datetime_expressions::date_trunc,
         BuiltinScalarFunction::Array => array_expressions::array,
+        BuiltinScalarFunction::BitLength => |args| match &args[0] {
+            ColumnarValue::Array(v) => Ok(ColumnarValue::Array(bit_length(v.as_ref())?)),
+            ColumnarValue::Scalar(v) => match v {
+                ScalarValue::Utf8(v) => Ok(ColumnarValue::Scalar(ScalarValue::Int32(
+                    v.as_ref().map(|x| (x.len() * 8) as i32),
+                ))),
+                ScalarValue::LargeUtf8(v) => Ok(ColumnarValue::Scalar(
+                    ScalarValue::Int64(v.as_ref().map(|x| (x.len() * 8) as i64)),
+                )),
+                _ => unreachable!(),
+            },
+        },
+        BuiltinScalarFunction::CharacterLength => |args| match args[0].data_type() {
+            DataType::Utf8 => make_scalar_function(
+                string_expressions::character_length::<Int32Type>,
+            )(args),
+            DataType::LargeUtf8 => make_scalar_function(
+                string_expressions::character_length::<Int64Type>,
+            )(args),
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function character_length",
+                other,
+            ))),
+        },
+        BuiltinScalarFunction::OctetLength => |args| match &args[0] {
+            ColumnarValue::Array(v) => Ok(ColumnarValue::Array(length(v.as_ref())?)),
+            ColumnarValue::Scalar(v) => match v {
+                ScalarValue::Utf8(v) => Ok(ColumnarValue::Scalar(ScalarValue::Int32(
+                    v.as_ref().map(|x| x.len() as i32),
+                ))),
+                ScalarValue::LargeUtf8(v) => Ok(ColumnarValue::Scalar(
+                    ScalarValue::Int64(v.as_ref().map(|x| x.len() as i64)),
+                )),
+                _ => unreachable!(),
+            },
+        },
     });
     // coerce
     let args = coerce(args, input_schema, &signature(fun))?;
@@ -439,7 +489,9 @@ fn signature(fun: &BuiltinScalarFunction) -> Signature {
         BuiltinScalarFunction::Concat => Signature::Variadic(vec![DataType::Utf8]),
         BuiltinScalarFunction::Upper
         | BuiltinScalarFunction::Lower
-        | BuiltinScalarFunction::Length
+        | BuiltinScalarFunction::BitLength
+        | BuiltinScalarFunction::CharacterLength
+        | BuiltinScalarFunction::OctetLength
         | BuiltinScalarFunction::Trim
         | BuiltinScalarFunction::Ltrim
         | BuiltinScalarFunction::Rtrim
@@ -617,48 +669,135 @@ mod tests {
     };
     use arrow::{
         array::{
-            ArrayRef, FixedSizeListArray, Float64Array, Int32Array, StringArray,
+            Array, ArrayRef, FixedSizeListArray, Float64Array, Int32Array, StringArray,
             UInt32Array, UInt64Array,
         },
         datatypes::Field,
         record_batch::RecordBatch,
     };
 
-    fn generic_test_math(value: ScalarValue, expected: &str) -> Result<()> {
-        // any type works here: we evaluate against a literal of `value`
-        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
-        let columns: Vec<ArrayRef> = vec![Arc::new(Int32Array::from(vec![1]))];
+    /// $FUNC function to test
+    /// $ARGS arguments (vec) to pass to function
+    /// $EXPECTED a Result<Option<$EXPECTED_TYPE>> where Result allows testing errors and Option allows testing Null
+    /// $EXPECTED_TYPE is the expected value type
+    /// $DATA_TYPE is the function to test result type
+    /// $ARRAY_TYPE is the column type after function applied
+    macro_rules! test_function {
+        ($FUNC:ident, $ARGS:expr, $EXPECTED:expr, $EXPECTED_TYPE:ty, $DATA_TYPE: ident, $ARRAY_TYPE:ident) => {
+            // used to provide type annotation
+            let expected: Result<Option<$EXPECTED_TYPE>> = $EXPECTED;
 
-        let arg = lit(value);
+            // any type works here: we evaluate against a literal of `value`
+            let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
+            let columns: Vec<ArrayRef> = vec![Arc::new(Int32Array::from(vec![1]))];
 
-        let expr = create_physical_expr(&BuiltinScalarFunction::Exp, &[arg], &schema)?;
+            let expr =
+                create_physical_expr(&BuiltinScalarFunction::$FUNC, $ARGS, &schema)?;
 
-        // type is correct
-        assert_eq!(expr.data_type(&schema)?, DataType::Float64);
+            // type is correct
+            assert_eq!(expr.data_type(&schema)?, DataType::$DATA_TYPE);
 
-        // evaluate works
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), columns)?;
-        let result = expr.evaluate(&batch)?.into_array(batch.num_rows());
+            let batch = RecordBatch::try_new(Arc::new(schema.clone()), columns)?;
 
-        // downcast works
-        let result = result.as_any().downcast_ref::<Float64Array>().unwrap();
+            match expected {
+                Ok(expected) => {
+                    let result = expr.evaluate(&batch)?;
+                    let result = result.into_array(batch.num_rows());
+                    let result = result.as_any().downcast_ref::<$ARRAY_TYPE>().unwrap();
 
-        // value is correct
-        assert_eq!(result.value(0).to_string(), expected);
-
-        Ok(())
+                    // value is correct
+                    match expected {
+                        Some(v) => assert_eq!(result.value(0), v),
+                        None => assert!(result.is_null(0)),
+                    };
+                }
+                Err(expected_error) => {
+                    // evaluate is expected error - cannot use .expect_err() due to Debug not being implemented
+                    match expr.evaluate(&batch) {
+                        Ok(_) => assert!(false, "expected error"),
+                        Err(error) => {
+                            assert_eq!(error.to_string(), expected_error.to_string());
+                        }
+                    }
+                }
+            };
+        };
     }
 
     #[test]
-    fn test_math_function() -> Result<()> {
-        // 2.71828182845904523536... : https://oeis.org/A001113
-        let exp_f64 = "2.718281828459045";
-        let exp_f32 = "2.7182817459106445";
-        generic_test_math(ScalarValue::from(1i32), exp_f64)?;
-        generic_test_math(ScalarValue::from(1u32), exp_f64)?;
-        generic_test_math(ScalarValue::from(1u64), exp_f64)?;
-        generic_test_math(ScalarValue::from(1f64), exp_f64)?;
-        generic_test_math(ScalarValue::from(1f32), exp_f32)?;
+    fn test_functions() -> Result<()> {
+        test_function!(
+            CharacterLength,
+            &[lit(ScalarValue::Utf8(Some("chars".to_string())))],
+            Ok(Some(5)),
+            i32,
+            Int32,
+            Int32Array
+        );
+        test_function!(
+            CharacterLength,
+            &[lit(ScalarValue::Utf8(Some("josé".to_string())))],
+            Ok(Some(4)),
+            i32,
+            Int32,
+            Int32Array
+        );
+        test_function!(
+            CharacterLength,
+            &[lit(ScalarValue::Utf8(Some("".to_string())))],
+            Ok(Some(0)),
+            i32,
+            Int32,
+            Int32Array
+        );
+        test_function!(
+            CharacterLength,
+            &[lit(ScalarValue::Utf8(None))],
+            Ok(None),
+            i32,
+            Int32,
+            Int32Array
+        );
+        test_function!(
+            Exp,
+            &[lit(ScalarValue::Int32(Some(1)))],
+            Ok(Some((1.0_f64).exp())),
+            f64,
+            Float64,
+            Float64Array
+        );
+        test_function!(
+            Exp,
+            &[lit(ScalarValue::UInt32(Some(1)))],
+            Ok(Some((1.0_f64).exp())),
+            f64,
+            Float64,
+            Float64Array
+        );
+        test_function!(
+            Exp,
+            &[lit(ScalarValue::UInt64(Some(1)))],
+            Ok(Some((1.0_f64).exp())),
+            f64,
+            Float64,
+            Float64Array
+        );
+        test_function!(
+            Exp,
+            &[lit(ScalarValue::Float64(Some(1.0)))],
+            Ok(Some((1.0_f64).exp())),
+            f64,
+            Float64,
+            Float64Array
+        );
+        test_function!(
+            Exp,
+            &[lit(ScalarValue::Float32(Some(1.0)))],
+            Ok(Some((1.0_f32).exp() as f64)),
+            f64,
+            Float64,
+            Float64Array
+        );
         Ok(())
     }
 
