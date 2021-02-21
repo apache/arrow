@@ -42,6 +42,7 @@ RUN \
     gtk-doc \
     libzstd-devel \
     lz4-devel \
+    openssl-devel \
     pkg-config \
     python36 \
     python36-devel \

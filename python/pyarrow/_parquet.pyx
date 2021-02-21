@@ -36,6 +36,7 @@ from pyarrow.lib cimport (_Weakrefable, Buffer, Array, Schema,
                           pyarrow_wrap_schema,
                           pyarrow_wrap_table,
                           pyarrow_wrap_buffer,
+                          pyarrow_wrap_batch,
                           NativeFile, get_reader, get_writer)
 
 from pyarrow.lib import (ArrowException, NativeFile, BufferOutputStream,
@@ -318,6 +319,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
                                           self.total_uncompressed_size)
 
     def to_dict(self):
+        statistics = self.statistics.to_dict() if self.is_stats_set else None
         d = dict(
             file_offset=self.file_offset,
             file_path=self.file_path,
@@ -325,7 +327,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
             num_values=self.num_values,
             path_in_schema=self.path_in_schema,
             is_stats_set=self.is_stats_set,
-            statistics=self.statistics.to_dict(),
+            statistics=statistics,
             compression=self.compression,
             encodings=self.encodings,
             has_dictionary_page=self.has_dictionary_page,
@@ -1001,6 +1003,54 @@ cdef class ParquetReader(_Weakrefable):
     def set_use_threads(self, bint use_threads):
         self.reader.get().set_use_threads(use_threads)
 
+    def set_batch_size(self, int64_t batch_size):
+        self.reader.get().set_batch_size(batch_size)
+
+    def iter_batches(self, int64_t batch_size, row_groups, column_indices=None,
+                     bint use_threads=True):
+        cdef:
+            vector[int] c_row_groups
+            vector[int] c_column_indices
+            shared_ptr[CRecordBatch] record_batch
+            shared_ptr[TableBatchReader] batch_reader
+            unique_ptr[CRecordBatchReader] recordbatchreader
+
+        self.set_batch_size(batch_size)
+
+        if use_threads:
+            self.set_use_threads(use_threads)
+
+        for row_group in row_groups:
+            c_row_groups.push_back(row_group)
+
+        if column_indices is not None:
+            for index in column_indices:
+                c_column_indices.push_back(index)
+            with nogil:
+                check_status(
+                    self.reader.get().GetRecordBatchReader(
+                        c_row_groups, c_column_indices, &recordbatchreader
+                    )
+                )
+        else:
+            with nogil:
+                check_status(
+                    self.reader.get().GetRecordBatchReader(
+                        c_row_groups, &recordbatchreader
+                    )
+                )
+
+        while True:
+            with nogil:
+                check_status(
+                    recordbatchreader.get().ReadNext(&record_batch)
+                )
+
+            if record_batch.get() == NULL:
+                break
+
+            yield pyarrow_wrap_batch(record_batch)
+
     def read_row_group(self, int i, column_indices=None,
                        bint use_threads=True):
         return self.read_row_groups([i], column_indices, use_threads)
@@ -1159,7 +1209,7 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     elif compression is not None:
         for column, codec in compression.iteritems():
             check_compression_name(codec)
-            props.compression(column, compression_from_name(codec))
+            props.compression(tobytes(column), compression_from_name(codec))
 
     if isinstance(compression_level, int):
         props.compression_level(compression_level)

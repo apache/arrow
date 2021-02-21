@@ -27,17 +27,23 @@ from pyarrow._compute import (  # noqa
     VectorFunction,
     VectorKernel,
     # Option classes
+    ArraySortOptions,
     CastOptions,
     CountOptions,
     FilterOptions,
     MatchSubstringOptions,
+    MinMaxOptions,
+    ModeOptions,
     SplitOptions,
     SplitPatternOptions,
-    MinMaxOptions,
     PartitionNthOptions,
+    ProjectOptions,
+    QuantileOptions,
     SetLookupOptions,
+    SortOptions,
     StrptimeOptions,
     TakeOptions,
+    TrimOptions,
     VarianceOptions,
     # Functions
     function_registry,
@@ -61,7 +67,7 @@ def _get_arg_names(func):
             arg_names = ["left", "right"]
         else:
             raise NotImplementedError(
-                "unsupported arity: {}".format(func.arity))
+                f"unsupported arity: {func.arity} (function: {func.name})")
 
     return arg_names
 
@@ -115,7 +121,7 @@ def _decorate_compute_function(wrapper, exposed_name, func, option_class):
         doc_pieces.append("""\
             options : pyarrow.compute.{0}, optional
                 Parameters altering compute function semantics
-            **kwargs: optional
+            **kwargs : optional
                 Parameters for {0} constructor.  Either `options`
                 or `**kwargs` can be passed, but not both at the same time.
             """.format(option_class.__name__))
@@ -159,14 +165,14 @@ def _handle_options(name, option_class, options, kwargs):
 
 _wrapper_template = dedent("""\
     def make_wrapper(func, option_class):
-        def {func_name}({args_sig}, *, memory_pool=None):
+        def {func_name}({args_sig}{kwonly}, memory_pool=None):
             return func.call([{args_sig}], None, memory_pool)
         return {func_name}
     """)
 
 _wrapper_options_template = dedent("""\
     def make_wrapper(func, option_class):
-        def {func_name}({args_sig}, *, options=None, memory_pool=None,
+        def {func_name}({args_sig}{kwonly}, options=None, memory_pool=None,
                         **kwargs):
             options = _handle_options({func_name!r}, option_class, options,
                                       kwargs)
@@ -179,6 +185,7 @@ def _wrap_function(name, func):
     option_class = _get_options_class(func)
     arg_names = _get_arg_names(func)
     args_sig = ', '.join(arg_names)
+    kwonly = '' if arg_names[-1].startswith('*') else ', *'
 
     # Generate templated wrapper, so that the signature matches
     # the documented argument names.
@@ -187,7 +194,8 @@ def _wrap_function(name, func):
         template = _wrapper_options_template
     else:
         template = _wrapper_template
-    exec(template.format(func_name=name, args_sig=args_sig), globals(), ns)
+    exec(template.format(func_name=name, args_sig=args_sig, kwonly=kwonly),
+         globals(), ns)
     wrapper = ns['make_wrapper'](func, option_class)
 
     return _decorate_compute_function(wrapper, name, func, option_class)
@@ -308,11 +316,11 @@ def sum(array):
     return call_function('sum', [array])
 
 
-def mode(array):
+def mode(array, n=1):
     """
-    Return the mode (most common value) of a passed numerical
-    (chunked) array. If there is more than one such value, only
-    the smallest is returned.
+    Return top-n most common values and number of times they occur in a passed
+    numerical (chunked) array, in descending order of occurance. If there are
+    more than one values with same count, smaller one is returned first.
 
     Parameters
     ----------
@@ -320,18 +328,21 @@ def mode(array):
 
     Returns
     -------
-    mode : pyarrow.StructScalar
+    An array of <input type "Mode", int64_t "Count"> structs
 
     Examples
     --------
     >>> import pyarrow as pa
     >>> import pyarrow.compute as pc
     >>> arr = pa.array([1, 1, 2, 2, 3, 2, 2, 2])
-    >>> pc.mode(arr)
+    >>> modes = pc.mode(arr, 2)
+    >>> modes[0]
     <pyarrow.StructScalar: {'mode': 2, 'count': 5}>
-
+    >>> modes[1]
+    <pyarrow.StructScalar: {'mode': 1, 'count': 2}>
     """
-    return call_function("mode", [array])
+    options = ModeOptions(n=n)
+    return call_function("mode", [array], options)
 
 
 def filter(data, mask, null_selection_behavior='drop'):

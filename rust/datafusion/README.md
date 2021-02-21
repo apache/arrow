@@ -27,7 +27,7 @@ DataFusion can be used as a library by adding the following to your `Cargo.toml`
 
 ```toml
 [dependencies]
-datafusion = "3.0.0-SNAPSHOT"
+datafusion = "4.0.0-SNAPSHOT"
 ```
 
 ## Using DataFusion as a binary
@@ -50,14 +50,21 @@ DataFusion includes a simple command-line interactive SQL utility. See the [CLI 
 
 - [x] Projection
 - [x] Filter (WHERE)
+- [x] Filter post-aggregate (HAVING)
 - [x] Limit
 - [x] Aggregate
 - [x] UDFs (user-defined functions)
 - [x] UDAFs (user-defined aggregate functions)
 - [x] Common math functions
 - String functions
-  - [x] Length
+  - [x] bit_Length
+  - [x] char_length
+  - [x] character_length
+  - [x] length
+  - [x] octet_length
   - [x] Concatenate
+- Miscellaneous/Boolean functions
+  - [x] nullif
 - Common date/time functions
   - [ ] Basic date functions
   - [ ] Basic time functions
@@ -67,8 +74,9 @@ DataFusion includes a simple command-line interactive SQL utility. See the [CLI 
 - [x] Sorting
 - [ ] Nested types
 - [ ] Lists
-- [ ] Subqueries
+- [x] Subqueries
 - [ ] Joins
+- [ ] Window
 
 ## Data Sources
 
@@ -88,6 +96,13 @@ This library currently supports the following SQL constructs:
 * `WHERE` to filter
 * `GROUP BY` together with one of the following aggregations: `MIN`, `MAX`, `COUNT`, `SUM`, `AVG`
 * `ORDER BY` together with an expression and optional `ASC` or `DESC` and also optional `NULLS FIRST` or `NULLS LAST`
+
+## Supported Functions
+
+DataFusion strives to implement a subset of the [PostgreSQL SQL dialect](https://www.postgresql.org/docs/current/functions.html) where possible. We explicitly choose a single dialect to maximize interoperability with other tools and allow reuse of the PostgreSQL documents and tutorials as much as possible.
+
+Currently, only a subset of the PosgreSQL dialect is implemented, and we will document any deviations.
+
 
 ## Supported Data Types
 
@@ -113,9 +128,9 @@ are mapped to Arrow types according to the following table
 | `REAL`          | `Float64`                        |
 | `DOUBLE`        | `Float64`                        |
 | `BOOLEAN`       | `Boolean`                        |
-| `DATE`          | `Date64(DateUnit::Day)`          |
+| `DATE`          | `Date32`                         |
 | `TIME`          | `Time64(TimeUnit::Millisecond)`  |
-| `TIMESTAMP`     | `Date64(DateUnit::Millisecond)`  |
+| `TIMESTAMP`     | `Date64`                         |
 | `INTERVAL`      | *Not yet supported*              |
 | `REGCLASS`      | *Not yet supported*              |
 | `TEXT`          | *Not yet supported*              |
@@ -153,6 +168,10 @@ Below is a checklist of what you need to do to add a new scalar function to Data
   * a new line in `create_physical_expr` mapping the built-in to the implementation
   * tests to the function.
 * In [tests/sql.rs](tests/sql.rs), add a new test where the function is called through SQL against well known data and returns the expected result.
+* In [src/logical_plan/expr](src/logical_plan/expr.rs), add:
+  * a new entry of the `unary_scalar_expr!` macro for the new function.
+* In [src/logical_plan/mod](src/logical_plan/mod.rs), add:
+  * a new entry in the `pub use expr::{}` set.
 
 ## How to add a new aggregate function
 
@@ -171,3 +190,24 @@ Below is a checklist of what you need to do to add a new aggregate function to D
   * a new line in `create_aggregate_expr` mapping the built-in to the implementation
   * tests to the function.
 * In [tests/sql.rs](tests/sql.rs), add a new test where the function is called through SQL against well known data and returns the expected result.
+
+## How to display plans graphically
+
+The query plans represented by `LogicalPlan` nodes can be graphically
+rendered using [Graphviz](http://www.graphviz.org/).
+
+To do so, save the output of the `display_graphviz` function to a file.:
+
+```rust
+// Create plan somehow...
+let mut output = File::create("/tmp/plan.dot")?;
+write!(output, "{}", plan.display_graphviz());
+```
+
+Then, use the `dot` command line tool to render it into a file that
+can be displayed. For example, the following command creates a
+`/tmp/plan.pdf` file:
+
+```bash
+dot -Tpdf < /tmp/plan.dot > /tmp/plan.pdf
+```

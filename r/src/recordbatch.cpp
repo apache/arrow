@@ -43,6 +43,22 @@ std::shared_ptr<arrow::Schema> RecordBatch__schema(
 }
 
 // [[arrow::export]]
+std::shared_ptr<arrow::RecordBatch> RecordBatch__RenameColumns(
+    const std::shared_ptr<arrow::RecordBatch>& batch,
+    const std::vector<std::string>& names) {
+  int n = batch->num_columns();
+  if (names.size() != static_cast<size_t>(n)) {
+    cpp11::stop("RecordBatch has %d columns but %d names were provided", n, names.size());
+  }
+  std::vector<std::shared_ptr<arrow::Field>> fields(n);
+  for (int i = 0; i < n; i++) {
+    fields[i] = batch->schema()->field(i)->WithName(names[i]);
+  }
+  auto schema = std::make_shared<arrow::Schema>(std::move(fields));
+  return arrow::RecordBatch::Make(schema, batch->num_rows(), batch->columns());
+}
+
+// [[arrow::export]]
 std::shared_ptr<arrow::RecordBatch> RecordBatch__ReplaceSchemaMetadata(
     const std::shared_ptr<arrow::RecordBatch>& x, cpp11::strings metadata) {
   auto vec_metadata = cpp11::as_cpp<std::vector<std::string>>(metadata);
@@ -53,14 +69,13 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__ReplaceSchemaMetadata(
 }
 
 // [[arrow::export]]
-arrow::ArrayVector RecordBatch__columns(
-    const std::shared_ptr<arrow::RecordBatch>& batch) {
+cpp11::list RecordBatch__columns(const std::shared_ptr<arrow::RecordBatch>& batch) {
   auto nc = batch->num_columns();
   arrow::ArrayVector res(nc);
   for (int i = 0; i < nc; i++) {
     res[i] = batch->column(i);
   }
-  return res;
+  return arrow::r::to_r_list(res);
 }
 
 // [[arrow::export]]
@@ -81,12 +96,16 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__SelectColumns(
     const std::shared_ptr<arrow::RecordBatch>& batch, cpp11::integers indices) {
   R_xlen_t n = indices.size();
   auto nrows = batch->num_rows();
+  auto ncols = batch->num_columns();
 
   std::vector<std::shared_ptr<arrow::Field>> fields(n);
   std::vector<std::shared_ptr<arrow::Array>> columns(n);
 
   for (R_xlen_t i = 0; i < n; i++) {
     int pos = indices[i];
+    if (pos < 0 || pos > ncols - 1) {
+      cpp11::stop("Invalid column index %d to select columns.", pos);
+    }
     fields[i] = batch->schema()->field(pos);
     columns[i] = batch->column(pos);
   }
@@ -100,6 +119,22 @@ bool RecordBatch__Equals(const std::shared_ptr<arrow::RecordBatch>& self,
                          const std::shared_ptr<arrow::RecordBatch>& other,
                          bool check_metadata) {
   return self->Equals(*other, check_metadata);
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::RecordBatch> RecordBatch__AddColumn(
+    const std::shared_ptr<arrow::RecordBatch>& batch, R_xlen_t i,
+    const std::shared_ptr<arrow::Field>& field,
+    const std::shared_ptr<arrow::Array>& column) {
+  return ValueOrStop(batch->AddColumn(i, field, column));
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::RecordBatch> RecordBatch__SetColumn(
+    const std::shared_ptr<arrow::RecordBatch>& batch, R_xlen_t i,
+    const std::shared_ptr<arrow::Field>& field,
+    const std::shared_ptr<arrow::Array>& column) {
+  return ValueOrStop(batch->SetColumn(i, field, column));
 }
 
 // [[arrow::export]]

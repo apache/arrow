@@ -23,12 +23,12 @@ use crate::arrow::schema::{
     parquet_to_arrow_schema_by_columns, parquet_to_arrow_schema_by_root_columns,
 };
 use crate::errors::{ParquetError, Result};
+use crate::file::metadata::ParquetMetaData;
 use crate::file::reader::FileReader;
 use arrow::datatypes::{DataType as ArrowType, Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
 use arrow::{array::StructArray, error::ArrowError};
-use std::rc::Rc;
 use std::sync::Arc;
 
 /// Arrow reader api.
@@ -77,7 +77,7 @@ pub trait ArrowReader {
 }
 
 pub struct ParquetFileArrowReader {
-    file_reader: Rc<dyn FileReader>,
+    file_reader: Arc<dyn FileReader>,
 }
 
 impl ArrowReader for ParquetFileArrowReader {
@@ -147,13 +147,18 @@ impl ArrowReader for ParquetFileArrowReader {
             self.file_reader.clone(),
         )?;
 
-        Ok(ParquetRecordBatchReader::try_new(batch_size, array_reader)?)
+        ParquetRecordBatchReader::try_new(batch_size, array_reader)
     }
 }
 
 impl ParquetFileArrowReader {
-    pub fn new(file_reader: Rc<dyn FileReader>) -> Self {
+    pub fn new(file_reader: Arc<dyn FileReader>) -> Self {
         Self { file_reader }
+    }
+
+    // Expose the reader metadata
+    pub fn get_metadata(&mut self) -> ParquetMetaData {
+        self.file_reader.metadata().clone()
     }
 }
 
@@ -230,11 +235,13 @@ impl ParquetRecordBatchReader {
 mod tests {
     use crate::arrow::arrow_reader::{ArrowReader, ParquetFileArrowReader};
     use crate::arrow::converter::{
-        Converter, FixedSizeArrayConverter, FromConverter, Utf8ArrayConverter,
+        Converter, FixedSizeArrayConverter, FromConverter, IntervalDayTimeArrayConverter,
+        Utf8ArrayConverter,
     };
     use crate::column::writer::get_typed_column_writer_mut;
     use crate::data_type::{
-        BoolType, ByteArray, ByteArrayType, DataType, FixedLenByteArrayType, Int32Type,
+        BoolType, ByteArray, ByteArrayType, DataType, FixedLenByteArray,
+        FixedLenByteArrayType, Int32Type,
     };
     use crate::errors::Result;
     use crate::file::properties::WriterProperties;
@@ -243,19 +250,16 @@ mod tests {
     use crate::schema::parser::parse_message_type;
     use crate::schema::types::TypePtr;
     use crate::util::test_common::{get_temp_filename, RandGen};
-    use arrow::array::{
-        Array, BooleanArray, FixedSizeBinaryArray, StringArray, StructArray,
-    };
+    use arrow::array::*;
     use arrow::record_batch::RecordBatchReader;
     use rand::RngCore;
     use serde_json::json;
     use serde_json::Value::{Array as JArray, Null as JNull, Object as JObject};
     use std::cmp::min;
     use std::convert::TryFrom;
-    use std::env;
     use std::fs::File;
     use std::path::{Path, PathBuf};
-    use std::rc::Rc;
+    use std::sync::Arc;
 
     #[test]
     fn test_arrow_reader_all_columns() {
@@ -332,10 +336,10 @@ mod tests {
     struct RandFixedLenGen {}
 
     impl RandGen<FixedLenByteArrayType> for RandFixedLenGen {
-        fn gen(len: i32) -> ByteArray {
+        fn gen(len: i32) -> FixedLenByteArray {
             let mut v = vec![0u8; len as usize];
             rand::thread_rng().fill_bytes(&mut v);
-            v.into()
+            ByteArray::from(v).into()
         }
     }
 
@@ -354,6 +358,23 @@ mod tests {
             FixedSizeArrayConverter,
             RandFixedLenGen,
         >(20, message_type, &converter);
+    }
+
+    #[test]
+    fn test_interval_day_time_column_reader() {
+        let message_type = "
+        message test_schema {
+          REQUIRED FIXED_LEN_BYTE_ARRAY (12) leaf (INTERVAL);
+        }
+        ";
+
+        let converter = IntervalDayTimeArrayConverter {};
+        run_single_column_reader_tests::<
+            FixedLenByteArrayType,
+            IntervalDayTimeArray,
+            IntervalDayTimeArrayConverter,
+            RandFixedLenGen,
+        >(12, message_type, &converter);
     }
 
     struct RandUtf8Gen {}
@@ -379,6 +400,38 @@ mod tests {
             Utf8ArrayConverter,
             RandUtf8Gen,
         >(2, message_type, &converter);
+    }
+
+    #[test]
+    fn test_read_decimal_file() {
+        use arrow::array::DecimalArray;
+        let testdata = arrow::util::test_util::parquet_test_data();
+        let file_variants = vec![("fixed_length", 25), ("int32", 4), ("int64", 10)];
+        for (prefix, target_precision) in file_variants {
+            let path = format!("{}/{}_decimal.parquet", testdata, prefix);
+            let parquet_reader =
+                SerializedFileReader::try_from(File::open(&path).unwrap()).unwrap();
+            let mut arrow_reader = ParquetFileArrowReader::new(Arc::new(parquet_reader));
+
+            let mut record_reader = arrow_reader.get_record_reader(32).unwrap();
+
+            let batch = record_reader.next().unwrap().unwrap();
+            assert_eq!(batch.num_rows(), 24);
+            let col = batch
+                .column(0)
+                .as_any()
+                .downcast_ref::<DecimalArray>()
+                .unwrap();
+
+            let expected = 1..25;
+
+            assert_eq!(col.precision(), target_precision);
+            assert_eq!(col.scale(), 2);
+
+            for (i, v) in expected.enumerate() {
+                assert_eq!(col.value(i), v * 100_i128);
+            }
+        }
     }
 
     /// Parameters for single_column_reader_test
@@ -475,14 +528,14 @@ mod tests {
 
         let path = get_temp_filename();
 
-        let schema = parse_message_type(message_type).map(Rc::new).unwrap();
+        let schema = parse_message_type(message_type).map(Arc::new).unwrap();
 
         generate_single_column_file_with_data::<T>(&values, path.as_path(), schema)
             .unwrap();
 
         let parquet_reader =
             SerializedFileReader::try_from(File::open(&path).unwrap()).unwrap();
-        let mut arrow_reader = ParquetFileArrowReader::new(Rc::new(parquet_reader));
+        let mut arrow_reader = ParquetFileArrowReader::new(Arc::new(parquet_reader));
 
         let mut record_reader = arrow_reader
             .get_record_reader(opts.record_batch_size)
@@ -527,7 +580,7 @@ mod tests {
         schema: TypePtr,
     ) -> Result<()> {
         let file = File::create(path)?;
-        let writer_props = Rc::new(WriterProperties::builder().build());
+        let writer_props = Arc::new(WriterProperties::builder().build());
 
         let mut writer = SerializedFileWriter::new(file, schema, writer_props)?;
 
@@ -547,18 +600,18 @@ mod tests {
         writer.close()
     }
 
-    fn get_test_reader(file_name: &str) -> Rc<dyn FileReader> {
+    fn get_test_reader(file_name: &str) -> Arc<dyn FileReader> {
         let file = get_test_file(file_name);
 
         let reader =
             SerializedFileReader::new(file).expect("Failed to create serialized reader");
 
-        Rc::new(reader)
+        Arc::new(reader)
     }
 
     fn get_test_file(file_name: &str) -> File {
         let mut path = PathBuf::new();
-        path.push(env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined!"));
+        path.push(arrow::util::test_util::arrow_test_data());
         path.push(file_name);
 
         File::open(path.as_path()).expect("File not found!")
@@ -583,7 +636,7 @@ mod tests {
                 .next()
                 .map(|r| r.expect("Failed to read record batch!").into());
 
-            let (start, end) = (i * 60 as usize, (i + 1) * 60 as usize);
+            let (start, end) = (i * 60_usize, (i + 1) * 60_usize);
 
             if start < max_len {
                 assert!(array.is_some());

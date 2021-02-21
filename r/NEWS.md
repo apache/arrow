@@ -17,7 +17,52 @@
   under the License.
 -->
 
-# arrow 2.0.0.9000
+# arrow 3.0.0.9000
+
+* `value_counts()` to tabulate values in an `Array` or `ChunkedArray`, similar to `base::table()`.
+* `StructArray` objects gain data.frame-like methods, including `names()`, `$`, `[[`, and `dim()`.
+* RecordBatch columns can now be added, replaced, or removed by assigning (`<-`) with either `$` or `[[`
+
+# arrow 3.0.0
+
+## Python and Flight
+
+* Flight methods `flight_get()` and `flight_put()` (renamed from `push_data()` in this release) can handle both Tables and RecordBatches
+* `flight_put()` gains an `overwrite` argument to optionally check for the existence of a resource with the the same name
+* `list_flights()` and `flight_path_exists()` enable you to see available resources on a Flight server
+* `Schema` objects now have `r_to_py` and `py_to_r` methods
+* Schema metadata is correctly preserved when converting Tables to/from Python
+
+## Enhancements
+
+* Arithmetic operations (`+`, `*`, etc.) are supported on Arrays and ChunkedArrays and can be used in filter expressions in Arrow `dplyr` pipelines
+* Table columns can now be added, replaced, or removed by assigning (`<-`) with either `$` or `[[`
+* Column names of Tables and RecordBatches can be renamed by assigning `names()`
+* Large string types can now be written to Parquet files
+* The [pronouns `.data` and `.env`](https://rlang.r-lib.org/reference/tidyeval-data.html) are now fully supported in Arrow `dplyr` pipelines.
+* Option `arrow.skip_nul` (default `FALSE`, as in `base::scan()`) allows conversion of Arrow string (`utf8()`) type data containing embedded nul `\0` characters to R. If set to `TRUE`, nuls will be stripped and a warning is emitted if any are found.
+* `arrow_info()` for an overview of various run-time and build-time Arrow configurations, useful for debugging
+* Set environment variable `ARROW_DEFAULT_MEMORY_POOL` before loading the Arrow package to change memory allocators. Windows packages are built with `mimalloc`; most others are built with both `jemalloc` (used by default) and `mimalloc`. These alternative memory allocators are generally much faster than the system memory allocator, so they are used by default when available, but sometimes it is useful to turn them off for debugging purposes. To disable them, set `ARROW_DEFAULT_MEMORY_POOL=system`.
+* List columns that have attributes on each element are now also included with the metadata that is saved when creating Arrow tables. This allows `sf` tibbles to faithfully preserved and roundtripped ([ARROW-10386](https://issues.apache.org/jira/browse/ARROW-10386)).
+* R metadata that exceeds 100Kb is now compressed before being written to a table; see `schema()` for more details.
+
+## Bug fixes
+
+* Fixed a performance regression in converting Arrow string types to R that was present in the 2.0.0 release
+* C++ functions now trigger garbage collection when needed
+* `write_parquet()` can now write RecordBatches
+* Reading a Table from a RecordBatchStreamReader containing 0 batches no longer crashes
+* `readr`'s `problems` attribute is removed when converting to Arrow RecordBatch and table to prevent large amounts of metadata from accumulating inadvertently ([ARROW-10624](https://issues.apache.org/jira/browse/ARROW-10624))
+* Fixed reading of compressed Feather files written with Arrow 0.17 ([ARROW-10850](https://issues.apache.org/jira/browse/ARROW-10850))
+* `SubTreeFileSystem` gains a useful print method and no longer errors when printing
+
+## Packaging and installation
+
+* Nightly development versions of the conda `r-arrow` package are available with `conda install -c arrow-nightlies -c conda-forge --strict-channel-priority r-arrow`
+* Linux installation now safely supports older `cmake` versions
+* Compiler version checking for enabling S3 support correctly identifies the active compiler
+* Updated guidance and troubleshooting in `vignette("install", package = "arrow")`, especially for known CentOS issues
+* Operating system detection on Linux uses the [`distro`](https://enpiar.com/distro/) package. If your OS isn't correctly identified, please report an issue there.
 
 # arrow 2.0.0
 

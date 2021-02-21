@@ -342,7 +342,8 @@ class FileSerializer : public ParquetFileWriter::Contents {
         num_row_groups_(0),
         num_rows_(0),
         metadata_(FileMetaDataBuilder::Make(&schema_, properties_, key_value_metadata_)) {
-    if (sink_->Tell().ValueOrDie() == 0) {
+    PARQUET_ASSIGN_OR_THROW(int64_t position, sink_->Tell());
+    if (position == 0) {
       StartFile();
     } else {
       throw ParquetException("Appending to file not implemented.");

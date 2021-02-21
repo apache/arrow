@@ -18,6 +18,7 @@
 #pragma once
 
 #include <cstdint>
+#include <type_traits>
 
 #include "arrow/status.h"
 #include "arrow/util/visibility.h"
@@ -69,9 +70,29 @@ void DowncastUInts(const uint64_t* source, uint32_t* dest, int64_t length);
 ARROW_EXPORT
 void DowncastUInts(const uint64_t* source, uint64_t* dest, int64_t length);
 
+ARROW_EXPORT
+void UpcastInts(const int32_t* source, int64_t* dest, int64_t length);
+
+template <typename InputInt, typename OutputInt>
+inline typename std::enable_if<(sizeof(InputInt) >= sizeof(OutputInt))>::type CastInts(
+    const InputInt* source, OutputInt* dest, int64_t length) {
+  DowncastInts(source, dest, length);
+}
+
+template <typename InputInt, typename OutputInt>
+inline typename std::enable_if<(sizeof(InputInt) < sizeof(OutputInt))>::type CastInts(
+    const InputInt* source, OutputInt* dest, int64_t length) {
+  UpcastInts(source, dest, length);
+}
+
 template <typename InputInt, typename OutputInt>
 ARROW_EXPORT void TransposeInts(const InputInt* source, OutputInt* dest, int64_t length,
                                 const int32_t* transpose_map);
+
+ARROW_EXPORT
+Status TransposeInts(const DataType& src_type, const DataType& dest_type,
+                     const uint8_t* src, uint8_t* dest, int64_t src_offset,
+                     int64_t dest_offset, int64_t length, const int32_t* transpose_map);
 
 /// \brief Do vectorized boundschecking of integer-type array indices. The
 /// indices must be non-nonnegative and strictly less than the passed upper

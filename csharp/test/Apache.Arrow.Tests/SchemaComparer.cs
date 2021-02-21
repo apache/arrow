@@ -18,7 +18,7 @@ using Xunit;
 
 namespace Apache.Arrow.Tests
 {
-    public class SchemaComparer
+    public static class SchemaComparer
     {
         public static void Compare(Schema expected, Schema actual)
         {

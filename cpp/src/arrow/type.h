@@ -30,6 +30,7 @@
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"  // IWYU pragma: export
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/variant.h"
 #include "arrow/util/visibility.h"
@@ -180,6 +181,18 @@ class ARROW_EXPORT DataType : public detail::Fingerprintable {
 
 ARROW_EXPORT
 std::ostream& operator<<(std::ostream& os, const DataType& type);
+
+/// \brief Return the compatible physical data type
+///
+/// Some types may have distinct logical meanings but the exact same physical
+/// representation.  For example, TimestampType has Int64Type as a physical
+/// type (defined as TimestampType::PhysicalType).
+///
+/// The return value is as follows:
+/// - if a `PhysicalType` alias exists in the concrete type class, return
+///   an instance of `PhysicalType`.
+/// - otherwise, return the input type itself.
+std::shared_ptr<DataType> GetPhysicalType(const std::shared_ptr<DataType>& type);
 
 /// \brief Base class for all fixed-width data types
 class ARROW_EXPORT FixedWidthType : public DataType {
@@ -868,6 +881,11 @@ class ARROW_EXPORT DecimalType : public FixedSizeBinaryType {
   int32_t precision() const { return precision_; }
   int32_t scale() const { return scale_; }
 
+  /// \brief Returns the number of bytes needed for precision.
+  ///
+  /// precision must be >= 1
+  static int32_t DecimalSize(int32_t precision);
+
  protected:
   std::string ComputeFingerprint() const override;
 
@@ -893,6 +911,7 @@ class ARROW_EXPORT Decimal128Type : public DecimalType {
 
   static constexpr int32_t kMinPrecision = 1;
   static constexpr int32_t kMaxPrecision = 38;
+  static constexpr int32_t kByteWidth = 16;
 };
 
 /// \brief Concrete type class for 256-bit decimal data
@@ -913,6 +932,7 @@ class ARROW_EXPORT Decimal256Type : public DecimalType {
 
   static constexpr int32_t kMinPrecision = 1;
   static constexpr int32_t kMaxPrecision = 76;
+  static constexpr int32_t kByteWidth = 32;
 };
 
 /// \brief Concrete type class for union data
@@ -1320,36 +1340,6 @@ class ARROW_EXPORT DictionaryType : public FixedWidthType {
   bool ordered_;
 };
 
-/// \brief Helper class for incremental dictionary unification
-class ARROW_EXPORT DictionaryUnifier {
- public:
-  virtual ~DictionaryUnifier() = default;
-
-  /// \brief Construct a DictionaryUnifier
-  /// \param[in] value_type the data type of the dictionaries
-  /// \param[in] pool MemoryPool to use for memory allocations
-  static Result<std::unique_ptr<DictionaryUnifier>> Make(
-      std::shared_ptr<DataType> value_type, MemoryPool* pool = default_memory_pool());
-
-  /// \brief Append dictionary to the internal memo
-  virtual Status Unify(const Array& dictionary) = 0;
-
-  /// \brief Append dictionary and compute transpose indices
-  /// \param[in] dictionary the dictionary values to unify
-  /// \param[out] out_transpose a Buffer containing computed transpose indices
-  /// as int32_t values equal in length to the passed dictionary. The value in
-  /// each slot corresponds to the new index value for each original index
-  /// for a DictionaryArray with the old dictionary
-  virtual Status Unify(const Array& dictionary,
-                       std::shared_ptr<Buffer>* out_transpose) = 0;
-
-  /// \brief Return a result DictionaryType with the smallest possible index
-  /// type to accommodate the unified dictionary. The unifier cannot be used
-  /// after this is called
-  virtual Status GetResult(std::shared_ptr<DataType>* out_type,
-                           std::shared_ptr<Array>* out_dict) = 0;
-};
-
 // ----------------------------------------------------------------------
 // FieldRef
 
@@ -1367,9 +1357,7 @@ class ARROW_EXPORT DictionaryUnifier {
 /// FieldPaths provide a number of accessors for drilling down to potentially nested
 /// children. They are overloaded for convenience to support Schema (returns a field),
 /// DataType (returns a child field), Field (returns a child field of this field's type)
-/// Array (returns a child array), RecordBatch (returns a column), ChunkedArray (returns a
-/// ChunkedArray where each chunk is a child array of the corresponding original chunk)
-/// and Table (returns a column).
+/// Array (returns a child array), RecordBatch (returns a column).
 class ARROW_EXPORT FieldPath {
  public:
   FieldPath() = default;
@@ -1383,9 +1371,11 @@ class ARROW_EXPORT FieldPath {
   std::string ToString() const;
 
   size_t hash() const;
+  struct Hash {
+    size_t operator()(const FieldPath& path) const { return path.hash(); }
+  };
 
-  explicit operator bool() const { return !indices_.empty(); }
-  bool operator!() const { return indices_.empty(); }
+  bool empty() const { return indices_.empty(); }
   bool operator==(const FieldPath& other) const { return indices() == other.indices(); }
   bool operator!=(const FieldPath& other) const { return indices() != other.indices(); }
 
@@ -1402,11 +1392,10 @@ class ARROW_EXPORT FieldPath {
 
   /// \brief Retrieve the referenced column from a RecordBatch or Table
   Result<std::shared_ptr<Array>> Get(const RecordBatch& batch) const;
-  Result<std::shared_ptr<ChunkedArray>> Get(const Table& table) const;
 
-  /// \brief Retrieve the referenced child Array from an Array or ChunkedArray
+  /// \brief Retrieve the referenced child from an Array or ArrayData
   Result<std::shared_ptr<Array>> Get(const Array& array) const;
-  Result<std::shared_ptr<ChunkedArray>> Get(const ChunkedArray& array) const;
+  Result<std::shared_ptr<ArrayData>> Get(const ArrayData& data) const;
 
  private:
   std::vector<int> indices_;
@@ -1498,6 +1487,12 @@ class ARROW_EXPORT FieldRef {
   std::string ToString() const;
 
   size_t hash() const;
+  struct Hash {
+    size_t operator()(const FieldRef& ref) const { return ref.hash(); }
+  };
+
+  explicit operator bool() const { return Equals(FieldPath{}); }
+  bool operator!() const { return !Equals(FieldPath{}); }
 
   bool IsFieldPath() const { return util::holds_alternative<FieldPath>(impl_); }
   bool IsName() const { return util::holds_alternative<std::string>(impl_); }
@@ -1507,6 +1502,13 @@ class ARROW_EXPORT FieldRef {
     return true;
   }
 
+  const FieldPath* field_path() const {
+    return IsFieldPath() ? &util::get<FieldPath>(impl_) : NULLPTR;
+  }
+  const std::string* name() const {
+    return IsName() ? &util::get<std::string>(impl_) : NULLPTR;
+  }
+
   /// \brief Retrieve FieldPath of every child field which matches this FieldRef.
   std::vector<FieldPath> FindAll(const Schema& schema) const;
   std::vector<FieldPath> FindAll(const Field& field) const;
@@ -1514,10 +1516,9 @@ class ARROW_EXPORT FieldRef {
   std::vector<FieldPath> FindAll(const FieldVector& fields) const;
 
   /// \brief Convenience function which applies FindAll to arg's type or schema.
+  std::vector<FieldPath> FindAll(const ArrayData& array) const;
   std::vector<FieldPath> FindAll(const Array& array) const;
-  std::vector<FieldPath> FindAll(const ChunkedArray& array) const;
   std::vector<FieldPath> FindAll(const RecordBatch& batch) const;
-  std::vector<FieldPath> FindAll(const Table& table) const;
 
   /// \brief Convenience function: raise an error if matches is empty.
   template <typename T>
@@ -1587,22 +1588,32 @@ class ARROW_EXPORT FieldRef {
   template <typename T>
   Result<GetType<T>> GetOneOrNone(const T& root) const {
     ARROW_ASSIGN_OR_RAISE(auto match, FindOneOrNone(root));
-    if (match) {
-      return match.Get(root).ValueOrDie();
+    if (match.empty()) {
+      return static_cast<GetType<T>>(NULLPTR);
     }
-    return NULLPTR;
+    return match.Get(root).ValueOrDie();
   }
 
  private:
   void Flatten(std::vector<FieldRef> children);
 
-  util::variant<FieldPath, std::string, std::vector<FieldRef>> impl_;
+  util::Variant<FieldPath, std::string, std::vector<FieldRef>> impl_;
 
   ARROW_EXPORT friend void PrintTo(const FieldRef& ref, std::ostream* os);
 };
 
 // ----------------------------------------------------------------------
 // Schema
+
+enum class Endianness {
+  Little = 0,
+  Big = 1,
+#if ARROW_LITTLE_ENDIAN
+  Native = Little
+#else
+  Native = Big
+#endif
+};
 
 /// \class Schema
 /// \brief Sequence of arrow::Field objects describing the columns of a record
@@ -1611,6 +1622,9 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
                             public util::EqualityComparable<Schema>,
                             public util::ToStringOstreamable<Schema> {
  public:
+  explicit Schema(std::vector<std::shared_ptr<Field>> fields, Endianness endianness,
+                  std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
+
   explicit Schema(std::vector<std::shared_ptr<Field>> fields,
                   std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
 
@@ -1621,6 +1635,17 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
   /// Returns true if all of the schema fields are equal
   bool Equals(const Schema& other, bool check_metadata = false) const;
   bool Equals(const std::shared_ptr<Schema>& other, bool check_metadata = false) const;
+
+  /// \brief Set endianness in the schema
+  ///
+  /// \return new Schema
+  std::shared_ptr<Schema> WithEndianness(Endianness endianness) const;
+
+  /// \brief Return endianness in the schema
+  Endianness endianness() const;
+
+  /// \brief Indicate if endianness is equal to platform-native endianness
+  bool is_native_endian() const;
 
   /// \brief Return the number of fields (columns) in the schema
   int num_fields() const;
@@ -1650,7 +1675,7 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
   /// \brief The custom key-value metadata, if any
   ///
   /// \return metadata may be null
-  std::shared_ptr<const KeyValueMetadata> metadata() const;
+  const std::shared_ptr<const KeyValueMetadata>& metadata() const;
 
   /// \brief Render a string representation of the schema suitable for debugging
   /// \param[in] show_metadata when true, if KeyValueMetadata is non-empty,
@@ -1689,6 +1714,9 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
   class Impl;
   std::unique_ptr<Impl> impl_;
 };
+
+ARROW_EXPORT
+std::string EndiannessToString(Endianness endianness);
 
 // ----------------------------------------------------------------------
 

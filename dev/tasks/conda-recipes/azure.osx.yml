@@ -5,6 +5,7 @@ jobs:
   timeoutInMinutes: 360
   variables:
     CONFIG: {{ config }}
+    R_CONFIG: {{ r_config|default("") }}
     ARROW_VERSION: {{ arrow.no_rc_version }}
     UPLOAD_PACKAGES: False
   steps:
@@ -65,6 +66,12 @@ jobs:
         -m ./.ci_support/${CONFIG}.yaml \
         --clobber-file ./.ci_support/clobber_${CONFIG}.yaml \
         --output-folder ./build_artifacts
+
+      if [ ! -z "${R_CONFIG}" ]; then
+        conda build r-arrow \
+          -m ./.ci_support/r/${R_CONFIG}.yaml \
+          --output-folder ./build_artifacts
+      fi
     workingDirectory: arrow/dev/tasks/conda-recipes
     displayName: Build recipes
 

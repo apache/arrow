@@ -24,6 +24,7 @@
 
 #include <aws/core/Aws.h>
 #include <aws/core/client/RetryStrategy.h>
+#include <aws/core/http/HttpTypes.h>
 #include <aws/core/utils/DateTime.h>
 #include <aws/core/utils/StringUtils.h>
 
@@ -49,6 +50,29 @@ namespace internal {
 #define ARROW_AWS_ASSIGN_OR_RAISE(lhs, rexpr) \
   ARROW_AWS_ASSIGN_OR_RAISE_IMPL(             \
       ARROW_AWS_ASSIGN_OR_RAISE_NAME(_aws_error_or_value, __COUNTER__), lhs, rexpr);
+
+// XXX Should we expose this at some point?
+enum class S3Backend { Amazon, Minio, Other };
+
+// Detect the S3 backend type from the S3 server's response headers
+S3Backend DetectS3Backend(const Aws::Http::HeaderValueCollection& headers) {
+  const auto it = headers.find("server");
+  if (it != headers.end()) {
+    const auto& value = util::string_view(it->second);
+    if (value.find("AmazonS3") != std::string::npos) {
+      return S3Backend::Amazon;
+    }
+    if (value.find("MinIO") != std::string::npos) {
+      return S3Backend::Minio;
+    }
+  }
+  return S3Backend::Other;
+}
+
+template <typename Error>
+S3Backend DetectS3Backend(const Aws::Client::AWSError<Error>& error) {
+  return DetectS3Backend(error.GetResponseHeaders());
+}
 
 template <typename Error>
 inline bool IsConnectError(const Aws::Client::AWSError<Error>& error) {

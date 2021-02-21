@@ -25,28 +25,16 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/io/type_fwd.h"
 #include "arrow/ipc/message.h"
 #include "arrow/ipc/options.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
-class Buffer;
-class Schema;
-class Status;
-class Tensor;
-class SparseTensor;
-
-namespace io {
-
-class InputStream;
-class RandomAccessFile;
-
-}  // namespace io
-
 namespace ipc {
 
 class DictionaryMemo;
@@ -71,7 +59,6 @@ struct ReadStats {
   int64_t num_replaced_dictionaries = 0;
 };
 
-/// \class RecordBatchStreamReader
 /// \brief Synchronous batch stream reader that reads from io::InputStream
 ///
 /// This class reads the schema (plus any dictionaries) as the first messages
@@ -184,7 +171,6 @@ class ARROW_EXPORT RecordBatchFileReader {
   virtual ReadStats stats() const = 0;
 };
 
-/// \class Listener
 /// \brief A general listener class to receive events.
 ///
 /// You must implement callback methods for interested events.
@@ -227,7 +213,6 @@ class ARROW_EXPORT Listener {
   virtual Status OnSchemaDecoded(std::shared_ptr<Schema> schema);
 };
 
-/// \class CollectListener
 /// \brief Collect schema and record batches decoded by StreamDecoder.
 ///
 /// This API is EXPERIMENTAL.
@@ -261,7 +246,6 @@ class ARROW_EXPORT CollectListener : public Listener {
   std::vector<std::shared_ptr<RecordBatch>> record_batches_;
 };
 
-/// \class StreamDecoder
 /// \brief Push style stream decoder that receives data from user.
 ///
 /// This class decodes the Apache Arrow IPC streaming format data.
@@ -279,7 +263,7 @@ class ARROW_EXPORT StreamDecoder {
   /// Listener::OnRecordBatchDecoded() to receive decoded record batches
   /// \param[in] options any IPC reading options (optional)
   StreamDecoder(std::shared_ptr<Listener> listener,
-                const IpcReadOptions& options = IpcReadOptions::Defaults());
+                IpcReadOptions options = IpcReadOptions::Defaults());
 
   virtual ~StreamDecoder();
 
@@ -371,6 +355,9 @@ class ARROW_EXPORT StreamDecoder {
   /// \return the number of bytes needed to advance the state of the
   /// decoder
   int64_t next_required_size() const;
+
+  /// \brief Return current read statistics
+  ReadStats stats() const;
 
  private:
   class StreamDecoderImpl;
@@ -497,6 +484,8 @@ Result<std::shared_ptr<SparseTensor>> ReadSparseTensorPayload(const IpcPayload& 
 // For fuzzing targets
 ARROW_EXPORT
 Status FuzzIpcStream(const uint8_t* data, int64_t size);
+ARROW_EXPORT
+Status FuzzIpcTensorStream(const uint8_t* data, int64_t size);
 ARROW_EXPORT
 Status FuzzIpcFile(const uint8_t* data, int64_t size);
 

@@ -69,18 +69,20 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      "lower_utf8", NativeFunction::kNeedsContext),
 
       NativeFunction("castINT", {}, DataTypeVector{utf8()}, int32(), kResultNullIfNull,
-                     "gdv_fn_castINT_utf8", NativeFunction::kNeedsContext),
+                     "gdv_fn_castINT_utf8",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
       NativeFunction("castBIGINT", {}, DataTypeVector{utf8()}, int64(), kResultNullIfNull,
-                     "gdv_fn_castBIGINT_utf8", NativeFunction::kNeedsContext),
+                     "gdv_fn_castBIGINT_utf8",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
       NativeFunction("castFLOAT4", {}, DataTypeVector{utf8()}, float32(),
                      kResultNullIfNull, "gdv_fn_castFLOAT4_utf8",
-                     NativeFunction::kNeedsContext),
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
       NativeFunction("castFLOAT8", {}, DataTypeVector{utf8()}, float64(),
                      kResultNullIfNull, "gdv_fn_castFLOAT8_utf8",
-                     NativeFunction::kNeedsContext),
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
       NativeFunction("castVARCHAR", {}, DataTypeVector{utf8(), int64()}, utf8(),
                      kResultNullIfNull, "castVARCHAR_utf8_int64",

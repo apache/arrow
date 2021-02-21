@@ -19,6 +19,7 @@
 
 #include <cstdint>
 
+#include "arrow/util/endian.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
 
@@ -138,13 +139,13 @@ struct PARQUET_EXPORT LevelInfo {
 struct PARQUET_EXPORT ValidityBitmapInputOutput {
   // Input only.
   // The maximum number of values_read expected (actual
-  // values read must be less than or equal to this value.
+  // values read must be less than or equal to this value).
   // If this number is exceeded methods will throw a
   // ParquetException. Exceeding this limit indicates
   // either a corrupt or incorrectly written file.
   int64_t values_read_upper_bound = 0;
   // Output only. The number of values added to the encountered
-  // (this is logicallyt he count of the number of elements
+  // (this is logically the count of the number of elements
   // for an Arrow array).
   int64_t values_read = 0;
   // Input/Output. The number of nulls encountered.

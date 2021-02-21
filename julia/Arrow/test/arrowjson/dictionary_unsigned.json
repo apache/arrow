@@ -1,0 +1,323 @@
+{
+  "schema": {
+    "fields": [
+      {
+        "name": "f0",
+        "type": {
+          "name": "utf8"
+        },
+        "nullable": true,
+        "children": [],
+        "dictionary": {
+          "id": 0,
+          "indexType": {
+            "name": "int",
+            "isSigned": false,
+            "bitWidth": 8
+          },
+          "isOrdered": false
+        }
+      },
+      {
+        "name": "f1",
+        "type": {
+          "name": "utf8"
+        },
+        "nullable": true,
+        "children": [],
+        "dictionary": {
+          "id": 1,
+          "indexType": {
+            "name": "int",
+            "isSigned": false,
+            "bitWidth": 16
+          },
+          "isOrdered": false
+        }
+      },
+      {
+        "name": "f2",
+        "type": {
+          "name": "utf8"
+        },
+        "nullable": true,
+        "children": [],
+        "dictionary": {
+          "id": 2,
+          "indexType": {
+            "name": "int",
+            "isSigned": false,
+            "bitWidth": 32
+          },
+          "isOrdered": false
+        }
+      }
+    ]
+  },
+  "dictionaries": [
+    {
+      "id": 0,
+      "data": {
+        "count": 5,
+        "columns": [
+          {
+            "name": "DICT0",
+            "count": 5,
+            "VALIDITY": [
+              1,
+              1,
+              1,
+              1,
+              1
+            ],
+            "OFFSET": [
+              0,
+              7,
+              17,
+              26,
+              37,
+              45
+            ],
+            "DATA": [
+              "nai4kkd",
+              "1\u00a3n\u00a3\u00a336",
+              "2f\u77e2wei4",
+              "f\u00c2g\u00b5\u00b5m\u00f4",
+              "\u00b5r2bkd1"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 1,
+      "data": {
+        "count": 5,
+        "columns": [
+          {
+            "name": "DICT1",
+            "count": 5,
+            "VALIDITY": [
+              1,
+              0,
+              0,
+              1,
+              1
+            ],
+            "OFFSET": [
+              0,
+              7,
+              7,
+              7,
+              15,
+              23
+            ],
+            "DATA": [
+              "bor21pg",
+              "",
+              "",
+              "erohj\u00c2d",
+              "5\u00b0jogf2"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 2,
+      "data": {
+        "count": 5,
+        "columns": [
+          {
+            "name": "DICT2",
+            "count": 5,
+            "VALIDITY": [
+              0,
+              1,
+              1,
+              1,
+              1
+            ],
+            "OFFSET": [
+              0,
+              0,
+              10,
+              18,
+              29,
+              39
+            ],
+            "DATA": [
+              "",
+              "\u77e2\u00a3efhcg",
+              "lii\u00b5wwm",
+              "1\u20ace2\u77e24c",
+              "bio\u20ac\u00b04l"
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "batches": [
+    {
+      "count": 7,
+      "columns": [
+        {
+          "name": "f0",
+          "count": 7,
+          "VALIDITY": [
+            0,
+            1,
+            0,
+            1,
+            1,
+            1,
+            0
+          ],
+          "DATA": [
+            3,
+            1,
+            1,
+            0,
+            4,
+            1,
+            0
+          ]
+        },
+        {
+          "name": "f1",
+          "count": 7,
+          "VALIDITY": [
+            0,
+            0,
+            1,
+            0,
+            0,
+            1,
+            0
+          ],
+          "DATA": [
+            1,
+            2,
+            0,
+            2,
+            1,
+            0,
+            0
+          ]
+        },
+        {
+          "name": "f2",
+          "count": 7,
+          "VALIDITY": [
+            1,
+            0,
+            1,
+            0,
+            0,
+            1,
+            0
+          ],
+          "DATA": [
+            0,
+            3,
+            4,
+            3,
+            2,
+            0,
+            1
+          ]
+        }
+      ]
+    },
+    {
+      "count": 10,
+      "columns": [
+        {
+          "name": "f0",
+          "count": 10,
+          "VALIDITY": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            0,
+            0,
+            1
+          ],
+          "DATA": [
+            4,
+            3,
+            2,
+            2,
+            0,
+            2,
+            4,
+            2,
+            2,
+            0
+          ]
+        },
+        {
+          "name": "f1",
+          "count": 10,
+          "VALIDITY": [
+            0,
+            1,
+            1,
+            0,
+            0,
+            0,
+            1,
+            1,
+            0,
+            0
+          ],
+          "DATA": [
+            1,
+            0,
+            4,
+            4,
+            4,
+            2,
+            4,
+            2,
+            2,
+            4
+          ]
+        },
+        {
+          "name": "f2",
+          "count": 10,
+          "VALIDITY": [
+            0,
+            1,
+            1,
+            1,
+            0,
+            1,
+            0,
+            0,
+            1,
+            0
+          ],
+          "DATA": [
+            1,
+            1,
+            4,
+            0,
+            1,
+            1,
+            1,
+            4,
+            3,
+            2
+          ]
+        }
+      ]
+    }
+  ]
+}

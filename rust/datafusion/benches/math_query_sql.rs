@@ -37,7 +37,7 @@ use datafusion::datasource::MemTable;
 use datafusion::execution::context::ExecutionContext;
 
 fn query(ctx: Arc<Mutex<ExecutionContext>>, sql: &str) {
-    let mut rt = Runtime::new().unwrap();
+    let rt = Runtime::new().unwrap();
 
     // execute the query
     let df = ctx.lock().unwrap().sql(&sql).unwrap();
@@ -71,8 +71,8 @@ fn create_context(
     let mut ctx = ExecutionContext::new();
 
     // declare a table in memory. In spark API, this corresponds to createDataFrame(...).
-    let provider = MemTable::new(schema, vec![batches])?;
-    ctx.register_table("t", Box::new(provider));
+    let provider = MemTable::try_new(schema, vec![batches])?;
+    ctx.register_table("t", Arc::new(provider));
 
     Ok(Arc::new(Mutex::new(ctx)))
 }

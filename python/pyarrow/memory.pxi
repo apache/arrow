@@ -54,6 +54,13 @@ cdef class MemoryPool(_Weakrefable):
         ret = self.pool.max_memory()
         return ret if ret >= 0 else None
 
+    @property
+    def backend_name(self):
+        """
+        The name of the backend used by this MemoryPool (e.g. "jemalloc").
+        """
+        return frombytes(self.pool.backend_name())
+
 
 cdef CMemoryPool* maybe_unbox_memory_pool(MemoryPool memory_pool):
     if memory_pool is None:
@@ -118,6 +125,44 @@ def logging_memory_pool(MemoryPool parent):
     out.logging_pool.reset(new CLoggingMemoryPool(parent.pool))
     out.init(out.logging_pool.get())
     return out
+
+
+def system_memory_pool():
+    """
+    Return a memory pool based on the C malloc heap.
+    """
+    cdef:
+        MemoryPool pool = MemoryPool.__new__(MemoryPool)
+    pool.init(c_system_memory_pool())
+    return pool
+
+
+def jemalloc_memory_pool():
+    """
+    Return a memory pool based on the jemalloc heap.
+
+    NotImplementedError is raised if jemalloc support is not enabled.
+    """
+    cdef:
+        CMemoryPool* c_pool
+        MemoryPool pool = MemoryPool.__new__(MemoryPool)
+    check_status(c_jemalloc_memory_pool(&c_pool))
+    pool.init(c_pool)
+    return pool
+
+
+def mimalloc_memory_pool():
+    """
+    Return a memory pool based on the mimalloc heap.
+
+    NotImplementedError is raised if mimalloc support is not enabled.
+    """
+    cdef:
+        CMemoryPool* c_pool
+        MemoryPool pool = MemoryPool.__new__(MemoryPool)
+    check_status(c_mimalloc_memory_pool(&c_pool))
+    pool.init(c_pool)
+    return pool
 
 
 def set_memory_pool(MemoryPool pool):

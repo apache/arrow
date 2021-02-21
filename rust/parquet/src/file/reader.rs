@@ -18,7 +18,7 @@
 //! Contains file reader API and provides methods to access file metadata, row group
 //! readers to read individual column chunks, or access record iterator.
 
-use std::{boxed::Box, io::Read, rc::Rc};
+use std::{boxed::Box, io::Read, sync::Arc};
 
 use crate::column::page::PageIterator;
 use crate::column::{page::PageReader, reader::ColumnReader};
@@ -140,12 +140,12 @@ pub trait RowGroupReader {
 pub struct FilePageIterator {
     column_index: usize,
     row_group_indices: Box<Iterator<Item = usize>>,
-    file_reader: Rc<FileReader>,
+    file_reader: Arc<FileReader>,
 }
 
 impl FilePageIterator {
     /// Creates a page iterator for all row groups in file.
-    pub fn new(column_index: usize, file_reader: Rc<FileReader>) -> Result<Self> {
+    pub fn new(column_index: usize, file_reader: Arc<FileReader>) -> Result<Self> {
         let num_row_groups = file_reader.metadata().num_row_groups();
 
         let row_group_indices = Box::new(0..num_row_groups);
@@ -157,7 +157,7 @@ impl FilePageIterator {
     pub fn with_row_groups(
         column_index: usize,
         row_group_indices: Box<Iterator<Item = usize>>,
-        file_reader: Rc<FileReader>,
+        file_reader: Arc<FileReader>,
     ) -> Result<Self> {
         // Check that column_index is valid
         let num_columns = file_reader

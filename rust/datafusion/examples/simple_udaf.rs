@@ -47,8 +47,8 @@ fn create_context() -> Result<ExecutionContext> {
     let mut ctx = ExecutionContext::new();
 
     // declare a table in memory. In spark API, this corresponds to createDataFrame(...).
-    let provider = MemTable::new(schema, vec![vec![batch1], vec![batch2]])?;
-    ctx.register_table("t", Box::new(provider));
+    let provider = MemTable::try_new(schema, vec![vec![batch1], vec![batch2]])?;
+    ctx.register_table("t", Arc::new(provider));
     Ok(ctx)
 }
 
@@ -81,7 +81,7 @@ impl Accumulator for GeometricMean {
 
     // this function receives one entry per argument of this accumulator.
     // DataFusion calls this function on every row, and expects this function to update the accumulator's state.
-    fn update(&mut self, values: &Vec<ScalarValue>) -> Result<()> {
+    fn update(&mut self, values: &[ScalarValue]) -> Result<()> {
         // this is a one-argument UDAF, and thus we use `0`.
         let value = &values[0];
         match value {
@@ -100,7 +100,7 @@ impl Accumulator for GeometricMean {
 
     // this function receives states from other accumulators (Vec<ScalarValue>)
     // and updates the accumulator.
-    fn merge(&mut self, states: &Vec<ScalarValue>) -> Result<()> {
+    fn merge(&mut self, states: &[ScalarValue]) -> Result<()> {
         let prod = &states[0];
         let n = &states[1];
         match (prod, n) {
@@ -127,7 +127,7 @@ impl Accumulator for GeometricMean {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let mut ctx = create_context()?;
+    let ctx = create_context()?;
 
     // here is where we define the UDAF. We also declare its signature:
     let geometric_mean = create_udaf(
@@ -148,7 +148,7 @@ async fn main() -> Result<()> {
     let df = ctx.table("t")?;
 
     // perform the aggregation
-    let df = df.aggregate(vec![], vec![geometric_mean.call(vec![col("a")])])?;
+    let df = df.aggregate(&[], &[geometric_mean.call(vec![col("a")])])?;
 
     // note that "a" is f32, not f64. DataFusion coerces it to match the UDAF's signature.
 
@@ -163,7 +163,7 @@ async fn main() -> Result<()> {
         .unwrap();
 
     // verify that the calculation is correct
-    assert_eq!(result.value(0), 8.0);
+    assert!((result.value(0) - 8.0).abs() < f64::EPSILON);
     println!("The geometric mean of [2,4,8,64] is {}", result.value(0));
 
     Ok(())

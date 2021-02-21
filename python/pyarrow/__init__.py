@@ -64,9 +64,9 @@ import pyarrow.lib as _lib
 if _gc_enabled:
     _gc.enable()
 
-from pyarrow.lib import (BuildInfo, VersionInfo,
+from pyarrow.lib import (BuildInfo, RuntimeInfo, VersionInfo,
                          cpp_build_info, cpp_version, cpp_version_info,
-                         cpu_count, set_cpu_count)
+                         runtime_info, cpu_count, set_cpu_count)
 
 
 def show_versions():
@@ -155,9 +155,10 @@ from pyarrow.lib import (Buffer, ResizableBuffer, foreign_buffer, py_buffer,
 
 from pyarrow.lib import (MemoryPool, LoggingMemoryPool, ProxyMemoryPool,
                          total_allocated_bytes, set_memory_pool,
-                         default_memory_pool, logging_memory_pool,
-                         proxy_memory_pool, log_memory_allocations,
-                         jemalloc_set_decay_ms)
+                         default_memory_pool, system_memory_pool,
+                         jemalloc_memory_pool, mimalloc_memory_pool,
+                         logging_memory_pool, proxy_memory_pool,
+                         log_memory_allocations, jemalloc_set_decay_ms)
 
 # I/O
 from pyarrow.lib import (HdfsFile, NativeFile, PythonFile,
@@ -174,8 +175,10 @@ from pyarrow.lib import (ChunkedArray, RecordBatch, Table, table,
                          concat_arrays, concat_tables)
 
 # Exceptions
-from pyarrow.lib import (ArrowException,
+from pyarrow.lib import (ArrowCapacityError,
+                         ArrowException,
                          ArrowKeyError,
+                         ArrowIndexError,
                          ArrowInvalid,
                          ArrowIOError,
                          ArrowMemoryError,
@@ -242,11 +245,11 @@ if _sys.version_info >= (3, 7):
         if name in _deprecated:
             obj, new_name = _deprecated[name]
             _warnings.warn(_msg.format(name, new_name),
-                           DeprecationWarning, stacklevel=2)
+                           FutureWarning, stacklevel=2)
             return obj
         elif name in _serialization_deprecatd:
             _warnings.warn(_serialization_msg.format(name),
-                           DeprecationWarning, stacklevel=2)
+                           FutureWarning, stacklevel=2)
             return _serialization_deprecatd[name]
 
         raise AttributeError(

@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @include arrow-package.R
+#' @include arrow-datum.R
 
 #' @title ChunkedArray class
 #' @usage NULL
@@ -56,16 +56,16 @@
 #' @name ChunkedArray
 #' @seealso [Array]
 #' @export
-ChunkedArray <- R6Class("ChunkedArray", inherit = ArrowObject,
+ChunkedArray <- R6Class("ChunkedArray", inherit = ArrowDatum,
   public = list(
     length = function() ChunkedArray__length(self),
     chunk = function(i) Array$create(ChunkedArray__chunk(self, i)),
     as_vector = function() ChunkedArray__as_vector(self),
     Slice = function(offset, length = NULL){
       if (is.null(length)) {
-        shared_ptr(ChunkedArray, ChunkedArray__Slice1(self, offset))
+        ChunkedArray__Slice1(self, offset)
       } else {
-        shared_ptr(ChunkedArray, ChunkedArray__Slice2(self, offset, length))
+        ChunkedArray__Slice2(self, offset, length)
       }
     },
     Take = function(i) {
@@ -75,20 +75,16 @@ ChunkedArray <- R6Class("ChunkedArray", inherit = ArrowObject,
       if (is.integer(i)) {
         i <- Array$create(i)
       }
-      shared_ptr(ChunkedArray, call_function("take", self, i))
+      call_function("take", self, i)
     },
     Filter = function(i, keep_na = TRUE) {
       if (is.logical(i)) {
         i <- Array$create(i)
       }
-      shared_ptr(ChunkedArray, call_function("filter", self, i, options = list(keep_na = keep_na)))
-    },
-    cast = function(target_type, safe = TRUE, options = cast_options(safe)) {
-      assert_is(options, "CastOptions")
-      shared_ptr(ChunkedArray, ChunkedArray__cast(self, as_type(target_type), options))
+      call_function("filter", self, i, options = list(keep_na = keep_na))
     },
     View = function(type) {
-      shared_ptr(ChunkedArray, ChunkedArray__View(self, as_type(type)))
+      ChunkedArray__View(self, as_type(type))
     },
     Validate = function() {
       ChunkedArray__Validate(self)
@@ -104,7 +100,7 @@ ChunkedArray <- R6Class("ChunkedArray", inherit = ArrowObject,
     null_count = function() ChunkedArray__null_count(self),
     num_chunks = function() ChunkedArray__num_chunks(self),
     chunks = function() map(ChunkedArray__chunks(self), Array$create),
-    type = function() DataType$create(ChunkedArray__type(self))
+    type = function() ChunkedArray__type(self)
   )
 )
 
@@ -112,7 +108,7 @@ ChunkedArray$create <- function(..., type = NULL) {
   if (!is.null(type)) {
     type <- as_type(type)
   }
-  shared_ptr(ChunkedArray, ChunkedArray__from_list(list2(...), type))
+  ChunkedArray__from_list(list2(...), type)
 }
 
 #' @param \dots Vectors to coerce
@@ -120,30 +116,3 @@ ChunkedArray$create <- function(..., type = NULL) {
 #' @rdname ChunkedArray
 #' @export
 chunked_array <- ChunkedArray$create
-
-#' @export
-length.ChunkedArray <- function(x) x$length()
-
-#' @export
-as.vector.ChunkedArray <- function(x, mode) x$as_vector()
-
-#' @export
-is.na.ChunkedArray <- function(x) shared_ptr(ChunkedArray, call_function("is_null", x))
-
-#' @export
-`[.ChunkedArray` <- filter_rows
-
-#' @export
-head.ChunkedArray <- head.Array
-
-#' @export
-tail.ChunkedArray <- tail.Array
-
-#' @export
-as.double.ChunkedArray <- as.double.Array
-
-#' @export
-as.integer.ChunkedArray <- as.integer.Array
-
-#' @export
-as.character.ChunkedArray <- as.character.Array

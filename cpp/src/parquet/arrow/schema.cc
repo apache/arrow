@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "arrow/extension_type.h"
+#include "arrow/io/memory.h"
 #include "arrow/ipc/api.h"
 #include "arrow/result_internal.h"
 #include "arrow/type.h"
@@ -35,6 +36,7 @@
 #include "parquet/properties.h"
 #include "parquet/types.h"
 
+using arrow::DecimalType;
 using arrow::Field;
 using arrow::FieldVector;
 using arrow::KeyValueMetadata;
@@ -54,7 +56,6 @@ using ParquetType = parquet::Type;
 using parquet::ConvertedType;
 using parquet::LogicalType;
 
-using parquet::internal::DecimalSize;
 using parquet::internal::LevelInfo;
 
 namespace parquet {
@@ -65,7 +66,8 @@ namespace arrow {
 // Parquet to Arrow schema conversion
 
 namespace {
-Repetition::type RepitionFromNullable(bool is_nullable) {
+
+Repetition::type RepetitionFromNullable(bool is_nullable) {
   return is_nullable ? Repetition::OPTIONAL : Repetition::REQUIRED;
 }
 
@@ -84,8 +86,8 @@ Status ListToNode(const std::shared_ptr<::arrow::BaseListType>& type,
                             &element));
 
   NodePtr list = GroupNode::Make("list", Repetition::REPEATED, {element});
-  *out =
-      GroupNode::Make(name, RepitionFromNullable(nullable), {list}, LogicalType::List());
+  *out = GroupNode::Make(name, RepetitionFromNullable(nullable), {list},
+                         LogicalType::List());
   return Status::OK();
 }
 
@@ -103,7 +105,7 @@ Status MapToNode(const std::shared_ptr<::arrow::MapType>& type, const std::strin
 
   NodePtr key_value =
       GroupNode::Make("key_value", Repetition::REPEATED, {key_node, value_node});
-  *out = GroupNode::Make(name, RepitionFromNullable(nullable), {key_value},
+  *out = GroupNode::Make(name, RepetitionFromNullable(nullable), {key_value},
                          LogicalType::Map());
   return Status::OK();
 }
@@ -113,12 +115,21 @@ Status StructToNode(const std::shared_ptr<::arrow::StructType>& type,
                     const WriterProperties& properties,
                     const ArrowWriterProperties& arrow_properties, NodePtr* out) {
   std::vector<NodePtr> children(type->num_fields());
-  for (int i = 0; i < type->num_fields(); i++) {
-    RETURN_NOT_OK(FieldToNode(type->field(i)->name(), type->field(i), properties,
-                              arrow_properties, &children[i]));
+  if (type->num_fields() != 0) {
+    for (int i = 0; i < type->num_fields(); i++) {
+      RETURN_NOT_OK(FieldToNode(type->field(i)->name(), type->field(i), properties,
+                                arrow_properties, &children[i]));
+    }
+  } else {
+    // XXX (ARROW-10928) We could add a dummy primitive node but that would
+    // require special handling when writing and reading, to avoid column index
+    // mismatches.
+    return Status::NotImplemented("Cannot write struct type '", name,
+                                  "' with no child field to Parquet. "
+                                  "Consider adding a dummy child field.");
   }
 
-  *out = GroupNode::Make(name, RepitionFromNullable(nullable), children);
+  *out = GroupNode::Make(name, RepetitionFromNullable(nullable), std::move(children));
   return Status::OK();
 }
 
@@ -225,7 +236,7 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
                    const ArrowWriterProperties& arrow_properties, NodePtr* out) {
   std::shared_ptr<const LogicalType> logical_type = LogicalType::None();
   ParquetType::type type;
-  Repetition::type repetition = RepitionFromNullable(field->nullable());
+  Repetition::type repetition = RepetitionFromNullable(field->nullable());
 
   int length = -1;
   int precision = -1;
@@ -297,12 +308,13 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
           static_cast<const ::arrow::FixedSizeBinaryType&>(*field->type());
       length = fixed_size_binary_type.byte_width();
     } break;
-    case ArrowTypeId::DECIMAL: {
+    case ArrowTypeId::DECIMAL128:
+    case ArrowTypeId::DECIMAL256: {
       type = ParquetType::FIXED_LEN_BYTE_ARRAY;
       const auto& decimal_type = static_cast<const ::arrow::DecimalType&>(*field->type());
       precision = decimal_type.precision();
       scale = decimal_type.scale();
-      length = DecimalSize(precision);
+      length = DecimalType::DecimalSize(precision);
       PARQUET_CATCH_NOT_OK(logical_type = LogicalType::Decimal(precision, scale));
     } break;
     case ArrowTypeId::DATE32:
@@ -851,11 +863,15 @@ Result<bool> ApplyOriginalStorageMetadata(const Field& origin_field,
     const auto& ts_origin_type =
         checked_cast<const ::arrow::TimestampType&>(*origin_type);
 
-    // If the unit is the same and the data is tz-aware, then set the original
-    // time zone, since Parquet has no native storage for timezones
-    if (ts_type.unit() == ts_origin_type.unit() && ts_type.timezone() == "UTC" &&
-        ts_origin_type.timezone() != "") {
-      inferred->field = inferred->field->WithType(origin_type);
+    // If the data is tz-aware, then set the original time zone, since Parquet
+    // has no native storage for timezones
+    if (ts_type.timezone() == "UTC" && ts_origin_type.timezone() != "") {
+      if (ts_type.unit() == ts_origin_type.unit()) {
+        inferred->field = inferred->field->WithType(origin_type);
+      } else {
+        auto ts_type_new = ::arrow::timestamp(ts_type.unit(), ts_origin_type.timezone());
+        inferred->field = inferred->field->WithType(ts_type_new);
+      }
     }
     modified = true;
   }
@@ -869,6 +885,21 @@ Result<bool> ApplyOriginalStorageMetadata(const Field& origin_field,
         checked_cast<const ::arrow::DictionaryType&>(*origin_type);
     inferred->field = inferred->field->WithType(
         ::arrow::dictionary(::arrow::int32(), inferred_type, dict_origin_type.ordered()));
+    modified = true;
+  }
+
+  if ((origin_type->id() == ::arrow::Type::LARGE_BINARY &&
+       inferred_type->id() == ::arrow::Type::BINARY) ||
+      (origin_type->id() == ::arrow::Type::LARGE_STRING &&
+       inferred_type->id() == ::arrow::Type::STRING)) {
+    // Read back binary-like arrays with the intended offset width.
+    inferred->field = inferred->field->WithType(origin_type);
+    modified = true;
+  }
+
+  if (origin_type->id() == ::arrow::Type::DECIMAL256 &&
+      inferred_type->id() == ::arrow::Type::DECIMAL128) {
+    inferred->field = inferred->field->WithType(origin_type);
     modified = true;
   }
 

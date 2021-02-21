@@ -40,6 +40,25 @@ where
         .expect("Unable to downcast to dictionary array")
 }
 
+#[doc = "Force downcast ArrayRef to GenericListArray"]
+pub fn as_generic_list_array<S: OffsetSizeTrait>(arr: &ArrayRef) -> &GenericListArray<S> {
+    arr.as_any()
+        .downcast_ref::<GenericListArray<S>>()
+        .expect("Unable to downcast to list array")
+}
+
+#[doc = "Force downcast ArrayRef to ListArray"]
+#[inline]
+pub fn as_list_array(arr: &ArrayRef) -> &ListArray {
+    as_generic_list_array::<i32>(arr)
+}
+
+#[doc = "Force downcast ArrayRef to LargeListArray"]
+#[inline]
+pub fn as_large_list_array(arr: &ArrayRef) -> &LargeListArray {
+    as_generic_list_array::<i64>(arr)
+}
+
 macro_rules! array_downcast_fn {
     ($name: ident, $arrty: ty, $arrty_str:expr) => {
         #[doc = "Force downcast ArrayRef to "]
@@ -59,5 +78,7 @@ macro_rules! array_downcast_fn {
 }
 
 array_downcast_fn!(as_string_array, StringArray);
+array_downcast_fn!(as_largestring_array, LargeStringArray);
 array_downcast_fn!(as_boolean_array, BooleanArray);
 array_downcast_fn!(as_null_array, NullArray);
+array_downcast_fn!(as_struct_array, StructArray);

@@ -25,27 +25,19 @@ use arrow::ipc::writer::StreamWriter;
 
 fn main() -> Result<()> {
     let args: Vec<String> = env::args().collect();
-    eprintln!("{:?}", args);
-
     let filename = &args[1];
-    eprintln!("Reading from Arrow file {}", filename);
-
     let f = File::open(filename)?;
     let reader = BufReader::new(f);
-    let reader = FileReader::try_new(reader)?;
+    let mut reader = FileReader::try_new(reader)?;
     let schema = reader.schema();
 
     let mut writer = StreamWriter::try_new(io::stdout(), &schema)?;
 
-    reader
-        .map(|batch| {
-            let batch = batch?;
-            writer.write(&batch)
-        })
-        .collect::<Result<()>>()?;
+    reader.try_for_each(|batch| {
+        let batch = batch?;
+        writer.write(&batch)
+    })?;
     writer.finish()?;
-
-    eprintln!("Completed without error");
 
     Ok(())
 }

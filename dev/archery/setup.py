@@ -21,12 +21,14 @@ import operator
 import sys
 from setuptools import setup
 
-if sys.version_info < (3, 5):
-    sys.exit('Python < 3.5 is not supported')
+if sys.version_info < (3, 6):
+    sys.exit('Python < 3.6 is not supported')
 
 extras = {
     'benchmark': ['pandas'],
-    'bot': ['ruamel.yaml', 'pygithub'],
+    # bot extra includes crossbow's dependencies
+    'bot': ['ruamel.yaml', 'pygithub', 'github3.py', 'jinja2', 'jira',
+            'pygit2', 'setuptools_scm', 'toolz'],
     'docker': ['ruamel.yaml', 'python-dotenv'],
     'release': ['jinja2', 'jira', 'semver', 'gitpython']
 }

@@ -18,13 +18,16 @@
 #include "arrow/testing/random.h"
 
 #include <algorithm>
+#include <limits>
 #include <memory>
 #include <random>
+#include <type_traits>
 #include <vector>
 
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
+#include "arrow/array/builder_primitive.h"
 #include "arrow/buffer.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
@@ -32,29 +35,61 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_reader.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
+
+using internal::checked_cast;
+
 namespace random {
 
 namespace {
 
 template <typename ValueType, typename DistributionType>
 struct GenerateOptions {
-  GenerateOptions(SeedType seed, ValueType min, ValueType max, double probability)
-      : min_(min), max_(max), seed_(seed), probability_(probability) {}
+  GenerateOptions(SeedType seed, ValueType min, ValueType max, double probability,
+                  double nan_probability = 0.0)
+      : min_(min),
+        max_(max),
+        seed_(seed),
+        probability_(probability),
+        nan_probability_(nan_probability) {}
 
   void GenerateData(uint8_t* buffer, size_t n) {
     GenerateTypedData(reinterpret_cast<ValueType*>(buffer), n);
   }
 
-  void GenerateTypedData(ValueType* data, size_t n) {
+  template <typename V>
+  typename std::enable_if<!std::is_floating_point<V>::value>::type GenerateTypedData(
+      V* data, size_t n) {
+    GenerateTypedDataNoNan(data, n);
+  }
+
+  template <typename V>
+  typename std::enable_if<std::is_floating_point<V>::value>::type GenerateTypedData(
+      V* data, size_t n) {
+    if (nan_probability_ == 0.0) {
+      GenerateTypedDataNoNan(data, n);
+      return;
+    }
+    std::default_random_engine rng(seed_++);
+    DistributionType dist(min_, max_);
+    std::bernoulli_distribution nan_dist(nan_probability_);
+    const ValueType nan_value = std::numeric_limits<ValueType>::quiet_NaN();
+
+    // A static cast is required due to the int16 -> int8 handling.
+    std::generate(data, data + n, [&] {
+      return nan_dist(rng) ? nan_value : static_cast<ValueType>(dist(rng));
+    });
+  }
+
+  void GenerateTypedDataNoNan(ValueType* data, size_t n) {
     std::default_random_engine rng(seed_++);
     DistributionType dist(min_, max_);
 
     // A static cast is required due to the int16 -> int8 handling.
-    std::generate(data, data + n,
-                  [&dist, &rng] { return static_cast<ValueType>(dist(rng)); });
+    std::generate(data, data + n, [&] { return static_cast<ValueType>(dist(rng)); });
   }
 
   void GenerateBitmap(uint8_t* buffer, size_t n, int64_t* null_count) {
@@ -77,6 +112,7 @@ struct GenerateOptions {
   ValueType max_;
   SeedType seed_;
   double probability_;
+  double nan_probability_;
 };
 
 }  // namespace
@@ -165,14 +201,23 @@ PRIMITIVE_RAND_INTEGER_IMPL(Int64, int64_t, Int64Type)
 // Generate 16bit values for half-float
 PRIMITIVE_RAND_INTEGER_IMPL(Float16, int16_t, HalfFloatType)
 
-#define PRIMITIVE_RAND_FLOAT_IMPL(Name, CType, ArrowType) \
-  PRIMITIVE_RAND_IMPL(Name, CType, ArrowType, std::uniform_real_distribution<CType>)
+std::shared_ptr<Array> RandomArrayGenerator::Float32(int64_t size, float min, float max,
+                                                     double null_probability,
+                                                     double nan_probability) {
+  using OptionType = GenerateOptions<float, std::uniform_real_distribution<float>>;
+  OptionType options(seed(), min, max, null_probability, nan_probability);
+  return GenerateNumericArray<FloatType, OptionType>(size, options);
+}
 
-PRIMITIVE_RAND_FLOAT_IMPL(Float32, float, FloatType)
-PRIMITIVE_RAND_FLOAT_IMPL(Float64, double, DoubleType)
+std::shared_ptr<Array> RandomArrayGenerator::Float64(int64_t size, double min, double max,
+                                                     double null_probability,
+                                                     double nan_probability) {
+  using OptionType = GenerateOptions<double, std::uniform_real_distribution<double>>;
+  OptionType options(seed(), min, max, null_probability, nan_probability);
+  return GenerateNumericArray<DoubleType, OptionType>(size, options);
+}
 
 #undef PRIMITIVE_RAND_INTEGER_IMPL
-#undef PRIMITIVE_RAND_FLOAT_IMPL
 #undef PRIMITIVE_RAND_IMPL
 
 template <typename TypeClass>
@@ -267,6 +312,29 @@ std::shared_ptr<Array> RandomArrayGenerator::StringWithRepeats(int64_t size,
   return result;
 }
 
+std::shared_ptr<Array> RandomArrayGenerator::FixedSizeBinary(int64_t size,
+                                                             int32_t byte_width,
+                                                             double null_probability) {
+  if (null_probability < 0 || null_probability > 1) {
+    ABORT_NOT_OK(Status::Invalid("null_probability must be between 0 and 1"));
+  }
+
+  // Visual Studio does not implement uniform_int_distribution for char types.
+  using GenOpt = GenerateOptions<uint8_t, std::uniform_int_distribution<uint16_t>>;
+  GenOpt options(seed(), static_cast<uint8_t>('A'), static_cast<uint8_t>('z'),
+                 null_probability);
+
+  int64_t null_count = 0;
+  auto null_bitmap = *AllocateEmptyBitmap(size);
+  auto data_buffer = *AllocateBuffer(size * byte_width);
+  options.GenerateBitmap(null_bitmap->mutable_data(), size, &null_count);
+  options.GenerateData(data_buffer->mutable_data(), size * byte_width);
+
+  auto type = fixed_size_binary(byte_width);
+  return std::make_shared<FixedSizeBinaryArray>(type, size, std::move(data_buffer),
+                                                std::move(null_bitmap), null_count);
+}
+
 std::shared_ptr<Array> RandomArrayGenerator::Offsets(int64_t size, int32_t first_offset,
                                                      int32_t last_offset,
                                                      double null_probability,
@@ -319,6 +387,43 @@ std::shared_ptr<Array> RandomArrayGenerator::List(const Array& values, int64_t s
                          static_cast<int32_t>(values.offset() + values.length()),
                          null_probability, force_empty_nulls);
   return *::arrow::ListArray::FromArrays(*offsets, values);
+}
+
+std::shared_ptr<Array> RandomArrayGenerator::SparseUnion(const ArrayVector& fields,
+                                                         int64_t size) {
+  DCHECK_GT(fields.size(), 0);
+  // Trivial type codes map
+  std::vector<UnionArray::type_code_t> type_codes(fields.size());
+  std::iota(type_codes.begin(), type_codes.end(), 0);
+
+  // Generate array of type ids
+  auto type_ids = Int8(size, 0, static_cast<int8_t>(fields.size() - 1));
+  return *SparseUnionArray::Make(*type_ids, fields, type_codes);
+}
+
+std::shared_ptr<Array> RandomArrayGenerator::DenseUnion(const ArrayVector& fields,
+                                                        int64_t size) {
+  DCHECK_GT(fields.size(), 0);
+  // Trivial type codes map
+  std::vector<UnionArray::type_code_t> type_codes(fields.size());
+  std::iota(type_codes.begin(), type_codes.end(), 0);
+
+  // Generate array of type ids
+  auto type_ids = Int8(size, 0, static_cast<int8_t>(fields.size() - 1));
+
+  // Generate array of offsets
+  const auto& concrete_ids = checked_cast<const Int8Array&>(*type_ids);
+  Int32Builder offsets_builder;
+  ABORT_NOT_OK(offsets_builder.Reserve(size));
+  std::vector<int32_t> last_offsets(fields.size(), 0);
+  for (int64_t i = 0; i < size; ++i) {
+    const auto field_id = concrete_ids.Value(i);
+    offsets_builder.UnsafeAppend(last_offsets[field_id]++);
+  }
+  std::shared_ptr<Array> offsets;
+  ABORT_NOT_OK(offsets_builder.Finish(&offsets));
+
+  return *DenseUnionArray::Make(*type_ids, *offsets, fields, type_codes);
 }
 
 namespace {

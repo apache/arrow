@@ -34,6 +34,7 @@ import org.apache.arrow.flight.FlightServer;
 import org.apache.arrow.flight.FlightServerMiddleware;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.NoOpFlightProducer;
+import org.apache.arrow.flight.RequestContext;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.types.pojo.Schema;
 
@@ -122,7 +123,8 @@ final class MiddlewareScenario implements Scenario {
     static class Factory implements FlightServerMiddleware.Factory<InjectingServerMiddleware> {
 
       @Override
-      public InjectingServerMiddleware onCallStarted(CallInfo info, CallHeaders incomingHeaders) {
+      public InjectingServerMiddleware onCallStarted(CallInfo info, CallHeaders incomingHeaders,
+          RequestContext context) {
         String incoming = incomingHeaders.get(HEADER);
         return new InjectingServerMiddleware(incoming == null ? "" : incoming);
       }

@@ -92,7 +92,7 @@ impl Field {
                     Type::TypePath(_) => self.option_into_vals(),
                     _ => unimplemented!("Unsupported type encountered"),
                 },
-                ref f @ _ => unimplemented!("Unsupported: {:#?}", f),
+                ref f => unimplemented!("Unsupported: {:#?}", f),
             },
             Type::Reference(_, ref first_type) => match **first_type {
                 Type::TypePath(_) => self.copied_direct_vals(),
@@ -102,11 +102,11 @@ impl Field {
                         Type::TypePath(_) => self.option_into_vals(),
                         _ => unimplemented!("Unsupported type encountered"),
                     },
-                    ref f @ _ => unimplemented!("Unsupported: {:#?}", f),
+                    ref f => unimplemented!("Unsupported: {:#?}", f),
                 },
-                ref f @ _ => unimplemented!("Unsupported: {:#?}", f),
+                ref f => unimplemented!("Unsupported: {:#?}", f),
             },
-            f @ _ => unimplemented!("Unsupported: {:#?}", f),
+            f => unimplemented!("Unsupported: {:#?}", f),
         };
 
         let definition_levels = match &self.ty {
@@ -181,11 +181,10 @@ impl Field {
             self.third_party_type == Some(ThirdPartyType::ChronoNaiveDateTime);
         let is_a_date = self.third_party_type == Some(ThirdPartyType::ChronoNaiveDate);
         let is_a_uuid = self.third_party_type == Some(ThirdPartyType::Uuid);
-        let copy_to_vec = match self.ty.physical_type() {
-            parquet::basic::Type::BYTE_ARRAY
-            | parquet::basic::Type::FIXED_LEN_BYTE_ARRAY => false,
-            _ => true,
-        };
+        let copy_to_vec = !matches!(
+            self.ty.physical_type(),
+            parquet::basic::Type::BYTE_ARRAY | parquet::basic::Type::FIXED_LEN_BYTE_ARRAY
+        );
 
         let binding = if copy_to_vec {
             quote! { let Some(inner) = rec.#field_name }
@@ -253,6 +252,8 @@ impl Field {
     }
 }
 
+#[allow(clippy::enum_variant_names)]
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, PartialEq)]
 enum Type {
     Array(Box<Type>),
@@ -406,7 +407,7 @@ impl Type {
             "f32" => BasicType::FLOAT,
             "f64" => BasicType::DOUBLE,
             "String" | "str" | "Uuid" => BasicType::BYTE_ARRAY,
-            f @ _ => unimplemented!("{} currently is not supported", f),
+            f => unimplemented!("{} currently is not supported", f),
         }
     }
 
@@ -421,7 +422,7 @@ impl Type {
             syn::Type::Path(ref p) => Type::from_type_path(f, p),
             syn::Type::Reference(ref tr) => Type::from_type_reference(f, tr),
             syn::Type::Array(ref ta) => Type::from_type_array(f, ta),
-            other @ _ => unimplemented!(
+            other => unimplemented!(
                 "Unable to derive {:?} - it is currently an unsupported type\n{:#?}",
                 f.ident.as_ref().unwrap(),
                 other
@@ -445,10 +446,10 @@ impl Type {
 
                     match first_arg {
                         syn::GenericArgument::Type(ref typath) => typath.clone(),
-                        other @ _ => unimplemented!("Unsupported: {:#?}", other),
+                        other => unimplemented!("Unsupported: {:#?}", other),
                     }
                 }
-                other @ _ => unimplemented!("Unsupported: {:#?}", other),
+                other => unimplemented!("Unsupported: {:#?}", other),
             };
 
             if is_vec {
@@ -825,11 +826,7 @@ mod test {
             {
                 let definition_levels : Vec<i16> = self.iter().map(|rec| if rec.maybe_happened.is_some() { 1 } else { 0 }).collect();
                 let vals : Vec<_> = records.iter().filter_map(|rec| {
-                    if let Some(inner) = rec.maybe_happened {
-                        Some( inner.timestamp_millis() )
-                    } else {
-                        None
-                    }
+                    rec.maybe_happened.map(|inner| {  inner.timestamp_millis()  })
                 }).collect();
 
                 if let parquet::column::writer::ColumnWriter::Int64ColumnWriter(ref mut typed) = column_writer {
@@ -869,11 +866,7 @@ mod test {
             {
                 let definition_levels : Vec<i16> = self.iter().map(|rec| if rec.maybe_happened.is_some() { 1 } else { 0 }).collect();
                 let vals : Vec<_> = records.iter().filter_map(|rec| {
-                    if let Some(inner) = rec.maybe_happened {
-                        Some( inner.signed_duration_since(chrono::NaiveDate::from_ymd(1970, 1, 1)).num_days() as i32 )
-                    } else {
-                        None
-                    }
+                    rec.maybe_happened.map(|inner| {  inner.signed_duration_since(chrono::NaiveDate::from_ymd(1970, 1, 1)).num_days() as i32  })
                 }).collect();
 
                 if let parquet::column::writer::ColumnWriter::Int32ColumnWriter(ref mut typed) = column_writer {
@@ -913,11 +906,7 @@ mod test {
             {
                 let definition_levels : Vec<i16> = self.iter().map(|rec| if rec.maybe_unique_id.is_some() { 1 } else { 0 }).collect();
                 let vals : Vec<_> = records.iter().filter_map(|rec| {
-                    if let Some(ref inner) = rec.maybe_unique_id {
-                        Some( (&inner.to_string()[..]).into() )
-                    } else {
-                        None
-                    }
+                    rec.maybe_unique_id.map(|ref inner| {  (&inner.to_string()[..]).into()  })
                 }).collect();
 
                 if let parquet::column::writer::ColumnWriter::ByteArrayColumnWriter(ref mut typed) = column_writer {

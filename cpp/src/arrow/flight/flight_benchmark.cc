@@ -29,7 +29,6 @@
 
 #include <gflags/gflags.h>
 
-#include "arrow/api.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/api.h"
 #include "arrow/record_batch.h"
@@ -45,6 +44,13 @@ DEFINE_string(server_host, "",
               "An existing performance server to benchmark against (leave blank to spawn "
               "one automatically)");
 DEFINE_int32(server_port, 31337, "The port to connect to");
+DEFINE_string(server_unix, "",
+              "An existing performance server listening on Unix socket (leave blank to "
+              "spawn one automatically)");
+DEFINE_bool(test_unix, false, "Test Unix socket instead of TCP");
+DEFINE_int32(num_perf_runs, 1,
+             "Number of times to run the perf test to "
+             "increase precision");
 DEFINE_int32(num_servers, 1, "Number of performance servers to run");
 DEFINE_int32(num_streams, 4, "Number of streams for each server");
 DEFINE_int32(num_threads, 4, "Number of concurrent gets");
@@ -121,7 +127,7 @@ Status WaitForReady(FlightClient* client) {
 arrow::Result<PerformanceResult> RunDoGetTest(FlightClient* client,
                                               const perf::Token& token,
                                               const FlightEndpoint& endpoint,
-                                              PerformanceStats& stats) {
+                                              PerformanceStats* stats) {
   std::unique_ptr<FlightStreamReader> reader;
   RETURN_NOT_OK(client->DoGet(endpoint.ticket, &reader));
 
@@ -140,7 +146,7 @@ arrow::Result<PerformanceResult> RunDoGetTest(FlightClient* client,
   while (true) {
     timer.Start();
     RETURN_NOT_OK(reader->Next(&batch));
-    stats.AddLatency(timer.Stop());
+    stats->AddLatency(timer.Stop());
     if (!batch.data) {
       break;
     }
@@ -167,7 +173,7 @@ arrow::Result<PerformanceResult> RunDoGetTest(FlightClient* client,
 arrow::Result<PerformanceResult> RunDoPutTest(FlightClient* client,
                                               const perf::Token& token,
                                               const FlightEndpoint& endpoint,
-                                              PerformanceStats& stats) {
+                                              PerformanceStats* stats) {
   std::unique_ptr<FlightStreamWriter> writer;
   std::unique_ptr<FlightMetadataReader> reader;
   std::shared_ptr<Schema> schema =
@@ -210,7 +216,7 @@ arrow::Result<PerformanceResult> RunDoPutTest(FlightClient* client,
     } else {
       timer.Start();
       RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
-      stats.AddLatency(timer.Stop());
+      stats->AddLatency(timer.Stop());
       num_records += length;
       // Hard-coded
       num_bytes += length * bytes_per_record;
@@ -223,10 +229,7 @@ arrow::Result<PerformanceResult> RunDoPutTest(FlightClient* client,
   return PerformanceResult{num_batches, num_records, num_bytes};
 }
 
-Status RunPerformanceTest(FlightClient* client, bool test_put) {
-  // TODO(wesm): Multiple servers
-  // std::vector<std::unique_ptr<TestServer>> servers;
-
+Status DoSinglePerfRun(FlightClient* client, bool test_put, PerformanceStats* stats) {
   // schema not needed
   perf::Perf perf;
   perf.set_stream_count(FLAGS_num_streams);
@@ -246,7 +249,8 @@ Status RunPerformanceTest(FlightClient* client, bool test_put) {
   ipc::DictionaryMemo dict_memo;
   RETURN_NOT_OK(plan->GetSchema(&dict_memo, &schema));
 
-  PerformanceStats stats;
+  int64_t start_total_records = stats->total_records;
+
   auto test_loop = test_put ? &RunDoPutTest : &RunDoGetTest;
   auto ConsumeStream = [&stats, &test_loop](const FlightEndpoint& endpoint) {
     // TODO(wesm): Use location from endpoint, same host/port for now
@@ -259,13 +263,10 @@ Status RunPerformanceTest(FlightClient* client, bool test_put) {
     const auto& result = test_loop(client.get(), token, endpoint, stats);
     if (result.ok()) {
       const PerformanceResult& perf = result.ValueOrDie();
-      stats.Update(perf.num_batches, perf.num_records, perf.num_bytes);
+      stats->Update(perf.num_batches, perf.num_records, perf.num_bytes);
     }
     return result.status();
   };
-
-  StopWatch timer;
-  timer.Start();
 
   // XXX(wesm): Serial version for debugging
   // for (const auto& endpoint : plan->endpoints()) {
@@ -273,7 +274,7 @@ Status RunPerformanceTest(FlightClient* client, bool test_put) {
   // }
 
   ARROW_ASSIGN_OR_RAISE(auto pool, ThreadPool::Make(FLAGS_num_threads));
-  std::vector<Future<Status>> tasks;
+  std::vector<Future<>> tasks;
   for (const auto& endpoint : plan->endpoints()) {
     ARROW_ASSIGN_OR_RAISE(auto task, pool->Submit(ConsumeStream, endpoint));
     tasks.push_back(std::move(task));
@@ -284,6 +285,24 @@ Status RunPerformanceTest(FlightClient* client, bool test_put) {
     RETURN_NOT_OK(task.status());
   }
 
+  // Check that number of rows read / written is as expected
+  int64_t records_for_run = stats->total_records - start_total_records;
+  if (records_for_run != static_cast<int64_t>(plan->total_records())) {
+    return Status::Invalid("Did not consume expected number of records");
+  }
+
+  return Status::OK();
+}
+
+Status RunPerformanceTest(FlightClient* client, bool test_put) {
+  StopWatch timer;
+  timer.Start();
+
+  PerformanceStats stats;
+  for (int i = 0; i < FLAGS_num_perf_runs; ++i) {
+    RETURN_NOT_OK(DoSinglePerfRun(client, test_put, &stats));
+  }
+
   // Elapsed time in seconds
   uint64_t elapsed_nanos = timer.Stop();
   double time_elapsed =
@@ -291,11 +310,8 @@ Status RunPerformanceTest(FlightClient* client, bool test_put) {
 
   constexpr double kMegabyte = static_cast<double>(1 << 20);
 
-  // Check that number of rows read / written is as expected
-  if (stats.total_records != static_cast<int64_t>(plan->total_records())) {
-    return Status::Invalid("Did not consume expected number of records");
-  }
-
+  std::cout << "Number of perf runs: " << FLAGS_num_perf_runs << std::endl;
+  std::cout << "Number of concurrent gets/puts: " << FLAGS_num_threads << std::endl;
   std::cout << "Batch size: " << stats.total_bytes / stats.total_batches << std::endl;
   if (FLAGS_test_put) {
     std::cout << "Batches written: " << stats.total_batches << std::endl;
@@ -330,15 +346,33 @@ int main(int argc, char** argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
   std::unique_ptr<arrow::flight::TestServer> server;
-  std::string hostname = "localhost";
-  if (FLAGS_server_host == "") {
-    std::cout << "Using standalone server: false" << std::endl;
-    server.reset(
-        new arrow::flight::TestServer("arrow-flight-perf-server", FLAGS_server_port));
-    server->Start();
+  arrow::flight::Location location;
+  if (FLAGS_test_unix || !FLAGS_server_unix.empty()) {
+    if (FLAGS_server_unix == "") {
+      FLAGS_server_unix = "/tmp/flight-bench-spawn.sock";
+      std::cout << "Using spawned Unix server" << std::endl;
+      server.reset(
+          new arrow::flight::TestServer("arrow-flight-perf-server", FLAGS_server_unix));
+      server->Start();
+    } else {
+      std::cout << "Using standalone Unix server" << std::endl;
+    }
+    std::cout << "Server unix socket: " << FLAGS_server_unix << std::endl;
+    ABORT_NOT_OK(arrow::flight::Location::ForGrpcUnix(FLAGS_server_unix, &location));
   } else {
-    std::cout << "Using standalone server: true" << std::endl;
-    hostname = FLAGS_server_host;
+    if (FLAGS_server_host == "") {
+      FLAGS_server_host = "localhost";
+      std::cout << "Using spawned TCP server" << std::endl;
+      server.reset(
+          new arrow::flight::TestServer("arrow-flight-perf-server", FLAGS_server_port));
+      server->Start();
+    } else {
+      std::cout << "Using standalone TCP server" << std::endl;
+    }
+    std::cout << "Server host: " << FLAGS_server_host << std::endl
+              << "Server port: " << FLAGS_server_port << std::endl;
+    ABORT_NOT_OK(arrow::flight::Location::ForGrpcTcp(FLAGS_server_host, FLAGS_server_port,
+                                                     &location));
   }
 
   std::cout << "Testing method: ";
@@ -349,13 +383,7 @@ int main(int argc, char** argv) {
   }
   std::cout << std::endl;
 
-  std::cout << "Server host: " << hostname << std::endl
-            << "Server port: " << FLAGS_server_port << std::endl;
-
   std::unique_ptr<arrow::flight::FlightClient> client;
-  arrow::flight::Location location;
-  ABORT_NOT_OK(
-      arrow::flight::Location::ForGrpcTcp(hostname, FLAGS_server_port, &location));
   ABORT_NOT_OK(arrow::flight::FlightClient::Connect(location, &client));
   ABORT_NOT_OK(arrow::flight::WaitForReady(client.get()));
 

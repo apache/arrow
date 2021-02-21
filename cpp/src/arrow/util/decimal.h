@@ -55,7 +55,8 @@ class ARROW_EXPORT Decimal128 : public BasicDecimal128 {
   /// \endcond
 
   /// \brief constructor creates a Decimal128 from a BasicDecimal128.
-  constexpr Decimal128(const BasicDecimal128& value) noexcept : BasicDecimal128(value) {}
+  constexpr Decimal128(const BasicDecimal128& value) noexcept  // NOLINT runtime/explicit
+      : BasicDecimal128(value) {}
 
   /// \brief Parse the number from a base 10 string representation.
   explicit Decimal128(const std::string& value);
@@ -190,7 +191,7 @@ class ARROW_EXPORT Decimal256 : public BasicDecimal256 {
   using BasicDecimal256::BasicDecimal256;
   /// \endcond
 
-  /// \brief constructor creates a Decimal256 from a BasicDecimal128.
+  /// \brief constructor creates a Decimal256 from a BasicDecimal256.
   constexpr Decimal256(const BasicDecimal256& value) noexcept : BasicDecimal256(value) {}
 
   /// \brief Parse the number from a base 10 string representation.
@@ -226,6 +227,28 @@ class ARROW_EXPORT Decimal256 : public BasicDecimal256 {
     ARROW_RETURN_NOT_OK(ToArrowStatus(dstatus));
     return std::move(out);
   }
+
+  /// Divide this number by right and return the result.
+  ///
+  /// This operation is not destructive.
+  /// The answer rounds to zero. Signs work like:
+  ///   21 /  5 ->  4,  1
+  ///  -21 /  5 -> -4, -1
+  ///   21 / -5 -> -4,  1
+  ///  -21 / -5 ->  4, -1
+  /// \param[in] divisor the number to divide by
+  /// \return the pair of the quotient and the remainder
+  Result<std::pair<Decimal256, Decimal256>> Divide(const Decimal256& divisor) const {
+    std::pair<Decimal256, Decimal256> result;
+    auto dstatus = BasicDecimal256::Divide(divisor, &result.first, &result.second);
+    ARROW_RETURN_NOT_OK(ToArrowStatus(dstatus));
+    return std::move(result);
+  }
+
+  /// \brief Convert from a big-endian byte representation. The length must be
+  ///        between 1 and 32.
+  /// \return error status if the length is an invalid value
+  static Result<Decimal256> FromBigEndian(const uint8_t* data, int32_t length);
 
   friend ARROW_EXPORT std::ostream& operator<<(std::ostream& os,
                                                const Decimal256& decimal);

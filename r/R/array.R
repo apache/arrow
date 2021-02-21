@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @include arrow-package.R
+#' @include arrow-datum.R
 
 #' @title Arrow Arrays
 #' @description An `Array` is an immutable data array with some logical type
@@ -62,6 +62,7 @@
 #' - `$type_id()`: type id
 #' - `$Equals(other)` : is this array equal to `other`
 #' - `$ApproxEquals(other)` :
+#' - `$Diff(other)` : return a string expressing the difference between two arrays
 #' - `$data()`: return the underlying [ArrayData][ArrayData]
 #' - `$as_vector()`: convert to an R vector
 #' - `$ToString()`: string representation of the array
@@ -83,24 +84,8 @@
 #' @name array
 #' @export
 Array <- R6Class("Array",
-  inherit = ArrowObject,
+  inherit = ArrowDatum,
   public = list(
-    ..dispatch = function() {
-      type_id <- self$type_id()
-      if (type_id == Type$DICTIONARY){
-        shared_ptr(DictionaryArray, self$pointer())
-      } else if (type_id == Type$STRUCT) {
-        shared_ptr(StructArray, self$pointer())
-      } else if (type_id == Type$LIST) {
-        shared_ptr(ListArray, self$pointer())
-      } else if (type_id == Type$LARGE_LIST){
-        shared_ptr(LargeListArray, self$pointer())
-      } else if (type_id == Type$FIXED_SIZE_LIST){
-        shared_ptr(FixedSizeListArray, self$pointer())
-      } else {
-        self
-      }
-    },
     IsNull = function(i) Array__IsNull(self, i),
     IsValid = function(i) Array__IsValid(self, i),
     length = function() Array__length(self),
@@ -111,7 +96,13 @@ Array <- R6Class("Array",
     ApproxEquals = function(other) {
       inherits(other, "Array") && Array__ApproxEquals(self, other)
     },
-    data = function() shared_ptr(ArrayData, Array__data(self)),
+    Diff = function(other) {
+      if (!inherits(other, "Array")) {
+        other <- Array$create(other)
+      }
+      Array__Diff(self, other)
+    },
+    data = function() Array__data(self),
     as_vector = function() Array__as_vector(self),
     ToString = function() {
       typ <- paste0("<", self$type$ToString(), ">")
@@ -119,9 +110,9 @@ Array <- R6Class("Array",
     },
     Slice = function(offset, length = NULL) {
       if (is.null(length)) {
-        Array$create(Array__Slice1(self, offset))
+        Array__Slice1(self, offset)
       } else {
-        Array$create(Array__Slice2(self, offset, length))
+        Array__Slice2(self, offset, length)
       }
     },
     Take = function(i) {
@@ -131,28 +122,18 @@ Array <- R6Class("Array",
       if (is.integer(i)) {
         i <- Array$create(i)
       }
-      # ARROW-9001: autoboxing in call_function
-      result <- call_function("take", self, i)
-      if (inherits(i, "ChunkedArray")) {
-        return(shared_ptr(ChunkedArray, result))
-      } else {
-        Array$create(result)
-      }
+      call_function("take", self, i)
     },
     Filter = function(i, keep_na = TRUE) {
       if (is.logical(i)) {
         i <- Array$create(i)
       }
       assert_is(i, "Array")
-      Array$create(call_function("filter", self, i, options = list(keep_na = keep_na)))
+      call_function("filter", self, i, options = list(keep_na = keep_na))
     },
     RangeEquals = function(other, start_idx, end_idx, other_start_idx = 0L) {
       assert_is(other, "Array")
       Array__RangeEquals(self, other, start_idx, end_idx, other_start_idx)
-    },
-    cast = function(target_type, safe = TRUE, options = cast_options(safe)) {
-      assert_is(options, "CastOptions")
-      Array$create(Array__cast(self, as_type(target_type), options))
     },
     View = function(type) {
       Array$create(Array__View(self, as_type(type)))
@@ -162,17 +143,14 @@ Array <- R6Class("Array",
   active = list(
     null_count = function() Array__null_count(self),
     offset = function() Array__offset(self),
-    type = function() DataType$create(Array__type(self))
+    type = function() Array__type(self)
   )
 )
 Array$create <- function(x, type = NULL) {
-  if (!inherits(x, "externalptr")) {
-    if (!is.null(type)) {
-      type <- as_type(type)
-    }
-    x <- Array__from_vector(x, type)
+  if (!is.null(type)) {
+    type <- as_type(type)
   }
-  shared_ptr(Array, x)$..dispatch()
+  Array__from_vector(x, type)
 }
 
 #' @rdname array
@@ -181,8 +159,8 @@ Array$create <- function(x, type = NULL) {
 #' @export
 DictionaryArray <- R6Class("DictionaryArray", inherit = Array,
   public = list(
-    indices = function() Array$create(DictionaryArray__indices(self)),
-    dictionary = function() Array$create(DictionaryArray__dictionary(self))
+    indices = function() DictionaryArray__indices(self),
+    dictionary = function() DictionaryArray__dictionary(self)
   ),
   active = list(
     ordered = function() self$type$ordered
@@ -203,7 +181,7 @@ DictionaryArray$create <- function(x, dict = NULL) {
     dict <- Array$create(dict)
   }
   type <- DictionaryType$create(x$type, dict$type)
-  shared_ptr(DictionaryArray, DictionaryArray__FromArrays(type, x, dict))
+  DictionaryArray__FromArrays(type, x, dict)
 }
 
 #' @rdname array
@@ -212,11 +190,44 @@ DictionaryArray$create <- function(x, dict = NULL) {
 #' @export
 StructArray <- R6Class("StructArray", inherit = Array,
   public = list(
-    field = function(i) Array$create(StructArray__field(self, i)),
-    GetFieldByName = function(name) Array$create(StructArray__GetFieldByName(self, name)),
-    Flatten = function() map(StructArray__Flatten(self), ~ Array$create(.x))
+    field = function(i) StructArray__field(self, i),
+    GetFieldByName = function(name) StructArray__GetFieldByName(self, name),
+    Flatten = function() StructArray__Flatten(self)
   )
 )
+
+
+#' @export
+`[[.StructArray` <- function(x, i, ...) {
+  if (is.character(i)) {
+    x$GetFieldByName(i)
+  } else if (is.numeric(i)) {
+    x$field(i - 1)
+  } else {
+    stop("'i' must be character or numeric, not ", class(i), call. = FALSE)
+  }
+}
+
+#' @export
+`$.StructArray` <- function(x, name, ...) {
+  assert_that(is.string(name))
+  if (name %in% ls(x)) {
+    get(name, x)
+  } else {
+    x$GetFieldByName(name)
+  }
+}
+
+#' @export
+names.StructArray <- function(x, ...) StructType__field_names(x$type)
+
+#' @export
+dim.StructArray <- function(x, ...) c(length(x), x$type$num_fields)
+
+#' @export
+as.data.frame.StructArray <- function(x, row.names = NULL, optional = FALSE, ...) {
+  as.vector(x)
+}
 
 #' @rdname array
 #' @usage NULL
@@ -224,13 +235,13 @@ StructArray <- R6Class("StructArray", inherit = Array,
 #' @export
 ListArray <- R6Class("ListArray", inherit = Array,
   public = list(
-    values = function() Array$create(ListArray__values(self)),
+    values = function() ListArray__values(self),
     value_length = function(i) ListArray__value_length(self, i),
     value_offset = function(i) ListArray__value_offset(self, i),
     raw_value_offsets = function() ListArray__raw_value_offsets(self)
   ),
   active = list(
-    value_type = function() DataType$create(ListArray__value_type(self))
+    value_type = function() ListArray__value_type(self)
   )
 )
 
@@ -240,13 +251,13 @@ ListArray <- R6Class("ListArray", inherit = Array,
 #' @export
 LargeListArray <- R6Class("LargeListArray", inherit = Array,
   public = list(
-    values = function() Array$create(LargeListArray__values(self)),
+    values = function() LargeListArray__values(self),
     value_length = function(i) LargeListArray__value_length(self, i),
     value_offset = function(i) LargeListArray__value_offset(self, i),
     raw_value_offsets = function() LargeListArray__raw_value_offsets(self)
   ),
   active = list(
-    value_type = function() DataType$create(LargeListArray__value_type(self))
+    value_type = function() LargeListArray__value_type(self)
   )
 )
 
@@ -256,113 +267,15 @@ LargeListArray <- R6Class("LargeListArray", inherit = Array,
 #' @export
 FixedSizeListArray <- R6Class("FixedSizeListArray", inherit = Array,
   public = list(
-    values = function() Array$create(FixedSizeListArray__values(self)),
+    values = function() FixedSizeListArray__values(self),
     value_length = function(i) FixedSizeListArray__value_length(self, i),
     value_offset = function(i) FixedSizeListArray__value_offset(self, i)
   ),
   active = list(
-    value_type = function() DataType$create(FixedSizeListArray__value_type(self)),
+    value_type = function() FixedSizeListArray__value_type(self),
     list_size = function() self$type$list_size
   )
 )
-
-#' @export
-length.Array <- function(x) x$length()
-
-#' @export
-is.na.Array <- function(x) shared_ptr(Array, call_function("is_null", x))
-
-#' @export
-as.vector.Array <- function(x, mode) x$as_vector()
-
-filter_rows <- function(x, i, keep_na = TRUE, ...) {
-  # General purpose function for [ row subsetting with R semantics
-  # Based on the input for `i`, calls x$Filter, x$Slice, or x$Take
-  nrows <- x$num_rows %||% x$length() # Depends on whether Array or Table-like
-  if (inherits(i, "array_expression")) {
-    # Evaluate it
-    i <- eval_array_expression(i)
-  }
-  if (is.logical(i)) {
-    if (isTRUE(i)) {
-      # Shortcut without doing any work
-      x
-    } else {
-      i <- rep_len(i, nrows) # For R recycling behavior; consider vctrs::vec_recycle()
-      x$Filter(i, keep_na)
-    }
-  } else if (is.numeric(i)) {
-    if (all(i < 0)) {
-      # in R, negative i means "everything but i"
-      i <- setdiff(seq_len(nrows), -1 * i)
-    }
-    if (is.sliceable(i)) {
-      x$Slice(i[1] - 1, length(i))
-    } else if (all(i > 0)) {
-      x$Take(i - 1)
-    } else {
-      stop("Cannot mix positive and negative indices", call. = FALSE)
-    }
-  } else if (is.Array(i, INTEGER_TYPES)) {
-    # NOTE: this doesn't do the - 1 offset
-    x$Take(i)
-  } else if (is.Array(i, "bool")) {
-    x$Filter(i, keep_na)
-  } else {
-    # Unsupported cases
-    if (is.Array(i)) {
-      stop("Cannot extract rows with an Array of type ", i$type$ToString(), call. = FALSE)
-    }
-    stop("Cannot extract rows with an object of class ", class(i), call.=FALSE)
-  }
-}
-
-#' @export
-`[.Array` <- filter_rows
-
-#' @importFrom utils head
-#' @export
-head.Array <- function(x, n = 6L, ...) {
-  assert_is(n, c("numeric", "integer"))
-  assert_that(length(n) == 1)
-  len <- NROW(x)
-  if (n < 0) {
-    # head(x, negative) means all but the last n rows
-    n <- max(len + n, 0)
-  } else {
-    n <- min(len, n)
-  }
-  if (n == len) {
-    return(x)
-  }
-  x$Slice(0, n)
-}
-
-#' @importFrom utils tail
-#' @export
-tail.Array <- function(x, n = 6L, ...) {
-  assert_is(n, c("numeric", "integer"))
-  assert_that(length(n) == 1)
-  len <- NROW(x)
-  if (n < 0) {
-    # tail(x, negative) means all but the first n rows
-    n <- min(-n, len)
-  } else {
-    n <- max(len - n, 0)
-  }
-  if (n == 0) {
-    return(x)
-  }
-  x$Slice(n)
-}
-
-is.sliceable <- function(i) {
-  # Determine whether `i` can be expressed as a $Slice() command
-  is.numeric(i) &&
-    length(i) > 0 &&
-    all(i > 0) &&
-    identical(as.integer(i), i[1]:i[length(i)])
-}
 
 is.Array <- function(x, type = NULL) {
   is_it <- inherits(x, c("Array", "ChunkedArray"))
@@ -371,12 +284,3 @@ is.Array <- function(x, type = NULL) {
   }
   is_it
 }
-
-#' @export
-as.double.Array <- function(x, ...) as.double(as.vector(x), ...)
-
-#' @export
-as.integer.Array <- function(x, ...) as.integer(as.vector(x), ...)
-
-#' @export
-as.character.Array <- function(x, ...) as.character(as.vector(x), ...)

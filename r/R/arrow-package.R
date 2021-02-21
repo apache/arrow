@@ -18,7 +18,7 @@
 #' @importFrom R6 R6Class
 #' @importFrom purrr as_mapper map map2 map_chr map_dfr map_int map_lgl keep
 #' @importFrom assertthat assert_that is.string
-#' @importFrom rlang list2 %||% is_false abort dots_n warn enquo quo_is_null enquos is_integerish quos eval_tidy new_data_mask syms env env_bind as_label set_names exec is_bare_character
+#' @importFrom rlang list2 %||% is_false abort dots_n warn enquo quo_is_null enquos is_integerish quos eval_tidy new_data_mask syms env new_environment env_bind as_label set_names exec is_bare_character
 #' @importFrom tidyselect vars_select
 #' @useDynLib arrow, .registration = TRUE
 #' @keywords internal
@@ -33,21 +33,18 @@
       "group_vars", "ungroup", "mutate", "arrange", "rename", "pull"
     )
   )
-  for (cl in c("Dataset", "RecordBatch", "Table", "arrow_dplyr_query")) {
+  for (cl in c("Dataset", "ArrowTabular", "arrow_dplyr_query")) {
     for (m in dplyr_methods) {
       s3_register(m, cl)
     }
   }
-
   s3_register("dplyr::tbl_vars", "arrow_dplyr_query")
-  s3_register("reticulate::py_to_r", "pyarrow.lib.Array")
-  s3_register("reticulate::py_to_r", "pyarrow.lib.RecordBatch")
-  s3_register("reticulate::py_to_r", "pyarrow.lib.ChunkedArray")
-  s3_register("reticulate::py_to_r", "pyarrow.lib.Table")
-  s3_register("reticulate::r_to_py", "Array")
-  s3_register("reticulate::r_to_py", "RecordBatch")
-  s3_register("reticulate::r_to_py", "ChunkedArray")
-  s3_register("reticulate::r_to_py", "Table")
+
+  for (cl in c("Array", "RecordBatch", "ChunkedArray", "Table", "Schema")) {
+    s3_register("reticulate::py_to_r", paste0("pyarrow.lib.", cl))
+    s3_register("reticulate::r_to_py", cl)
+  }
+
   invisible()
 }
 
@@ -79,6 +76,81 @@ option_use_threads <- function() {
   !is_false(getOption("arrow.use_threads"))
 }
 
+#' Report information on the package's capabilities
+#'
+#' This function summarizes a number of build-time configurations and run-time
+#' settings for the Arrow package. It may be useful for diagnostics.
+#' @return A list including version information, boolean "capabilities", and
+#' statistics from Arrow's memory allocator.
+#' @export
+#' @importFrom utils packageVersion
+arrow_info <- function() {
+  opts <- options()
+  out <- list(
+    version = packageVersion("arrow"),
+    libarrow = arrow_available(),
+    options = opts[grep("^arrow\\.", names(opts))]
+  )
+  if (out$libarrow) {
+    pool <- default_memory_pool()
+    out <- c(out, list(
+      capabilities = c(
+        s3 = arrow_with_s3(),
+        vapply(tolower(names(CompressionType)[-1]), codec_is_available, logical(1))
+      ),
+      memory_pool = list(
+        backend_name = pool$backend_name,
+        bytes_allocated = pool$bytes_allocated,
+        max_memory = pool$max_memory,
+        available_backends = supported_memory_backends()
+      )
+    ))
+  }
+  structure(out, class = "arrow_info")
+}
+
+#' @export
+print.arrow_info <- function(x, ...) {
+  print_key_values <- function(title, vals, ...) {
+    # Make a key-value table for printing, no column names
+    df <- data.frame(vals, stringsAsFactors = FALSE, ...)
+    names(df) <- ""
+
+    cat(title, ":\n", sep = "")
+    print(df)
+    cat("\n")
+  }
+  cat("Arrow package version: ", format(x$version), "\n\n", sep = "")
+  if (x$libarrow) {
+    print_key_values("Capabilities", c(
+      x$capabilities,
+      jemalloc = "jemalloc" %in% x$memory_pool$available_backends,
+      mimalloc = "mimalloc" %in% x$memory_pool$available_backends
+    ))
+
+    if (length(x$options)) {
+      print_key_values("Arrow options()", map_chr(x$options, format))
+    }
+
+    format_bytes <- function(b, units = "auto", digits = 2L, ...) {
+      format(structure(b, class = "object_size"), units = units, digits = digits, ...)
+    }
+    print_key_values("Memory", c(
+      Allocator = x$memory_pool$backend_name,
+      # utils:::format.object_size is not properly vectorized
+      Current = format_bytes(x$memory_pool$bytes_allocated, ...),
+      Max = format_bytes(x$memory_pool$max_memory, ...)
+    ))
+  } else {
+    cat("Arrow C++ library not available\n")
+  }
+  invisible(x)
+}
+
+option_compress_metadata <- function() {
+  !is_false(getOption("arrow.compress_metadata"))
+}
+
 #' @include enums.R
 ArrowObject <- R6Class("ArrowObject",
   public = list(
@@ -108,6 +180,10 @@ ArrowObject <- R6Class("ArrowObject",
         cat(self$ToString(), "\n", sep = "")
       }
       invisible(self)
+    },
+
+    invalidate = function() {
+      assign(".:xp:.", NULL, envir = self)
     }
   )
 )
@@ -123,12 +199,4 @@ ArrowObject <- R6Class("ArrowObject",
 #' @export
 all.equal.ArrowObject <- function(target, current, ..., check.attributes = TRUE) {
   target$Equals(current, check_metadata = check.attributes)
-}
-
-shared_ptr <- function(class, xp) {
-  if (!shared_ptr_is_null(xp)) class$new(xp)
-}
-
-unique_ptr <- function(class, xp) {
-  if (!unique_ptr_is_null(xp)) class$new(xp)
 }

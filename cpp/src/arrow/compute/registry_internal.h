@@ -43,6 +43,9 @@ void RegisterVectorSort(FunctionRegistry* registry);
 
 // Aggregate functions
 void RegisterScalarAggregateBasic(FunctionRegistry* registry);
+void RegisterScalarAggregateMode(FunctionRegistry* registry);
+void RegisterScalarAggregateQuantile(FunctionRegistry* registry);
+void RegisterScalarAggregateVariance(FunctionRegistry* registry);
 
 }  // namespace internal
 }  // namespace compute

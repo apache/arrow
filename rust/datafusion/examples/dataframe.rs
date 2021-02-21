@@ -27,15 +27,14 @@ async fn main() -> Result<()> {
     // create local execution context
     let mut ctx = ExecutionContext::new();
 
-    let testdata =
-        std::env::var("PARQUET_TEST_DATA").expect("PARQUET_TEST_DATA not defined");
+    let testdata = arrow::util::test_util::parquet_test_data();
 
     let filename = &format!("{}/alltypes_plain.parquet", testdata);
 
     // define the query using the DataFrame trait
     let df = ctx
         .read_parquet(filename)?
-        .select_columns(vec!["id", "bool_col", "timestamp_col"])?
+        .select_columns(&["id", "bool_col", "timestamp_col"])?
         .filter(col("id").gt(lit(1)))?;
 
     // execute the query

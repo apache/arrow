@@ -50,7 +50,7 @@ class PARQUET_EXPORT KeyAccessToken {
 
  private:
   std::string value_;
-  mutable arrow::util::Mutex mutex_;
+  mutable ::arrow::util::Mutex mutex_;
 };
 
 struct PARQUET_EXPORT KmsConnectionConfig {

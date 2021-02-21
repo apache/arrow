@@ -56,6 +56,12 @@ impl Debug for ScalarUDF {
     }
 }
 
+impl PartialEq for ScalarUDF {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name && self.signature == other.signature
+    }
+}
+
 impl ScalarUDF {
     /// Create a new ScalarUDF
     pub fn new(
@@ -86,7 +92,7 @@ impl ScalarUDF {
 /// This function errors when `args`' can't be coerced to a valid argument type of the UDF.
 pub fn create_physical_expr(
     fun: &ScalarUDF,
-    args: &Vec<Arc<dyn PhysicalExpr>>,
+    args: &[Arc<dyn PhysicalExpr>],
     input_schema: &Schema,
 ) -> Result<Arc<dyn PhysicalExpr>> {
     // coerce

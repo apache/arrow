@@ -17,6 +17,7 @@
 
 //! Implementations for DISTINCT expressions, e.g. `COUNT(DISTINCT c)`
 
+use std::any::Any;
 use std::convert::TryFrom;
 use std::fmt::Debug;
 use std::hash::Hash;
@@ -24,7 +25,8 @@ use std::sync::Arc;
 
 use arrow::datatypes::{DataType, Field};
 
-use fnv::FnvHashSet;
+use ahash::RandomState;
+use std::collections::HashSet;
 
 use crate::error::{DataFusionError, Result};
 use crate::physical_plan::group_scalar::GroupByScalar;
@@ -69,6 +71,11 @@ impl DistinctCount {
 }
 
 impl AggregateExpr for DistinctCount {
+    /// Return a reference to Any that can be used for downcasting
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn field(&self) -> Result<Field> {
         Ok(Field::new(&self.name, self.data_type.clone(), true))
     }
@@ -80,7 +87,7 @@ impl AggregateExpr for DistinctCount {
             .map(|data_type| {
                 Field::new(
                     &format_state_name(&self.name, "count distinct"),
-                    DataType::List(Box::new(data_type.clone())),
+                    DataType::List(Box::new(Field::new("item", data_type.clone(), true))),
                     false,
                 )
             })
@@ -93,7 +100,7 @@ impl AggregateExpr for DistinctCount {
 
     fn create_accumulator(&self) -> Result<Box<dyn Accumulator>> {
         Ok(Box::new(DistinctCountAccumulator {
-            values: FnvHashSet::default(),
+            values: HashSet::default(),
             data_types: self.input_data_types.clone(),
             count_data_type: self.data_type.clone(),
         }))
@@ -102,13 +109,13 @@ impl AggregateExpr for DistinctCount {
 
 #[derive(Debug)]
 struct DistinctCountAccumulator {
-    values: FnvHashSet<DistinctScalarValues>,
+    values: HashSet<DistinctScalarValues, RandomState>,
     data_types: Vec<DataType>,
     count_data_type: DataType,
 }
 
 impl Accumulator for DistinctCountAccumulator {
-    fn update(&mut self, values: &Vec<ScalarValue>) -> Result<()> {
+    fn update(&mut self, values: &[ScalarValue]) -> Result<()> {
         // If a row has a NULL, it is not included in the final count.
         if !values.iter().any(|v| v.is_null()) {
             self.values.insert(DistinctScalarValues(
@@ -122,8 +129,8 @@ impl Accumulator for DistinctCountAccumulator {
         Ok(())
     }
 
-    fn merge(&mut self, states: &Vec<ScalarValue>) -> Result<()> {
-        if states.len() == 0 {
+    fn merge(&mut self, states: &[ScalarValue]) -> Result<()> {
+        if states.is_empty() {
             return Ok(());
         }
 
@@ -131,21 +138,20 @@ impl Accumulator for DistinctCountAccumulator {
             .iter()
             .map(|state| match state {
                 ScalarValue::List(Some(values), _) => Ok(values),
-                _ => Err(DataFusionError::Internal(
-                    "Unexpected accumulator state".to_string(),
-                )),
+                _ => Err(DataFusionError::Internal(format!(
+                    "Unexpected accumulator state {:?}",
+                    state
+                ))),
             })
             .collect::<Result<Vec<_>>>()?;
 
-        (0..col_values[0].len())
-            .map(|row_index| {
-                let row_values = col_values
-                    .iter()
-                    .map(|col| col[row_index].clone())
-                    .collect::<Vec<_>>();
-                self.update(&row_values)
-            })
-            .collect::<Result<_>>()
+        (0..col_values[0].len()).try_for_each(|row_index| {
+            let row_values = col_values
+                .iter()
+                .map(|col| col[row_index].clone())
+                .collect::<Vec<_>>();
+            self.update(&row_values)
+        })
     }
 
     fn state(&self) -> Result<Vec<ScalarValue>> {
@@ -177,12 +183,10 @@ impl Accumulator for DistinctCountAccumulator {
     fn evaluate(&self) -> Result<ScalarValue> {
         match &self.count_data_type {
             DataType::UInt64 => Ok(ScalarValue::UInt64(Some(self.values.len() as u64))),
-            t => {
-                return Err(DataFusionError::Internal(format!(
-                    "Invalid data type {:?} for count distinct aggregation",
-                    t
-                )))
-            }
+            t => Err(DataFusionError::Internal(format!(
+                "Invalid data type {:?} for count distinct aggregation",
+                t
+            ))),
         }
     }
 }
@@ -255,21 +259,19 @@ mod tests {
     }
 
     fn collect_states<T: Ord + Clone, S: Ord + Clone>(
-        state1: &Vec<Option<T>>,
-        state2: &Vec<Option<S>>,
+        state1: &[Option<T>],
+        state2: &[Option<S>],
     ) -> Vec<(Option<T>, Option<S>)> {
         let mut states = state1
             .iter()
             .zip(state2.iter())
-            .map(|(a, b)| (a.clone(), b.clone()))
+            .map(|(l, r)| (l.clone(), r.clone()))
             .collect::<Vec<(Option<T>, Option<S>)>>();
         states.sort();
         states
     }
 
-    fn run_update_batch(
-        arrays: &Vec<ArrayRef>,
-    ) -> Result<(Vec<ScalarValue>, ScalarValue)> {
+    fn run_update_batch(arrays: &[ArrayRef]) -> Result<(Vec<ScalarValue>, ScalarValue)> {
         let agg = DistinctCount::new(
             arrays
                 .iter()
@@ -287,11 +289,11 @@ mod tests {
     }
 
     fn run_update(
-        data_types: &Vec<DataType>,
-        rows: &Vec<Vec<ScalarValue>>,
+        data_types: &[DataType],
+        rows: &[Vec<ScalarValue>],
     ) -> Result<(Vec<ScalarValue>, ScalarValue)> {
         let agg = DistinctCount::new(
-            data_types.clone(),
+            data_types.to_vec(),
             vec![],
             String::from("__col_name__"),
             DataType::UInt64,
@@ -306,9 +308,7 @@ mod tests {
         Ok((accum.state()?, accum.evaluate()?))
     }
 
-    fn run_merge_batch(
-        arrays: &Vec<ArrayRef>,
-    ) -> Result<(Vec<ScalarValue>, ScalarValue)> {
+    fn run_merge_batch(arrays: &[ArrayRef]) -> Result<(Vec<ScalarValue>, ScalarValue)> {
         let agg = DistinctCount::new(
             arrays
                 .iter()
@@ -451,8 +451,8 @@ mod tests {
     #[test]
     fn count_distinct_update() -> Result<()> {
         let (states, result) = run_update(
-            &vec![DataType::Int32, DataType::UInt64],
-            &vec![
+            &[DataType::Int32, DataType::UInt64],
+            &[
                 vec![ScalarValue::Int32(Some(-1)), ScalarValue::UInt64(Some(5))],
                 vec![ScalarValue::Int32(Some(5)), ScalarValue::UInt64(Some(1))],
                 vec![ScalarValue::Int32(Some(-1)), ScalarValue::UInt64(Some(5))],
@@ -486,8 +486,8 @@ mod tests {
     #[test]
     fn count_distinct_update_with_nulls() -> Result<()> {
         let (states, result) = run_update(
-            &vec![DataType::Int32, DataType::UInt64],
-            &vec![
+            &[DataType::Int32, DataType::UInt64],
+            &[
                 // None of these updates contains a None, so these are accumulated.
                 vec![ScalarValue::Int32(Some(-1)), ScalarValue::UInt64(Some(5))],
                 vec![ScalarValue::Int32(Some(-1)), ScalarValue::UInt64(Some(5))],
@@ -533,7 +533,7 @@ mod tests {
             UInt64Builder
         )?;
 
-        let (states, result) = run_merge_batch(&vec![state_in1, state_in2])?;
+        let (states, result) = run_merge_batch(&[state_in1, state_in2])?;
 
         let state_out_vec1 = state_to_vec!(&states[0], Int32, i32).unwrap();
         let state_out_vec2 = state_to_vec!(&states[1], UInt64, u64).unwrap();

@@ -35,18 +35,18 @@ namespace dataset {
 
 /// \brief GetFragmentsFromDatasets transforms a vector<Dataset> into a
 /// flattened FragmentIterator.
-inline FragmentIterator GetFragmentsFromDatasets(const DatasetVector& datasets,
-                                                 std::shared_ptr<Expression> predicate) {
+inline Result<FragmentIterator> GetFragmentsFromDatasets(const DatasetVector& datasets,
+                                                         Expression predicate) {
   // Iterator<Dataset>
   auto datasets_it = MakeVectorIterator(datasets);
 
   // Dataset -> Iterator<Fragment>
-  auto fn = [predicate](std::shared_ptr<Dataset> dataset) -> FragmentIterator {
+  auto fn = [predicate](std::shared_ptr<Dataset> dataset) -> Result<FragmentIterator> {
     return dataset->GetFragments(predicate);
   };
 
   // Iterator<Iterator<Fragment>>
-  auto fragments_it = MakeMapIterator(fn, std::move(datasets_it));
+  auto fragments_it = MakeMaybeMapIterator(fn, std::move(datasets_it));
 
   // Iterator<Fragment>
   return MakeFlattenIterator(std::move(fragments_it));

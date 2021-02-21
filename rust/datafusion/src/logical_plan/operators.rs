@@ -20,7 +20,7 @@ use std::{fmt, ops};
 use super::{binary_expr, Expr};
 
 /// Operators applied to expressions
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Operator {
     /// Expressions are equal
     Eq,
@@ -81,7 +81,7 @@ impl ops::Add for Expr {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self {
-        binary_expr(self.clone(), Operator::Plus, rhs.clone())
+        binary_expr(self, Operator::Plus, rhs)
     }
 }
 
@@ -89,7 +89,7 @@ impl ops::Sub for Expr {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self {
-        binary_expr(self.clone(), Operator::Minus, rhs.clone())
+        binary_expr(self, Operator::Minus, rhs)
     }
 }
 
@@ -97,7 +97,7 @@ impl ops::Mul for Expr {
     type Output = Self;
 
     fn mul(self, rhs: Self) -> Self {
-        binary_expr(self.clone(), Operator::Multiply, rhs.clone())
+        binary_expr(self, Operator::Multiply, rhs)
     }
 }
 
@@ -105,17 +105,16 @@ impl ops::Div for Expr {
     type Output = Self;
 
     fn div(self, rhs: Self) -> Self {
-        binary_expr(self.clone(), Operator::Divide, rhs.clone())
+        binary_expr(self, Operator::Divide, rhs)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::error::Result;
     use crate::prelude::lit;
 
     #[test]
-    fn test_operators() -> Result<()> {
+    fn test_operators() {
         assert_eq!(
             format!("{:?}", lit(1u32) + lit(2u32)),
             "UInt32(1) Plus UInt32(2)"
@@ -132,7 +131,5 @@ mod tests {
             format!("{:?}", lit(1u32) / lit(2u32)),
             "UInt32(1) Divide UInt32(2)"
         );
-
-        Ok(())
     }
 }

@@ -23,6 +23,10 @@
 Compute Functions
 =================
 
+.. sidebar:: Contents
+
+   .. contents:: :local:
+
 The generic Compute API
 =======================
 
@@ -31,7 +35,7 @@ The generic Compute API
 Functions and function registry
 -------------------------------
 
-Functions represent compute operations over inputs of possibly varying 
+Functions represent compute operations over inputs of possibly varying
 types.  Internally, a function is implemented by one or several
 "kernels", depending on the concrete input types (for example, a function
 adding values from two inputs can have different kernels depending on
@@ -100,6 +104,57 @@ exact semantics of the function::
 .. seealso::
    :doc:`Compute API reference <api/compute>`
 
+Implicit casts
+==============
+
+Functions may require conversion of their arguments before execution if a
+kernel does not match the argument types precisely. For example comparison
+of dictionary encoded arrays is not directly supported by any kernel, but an
+implicit cast can be made allowing comparison against the decoded array.
+
+Each function may define implicit cast behaviour as appropriate. For example
+comparison and arithmetic kernels require identically typed arguments, and
+support execution against differing numeric types by promoting their arguments
+to numeric type which can accommodate any value from either input.
+
+.. _common-numeric-type:
+
+Common numeric type
+-------------------
+
+The common numeric type of a set of input numeric types is the smallest numeric
+type which can accommodate any value of any input. If any input is a floating
+point type the common numeric type is the widest floating point type among the
+inputs. Otherwise the common numeric type is integral and is signed if any input
+is signed. For example:
+
++-------------------+----------------------+------------------------------------------------+
+| Input types       | Common numeric type  | Notes                                          |
++===================+======================+================================================+
+| int32, int32      | int32                |                                                |
++-------------------+----------------------+------------------------------------------------+
+| int16, int32      | int32                | Max width is 32, promote LHS to int32          |
++-------------------+----------------------+------------------------------------------------+
+| uint16, int32     | int32                | One input signed, override unsigned            |
++-------------------+----------------------+------------------------------------------------+
+| uint32, int32     | int64                | Widen to accommodate range of uint32           |
++-------------------+----------------------+------------------------------------------------+
+| uint16, uint32    | uint32               | All inputs unsigned, maintain unsigned         |
++-------------------+----------------------+------------------------------------------------+
+| int16, uint32     | int64                |                                                |
++-------------------+----------------------+------------------------------------------------+
+| uint64, int16     | int64                | int64 cannot accommodate all uint64 values     |
++-------------------+----------------------+------------------------------------------------+
+| float32, int32    | float32              | Promote RHS to float32                         |
++-------------------+----------------------+------------------------------------------------+
+| float32, float64  | float64              |                                                |
++-------------------+----------------------+------------------------------------------------+
+| float32, int64    | float32              | int64 is wider, still promotes to float32      |
++-------------------+----------------------+------------------------------------------------+
+
+In particulary, note that comparing a ``uint64`` column to an ``int16`` column
+may emit an error if one of the ``uint64`` values cannot be expressed as the
+common type ``int64`` (for example, ``2 ** 63``).
 
 .. _compute-function-list:
 
@@ -134,28 +189,41 @@ Aggregations
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
 | Function name            | Arity      | Input types        | Output type           | Options class                              |
 +==========================+============+====================+=======================+============================================+
+| all                      | Unary      | Boolean            | Scalar Boolean        |                                            |
++--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
+| any                      | Unary      | Boolean            | Scalar Boolean        |                                            |
++--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
 | count                    | Unary      | Any                | Scalar Int64          | :struct:`CountOptions`                     |
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
 | mean                     | Unary      | Numeric            | Scalar Float64        |                                            |
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
 | min_max                  | Unary      | Numeric            | Scalar Struct  (1)    | :struct:`MinMaxOptions`                    |
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
-| mode                     | Unary      | Numeric            | Scalar Struct  (2)    |                                            |
+| mode                     | Unary      | Numeric            | Struct  (2)           | :struct:`ModeOptions`                      |
++--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
+| quantile                 | Unary      | Numeric            | Scalar Numeric (3)    | :struct:`QuantileOptions`                  |
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
 | stddev                   | Unary      | Numeric            | Scalar Float64        | :struct:`VarianceOptions`                  |
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
-| sum                      | Unary      | Numeric            | Scalar Numeric (3)    |                                            |
+| sum                      | Unary      | Numeric            | Scalar Numeric (4)    |                                            |
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
 | variance                 | Unary      | Numeric            | Scalar Float64        | :struct:`VarianceOptions`                  |
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
 
 Notes:
 
-* \(1) Output is a ``{"min": input type, "max": input type}`` Struct
+* \(1) Output is a ``{"min": input type, "max": input type}`` Struct.
 
-* \(2) Output is a ``{"mode": input type, "count": Int64}`` Struct
+* \(2) Output is an array of ``{"mode": input type, "count": Int64}`` Struct.
+  It contains the *N* most common elements in the input, in descending
+  order, where *N* is given in :member:`ModeOptions::n`.
+  If two values have the same count, the smallest one comes first.
+  Note that the output can have less than *N* elements if the input has
+  less than *N* distinct values.
 
-* \(3) Output is Int64, UInt64 or Float64, depending on the input type
+* \(3) Output is Float64 or input type, depending on QuantileOptions.
+
+* \(4) Output is Int64, UInt64 or Float64, depending on the input type.
 
 Element-wise ("scalar") functions
 ---------------------------------
@@ -179,9 +247,11 @@ Binary functions have the following semantics (which is sometimes called
 Arithmetic functions
 ~~~~~~~~~~~~~~~~~~~~
 
-These functions expect two inputs of the same type and apply a given binary
+These functions expect two inputs of numeric type and apply a given binary
 operation to each pair of elements gathered from the inputs.  If any of the
 input elements in a pair is null, the corresponding output element is null.
+Inputs will be cast to the :ref:`common numeric type <common-numeric-type>`
+(and dictionary decoded, if applicable) before the operation is applied.
 
 The default variant of these functions does not detect overflow (the result
 then typically wraps around).  Each function is also available in an
@@ -211,9 +281,12 @@ an ``Invalid`` :class:`Status` when overflow is detected.
 Comparisons
 ~~~~~~~~~~~
 
-Those functions expect two inputs of the same type and apply a given
-comparison operator.  If any of the input elements in a pair is null,
-the corresponding output element is null.
+These functions expect two inputs of numeric type (in which case they will be
+cast to the :ref:`common numeric type <common-numeric-type>` before comparison),
+or two inputs of Binary- or String-like types, or two inputs of Temporal types.
+If any input is dictionary encoded it will be expanded for the purposes of
+comparison. If any of the input elements in a pair is null, the corresponding
+output element is null.
 
 +--------------------------+------------+---------------------------------------------+---------------------+
 | Function names           | Arity      | Input types                                 | Output type         |
@@ -248,7 +321,11 @@ For the Kleene logic variants, therefore:
 +==========================+============+====================+=====================+
 | and                      | Binary     | Boolean            | Boolean             |
 +--------------------------+------------+--------------------+---------------------+
+| and_not                  | Binary     | Boolean            | Boolean             |
++--------------------------+------------+--------------------+---------------------+
 | and_kleene               | Binary     | Boolean            | Boolean             |
++--------------------------+------------+--------------------+---------------------+
+| and_not_kleene           | Binary     | Boolean            | Boolean             |
 +--------------------------+------------+--------------------+---------------------+
 | invert                   | Unary      | Boolean            | Boolean             |
 +--------------------------+------------+--------------------+---------------------+
@@ -370,6 +447,53 @@ String transforms
 * \(3) Each UTF8-encoded character in the input is converted to lowercase or
   uppercase.
 
+
+String trimming
+~~~~~~~~~~~~~~~
+
+These functions trim off characters on both sides (trim), or the left (ltrim) or right side (rtrim).
+
++--------------------------+------------+-------------------------+---------------------+----------------------------------------+---------+
+| Function name            | Arity      | Input types             | Output type         | Options class                          | Notes   |
++==========================+============+=========================+=====================+========================================+=========+
+| ascii_ltrim              | Unary      | String-like             | String-like         | :struct:`TrimOptions`                  | \(1)    |
++--------------------------+------------+-------------------------+---------------------+----------------------------------------+---------+
+| ascii_ltrim_whitespace   | Unary      | String-like             | String-like         |                                        | \(2)    |
++--------------------------+------------+-------------------------+---------------------+----------------------------------------+---------+
+| ascii_rtrim              | Unary      | String-like             | String-like         | :struct:`TrimOptions`                  | \(1)    |
++--------------------------+------------+-------------------------+---------------------+----------------------------------------+---------+
+| ascii_rtrim_whitespace   | Unary      | String-like             | String-like         |                                        | \(2)    |
++--------------------------+------------+-------------------------+---------------------+----------------------------------------+---------+
+| ascii_trim               | Unary      | String-like             | String-like         | :struct:`TrimOptions`                  | \(1)    |
++--------------------------+------------+-------------------------+---------------------+----------------------------------------+---------+
+| ascii_trim_whitespace    | Unary      | String-like             | String-like         |                                        | \(2)    |
++--------------------------+------------+-------------------------+---------------------+----------------------------------------+---------+
+| utf8_ltrim               | Unary      | String-like             | String-like         | :struct:`TrimOptions`                  | \(3)    |
++--------------------------+------------+-------------------------+---------------------+----------------------------------------+---------+
+| utf8_ltrim_whitespace    | Unary      | String-like             | String-like         |                                        | \(4)    |
++--------------------------+------------+-------------------------+---------------------+----------------------------------------+---------+
+| utf8_rtrim               | Unary      | String-like             | String-like         | :struct:`TrimOptions`                  | \(3)    |
++--------------------------+------------+-------------------------+---------------------+----------------------------------------+---------+
+| utf8_rtrim_whitespace    | Unary      | String-like             | String-like         |                                        | \(4)    |
++--------------------------+------------+-------------------------+---------------------+----------------------------------------+---------+
+| utf8_trim                | Unary      | String-like             | String-like         | :struct:`TrimOptions`                  | \(3)    |
++--------------------------+------------+-------------------------+---------------------+----------------------------------------+---------+
+| utf8_trim_whitespace     | Unary      | String-like             | String-like         |                                        | \(4)    |
++--------------------------+------------+-------------------------+---------------------+----------------------------------------+---------+
+
+* \(1) Only characters specified in :member:`TrimOptions::characters` will be
+  trimmed off. Both the input string and the `characters` argument are
+  interpreted as ASCII characters.
+
+* \(2) Only trim off ASCII whitespace characters (``'\t'``, ``'\n'``, ``'\v'``,
+  ``'\f'``, ``'\r'``  and ``' '``).
+
+* \(3) Only characters specified in :member:`TrimOptions::characters` will be
+  trimmed off.
+
+* \(4) Only trim off Unicode whitespace characters.
+
+
 Containment tests
 ~~~~~~~~~~~~~~~~~
 
@@ -431,28 +555,39 @@ Structural transforms
 
 .. XXX (this category is a bit of a hodgepodge)
 
-+--------------------------+------------+---------------------------------------+---------------------+---------+
-| Function name            | Arity      | Input types                           | Output type         | Notes   |
-+==========================+============+=======================================+=====================+=========+
-| fill_null                | Binary     | Boolean, Null, Numeric, Temporal      | Boolean             | \(1)    |
-+--------------------------+------------+---------------------------------------+---------------------+---------+
-| is_null                  | Unary      | Any                                   | Boolean             | \(2)    |
-+--------------------------+------------+---------------------------------------+---------------------+---------+
-| is_valid                 | Unary      | Any                                   | Boolean             | \(2)    |
-+--------------------------+------------+---------------------------------------+---------------------+---------+
-| list_value_length        | Unary      | List-like                             | Int32 or Int64      | \(4)    |
-+--------------------------+------------+---------------------------------------+---------------------+---------+
++--------------------------+------------+------------------------------------------------+---------------------+---------+
+| Function name            | Arity      | Input types                                    | Output type         | Notes   |
++==========================+============+================================================+=====================+=========+
+| fill_null                | Binary     | Boolean, Null, Numeric, Temporal, String-like  | Input type          | \(1)    |
++--------------------------+------------+------------------------------------------------+---------------------+---------+
+| is_nan                   | Unary      | Float, Double                                  | Boolean             | \(2)    |
++--------------------------+------------+------------------------------------------------+---------------------+---------+
+| is_null                  | Unary      | Any                                            | Boolean             | \(3)    |
++--------------------------+------------+------------------------------------------------+---------------------+---------+
+| is_valid                 | Unary      | Any                                            | Boolean             | \(4)    |
++--------------------------+------------+------------------------------------------------+---------------------+---------+
+| list_value_length        | Unary      | List-like                                      | Int32 or Int64      | \(5)    |
++--------------------------+------------+------------------------------------------------+---------------------+---------+
+| project                  | Varargs    | Any                                            | Struct              | \(6)    |
++--------------------------+------------+------------------------------------------------+---------------------+---------+
 
 * \(1) First input must be an array, second input a scalar of the same type.
   Output is an array of the same type as the inputs, and with the same values
   as the first input, except for nulls replaced with the second input value.
 
-* \(2) Output is true iff the corresponding input element is non-null.
+* \(2) Output is true iff the corresponding input element is NaN.
 
 * \(3) Output is true iff the corresponding input element is null.
 
-* \(4) Each output element is the length of the corresponding input element
+* \(4) Output is true iff the corresponding input element is non-null.
+
+* \(5) Each output element is the length of the corresponding input element
   (null if input is null).  Output type is Int32 for List, Int64 for LargeList.
+
+* \(6) The output struct's field types are the types of its arguments. The
+  field names are specified using an instance of :struct:`ProjectOptions`.
+  The output shape will be scalar if all inputs are scalar, otherwise any
+  scalars will be broadcast to arrays.
 
 Conversions
 ~~~~~~~~~~~
@@ -609,32 +744,43 @@ Sorts and partitions
 
 In these functions, nulls are considered greater than any other value
 (they will be sorted or partitioned at the end of the array).
+Floating-point NaN values are considered greater than any other non-null
+value, but smaller than nulls.
 
-+-----------------------+------------+-------------------------+-------------------+--------------------------------+-------------+
-| Function name         | Arity      | Input types             | Output type       | Options class                  | Notes       |
-+=======================+============+=========================+===================+================================+=============+
-| partition_nth_indices | Unary      | Binary- and String-like | UInt64            | :struct:`PartitionNthOptions`  | \(1) \(3)   |
-+-----------------------+------------+-------------------------+-------------------+--------------------------------+-------------+
-| partition_nth_indices | Unary      | Numeric                 | UInt64            | :struct:`PartitionNthOptions`  | \(1)        |
-+-----------------------+------------+-------------------------+-------------------+--------------------------------+-------------+
-| sort_indices          | Unary      | Binary- and String-like | UInt64            |                                | \(2) \(3)   |
-+-----------------------+------------+-------------------------+-------------------+--------------------------------+-------------+
-| sort_indices          | Unary      | Numeric                 | UInt64            |                                | \(2)        |
-+-----------------------+------------+-------------------------+-------------------+--------------------------------+-------------+
++-----------------------+------------+-------------------------+-------------------+--------------------------------+----------------+
+| Function name         | Arity      | Input types             | Output type       | Options class                  | Notes          |
++=======================+============+=========================+===================+================================+================+
+| partition_nth_indices | Unary      | Binary- and String-like | UInt64            | :struct:`PartitionNthOptions`  | \(1) \(3)      |
++-----------------------+------------+-------------------------+-------------------+--------------------------------+----------------+
+| partition_nth_indices | Unary      | Numeric                 | UInt64            | :struct:`PartitionNthOptions`  | \(1)           |
++-----------------------+------------+-------------------------+-------------------+--------------------------------+----------------+
+| array_sort_indices    | Unary      | Binary- and String-like | UInt64            | :struct:`ArraySortOptions`     | \(2) \(3) \(4) |
++-----------------------+------------+-------------------------+-------------------+--------------------------------+----------------+
+| array_sort_indices    | Unary      | Numeric                 | UInt64            | :struct:`ArraySortOptions`     | \(2) \(4)      |
++-----------------------+------------+-------------------------+-------------------+--------------------------------+----------------+
+| sort_indices          | Unary      | Binary- and String-like | UInt64            | :struct:`SortOptions`          | \(2) \(3) \(5) |
++-----------------------+------------+-------------------------+-------------------+--------------------------------+----------------+
+| sort_indices          | Unary      | Numeric                 | UInt64            | :struct:`SortOptions`          | \(2) \(5)      |
++-----------------------+------------+-------------------------+-------------------+--------------------------------+----------------+
 
 * \(1) The output is an array of indices into the input array, that define
-  a partial sort such that the *N*'th index points to the *N*'th element
-  in sorted order, and all indices before the *N*'th point to elements
-  less or equal to elements at or after the *N*'th (similar to
+  a partial non-stable sort such that the *N*'th index points to the *N*'th
+  element in sorted order, and all indices before the *N*'th point to
+  elements less or equal to elements at or after the *N*'th (similar to
   :func:`std::nth_element`).  *N* is given in
   :member:`PartitionNthOptions::pivot`.
 
-* \(2) The output is an array of indices into the input array, that define
-  a non-stable sort of the input array.
+* \(2) The output is an array of indices into the input, that define a
+  stable sort of the input.
 
 * \(3) Input values are ordered lexicographically as bytestrings (even
   for String arrays).
 
+* \(4) The input must be an array. The default order is ascending.
+
+* \(5) The input can be an array, chunked array, record batch or
+  table. If the input is a record batch or table, one or more sort
+  keys must be specified.
 
 Structural transforms
 ~~~~~~~~~~~~~~~~~~~~~
@@ -654,3 +800,4 @@ Structural transforms
 * \(2) For each value in the list child array, the index at which it is found
   in the list array is appended to the output.  Nulls in the parent list array
   are discarded.
+

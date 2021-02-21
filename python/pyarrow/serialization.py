@@ -81,7 +81,7 @@ def _deprecate_serialization(name):
         "'pyarrow.{}' is deprecated as of 2.0.0 and will be removed in a "
         "future version. Use pickle or the pyarrow IPC functionality instead."
     ).format(name)
-    warnings.warn(msg, DeprecationWarning, stacklevel=3)
+    warnings.warn(msg, FutureWarning, stacklevel=3)
 
 
 # ----------------------------------------------------------------------

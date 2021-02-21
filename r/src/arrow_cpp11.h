@@ -22,21 +22,9 @@
 #include <vector>
 #undef Free
 
-#include "./nameof.h"
-
-namespace cpp11 {
-
-template <typename T>
-SEXP as_sexp(const std::shared_ptr<T>& ptr);
-
-template <typename T>
-SEXP as_sexp(const std::vector<std::shared_ptr<T>>& vec);
-
-}  // namespace cpp11
-
-// TODO: move this include up once we can resolve this issue in cpp11
-//       https://github.com/apache/arrow/pull/7819#discussion_r471664878
 #include <cpp11.hpp>
+
+#include "./nameof.h"
 
 // borrowed from enc package
 // because R does not make these macros available (i.e. from Defn.h)
@@ -130,6 +118,8 @@ struct symbols {
   static SEXP byte_width;
   static SEXP list_size;
   static SEXP arrow_attributes;
+  static SEXP new_;
+  static SEXP create;
 };
 
 struct data {
@@ -170,6 +160,16 @@ Pointer r6_to_pointer(SEXP self) {
     cpp11::stop("Invalid <%s>, external pointer to null", CHAR(STRING_ELT(klass, 0)));
   }
   return reinterpret_cast<Pointer>(p);
+}
+
+template <typename T>
+void r6_reset_pointer(SEXP r6) {
+  SEXP xp = Rf_findVarInFrame(r6, arrow::r::symbols::xp);
+  void* p = R_ExternalPtrAddr(xp);
+  if (p != nullptr) {
+    delete reinterpret_cast<const std::shared_ptr<T>*>(p);
+    R_SetExternalPtrAddr(xp, nullptr);
+  }
 }
 
 // T is either std::shared_ptr<U> or std::unique_ptr<U>
@@ -265,20 +265,15 @@ cpp11::writable::strings to_r_strings(const std::vector<std::shared_ptr<T>>& x,
   return to_r_vector<cpp11::writable::strings>(x, std::forward<ToString>(to_string));
 }
 
-template <typename T>
-cpp11::writable::list to_r_list(const std::vector<std::shared_ptr<T>>& x) {
-  auto as_sexp = [](const std::shared_ptr<T>& t) { return cpp11::as_sexp(t); };
-  return to_r_vector<cpp11::writable::list>(x, as_sexp);
-}
-
 template <typename T, typename ToListElement>
 cpp11::writable::list to_r_list(const std::vector<std::shared_ptr<T>>& x,
                                 ToListElement&& to_element) {
-  auto as_sexp = [&](const std::shared_ptr<T>& t) {
-    return cpp11::as_sexp(to_element(t));
-  };
+  auto as_sexp = [&](const std::shared_ptr<T>& t) { return to_element(t); };
   return to_r_vector<cpp11::writable::list>(x, as_sexp);
 }
+
+template <typename T>
+cpp11::writable::list to_r_list(const std::vector<std::shared_ptr<T>>& x);
 
 inline cpp11::writable::integers short_row_names(int n) { return {NA_INTEGER, -n}; }
 
@@ -300,6 +295,66 @@ bool GetBoolOption(const std::string& name, bool default_);
 namespace cpp11 {
 
 template <typename T>
+SEXP to_r6(const std::shared_ptr<T>& ptr, const char* r6_class_name) {
+  if (ptr == nullptr) return R_NilValue;
+
+  cpp11::external_pointer<std::shared_ptr<T>> xp(new std::shared_ptr<T>(ptr));
+  SEXP r6_class = Rf_install(r6_class_name);
+
+  if (Rf_findVarInFrame3(arrow::r::ns::arrow, r6_class, FALSE) == R_UnboundValue) {
+    cpp11::stop("No arrow R6 class named '%s'", r6_class_name);
+  }
+
+  // make call:  <symbol>$new(<x>)
+  SEXP call = PROTECT(Rf_lang3(R_DollarSymbol, r6_class, arrow::r::symbols::new_));
+  SEXP call2 = PROTECT(Rf_lang2(call, xp));
+
+  // and then eval in arrow::
+  SEXP r6 = PROTECT(Rf_eval(call2, arrow::r::ns::arrow));
+
+  UNPROTECT(3);
+  return r6;
+}
+
+/// This trait defines a single static function which returns the name of the R6 class
+/// which corresponds to T. By default, this is just the c++ class name with any
+/// namespaces stripped, for example the R6 class for arrow::ipc::RecordBatchStreamReader
+/// is simply named "RecordBatchStreamReader".
+///
+/// Some classes require specializations of this trait. For example the R6 classes which
+/// wrap arrow::csv::ReadOptions and arrow::json::ReadOptions would collide if both were
+/// named "ReadOptions", so they are named "CsvReadOptions" and "JsonReadOptions"
+/// respectively. Other classes such as arrow::Array are base classes and the proper R6
+/// class name must be derived by examining a discriminant like Array::type_id.
+///
+/// All specializations are located in arrow_types.h
+template <typename T>
+struct r6_class_name;
+
+template <typename T>
+SEXP to_r6(const std::shared_ptr<T>& x) {
+  if (x == nullptr) return R_NilValue;
+
+  return to_r6(x, cpp11::r6_class_name<T>::get(x));
+}
+
+}  // namespace cpp11
+
+namespace arrow {
+namespace r {
+
+template <typename T>
+cpp11::writable::list to_r_list(const std::vector<std::shared_ptr<T>>& x) {
+  auto as_sexp = [&](const std::shared_ptr<T>& t) { return cpp11::to_r6<T>(t); };
+  return to_r_vector<cpp11::writable::list>(x, as_sexp);
+}
+
+}  // namespace r
+}  // namespace arrow
+
+namespace cpp11 {
+
+template <typename T>
 using enable_if_shared_ptr = typename std::enable_if<
     std::is_same<std::shared_ptr<typename T::element_type>, T>::value, T>::type;
 
@@ -308,19 +363,14 @@ enable_if_shared_ptr<T> as_cpp(SEXP from) {
   return arrow::r::ExternalPtrInput<T>(from);
 }
 
-template <typename T>
-SEXP as_sexp(const std::shared_ptr<T>& ptr) {
-  return cpp11::external_pointer<std::shared_ptr<T>>(new std::shared_ptr<T>(ptr));
-}
-
-template <typename T>
-SEXP as_sexp(const std::vector<std::shared_ptr<T>>& vec) {
-  return arrow::r::to_r_list(vec);
-}
-
 template <typename E>
 enable_if_enum<E, SEXP> as_sexp(E e) {
   return as_sexp(static_cast<int>(e));
+}
+
+template <typename T>
+SEXP as_sexp(const std::shared_ptr<T>& ptr) {
+  return cpp11::to_r6<T>(ptr);
 }
 
 }  // namespace cpp11

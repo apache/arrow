@@ -21,7 +21,9 @@
 #include <utility>
 
 #include "arrow/array.h"
-#include "arrow/builder.h"
+#include "arrow/array/builder_binary.h"
+#include "arrow/array/builder_primitive.h"
+#include "arrow/array/builder_time.h"
 #include "arrow/json/parser.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"

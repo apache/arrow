@@ -24,7 +24,6 @@
 #include "arrow/memory_pool.h"
 #include "arrow/result.h"
 #include "arrow/util/bit_util.h"
-#include "arrow/util/bitmap_reader.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -63,6 +62,9 @@ void GenerateBits(uint8_t* bitmap, int64_t start_offset, int64_t length, Generat
 template <class Generator>
 void GenerateBitsUnrolled(uint8_t* bitmap, int64_t start_offset, int64_t length,
                           Generator&& g) {
+  static_assert(std::is_same<typename std::result_of<Generator && ()>::type, bool>::value,
+                "Functor passed to GenerateBitsUnrolled must return bool");
+
   if (length == 0) {
     return;
   }
@@ -83,17 +85,14 @@ void GenerateBitsUnrolled(uint8_t* bitmap, int64_t start_offset, int64_t length,
   }
 
   int64_t remaining_bytes = remaining / 8;
+  uint8_t out_results[8];
   while (remaining_bytes-- > 0) {
-    current_byte = 0;
-    current_byte = g() ? current_byte | 0x01 : current_byte;
-    current_byte = g() ? current_byte | 0x02 : current_byte;
-    current_byte = g() ? current_byte | 0x04 : current_byte;
-    current_byte = g() ? current_byte | 0x08 : current_byte;
-    current_byte = g() ? current_byte | 0x10 : current_byte;
-    current_byte = g() ? current_byte | 0x20 : current_byte;
-    current_byte = g() ? current_byte | 0x40 : current_byte;
-    current_byte = g() ? current_byte | 0x80 : current_byte;
-    *cur++ = current_byte;
+    for (int i = 0; i < 8; ++i) {
+      out_results[i] = g();
+    }
+    *cur++ = (out_results[0] | out_results[1] << 1 | out_results[2] << 2 |
+              out_results[3] << 3 | out_results[4] << 4 | out_results[5] << 5 |
+              out_results[6] << 6 | out_results[7] << 7);
   }
 
   int64_t remaining_bits = remaining % 8;

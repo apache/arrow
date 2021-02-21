@@ -24,6 +24,7 @@
 #include <arrow-glib/basic-data-type.hpp>
 #include <arrow-glib/error.hpp>
 #include <arrow-glib/field.hpp>
+#include <arrow-glib/internal-hash-table.hpp>
 #include <arrow-glib/schema.hpp>
 
 G_BEGIN_DECLS
@@ -360,6 +361,21 @@ garrow_schema_replace_field(GArrowSchema *schema,
 }
 
 /**
+ * garrow_schema_has_metadata:
+ * @schema: A #GArrowSchema.
+ *
+ * Returns: %TRUE if the schema has metadata, %FALSE otherwise.
+ *
+ * Since: 3.0.0
+ */
+gboolean
+garrow_schema_has_metadata(GArrowSchema *schema)
+{
+  const auto arrow_schema = garrow_schema_get_raw(schema);
+  return arrow_schema->HasMetadata();
+}
+
+/**
  * garrow_schema_get_metadata:
  * @schema: A #GArrowSchema.
  *
@@ -403,17 +419,7 @@ garrow_schema_with_metadata(GArrowSchema *schema,
                             GHashTable *metadata)
 {
   const auto arrow_schema = garrow_schema_get_raw(schema);
-  auto arrow_metadata = std::make_shared<arrow::KeyValueMetadata>();
-  g_hash_table_foreach(metadata,
-                       [](gpointer key,
-                          gpointer value,
-                          gpointer user_data) {
-                         auto arrow_metadata =
-                           static_cast<std::shared_ptr<arrow::KeyValueMetadata> *>(user_data);
-                         (*arrow_metadata)->Append(static_cast<gchar *>(key),
-                                                   static_cast<gchar *>(value));
-                       },
-                       &arrow_metadata);
+  auto arrow_metadata = garrow_internal_hash_table_to_metadata(metadata);
   auto arrow_new_schema = arrow_schema->WithMetadata(arrow_metadata);
   return garrow_schema_new_raw(&arrow_new_schema);
 }

@@ -174,7 +174,7 @@ def test_sequence_boolean(seq):
 
 @parametrize_with_iterable_types
 def test_sequence_numpy_boolean(seq):
-    expected = [np.bool(True), None, np.bool(False), None]
+    expected = [np.bool_(True), None, np.bool_(False), None]
     arr = pa.array(seq(expected))
     assert arr.type == pa.bool_()
     assert arr.to_pylist() == [True, None, False, None]
@@ -759,6 +759,16 @@ def test_large_binary_value(ty):
     assert len(arr) == 4
     buf = arr[1].as_buffer()
     assert len(buf) == len(s) * nrepeats
+
+
+@pytest.mark.large_memory
+@pytest.mark.parametrize("ty", [pa.binary(), pa.string()])
+def test_string_too_large(ty):
+    # Construct a binary array with a single value larger than 4GB
+    s = b"0123456789abcdefghijklmnopqrstuvwxyz"
+    nrepeats = math.ceil((2**32 + 5) / len(s))
+    with pytest.raises(pa.ArrowCapacityError):
+        pa.array([b"foo", s * nrepeats, None, b"bar"], type=ty)
 
 
 def test_sequence_bytes():
@@ -1471,10 +1481,9 @@ def test_sequence_decimal_large_integer():
 def test_sequence_decimal_from_integers():
     data = [0, 1, -39402950693754869342983]
     expected = [decimal.Decimal(x) for x in data]
-    # TODO: update this test after scaling implementation.
-    type = pa.decimal128(precision=28, scale=5)
-    arr = pa.array(data, type=type)
-    assert arr.to_pylist() == expected
+    for type in [pa.decimal128, pa.decimal256]:
+        arr = pa.array(data, type=type(precision=28, scale=5))
+        assert arr.to_pylist() == expected
 
 
 def test_sequence_decimal_too_high_precision():
@@ -1998,6 +2007,18 @@ def test_roundtrip_nanosecond_resolution_pandas_temporal_objects():
     assert arr.equals(restored)
     assert restored.to_pylist() == [
         pd.Timestamp(9223371273709551616, unit='ns')
+    ]
+
+    ty = pa.timestamp('ns', tz='US/Eastern')
+    value = 1604119893000000000
+    arr = pa.array([value], type=ty)
+    data = arr.to_pylist()
+    assert isinstance(data[0], pd.Timestamp)
+    restored = pa.array(data, type=ty)
+    assert arr.equals(restored)
+    assert restored.to_pylist() == [
+        pd.Timestamp(value, unit='ns').tz_localize(
+            "UTC").tz_convert('US/Eastern')
     ]
 
 

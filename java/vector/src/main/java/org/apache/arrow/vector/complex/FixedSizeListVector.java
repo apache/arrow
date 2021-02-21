@@ -110,7 +110,7 @@ public class FixedSizeListVector extends BaseValueVector implements BaseListVect
     this.vector = ZeroVector.INSTANCE;
     this.fieldType = fieldType;
     this.listSize = ((ArrowType.FixedSizeList) fieldType.getType()).getListSize();
-    Preconditions.checkArgument(listSize > 0, "list size must be positive");
+    Preconditions.checkArgument(listSize >= 0, "list size must be non-negative");
     this.valueCount = 0;
     this.validityAllocationSizeInBytes = getValidityBufferSizeFromCount(INITIAL_VALUE_ALLOCATION);
   }
@@ -302,7 +302,7 @@ public class FixedSizeListVector extends BaseValueVector implements BaseListVect
 
   @Override
   public int getValueCapacity() {
-    if (vector == ZeroVector.INSTANCE) {
+    if (vector == ZeroVector.INSTANCE || listSize == 0) {
       return 0;
     }
     return Math.min(vector.getValueCapacity() / listSize, getValidityBufferValueCapacity());

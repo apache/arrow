@@ -33,7 +33,7 @@
 //! [`ColumnChunkMetaData`](struct.ColumnChunkMetaData.html) has information about column
 //! chunk (primitive leaf column), including encoding/compression, number of values, etc.
 
-use std::rc::Rc;
+use std::sync::Arc;
 
 use parquet_format::{ColumnChunk, ColumnMetaData, RowGroup};
 
@@ -42,17 +42,18 @@ use crate::errors::{ParquetError, Result};
 use crate::file::statistics::{self, Statistics};
 use crate::schema::types::{
     ColumnDescPtr, ColumnDescriptor, ColumnPath, SchemaDescPtr, SchemaDescriptor,
-    Type as SchemaType, TypePtr,
+    Type as SchemaType,
 };
 
 /// Global Parquet metadata.
+#[derive(Debug, Clone)]
 pub struct ParquetMetaData {
     file_metadata: FileMetaData,
     row_groups: Vec<RowGroupMetaData>,
 }
 
 impl ParquetMetaData {
-    /// Creates Parquet metadata from file metadata and a list of row group metadata `Rc`s
+    /// Creates Parquet metadata from file metadata and a list of row group metadata `Arc`s
     /// for each available row group.
     pub fn new(file_metadata: FileMetaData, row_groups: Vec<RowGroupMetaData>) -> Self {
         ParquetMetaData {
@@ -86,15 +87,15 @@ impl ParquetMetaData {
 pub type KeyValue = parquet_format::KeyValue;
 
 /// Reference counted pointer for [`FileMetaData`].
-pub type FileMetaDataPtr = Rc<FileMetaData>;
+pub type FileMetaDataPtr = Arc<FileMetaData>;
 
 /// Metadata for a Parquet file.
+#[derive(Debug, Clone)]
 pub struct FileMetaData {
     version: i32,
     num_rows: i64,
     created_by: Option<String>,
     key_value_metadata: Option<Vec<KeyValue>>,
-    schema: TypePtr,
     schema_descr: SchemaDescPtr,
     column_orders: Option<Vec<ColumnOrder>>,
 }
@@ -106,7 +107,6 @@ impl FileMetaData {
         num_rows: i64,
         created_by: Option<String>,
         key_value_metadata: Option<Vec<KeyValue>>,
-        schema: TypePtr,
         schema_descr: SchemaDescPtr,
         column_orders: Option<Vec<ColumnOrder>>,
     ) -> Self {
@@ -115,7 +115,6 @@ impl FileMetaData {
             num_rows,
             created_by,
             key_value_metadata,
-            schema,
             schema_descr,
             column_orders,
         }
@@ -150,7 +149,7 @@ impl FileMetaData {
 
     /// Returns Parquet ['Type`] that describes schema in this file.
     pub fn schema(&self) -> &SchemaType {
-        self.schema.as_ref()
+        self.schema_descr.root_schema()
     }
 
     /// Returns a reference to schema descriptor.
@@ -185,9 +184,10 @@ impl FileMetaData {
 }
 
 /// Reference counted pointer for [`RowGroupMetaData`].
-pub type RowGroupMetaDataPtr = Rc<RowGroupMetaData>;
+pub type RowGroupMetaDataPtr = Arc<RowGroupMetaData>;
 
 /// Metadata for a row group.
+#[derive(Debug, Clone)]
 pub struct RowGroupMetaData {
     columns: Vec<ColumnChunkMetaData>,
     num_rows: i64,
@@ -224,6 +224,11 @@ impl RowGroupMetaData {
     /// Total byte size of all uncompressed column data in this row group.
     pub fn total_byte_size(&self) -> i64 {
         self.total_byte_size
+    }
+
+    /// Total size of all compressed column data in this row group.
+    pub fn compressed_size(&self) -> i64 {
+        self.columns.iter().map(|c| c.total_compressed_size).sum()
     }
 
     /// Returns reference to a schema descriptor.
@@ -325,6 +330,7 @@ impl RowGroupMetaDataBuilder {
 }
 
 /// Metadata for a column chunk.
+#[derive(Debug, Clone)]
 pub struct ColumnChunkMetaData {
     column_type: Type,
     column_path: ColumnPath,
@@ -430,6 +436,21 @@ impl ColumnChunkMetaData {
     /// Returns the offset for the dictionary page, if any.
     pub fn dictionary_page_offset(&self) -> Option<i64> {
         self.dictionary_page_offset
+    }
+
+    /// Returns the offset and length in bytes of the column chunk within the file
+    pub fn byte_range(&self) -> (u64, u64) {
+        let col_start = if self.has_dictionary_page() {
+            self.dictionary_page_offset().unwrap()
+        } else {
+            self.data_page_offset()
+        };
+        let col_len = self.compressed_size();
+        assert!(
+            col_start >= 0 && col_len >= 0,
+            "column start and length should not be negative"
+        );
+        (col_start as u64, col_len as u64)
     }
 
     /// Returns statistics that are set for this column chunk,
@@ -720,16 +741,41 @@ mod tests {
         assert_eq!(col_chunk_res, col_chunk_exp);
     }
 
+    #[test]
+    fn test_compressed_size() {
+        let schema_descr = get_test_schema_descr();
+
+        let mut columns = vec![];
+        for column_descr in schema_descr.columns() {
+            let column = ColumnChunkMetaData::builder(column_descr.clone())
+                .set_total_compressed_size(500)
+                .set_total_uncompressed_size(700)
+                .build()
+                .unwrap();
+            columns.push(column);
+        }
+        let row_group_meta = RowGroupMetaData::builder(schema_descr)
+            .set_num_rows(1000)
+            .set_column_metadata(columns)
+            .build()
+            .unwrap();
+
+        let compressed_size_res: i64 = row_group_meta.compressed_size();
+        let compressed_size_exp: i64 = 1000;
+
+        assert_eq!(compressed_size_res, compressed_size_exp);
+    }
+
     /// Returns sample schema descriptor so we can create column metadata.
     fn get_test_schema_descr() -> SchemaDescPtr {
         let schema = SchemaType::group_type_builder("schema")
             .with_fields(&mut vec![
-                Rc::new(
+                Arc::new(
                     SchemaType::primitive_type_builder("a", Type::INT32)
                         .build()
                         .unwrap(),
                 ),
-                Rc::new(
+                Arc::new(
                     SchemaType::primitive_type_builder("b", Type::INT32)
                         .build()
                         .unwrap(),
@@ -738,6 +784,6 @@ mod tests {
             .build()
             .unwrap();
 
-        Rc::new(SchemaDescriptor::new(Rc::new(schema)))
+        Arc::new(SchemaDescriptor::new(Arc::new(schema)))
     }
 }

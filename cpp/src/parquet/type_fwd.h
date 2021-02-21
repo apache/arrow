@@ -19,8 +19,20 @@
 
 namespace parquet {
 
+struct ParquetVersion {
+  enum type { PARQUET_1_0, PARQUET_2_0 };
+};
+
 class FileMetaData;
 class SchemaDescriptor;
+
+class ReaderProperties;
+class ArrowReaderProperties;
+
+class WriterProperties;
+class WriterPropertiesBuilder;
+class ArrowWriterProperties;
+class ArrowWriterPropertiesBuilder;
 
 namespace arrow {
 

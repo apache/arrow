@@ -26,11 +26,13 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_block_counter.h"
+#include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/ubsan.h"
+#include "arrow/visitor_inline.h"
 
 namespace arrow {
 namespace internal {
@@ -57,7 +59,7 @@ static const uint64_t max_uints[] = {0, max_uint8, max_uint16, 0,         max_ui
                                      0, 0,         0,          max_uint64};
 
 // Check if we would need to expand the underlying storage type
-inline uint8_t ExpandedUIntWidth(uint64_t val, uint8_t current_width) {
+static inline uint8_t ExpandedUIntWidth(uint64_t val, uint8_t current_width) {
   // Optimize for the common case where width doesn't change
   if (ARROW_PREDICT_TRUE(val <= max_uints[current_width])) {
     return current_width;
@@ -364,7 +366,7 @@ width8:
 }
 
 template <typename Source, typename Dest>
-inline void DowncastIntsInternal(const Source* src, Dest* dest, int64_t length) {
+static inline void CastIntsInternal(const Source* src, Dest* dest, int64_t length) {
   while (length >= 4) {
     dest[0] = static_cast<Dest>(src[0]);
     dest[1] = static_cast<Dest>(src[1]);
@@ -381,15 +383,15 @@ inline void DowncastIntsInternal(const Source* src, Dest* dest, int64_t length) 
 }
 
 void DowncastInts(const int64_t* source, int8_t* dest, int64_t length) {
-  DowncastIntsInternal(source, dest, length);
+  CastIntsInternal(source, dest, length);
 }
 
 void DowncastInts(const int64_t* source, int16_t* dest, int64_t length) {
-  DowncastIntsInternal(source, dest, length);
+  CastIntsInternal(source, dest, length);
 }
 
 void DowncastInts(const int64_t* source, int32_t* dest, int64_t length) {
-  DowncastIntsInternal(source, dest, length);
+  CastIntsInternal(source, dest, length);
 }
 
 void DowncastInts(const int64_t* source, int64_t* dest, int64_t length) {
@@ -397,19 +399,23 @@ void DowncastInts(const int64_t* source, int64_t* dest, int64_t length) {
 }
 
 void DowncastUInts(const uint64_t* source, uint8_t* dest, int64_t length) {
-  DowncastIntsInternal(source, dest, length);
+  CastIntsInternal(source, dest, length);
 }
 
 void DowncastUInts(const uint64_t* source, uint16_t* dest, int64_t length) {
-  DowncastIntsInternal(source, dest, length);
+  CastIntsInternal(source, dest, length);
 }
 
 void DowncastUInts(const uint64_t* source, uint32_t* dest, int64_t length) {
-  DowncastIntsInternal(source, dest, length);
+  CastIntsInternal(source, dest, length);
 }
 
 void DowncastUInts(const uint64_t* source, uint64_t* dest, int64_t length) {
   memcpy(dest, source, length * sizeof(int64_t));
+}
+
+void UpcastInts(const int32_t* source, int64_t* dest, int64_t length) {
+  CastIntsInternal(source, dest, length);
 }
 
 template <typename InputInt, typename OutputInt>
@@ -460,13 +466,72 @@ INSTANTIATE_ALL()
 #undef INSTANTIATE_ALL
 #undef INSTANTIATE_ALL_DEST
 
+namespace {
+
+template <typename SrcType>
+struct TransposeIntsDest {
+  const SrcType* src;
+  uint8_t* dest;
+  int64_t dest_offset;
+  int64_t length;
+  const int32_t* transpose_map;
+
+  template <typename T>
+  enable_if_integer<T, Status> Visit(const T&) {
+    using DestType = typename T::c_type;
+    TransposeInts(src, reinterpret_cast<DestType*>(dest) + dest_offset, length,
+                  transpose_map);
+    return Status::OK();
+  }
+
+  Status Visit(const DataType& type) {
+    return Status::TypeError("TransposeInts received non-integer dest_type");
+  }
+
+  Status operator()(const DataType& type) { return VisitTypeInline(type, this); }
+};
+
+struct TransposeIntsSrc {
+  const uint8_t* src;
+  uint8_t* dest;
+  int64_t src_offset;
+  int64_t dest_offset;
+  int64_t length;
+  const int32_t* transpose_map;
+  const DataType& dest_type;
+
+  template <typename T>
+  enable_if_integer<T, Status> Visit(const T&) {
+    using SrcType = typename T::c_type;
+    return TransposeIntsDest<SrcType>{reinterpret_cast<const SrcType*>(src) + src_offset,
+                                      dest, dest_offset, length,
+                                      transpose_map}(dest_type);
+  }
+
+  Status Visit(const DataType& type) {
+    return Status::TypeError("TransposeInts received non-integer dest_type");
+  }
+
+  Status operator()(const DataType& type) { return VisitTypeInline(type, this); }
+};
+
+};  // namespace
+
+Status TransposeInts(const DataType& src_type, const DataType& dest_type,
+                     const uint8_t* src, uint8_t* dest, int64_t src_offset,
+                     int64_t dest_offset, int64_t length, const int32_t* transpose_map) {
+  TransposeIntsSrc transposer{src,    dest,          src_offset, dest_offset,
+                              length, transpose_map, dest_type};
+  return transposer(src_type);
+}
+
 template <typename T>
-std::string FormatInt(T val) {
+static std::string FormatInt(T val) {
   return std::to_string(val);
 }
 
 template <typename IndexCType, bool IsSigned = std::is_signed<IndexCType>::value>
-Status CheckIndexBoundsImpl(const ArrayData& indices, uint64_t upper_limit) {
+static Status CheckIndexBoundsImpl(const ArrayData& indices, uint64_t upper_limit) {
   // For unsigned integers, if the values array is larger than the maximum
   // index value (e.g. especially for UINT8 / UINT16), then there is no need to
   // boundscheck.
@@ -484,60 +549,22 @@ Status CheckIndexBoundsImpl(const ArrayData& indices, uint64_t upper_limit) {
     return ((IsSigned && val < 0) ||
             (val >= 0 && static_cast<uint64_t>(val) >= upper_limit));
   };
-  auto IsOutOfBoundsMaybeNull = [&](IndexCType val, bool is_valid) -> bool {
-    return is_valid && ((IsSigned && val < 0) ||
-                        (val >= 0 && static_cast<uint64_t>(val) >= upper_limit));
-  };
-  OptionalBitBlockCounter indices_bit_counter(bitmap, indices.offset, indices.length);
-  int64_t position = 0;
-  int64_t offset_position = indices.offset;
-  while (position < indices.length) {
-    BitBlockCount block = indices_bit_counter.NextBlock();
-    bool block_out_of_bounds = false;
-    if (block.popcount == block.length) {
-      // Fast path: branchless
-      for (int64_t i = 0; i < block.length; ++i) {
-        block_out_of_bounds |= IsOutOfBounds(indices_data[i]);
-      }
-    } else if (block.popcount > 0) {
-      // Indices have nulls, must only boundscheck non-null values
-      int64_t i = 0;
-      for (int64_t chunk = 0; chunk < block.length / 8; ++chunk) {
-        // Let the compiler unroll this
-        for (int j = 0; j < 8; ++j) {
-          block_out_of_bounds |= IsOutOfBoundsMaybeNull(
-              indices_data[i], BitUtil::GetBit(bitmap, offset_position + i));
-          ++i;
+  return VisitSetBitRuns(
+      bitmap, indices.offset, indices.length, [&](int64_t offset, int64_t length) {
+        bool block_out_of_bounds = false;
+        for (int64_t i = 0; i < length; ++i) {
+          block_out_of_bounds |= IsOutOfBounds(indices_data[offset + i]);
         }
-      }
-      for (; i < block.length; ++i) {
-        block_out_of_bounds |= IsOutOfBoundsMaybeNull(
-            indices_data[i], BitUtil::GetBit(bitmap, offset_position + i));
-      }
-    }
-    if (ARROW_PREDICT_FALSE(block_out_of_bounds)) {
-      if (indices.GetNullCount() > 0) {
-        for (int64_t i = 0; i < block.length; ++i) {
-          if (IsOutOfBoundsMaybeNull(indices_data[i],
-                                     BitUtil::GetBit(bitmap, offset_position + i))) {
-            return Status::IndexError("Index ", FormatInt(indices_data[i]),
-                                      " out of bounds");
+        if (ARROW_PREDICT_FALSE(block_out_of_bounds)) {
+          for (int64_t i = 0; i < length; ++i) {
+            if (IsOutOfBounds(indices_data[offset + i])) {
+              return Status::IndexError("Index ", FormatInt(indices_data[offset + i]),
+                                        " out of bounds");
+            }
           }
         }
-      } else {
-        for (int64_t i = 0; i < block.length; ++i) {
-          if (IsOutOfBounds(indices_data[i])) {
-            return Status::IndexError("Index ", FormatInt(indices_data[i]),
-                                      " out of bounds");
-          }
-        }
-      }
-    }
-    indices_data += block.length;
-    position += block.length;
-    offset_position += block.length;
-  }
-  return Status::OK();
+        return Status::OK();
+      });
 }
 
 /// \brief Branchless boundschecking of the indices. Processes batches of
@@ -568,6 +595,8 @@ Status CheckIndexBounds(const ArrayData& indices, uint64_t upper_limit) {
 
 // ----------------------------------------------------------------------
 // Utilities for casting from one integer type to another
+
+namespace {
 
 template <typename InType, typename CType = typename InType::c_type>
 Status IntegersInRange(const Datum& datum, CType bound_lower, CType bound_upper) {
@@ -667,6 +696,8 @@ Status CheckIntegersInRangeImpl(const Datum& datum, const Scalar& bound_lower,
                                checked_cast<const ScalarType&>(bound_upper).value);
 }
 
+}  // namespace
+
 Status CheckIntegersInRange(const Datum& datum, const Scalar& bound_lower,
                             const Scalar& bound_upper) {
   Type::type type_id = datum.type()->id();
@@ -697,6 +728,8 @@ Status CheckIntegersInRange(const Datum& datum, const Scalar& bound_lower,
       return Status::TypeError("Invalid index type for boundschecking");
   }
 }
+
+namespace {
 
 template <typename O, typename I, typename Enable = void>
 struct is_number_downcast {
@@ -885,6 +918,8 @@ Status IntegersCanFitImpl(const Datum& datum, const DataType& target_type) {
   GetSafeMinMax<Type>(target_type.id(), &bound_min, &bound_max);
   return CheckIntegersInRange(datum, ScalarType(bound_min), ScalarType(bound_max));
 }
+
+}  // namespace
 
 Status IntegersCanFit(const Datum& datum, const DataType& target_type) {
   if (!is_integer(target_type.id())) {

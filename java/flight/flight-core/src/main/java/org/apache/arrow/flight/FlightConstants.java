@@ -24,4 +24,6 @@ public interface FlightConstants {
 
   String SERVICE = "arrow.flight.protocol.FlightService";
 
+  FlightServerMiddleware.Key<ServerHeaderMiddleware> HEADER_KEY =
+      FlightServerMiddleware.Key.of("org.apache.arrow.flight.ServerHeaderMiddleware");
 }

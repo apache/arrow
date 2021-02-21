@@ -29,7 +29,7 @@
 #include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"
 #include "arrow/status.h"
-#include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -246,5 +246,25 @@ class ARROW_EXPORT ArrayBuilder {
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(ArrayBuilder);
 };
+
+/// \brief Construct an empty ArrayBuilder corresponding to the data
+/// type
+/// \param[in] pool the MemoryPool to use for allocations
+/// \param[in] type the data type to create the builder for
+/// \param[out] out the created ArrayBuilder
+ARROW_EXPORT
+Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
+                   std::unique_ptr<ArrayBuilder>* out);
+
+/// \brief Construct an empty DictionaryBuilder initialized optionally
+/// with a pre-existing dictionary
+/// \param[in] pool the MemoryPool to use for allocations
+/// \param[in] type the dictionary type to create the builder for
+/// \param[in] dictionary the initial dictionary, if any. May be nullptr
+/// \param[out] out the created ArrayBuilder
+ARROW_EXPORT
+Status MakeDictionaryBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
+                             const std::shared_ptr<Array>& dictionary,
+                             std::unique_ptr<ArrayBuilder>* out);
 
 }  // namespace arrow

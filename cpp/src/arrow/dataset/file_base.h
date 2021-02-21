@@ -22,7 +22,6 @@
 #include <functional>
 #include <memory>
 #include <string>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -144,11 +143,11 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
 
   /// \brief Open a fragment
   virtual Result<std::shared_ptr<FileFragment>> MakeFragment(
-      FileSource source, std::shared_ptr<Expression> partition_expression,
+      FileSource source, Expression partition_expression,
       std::shared_ptr<Schema> physical_schema);
 
-  Result<std::shared_ptr<FileFragment>> MakeFragment(
-      FileSource source, std::shared_ptr<Expression> partition_expression);
+  Result<std::shared_ptr<FileFragment>> MakeFragment(FileSource source,
+                                                     Expression partition_expression);
 
   Result<std::shared_ptr<FileFragment>> MakeFragment(
       FileSource source, std::shared_ptr<Schema> physical_schema = NULLPTR);
@@ -174,8 +173,7 @@ class ARROW_DS_EXPORT FileFragment : public Fragment {
 
  protected:
   FileFragment(FileSource source, std::shared_ptr<FileFormat> format,
-               std::shared_ptr<Expression> partition_expression,
-               std::shared_ptr<Schema> physical_schema)
+               Expression partition_expression, std::shared_ptr<Schema> physical_schema)
       : Fragment(std::move(partition_expression), std::move(physical_schema)),
         source_(std::move(source)),
         format_(std::move(format)) {}
@@ -208,7 +206,7 @@ class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
   ///
   /// \return A constructed dataset.
   static Result<std::shared_ptr<FileSystemDataset>> Make(
-      std::shared_ptr<Schema> schema, std::shared_ptr<Expression> root_partition,
+      std::shared_ptr<Schema> schema, Expression root_partition,
       std::shared_ptr<FileFormat> format, std::shared_ptr<fs::FileSystem> filesystem,
       std::vector<std::shared_ptr<FileFragment>> fragments);
 
@@ -235,10 +233,9 @@ class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
   std::string ToString() const;
 
  protected:
-  FragmentIterator GetFragmentsImpl(std::shared_ptr<Expression> predicate) override;
+  Result<FragmentIterator> GetFragmentsImpl(Expression predicate) override;
 
-  FileSystemDataset(std::shared_ptr<Schema> schema,
-                    std::shared_ptr<Expression> root_partition,
+  FileSystemDataset(std::shared_ptr<Schema> schema, Expression root_partition,
                     std::shared_ptr<FileFormat> format,
                     std::shared_ptr<fs::FileSystem> filesystem,
                     std::vector<std::shared_ptr<FileFragment>> fragments);
@@ -297,6 +294,9 @@ struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {
 
   /// Partitioning used to generate fragment paths.
   std::shared_ptr<Partitioning> partitioning;
+
+  /// Maximum number of partitions any batch may be written into, default is 1K.
+  int max_partitions = 1024;
 
   /// Template string used to generate fragment basenames.
   /// {i} will be replaced by an auto incremented integer.

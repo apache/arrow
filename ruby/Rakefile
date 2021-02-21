@@ -33,7 +33,11 @@ packages.each do |package|
   desc "Run test for #{package}"
   task package do
     cd(File.join(base_dir, package)) do
-      ruby("-S", "rake")
+      if ENV["USE_BUNDLER"]
+        sh("bundle", "exec", "rake")
+      else
+        ruby("-S", "rake")
+      end
     end
   end
 end

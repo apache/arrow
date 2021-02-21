@@ -21,44 +21,38 @@ use std::convert::TryFrom;
 
 use crate::{FlightData, SchemaResult};
 
+use arrow::array::ArrayRef;
 use arrow::datatypes::{Schema, SchemaRef};
 use arrow::error::{ArrowError, Result};
-use arrow::ipc::{convert, reader, writer, writer::IpcWriteOptions};
+use arrow::ipc::{convert, reader, writer, writer::EncodedData, writer::IpcWriteOptions};
 use arrow::record_batch::RecordBatch;
 
-/// Convert a `RecordBatch` to `FlightData` by converting the header and body to bytes
-///
-/// Note: This implicitly uses the default `IpcWriteOptions`. To configure options,
-/// use `flight_data_from_arrow_batch()`
-impl From<&RecordBatch> for FlightData {
-    fn from(batch: &RecordBatch) -> Self {
-        let options = IpcWriteOptions::default();
-        flight_data_from_arrow_batch(batch, &options)
-    }
-}
-
-/// Convert a `RecordBatch` to `FlightData` by converting the header and body to bytes
+/// Convert a `RecordBatch` to a vector of `FlightData` representing the bytes of the dictionaries
+/// and a `FlightData` representing the bytes of the batch's values
 pub fn flight_data_from_arrow_batch(
     batch: &RecordBatch,
     options: &IpcWriteOptions,
-) -> FlightData {
-    let data = writer::record_batch_to_bytes(batch, &options);
-    FlightData {
-        flight_descriptor: None,
-        app_metadata: vec![],
-        data_header: data.ipc_message,
-        data_body: data.arrow_data,
-    }
+) -> (Vec<FlightData>, FlightData) {
+    let data_gen = writer::IpcDataGenerator::default();
+    let mut dictionary_tracker = writer::DictionaryTracker::new(false);
+
+    let (encoded_dictionaries, encoded_batch) = data_gen
+        .encoded_batch(batch, &mut dictionary_tracker, &options)
+        .expect("DictionaryTracker configured above to not error on replacement");
+
+    let flight_dictionaries = encoded_dictionaries.into_iter().map(Into::into).collect();
+    let flight_batch = encoded_batch.into();
+
+    (flight_dictionaries, flight_batch)
 }
 
-/// Convert a `Schema` to `SchemaResult` by converting to an IPC message
-///
-/// Note: This implicitly uses the default `IpcWriteOptions`. To configure options,
-/// use `flight_schema_from_arrow_schema()`
-impl From<&Schema> for SchemaResult {
-    fn from(schema: &Schema) -> Self {
-        let options = IpcWriteOptions::default();
-        flight_schema_from_arrow_schema(schema, &options)
+impl From<EncodedData> for FlightData {
+    fn from(data: EncodedData) -> Self {
+        FlightData {
+            data_header: data.ipc_message,
+            data_body: data.arrow_data,
+            ..Default::default()
+        }
     }
 }
 
@@ -68,18 +62,7 @@ pub fn flight_schema_from_arrow_schema(
     options: &IpcWriteOptions,
 ) -> SchemaResult {
     SchemaResult {
-        schema: writer::schema_to_bytes(schema, &options).ipc_message,
-    }
-}
-
-/// Convert a `Schema` to `FlightData` by converting to an IPC message
-///
-/// Note: This implicitly uses the default `IpcWriteOptions`. To configure options,
-/// use `flight_data_from_arrow_schema()`
-impl From<&Schema> for FlightData {
-    fn from(schema: &Schema) -> Self {
-        let options = writer::IpcWriteOptions::default();
-        flight_data_from_arrow_schema(schema, &options)
+        schema: flight_schema_as_flatbuffer(schema, options),
     }
 }
 
@@ -88,13 +71,39 @@ pub fn flight_data_from_arrow_schema(
     schema: &Schema,
     options: &IpcWriteOptions,
 ) -> FlightData {
-    let schema = writer::schema_to_bytes(schema, &options);
+    let data_header = flight_schema_as_flatbuffer(schema, options);
     FlightData {
-        flight_descriptor: None,
-        app_metadata: vec![],
-        data_header: schema.ipc_message,
-        data_body: vec![],
+        data_header,
+        ..Default::default()
     }
+}
+
+/// Convert a `Schema` to bytes in the format expected in `FlightInfo.schema`
+pub fn ipc_message_from_arrow_schema(
+    arrow_schema: &Schema,
+    options: &IpcWriteOptions,
+) -> Result<Vec<u8>> {
+    let encoded_data = flight_schema_as_encoded_data(arrow_schema, options);
+
+    let mut schema = vec![];
+    arrow::ipc::writer::write_message(&mut schema, encoded_data, options)?;
+    Ok(schema)
+}
+
+fn flight_schema_as_flatbuffer(
+    arrow_schema: &Schema,
+    options: &IpcWriteOptions,
+) -> Vec<u8> {
+    let encoded_data = flight_schema_as_encoded_data(arrow_schema, options);
+    encoded_data.ipc_message
+}
+
+fn flight_schema_as_encoded_data(
+    arrow_schema: &Schema,
+    options: &IpcWriteOptions,
+) -> EncodedData {
+    let data_gen = writer::IpcDataGenerator::default();
+    data_gen.schema_to_bytes(arrow_schema, options)
 }
 
 /// Try convert `FlightData` into an Arrow Schema
@@ -103,10 +112,11 @@ pub fn flight_data_from_arrow_schema(
 impl TryFrom<&FlightData> for Schema {
     type Error = ArrowError;
     fn try_from(data: &FlightData) -> Result<Self> {
-        convert::schema_from_bytes(&data.data_header[..]).ok_or_else(|| {
-            ArrowError::ParseError(
-                "Unable to convert flight data to Arrow schema".to_string(),
-            )
+        convert::schema_from_bytes(&data.data_header[..]).map_err(|err| {
+            ArrowError::ParseError(format!(
+                "Unable to convert flight data to Arrow schema: {}",
+                err
+            ))
         })
     }
 }
@@ -117,10 +127,11 @@ impl TryFrom<&FlightData> for Schema {
 impl TryFrom<&SchemaResult> for Schema {
     type Error = ArrowError;
     fn try_from(data: &SchemaResult) -> Result<Self> {
-        convert::schema_from_bytes(&data.schema[..]).ok_or_else(|| {
-            ArrowError::ParseError(
-                "Unable to convert schema result to Arrow schema".to_string(),
-            )
+        convert::schema_from_bytes(&data.schema[..]).map_err(|err| {
+            ArrowError::ParseError(format!(
+                "Unable to convert schema result to Arrow schema: {}",
+                err
+            ))
         })
     }
 }
@@ -129,10 +140,12 @@ impl TryFrom<&SchemaResult> for Schema {
 pub fn flight_data_to_arrow_batch(
     data: &FlightData,
     schema: SchemaRef,
-) -> Option<Result<RecordBatch>> {
+    dictionaries_by_field: &[Option<ArrayRef>],
+) -> Result<RecordBatch> {
     // check that the data_header is a record batch message
-    let message = arrow::ipc::get_root_as_message(&data.data_header[..]);
-    let dictionaries_by_field = Vec::new();
+    let message = arrow::ipc::root_as_message(&data.data_header[..]).map_err(|err| {
+        ArrowError::ParseError(format!("Unable to get root as message: {:?}", err))
+    })?;
 
     message
         .header_as_record_batch()
@@ -141,17 +154,14 @@ pub fn flight_data_to_arrow_batch(
                 "Unable to convert flight data header to a record batch".to_string(),
             )
         })
-        .map_or_else(
-            |err| Some(Err(err)),
-            |batch| {
-                Some(reader::read_record_batch(
-                    &data.data_body,
-                    batch,
-                    schema,
-                    &dictionaries_by_field,
-                ))
-            },
-        )
+        .map(|batch| {
+            reader::read_record_batch(
+                &data.data_body,
+                batch,
+                schema,
+                &dictionaries_by_field,
+            )
+        })?
 }
 
 // TODO: add more explicit conversion that exposes flight descriptor and metadata options

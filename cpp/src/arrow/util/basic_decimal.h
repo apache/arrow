@@ -42,6 +42,8 @@ enum class DecimalStatus {
 /// streams and boost.
 class ARROW_EXPORT BasicDecimal128 {
  public:
+  static constexpr int bit_width = 128;
+
   /// \brief Create a BasicDecimal128 from the two's complement representation.
   constexpr BasicDecimal128(int64_t high, uint64_t low) noexcept
       : low_bits_(low), high_bits_(high) {}
@@ -188,6 +190,8 @@ class ARROW_EXPORT BasicDecimal256 {
   }
 
  public:
+  static constexpr int bit_width = 256;
+
   /// \brief Create a BasicDecimal256 from the two's complement representation.
   constexpr BasicDecimal256(const std::array<uint64_t, 4>& little_endian_array) noexcept
       : little_endian_array_(little_endian_array) {}
@@ -220,6 +224,9 @@ class ARROW_EXPORT BasicDecimal256 {
   /// \brief Absolute value
   static BasicDecimal256 Abs(const BasicDecimal256& left);
 
+  /// \brief Add a number to this one. The result is truncated to 256 bits.
+  BasicDecimal256& operator+=(const BasicDecimal256& right);
+
   /// \brief Get the bits of the two's complement representation of the number. The 4
   /// elements are in little endian order. The bits within each uint64_t element are in
   /// native endian order. For example,
@@ -234,16 +241,47 @@ class ARROW_EXPORT BasicDecimal256 {
   std::array<uint8_t, 32> ToBytes() const;
   void ToBytes(uint8_t* out) const;
 
+  /// \brief Scale multiplier for given scale value.
+  static const BasicDecimal256& GetScaleMultiplier(int32_t scale);
+
   /// \brief Convert BasicDecimal128 from one scale to another
   DecimalStatus Rescale(int32_t original_scale, int32_t new_scale,
                         BasicDecimal256* out) const;
+
+  /// \brief Whether this number fits in the given precision
+  ///
+  /// Return true if the number of significant digits is less or equal to `precision`.
+  bool FitsInPrecision(int32_t precision) const;
 
   inline int64_t Sign() const {
     return 1 | (static_cast<int64_t>(little_endian_array_[3]) >> 63);
   }
 
+  inline int64_t IsNegative() const {
+    return static_cast<int64_t>(little_endian_array_[3]) < 0;
+  }
+
   /// \brief Multiply this number by another number. The result is truncated to 256 bits.
   BasicDecimal256& operator*=(const BasicDecimal256& right);
+
+  /// Divide this number by right and return the result.
+  ///
+  /// This operation is not destructive.
+  /// The answer rounds to zero. Signs work like:
+  ///   21 /  5 ->  4,  1
+  ///  -21 /  5 -> -4, -1
+  ///   21 / -5 -> -4,  1
+  ///  -21 / -5 ->  4, -1
+  /// \param[in] divisor the number to divide by
+  /// \param[out] result the quotient
+  /// \param[out] remainder the remainder after the division
+  DecimalStatus Divide(const BasicDecimal256& divisor, BasicDecimal256* result,
+                       BasicDecimal256* remainder) const;
+  /// \brief Shift left by the given number of bits.
+  BasicDecimal256& operator<<=(uint32_t bits);
+
+  /// \brief In-place division.
+  BasicDecimal256& operator/=(const BasicDecimal256& right);
 
  private:
   std::array<uint64_t, 4> little_endian_array_;
@@ -276,6 +314,12 @@ ARROW_EXPORT inline bool operator>=(const BasicDecimal256& left,
   return !operator<(left, right);
 }
 
+ARROW_EXPORT BasicDecimal256 operator-(const BasicDecimal256& operand);
+ARROW_EXPORT BasicDecimal256 operator~(const BasicDecimal256& operand);
+ARROW_EXPORT BasicDecimal256 operator+(const BasicDecimal256& left,
+                                       const BasicDecimal256& right);
 ARROW_EXPORT BasicDecimal256 operator*(const BasicDecimal256& left,
+                                       const BasicDecimal256& right);
+ARROW_EXPORT BasicDecimal256 operator/(const BasicDecimal256& left,
                                        const BasicDecimal256& right);
 }  // namespace arrow

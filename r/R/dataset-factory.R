@@ -25,14 +25,13 @@ DatasetFactory <- R6Class("DatasetFactory", inherit = ArrowObject,
   public = list(
     Finish = function(schema = NULL, unify_schemas = FALSE) {
       if (is.null(schema)) {
-        ptr <- dataset___DatasetFactory__Finish1(self, unify_schemas)
+        dataset___DatasetFactory__Finish1(self, unify_schemas)
       } else {
-        ptr <- dataset___DatasetFactory__Finish2(self, schema)
+        dataset___DatasetFactory__Finish2(self, schema)
       }
-      shared_ptr(Dataset, ptr)$..dispatch()
     },
     Inspect = function(unify_schemas = FALSE) {
-      shared_ptr(Schema, dataset___DatasetFactory__Inspect(self, unify_schemas))
+      dataset___DatasetFactory__Inspect(self, unify_schemas)
     }
   )
 )
@@ -42,7 +41,7 @@ DatasetFactory$create <- function(x,
                                   partitioning = NULL,
                                   ...) {
   if (is_list_of(x, "DatasetFactory")) {
-    return(shared_ptr(DatasetFactory, dataset___UnionDatasetFactory__Make(x)))
+    return(dataset___UnionDatasetFactory__Make(x))
   }
 
   path_and_fs <- get_path_and_filesystem(x, filesystem)
@@ -108,7 +107,9 @@ DatasetFactory$create <- function(x,
 #' @param ... Additional format-specific options, passed to
 #' `FileFormat$create()`. For CSV options, note that you can specify them either
 #' with the Arrow C++ library naming ("delimiter", "quoting", etc.) or the
-#' `readr`-style naming used in [read_csv_arrow()] ("delim", "quote", etc.)
+#' `readr`-style naming used in [read_csv_arrow()] ("delim", "quote", etc.).
+#' Not all `readr` options are currently supported; please file an issue if you
+#' encounter one that `arrow` should support.
 #' @return A `DatasetFactory` object. Pass this to [open_dataset()],
 #' in a list potentially with other `DatasetFactory` objects, to create
 #' a `Dataset`.
@@ -143,5 +144,5 @@ FileSystemDatasetFactory$create <- function(filesystem,
     )
   }
 
-  shared_ptr(FileSystemDatasetFactory, ptr)
+  ptr
 }

@@ -103,7 +103,7 @@ public class ServerAuthWrapper {
           }
           return bytes;
         }
-          throw new IllegalStateException("Requesting more messages than client sent.");
+        throw new IllegalStateException("Requesting more messages than client sent.");
       }
 
       @Override

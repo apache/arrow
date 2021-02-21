@@ -24,25 +24,23 @@ extern crate arrow;
 use arrow::array::*;
 use arrow::compute::kernels::length::length;
 
-fn bench_length() {
+fn bench_length(array: &StringArray) {
+    criterion::black_box(length(array).unwrap());
+}
+
+fn add_benchmark(c: &mut Criterion) {
     fn double_vec<T: Clone>(v: Vec<T>) -> Vec<T> {
         [&v[..], &v[..]].concat()
     }
 
     // double ["hello", " ", "world", "!"] 10 times
     let mut values = vec!["one", "on", "o", ""];
-    let mut expected = vec![3, 2, 1, 0];
     for _ in 0..10 {
         values = double_vec(values);
-        expected = double_vec(expected);
     }
     let array = StringArray::from(values);
 
-    criterion::black_box(length(&array).unwrap());
-}
-
-fn add_benchmark(c: &mut Criterion) {
-    c.bench_function("length", |b| b.iter(bench_length));
+    c.bench_function("length", |b| b.iter(|| bench_length(&array)));
 }
 
 criterion_group!(benches, add_benchmark);

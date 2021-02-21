@@ -44,10 +44,11 @@ public interface FlightServerMiddleware {
      *
      * @param info Details about the call.
      * @param incomingHeaders A mutable set of request headers.
+     * @param context Context about the current request.
      *
      * @throws FlightRuntimeException if the middleware wants to reject the call with the given status
      */
-    T onCallStarted(CallInfo info, CallHeaders incomingHeaders);
+    T onCallStarted(CallInfo info, CallHeaders incomingHeaders, RequestContext context);
   }
 
   /**

@@ -410,6 +410,7 @@ impl<T: DataType> ColumnReaderImpl<T> {
                 .expect("Decoder for dict should have been set")
         } else {
             // Search cache for data page decoder
+            #[allow(clippy::map_entry)]
             if !self.decoders.contains_key(&encoding) {
                 // Initialize decoder for this page
                 let data_decoder = get_decoder::<T>(self.descr.clone(), encoding)?;
@@ -504,7 +505,7 @@ mod tests {
     use super::*;
 
     use rand::distributions::uniform::SampleUniform;
-    use std::{collections::VecDeque, rc::Rc, vec::IntoIter};
+    use std::{collections::VecDeque, sync::Arc, vec::IntoIter};
 
     use crate::basic::Type as PhysicalType;
     use crate::column::page::Page;
@@ -560,9 +561,8 @@ mod tests {
      $min:expr, $max:expr) => {
             #[test]
             fn $test_func() {
-                let desc = Rc::new(ColumnDescriptor::new(
-                    Rc::new($pty()),
-                    None,
+                let desc = Arc::new(ColumnDescriptor::new(
+                    Arc::new($pty()),
                     $def_level,
                     $rep_level,
                     ColumnPath::new(Vec::new()),
@@ -946,9 +946,8 @@ mod tests {
         // Note: values are chosen to reproduce the issue.
         //
         let primitive_type = get_test_int32_type();
-        let desc = Rc::new(ColumnDescriptor::new(
-            Rc::new(primitive_type),
-            None,
+        let desc = Arc::new(ColumnDescriptor::new(
+            Arc::new(primitive_type),
             1,
             1,
             ColumnPath::new(Vec::new()),
@@ -1064,9 +1063,8 @@ mod tests {
             0
         };
 
-        let desc = Rc::new(ColumnDescriptor::new(
-            Rc::new(primitive_type),
-            None,
+        let desc = Arc::new(ColumnDescriptor::new(
+            Arc::new(primitive_type),
             max_def_level,
             max_rep_level,
             ColumnPath::new(Vec::new()),

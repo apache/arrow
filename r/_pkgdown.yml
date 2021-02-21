@@ -85,7 +85,7 @@ reference:
 - title: C++ reader/writer interface
   contents:
   - ParquetFileReader
-  - ParquetReaderProperties
+  - ParquetArrowReaderProperties
   - ParquetFileWriter
   - ParquetWriterProperties
   - FeatherReader
@@ -117,13 +117,13 @@ reference:
   - DataType
   - DictionaryType
   - FixedWidthType
-  - cast_options
 - title: Flight
   contents:
   - load_flight_server
   - flight_connect
-  - push_data
   - flight_get
+  - flight_put
+  - list_flights
 - title: File systems
   contents:
   - s3_bucket
@@ -142,11 +142,18 @@ reference:
   - compression
   - Codec
   - codec_is_available
+- title: Computation
+  contents:
+  - match_arrow
+  - value_counts
 - title: Configuration
   contents:
+  - arrow_info
   - cpu_count
-- title: Installation helpers
-  contents:
   - arrow_available
   - install_arrow
   - install_pyarrow
+
+repo:
+  url:
+    source: https://github.com/apache/arrow/blob/master/r/

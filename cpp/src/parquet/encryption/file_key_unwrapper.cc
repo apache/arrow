@@ -39,8 +39,8 @@ FileKeyUnwrapper::FileKeyUnwrapper(KeyToolkit* key_toolkit,
 
 std::string FileKeyUnwrapper::GetKey(const std::string& key_metadata_bytes) const {
   // key_metadata is expected to be in UTF8 encoding
-  arrow::util::InitializeUTF8();
-  if (!arrow::util::ValidateUTF8(
+  ::arrow::util::InitializeUTF8();
+  if (!::arrow::util::ValidateUTF8(
           reinterpret_cast<const uint8_t*>(key_metadata_bytes.data()),
           key_metadata_bytes.size())) {
     throw ParquetException("key metadata should be in UTF8 encoding");
@@ -78,7 +78,7 @@ KeyWithMasterId FileKeyUnwrapper::GetDataEncryptionKey(
         });
 
     // Decrypt the data key
-    std::string aad = arrow::util::base64_decode(encoded_kek_id);
+    std::string aad = ::arrow::util::base64_decode(encoded_kek_id);
     data_key = internal::DecryptKeyLocally(encoded_wrapped_dek, kek_bytes, aad);
   }
 

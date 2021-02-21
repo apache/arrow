@@ -19,8 +19,8 @@
 
 #include "arrow/type.h"
 
-using ArrowType = arrow::DataType;
-using ArrowTypeId = arrow::Type;
+using ArrowType = ::arrow::DataType;
+using ArrowTypeId = ::arrow::Type;
 using ParquetType = parquet::Type;
 
 namespace parquet {
@@ -33,7 +33,10 @@ using ::arrow::internal::checked_cast;
 
 Result<std::shared_ptr<ArrowType>> MakeArrowDecimal(const LogicalType& logical_type) {
   const auto& decimal = checked_cast<const DecimalLogicalType&>(logical_type);
-  return ::arrow::Decimal128Type::Make(decimal.precision(), decimal.scale());
+  if (decimal.precision() <= ::arrow::Decimal128Type::kMaxPrecision) {
+    return ::arrow::Decimal128Type::Make(decimal.precision(), decimal.scale());
+  }
+  return ::arrow::Decimal256Type::Make(decimal.precision(), decimal.scale());
 }
 
 Result<std::shared_ptr<ArrowType>> MakeArrowInt(const LogicalType& logical_type) {

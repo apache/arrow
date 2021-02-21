@@ -67,7 +67,7 @@ NumPyBuffer::~NumPyBuffer() {
 namespace {
 
 Status GetTensorType(PyObject* dtype, std::shared_ptr<DataType>* out) {
-  if (!PyArray_DescrCheck(dtype)) {
+  if (!PyObject_TypeCheck(dtype, &PyArrayDescr_Type)) {
     return Status::TypeError("Did not pass numpy.dtype object");
   }
   PyArray_Descr* descr = reinterpret_cast<PyArray_Descr*>(dtype);
@@ -123,7 +123,7 @@ Status GetNumPyType(const DataType& type, int* type_num) {
 }  // namespace
 
 Status NumPyDtypeToArrow(PyObject* dtype, std::shared_ptr<DataType>* out) {
-  if (!PyArray_DescrCheck(dtype)) {
+  if (!PyObject_TypeCheck(dtype, &PyArrayDescr_Type)) {
     return Status::TypeError("Did not pass numpy.dtype object");
   }
   PyArray_Descr* descr = reinterpret_cast<PyArray_Descr*>(dtype);

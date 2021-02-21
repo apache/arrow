@@ -43,7 +43,7 @@ int ArrayData__get_offset(const std::shared_ptr<arrow::ArrayData>& x) {
 
 // [[arrow::export]]
 cpp11::list ArrayData__buffers(const std::shared_ptr<arrow::ArrayData>& x) {
-  return cpp11::as_sexp(x->buffers);
+  return arrow::r::to_r_list(x->buffers);
 }
 
 #endif

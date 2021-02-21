@@ -1,6 +1,6 @@
 Package: arrow
 Title: Integration to 'Apache' 'Arrow'
-Version: 2.0.0.9000
+Version: 3.0.0.9000
 Authors@R: c(
     person("Romain", "Fran\u00e7ois", email = "romain@rstudio.com", role = c("aut"), comment = c(ORCID = "0000-0002-2444-4226")),
     person("Jeroen", "Ooms", email = "jeroen@berkeley.edu", role = c("aut")),
@@ -14,7 +14,7 @@ Description: 'Apache' 'Arrow' <https://arrow.apache.org/> is a cross-language
     language-independent columnar memory format for flat and hierarchical data,
     organized for efficient analytic operations on modern hardware. This
     package provides an interface to the 'Arrow C++' library.
-Depends: R (>= 3.1)
+Depends: R (>= 3.3)
 License: Apache License (>= 2.0)
 URL: https://github.com/apache/arrow/, https://arrow.apache.org/docs/r/
 BugReports: https://issues.apache.org/jira/projects/ARROW/issues
@@ -38,6 +38,7 @@ RoxygenNote: 7.1.1
 VignetteBuilder: knitr
 Suggests:
     decor,
+    distro,
     dplyr,
     hms,
     knitr,
@@ -45,15 +46,18 @@ Suggests:
     pkgload,
     reticulate,
     rmarkdown,
+    stringr,
     testthat,
     tibble
-LinkingTo: cpp11
+LinkingTo: cpp11 (>= 0.2.0)
 Collate:
     'enums.R'
     'arrow-package.R'
     'type.R'
     'array-data.R'
+    'arrow-datum.R'
     'array.R'
+    'arrow-tabular.R'
     'arrowExports.R'
     'buffer.R'
     'chunked-array.R'
@@ -82,9 +86,9 @@ Collate:
     'install-arrow.R'
     'ipc_stream.R'
     'json.R'
-    'list.R'
     'memory-pool.R'
     'message.R'
+    'metadata.R'
     'parquet.R'
     'python.R'
     'record-batch-reader.R'
@@ -92,5 +96,4 @@ Collate:
     'reexports-bit64.R'
     'reexports-tidyselect.R'
     'schema.R'
-    'struct.R'
     'util.R'

@@ -46,9 +46,10 @@
 #' - `$column(i)`: Extract an `Array` by integer position from the batch
 #' - `$column_name(i)`: Get a column's name by integer position
 #' - `$names()`: Get all column names (called by `names(batch)`)
+#' - `$RenameColumns(value)`: Set all column names (called by `names(batch) <- value`)
 #' - `$GetColumnByName(name)`: Extract an `Array` by string name
 #' - `$RemoveColumn(i)`: Drops a column from the batch by integer position
-#' - `$selectColumns(indices)`: Return a new record batch with a selection of columns, expressed as 0-based integers.
+#' - `$SelectColumns(indices)`: Return a new record batch with a selection of columns, expressed as 0-based integers.
 #' - `$Slice(offset, length = NULL)`: Create a zero-copy view starting at the
 #'    indicated integer offset and going for the given length, or to the end
 #'    of the table if `NULL`, the default.
@@ -66,67 +67,58 @@
 #' - `$schema`
 #' - `$metadata`: Returns the key-value metadata of the `Schema` as a named list.
 #'    Modify or replace by assigning in (`batch$metadata <- new_metadata`).
-#'    All list elements are coerced to string.
+#'    All list elements are coerced to string. See `schema()` for more information.
 #' - `$columns`: Returns a list of `Array`s
 #' @rdname RecordBatch
 #' @name RecordBatch
-RecordBatch <- R6Class("RecordBatch", inherit = ArrowObject,
+RecordBatch <- R6Class("RecordBatch", inherit = ArrowTabular,
   public = list(
-    column = function(i) shared_ptr(Array, RecordBatch__column(self, i)),
+    column = function(i) RecordBatch__column(self, i),
     column_name = function(i) RecordBatch__column_name(self, i),
     names = function() RecordBatch__names(self),
+    RenameColumns = function(value) RecordBatch__RenameColumns(self, value),
     Equals = function(other, check_metadata = FALSE, ...) {
       inherits(other, "RecordBatch") && RecordBatch__Equals(self, other, isTRUE(check_metadata))
     },
     GetColumnByName = function(name) {
       assert_that(is.string(name))
-      shared_ptr(Array, RecordBatch__GetColumnByName(self, name))
+      RecordBatch__GetColumnByName(self, name)
     },
-    SelectColumns = function(indices) {
-      shared_ptr(RecordBatch, RecordBatch__SelectColumns(self, indices))
+    SelectColumns = function(indices) RecordBatch__SelectColumns(self, indices),
+    AddColumn = function(i, new_field, value) {
+      RecordBatch__AddColumn(self, i, new_field, value)
     },
-    RemoveColumn = function(i){
-      shared_ptr(RecordBatch, RecordBatch__RemoveColumn(self, i))
+    SetColumn = function(i, new_field, value) {
+      RecordBatch__SetColumn(self, i, new_field, value)
     },
+    RemoveColumn = function(i) RecordBatch__RemoveColumn(self, i),
     Slice = function(offset, length = NULL) {
       if (is.null(length)) {
-        shared_ptr(RecordBatch, RecordBatch__Slice1(self, offset))
+        RecordBatch__Slice1(self, offset)
       } else {
-        shared_ptr(RecordBatch, RecordBatch__Slice2(self, offset, length))
+        RecordBatch__Slice2(self, offset, length)
       }
     },
-    Take = function(i) {
-      if (is.numeric(i)) {
-        i <- as.integer(i)
-      }
-      if (is.integer(i)) {
-        i <- Array$create(i)
-      }
-      assert_is(i, "Array")
-      shared_ptr(RecordBatch, call_function("take", self, i))
-    },
-    Filter = function(i, keep_na = TRUE) {
-      if (is.logical(i)) {
-        i <- Array$create(i)
-      }
-      assert_that(is.Array(i, "bool"))
-      shared_ptr(RecordBatch, call_function("filter", self, i, options = list(keep_na = keep_na)))
-    },
+    # Take and Filter are methods on ArrowTabular
     serialize = function() ipc___SerializeRecordBatch__Raw(self),
-    ToString = function() ToString_tabular(self),
-
-    cast = function(target_schema, safe = TRUE, options = cast_options(safe)) {
+    to_data_frame = function() {
+      RecordBatch__to_dataframe(self, use_threads = option_use_threads())
+    },
+    cast = function(target_schema, safe = TRUE, ..., options = cast_options(safe, ...)) {
       assert_is(target_schema, "Schema")
-      assert_is(options, "CastOptions")
       assert_that(identical(self$schema$names, target_schema$names), msg = "incompatible schemas")
-      shared_ptr(RecordBatch, RecordBatch__cast(self, target_schema, options))
+      RecordBatch__cast(self, target_schema, options)
+    },
+    invalidate = function() {
+      .Call(`_arrow_RecordBatch__Reset`, self)
+      super$invalidate()
     }
   ),
 
   active = list(
     num_columns = function() RecordBatch__num_columns(self),
     num_rows = function() RecordBatch__num_rows(self),
-    schema = function() shared_ptr(Schema, RecordBatch__schema(self)),
+    schema = function() RecordBatch__schema(self),
     metadata = function(new) {
       if (missing(new)) {
         # Get the metadata (from the schema)
@@ -137,11 +129,11 @@ RecordBatch <- R6Class("RecordBatch", inherit = ArrowObject,
         out <- RecordBatch__ReplaceSchemaMetadata(self, new)
         # ReplaceSchemaMetadata returns a new object but we're modifying in place,
         # so swap in that new C++ object pointer into our R6 object
-        self$set_pointer(out)
+        self$set_pointer(out$pointer())
         self
       }
     },
-    columns = function() map(RecordBatch__columns(self), shared_ptr, Array)
+    columns = function() RecordBatch__columns(self)
   )
 )
 
@@ -156,8 +148,9 @@ RecordBatch$create <- function(..., schema = NULL) {
     names(arrays) <- rep_len("", length(arrays))
   }
   stopifnot(length(arrays) > 0)
+
   # TODO: should this also assert that they're all Arrays?
-  shared_ptr(RecordBatch, RecordBatch__from_arrays(schema, arrays))
+  RecordBatch__from_arrays(schema, arrays)
 }
 
 RecordBatch$from_message <- function(obj, schema) {
@@ -168,9 +161,9 @@ RecordBatch$from_message <- function(obj, schema) {
     on.exit(obj$close())
   }
   if (inherits(obj, "InputStream")) {
-    shared_ptr(RecordBatch, ipc___ReadRecordBatch__InputStream__Schema(obj, schema))
+    ipc___ReadRecordBatch__InputStream__Schema(obj, schema)
   } else {
-    shared_ptr(RecordBatch, ipc___ReadRecordBatch__Message__Schema(obj, schema))
+    ipc___ReadRecordBatch__Message__Schema(obj, schema)
   }
 }
 
@@ -196,127 +189,3 @@ record_batch <- RecordBatch$create
 
 #' @export
 names.RecordBatch <- function(x) x$names()
-
-#' @importFrom methods as
-#' @export
-`[.RecordBatch` <- function(x, i, j, ..., drop = FALSE) {
-  if (nargs() == 2L) {
-    # List-like column extraction (x[i])
-    return(x[, i])
-  }
-  if (!missing(j)) {
-    # Selecting columns is cheaper than filtering rows, so do it first.
-    # That way, if we're filtering too, we have fewer arrays to filter/slice/take
-    if (is_integerish(j)) {
-      if (all(j < 0)) {
-        # in R, negative j means "everything but j"
-        j <- setdiff(seq_len(x$num_columns), -1 * j)
-      }
-      x <- x$SelectColumns(as.integer(j) - 1L)
-    } else if (is.character(j)) {
-      x <- x$SelectColumns(match(j, names(x)) - 1L)
-    }
-
-    if (drop && ncol(x) == 1L) {
-      x <- x$column(0)
-    }
-  }
-  if (!missing(i)) {
-    x <- filter_rows(x, i, ...)
-  }
-  x
-}
-
-#' @export
-`[[.RecordBatch` <- function(x, i, ...) {
-  if (is.character(i)) {
-    x$GetColumnByName(i)
-  } else if (is.numeric(i)) {
-    x$column(i - 1)
-  } else {
-    stop("'i' must be character or numeric, not ", class(i), call. = FALSE)
-  }
-}
-
-#' @export
-`$.RecordBatch` <- function(x, name, ...) {
-  assert_that(is.string(name))
-  if (name %in% ls(x)) {
-    get(name, x)
-  } else {
-    x$GetColumnByName(name)
-  }
-}
-
-#' @export
-dim.RecordBatch <- function(x) {
-  c(x$num_rows, x$num_columns)
-}
-
-#' @export
-as.data.frame.RecordBatch <- function(x, row.names = NULL, optional = FALSE, ...) {
-  df <- RecordBatch__to_dataframe(x, use_threads = option_use_threads())
-  if (!is.null(r_metadata <- x$metadata$r)) {
-    df <- apply_arrow_r_metadata(df, .unserialize_arrow_r_metadata(r_metadata))
-  }
-  df
-}
-
-.serialize_arrow_r_metadata <- function(x) {
-  rawToChar(serialize(x, NULL, ascii = TRUE))
-}
-
-.unserialize_arrow_r_metadata <- function(x) {
-  tryCatch(unserialize(charToRaw(x)), error = function(e) {
-    warning("Invalid metadata$r", call. = FALSE)
-    NULL
-  })
-}
-
-apply_arrow_r_metadata <- function(x, r_metadata) {
-  tryCatch({
-    if (!is.null(r_metadata$attributes)) {
-      attributes(x)[names(r_metadata$attributes)] <- r_metadata$attributes
-      if (inherits(x, "POSIXlt")) {
-        # We store POSIXlt as a StructArray, which is translated back to R
-        # as a data.frame, but while data frames have a row.names = c(NA, nrow(x))
-        # attribute, POSIXlt does not, so since this is now no longer an object
-        # of class data.frame, remove the extraneous attribute
-        attr(x, "row.names") <- NULL
-      }
-    }
-
-    columns_metadata <- r_metadata$columns
-    if (length(names(x)) && !is.null(columns_metadata)) {
-      for (name in intersect(names(columns_metadata), names(x))) {
-        x[[name]] <- apply_arrow_r_metadata(x[[name]], columns_metadata[[name]])
-      }
-    }
-  }, error = function(e) {
-    warning("Invalid metadata$r", call. = FALSE)
-  })
-  x
-}
-
-#' @export
-as.list.RecordBatch <- function(x, ...) as.list(as.data.frame(x, ...))
-
-#' @export
-row.names.RecordBatch <- function(x) as.character(seq_len(nrow(x)))
-
-#' @export
-dimnames.RecordBatch <- function(x) list(row.names(x), names(x))
-
-#' @export
-head.RecordBatch <- head.Array
-
-#' @export
-tail.RecordBatch <- tail.Array
-
-ToString_tabular <- function(x, ...) {
-  # Generic to work with both RecordBatch and Table
-  sch <- unlist(strsplit(x$schema$ToString(), "\n"))
-  sch <- sub("(.*): (.*)", "$\\1 <\\2>", sch)
-  dims <- sprintf("%s rows x %s columns", nrow(x), ncol(x))
-  paste(c(dims, sch), collapse = "\n")
-}

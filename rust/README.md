@@ -52,9 +52,32 @@ You can find more details about each crate on their respective READMEs.
 
 ## Developer's guide to Arrow Rust
 
-Before running tests and examples, it is necessary to set up the local development environment.
+### How to compile
+
+This is a standard cargo project with workspaces. To build it, you need to have `rust` and `cargo`:
+
+```bash
+cd /rust && cargo build
+```
+
+You can also use rust's official docker image:
+
+```bash
+docker run --rm -v $(pwd)/rust:/rust -it rust /bin/bash -c "cd /rust && cargo build"
+```
+
+The command above assumes that are in the root directory of the project, not in the same
+directory as this README.md.
+
+You can also compile specific workspaces,
+
+```bash
+cd /rust/arrow && cargo build
+```
 
 ### Git Submodules
+
+Before running tests and examples, it is necessary to set up the local development environment.
 
 The tests rely on test data that is contained in git submodules.
 
@@ -69,29 +92,36 @@ This populates data in two git submodules:
 - `../cpp/submodules/parquet_testing/data` (sourced from https://github.com/apache/parquet-testing.git)
 - `../testing` (sourced from https://github.com/apache/arrow-testing)
 
-To run the tests of the whole crate, create two new environment variables to point to these directories as follows:
+By default, `cargo test` will look for these directories at their
+standard location. The following Env vars can be used to override the
+location should you choose
 
 ```bash
-export PARQUET_TEST_DATA=../cpp/submodules/parquet-testing/data
-export ARROW_TEST_DATA=../testing/data
+# Optionaly specify a different location for test data
+export PARQUET_TEST_DATA=$(cd ../cpp/submodules/parquet-testing/data; pwd)
+export ARROW_TEST_DATA=$(cd ../testing/data; pwd)
 ```
 
-To run the tests of an individual crate within the project (e.g. in `datafusion/`), adjust the path
-accordingly:
+From here on, this is a pure Rust project and `cargo` can be used to run tests, benchmarks, docs and examples as usual.
+
+
+### Running the tests
+
+Run tests using the Rust standard `cargo test` command:
 
 ```bash
-export PARQUET_TEST_DATA=../../cpp/submodules/parquet-testing/data
-export ARROW_TEST_DATA=../../testing/data
-```
+# run all tests.
+cargo test
 
-from here on, this is a pure Rust project and `cargo` can be used to run tests, benchmarks, docs and examples as usual.
+
+# run only tests for the arrow crate
+cargo test -p arrow
+```
 
 ## Code Formatting
 
-Our CI uses `rustfmt` to check code formatting.  Although the project is
-built and tested against nightly rust we use the stable version of
-`rustfmt`.  So before submitting a PR be sure to run the following
-and check for lint issues:
+Our CI uses `rustfmt` to check code formatting. Before submitting a
+PR be sure to run the following and check for lint issues:
 
 ```bash
 cargo +stable fmt --all -- --check
@@ -116,18 +146,27 @@ Search for `allow(clippy::` in the codebase to identify lints that are ignored/a
 * If you have several lints on a function or module, you may disable the lint on the function or module.
 * If a lint is pervasive across multiple modules, you may disable it at the crate level.
 
-## CI and Dockerized builds
+## Git Pre-Commit Hook
 
-There are currently multiple CI systems that build the project and they all use the same docker image. It is possible to run the same build locally.
+We can use [git pre-commit hook](https://git-scm.com/book/en/v2/Customizing-Git-Git-Hooks) to automate various kinds of git pre-commit checking/formatting.
 
-From the root of the Arrow project, run the following command to build the Docker image that the CI system uses to build the project.
+Suppose you are in the root directory of the project.
+
+First check if the file already exists:
 
 ```bash
-docker-compose build debian-rust
+ls -l .git/hooks/pre-commit
 ```
 
-Run the following command to build the project in the same way that the CI system will build the project. Note that this currently does cause some files to be written to your local workspace.
+If the file already exists, to avoid mistakenly **overriding**, you MAY have to check
+the link source or file content. Else if not exist, let's safely soft link [pre-commit.sh](pre-commit.sh) as file `.git/hooks/pre-commit`:
+
+```
+ln -s  ../../rust/pre-commit.sh .git/hooks/pre-commit
+```
+
+If sometimes you want to commit without checking, just run `git commit` with `--no-verify`:
 
 ```bash
-docker-compose run --rm debian-rust bash
+git commit --no-verify -m "... commit message ..."
 ```

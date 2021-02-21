@@ -191,12 +191,12 @@ public abstract class AllocationManager {
   public abstract long getSize();
 
   /**
-   * Return the absolute memory address pointing to the fist byte of underling memory chunk.
+   * Return the absolute memory address pointing to the fist byte of underlying memory chunk.
    */
   protected abstract long memoryAddress();
 
   /**
-   * Release the underling memory chunk.
+   * Release the underlying memory chunk.
    */
   protected abstract void release0();
 

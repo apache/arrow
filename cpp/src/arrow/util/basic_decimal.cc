@@ -28,6 +28,7 @@
 #include <string>
 
 #include "arrow/util/bit_util.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/int128_internal.h"
 #include "arrow/util/int_util_internal.h"
 #include "arrow/util/logging.h"
@@ -119,6 +120,112 @@ static const BasicDecimal128 ScaleMultipliersHalf[] = {
     BasicDecimal128(27105054312137610LL, 15683169460410122240ULL),
     BasicDecimal128(271050543121376108LL, 9257742014424809472ULL),
     BasicDecimal128(2710505431213761085LL, 343699775700336640ULL)};
+
+static const BasicDecimal256 ScaleMultipliersDecimal256[] = {
+    BasicDecimal256({1ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256({10ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256({100ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256({1000ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256({10000ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256({100000ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256({1000000ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256({10000000ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256({100000000ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256({1000000000ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256({10000000000ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256({100000000000ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256({1000000000000ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256({10000000000000ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256({100000000000000ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256({1000000000000000ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256({10000000000000000ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256({100000000000000000ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256({1000000000000000000ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256({10000000000000000000ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256({7766279631452241920ULL, 5ULL, 0ULL, 0ULL}),
+    BasicDecimal256({3875820019684212736ULL, 54ULL, 0ULL, 0ULL}),
+    BasicDecimal256({1864712049423024128ULL, 542ULL, 0ULL, 0ULL}),
+    BasicDecimal256({200376420520689664ULL, 5421ULL, 0ULL, 0ULL}),
+    BasicDecimal256({2003764205206896640ULL, 54210ULL, 0ULL, 0ULL}),
+    BasicDecimal256({1590897978359414784ULL, 542101ULL, 0ULL, 0ULL}),
+    BasicDecimal256({15908979783594147840ULL, 5421010ULL, 0ULL, 0ULL}),
+    BasicDecimal256({11515845246265065472ULL, 54210108ULL, 0ULL, 0ULL}),
+    BasicDecimal256({4477988020393345024ULL, 542101086ULL, 0ULL, 0ULL}),
+    BasicDecimal256({7886392056514347008ULL, 5421010862ULL, 0ULL, 0ULL}),
+    BasicDecimal256({5076944270305263616ULL, 54210108624ULL, 0ULL, 0ULL}),
+    BasicDecimal256({13875954555633532928ULL, 542101086242ULL, 0ULL, 0ULL}),
+    BasicDecimal256({9632337040368467968ULL, 5421010862427ULL, 0ULL, 0ULL}),
+    BasicDecimal256({4089650035136921600ULL, 54210108624275ULL, 0ULL, 0ULL}),
+    BasicDecimal256({4003012203950112768ULL, 542101086242752ULL, 0ULL, 0ULL}),
+    BasicDecimal256({3136633892082024448ULL, 5421010862427522ULL, 0ULL, 0ULL}),
+    BasicDecimal256({12919594847110692864ULL, 54210108624275221ULL, 0ULL, 0ULL}),
+    BasicDecimal256({68739955140067328ULL, 542101086242752217ULL, 0ULL, 0ULL}),
+    BasicDecimal256({687399551400673280ULL, 5421010862427522170ULL, 0ULL, 0ULL}),
+    BasicDecimal256({6873995514006732800ULL, 17316620476856118468ULL, 2ULL, 0ULL}),
+    BasicDecimal256({13399722918938673152ULL, 7145508105175220139ULL, 29ULL, 0ULL}),
+    BasicDecimal256({4870020673419870208ULL, 16114848830623546549ULL, 293ULL, 0ULL}),
+    BasicDecimal256({11806718586779598848ULL, 13574535716559052564ULL, 2938ULL, 0ULL}),
+    BasicDecimal256({7386721425538678784ULL, 6618148649623664334ULL, 29387ULL, 0ULL}),
+    BasicDecimal256({80237960548581376ULL, 10841254275107988496ULL, 293873ULL, 0ULL}),
+    BasicDecimal256({802379605485813760ULL, 16178822382532126880ULL, 2938735ULL, 0ULL}),
+    BasicDecimal256({8023796054858137600ULL, 14214271235644855872ULL, 29387358ULL, 0ULL}),
+    BasicDecimal256(
+        {6450984253743169536ULL, 13015503840481697412ULL, 293873587ULL, 0ULL}),
+    BasicDecimal256(
+        {9169610316303040512ULL, 1027829888850112811ULL, 2938735877ULL, 0ULL}),
+    BasicDecimal256(
+        {17909126868192198656ULL, 10278298888501128114ULL, 29387358770ULL, 0ULL}),
+    BasicDecimal256(
+        {13070572018536022016ULL, 10549268516463523069ULL, 293873587705ULL, 0ULL}),
+    BasicDecimal256(
+        {1578511669393358848ULL, 13258964796087472617ULL, 2938735877055ULL, 0ULL}),
+    BasicDecimal256(
+        {15785116693933588480ULL, 3462439444907864858ULL, 29387358770557ULL, 0ULL}),
+    BasicDecimal256(
+        {10277214349659471872ULL, 16177650375369096972ULL, 293873587705571ULL, 0ULL}),
+    BasicDecimal256(
+        {10538423128046960640ULL, 14202551164014556797ULL, 2938735877055718ULL, 0ULL}),
+    BasicDecimal256(
+        {13150510911921848320ULL, 12898303124178706663ULL, 29387358770557187ULL, 0ULL}),
+    BasicDecimal256(
+        {2377900603251621888ULL, 18302566799529756941ULL, 293873587705571876ULL, 0ULL}),
+    BasicDecimal256(
+        {5332261958806667264ULL, 17004971331911604867ULL, 2938735877055718769ULL, 0ULL}),
+    BasicDecimal256(
+        {16429131440647569408ULL, 4029016655730084128ULL, 10940614696847636083ULL, 1ULL}),
+    BasicDecimal256({16717361816799281152ULL, 3396678409881738056ULL,
+                     17172426599928602752ULL, 15ULL}),
+    BasicDecimal256({1152921504606846976ULL, 15520040025107828953ULL,
+                     5703569335900062977ULL, 159ULL}),
+    BasicDecimal256({11529215046068469760ULL, 7626447661401876602ULL,
+                     1695461137871974930ULL, 1593ULL}),
+    BasicDecimal256({4611686018427387904ULL, 2477500319180559562ULL,
+                     16954611378719749304ULL, 15930ULL}),
+    BasicDecimal256({9223372036854775808ULL, 6328259118096044006ULL,
+                     3525417123811528497ULL, 159309ULL}),
+    BasicDecimal256({0ULL, 7942358959831785217ULL, 16807427164405733357ULL, 1593091ULL}),
+    BasicDecimal256({0ULL, 5636613303479645706ULL, 2053574980671369030ULL, 15930919ULL}),
+    BasicDecimal256({0ULL, 1025900813667802212ULL, 2089005733004138687ULL, 159309191ULL}),
+    BasicDecimal256(
+        {0ULL, 10259008136678022120ULL, 2443313256331835254ULL, 1593091911ULL}),
+    BasicDecimal256(
+        {0ULL, 10356360998232463120ULL, 5986388489608800929ULL, 15930919111ULL}),
+    BasicDecimal256(
+        {0ULL, 11329889613776873120ULL, 4523652674959354447ULL, 159309191113ULL}),
+    BasicDecimal256(
+        {0ULL, 2618431695511421504ULL, 8343038602174441244ULL, 1593091911132ULL}),
+    BasicDecimal256(
+        {0ULL, 7737572881404663424ULL, 9643409726906205977ULL, 15930919111324ULL}),
+    BasicDecimal256(
+        {0ULL, 3588752519208427776ULL, 4200376900514301694ULL, 159309191113245ULL}),
+    BasicDecimal256(
+        {0ULL, 17440781118374726144ULL, 5110280857723913709ULL, 1593091911132452ULL}),
+    BasicDecimal256(
+        {0ULL, 8387114520361296896ULL, 14209320429820033867ULL, 15930919111324522ULL}),
+    BasicDecimal256(
+        {0ULL, 10084168908774762496ULL, 12965995782233477362ULL, 159309191113245227ULL}),
+    BasicDecimal256(
+        {0ULL, 8607968719199866880ULL, 532749306367912313ULL, 1593091911132452277ULL})};
 
 #ifdef ARROW_USE_NATIVE_INT128
 static constexpr uint64_t kInt64Mask = 0xFFFFFFFFFFFFFFFF;
@@ -395,33 +502,52 @@ BasicDecimal128& BasicDecimal128::operator*=(const BasicDecimal128& right) {
   return *this;
 }
 
-/// Expands the given value into an array of ints so that we can work on
-/// it. The array will be converted to an absolute value and the wasNegative
+/// Expands the given little endian array of uint64_t into a big endian array of
+/// uint32_t. The value of input array is expected to be non-negative. The result_array
+/// will remove leading zeros from the input array.
+/// \param value_array a little endian array to represent the value
+/// \param result_array a big endian array of length N*2 to set with the value
+/// \result the output length of the array
+template <size_t N>
+static int64_t FillInArray(const std::array<uint64_t, N>& value_array,
+                           uint32_t* result_array) {
+  int64_t next_index = 0;
+  // 1st loop to find out 1st non-negative value in input
+  int64_t i = N - 1;
+  for (; i >= 0; i--) {
+    if (value_array[i] != 0) {
+      if (value_array[i] <= std::numeric_limits<uint32_t>::max()) {
+        result_array[next_index++] = static_cast<uint32_t>(value_array[i]);
+        i--;
+      }
+      break;
+    }
+  }
+  // 2nd loop to fill in the rest of the array.
+  for (int64_t j = i; j >= 0; j--) {
+    result_array[next_index++] = static_cast<uint32_t>(value_array[j] >> 32);
+    result_array[next_index++] = static_cast<uint32_t>(value_array[j]);
+  }
+  return next_index;
+}
+
+/// Expands the given value into a big endian array of ints so that we can work on
+/// it. The array will be converted to an absolute value and the was_negative
 /// flag will be set appropriately. The array will remove leading zeros from
 /// the value.
-/// \param array an array of length 4 to set with the value
+/// \param array a big endian array of length 4 to set with the value
 /// \param was_negative a flag for whether the value was original negative
 /// \result the output length of the array
 static int64_t FillInArray(const BasicDecimal128& value, uint32_t* array,
                            bool& was_negative) {
-  uint64_t high;
-  uint64_t low;
-  const int64_t highbits = value.high_bits();
-  const uint64_t lowbits = value.low_bits();
+  BasicDecimal128 abs_value = BasicDecimal128::Abs(value);
+  was_negative = value.high_bits() < 0;
+  uint64_t high = static_cast<uint64_t>(abs_value.high_bits());
+  uint64_t low = abs_value.low_bits();
 
-  if (highbits < 0) {
-    low = ~lowbits + 1;
-    high = static_cast<uint64_t>(~highbits);
-    if (low == 0) {
-      ++high;
-    }
-    was_negative = true;
-  } else {
-    low = lowbits;
-    high = static_cast<uint64_t>(highbits);
-    was_negative = false;
-  }
-
+  // FillInArray(std::array<uint64_t, N>& value_array, uint32_t* result_array) is not
+  // called here as the following code has better performance, to avoid regression on
+  // BasicDecimal128 Division.
   if (high != 0) {
     if (high > std::numeric_limits<uint32_t>::max()) {
       array[0] = static_cast<uint32_t>(high >> 32);
@@ -437,7 +563,7 @@ static int64_t FillInArray(const BasicDecimal128& value, uint32_t* array,
     return 3;
   }
 
-  if (low >= std::numeric_limits<uint32_t>::max()) {
+  if (low > std::numeric_limits<uint32_t>::max()) {
     array[0] = static_cast<uint32_t>(low >> 32);
     array[1] = static_cast<uint32_t>(low);
     return 2;
@@ -449,6 +575,24 @@ static int64_t FillInArray(const BasicDecimal128& value, uint32_t* array,
 
   array[0] = static_cast<uint32_t>(low);
   return 1;
+}
+
+/// Expands the given value into a big endian array of ints so that we can work on
+/// it. The array will be converted to an absolute value and the was_negative
+/// flag will be set appropriately. The array will remove leading zeros from
+/// the value.
+/// \param array a big endian array of length 8 to set with the value
+/// \param was_negative a flag for whether the value was original negative
+/// \result the output length of the array
+static int64_t FillInArray(const BasicDecimal256& value, uint32_t* array,
+                           bool& was_negative) {
+  BasicDecimal256 positive_value = value;
+  was_negative = false;
+  if (positive_value.IsNegative()) {
+    positive_value.Negate();
+    was_negative = true;
+  }
+  return FillInArray<4>(positive_value.little_endian_array(), array);
 }
 
 /// Shift the number in the array left by bits positions.
@@ -468,7 +612,7 @@ static void ShiftArrayLeft(uint32_t* array, int64_t length, int64_t bits) {
 /// \param array the number to shift, must have length elements
 /// \param length the number of entries in the array
 /// \param bits the number of bits to shift (0 <= bits < 32)
-static void ShiftArrayRight(uint32_t* array, int64_t length, int64_t bits) {
+static inline void ShiftArrayRight(uint32_t* array, int64_t length, int64_t bits) {
   if (length > 0 && bits != 0) {
     for (int64_t i = length - 1; i > 0; --i) {
       array[i] = (array[i] >> bits) | (array[i - 1] << (32 - bits));
@@ -479,8 +623,10 @@ static void ShiftArrayRight(uint32_t* array, int64_t length, int64_t bits) {
 
 /// \brief Fix the signs of the result and remainder at the end of the division based on
 /// the signs of the dividend and divisor.
-static void FixDivisionSigns(BasicDecimal128* result, BasicDecimal128* remainder,
-                             bool dividend_was_negative, bool divisor_was_negative) {
+template <class DecimalClass>
+static inline void FixDivisionSigns(DecimalClass* result, DecimalClass* remainder,
+                                    bool dividend_was_negative,
+                                    bool divisor_was_negative) {
   if (dividend_was_negative != divisor_was_negative) {
     result->Negate();
   }
@@ -490,49 +636,65 @@ static void FixDivisionSigns(BasicDecimal128* result, BasicDecimal128* remainder
   }
 }
 
-/// \brief Build a BasicDecimal128 from a list of ints.
-static DecimalStatus BuildFromArray(BasicDecimal128* value, uint32_t* array,
-                                    int64_t length) {
-  switch (length) {
-    case 0:
-      *value = {static_cast<int64_t>(0)};
-      break;
-    case 1:
-      *value = {static_cast<int64_t>(array[0])};
-      break;
-    case 2:
-      *value = {static_cast<int64_t>(0),
-                (static_cast<uint64_t>(array[0]) << 32) + array[1]};
-      break;
-    case 3:
-      *value = {static_cast<int64_t>(array[0]),
-                (static_cast<uint64_t>(array[1]) << 32) + array[2]};
-      break;
-    case 4:
-      *value = {(static_cast<int64_t>(array[0]) << 32) + array[1],
-                (static_cast<uint64_t>(array[2]) << 32) + array[3]};
-      break;
-    case 5:
-      if (array[0] != 0) {
-        return DecimalStatus::kOverflow;
-      }
-      *value = {(static_cast<int64_t>(array[1]) << 32) + array[2],
-                (static_cast<uint64_t>(array[3]) << 32) + array[4]};
-      break;
-    default:
+/// \brief Build a little endian array of uint64_t from a big endian array of uint32_t.
+template <size_t N>
+static DecimalStatus BuildFromArray(std::array<uint64_t, N>* result_array,
+                                    const uint32_t* array, int64_t length) {
+  for (int64_t i = length - 2 * N - 1; i >= 0; i--) {
+    if (array[i] != 0) {
       return DecimalStatus::kOverflow;
+    }
   }
+  int64_t next_index = length - 1;
+  size_t i = 0;
+  for (; i < N && next_index >= 0; i++) {
+    uint64_t lower_bits = array[next_index--];
+    (*result_array)[i] =
+        (next_index < 0)
+            ? lower_bits
+            : ((static_cast<uint64_t>(array[next_index--]) << 32) + lower_bits);
+  }
+  for (; i < N; i++) {
+    (*result_array)[i] = 0;
+  }
+  return DecimalStatus::kSuccess;
+}
 
+/// \brief Build a BasicDecimal128 from a big endian array of uint32_t.
+static DecimalStatus BuildFromArray(BasicDecimal128* value, const uint32_t* array,
+                                    int64_t length) {
+  std::array<uint64_t, 2> result_array;
+  auto status = BuildFromArray(&result_array, array, length);
+  if (status != DecimalStatus::kSuccess) {
+    return status;
+  }
+  *value = {static_cast<int64_t>(result_array[1]), result_array[0]};
+  return DecimalStatus::kSuccess;
+}
+
+/// \brief Build a BasicDecimal256 from a big endian array of uint32_t.
+static DecimalStatus BuildFromArray(BasicDecimal256* value, const uint32_t* array,
+                                    int64_t length) {
+  std::array<uint64_t, 4> result_array;
+  auto status = BuildFromArray(&result_array, array, length);
+  if (status != DecimalStatus::kSuccess) {
+    return status;
+  }
+  *value = result_array;
   return DecimalStatus::kSuccess;
 }
 
 /// \brief Do a division where the divisor fits into a single 32 bit value.
-static DecimalStatus SingleDivide(const uint32_t* dividend, int64_t dividend_length,
-                                  uint32_t divisor, BasicDecimal128* remainder,
-                                  bool dividend_was_negative, bool divisor_was_negative,
-                                  BasicDecimal128* result) {
+template <class DecimalClass>
+static inline DecimalStatus SingleDivide(const uint32_t* dividend,
+                                         int64_t dividend_length, uint32_t divisor,
+                                         DecimalClass* remainder,
+                                         bool dividend_was_negative,
+                                         bool divisor_was_negative,
+                                         DecimalClass* result) {
   uint64_t r = 0;
-  uint32_t result_array[5];
+  constexpr int64_t kDecimalArrayLength = DecimalClass::bit_width / sizeof(uint32_t) + 1;
+  uint32_t result_array[kDecimalArrayLength];
   for (int64_t j = 0; j < dividend_length; j++) {
     r <<= 32;
     r += dividend[j];
@@ -549,24 +711,27 @@ static DecimalStatus SingleDivide(const uint32_t* dividend, int64_t dividend_len
   return DecimalStatus::kSuccess;
 }
 
-DecimalStatus BasicDecimal128::Divide(const BasicDecimal128& divisor,
-                                      BasicDecimal128* result,
-                                      BasicDecimal128* remainder) const {
+/// \brief Do a decimal division with remainder.
+template <class DecimalClass>
+static inline DecimalStatus DecimalDivide(const DecimalClass& dividend,
+                                          const DecimalClass& divisor,
+                                          DecimalClass* result, DecimalClass* remainder) {
+  constexpr int64_t kDecimalArrayLength = DecimalClass::bit_width / sizeof(uint32_t);
   // Split the dividend and divisor into integer pieces so that we can
   // work on them.
-  uint32_t dividend_array[5];
-  uint32_t divisor_array[4];
+  uint32_t dividend_array[kDecimalArrayLength + 1];
+  uint32_t divisor_array[kDecimalArrayLength];
   bool dividend_was_negative;
   bool divisor_was_negative;
   // leave an extra zero before the dividend
   dividend_array[0] = 0;
   int64_t dividend_length =
-      FillInArray(*this, dividend_array + 1, dividend_was_negative) + 1;
+      FillInArray(dividend, dividend_array + 1, dividend_was_negative) + 1;
   int64_t divisor_length = FillInArray(divisor, divisor_array, divisor_was_negative);
 
   // Handle some of the easy cases.
   if (dividend_length <= divisor_length) {
-    *remainder = *this;
+    *remainder = dividend;
     *result = 0;
     return DecimalStatus::kSuccess;
   }
@@ -581,8 +746,8 @@ DecimalStatus BasicDecimal128::Divide(const BasicDecimal128& divisor,
   }
 
   int64_t result_length = dividend_length - divisor_length;
-  uint32_t result_array[4];
-  DCHECK_LE(result_length, 4);
+  uint32_t result_array[kDecimalArrayLength];
+  DCHECK_LE(result_length, kDecimalArrayLength);
 
   // Normalize by shifting both by a multiple of 2 so that
   // the digit guessing is better. The requirement is that
@@ -661,6 +826,12 @@ DecimalStatus BasicDecimal128::Divide(const BasicDecimal128& divisor,
   return DecimalStatus::kSuccess;
 }
 
+DecimalStatus BasicDecimal128::Divide(const BasicDecimal128& divisor,
+                                      BasicDecimal128* result,
+                                      BasicDecimal128* remainder) const {
+  return DecimalDivide(*this, divisor, result, remainder);
+}
+
 bool operator==(const BasicDecimal128& left, const BasicDecimal128& right) {
   return left.high_bits() == right.high_bits() && left.low_bits() == right.low_bits();
 }
@@ -730,13 +901,13 @@ BasicDecimal128 operator%(const BasicDecimal128& left, const BasicDecimal128& ri
   return remainder;
 }
 
-static bool RescaleWouldCauseDataLoss(const BasicDecimal128& value, int32_t delta_scale,
-                                      int32_t abs_delta_scale, BasicDecimal128* result) {
-  BasicDecimal128 multiplier(ScaleMultipliers[abs_delta_scale]);
-
+template <class DecimalClass>
+static bool RescaleWouldCauseDataLoss(const DecimalClass& value, int32_t delta_scale,
+                                      const DecimalClass& multiplier,
+                                      DecimalClass* result) {
   if (delta_scale < 0) {
     DCHECK_NE(multiplier, 0);
-    BasicDecimal128 remainder;
+    DecimalClass remainder;
     auto status = value.Divide(multiplier, result, &remainder);
     DCHECK_EQ(status, DecimalStatus::kSuccess);
     return remainder != 0;
@@ -746,24 +917,23 @@ static bool RescaleWouldCauseDataLoss(const BasicDecimal128& value, int32_t delt
   return (value < 0) ? *result > value : *result < value;
 }
 
-DecimalStatus BasicDecimal128::Rescale(int32_t original_scale, int32_t new_scale,
-                                       BasicDecimal128* out) const {
+template <class DecimalClass>
+DecimalStatus DecimalRescale(const DecimalClass& value, int32_t original_scale,
+                             int32_t new_scale, DecimalClass* out) {
   DCHECK_NE(out, nullptr);
 
   if (original_scale == new_scale) {
-    *out = *this;
+    *out = value;
     return DecimalStatus::kSuccess;
   }
 
   const int32_t delta_scale = new_scale - original_scale;
   const int32_t abs_delta_scale = std::abs(delta_scale);
 
-  DCHECK_GE(abs_delta_scale, 1);
-  DCHECK_LE(abs_delta_scale, 38);
+  DecimalClass multiplier = DecimalClass::GetScaleMultiplier(abs_delta_scale);
 
-  BasicDecimal128 result(*this);
   const bool rescale_would_cause_data_loss =
-      RescaleWouldCauseDataLoss(result, delta_scale, abs_delta_scale, out);
+      RescaleWouldCauseDataLoss(value, delta_scale, multiplier, out);
 
   // Fail if we overflow or truncate
   if (ARROW_PREDICT_FALSE(rescale_would_cause_data_loss)) {
@@ -771,6 +941,11 @@ DecimalStatus BasicDecimal128::Rescale(int32_t original_scale, int32_t new_scale
   }
 
   return DecimalStatus::kSuccess;
+}
+
+DecimalStatus BasicDecimal128::Rescale(int32_t original_scale, int32_t new_scale,
+                                       BasicDecimal128* out) const {
+  return DecimalRescale(*this, original_scale, new_scale, out);
 }
 
 void BasicDecimal128::GetWholeAndFraction(int scale, BasicDecimal128* whole,
@@ -848,7 +1023,7 @@ BasicDecimal256::BasicDecimal256(const uint8_t* bytes)
           std::array<uint64_t, 4>({reinterpret_cast<const uint64_t*>(bytes)[3],
                                    reinterpret_cast<const uint64_t*>(bytes)[2],
                                    reinterpret_cast<const uint64_t*>(bytes)[1],
-                                   reinterpret_cast<const uint64_t*>(bytes)[0]})) {
+                                   reinterpret_cast<const uint64_t*>(bytes)[0]})) {}
 #endif
 
 BasicDecimal256& BasicDecimal256::Negate() {
@@ -867,6 +1042,50 @@ BasicDecimal256 BasicDecimal256::Abs(const BasicDecimal256& in) {
   return result.Abs();
 }
 
+BasicDecimal256& BasicDecimal256::operator+=(const BasicDecimal256& right) {
+  uint64_t carry = 0;
+  for (size_t i = 0; i < little_endian_array_.size(); i++) {
+    const uint64_t right_value = right.little_endian_array_[i];
+    uint64_t sum = right_value + carry;
+    carry = 0;
+    if (sum < right_value) {
+      carry += 1;
+    }
+    sum += little_endian_array_[i];
+    if (sum < little_endian_array_[i]) {
+      carry += 1;
+    }
+    little_endian_array_[i] = sum;
+  }
+  return *this;
+}
+
+BasicDecimal256& BasicDecimal256::operator<<=(uint32_t bits) {
+  if (bits == 0) {
+    return *this;
+  }
+  int cross_word_shift = bits / 64;
+  if (static_cast<size_t>(cross_word_shift) >= little_endian_array_.size()) {
+    little_endian_array_ = {0, 0, 0, 0};
+    return *this;
+  }
+  uint32_t in_word_shift = bits % 64;
+  for (int i = static_cast<int>(little_endian_array_.size() - 1); i >= cross_word_shift;
+       i--) {
+    // Account for shifts larger then 64 bits
+    little_endian_array_[i] = little_endian_array_[i - cross_word_shift];
+    little_endian_array_[i] <<= in_word_shift;
+    if (in_word_shift != 0 && i >= cross_word_shift + 1) {
+      little_endian_array_[i] |=
+          little_endian_array_[i - (cross_word_shift + 1)] >> (64 - in_word_shift);
+    }
+  }
+  for (int i = cross_word_shift - 1; i >= 0; i--) {
+    little_endian_array_[i] = 0;
+  }
+  return *this;
+}
+
 std::array<uint8_t, 32> BasicDecimal256::ToBytes() const {
   std::array<uint8_t, 32> out{{0}};
   ToBytes(out.data());
@@ -881,10 +1100,10 @@ void BasicDecimal256::ToBytes(uint8_t* out) const {
   reinterpret_cast<int64_t*>(out)[2] = little_endian_array_[2];
   reinterpret_cast<int64_t*>(out)[3] = little_endian_array_[3];
 #else
-    reinterpret_cast<int64_t*>(out)[0] = little_endian_array_[3];
-    reinterpret_cast<int64_t*>(out)[1] = little_endian_array_[2];
-    reinterpret_cast<int64_t*>(out)[2] = little_endian_array_[1];
-    reinterpret_cast<int64_t*>(out)[3] = little_endian_array_[0];
+  reinterpret_cast<int64_t*>(out)[0] = little_endian_array_[3];
+  reinterpret_cast<int64_t*>(out)[1] = little_endian_array_[2];
+  reinterpret_cast<int64_t*>(out)[2] = little_endian_array_[1];
+  reinterpret_cast<int64_t*>(out)[3] = little_endian_array_[0];
 #endif
 }
 
@@ -906,13 +1125,28 @@ BasicDecimal256& BasicDecimal256::operator*=(const BasicDecimal256& right) {
   return *this;
 }
 
+DecimalStatus BasicDecimal256::Divide(const BasicDecimal256& divisor,
+                                      BasicDecimal256* result,
+                                      BasicDecimal256* remainder) const {
+  return DecimalDivide(*this, divisor, result, remainder);
+}
+
 DecimalStatus BasicDecimal256::Rescale(int32_t original_scale, int32_t new_scale,
                                        BasicDecimal256* out) const {
-  if (original_scale == new_scale) {
-    return DecimalStatus::kSuccess;
-  }
-  // TODO: implement.
-  return DecimalStatus::kRescaleDataLoss;
+  return DecimalRescale(*this, original_scale, new_scale, out);
+}
+
+bool BasicDecimal256::FitsInPrecision(int32_t precision) const {
+  DCHECK_GT(precision, 0);
+  DCHECK_LE(precision, 76);
+  return BasicDecimal256::Abs(*this) < ScaleMultipliersDecimal256[precision];
+}
+
+const BasicDecimal256& BasicDecimal256::GetScaleMultiplier(int32_t scale) {
+  DCHECK_GE(scale, 0);
+  DCHECK_LE(scale, 76);
+
+  return ScaleMultipliersDecimal256[scale];
 }
 
 BasicDecimal256 operator*(const BasicDecimal256& left, const BasicDecimal256& right) {
@@ -928,6 +1162,38 @@ bool operator<(const BasicDecimal256& left, const BasicDecimal256& right) {
              ? static_cast<int64_t>(lhs[3]) < static_cast<int64_t>(rhs[3])
              : lhs[2] != rhs[2] ? lhs[2] < rhs[2]
                                 : lhs[1] != rhs[1] ? lhs[1] < rhs[1] : lhs[0] < rhs[0];
+}
+
+BasicDecimal256 operator-(const BasicDecimal256& operand) {
+  BasicDecimal256 result(operand);
+  return result.Negate();
+}
+
+BasicDecimal256 operator~(const BasicDecimal256& operand) {
+  const std::array<uint64_t, 4>& arr = operand.little_endian_array();
+  BasicDecimal256 result({~arr[0], ~arr[1], ~arr[2], ~arr[3]});
+  return result;
+}
+
+BasicDecimal256& BasicDecimal256::operator/=(const BasicDecimal256& right) {
+  BasicDecimal256 remainder;
+  auto s = Divide(right, this, &remainder);
+  DCHECK_EQ(s, DecimalStatus::kSuccess);
+  return *this;
+}
+
+BasicDecimal256 operator+(const BasicDecimal256& left, const BasicDecimal256& right) {
+  BasicDecimal256 sum = left;
+  sum += right;
+  return sum;
+}
+
+BasicDecimal256 operator/(const BasicDecimal256& left, const BasicDecimal256& right) {
+  BasicDecimal256 remainder;
+  BasicDecimal256 result;
+  auto s = left.Divide(right, &result, &remainder);
+  DCHECK_EQ(s, DecimalStatus::kSuccess);
+  return result;
 }
 
 }  // namespace arrow

@@ -5,6 +5,7 @@ jobs:
   timeoutInMinutes: 360
   variables:
     CONFIG: {{ config }}
+    R_CONFIG: {{ r_config|default("") }}
     ARROW_VERSION: {{ arrow.no_rc_version }}
     CONDA_BLD_PATH: D:\\bld\\
     UPLOAD_PACKAGES: False
@@ -57,6 +58,7 @@ jobs:
         call activate base
         run_conda_forge_build_setup
       displayName: conda-forge build setup
+      workingDirectory: arrow\dev\tasks\conda-recipes
 
     - script: |
         conda.exe build arrow-cpp parquet-cpp -m .ci_support\%CONFIG%.yaml
@@ -65,6 +67,14 @@ jobs:
       env:
         PYTHONUNBUFFERED: 1
       condition: not(contains(variables['CONFIG'], 'vs2008'))
+
+    - script: |
+        conda.exe build r-arrow -m .ci_support\r\%R_CONFIG%.yaml
+      displayName: Build recipe
+      workingDirectory: arrow\dev\tasks\conda-recipes
+      env:
+        PYTHONUNBUFFERED: 1
+      condition: contains(variables['R_CONFIG'], 'win')
 
     # Using github release tries to find a common ancestor between the
     # currently pushed tag and the latest tag of the github repository

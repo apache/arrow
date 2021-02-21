@@ -17,9 +17,9 @@
 
 from collections import UserList
 import io
+import pathlib
 import pytest
 import socket
-import sys
 import threading
 import weakref
 
@@ -36,12 +36,8 @@ except ImportError:
     pass
 
 
-# TODO(wesm): The IPC tests depend a lot on pandas currently, so all excluded
-# when it is not installed
-pytestmark = pytest.mark.pandas
-
-
 class IpcFixture:
+    write_stats = None
 
     def __init__(self, sink_factory=lambda: io.BytesIO()):
         self._sink_factory = sink_factory
@@ -55,20 +51,16 @@ class IpcFixture:
 
     def write_batches(self, num_batches=5, as_table=False):
         nrows = 5
-        df = pd.DataFrame({
-            'one': np.random.randn(nrows),
-            'two': ['foo', np.nan, 'bar', 'bazbaz', 'qux']})
-        batch = pa.record_batch(df)
+        schema = pa.schema([('one', pa.float64()), ('two', pa.utf8())])
 
-        writer = self._get_writer(self.sink, batch.schema)
+        writer = self._get_writer(self.sink, schema)
 
-        frames = []
         batches = []
         for i in range(num_batches):
-            unique_df = df.copy()
-            unique_df['one'] = np.random.randn(len(df))
-            batch = pa.record_batch(unique_df)
-            frames.append(unique_df)
+            batch = pa.record_batch(
+                [np.random.randn(nrows),
+                 ['foo', None, 'bar', 'bazbaz', 'qux']],
+                schema=schema)
             batches.append(batch)
 
         if as_table:
@@ -78,8 +70,9 @@ class IpcFixture:
             for batch in batches:
                 writer.write_batch(batch)
 
+        self.write_stats = writer.stats
         writer.close()
-        return frames, batches
+        return batches
 
 
 class FileFormatFixture(IpcFixture):
@@ -88,7 +81,7 @@ class FileFormatFixture(IpcFixture):
         return pa.ipc.new_file(sink, schema)
 
     def _check_roundtrip(self, as_table=False):
-        _, batches = self.write_batches(as_table=as_table)
+        batches = self.write_batches(as_table=as_table)
         file_contents = pa.BufferReader(self.get_source())
 
         reader = pa.ipc.open_file(file_contents)
@@ -100,6 +93,10 @@ class FileFormatFixture(IpcFixture):
             batch = reader.get_batch(i)
             assert batches[i].equals(batch)
             assert reader.schema.equals(batches[0].schema)
+
+        assert isinstance(reader.stats, pa.ipc.ReadStats)
+        assert isinstance(self.write_stats, pa.ipc.WriteStats)
+        assert tuple(reader.stats) == tuple(self.write_stats)
 
 
 class StreamFormatFixture(IpcFixture):
@@ -160,7 +157,7 @@ def test_file_write_table(file_fixture):
 def test_file_read_all(sink_factory):
     fixture = FileFormatFixture(sink_factory)
 
-    _, batches = fixture.write_batches()
+    batches = fixture.write_batches()
     file_contents = pa.BufferReader(fixture.get_source())
 
     reader = pa.ipc.open_file(file_contents)
@@ -172,7 +169,7 @@ def test_file_read_all(sink_factory):
 
 def test_open_file_from_buffer(file_fixture):
     # ARROW-2859; APIs accept the buffer protocol
-    _, batches = file_fixture.write_batches()
+    file_fixture.write_batches()
     source = file_fixture.get_source()
 
     reader1 = pa.ipc.open_file(source)
@@ -186,9 +183,16 @@ def test_open_file_from_buffer(file_fixture):
     assert result1.equals(result2)
     assert result1.equals(result3)
 
+    st1 = reader1.stats
+    assert st1.num_messages == 6
+    assert st1.num_record_batches == 5
+    assert reader2.stats == st1
+    assert reader3.stats == st1
 
+
+@pytest.mark.pandas
 def test_file_read_pandas(file_fixture):
-    frames, _ = file_fixture.write_batches()
+    frames = [batch.to_pandas() for batch in file_fixture.write_batches()]
 
     file_contents = pa.BufferReader(file_fixture.get_source())
     reader = pa.ipc.open_file(file_contents)
@@ -198,12 +202,8 @@ def test_file_read_pandas(file_fixture):
     assert_frame_equal(result, expected)
 
 
-@pytest.mark.skipif(sys.version_info < (3, 6),
-                    reason="need Python 3.6")
 def test_file_pathlib(file_fixture, tmpdir):
-    import pathlib
-
-    _, batches = file_fixture.write_batches()
+    file_fixture.write_batches()
     source = file_fixture.get_source()
 
     path = tmpdir.join('file.arrow').strpath
@@ -222,6 +222,7 @@ def test_empty_stream():
         pa.ipc.open_stream(buf)
 
 
+@pytest.mark.pandas
 def test_stream_categorical_roundtrip(stream_fixture):
     df = pd.DataFrame({
         'one': np.random.randn(5),
@@ -240,7 +241,7 @@ def test_stream_categorical_roundtrip(stream_fixture):
 
 def test_open_stream_from_buffer(stream_fixture):
     # ARROW-2859
-    _, batches = stream_fixture.write_batches()
+    stream_fixture.write_batches()
     source = stream_fixture.get_source()
 
     reader1 = pa.ipc.open_stream(source)
@@ -254,7 +255,16 @@ def test_open_stream_from_buffer(stream_fixture):
     assert result1.equals(result2)
     assert result1.equals(result3)
 
+    st1 = reader1.stats
+    assert st1.num_messages == 6
+    assert st1.num_record_batches == 5
+    assert reader2.stats == st1
+    assert reader3.stats == st1
 
+    assert tuple(st1) == tuple(stream_fixture.write_stats)
+
+
+@pytest.mark.pandas
 def test_stream_write_dispatch(stream_fixture):
     # ARROW-1616
     df = pd.DataFrame({
@@ -275,6 +285,7 @@ def test_stream_write_dispatch(stream_fixture):
                        pd.concat([df, df], ignore_index=True))
 
 
+@pytest.mark.pandas
 def test_stream_write_table_batches(stream_fixture):
     # ARROW-504
     df = pd.DataFrame({
@@ -301,7 +312,7 @@ def test_stream_write_table_batches(stream_fixture):
 @pytest.mark.parametrize('use_legacy_ipc_format', [False, True])
 def test_stream_simple_roundtrip(stream_fixture, use_legacy_ipc_format):
     stream_fixture.use_legacy_ipc_format = use_legacy_ipc_format
-    _, batches = stream_fixture.write_batches()
+    batches = stream_fixture.write_batches()
     file_contents = pa.BufferReader(stream_fixture.get_source())
     reader = pa.ipc.open_stream(file_contents)
 
@@ -320,8 +331,12 @@ def test_stream_simple_roundtrip(stream_fixture, use_legacy_ipc_format):
 
 def test_write_options():
     options = pa.ipc.IpcWriteOptions()
+    assert options.allow_64bit is False
     assert options.use_legacy_format is False
     assert options.metadata_version == pa.ipc.MetadataVersion.V5
+
+    options.allow_64bit = True
+    assert options.allow_64bit is True
 
     options.use_legacy_format = True
     assert options.use_legacy_format is True
@@ -347,10 +362,12 @@ def test_write_options():
 
     options = pa.ipc.IpcWriteOptions(
         metadata_version=pa.ipc.MetadataVersion.V4,
+        allow_64bit=True,
         use_legacy_format=True,
         compression='lz4',
         use_threads=False)
     assert options.metadata_version == pa.ipc.MetadataVersion.V4
+    assert options.allow_64bit is True
     assert options.use_legacy_format is True
     assert options.compression == 'lz4'
     assert options.use_threads is False
@@ -367,6 +384,7 @@ def test_write_options_legacy_exclusive(stream_fixture):
 
 @pytest.mark.parametrize('options', [
     pa.ipc.IpcWriteOptions(),
+    pa.ipc.IpcWriteOptions(allow_64bit=True),
     pa.ipc.IpcWriteOptions(use_legacy_format=True),
     pa.ipc.IpcWriteOptions(metadata_version=pa.ipc.MetadataVersion.V4),
     pa.ipc.IpcWriteOptions(use_legacy_format=True,
@@ -375,7 +393,7 @@ def test_write_options_legacy_exclusive(stream_fixture):
 def test_stream_options_roundtrip(stream_fixture, options):
     stream_fixture.use_legacy_ipc_format = None
     stream_fixture.options = options
-    _, batches = stream_fixture.write_batches()
+    batches = stream_fixture.write_batches()
     file_contents = pa.BufferReader(stream_fixture.get_source())
 
     message = pa.ipc.read_message(stream_fixture.get_source())
@@ -394,6 +412,42 @@ def test_stream_options_roundtrip(stream_fixture, options):
 
     with pytest.raises(StopIteration):
         reader.read_next_batch()
+
+
+def test_dictionary_delta(stream_fixture):
+    ty = pa.dictionary(pa.int8(), pa.utf8())
+    data = [["foo", "foo", None],
+            ["foo", "bar", "foo"],  # potential delta
+            ["foo", "bar"],
+            ["foo", None, "bar", "quux"],  # potential delta
+            ["bar", "quux"],  # replacement
+            ]
+    batches = [
+        pa.RecordBatch.from_arrays([pa.array(v, type=ty)], names=['dicts'])
+        for v in data]
+    schema = batches[0].schema
+
+    def write_batches():
+        with stream_fixture._get_writer(pa.MockOutputStream(),
+                                        schema) as writer:
+            for batch in batches:
+                writer.write_batch(batch)
+            return writer.stats
+
+    st = write_batches()
+    assert st.num_record_batches == 5
+    assert st.num_dictionary_batches == 4
+    assert st.num_replaced_dictionaries == 3
+    assert st.num_dictionary_deltas == 0
+
+    stream_fixture.use_legacy_ipc_format = None
+    stream_fixture.options = pa.ipc.IpcWriteOptions(
+        emit_dictionary_deltas=True)
+    st = write_batches()
+    assert st.num_record_batches == 5
+    assert st.num_dictionary_batches == 4
+    assert st.num_replaced_dictionaries == 1
+    assert st.num_dictionary_deltas == 2
 
 
 def test_envvar_set_legacy_ipc_format():
@@ -433,7 +487,7 @@ def test_envvar_set_legacy_ipc_format():
 
 
 def test_stream_read_all(stream_fixture):
-    _, batches = stream_fixture.write_batches()
+    batches = stream_fixture.write_batches()
     file_contents = pa.BufferReader(stream_fixture.get_source())
     reader = pa.ipc.open_stream(file_contents)
 
@@ -442,8 +496,9 @@ def test_stream_read_all(stream_fixture):
     assert result.equals(expected)
 
 
+@pytest.mark.pandas
 def test_stream_read_pandas(stream_fixture):
-    frames, _ = stream_fixture.write_batches()
+    frames = [batch.to_pandas() for batch in stream_fixture.write_batches()]
     file_contents = stream_fixture.get_source()
     reader = pa.ipc.open_stream(file_contents)
     result = reader.read_pandas()
@@ -454,7 +509,7 @@ def test_stream_read_pandas(stream_fixture):
 
 @pytest.fixture
 def example_messages(stream_fixture):
-    _, batches = stream_fixture.write_batches()
+    batches = stream_fixture.write_batches()
     file_contents = stream_fixture.get_source()
     buf_reader = pa.BufferReader(file_contents)
     reader = pa.MessageReader.open_stream(buf_reader)
@@ -618,7 +673,7 @@ def socket_fixture():
 
 def test_socket_simple_roundtrip(socket_fixture):
     socket_fixture.start_server(do_read_all=False)
-    _, writer_batches = socket_fixture.write_batches()
+    writer_batches = socket_fixture.write_batches()
     reader_schema, reader_batches = socket_fixture.stop_and_get_result()
 
     assert reader_schema.equals(writer_batches[0].schema)
@@ -629,7 +684,7 @@ def test_socket_simple_roundtrip(socket_fixture):
 
 def test_socket_read_all(socket_fixture):
     socket_fixture.start_server(do_read_all=True)
-    _, writer_batches = socket_fixture.write_batches()
+    writer_batches = socket_fixture.write_batches()
     _, result = socket_fixture.stop_and_get_result()
 
     expected = pa.Table.from_batches(writer_batches)
@@ -639,9 +694,9 @@ def test_socket_read_all(socket_fixture):
 # ----------------------------------------------------------------------
 # Miscellaneous IPC tests
 
+@pytest.mark.pandas
 def test_ipc_file_stream_has_eos():
     # ARROW-5395
-
     df = pd.DataFrame({'foo': [1.5]})
     batch = pa.RecordBatch.from_pandas(df)
     sink = pa.BufferOutputStream()
@@ -657,6 +712,7 @@ def test_ipc_file_stream_has_eos():
     assert_frame_equal(df, rdf)
 
 
+@pytest.mark.pandas
 def test_ipc_zero_copy_numpy():
     df = pd.DataFrame({'foo': [1.5]})
 
@@ -691,6 +747,7 @@ def test_ipc_stream_no_batches():
     assert len(result) == 0
 
 
+@pytest.mark.pandas
 def test_get_record_batch_size():
     N = 10
     itemsize = 8
@@ -700,12 +757,14 @@ def test_get_record_batch_size():
     assert pa.ipc.get_record_batch_size(batch) > (N * itemsize)
 
 
+@pytest.mark.pandas
 def _check_serialize_pandas_round_trip(df, use_threads=False):
     buf = pa.serialize_pandas(df, nthreads=2 if use_threads else 1)
     result = pa.deserialize_pandas(buf, use_threads=use_threads)
     assert_frame_equal(result, df)
 
 
+@pytest.mark.pandas
 def test_pandas_serialize_round_trip():
     index = pd.Index([1, 2, 3], name='my_index')
     columns = ['foo', 'bar']
@@ -716,6 +775,7 @@ def test_pandas_serialize_round_trip():
     _check_serialize_pandas_round_trip(df)
 
 
+@pytest.mark.pandas
 def test_pandas_serialize_round_trip_nthreads():
     index = pd.Index([1, 2, 3], name='my_index')
     columns = ['foo', 'bar']
@@ -726,6 +786,7 @@ def test_pandas_serialize_round_trip_nthreads():
     _check_serialize_pandas_round_trip(df, use_threads=True)
 
 
+@pytest.mark.pandas
 def test_pandas_serialize_round_trip_multi_index():
     index1 = pd.Index([1, 2, 3], name='level_1')
     index2 = pd.Index(list('def'), name=None)
@@ -740,11 +801,13 @@ def test_pandas_serialize_round_trip_multi_index():
     _check_serialize_pandas_round_trip(df)
 
 
+@pytest.mark.pandas
 def test_serialize_pandas_empty_dataframe():
     df = pd.DataFrame()
     _check_serialize_pandas_round_trip(df)
 
 
+@pytest.mark.pandas
 def test_pandas_serialize_round_trip_not_string_columns():
     df = pd.DataFrame(list(zip([1.5, 1.6, 1.7], 'abc')))
     buf = pa.serialize_pandas(df)
@@ -752,6 +815,7 @@ def test_pandas_serialize_round_trip_not_string_columns():
     assert_frame_equal(result, df)
 
 
+@pytest.mark.pandas
 def test_serialize_pandas_no_preserve_index():
     df = pd.DataFrame({'a': [1, 2, 3]}, index=[1, 2, 3])
     expected = pd.DataFrame({'a': [1, 2, 3]})
@@ -765,7 +829,8 @@ def test_serialize_pandas_no_preserve_index():
     assert_frame_equal(result, df)
 
 
-@pytest.mark.filterwarnings("ignore:'pyarrow:DeprecationWarning")
+@pytest.mark.pandas
+@pytest.mark.filterwarnings("ignore:'pyarrow:FutureWarning")
 def test_serialize_with_pandas_objects():
     df = pd.DataFrame({'a': [1, 2, 3]}, index=[1, 2, 3])
     s = pd.Series([1, 2, 3, 4])
@@ -787,6 +852,7 @@ def test_serialize_with_pandas_objects():
     assert deserialized['s_series'].name is None
 
 
+@pytest.mark.pandas
 def test_schema_batch_serialize_methods():
     nrows = 5
     df = pd.DataFrame({

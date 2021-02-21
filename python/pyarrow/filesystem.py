@@ -17,7 +17,6 @@
 
 
 import os
-import inspect
 import posixpath
 import sys
 import urllib.parse
@@ -245,7 +244,7 @@ class LocalFileSystem(FileSystem):
     _instance = None
 
     def __init__(self):
-        warnings.warn(_FS_DEPR_MSG, DeprecationWarning, stacklevel=2)
+        warnings.warn(_FS_DEPR_MSG, FutureWarning, stacklevel=2)
         super().__init__()
 
     @classmethod
@@ -258,7 +257,7 @@ class LocalFileSystem(FileSystem):
 
     @classmethod
     def get_instance(cls):
-        warnings.warn(_FS_DEPR_MSG, DeprecationWarning, stacklevel=2)
+        warnings.warn(_FS_DEPR_MSG, FutureWarning, stacklevel=2)
         return cls._get_instance()
 
     @implements(FileSystem.ls)
@@ -319,6 +318,10 @@ class DaskFileSystem(FileSystem):
     """
 
     def __init__(self, fs):
+        warnings.warn(
+            "The pyarrow.filesystem.DaskFileSystem/S3FSWrapper are deprecated "
+            "as of pyarrow 3.0.0, and will be removed in a future version.",
+            FutureWarning, stacklevel=2)
         self.fs = fs
 
     @implements(FileSystem.isdir)
@@ -443,14 +446,6 @@ def _ensure_filesystem(fs):
     # If the arrow filesystem was subclassed, assume it supports the full
     # interface and return it
     if not issubclass(fs_type, FileSystem):
-        for mro in inspect.getmro(fs_type):
-            if mro.__name__ == 'S3FileSystem':
-                return S3FSWrapper(fs)
-            # In case its a simple LocalFileSystem (e.g. dask) use native arrow
-            # FS
-            elif mro.__name__ == 'LocalFileSystem':
-                return LocalFileSystem._get_instance()
-
         if "fsspec" in sys.modules:
             fsspec = sys.modules["fsspec"]
             if isinstance(fs, fsspec.AbstractFileSystem):

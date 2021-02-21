@@ -21,7 +21,7 @@ r-bit64
 r-dplyr
 r-purrr
 r-r6
-r-rcpp >=1.0.1
+r-cpp11
 r-rlang
 r-tidyselect
 r-vctrs

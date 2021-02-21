@@ -38,6 +38,7 @@ override_dh_auto_configure:
 	  -DARROW_CUDA=$${ARROW_CUDA}				\
 	  -DARROW_GANDIVA=$${ARROW_GANDIVA}			\
 	  -DARROW_GANDIVA_JAVA=OFF				\
+	  -DARROW_MIMALLOC=ON					\
 	  -DARROW_ORC=ON					\
 	  -DARROW_PARQUET=ON					\
 	  -DARROW_PLASMA=$${ARROW_PLASMA}			\
@@ -51,6 +52,7 @@ override_dh_auto_configure:
 	  -DARROW_WITH_ZSTD=ON					\
 	  -DCMAKE_BUILD_TYPE=$(BUILD_TYPE)			\
 	  -DCMAKE_UNITY_BUILD=ON				\
+	  -DPARQUET_REQUIRE_ENCRYPTION=ON			\
 	  -DPythonInterp_FIND_VERSION=ON			\
 	  -DPythonInterp_FIND_VERSION_MAJOR=3
 	dh_auto_configure						\

@@ -484,6 +484,12 @@ bool IsLastDayOfMonth(const EpochTimePoint& tp) {
   return !IsLeapYear(tp.TmYear());
 }
 
+FORCE_INLINE
+bool is_valid_time(const int hours, const int minutes, const int seconds) {
+  return hours >= 0 && hours < 24 && minutes >= 0 && minutes < 60 && seconds >= 0 &&
+         seconds < 60;
+}
+
 // MONTHS_BETWEEN returns number of months between dates date1 and date2.
 // If date1 is later than date2, then the result is positive.
 // If date1 is earlier than date2, then the result is negative.
@@ -607,13 +613,16 @@ gdv_timestamp castTIMESTAMP_utf8(int64_t context, const char* input, gdv_int32 l
   int ts_fields[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
   gdv_boolean add_displacement = true;
   gdv_boolean encountered_zone = false;
-  int year_str_len = 0;
+  int year_str_len = 0, sub_seconds_len = 0;
   int ts_field_index = TimeFields::kYear, index = 0, value = 0;
   while (ts_field_index < TimeFields::kMax && index < length) {
     if (isdigit(input[index])) {
       value = (value * 10) + (input[index] - '0');
       if (ts_field_index == TimeFields::kYear) {
         year_str_len++;
+      }
+      if (ts_field_index == TimeFields::kSubSeconds) {
+        sub_seconds_len++;
       }
     } else {
       ts_fields[ts_field_index] = value;
@@ -660,6 +669,18 @@ gdv_timestamp castTIMESTAMP_utf8(int64_t context, const char* input, gdv_int32 l
     }
   }
 
+  // adjust the milliseconds
+  if (sub_seconds_len > 0) {
+    if (sub_seconds_len > 3) {
+      const char* msg = "Invalid millis for timestamp value ";
+      set_error_for_date(length, input, msg, context);
+      return 0;
+    }
+    while (sub_seconds_len < 3) {
+      ts_fields[TimeFields::kSubSeconds] *= 10;
+      sub_seconds_len++;
+    }
+  }
   // handle timezone
   if (encountered_zone) {
     int err = 0;
@@ -679,6 +700,13 @@ gdv_timestamp castTIMESTAMP_utf8(int64_t context, const char* input, gdv_int32 l
                         day(ts_fields[TimeFields::kDay]);
   if (!date.ok()) {
     const char* msg = "Not a valid day for timestamp value ";
+    set_error_for_date(length, input, msg, context);
+    return 0;
+  }
+
+  if (!is_valid_time(ts_fields[TimeFields::kHours], ts_fields[TimeFields::kMinutes],
+                     ts_fields[TimeFields::kSeconds])) {
+    const char* msg = "Not a valid time for timestamp value ";
     set_error_for_date(length, input, msg, context);
     return 0;
   }

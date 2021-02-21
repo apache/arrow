@@ -30,12 +30,10 @@
 #include <vector>
 
 #include "arrow/array.h"
-#include "arrow/chunked_array.h"
 #include "arrow/compare.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
-#include "arrow/table.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/hash_util.h"
 #include "arrow/util/hashing.h"
@@ -187,6 +185,32 @@ int GetByteWidth(const DataType& type) {
 }
 
 }  // namespace internal
+
+namespace {
+
+struct PhysicalTypeVisitor {
+  const std::shared_ptr<DataType>& real_type;
+  std::shared_ptr<DataType> result;
+
+  Status Visit(const DataType&) {
+    result = real_type;
+    return Status::OK();
+  }
+
+  template <typename Type, typename PhysicalType = typename Type::PhysicalType>
+  Status Visit(const Type&) {
+    result = TypeTraits<PhysicalType>::type_singleton();
+    return Status::OK();
+  }
+};
+
+}  // namespace
+
+std::shared_ptr<DataType> GetPhysicalType(const std::shared_ptr<DataType>& real_type) {
+  PhysicalTypeVisitor visitor{real_type, {}};
+  ARROW_CHECK_OK(VisitTypeInline(*real_type, &visitor));
+  return std::move(visitor.result);
+}
 
 namespace {
 
@@ -747,6 +771,28 @@ std::vector<std::shared_ptr<Field>> StructType::GetAllFieldsByName(
   return result;
 }
 
+// Taken from the Apache Impala codebase. The comments next
+// to the return values are the maximum value that can be represented in 2's
+// complement with the returned number of bytes.
+int32_t DecimalType::DecimalSize(int32_t precision) {
+  DCHECK_GE(precision, 1) << "decimal precision must be greater than or equal to 1, got "
+                          << precision;
+
+  // Generated in python with:
+  // >>> decimal_size = lambda prec: int(math.ceil((prec * math.log2(10) + 1) / 8))
+  // >>> [-1] + [decimal_size(i) for i in range(1, 77)]
+  constexpr int32_t kBytes[] = {
+      -1, 1,  1,  2,  2,  3,  3,  4,  4,  4,  5,  5,  6,  6,  6,  7,  7,  8,  8,  9,
+      9,  9,  10, 10, 11, 11, 11, 12, 12, 13, 13, 13, 14, 14, 15, 15, 16, 16, 16, 17,
+      17, 18, 18, 18, 19, 19, 20, 20, 21, 21, 21, 22, 22, 23, 23, 23, 24, 24, 25, 25,
+      26, 26, 26, 27, 27, 28, 28, 28, 29, 29, 30, 30, 31, 31, 31, 32, 32};
+
+  if (precision <= 76) {
+    return kBytes[precision];
+  }
+  return static_cast<int32_t>(std::ceil((precision / 8.0) * std::log2(10) + 1));
+}
+
 // ----------------------------------------------------------------------
 // Decimal128 type
 
@@ -837,19 +883,20 @@ size_t FieldPath::hash() const {
 }
 
 std::string FieldPath::ToString() const {
+  if (this->indices().empty()) {
+    return "FieldPath(empty)";
+  }
+
   std::string repr = "FieldPath(";
   for (auto index : this->indices()) {
     repr += std::to_string(index) + " ";
   }
-  repr.resize(repr.size() - 1);
-  repr += ")";
+  repr.back() = ')';
   return repr;
 }
 
 struct FieldPathGetImpl {
   static const DataType& GetType(const ArrayData& data) { return *data.type; }
-
-  static const DataType& GetType(const ChunkedArray& array) { return *array.type(); }
 
   static void Summarize(const FieldVector& fields, std::stringstream* ss) {
     *ss << "{ ";
@@ -906,6 +953,10 @@ struct FieldPathGetImpl {
     int depth = 0;
     const T* out;
     for (int index : path->indices()) {
+      if (children == nullptr) {
+        return Status::NotImplemented("Get child data of non-struct array");
+      }
+
       if (index < 0 || static_cast<size_t>(index) >= children->size()) {
         *out_of_range_depth = depth;
         return nullptr;
@@ -943,32 +994,11 @@ struct FieldPathGetImpl {
                                                 const ArrayDataVector& child_data) {
     return FieldPathGetImpl::Get(
         path, &child_data,
-        [](const std::shared_ptr<ArrayData>& data) { return &data->child_data; });
-  }
-
-  static Result<std::shared_ptr<ChunkedArray>> Get(
-      const FieldPath* path, const ChunkedArrayVector& columns_arg) {
-    ChunkedArrayVector columns = columns_arg;
-
-    return FieldPathGetImpl::Get(
-        path, &columns, [&](const std::shared_ptr<ChunkedArray>& a) {
-          columns.clear();
-
-          for (int i = 0; i < a->type()->num_fields(); ++i) {
-            ArrayVector child_chunks;
-
-            for (const auto& chunk : a->chunks()) {
-              auto child_chunk = MakeArray(chunk->data()->child_data[i]);
-              child_chunks.push_back(std::move(child_chunk));
-            }
-
-            auto child_column = std::make_shared<ChunkedArray>(
-                std::move(child_chunks), a->type()->field(i)->type());
-
-            columns.emplace_back(std::move(child_column));
+        [](const std::shared_ptr<ArrayData>& data) -> const ArrayDataVector* {
+          if (data->type->id() != Type::STRUCT) {
+            return nullptr;
           }
-
-          return &columns;
+          return &data->child_data;
         });
   }
 };
@@ -991,11 +1021,19 @@ Result<std::shared_ptr<Field>> FieldPath::Get(const FieldVector& fields) const {
 
 Result<std::shared_ptr<Array>> FieldPath::Get(const RecordBatch& batch) const {
   ARROW_ASSIGN_OR_RAISE(auto data, FieldPathGetImpl::Get(this, batch.column_data()));
-  return MakeArray(data);
+  return MakeArray(std::move(data));
 }
 
-Result<std::shared_ptr<ChunkedArray>> FieldPath::Get(const Table& table) const {
-  return FieldPathGetImpl::Get(this, table.columns());
+Result<std::shared_ptr<Array>> FieldPath::Get(const Array& array) const {
+  ARROW_ASSIGN_OR_RAISE(auto data, Get(*array.data()));
+  return MakeArray(std::move(data));
+}
+
+Result<std::shared_ptr<ArrayData>> FieldPath::Get(const ArrayData& data) const {
+  if (data.type->id() != Type::STRUCT) {
+    return Status::NotImplemented("Get child data of non-struct array");
+  }
+  return FieldPathGetImpl::Get(this, data.child_data);
 }
 
 FieldRef::FieldRef(FieldPath indices) : impl_(std::move(indices)) {
@@ -1005,13 +1043,13 @@ FieldRef::FieldRef(FieldPath indices) : impl_(std::move(indices)) {
 void FieldRef::Flatten(std::vector<FieldRef> children) {
   // flatten children
   struct Visitor {
-    void operator()(std::string&& name) { *out++ = FieldRef(std::move(name)); }
+    void operator()(std::string* name) { *out++ = FieldRef(std::move(*name)); }
 
-    void operator()(FieldPath&& indices) { *out++ = FieldRef(std::move(indices)); }
+    void operator()(FieldPath* indices) { *out++ = FieldRef(std::move(*indices)); }
 
-    void operator()(std::vector<FieldRef>&& children) {
-      for (auto& child : children) {
-        util::visit(*this, std::move(child.impl_));
+    void operator()(std::vector<FieldRef>* children) {
+      for (auto& child : *children) {
+        util::visit(*this, &child.impl_);
       }
     }
 
@@ -1020,7 +1058,7 @@ void FieldRef::Flatten(std::vector<FieldRef> children) {
 
   std::vector<FieldRef> out;
   Visitor visitor{std::back_inserter(out)};
-  visitor(std::move(children));
+  visitor(&children);
 
   DCHECK(!out.empty());
   DCHECK(std::none_of(out.begin(), out.end(),
@@ -1243,11 +1281,11 @@ std::vector<FieldPath> FieldRef::FindAll(const FieldVector& fields) const {
   return util::visit(Visitor{fields}, impl_);
 }
 
-std::vector<FieldPath> FieldRef::FindAll(const Array& array) const {
-  return FindAll(*array.type());
+std::vector<FieldPath> FieldRef::FindAll(const ArrayData& array) const {
+  return FindAll(*array.type);
 }
 
-std::vector<FieldPath> FieldRef::FindAll(const ChunkedArray& array) const {
+std::vector<FieldPath> FieldRef::FindAll(const Array& array) const {
   return FindAll(*array.type());
 }
 
@@ -1255,37 +1293,60 @@ std::vector<FieldPath> FieldRef::FindAll(const RecordBatch& batch) const {
   return FindAll(*batch.schema());
 }
 
-std::vector<FieldPath> FieldRef::FindAll(const Table& table) const {
-  return FindAll(*table.schema());
-}
-
 void PrintTo(const FieldRef& ref, std::ostream* os) { *os << ref.ToString(); }
 
 // ----------------------------------------------------------------------
 // Schema implementation
 
+std::string EndiannessToString(Endianness endianness) {
+  switch (endianness) {
+    case Endianness::Little:
+      return "little";
+    case Endianness::Big:
+      return "big";
+    default:
+      DCHECK(false) << "invalid endianness";
+      return "???";
+  }
+}
+
 class Schema::Impl {
  public:
-  Impl(std::vector<std::shared_ptr<Field>> fields,
+  Impl(std::vector<std::shared_ptr<Field>> fields, Endianness endianness,
        std::shared_ptr<const KeyValueMetadata> metadata)
       : fields_(std::move(fields)),
+        endianness_(endianness),
         name_to_index_(CreateNameToIndexMap(fields_)),
         metadata_(std::move(metadata)) {}
 
   std::vector<std::shared_ptr<Field>> fields_;
+  Endianness endianness_;
   std::unordered_multimap<std::string, int> name_to_index_;
   std::shared_ptr<const KeyValueMetadata> metadata_;
 };
 
+Schema::Schema(std::vector<std::shared_ptr<Field>> fields, Endianness endianness,
+               std::shared_ptr<const KeyValueMetadata> metadata)
+    : detail::Fingerprintable(),
+      impl_(new Impl(std::move(fields), endianness, std::move(metadata))) {}
+
 Schema::Schema(std::vector<std::shared_ptr<Field>> fields,
                std::shared_ptr<const KeyValueMetadata> metadata)
     : detail::Fingerprintable(),
-      impl_(new Impl(std::move(fields), std::move(metadata))) {}
+      impl_(new Impl(std::move(fields), Endianness::Native, std::move(metadata))) {}
 
 Schema::Schema(const Schema& schema)
     : detail::Fingerprintable(), impl_(new Impl(*schema.impl_)) {}
 
-Schema::~Schema() {}
+Schema::~Schema() = default;
+
+std::shared_ptr<Schema> Schema::WithEndianness(Endianness endianness) const {
+  return std::make_shared<Schema>(impl_->fields_, endianness, impl_->metadata_);
+}
+
+Endianness Schema::endianness() const { return impl_->endianness_; }
+
+bool Schema::is_native_endian() const { return impl_->endianness_ == Endianness::Native; }
 
 int Schema::num_fields() const { return static_cast<int>(impl_->fields_.size()); }
 
@@ -1302,6 +1363,11 @@ const std::vector<std::shared_ptr<Field>>& Schema::fields() const {
 bool Schema::Equals(const Schema& other, bool check_metadata) const {
   if (this == &other) {
     return true;
+  }
+
+  // checks endianness equality
+  if (endianness() != other.endianness()) {
+    return false;
   }
 
   // checks field equality
@@ -1428,7 +1494,7 @@ std::shared_ptr<Schema> Schema::WithMetadata(
   return std::make_shared<Schema>(impl_->fields_, metadata);
 }
 
-std::shared_ptr<const KeyValueMetadata> Schema::metadata() const {
+const std::shared_ptr<const KeyValueMetadata>& Schema::metadata() const {
   return impl_->metadata_;
 }
 
@@ -1446,6 +1512,10 @@ std::string Schema::ToString(bool show_metadata) const {
     }
     buffer << field->ToString(show_metadata);
     ++i;
+  }
+
+  if (impl_->endianness_ != Endianness::Native) {
+    buffer << "\n-- endianness: " << EndiannessToString(impl_->endianness_) << " --";
   }
 
   if (show_metadata && HasMetadata()) {
@@ -1627,6 +1697,12 @@ std::shared_ptr<Schema> schema(std::vector<std::shared_ptr<Field>> fields,
   return std::make_shared<Schema>(std::move(fields), std::move(metadata));
 }
 
+std::shared_ptr<Schema> schema(std::vector<std::shared_ptr<Field>> fields,
+                               Endianness endianness,
+                               std::shared_ptr<const KeyValueMetadata> metadata) {
+  return std::make_shared<Schema>(std::move(fields), endianness, std::move(metadata));
+}
+
 Result<std::shared_ptr<Schema>> UnifySchemas(
     const std::vector<std::shared_ptr<Schema>>& schemas,
     const Field::MergeOptions field_merge_options) {
@@ -1785,6 +1861,7 @@ std::string Schema::ComputeFingerprint() const {
     }
     ss << field_fingerprint << ";";
   }
+  ss << (endianness() == Endianness::Little ? "L" : "B");
   ss << "}";
   return ss.str();
 }

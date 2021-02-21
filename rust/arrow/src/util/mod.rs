@@ -15,12 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
+pub mod bench_util;
 pub mod bit_chunk_iterator;
 pub mod bit_util;
-pub mod buffered_iterator;
 pub mod display;
 pub mod integration_util;
 #[cfg(feature = "prettyprint")]
 pub mod pretty;
+pub(crate) mod serialization;
 pub mod string_writer;
 pub mod test_util;
+
+mod trusted_len;
+pub(crate) use trusted_len::trusted_len_unzip;

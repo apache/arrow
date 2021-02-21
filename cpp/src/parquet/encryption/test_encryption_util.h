@@ -30,12 +30,13 @@
 #include "arrow/util/io_util.h"
 
 #include "parquet/encryption/encryption.h"
+#include "parquet/test_util.h"
 
 namespace parquet {
 namespace encryption {
 namespace test {
 
-using arrow::internal::TemporaryDir;
+using ::arrow::internal::TemporaryDir;
 
 constexpr int kFixedLength = 10;
 
@@ -50,8 +51,10 @@ std::string data_file(const char* file);
 // A temporary directory that contains the encrypted files generated in the tests.
 extern std::unique_ptr<TemporaryDir> temp_dir;
 
-inline arrow::Result<std::unique_ptr<TemporaryDir>> temp_data_dir() {
-  return TemporaryDir::Make("parquet-encryption-test-");
+inline ::arrow::Result<std::unique_ptr<TemporaryDir>> temp_data_dir() {
+  ::arrow::Result<std::unique_ptr<TemporaryDir>> dir;
+  ARROW_ASSIGN_OR_RAISE(dir, TemporaryDir::Make("parquet-encryption-test-"));
+  return dir;
 }
 
 const char kDoubleFieldName[] = "double_field";

@@ -20,6 +20,7 @@ package org.apache.arrow.vector.util;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 
 import org.apache.arrow.memory.ArrowBuf;
 
@@ -31,11 +32,11 @@ import io.netty.util.internal.PlatformDependent;
 public class DecimalUtility {
   private DecimalUtility() {}
 
-  public static final int DECIMAL_BYTE_LENGTH = 16;
   public static final byte [] zeroes = new byte[] {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
   public static final byte [] minus_one = new byte[] {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
                                                       -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
+  private static final boolean LITTLE_ENDIAN = ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN;
 
   /**
    * Read an ArrowType.Decimal at the given value index in the ArrowBuf and convert to a BigDecimal
@@ -46,14 +47,16 @@ public class DecimalUtility {
     byte temp;
     final long startIndex = (long) index * byteWidth;
 
-    // Decimal stored as little endian, need to swap bytes to make BigDecimal
     bytebuf.getBytes(startIndex, value, 0, byteWidth);
-    int stop = byteWidth / 2;
-    for (int i = 0, j; i < stop; i++) {
-      temp = value[i];
-      j = (byteWidth - 1) - i;
-      value[i] = value[j];
-      value[j] = temp;
+    if (LITTLE_ENDIAN) {
+      // Decimal stored as native endian, need to swap bytes to make BigDecimal if native endian is LE
+      int stop = byteWidth / 2;
+      for (int i = 0, j; i < stop; i++) {
+        temp = value[i];
+        j = (byteWidth - 1) - i;
+        value[i] = value[j];
+        value[j] = temp;
+      }
     }
     BigInteger unscaledValue = new BigInteger(value);
     return new BigDecimal(unscaledValue, scale);
@@ -128,12 +131,26 @@ public class DecimalUtility {
 
   /**
    * Write the given long to the ArrowBuf at the given value index.
+   * This routine extends the original sign bit to a new upper area in 128-bit or 256-bit.
    */
-  public static void writeLongToArrowBuf(long value, ArrowBuf bytebuf, int index) {
-    final long addressOfValue = bytebuf.memoryAddress() + (long) index * DECIMAL_BYTE_LENGTH;
-    PlatformDependent.putLong(addressOfValue, value);
+  public static void writeLongToArrowBuf(long value, ArrowBuf bytebuf, int index, int byteWidth) {
+    if (byteWidth != 16 && byteWidth != 32) {
+      throw new UnsupportedOperationException("DecimalUtility.writeLongToArrowBuf() currently supports " +
+          "128-bit or 256-bit width data");
+    }
+    final long addressOfValue = bytebuf.memoryAddress() + (long) index * byteWidth;
     final long padValue = Long.signum(value) == -1 ? -1L : 0L;
-    PlatformDependent.putLong(addressOfValue + Long.BYTES, padValue);
+    if (LITTLE_ENDIAN) {
+      PlatformDependent.putLong(addressOfValue, value);
+      for (int i = 1; i <= (byteWidth - 8) / 8; i++) {
+        PlatformDependent.putLong(addressOfValue + Long.BYTES * i, padValue);
+      }
+    } else {
+      for (int i = 0; i < (byteWidth - 8) / 8; i++) {
+        PlatformDependent.putLong(addressOfValue + Long.BYTES * i, padValue);
+      }
+      PlatformDependent.putLong(addressOfValue + Long.BYTES * (byteWidth - 8) / 8, value);
+    }
   }
 
   /**
@@ -151,15 +168,21 @@ public class DecimalUtility {
       throw new UnsupportedOperationException("Decimal size greater than " + byteWidth + " bytes: " + bytes.length);
     }
 
-    // Decimal stored as little endian, need to swap data bytes before writing to ArrowBuf
-    byte[] bytesLE = new byte[bytes.length];
-    for (int i = 0; i < bytes.length; i++) {
-      bytesLE[i] = bytes[bytes.length - 1 - i];
-    }
-
-    // Write LE data
     byte [] padBytes = bytes[0] < 0 ? minus_one : zeroes;
-    bytebuf.setBytes(startIndex, bytesLE, 0, bytes.length);
-    bytebuf.setBytes(startIndex + bytes.length, padBytes, 0, byteWidth - bytes.length);
+    if (LITTLE_ENDIAN) {
+      // Decimal stored as native-endian, need to swap data bytes before writing to ArrowBuf if LE
+      byte[] bytesLE = new byte[bytes.length];
+      for (int i = 0; i < bytes.length; i++) {
+        bytesLE[i] = bytes[bytes.length - 1 - i];
+      }
+
+      // Write LE data
+      bytebuf.setBytes(startIndex, bytesLE, 0, bytes.length);
+      bytebuf.setBytes(startIndex + bytes.length, padBytes, 0, byteWidth - bytes.length);
+    } else {
+      // Write BE data
+      bytebuf.setBytes(startIndex + byteWidth - bytes.length, bytes, 0, bytes.length);
+      bytebuf.setBytes(startIndex, padBytes, 0, byteWidth - bytes.length);
+    }
   }
 }

@@ -72,6 +72,9 @@ class ARROW_EXPORT ChunkedArray {
   /// data type.
   explicit ChunkedArray(ArrayVector chunks);
 
+  ChunkedArray(ChunkedArray&&) = default;
+  ChunkedArray& operator=(ChunkedArray&&) = default;
+
   /// \brief Construct a chunked array from a single Array
   explicit ChunkedArray(std::shared_ptr<Array> chunk)
       : ChunkedArray(ArrayVector{std::move(chunk)}) {}

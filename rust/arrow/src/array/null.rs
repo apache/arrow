@@ -99,6 +99,11 @@ impl Array for NullArray {
 impl From<ArrayDataRef> for NullArray {
     fn from(data: ArrayDataRef) -> Self {
         assert_eq!(
+            data.data_type(),
+            &DataType::Null,
+            "NullArray data type should be Null"
+        );
+        assert_eq!(
             data.buffers().len(),
             0,
             "NullArray data should contain 0 buffers"

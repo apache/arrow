@@ -1,0 +1,3 @@
+[deps]
+Arrow = "69666777-d1a9-59fb-9406-91d4454c9d45"
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"

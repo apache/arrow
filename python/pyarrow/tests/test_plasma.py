@@ -308,7 +308,7 @@ class TestPlasmaClient:
             assert result == pa.plasma.ObjectNotAvailable
 
     @pytest.mark.filterwarnings(
-        "ignore:'pyarrow.deserialize':DeprecationWarning")
+        "ignore:'pyarrow.deserialize':FutureWarning")
     def test_put_and_get_raw_buffer(self):
         temp_id = random_object_id()
         use_meta = b"RAW"
@@ -341,7 +341,7 @@ class TestPlasmaClient:
             assert result == pa.plasma.ObjectNotAvailable
 
     @pytest.mark.filterwarnings(
-        "ignore:'serialization_context':DeprecationWarning")
+        "ignore:'serialization_context':FutureWarning")
     def test_put_and_get_serialization_context(self):
 
         class CustomType:

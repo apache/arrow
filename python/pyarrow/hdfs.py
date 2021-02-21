@@ -38,7 +38,7 @@ class HadoopFileSystem(lib.HadoopFileSystem, FileSystem):
         warnings.warn(
             _DEPR_MSG.format(
                 "hdfs.HadoopFileSystem", "2.0.0", "fs.HadoopFileSystem"),
-            DeprecationWarning, stacklevel=2)
+            FutureWarning, stacklevel=2)
         if driver == 'libhdfs':
             _maybe_set_hadoop_classpath()
 
@@ -212,7 +212,7 @@ def connect(host="default", port=0, user=None, kerb_ticket=None,
     """
     warnings.warn(
         _DEPR_MSG.format("hdfs.connect", "2.0.0", "fs.HadoopFileSystem"),
-        DeprecationWarning, stacklevel=2
+        FutureWarning, stacklevel=2
     )
     return _connect(
         host=host, port=port, user=user, kerb_ticket=kerb_ticket,

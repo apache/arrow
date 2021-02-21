@@ -44,6 +44,10 @@ bool Scalar::Equals(const Scalar& other, const EqualOptions& options) const {
   return ScalarEquals(*this, other, options);
 }
 
+bool Scalar::ApproxEquals(const Scalar& other, const EqualOptions& options) const {
+  return ScalarApproxEquals(*this, other, options);
+}
+
 struct ScalarHashImpl {
   static std::hash<std::string> string_hash;
 
@@ -180,6 +184,20 @@ FixedSizeListScalar::FixedSizeListScalar(std::shared_ptr<Array> value)
     : BaseListScalar(
           value, fixed_size_list(value->type(), static_cast<int32_t>(value->length()))) {}
 
+Result<std::shared_ptr<StructScalar>> StructScalar::Make(
+    ScalarVector values, std::vector<std::string> field_names) {
+  if (values.size() != field_names.size()) {
+    return Status::Invalid("Mismatching number of field names and child scalars");
+  }
+
+  FieldVector fields(field_names.size());
+  for (size_t i = 0; i < fields.size(); ++i) {
+    fields[i] = arrow::field(std::move(field_names[i]), values[i]->type);
+  }
+
+  return std::make_shared<StructScalar>(std::move(values), struct_(std::move(fields)));
+}
+
 Result<std::shared_ptr<Scalar>> StructScalar::field(FieldRef ref) const {
   ARROW_ASSIGN_OR_RAISE(auto path, ref.FindOne(*type));
   if (path.indices().size() != 1) {
@@ -248,6 +266,13 @@ Result<std::shared_ptr<Scalar>> DictionaryScalar::GetEncodedValue() const {
       break;
   }
   return value.dictionary->GetScalar(index_value);
+}
+
+std::shared_ptr<DictionaryScalar> DictionaryScalar::Make(std::shared_ptr<Scalar> index,
+                                                         std::shared_ptr<Array> dict) {
+  auto type = dictionary(index->type, dict->type());
+  return std::make_shared<DictionaryScalar>(ValueType{std::move(index), std::move(dict)},
+                                            std::move(type));
 }
 
 template <typename T>
@@ -491,20 +516,6 @@ Status CastImpl(const DateScalar<D>& from, TimestampScalar* to) {
       .Value(&to->value);
 }
 
-// timestamp to string
-Status CastImpl(const TimestampScalar& from, StringScalar* to) {
-  to->value = FormatToBuffer(internal::StringFormatter<Int64Type>{}, from);
-  return Status::OK();
-}
-
-// date to string
-template <typename D>
-Status CastImpl(const DateScalar<D>& from, StringScalar* to) {
-  TimestampScalar ts({}, timestamp(TimeUnit::MILLI));
-  RETURN_NOT_OK(CastImpl(from, &ts));
-  return CastImpl(ts, to);
-}
-
 // string to any
 template <typename ScalarType>
 Status CastImpl(const StringScalar& from, ScalarType* to) {
@@ -528,6 +539,18 @@ template <typename ScalarType, typename T = typename ScalarType::TypeClass,
           typename Value = typename Formatter::value_type>
 Status CastImpl(const ScalarType& from, StringScalar* to) {
   to->value = FormatToBuffer(Formatter{from.type}, from);
+  return Status::OK();
+}
+
+Status CastImpl(const Decimal128Scalar& from, StringScalar* to) {
+  auto from_type = checked_cast<const Decimal128Type*>(from.type.get());
+  to->value = Buffer::FromString(from.value.ToString(from_type->scale()));
+  return Status::OK();
+}
+
+Status CastImpl(const Decimal256Scalar& from, StringScalar* to) {
+  auto from_type = checked_cast<const Decimal256Type*>(from.type.get());
+  to->value = Buffer::FromString(from.value.ToString(from_type->scale()));
   return Status::OK();
 }
 

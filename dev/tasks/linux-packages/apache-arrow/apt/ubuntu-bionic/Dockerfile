@@ -29,28 +29,18 @@ RUN \
     /etc/apt/apt.conf.d/disable-install-recommends
 
 ARG DEBUG
-ARG LLVM
 RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "-qq") && \
   apt update ${quiet} && \
   apt install -y -V ${quiet} \
-    apt-transport-https \
-    ca-certificates \
-    gnupg \
-    wget && \
-  wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
-  echo "deb https://apt.llvm.org/bionic/ llvm-toolchain-bionic-${LLVM} main" > \
-    /etc/apt/sources.list.d/llvm.list && \
-  apt update ${quiet} && \
-  apt install -y -V ${quiet} \
     build-essential \
+    clang-10 \
     cmake \
     devscripts \
     fakeroot \
     git \
     gtk-doc-tools \
     libboost-filesystem-dev \
-    libboost-regex-dev \
     libboost-system-dev \
     libbrotli-dev \
     libbz2-dev \
@@ -65,6 +55,7 @@ RUN \
     libssl-dev \
     libutf8proc-dev \
     libzstd-dev \
+    llvm-10-dev \
     lsb-release \
     ninja-build \
     pkg-config \
@@ -76,11 +67,15 @@ RUN \
     rapidjson-dev \
     tzdata \
     zlib1g-dev && \
-  if [ "$(dpkg --print-architecture)" != "arm64" ]; then \
-    apt install -y -V ${quiet} \
-      clang-${LLVM} \
-      llvm-${LLVM}-dev; \
-  fi && \
+  (echo "includedir=/usr/include" && \
+   echo "libdir=/usr/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH)" && \
+   echo "" && \
+   echo "Name: re2" && \
+   echo "Description: RE2 is a fast, safe, thread-friendly regular expression engine." && \
+   echo "Version: 0.0.0" && \
+   echo "Cflags: -std=c++11 -pthread -I\${includedir}" && \
+   echo "Libs: -pthread -L\${libdir} -lre2") | \
+    tee "/usr/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH)/pkgconfig/re2.pc" && \
   if apt list | grep '^nvidia-cuda-toolkit/'; then \
     apt install -y -V ${quiet} nvidia-cuda-toolkit; \
   fi && \

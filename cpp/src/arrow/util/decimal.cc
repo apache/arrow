@@ -29,8 +29,8 @@
 #include <string>
 
 #include "arrow/status.h"
-#include "arrow/util/bit_util.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/formatting.h"
 #include "arrow/util/int128_internal.h"
 #include "arrow/util/int_util_internal.h"
@@ -226,7 +226,7 @@ static void AppendLittleEndianArrayToString(const std::array<uint64_t, n>& array
       // *elem = dividend / 1e9;
       // remainder = dividend % 1e9.
       uint32_t hi = static_cast<uint32_t>(*elem >> 32);
-      uint32_t lo = static_cast<uint32_t>(*elem & BitUtil::LeastSignficantBitMask(32));
+      uint32_t lo = static_cast<uint32_t>(*elem & BitUtil::LeastSignificantBitMask(32));
       uint64_t dividend_hi = (static_cast<uint64_t>(remainder) << 32) | hi;
       uint64_t quotient_hi = dividend_hi / k1e9;
       remainder = static_cast<uint32_t>(dividend_hi % k1e9);
@@ -568,7 +568,7 @@ Result<Decimal128> Decimal128::FromBigEndian(const uint8_t* bytes, int32_t lengt
 
   int64_t high, low;
 
-  if (length < kMinDecimalBytes || length > kMaxDecimalBytes) {
+  if (ARROW_PREDICT_FALSE(length < kMinDecimalBytes || length > kMaxDecimalBytes)) {
     return Status::Invalid("Length of byte array passed to Decimal128::FromBigEndian ",
                            "was ", length, ", but must be between ", kMinDecimalBytes,
                            " and ", kMaxDecimalBytes);
@@ -716,6 +716,48 @@ Result<Decimal256> Decimal256::FromString(const std::string& s) {
 
 Result<Decimal256> Decimal256::FromString(const char* s) {
   return FromString(util::string_view(s));
+}
+
+Result<Decimal256> Decimal256::FromBigEndian(const uint8_t* bytes, int32_t length) {
+  static constexpr int32_t kMinDecimalBytes = 1;
+  static constexpr int32_t kMaxDecimalBytes = 32;
+
+  std::array<uint64_t, 4> little_endian_array;
+
+  if (ARROW_PREDICT_FALSE(length < kMinDecimalBytes || length > kMaxDecimalBytes)) {
+    return Status::Invalid("Length of byte array passed to Decimal128::FromBigEndian ",
+                           "was ", length, ", but must be between ", kMinDecimalBytes,
+                           " and ", kMaxDecimalBytes);
+  }
+
+  // Bytes are coming in big-endian, so the first byte is the MSB and therefore holds the
+  // sign bit.
+  const bool is_negative = static_cast<int8_t>(bytes[0]) < 0;
+
+  for (int word_idx = 0; word_idx < 4; word_idx++) {
+    const int32_t word_length = std::min(length, static_cast<int32_t>(sizeof(uint64_t)));
+
+    if (word_length == 8) {
+      // Full words can be assigned as is (and are UB with the shift below).
+      little_endian_array[word_idx] =
+          UInt64FromBigEndian(bytes + length - word_length, word_length);
+    } else {
+      // Sign extend the word its if necessary
+      uint64_t word = -1 * is_negative;
+      if (length > 0) {
+        // Incorporate the actual values if present.
+        // Shift left enough bits to make room for the incoming int64_t
+        word = SafeLeftShift(word, word_length * CHAR_BIT);
+        // Preserve the upper bits by inplace OR-ing the int64_t
+        word |= UInt64FromBigEndian(bytes + length - word_length, word_length);
+      }
+      little_endian_array[word_idx] = word;
+    }
+    // Move on to the next word.
+    length -= word_length;
+  }
+
+  return Decimal256(little_endian_array);
 }
 
 Status Decimal256::ToArrowStatus(DecimalStatus dstatus) const {

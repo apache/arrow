@@ -29,15 +29,14 @@
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
-#include "arrow/buffer.h"
-#include "arrow/builder.h"
+#include "arrow/array/builder_binary.h"
+#include "arrow/array/builder_primitive.h"
 #include "arrow/io/file.h"
 #include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/test_common.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/pretty_print.h"
-#include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
@@ -45,6 +44,7 @@
 #include "arrow/testing/json_internal.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/io_util.h"
 
 DEFINE_string(arrow, "", "Arrow file name");
@@ -635,6 +635,67 @@ static const char* json_example4 = R"example(
 }
 )example";
 
+// An empty struct type, with "children" member in batches
+static const char* json_example5 = R"example(
+{
+  "schema": {
+    "fields": [
+      {
+        "name": "empty_struct",
+        "nullable": true,
+        "type": {
+          "name": "struct"
+        },
+        "children": []
+      }
+    ]
+  },
+  "batches": [
+    {
+      "count": 3,
+      "columns": [
+        {
+          "name": "empty_struct",
+          "count": 3,
+          "VALIDITY": [1, 0, 1],
+          "children": []
+        }
+      ]
+    }
+  ]
+}
+)example";
+
+// An empty struct type, without "children" member in batches
+static const char* json_example6 = R"example(
+{
+  "schema": {
+    "fields": [
+      {
+        "name": "empty_struct",
+        "nullable": true,
+        "type": {
+          "name": "struct"
+        },
+        "children": []
+      }
+    ]
+  },
+  "batches": [
+    {
+      "count": 2,
+      "columns": [
+        {
+          "name": "empty_struct",
+          "count": 2,
+          "VALIDITY": [1, 0]
+        }
+      ]
+    }
+  ]
+}
+)example";
+
 void TestSchemaRoundTrip(const Schema& schema) {
   rj::StringBuffer sb;
   rj::Writer<rj::StringBuffer> writer(sb);
@@ -1010,6 +1071,30 @@ TEST(TestJsonFileReadWrite, JsonExample4) {
   auto expected_array = ArrayFromJSON(
       map(int16(), int32()),
       R"([[[11, 111], [22, 222], [33, null]], null, [[44, 444], [55, 555]]])");
+  AssertArraysEqual(*batch->column(0), *expected_array);
+}
+
+TEST(TestJsonFileReadWrite, JsonExample5) {
+  // Example 5: An empty struct
+  auto struct_type = struct_(FieldVector{});
+  Schema ex_schema({field("empty_struct", struct_type)});
+
+  std::shared_ptr<RecordBatch> batch;
+  ReadOneBatchJson(json_example5, ex_schema, &batch);
+
+  auto expected_array = ArrayFromJSON(struct_type, "[{}, null, {}]");
+  AssertArraysEqual(*batch->column(0), *expected_array);
+}
+
+TEST(TestJsonFileReadWrite, JsonExample6) {
+  // Example 6: An empty struct
+  auto struct_type = struct_(FieldVector{});
+  Schema ex_schema({field("empty_struct", struct_type)});
+
+  std::shared_ptr<RecordBatch> batch;
+  ReadOneBatchJson(json_example6, ex_schema, &batch);
+
+  auto expected_array = ArrayFromJSON(struct_type, "[{}, null]");
   AssertArraysEqual(*batch->column(0), *expected_array);
 }
 

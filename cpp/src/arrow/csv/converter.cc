@@ -24,11 +24,14 @@
 #include <type_traits>
 #include <vector>
 
-#include "arrow/builder.h"
+#include "arrow/array/builder_binary.h"
+#include "arrow/array/builder_decimal.h"
+#include "arrow/array/builder_dict.h"
+#include "arrow/array/builder_primitive.h"
 #include "arrow/csv/parser.h"
-#include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
@@ -431,7 +434,7 @@ class PrimitiveConverter : public ConcreteConverter {
       if (decoder_.IsNull(data, size, quoted /* quoted */)) {
         return builder.AppendNull();
       }
-      value_type value;
+      value_type value{};
       RETURN_NOT_OK(decoder_.Decode(data, size, quoted, &value));
       builder.UnsafeAppend(value);
       return Status::OK();
@@ -477,7 +480,7 @@ class TypedDictionaryConverter : public ConcreteDictionaryConverter {
       if (ARROW_PREDICT_FALSE(builder.dictionary_length() > max_cardinality_)) {
         return Status::IndexError("Dictionary length exceeded max cardinality");
       }
-      value_type value;
+      value_type value{};
       RETURN_NOT_OK(decoder_.Decode(data, size, quoted, &value));
       return builder.Append(value);
     };

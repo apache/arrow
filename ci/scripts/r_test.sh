@@ -52,10 +52,15 @@ export TEXMFVAR=/tmp/texmf-var
 # Not all Suggested packages are needed for checking, so in case they aren't installed don't fail
 export _R_CHECK_FORCE_SUGGESTS_=FALSE
 
+if [[ "$DEVTOOLSET_VERSION" -gt 0 ]]; then
+  # enable the devtoolset version to use it
+  source /opt/rh/devtoolset-$DEVTOOLSET_VERSION/enable
+fi
+
 # Make sure we aren't writing to the home dir (CRAN _hates_ this but there is no official check)
 BEFORE=$(ls -alh ~/)
 
-${R_BIN} -e "as_cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true')
+SCRIPT="as_cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true')
   if (as_cran) {
     rcmdcheck::rcmdcheck(args = c('--as-cran', '--run-donttest'), error_on = 'warning', check_dir = 'check')
   } else {
@@ -68,6 +73,7 @@ ${R_BIN} -e "as_cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true')
     }
     rcmdcheck::rcmdcheck(build_args = '--no-build-vignettes', args = c('--no-manual', '--ignore-vignettes', '--run-donttest'), error_on = 'warning', check_dir = 'check')
   }"
+echo "$SCRIPT" | ${R_BIN} --no-save
 
 AFTER=$(ls -alh ~/)
 if [ "$NOT_CRAN" != "true" ] && [ "$BEFORE" != "$AFTER" ]; then

@@ -122,7 +122,7 @@ class PackageTask
     image
   end
 
-  def docker_run(os, architecture)
+  def docker_run(os, architecture, console: false)
     id = os
     id = "#{id}-#{architecture}" if architecture
     image = docker_image(os, architecture)
@@ -136,10 +136,16 @@ class PackageTask
       "docker",
       "run",
       "--rm",
-      "--tty",
+      "--log-driver", "none",
       "--volume", "#{Dir.pwd}:/host:rw",
     ]
-    run_command_line << "--interactive" if $stdin.tty?
+    if $stdin.tty?
+      run_command_line << "--interactive"
+      run_command_line << "--tty"
+    else
+      run_command_line.concat(["--attach", "STDOUT"])
+      run_command_line.concat(["--attach", "STDERR"])
+    end
     build_dir = ENV["BUILD_DIR"]
     if build_dir
       build_dir = "#{File.expand_path(build_dir)}/#{id}"
@@ -149,6 +155,15 @@ class PackageTask
     if debug_build?
       build_command_line.concat(["--build-arg", "DEBUG=yes"])
       run_command_line.concat(["--env", "DEBUG=yes"])
+    end
+    pass_through_env_names = [
+      "DEB_BUILD_OPTIONS",
+      "RPM_BUILD_NCPUS",
+    ]
+    pass_through_env_names.each do |name|
+      value = ENV[name]
+      next unless value
+      run_command_line.concat(["--env", "#{name}=#{value}"])
     end
     if File.exist?(File.join(id, "Dockerfile"))
       docker_context = id
@@ -162,7 +177,8 @@ class PackageTask
     build_command_line.concat(docker_build_options(os, architecture))
     run_command_line.concat(docker_run_options(os, architecture))
     build_command_line << docker_context
-    run_command_line.concat([image, "/host/build.sh"])
+    run_command_line << image
+    run_command_line << "/host/build.sh" unless console
 
     sh(*build_command_line)
     sh(*run_command_line)
@@ -231,8 +247,6 @@ class PackageTask
     # Disable arm64 targets by default for now
     # because they require some setups on host.
     [
-      "debian-stretch",
-      # "debian-stretch-arm64",
       "debian-buster",
       # "debian-stretch-arm64",
       "ubuntu-xenial",
@@ -241,6 +255,8 @@ class PackageTask
       # "ubuntu-bionic-arm64",
       "ubuntu-focal",
       # "ubuntu-focal-arm64",
+      "ubuntu-groovy",
+      # "ubuntu-groovy-arm64",
     ]
   end
 
@@ -256,14 +272,46 @@ class PackageTask
     "apt"
   end
 
-  def apt_build
+  def apt_prepare_debian_dir(tmp_dir, target)
+    source_debian_dir = nil
+    specific_debian_dir = "debian.#{target}"
+    distribution, code_name, _architecture = target.split("-", 3)
+    platform = [distribution, code_name].join("-")
+    platform_debian_dir = "debian.#{platform}"
+    if File.exist?(specific_debian_dir)
+      source_debian_dir = specific_debian_dir
+    elsif File.exist?(platform_debian_dir)
+      source_debian_dir = platform_debian_dir
+    else
+      source_debian_dir = "debian"
+    end
+
+    prepared_debian_dir = "#{tmp_dir}/debian.#{target}"
+    cp_r(source_debian_dir, prepared_debian_dir)
+    control_in_path = "#{prepared_debian_dir}/control.in"
+    if File.exist?(control_in_path)
+      control_in = File.read(control_in_path)
+      rm_f(control_in_path)
+      File.open("#{prepared_debian_dir}/control", "w") do |control|
+        prepared_control = apt_prepare_debian_control(control_in, target)
+        control.print(prepared_control)
+      end
+    end
+  end
+
+  def apt_prepare_debian_control(control_in, target)
+    message = "#{__method__} must be defined to use debian/control.in"
+    raise NotImplementedError, message
+  end
+
+  def apt_build(console: false)
     tmp_dir = "#{apt_dir}/tmp"
     rm_rf(tmp_dir)
     mkdir_p(tmp_dir)
     cp(deb_archive_name,
        File.join(tmp_dir, deb_archive_name))
-    Dir.glob("debian*") do |debian_dir|
-      cp_r(debian_dir, "#{tmp_dir}/#{debian_dir}")
+    apt_targets.each do |target|
+      apt_prepare_debian_dir(tmp_dir, target)
     end
 
     env_sh = "#{apt_dir}/env.sh"
@@ -278,7 +326,7 @@ VERSION=#{@deb_upstream_version}
       cd(apt_dir) do
         distribution, version, architecture = target.split("-", 3)
         os = "#{distribution}-#{version}"
-        docker_run(os, architecture)
+        docker_run(os, architecture, console: console)
       end
     end
   end
@@ -308,6 +356,12 @@ VERSION=#{@deb_upstream_version}
       task :build => build_dependencies do
         apt_build if enable_apt?
       end
+
+      namespace :build do
+        task :console => build_dependencies do
+          apt_build(console: true) if enable_apt?
+        end
+      end
     end
 
     desc "Release APT repositories"
@@ -336,7 +390,6 @@ VERSION=#{@deb_upstream_version}
     # Disable aarch64 targets by default for now
     # because they require some setups on host.
     [
-      "centos-6",
       "centos-7",
       # "centos-7-aarch64",
       "centos-8",
@@ -377,7 +430,7 @@ VERSION=#{@deb_upstream_version}
     "#{yum_dir}/#{@rpm_package}.spec.in"
   end
 
-  def yum_build
+  def yum_build(console: false)
     tmp_dir = "#{yum_dir}/tmp"
     rm_rf(tmp_dir)
     mkdir_p(tmp_dir)
@@ -407,7 +460,7 @@ RELEASE=#{@rpm_release}
       cd(yum_dir) do
         distribution, version, architecture = target.split("-", 3)
         os = "#{distribution}-#{version}"
-        docker_run(os, architecture)
+        docker_run(os, architecture, console: console)
       end
     end
   end
@@ -435,6 +488,12 @@ RELEASE=#{@rpm_release}
       end
       task :build => build_dependencies do
         yum_build if enable_yum?
+      end
+
+      namespace :build do
+        task :console => build_dependencies do
+          yum_build(console: true) if enable_yum?
+        end
       end
     end
 

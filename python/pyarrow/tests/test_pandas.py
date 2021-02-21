@@ -34,7 +34,7 @@ import pytest
 import pytz
 
 from pyarrow.pandas_compat import get_logical_type, _pandas_api
-from pyarrow.tests.util import random_ascii, rands
+from pyarrow.tests.util import invoke_script, random_ascii, rands
 import pyarrow.tests.strategies as past
 
 import pyarrow as pa
@@ -416,7 +416,7 @@ class TestConvertMetadata:
                 pa.Table.from_pandas(df)
 
             expected = df.copy()
-            expected.columns = df.columns.astype(str)
+            expected.columns = df.columns.values.astype(str)
             with pytest.warns(UserWarning):
                 _check_pandas_roundtrip(df, expected=expected,
                                         preserve_index=True)
@@ -519,6 +519,20 @@ class TestConvertMetadata:
             result = table_subset2.to_pandas()
             tm.assert_frame_equal(result, df[['a']].reset_index(drop=True))
 
+    def test_to_pandas_column_subset_multiindex(self):
+        # ARROW-10122
+        df = pd.DataFrame(
+            {"first": list(range(5)),
+             "second": list(range(5)),
+             "value": np.arange(5)}
+        )
+        table = pa.Table.from_pandas(df.set_index(["first", "second"]))
+
+        subset = table.select(["first", "value"])
+        result = subset.to_pandas()
+        expected = df[["first", "value"]].set_index("first")
+        tm.assert_frame_equal(result, expected)
+
     def test_empty_list_metadata(self):
         # Create table with array of empty lists, forced to have type
         # list(string) in pyarrow
@@ -567,6 +581,35 @@ class TestConvertMetadata:
         df = pd.DataFrame({'a': [1, 2, 3], 'b': [1, 2, 3]})
         table = pa.Table.from_pandas(df)
         assert table.schema.pandas_metadata['pandas_version'] is not None
+
+    def test_mismatch_metadata_schema(self):
+        # ARROW-10511
+        # It is possible that the metadata and actual schema is not fully
+        # matching (eg no timezone information for tz-aware column)
+        # -> to_pandas() conversion should not fail on that
+        df = pd.DataFrame({"datetime": pd.date_range("2020-01-01", periods=3)})
+
+        # OPTION 1: casting after conversion
+        table = pa.Table.from_pandas(df)
+        # cast the "datetime" column to be tz-aware
+        new_col = table["datetime"].cast(pa.timestamp('ns', tz="UTC"))
+        new_table1 = table.set_column(
+            0, pa.field("datetime", new_col.type), new_col
+        )
+
+        # OPTION 2: specify schema during conversion
+        schema = pa.schema([("datetime", pa.timestamp('ns', tz="UTC"))])
+        new_table2 = pa.Table.from_pandas(df, schema=schema)
+
+        expected = df.copy()
+        expected["datetime"] = expected["datetime"].dt.tz_localize("UTC")
+
+        for new_table in [new_table1, new_table2]:
+            # ensure the new table still has the pandas metadata
+            assert new_table.schema.pandas_metadata is not None
+            # convert to pandas
+            result = new_table.to_pandas()
+            tm.assert_frame_equal(result, expected)
 
 
 class TestConvertPrimitiveTypes:
@@ -1424,6 +1467,8 @@ class TestConvertDateTimeLikeTypes:
         expected = pd.Series([None, date(1991, 1, 1), None])
         assert pa.Array.from_pandas(expected).equals(result)
 
+    @pytest.mark.skipif('1.16.0' <= LooseVersion(np.__version__) < '1.16.1',
+                        reason='Until numpy/numpy#12745 is resolved')
     def test_fixed_offset_timezone(self):
         df = pd.DataFrame({
             'a': [
@@ -2478,10 +2523,10 @@ class TestConvertMisc:
         (np.float64, pa.float64()),
         # XXX unsupported
         # (np.dtype([('a', 'i2')]), pa.struct([pa.field('a', pa.int16())])),
-        (np.object, pa.string()),
-        (np.object, pa.binary()),
-        (np.object, pa.binary(10)),
-        (np.object, pa.list_(pa.int64())),
+        (np.object_, pa.string()),
+        (np.object_, pa.binary()),
+        (np.object_, pa.binary(10)),
+        (np.object_, pa.list_(pa.int64())),
     ]
 
     def test_all_none_objects(self):
@@ -2773,12 +2818,12 @@ def test_roundtrip_with_bytes_unicode(columns):
 
 
 def _check_serialize_components_roundtrip(pd_obj):
-    with pytest.warns(DeprecationWarning):
+    with pytest.warns(FutureWarning):
         ctx = pa.default_serialization_context()
 
-    with pytest.warns(DeprecationWarning):
+    with pytest.warns(FutureWarning):
         components = ctx.serialize(pd_obj).to_components()
-    with pytest.warns(DeprecationWarning):
+    with pytest.warns(FutureWarning):
         deserialized = ctx.deserialize_components(components)
 
     if isinstance(pd_obj, pd.DataFrame):
@@ -2787,7 +2832,7 @@ def _check_serialize_components_roundtrip(pd_obj):
         tm.assert_series_equal(pd_obj, deserialized)
 
 
-@pytest.mark.skipif(LooseVersion(np.__version__) >= '0.16',
+@pytest.mark.skipif('1.16.0' <= LooseVersion(np.__version__) < '1.16.1',
                     reason='Until numpy/numpy#12745 is resolved')
 def test_serialize_deserialize_pandas():
     # ARROW-1784, serialize and deserialize DataFrame by decomposing
@@ -3177,6 +3222,34 @@ def test_table_from_pandas_schema_with_custom_metadata():
     schema = pa.Schema.from_pandas(df).with_metadata({'meta': 'True'})
     table = pa.Table.from_pandas(df, schema=schema)
     assert table.schema.metadata.get(b'meta') == b'True'
+
+
+def test_table_from_pandas_schema_field_order_metadat():
+    # ARROW-10532
+    # ensure that a different field order in specified schema doesn't
+    # mangle metadata
+    df = pd.DataFrame({
+        "datetime": pd.date_range("2020-01-01T00:00:00Z", freq="H", periods=2),
+        "float": np.random.randn(2)
+    })
+
+    schema = pa.schema([
+        pa.field("float", pa.float32(), nullable=True),
+        pa.field("datetime", pa.timestamp("s", tz="UTC"), nullable=False)
+    ])
+
+    table = pa.Table.from_pandas(df, schema=schema)
+    assert table.schema.equals(schema)
+    metadata_float = table.schema.pandas_metadata["columns"][0]
+    assert metadata_float["name"] == "float"
+    assert metadata_float["metadata"] is None
+    metadata_datetime = table.schema.pandas_metadata["columns"][1]
+    assert metadata_datetime["name"] == "datetime"
+    assert metadata_datetime["metadata"] == {'timezone': 'UTC'}
+
+    result = table.to_pandas()
+    expected = df[["float", "datetime"]].astype({"float": "float32"})
+    tm.assert_frame_equal(result, expected)
 
 
 # ----------------------------------------------------------------------
@@ -3801,7 +3874,11 @@ def test_array_protocol_pandas_extension_types(monkeypatch):
 def _Int64Dtype__from_arrow__(self, array):
     # for test only deal with single chunk for now
     # TODO: do we require handling of chunked arrays in the protocol?
-    arr = array.chunk(0)
+    if isinstance(array, pa.Array):
+        arr = array
+    else:
+        # ChunkedArray - here only deal with a single chunk for the test
+        arr = array.chunk(0)
     buflist = arr.buffers()
     data = np.frombuffer(buflist[-1], dtype='int64')[
         arr.offset:arr.offset + len(arr)]
@@ -3832,7 +3909,8 @@ def test_convert_to_extension_array(monkeypatch):
     # Int64Dtype is recognized -> convert to extension block by default
     # for a proper roundtrip
     result = table.to_pandas()
-    assert isinstance(result._data.blocks[0], _int.IntBlock)
+    assert not isinstance(result._data.blocks[0], _int.ExtensionBlock)
+    assert result._data.blocks[0].values.dtype == np.dtype("int64")
     assert isinstance(result._data.blocks[1], _int.ExtensionBlock)
     tm.assert_frame_equal(result, df)
 
@@ -3844,11 +3922,16 @@ def test_convert_to_extension_array(monkeypatch):
     tm.assert_frame_equal(result, df2)
 
     # monkeypatch pandas Int64Dtype to *not* have the protocol method
-    monkeypatch.delattr(pd.core.arrays.integer._IntegerDtype, "__from_arrow__")
+    if LooseVersion(pd.__version__) < "1.3.0.dev":
+        monkeypatch.delattr(
+            pd.core.arrays.integer._IntegerDtype, "__from_arrow__")
+    else:
+        monkeypatch.delattr(
+            pd.core.arrays.integer.NumericDtype, "__from_arrow__")
     # Int64Dtype has no __from_arrow__ -> use normal conversion
     result = table.to_pandas()
     assert len(result._data.blocks) == 1
-    assert isinstance(result._data.blocks[0], _int.IntBlock)
+    assert not isinstance(result._data.blocks[0], _int.ExtensionBlock)
 
 
 class MyCustomIntegerType(pa.PyExtensionType):
@@ -3882,6 +3965,11 @@ def test_conversion_extensiontype_to_extensionarray(monkeypatch):
 
     # extension type points to Int64Dtype, which knows how to create a
     # pandas ExtensionArray
+    result = arr.to_pandas()
+    assert isinstance(result._data.blocks[0], _int.ExtensionBlock)
+    expected = pd.Series([1, 2, 3, 4], dtype='Int64')
+    tm.assert_series_equal(result, expected)
+
     result = table.to_pandas()
     assert isinstance(result._data.blocks[0], _int.ExtensionBlock)
     expected = pd.DataFrame({'a': pd.array([1, 2, 3, 4], dtype='Int64')})
@@ -3891,10 +3979,17 @@ def test_conversion_extensiontype_to_extensionarray(monkeypatch):
     # (remove the version added above and the actual version for recent pandas)
     if LooseVersion(pd.__version__) < "0.26.0.dev":
         monkeypatch.delattr(pd.Int64Dtype, "__from_arrow__")
+    elif LooseVersion(pd.__version__) < "1.3.0.dev":
+        monkeypatch.delattr(
+            pd.core.arrays.integer._IntegerDtype, "__from_arrow__")
     else:
         monkeypatch.delattr(
-            pd.core.arrays.integer._IntegerDtype, "__from_arrow__",
-            raising=False)
+            pd.core.arrays.integer.NumericDtype, "__from_arrow__")
+
+    result = arr.to_pandas()
+    assert not isinstance(result._data.blocks[0], _int.ExtensionBlock)
+    expected = pd.Series([1, 2, 3, 4])
+    tm.assert_series_equal(result, expected)
 
     with pytest.raises(ValueError):
         table.to_pandas()
@@ -3926,6 +4021,22 @@ def test_to_pandas_extension_dtypes_mapping():
     result = table.to_pandas(
         types_mapper={pa.int64(): pd.PeriodDtype('D')}.get)
     assert isinstance(result['a'].dtype, pd.PeriodDtype)
+
+
+def test_array_to_pandas():
+    if LooseVersion(pd.__version__) < "1.1":
+        pytest.skip("ExtensionDtype to_pandas method missing")
+
+    for arr in [pd.period_range("2012-01-01", periods=3, freq="D").array,
+                pd.interval_range(1, 4).array]:
+        result = pa.array(arr).to_pandas()
+        expected = pd.Series(arr)
+        tm.assert_series_equal(result, expected)
+
+        # TODO implement proper conversion for chunked array
+        # result = pa.table({"col": arr})["col"].to_pandas()
+        # expected = pd.Series(arr, name="col")
+        # tm.assert_series_equal(result, expected)
 
 
 # ----------------------------------------------------------------------
@@ -4149,8 +4260,7 @@ def test_metadata_compat_missing_field_name():
 
         )})
     result = table.to_pandas()
-    # on python 3.5 the column order can differ -> adding check_like=True
-    tm.assert_frame_equal(result, expected, check_like=True)
+    tm.assert_frame_equal(result, expected)
 
 
 def test_metadata_index_name_not_json_serializable():
@@ -4238,3 +4348,7 @@ def test_timestamp_as_object_non_nanosecond(resolution, tz, dt):
             assert result[0].tzinfo is None
             expected = dt
         assert result[0] == expected
+
+
+def test_threaded_pandas_import():
+    invoke_script("pandas_threaded_import.py")

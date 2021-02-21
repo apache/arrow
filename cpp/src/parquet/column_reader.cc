@@ -29,10 +29,13 @@
 #include <vector>
 
 #include "arrow/array.h"
-#include "arrow/builder.h"
+#include "arrow/array/builder_binary.h"
+#include "arrow/array/builder_dict.h"
+#include "arrow/array/builder_primitive.h"
 #include "arrow/chunked_array.h"
 #include "arrow/type.h"
 #include "arrow/util/bit_stream_utils.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/int_util_internal.h"
@@ -54,6 +57,8 @@ using arrow::MemoryPool;
 using arrow::internal::AddWithOverflow;
 using arrow::internal::checked_cast;
 using arrow::internal::MultiplyWithOverflow;
+
+namespace BitUtil = arrow::BitUtil;
 
 namespace parquet {
 namespace {
@@ -174,6 +179,8 @@ ReaderProperties default_reader_properties() {
   static ReaderProperties default_reader_properties;
   return default_reader_properties;
 }
+
+namespace {
 
 // Extracts encoded statistics from V1 and V2 data page headers
 template <typename H>
@@ -440,8 +447,12 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
                           header.repetition_levels_byte_length, &levels_byte_len)) {
         throw ParquetException("Levels size too large (corrupt file?)");
       }
-      page_buffer = DecompressIfNeeded(std::move(page_buffer), compressed_len,
-                                       uncompressed_len, levels_byte_len);
+      // DecompressIfNeeded doesn't take `is_compressed` into account as
+      // it's page type-agnostic.
+      if (is_compressed) {
+        page_buffer = DecompressIfNeeded(std::move(page_buffer), compressed_len,
+                                         uncompressed_len, levels_byte_len);
+      }
 
       return std::make_shared<DataPageV2>(
           page_buffer, header.num_values, header.num_nulls, header.num_rows,
@@ -487,6 +498,8 @@ std::shared_ptr<Buffer> SerializedPageReader::DecompressIfNeeded(
   return decompression_buffer_;
 }
 
+}  // namespace
+
 std::unique_ptr<PageReader> PageReader::Open(std::shared_ptr<ArrowInputStream> stream,
                                              int64_t total_num_rows,
                                              Compression::type codec,
@@ -495,6 +508,8 @@ std::unique_ptr<PageReader> PageReader::Open(std::shared_ptr<ArrowInputStream> s
   return std::unique_ptr<PageReader>(
       new SerializedPageReader(std::move(stream), total_num_rows, codec, pool, ctx));
 }
+
+namespace {
 
 // ----------------------------------------------------------------------
 // Impl base class for TypedColumnReader and RecordReader
@@ -1015,6 +1030,8 @@ int64_t TypedColumnReaderImpl<DType>::Skip(int64_t num_rows_to_skip) {
   return num_rows_to_skip - rows_to_skip;
 }
 
+}  // namespace
+
 // ----------------------------------------------------------------------
 // Dynamic column reader constructor
 
@@ -1057,6 +1074,7 @@ std::shared_ptr<ColumnReader> ColumnReader::Make(const ColumnDescriptor* descr,
 // RecordReader
 
 namespace internal {
+namespace {
 
 // The minimum number of repetition/definition levels to decode at a time, for
 // better vectorized performance when doing many smaller record reads
@@ -1183,6 +1201,7 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>,
       auto result = values_;
       PARQUET_THROW_NOT_OK(result->Resize(bytes_for_values(values_written_), true));
       values_ = AllocateBuffer(this->pool_);
+      values_capacity_ = 0;
       return result;
     } else {
       return nullptr;
@@ -1669,6 +1688,8 @@ std::shared_ptr<RecordReader> MakeByteArrayRecordReader(const ColumnDescriptor* 
     return std::make_shared<ByteArrayChunkedRecordReader>(descr, leaf_info, pool);
   }
 }
+
+}  // namespace
 
 std::shared_ptr<RecordReader> RecordReader::Make(const ColumnDescriptor* descr,
                                                  LevelInfo leaf_info, MemoryPool* pool,

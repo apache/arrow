@@ -27,8 +27,13 @@ use arrow::util::pretty;
 use datafusion::error::Result;
 use datafusion::execution::context::{ExecutionConfig, ExecutionContext};
 
+use datafusion::physical_plan::collect;
 use datafusion::physical_plan::csv::CsvReadOptions;
 use structopt::StructOpt;
+
+#[cfg(feature = "snmalloc")]
+#[global_allocator]
+static ALLOC: snmalloc_rs::SnMalloc = snmalloc_rs::SnMalloc;
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "Benchmarks", about = "Apache Arrow Rust Benchmarks.")]
@@ -92,7 +97,7 @@ async fn datafusion_sql_benchmarks(
     debug: bool,
 ) -> Result<()> {
     let mut queries = HashMap::new();
-    queries.insert("fare_amt_by_passenger", "SELECT passenger_count, MIN(fare_amount), MIN(fare_amount), SUM(fare_amount) FROM tripdata GROUP BY passenger_count");
+    queries.insert("fare_amt_by_passenger", "SELECT passenger_count, MIN(fare_amount), MAX(fare_amount), SUM(fare_amount) FROM tripdata GROUP BY passenger_count");
     for (name, sql) in &queries {
         println!("Executing '{}'", name);
         for i in 0..iterations {
@@ -116,7 +121,7 @@ async fn execute_sql(ctx: &mut ExecutionContext, sql: &str, debug: bool) -> Resu
         println!("Optimized logical plan:\n{:?}", plan);
     }
     let physical_plan = ctx.create_physical_plan(&plan)?;
-    let result = ctx.collect(physical_plan).await?;
+    let result = collect(physical_plan).await?;
     if debug {
         pretty::print_batches(&result)?;
     }

@@ -17,15 +17,17 @@
 
 //! Defines scalars used to construct groups, ex. in GROUP BY clauses.
 
+use ordered_float::OrderedFloat;
 use std::convert::{From, TryFrom};
 
 use crate::error::{DataFusionError, Result};
 use crate::scalar::ScalarValue;
 
-/// Enumeration of types that can be used in a GROUP BY expression (all primitives except
-/// for floating point numerics)
+/// Enumeration of types that can be used in a GROUP BY expression
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub(crate) enum GroupByScalar {
+    Float32(OrderedFloat<f32>),
+    Float64(OrderedFloat<f64>),
     UInt8(u8),
     UInt16(u16),
     UInt32(u32),
@@ -34,7 +36,11 @@ pub(crate) enum GroupByScalar {
     Int16(i16),
     Int32(i32),
     Int64(i64),
-    Utf8(String),
+    Utf8(Box<String>),
+    Boolean(bool),
+    TimeMicrosecond(i64),
+    TimeNanosecond(i64),
+    Date32(i32),
 }
 
 impl TryFrom<&ScalarValue> for GroupByScalar {
@@ -42,6 +48,13 @@ impl TryFrom<&ScalarValue> for GroupByScalar {
 
     fn try_from(scalar_value: &ScalarValue) -> Result<Self> {
         Ok(match scalar_value {
+            ScalarValue::Float32(Some(v)) => {
+                GroupByScalar::Float32(OrderedFloat::from(*v))
+            }
+            ScalarValue::Float64(Some(v)) => {
+                GroupByScalar::Float64(OrderedFloat::from(*v))
+            }
+            ScalarValue::Boolean(Some(v)) => GroupByScalar::Boolean(*v),
             ScalarValue::Int8(Some(v)) => GroupByScalar::Int8(*v),
             ScalarValue::Int16(Some(v)) => GroupByScalar::Int16(*v),
             ScalarValue::Int32(Some(v)) => GroupByScalar::Int32(*v),
@@ -50,8 +63,11 @@ impl TryFrom<&ScalarValue> for GroupByScalar {
             ScalarValue::UInt16(Some(v)) => GroupByScalar::UInt16(*v),
             ScalarValue::UInt32(Some(v)) => GroupByScalar::UInt32(*v),
             ScalarValue::UInt64(Some(v)) => GroupByScalar::UInt64(*v),
-            ScalarValue::Utf8(Some(v)) => GroupByScalar::Utf8(v.clone()),
-            ScalarValue::Int8(None)
+            ScalarValue::Utf8(Some(v)) => GroupByScalar::Utf8(Box::new(v.clone())),
+            ScalarValue::Float32(None)
+            | ScalarValue::Float64(None)
+            | ScalarValue::Boolean(None)
+            | ScalarValue::Int8(None)
             | ScalarValue::Int16(None)
             | ScalarValue::Int32(None)
             | ScalarValue::Int64(None)
@@ -78,6 +94,9 @@ impl TryFrom<&ScalarValue> for GroupByScalar {
 impl From<&GroupByScalar> for ScalarValue {
     fn from(group_by_scalar: &GroupByScalar) -> Self {
         match group_by_scalar {
+            GroupByScalar::Float32(v) => ScalarValue::Float32(Some((*v).into())),
+            GroupByScalar::Float64(v) => ScalarValue::Float64(Some((*v).into())),
+            GroupByScalar::Boolean(v) => ScalarValue::Boolean(Some(*v)),
             GroupByScalar::Int8(v) => ScalarValue::Int8(Some(*v)),
             GroupByScalar::Int16(v) => ScalarValue::Int16(Some(*v)),
             GroupByScalar::Int32(v) => ScalarValue::Int32(Some(*v)),
@@ -86,7 +105,10 @@ impl From<&GroupByScalar> for ScalarValue {
             GroupByScalar::UInt16(v) => ScalarValue::UInt16(Some(*v)),
             GroupByScalar::UInt32(v) => ScalarValue::UInt32(Some(*v)),
             GroupByScalar::UInt64(v) => ScalarValue::UInt64(Some(*v)),
-            GroupByScalar::Utf8(v) => ScalarValue::Utf8(Some(v.clone())),
+            GroupByScalar::Utf8(v) => ScalarValue::Utf8(Some(v.to_string())),
+            GroupByScalar::TimeMicrosecond(v) => ScalarValue::TimeMicrosecond(Some(*v)),
+            GroupByScalar::TimeNanosecond(v) => ScalarValue::TimeNanosecond(Some(*v)),
+            GroupByScalar::Date32(v) => ScalarValue::Date32(Some(*v)),
         }
     }
 }
@@ -95,10 +117,48 @@ impl From<&GroupByScalar> for ScalarValue {
 mod tests {
     use super::*;
 
-    use crate::error::{DataFusionError, Result};
+    use crate::error::DataFusionError;
+
+    macro_rules! scalar_eq_test {
+        ($TYPE:expr, $VALUE:expr) => {{
+            let scalar_value = $TYPE($VALUE);
+            let a = GroupByScalar::try_from(&scalar_value).unwrap();
+
+            let scalar_value = $TYPE($VALUE);
+            let b = GroupByScalar::try_from(&scalar_value).unwrap();
+
+            assert_eq!(a, b);
+        }};
+    }
 
     #[test]
-    fn from_scalar_holding_none() -> Result<()> {
+    fn test_scalar_ne_non_std() {
+        // Test only Scalars with non native Eq, Hash
+        scalar_eq_test!(ScalarValue::Float32, Some(1.0));
+        scalar_eq_test!(ScalarValue::Float64, Some(1.0));
+    }
+
+    macro_rules! scalar_ne_test {
+        ($TYPE:expr, $LVALUE:expr, $RVALUE:expr) => {{
+            let scalar_value = $TYPE($LVALUE);
+            let a = GroupByScalar::try_from(&scalar_value).unwrap();
+
+            let scalar_value = $TYPE($RVALUE);
+            let b = GroupByScalar::try_from(&scalar_value).unwrap();
+
+            assert_ne!(a, b);
+        }};
+    }
+
+    #[test]
+    fn test_scalar_eq_non_std() {
+        // Test only Scalars with non native Eq, Hash
+        scalar_ne_test!(ScalarValue::Float32, Some(1.0), Some(2.0));
+        scalar_ne_test!(ScalarValue::Float64, Some(1.0), Some(2.0));
+    }
+
+    #[test]
+    fn from_scalar_holding_none() {
         let scalar_value = ScalarValue::Int8(None);
         let result = GroupByScalar::try_from(&scalar_value);
 
@@ -109,26 +169,27 @@ mod tests {
             ),
             _ => panic!("Unexpected result"),
         }
-
-        Ok(())
     }
 
     #[test]
-    fn from_scalar_unsupported() -> Result<()> {
+    fn from_scalar_unsupported() {
         // Use any ScalarValue type not supported by GroupByScalar.
-        let scalar_value = ScalarValue::Float32(Some(1.1));
+        let scalar_value = ScalarValue::LargeUtf8(Some("1.1".to_string()));
         let result = GroupByScalar::try_from(&scalar_value);
 
         match result {
             Err(DataFusionError::Internal(error_message)) => assert_eq!(
                 error_message,
                 String::from(
-                    "Cannot convert a ScalarValue with associated DataType Float32"
+                    "Cannot convert a ScalarValue with associated DataType LargeUtf8"
                 )
             ),
             _ => panic!("Unexpected result"),
         }
+    }
 
-        Ok(())
+    #[test]
+    fn size_of_group_by_scalar() {
+        assert_eq!(std::mem::size_of::<GroupByScalar>(), 16);
     }
 }

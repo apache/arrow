@@ -39,6 +39,11 @@ except ImportError:
     pass
 
 
+@pytest.fixture(scope='module')
+def datadir(base_datadir):
+    return base_datadir / 'feather'
+
+
 def random_path(prefix='feather_'):
     return tempfile.mktemp(prefix=prefix)
 
@@ -769,3 +774,19 @@ def test_nested_types(compression):
 @h.given(past.all_tables, st.sampled_from(["uncompressed", "lz4", "zstd"]))
 def test_roundtrip(table, compression):
     _check_arrow_roundtrip(table, compression=compression)
+
+
+def test_feather_v017_experimental_compression_backward_compatibility(datadir):
+    # ARROW-11163 - ensure newer pyarrow versions can read the old feather
+    # files from version 0.17.0 with experimental compression support (before
+    # it was officially added to IPC format in 1.0.0)
+
+    # file generated with:
+    #     table = pa.table({'a': range(5)})
+    #     from pyarrow import feather
+    #     feather.write_feather(
+    #         table, "v0.17.0.version=2-compression=lz4.feather",
+    #         compression="lz4", version=2)
+    expected = pa.table({'a': range(5)})
+    result = read_table(datadir / "v0.17.0.version=2-compression=lz4.feather")
+    assert result.equals(expected)

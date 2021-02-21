@@ -50,7 +50,10 @@ function build_wheel {
     export ARROW_HOME=`pwd`/arrow-dist
     export PARQUET_HOME=`pwd`/arrow-dist
 
-    pip install $(pip_opts) -r python/requirements-wheel-build.txt
+    # If NumPy builds from the source make sure it is built against OpenBLAS
+    # See: https://github.com/numpy/numpy/issues/15947#issuecomment-686159427
+    OPENBLAS=$(brew --prefix openblas) pip install \
+        $(pip_opts) -r python/requirements-wheel-build.txt
 
     git submodule update --init
     export ARROW_TEST_DATA=`pwd`/testing/data
@@ -68,6 +71,7 @@ function build_wheel {
           -DARROW_GRPC_USE_SHARED=OFF \
           -DARROW_HDFS=ON \
           -DARROW_JEMALLOC=ON \
+          -DARROW_MIMALLOC=ON \
           -DARROW_OPENSSL_USE_SHARED=OFF \
           -DARROW_ORC=OFF \
           -DARROW_PARQUET=ON \

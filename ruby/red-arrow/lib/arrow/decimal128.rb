@@ -38,5 +38,23 @@ module Arrow
         to_s_raw
       end
     end
+
+    alias_method :abs!, :abs
+
+    # @since 3.0.0
+    def abs
+      copied = dup
+      copied.abs!
+      copied
+    end
+
+    alias_method :negate!, :negate
+
+    # @since 3.0.0
+    def negate
+      copied = dup
+      copied.negate!
+      copied
+    end
   end
 end

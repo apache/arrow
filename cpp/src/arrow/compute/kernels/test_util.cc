@@ -24,6 +24,8 @@
 #include "arrow/array.h"
 #include "arrow/chunked_array.h"
 #include "arrow/compute/exec.h"
+#include "arrow/compute/function.h"
+#include "arrow/compute/registry.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
 #include "arrow/testing/gtest_util.h"
@@ -71,16 +73,35 @@ ScalarVector GetScalars(const ArrayVector& inputs, int64_t index) {
 void CheckScalar(std::string func_name, const ScalarVector& inputs,
                  std::shared_ptr<Scalar> expected, const FunctionOptions* options) {
   ASSERT_OK_AND_ASSIGN(Datum out, CallFunction(func_name, GetDatums(inputs), options));
-  AssertScalarsEqual(*expected, *out.scalar(), /*verbose=*/true);
+  if (!out.scalar()->Equals(expected)) {
+    std::string summary = func_name + "(";
+    for (const auto& input : inputs) {
+      summary += input->ToString() + ",";
+    }
+    summary.back() = ')';
+
+    summary += " = " + out.scalar()->ToString() + " != " + expected->ToString();
+
+    if (!out.type()->Equals(expected->type)) {
+      summary += " (types differed: " + out.type()->ToString() + " vs " +
+                 expected->type->ToString() + ")";
+    }
+
+    FAIL() << summary;
+  }
 }
 
 void CheckScalar(std::string func_name, const ArrayVector& inputs,
                  std::shared_ptr<Array> expected, const FunctionOptions* options) {
   CheckScalarNonRecursive(func_name, inputs, expected, options);
 
-  // Check all the input scalars
-  for (int64_t i = 0; i < inputs[0]->length(); ++i) {
-    CheckScalar(func_name, GetScalars(inputs, i), *expected->GetScalar(i), options);
+  // Check all the input scalars, if scalars are implemented
+  if (std::none_of(inputs.begin(), inputs.end(), [](const std::shared_ptr<Array>& array) {
+        return array->type_id() == Type::EXTENSION;
+      })) {
+    for (int64_t i = 0; i < inputs[0]->length(); ++i) {
+      CheckScalar(func_name, GetScalars(inputs, i), *expected->GetScalar(i), options);
+    }
   }
 
   // Since it's a scalar function, calling it on sliced inputs should
@@ -96,6 +117,10 @@ void CheckScalar(std::string func_name, const ArrayVector& inputs,
     CheckScalarNonRecursive(func_name, SliceAll(inputs, 2 * slice_length),
                             expected->Slice(2 * slice_length), options);
   }
+
+  // should also work with an empty slice
+  CheckScalarNonRecursive(func_name, SliceAll(inputs, 0, 0), expected->Slice(0, 0),
+                          options);
 
   // Ditto with ChunkedArray inputs
   if (slice_length > 0) {
@@ -152,6 +177,23 @@ void CheckScalarBinary(std::string func_name, std::shared_ptr<Array> left_input,
                        std::shared_ptr<Array> right_input,
                        std::shared_ptr<Array> expected, const FunctionOptions* options) {
   CheckScalar(std::move(func_name), {left_input, right_input}, expected, options);
+}
+
+void CheckDispatchBest(std::string func_name, std::vector<ValueDescr> original_values,
+                       std::vector<ValueDescr> expected_equivalent_values) {
+  ASSERT_OK_AND_ASSIGN(auto function, GetFunctionRegistry()->GetFunction(func_name));
+
+  auto values = original_values;
+  ASSERT_OK_AND_ASSIGN(auto actual_kernel, function->DispatchBest(&values));
+
+  ASSERT_OK_AND_ASSIGN(auto expected_kernel,
+                       function->DispatchExact(expected_equivalent_values));
+
+  EXPECT_EQ(actual_kernel, expected_kernel)
+      << "  DispatchBest" << ValueDescr::ToString(original_values) << " => "
+      << actual_kernel->signature->ToString() << "\n"
+      << "  DispatchExact" << ValueDescr::ToString(expected_equivalent_values) << " => "
+      << expected_kernel->signature->ToString();
 }
 
 }  // namespace compute

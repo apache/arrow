@@ -46,7 +46,7 @@ fn record_batches_to_csv() {
         Some(-556132.25),
     ]);
     let c3 = PrimitiveArray::<UInt32Type>::from(vec![3, 2, 1]);
-    let c4 = PrimitiveArray::<BooleanType>::from(vec![Some(true), Some(false), None]);
+    let c4 = BooleanArray::from(vec![Some(true), Some(false), None]);
 
     let b = RecordBatch::try_new(
         Arc::new(schema),
@@ -56,18 +56,14 @@ fn record_batches_to_csv() {
     let file = File::create("target/bench_write_csv.csv").unwrap();
     let mut writer = csv::Writer::new(file);
     let batches = vec![&b, &b, &b, &b, &b, &b, &b, &b, &b, &b, &b];
+    #[allow(clippy::unit_arg)]
     criterion::black_box(for batch in batches {
         writer.write(batch).unwrap()
     });
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
-    c.bench(
-        "record_batches_to_csv",
-        Benchmark::new("record_batches_to_csv", move |b| {
-            b.iter(record_batches_to_csv)
-        }),
-    );
+    c.bench_function("record_batches_to_csv", |b| b.iter(record_batches_to_csv));
 }
 
 criterion_group!(benches, criterion_benchmark);

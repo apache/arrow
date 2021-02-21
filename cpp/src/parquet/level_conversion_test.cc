@@ -38,7 +38,7 @@ using ::arrow::internal::Bitmap;
 using ::testing::ElementsAreArray;
 
 std::string BitmapToString(const uint8_t* bitmap, int64_t bit_count) {
-  return arrow::internal::Bitmap(bitmap, /*offset*/ 0, /*length=*/bit_count).ToString();
+  return ::arrow::internal::Bitmap(bitmap, /*offset*/ 0, /*length=*/bit_count).ToString();
 }
 
 std::string BitmapToString(const std::vector<uint8_t>& bitmap, int64_t bit_count) {

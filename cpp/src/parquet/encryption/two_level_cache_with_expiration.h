@@ -26,7 +26,7 @@
 namespace parquet {
 namespace encryption {
 
-using arrow::util::ConcurrentMap;
+using ::arrow::util::ConcurrentMap;
 
 namespace internal {
 
@@ -154,7 +154,7 @@ class TwoLevelCacheWithExpiration {
   }
   std::unordered_map<std::string, internal::ExpiringCacheMapEntry<V>> cache_;
   internal::TimePoint last_cache_cleanup_timestamp_;
-  arrow::util::Mutex mutex_;
+  ::arrow::util::Mutex mutex_;
 };
 
 }  // namespace encryption

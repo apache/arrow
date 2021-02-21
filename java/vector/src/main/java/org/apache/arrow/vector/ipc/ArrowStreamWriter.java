@@ -48,7 +48,7 @@ public class ArrowStreamWriter extends ArrowWriter {
    * Construct an ArrowStreamWriter with an optional DictionaryProvider for the WritableByteChannel.
    */
   public ArrowStreamWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out) {
-    this(root, provider, out, new IpcOption());
+    this(root, provider, out, IpcOption.DEFAULT);
   }
 
   /**

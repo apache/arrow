@@ -20,11 +20,12 @@
 //! The `FileWriter` and `StreamWriter` have similar interfaces,
 //! however the `FileWriter` expects a reader that supports `Seek`ing
 
+use std::collections::HashMap;
 use std::io::{BufWriter, Write};
 
 use flatbuffers::FlatBufferBuilder;
 
-use crate::array::ArrayDataRef;
+use crate::array::{ArrayDataRef, ArrayRef};
 use crate::buffer::{Buffer, MutableBuffer};
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
@@ -43,6 +44,13 @@ pub struct IpcWriteOptions {
     /// The legacy format is for releases before 0.15.0, and uses metadata V4
     write_legacy_ipc_format: bool,
     /// The metadata version to write. The Rust IPC writer supports V4+
+    ///
+    /// *Default versions per crate*
+    ///
+    /// When creating the default IpcWriteOptions, the following metadata versions are used:
+    ///
+    /// version 2.0.0: V4, with legacy format enabled
+    /// version 4.0.0: V5
     metadata_version: ipc::MetadataVersion,
 }
 
@@ -83,6 +91,7 @@ impl IpcWriteOptions {
                     })
                 }
             }
+            z => panic!("Unsupported ipc::MetadataVersion {:?}", z),
         }
     }
 }
@@ -91,9 +100,242 @@ impl Default for IpcWriteOptions {
     fn default() -> Self {
         Self {
             alignment: 8,
-            write_legacy_ipc_format: true,
-            metadata_version: ipc::MetadataVersion::V4,
+            write_legacy_ipc_format: false,
+            metadata_version: ipc::MetadataVersion::V5,
         }
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct IpcDataGenerator {}
+
+impl IpcDataGenerator {
+    pub fn schema_to_bytes(
+        &self,
+        schema: &Schema,
+        write_options: &IpcWriteOptions,
+    ) -> EncodedData {
+        let mut fbb = FlatBufferBuilder::new();
+        let schema = {
+            let fb = ipc::convert::schema_to_fb_offset(&mut fbb, schema);
+            fb.as_union_value()
+        };
+
+        let mut message = ipc::MessageBuilder::new(&mut fbb);
+        message.add_version(write_options.metadata_version);
+        message.add_header_type(ipc::MessageHeader::Schema);
+        message.add_bodyLength(0);
+        message.add_header(schema);
+        // TODO: custom metadata
+        let data = message.finish();
+        fbb.finish(data, None);
+
+        let data = fbb.finished_data();
+        EncodedData {
+            ipc_message: data.to_vec(),
+            arrow_data: vec![],
+        }
+    }
+
+    pub fn encoded_batch(
+        &self,
+        batch: &RecordBatch,
+        dictionary_tracker: &mut DictionaryTracker,
+        write_options: &IpcWriteOptions,
+    ) -> Result<(Vec<EncodedData>, EncodedData)> {
+        // TODO: handle nested dictionaries
+        let schema = batch.schema();
+        let mut encoded_dictionaries = Vec::with_capacity(schema.fields().len());
+
+        for (i, field) in schema.fields().iter().enumerate() {
+            let column = batch.column(i);
+
+            if let DataType::Dictionary(_key_type, _value_type) = column.data_type() {
+                let dict_id = field
+                    .dict_id()
+                    .expect("All Dictionary types have `dict_id`");
+                let dict_data = column.data();
+                let dict_values = &dict_data.child_data()[0];
+
+                let emit = dictionary_tracker.insert(dict_id, column)?;
+
+                if emit {
+                    encoded_dictionaries.push(self.dictionary_batch_to_bytes(
+                        dict_id,
+                        dict_values,
+                        write_options,
+                    ));
+                }
+            }
+        }
+
+        let encoded_message = self.record_batch_to_bytes(batch, write_options);
+
+        Ok((encoded_dictionaries, encoded_message))
+    }
+
+    /// Write a `RecordBatch` into two sets of bytes, one for the header (ipc::Message) and the
+    /// other for the batch's data
+    fn record_batch_to_bytes(
+        &self,
+        batch: &RecordBatch,
+        write_options: &IpcWriteOptions,
+    ) -> EncodedData {
+        let mut fbb = FlatBufferBuilder::new();
+
+        let mut nodes: Vec<ipc::FieldNode> = vec![];
+        let mut buffers: Vec<ipc::Buffer> = vec![];
+        let mut arrow_data: Vec<u8> = vec![];
+        let mut offset = 0;
+        for array in batch.columns() {
+            let array_data = array.data();
+            offset = write_array_data(
+                &array_data,
+                &mut buffers,
+                &mut arrow_data,
+                &mut nodes,
+                offset,
+                array.len(),
+                array.null_count(),
+            );
+        }
+
+        // write data
+        let buffers = fbb.create_vector(&buffers);
+        let nodes = fbb.create_vector(&nodes);
+
+        let root = {
+            let mut batch_builder = ipc::RecordBatchBuilder::new(&mut fbb);
+            batch_builder.add_length(batch.num_rows() as i64);
+            batch_builder.add_nodes(nodes);
+            batch_builder.add_buffers(buffers);
+            let b = batch_builder.finish();
+            b.as_union_value()
+        };
+        // create an ipc::Message
+        let mut message = ipc::MessageBuilder::new(&mut fbb);
+        message.add_version(write_options.metadata_version);
+        message.add_header_type(ipc::MessageHeader::RecordBatch);
+        message.add_bodyLength(arrow_data.len() as i64);
+        message.add_header(root);
+        let root = message.finish();
+        fbb.finish(root, None);
+        let finished_data = fbb.finished_data();
+
+        EncodedData {
+            ipc_message: finished_data.to_vec(),
+            arrow_data,
+        }
+    }
+
+    /// Write dictionary values into two sets of bytes, one for the header (ipc::Message) and the
+    /// other for the data
+    fn dictionary_batch_to_bytes(
+        &self,
+        dict_id: i64,
+        array_data: &ArrayDataRef,
+        write_options: &IpcWriteOptions,
+    ) -> EncodedData {
+        let mut fbb = FlatBufferBuilder::new();
+
+        let mut nodes: Vec<ipc::FieldNode> = vec![];
+        let mut buffers: Vec<ipc::Buffer> = vec![];
+        let mut arrow_data: Vec<u8> = vec![];
+
+        write_array_data(
+            &array_data,
+            &mut buffers,
+            &mut arrow_data,
+            &mut nodes,
+            0,
+            array_data.len(),
+            array_data.null_count(),
+        );
+
+        // write data
+        let buffers = fbb.create_vector(&buffers);
+        let nodes = fbb.create_vector(&nodes);
+
+        let root = {
+            let mut batch_builder = ipc::RecordBatchBuilder::new(&mut fbb);
+            batch_builder.add_length(array_data.len() as i64);
+            batch_builder.add_nodes(nodes);
+            batch_builder.add_buffers(buffers);
+            batch_builder.finish()
+        };
+
+        let root = {
+            let mut batch_builder = ipc::DictionaryBatchBuilder::new(&mut fbb);
+            batch_builder.add_id(dict_id);
+            batch_builder.add_data(root);
+            batch_builder.finish().as_union_value()
+        };
+
+        let root = {
+            let mut message_builder = ipc::MessageBuilder::new(&mut fbb);
+            message_builder.add_version(write_options.metadata_version);
+            message_builder.add_header_type(ipc::MessageHeader::DictionaryBatch);
+            message_builder.add_bodyLength(arrow_data.len() as i64);
+            message_builder.add_header(root);
+            message_builder.finish()
+        };
+
+        fbb.finish(root, None);
+        let finished_data = fbb.finished_data();
+
+        EncodedData {
+            ipc_message: finished_data.to_vec(),
+            arrow_data,
+        }
+    }
+}
+
+/// Keeps track of dictionaries that have been written, to avoid emitting the same dictionary
+/// multiple times. Can optionally error if an update to an existing dictionary is attempted, which
+/// isn't allowed in the `FileWriter`.
+pub struct DictionaryTracker {
+    written: HashMap<i64, ArrayRef>,
+    error_on_replacement: bool,
+}
+
+impl DictionaryTracker {
+    pub fn new(error_on_replacement: bool) -> Self {
+        Self {
+            written: HashMap::new(),
+            error_on_replacement,
+        }
+    }
+
+    /// Keep track of the dictionary with the given ID and values. Behavior:
+    ///
+    /// * If this ID has been written already and has the same data, return `Ok(false)` to indicate
+    ///   that the dictionary was not actually inserted (because it's already been seen).
+    /// * If this ID has been written already but with different data, and this tracker is
+    ///   configured to return an error, return an error.
+    /// * If the tracker has not been configured to error on replacement or this dictionary
+    ///   has never been seen before, return `Ok(true)` to indicate that the dictionary was just
+    ///   inserted.
+    pub fn insert(&mut self, dict_id: i64, column: &ArrayRef) -> Result<bool> {
+        let dict_data = column.data();
+        let dict_values = &dict_data.child_data()[0];
+
+        // If a dictionary with this id was already emitted, check if it was the same.
+        if let Some(last) = self.written.get(&dict_id) {
+            if last.data().child_data()[0] == *dict_values {
+                // Same dictionary values => no need to emit it again
+                return Ok(false);
+            } else if self.error_on_replacement {
+                return Err(ArrowError::InvalidArgumentError(
+                    "Dictionary replacement detected when writing IPC file format. \
+                     Arrow IPC files only support a single dictionary for a given field \
+                     across all batches."
+                        .to_string(),
+                ));
+            }
+        }
+
+        self.written.insert(dict_id, column.clone());
+        Ok(true)
     }
 }
 
@@ -112,6 +354,10 @@ pub struct FileWriter<W: Write> {
     record_blocks: Vec<ipc::Block>,
     /// Whether the writer footer has been written, and the writer is finished
     finished: bool,
+    /// Keeps track of dictionaries that have been written
+    dictionary_tracker: DictionaryTracker,
+
+    data_gen: IpcDataGenerator,
 }
 
 impl<W: Write> FileWriter<W> {
@@ -127,14 +373,15 @@ impl<W: Write> FileWriter<W> {
         schema: &Schema,
         write_options: IpcWriteOptions,
     ) -> Result<Self> {
+        let data_gen = IpcDataGenerator::default();
         let mut writer = BufWriter::new(writer);
         // write magic to header
         writer.write_all(&super::ARROW_MAGIC[..])?;
         // create an 8-byte boundary after the header
         writer.write_all(&[0, 0])?;
         // write the schema, set the written bytes to the schema + header
-        let message = Message::Schema(schema, &write_options);
-        let (meta, data) = write_message(&mut writer, &message, &write_options)?;
+        let encoded_message = data_gen.schema_to_bytes(schema, &write_options);
+        let (meta, data) = write_message(&mut writer, encoded_message, &write_options)?;
         Ok(Self {
             writer,
             write_options,
@@ -143,6 +390,8 @@ impl<W: Write> FileWriter<W> {
             dictionary_blocks: vec![],
             record_blocks: vec![],
             finished: false,
+            dictionary_tracker: DictionaryTracker::new(true),
+            data_gen,
         })
     }
 
@@ -153,9 +402,25 @@ impl<W: Write> FileWriter<W> {
                 "Cannot write record batch to file writer as it is closed".to_string(),
             ));
         }
-        let message = Message::RecordBatch(batch, &self.write_options);
+
+        let (encoded_dictionaries, encoded_message) = self.data_gen.encoded_batch(
+            batch,
+            &mut self.dictionary_tracker,
+            &self.write_options,
+        )?;
+
+        for encoded_dictionary in encoded_dictionaries {
+            let (meta, data) =
+                write_message(&mut self.writer, encoded_dictionary, &self.write_options)?;
+
+            let block =
+                ipc::Block::new(self.block_offsets as i64, meta as i32, data as i64);
+            self.dictionary_blocks.push(block);
+            self.block_offsets += meta + data;
+        }
+
         let (meta, data) =
-            write_message(&mut self.writer, &message, &self.write_options)?;
+            write_message(&mut self.writer, encoded_message, &self.write_options)?;
         // add a record block for the footer
         let block = ipc::Block::new(
             self.block_offsets as i64,
@@ -175,44 +440,8 @@ impl<W: Write> FileWriter<W> {
         let mut fbb = FlatBufferBuilder::new();
         let dictionaries = fbb.create_vector(&self.dictionary_blocks);
         let record_batches = fbb.create_vector(&self.record_blocks);
-        // TODO: this is duplicated as we otherwise mutably borrow twice
-        let schema = {
-            let mut fields = vec![];
-            for field in self.schema.fields() {
-                let fb_field_name = fbb.create_string(field.name().as_str());
-                let field_type =
-                    ipc::convert::get_fb_field_type(field.data_type(), &mut fbb);
-                let mut field_builder = ipc::FieldBuilder::new(&mut fbb);
-                field_builder.add_name(fb_field_name);
-                field_builder.add_type_type(field_type.type_type);
-                field_builder.add_nullable(field.is_nullable());
-                match field_type.children {
-                    None => {}
-                    Some(children) => field_builder.add_children(children),
-                };
-                field_builder.add_type_(field_type.type_);
-                fields.push(field_builder.finish());
-            }
+        let schema = ipc::convert::schema_to_fb_offset(&mut fbb, &self.schema);
 
-            let mut custom_metadata = vec![];
-            for (k, v) in self.schema.metadata() {
-                let fb_key_name = fbb.create_string(k.as_str());
-                let fb_val_name = fbb.create_string(v.as_str());
-
-                let mut kv_builder = ipc::KeyValueBuilder::new(&mut fbb);
-                kv_builder.add_key(fb_key_name);
-                kv_builder.add_value(fb_val_name);
-                custom_metadata.push(kv_builder.finish());
-            }
-
-            let fb_field_list = fbb.create_vector(&fields);
-            let fb_metadata_list = fbb.create_vector(&custom_metadata);
-
-            let mut builder = ipc::SchemaBuilder::new(&mut fbb);
-            builder.add_fields(fb_field_list);
-            builder.add_custom_metadata(fb_metadata_list);
-            builder.finish()
-        };
         let root = {
             let mut footer_builder = ipc::FooterBuilder::new(&mut fbb);
             footer_builder.add_version(self.write_options.metadata_version);
@@ -238,7 +467,7 @@ impl<W: Write> FileWriter<W> {
 impl<W: Write> Drop for FileWriter<W> {
     fn drop(&mut self) {
         if !self.finished {
-            self.finish().unwrap();
+            let _ = self.finish();
         }
     }
 }
@@ -252,6 +481,10 @@ pub struct StreamWriter<W: Write> {
     schema: Schema,
     /// Whether the writer footer has been written, and the writer is finished
     finished: bool,
+    /// Keeps track of dictionaries that have been written
+    dictionary_tracker: DictionaryTracker,
+
+    data_gen: IpcDataGenerator,
 }
 
 impl<W: Write> StreamWriter<W> {
@@ -266,15 +499,18 @@ impl<W: Write> StreamWriter<W> {
         schema: &Schema,
         write_options: IpcWriteOptions,
     ) -> Result<Self> {
+        let data_gen = IpcDataGenerator::default();
         let mut writer = BufWriter::new(writer);
         // write the schema, set the written bytes to the schema
-        let message = Message::Schema(schema, &write_options);
-        write_message(&mut writer, &message, &write_options)?;
+        let encoded_message = data_gen.schema_to_bytes(schema, &write_options);
+        write_message(&mut writer, encoded_message, &write_options)?;
         Ok(Self {
             writer,
             write_options,
             schema: schema.clone(),
             finished: false,
+            dictionary_tracker: DictionaryTracker::new(false),
+            data_gen,
         })
     }
 
@@ -285,8 +521,17 @@ impl<W: Write> StreamWriter<W> {
                 "Cannot write record batch to stream writer as it is closed".to_string(),
             ));
         }
-        let message = Message::RecordBatch(batch, &self.write_options);
-        write_message(&mut self.writer, &message, &self.write_options)?;
+
+        let (encoded_dictionaries, encoded_message) = self
+            .data_gen
+            .encoded_batch(batch, &mut self.dictionary_tracker, &self.write_options)
+            .expect("StreamWriter is configured to not error on dictionary replacement");
+
+        for encoded_dictionary in encoded_dictionaries {
+            write_message(&mut self.writer, encoded_dictionary, &self.write_options)?;
+        }
+
+        write_message(&mut self.writer, encoded_message, &self.write_options)?;
         Ok(())
     }
 
@@ -304,7 +549,7 @@ impl<W: Write> StreamWriter<W> {
 impl<W: Write> Drop for StreamWriter<W> {
     fn drop(&mut self) {
         if !self.finished {
-            self.finish().unwrap();
+            let _ = self.finish();
         }
     }
 }
@@ -316,58 +561,12 @@ pub struct EncodedData {
     /// Arrow buffers to be written, should be an empty vec for schema messages
     pub arrow_data: Vec<u8>,
 }
-
-pub fn schema_to_bytes(schema: &Schema, write_options: &IpcWriteOptions) -> EncodedData {
-    let mut fbb = FlatBufferBuilder::new();
-    let schema = {
-        let fb = ipc::convert::schema_to_fb_offset(&mut fbb, schema);
-        fb.as_union_value()
-    };
-
-    let mut message = ipc::MessageBuilder::new(&mut fbb);
-    message.add_version(write_options.metadata_version);
-    message.add_header_type(ipc::MessageHeader::Schema);
-    message.add_bodyLength(0);
-    message.add_header(schema);
-    // TODO: custom metadata
-    let data = message.finish();
-    fbb.finish(data, None);
-
-    let data = fbb.finished_data();
-    EncodedData {
-        ipc_message: data.to_vec(),
-        arrow_data: vec![],
-    }
-}
-
-enum Message<'a> {
-    Schema(&'a Schema, &'a IpcWriteOptions),
-    RecordBatch(&'a RecordBatch, &'a IpcWriteOptions),
-    DictionaryBatch(&'a IpcWriteOptions),
-}
-
-impl<'a> Message<'a> {
-    /// Encode message to a ipc::Message and return data as bytes
-    fn encode(&'a self) -> EncodedData {
-        match self {
-            Message::Schema(schema, options) => schema_to_bytes(*schema, *options),
-            Message::RecordBatch(batch, options) => {
-                record_batch_to_bytes(*batch, *options)
-            }
-            Message::DictionaryBatch(_) => {
-                unimplemented!("Writing dictionary batches not implemented")
-            }
-        }
-    }
-}
-
 /// Write a message's IPC data and buffers, returning metadata and buffer data lengths written
-fn write_message<W: Write>(
-    mut writer: &mut BufWriter<W>,
-    message: &Message,
+pub fn write_message<W: Write>(
+    mut writer: W,
+    encoded: EncodedData,
     write_options: &IpcWriteOptions,
 ) -> Result<(usize, usize)> {
-    let encoded = message.encode();
     let arrow_data_len = encoded.arrow_data.len();
     if arrow_data_len % 8 != 0 {
         return Err(ArrowError::MemoryError(
@@ -409,7 +608,7 @@ fn write_message<W: Write>(
     Ok((aligned_size, body_len))
 }
 
-fn write_body_buffers<W: Write>(writer: &mut BufWriter<W>, data: &[u8]) -> Result<usize> {
+fn write_body_buffers<W: Write>(mut writer: W, data: &[u8]) -> Result<usize> {
     let len = data.len() as u32;
     let pad_len = pad_to_8(len) as u32;
     let total_len = len + pad_len;
@@ -424,62 +623,10 @@ fn write_body_buffers<W: Write>(writer: &mut BufWriter<W>, data: &[u8]) -> Resul
     Ok(total_len as usize)
 }
 
-/// Write a `RecordBatch` into a tuple of bytes, one for the header (ipc::Message) and the other for the batch's data
-pub fn record_batch_to_bytes(
-    batch: &RecordBatch,
-    write_options: &IpcWriteOptions,
-) -> EncodedData {
-    let mut fbb = FlatBufferBuilder::new();
-
-    let mut nodes: Vec<ipc::FieldNode> = vec![];
-    let mut buffers: Vec<ipc::Buffer> = vec![];
-    let mut arrow_data: Vec<u8> = vec![];
-    let mut offset = 0;
-    for array in batch.columns() {
-        let array_data = array.data();
-        offset = write_array_data(
-            &array_data,
-            &mut buffers,
-            &mut arrow_data,
-            &mut nodes,
-            offset,
-            array.len(),
-            array.null_count(),
-        );
-    }
-
-    // write data
-    let buffers = fbb.create_vector(&buffers);
-    let nodes = fbb.create_vector(&nodes);
-
-    let root = {
-        let mut batch_builder = ipc::RecordBatchBuilder::new(&mut fbb);
-        batch_builder.add_length(batch.num_rows() as i64);
-        batch_builder.add_nodes(nodes);
-        batch_builder.add_buffers(buffers);
-        let b = batch_builder.finish();
-        b.as_union_value()
-    };
-    // create an ipc::Message
-    let mut message = ipc::MessageBuilder::new(&mut fbb);
-    message.add_version(write_options.metadata_version);
-    message.add_header_type(ipc::MessageHeader::RecordBatch);
-    message.add_bodyLength(arrow_data.len() as i64);
-    message.add_header(root);
-    let root = message.finish();
-    fbb.finish(root, None);
-    let finished_data = fbb.finished_data();
-
-    EncodedData {
-        ipc_message: finished_data.to_vec(),
-        arrow_data,
-    }
-}
-
 /// Write a record batch to the writer, writing the message size before the message
 /// if the record batch is being written to a stream
 fn write_continuation<W: Write>(
-    writer: &mut BufWriter<W>,
+    mut writer: W,
     write_options: &IpcWriteOptions,
     total_len: i32,
 ) -> Result<usize> {
@@ -505,6 +652,7 @@ fn write_continuation<W: Write>(
             writer.write_all(&CONTINUATION_MARKER)?;
             writer.write_all(&total_len.to_le_bytes()[..])?;
         }
+        z => panic!("Unsupported ipc::MetadataVersion {:?}", z),
     };
 
     writer.flush()?;
@@ -533,7 +681,7 @@ fn write_array_data(
                 let num_bytes = bit_util::ceil(num_rows, 8);
                 let buffer = MutableBuffer::new(num_bytes);
                 let buffer = buffer.with_bitset(num_bytes, true);
-                buffer.freeze()
+                buffer.into()
             }
             Some(buffer) => buffer.clone(),
         };
@@ -545,19 +693,22 @@ fn write_array_data(
         offset = write_buffer(buffer, &mut buffers, &mut arrow_data, offset);
     });
 
-    // recursively write out nested structures
-    array_data.child_data().iter().for_each(|data_ref| {
-        // write the nested data (e.g list data)
-        offset = write_array_data(
-            data_ref,
-            &mut buffers,
-            &mut arrow_data,
-            &mut nodes,
-            offset,
-            data_ref.len(),
-            data_ref.null_count(),
-        );
-    });
+    if !matches!(array_data.data_type(), DataType::Dictionary(_, _)) {
+        // recursively write out nested structures
+        array_data.child_data().iter().for_each(|data_ref| {
+            // write the nested data (e.g list data)
+            offset = write_array_data(
+                data_ref,
+                &mut buffers,
+                &mut arrow_data,
+                &mut nodes,
+                offset,
+                data_ref.len(),
+                data_ref.null_count(),
+            );
+        });
+    }
+
     offset
 }
 
@@ -573,7 +724,7 @@ fn write_buffer(
     let total_len: i64 = (len + pad_len) as i64;
     // assert_eq!(len % 8, 0, "Buffer width not a multiple of 8 bytes");
     buffers.push(ipc::Buffer::new(offset, total_len));
-    arrow_data.extend_from_slice(buffer.data());
+    arrow_data.extend_from_slice(buffer.as_slice());
     arrow_data.extend_from_slice(&vec![0u8; pad_len][..]);
     offset + total_len
 }
@@ -588,16 +739,17 @@ fn pad_to_8(len: u32) -> usize {
 mod tests {
     use super::*;
 
+    use std::fs::File;
+    use std::io::Read;
+    use std::sync::Arc;
+
     use flate2::read::GzDecoder;
+    use ipc::MetadataVersion;
 
     use crate::array::*;
     use crate::datatypes::Field;
     use crate::ipc::reader::*;
     use crate::util::integration_util::*;
-    use std::env;
-    use std::fs::File;
-    use std::io::Read;
-    use std::sync::Arc;
 
     #[test]
     fn test_write_file() {
@@ -646,8 +798,7 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_write_null_file() {
+    fn write_null_file(options: IpcWriteOptions, suffix: &str) {
         let schema = Schema::new(vec![
             Field::new("nulls", DataType::Null, true),
             Field::new("int32s", DataType::Int32, false),
@@ -668,16 +819,18 @@ mod tests {
             ],
         )
         .unwrap();
+        let file_name = format!("target/debug/testdata/nulls_{}.arrow_file", suffix);
         {
-            let file = File::create("target/debug/testdata/nulls.arrow_file").unwrap();
-            let mut writer = FileWriter::try_new(file, &schema).unwrap();
+            let file = File::create(&file_name).unwrap();
+            let mut writer =
+                FileWriter::try_new_with_options(file, &schema, options).unwrap();
 
             writer.write(&batch).unwrap();
             // this is inside a block to test the implicit finishing of the file on `Drop`
         }
 
         {
-            let file = File::open("target/debug/testdata/nulls.arrow_file").unwrap();
+            let file = File::open(&file_name).unwrap();
             let reader = FileReader::try_new(file).unwrap();
             reader.for_each(|maybe_batch| {
                 maybe_batch
@@ -693,23 +846,57 @@ mod tests {
             });
         }
     }
+    #[test]
+    fn test_write_null_file_v4() {
+        write_null_file(
+            IpcWriteOptions::try_new(8, false, MetadataVersion::V4).unwrap(),
+            "v4_a8",
+        );
+        write_null_file(
+            IpcWriteOptions::try_new(8, true, MetadataVersion::V4).unwrap(),
+            "v4_a8l",
+        );
+        write_null_file(
+            IpcWriteOptions::try_new(64, false, MetadataVersion::V4).unwrap(),
+            "v4_a64",
+        );
+        write_null_file(
+            IpcWriteOptions::try_new(64, true, MetadataVersion::V4).unwrap(),
+            "v4_a64l",
+        );
+    }
 
     #[test]
-    fn read_and_rewrite_generated_files() {
-        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+    fn test_write_null_file_v5() {
+        write_null_file(
+            IpcWriteOptions::try_new(8, false, MetadataVersion::V5).unwrap(),
+            "v5_a8",
+        );
+        write_null_file(
+            IpcWriteOptions::try_new(64, false, MetadataVersion::V5).unwrap(),
+            "v5_a64",
+        );
+    }
+
+    #[test]
+    fn read_and_rewrite_generated_files_014() {
+        let testdata = crate::util::test_util::arrow_test_data();
+        let version = "0.14.1";
         // the test is repetitive, thus we can read all supported files at once
         let paths = vec![
             "generated_interval",
             "generated_datetime",
+            "generated_dictionary",
             "generated_nested",
             "generated_primitive_no_batches",
             "generated_primitive_zerolength",
             "generated_primitive",
+            "generated_decimal",
         ];
         paths.iter().for_each(|path| {
             let file = File::open(format!(
-                "{}/arrow-ipc-stream/integration/0.14.1/{}.arrow_file",
-                testdata, path
+                "{}/arrow-ipc-stream/integration/{}/{}.arrow_file",
+                testdata, version, path
             ))
             .unwrap();
 
@@ -717,9 +904,11 @@ mod tests {
 
             // read and rewrite the file to a temp location
             {
-                let file =
-                    File::create(format!("target/debug/testdata/{}.arrow_file", path))
-                        .unwrap();
+                let file = File::create(format!(
+                    "target/debug/testdata/{}-{}.arrow_file",
+                    version, path
+                ))
+                .unwrap();
                 let mut writer = FileWriter::try_new(file, &reader.schema()).unwrap();
                 while let Some(Ok(batch)) = reader.next() {
                     writer.write(&batch).unwrap();
@@ -727,32 +916,38 @@ mod tests {
                 writer.finish().unwrap();
             }
 
-            let file =
-                File::open(format!("target/debug/testdata/{}.arrow_file", path)).unwrap();
+            let file = File::open(format!(
+                "target/debug/testdata/{}-{}.arrow_file",
+                version, path
+            ))
+            .unwrap();
             let mut reader = FileReader::try_new(file).unwrap();
 
             // read expected JSON output
-            let arrow_json = read_gzip_json(path);
+            let arrow_json = read_gzip_json(version, path);
             assert!(arrow_json.equals_reader(&mut reader));
         });
     }
 
     #[test]
-    fn read_and_rewrite_generated_streams() {
-        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+    fn read_and_rewrite_generated_streams_014() {
+        let testdata = crate::util::test_util::arrow_test_data();
+        let version = "0.14.1";
         // the test is repetitive, thus we can read all supported files at once
         let paths = vec![
             "generated_interval",
             "generated_datetime",
+            "generated_dictionary",
             "generated_nested",
             "generated_primitive_no_batches",
             "generated_primitive_zerolength",
             "generated_primitive",
+            "generated_decimal",
         ];
         paths.iter().for_each(|path| {
             let file = File::open(format!(
-                "{}/arrow-ipc-stream/integration/0.14.1/{}.stream",
-                testdata, path
+                "{}/arrow-ipc-stream/integration/{}/{}.stream",
+                testdata, version, path
             ))
             .unwrap();
 
@@ -760,8 +955,11 @@ mod tests {
 
             // read and rewrite the stream to a temp location
             {
-                let file = File::create(format!("target/debug/testdata/{}.stream", path))
-                    .unwrap();
+                let file = File::create(format!(
+                    "target/debug/testdata/{}-{}.stream",
+                    version, path
+                ))
+                .unwrap();
                 let mut writer = StreamWriter::try_new(file, &reader.schema()).unwrap();
                 reader.for_each(|batch| {
                     writer.write(&batch.unwrap()).unwrap();
@@ -770,21 +968,147 @@ mod tests {
             }
 
             let file =
-                File::open(format!("target/debug/testdata/{}.stream", path)).unwrap();
+                File::open(format!("target/debug/testdata/{}-{}.stream", version, path))
+                    .unwrap();
             let mut reader = StreamReader::try_new(file).unwrap();
 
             // read expected JSON output
-            let arrow_json = read_gzip_json(path);
+            let arrow_json = read_gzip_json(version, path);
+            assert!(arrow_json.equals_reader(&mut reader));
+        });
+    }
+
+    #[test]
+    fn read_and_rewrite_generated_files_100() {
+        let testdata = crate::util::test_util::arrow_test_data();
+        let version = "1.0.0-littleendian";
+        // the test is repetitive, thus we can read all supported files at once
+        let paths = vec![
+            "generated_custom_metadata",
+            "generated_datetime",
+            "generated_dictionary_unsigned",
+            "generated_dictionary",
+            // "generated_duplicate_fieldnames",
+            "generated_interval",
+            "generated_large_batch",
+            "generated_nested",
+            // "generated_nested_large_offsets",
+            "generated_null_trivial",
+            "generated_null",
+            "generated_primitive_large_offsets",
+            "generated_primitive_no_batches",
+            "generated_primitive_zerolength",
+            "generated_primitive",
+            // "generated_recursive_nested",
+        ];
+        paths.iter().for_each(|path| {
+            let file = File::open(format!(
+                "{}/arrow-ipc-stream/integration/{}/{}.arrow_file",
+                testdata, version, path
+            ))
+            .unwrap();
+
+            let mut reader = FileReader::try_new(file).unwrap();
+
+            // read and rewrite the file to a temp location
+            {
+                let file = File::create(format!(
+                    "target/debug/testdata/{}-{}.arrow_file",
+                    version, path
+                ))
+                .unwrap();
+                // write IPC version 5
+                let options =
+                    IpcWriteOptions::try_new(8, false, ipc::MetadataVersion::V5).unwrap();
+                let mut writer =
+                    FileWriter::try_new_with_options(file, &reader.schema(), options)
+                        .unwrap();
+                while let Some(Ok(batch)) = reader.next() {
+                    writer.write(&batch).unwrap();
+                }
+                writer.finish().unwrap();
+            }
+
+            let file = File::open(format!(
+                "target/debug/testdata/{}-{}.arrow_file",
+                version, path
+            ))
+            .unwrap();
+            let mut reader = FileReader::try_new(file).unwrap();
+
+            // read expected JSON output
+            let arrow_json = read_gzip_json(version, path);
+            assert!(arrow_json.equals_reader(&mut reader));
+        });
+    }
+
+    #[test]
+    fn read_and_rewrite_generated_streams_100() {
+        let testdata = crate::util::test_util::arrow_test_data();
+        let version = "1.0.0-littleendian";
+        // the test is repetitive, thus we can read all supported files at once
+        let paths = vec![
+            "generated_custom_metadata",
+            "generated_datetime",
+            "generated_dictionary_unsigned",
+            "generated_dictionary",
+            // "generated_duplicate_fieldnames",
+            "generated_interval",
+            "generated_large_batch",
+            "generated_nested",
+            // "generated_nested_large_offsets",
+            "generated_null_trivial",
+            "generated_null",
+            "generated_primitive_large_offsets",
+            "generated_primitive_no_batches",
+            "generated_primitive_zerolength",
+            "generated_primitive",
+            // "generated_recursive_nested",
+        ];
+        paths.iter().for_each(|path| {
+            let file = File::open(format!(
+                "{}/arrow-ipc-stream/integration/{}/{}.stream",
+                testdata, version, path
+            ))
+            .unwrap();
+
+            let reader = StreamReader::try_new(file).unwrap();
+
+            // read and rewrite the stream to a temp location
+            {
+                let file = File::create(format!(
+                    "target/debug/testdata/{}-{}.stream",
+                    version, path
+                ))
+                .unwrap();
+                let options =
+                    IpcWriteOptions::try_new(8, false, ipc::MetadataVersion::V5).unwrap();
+                let mut writer =
+                    StreamWriter::try_new_with_options(file, &reader.schema(), options)
+                        .unwrap();
+                reader.for_each(|batch| {
+                    writer.write(&batch.unwrap()).unwrap();
+                });
+                writer.finish().unwrap();
+            }
+
+            let file =
+                File::open(format!("target/debug/testdata/{}-{}.stream", version, path))
+                    .unwrap();
+            let mut reader = StreamReader::try_new(file).unwrap();
+
+            // read expected JSON output
+            let arrow_json = read_gzip_json(version, path);
             assert!(arrow_json.equals_reader(&mut reader));
         });
     }
 
     /// Read gzipped JSON file
-    fn read_gzip_json(path: &str) -> ArrowJson {
-        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+    fn read_gzip_json(version: &str, path: &str) -> ArrowJson {
+        let testdata = crate::util::test_util::arrow_test_data();
         let file = File::open(format!(
-            "{}/arrow-ipc-stream/integration/0.14.1/{}.json.gz",
-            testdata, path
+            "{}/arrow-ipc-stream/integration/{}/{}.json.gz",
+            testdata, version, path
         ))
         .unwrap();
         let mut gz = GzDecoder::new(&file);

@@ -566,7 +566,7 @@ struct Kernel {
 /// output array values (as opposed to scalar values in the case of aggregate
 /// functions).
 struct ArrayKernel : public Kernel {
-  ArrayKernel() {}
+  ArrayKernel() = default;
 
   ArrayKernel(std::shared_ptr<KernelSignature> sig, ArrayKernelExec exec,
               KernelInit init = NULLPTR)
@@ -614,7 +614,7 @@ using VectorFinalize = std::function<void(KernelContext*, std::vector<Datum>*)>;
 /// (which have different defaults from ScalarKernel), and some other
 /// execution-related options.
 struct VectorKernel : public ArrayKernel {
-  VectorKernel() {}
+  VectorKernel() = default;
 
   VectorKernel(std::shared_ptr<KernelSignature> sig, ArrayKernelExec exec)
       : ArrayKernel(std::move(sig), exec) {}

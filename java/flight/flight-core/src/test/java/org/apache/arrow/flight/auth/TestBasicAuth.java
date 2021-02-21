@@ -137,7 +137,7 @@ public class TestBasicAuth {
               return;
             }
             final Schema pojoSchema = new Schema(ImmutableList.of(Field.nullable("a",
-                    Types.MinorType.BIGINT.getType())));
+                Types.MinorType.BIGINT.getType())));
             try (VectorSchemaRoot root = VectorSchemaRoot.create(pojoSchema, allocator)) {
               listener.start(root);
               root.allocateNew();

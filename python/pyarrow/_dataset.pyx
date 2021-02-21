@@ -84,26 +84,54 @@ cdef CFileSource _make_file_source(object file, FileSystem filesystem=None):
 
 
 cdef class Expression(_Weakrefable):
+    """
+    A logical expression to be evaluated against some input.
 
+    To create an expression:
+
+    - Use the factory function ``pyarrow.dataset.scalar()`` to create a
+      scalar (not necessary when combined, see example below).
+    - Use the factory function ``pyarrow.dataset.field()`` to reference
+      a field (column in table).
+    - Compare fields and scalars with ``<``, ``<=``, ``==``, ``>=``, ``>``.
+    - Combine expressions using python operators ``&`` (logical and),
+      ``|`` (logical or) and ``~`` (logical not).
+      Note: python keywords ``and``, ``or`` and ``not`` cannot be used
+      to combine expressions.
+    - Check whether the expression is contained in a list of values with
+      the ``pyarrow.dataset.Expression.isin()`` member function.
+
+    Examples:
+    --------
+    >>> import pyarrow.dataset as ds
+    >>> (ds.field("a") < ds.scalar(3)) | (ds.field("b") > 7)
+    <pyarrow.dataset.Expression ((a < 3:int64) or (b > 7:int64))>
+    >>> ds.field('a') != 3
+    <pyarrow.dataset.Expression (a != 3)>
+    >>> ds.field('a').isin([1, 2, 3])
+    <pyarrow.dataset.Expression (a is in [
+      1,
+      2,
+      3
+    ])>
+    """
     cdef:
-        shared_ptr[CExpression] wrapped
-        CExpression* expr
+        CExpression expr
 
     def __init__(self):
         _forbid_instantiation(self.__class__)
 
-    cdef void init(self, const shared_ptr[CExpression]& sp):
-        self.wrapped = sp
-        self.expr = sp.get()
+    cdef void init(self, const CExpression& sp):
+        self.expr = sp
 
     @staticmethod
-    cdef wrap(const shared_ptr[CExpression]& sp):
+    cdef wrap(const CExpression& sp):
         cdef Expression self = Expression.__new__(Expression)
         self.init(sp)
         return self
 
-    cdef inline shared_ptr[CExpression] unwrap(self):
-        return self.wrapped
+    cdef inline CExpression unwrap(self):
+        return self.expr
 
     def equals(self, Expression other):
         return self.expr.Equals(other.unwrap())
@@ -118,104 +146,86 @@ cdef class Expression(_Weakrefable):
 
     @staticmethod
     def _deserialize(Buffer buffer not None):
-        c_buffer = pyarrow_unwrap_buffer(buffer)
-        c_expr = GetResultValue(CExpression.Deserialize(deref(c_buffer)))
-        return Expression.wrap(move(c_expr))
+        return Expression.wrap(GetResultValue(CDeserializeExpression(
+            pyarrow_unwrap_buffer(buffer))))
 
     def __reduce__(self):
-        buffer = pyarrow_wrap_buffer(GetResultValue(self.expr.Serialize()))
+        buffer = pyarrow_wrap_buffer(GetResultValue(
+            CSerializeExpression(self.expr)))
         return Expression._deserialize, (buffer,)
 
-    def validate(self, Schema schema not None):
-        """Validate this expression for execution against a schema.
-
-        This will check that all reference fields are present (fields not in
-        the schema will be replaced with null) and all subexpressions are
-        executable. Returns the type to which this expression will evaluate.
-
-        Parameters
-        ----------
-        schema : Schema
-            Schema to execute the expression on.
-
-        Returns
-        -------
-        type : DataType
-        """
-        cdef:
-            shared_ptr[CSchema] sp_schema
-            CResult[shared_ptr[CDataType]] result
-        sp_schema = pyarrow_unwrap_schema(schema)
-        result = self.expr.Validate(deref(sp_schema))
-        return pyarrow_wrap_data_type(GetResultValue(result))
-
-    def assume(self, Expression given):
-        """Simplify to an equivalent Expression given assumed constraints."""
-        return Expression.wrap(self.expr.Assume(given.unwrap()))
-
-    def __invert__(self):
-        return Expression.wrap(CMakeNotExpression(self.unwrap()))
+    @staticmethod
+    cdef Expression _expr_or_scalar(object expr):
+        if isinstance(expr, Expression):
+            return (<Expression> expr)
+        return (<Expression> Expression._scalar(expr))
 
     @staticmethod
-    cdef shared_ptr[CExpression] _expr_or_scalar(object expr) except *:
-        if isinstance(expr, Expression):
-            return (<Expression> expr).unwrap()
-        return (<Expression> Expression._scalar(expr)).unwrap()
+    cdef Expression _call(str function_name, list arguments,
+                          shared_ptr[CFunctionOptions] options=(
+                              <shared_ptr[CFunctionOptions]> nullptr)):
+        cdef:
+            vector[CExpression] c_arguments
+
+        for argument in arguments:
+            c_arguments.push_back((<Expression> argument).expr)
+
+        return Expression.wrap(CMakeCallExpression(tobytes(function_name),
+                                                   move(c_arguments), options))
 
     def __richcmp__(self, other, int op):
-        cdef:
-            shared_ptr[CExpression] c_expr
-            shared_ptr[CExpression] c_left
-            shared_ptr[CExpression] c_right
+        other = Expression._expr_or_scalar(other)
+        return Expression._call({
+            Py_EQ: "equal",
+            Py_NE: "not_equal",
+            Py_GT: "greater",
+            Py_GE: "greater_equal",
+            Py_LT: "less",
+            Py_LE: "less_equal",
+        }[op], [self, other])
 
-        c_left = self.unwrap()
-        c_right = Expression._expr_or_scalar(other)
+    def __bool__(self):
+        raise ValueError(
+            "An Expression cannot be evaluated to python True or False. "
+            "If you are using the 'and', 'or' or 'not' operators, use '&', "
+            "'|' or '~' instead."
+        )
 
-        if op == Py_EQ:
-            c_expr = CMakeEqualExpression(move(c_left), move(c_right))
-        elif op == Py_NE:
-            c_expr = CMakeNotEqualExpression(move(c_left), move(c_right))
-        elif op == Py_GT:
-            c_expr = CMakeGreaterExpression(move(c_left), move(c_right))
-        elif op == Py_GE:
-            c_expr = CMakeGreaterEqualExpression(move(c_left), move(c_right))
-        elif op == Py_LT:
-            c_expr = CMakeLessExpression(move(c_left), move(c_right))
-        elif op == Py_LE:
-            c_expr = CMakeLessEqualExpression(move(c_left), move(c_right))
-
-        return Expression.wrap(c_expr)
+    def __invert__(self):
+        return Expression._call("invert", [self])
 
     def __and__(Expression self, other):
-        c_other = Expression._expr_or_scalar(other)
-        return Expression.wrap(CMakeAndExpression(self.wrapped,
-                                                  move(c_other)))
+        other = Expression._expr_or_scalar(other)
+        return Expression._call("and_kleene", [self, other])
 
     def __or__(Expression self, other):
-        c_other = Expression._expr_or_scalar(other)
-        return Expression.wrap(CMakeOrExpression(self.wrapped,
-                                                 move(c_other)))
+        other = Expression._expr_or_scalar(other)
+        return Expression._call("or_kleene", [self, other])
 
     def is_valid(self):
         """Checks whether the expression is not-null (valid)"""
-        return Expression.wrap(self.expr.IsValid().Copy())
+        return Expression._call("is_valid", [self])
 
     def cast(self, type, bint safe=True):
         """Explicitly change the expression's data type"""
-        cdef CCastOptions options
-        if safe:
-            options = CCastOptions.Safe()
-        else:
-            options = CCastOptions.Unsafe()
-        c_type = pyarrow_unwrap_data_type(ensure_type(type))
-        return Expression.wrap(self.expr.CastTo(c_type, options).Copy())
+        cdef shared_ptr[CCastOptions] c_options
+        c_options.reset(new CCastOptions(safe))
+        c_options.get().to_type = pyarrow_unwrap_data_type(ensure_type(type))
+        return Expression._call("cast", [self],
+                                <shared_ptr[CFunctionOptions]> c_options)
 
     def isin(self, values):
         """Checks whether the expression is contained in values"""
+        cdef:
+            shared_ptr[CFunctionOptions] c_options
+            CDatum c_values
+
         if not isinstance(values, pa.Array):
             values = pa.array(values)
-        c_values = pyarrow_unwrap_array(values)
-        return Expression.wrap(self.expr.In(c_values).Copy())
+
+        c_values = CDatum(pyarrow_unwrap_array(values))
+        c_options.reset(new CSetLookupOptions(c_values, True))
+        return Expression._call("is_in", [self], c_options)
 
     @staticmethod
     def _field(str name not None):
@@ -231,11 +241,7 @@ cdef class Expression(_Weakrefable):
         else:
             scalar = pa.scalar(value)
 
-        return Expression.wrap(
-            shared_ptr[CExpression](
-                new CScalarExpression(move(scalar.unwrap()))
-            )
-        )
+        return Expression.wrap(CMakeScalarExpression(scalar.unwrap()))
 
 
 _deserialize = Expression._deserialize
@@ -288,12 +294,7 @@ cdef class Dataset(_Weakrefable):
         An Expression which evaluates to true for all data viewed by this
         Dataset.
         """
-        cdef shared_ptr[CExpression] expr
-        expr = self.dataset.partition_expression()
-        if expr.get() == nullptr:
-            return None
-        else:
-            return Expression.wrap(expr)
+        return Expression.wrap(self.dataset.partition_expression())
 
     def replace_schema(self, Schema schema not None):
         """
@@ -322,14 +323,15 @@ cdef class Dataset(_Weakrefable):
         fragments : iterator of Fragment
         """
         cdef:
-            shared_ptr[CExpression] c_filter
+            CExpression c_filter
             CFragmentIterator c_iterator
 
         if filter is None:
-            c_fragments = self.dataset.GetFragments()
+            c_fragments = move(GetResultValue(self.dataset.GetFragments()))
         else:
-            c_filter = _insert_implicit_casts(filter, self.schema)
-            c_fragments = self.dataset.GetFragments(c_filter)
+            c_filter = _bind(filter, self.schema)
+            c_fragments = move(GetResultValue(
+                self.dataset.GetFragments(c_filter)))
 
         for maybe_fragment in c_fragments:
             yield Fragment.wrap(GetResultValue(move(maybe_fragment)))
@@ -485,8 +487,9 @@ cdef class FileSystemDataset(Dataset):
             CResult[shared_ptr[CDataset]] result
             shared_ptr[CFileSystem] c_filesystem
 
-        root_partition = root_partition or _true
-        if not isinstance(root_partition, Expression):
+        if root_partition is None:
+            root_partition = _true
+        elif not isinstance(root_partition, Expression):
             raise TypeError(
                 "Argument 'root_partition' has incorrect type (expected "
                 "Epression, got {0})".format(type(root_partition))
@@ -553,7 +556,9 @@ cdef class FileSystemDataset(Dataset):
         cdef:
             FileFragment fragment
 
-        root_partition = root_partition or _true
+        if root_partition is None:
+            root_partition = _true
+
         for arg, class_, name in [
             (schema, Schema, 'schema'),
             (format, FileFormat, 'format'),
@@ -593,19 +598,14 @@ cdef class FileSystemDataset(Dataset):
         return FileFormat.wrap(self.filesystem_dataset.format())
 
 
-cdef shared_ptr[CExpression] _insert_implicit_casts(Expression filter,
-                                                    Schema schema) except *:
+cdef CExpression _bind(Expression filter, Schema schema) except *:
     assert schema is not None
 
     if filter is None:
         return _true.unwrap()
 
-    return GetResultValue(
-        CInsertImplicitCasts(
-            deref(filter.unwrap().get()),
-            deref(pyarrow_unwrap_schema(schema).get())
-        )
-    )
+    return GetResultValue(filter.unwrap().Bind(
+        deref(pyarrow_unwrap_schema(schema).get())))
 
 
 cdef class FileWriteOptions(_Weakrefable):
@@ -693,7 +693,8 @@ cdef class FileFormat(_Weakrefable):
         fields absent from the provided schema. If no schema is provided then
         one will be inferred.
         """
-        partition_expression = partition_expression or _true
+        if partition_expression is None:
+            partition_expression = _true
 
         c_source = _make_file_source(file, filesystem)
         c_fragment = <shared_ptr[CFragment]> GetResultValue(
@@ -929,7 +930,8 @@ class RowGroupInfo:
         def name_stats(i):
             col = self.metadata.column(i)
 
-            if not col.statistics.has_min_max:
+            stats = col.statistics
+            if stats is None or not stats.has_min_max:
                 return None, None
 
             name = col.path_in_schema
@@ -939,8 +941,8 @@ class RowGroupInfo:
 
             typ = self.schema.field(field_index).type
             return col.path_in_schema, {
-                'min': pa.scalar(col.statistics.min, type=typ).as_py(),
-                'max': pa.scalar(col.statistics.max, type=typ).as_py()
+                'min': pa.scalar(stats.min, type=typ).as_py(),
+                'max': pa.scalar(stats.max, type=typ).as_py()
             }
 
         return {
@@ -1034,11 +1036,11 @@ cdef class ParquetFileFragment(FileFragment):
         """
         cdef:
             vector[shared_ptr[CFragment]] c_fragments
-            shared_ptr[CExpression] c_filter
+            CExpression c_filter
             shared_ptr[CFragment] c_fragment
 
         schema = schema or self.physical_schema
-        c_filter = _insert_implicit_casts(filter, schema)
+        c_filter = _bind(filter, schema)
         with nogil:
             c_fragments = move(GetResultValue(
                 self.parquet_file_fragment.SplitByRowGroup(move(c_filter))))
@@ -1071,7 +1073,7 @@ cdef class ParquetFileFragment(FileFragment):
         ParquetFileFragment
         """
         cdef:
-            shared_ptr[CExpression] c_filter
+            CExpression c_filter
             vector[int] c_row_group_ids
             shared_ptr[CFragment] c_fragment
 
@@ -1082,7 +1084,7 @@ cdef class ParquetFileFragment(FileFragment):
 
         if filter is not None:
             schema = schema or self.physical_schema
-            c_filter = _insert_implicit_casts(filter, schema)
+            c_filter = _bind(filter, schema)
             with nogil:
                 c_fragment = move(GetResultValue(
                     self.parquet_file_fragment.SubsetWithFilter(
@@ -1118,6 +1120,10 @@ cdef class ParquetReadOptions(_Weakrefable):
     dictionary_columns : list of string, default None
         Names of columns which should be dictionary encoded as
         they are read.
+    pre_buffer : bool, default False
+        If enabled, pre-buffer the raw Parquet data instead of issuing one
+        read per column chunk. This can improve performance on high-latency
+        filesystems.
     enable_parallel_column_conversion : bool, default False
         EXPERIMENTAL: Parallelize conversion across columns. This option is
         ignored if a scan is already parallelized across input files to avoid
@@ -1129,17 +1135,20 @@ cdef class ParquetReadOptions(_Weakrefable):
         bint use_buffered_stream
         uint32_t buffer_size
         set dictionary_columns
+        bint pre_buffer
         bint enable_parallel_column_conversion
 
     def __init__(self, bint use_buffered_stream=False,
                  buffer_size=8192,
                  dictionary_columns=None,
+                 bint pre_buffer=False,
                  bint enable_parallel_column_conversion=False):
         self.use_buffered_stream = use_buffered_stream
         if buffer_size <= 0:
             raise ValueError("Buffer size must be larger than zero")
         self.buffer_size = buffer_size
         self.dictionary_columns = set(dictionary_columns or set())
+        self.pre_buffer = pre_buffer
         self.enable_parallel_column_conversion = \
             enable_parallel_column_conversion
 
@@ -1148,6 +1157,7 @@ cdef class ParquetReadOptions(_Weakrefable):
             self.use_buffered_stream == other.use_buffered_stream and
             self.buffer_size == other.buffer_size and
             self.dictionary_columns == other.dictionary_columns and
+            self.pre_buffer == other.pre_buffer and
             self.enable_parallel_column_conversion ==
             other.enable_parallel_column_conversion
         )
@@ -1259,6 +1269,7 @@ cdef class ParquetFileFormat(FileFormat):
         options = &(wrapped.get().reader_options)
         options.use_buffered_stream = read_options.use_buffered_stream
         options.buffer_size = read_options.buffer_size
+        options.pre_buffer = read_options.pre_buffer
         options.enable_parallel_column_conversion = \
             read_options.enable_parallel_column_conversion
         if read_options.dictionary_columns is not None:
@@ -1280,6 +1291,7 @@ cdef class ParquetFileFormat(FileFormat):
             buffer_size=options.buffer_size,
             dictionary_columns={frombytes(col)
                                 for col in options.dict_columns},
+            pre_buffer=options.pre_buffer,
             enable_parallel_column_conversion=(
                 options.enable_parallel_column_conversion
             )
@@ -1303,7 +1315,8 @@ cdef class ParquetFileFormat(FileFormat):
         cdef:
             vector[int] c_row_groups
 
-        partition_expression = partition_expression or _true
+        if partition_expression is None:
+            partition_expression = _true
 
         if row_groups is None:
             return super().make_fragment(file, filesystem,
@@ -1407,7 +1420,7 @@ cdef class Partitioning(_Weakrefable):
         return self.wrapped
 
     def parse(self, path):
-        cdef CResult[shared_ptr[CExpression]] result
+        cdef CResult[CExpression] result
         result = self.partitioning.Parse(tobytes(path))
         return Expression.wrap(GetResultValue(result))
 
@@ -1442,6 +1455,25 @@ cdef class PartitioningFactory(_Weakrefable):
         return self.wrapped
 
 
+cdef vector[shared_ptr[CArray]] _partitioning_dictionaries(
+        Schema schema, dictionaries) except *:
+    cdef:
+        vector[shared_ptr[CArray]] c_dictionaries
+
+    dictionaries = dictionaries or {}
+
+    for field in schema:
+        dictionary = dictionaries.get(field.name)
+
+        if (isinstance(field.type, pa.DictionaryType) and
+                dictionary is not None):
+            c_dictionaries.push_back(pyarrow_unwrap_array(dictionary))
+        else:
+            c_dictionaries.push_back(<shared_ptr[CArray]> nullptr)
+
+    return c_dictionaries
+
+
 cdef class DirectoryPartitioning(Partitioning):
     """
     A Partitioning based on a specified Schema.
@@ -1455,6 +1487,11 @@ cdef class DirectoryPartitioning(Partitioning):
     ----------
     schema : Schema
         The schema that describes the partitions present in the file path.
+    dictionaries : Dict[str, Array]
+        If the type of any field of `schema` is a dictionary type, the
+        corresponding entry of `dictionaries` must be an array containing
+        every value which may be taken by the corresponding column or an
+        error will be raised in parsing.
 
     Returns
     -------
@@ -1472,12 +1509,15 @@ cdef class DirectoryPartitioning(Partitioning):
     cdef:
         CDirectoryPartitioning* directory_partitioning
 
-    def __init__(self, Schema schema not None):
-        cdef shared_ptr[CDirectoryPartitioning] partitioning
-        partitioning = make_shared[CDirectoryPartitioning](
-            pyarrow_unwrap_schema(schema)
+    def __init__(self, Schema schema not None, dictionaries=None):
+        cdef:
+            shared_ptr[CDirectoryPartitioning] c_partitioning
+
+        c_partitioning = make_shared[CDirectoryPartitioning](
+            pyarrow_unwrap_schema(schema),
+            _partitioning_dictionaries(schema, dictionaries)
         )
-        self.init(<shared_ptr[CPartitioning]> partitioning)
+        self.init(<shared_ptr[CPartitioning]> c_partitioning)
 
     cdef init(self, const shared_ptr[CPartitioning]& sp):
         Partitioning.init(self, sp)
@@ -1545,6 +1585,11 @@ cdef class HivePartitioning(Partitioning):
     ----------
     schema : Schema
         The schema that describes the partitions present in the file path.
+    dictionaries : Dict[str, Array]
+        If the type of any field of `schema` is a dictionary type, the
+        corresponding entry of `dictionaries` must be an array containing
+        every value which may be taken by the corresponding column or an
+        error will be raised in parsing.
 
     Returns
     -------
@@ -1563,12 +1608,15 @@ cdef class HivePartitioning(Partitioning):
     cdef:
         CHivePartitioning* hive_partitioning
 
-    def __init__(self, Schema schema not None):
-        cdef shared_ptr[CHivePartitioning] partitioning
-        partitioning = make_shared[CHivePartitioning](
-            pyarrow_unwrap_schema(schema)
+    def __init__(self, Schema schema not None, dictionaries=None):
+        cdef:
+            shared_ptr[CHivePartitioning] c_partitioning
+
+        c_partitioning = make_shared[CHivePartitioning](
+            pyarrow_unwrap_schema(schema),
+            _partitioning_dictionaries(schema, dictionaries)
         )
-        self.init(<shared_ptr[CPartitioning]> partitioning)
+        self.init(<shared_ptr[CPartitioning]> c_partitioning)
 
     cdef init(self, const shared_ptr[CPartitioning]& sp):
         Partitioning.init(self, sp)
@@ -1642,11 +1690,7 @@ cdef class DatasetFactory(_Weakrefable):
 
     @property
     def root_partition(self):
-        cdef shared_ptr[CExpression] expr = self.factory.root_partition()
-        if expr.get() == nullptr:
-            return None
-        else:
-            return Expression.wrap(expr)
+        return Expression.wrap(self.factory.root_partition())
 
     @root_partition.setter
     def root_partition(self, Expression expr):
@@ -2120,13 +2164,13 @@ cdef void _populate_builder(const shared_ptr[CScannerBuilder]& ptr,
                             int batch_size=_DEFAULT_BATCH_SIZE) except *:
     cdef:
         CScannerBuilder *builder
-
     builder = ptr.get()
+
+    check_status(builder.Filter(_bind(
+        filter, pyarrow_wrap_schema(builder.schema()))))
+
     if columns is not None:
         check_status(builder.Project([tobytes(c) for c in columns]))
-
-    check_status(builder.Filter(_insert_implicit_casts(
-        filter, pyarrow_wrap_schema(builder.schema()))))
 
     check_status(builder.BatchSize(batch_size))
 
@@ -2276,7 +2320,8 @@ cdef class Scanner(_Weakrefable):
     def get_fragments(self):
         """Returns an iterator over the fragments in this scan.
         """
-        cdef CFragmentIterator c_fragments = self.scanner.GetFragments()
+        cdef CFragmentIterator c_fragments = move(GetResultValue(
+            self.scanner.GetFragments()))
         for maybe_fragment in c_fragments:
             yield Fragment.wrap(GetResultValue(move(maybe_fragment)))
 
@@ -2295,13 +2340,16 @@ def _get_partition_keys(Expression partition_expression):
     is converted to {'part': 'a', 'year': 2016}
     """
     cdef:
-        shared_ptr[CExpression] expr = partition_expression.unwrap()
-        pair[c_string, shared_ptr[CScalar]] name_val
+        CExpression expr = partition_expression.unwrap()
+        pair[CFieldRef, CDatum] ref_val
 
-    return {
-        frombytes(name_val.first): pyarrow_wrap_scalar(name_val.second).as_py()
-        for name_val in GetResultValue(CGetPartitionKeys(deref(expr.get())))
-    }
+    out = {}
+    for ref_val in GetResultValue(CExtractKnownFieldValues(expr)):
+        assert ref_val.first.name() != nullptr
+        assert ref_val.second.kind() == DatumType_SCALAR
+        val = pyarrow_wrap_scalar(ref_val.second.scalar())
+        out[frombytes(deref(ref_val.first.name()))] = val.as_py()
+    return out
 
 
 def _filesystemdataset_write(
@@ -2309,6 +2357,7 @@ def _filesystemdataset_write(
     Schema schema not None, FileSystem filesystem not None,
     Partitioning partitioning not None,
     FileWriteOptions file_options not None, bint use_threads,
+    int max_partitions,
 ):
     """
     CFileSystemDataset.Write wrapper
@@ -2322,6 +2371,7 @@ def _filesystemdataset_write(
     c_options.filesystem = filesystem.unwrap()
     c_options.base_dir = tobytes(_stringify_path(base_dir))
     c_options.partitioning = partitioning.unwrap()
+    c_options.max_partitions = max_partitions
     c_options.basename_template = tobytes(basename_template)
 
     if isinstance(data, Dataset):

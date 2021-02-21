@@ -21,6 +21,11 @@ dst_dir <- paste0("libarrow/arrow-", VERSION)
 
 arrow_repo <- "https://dl.bintray.com/ursalabs/arrow-r/libarrow/"
 
+if (getRversion() < 3.4 && is.null(getOption("download.file.method"))) {
+  # default method doesn't work on R 3.3, nor does libcurl
+  options(download.file.method = "wget")
+}
+
 options(.arrow.cleanup = character()) # To collect dirs to rm on exit
 on.exit(unlink(getOption(".arrow.cleanup")))
 
@@ -98,6 +103,12 @@ identify_os <- function(os = Sys.getenv("LIBARROW_BINARY", Sys.getenv("LIBARROW_
 #### start distro ####
 
 distro <- function() {
+  # The code in this script is a (potentially stale) copy of the distro package
+  if (requireNamespace("distro", quietly = TRUE)) {
+    # Use the version from the package, which may be updated from this
+    return(distro::distro())
+  }
+
   out <- lsb_release()
   if (is.null(out)) {
     out <- os_release()
@@ -290,8 +301,12 @@ build_libarrow <- function(src_dir, dst_dir) {
   options(.arrow.cleanup = c(getOption(".arrow.cleanup"), build_dir))
 
   R_CMD_config <- function(var) {
-    # cf. tools::Rcmd, introduced R 3.3
-    system2(file.path(R.home("bin"), "R"), c("CMD", "config", var), stdout = TRUE)
+    if (getRversion() < 3.4) {
+      # var names were called CXX1X instead of CXX11
+      var <- sub("^CXX11", "CXX1X", var)
+    }
+    # tools::Rcmd introduced R 3.3
+    tools::Rcmd(paste("config", var), stdout = TRUE)
   }
   env_var_list <- c(
     SOURCE_DIR = src_dir,
@@ -306,6 +321,11 @@ build_libarrow <- function(src_dir, dst_dir) {
   )
   env_vars <- paste0(names(env_var_list), '="', env_var_list, '"', collapse = " ")
   env_vars <- with_s3_support(env_vars)
+  env_vars <- with_mimalloc(env_vars)
+  if (tolower(Sys.info()[["sysname"]]) %in% "sunos") {
+    # jemalloc doesn't seem to build on Solaris
+    env_vars <- paste(env_vars, "ARROW_JEMALLOC=OFF")
+  }
   cat("**** arrow", ifelse(quietly, "", paste("with", env_vars)), "\n")
   status <- system(
     paste(env_vars, "inst/build_arrow_static.sh"),
@@ -328,7 +348,7 @@ ensure_cmake <- function() {
   if (is.null(cmake)) {
     # If not found, download it
     cat("**** cmake\n")
-    CMAKE_VERSION <- Sys.getenv("CMAKE_VERSION", "3.18.1")
+    CMAKE_VERSION <- Sys.getenv("CMAKE_VERSION", "3.19.2")
     cmake_binary_url <- paste0(
       "https://github.com/Kitware/CMake/releases/download/v", CMAKE_VERSION,
       "/cmake-", CMAKE_VERSION, "-Linux-x86_64.tar.gz"
@@ -376,14 +396,9 @@ cmake_version <- function(cmd = "cmake") {
 with_s3_support <- function(env_vars) {
   arrow_s3 <- toupper(Sys.getenv("ARROW_S3")) == "ON" || tolower(Sys.getenv("LIBARROW_MINIMAL")) == "false"
   if (arrow_s3) {
-    # User wants S3 support. Let's make sure they're not on gcc < 4.9
+    # User wants S3 support. If they're using gcc, let's make sure the version is >= 4.9
     # and make sure that we have curl and openssl system libs
-    info <- system(paste(env_vars, "&& $CMAKE --system-information"), intern = TRUE)
-    info <- grep("^[A-Z_]* .*$", info, value = TRUE)
-    vals <- as.list(sub('^.*? "?(.*?)"?$', "\\1", info))
-    names(vals) <- sub("^(.*?) .*$", "\\1", info)
-    if (vals[["CMAKE_CXX_COMPILER_ID"]] == "GNU" &&
-        package_version(vals[["CMAKE_CXX_COMPILER_VERSION"]]) < 4.9) {
+    if (isTRUE(cmake_gcc_version(env_vars) < "4.9")) {
       cat("**** S3 support not available for gcc < 4.9; building with ARROW_S3=OFF\n")
       arrow_s3 <- FALSE
     } else if (!cmake_find_package("CURL", NULL, env_vars)) {
@@ -397,6 +412,36 @@ with_s3_support <- function(env_vars) {
   paste(env_vars, ifelse(arrow_s3, "ARROW_S3=ON", "ARROW_S3=OFF"))
 }
 
+with_mimalloc <- function(env_vars) {
+  arrow_mimalloc <- toupper(Sys.getenv("ARROW_MIMALLOC")) == "ON" || tolower(Sys.getenv("LIBARROW_MINIMAL")) == "false"
+  if (arrow_mimalloc) {
+  # User wants mimalloc. If they're using gcc, let's make sure the version is >= 4.9
+    if (isTRUE(cmake_gcc_version(env_vars) < "4.9")) {
+      cat("**** mimalloc support not available for gcc < 4.9; building with ARROW_MIMALLOC=OFF\n")
+      arrow_mimalloc <- FALSE
+    }
+  }
+  paste(env_vars, ifelse(arrow_mimalloc, "ARROW_MIMALLOC=ON", "ARROW_MIMALLOC=OFF"))
+}
+
+cmake_gcc_version <- function(env_vars) {
+  # This function returns NA if using a non-gcc compiler
+  # Always enclose calls to it in isTRUE() or isFALSE()
+  vals <- cmake_cxx_compiler_vars(env_vars)
+  if (!identical(vals[["CMAKE_CXX_COMPILER_ID"]], "GNU")) {
+    return(NA)
+  }
+  package_version(vals[["CMAKE_CXX_COMPILER_VERSION"]])
+}
+
+cmake_cxx_compiler_vars <- function(env_vars) {
+  info <- system(paste("export", env_vars, "&& $CMAKE --system-information"), intern = TRUE)
+  info <- grep("^[A-Z_]* .*$", info, value = TRUE)
+  vals <- as.list(sub('^.*? "?(.*?)"?$', "\\1", info))
+  names(vals) <- sub("^(.*?) .*$", "\\1", info)
+  vals[grepl("^CMAKE_CXX_COMPILER_?", names(vals))]
+}
+
 cmake_find_package <- function(pkg, version = NULL, env_vars) {
   td <- tempfile()
   dir.create(td)
@@ -404,11 +449,12 @@ cmake_find_package <- function(pkg, version = NULL, env_vars) {
   find_package <- paste0("find_package(", pkg, " ", version, " REQUIRED)")
   writeLines(find_package, file.path(td, "CMakeLists.txt"))
   cmake_cmd <- paste0(
-    env_vars, " && $CMAKE",
+    "export ", env_vars,
+    " && cd ", td,
+    " && $CMAKE ",
     " -DCMAKE_EXPORT_NO_PACKAGE_REGISTRY=ON",
     " -DCMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY=ON",
-    " -S", td,
-    " -B", td
+    " ."
   )
   system(cmake_cmd, ignore.stdout = TRUE, ignore.stderr = TRUE) == 0
 }

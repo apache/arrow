@@ -35,8 +35,6 @@ set -eu
 BOOST_LIBS="system.hpp filesystem.hpp"
 # Add these to be able to build those
 BOOST_LIBS="$BOOST_LIBS config build boost_install headers log predef"
-# Parquet needs this (if using gcc < 4.9)
-BOOST_LIBS="$BOOST_LIBS regex.hpp"
 # Gandiva needs these
 BOOST_LIBS="$BOOST_LIBS multiprecision/cpp_int.hpp"
 # These are for Thrift when Thrift_SOURCE=BUNDLED

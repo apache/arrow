@@ -18,7 +18,6 @@
 """Dataset is currently unstable. APIs subject to change without notice."""
 
 import pyarrow as pa
-from pyarrow.fs import _MockFileSystem
 from pyarrow.util import _stringify_path, _is_path_like
 
 from pyarrow._dataset import (  # noqa
@@ -89,7 +88,8 @@ def scalar(value):
     return Expression._scalar(value)
 
 
-def partitioning(schema=None, field_names=None, flavor=None):
+def partitioning(schema=None, field_names=None, flavor=None,
+                 dictionaries=None):
     """
     Specify a partitioning scheme.
 
@@ -122,6 +122,11 @@ def partitioning(schema=None, field_names=None, flavor=None):
     flavor : str, default None
         The default is DirectoryPartitioning. Specify ``flavor="hive"`` for
         a HivePartitioning.
+    dictionaries : List[Array]
+        If the type of any field of `schema` is a dictionary type, the
+        corresponding entry of `dictionaries` must be an array containing
+        every value which may be taken by the corresponding column or an
+        error will be raised in parsing.
 
     Returns
     -------
@@ -159,7 +164,7 @@ def partitioning(schema=None, field_names=None, flavor=None):
             if field_names is not None:
                 raise ValueError(
                     "Cannot specify both 'schema' and 'field_names'")
-            return DirectoryPartitioning(schema)
+            return DirectoryPartitioning(schema, dictionaries)
         elif field_names is not None:
             if isinstance(field_names, list):
                 return DirectoryPartitioning.discover(field_names)
@@ -176,7 +181,7 @@ def partitioning(schema=None, field_names=None, flavor=None):
             raise ValueError("Cannot specify 'field_names' for flavor 'hive'")
         elif schema is not None:
             if isinstance(schema, pa.Schema):
-                return HivePartitioning(schema)
+                return HivePartitioning(schema, dictionaries)
             else:
                 raise ValueError(
                     "Expected Schema for 'schema', got {}".format(
@@ -220,45 +225,6 @@ def _ensure_format(obj):
         raise ValueError("format '{}' is not supported".format(obj))
 
 
-def _ensure_fs(fs_or_uri):
-    from pyarrow.fs import (
-        FileSystem, LocalFileSystem, SubTreeFileSystem, FileType,
-        _ensure_filesystem
-    )
-
-    if isinstance(fs_or_uri, str):
-        # instantiate the file system from an uri, if the uri has a path
-        # component then it will be treated as a path prefix
-        filesystem, prefix = FileSystem.from_uri(fs_or_uri)
-        is_local = isinstance(filesystem, LocalFileSystem)
-        prefix = filesystem.normalize_path(prefix)
-        if prefix:
-            # validate that the prefix is pointing to a directory
-            prefix_info = filesystem.get_file_info([prefix])[0]
-            if prefix_info.type != FileType.Directory:
-                raise ValueError(
-                    "The path component of the filesystem URI must point to a "
-                    "directory but it has a type: `{}`. The path component "
-                    "is `{}` and the given filesystem URI is `{}`".format(
-                        prefix_info.type.name, prefix_info.path, fs_or_uri
-                    )
-                )
-            filesystem = SubTreeFileSystem(prefix, filesystem)
-        return filesystem, is_local
-
-    try:
-        filesystem = _ensure_filesystem(fs_or_uri)
-    except TypeError:
-        raise TypeError(
-            '`filesystem` argument must be a FileSystem instance or a valid '
-            'file system URI'
-        )
-    if isinstance(filesystem, (LocalFileSystem, _MockFileSystem)):
-        return filesystem, True
-    else:
-        return filesystem, False
-
-
 def _ensure_multiple_sources(paths, filesystem=None):
     """
     Treat a list of paths as files belonging to a single file system
@@ -288,14 +254,23 @@ def _ensure_multiple_sources(paths, filesystem=None):
         If the file system is local and a referenced path is not available or
         not a file.
     """
-    from pyarrow.fs import LocalFileSystem, FileType
+    from pyarrow.fs import (
+        LocalFileSystem, SubTreeFileSystem, _MockFileSystem, FileType,
+        _ensure_filesystem
+    )
 
     if filesystem is None:
         # fall back to local file system as the default
         filesystem = LocalFileSystem()
+    else:
+        # construct a filesystem if it is a valid URI
+        filesystem = _ensure_filesystem(filesystem)
 
-    # construct a filesystem if it is a valid URI
-    filesystem, is_local = _ensure_fs(filesystem)
+    is_local = (
+        isinstance(filesystem, (LocalFileSystem, _MockFileSystem)) or
+        (isinstance(filesystem, SubTreeFileSystem) and
+         isinstance(filesystem.base_fs, LocalFileSystem))
+    )
 
     # allow normalizing irregular paths such as Windows local paths
     paths = [filesystem.normalize_path(_stringify_path(p)) for p in paths]
@@ -337,7 +312,7 @@ def _ensure_single_source(path, filesystem=None):
         If an URI is passed, then its path component will act as a prefix for
         the file paths.
 
-   Returns
+    Returns
     -------
     (FileSystem, list of str or fs.Selector)
         File system object and either a single item list pointing to a file or
@@ -350,49 +325,16 @@ def _ensure_single_source(path, filesystem=None):
     FileNotFoundError
         If the referenced file or directory doesn't exist.
     """
-    from pyarrow.fs import FileSystem, LocalFileSystem, FileType, FileSelector
+    from pyarrow.fs import FileType, FileSelector, _resolve_filesystem_and_path
 
-    path = _stringify_path(path)
-
-    # if filesystem is not given try to automatically determine one
-    # first check if the file exists as a local (relative) file path
-    # if not then try to parse the path as an URI
-    file_info = None
-    if filesystem is None:
-        filesystem = LocalFileSystem()
-        try:
-            file_info = filesystem.get_file_info([path])[0]
-        except OSError:
-            file_info = None
-            exists_locally = False
-        else:
-            exists_locally = (file_info.type != FileType.NotFound)
-
-        # if the file or directory doesn't exists locally, then assume that
-        # the path is an URI describing the file system as well
-        if not exists_locally:
-            try:
-                filesystem, path = FileSystem.from_uri(path)
-            except ValueError as e:
-                # ARROW-8213: neither an URI nor a locally existing path,
-                # so assume that local path was given and propagate a nicer
-                # file not found error instead of a more confusing scheme
-                # parsing error
-                if "empty scheme" not in str(e):
-                    raise
-            else:
-                # unset file_info to query it again from the new filesystem
-                file_info = None
-
-    # construct a filesystem if it is a valid URI
-    filesystem, _ = _ensure_fs(filesystem)
+    # at this point we already checked that `path` is a path-like
+    filesystem, path = _resolve_filesystem_and_path(path, filesystem)
 
     # ensure that the path is normalized before passing to dataset discovery
     path = filesystem.normalize_path(path)
 
     # retrieve the file descriptor
-    if file_info is None:
-        file_info = filesystem.get_file_info([path])[0]
+    file_info = filesystem.get_file_info(path)
 
     # depending on the path type either return with a recursive
     # directory selector or as a list containing a single file
@@ -494,7 +436,7 @@ def parquet_dataset(metadata_path, schema=None, filesystem=None, format=None,
     -------
     FileSystemDataset
     """
-    from pyarrow.fs import LocalFileSystem
+    from pyarrow.fs import LocalFileSystem, _ensure_filesystem
 
     if format is None:
         format = ParquetFileFormat()
@@ -504,7 +446,7 @@ def parquet_dataset(metadata_path, schema=None, filesystem=None, format=None,
     if filesystem is None:
         filesystem = LocalFileSystem()
     else:
-        filesystem, _ = _ensure_fs(filesystem)
+        filesystem = _ensure_filesystem(filesystem)
 
     metadata_path = filesystem.normalize_path(_stringify_path(metadata_path))
     options = ParquetFactoryOptions(
@@ -699,7 +641,8 @@ def _ensure_write_partitioning(scheme):
 
 def write_dataset(data, base_dir, basename_template=None, format=None,
                   partitioning=None, schema=None,
-                  filesystem=None, file_options=None, use_threads=True):
+                  filesystem=None, file_options=None, use_threads=True,
+                  max_partitions=None):
     """
     Write a dataset to a given format and partitioning.
 
@@ -732,7 +675,11 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
     use_threads : bool, default True
         Write files in parallel. If enabled, then maximum parallelism will be
         used determined by the number of available CPU cores.
+    max_partitions : int, default 1024
+        Maximum number of partitions any batch may be written into.
     """
+    from pyarrow.fs import _resolve_filesystem_and_path
+
     if isinstance(data, Dataset):
         schema = schema or data.schema
     elif isinstance(data, (pa.Table, pa.RecordBatch)):
@@ -762,15 +709,15 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
     if basename_template is None:
         basename_template = "part-{i}." + format.default_extname
 
+    if max_partitions is None:
+        max_partitions = 1024
+
     partitioning = _ensure_write_partitioning(partitioning)
 
-    if filesystem is None:
-        # fall back to local file system as the default
-        from pyarrow.fs import LocalFileSystem
-        filesystem = LocalFileSystem()
-    filesystem, _ = _ensure_fs(filesystem)
+    filesystem, base_dir = _resolve_filesystem_and_path(base_dir, filesystem)
 
     _filesystemdataset_write(
         data, base_dir, basename_template, schema,
         filesystem, partitioning, file_options, use_threads,
+        max_partitions
     )

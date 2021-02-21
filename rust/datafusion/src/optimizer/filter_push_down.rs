@@ -14,156 +14,246 @@
 
 //! Filter Push Down optimizer rule ensures that filters are applied as early as possible in the plan
 
-use crate::error::Result;
-use crate::logical_plan::Expr;
+use crate::datasource::datasource::TableProviderFilterPushDown;
 use crate::logical_plan::{and, LogicalPlan};
+use crate::logical_plan::{DFSchema, Expr};
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::utils;
+use crate::{error::Result, logical_plan::Operator};
 use std::{
-    collections::{BTreeMap, HashMap, HashSet},
+    collections::{HashMap, HashSet},
     sync::Arc,
 };
 
 /// Filter Push Down optimizer rule pushes filter clauses down the plan
+/// # Introduction
+/// A filter-commutative operation is an operation whose result of filter(op(data)) = op(filter(data)).
+/// An example of a filter-commutative operation is a projection; a counter-example is `limit`.
 ///
-/// This optimization looks for the maximum depth of each column in the plan where a filter can be applied and
-/// re-writes the plan with filters on those locations.
-/// It performs two passes on the plan:
-/// 1. identify filters, which columns they use, and projections along the path
-/// 2. move filters down, re-writing the expressions using the projections
-/*
-A filter-commutative operation is an operation whose result of filter(op(data)) = op(filter(data)).
-An example of a filter-commutative operation is a projection; a counter-example is `limit`.
-
-The filter-commutative property is column-specific. An aggregate grouped by A on SUM(B)
-can commute with a filter that depends on A only, but does not commute with a filter that depends
-on SUM(B).
-
-A location in this module is identified by a number, depth, which is 0 for the last operation
-and highest for the first operation (typically a scan).
-
-This optimizer commutes filters with filter-commutative operations to push the filters
-to the maximum possible depth, consequently re-writing the filter expressions by every
-projection that changes the filter's expression.
-
-    Filter: #b Gt Int64(10)
-        Projection: #a AS b
-
-is optimized to
-
-    Projection: #a AS b
-        Filter: #a Gt Int64(10)  <--- changed from #b to #a
-
-To perform such optimization, we first analyze the plan to identify three items:
-
-1. Where are the filters located in the plan
-2. Where are non-commutable operations' columns located in the plan (break_points)
-3. Where are projections located in the plan
-
-With this information, we re-write the plan by:
-
-1. Computing the maximum possible depth of each column between breakpoints
-2. Computing the maximum possible depth of each filter expression based on the columns it depends on
-3. re-write the filter expression for every projection that it commutes with from its original depth to its max possible depth
-4. recursively re-write the plan by deleting old filter expressions and adding new filter expressions on their max possible depth.
-*/
+/// The filter-commutative property is column-specific. An aggregate grouped by A on SUM(B)
+/// can commute with a filter that depends on A only, but does not commute with a filter that depends
+/// on SUM(B).
+///
+/// This optimizer commutes filters with filter-commutative operations to push the filters
+/// the closest possible to the scans, re-writing the filter expressions by every
+/// projection that changes the filter's expression.
+///
+/// Filter: #b Gt Int64(10)
+///     Projection: #a AS b
+///
+/// is optimized to
+///
+/// Projection: #a AS b
+///     Filter: #a Gt Int64(10)  <--- changed from #b to #a
+///
+/// This performs a single pass trought the plan. When it passes trought a filter, it stores that filter,
+/// and when it reaches a node that does not commute with it, it adds the filter to that place.
+/// When it passes through a projection, it re-writes the filter's expression taking into accoun that projection.
+/// When multiple filters would have been written, it `AND` their expressions into a single expression.
 pub struct FilterPushDown {}
 
-impl OptimizerRule for FilterPushDown {
-    fn name(&self) -> &str {
-        return "filter_push_down";
-    }
+#[derive(Debug, Clone, Default)]
+struct State {
+    // (predicate, columns on the predicate)
+    filters: Vec<(Expr, HashSet<String>)>,
+}
 
-    fn optimize(&mut self, plan: &LogicalPlan) -> Result<LogicalPlan> {
-        let result = analyze_plan(plan, 0)?;
-        let break_points = result.break_points.clone();
+type Predicates<'a> = (Vec<&'a Expr>, Vec<&'a HashSet<String>>);
 
-        // get max depth over all breakpoints
-        let max_depth = break_points.keys().max();
-        if max_depth.is_none() {
-            // it is unlikely that the plan is correct without break points as all scans
-            // adds breakpoints. We just return the plan and let others handle the error
-            return Ok(plan.clone());
-        }
-        let max_depth = *max_depth.unwrap(); // unwrap is safe by previous if
+/// returns all predicates in `state` that depend on any of `used_columns`
+fn get_predicates<'a>(
+    state: &'a State,
+    used_columns: &HashSet<String>,
+) -> Predicates<'a> {
+    state
+        .filters
+        .iter()
+        .filter(|(_, columns)| {
+            !columns
+                .intersection(used_columns)
+                .collect::<HashSet<_>>()
+                .is_empty()
+        })
+        .map(|&(ref a, ref b)| (a, b))
+        .unzip()
+}
 
-        // construct optimized position of each of the new filters
-        // E.g. when we have a filter (c1 + c2 > 2), c1's max depth is 10 and c2 is 11, we
-        // can push the filter to depth 10
-        let mut new_filtersnew_filters: BTreeMap<usize, Expr> = BTreeMap::new();
-        for (filter_depth, expr) in result.filters {
-            // get all columns on the filter expression
-            let mut filter_columns: HashSet<String> = HashSet::new();
-            utils::expr_to_column_names(&expr, &mut filter_columns)?;
+// returns 3 (potentially overlaping) sets of predicates:
+// * pushable to left: its columns are all on the left
+// * pushable to right: its columns is all on the right
+// * keep: the set of columns is not in only either left or right
+// Note that a predicate can be both pushed to the left and to the right.
+fn get_join_predicates<'a>(
+    state: &'a State,
+    left: &DFSchema,
+    right: &DFSchema,
+) -> (
+    Vec<&'a HashSet<String>>,
+    Vec<&'a HashSet<String>>,
+    Predicates<'a>,
+) {
+    let left_columns = &left
+        .fields()
+        .iter()
+        .map(|f| f.name().clone())
+        .collect::<HashSet<_>>();
+    let right_columns = &right
+        .fields()
+        .iter()
+        .map(|f| f.name().clone())
+        .collect::<HashSet<_>>();
 
-            // identify the depths that are filter-commutable with this filter
-            let mut new_depth = filter_depth;
-            for depth in filter_depth..max_depth {
-                if let Some(break_columns) = break_points.get(&depth) {
-                    if filter_columns
-                        .intersection(break_columns)
-                        .peekable()
-                        .peek()
-                        .is_none()
-                    {
-                        new_depth += 1
-                    } else {
-                        // non-commutable: can't advance any further
-                        break;
-                    }
-                } else {
-                    new_depth += 1
-                }
-            }
+    let filters = state
+        .filters
+        .iter()
+        .map(|(predicate, columns)| {
+            (
+                (predicate, columns),
+                (
+                    columns,
+                    left_columns.intersection(columns).collect::<HashSet<_>>(),
+                    right_columns.intersection(columns).collect::<HashSet<_>>(),
+                ),
+            )
+        })
+        .collect::<Vec<_>>();
 
-            // re-write the new filters based on all projections that it crossed.
-            // E.g. in `Filter: #b\n  Projection: #a > 1 as b`, we can swap them, but the filter must be "#a > 1"
-            let mut new_expression = expr.clone();
-            for depth_i in filter_depth..new_depth {
-                if let Some(projection) = result.projections.get(&depth_i) {
-                    new_expression = rewrite(&new_expression, projection)?;
-                }
-            }
+    let pushable_to_left = filters
+        .iter()
+        .filter(|(_, (columns, left, _))| left.len() == columns.len())
+        .map(|((_, b), _)| *b)
+        .collect();
+    let pushable_to_right = filters
+        .iter()
+        .filter(|(_, (columns, _, right))| right.len() == columns.len())
+        .map(|((_, b), _)| *b)
+        .collect();
+    let keep = filters
+        .iter()
+        .filter(|(_, (columns, left, right))| {
+            // predicates whose columns are not in only one side of the join need to remain
+            let all_in_left = left.len() == columns.len();
+            let all_in_right = right.len() == columns.len();
+            !all_in_left && !all_in_right
+        })
+        .map(|((ref a, ref b), _)| (a, b))
+        .unzip();
+    (pushable_to_left, pushable_to_right, keep)
+}
 
-            // AND filter expressions that would be placed on the same depth
-            if let Some(existing_expression) = new_filtersnew_filters.get(&new_depth) {
-                new_expression = and(existing_expression, &new_expression)
-            }
-            new_filtersnew_filters.insert(new_depth, new_expression);
-        }
+/// Optimizes the plan
+fn push_down(state: &State, plan: &LogicalPlan) -> Result<LogicalPlan> {
+    let new_inputs = utils::inputs(&plan)
+        .iter()
+        .map(|input| optimize(input, state.clone()))
+        .collect::<Result<Vec<_>>>()?;
 
-        optimize_plan(plan, &new_filtersnew_filters, 0)
+    let expr = utils::expressions(&plan);
+    utils::from_plan(&plan, &expr, &new_inputs)
+}
+
+/// returns a new [LogicalPlan] that wraps `plan` in a [LogicalPlan::Filter] with
+/// its predicate be all `predicates` ANDed.
+fn add_filter(plan: LogicalPlan, predicates: &[&Expr]) -> LogicalPlan {
+    // reduce filters to a single filter with an AND
+    let predicate = predicates
+        .iter()
+        .skip(1)
+        .fold(predicates[0].clone(), |acc, predicate| {
+            and(acc, (*predicate).to_owned())
+        });
+
+    LogicalPlan::Filter {
+        predicate,
+        input: Arc::new(plan),
     }
 }
 
-/// The result of a plan analysis suitable to perform a filter push down optimization
-// BTreeMap are ordered, which ensures stability in ordered operations.
-// Also, most inserts here are at the end
-struct AnalysisResult {
-    /// maps the depths of non filter-commutative nodes to their columns
-    /// depths not in here indicate that the node is commutative
-    pub break_points: BTreeMap<usize, HashSet<String>>,
-    /// maps the depths of filter nodes to expressions
-    pub filters: BTreeMap<usize, Expr>,
-    /// maps the depths of projection nodes to their expressions
-    pub projections: BTreeMap<usize, HashMap<String, Expr>>,
+// remove all filters from `filters` that are in `predicate_columns`
+fn remove_filters(
+    filters: &[(Expr, HashSet<String>)],
+    predicate_columns: &[&HashSet<String>],
+) -> Vec<(Expr, HashSet<String>)> {
+    filters
+        .iter()
+        .filter(|(_, columns)| !predicate_columns.contains(&columns))
+        .cloned()
+        .collect::<Vec<_>>()
 }
 
-/// Recursively transverses the logical plan looking for depths that break filter pushdown
-fn analyze_plan(plan: &LogicalPlan, depth: usize) -> Result<AnalysisResult> {
+// keeps all filters from `filters` that are in `predicate_columns`
+fn keep_filters(
+    filters: &[(Expr, HashSet<String>)],
+    predicate_columns: &[&HashSet<String>],
+) -> Vec<(Expr, HashSet<String>)> {
+    filters
+        .iter()
+        .filter(|(_, columns)| predicate_columns.contains(&columns))
+        .cloned()
+        .collect::<Vec<_>>()
+}
+
+/// builds a new [LogicalPlan] from `plan` by issuing new [LogicalPlan::Filter] if any of the filters
+/// in `state` depend on the columns `used_columns`.
+fn issue_filters(
+    mut state: State,
+    used_columns: HashSet<String>,
+    plan: &LogicalPlan,
+) -> Result<LogicalPlan> {
+    let (predicates, predicate_columns) = get_predicates(&state, &used_columns);
+
+    if predicates.is_empty() {
+        // all filters can be pushed down => optimize inputs and return new plan
+        return push_down(&state, plan);
+    }
+
+    let plan = add_filter(plan.clone(), &predicates);
+
+    state.filters = remove_filters(&state.filters, &predicate_columns);
+
+    // continue optimization over all input nodes by cloning the current state (i.e. each node is independent)
+    push_down(&state, &plan)
+}
+
+/// converts "A AND B AND C" => [A, B, C]
+fn split_members<'a>(predicate: &'a Expr, predicates: &mut Vec<&'a Expr>) {
+    match predicate {
+        Expr::BinaryExpr {
+            right,
+            op: Operator::And,
+            left,
+        } => {
+            split_members(&left, predicates);
+            split_members(&right, predicates);
+        }
+        other => predicates.push(other),
+    }
+}
+
+fn optimize(plan: &LogicalPlan, mut state: State) -> Result<LogicalPlan> {
     match plan {
         LogicalPlan::Filter { input, predicate } => {
-            let mut result = analyze_plan(&input, depth + 1)?;
-            result.filters.insert(depth, predicate.clone());
-            Ok(result)
+            let mut predicates = vec![];
+            split_members(predicate, &mut predicates);
+
+            predicates
+                .into_iter()
+                .try_for_each::<_, Result<()>>(|predicate| {
+                    let mut columns: HashSet<String> = HashSet::new();
+                    utils::expr_to_column_names(predicate, &mut columns)?;
+                    // collect the predicate
+                    state.filters.push((predicate.clone(), columns));
+                    Ok(())
+                })?;
+
+            optimize(input, state)
         }
         LogicalPlan::Projection {
             input,
             expr,
             schema,
         } => {
-            let mut result = analyze_plan(&input, depth + 1)?;
-
+            // A projection is filter-commutable, but re-writes all predicate expressions
             // collect projection.
             let mut projection = HashMap::new();
             schema.fields().iter().enumerate().for_each(|(i, field)| {
@@ -175,62 +265,139 @@ fn analyze_plan(plan: &LogicalPlan, depth: usize) -> Result<AnalysisResult> {
 
                 projection.insert(field.name().clone(), expr);
             });
-            result.projections.insert(depth, projection);
-            Ok(result)
+
+            // re-write all filters based on this projection
+            // E.g. in `Filter: #b\n  Projection: #a > 1 as b`, we can swap them, but the filter must be "#a > 1"
+            for (predicate, columns) in state.filters.iter_mut() {
+                *predicate = rewrite(predicate, &projection)?;
+
+                columns.clear();
+                utils::expr_to_column_names(predicate, columns)?;
+            }
+
+            // optimize inner
+            let new_input = optimize(input, state)?;
+
+            utils::from_plan(&plan, &expr, &[new_input])
         }
         LogicalPlan::Aggregate {
             input, aggr_expr, ..
         } => {
-            let mut result = analyze_plan(&input, depth + 1)?;
-
-            // construct set of columns that `aggr_expr` depends on
-            let mut agg_columns = HashSet::new();
-            utils::exprlist_to_column_names(aggr_expr, &mut agg_columns)?;
-
-            // collect all columns that break at this depth:
+            // An aggregate's aggreagate columns are _not_ filter-commutable => collect these:
             // * columns whose aggregation expression depends on
             // * the aggregation columns themselves
-            let mut columns = agg_columns.iter().cloned().collect::<HashSet<_>>();
+
+            // construct set of columns that `aggr_expr` depends on
+            let mut used_columns = HashSet::new();
+            utils::exprlist_to_column_names(aggr_expr, &mut used_columns)?;
+
             let agg_columns = aggr_expr
                 .iter()
                 .map(|x| x.name(input.schema()))
                 .collect::<Result<HashSet<_>>>()?;
-            columns.extend(agg_columns);
-            result.break_points.insert(depth, columns);
+            used_columns.extend(agg_columns);
 
-            Ok(result)
+            issue_filters(state, used_columns, plan)
         }
-        LogicalPlan::Sort { input, .. } => analyze_plan(&input, depth + 1),
+        LogicalPlan::Sort { .. } => {
+            // sort is filter-commutable
+            push_down(&state, plan)
+        }
         LogicalPlan::Limit { input, .. } => {
-            let mut result = analyze_plan(&input, depth + 1)?;
-
-            // collect all columns that break at this depth
-            let columns = input
+            // limit is _not_ filter-commutable => collect all columns from its input
+            let used_columns = input
                 .schema()
                 .fields()
                 .iter()
                 .map(|f| f.name().clone())
                 .collect::<HashSet<_>>();
-            result.break_points.insert(depth, columns);
-            Ok(result)
+            issue_filters(state, used_columns, plan)
         }
-        // all other plans add breaks to all their columns to indicate that filters can't proceed further.
+        LogicalPlan::Join { left, right, .. } => {
+            let (pushable_to_left, pushable_to_right, keep) =
+                get_join_predicates(&state, &left.schema(), &right.schema());
+
+            let mut left_state = state.clone();
+            left_state.filters = keep_filters(&left_state.filters, &pushable_to_left);
+            let left = optimize(left, left_state)?;
+
+            let mut right_state = state.clone();
+            right_state.filters = keep_filters(&right_state.filters, &pushable_to_right);
+            let right = optimize(right, right_state)?;
+
+            // create a new Join with the new `left` and `right`
+            let expr = utils::expressions(&plan);
+            let plan = utils::from_plan(&plan, &expr, &[left, right])?;
+
+            if keep.0.is_empty() {
+                Ok(plan)
+            } else {
+                // wrap the join on the filter whose predicates must be kept
+                let plan = add_filter(plan, &keep.0);
+                state.filters = remove_filters(&state.filters, &keep.1);
+
+                Ok(plan)
+            }
+        }
+        LogicalPlan::TableScan {
+            source,
+            projected_schema,
+            filters,
+            projection,
+            table_name,
+        } => {
+            let mut used_columns = HashSet::new();
+            let mut new_filters = filters.clone();
+
+            for (filter_expr, cols) in &state.filters {
+                let (preserve_filter_node, add_to_provider) =
+                    match source.supports_filter_pushdown(filter_expr)? {
+                        TableProviderFilterPushDown::Unsupported => (true, false),
+                        TableProviderFilterPushDown::Inexact => (true, true),
+                        TableProviderFilterPushDown::Exact => (false, true),
+                    };
+
+                if preserve_filter_node {
+                    used_columns.extend(cols.clone());
+                }
+
+                if add_to_provider {
+                    new_filters.push(filter_expr.clone());
+                }
+            }
+
+            issue_filters(
+                state,
+                used_columns,
+                &LogicalPlan::TableScan {
+                    source: source.clone(),
+                    projection: projection.clone(),
+                    projected_schema: projected_schema.clone(),
+                    table_name: table_name.clone(),
+                    filters: new_filters,
+                },
+            )
+        }
         _ => {
-            let columns = plan
+            // all other plans are _not_ filter-commutable
+            let used_columns = plan
                 .schema()
                 .fields()
                 .iter()
                 .map(|f| f.name().clone())
                 .collect::<HashSet<_>>();
-            let mut break_points = BTreeMap::new();
-
-            break_points.insert(depth, columns);
-            Ok(AnalysisResult {
-                break_points,
-                filters: BTreeMap::new(),
-                projections: BTreeMap::new(),
-            })
+            issue_filters(state, used_columns, plan)
         }
+    }
+}
+
+impl OptimizerRule for FilterPushDown {
+    fn name(&self) -> &str {
+        "filter_push_down"
+    }
+
+    fn optimize(&self, plan: &LogicalPlan) -> Result<LogicalPlan> {
+        optimize(plan, State::default())
     }
 }
 
@@ -238,43 +405,6 @@ impl FilterPushDown {
     #[allow(missing_docs)]
     pub fn new() -> Self {
         Self {}
-    }
-}
-
-/// Returns a re-written logical plan where all old filters are removed and the new ones are added.
-fn optimize_plan(
-    plan: &LogicalPlan,
-    new_filters: &BTreeMap<usize, Expr>,
-    depth: usize,
-) -> Result<LogicalPlan> {
-    // optimize the plan recursively:
-    let new_plan = match plan {
-        LogicalPlan::Filter { input, .. } => {
-            // ignore old filters
-            Ok(optimize_plan(&input, new_filters, depth + 1)?)
-        }
-        _ => {
-            // all other nodes are copied, optimizing recursively.
-            let expr = utils::expressions(plan);
-
-            let inputs = utils::inputs(plan);
-            let new_inputs = inputs
-                .iter()
-                .map(|plan| optimize_plan(plan, new_filters, depth + 1))
-                .collect::<Result<Vec<_>>>()?;
-
-            utils::from_plan(plan, &expr, &new_inputs)
-        }
-    }?;
-
-    // if a new filter is to be applied, apply it
-    if let Some(expr) = new_filters.get(&depth) {
-        return Ok(LogicalPlan::Filter {
-            predicate: expr.clone(),
-            input: Arc::new(new_plan),
-        });
-    } else {
-        Ok(new_plan)
     }
 }
 
@@ -287,13 +417,10 @@ fn rewrite(expr: &Expr, projection: &HashMap<String, Expr>) -> Result<Expr> {
         .map(|e| rewrite(e, &projection))
         .collect::<Result<Vec<_>>>()?;
 
-    match expr {
-        Expr::Column(name) => {
-            if let Some(expr) = projection.get(name) {
-                return Ok(expr.clone());
-            }
+    if let Expr::Column(name) = expr {
+        if let Some(expr) = projection.get(name) {
+            return Ok(expr.clone());
         }
-        _ => {}
     }
 
     utils::rewrite_expression(&expr, &expressions)
@@ -302,12 +429,16 @@ fn rewrite(expr: &Expr, projection: &HashMap<String, Expr>) -> Result<Expr> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::logical_plan::col;
-    use crate::logical_plan::{lit, sum, Expr, LogicalPlanBuilder, Operator};
+    use crate::datasource::datasource::Statistics;
+    use crate::datasource::TableProvider;
+    use crate::logical_plan::{lit, sum, DFSchema, Expr, LogicalPlanBuilder, Operator};
+    use crate::physical_plan::ExecutionPlan;
     use crate::test::*;
+    use crate::{logical_plan::col, prelude::JoinType};
+    use arrow::datatypes::SchemaRef;
 
     fn assert_optimized_plan_eq(plan: &LogicalPlan, expected: &str) {
-        let mut rule = FilterPushDown::new();
+        let rule = FilterPushDown::new();
         let optimized_plan = rule.optimize(plan).expect("failed to optimize plan");
         let formatted_plan = format!("{:?}", optimized_plan);
         assert_eq!(formatted_plan, expected);
@@ -317,7 +448,7 @@ mod tests {
     fn filter_before_projection() -> Result<()> {
         let table_scan = test_table_scan()?;
         let plan = LogicalPlanBuilder::from(&table_scan)
-            .project(vec![col("a"), col("b")])?
+            .project(&[col("a"), col("b")])?
             .filter(col("a").eq(lit(1i64)))?
             .build()?;
         // filter is before projection
@@ -333,7 +464,7 @@ mod tests {
     fn filter_after_limit() -> Result<()> {
         let table_scan = test_table_scan()?;
         let plan = LogicalPlanBuilder::from(&table_scan)
-            .project(vec![col("a"), col("b")])?
+            .project(&[col("a"), col("b")])?
             .limit(10)?
             .filter(col("a").eq(lit(1i64)))?
             .build()?;
@@ -351,8 +482,8 @@ mod tests {
     fn filter_jump_2_plans() -> Result<()> {
         let table_scan = test_table_scan()?;
         let plan = LogicalPlanBuilder::from(&table_scan)
-            .project(vec![col("a"), col("b"), col("c")])?
-            .project(vec![col("c"), col("b")])?
+            .project(&[col("a"), col("b"), col("c")])?
+            .project(&[col("c"), col("b")])?
             .filter(col("a").eq(lit(1i64)))?
             .build()?;
         // filter is before double projection
@@ -369,7 +500,7 @@ mod tests {
     fn filter_move_agg() -> Result<()> {
         let table_scan = test_table_scan()?;
         let plan = LogicalPlanBuilder::from(&table_scan)
-            .aggregate(vec![col("a")], vec![sum(col("b")).alias("total_salary")])?
+            .aggregate(&[col("a")], &[sum(col("b")).alias("total_salary")])?
             .filter(col("a").gt(lit(10i64)))?
             .build()?;
         // filter of key aggregation is commutative
@@ -385,7 +516,7 @@ mod tests {
     fn filter_keep_agg() -> Result<()> {
         let table_scan = test_table_scan()?;
         let plan = LogicalPlanBuilder::from(&table_scan)
-            .aggregate(vec![col("a")], vec![sum(col("b")).alias("b")])?
+            .aggregate(&[col("a")], &[sum(col("b")).alias("b")])?
             .filter(col("b").gt(lit(10i64)))?
             .build()?;
         // filter of aggregate is after aggregation since they are non-commutative
@@ -402,7 +533,7 @@ mod tests {
     fn alias() -> Result<()> {
         let table_scan = test_table_scan()?;
         let plan = LogicalPlanBuilder::from(&table_scan)
-            .project(vec![col("a").alias("b"), col("c")])?
+            .project(&[col("a").alias("b"), col("c")])?
             .filter(col("b").eq(lit(1i64)))?
             .build()?;
         // filter is before projection
@@ -435,7 +566,7 @@ mod tests {
     fn complex_expression() -> Result<()> {
         let table_scan = test_table_scan()?;
         let plan = LogicalPlanBuilder::from(&table_scan)
-            .project(vec![
+            .project(&[
                 add(multiply(col("a"), lit(2)), col("c")).alias("b"),
                 col("c"),
             ])?
@@ -465,12 +596,12 @@ mod tests {
     fn complex_plan() -> Result<()> {
         let table_scan = test_table_scan()?;
         let plan = LogicalPlanBuilder::from(&table_scan)
-            .project(vec![
+            .project(&[
                 add(multiply(col("a"), lit(2)), col("c")).alias("b"),
                 col("c"),
             ])?
             // second projection where we rename columns, just to make it difficult
-            .project(vec![multiply(col("b"), lit(3)).alias("a"), col("c")])?
+            .project(&[multiply(col("b"), lit(3)).alias("a"), col("c")])?
             .filter(col("a").eq(lit(1i64)))?
             .build()?;
 
@@ -501,8 +632,8 @@ mod tests {
         // the aggregation allows one filter to pass (b), and the other one to not pass (SUM(c))
         let table_scan = test_table_scan()?;
         let plan = LogicalPlanBuilder::from(&table_scan)
-            .project(vec![col("a").alias("b"), col("c")])?
-            .aggregate(vec![col("b")], vec![sum(col("c"))])?
+            .project(&[col("a").alias("b"), col("c")])?
+            .aggregate(&[col("b")], &[sum(col("c"))])?
             .filter(col("b").gt(lit(10i64)))?
             .filter(col("SUM(c)").gt(lit(10i64)))?
             .build()?;
@@ -530,15 +661,52 @@ mod tests {
         Ok(())
     }
 
+    /// verifies that when a filter with two predicates is applied after an aggregation that only allows one to be pushed, one is pushed
+    /// and the other not.
+    #[test]
+    fn split_filter() -> Result<()> {
+        // the aggregation allows one filter to pass (b), and the other one to not pass (SUM(c))
+        let table_scan = test_table_scan()?;
+        let plan = LogicalPlanBuilder::from(&table_scan)
+            .project(&[col("a").alias("b"), col("c")])?
+            .aggregate(&[col("b")], &[sum(col("c"))])?
+            .filter(and(
+                col("SUM(c)").gt(lit(10i64)),
+                and(col("b").gt(lit(10i64)), col("SUM(c)").lt(lit(20i64))),
+            ))?
+            .build()?;
+
+        // not part of the test, just good to know:
+        assert_eq!(
+            format!("{:?}", plan),
+            "\
+            Filter: #SUM(c) Gt Int64(10) And #b Gt Int64(10) And #SUM(c) Lt Int64(20)\
+            \n  Aggregate: groupBy=[[#b]], aggr=[[SUM(#c)]]\
+            \n    Projection: #a AS b, #c\
+            \n      TableScan: test projection=None"
+        );
+
+        // filter is before the projections
+        let expected = "\
+        Filter: #SUM(c) Gt Int64(10) And #SUM(c) Lt Int64(20)\
+        \n  Aggregate: groupBy=[[#b]], aggr=[[SUM(#c)]]\
+        \n    Projection: #a AS b, #c\
+        \n      Filter: #a Gt Int64(10)\
+        \n        TableScan: test projection=None";
+        assert_optimized_plan_eq(&plan, expected);
+
+        Ok(())
+    }
+
     /// verifies that when two limits are in place, we jump neither
     #[test]
     fn double_limit() -> Result<()> {
         let table_scan = test_table_scan()?;
         let plan = LogicalPlanBuilder::from(&table_scan)
-            .project(vec![col("a"), col("b")])?
+            .project(&[col("a"), col("b")])?
             .limit(20)?
             .limit(10)?
-            .project(vec![col("a"), col("b")])?
+            .project(&[col("a"), col("b")])?
             .filter(col("a").eq(lit(1i64)))?
             .build()?;
         // filter does not just any of the limits
@@ -558,10 +726,10 @@ mod tests {
     fn filter_2_breaks_limits() -> Result<()> {
         let table_scan = test_table_scan()?;
         let plan = LogicalPlanBuilder::from(&table_scan)
-            .project(vec![col("a")])?
+            .project(&[col("a")])?
             .filter(col("a").lt_eq(lit(1i64)))?
             .limit(1)?
-            .project(vec![col("a")])?
+            .project(&[col("a")])?
             .filter(col("a").gt_eq(lit(1i64)))?
             .build()?;
         // Should be able to move both filters below the projections
@@ -597,7 +765,7 @@ mod tests {
             .limit(1)?
             .filter(col("a").lt_eq(lit(1i64)))?
             .filter(col("a").gt_eq(lit(1i64)))?
-            .project(vec![col("a")])?
+            .project(&[col("a")])?
             .build()?;
 
         // not part of the test
@@ -616,6 +784,232 @@ mod tests {
         \n    Limit: 1\
         \n      TableScan: test projection=None";
 
+        assert_optimized_plan_eq(&plan, expected);
+        Ok(())
+    }
+
+    /// verifies that filters on a plan with user nodes are not lost
+    /// (ARROW-10547)
+    #[test]
+    fn filters_user_defined_node() -> Result<()> {
+        let table_scan = test_table_scan()?;
+        let plan = LogicalPlanBuilder::from(&table_scan)
+            .filter(col("a").lt_eq(lit(1i64)))?
+            .build()?;
+
+        let plan = crate::test::user_defined::new(plan);
+
+        let expected = "\
+            TestUserDefined\
+             \n  Filter: #a LtEq Int64(1)\
+             \n    TableScan: test projection=None";
+
+        // not part of the test
+        assert_eq!(format!("{:?}", plan), expected);
+
+        assert_optimized_plan_eq(&plan, expected);
+        Ok(())
+    }
+
+    /// post-join predicates on a column common to both sides is pushed to both sides
+    #[test]
+    fn filter_join_on_common_independent() -> Result<()> {
+        let table_scan = test_table_scan()?;
+        let left = LogicalPlanBuilder::from(&table_scan).build()?;
+        let right = LogicalPlanBuilder::from(&table_scan)
+            .project(&[col("a")])?
+            .build()?;
+        let plan = LogicalPlanBuilder::from(&left)
+            .join(&right, JoinType::Inner, &["a"], &["a"])?
+            .filter(col("a").lt_eq(lit(1i64)))?
+            .build()?;
+
+        // not part of the test, just good to know:
+        assert_eq!(
+            format!("{:?}", plan),
+            "\
+            Filter: #a LtEq Int64(1)\
+            \n  Join: a = a\
+            \n    TableScan: test projection=None\
+            \n    Projection: #a\
+            \n      TableScan: test projection=None"
+        );
+
+        // filter sent to side before the join
+        let expected = "\
+        Join: a = a\
+        \n  Filter: #a LtEq Int64(1)\
+        \n    TableScan: test projection=None\
+        \n  Projection: #a\
+        \n    Filter: #a LtEq Int64(1)\
+        \n      TableScan: test projection=None";
+        assert_optimized_plan_eq(&plan, expected);
+        Ok(())
+    }
+
+    /// post-join predicates with columns from both sides are not pushed
+    #[test]
+    fn filter_join_on_common_dependent() -> Result<()> {
+        let table_scan = test_table_scan()?;
+        let left = LogicalPlanBuilder::from(&table_scan)
+            .project(&[col("a"), col("c")])?
+            .build()?;
+        let right = LogicalPlanBuilder::from(&table_scan)
+            .project(&[col("a"), col("b")])?
+            .build()?;
+        let plan = LogicalPlanBuilder::from(&left)
+            .join(&right, JoinType::Inner, &["a"], &["a"])?
+            // "b" and "c" are not shared by either side: they are only available together after the join
+            .filter(col("c").lt_eq(col("b")))?
+            .build()?;
+
+        // not part of the test, just good to know:
+        assert_eq!(
+            format!("{:?}", plan),
+            "\
+            Filter: #c LtEq #b\
+            \n  Join: a = a\
+            \n    Projection: #a, #c\
+            \n      TableScan: test projection=None\
+            \n    Projection: #a, #b\
+            \n      TableScan: test projection=None"
+        );
+
+        // expected is equal: no push-down
+        let expected = &format!("{:?}", plan);
+        assert_optimized_plan_eq(&plan, expected);
+        Ok(())
+    }
+
+    /// post-join predicates with columns from one side of a join are pushed only to that side
+    #[test]
+    fn filter_join_on_one_side() -> Result<()> {
+        let table_scan = test_table_scan()?;
+        let left = LogicalPlanBuilder::from(&table_scan)
+            .project(&[col("a"), col("b")])?
+            .build()?;
+        let right = LogicalPlanBuilder::from(&table_scan)
+            .project(&[col("a"), col("c")])?
+            .build()?;
+        let plan = LogicalPlanBuilder::from(&left)
+            .join(&right, JoinType::Inner, &["a"], &["a"])?
+            .filter(col("b").lt_eq(lit(1i64)))?
+            .build()?;
+
+        // not part of the test, just good to know:
+        assert_eq!(
+            format!("{:?}", plan),
+            "\
+            Filter: #b LtEq Int64(1)\
+            \n  Join: a = a\
+            \n    Projection: #a, #b\
+            \n      TableScan: test projection=None\
+            \n    Projection: #a, #c\
+            \n      TableScan: test projection=None"
+        );
+
+        let expected = "\
+        Join: a = a\
+        \n  Projection: #a, #b\
+        \n    Filter: #b LtEq Int64(1)\
+        \n      TableScan: test projection=None\
+        \n  Projection: #a, #c\
+        \n    TableScan: test projection=None";
+        assert_optimized_plan_eq(&plan, expected);
+        Ok(())
+    }
+
+    struct PushDownProvider {
+        pub filter_support: TableProviderFilterPushDown,
+    }
+
+    impl TableProvider for PushDownProvider {
+        fn schema(&self) -> SchemaRef {
+            Arc::new(arrow::datatypes::Schema::new(vec![
+                arrow::datatypes::Field::new(
+                    "a",
+                    arrow::datatypes::DataType::Int32,
+                    true,
+                ),
+            ]))
+        }
+
+        fn scan(
+            &self,
+            _: &Option<Vec<usize>>,
+            _: usize,
+            _: &[Expr],
+        ) -> Result<Arc<dyn ExecutionPlan>> {
+            unimplemented!()
+        }
+
+        fn supports_filter_pushdown(
+            &self,
+            _: &Expr,
+        ) -> Result<TableProviderFilterPushDown> {
+            Ok(self.filter_support.clone())
+        }
+
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+
+        fn statistics(&self) -> Statistics {
+            Statistics::default()
+        }
+    }
+
+    fn table_scan_with_pushdown_provider(
+        filter_support: TableProviderFilterPushDown,
+    ) -> Result<LogicalPlan> {
+        let test_provider = PushDownProvider { filter_support };
+
+        let table_scan = LogicalPlan::TableScan {
+            table_name: "".into(),
+            filters: vec![],
+            projected_schema: Arc::new(DFSchema::try_from_qualified(
+                "",
+                &*test_provider.schema(),
+            )?),
+            projection: None,
+            source: Arc::new(test_provider),
+        };
+
+        LogicalPlanBuilder::from(&table_scan)
+            .filter(col("a").eq(lit(1i64)))?
+            .build()
+    }
+
+    #[test]
+    fn filter_with_table_provider_exact() -> Result<()> {
+        let plan = table_scan_with_pushdown_provider(TableProviderFilterPushDown::Exact)?;
+
+        let expected = "\
+        TableScan: projection=None, filters=[#a Eq Int64(1)]";
+        assert_optimized_plan_eq(&plan, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn filter_with_table_provider_inexact() -> Result<()> {
+        let plan =
+            table_scan_with_pushdown_provider(TableProviderFilterPushDown::Inexact)?;
+
+        let expected = "\
+        Filter: #a Eq Int64(1)\
+        \n  TableScan: projection=None, filters=[#a Eq Int64(1)]";
+        assert_optimized_plan_eq(&plan, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn filter_with_table_provider_unsupported() -> Result<()> {
+        let plan =
+            table_scan_with_pushdown_provider(TableProviderFilterPushDown::Unsupported)?;
+
+        let expected = "\
+        Filter: #a Eq Int64(1)\
+        \n  TableScan: projection=None";
         assert_optimized_plan_eq(&plan, expected);
         Ok(())
     }

@@ -85,7 +85,7 @@ pub async fn main() {
             }
             Ok(ref line) => {
                 query.push_str(line);
-                query.push_str(" ");
+                query.push(' ');
             }
             Err(_) => {
                 break;

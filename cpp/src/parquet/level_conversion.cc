@@ -23,6 +23,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/optional.h"
 #include "parquet/exception.h"
 
 #include "parquet/level_comparison.h"
@@ -35,16 +36,17 @@ namespace internal {
 namespace {
 
 using ::arrow::internal::CpuInfo;
+using ::arrow::util::optional;
 
 template <typename OffsetType>
 void DefRepLevelsToListInfo(const int16_t* def_levels, const int16_t* rep_levels,
                             int64_t num_def_levels, LevelInfo level_info,
                             ValidityBitmapInputOutput* output, OffsetType* offsets) {
   OffsetType* orig_pos = offsets;
-  std::unique_ptr<::arrow::internal::FirstTimeBitmapWriter> valid_bits_writer;
+  optional<::arrow::internal::FirstTimeBitmapWriter> valid_bits_writer;
   if (output->valid_bits) {
-    valid_bits_writer.reset(new ::arrow::internal::FirstTimeBitmapWriter(
-        output->valid_bits, output->valid_bits_offset, num_def_levels));
+    valid_bits_writer.emplace(output->valid_bits, output->valid_bits_offset,
+                              output->values_read_upper_bound);
   }
   for (int x = 0; x < num_def_levels; x++) {
     // Skip items that belong to empty or null ancestor lists and further nested lists.
@@ -65,7 +67,7 @@ void DefRepLevelsToListInfo(const int16_t* def_levels, const int16_t* rep_levels
       }
     } else {
       if (ARROW_PREDICT_FALSE(
-              (valid_bits_writer != nullptr &&
+              (valid_bits_writer.has_value() &&
                valid_bits_writer->position() >= output->values_read_upper_bound) ||
               (offsets - orig_pos) >= output->values_read_upper_bound)) {
         std::stringstream ss;
@@ -92,7 +94,7 @@ void DefRepLevelsToListInfo(const int16_t* def_levels, const int16_t* rep_levels
         }
       }
 
-      if (valid_bits_writer != nullptr) {
+      if (valid_bits_writer.has_value()) {
         // the level_info def level for lists reflects element present level.
         // the prior level distinguishes between empty lists.
         if (def_levels[x] >= level_info.def_level - 1) {
@@ -105,12 +107,12 @@ void DefRepLevelsToListInfo(const int16_t* def_levels, const int16_t* rep_levels
       }
     }
   }
-  if (valid_bits_writer != nullptr) {
+  if (valid_bits_writer.has_value()) {
     valid_bits_writer->Finish();
   }
   if (offsets != nullptr) {
     output->values_read = offsets - orig_pos;
-  } else if (valid_bits_writer != nullptr) {
+  } else if (valid_bits_writer.has_value()) {
     output->values_read = valid_bits_writer->position();
   }
   if (output->null_count > 0 && level_info.null_slot_usage > 1) {

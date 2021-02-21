@@ -460,6 +460,16 @@ test_that("Array$create() handles data frame -> struct arrays (ARROW-3811)", {
   expect_equivalent(as.vector(a), df)
 })
 
+test_that("StructArray methods", {
+  df <- tibble::tibble(x = 1:10, y = x / 2, z = letters[1:10])
+  a <- Array$create(df)
+  expect_equal(a$x, Array$create(df$x))
+  expect_equal(a[["x"]], Array$create(df$x))
+  expect_equal(a[[1]], Array$create(df$x))
+  expect_identical(names(a), c("x", "y", "z"))
+  expect_identical(dim(a), c(10L, 3L))
+})
+
 test_that("Array$create() can handle data frame with custom struct type (not inferred)", {
   df <- tibble::tibble(x = 1:10, y = 1:10)
   type <- struct(x = float64(), y = int16())
@@ -616,6 +626,29 @@ test_that("Array$create() handles vector -> fixed size list arrays", {
   )
 })
 
+test_that("Handling string data with embedded nuls", {
+  raws <- structure(list(
+    as.raw(c(0x70, 0x65, 0x72, 0x73, 0x6f, 0x6e)),
+    as.raw(c(0x77, 0x6f, 0x6d, 0x61, 0x6e)),
+    as.raw(c(0x6d, 0x61, 0x00, 0x6e)), # <-- there's your nul, 0x00
+    as.raw(c(0x66, 0x00, 0x00, 0x61, 0x00, 0x6e)), # multiple nuls
+    as.raw(c(0x63, 0x61, 0x6d, 0x65, 0x72, 0x61)),
+    as.raw(c(0x74, 0x76))),
+    class = c("arrow_binary", "vctrs_vctr", "list"))
+  expect_error(rawToChar(raws[[3]]), "nul") # See?
+  array_with_nul <- Array$create(raws)$cast(utf8())
+  expect_error(as.vector(array_with_nul), "nul")
+
+  options(arrow.skip_nul = TRUE)
+  expect_warning(
+    expect_identical(
+      as.vector(array_with_nul),
+      c("person", "woman", "man", "fan", "camera", "tv")
+    ),
+    "Stripping '\\\\0' \\(nul\\) from character vector"
+  )
+})
+
 test_that("Array$create() should have helpful error", {
   expect_error(Array$create(list(numeric(0)), list_of(bool())), "Expecting a logical vector")
   expect_error(Array$create(list(numeric(0)), list_of(int32())), "Expecting an integer vector")
@@ -762,4 +795,3 @@ test_that("auto int64 conversion to int can be disabled (ARROW-10093)", {
   tab <- Table$create(x = a)
   expect_true(inherits(as.data.frame(batch)$x, "integer64"))
 })
-

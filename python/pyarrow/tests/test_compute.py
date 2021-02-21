@@ -83,7 +83,11 @@ def test_exported_functions():
     functions = exported_functions
     assert len(functions) >= 10
     for func in functions:
-        args = [object()] * func.__arrow_compute_function__['arity']
+        arity = func.__arrow_compute_function__['arity']
+        if arity is Ellipsis:
+            args = [object()] * 3
+        else:
+            args = [object()] * arity
         with pytest.raises(TypeError,
                            match="Got unexpected argument type "
                                  "<class 'object'> for compute function"):
@@ -172,7 +176,8 @@ def test_function_attributes():
         kernels = func.kernels
         assert func.num_kernels == len(kernels)
         assert all(isinstance(ker, pc.Kernel) for ker in kernels)
-        assert func.arity >= 1  # no varargs functions for now
+        if func.arity is not Ellipsis:
+            assert func.arity >= 1
         repr(func)
         for ker in kernels:
             repr(ker)
@@ -225,24 +230,34 @@ def test_sum_chunked_array(arrow_type):
 def test_mode_array():
     # ARROW-9917
     arr = pa.array([1, 1, 3, 4, 3, 5], type='int64')
-    expected = {"mode": 1, "count": 2}
-    assert pc.mode(arr).as_py() == {"mode": 1, "count": 2}
+    mode = pc.mode(arr)
+    assert len(mode) == 1
+    assert mode[0].as_py() == {"mode": 1, "count": 2}
+
+    mode = pc.mode(arr, 2)
+    assert len(mode) == 2
+    assert mode[0].as_py() == {"mode": 1, "count": 2}
+    assert mode[1].as_py() == {"mode": 3, "count": 2}
 
     arr = pa.array([], type='int64')
-    expected = {"mode": None, "count": None}
-    assert pc.mode(arr).as_py() == expected
+    assert len(pc.mode(arr)) == 0
 
 
 def test_mode_chunked_array():
     # ARROW-9917
     arr = pa.chunked_array([pa.array([1, 1, 3, 4, 3, 5], type='int64')])
-    expected = {"mode": 1, "count": 2}
-    assert pc.mode(arr).as_py() == expected
+    mode = pc.mode(arr)
+    assert len(mode) == 1
+    assert mode[0].as_py() == {"mode": 1, "count": 2}
+
+    mode = pc.mode(arr, 2)
+    assert len(mode) == 2
+    assert mode[0].as_py() == {"mode": 1, "count": 2}
+    assert mode[1].as_py() == {"mode": 3, "count": 2}
 
     arr = pa.chunked_array((), type='int64')
-    expected = {"mode": None, "count": None}
     assert arr.num_chunks == 0
-    assert pc.mode(arr).as_py() == expected
+    assert len(pc.mode(arr)) == 0
 
 
 def test_variance():
@@ -256,6 +271,24 @@ def test_match_substring():
     arr = pa.array(["ab", "abc", "ba", None])
     result = pc.match_substring(arr, "ab")
     expected = pa.array([True, True, False, None])
+    assert expected.equals(result)
+
+
+def test_trim():
+    # \u3000 is unicode whitespace
+    arr = pa.array([" foo", None, " \u3000foo bar \t"])
+    result = pc.utf8_trim_whitespace(arr)
+    expected = pa.array(["foo", None, "foo bar"])
+    assert expected.equals(result)
+
+    arr = pa.array([" foo", None, " \u3000foo bar \t"])
+    result = pc.ascii_trim_whitespace(arr)
+    expected = pa.array(["foo", None, "\u3000foo bar"])
+    assert expected.equals(result)
+
+    arr = pa.array([" foo", None, " \u3000foo bar \t"])
+    result = pc.utf8_trim(arr, characters=' f\u3000')
+    expected = pa.array(["oo", None, "oo bar \t"])
     assert expected.equals(result)
 
 
@@ -340,6 +373,34 @@ def test_min_max():
         s = pc.min_max()
 
 
+def test_any():
+    # ARROW-1846
+    a = pa.array([False, None, True])
+    assert pc.any(a).as_py() is True
+
+    a = pa.array([False, None, False])
+    assert pc.any(a).as_py() is False
+
+
+def test_all():
+    # ARROW-10301
+
+    a = pa.array([], type='bool')
+    assert pc.all(a).as_py() is True
+
+    a = pa.array([False, True])
+    assert pc.all(a).as_py() is False
+
+    a = pa.array([True, None])
+    assert pc.all(a).as_py() is True
+
+    a = pa.chunked_array([[True], [True, None]])
+    assert pc.all(a).as_py() is True
+
+    a = pa.chunked_array([[True], [False]])
+    assert pc.all(a).as_py() is False
+
+
 def test_is_valid():
     # An example generated function wrapper without options
     data = [4, 5, None]
@@ -364,7 +425,7 @@ def test_generated_docstrings():
             If not passed, will allocate memory from the default memory pool.
         options : pyarrow.compute.MinMaxOptions, optional
             Parameters altering compute function semantics
-        **kwargs: optional
+        **kwargs : optional
             Parameters for MinMaxOptions constructor.  Either `options`
             or `**kwargs` can be passed, but not both at the same time.
         """)
@@ -758,6 +819,41 @@ def test_compare_array(typ):
 
 
 @pytest.mark.parametrize("typ", ["array", "chunked_array"])
+def test_compare_string_scalar(typ):
+    if typ == "array":
+        def con(values): return pa.array(values)
+    else:
+        def con(values): return pa.chunked_array([values])
+
+    arr = con(['a', 'b', 'c', None])
+    scalar = pa.scalar('b')
+
+    result = pc.equal(arr, scalar)
+    assert result.equals(con([False, True, False, None]))
+
+    if typ == "array":
+        nascalar = pa.scalar(None, type="string")
+        result = pc.equal(arr, nascalar)
+        isnull = pc.is_null(result)
+        assert isnull.equals(con([True, True, True, True]))
+
+    result = pc.not_equal(arr, scalar)
+    assert result.equals(con([True, False, True, None]))
+
+    result = pc.less(arr, scalar)
+    assert result.equals(con([True, False, False, None]))
+
+    result = pc.less_equal(arr, scalar)
+    assert result.equals(con([True, True, False, None]))
+
+    result = pc.greater(arr, scalar)
+    assert result.equals(con([False, False, True, None]))
+
+    result = pc.greater_equal(arr, scalar)
+    assert result.equals(con([False, True, True, None]))
+
+
+@pytest.mark.parametrize("typ", ["array", "chunked_array"])
 def test_compare_scalar(typ):
     if typ == "array":
         def con(values): return pa.array(values)
@@ -765,11 +861,15 @@ def test_compare_scalar(typ):
         def con(values): return pa.chunked_array([values])
 
     arr = con([1, 2, 3, None])
-    # TODO this is a hacky way to construct a scalar ..
-    scalar = pa.array([2]).sum()
+    scalar = pa.scalar(2)
 
     result = pc.equal(arr, scalar)
     assert result.equals(con([False, True, False, None]))
+
+    if typ == "array":
+        nascalar = pa.scalar(None, type="int64")
+        result = pc.equal(arr, nascalar)
+        assert result.to_pylist() == [None, None, None, None]
 
     result = pc.not_equal(arr, scalar)
     assert result.equals(con([True, False, True, None]))
@@ -858,6 +958,16 @@ def test_fill_null():
     fill_value = pa.scalar(None, type=pa.null())
     result = arr.fill_null(fill_value)
     expected = pa.array([None, None, None, None])
+    assert result.equals(expected)
+
+    arr = pa.array(['a', 'bb', None])
+    result = arr.fill_null('ccc')
+    expected = pa.array(['a', 'bb', 'ccc'])
+    assert result.equals(expected)
+
+    arr = pa.array([b'a', b'bb', None], type=pa.large_binary())
+    result = arr.fill_null('ccc')
+    expected = pa.array([b'a', b'bb', b'ccc'], type=pa.large_binary())
     assert result.equals(expected)
 
 
@@ -969,3 +1079,123 @@ def test_partition_nth():
                for i in range(pivot))
     assert all(data[indices[i]] >= data[indices[pivot]]
                for i in range(pivot, len(data)))
+
+
+def test_array_sort_indices():
+    arr = pa.array([1, 2, None, 0])
+    result = pc.array_sort_indices(arr)
+    assert result.to_pylist() == [3, 0, 1, 2]
+    result = pc.array_sort_indices(arr, order="ascending")
+    assert result.to_pylist() == [3, 0, 1, 2]
+    result = pc.array_sort_indices(arr, order="descending")
+    assert result.to_pylist() == [1, 0, 3, 2]
+
+    with pytest.raises(ValueError, match="not a valid order"):
+        pc.array_sort_indices(arr, order="nonscending")
+
+
+def test_sort_indices_array():
+    arr = pa.array([1, 2, None, 0])
+    result = pc.sort_indices(arr)
+    assert result.to_pylist() == [3, 0, 1, 2]
+    result = pc.sort_indices(arr, sort_keys=[("dummy", "ascending")])
+    assert result.to_pylist() == [3, 0, 1, 2]
+    result = pc.sort_indices(arr, sort_keys=[("dummy", "descending")])
+    assert result.to_pylist() == [1, 0, 3, 2]
+    result = pc.sort_indices(
+        arr, options=pc.SortOptions(sort_keys=[("dummy", "descending")])
+    )
+    assert result.to_pylist() == [1, 0, 3, 2]
+
+
+def test_sort_indices_table():
+    table = pa.table({"a": [1, 1, 0], "b": [1, 0, 1]})
+
+    result = pc.sort_indices(table, sort_keys=[("a", "ascending")])
+    assert result.to_pylist() == [2, 0, 1]
+
+    result = pc.sort_indices(
+        table, sort_keys=[("a", "ascending"), ("b", "ascending")]
+    )
+    assert result.to_pylist() == [2, 1, 0]
+
+    with pytest.raises(ValueError, match="Must specify one or more sort keys"):
+        pc.sort_indices(table)
+
+    with pytest.raises(ValueError, match="Nonexistent sort key column"):
+        pc.sort_indices(table, sort_keys=[("unknown", "ascending")])
+
+    with pytest.raises(ValueError, match="not a valid order"):
+        pc.sort_indices(table, sort_keys=[("a", "nonscending")])
+
+
+def test_is_in():
+    arr = pa.array([1, 2, None, 1, 2, 3])
+
+    result = pc.is_in(arr, value_set=pa.array([1, 3, None]))
+    assert result.to_pylist() == [True, False, True, True, False, True]
+
+    result = pc.is_in(arr, value_set=pa.array([1, 3, None]), skip_nulls=True)
+    assert result.to_pylist() == [True, False, False, True, False, True]
+
+    result = pc.is_in(arr, value_set=pa.array([1, 3]))
+    assert result.to_pylist() == [True, False, False, True, False, True]
+
+    result = pc.is_in(arr, value_set=pa.array([1, 3]), skip_nulls=True)
+    assert result.to_pylist() == [True, False, False, True, False, True]
+
+
+def test_index_in():
+    arr = pa.array([1, 2, None, 1, 2, 3])
+
+    result = pc.index_in(arr, value_set=pa.array([1, 3, None]))
+    assert result.to_pylist() == [0, None, 2, 0, None, 1]
+
+    result = pc.index_in(arr, value_set=pa.array([1, 3, None]),
+                         skip_nulls=True)
+    assert result.to_pylist() == [0, None, None, 0, None, 1]
+
+    result = pc.index_in(arr, value_set=pa.array([1, 3]))
+    assert result.to_pylist() == [0, None, None, 0, None, 1]
+
+    result = pc.index_in(arr, value_set=pa.array([1, 3]), skip_nulls=True)
+    assert result.to_pylist() == [0, None, None, 0, None, 1]
+
+
+def test_quantile():
+    arr = pa.array([1, 2, 3, 4])
+
+    result = pc.quantile(arr)
+    assert result.to_pylist() == [2.5]
+
+    result = pc.quantile(arr, interpolation='lower')
+    assert result.to_pylist() == [2]
+    result = pc.quantile(arr, interpolation='higher')
+    assert result.to_pylist() == [3]
+    result = pc.quantile(arr, interpolation='nearest')
+    assert result.to_pylist() == [3]
+    result = pc.quantile(arr, interpolation='midpoint')
+    assert result.to_pylist() == [2.5]
+    result = pc.quantile(arr, interpolation='linear')
+    assert result.to_pylist() == [2.5]
+
+    arr = pa.array([1, 2])
+
+    result = pc.quantile(arr, q=[0.25, 0.5, 0.75])
+    assert result.to_pylist() == [1.25, 1.5, 1.75]
+
+    result = pc.quantile(arr, q=[0.25, 0.5, 0.75], interpolation='lower')
+    assert result.to_pylist() == [1, 1, 1]
+    result = pc.quantile(arr, q=[0.25, 0.5, 0.75], interpolation='higher')
+    assert result.to_pylist() == [2, 2, 2]
+    result = pc.quantile(arr, q=[0.25, 0.5, 0.75], interpolation='midpoint')
+    assert result.to_pylist() == [1.5, 1.5, 1.5]
+    result = pc.quantile(arr, q=[0.25, 0.5, 0.75], interpolation='nearest')
+    assert result.to_pylist() == [1, 1, 2]
+    result = pc.quantile(arr, q=[0.25, 0.5, 0.75], interpolation='linear')
+    assert result.to_pylist() == [1.25, 1.5, 1.75]
+
+    with pytest.raises(ValueError, match="Quantile must be between 0 and 1"):
+        pc.quantile(arr, q=1.1)
+    with pytest.raises(ValueError, match="'zzz' is not a valid interpolation"):
+        pc.quantile(arr, interpolation='zzz')

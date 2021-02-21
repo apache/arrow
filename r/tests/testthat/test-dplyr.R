@@ -18,6 +18,7 @@
 context("dplyr verbs")
 
 library(dplyr)
+library(stringr)
 
 expect_dplyr_equal <- function(expr, # A dplyr pipeline with `input` as its start
                                tbl,  # A tbl/df as reference, will make RB/Table with
@@ -27,6 +28,8 @@ expect_dplyr_equal <- function(expr, # A dplyr pipeline with `input` as its star
   expr <- rlang::enquo(expr)
   expected <- rlang::eval_tidy(expr, rlang::new_data_mask(rlang::env(input = tbl)))
 
+  skip_msg <- NULL
+
   if (is.null(skip_record_batch)) {
     via_batch <- rlang::eval_tidy(
       expr,
@@ -34,7 +37,7 @@ expect_dplyr_equal <- function(expr, # A dplyr pipeline with `input` as its star
     )
     expect_equivalent(via_batch, expected, ...)
   } else {
-    skip(skip_record_batch)
+    skip_msg <- c(skip_msg, skip_record_batch)
   }
 
   if (is.null(skip_table)) {
@@ -44,7 +47,11 @@ expect_dplyr_equal <- function(expr, # A dplyr pipeline with `input` as its star
     )
     expect_equivalent(via_table, expected, ...)
   } else {
-    skip(skip_table)
+    skip_msg <- c(skip_msg, skip_table)
+  }
+
+  if (!is.null(skip_msg)) {
+    skip(paste(skip_msg, collpase = "\n"))
   }
 }
 
@@ -77,6 +84,11 @@ expect_dplyr_error <- function(expr, # A dplyr pipeline with `input` as its star
 }
 
 tbl <- example_data
+# Add some better string data
+tbl$verses <- verses[[1]]
+# c(" a ", "  b  ", "   c   ", ...) increasing padding
+# nchar =   3  5  7  9 11 13 15 17 19 21
+tbl$padded_strings <- stringr::str_pad(letters[1:10], width = 2*(1:10)+1, side = "both")
 
 test_that("basic select/filter/collect", {
   batch <- record_batch(tbl)
@@ -133,6 +145,74 @@ test_that("filtering with expression", {
   )
 })
 
+test_that("filtering with arithmetic", {
+  expect_dplyr_equal(
+    input %>%
+      filter(dbl + 1 > 3) %>%
+      select(string = chr, int, dbl) %>%
+      collect(),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(dbl / 2 > 3) %>%
+      select(string = chr, int, dbl) %>%
+      collect(),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(dbl / 2L > 3) %>%
+      select(string = chr, int, dbl) %>%
+      collect(),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(int / 2 > 3) %>%
+      select(string = chr, int, dbl) %>%
+      collect(),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(int / 2L > 3) %>%
+      select(string = chr, int, dbl) %>%
+      collect(),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(dbl %/% 2 > 3) %>%
+      select(string = chr, int, dbl) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("filtering with expression + autocasting", {
+  expect_dplyr_equal(
+    input %>%
+      filter(dbl + 1 > 3L) %>% # test autocasting with comparison to 3L
+      select(string = chr, int, dbl) %>%
+      collect(),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(int + 1 > 3) %>%
+      select(string = chr, int, dbl) %>%
+      collect(),
+    tbl
+  )
+})
+
 test_that("More complex select/filter", {
   expect_dplyr_equal(
     input %>%
@@ -167,7 +247,7 @@ test_that("Print method", {
 int: int32
 chr: string
 
-* Filter: and(and(greater(<Array>, 2), or(equal(<Array>, "d"), equal(<Array>, "f"))), less(<Array>, 5L))
+* Filter: and(and(greater(<Array>, 2), or(equal(<Array>, "d"), equal(<Array>, "f"))), less(<Array>, 5))
 See $.data for the source Arrow object',
   fixed = TRUE
   )
@@ -177,6 +257,50 @@ test_that("filter() with %in%", {
   expect_dplyr_equal(
     input %>%
       filter(dbl > 2, chr %in% c("d", "f")) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("filter() with string ops", {
+  # Extra instrumentation to ensure that we're calling Arrow compute here
+  # because many base R string functions implicitly call as.character,
+  # which means they still work on Arrays but actually force data into R
+  # 1) wrapper that raises a warning if as.character is called. Can't wrap
+  #    the whole test because as.character apparently gets called in other
+  #    (presumably legitimate) places
+  # 2) Wrap the test in expect_warning(expr, NA) to catch the warning
+
+  with_no_as_character <- function(expr) {
+    trace(
+      "as.character",
+      tracer = quote(warning("as.character was called")),
+      print = FALSE,
+      where = toupper
+    )
+    on.exit(untrace("as.character", where = toupper))
+    force(expr)
+  }
+
+  expect_warning(
+    expect_dplyr_equal(
+      input %>%
+        filter(dbl > 2, with_no_as_character(toupper(chr)) %in% c("D", "F")) %>%
+        collect(),
+      tbl
+    ),
+  NA)
+
+  expect_dplyr_equal(
+    input %>%
+      filter(dbl > 2, str_length(verses) > 25) %>%
+      collect(),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(dbl > 2, str_length(str_trim(padded_strings, "left")) > 5) %>%
       collect(),
     tbl
   )
@@ -232,12 +356,56 @@ test_that("Filtering with a function that doesn't have an Array/expr method stil
   )
 })
 
+test_that("filter() with .data pronoun", {
+  expect_dplyr_equal(
+    input %>%
+      filter(.data$dbl > 4) %>%
+      select(.data$chr, .data$int, .data$lgl) %>%
+      collect(),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(is.na(.data$lgl)) %>%
+      select(.data$chr, .data$int, .data$lgl) %>%
+      collect(),
+    tbl
+  )
+
+  # and the .env pronoun too!
+  chr <- 4
+  expect_dplyr_equal(
+    input %>%
+      filter(.data$dbl > .env$chr) %>%
+      select(.data$chr, .data$int, .data$lgl) %>%
+      collect(),
+    tbl
+  )
+
+  # but there is an error if we don't override the masking with `.env`
+  expect_dplyr_error(
+    tbl %>%
+      filter(.data$dbl > chr) %>%
+      select(.data$chr, .data$int, .data$lgl) %>%
+      collect()
+  )
+})
+
 test_that("summarize", {
   expect_dplyr_equal(
     input %>%
       select(int, chr) %>%
       filter(int > 5) %>%
       summarize(min_int = min(int)),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      select(int, chr) %>%
+      filter(int > 5) %>%
+      summarize(min_int = min(int) / 2),
     tbl
   )
 })
@@ -276,6 +444,14 @@ test_that("group_by groupings are recorded", {
   )
   # Test that the original object is not affected
   expect_identical(collect(batch), tbl)
+})
+
+test_that("group_by doesn't yet support creating/renaming", {
+  expect_error(
+    record_batch(tbl) %>%
+      group_by(chr, numbers = int),
+    "Cannot create or rename columns in group_by on Arrow objects"
+  )
 })
 
 test_that("ungroup", {
@@ -363,6 +539,25 @@ test_that("group_by then rename", {
       select(string = chr, int) %>%
       collect(),
     tbl
+  )
+})
+
+test_that("group_by with .drop", {
+  expect_identical(
+    Table$create(tbl) %>% 
+      group_by(chr, .drop = TRUE) %>%
+      group_vars(), 
+    "chr"
+  )
+  expect_dplyr_equal(
+    input %>%
+      group_by(chr, .drop = TRUE) %>%
+      collect(),
+    tbl
+  )
+  expect_error(
+    Table$create(tbl) %>% group_by(chr, .drop = FALSE),
+    "not supported"
   )
 })
 

@@ -24,7 +24,24 @@
 
 namespace fs = ::arrow::fs;
 
-// FileInfo
+namespace cpp11 {
+
+const char* r6_class_name<fs::FileSystem>::get(
+    const std::shared_ptr<fs::FileSystem>& file_system) {
+  auto type_name = file_system->type_name();
+
+  if (type_name == "local") {
+    return "LocalFileSystem";
+  } else if (type_name == "s3") {
+    return "S3FileSystem";
+  } else if (type_name == "subtree") {
+    return "SubTreeFileSystem";
+  } else {
+    return "FileSystem";
+  }
+}
+
+}  // namespace cpp11
 
 // [[arrow::export]]
 fs::FileType fs___FileInfo__type(const std::shared_ptr<fs::FileInfo>& x) {
@@ -123,19 +140,20 @@ std::vector<std::shared_ptr<T>> shared_ptr_vector(const std::vector<T>& vec) {
 }
 
 // [[arrow::export]]
-std::vector<std::shared_ptr<fs::FileInfo>> fs___FileSystem__GetTargetInfos_Paths(
+cpp11::list fs___FileSystem__GetTargetInfos_Paths(
     const std::shared_ptr<fs::FileSystem>& file_system,
     const std::vector<std::string>& paths) {
   auto results = ValueOrStop(file_system->GetFileInfo(paths));
-  return shared_ptr_vector(results);
+  return arrow::r::to_r_list(shared_ptr_vector(results));
 }
 
 // [[arrow::export]]
-std::vector<std::shared_ptr<fs::FileInfo>> fs___FileSystem__GetTargetInfos_FileSelector(
+cpp11::list fs___FileSystem__GetTargetInfos_FileSelector(
     const std::shared_ptr<fs::FileSystem>& file_system,
     const std::shared_ptr<fs::FileSelector>& selector) {
   auto results = ValueOrStop(file_system->GetFileInfo(*selector));
-  return shared_ptr_vector(results);
+
+  return arrow::r::to_r_list(shared_ptr_vector(results));
 }
 
 // [[arrow::export]]
@@ -238,8 +256,9 @@ cpp11::writable::list fs___FileSystemFromUri(const std::string& path) {
   using cpp11::literals::operator"" _nm;
 
   std::string out_path;
-  auto file_system = ValueOrStop(fs::FileSystemFromUri(path, &out_path));
-  return cpp11::writable::list({"fs"_nm = file_system, "path"_nm = out_path});
+  return cpp11::writable::list(
+      {"fs"_nm = cpp11::to_r6(ValueOrStop(fs::FileSystemFromUri(path, &out_path))),
+       "path"_nm = out_path});
 }
 
 // [[arrow::export]]

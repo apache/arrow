@@ -121,6 +121,20 @@ test_that("ChunkedArray handles NA", {
   expect_equal(as.vector(is.na(x)), c(is.na(data[[1]]), is.na(data[[2]]), is.na(data[[3]])))
 })
 
+test_that("ChunkedArray handles NaN", {
+  data <- list(as.numeric(1:10), c(NaN, 2:10), c(1:3, NaN, 5L))
+  x <- chunked_array(!!!data)
+
+  expect_equal(x$type, float64())
+  expect_equal(x$num_chunks, 3L)
+  expect_equal(length(x), 25L)
+  expect_equal(as.vector(x), c(1:10, c(NaN, 2:10), c(1:3, NaN, 5)))
+
+  chunks <- x$chunks
+  expect_equal(as.vector(is.nan(chunks[[2]])), is.nan(data[[2]]))
+  expect_equal(as.vector(is.nan(x)), c(is.nan(data[[1]]), is.nan(data[[2]]), is.nan(data[[3]])))
+})
+
 test_that("ChunkedArray supports logical vectors (ARROW-3341)", {
   # with NA
   data <- purrr::rerun(3, sample(c(TRUE, FALSE, NA), 100, replace = TRUE))

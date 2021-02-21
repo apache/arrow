@@ -35,7 +35,7 @@
 namespace arrow {
 namespace dataset {
 
-DatasetFactory::DatasetFactory() : root_partition_(scalar(true)) {}
+DatasetFactory::DatasetFactory() : root_partition_(literal(true)) {}
 
 Result<std::shared_ptr<Schema>> DatasetFactory::Inspect(InspectOptions options) {
   ARROW_ASSIGN_OR_RAISE(auto schemas, InspectSchemas(std::move(options)));
@@ -206,6 +206,17 @@ Result<std::shared_ptr<DatasetFactory>> FileSystemDatasetFactory::Make(
 
   return Make(std::move(filesystem), std::move(files), std::move(format),
               std::move(options));
+}
+
+Result<std::shared_ptr<DatasetFactory>> FileSystemDatasetFactory::Make(
+    std::string uri, std::shared_ptr<FileFormat> format,
+    FileSystemFactoryOptions options) {
+  std::string internal_path;
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<fs::FileSystem> filesystem,
+                        arrow::fs::FileSystemFromUri(uri, &internal_path))
+  ARROW_ASSIGN_OR_RAISE(fs::FileInfo file_info, filesystem->GetFileInfo(internal_path))
+  return std::shared_ptr<DatasetFactory>(new FileSystemDatasetFactory(
+      {file_info}, std::move(filesystem), std::move(format), std::move(options)));
 }
 
 Result<std::vector<std::shared_ptr<Schema>>> FileSystemDatasetFactory::InspectSchemas(

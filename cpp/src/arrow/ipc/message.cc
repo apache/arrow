@@ -32,6 +32,7 @@
 #include "arrow/ipc/options.h"
 #include "arrow/ipc/util.h"
 #include "arrow/status.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/ubsan.h"
 

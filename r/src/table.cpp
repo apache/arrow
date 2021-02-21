@@ -60,19 +60,24 @@ std::shared_ptr<arrow::Field> Table__field(const std::shared_ptr<arrow::Table>& 
 }
 
 // [[arrow::export]]
-std::vector<std::shared_ptr<arrow::ChunkedArray>> Table__columns(
-    const std::shared_ptr<arrow::Table>& table) {
+cpp11::list Table__columns(const std::shared_ptr<arrow::Table>& table) {
   auto nc = table->num_columns();
   std::vector<std::shared_ptr<arrow::ChunkedArray>> res(nc);
   for (int i = 0; i < nc; i++) {
     res[i] = table->column(i);
   }
-  return res;
+  return arrow::r::to_r_list(res);
 }
 
 // [[arrow::export]]
 std::vector<std::string> Table__ColumnNames(const std::shared_ptr<arrow::Table>& table) {
   return table->ColumnNames();
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Table> Table__RenameColumns(
+    const std::shared_ptr<arrow::Table>& table, const std::vector<std::string>& names) {
+  return ValueOrStop(table->RenameColumns(names));
 }
 
 // [[arrow::export]]
@@ -112,6 +117,28 @@ bool Table__ValidateFull(const std::shared_ptr<arrow::Table>& table) {
 std::shared_ptr<arrow::ChunkedArray> Table__GetColumnByName(
     const std::shared_ptr<arrow::Table>& table, const std::string& name) {
   return table->GetColumnByName(name);
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Table> Table__RemoveColumn(
+    const std::shared_ptr<arrow::Table>& table, R_xlen_t i) {
+  return ValueOrStop(table->RemoveColumn(i));
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Table> Table__AddColumn(
+    const std::shared_ptr<arrow::Table>& table, R_xlen_t i,
+    const std::shared_ptr<arrow::Field>& field,
+    const std::shared_ptr<arrow::ChunkedArray>& column) {
+  return ValueOrStop(table->AddColumn(i, field, column));
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Table> Table__SetColumn(
+    const std::shared_ptr<arrow::Table>& table, R_xlen_t i,
+    const std::shared_ptr<arrow::Field>& field,
+    const std::shared_ptr<arrow::ChunkedArray>& column) {
+  return ValueOrStop(table->SetColumn(i, field, column));
 }
 
 // [[arrow::export]]

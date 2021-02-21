@@ -24,11 +24,10 @@
 #include <memory>
 #include <string>
 #include <type_traits>
-#include <unordered_map>
 #include <vector>
 
 #include "arrow/array.h"
-#include "arrow/builder.h"
+#include "arrow/compute/api.h"
 #include "arrow/datum.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/reader.h"
@@ -39,7 +38,9 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/base64.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/int_util_internal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string_view.h"
@@ -62,6 +63,8 @@ using arrow::BooleanArray;
 using arrow::ChunkedArray;
 using arrow::DataType;
 using arrow::Datum;
+using arrow::Decimal128Array;
+using arrow::Decimal256Array;
 using arrow::Field;
 using arrow::Int32Array;
 using arrow::ListArray;
@@ -85,6 +88,8 @@ using parquet::schema::GroupNode;
 using parquet::schema::Node;
 using parquet::schema::PrimitiveNode;
 using ParquetType = parquet::Type;
+
+namespace BitUtil = arrow::BitUtil;
 
 namespace parquet {
 namespace arrow {
@@ -343,20 +348,26 @@ Status TransferDictionary(RecordReader* reader,
   return Status::OK();
 }
 
-Status TransferBinary(RecordReader* reader,
+Status TransferBinary(RecordReader* reader, MemoryPool* pool,
                       const std::shared_ptr<DataType>& logical_value_type,
                       std::shared_ptr<ChunkedArray>* out) {
   if (reader->read_dictionary()) {
     return TransferDictionary(
         reader, ::arrow::dictionary(::arrow::int32(), logical_value_type), out);
   }
+  ::arrow::compute::ExecContext ctx(pool);
+  ::arrow::compute::CastOptions cast_options;
+  cast_options.allow_invalid_utf8 = false;  // avoid spending time validating UTF8 data
+
   auto binary_reader = dynamic_cast<BinaryRecordReader*>(reader);
   DCHECK(binary_reader);
   auto chunks = binary_reader->GetBuilderChunks();
-  for (const auto& chunk : chunks) {
+  for (auto& chunk : chunks) {
     if (!chunk->type()->Equals(*logical_value_type)) {
-      ARROW_ASSIGN_OR_RAISE(*out, ChunkedArray(chunks).View(logical_value_type));
-      return Status::OK();
+      // XXX: if a LargeBinary chunk is larger than 2GB, the MSBs of offsets
+      // will be lost because they are first created as int32 and then cast to int64.
+      ARROW_ASSIGN_OR_RAISE(
+          chunk, ::arrow::compute::Cast(*chunk, logical_value_type, cast_options, &ctx));
     }
   }
   *out = std::make_shared<ChunkedArray>(chunks, logical_value_type);
@@ -364,225 +375,136 @@ Status TransferBinary(RecordReader* reader,
 }
 
 // ----------------------------------------------------------------------
-// INT32 / INT64 / BYTE_ARRAY / FIXED_LEN_BYTE_ARRAY -> Decimal128
+// INT32 / INT64 / BYTE_ARRAY / FIXED_LEN_BYTE_ARRAY -> Decimal128 || Decimal256
 
-static uint64_t BytesToInteger(const uint8_t* bytes, int32_t start, int32_t stop) {
-  const int32_t length = stop - start;
-
-  DCHECK_GE(length, 0);
-  DCHECK_LE(length, 8);
-
-  switch (length) {
-    case 0:
-      return 0;
-    case 1:
-      return bytes[start];
-    case 2:
-      return FromBigEndian(SafeLoadAs<uint16_t>(bytes + start));
-    case 3: {
-      const uint64_t first_two_bytes = FromBigEndian(SafeLoadAs<uint16_t>(bytes + start));
-      const uint64_t last_byte = bytes[stop - 1];
-      return first_two_bytes << 8 | last_byte;
-    }
-    case 4:
-      return FromBigEndian(SafeLoadAs<uint32_t>(bytes + start));
-    case 5: {
-      const uint64_t first_four_bytes =
-          FromBigEndian(SafeLoadAs<uint32_t>(bytes + start));
-      const uint64_t last_byte = bytes[stop - 1];
-      return first_four_bytes << 8 | last_byte;
-    }
-    case 6: {
-      const uint64_t first_four_bytes =
-          FromBigEndian(SafeLoadAs<uint32_t>(bytes + start));
-      const uint64_t last_two_bytes =
-          FromBigEndian(SafeLoadAs<uint16_t>(bytes + start + 4));
-      return first_four_bytes << 16 | last_two_bytes;
-    }
-    case 7: {
-      const uint64_t first_four_bytes =
-          FromBigEndian(SafeLoadAs<uint32_t>(bytes + start));
-      const uint64_t second_two_bytes =
-          FromBigEndian(SafeLoadAs<uint16_t>(bytes + start + 4));
-      const uint64_t last_byte = bytes[stop - 1];
-      return first_four_bytes << 24 | second_two_bytes << 8 | last_byte;
-    }
-    case 8:
-      return FromBigEndian(SafeLoadAs<uint64_t>(bytes + start));
-    default: {
-      DCHECK(false);
-      return UINT64_MAX;
-    }
-  }
+template <typename DecimalType>
+Status RawBytesToDecimalBytes(const uint8_t* value, int32_t byte_width,
+                              uint8_t* out_buf) {
+  ARROW_ASSIGN_OR_RAISE(DecimalType t, DecimalType::FromBigEndian(value, byte_width));
+  t.ToBytes(out_buf);
+  return ::arrow::Status::OK();
 }
 
-static constexpr int32_t kMinDecimalBytes = 1;
-static constexpr int32_t kMaxDecimalBytes = 16;
-
-/// \brief Convert a sequence of big-endian bytes to one int64_t (high bits) and one
-/// uint64_t (low bits).
-static void BytesToIntegerPair(const uint8_t* bytes, const int32_t length,
-                               int64_t* out_high, uint64_t* out_low) {
-  DCHECK_GE(length, kMinDecimalBytes);
-  DCHECK_LE(length, kMaxDecimalBytes);
-
-  // XXX This code is copied from Decimal::FromBigEndian
-
-  int64_t high, low;
-
-  // Bytes are coming in big-endian, so the first byte is the MSB and therefore holds the
-  // sign bit.
-  const bool is_negative = static_cast<int8_t>(bytes[0]) < 0;
-
-  // 1. Extract the high bytes
-  // Stop byte of the high bytes
-  const int32_t high_bits_offset = std::max(0, length - 8);
-  const auto high_bits = BytesToInteger(bytes, 0, high_bits_offset);
-
-  if (high_bits_offset == 8) {
-    // Avoid undefined shift by 64 below
-    high = high_bits;
-  } else {
-    high = -1 * (is_negative && length < kMaxDecimalBytes);
-    // Shift left enough bits to make room for the incoming int64_t
-    high = SafeLeftShift(high, high_bits_offset * CHAR_BIT);
-    // Preserve the upper bits by inplace OR-ing the int64_t
-    high |= high_bits;
-  }
-
-  // 2. Extract the low bytes
-  // Stop byte of the low bytes
-  const int32_t low_bits_offset = std::min(length, 8);
-  const auto low_bits = BytesToInteger(bytes, high_bits_offset, length);
-
-  if (low_bits_offset == 8) {
-    // Avoid undefined shift by 64 below
-    low = low_bits;
-  } else {
-    // Sign extend the low bits if necessary
-    low = -1 * (is_negative && length < 8);
-    // Shift left enough bits to make room for the incoming int64_t
-    low = SafeLeftShift(low, low_bits_offset * CHAR_BIT);
-    // Preserve the upper bits by inplace OR-ing the int64_t
-    low |= low_bits;
-  }
-
-  *out_high = high;
-  *out_low = static_cast<uint64_t>(low);
-}
-
-static inline void RawBytesToDecimalBytes(const uint8_t* value, int32_t byte_width,
-                                          uint8_t* out_buf) {
-  // view the first 8 bytes as an unsigned 64-bit integer
-  auto low = reinterpret_cast<uint64_t*>(out_buf);
-
-  // view the second 8 bytes as a signed 64-bit integer
-  auto high = reinterpret_cast<int64_t*>(out_buf + sizeof(uint64_t));
-
-  // Convert the fixed size binary array bytes into a Decimal128 compatible layout
-  BytesToIntegerPair(value, byte_width, high, low);
-}
-
-template <typename T>
-Status ConvertToDecimal128(const Array& array, const std::shared_ptr<DataType>&,
-                           MemoryPool* pool, std::shared_ptr<Array>*) {
-  return Status::NotImplemented("not implemented");
-}
+template <typename DecimalArrayType>
+struct DecimalTypeTrait;
 
 template <>
-Status ConvertToDecimal128<FLBAType>(const Array& array,
-                                     const std::shared_ptr<DataType>& type,
-                                     MemoryPool* pool, std::shared_ptr<Array>* out) {
-  const auto& fixed_size_binary_array =
-      static_cast<const ::arrow::FixedSizeBinaryArray&>(array);
-
-  // The byte width of each decimal value
-  const int32_t type_length =
-      static_cast<const ::arrow::Decimal128Type&>(*type).byte_width();
-
-  // number of elements in the entire array
-  const int64_t length = fixed_size_binary_array.length();
-
-  // Get the byte width of the values in the FixedSizeBinaryArray. Most of the time
-  // this will be different from the decimal array width because we write the minimum
-  // number of bytes necessary to represent a given precision
-  const int32_t byte_width =
-      static_cast<const ::arrow::FixedSizeBinaryType&>(*fixed_size_binary_array.type())
-          .byte_width();
-  if (byte_width < kMinDecimalBytes || byte_width > kMaxDecimalBytes) {
-    return Status::Invalid("Invalid FIXED_LEN_BYTE_ARRAY length for Decimal128");
-  }
-
-  // allocate memory for the decimal array
-  ARROW_ASSIGN_OR_RAISE(auto data, ::arrow::AllocateBuffer(length * type_length, pool));
-
-  // raw bytes that we can write to
-  uint8_t* out_ptr = data->mutable_data();
-
-  // convert each FixedSizeBinary value to valid decimal bytes
-  const int64_t null_count = fixed_size_binary_array.null_count();
-  if (null_count > 0) {
-    for (int64_t i = 0; i < length; ++i, out_ptr += type_length) {
-      if (!fixed_size_binary_array.IsNull(i)) {
-        RawBytesToDecimalBytes(fixed_size_binary_array.GetValue(i), byte_width, out_ptr);
-      }
-    }
-  } else {
-    for (int64_t i = 0; i < length; ++i, out_ptr += type_length) {
-      RawBytesToDecimalBytes(fixed_size_binary_array.GetValue(i), byte_width, out_ptr);
-    }
-  }
-
-  *out = std::make_shared<::arrow::Decimal128Array>(
-      type, length, std::move(data), fixed_size_binary_array.null_bitmap(), null_count);
-
-  return Status::OK();
-}
+struct DecimalTypeTrait<::arrow::Decimal128Array> {
+  using value = ::arrow::Decimal128;
+};
 
 template <>
-Status ConvertToDecimal128<ByteArrayType>(const Array& array,
-                                          const std::shared_ptr<DataType>& type,
-                                          MemoryPool* pool, std::shared_ptr<Array>* out) {
-  const auto& binary_array = static_cast<const ::arrow::BinaryArray&>(array);
-  const int64_t length = binary_array.length();
+struct DecimalTypeTrait<::arrow::Decimal256Array> {
+  using value = ::arrow::Decimal256;
+};
 
-  const auto& decimal_type = static_cast<const ::arrow::Decimal128Type&>(*type);
-  const int64_t type_length = decimal_type.byte_width();
-
-  ARROW_ASSIGN_OR_RAISE(auto data, ::arrow::AllocateBuffer(length * type_length, pool));
-
-  // raw bytes that we can write to
-  uint8_t* out_ptr = data->mutable_data();
-
-  const int64_t null_count = binary_array.null_count();
-
-  // convert each BinaryArray value to valid decimal bytes
-  for (int64_t i = 0; i < length; i++, out_ptr += type_length) {
-    int32_t record_len = 0;
-    const uint8_t* record_loc = binary_array.GetValue(i, &record_len);
-
-    if (record_len < 0 || record_len > type_length) {
-      return Status::Invalid("Invalid BYTE_ARRAY length for Decimal128");
-    }
-
-    auto out_ptr_view = reinterpret_cast<uint64_t*>(out_ptr);
-    out_ptr_view[0] = 0;
-    out_ptr_view[1] = 0;
-
-    // only convert rows that are not null if there are nulls, or
-    // all rows, if there are not
-    if ((null_count > 0 && !binary_array.IsNull(i)) || null_count <= 0) {
-      if (record_len <= 0) {
-        return Status::Invalid("Invalid BYTE_ARRAY length for Decimal128");
-      }
-      RawBytesToDecimalBytes(record_loc, record_len, out_ptr);
-    }
+template <typename DecimalArrayType, typename ParquetType>
+struct DecimalConverter {
+  static inline Status ConvertToDecimal(const Array& array,
+                                        const std::shared_ptr<DataType>&,
+                                        MemoryPool* pool, std::shared_ptr<Array>*) {
+    return Status::NotImplemented("not implemented");
   }
+};
 
-  *out = std::make_shared<::arrow::Decimal128Array>(
-      type, length, std::move(data), binary_array.null_bitmap(), null_count);
-  return Status::OK();
-}
+template <typename DecimalArrayType>
+struct DecimalConverter<DecimalArrayType, FLBAType> {
+  static inline Status ConvertToDecimal(const Array& array,
+                                        const std::shared_ptr<DataType>& type,
+                                        MemoryPool* pool, std::shared_ptr<Array>* out) {
+    const auto& fixed_size_binary_array =
+        checked_cast<const ::arrow::FixedSizeBinaryArray&>(array);
+
+    // The byte width of each decimal value
+    const int32_t type_length =
+        checked_cast<const ::arrow::DecimalType&>(*type).byte_width();
+
+    // number of elements in the entire array
+    const int64_t length = fixed_size_binary_array.length();
+
+    // Get the byte width of the values in the FixedSizeBinaryArray. Most of the time
+    // this will be different from the decimal array width because we write the minimum
+    // number of bytes necessary to represent a given precision
+    const int32_t byte_width =
+        checked_cast<const ::arrow::FixedSizeBinaryType&>(*fixed_size_binary_array.type())
+            .byte_width();
+    // allocate memory for the decimal array
+    ARROW_ASSIGN_OR_RAISE(auto data, ::arrow::AllocateBuffer(length * type_length, pool));
+
+    // raw bytes that we can write to
+    uint8_t* out_ptr = data->mutable_data();
+
+    // convert each FixedSizeBinary value to valid decimal bytes
+    const int64_t null_count = fixed_size_binary_array.null_count();
+
+    using DecimalType = typename DecimalTypeTrait<DecimalArrayType>::value;
+    if (null_count > 0) {
+      for (int64_t i = 0; i < length; ++i, out_ptr += type_length) {
+        if (!fixed_size_binary_array.IsNull(i)) {
+          RETURN_NOT_OK(RawBytesToDecimalBytes<DecimalType>(
+              fixed_size_binary_array.GetValue(i), byte_width, out_ptr));
+        } else {
+          std::memset(out_ptr, 0, type_length);
+        }
+      }
+    } else {
+      for (int64_t i = 0; i < length; ++i, out_ptr += type_length) {
+        RETURN_NOT_OK(RawBytesToDecimalBytes<DecimalType>(
+            fixed_size_binary_array.GetValue(i), byte_width, out_ptr));
+      }
+    }
+
+    *out = std::make_shared<DecimalArrayType>(
+        type, length, std::move(data), fixed_size_binary_array.null_bitmap(), null_count);
+
+    return Status::OK();
+  }
+};
+
+template <typename DecimalArrayType>
+struct DecimalConverter<DecimalArrayType, ByteArrayType> {
+  static inline Status ConvertToDecimal(const Array& array,
+                                        const std::shared_ptr<DataType>& type,
+                                        MemoryPool* pool, std::shared_ptr<Array>* out) {
+    const auto& binary_array = checked_cast<const ::arrow::BinaryArray&>(array);
+    const int64_t length = binary_array.length();
+
+    const auto& decimal_type = checked_cast<const ::arrow::DecimalType&>(*type);
+    const int64_t type_length = decimal_type.byte_width();
+
+    ARROW_ASSIGN_OR_RAISE(auto data, ::arrow::AllocateBuffer(length * type_length, pool));
+
+    // raw bytes that we can write to
+    uint8_t* out_ptr = data->mutable_data();
+
+    const int64_t null_count = binary_array.null_count();
+
+    // convert each BinaryArray value to valid decimal bytes
+    for (int64_t i = 0; i < length; i++, out_ptr += type_length) {
+      int32_t record_len = 0;
+      const uint8_t* record_loc = binary_array.GetValue(i, &record_len);
+
+      if (record_len < 0 || record_len > type_length) {
+        return Status::Invalid("Invalid BYTE_ARRAY length for ", type->ToString());
+      }
+
+      auto out_ptr_view = reinterpret_cast<uint64_t*>(out_ptr);
+      out_ptr_view[0] = 0;
+      out_ptr_view[1] = 0;
+
+      // only convert rows that are not null if there are nulls, or
+      // all rows, if there are not
+      if ((null_count > 0 && !binary_array.IsNull(i)) || null_count <= 0) {
+        using DecimalType = typename DecimalTypeTrait<DecimalArrayType>::value;
+        RETURN_NOT_OK(
+            RawBytesToDecimalBytes<DecimalType>(record_loc, record_len, out_ptr));
+      }
+    }
+    *out = std::make_shared<DecimalArrayType>(type, length, std::move(data),
+                                              binary_array.null_bitmap(), null_count);
+    return Status::OK();
+  }
+};
 
 /// \brief Convert an Int32 or Int64 array into a Decimal128Array
 /// The parquet spec allows systems to write decimals in int32, int64 if the values are
@@ -594,7 +516,15 @@ template <
                                     std::is_same<ParquetIntegerType, Int64Type>::value>>
 static Status DecimalIntegerTransfer(RecordReader* reader, MemoryPool* pool,
                                      const std::shared_ptr<DataType>& type, Datum* out) {
-  DCHECK_EQ(type->id(), ::arrow::Type::DECIMAL);
+  // Decimal128 and Decimal256 are only Arrow constructs.  Parquet does not
+  // specifically distinguish between decimal byte widths.
+  // Decimal256 isn't relevant here because the Arrow-Parquet C++ bindings never
+  // write Decimal values as integers and if the decimal value can fit in an
+  // integer it is wasteful to use Decimal256. Put another way, the only
+  // way an integer column could be construed as Decimal256 is if an arrow
+  // schema was stored as metadata in the file indicating the column was
+  // Decimal256. The current Arrow-Parquet C++ bindings will never do this.
+  DCHECK(type->id() == ::arrow::Type::DECIMAL128);
 
   const int64_t length = reader->values_written();
 
@@ -605,7 +535,7 @@ static Status DecimalIntegerTransfer(RecordReader* reader, MemoryPool* pool,
 
   const auto values = reinterpret_cast<const ElementType*>(reader->values());
 
-  const auto& decimal_type = static_cast<const ::arrow::Decimal128Type&>(*type);
+  const auto& decimal_type = checked_cast<const ::arrow::DecimalType&>(*type);
   const int64_t type_length = decimal_type.byte_width();
 
   ARROW_ASSIGN_OR_RAISE(auto data, ::arrow::AllocateBuffer(length * type_length, pool));
@@ -617,45 +547,36 @@ static Status DecimalIntegerTransfer(RecordReader* reader, MemoryPool* pool,
     // sign/zero extend int32_t values, otherwise a no-op
     const auto value = static_cast<int64_t>(values[i]);
 
-    auto out_ptr_view = reinterpret_cast<uint64_t*>(out_ptr);
-
-    // No-op on little endian machines, byteswap on big endian
-    out_ptr_view[0] = FromLittleEndian(static_cast<uint64_t>(value));
-
-    // no need to byteswap here because we're sign/zero extending exactly 8 bytes
-    out_ptr_view[1] = static_cast<uint64_t>(value < 0 ? -1 : 0);
+    ::arrow::Decimal128 decimal(value);
+    decimal.ToBytes(out_ptr);
   }
 
   if (reader->nullable_values()) {
     std::shared_ptr<ResizableBuffer> is_valid = reader->ReleaseIsValid();
-    *out = std::make_shared<::arrow::Decimal128Array>(type, length, std::move(data),
-                                                      is_valid, reader->null_count());
+    *out = std::make_shared<Decimal128Array>(type, length, std::move(data), is_valid,
+                                             reader->null_count());
   } else {
-    *out = std::make_shared<::arrow::Decimal128Array>(type, length, std::move(data));
+    *out = std::make_shared<Decimal128Array>(type, length, std::move(data));
   }
   return Status::OK();
 }
 
-/// \brief Convert an arrow::BinaryArray to an arrow::Decimal128Array
+/// \brief Convert an arrow::BinaryArray to an arrow::Decimal{128,256}Array
 /// We do this by:
 /// 1. Creating an arrow::BinaryArray from the RecordReader's builder
-/// 2. Allocating a buffer for the arrow::Decimal128Array
+/// 2. Allocating a buffer for the arrow::Decimal{128,256}Array
 /// 3. Converting the big-endian bytes in each BinaryArray entry to two integers
 ///    representing the high and low bits of each decimal value.
-template <typename ParquetType>
+template <typename DecimalArrayType, typename ParquetType>
 Status TransferDecimal(RecordReader* reader, MemoryPool* pool,
                        const std::shared_ptr<DataType>& type, Datum* out) {
-  if (type->id() != ::arrow::Type::DECIMAL128) {
-    return Status::NotImplemented("Only reading decimal128 types is currently supported");
-  }
-
   auto binary_reader = dynamic_cast<BinaryRecordReader*>(reader);
   DCHECK(binary_reader);
   ::arrow::ArrayVector chunks = binary_reader->GetBuilderChunks();
   for (size_t i = 0; i < chunks.size(); ++i) {
     std::shared_ptr<Array> chunk_as_decimal;
-    RETURN_NOT_OK(
-        ConvertToDecimal128<ParquetType>(*chunks[i], type, pool, &chunk_as_decimal));
+    auto fn = &DecimalConverter<DecimalArrayType, ParquetType>::ConvertToDecimal;
+    RETURN_NOT_OK(fn(*chunks[i], type, pool, &chunk_as_decimal));
     // Replace the chunk, which will hopefully also free memory as we go
     chunks[i] = chunk_as_decimal;
   }
@@ -712,36 +633,55 @@ Status TransferColumnData(RecordReader* reader, std::shared_ptr<DataType> value_
       break;
     case ::arrow::Type::FIXED_SIZE_BINARY:
     case ::arrow::Type::BINARY:
-    case ::arrow::Type::STRING: {
-      RETURN_NOT_OK(TransferBinary(reader, value_type, &chunked_result));
+    case ::arrow::Type::STRING:
+    case ::arrow::Type::LARGE_BINARY:
+    case ::arrow::Type::LARGE_STRING: {
+      RETURN_NOT_OK(TransferBinary(reader, pool, value_type, &chunked_result));
       result = chunked_result;
     } break;
-    case ::arrow::Type::DECIMAL: {
+    case ::arrow::Type::DECIMAL128: {
       switch (descr->physical_type()) {
         case ::parquet::Type::INT32: {
-          RETURN_NOT_OK(
-              DecimalIntegerTransfer<Int32Type>(reader, pool, value_type, &result));
+          auto fn = DecimalIntegerTransfer<Int32Type>;
+          RETURN_NOT_OK(fn(reader, pool, value_type, &result));
         } break;
         case ::parquet::Type::INT64: {
-          RETURN_NOT_OK(
-              DecimalIntegerTransfer<Int64Type>(reader, pool, value_type, &result));
+          auto fn = &DecimalIntegerTransfer<Int64Type>;
+          RETURN_NOT_OK(fn(reader, pool, value_type, &result));
         } break;
         case ::parquet::Type::BYTE_ARRAY: {
-          RETURN_NOT_OK(
-              TransferDecimal<ByteArrayType>(reader, pool, value_type, &result));
+          auto fn = &TransferDecimal<Decimal128Array, ByteArrayType>;
+          RETURN_NOT_OK(fn(reader, pool, value_type, &result));
         } break;
         case ::parquet::Type::FIXED_LEN_BYTE_ARRAY: {
-          RETURN_NOT_OK(TransferDecimal<FLBAType>(reader, pool, value_type, &result));
+          auto fn = &TransferDecimal<Decimal128Array, FLBAType>;
+          RETURN_NOT_OK(fn(reader, pool, value_type, &result));
         } break;
         default:
           return Status::Invalid(
-              "Physical type for decimal must be int32, int64, byte array, or fixed "
+              "Physical type for decimal128 must be int32, int64, byte array, or fixed "
               "length binary");
       }
     } break;
+    case ::arrow::Type::DECIMAL256:
+      switch (descr->physical_type()) {
+        case ::parquet::Type::BYTE_ARRAY: {
+          auto fn = &TransferDecimal<Decimal256Array, ByteArrayType>;
+          RETURN_NOT_OK(fn(reader, pool, value_type, &result));
+        } break;
+        case ::parquet::Type::FIXED_LEN_BYTE_ARRAY: {
+          auto fn = &TransferDecimal<Decimal256Array, FLBAType>;
+          RETURN_NOT_OK(fn(reader, pool, value_type, &result));
+        } break;
+        default:
+          return Status::Invalid(
+              "Physical type for decimal256 must be fixed length binary");
+      }
+      break;
+
     case ::arrow::Type::TIMESTAMP: {
       const ::arrow::TimestampType& timestamp_type =
-          static_cast<::arrow::TimestampType&>(*value_type);
+          checked_cast<::arrow::TimestampType&>(*value_type);
       switch (timestamp_type.unit()) {
         case ::arrow::TimeUnit::MILLI:
         case ::arrow::TimeUnit::MICRO: {

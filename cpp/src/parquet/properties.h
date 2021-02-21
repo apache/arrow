@@ -31,6 +31,7 @@
 #include "parquet/parquet_version.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
+#include "parquet/type_fwd.h"
 #include "parquet/types.h"
 
 namespace parquet {
@@ -45,9 +46,7 @@ namespace parquet {
 /// Note that the 2.x format version series also introduced new serialized
 /// data page metadata and on disk data page layout. To enable this, use
 /// ParquetDataPageVersion.
-struct ParquetVersion {
-  enum type { PARQUET_1_0, PARQUET_2_0 };
-};
+struct ParquetVersion;
 
 /// Controls serialization format of data pages.  parquet-format v2.0.0
 /// introduced a new data page metadata type DataPageV2 and serialized page

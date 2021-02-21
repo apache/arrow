@@ -34,12 +34,11 @@ example_with_metadata <- tibble::tibble(
   ),
   d = "four"
 )
-# TODO: collect top-level dataset metadata
-# https://issues.apache.org/jira/browse/ARROW-9271
-# attr(example_with_metadata, "top_level") <- list(
-#   field_one = 12,
-#   field_two = "more stuff"
-# )
+
+attr(example_with_metadata, "top_level") <- list(
+  field_one = 12,
+  field_two = "more stuff"
+)
 
 haven_data <- tibble::tibble(
   num = structure(c(5.1, 4.9),
@@ -64,7 +63,61 @@ example_with_times <- tibble::tibble(
   posixlt_tz = as.POSIXlt(lubridate::ymd_hms("2018-10-07 19:04:05", tz = "US/Eastern") + 1:10)
 )
 
+verses <- list(
+  # Since we tend to test with dataframes with 10 rows, here are verses from
+  # "Milonga del moro judío", by Jorge Drexler. They are décimas, 10-line
+  # poems with a particular meter and rhyme scheme.
+  # (They also have non-ASCII characters, which is nice for testing)
+  c(
+    "Por cada muro, un lamento",
+    "En Jerusalén la dorada",
+    "Y mil vidas malgastadas",
+    "Por cada mandamiento",
+    "Yo soy polvo de tu viento",
+    "Y aunque sangro de tu herida",
+    "Y cada piedra querida",
+    "Guarda mi amor más profundo",
+    "No hay una piedra en el mundo",
+    "Que valga lo que una vida"
+  ),
+  c(
+    "No hay muerto que no me duela",
+    "No hay un bando ganador",
+    "No hay nada más que dolor",
+    "Y otra vida que se vuela",
+    "La guerra es muy mala escuela",
+    "No importa el disfraz que viste",
+    "Perdonen que no me aliste",
+    "Bajo ninguna bandera",
+    "Vale más cualquier quimera",
+    "Que un trozo de tela triste"
+  ),
+  c(
+    "Y a nadie le di permiso",
+    "Para matar en mi nombre",
+    "Un hombre no es más que un hombre",
+    "Y si hay Dios, así lo quiso",
+    "El mismo suelo que piso",
+    "Seguirá, yo me habré ido",
+    "Rumbo también del olvido",
+    "No hay doctrina que no vaya",
+    "Y no hay pueblo que no se haya",
+    "Creído el pueblo elegido"
+  )
+)
+
 make_big_string <- function() {
   # This creates a character vector that would exceed the capacity of BinaryArray
   rep(purrr::map_chr(2047:2050, ~paste(sample(letters, ., replace = TRUE), collapse = "")), 2^18)
 }
+
+make_random_string_of_size <- function(size = 1) {
+  purrr::map_chr(1000*size, ~paste(sample(letters, ., replace = TRUE), collapse = ""))
+}
+
+make_string_of_size <- function(size = 1) {
+  paste(rep(letters, length = 1000*size), collapse = "")
+}
+
+example_with_extra_metadata <- example_with_metadata
+attributes(example_with_extra_metadata$b) <- list(lots = rep(make_string_of_size(1), 100))

@@ -36,13 +36,17 @@
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/base64.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"
+#include "arrow/util/string.h"
 
 #ifdef GRPCPP_GRPCPP_H
 #error "gRPC headers should not be in public API"
 #endif
 
+#include "arrow/flight/client_cookie_middleware.h"
+#include "arrow/flight/client_header_internal.h"
 #include "arrow/flight/internal.h"
 #include "arrow/flight/middleware_internal.h"
 #include "arrow/flight/test_util.h"
@@ -51,6 +55,15 @@ namespace pb = arrow::flight::protocol;
 
 namespace arrow {
 namespace flight {
+
+const char kValidUsername[] = "flight_username";
+const char kValidPassword[] = "flight_password";
+const char kInvalidUsername[] = "invalid_flight_username";
+const char kInvalidPassword[] = "invalid_flight_password";
+const char kBearerToken[] = "bearertoken";
+const char kBasicPrefix[] = "Basic ";
+const char kBearerPrefix[] = "Bearer ";
+const char kAuthHeader[] = "authorization";
 
 void AssertEqual(const ActionType& expected, const ActionType& actual) {
   ASSERT_EQ(expected.type, actual.type);
@@ -184,6 +197,26 @@ TEST(TestFlight, ConnectUri) {
   ASSERT_OK(FlightClient::Connect(location2, &client));
 }
 
+#ifndef _WIN32
+TEST(TestFlight, ConnectUriUnix) {
+  TestServer server("flight-test-server", "/tmp/flight-test.sock");
+  server.Start();
+  ASSERT_TRUE(server.IsRunning());
+
+  std::stringstream ss;
+  ss << "grpc+unix://" << server.unix_sock();
+  std::string uri = ss.str();
+
+  std::unique_ptr<FlightClient> client;
+  Location location1;
+  Location location2;
+  ASSERT_OK(Location::Parse(uri, &location1));
+  ASSERT_OK(Location::Parse(uri, &location2));
+  ASSERT_OK(FlightClient::Connect(location1, &client));
+  ASSERT_OK(FlightClient::Connect(location2, &client));
+}
+#endif
+
 TEST(TestFlight, RoundTripTypes) {
   Ticket ticket{"foo"};
   std::string ticket_serialized;
@@ -287,6 +320,23 @@ TEST(TestFlight, GetPort) {
   FlightServerOptions options(location);
   ASSERT_OK(server->Init(options));
   ASSERT_GT(server->port(), 0);
+}
+
+// CI environments don't have an IPv6 interface configured
+TEST(TestFlight, DISABLED_IpV6Port) {
+  Location location, location2;
+  std::unique_ptr<FlightServerBase> server = ExampleTestServer();
+
+  ASSERT_OK(Location::ForGrpcTcp("[::1]", 0, &location));
+  FlightServerOptions options(location);
+  ASSERT_OK(server->Init(options));
+  ASSERT_GT(server->port(), 0);
+
+  ASSERT_OK(Location::ForGrpcTcp("[::1]", server->port(), &location2));
+  std::unique_ptr<FlightClient> client;
+  ASSERT_OK(FlightClient::Connect(location2, &client));
+  std::unique_ptr<FlightListing> listing;
+  ASSERT_OK(client->ListFlights(&listing));
 }
 
 TEST(TestFlight, BuilderHook) {
@@ -542,6 +592,14 @@ class OptionsTestServer : public FlightServerBase {
   }
 };
 
+class HeaderAuthTestServer : public FlightServerBase {
+ public:
+  Status ListFlights(const ServerCallContext& context, const Criteria* criteria,
+                     std::unique_ptr<FlightListing>* listings) override {
+    return Status::OK();
+  }
+};
+
 class TestMetadata : public ::testing::Test {
  public:
   void SetUp() {
@@ -774,6 +832,113 @@ class TracingServerMiddlewareFactory : public ServerMiddlewareFactory {
   }
 };
 
+// Function to look in CallHeaders for a key that has a value starting with prefix and
+// return the rest of the value after the prefix.
+std::string FindKeyValPrefixInCallHeaders(const CallHeaders& incoming_headers,
+                                          const std::string& key,
+                                          const std::string& prefix) {
+  // Lambda function to compare characters without case sensitivity.
+  auto char_compare = [](const char& char1, const char& char2) {
+    return (::toupper(char1) == ::toupper(char2));
+  };
+
+  auto iter = incoming_headers.find(key);
+  if (iter == incoming_headers.end()) {
+    return "";
+  }
+  const std::string val = iter->second.to_string();
+  if (val.size() > prefix.length()) {
+    if (std::equal(val.begin(), val.begin() + prefix.length(), prefix.begin(),
+                   char_compare)) {
+      return val.substr(prefix.length());
+    }
+  }
+  return "";
+}
+
+class HeaderAuthServerMiddleware : public ServerMiddleware {
+ public:
+  void SendingHeaders(AddCallHeaders* outgoing_headers) override {
+    outgoing_headers->AddHeader(kAuthHeader, std::string(kBearerPrefix) + kBearerToken);
+  }
+
+  void CallCompleted(const Status& status) override {}
+
+  std::string name() const override { return "HeaderAuthServerMiddleware"; }
+};
+
+void ParseBasicHeader(const CallHeaders& incoming_headers, std::string& username,
+                      std::string& password) {
+  std::string encoded_credentials =
+      FindKeyValPrefixInCallHeaders(incoming_headers, kAuthHeader, kBasicPrefix);
+  std::stringstream decoded_stream(arrow::util::base64_decode(encoded_credentials));
+  std::getline(decoded_stream, username, ':');
+  std::getline(decoded_stream, password, ':');
+}
+
+// Factory for base64 header authentication testing.
+class HeaderAuthServerMiddlewareFactory : public ServerMiddlewareFactory {
+ public:
+  HeaderAuthServerMiddlewareFactory() {}
+
+  Status StartCall(const CallInfo& info, const CallHeaders& incoming_headers,
+                   std::shared_ptr<ServerMiddleware>* middleware) override {
+    std::string username, password;
+    ParseBasicHeader(incoming_headers, username, password);
+    if ((username == kValidUsername) && (password == kValidPassword)) {
+      *middleware = std::make_shared<HeaderAuthServerMiddleware>();
+    } else if ((username == kInvalidUsername) && (password == kInvalidPassword)) {
+      return MakeFlightError(FlightStatusCode::Unauthenticated, "Invalid credentials");
+    }
+    return Status::OK();
+  }
+};
+
+// A server middleware for validating incoming bearer header authentication.
+class BearerAuthServerMiddleware : public ServerMiddleware {
+ public:
+  explicit BearerAuthServerMiddleware(const CallHeaders& incoming_headers, bool* isValid)
+      : isValid_(isValid) {
+    incoming_headers_ = incoming_headers;
+  }
+
+  void SendingHeaders(AddCallHeaders* outgoing_headers) override {
+    std::string bearer_token =
+        FindKeyValPrefixInCallHeaders(incoming_headers_, kAuthHeader, kBearerPrefix);
+    *isValid_ = (bearer_token == std::string(kBearerToken));
+  }
+
+  void CallCompleted(const Status& status) override {}
+
+  std::string name() const override { return "BearerAuthServerMiddleware"; }
+
+ private:
+  CallHeaders incoming_headers_;
+  bool* isValid_;
+};
+
+// Factory for base64 header authentication testing.
+class BearerAuthServerMiddlewareFactory : public ServerMiddlewareFactory {
+ public:
+  BearerAuthServerMiddlewareFactory() : isValid_(false) {}
+
+  Status StartCall(const CallInfo& info, const CallHeaders& incoming_headers,
+                   std::shared_ptr<ServerMiddleware>* middleware) override {
+    const std::pair<CallHeaders::const_iterator, CallHeaders::const_iterator>& iter_pair =
+        incoming_headers.equal_range(kAuthHeader);
+    if (iter_pair.first != iter_pair.second) {
+      *middleware =
+          std::make_shared<BearerAuthServerMiddleware>(incoming_headers, &isValid_);
+    }
+    return Status::OK();
+  }
+
+  bool GetIsValid() { return isValid_; }
+
+ private:
+  bool isValid_;
+};
+
 // A client middleware that adds a thread-local "request ID" to
 // outgoing calls as a header, and keeps track of the status of
 // completed calls. NOT thread-safe.
@@ -991,6 +1156,189 @@ class TestErrorMiddleware : public ::testing::Test {
  protected:
   std::unique_ptr<FlightClient> client_;
   std::unique_ptr<FlightServerBase> server_;
+};
+
+class TestBasicHeaderAuthMiddleware : public ::testing::Test {
+ public:
+  void SetUp() {
+    header_middleware_ = std::make_shared<HeaderAuthServerMiddlewareFactory>();
+    bearer_middleware_ = std::make_shared<BearerAuthServerMiddlewareFactory>();
+    std::pair<std::string, std::string> bearer = make_pair(
+        kAuthHeader, std::string(kBearerPrefix) + " " + std::string(kBearerToken));
+    ASSERT_OK(MakeServer<HeaderAuthTestServer>(
+        &server_, &client_,
+        [&](FlightServerOptions* options) {
+          options->auth_handler =
+              std::unique_ptr<ServerAuthHandler>(new NoOpAuthHandler());
+          options->middleware.push_back({"header-auth-server", header_middleware_});
+          options->middleware.push_back({"bearer-auth-server", bearer_middleware_});
+          return Status::OK();
+        },
+        [&](FlightClientOptions* options) { return Status::OK(); }));
+  }
+
+  void RunValidClientAuth() {
+    arrow::Result<std::pair<std::string, std::string>> bearer_result =
+        client_->AuthenticateBasicToken({}, kValidUsername, kValidPassword);
+    ASSERT_OK(bearer_result.status());
+    ASSERT_EQ(bearer_result.ValueOrDie().first, kAuthHeader);
+    ASSERT_EQ(bearer_result.ValueOrDie().second,
+              (std::string(kBearerPrefix) + kBearerToken));
+    std::unique_ptr<FlightListing> listing;
+    FlightCallOptions call_options;
+    call_options.headers.push_back(bearer_result.ValueOrDie());
+    ASSERT_OK(client_->ListFlights(call_options, {}, &listing));
+    ASSERT_TRUE(bearer_middleware_->GetIsValid());
+  }
+
+  void RunInvalidClientAuth() {
+    arrow::Result<std::pair<std::string, std::string>> bearer_result =
+        client_->AuthenticateBasicToken({}, kInvalidUsername, kInvalidPassword);
+    ASSERT_RAISES(IOError, bearer_result.status());
+    ASSERT_THAT(bearer_result.status().message(),
+                ::testing::HasSubstr("Invalid credentials"));
+  }
+
+  void TearDown() { ASSERT_OK(server_->Shutdown()); }
+
+ protected:
+  std::unique_ptr<FlightClient> client_;
+  std::unique_ptr<FlightServerBase> server_;
+  std::shared_ptr<HeaderAuthServerMiddlewareFactory> header_middleware_;
+  std::shared_ptr<BearerAuthServerMiddlewareFactory> bearer_middleware_;
+};
+
+// This test keeps an internal cookie cache and compares that with the middleware.
+class TestCookieMiddleware : public ::testing::Test {
+ public:
+  // Setup function creates middleware factory and starts it up.
+  void SetUp() {
+    factory_ = GetCookieFactory();
+    CallInfo callInfo;
+    factory_->StartCall(callInfo, &middleware_);
+  }
+
+  // Function to add incoming cookies to middleware and validate them.
+  void AddAndValidate(const std::string& incoming_cookie) {
+    // Add cookie
+    CallHeaders call_headers;
+    call_headers.insert(std::make_pair(arrow::util::string_view("set-cookie"),
+                                       arrow::util::string_view(incoming_cookie)));
+    middleware_->ReceivedHeaders(call_headers);
+    expected_cookie_cache_.UpdateCachedCookies(call_headers);
+
+    // Get cookie from middleware.
+    TestCallHeaders add_call_headers;
+    middleware_->SendingHeaders(&add_call_headers);
+    const std::string actual_cookies = add_call_headers.GetCookies();
+
+    // Validate cookie
+    const std::string expected_cookies = expected_cookie_cache_.GetValidCookiesAsString();
+    const std::vector<std::string> split_expected_cookies =
+        SplitCookies(expected_cookies);
+    const std::vector<std::string> split_actual_cookies = SplitCookies(actual_cookies);
+    EXPECT_EQ(split_expected_cookies, split_actual_cookies);
+  }
+
+  // Function to take a list of cookies and split them into a vector of individual
+  // cookies. This is done because the cookie cache is a map so ordering is not
+  // necessarily consistent.
+  static std::vector<std::string> SplitCookies(const std::string& cookies) {
+    std::vector<std::string> split_cookies;
+    std::string::size_type pos1 = 0;
+    std::string::size_type pos2 = 0;
+    while ((pos2 = cookies.find(';', pos1)) != std::string::npos) {
+      split_cookies.push_back(
+          arrow::internal::TrimString(cookies.substr(pos1, pos2 - pos1)));
+      pos1 = pos2 + 1;
+    }
+    if (pos1 < cookies.size()) {
+      split_cookies.push_back(arrow::internal::TrimString(cookies.substr(pos1)));
+    }
+    std::sort(split_cookies.begin(), split_cookies.end());
+    return split_cookies;
+  }
+
+ protected:
+  // Class to allow testing of the call headers.
+  class TestCallHeaders : public AddCallHeaders {
+   public:
+    TestCallHeaders() {}
+    ~TestCallHeaders() {}
+
+    // Function to add cookie header.
+    void AddHeader(const std::string& key, const std::string& value) {
+      ASSERT_EQ(key, "cookie");
+      outbound_cookie_ = value;
+    }
+
+    // Function to get outgoing cookie.
+    std::string GetCookies() { return outbound_cookie_; }
+
+   private:
+    std::string outbound_cookie_;
+  };
+
+  internal::CookieCache expected_cookie_cache_;
+  std::unique_ptr<ClientMiddleware> middleware_;
+  std::shared_ptr<ClientMiddlewareFactory> factory_;
+};
+
+// This test is used to test the parsing capabilities of the cookie framework.
+class TestCookieParsing : public ::testing::Test {
+ public:
+  void VerifyParseCookie(const std::string& cookie_str, bool expired) {
+    internal::Cookie cookie = internal::Cookie::parse(cookie_str);
+    EXPECT_EQ(expired, cookie.IsExpired());
+  }
+
+  void VerifyCookieName(const std::string& cookie_str, const std::string& name) {
+    internal::Cookie cookie = internal::Cookie::parse(cookie_str);
+    EXPECT_EQ(name, cookie.GetName());
+  }
+
+  void VerifyCookieString(const std::string& cookie_str,
+                          const std::string& cookie_as_string) {
+    internal::Cookie cookie = internal::Cookie::parse(cookie_str);
+    EXPECT_EQ(cookie_as_string, cookie.AsCookieString());
+  }
+
+  void VerifyCookieDateConverson(std::string date, const std::string& converted_date) {
+    internal::Cookie::ConvertCookieDate(&date);
+    EXPECT_EQ(converted_date, date);
+  }
+
+  void VerifyCookieAttributeParsing(
+      const std::string cookie_str, std::string::size_type start_pos,
+      const util::optional<std::pair<std::string, std::string>> cookie_attribute,
+      const std::string::size_type start_pos_after) {
+    util::optional<std::pair<std::string, std::string>> attr =
+        internal::Cookie::ParseCookieAttribute(cookie_str, &start_pos);
+
+    if (cookie_attribute == util::nullopt) {
+      EXPECT_EQ(cookie_attribute, attr);
+    } else {
+      EXPECT_EQ(cookie_attribute.value(), attr.value());
+    }
+    EXPECT_EQ(start_pos_after, start_pos);
+  }
+
+  void AddCookieVerifyCache(const std::vector<std::string>& cookies,
+                            const std::string& expected_cookies) {
+    internal::CookieCache cookie_cache;
+    for (auto& cookie : cookies) {
+      // Add cookie
+      CallHeaders call_headers;
+      call_headers.insert(std::make_pair(arrow::util::string_view("set-cookie"),
+                                         arrow::util::string_view(cookie)));
+      cookie_cache.UpdateCachedCookies(call_headers);
+    }
+    const std::string actual_cookies = cookie_cache.GetValidCookiesAsString();
+    const std::vector<std::string> actual_split_cookies =
+        TestCookieMiddleware::SplitCookies(actual_cookies);
+    const std::vector<std::string> expected_split_cookies =
+        TestCookieMiddleware::SplitCookies(expected_cookies);
+  }
 };
 
 TEST_F(TestErrorMiddleware, TestMetadata) {
@@ -1683,7 +2031,11 @@ TEST_F(TestAuthHandler, CheckPeerIdentity) {
   ASSERT_OK(results->Next(&result));
   ASSERT_NE(result, nullptr);
   // Action returns the peer address as the result.
+#ifndef _WIN32
+  // On Windows gRPC sometimes returns a blank peer address, so don't
+  // bother checking for it.
   ASSERT_NE(result->body->ToString(), "");
+#endif
 }
 
 TEST_F(TestBasicAuthHandler, PassAuthenticatedCalls) {
@@ -2170,6 +2522,144 @@ TEST_F(TestPropagatingMiddleware, DoPut) {
   const Status status = stream->Close();
   ASSERT_RAISES(NotImplemented, status);
   ValidateStatus(status, FlightMethod::DoPut);
+}
+
+TEST_F(TestBasicHeaderAuthMiddleware, ValidCredentials) { RunValidClientAuth(); }
+
+TEST_F(TestBasicHeaderAuthMiddleware, InvalidCredentials) { RunInvalidClientAuth(); }
+
+TEST_F(TestCookieMiddleware, BasicParsing) {
+  AddAndValidate("id1=1; foo=bar;");
+  AddAndValidate("id1=1; foo=bar");
+  AddAndValidate("id2=2;");
+  AddAndValidate("id4=\"4\"");
+  AddAndValidate("id5=5; foo=bar; baz=buz;");
+}
+
+TEST_F(TestCookieMiddleware, Overwrite) {
+  AddAndValidate("id0=0");
+  AddAndValidate("id0=1");
+  AddAndValidate("id1=0");
+  AddAndValidate("id1=1");
+  AddAndValidate("id1=1");
+  AddAndValidate("id1=10");
+  AddAndValidate("id=3");
+  AddAndValidate("id=0");
+  AddAndValidate("id=0");
+}
+
+TEST_F(TestCookieMiddleware, MaxAge) {
+  AddAndValidate("id0=0; max-age=0;");
+  AddAndValidate("id1=0; max-age=-1;");
+  AddAndValidate("id2=0; max-age=0");
+  AddAndValidate("id3=0; max-age=-1");
+  AddAndValidate("id4=0; max-age=1");
+  AddAndValidate("id5=0; max-age=1");
+  AddAndValidate("id4=0; max-age=0");
+  AddAndValidate("id5=0; max-age=0");
+}
+
+TEST_F(TestCookieMiddleware, Expires) {
+  AddAndValidate("id0=0; expires=0, 0 0 0 0:0:0 GMT;");
+  AddAndValidate("id0=0; expires=0, 0 0 0 0:0:0 GMT");
+  AddAndValidate("id0=0; expires=Fri, 22 Dec 2017 22:15:36 GMT;");
+  AddAndValidate("id0=0; expires=Fri, 22 Dec 2017 22:15:36 GMT");
+  AddAndValidate("id0=0; expires=Fri, 01 Jan 2038 22:15:36 GMT;");
+  AddAndValidate("id1=0; expires=Fri, 01 Jan 2038 22:15:36 GMT");
+  AddAndValidate("id0=0; expires=Fri, 22 Dec 2017 22:15:36 GMT;");
+  AddAndValidate("id1=0; expires=Fri, 22 Dec 2017 22:15:36 GMT");
+}
+
+TEST_F(TestCookieParsing, Expired) {
+  VerifyParseCookie("id0=0; expires=Fri, 22 Dec 2017 22:15:36 GMT;", true);
+  VerifyParseCookie("id1=0; max-age=-1;", true);
+  VerifyParseCookie("id0=0; max-age=0;", true);
+}
+
+TEST_F(TestCookieParsing, Invalid) {
+  VerifyParseCookie("id1=0; expires=0, 0 0 0 0:0:0 GMT;", true);
+  VerifyParseCookie("id1=0; expires=Fri, 01 FOO 2038 22:15:36 GMT", true);
+  VerifyParseCookie("id1=0; expires=foo", true);
+  VerifyParseCookie("id1=0; expires=", true);
+  VerifyParseCookie("id1=0; max-age=FOO", true);
+  VerifyParseCookie("id1=0; max-age=", true);
+}
+
+TEST_F(TestCookieParsing, NoExpiry) {
+  VerifyParseCookie("id1=0;", false);
+  VerifyParseCookie("id1=0; noexpiry=Fri, 01 Jan 2038 22:15:36 GMT", false);
+  VerifyParseCookie("id1=0; noexpiry=\"Fri, 01 Jan 2038 22:15:36 GMT\"", false);
+  VerifyParseCookie("id1=0; nomax-age=-1", false);
+  VerifyParseCookie("id1=0; nomax-age=\"-1\"", false);
+  VerifyParseCookie("id1=0; randomattr=foo", false);
+}
+
+TEST_F(TestCookieParsing, NotExpired) {
+  VerifyParseCookie("id5=0; max-age=1", false);
+  VerifyParseCookie("id0=0; expires=Fri, 01 Jan 2038 22:15:36 GMT;", false);
+}
+
+TEST_F(TestCookieParsing, GetName) {
+  VerifyCookieName("id1=1; foo=bar;", "id1");
+  VerifyCookieName("id1=1; foo=bar", "id1");
+  VerifyCookieName("id2=2;", "id2");
+  VerifyCookieName("id4=\"4\"", "id4");
+  VerifyCookieName("id5=5; foo=bar; baz=buz;", "id5");
+}
+
+TEST_F(TestCookieParsing, ToString) {
+  VerifyCookieString("id1=1; foo=bar;", "id1=\"1\"");
+  VerifyCookieString("id1=1; foo=bar", "id1=\"1\"");
+  VerifyCookieString("id2=2;", "id2=\"2\"");
+  VerifyCookieString("id4=\"4\"", "id4=\"4\"");
+  VerifyCookieString("id5=5; foo=bar; baz=buz;", "id5=\"5\"");
+}
+
+TEST_F(TestCookieParsing, DateConversion) {
+  VerifyCookieDateConverson("Mon, 01 jan 2038 22:15:36 GMT;", "01 01 2038 22:15:36");
+  VerifyCookieDateConverson("TUE, 10 Feb 2038 22:15:36 GMT", "10 02 2038 22:15:36");
+  VerifyCookieDateConverson("WED, 20 MAr 2038 22:15:36 GMT;", "20 03 2038 22:15:36");
+  VerifyCookieDateConverson("thu, 15 APR 2038 22:15:36 GMT", "15 04 2038 22:15:36");
+  VerifyCookieDateConverson("Fri, 30 mAY 2038 22:15:36 GMT;", "30 05 2038 22:15:36");
+  VerifyCookieDateConverson("Sat, 03 juN 2038 22:15:36 GMT", "03 06 2038 22:15:36");
+  VerifyCookieDateConverson("Sun, 01 JuL 2038 22:15:36 GMT;", "01 07 2038 22:15:36");
+  VerifyCookieDateConverson("Fri, 06 aUg 2038 22:15:36 GMT", "06 08 2038 22:15:36");
+  VerifyCookieDateConverson("Fri, 01 SEP 2038 22:15:36 GMT;", "01 09 2038 22:15:36");
+  VerifyCookieDateConverson("Fri, 01 OCT 2038 22:15:36 GMT", "01 10 2038 22:15:36");
+  VerifyCookieDateConverson("Fri, 01 Nov 2038 22:15:36 GMT;", "01 11 2038 22:15:36");
+  VerifyCookieDateConverson("Fri, 01 deC 2038 22:15:36 GMT", "01 12 2038 22:15:36");
+  VerifyCookieDateConverson("", "");
+  VerifyCookieDateConverson("Fri, 01 INVALID 2038 22:15:36 GMT;",
+                            "01 INVALID 2038 22:15:36");
+}
+
+TEST_F(TestCookieParsing, ParseCookieAttribute) {
+  VerifyCookieAttributeParsing("", 0, util::nullopt, std::string::npos);
+
+  std::string cookie_string = "attr0=0; attr1=1; attr2=2; attr3=3";
+  auto attr_length = std::string("attr0=0;").length();
+  std::string::size_type start_pos = 0;
+  VerifyCookieAttributeParsing(cookie_string, start_pos, std::make_pair("attr0", "0"),
+                               cookie_string.find("attr0=0;") + attr_length);
+  VerifyCookieAttributeParsing(cookie_string, (start_pos += (attr_length + 1)),
+                               std::make_pair("attr1", "1"),
+                               cookie_string.find("attr1=1;") + attr_length);
+  VerifyCookieAttributeParsing(cookie_string, (start_pos += (attr_length + 1)),
+                               std::make_pair("attr2", "2"),
+                               cookie_string.find("attr2=2;") + attr_length);
+  VerifyCookieAttributeParsing(cookie_string, (start_pos += (attr_length + 1)),
+                               std::make_pair("attr3", "3"), std::string::npos);
+  VerifyCookieAttributeParsing(cookie_string, (start_pos += (attr_length - 1)),
+                               util::nullopt, std::string::npos);
+  VerifyCookieAttributeParsing(cookie_string, std::string::npos, util::nullopt,
+                               std::string::npos);
+}
+
+TEST_F(TestCookieParsing, CookieCache) {
+  AddCookieVerifyCache({"id0=0;"}, "");
+  AddCookieVerifyCache({"id0=0;", "id0=1;"}, "id0=\"1\"");
+  AddCookieVerifyCache({"id0=0;", "id1=1;"}, "id0=\"0\"; id1=\"1\"");
+  AddCookieVerifyCache({"id0=0;", "id1=1;", "id2=2"}, "id0=\"0\"; id1=\"1\"; id2=\"2\"");
 }
 
 }  // namespace flight

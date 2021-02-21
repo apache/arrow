@@ -44,14 +44,17 @@ libarrow_dataset_glib_la_LIBADD =		\
 
 libarrow_dataset_glib_la_headers =		\
 	arrow-dataset-glib.h			\
+	file-format.h				\
 	scanner.h
 
 libarrow_dataset_glib_la_sources =		\
+	file-format.cpp				\
 	scanner.cpp				\
 	$(libarrow_dataset_glib_la_headers)
 
 libarrow_dataset_glib_la_cpp_headers =		\
 	arrow-dataset-glib.hpp			\
+	file-format.hpp				\
 	scanner.hpp
 
 libarrow_dataset_glib_la_SOURCES =		\

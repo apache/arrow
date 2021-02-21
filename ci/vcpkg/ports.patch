@@ -1,0 +1,48 @@
+diff --git a/ports/curl/portfile.cmake b/ports/curl/portfile.cmake
+index 6e18aecd0..2ccecf33c 100644
+--- a/ports/curl/portfile.cmake
++++ b/ports/curl/portfile.cmake
+@@ -76,6 +76,8 @@ vcpkg_configure_cmake(
+         -DCMAKE_DISABLE_FIND_PACKAGE_Perl=ON
+         -DENABLE_DEBUG=ON
+         -DCURL_CA_FALLBACK=ON
++        -DCURL_CA_PATH=none
++        -DCURL_CA_BUNDLE=none
+ )
+ 
+ vcpkg_install_cmake()
+diff --git a/ports/snappy/portfile.cmake b/ports/snappy/portfile.cmake
+index 75dd13302..84345c7ca 100644
+--- a/ports/snappy/portfile.cmake
++++ b/ports/snappy/portfile.cmake
+@@ -4,6 +4,7 @@ vcpkg_from_github(
+     REF 537f4ad6240e586970fe554614542e9717df7902 # 1.1.8
+     SHA512 555d3b69a6759592736cbaae8f41654f0cf14e8be693b5dde37640191e53daec189f895872557b173e905d10681ef502f3e6ed8566811add963ffef96ce4016d
+     HEAD_REF master
++    PATCHES "snappy-disable-bmi.patch"
+ )
+ 
+ vcpkg_configure_cmake(
+diff --git a/ports/snappy/snappy-disable-bmi.patch b/ports/snappy/snappy-disable-bmi.patch
+new file mode 100644
+index 000000000..2cbb1533a
+--- /dev/null
++++ b/ports/snappy/snappy-disable-bmi.patch
+@@ -0,0 +1,17 @@
++--- snappy.cc  2020-06-27 17:38:49.718993748 -0500
+++++ snappy.cc  2020-06-27 17:37:57.543268213 -0500
++@@ -717,14 +717,10 @@
++ static inline uint32 ExtractLowBytes(uint32 v, int n) {
++   assert(n >= 0);
++   assert(n <= 4);
++-#if SNAPPY_HAVE_BMI2
++-  return _bzhi_u32(v, 8 * n);
++-#else
++   // This needs to be wider than uint32 otherwise `mask << 32` will be
++   // undefined.
++   uint64 mask = 0xffffffff;
++   return v & ~(mask << (8 * n));
++-#endif
++ }
++
++ static inline bool LeftShiftOverflows(uint8 value, uint32 shift) {

@@ -27,6 +27,7 @@
 #include "arrow/util/string_view.h"
 
 #include "parquet/platform.h"
+#include "parquet/type_fwd.h"
 
 namespace arrow {
 namespace util {
@@ -703,10 +704,4 @@ PARQUET_EXPORT SortOrder::type GetSortOrder(ConvertedType::type converted,
 PARQUET_EXPORT SortOrder::type GetSortOrder(
     const std::shared_ptr<const LogicalType>& logical_type, Type::type primitive);
 
-namespace internal {
-
-PARQUET_EXPORT
-int32_t DecimalSize(int32_t precision);
-
-}  // namespace internal
 }  // namespace parquet

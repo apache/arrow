@@ -21,32 +21,18 @@
 #include <memory>
 
 #include "arrow/array/array_base.h"
+#include "arrow/array/validate.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/utf8.h"
 
 namespace arrow {
 
 using internal::checked_cast;
 
-namespace {
-
-template <typename StringArrayType>
-Status ValidateStringData(const StringArrayType& array) {
-  util::InitializeUTF8();
-  for (int64_t i = 0; i < array.length(); ++i) {
-    if (!array.IsNull(i) && !util::ValidateUTF8(array.GetView(i))) {
-      return Status::Invalid("Invalid UTF8 sequence at string index ", i);
-    }
-  }
-  return Status::OK();
-}
-
-}  // namespace
-
 BinaryArray::BinaryArray(const std::shared_ptr<ArrayData>& data) {
-  ARROW_CHECK_EQ(data->type->id(), Type::BINARY);
+  ARROW_CHECK(is_binary_like(data->type->id()));
   SetData(data);
 }
 
@@ -59,7 +45,7 @@ BinaryArray::BinaryArray(int64_t length, const std::shared_ptr<Buffer>& value_of
 }
 
 LargeBinaryArray::LargeBinaryArray(const std::shared_ptr<ArrayData>& data) {
-  ARROW_CHECK_EQ(data->type->id(), Type::LARGE_BINARY);
+  ARROW_CHECK(is_large_binary_like(data->type->id()));
   SetData(data);
 }
 
@@ -85,7 +71,7 @@ StringArray::StringArray(int64_t length, const std::shared_ptr<Buffer>& value_of
                           offset));
 }
 
-Status StringArray::ValidateUTF8() const { return ValidateStringData(*this); }
+Status StringArray::ValidateUTF8() const { return internal::ValidateUTF8(*data_); }
 
 LargeStringArray::LargeStringArray(const std::shared_ptr<ArrayData>& data) {
   ARROW_CHECK_EQ(data->type->id(), Type::LARGE_STRING);
@@ -101,7 +87,7 @@ LargeStringArray::LargeStringArray(int64_t length,
                           null_count, offset));
 }
 
-Status LargeStringArray::ValidateUTF8() const { return ValidateStringData(*this); }
+Status LargeStringArray::ValidateUTF8() const { return internal::ValidateUTF8(*data_); }
 
 FixedSizeBinaryArray::FixedSizeBinaryArray(const std::shared_ptr<ArrayData>& data) {
   SetData(data);

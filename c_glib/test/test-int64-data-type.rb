@@ -21,6 +21,11 @@ class TestInt64DataType < Test::Unit::TestCase
     assert_equal(Arrow::Type::INT64, data_type.id)
   end
 
+  def test_name
+    data_type = Arrow::Int64DataType.new
+    assert_equal("int64", data_type.name)
+  end
+
   def test_to_s
     data_type = Arrow::Int64DataType.new
     assert_equal("int64", data_type.to_s)

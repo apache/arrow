@@ -21,10 +21,9 @@
 #include "arrow/python/common.h"
 #include "arrow/python/decimal.h"
 #include "arrow/python/helpers.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
-
-#include <arrow/api.h>
 
 namespace arrow {
 namespace py {
@@ -104,7 +103,7 @@ PyObject* DecimalFromString(PyObject* decimal_constructor,
   DCHECK_NE(string_bytes, nullptr);
 
   return PyObject_CallFunction(decimal_constructor, const_cast<char*>("s#"), string_bytes,
-                               string_size);
+                               static_cast<Py_ssize_t>(string_size));
 }
 
 namespace {

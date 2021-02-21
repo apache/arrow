@@ -42,6 +42,7 @@ A CSV file is read from a :class:`~arrow::io::InputStream`.
    {
       // ...
       arrow::MemoryPool* pool = default_memory_pool();
+      arrow::io::AsyncContext async_context;
       std::shared_ptr<arrow::io::InputStream> input = ...;
 
       auto read_options = arrow::csv::ReadOptions::Defaults();
@@ -51,6 +52,7 @@ A CSV file is read from a :class:`~arrow::io::InputStream`.
       // Instantiate TableReader from input stream and options
       auto maybe_reader =
         arrow::csv::TableReader::Make(pool,
+                                      async_context,
                                       input,
                                       read_options,
                                       parse_options,
@@ -110,6 +112,7 @@ column.  Type inference considers the following data types, in order:
 * Null
 * Int64
 * Boolean
+* Date32
 * Timestamp (with seconds unit)
 * Float64
 * Dictionary<String> (if :member:`ConvertOptions::auto_dict_encode` is true)
@@ -166,5 +169,5 @@ Performance
 By default, the CSV reader will parallelize reads in order to exploit all
 CPU cores on your machine.  You can change this setting in
 :member:`ReadOptions::use_threads`.  A reasonable expectation is at least
-100 MB/s per core on a modern desktop machine (measured in source CSV bytes,
-not target Arrow data bytes).
+100 MB/s per core on a performant desktop or laptop computer (measured in
+source CSV bytes, not target Arrow data bytes).

@@ -29,15 +29,21 @@
 #include <sstream>
 #include <vector>
 
-#include "arrow/api.h"
+#include "arrow/array/builder_binary.h"
+#include "arrow/array/builder_decimal.h"
+#include "arrow/array/builder_dict.h"
+#include "arrow/array/builder_nested.h"
+#include "arrow/array/builder_primitive.h"
+#include "arrow/chunked_array.h"
 #include "arrow/compute/api.h"
-#include "arrow/pretty_print.h"
 #include "arrow/record_batch.h"
 #include "arrow/scalar.h"
+#include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/range.h"
@@ -56,11 +62,14 @@
 
 using arrow::Array;
 using arrow::ArrayData;
+using arrow::ArrayFromJSON;
+using arrow::ArrayVector;
 using arrow::ArrayVisitor;
 using arrow::Buffer;
 using arrow::ChunkedArray;
 using arrow::DataType;
 using arrow::Datum;
+using arrow::DecimalType;
 using arrow::default_memory_pool;
 using arrow::ListArray;
 using arrow::PrimitiveArray;
@@ -70,6 +79,9 @@ using arrow::Status;
 using arrow::Table;
 using arrow::TimeUnit;
 using arrow::compute::DictionaryEncode;
+using arrow::internal::checked_cast;
+using arrow::internal::checked_pointer_cast;
+using arrow::internal::Iota;
 using arrow::io::BufferReader;
 
 using arrow::randint;
@@ -154,10 +166,15 @@ std::shared_ptr<const LogicalType> get_logical_type(const DataType& type) {
           static_cast<const ::arrow::DictionaryType&>(type);
       return get_logical_type(*dict_type.value_type());
     }
-    case ArrowId::DECIMAL: {
+    case ArrowId::DECIMAL128: {
       const auto& dec_type = static_cast<const ::arrow::Decimal128Type&>(type);
       return LogicalType::Decimal(dec_type.precision(), dec_type.scale());
     }
+    case ArrowId::DECIMAL256: {
+      const auto& dec_type = static_cast<const ::arrow::Decimal256Type&>(type);
+      return LogicalType::Decimal(dec_type.precision(), dec_type.scale());
+    }
+
     default:
       break;
   }
@@ -183,11 +200,14 @@ ParquetType::type get_physical_type(const DataType& type) {
     case ArrowId::DOUBLE:
       return ParquetType::DOUBLE;
     case ArrowId::BINARY:
+    case ArrowId::LARGE_BINARY:
       return ParquetType::BYTE_ARRAY;
     case ArrowId::STRING:
+    case ArrowId::LARGE_STRING:
       return ParquetType::BYTE_ARRAY;
     case ArrowId::FIXED_SIZE_BINARY:
-    case ArrowId::DECIMAL:
+    case ArrowId::DECIMAL128:
+    case ArrowId::DECIMAL256:
       return ParquetType::FIXED_LEN_BYTE_ARRAY;
     case ArrowId::DATE32:
       return ParquetType::INT32;
@@ -337,9 +357,9 @@ struct test_traits<::arrow::FixedSizeBinaryType> {
   static std::string const value;
 };
 
-const std::string test_traits<::arrow::StringType>::value("Test");              // NOLINT
-const std::string test_traits<::arrow::BinaryType>::value("\x00\x01\x02\x03");  // NOLINT
-const std::string test_traits<::arrow::FixedSizeBinaryType>::value("Fixed");    // NOLINT
+const std::string test_traits<::arrow::StringType>::value("Test");            // NOLINT
+const std::string test_traits<::arrow::BinaryType>::value({0, 1, 2, 3});      // NOLINT
+const std::string test_traits<::arrow::FixedSizeBinaryType>::value("Fixed");  // NOLINT
 
 template <typename T>
 using ParquetDataType = PhysicalType<test_traits<T>::parquet_enum>;
@@ -425,15 +445,58 @@ void DoSimpleRoundtrip(const std::shared_ptr<Table>& table, bool use_threads,
   }
 }
 
-void CheckSimpleRoundtrip(const std::shared_ptr<Table>& table, int64_t row_group_size,
-                          const std::shared_ptr<ArrowWriterProperties>& arrow_properties =
-                              default_arrow_writer_properties()) {
+void DoRoundTripWithBatches(
+    const std::shared_ptr<Table>& table, bool use_threads, int64_t row_group_size,
+    const std::vector<int>& column_subset, std::shared_ptr<Table>* out,
+    const std::shared_ptr<ArrowWriterProperties>& arrow_writer_properties =
+        default_arrow_writer_properties()) {
+  std::shared_ptr<Buffer> buffer;
+  ASSERT_NO_FATAL_FAILURE(
+      WriteTableToBuffer(table, row_group_size, arrow_writer_properties, &buffer));
+
+  std::unique_ptr<FileReader> reader;
+  FileReaderBuilder builder;
+  ASSERT_OK_NO_THROW(builder.Open(std::make_shared<BufferReader>(buffer)));
+  ArrowReaderProperties arrow_reader_properties;
+  arrow_reader_properties.set_batch_size(row_group_size - 1);
+  ASSERT_OK_NO_THROW(builder.memory_pool(::arrow::default_memory_pool())
+                         ->properties(arrow_reader_properties)
+                         ->Build(&reader));
+  std::unique_ptr<::arrow::RecordBatchReader> batch_reader;
+  if (column_subset.size() > 0) {
+    ASSERT_OK_NO_THROW(reader->GetRecordBatchReader(
+        Iota(reader->parquet_reader()->metadata()->num_row_groups()), column_subset,
+        &batch_reader));
+  } else {
+    // Read everything
+
+    ASSERT_OK_NO_THROW(reader->GetRecordBatchReader(
+        Iota(reader->parquet_reader()->metadata()->num_row_groups()), &batch_reader));
+  }
+  ASSERT_OK_AND_ASSIGN(*out, Table::FromRecordBatchReader(batch_reader.get()));
+}
+
+void CheckSimpleRoundtrip(
+    const std::shared_ptr<Table>& table, int64_t row_group_size,
+    const std::shared_ptr<ArrowWriterProperties>& arrow_writer_properties =
+        default_arrow_writer_properties()) {
   std::shared_ptr<Table> result;
-  ASSERT_NO_FATAL_FAILURE(DoSimpleRoundtrip(
-      table, false /* use_threads */, row_group_size, {}, &result, arrow_properties));
+  ASSERT_NO_FATAL_FAILURE(DoSimpleRoundtrip(table, false /* use_threads */,
+                                            row_group_size, {}, &result,
+                                            arrow_writer_properties));
   ::arrow::AssertSchemaEqual(*table->schema(), *result->schema(),
                              /*check_metadata=*/false);
   ASSERT_OK(result->ValidateFull());
+
+  ::arrow::AssertTablesEqual(*table, *result, false);
+
+  ASSERT_NO_FATAL_FAILURE(DoRoundTripWithBatches(table, false /* use_threads */,
+                                                 row_group_size, {}, &result,
+                                                 arrow_writer_properties));
+  ::arrow::AssertSchemaEqual(*table->schema(), *result->schema(),
+                             /*check_metadata=*/false);
+  ASSERT_OK(result->ValidateFull());
+
   ::arrow::AssertTablesEqual(*table, *result, false);
 }
 
@@ -450,10 +513,10 @@ static std::shared_ptr<GroupNode> MakeSimpleSchema(const DataType& type,
           byte_width =
               static_cast<const ::arrow::FixedSizeBinaryType&>(values_type).byte_width();
           break;
-        case ::arrow::Type::DECIMAL: {
-          const auto& decimal_type =
-              static_cast<const ::arrow::Decimal128Type&>(values_type);
-          byte_width = ::parquet::internal::DecimalSize(decimal_type.precision());
+        case ::arrow::Type::DECIMAL128:
+        case ::arrow::Type::DECIMAL256: {
+          const auto& decimal_type = static_cast<const DecimalType&>(values_type);
+          byte_width = DecimalType::DecimalSize(decimal_type.precision());
         } break;
         default:
           break;
@@ -462,9 +525,10 @@ static std::shared_ptr<GroupNode> MakeSimpleSchema(const DataType& type,
     case ::arrow::Type::FIXED_SIZE_BINARY:
       byte_width = static_cast<const ::arrow::FixedSizeBinaryType&>(type).byte_width();
       break;
-    case ::arrow::Type::DECIMAL: {
-      const auto& decimal_type = static_cast<const ::arrow::Decimal128Type&>(type);
-      byte_width = ::parquet::internal::DecimalSize(decimal_type.precision());
+    case ::arrow::Type::DECIMAL128:
+    case ::arrow::Type::DECIMAL256: {
+      const auto& decimal_type = static_cast<const DecimalType&>(type);
+      byte_width = DecimalType::DecimalSize(decimal_type.precision());
     } break;
     default:
       break;
@@ -476,8 +540,8 @@ static std::shared_ptr<GroupNode> MakeSimpleSchema(const DataType& type,
   return std::static_pointer_cast<GroupNode>(node_);
 }
 
-template <typename TestType>
-class TestParquetIO : public ::testing::Test {
+// Non-template base class for TestParquetIO, to avoid code duplication
+class ParquetIOTestBase : public ::testing::Test {
  public:
   virtual void SetUp() {}
 
@@ -505,6 +569,7 @@ class TestParquetIO : public ::testing::Test {
     ASSERT_EQ(1, chunked_out->num_chunks());
     *out = chunked_out->chunk(0);
     ASSERT_NE(nullptr, out->get());
+    ASSERT_OK((*out)->ValidateFull());
   }
 
   void ReadSingleColumnFileStatistics(std::unique_ptr<FileReader> file_reader,
@@ -534,26 +599,47 @@ class TestParquetIO : public ::testing::Test {
     AssertArraysEqual(values, *out);
   }
 
-  void ReadTableFromFile(std::unique_ptr<FileReader> reader,
+  void ReadTableFromFile(std::unique_ptr<FileReader> reader, bool expect_metadata,
                          std::shared_ptr<Table>* out) {
     ASSERT_OK_NO_THROW(reader->ReadTable(out));
     auto key_value_metadata =
         reader->parquet_reader()->metadata()->key_value_metadata().get();
-    ASSERT_EQ(nullptr, key_value_metadata);
+    if (!expect_metadata) {
+      ASSERT_EQ(nullptr, key_value_metadata);
+    } else {
+      ASSERT_NE(nullptr, key_value_metadata);
+    }
     ASSERT_NE(nullptr, out->get());
   }
 
-  void PrepareListTable(int64_t size, bool nullable_lists, bool nullable_elements,
-                        int64_t null_count, std::shared_ptr<Table>* out) {
-    std::shared_ptr<Array> values;
-    ASSERT_OK(NullableArray<TestType>(size * size, nullable_elements ? null_count : 0,
-                                      kDefaultSeed, &values));
-    // Also test that slice offsets are respected
-    values = values->Slice(5, values->length() - 5);
-    std::shared_ptr<ListArray> lists;
-    ASSERT_OK(MakeListArray(values, size, nullable_lists ? null_count : 0, "element",
-                            nullable_elements, &lists));
-    *out = MakeSimpleTable(lists->Slice(3, size - 6), nullable_lists);
+  void ReadTableFromFile(std::unique_ptr<FileReader> reader,
+                         std::shared_ptr<Table>* out) {
+    ReadTableFromFile(std::move(reader), /*expect_metadata=*/false, out);
+  }
+
+  void RoundTripSingleColumn(
+      const std::shared_ptr<Array>& values, const std::shared_ptr<Array>& expected,
+      const std::shared_ptr<::parquet::ArrowWriterProperties>& arrow_properties,
+      bool nullable = true) {
+    std::shared_ptr<Table> table = MakeSimpleTable(values, nullable);
+    this->ResetSink();
+    ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), this->sink_,
+                                  values->length(), default_writer_properties(),
+                                  arrow_properties));
+
+    std::shared_ptr<Table> out;
+    std::unique_ptr<FileReader> reader;
+    ASSERT_NO_FATAL_FAILURE(this->ReaderFromSink(&reader));
+    const bool expect_metadata = arrow_properties->store_schema();
+    ASSERT_NO_FATAL_FAILURE(
+        this->ReadTableFromFile(std::move(reader), expect_metadata, &out));
+    ASSERT_EQ(1, out->num_columns());
+    ASSERT_EQ(table->num_rows(), out->num_rows());
+
+    const auto chunked_array = out->column(0);
+    ASSERT_EQ(1, chunked_array->num_chunks());
+
+    AssertArraysEqual(*expected, *chunked_array->chunk(0), /*verbose=*/true);
   }
 
   // Prepare table of empty lists, with null values array (ARROW-2744)
@@ -561,21 +647,6 @@ class TestParquetIO : public ::testing::Test {
     std::shared_ptr<Array> lists;
     ASSERT_OK(MakeEmptyListsArray(size, &lists));
     *out = MakeSimpleTable(lists, true /* nullable_lists */);
-  }
-
-  void PrepareListOfListTable(int64_t size, bool nullable_parent_lists,
-                              bool nullable_lists, bool nullable_elements,
-                              int64_t null_count, std::shared_ptr<Table>* out) {
-    std::shared_ptr<Array> values;
-    ASSERT_OK(NullableArray<TestType>(size * 6, nullable_elements ? null_count : 0,
-                                      kDefaultSeed, &values));
-    std::shared_ptr<ListArray> lists;
-    ASSERT_OK(MakeListArray(values, size * 3, nullable_lists ? null_count : 0, "item",
-                            nullable_elements, &lists));
-    std::shared_ptr<ListArray> parent_lists;
-    ASSERT_OK(MakeListArray(lists, size, nullable_parent_lists ? null_count : 0, "item",
-                            nullable_lists, &parent_lists));
-    *out = MakeSimpleTable(parent_lists, nullable_parent_lists);
   }
 
   void ReadAndCheckSingleColumnTable(const std::shared_ptr<Array>& values) {
@@ -622,24 +693,118 @@ class TestParquetIO : public ::testing::Test {
   std::shared_ptr<::arrow::io::BufferOutputStream> sink_;
 };
 
-// We have separate tests for UInt32Type as this is currently the only type
-// where a roundtrip does not yield the identical Array structure.
-// There we write an UInt32 Array but receive an Int64 Array as result for
-// Parquet version 1.0.
+class TestReadDecimals : public ParquetIOTestBase {
+ public:
+  void CheckReadFromByteArrays(const std::shared_ptr<const LogicalType>& logical_type,
+                               const std::vector<std::vector<uint8_t>>& values,
+                               const Array& expected) {
+    std::vector<ByteArray> byte_arrays(values.size());
+    std::transform(values.begin(), values.end(), byte_arrays.begin(),
+                   [](const std::vector<uint8_t>& bytes) {
+                     return ByteArray(static_cast<uint32_t>(bytes.size()), bytes.data());
+                   });
+
+    auto node = PrimitiveNode::Make("decimals", Repetition::REQUIRED, logical_type,
+                                    Type::BYTE_ARRAY);
+    auto schema =
+        GroupNode::Make("schema", Repetition::REQUIRED, std::vector<NodePtr>{node});
+
+    auto file_writer = MakeWriter(checked_pointer_cast<GroupNode>(schema));
+    auto column_writer = file_writer->AppendRowGroup()->NextColumn();
+    auto typed_writer = checked_cast<TypedColumnWriter<ByteArrayType>*>(column_writer);
+    typed_writer->WriteBatch(static_cast<int64_t>(byte_arrays.size()),
+                             /*def_levels=*/nullptr,
+                             /*rep_levels=*/nullptr, byte_arrays.data());
+    column_writer->Close();
+    file_writer->Close();
+
+    ReadAndCheckSingleColumnFile(expected);
+  }
+};
+
+// The Decimal roundtrip tests always go through the FixedLenByteArray path,
+// check the ByteArray case manually.
+
+TEST_F(TestReadDecimals, Decimal128ByteArray) {
+  const std::vector<std::vector<uint8_t>> big_endian_decimals = {
+      // 123456
+      {1, 226, 64},
+      // 987654
+      {15, 18, 6},
+      // -123456
+      {255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 254, 29, 192},
+  };
+
+  auto expected =
+      ArrayFromJSON(::arrow::decimal128(6, 3), R"(["123.456", "987.654", "-123.456"])");
+  CheckReadFromByteArrays(LogicalType::Decimal(6, 3), big_endian_decimals, *expected);
+}
+
+TEST_F(TestReadDecimals, Decimal256ByteArray) {
+  const std::vector<std::vector<uint8_t>> big_endian_decimals = {
+      // 123456
+      {1, 226, 64},
+      // 987654
+      {15, 18, 6},
+      // -123456
+      {255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+       255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 254, 29,  192},
+  };
+
+  auto expected =
+      ArrayFromJSON(::arrow::decimal256(40, 3), R"(["123.456", "987.654", "-123.456"])");
+  CheckReadFromByteArrays(LogicalType::Decimal(40, 3), big_endian_decimals, *expected);
+}
+
+template <typename TestType>
+class TestParquetIO : public ParquetIOTestBase {
+ public:
+  void PrepareListTable(int64_t size, bool nullable_lists, bool nullable_elements,
+                        int64_t null_count, std::shared_ptr<Table>* out) {
+    std::shared_ptr<Array> values;
+    ASSERT_OK(NullableArray<TestType>(size * size, nullable_elements ? null_count : 0,
+                                      kDefaultSeed, &values));
+    // Also test that slice offsets are respected
+    values = values->Slice(5, values->length() - 5);
+    std::shared_ptr<ListArray> lists;
+    ASSERT_OK(MakeListArray(values, size, nullable_lists ? null_count : 0, "element",
+                            nullable_elements, &lists));
+    *out = MakeSimpleTable(lists->Slice(3, size - 6), nullable_lists);
+  }
+
+  void PrepareListOfListTable(int64_t size, bool nullable_parent_lists,
+                              bool nullable_lists, bool nullable_elements,
+                              int64_t null_count, std::shared_ptr<Table>* out) {
+    std::shared_ptr<Array> values;
+    ASSERT_OK(NullableArray<TestType>(size * 6, nullable_elements ? null_count : 0,
+                                      kDefaultSeed, &values));
+    std::shared_ptr<ListArray> lists;
+    ASSERT_OK(MakeListArray(values, size * 3, nullable_lists ? null_count : 0, "item",
+                            nullable_elements, &lists));
+    std::shared_ptr<ListArray> parent_lists;
+    ASSERT_OK(MakeListArray(lists, size, nullable_parent_lists ? null_count : 0, "item",
+                            nullable_lists, &parent_lists));
+    *out = MakeSimpleTable(parent_lists, nullable_parent_lists);
+  }
+};
+
+// Below, we only test types which map bijectively to logical Parquet types
+// (these tests don't serialize the original Arrow schema in Parquet metadata).
+// Other Arrow types are tested elsewhere:
+// - UInt32Type is serialized as Parquet INT64 in Parquet 1.0 (but not 2.0)
+// - LargeBinaryType and LargeStringType are serialized as Parquet BYTE_ARRAY
+//   (and deserialized as BinaryType and StringType, respectively)
 
 typedef ::testing::Types<
     ::arrow::BooleanType, ::arrow::UInt8Type, ::arrow::Int8Type, ::arrow::UInt16Type,
     ::arrow::Int16Type, ::arrow::Int32Type, ::arrow::UInt64Type, ::arrow::Int64Type,
     ::arrow::Date32Type, ::arrow::FloatType, ::arrow::DoubleType, ::arrow::StringType,
     ::arrow::BinaryType, ::arrow::FixedSizeBinaryType, DecimalWithPrecisionAndScale<1>,
-    DecimalWithPrecisionAndScale<3>, DecimalWithPrecisionAndScale<5>,
-    DecimalWithPrecisionAndScale<7>, DecimalWithPrecisionAndScale<10>,
-    DecimalWithPrecisionAndScale<12>, DecimalWithPrecisionAndScale<15>,
-    DecimalWithPrecisionAndScale<17>, DecimalWithPrecisionAndScale<19>,
-    DecimalWithPrecisionAndScale<22>, DecimalWithPrecisionAndScale<23>,
-    DecimalWithPrecisionAndScale<24>, DecimalWithPrecisionAndScale<27>,
-    DecimalWithPrecisionAndScale<29>, DecimalWithPrecisionAndScale<32>,
-    DecimalWithPrecisionAndScale<34>, DecimalWithPrecisionAndScale<38>>
+    DecimalWithPrecisionAndScale<5>, DecimalWithPrecisionAndScale<10>,
+    DecimalWithPrecisionAndScale<19>, DecimalWithPrecisionAndScale<23>,
+    DecimalWithPrecisionAndScale<27>, DecimalWithPrecisionAndScale<38>,
+    Decimal256WithPrecisionAndScale<39>, Decimal256WithPrecisionAndScale<56>,
+    Decimal256WithPrecisionAndScale<76>>
     TestTypes;
 
 TYPED_TEST_SUITE(TestParquetIO, TestTypes);
@@ -688,7 +853,7 @@ TYPED_TEST(TestParquetIO, SingleColumnTableRequiredWrite) {
   ASSERT_NO_FATAL_FAILURE(this->ReaderFromSink(&reader));
   ASSERT_NO_FATAL_FAILURE(this->ReadTableFromFile(std::move(reader), &out));
   ASSERT_EQ(1, out->num_columns());
-  EXPECT_EQ(100, out->num_rows());
+  EXPECT_EQ(table->num_rows(), out->num_rows());
 
   std::shared_ptr<ChunkedArray> chunked_array = out->column(0);
   ASSERT_EQ(1, chunked_array->num_chunks());
@@ -932,7 +1097,7 @@ TYPED_TEST(TestParquetIO, FileMetaDataWrite) {
   ASSERT_NO_FATAL_FAILURE(this->ReaderFromSink(&reader));
   auto metadata = reader->parquet_reader()->metadata();
   ASSERT_EQ(1, metadata->num_columns());
-  ASSERT_EQ(100, metadata->num_rows());
+  EXPECT_EQ(table->num_rows(), metadata->num_rows());
 
   this->ResetSink();
 
@@ -1131,12 +1296,58 @@ TEST_F(TestStringParquetIO, EmptyStringColumnRequiredWrite) {
   ASSERT_NO_FATAL_FAILURE(this->ReaderFromSink(&reader));
   ASSERT_NO_FATAL_FAILURE(this->ReadTableFromFile(std::move(reader), &out));
   ASSERT_EQ(1, out->num_columns());
-  ASSERT_EQ(100, out->num_rows());
+  ASSERT_EQ(table->num_rows(), out->num_rows());
 
   std::shared_ptr<ChunkedArray> chunked_array = out->column(0);
   ASSERT_EQ(1, chunked_array->num_chunks());
 
   AssertArraysEqual(*values, *chunked_array->chunk(0));
+}
+
+using TestLargeBinaryParquetIO = TestParquetIO<::arrow::LargeBinaryType>;
+
+TEST_F(TestLargeBinaryParquetIO, Basics) {
+  const char* json = "[\"foo\", \"\", null, \"\xff\"]";
+
+  const auto large_type = ::arrow::large_binary();
+  const auto narrow_type = ::arrow::binary();
+  const auto large_array = ::arrow::ArrayFromJSON(large_type, json);
+  const auto narrow_array = ::arrow::ArrayFromJSON(narrow_type, json);
+
+  // When the original Arrow schema isn't stored, a LargeBinary array
+  // is decoded as Binary (since there is no specific Parquet logical
+  // type for it).
+  this->RoundTripSingleColumn(large_array, narrow_array,
+                              default_arrow_writer_properties());
+
+  // When the original Arrow schema is stored, the LargeBinary array
+  // is read back as LargeBinary.
+  const auto arrow_properties =
+      ::parquet::ArrowWriterProperties::Builder().store_schema()->build();
+  this->RoundTripSingleColumn(large_array, large_array, arrow_properties);
+}
+
+using TestLargeStringParquetIO = TestParquetIO<::arrow::LargeStringType>;
+
+TEST_F(TestLargeStringParquetIO, Basics) {
+  const char* json = R"(["foo", "", null, "bar"])";
+
+  const auto large_type = ::arrow::large_utf8();
+  const auto narrow_type = ::arrow::utf8();
+  const auto large_array = ::arrow::ArrayFromJSON(large_type, json);
+  const auto narrow_array = ::arrow::ArrayFromJSON(narrow_type, json);
+
+  // When the original Arrow schema isn't stored, a LargeBinary array
+  // is decoded as Binary (since there is no specific Parquet logical
+  // type for it).
+  this->RoundTripSingleColumn(large_array, narrow_array,
+                              default_arrow_writer_properties());
+
+  // When the original Arrow schema is stored, the LargeBinary array
+  // is read back as LargeBinary.
+  const auto arrow_properties =
+      ::parquet::ArrowWriterProperties::Builder().store_schema()->build();
+  this->RoundTripSingleColumn(large_array, large_array, arrow_properties);
 }
 
 using TestNullParquetIO = TestParquetIO<::arrow::NullType>;
@@ -2309,6 +2520,27 @@ TEST(TestArrowReadWrite, TableWithChunkedColumns) {
   }
 }
 
+TEST(TestArrowReadWrite, ManySmallLists) {
+  // ARROW-11607: The actual scenario this forces is no data reads for
+  // a first batch, and then a single element read for the second batch.
+
+  // Constructs
+  std::shared_ptr<::arrow::Int32Builder> value_builder =
+      std::make_shared<::arrow::Int32Builder>();
+  constexpr int64_t kNullCount = 6;
+  auto type = ::arrow::list(::arrow::int32());
+  std::vector<std::shared_ptr<Array>> arrays(1);
+  arrays[0] = ArrayFromJSON(type, R"([null, null, null, null, null, null, [1]])");
+
+  auto field = ::arrow::field("fname", type);
+  auto schema = ::arrow::schema({field});
+  auto table = Table::Make(schema, {std::make_shared<ChunkedArray>(arrays)});
+  ASSERT_EQ(table->num_rows(), kNullCount + 1);
+
+  CheckSimpleRoundtrip(table, /*row_group_size=*/kNullCount,
+                       default_arrow_writer_properties());
+}
+
 TEST(TestArrowReadWrite, TableWithDuplicateColumns) {
   // See ARROW-1974
   using ::arrow::ArrayFromVector;
@@ -2327,6 +2559,55 @@ TEST(TestArrowReadWrite, TableWithDuplicateColumns) {
 
   auto table = Table::Make(schema, {a0, a1});
   ASSERT_NO_FATAL_FAILURE(CheckSimpleRoundtrip(table, table->num_rows()));
+}
+
+TEST(ArrowReadWrite, EmptyStruct) {
+  // ARROW-10928: empty struct type not supported
+  {
+    // Empty struct as only column
+    auto fields = ::arrow::FieldVector{
+        ::arrow::field("structs", ::arrow::struct_(::arrow::FieldVector{}))};
+    auto schema = ::arrow::schema(fields);
+    auto columns = ArrayVector{ArrayFromJSON(fields[0]->type(), "[null, {}]")};
+    auto table = Table::Make(schema, columns);
+
+    auto sink = CreateOutputStream();
+    ASSERT_RAISES(
+        NotImplemented,
+        WriteTable(*table, ::arrow::default_memory_pool(), sink, /*chunk_size=*/1,
+                   default_writer_properties(), default_arrow_writer_properties()));
+  }
+  {
+    // Empty struct as nested column
+    auto fields = ::arrow::FieldVector{::arrow::field(
+        "structs", ::arrow::list(::arrow::struct_(::arrow::FieldVector{})))};
+    auto schema = ::arrow::schema(fields);
+    auto columns =
+        ArrayVector{ArrayFromJSON(fields[0]->type(), "[null, [], [null, {}]]")};
+    auto table = Table::Make(schema, columns);
+
+    auto sink = CreateOutputStream();
+    ASSERT_RAISES(
+        NotImplemented,
+        WriteTable(*table, ::arrow::default_memory_pool(), sink, /*chunk_size=*/1,
+                   default_writer_properties(), default_arrow_writer_properties()));
+  }
+  {
+    // Empty struct along other column
+    auto fields = ::arrow::FieldVector{
+        ::arrow::field("structs", ::arrow::struct_(::arrow::FieldVector{})),
+        ::arrow::field("ints", ::arrow::int32())};
+    auto schema = ::arrow::schema(fields);
+    auto columns = ArrayVector{ArrayFromJSON(fields[0]->type(), "[null, {}]"),
+                               ArrayFromJSON(fields[1]->type(), "[1, 2]")};
+    auto table = Table::Make(schema, columns);
+
+    auto sink = CreateOutputStream();
+    ASSERT_RAISES(
+        NotImplemented,
+        WriteTable(*table, ::arrow::default_memory_pool(), sink, /*chunk_size=*/1,
+                   default_writer_properties(), default_arrow_writer_properties()));
+  }
 }
 
 TEST(ArrowReadWrite, SimpleStructRoundTrip) {
@@ -2376,6 +2657,20 @@ TEST(ArrowReadWrite, NestedRequiredField) {
   CheckSimpleRoundtrip(::arrow::Table::Make(::arrow::schema({struct_field}),
                                             {::arrow::MakeArray(struct_data)}),
                        /*row_group_size=*/8);
+}
+
+TEST(ArrowReadWrite, Decimal256) {
+  using ::arrow::Decimal256;
+  using ::arrow::field;
+
+  auto type = ::arrow::decimal256(8, 4);
+
+  const char* json = R"(["1.0000", null, "-1.2345", "-1000.5678", 
+                         "-9999.9999", "9999.9999"])";
+  auto array = ::arrow::ArrayFromJSON(type, json);
+  auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
+  auto props_store_schema = ArrowWriterProperties::Builder().store_schema()->build();
+  CheckSimpleRoundtrip(table, 2, props_store_schema);
 }
 
 TEST(ArrowReadWrite, NestedNullableField) {
@@ -2467,6 +2762,17 @@ TEST(ArrowReadWrite, ListOfStructOfList1) {
   auto array = ::arrow::ArrayFromJSON(type, json);
   auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
   CheckSimpleRoundtrip(table, 2);
+}
+
+TEST(ArrowReadWrite, ListWithNoValues) {
+  using ::arrow::Buffer;
+  using ::arrow::field;
+
+  auto type = list(field("item", ::arrow::int32(), /*nullable=*/false));
+  auto array = ::arrow::ArrayFromJSON(type, "[null, []]");
+  auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
+  auto props_store_schema = ArrowWriterProperties::Builder().store_schema()->build();
+  CheckSimpleRoundtrip(table, 2, props_store_schema);
 }
 
 TEST(ArrowReadWrite, Map) {
@@ -3197,6 +3503,41 @@ TEST(TestArrowReaderAdHoc, HandleDictPageOffsetZero) {
   // PARQUET-1402: parquet-mr writes files this way which tripped up
   // some business logic
   TryReadDataFile(test::get_data_file("dict-page-offset-zero.parquet"));
+}
+
+TEST(TestArrowReaderAdHoc, WriteBatchedNestedNullableStringColumn) {
+  // ARROW-10493
+  std::vector<std::shared_ptr<::arrow::Field>> fields{
+      ::arrow::field("s", ::arrow::utf8(), /*nullable=*/true),
+      ::arrow::field("d", ::arrow::decimal128(4, 2), /*nullable=*/true),
+      ::arrow::field("b", ::arrow::boolean(), /*nullable=*/true),
+      ::arrow::field("i8", ::arrow::int8(), /*nullable=*/true),
+      ::arrow::field("i64", ::arrow::int64(), /*nullable=*/true)};
+  auto type = ::arrow::struct_(fields);
+  auto outer_array = ::arrow::ArrayFromJSON(
+      type,
+      R"([{"s": "abc", "d": "1.23", "b": true, "i8": 10, "i64": 11 },
+          {"s": "de", "d": "3.45", "b": true, "i8": 12, "i64": 13 },
+          {"s": "fghi", "d": "6.78", "b": false, "i8": 14, "i64": 15 },
+          {},
+          {"s": "jklmo", "d": "9.10", "b": true, "i8": 16, "i64": 17 },
+          null,
+          {"s": "p", "d": "11.12", "b": false, "i8": 18, "i64": 19 },
+          {"s": "qrst", "d": "13.14", "b": false, "i8": 20, "i64": 21 },
+          {},
+          {"s": "uvw", "d": "15.16", "b": true, "i8": 22, "i64": 23 },
+          {"s": "x", "d": "17.18", "b": false, "i8": 24, "i64": 25 },
+          {},
+          null])");
+
+  auto expected = Table::Make(
+      ::arrow::schema({::arrow::field("outer", type, /*nullable=*/true)}), {outer_array});
+
+  auto write_props = WriterProperties::Builder().write_batch_size(4)->build();
+
+  std::shared_ptr<Table> actual;
+  DoRoundtrip(expected, /*row_group_size=*/outer_array->length(), &actual, write_props);
+  ::arrow::AssertTablesEqual(*expected, *actual, /*same_chunk_layout=*/false);
 }
 
 class TestArrowReaderAdHocSparkAndHvr

@@ -18,7 +18,7 @@
 //! Contains implementations of the reader traits FileReader, RowGroupReader and PageReader
 //! Also contains implementations of the ChunkReader for files (with buffering) and byte arrays (RAM)
 
-use std::{convert::TryFrom, fs::File, io::Read, path::Path, rc::Rc};
+use std::{convert::TryFrom, fs::File, io::Read, path::Path, sync::Arc};
 
 use parquet_format::{PageHeader, PageType};
 use thrift::protocol::TCompactInputProtocol;
@@ -31,11 +31,11 @@ use crate::file::{footer, metadata::*, reader::*, statistics};
 use crate::record::reader::RowIter;
 use crate::record::Row;
 use crate::schema::types::Type as SchemaType;
-use crate::util::{
-    cursor::SliceableCursor,
-    io::{FileSource, TryClone},
-    memory::ByteBufferPtr,
-};
+use crate::util::{io::TryClone, memory::ByteBufferPtr};
+
+// export `SliceableCursor` and `FileSource` publically so clients can
+// re-use the logic in their own ParquetFileWriter wrappers
+pub use crate::util::{cursor::SliceableCursor, io::FileSource};
 
 // ----------------------------------------------------------------------
 // Implementations of traits facilitating the creation of a new reader
@@ -123,7 +123,7 @@ impl IntoIterator for SerializedFileReader<File> {
 
 /// A serialized implementation for Parquet [`FileReader`].
 pub struct SerializedFileReader<R: ChunkReader> {
-    chunk_reader: Rc<R>,
+    chunk_reader: Arc<R>,
     metadata: ParquetMetaData,
 }
 
@@ -133,9 +133,27 @@ impl<R: 'static + ChunkReader> SerializedFileReader<R> {
     pub fn new(chunk_reader: R) -> Result<Self> {
         let metadata = footer::parse_metadata(&chunk_reader)?;
         Ok(Self {
-            chunk_reader: Rc::new(chunk_reader),
+            chunk_reader: Arc::new(chunk_reader),
             metadata,
         })
+    }
+
+    /// Filters row group metadata to only those row groups,
+    /// for which the predicate function returns true
+    pub fn filter_row_groups(
+        &mut self,
+        predicate: &dyn Fn(&RowGroupMetaData, usize) -> bool,
+    ) {
+        let mut filtered_row_groups = Vec::<RowGroupMetaData>::new();
+        for (i, row_group_metadata) in self.metadata.row_groups().iter().enumerate() {
+            if predicate(row_group_metadata, i) {
+                filtered_row_groups.push(row_group_metadata.clone());
+            }
+        }
+        self.metadata = ParquetMetaData::new(
+            self.metadata.file_metadata().clone(),
+            filtered_row_groups,
+        );
     }
 }
 
@@ -151,7 +169,7 @@ impl<R: 'static + ChunkReader> FileReader for SerializedFileReader<R> {
     fn get_row_group(&self, i: usize) -> Result<Box<RowGroupReader + '_>> {
         let row_group_metadata = self.metadata.row_group(i);
         // Row groups should be processed sequentially.
-        let f = Rc::clone(&self.chunk_reader);
+        let f = Arc::clone(&self.chunk_reader);
         Ok(Box::new(SerializedRowGroupReader::new(
             f,
             row_group_metadata,
@@ -165,13 +183,13 @@ impl<R: 'static + ChunkReader> FileReader for SerializedFileReader<R> {
 
 /// A serialized implementation for Parquet [`RowGroupReader`].
 pub struct SerializedRowGroupReader<'a, R: ChunkReader> {
-    chunk_reader: Rc<R>,
+    chunk_reader: Arc<R>,
     metadata: &'a RowGroupMetaData,
 }
 
 impl<'a, R: ChunkReader> SerializedRowGroupReader<'a, R> {
     /// Creates new row group reader from a file and row group metadata.
-    fn new(chunk_reader: Rc<R>, metadata: &'a RowGroupMetaData) -> Self {
+    fn new(chunk_reader: Arc<R>, metadata: &'a RowGroupMetaData) -> Self {
         Self {
             chunk_reader,
             metadata,
@@ -191,15 +209,8 @@ impl<'a, R: 'static + ChunkReader> RowGroupReader for SerializedRowGroupReader<'
     // TODO: fix PARQUET-816
     fn get_column_page_reader(&self, i: usize) -> Result<Box<PageReader>> {
         let col = self.metadata.column(i);
-        let col_start = if col.has_dictionary_page() {
-            col.dictionary_page_offset().unwrap()
-        } else {
-            col.data_page_offset()
-        };
-        let col_length = col.compressed_size();
-        let file_chunk = self
-            .chunk_reader
-            .get_read(col_start as u64, col_length as usize)?;
+        let (col_start, col_length) = col.byte_range();
+        let file_chunk = self.chunk_reader.get_read(col_start, col_length as usize)?;
         let page_reader = SerializedPageReader::new(
             file_chunk,
             col.num_values(),
@@ -385,7 +396,7 @@ mod tests {
     use crate::record::RowAccessor;
     use crate::schema::parser::parse_message_type;
     use crate::util::test_common::{get_test_file, get_test_path};
-    use std::rc::Rc;
+    use std::sync::Arc;
 
     #[test]
     fn test_cursor_and_file_has_the_same_behaviour() {
@@ -440,7 +451,7 @@ mod tests {
     }
 
     #[test]
-    fn test_file_reader_into_iter() -> Result<()> {
+    fn test_file_reader_into_iter() {
         let path = get_test_path("alltypes_plain.parquet");
         let vec = vec![path.clone(), path]
             .iter()
@@ -452,12 +463,10 @@ mod tests {
         // rows in the parquet file are not sorted by "id"
         // each file contains [id:4, id:5, id:6, id:7, id:2, id:3, id:0, id:1]
         assert_eq!(vec, vec![4, 5, 6, 7, 2, 3, 0, 1, 4, 5, 6, 7, 2, 3, 0, 1]);
-
-        Ok(())
     }
 
     #[test]
-    fn test_file_reader_into_iter_project() -> Result<()> {
+    fn test_file_reader_into_iter_project() {
         let path = get_test_path("alltypes_plain.parquet");
         let result = vec![path]
             .iter()
@@ -476,8 +485,6 @@ mod tests {
             result,
             "{id: 4},{id: 5},{id: 6},{id: 7},{id: 2},{id: 3},{id: 0},{id: 1}"
         );
-
-        Ok(())
     }
 
     #[test]
@@ -692,7 +699,7 @@ mod tests {
     #[test]
     fn test_page_iterator() {
         let file = get_test_file("alltypes_plain.parquet");
-        let file_reader = Rc::new(SerializedFileReader::new(file).unwrap());
+        let file_reader = Arc::new(SerializedFileReader::new(file).unwrap());
 
         let mut page_iterator = FilePageIterator::new(0, file_reader.clone()).unwrap();
 
@@ -722,7 +729,7 @@ mod tests {
     #[test]
     fn test_file_reader_key_value_metadata() {
         let file = get_test_file("binary.parquet");
-        let file_reader = Rc::new(SerializedFileReader::new(file).unwrap());
+        let file_reader = Arc::new(SerializedFileReader::new(file).unwrap());
 
         let metadata = file_reader
             .metadata
@@ -743,5 +750,22 @@ mod tests {
             metadata.get(2).unwrap().value,
             Some("foo.baz.Foobaz$Event".to_owned())
         );
+    }
+
+    #[test]
+    fn test_file_reader_filter_row_groups() -> Result<()> {
+        let test_file = get_test_file("alltypes_plain.parquet");
+        let mut reader = SerializedFileReader::new(test_file)?;
+
+        // test initial number of row groups
+        let metadata = reader.metadata();
+        assert_eq!(metadata.num_row_groups(), 1);
+
+        // test filtering out all row groups
+        reader.filter_row_groups(&|_, _| false);
+        let metadata = reader.metadata();
+        assert_eq!(metadata.num_row_groups(), 0);
+
+        Ok(())
     }
 }

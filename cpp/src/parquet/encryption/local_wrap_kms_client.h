@@ -90,7 +90,7 @@ class PARQUET_EXPORT LocalWrapKmsClient : public KmsClient {
 
  protected:
   KmsConnectionConfig kms_connection_config_;
-  arrow::util::ConcurrentMap<std::string, std::string> master_key_cache_;
+  ::arrow::util::ConcurrentMap<std::string, std::string> master_key_cache_;
 };
 
 }  // namespace encryption

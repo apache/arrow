@@ -1,7 +1,7 @@
 MACOSX_DEPLOYMENT_TARGET:
 - '10.9'
 aws_sdk_cpp:
-- 1.8.54
+- 1.8.63
 boost_cpp:
 - 1.74.0
 bzip2:
@@ -25,7 +25,7 @@ gflags:
 glog:
 - 0.4.0
 grpc_cpp:
-- '1.30'
+- '1.32'
 libprotobuf:
 - '3.13'
 lz4_c:
@@ -35,7 +35,7 @@ macos_machine:
 numpy:
 - '1.16'
 orc:
-- 1.6.4
+- 1.6.5
 pin_run_as_build:
   boost-cpp:
     max_pin: x.x.x
@@ -51,11 +51,16 @@ pin_run_as_build:
 python:
 - 3.6.* *_cpython
 re2:
-- 2020.08.01
+- 2020.10.01
 snappy:
 - '1'
 target_platform:
 - osx-64
+zip_keys:
+- - c_compiler_version
+  - cxx_compiler_version
+- - numpy
+  - python
 zlib:
 - '1.2'
 zstd:

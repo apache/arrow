@@ -126,7 +126,7 @@ void CheckAddDispatch(FunctionType* func) {
   KernelType invalid_kernel({boolean()}, boolean(), ExecNYI);
   ASSERT_RAISES(Invalid, func->AddKernel(invalid_kernel));
 
-  ASSERT_OK_AND_ASSIGN(const KernelType* kernel, func->DispatchExact({int32(), int32()}));
+  ASSERT_OK_AND_ASSIGN(const Kernel* kernel, func->DispatchExact({int32(), int32()}));
   KernelSignature expected_sig(in_types1, out_type1);
   ASSERT_TRUE(kernel->signature->Equals(expected_sig));
 
@@ -164,7 +164,7 @@ TEST(ArrayFunction, VarArgs) {
   ASSERT_RAISES(Invalid, va_func.AddKernel(non_va_kernel));
 
   std::vector<ValueDescr> args = {ValueDescr::Scalar(int8()), int8(), int8()};
-  ASSERT_OK_AND_ASSIGN(const ScalarKernel* kernel, va_func.DispatchExact(args));
+  ASSERT_OK_AND_ASSIGN(const Kernel* kernel, va_func.DispatchExact(args));
   ASSERT_TRUE(kernel->signature->MatchesInputs(args));
 
   // No dispatch possible because args incompatible
@@ -215,8 +215,7 @@ TEST(ScalarAggregateFunction, DispatchExact) {
   ASSERT_RAISES(Invalid, func.AddKernel(kernel));
 
   std::vector<ValueDescr> dispatch_args = {ValueDescr::Array(int8())};
-  ASSERT_OK_AND_ASSIGN(const ScalarAggregateKernel* selected_kernel,
-                       func.DispatchExact(dispatch_args));
+  ASSERT_OK_AND_ASSIGN(const Kernel* selected_kernel, func.DispatchExact(dispatch_args));
   ASSERT_EQ(func.kernels()[0], selected_kernel);
   ASSERT_TRUE(selected_kernel->signature->MatchesInputs(dispatch_args));
 

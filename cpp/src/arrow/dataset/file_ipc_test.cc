@@ -24,7 +24,6 @@
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/discovery.h"
 #include "arrow/dataset/file_base.h"
-#include "arrow/dataset/filter.h"
 #include "arrow/dataset/partition.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/io/memory.h"
@@ -224,6 +223,18 @@ TEST_F(TestIpcFileSystemDataset, WriteWithEmptyPartitioningSchema) {
   TestWriteWithEmptyPartitioningSchema();
 }
 
+TEST_F(TestIpcFileSystemDataset, WriteExceedsMaxPartitions) {
+  write_options_.partitioning = std::make_shared<DirectoryPartitioning>(
+      SchemaFromColumnNames(source_schema_, {"model"}));
+
+  // require that no batch be grouped into more than 2 written batches:
+  write_options_.max_partitions = 2;
+
+  auto scanner = std::make_shared<Scanner>(dataset_, scan_options_, scan_context_);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("This exceeds the maximum"),
+                                  FileSystemDataset::Write(write_options_, scanner));
+}
+
 TEST_F(TestIpcFileFormat, OpenFailureWithRelevantError) {
   std::shared_ptr<Buffer> buf = std::make_shared<Buffer>(util::string_view(""));
   auto result = format_->Inspect(FileSource(buf));
@@ -244,7 +255,7 @@ TEST_F(TestIpcFileFormat, ScanRecordBatchReaderProjected) {
 
   opts_ = ScanOptions::Make(schema_);
   opts_->projector = RecordBatchProjector(SchemaFromColumnNames(schema_, {"f64"}));
-  opts_->filter = equal(field_ref("i32"), scalar(0));
+  opts_->filter = equal(field_ref("i32"), literal(0));
 
   // NB: projector is applied by the scanner; FileFragment does not evaluate it so
   // we will not drop "i32" even though it is not in the projector's schema
@@ -280,7 +291,7 @@ TEST_F(TestIpcFileFormat, ScanRecordBatchReaderProjectedMissingCols) {
   schema_ = reader->schema();
   opts_ = ScanOptions::Make(schema_);
   opts_->projector = RecordBatchProjector(SchemaFromColumnNames(schema_, {"f64"}));
-  opts_->filter = equal(field_ref("i32"), scalar(0));
+  opts_->filter = equal(field_ref("i32"), literal(0));
 
   auto readers = {reader.get(), reader_without_i32.get(), reader_without_f64.get()};
   for (auto reader : readers) {

@@ -36,6 +36,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/int_util.h"
 #include "arrow/util/int_util_internal.h"
 #include "arrow/util/logging.h"
 #include "arrow/visitor_inline.h"
@@ -44,6 +45,7 @@ namespace arrow {
 
 using internal::SafeSignedAdd;
 
+namespace {
 /// offset, length pair for representing a Range of a buffer or array
 struct Range {
   int64_t offset = -1, length = 0;
@@ -66,8 +68,8 @@ struct Bitmap {
 };
 
 // Allocate a buffer and concatenate bitmaps into it.
-static Status ConcatenateBitmaps(const std::vector<Bitmap>& bitmaps, MemoryPool* pool,
-                                 std::shared_ptr<Buffer>* out) {
+Status ConcatenateBitmaps(const std::vector<Bitmap>& bitmaps, MemoryPool* pool,
+                          std::shared_ptr<Buffer>* out) {
   int64_t out_length = 0;
   for (const auto& bitmap : bitmaps) {
     if (internal::AddWithOverflow(out_length, bitmap.range.length, &out_length)) {
@@ -94,15 +96,15 @@ static Status ConcatenateBitmaps(const std::vector<Bitmap>& bitmaps, MemoryPool*
 // Write offsets in src into dst, adjusting them such that first_offset
 // will be the first offset written.
 template <typename Offset>
-static Status PutOffsets(const std::shared_ptr<Buffer>& src, Offset first_offset,
-                         Offset* dst, Range* values_range);
+Status PutOffsets(const std::shared_ptr<Buffer>& src, Offset first_offset, Offset* dst,
+                  Range* values_range);
 
 // Concatenate buffers holding offsets into a single buffer of offsets,
 // also computing the ranges of values spanned by each buffer of offsets.
 template <typename Offset>
-static Status ConcatenateOffsets(const BufferVector& buffers, MemoryPool* pool,
-                                 std::shared_ptr<Buffer>* out,
-                                 std::vector<Range>* values_ranges) {
+Status ConcatenateOffsets(const BufferVector& buffers, MemoryPool* pool,
+                          std::shared_ptr<Buffer>* out,
+                          std::vector<Range>* values_ranges) {
   values_ranges->resize(buffers.size());
 
   // allocate output buffer
@@ -130,8 +132,8 @@ static Status ConcatenateOffsets(const BufferVector& buffers, MemoryPool* pool,
 }
 
 template <typename Offset>
-static Status PutOffsets(const std::shared_ptr<Buffer>& src, Offset first_offset,
-                         Offset* dst, Range* values_range) {
+Status PutOffsets(const std::shared_ptr<Buffer>& src, Offset first_offset, Offset* dst,
+                  Range* values_range) {
   if (src->size() == 0) {
     // It's allowed to have an empty offsets buffer for a 0-length array
     // (see Array::Validate)
@@ -165,8 +167,7 @@ static Status PutOffsets(const std::shared_ptr<Buffer>& src, Offset first_offset
 
 class ConcatenateImpl {
  public:
-  ConcatenateImpl(const std::vector<std::shared_ptr<const ArrayData>>& in,
-                  MemoryPool* pool)
+  ConcatenateImpl(const ArrayDataVector& in, MemoryPool* pool)
       : in_(std::move(in)), pool_(pool), out_(std::make_shared<ArrayData>()) {
     out_->type = in[0]->type;
     for (size_t i = 0; i < in_.size(); ++i) {
@@ -242,8 +243,8 @@ class ConcatenateImpl {
     return ConcatenateImpl(child_data, pool_).Concatenate(&out_->child_data[0]);
   }
 
-  Status Visit(const FixedSizeListType&) {
-    ARROW_ASSIGN_OR_RAISE(auto child_data, ChildData(0));
+  Status Visit(const FixedSizeListType& fixed_size_list) {
+    ARROW_ASSIGN_OR_RAISE(auto child_data, ChildData(0, fixed_size_list.list_size()));
     return ConcatenateImpl(child_data, pool_).Concatenate(&out_->child_data[0]);
   }
 
@@ -253,6 +254,47 @@ class ConcatenateImpl {
       RETURN_NOT_OK(ConcatenateImpl(child_data, pool_).Concatenate(&out_->child_data[i]));
     }
     return Status::OK();
+  }
+
+  Result<BufferVector> UnifyDictionaries(const DictionaryType& d) {
+    BufferVector new_index_lookup;
+    ARROW_ASSIGN_OR_RAISE(auto unifier, DictionaryUnifier::Make(d.value_type()));
+    new_index_lookup.resize(in_.size());
+    for (size_t i = 0; i < in_.size(); i++) {
+      auto item = in_[i];
+      auto dictionary_array = MakeArray(item->dictionary);
+      RETURN_NOT_OK(unifier->Unify(*dictionary_array, &new_index_lookup[i]));
+    }
+    std::shared_ptr<Array> out_dictionary;
+    RETURN_NOT_OK(unifier->GetResultWithIndexType(d.index_type(), &out_dictionary));
+    out_->dictionary = out_dictionary->data();
+    return new_index_lookup;
+  }
+
+  // Transpose and concatenate dictionary indices
+  Result<std::shared_ptr<Buffer>> ConcatenateDictionaryIndices(
+      const DataType& index_type, const BufferVector& index_transpositions) {
+    const auto index_width =
+        internal::checked_cast<const FixedWidthType&>(index_type).bit_width() / 8;
+    int64_t out_length = 0;
+    for (const auto& data : in_) {
+      out_length += data->length;
+    }
+    ARROW_ASSIGN_OR_RAISE(auto out, AllocateBuffer(out_length * index_width, pool_));
+    uint8_t* out_data = out->mutable_data();
+    for (size_t i = 0; i < in_.size(); i++) {
+      const auto& data = in_[i];
+      auto transpose_map =
+          reinterpret_cast<const int32_t*>(index_transpositions[i]->data());
+      RETURN_NOT_OK(internal::TransposeInts(index_type, index_type,
+                                            /*src=*/data->GetValues<uint8_t>(1, 0),
+                                            /*dest=*/out_data,
+                                            /*src_offset=*/data->offset,
+                                            /*dest_offset=*/0, /*length=*/data->length,
+                                            transpose_map));
+      out_data += data->length * index_width;
+    }
+    return std::move(out);
   }
 
   Status Visit(const DictionaryType& d) {
@@ -269,12 +311,15 @@ class ConcatenateImpl {
       }
     }
 
+    ARROW_ASSIGN_OR_RAISE(auto index_buffers, Buffers(1, *fixed));
     if (dictionaries_same) {
       out_->dictionary = in_[0]->dictionary;
-      ARROW_ASSIGN_OR_RAISE(auto index_buffers, Buffers(1, *fixed));
       return ConcatenateBuffers(index_buffers, pool_).Value(&out_->buffers[1]);
     } else {
-      return Status::NotImplemented("Concat with dictionary unification NYI");
+      ARROW_ASSIGN_OR_RAISE(auto index_lookup, UnifyDictionaries(d));
+      ARROW_ASSIGN_OR_RAISE(out_->buffers[1],
+                            ConcatenateDictionaryIndices(*fixed, index_lookup));
+      return Status::OK();
     }
   }
 
@@ -299,7 +344,7 @@ class ConcatenateImpl {
   Result<BufferVector> Buffers(size_t index) {
     BufferVector buffers;
     buffers.reserve(in_.size());
-    for (const std::shared_ptr<const ArrayData>& array_data : in_) {
+    for (const auto& array_data : in_) {
       const auto& buffer = array_data->buffers[index];
       if (buffer != nullptr) {
         ARROW_ASSIGN_OR_RAISE(
@@ -341,7 +386,7 @@ class ConcatenateImpl {
   Result<BufferVector> Buffers(size_t index, int byte_width) {
     BufferVector buffers;
     buffers.reserve(in_.size());
-    for (const std::shared_ptr<const ArrayData>& array_data : in_) {
+    for (const auto& array_data : in_) {
       const auto& buffer = array_data->buffers[index];
       if (buffer != nullptr) {
         ARROW_ASSIGN_OR_RAISE(auto sliced_buffer,
@@ -376,8 +421,8 @@ class ConcatenateImpl {
 
   // Gather the index-th child_data of each input into a vector.
   // Elements are sliced with that input's offset and length.
-  Result<std::vector<std::shared_ptr<const ArrayData>>> ChildData(size_t index) {
-    std::vector<std::shared_ptr<const ArrayData>> child_data(in_.size());
+  Result<ArrayDataVector> ChildData(size_t index) {
+    ArrayDataVector child_data(in_.size());
     for (size_t i = 0; i < in_.size(); ++i) {
       ARROW_ASSIGN_OR_RAISE(child_data[i], in_[i]->child_data[index]->SliceSafe(
                                                in_[i]->offset, in_[i]->length));
@@ -386,11 +431,22 @@ class ConcatenateImpl {
   }
 
   // Gather the index-th child_data of each input into a vector.
+  // Elements are sliced with that input's offset and length multiplied by multiplier.
+  Result<ArrayDataVector> ChildData(size_t index, size_t multiplier) {
+    ArrayDataVector child_data(in_.size());
+    for (size_t i = 0; i < in_.size(); ++i) {
+      ARROW_ASSIGN_OR_RAISE(
+          child_data[i], in_[i]->child_data[index]->SliceSafe(
+                             in_[i]->offset * multiplier, in_[i]->length * multiplier));
+    }
+    return child_data;
+  }
+
+  // Gather the index-th child_data of each input into a vector.
   // Elements are sliced with the explicitly passed ranges.
-  Result<std::vector<std::shared_ptr<const ArrayData>>> ChildData(
-      size_t index, const std::vector<Range>& ranges) {
+  Result<ArrayDataVector> ChildData(size_t index, const std::vector<Range>& ranges) {
     DCHECK_EQ(in_.size(), ranges.size());
-    std::vector<std::shared_ptr<const ArrayData>> child_data(in_.size());
+    ArrayDataVector child_data(in_.size());
     for (size_t i = 0; i < in_.size(); ++i) {
       ARROW_ASSIGN_OR_RAISE(child_data[i], in_[i]->child_data[index]->SliceSafe(
                                                ranges[i].offset, ranges[i].length));
@@ -398,10 +454,12 @@ class ConcatenateImpl {
     return child_data;
   }
 
-  const std::vector<std::shared_ptr<const ArrayData>>& in_;
+  const ArrayDataVector& in_;
   MemoryPool* pool_;
   std::shared_ptr<ArrayData> out_;
 };
+
+}  // namespace
 
 Result<std::shared_ptr<Array>> Concatenate(const ArrayVector& arrays, MemoryPool* pool) {
   if (arrays.size() == 0) {
@@ -409,7 +467,7 @@ Result<std::shared_ptr<Array>> Concatenate(const ArrayVector& arrays, MemoryPool
   }
 
   // gather ArrayData of input arrays
-  std::vector<std::shared_ptr<const ArrayData>> data(arrays.size());
+  ArrayDataVector data(arrays.size());
   for (size_t i = 0; i < arrays.size(); ++i) {
     if (!arrays[i]->type()->Equals(*arrays[0]->type())) {
       return Status::Invalid("arrays to be concatenated must be identically typed, but ",

@@ -142,7 +142,7 @@ struct TakeBenchmark {
                    indices_null_proportion);
 
     if (monotonic_indices) {
-      auto arg_sorter = *SortToIndices(*indices);
+      auto arg_sorter = *SortIndices(*indices);
       indices = *Take(*indices, *arg_sorter);
     }
 
@@ -267,6 +267,10 @@ static void FilterRecordBatchNoNulls(benchmark::State& state) {
   FilterBenchmark(state, false).BenchRecordBatch();
 }
 
+static void FilterRecordBatchWithNulls(benchmark::State& state) {
+  FilterBenchmark(state, true).BenchRecordBatch();
+}
+
 static void TakeInt64RandomIndicesNoNulls(benchmark::State& state) {
   TakeBenchmark(state, false).Int64();
 }
@@ -326,6 +330,7 @@ void FilterRecordBatchSetArgs(benchmark::internal::Benchmark* bench) {
   }
 }
 BENCHMARK(FilterRecordBatchNoNulls)->Apply(FilterRecordBatchSetArgs);
+BENCHMARK(FilterRecordBatchWithNulls)->Apply(FilterRecordBatchSetArgs);
 
 void TakeSetArgs(benchmark::internal::Benchmark* bench) {
   for (int64_t size : g_data_sizes) {

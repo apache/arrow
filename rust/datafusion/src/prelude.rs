@@ -28,6 +28,8 @@
 pub use crate::dataframe::DataFrame;
 pub use crate::execution::context::{ExecutionConfig, ExecutionContext};
 pub use crate::logical_plan::{
-    array, avg, col, concat, count, create_udf, length, lit, max, min, sum,
+    array, avg, bit_length, character_length, col, concat, count, create_udf, in_list,
+    length, lit, lower, ltrim, max, md5, min, octet_length, rtrim, sha224, sha256,
+    sha384, sha512, sum, trim, upper, JoinType, Partitioning,
 };
 pub use crate::physical_plan::csv::CsvReadOptions;

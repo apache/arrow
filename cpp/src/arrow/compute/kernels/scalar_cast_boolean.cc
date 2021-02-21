@@ -17,6 +17,7 @@
 
 // Cast types to boolean
 
+#include "arrow/array/builder_primitive.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/compute/kernels/scalar_cast_internal.h"
 #include "arrow/util/value_parsing.h"
@@ -49,6 +50,7 @@ struct ParseBooleanString {
 std::vector<std::shared_ptr<CastFunction>> GetBooleanCasts() {
   auto func = std::make_shared<CastFunction>("cast_boolean", Type::BOOL);
   AddCommonCasts(Type::BOOL, boolean(), func.get());
+  AddZeroCopyCast(Type::BOOL, boolean(), boolean(), func.get());
 
   for (const auto& ty : NumericTypes()) {
     ArrayKernelExec exec =

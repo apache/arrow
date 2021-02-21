@@ -128,6 +128,16 @@ class IntegrationRunner(object):
                 skip = set()
             if name == 'union' and prefix == '0.17.1':
                 skip.add("Java")
+            if prefix == '1.0.0-bigendian' or prefix == '1.0.0-littleendian':
+                skip.add("Go")
+                skip.add("Java")
+                skip.add("JS")
+                skip.add("Rust")
+            if prefix == '2.0.0-compression':
+                skip.add("Go")
+                skip.add("Java")
+                skip.add("JS")
+                skip.add("Rust")
             yield datagen.File(name, None, None, skip=skip, path=out_path)
 
     def _run_test_cases(self, producer, consumer, case_runner,
@@ -347,7 +357,9 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
             description="Authenticate using the BasicAuth protobuf."),
         Scenario(
             "middleware",
-            description="Ensure headers are propagated via middleware."),
+            description="Ensure headers are propagated via middleware.",
+            skip={"Rust"}   # TODO(ARROW-10961): tonic upgrade needed
+        ),
     ]
 
     runner = IntegrationRunner(json_files, flight_scenarios, testers, **kwargs)

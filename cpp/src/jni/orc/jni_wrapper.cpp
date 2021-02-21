@@ -226,7 +226,7 @@ Java_org_apache_arrow_adapter_orc_OrcStripeReaderJniWrapper_getSchema(JNIEnv* en
 
   auto schema = stripe_reader->schema();
 
-  auto maybe_buffer = arrow::ipc::SerializeSchema(*schema, nullptr);
+  auto maybe_buffer = arrow::ipc::SerializeSchema(*schema, arrow::default_memory_pool());
   if (!maybe_buffer.ok()) {
     return nullptr;
   }

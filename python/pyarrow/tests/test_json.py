@@ -192,6 +192,22 @@ class BaseTestJSONRead:
             'e': [None, True, False],
         }
 
+    def test_empty_lists(self):
+        # ARROW-10955: Infer list(null)
+        rows = b'{"a": []}'
+        table = self.read_bytes(rows)
+        schema = pa.schema([('a', pa.list_(pa.null()))])
+        assert table.schema == schema
+        assert table.to_pydict() == {'a': [[]]}
+
+    def test_empty_rows(self):
+        rows = b'{}\n{}\n'
+        table = self.read_bytes(rows)
+        schema = pa.schema([])
+        assert table.schema == schema
+        assert table.num_columns == 0
+        assert table.num_rows == 2
+
     def test_explicit_schema_with_unexpected_behaviour(self):
         # infer by default
         rows = (b'{"foo": "bar", "num": 0}\n'

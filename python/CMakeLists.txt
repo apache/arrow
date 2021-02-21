@@ -35,11 +35,9 @@ endif()
 
 include(CMakeParseArguments)
 
-# Compatibility with CMake 3.1
-if(POLICY CMP0054)
-  # http://www.cmake.org/cmake/help/v3.1/policy/CMP0054.html
-  cmake_policy(SET CMP0054 NEW)
-endif()
+# Only interpret if() arguments as variables or keywords when unquoted.
+# https://www.cmake.org/cmake/help/latest/policy/CMP0054.html
+cmake_policy(SET CMP0054 NEW)
 
 # Use the first Python installation on PATH, not the newest one
 set(Python3_FIND_STRATEGY "LOCATION")
@@ -369,10 +367,9 @@ if(PYARROW_BUNDLE_ARROW_CPP)
   endif()
 
   if(MSVC)
-    find_package(ZLIB)
+    # TODO(kszucs): locate msvcp140.dll in a portable fashion and bundle it
     bundle_arrow_import_lib(ARROW_IMPORT_LIB)
     bundle_arrow_import_lib(ARROW_PYTHON_IMPORT_LIB)
-    bundle_arrow_dependency(zlib)
   endif()
 endif()
 
@@ -498,13 +495,11 @@ if(PYARROW_BUILD_FLIGHT)
     if(MSVC)
       bundle_arrow_import_lib(ARROW_FLIGHT_IMPORT_LIB)
       bundle_arrow_import_lib(ARROW_PYTHON_FLIGHT_IMPORT_LIB)
-      bundle_arrow_dependency(cares)
-      bundle_arrow_dependency(libprotobuf)
       # XXX Hardcoded library names because CMake is too stupid to give us
       # the shared library paths.
       # https://gitlab.kitware.com/cmake/cmake/issues/16210
-      bundle_arrow_dependency(libcrypto-1_1-x64)
-      bundle_arrow_dependency(libssl-1_1-x64)
+      # bundle_arrow_dependency(libcrypto-1_1-x64)
+      # bundle_arrow_dependency(libssl-1_1-x64)
     endif()
   endif()
 

@@ -18,11 +18,12 @@
 #include "arrow/array/array_base.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/compute/api_scalar.h"
+#include "arrow/compute/cast.h"
 #include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/util_internal.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_writer.h"
 #include "arrow/util/hashing.h"
-#include "arrow/util/optional.h"
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
@@ -36,41 +37,45 @@ namespace {
 
 template <typename Type>
 struct SetLookupState : public KernelState {
-  explicit SetLookupState(MemoryPool* pool)
-      : lookup_table(pool, 0), lookup_null_count(0) {}
+  explicit SetLookupState(MemoryPool* pool) : lookup_table(pool, 0) {}
 
   Status Init(const SetLookupOptions& options) {
+    if (options.value_set.kind() == Datum::ARRAY) {
+      RETURN_NOT_OK(AddArrayValueSet(*options.value_set.array()));
+    } else if (options.value_set.kind() == Datum::CHUNKED_ARRAY) {
+      const ChunkedArray& value_set = *options.value_set.chunked_array();
+      for (const std::shared_ptr<Array>& chunk : value_set.chunks()) {
+        RETURN_NOT_OK(AddArrayValueSet(*chunk->data()));
+      }
+    } else {
+      return Status::Invalid("value_set should be an array or chunked array");
+    }
+    if (lookup_table.size() != options.value_set.length()) {
+      return Status::NotImplemented("duplicate values in value_set");
+    }
+    if (!options.skip_nulls) {
+      null_index = lookup_table.GetNull();
+    }
+    return Status::OK();
+  }
+
+  Status AddArrayValueSet(const ArrayData& data) {
     using T = typename GetViewType<Type>::T;
     auto visit_valid = [&](T v) {
       int32_t unused_memo_index;
       return lookup_table.GetOrInsert(v, &unused_memo_index);
     };
     auto visit_null = [&]() {
-      if (!options.skip_nulls) {
-        lookup_table.GetOrInsertNull();
-      }
+      lookup_table.GetOrInsertNull();
       return Status::OK();
     };
-    if (options.value_set.kind() == Datum::ARRAY) {
-      const std::shared_ptr<ArrayData>& value_set = options.value_set.array();
-      this->lookup_null_count += value_set->GetNullCount();
-      return VisitArrayDataInline<Type>(*value_set, std::move(visit_valid),
-                                        std::move(visit_null));
-    } else {
-      const ChunkedArray& value_set = *options.value_set.chunked_array();
-      for (const std::shared_ptr<Array>& chunk : value_set.chunks()) {
-        this->lookup_null_count += chunk->null_count();
-        RETURN_NOT_OK(VisitArrayDataInline<Type>(*chunk->data(), std::move(visit_valid),
-                                                 std::move(visit_null)));
-      }
-      return Status::OK();
-    }
+
+    return VisitArrayDataInline<Type>(data, visit_valid, visit_null);
   }
 
   using MemoTable = typename HashTraits<Type>::MemoTableType;
   MemoTable lookup_table;
-  int64_t lookup_null_count;
-  int64_t null_index = -1;
+  int32_t null_index = -1;
 };
 
 template <>
@@ -78,11 +83,11 @@ struct SetLookupState<NullType> : public KernelState {
   explicit SetLookupState(MemoryPool*) {}
 
   Status Init(const SetLookupOptions& options) {
-    this->lookup_null_count = options.value_set.null_count();
+    value_set_has_null = (options.value_set.length() > 0) && !options.skip_nulls;
     return Status::OK();
   }
 
-  int64_t lookup_null_count;
+  bool value_set_has_null;
 };
 
 // TODO: Put this concept somewhere reusable
@@ -112,21 +117,20 @@ struct UnsignedIntType<8> {
 // Constructing the type requires a type parameter
 struct InitStateVisitor {
   KernelContext* ctx;
-  const SetLookupOptions* options;
+  SetLookupOptions options;
+  const std::shared_ptr<DataType>& arg_type;
   std::unique_ptr<KernelState> result;
 
-  InitStateVisitor(KernelContext* ctx, const SetLookupOptions* options)
-      : ctx(ctx), options(options) {}
+  InitStateVisitor(KernelContext* ctx, const KernelInitArgs& args)
+      : ctx(ctx),
+        options(*checked_cast<const SetLookupOptions*>(args.options)),
+        arg_type(args.inputs[0].type) {}
 
   template <typename Type>
   Status Init() {
-    if (options == nullptr) {
-      return Status::Invalid(
-          "Attempted to call a set lookup function without SetLookupOptions");
-    }
     using StateType = SetLookupState<Type>;
     result.reset(new StateType(ctx->exec_context()->memory_pool()));
-    return static_cast<StateType*>(result.get())->Init(*options);
+    return static_cast<StateType*>(result.get())->Init(options);
   }
 
   Status Visit(const DataType&) { return Init<NullType>(); }
@@ -151,7 +155,13 @@ struct InitStateVisitor {
   Status Visit(const FixedSizeBinaryType& type) { return Init<FixedSizeBinaryType>(); }
 
   Status GetResult(std::unique_ptr<KernelState>* out) {
-    RETURN_NOT_OK(VisitTypeInline(*options->value_set.type(), this));
+    if (!options.value_set.type()->Equals(arg_type)) {
+      ARROW_ASSIGN_OR_RAISE(
+          options.value_set,
+          Cast(options.value_set, CastOptions::Safe(arg_type), ctx->exec_context()));
+    }
+
+    RETURN_NOT_OK(VisitTypeInline(*arg_type, this));
     *out = std::move(result);
     return Status::OK();
   }
@@ -159,9 +169,14 @@ struct InitStateVisitor {
 
 std::unique_ptr<KernelState> InitSetLookup(KernelContext* ctx,
                                            const KernelInitArgs& args) {
-  InitStateVisitor visitor{ctx, static_cast<const SetLookupOptions*>(args.options)};
+  if (args.options == nullptr) {
+    ctx->SetStatus(Status::Invalid(
+        "Attempted to call a set lookup function without SetLookupOptions"));
+    return nullptr;
+  }
+
   std::unique_ptr<KernelState> result;
-  ctx->SetStatus(visitor.GetResult(&result));
+  ctx->SetStatus(InitStateVisitor{ctx, args}.GetResult(&result));
   return result;
 }
 
@@ -174,16 +189,18 @@ struct IndexInVisitor {
   IndexInVisitor(KernelContext* ctx, const ArrayData& data, Datum* out)
       : ctx(ctx), data(data), out(out), builder(ctx->exec_context()->memory_pool()) {}
 
-  Status Visit(const DataType&) {
+  Status Visit(const DataType& type) {
+    DCHECK_EQ(type.id(), Type::NA);
     const auto& state = checked_cast<const SetLookupState<NullType>&>(*ctx->state());
     if (data.length != 0) {
-      if (state.lookup_null_count == 0) {
-        RETURN_NOT_OK(this->builder.AppendNulls(data.length));
-      } else {
+      // skip_nulls is honored for consistency with other types
+      if (state.value_set_has_null) {
         RETURN_NOT_OK(this->builder.Reserve(data.length));
         for (int64_t i = 0; i < data.length; ++i) {
           this->builder.UnsafeAppend(0);
         }
+      } else {
+        RETURN_NOT_OK(this->builder.AppendNulls(data.length));
       }
     }
     return Status::OK();
@@ -195,7 +212,6 @@ struct IndexInVisitor {
 
     const auto& state = checked_cast<const SetLookupState<Type>&>(*ctx->state());
 
-    int32_t null_index = state.lookup_table.GetNull();
     RETURN_NOT_OK(this->builder.Reserve(data.length));
     VisitArrayDataInline<Type>(
         data,
@@ -210,9 +226,9 @@ struct IndexInVisitor {
           }
         },
         [&]() {
-          if (null_index != -1) {
+          if (state.null_index != -1) {
             // value_set included null
-            this->builder.UnsafeAppend(null_index);
+            this->builder.UnsafeAppend(state.null_index);
           } else {
             // value_set does not include null; output null
             this->builder.UnsafeAppendNull();
@@ -255,30 +271,13 @@ struct IndexInVisitor {
   }
 };
 
-void ExecArrayOrScalar(KernelContext* ctx, const Datum& in, Datum* out,
-                       std::function<Status(const ArrayData&)> array_impl) {
-  if (in.is_array()) {
-    KERNEL_RETURN_IF_ERROR(ctx, array_impl(*in.array()));
-    return;
-  }
-
-  std::shared_ptr<Array> in_array;
-  std::shared_ptr<Scalar> out_scalar;
-  KERNEL_RETURN_IF_ERROR(ctx, MakeArrayFromScalar(*in.scalar(), 1).Value(&in_array));
-  KERNEL_RETURN_IF_ERROR(ctx, array_impl(*in_array->data()));
-  KERNEL_RETURN_IF_ERROR(ctx, out->make_array()->GetScalar(0).Value(&out_scalar));
-  *out = std::move(out_scalar);
-}
-
 void ExecIndexIn(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  ExecArrayOrScalar(ctx, batch[0], out, [&](const ArrayData& in) {
-    return IndexInVisitor(ctx, in, out).Execute();
-  });
+  KERNEL_RETURN_IF_ERROR(ctx, IndexInVisitor(ctx, *batch[0].array(), out).Execute());
 }
 
 // ----------------------------------------------------------------------
 
-// IsIn writes the results into a preallocated binary data bitmap
+// IsIn writes the results into a preallocated boolean data bitmap
 struct IsInVisitor {
   KernelContext* ctx;
   const ArrayData& data;
@@ -287,18 +286,13 @@ struct IsInVisitor {
   IsInVisitor(KernelContext* ctx, const ArrayData& data, Datum* out)
       : ctx(ctx), data(data), out(out) {}
 
-  Status Visit(const DataType&) {
+  Status Visit(const DataType& type) {
+    DCHECK_EQ(type.id(), Type::NA);
     const auto& state = checked_cast<const SetLookupState<NullType>&>(*ctx->state());
     ArrayData* output = out->mutable_array();
-    if (state.lookup_null_count > 0) {
-      BitUtil::SetBitsTo(output->buffers[0]->mutable_data(), output->offset,
-                         output->length, true);
-      BitUtil::SetBitsTo(output->buffers[1]->mutable_data(), output->offset,
-                         output->length, true);
-    } else {
-      BitUtil::SetBitsTo(output->buffers[1]->mutable_data(), output->offset,
-                         output->length, false);
-    }
+    // skip_nulls is honored for consistency with other types
+    BitUtil::SetBitsTo(output->buffers[1]->mutable_data(), output->offset, output->length,
+                       state.value_set_has_null);
     return Status::OK();
   }
 
@@ -308,15 +302,9 @@ struct IsInVisitor {
     const auto& state = checked_cast<const SetLookupState<Type>&>(*ctx->state());
     ArrayData* output = out->mutable_array();
 
-    if (this->data.GetNullCount() > 0 && state.lookup_null_count > 0) {
-      // If there were nulls in the value set, set the whole validity bitmap to
-      // true
-      output->null_count = 0;
-      BitUtil::SetBitsTo(output->buffers[0]->mutable_data(), output->offset,
-                         output->length, true);
-    }
     FirstTimeBitmapWriter writer(output->buffers[1]->mutable_data(), output->offset,
                                  output->length);
+
     VisitArrayDataInline<Type>(
         this->data,
         [&](T v) {
@@ -328,7 +316,11 @@ struct IsInVisitor {
           writer.Next();
         },
         [&]() {
-          writer.Set();
+          if (state.null_index != -1) {
+            writer.Set();
+          } else {
+            writer.Clear();
+          }
           writer.Next();
         });
     writer.Finish();
@@ -360,9 +352,7 @@ struct IsInVisitor {
 };
 
 void ExecIsIn(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  ExecArrayOrScalar(ctx, batch[0], out, [&](const ArrayData& in) {
-    return IsInVisitor(ctx, in, out).Execute();
-  });
+  KERNEL_RETURN_IF_ERROR(ctx, IsInVisitor(ctx, *batch[0].array(), out).Execute());
 }
 
 // Unary set lookup kernels available for the following input types
@@ -428,11 +418,22 @@ class IndexInMetaBinary : public MetaFunction {
   }
 };
 
+struct SetLookupFunction : ScalarFunction {
+  using ScalarFunction::ScalarFunction;
+
+  Result<const Kernel*> DispatchBest(std::vector<ValueDescr>* values) const override {
+    EnsureDictionaryDecoded(values);
+    return DispatchExact(*values);
+  }
+};
+
 const FunctionDoc is_in_doc{
     "Find each element in a set of values",
     ("For each element in `values`, return true if it is found in a given\n"
-     "set of values.  The set of values to look for must be given in\n"
-     "SetLookupOptions."),
+     "set of values, false otherwise.\n"
+     "The set of values to look for must be given in SetLookupOptions.\n"
+     "By default, nulls are matched against the value set, this can be\n"
+     "changed in SetLookupOptions."),
     {"values"},
     "SetLookupOptions"};
 
@@ -440,24 +441,27 @@ const FunctionDoc index_in_doc{
     "Return index of each element in a set of values",
     ("For each element in `values`, return its index in a given set of\n"
      "values, or null if it is not found there.\n"
-     "The set of values to look for must be given in SetLookupOptions."),
+     "The set of values to look for must be given in SetLookupOptions.\n"
+     "By default, nulls are matched against the value set, this can be\n"
+     "changed in SetLookupOptions."),
     {"values"},
     "SetLookupOptions"};
 
 }  // namespace
 
 void RegisterScalarSetLookup(FunctionRegistry* registry) {
-  // IsIn always writes into preallocated memory
+  // IsIn writes its boolean output into preallocated memory
   {
     ScalarKernel isin_base;
     isin_base.init = InitSetLookup;
-    isin_base.exec = ExecIsIn;
-    auto is_in = std::make_shared<ScalarFunction>("is_in", Arity::Unary(), &is_in_doc);
+    isin_base.exec =
+        TrivialScalarUnaryAsArraysExec(ExecIsIn, NullHandling::OUTPUT_NOT_NULL);
+    isin_base.null_handling = NullHandling::OUTPUT_NOT_NULL;
+    auto is_in = std::make_shared<SetLookupFunction>("is_in", Arity::Unary(), &is_in_doc);
 
     AddBasicSetLookupKernels(isin_base, /*output_type=*/boolean(), is_in.get());
 
     isin_base.signature = KernelSignature::Make({null()}, boolean());
-    isin_base.null_handling = NullHandling::COMPUTED_PREALLOCATE;
     DCHECK_OK(is_in->AddKernel(isin_base));
     DCHECK_OK(registry->AddFunction(is_in));
 
@@ -468,11 +472,12 @@ void RegisterScalarSetLookup(FunctionRegistry* registry) {
   {
     ScalarKernel index_in_base;
     index_in_base.init = InitSetLookup;
-    index_in_base.exec = ExecIndexIn;
+    index_in_base.exec = TrivialScalarUnaryAsArraysExec(
+        ExecIndexIn, NullHandling::COMPUTED_NO_PREALLOCATE);
     index_in_base.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
     index_in_base.mem_allocation = MemAllocation::NO_PREALLOCATE;
     auto index_in =
-        std::make_shared<ScalarFunction>("index_in", Arity::Unary(), &index_in_doc);
+        std::make_shared<SetLookupFunction>("index_in", Arity::Unary(), &index_in_doc);
 
     AddBasicSetLookupKernels(index_in_base, /*output_type=*/int32(), index_in.get());
 

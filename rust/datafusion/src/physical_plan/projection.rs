@@ -18,7 +18,7 @@
 //! Defines the projection execution plan. A projection determines which columns or expressions
 //! are returned from a query. The SQL statement `SELECT a, b, a+b FROM t1` is an example
 //! of a projection on table `t1` where the expressions `a`, `b`, and `a+b` are the
-//! projection expressions.
+//! projection expressions. `SELECT` without `FROM` will only evaluate expressions.
 
 use std::any::Any;
 use std::pin::Pin;
@@ -75,6 +75,16 @@ impl ProjectionExec {
             input: input.clone(),
         })
     }
+
+    /// The projection expressions stored as tuples of (expression, output column name)
+    pub fn expr(&self) -> &[(Arc<dyn PhysicalExpr>, String)] {
+        &self.expr
+    }
+
+    /// The input plan
+    pub fn input(&self) -> &Arc<dyn ExecutionPlan> {
+        &self.input
+    }
 }
 
 #[async_trait]
@@ -124,12 +134,13 @@ impl ExecutionPlan for ProjectionExec {
 
 fn batch_project(
     batch: &RecordBatch,
-    expressions: &Vec<Arc<dyn PhysicalExpr>>,
+    expressions: &[Arc<dyn PhysicalExpr>],
     schema: &SchemaRef,
 ) -> ArrowResult<RecordBatch> {
     expressions
         .iter()
         .map(|expr| expr.evaluate(&batch))
+        .map(|r| r.map(|v| v.into_array(batch.num_rows())))
         .collect::<Result<Vec<_>>>()
         .map_or_else(
             |e| Err(DataFusionError::into_arrow_external_error(e)),

@@ -52,6 +52,7 @@ class DataType;
 class Field;
 class FieldRef;
 class KeyValueMetadata;
+enum class Endianness;
 class Schema;
 
 using DataTypeVector = std::vector<std::shared_ptr<DataType>>;
@@ -60,7 +61,6 @@ using FieldVector = std::vector<std::shared_ptr<Field>>;
 class Array;
 struct ArrayData;
 class ArrayBuilder;
-class Tensor;
 struct Scalar;
 
 using ArrayDataVector = std::vector<std::shared_ptr<ArrayData>>;
@@ -71,6 +71,8 @@ class ChunkedArray;
 class RecordBatch;
 class RecordBatchReader;
 class Table;
+
+struct Datum;
 
 using ChunkedArrayVector = std::vector<std::shared_ptr<ChunkedArray>>;
 using RecordBatchVector = std::vector<std::shared_ptr<RecordBatch>>;
@@ -250,6 +252,9 @@ struct DurationScalar;
 class ExtensionType;
 class ExtensionArray;
 struct ExtensionScalar;
+
+class Tensor;
+class SparseTensor;
 
 // ----------------------------------------------------------------------
 
@@ -485,7 +490,7 @@ ARROW_EXPORT
 std::shared_ptr<DataType> fixed_size_list(const std::shared_ptr<DataType>& value_type,
                                           int32_t list_size);
 /// \brief Return a Duration instance (naming use _type to avoid namespace conflict with
-/// built in time clases).
+/// built in time classes).
 std::shared_ptr<DataType> ARROW_EXPORT duration(TimeUnit::type unit);
 
 /// \brief Return a DayTimeIntervalType instance
@@ -629,6 +634,17 @@ field(std::string name, std::shared_ptr<DataType> type, bool nullable = true,
 ARROW_EXPORT
 std::shared_ptr<Schema> schema(
     std::vector<std::shared_ptr<Field>> fields,
+    std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
+
+/// \brief Create a Schema instance
+///
+/// \param fields the schema's fields
+/// \param endianness the endianness of the data
+/// \param metadata any custom key-value metadata, default null
+/// \return schema shared_ptr to Schema
+ARROW_EXPORT
+std::shared_ptr<Schema> schema(
+    std::vector<std::shared_ptr<Field>> fields, Endianness endianness,
     std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
 
 /// @}

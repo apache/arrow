@@ -62,7 +62,8 @@ fn main() -> Result<()> {
     let batch =
         RecordBatch::try_new(Arc::new(schema), vec![Arc::new(id), Arc::new(nested)])?;
 
-    Ok(process(&batch))
+    process(&batch);
+    Ok(())
 }
 
 /// Create a new batch by performing a projection of id, nested.c

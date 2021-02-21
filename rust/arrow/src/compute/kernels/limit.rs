@@ -18,7 +18,6 @@
 //! Defines miscellaneous array kernels.
 
 use crate::array::ArrayRef;
-use crate::error::Result;
 
 /// Returns the array, taking only the number of elements specified
 ///
@@ -26,9 +25,9 @@ use crate::error::Result;
 /// where:
 /// * it performs a bounds-check on the array
 /// * it slices from offset 0
-pub fn limit(array: &ArrayRef, num_elements: usize) -> Result<ArrayRef> {
+pub fn limit(array: &ArrayRef, num_elements: usize) -> ArrayRef {
     let lim = num_elements.min(array.len());
-    Ok(array.slice(0, lim))
+    array.slice(0, lim)
 }
 
 #[cfg(test)]
@@ -36,7 +35,7 @@ mod tests {
     use super::*;
     use crate::array::*;
     use crate::buffer::Buffer;
-    use crate::datatypes::{DataType, Field, ToByteSlice};
+    use crate::datatypes::{DataType, Field};
     use crate::util::bit_util;
 
     use std::sync::Arc;
@@ -44,7 +43,7 @@ mod tests {
     #[test]
     fn test_limit_array() {
         let a: ArrayRef = Arc::new(Int32Array::from(vec![5, 6, 7, 8, 9]));
-        let b = limit(&a, 3).unwrap();
+        let b = limit(&a, 3);
         let c = b.as_ref().as_any().downcast_ref::<Int32Array>().unwrap();
         assert_eq!(3, c.len());
         assert_eq!(5, c.value(0));
@@ -55,7 +54,7 @@ mod tests {
     #[test]
     fn test_limit_string_array() {
         let a: ArrayRef = Arc::new(StringArray::from(vec!["hello", " ", "world", "!"]));
-        let b = limit(&a, 2).unwrap();
+        let b = limit(&a, 2);
         let c = b.as_ref().as_any().downcast_ref::<StringArray>().unwrap();
         assert_eq!(2, c.len());
         assert_eq!("hello", c.value(0));
@@ -65,7 +64,7 @@ mod tests {
     #[test]
     fn test_limit_array_with_null() {
         let a: ArrayRef = Arc::new(Int32Array::from(vec![None, Some(5)]));
-        let b = limit(&a, 1).unwrap();
+        let b = limit(&a, 1);
         let c = b.as_ref().as_any().downcast_ref::<Int32Array>().unwrap();
         assert_eq!(1, c.len());
         assert_eq!(true, c.is_null(0));
@@ -75,7 +74,7 @@ mod tests {
     fn test_limit_array_with_limit_too_large() {
         let a = Int32Array::from(vec![5, 6, 7, 8, 9]);
         let a_ref: ArrayRef = Arc::new(a);
-        let b = limit(&a_ref, 6).unwrap();
+        let b = limit(&a_ref, 6);
         let c = b.as_ref().as_any().downcast_ref::<Int32Array>().unwrap();
 
         assert_eq!(5, c.len());
@@ -92,15 +91,12 @@ mod tests {
         // Construct a value array
         let value_data = ArrayData::builder(DataType::Int32)
             .len(10)
-            .add_buffer(Buffer::from(
-                &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].to_byte_slice(),
-            ))
+            .add_buffer(Buffer::from_slice_ref(&[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]))
             .build();
 
         // Construct a buffer for value offsets, for the nested array:
         //  [[0, 1], null, [2, 3], null, [4, 5], null, [6, 7, 8], null, [9]]
-        let value_offsets =
-            Buffer::from(&[0, 2, 2, 4, 4, 6, 6, 9, 9, 10].to_byte_slice());
+        let value_offsets = Buffer::from_slice_ref(&[0, 2, 2, 4, 4, 6, 6, 9, 9, 10]);
         // 01010101 00000001
         let mut null_bits: [u8; 2] = [0; 2];
         bit_util::set_bit(&mut null_bits, 0);
@@ -110,7 +106,8 @@ mod tests {
         bit_util::set_bit(&mut null_bits, 8);
 
         // Construct a list array from the above two
-        let list_data_type = DataType::List(Box::new(DataType::Int32));
+        let list_data_type =
+            DataType::List(Box::new(Field::new("item", DataType::Int32, false)));
         let list_data = ArrayData::builder(list_data_type)
             .len(9)
             .add_buffer(value_offsets)
@@ -119,7 +116,7 @@ mod tests {
             .build();
         let list_array: ArrayRef = Arc::new(ListArray::from(list_data));
 
-        let limit_array = limit(&list_array, 6).unwrap();
+        let limit_array = limit(&list_array, 6);
         assert_eq!(6, limit_array.len());
         assert_eq!(0, limit_array.offset());
         assert_eq!(3, limit_array.null_count());
@@ -127,8 +124,9 @@ mod tests {
         // Check offset and length for each non-null value.
         let limit_array: &ListArray =
             limit_array.as_any().downcast_ref::<ListArray>().unwrap();
+
         for i in 0..limit_array.len() {
-            let offset = limit_array.value_offset(i);
+            let offset = limit_array.value_offsets()[i];
             let length = limit_array.value_length(i);
             if i % 2 == 0 {
                 assert_eq!(2, length);
@@ -149,7 +147,7 @@ mod tests {
             .build();
         let int_data = ArrayData::builder(DataType::Int32)
             .len(5)
-            .add_buffer(Buffer::from([0, 28, 42, 0, 0].to_byte_slice()))
+            .add_buffer(Buffer::from_slice_ref(&[0, 28, 42, 0, 0]))
             .null_bit_buffer(Buffer::from([0b00000110]))
             .build();
 
@@ -171,7 +169,7 @@ mod tests {
 
         let array: ArrayRef = Arc::new(struct_array);
 
-        let sliced_array = limit(&array, 3).unwrap();
+        let sliced_array = limit(&array, 3);
         let sliced_array = sliced_array.as_any().downcast_ref::<StructArray>().unwrap();
         assert_eq!(3, sliced_array.len());
         assert_eq!(0, sliced_array.offset());

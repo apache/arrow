@@ -29,8 +29,8 @@
 
 #include <gtest/gtest.h>
 
-#include "arrow/buffer.h"
-#include "arrow/builder.h"
+#include "arrow/array/builder_binary.h"
+#include "arrow/array/builder_primitive.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_compat.h"
@@ -44,16 +44,14 @@
 // NOTE: failing must be inline in the macros below, to get correct file / line number
 // reporting on test failures.
 
-#define ASSERT_RAISES(ENUM, expr)                                                     \
-  do {                                                                                \
-    auto _res = (expr);                                                               \
-    ::arrow::Status _st = ::arrow::internal::GenericToStatus(_res);                   \
-    if (!_st.Is##ENUM()) {                                                            \
-      FAIL() << "Expected '" ARROW_STRINGIFY(expr) "' to fail with " ARROW_STRINGIFY( \
-                    ENUM) ", but got "                                                \
-             << _st.ToString();                                                       \
-    }                                                                                 \
-  } while (false)
+// NOTE: using a for loop for this macro allows extra failure messages to be
+// appended with operator<<
+#define ASSERT_RAISES(ENUM, expr)                                                 \
+  for (::arrow::Status _st = ::arrow::internal::GenericToStatus((expr));          \
+       !_st.Is##ENUM();)                                                          \
+  FAIL() << "Expected '" ARROW_STRINGIFY(expr) "' to fail with " ARROW_STRINGIFY( \
+                ENUM) ", but got "                                                \
+         << _st.ToString()
 
 #define ASSERT_RAISES_WITH_MESSAGE(ENUM, message, expr)                               \
   do {                                                                                \
@@ -79,14 +77,17 @@
     EXPECT_THAT(_st.ToString(), (matcher));                                           \
   } while (false)
 
-#define ASSERT_OK(expr)                                                       \
-  do {                                                                        \
-    auto _res = (expr);                                                       \
-    ::arrow::Status _st = ::arrow::internal::GenericToStatus(_res);           \
-    if (!_st.ok()) {                                                          \
-      FAIL() << "'" ARROW_STRINGIFY(expr) "' failed with " << _st.ToString(); \
-    }                                                                         \
+#define EXPECT_RAISES_WITH_CODE_AND_MESSAGE_THAT(code, matcher, expr) \
+  do {                                                                \
+    auto _res = (expr);                                               \
+    ::arrow::Status _st = ::arrow::internal::GenericToStatus(_res);   \
+    EXPECT_EQ(_st.CodeAsString(), Status::CodeAsString(code));        \
+    EXPECT_THAT(_st.ToString(), (matcher));                           \
   } while (false)
+
+#define ASSERT_OK(expr)                                                              \
+  for (::arrow::Status _st = ::arrow::internal::GenericToStatus((expr)); !_st.ok();) \
+  FAIL() << "'" ARROW_STRINGIFY(expr) "' failed with " << _st.ToString()
 
 #define ASSERT_OK_NO_THROW(expr) ASSERT_NO_THROW(ASSERT_OK(expr))
 
@@ -132,20 +133,65 @@
     ASSERT_EQ(expected, _actual);               \
   } while (0)
 
-namespace arrow {
+// This macro should be called by futures that are expected to
+// complete pretty quickly.  2 seconds is the default max wait
+// here.  Anything longer than that and it's a questionable
+// unit test anyways.
+#define ASSERT_FINISHES_IMPL(fut)                            \
+  do {                                                       \
+    ASSERT_TRUE(fut.Wait(10));                               \
+    if (!fut.is_finished()) {                                \
+      FAIL() << "Future did not finish in a timely fashion"; \
+    }                                                        \
+  } while (false)
 
+#define ASSERT_FINISHES_OK(expr)                                              \
+  do {                                                                        \
+    auto&& _fut = (expr);                                                     \
+    ASSERT_TRUE(_fut.Wait(10));                                               \
+    if (!_fut.is_finished()) {                                                \
+      FAIL() << "Future did not finish in a timely fashion";                  \
+    }                                                                         \
+    auto _st = _fut.status();                                                 \
+    if (!_st.ok()) {                                                          \
+      FAIL() << "'" ARROW_STRINGIFY(expr) "' failed with " << _st.ToString(); \
+    }                                                                         \
+  } while (false)
+
+#define ASSERT_FINISHES_ERR(ENUM, expr) \
+  do {                                  \
+    auto&& fut = (expr);                \
+    ASSERT_FINISHES_IMPL(fut);          \
+    ASSERT_RAISES(ENUM, fut.status());  \
+  } while (false)
+
+#define ASSERT_FINISHES_OK_AND_ASSIGN_IMPL(lhs, rexpr, future_name) \
+  auto future_name = (rexpr);                                       \
+  ASSERT_FINISHES_IMPL(future_name);                                \
+  ASSERT_OK_AND_ASSIGN(lhs, future_name.result());
+
+#define ASSERT_FINISHES_OK_AND_ASSIGN(lhs, rexpr) \
+  ASSERT_FINISHES_OK_AND_ASSIGN_IMPL(lhs, rexpr,  \
+                                     ARROW_ASSIGN_OR_RAISE_NAME(_fut, __COUNTER__))
+
+namespace arrow {
 // ----------------------------------------------------------------------
 // Useful testing::Types declarations
 
-typedef ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type,
-                         Int16Type, Int32Type, Int64Type, FloatType, DoubleType>
-    NumericArrowTypes;
+inline void PrintTo(StatusCode code, std::ostream* os) {
+  *os << Status::CodeAsString(code);
+}
 
-typedef ::testing::Types<FloatType, DoubleType> RealArrowTypes;
+using NumericArrowTypes =
+    ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
+                     Int32Type, Int64Type, FloatType, DoubleType>;
 
-typedef ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type,
-                         Int16Type, Int32Type, Int64Type>
-    IntegralArrowTypes;
+using RealArrowTypes = ::testing::Types<FloatType, DoubleType>;
+
+using IntegralArrowTypes = ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type,
+                                            Int8Type, Int16Type, Int32Type, Int64Type>;
+using TemporalArrowTypes =
+    ::testing::Types<Date32Type, Date64Type, TimestampType, Time32Type, Time64Type>;
 
 class Array;
 class ChunkedArray;
@@ -169,6 +215,9 @@ ARROW_TESTING_EXPORT void AssertArraysApproxEqual(
     const EqualOptions& option = EqualOptions::Defaults());
 // Returns true when values are both null
 ARROW_TESTING_EXPORT void AssertScalarsEqual(
+    const Scalar& expected, const Scalar& actual, bool verbose = false,
+    const EqualOptions& options = EqualOptions::Defaults());
+ARROW_TESTING_EXPORT void AssertScalarsApproxEqual(
     const Scalar& expected, const Scalar& actual, bool verbose = false,
     const EqualOptions& options = EqualOptions::Defaults());
 ARROW_TESTING_EXPORT void AssertBatchesEqual(const RecordBatch& expected,
@@ -220,6 +269,9 @@ ARROW_TESTING_EXPORT void AssertSchemaNotEqual(const Schema& lhs, const Schema& 
 ARROW_TESTING_EXPORT void AssertSchemaNotEqual(const std::shared_ptr<Schema>& lhs,
                                                const std::shared_ptr<Schema>& rhs,
                                                bool check_metadata = false);
+
+ARROW_TESTING_EXPORT Result<util::optional<std::string>> PrintArrayDiff(
+    const ChunkedArray& expected, const ChunkedArray& actual);
 
 ARROW_TESTING_EXPORT void AssertTablesEqual(const Table& expected, const Table& actual,
                                             bool same_chunk_layout = true,
@@ -415,13 +467,6 @@ inline void BitmapFromVector(const std::vector<T>& is_valid,
   ASSERT_OK(GetBitmapFromVector(is_valid, out));
 }
 
-template <typename T>
-void AssertSortedEquals(std::vector<T> u, std::vector<T> v) {
-  std::sort(u.begin(), u.end());
-  std::sort(v.begin(), v.end());
-  ASSERT_EQ(u, v);
-}
-
 ARROW_TESTING_EXPORT
 void SleepFor(double seconds);
 
@@ -463,6 +508,17 @@ class ARROW_TESTING_EXPORT EnvVarGuard {
 #define LARGE_MEMORY_TEST(name) name
 #endif
 
+inline void PrintTo(const Status& st, std::ostream* os) { *os << st.ToString(); }
+
+template <typename T>
+void PrintTo(const Result<T>& result, std::ostream* os) {
+  if (result.ok()) {
+    ::testing::internal::UniversalPrint(result.ValueOrDie(), os);
+  } else {
+    *os << result.status();
+  }
+}
+
 }  // namespace arrow
 
 namespace nonstd {
@@ -475,4 +531,21 @@ void PrintTo(const basic_string_view<Char, Traits>& view, std::ostream* os) {
 }
 
 }  // namespace sv_lite
+
+namespace optional_lite {
+
+template <typename T>
+void PrintTo(const optional<T>& opt, std::ostream* os) {
+  if (opt.has_value()) {
+    *os << "{";
+    ::testing::internal::UniversalPrint(*opt, os);
+    *os << "}";
+  } else {
+    *os << "nullopt";
+  }
+}
+
+inline void PrintTo(const decltype(nullopt)&, std::ostream* os) { *os << "nullopt"; }
+
+}  // namespace optional_lite
 }  // namespace nonstd

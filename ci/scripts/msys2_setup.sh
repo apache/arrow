@@ -42,6 +42,7 @@ case "${target}" in
     packages+=(${MINGW_PACKAGE_PREFIX}-protobuf)
     packages+=(${MINGW_PACKAGE_PREFIX}-python3-numpy)
     packages+=(${MINGW_PACKAGE_PREFIX}-rapidjson)
+    packages+=(${MINGW_PACKAGE_PREFIX}-re2)
     packages+=(${MINGW_PACKAGE_PREFIX}-snappy)
     packages+=(${MINGW_PACKAGE_PREFIX}-thrift)
     packages+=(${MINGW_PACKAGE_PREFIX}-zlib)
@@ -63,9 +64,5 @@ pacman \
   --sync \
   "${packages[@]}"
 
-echo "::set-env name=ARROW_USE_CCACHE::ON"
-echo "::set-env name=CCACHE_COMPILERCHECK::content"
-echo "::set-env name=CCACHE_COMPRESS::1"
-echo "::set-env name=CCACHE_COMPRESSLEVEL::6"
-echo "::set-env name=CCACHE_MAXSIZE::500M"
-echo "::set-env name=CCACHE_DIR::$(cygpath --absolute --windows ccache)"
+"$(dirname $0)/ccache_setup.sh"
+echo "CCACHE_DIR=$(cygpath --absolute --windows ccache)" >> $GITHUB_ENV

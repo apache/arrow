@@ -55,7 +55,7 @@ Buffer$create <- function(x) {
   if (inherits(x, "Buffer")) {
     x
   } else if (inherits(x, c("raw", "numeric", "integer", "complex"))) {
-    shared_ptr(Buffer, r___RBuffer__initialize(x))
+    r___RBuffer__initialize(x)
   } else if (inherits(x, "BufferOutputStream")) {
     x$finish()
   } else {

@@ -225,28 +225,46 @@ TEST_F(TestThreadPool, QuickShutdown) {
 }
 
 TEST_F(TestThreadPool, SetCapacity) {
-  auto pool = this->MakeThreadPool(3);
-  ASSERT_EQ(pool->GetCapacity(), 3);
-  ASSERT_EQ(pool->GetActualCapacity(), 3);
+  auto pool = this->MakeThreadPool(5);
 
+  // Thread spawning is on-demand
+  ASSERT_EQ(pool->GetCapacity(), 5);
+  ASSERT_EQ(pool->GetActualCapacity(), 0);
+
+  ASSERT_OK(pool->SetCapacity(3));
+  ASSERT_EQ(pool->GetCapacity(), 3);
+  ASSERT_EQ(pool->GetActualCapacity(), 0);
+
+  ASSERT_OK(pool->Spawn(std::bind(SleepFor, 0.1 /* seconds */)));
+  ASSERT_EQ(pool->GetActualCapacity(), 1);
+
+  // Spawn more tasks than the pool capacity
+  for (int i = 0; i < 6; ++i) {
+    ASSERT_OK(pool->Spawn(std::bind(SleepFor, 0.1 /* seconds */)));
+  }
+  ASSERT_EQ(pool->GetActualCapacity(), 3);  // maxxed out
+
+  // The tasks have not finished yet, increasing the desired capacity
+  // should spawn threads immediately.
   ASSERT_OK(pool->SetCapacity(5));
   ASSERT_EQ(pool->GetCapacity(), 5);
   ASSERT_EQ(pool->GetActualCapacity(), 5);
 
+  // Thread reaping is eager (but asynchronous)
   ASSERT_OK(pool->SetCapacity(2));
   ASSERT_EQ(pool->GetCapacity(), 2);
   // Wait for workers to wake up and secede
   busy_wait(0.5, [&] { return pool->GetActualCapacity() == 2; });
   ASSERT_EQ(pool->GetActualCapacity(), 2);
 
+  // Downsize while tasks are pending
   ASSERT_OK(pool->SetCapacity(5));
   ASSERT_EQ(pool->GetCapacity(), 5);
+  for (int i = 0; i < 10; ++i) {
+    ASSERT_OK(pool->Spawn(std::bind(SleepFor, 0.1 /* seconds */)));
+  }
   ASSERT_EQ(pool->GetActualCapacity(), 5);
 
-  // Downsize while tasks are pending
-  for (int i = 0; i < 10; ++i) {
-    ASSERT_OK(pool->Spawn(std::bind(SleepFor, 0.01 /* seconds */)));
-  }
   ASSERT_OK(pool->SetCapacity(2));
   ASSERT_EQ(pool->GetCapacity(), 2);
   busy_wait(0.5, [&] { return pool->GetActualCapacity() == 2; });
@@ -354,8 +372,11 @@ TEST(TestGlobalThreadPool, Capacity) {
   auto pool = GetCpuThreadPool();
   int capacity = pool->GetCapacity();
   ASSERT_GT(capacity, 0);
-  ASSERT_EQ(pool->GetActualCapacity(), capacity);
   ASSERT_EQ(GetCpuThreadPoolCapacity(), capacity);
+
+  // This value depends on whether any tasks were launched previously
+  ASSERT_GE(pool->GetActualCapacity(), 0);
+  ASSERT_LE(pool->GetActualCapacity(), capacity);
 
   // Exercise default capacity heuristic
   ASSERT_OK(DelEnvVar("OMP_NUM_THREADS"));

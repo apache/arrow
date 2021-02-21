@@ -21,4 +21,5 @@
 
 #include <arrow-glib/arrow-glib.h>
 
+#include <arrow-dataset-glib/file-format.h>
 #include <arrow-dataset-glib/scanner.h>

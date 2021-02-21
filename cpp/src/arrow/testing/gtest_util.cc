@@ -148,13 +148,20 @@ void AssertArraysApproxEqual(const Array& expected, const Array& actual, bool ve
 
 void AssertScalarsEqual(const Scalar& expected, const Scalar& actual, bool verbose,
                         const EqualOptions& options) {
-  std::stringstream diff;
-  // ARROW-8956, ScalarEquals returns false when both are null
-  if (!expected.is_valid && !actual.is_valid) {
-    // We consider both being null to be equal in this function
-    return;
-  }
   if (!expected.Equals(actual, options)) {
+    std::stringstream diff;
+    if (verbose) {
+      diff << "Expected:\n" << expected.ToString();
+      diff << "\nActual:\n" << actual.ToString();
+    }
+    FAIL() << diff.str();
+  }
+}
+
+void AssertScalarsApproxEqual(const Scalar& expected, const Scalar& actual, bool verbose,
+                              const EqualOptions& options) {
+  if (!expected.ApproxEquals(actual, options)) {
+    std::stringstream diff;
     if (verbose) {
       diff << "Expected:\n" << expected.ToString();
       diff << "\nActual:\n" << actual.ToString();
@@ -393,6 +400,37 @@ std::shared_ptr<Table> TableFromJSON(const std::shared_ptr<Schema>& schema,
   return *Table::FromRecordBatches(schema, std::move(batches));
 }
 
+Result<util::optional<std::string>> PrintArrayDiff(const ChunkedArray& expected,
+                                                   const ChunkedArray& actual) {
+  if (actual.Equals(expected)) {
+    return util::nullopt;
+  }
+
+  std::stringstream ss;
+  if (expected.length() != actual.length()) {
+    ss << "Expected length " << expected.length() << " but was actually "
+       << actual.length();
+    return ss.str();
+  }
+
+  PrettyPrintOptions options(/*indent=*/2);
+  options.window = 50;
+  RETURN_NOT_OK(internal::ApplyBinaryChunked(
+      actual, expected,
+      [&](const Array& left_piece, const Array& right_piece, int64_t position) {
+        std::stringstream diff;
+        if (!left_piece.Equals(right_piece, EqualOptions().diff_sink(&diff))) {
+          ss << "Unequal at absolute position " << position << "\n" << diff.str();
+          ss << "Expected:\n";
+          ARROW_EXPECT_OK(PrettyPrint(right_piece, options, &ss));
+          ss << "\nActual:\n";
+          ARROW_EXPECT_OK(PrettyPrint(left_piece, options, &ss));
+        }
+        return Status::OK();
+      }));
+  return ss.str();
+}
+
 void AssertTablesEqual(const Table& expected, const Table& actual, bool same_chunk_layout,
                        bool combine_chunks) {
   ASSERT_EQ(expected.num_columns(), actual.num_columns());
@@ -416,24 +454,9 @@ void AssertTablesEqual(const Table& expected, const Table& actual, bool same_chu
       auto actual_col = actual.column(i);
       auto expected_col = expected.column(i);
 
-      PrettyPrintOptions options(/*indent=*/2);
-      options.window = 50;
-
-      if (!actual_col->Equals(*expected_col)) {
-        ASSERT_OK(internal::ApplyBinaryChunked(
-            *actual_col, *expected_col,
-            [&](const Array& left_piece, const Array& right_piece, int64_t position) {
-              std::stringstream diff;
-              if (!left_piece.Equals(right_piece, EqualOptions().diff_sink(&diff))) {
-                ss << "Unequal at absolute position " << position << "\n" << diff.str();
-                ss << "Expected:\n";
-                ARROW_EXPECT_OK(PrettyPrint(right_piece, options, &ss));
-                ss << "\nActual:\n";
-                ARROW_EXPECT_OK(PrettyPrint(left_piece, options, &ss));
-              }
-              return Status::OK();
-            }));
-        FAIL() << ss.str();
+      ASSERT_OK_AND_ASSIGN(auto diff, PrintArrayDiff(*expected_col, *actual_col));
+      if (diff.has_value()) {
+        FAIL() << *diff;
       }
     }
   }

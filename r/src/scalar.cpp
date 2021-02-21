@@ -22,6 +22,19 @@
 #include <arrow/array/array_base.h>
 #include <arrow/array/util.h>
 #include <arrow/scalar.h>
+#include <arrow/type.h>
+
+namespace cpp11 {
+
+const char* r6_class_name<arrow::Scalar>::get(
+    const std::shared_ptr<arrow::Scalar>& scalar) {
+  if (scalar->type->id() == arrow::Type::STRUCT) {
+    return "StructScalar";
+  }
+  return "Scalar";
+}
+
+}  // namespace cpp11
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Scalar> Array__GetScalar(const std::shared_ptr<arrow::Array>& x,
@@ -32,12 +45,6 @@ std::shared_ptr<arrow::Scalar> Array__GetScalar(const std::shared_ptr<arrow::Arr
 // [[arrow::export]]
 std::string Scalar__ToString(const std::shared_ptr<arrow::Scalar>& s) {
   return s->ToString();
-}
-
-// [[arrow::export]]
-std::shared_ptr<arrow::Scalar> Scalar__CastTo(const std::shared_ptr<arrow::Scalar>& s,
-                                              const std::shared_ptr<arrow::DataType>& t) {
-  return ValueOrStop(s->CastTo(t));
 }
 
 // [[arrow::export]]

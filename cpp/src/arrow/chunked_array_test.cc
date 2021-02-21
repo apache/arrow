@@ -27,7 +27,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
-#include "arrow/util/bit_util.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/key_value_metadata.h"
 
 namespace arrow {
@@ -197,6 +197,19 @@ TEST_F(TestChunkedArray, Validate) {
   arrays_one_.push_back(gen.String(50, 0, 10, 0.1));
   Construct();
   ASSERT_RAISES(Invalid, one_->ValidateFull());
+}
+
+TEST_F(TestChunkedArray, PrintDiff) {
+  random::RandomArrayGenerator gen(0);
+  arrays_one_.push_back(gen.Int32(50, 0, 100, 0.1));
+  Construct();
+
+  auto other = one_->Slice(25);
+  ASSERT_OK_AND_ASSIGN(auto diff, PrintArrayDiff(*one_, *other));
+  ASSERT_EQ(*diff, "Expected length 50 but was actually 25");
+
+  ASSERT_OK_AND_ASSIGN(diff, PrintArrayDiff(*other, *one_));
+  ASSERT_EQ(*diff, "Expected length 25 but was actually 50");
 }
 
 TEST_F(TestChunkedArray, View) {

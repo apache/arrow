@@ -18,7 +18,7 @@
 [package]
 name = "datafusion"
 description = "DataFusion is an in-memory query engine that uses Apache Arrow as the memory model"
-version = "3.0.0-SNAPSHOT"
+version = "4.0.0-SNAPSHOT"
 homepage = "https://github.com/apache/arrow"
 repository = "https://github.com/apache/arrow"
 authors = ["Apache Arrow <dev@arrow.apache.org>"]
@@ -42,29 +42,37 @@ path = "src/bin/main.rs"
 [features]
 default = ["cli"]
 cli = ["rustyline"]
+simd = ["arrow/simd"]
 
 [dependencies]
-fnv = "1.0"
-arrow = { path = "../arrow", version = "3.0.0-SNAPSHOT", features = ["prettyprint"] }
-parquet = { path = "../parquet", version = "3.0.0-SNAPSHOT", features = ["arrow"] }
-sqlparser = "0.6.1"
+ahash = "0.7"
+hashbrown = "0.9"
+arrow = { path = "../arrow", version = "4.0.0-SNAPSHOT", features = ["prettyprint"] }
+parquet = { path = "../parquet", version = "4.0.0-SNAPSHOT", features = ["arrow"] }
+sqlparser = "0.8.0"
 clap = "2.33"
-rustyline = {version = "6.0", optional = true}
-crossbeam = "0.7"
-paste = "0.1"
+rustyline = {version = "7.0", optional = true}
+crossbeam = "0.8"
+paste = "^1.0"
 num_cpus = "1.13.0"
 chrono = "0.4"
 async-trait = "0.1.41"
 futures = "0.3"
-tokio = { version = "0.2", features = ["macros", "rt-core", "rt-threaded"] }
+pin-project-lite= "^0.2.0"
+tokio = { version = "1.0", features = ["macros", "rt", "rt-multi-thread", "sync"] }
+log = "^0.4"
+md-5 = "^0.9.1"
+sha2 = "^0.9.1"
+ordered-float = "2.0"
+unicode-segmentation = "^1.7.1"
 
 [dev-dependencies]
-rand = "0.7"
+rand = "0.8"
 criterion = "0.3"
 tempfile = "3"
-prost = "0.6"
-arrow-flight = { path = "../arrow-flight", version = "3.0.0-SNAPSHOT" }
-tonic = "0.3"
+prost = "0.7"
+arrow-flight = { path = "../arrow-flight", version = "4.0.0-SNAPSHOT" }
+tonic = "0.4"
 
 [[bench]]
 name = "aggregate_query_sql"
@@ -76,4 +84,12 @@ harness = false
 
 [[bench]]
 name = "math_query_sql"
+harness = false
+
+[[bench]]
+name = "filter_query_sql"
+harness = false
+
+[[bench]]
+name = "scalar"
 harness = false

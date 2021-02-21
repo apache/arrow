@@ -57,30 +57,36 @@ SCALAR_ARITHMETIC_BINARY(Divide, "divide", "divide_checked")
 // Set-related operations
 
 static Result<Datum> ExecSetLookup(const std::string& func_name, const Datum& data,
-                                   const Datum& value_set, bool add_nulls_to_hash_table,
-                                   ExecContext* ctx) {
-  if (!value_set.is_arraylike()) {
+                                   const SetLookupOptions& options, ExecContext* ctx) {
+  if (!options.value_set.is_arraylike()) {
     return Status::Invalid("Set lookup value set must be Array or ChunkedArray");
   }
 
-  if (value_set.length() > 0 && !data.type()->Equals(value_set.type())) {
+  if (options.value_set.length() > 0 && !data.type()->Equals(options.value_set.type())) {
     std::stringstream ss;
     ss << "Array type didn't match type of values set: " << data.type()->ToString()
-       << " vs " << value_set.type()->ToString();
+       << " vs " << options.value_set.type()->ToString();
     return Status::Invalid(ss.str());
   }
-  SetLookupOptions options(value_set, !add_nulls_to_hash_table);
   return CallFunction(func_name, {data}, &options, ctx);
 }
 
+Result<Datum> IsIn(const Datum& values, const SetLookupOptions& options,
+                   ExecContext* ctx) {
+  return ExecSetLookup("is_in", values, options, ctx);
+}
+
 Result<Datum> IsIn(const Datum& values, const Datum& value_set, ExecContext* ctx) {
-  return ExecSetLookup("is_in", values, value_set,
-                       /*add_nulls_to_hash_table=*/false, ctx);
+  return ExecSetLookup("is_in", values, SetLookupOptions{value_set}, ctx);
+}
+
+Result<Datum> IndexIn(const Datum& values, const SetLookupOptions& options,
+                      ExecContext* ctx) {
+  return ExecSetLookup("index_in", values, options, ctx);
 }
 
 Result<Datum> IndexIn(const Datum& values, const Datum& value_set, ExecContext* ctx) {
-  return ExecSetLookup("index_in", values, value_set,
-                       /*add_nulls_to_hash_table=*/true, ctx);
+  return ExecSetLookup("index_in", values, SetLookupOptions{value_set}, ctx);
 }
 
 // ----------------------------------------------------------------------
@@ -92,6 +98,8 @@ SCALAR_EAGER_BINARY(KleeneAnd, "and_kleene")
 SCALAR_EAGER_BINARY(Or, "or")
 SCALAR_EAGER_BINARY(KleeneOr, "or_kleene")
 SCALAR_EAGER_BINARY(Xor, "xor")
+SCALAR_EAGER_BINARY(AndNot, "and_not")
+SCALAR_EAGER_BINARY(KleeneAndNot, "and_not_kleene")
 
 // ----------------------------------------------------------------------
 
@@ -126,6 +134,7 @@ Result<Datum> Compare(const Datum& left, const Datum& right, CompareOptions opti
 
 SCALAR_EAGER_UNARY(IsValid, "is_valid")
 SCALAR_EAGER_UNARY(IsNull, "is_null")
+SCALAR_EAGER_UNARY(IsNan, "is_nan")
 
 Result<Datum> FillNull(const Datum& values, const Datum& fill_value, ExecContext* ctx) {
   return CallFunction("fill_null", {values, fill_value}, ctx);

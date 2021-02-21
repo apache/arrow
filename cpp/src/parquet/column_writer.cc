@@ -29,14 +29,19 @@
 #include "arrow/array.h"
 #include "arrow/buffer_builder.h"
 #include "arrow/compute/api.h"
+#include "arrow/io/memory.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_stream_utils.h"
+#include "arrow/util/bit_util.h"
+#include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/rle_encoding.h"
+#include "arrow/visitor_inline.h"
 #include "parquet/column_page.h"
 #include "parquet/encoding.h"
 #include "parquet/encryption/encryption_internal.h"
@@ -53,14 +58,83 @@
 using arrow::Array;
 using arrow::ArrayData;
 using arrow::Datum;
+using arrow::Result;
 using arrow::Status;
 using arrow::BitUtil::BitWriter;
 using arrow::internal::checked_cast;
+using arrow::internal::checked_pointer_cast;
 using arrow::util::RleEncoder;
+
+namespace BitUtil = arrow::BitUtil;
 
 namespace parquet {
 
 namespace {
+
+// Visitor that exracts the value buffer from a FlatArray at a given offset.
+struct ValueBufferSlicer {
+  template <typename T>
+  ::arrow::enable_if_base_binary<typename T::TypeClass, Status> Visit(const T& array) {
+    auto data = array.data();
+    buffer_ =
+        SliceBuffer(data->buffers[1], data->offset * sizeof(typename T::offset_type),
+                    data->length * sizeof(typename T::offset_type));
+    return Status::OK();
+  }
+
+  template <typename T>
+  ::arrow::enable_if_fixed_size_binary<typename T::TypeClass, Status> Visit(
+      const T& array) {
+    auto data = array.data();
+    buffer_ = SliceBuffer(data->buffers[1], data->offset * array.byte_width(),
+                          data->length * array.byte_width());
+    return Status::OK();
+  }
+
+  template <typename T>
+  ::arrow::enable_if_t<::arrow::has_c_type<typename T::TypeClass>::value &&
+                           !std::is_same<BooleanType, typename T::TypeClass>::value,
+                       Status>
+  Visit(const T& array) {
+    auto data = array.data();
+    buffer_ = SliceBuffer(
+        data->buffers[1],
+        ::arrow::TypeTraits<typename T::TypeClass>::bytes_required(data->offset),
+        ::arrow::TypeTraits<typename T::TypeClass>::bytes_required(data->length));
+    return Status::OK();
+  }
+
+  Status Visit(const ::arrow::BooleanArray& array) {
+    auto data = array.data();
+    if (BitUtil::IsMultipleOf8(data->offset)) {
+      buffer_ = SliceBuffer(data->buffers[1], BitUtil::BytesForBits(data->offset),
+                            BitUtil::BytesForBits(data->length));
+      return Status::OK();
+    }
+    PARQUET_ASSIGN_OR_THROW(buffer_,
+                            ::arrow::internal::CopyBitmap(pool_, data->buffers[1]->data(),
+                                                          data->offset, data->length));
+    return Status::OK();
+  }
+#define NOT_IMPLEMENTED_VISIT(ArrowTypePrefix)                                      \
+  Status Visit(const ::arrow::ArrowTypePrefix##Array& array) {                      \
+    return Status::NotImplemented("Slicing not implemented for " #ArrowTypePrefix); \
+  }
+
+  NOT_IMPLEMENTED_VISIT(Null);
+  NOT_IMPLEMENTED_VISIT(Union);
+  NOT_IMPLEMENTED_VISIT(List);
+  NOT_IMPLEMENTED_VISIT(LargeList);
+  NOT_IMPLEMENTED_VISIT(Struct);
+  NOT_IMPLEMENTED_VISIT(FixedSizeList);
+  NOT_IMPLEMENTED_VISIT(Dictionary);
+  NOT_IMPLEMENTED_VISIT(Extension);
+
+#undef NOT_IMPLEMENTED_VISIT
+
+  MemoryPool* pool_;
+  std::shared_ptr<Buffer> buffer_;
+};
 
 internal::LevelInfo ComputeLevelInfo(const ColumnDescriptor* descr) {
   internal::LevelInfo level_info;
@@ -79,7 +153,8 @@ internal::LevelInfo ComputeLevelInfo(const ColumnDescriptor* descr) {
   return level_info;
 }
 
-inline const int16_t* AddIfNotNull(const int16_t* base, int64_t offset) {
+template <class T>
+inline const T* AddIfNotNull(const T* base, int64_t offset) {
   if (base != nullptr) {
     return base + offset;
   }
@@ -872,7 +947,8 @@ void ColumnWriterImpl::BuildDataPageV2(int64_t definition_levels_rle_size,
     data_pages_.push_back(std::move(page_ptr));
   } else {
     DataPageV2 page(combined, num_values, null_count, num_values, encoding_,
-                    def_levels_byte_length, rep_levels_byte_length, uncompressed_size);
+                    def_levels_byte_length, rep_levels_byte_length, uncompressed_size,
+                    pager_->has_compressor());
     WriteDataPage(page);
   }
 }
@@ -932,21 +1008,13 @@ bool DictionaryDirectWriteSupported(const ::arrow::Array& array) {
   DCHECK_EQ(array.type_id(), ::arrow::Type::DICTIONARY);
   const ::arrow::DictionaryType& dict_type =
       static_cast<const ::arrow::DictionaryType&>(*array.type());
-  auto id = dict_type.value_type()->id();
-  return id == ::arrow::Type::BINARY || id == ::arrow::Type::STRING;
+  return ::arrow::is_base_binary_like(dict_type.value_type()->id());
 }
 
 Status ConvertDictionaryToDense(const ::arrow::Array& array, MemoryPool* pool,
                                 std::shared_ptr<::arrow::Array>* out) {
   const ::arrow::DictionaryType& dict_type =
       static_cast<const ::arrow::DictionaryType&>(*array.type());
-
-  // TODO(ARROW-1648): Remove this special handling once we require an Arrow
-  // version that has this fixed.
-  if (dict_type.value_type()->id() == ::arrow::Type::NA) {
-    *out = std::make_shared<::arrow::NullArray>(array.length());
-    return Status::OK();
-  }
 
   ::arrow::compute::ExecContext ctx(pool);
   ARROW_ASSIGN_OR_RAISE(Datum cast_output,
@@ -999,7 +1067,8 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
       if (values_to_write > 0) {
         DCHECK_NE(nullptr, values);
       }
-      WriteValues(values + value_offset, values_to_write, batch_size - values_to_write);
+      WriteValues(AddIfNotNull(values, value_offset), values_to_write,
+                  batch_size - values_to_write);
       CommitWriteAndCheckPageLimit(batch_size, values_to_write);
       value_offset += values_to_write;
 
@@ -1027,10 +1096,10 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
       WriteLevelsSpaced(batch_size, AddIfNotNull(def_levels, offset),
                         AddIfNotNull(rep_levels, offset));
       if (bits_buffer_ != nullptr) {
-        WriteValuesSpaced(values + value_offset, batch_num_values,
+        WriteValuesSpaced(AddIfNotNull(values, value_offset), batch_num_values,
                           batch_num_spaced_values, bits_buffer_->data(), /*offset=*/0);
       } else {
-        WriteValuesSpaced(values + value_offset, batch_num_values,
+        WriteValuesSpaced(AddIfNotNull(values, value_offset), batch_num_values,
                           batch_num_spaced_values, valid_bits,
                           valid_bits_offset + value_offset);
       }
@@ -1057,7 +1126,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     if (maybe_parent_nulls) {
       ARROW_ASSIGN_OR_RAISE(
           bits_buffer_,
-          arrow::AllocateResizableBuffer(
+          ::arrow::AllocateResizableBuffer(
               BitUtil::BytesForBits(properties_->write_batch_size()), ctx->memory_pool));
       bits_buffer_->ZeroPadding();
     }
@@ -1185,12 +1254,21 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     return values_to_write;
   }
 
+  // This method will always update the three output parameters,
+  // out_values_to_write, out_spaced_values_to_write and null_count.  Additionally
+  // it will update the validity bitmap if required (i.e. if at least one level
+  // of nullable structs directly precede the leaf node).
   void MaybeCalculateValidityBits(const int16_t* def_levels, int64_t batch_size,
                                   int64_t* out_values_to_write,
                                   int64_t* out_spaced_values_to_write,
                                   int64_t* null_count) {
     if (bits_buffer_ == nullptr) {
-      if (!level_info_.HasNullableValues()) {
+      if (level_info_.def_level == 0) {
+        // In this case def levels should be null and we only
+        // need to output counts which will always be equal to
+        // the batch size passed in (max def_level == 0 indicates
+        // there cannot be repeated or null fields).
+        DCHECK_EQ(def_levels, nullptr);
         *out_values_to_write = batch_size;
         *out_spaced_values_to_write = batch_size;
         *null_count = 0;
@@ -1221,16 +1299,25 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     *null_count = io.null_count;
   }
 
-  std::shared_ptr<Array> MaybeReplaceValidity(std::shared_ptr<Array> array,
-                                              int64_t new_null_count) {
+  Result<std::shared_ptr<Array>> MaybeReplaceValidity(std::shared_ptr<Array> array,
+                                                      int64_t new_null_count,
+                                                      ::arrow::MemoryPool* memory_pool) {
     if (bits_buffer_ == nullptr) {
       return array;
     }
     std::vector<std::shared_ptr<Buffer>> buffers = array->data()->buffers;
+    if (buffers.empty()) {
+      return array;
+    }
     buffers[0] = bits_buffer_;
     // Should be a leaf array.
-    DCHECK_EQ(array->num_fields(), 0);
-    return arrow::MakeArray(std::make_shared<ArrayData>(
+    DCHECK_GT(buffers.size(), 1);
+    ValueBufferSlicer slicer{memory_pool, /*buffer=*/nullptr};
+    if (array->data()->offset > 0) {
+      RETURN_NOT_OK(::arrow::VisitArrayInline(*array, &slicer));
+      buffers[1] = slicer.buffer_;
+    }
+    return ::arrow::MakeArray(std::make_shared<ArrayData>(
         array->type(), array->length(), std::move(buffers), new_null_count));
   }
 
@@ -1372,7 +1459,7 @@ Status TypedColumnWriterImpl<DType>::WriteArrowDictionary(
   auto WriteIndicesChunk = [&](int64_t offset, int64_t batch_size) {
     int64_t batch_num_values = 0;
     int64_t batch_num_spaced_values = 0;
-    int64_t null_count = arrow::kUnknownNullCount;
+    int64_t null_count = ::arrow::kUnknownNullCount;
     // Bits is not null for nullable values.  At this point in the code we can't determine
     // if the leaf array has the same null values as any parents it might have had so we
     // need to recompute it from def levels.
@@ -1382,7 +1469,9 @@ Status TypedColumnWriterImpl<DType>::WriteArrowDictionary(
                       AddIfNotNull(rep_levels, offset));
     std::shared_ptr<Array> writeable_indices =
         indices->Slice(value_offset, batch_num_spaced_values);
-    writeable_indices = MaybeReplaceValidity(writeable_indices, null_count);
+    PARQUET_ASSIGN_OR_THROW(
+        writeable_indices,
+        MaybeReplaceValidity(writeable_indices, null_count, ctx->memory_pool));
     dict_encoder->PutIndices(*writeable_indices);
     CommitWriteAndCheckPageLimit(batch_size, batch_num_values);
     value_offset += batch_num_spaced_values;
@@ -1792,8 +1881,7 @@ template <>
 Status TypedColumnWriterImpl<ByteArrayType>::WriteArrowDense(
     const int16_t* def_levels, const int16_t* rep_levels, int64_t num_levels,
     const ::arrow::Array& array, ArrowWriteContext* ctx, bool maybe_parent_nulls) {
-  if (array.type()->id() != ::arrow::Type::BINARY &&
-      array.type()->id() != ::arrow::Type::STRING) {
+  if (!::arrow::is_base_binary_like(array.type()->id())) {
     ARROW_UNSUPPORTED();
   }
 
@@ -1809,7 +1897,8 @@ Status TypedColumnWriterImpl<ByteArrayType>::WriteArrowDense(
                       AddIfNotNull(rep_levels, offset));
     std::shared_ptr<Array> data_slice =
         array.Slice(value_offset, batch_num_spaced_values);
-    data_slice = MaybeReplaceValidity(data_slice, null_count);
+    PARQUET_ASSIGN_OR_THROW(
+        data_slice, MaybeReplaceValidity(data_slice, null_count, ctx->memory_pool));
 
     current_encoder_->Put(*data_slice);
     if (page_statistics_ != nullptr) {
@@ -1855,25 +1944,23 @@ struct SerializeFunctor<
 // ----------------------------------------------------------------------
 // Write Arrow to Decimal128
 
-using ::arrow::internal::checked_pointer_cast;
-
-// Requires a custom serializer because decimal128 in parquet are in big-endian
+// Requires a custom serializer because decimal in parquet are in big-endian
 // format. Thus, a temporary local buffer is required.
 template <typename ParquetType, typename ArrowType>
-struct SerializeFunctor<ParquetType, ArrowType,
-                        ::arrow::enable_if_decimal128<ArrowType>> {
-  Status Serialize(const ::arrow::Decimal128Array& array, ArrowWriteContext* ctx,
-                   FLBA* out) {
+struct SerializeFunctor<ParquetType, ArrowType, ::arrow::enable_if_decimal<ArrowType>> {
+  Status Serialize(const typename ::arrow::TypeTraits<ArrowType>::ArrayType& array,
+                   ArrowWriteContext* ctx, FLBA* out) {
     AllocateScratch(array, ctx);
     auto offset = Offset(array);
 
     if (array.null_count() == 0) {
       for (int64_t i = 0; i < array.length(); i++) {
-        out[i] = FixDecimalEndianess(array.GetValue(i), offset);
+        out[i] = FixDecimalEndianess<ArrowType::kByteWidth>(array.GetValue(i), offset);
       }
     } else {
       for (int64_t i = 0; i < array.length(); i++) {
-        out[i] = array.IsValid(i) ? FixDecimalEndianess(array.GetValue(i), offset)
+        out[i] = array.IsValid(i) ? FixDecimalEndianess<ArrowType::kByteWidth>(
+                                        array.GetValue(i), offset)
                                   : FixedLenByteArray();
       }
     }
@@ -1882,40 +1969,43 @@ struct SerializeFunctor<ParquetType, ArrowType,
   }
 
   // Parquet's Decimal are stored with FixedLength values where the length is
-  // proportional to the precision. Arrow's Decimal are always stored with 16
+  // proportional to the precision. Arrow's Decimal are always stored with 16/32
   // bytes. Thus the internal FLBA pointer must be adjusted by the offset calculated
   // here.
-  int32_t Offset(const ::arrow::Decimal128Array& array) {
-    auto decimal_type = checked_pointer_cast<::arrow::Decimal128Type>(array.type());
-    return decimal_type->byte_width() - internal::DecimalSize(decimal_type->precision());
+  int32_t Offset(const Array& array) {
+    auto decimal_type = checked_pointer_cast<::arrow::DecimalType>(array.type());
+    return decimal_type->byte_width() -
+           ::arrow::DecimalType::DecimalSize(decimal_type->precision());
   }
 
-  void AllocateScratch(const ::arrow::Decimal128Array& array, ArrowWriteContext* ctx) {
+  void AllocateScratch(const typename ::arrow::TypeTraits<ArrowType>::ArrayType& array,
+                       ArrowWriteContext* ctx) {
     int64_t non_null_count = array.length() - array.null_count();
-    int64_t size = non_null_count * 16;
+    int64_t size = non_null_count * ArrowType::kByteWidth;
     scratch_buffer = AllocateBuffer(ctx->memory_pool, size);
     scratch = reinterpret_cast<int64_t*>(scratch_buffer->mutable_data());
   }
 
+  template <int byte_width>
   FixedLenByteArray FixDecimalEndianess(const uint8_t* in, int64_t offset) {
     const auto* u64_in = reinterpret_cast<const int64_t*>(in);
     auto out = reinterpret_cast<const uint8_t*>(scratch) + offset;
-    *scratch++ = ::arrow::BitUtil::ToBigEndian(u64_in[1]);
-    *scratch++ = ::arrow::BitUtil::ToBigEndian(u64_in[0]);
+    static_assert(byte_width == 16 || byte_width == 32,
+                  "only 16 and 32 byte Decimals supported");
+    if (byte_width == 32) {
+      *scratch++ = ::arrow::BitUtil::ToBigEndian(u64_in[3]);
+      *scratch++ = ::arrow::BitUtil::ToBigEndian(u64_in[2]);
+      *scratch++ = ::arrow::BitUtil::ToBigEndian(u64_in[1]);
+      *scratch++ = ::arrow::BitUtil::ToBigEndian(u64_in[0]);
+    } else {
+      *scratch++ = ::arrow::BitUtil::ToBigEndian(u64_in[1]);
+      *scratch++ = ::arrow::BitUtil::ToBigEndian(u64_in[0]);
+    }
     return FixedLenByteArray(out);
   }
 
   std::shared_ptr<ResizableBuffer> scratch_buffer;
   int64_t* scratch;
-};
-
-template <typename ParquetType, typename ArrowType>
-struct SerializeFunctor<ParquetType, ArrowType,
-                        ::arrow::enable_if_decimal256<ArrowType>> {
-  Status Serialize(const ::arrow::Decimal256Array& array, ArrowWriteContext* ctx,
-                   FLBA* out) {
-    return Status::NotImplemented("Decimal256 serialization isn't implemented");
-  }
 };
 
 template <>

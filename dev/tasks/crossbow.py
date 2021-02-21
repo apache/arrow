@@ -1436,12 +1436,14 @@ def check_config(config_path):
 @click.option('--arrow-sha', '-t', default=None,
               help='Set commit SHA or Tag name explicitly, e.g. f67a515, '
                    'apache-arrow-0.11.1.')
+@click.option('--fetch/--no-fetch', default=True,
+              help='Fetch references (branches and tags) from the remote')
 @click.option('--dry-run/--push', default=False,
               help='Just display the rendered CI configurations without '
                    'submitting them')
 @click.pass_obj
 def submit(obj, tasks, groups, params, job_prefix, config_path, arrow_version,
-           arrow_remote, arrow_branch, arrow_sha, dry_run):
+           arrow_remote, arrow_branch, arrow_sha, fetch, dry_run):
     output = obj['output']
     queue, arrow = obj['queue'], obj['arrow']
 
@@ -1469,7 +1471,8 @@ def submit(obj, tasks, groups, params, job_prefix, config_path, arrow_version,
     if dry_run:
         yaml.dump(job, output)
     else:
-        queue.fetch()
+        if fetch:
+            queue.fetch()
         queue.put(job, prefix=job_prefix)
         queue.push()
         yaml.dump(job, output)

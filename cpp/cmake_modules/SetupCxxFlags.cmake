@@ -24,7 +24,7 @@ include(CheckCXXSourceCompiles)
 message(STATUS "System processor: ${CMAKE_SYSTEM_PROCESSOR}")
 
 if(NOT DEFINED ARROW_CPU_FLAG)
-  if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|ARM64")
+  if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|ARM64|arm64")
     set(ARROW_CPU_FLAG "armv8")
   elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "armv7")
     set(ARROW_CPU_FLAG "armv7")
@@ -126,7 +126,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 string(TOUPPER ${CMAKE_BUILD_TYPE} CMAKE_BUILD_TYPE)
 
 set(UNKNOWN_COMPILER_MESSAGE
-    "Unknown compiler: ${CMAKE_CXX_COMPILER_VERSION} ${CMAKE_CXX_COMPILER_VERSION}")
+    "Unknown compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
 
 # compiler flags that are common across debug/release builds
 if(WIN32)
@@ -159,6 +159,23 @@ if(WIN32)
       set(CXX_COMMON_FLAGS "/W3 /EHsc")
     endif()
 
+    # Disable C5105 (macro expansion producing 'defined' has undefined
+    # behavior) warning because there are codes that produce this
+    # warning in Windows Kits. e.g.:
+    #
+    #   #define _CRT_INTERNAL_NONSTDC_NAMES                                            \
+    #        (                                                                          \
+    #            ( defined _CRT_DECLARE_NONSTDC_NAMES && _CRT_DECLARE_NONSTDC_NAMES) || \
+    #            (!defined _CRT_DECLARE_NONSTDC_NAMES && !__STDC__                 )    \
+    #        )
+    #
+    # See also:
+    # * C5105: https://docs.microsoft.com/en-US/cpp/error-messages/compiler-warnings/c5105
+    # * Related reports:
+    #   * https://developercommunity.visualstudio.com/content/problem/387684/c5105-with-stdioh-and-experimentalpreprocessor.html
+    #   * https://developercommunity.visualstudio.com/content/problem/1249671/stdc17-generates-warning-compiling-windowsh.html
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd5105")
+
     if(ARROW_USE_STATIC_CRT)
       foreach(c_flag
               CMAKE_CXX_FLAGS
@@ -177,6 +194,10 @@ if(WIN32)
 
     # Support large object code
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /bigobj")
+
+    # We may use UTF-8 in source code such as
+    # cpp/src/arrow/compute/kernels/scalar_string_test.cc
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /utf-8")
   else()
     # MinGW
     check_cxx_compiler_flag(-Wa,-mbig-obj CXX_SUPPORTS_BIG_OBJ)
@@ -246,6 +267,16 @@ if("${BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-deprecated-declarations")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-sign-conversion")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-unused-variable")
+  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
+    if(WIN32)
+      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /Wall")
+      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /Wno-deprecated")
+      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /Wno-unused-variable")
+    else()
+      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall")
+      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-deprecated")
+      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-unused-variable")
+    endif()
   else()
     message(FATAL_ERROR "${UNKNOWN_COMPILER_MESSAGE}")
   endif()
@@ -268,6 +299,12 @@ elseif("${BUILD_WARNING_LEVEL}" STREQUAL "EVERYTHING")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wpedantic")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wextra")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-unused-parameter")
+  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
+    if(WIN32)
+      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /Wall")
+    else()
+      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall")
+    endif()
   else()
     message(FATAL_ERROR "${UNKNOWN_COMPILER_MESSAGE}")
   endif()
@@ -285,6 +322,12 @@ else()
          OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang"
          OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall")
+  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
+    if(WIN32)
+      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /Wall")
+    else()
+      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall")
+    endif()
   else()
     message(FATAL_ERROR "${UNKNOWN_COMPILER_MESSAGE}")
   endif()
@@ -367,6 +410,10 @@ endif(BUILD_WARNING_FLAGS)
 
 # Only enable additional instruction sets if they are supported
 if(ARROW_CPU_FLAG STREQUAL "x86")
+  if(MINGW)
+    # Enable _xgetbv() intrinsic to query OS support for ZMM register saves
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -mxsave")
+  endif()
   if(ARROW_SIMD_LEVEL STREQUAL "AVX512")
     if(NOT CXX_SUPPORTS_AVX512)
       message(FATAL_ERROR "AVX512 required but compiler doesn't support it.")

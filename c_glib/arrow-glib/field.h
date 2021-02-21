@@ -47,6 +47,29 @@ gboolean        garrow_field_is_nullable   (GArrowField *field);
 gboolean        garrow_field_equal         (GArrowField *field,
                                             GArrowField *other_field);
 
-gchar          *garrow_field_to_string     (GArrowField *field);
+gchar *
+garrow_field_to_string(GArrowField *field);
+GARROW_AVAILABLE_IN_3_0
+gchar *
+garrow_field_to_string_metadata(GArrowField *field,
+                                gboolean show_metadata);
+
+GARROW_AVAILABLE_IN_3_0
+gboolean
+garrow_field_has_metadata(GArrowField *field);
+GARROW_AVAILABLE_IN_3_0
+GHashTable *
+garrow_field_get_metadata(GArrowField *field);
+GARROW_AVAILABLE_IN_3_0
+GArrowField *
+garrow_field_with_metadata(GArrowField *field,
+                           GHashTable *metadata);
+GARROW_AVAILABLE_IN_3_0
+GArrowField *
+garrow_field_with_merged_metadata(GArrowField *field,
+                                  GHashTable *metadata);
+GARROW_AVAILABLE_IN_3_0
+GArrowField *
+garrow_field_remove_metadata(GArrowField *field);
 
 G_END_DECLS

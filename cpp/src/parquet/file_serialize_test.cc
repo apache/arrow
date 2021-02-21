@@ -40,8 +40,6 @@ namespace test {
 template <typename TestType>
 class TestSerialize : public PrimitiveTypedTest<TestType> {
  public:
-  typedef typename TestType::c_type T;
-
   void SetUp() {
     num_columns_ = 4;
     num_rowgroups_ = 4;

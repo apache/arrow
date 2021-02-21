@@ -65,7 +65,7 @@ func (f *flightServer) ListFlights(c *flight.Criteria, fs flight.FlightService_L
 		}
 
 		fs.Send(&flight.FlightInfo{
-			Schema: ipc.FlightInfoSchemaBytes(recs[0].Schema(), f.getmem()),
+			Schema: flight.SerializeSchema(recs[0].Schema(), f.getmem()),
 			FlightDescriptor: &flight.FlightDescriptor{
 				Type: flight.FlightDescriptor_PATH,
 				Path: []string{name, auth},
@@ -88,13 +88,13 @@ func (f *flightServer) GetSchema(_ context.Context, in *flight.FlightDescriptor)
 		return nil, status.Error(codes.NotFound, "flight not found")
 	}
 
-	return &flight.SchemaResult{Schema: ipc.FlightInfoSchemaBytes(recs[0].Schema(), f.getmem())}, nil
+	return &flight.SchemaResult{Schema: flight.SerializeSchema(recs[0].Schema(), f.getmem())}, nil
 }
 
 func (f *flightServer) DoGet(tkt *flight.Ticket, fs flight.FlightService_DoGetServer) error {
 	recs := arrdata.Records[string(tkt.GetTicket())]
 
-	w := ipc.NewFlightDataWriter(fs, ipc.WithSchema(recs[0].Schema()))
+	w := flight.NewRecordWriter(fs, ipc.WithSchema(recs[0].Schema()))
 	for _, r := range recs {
 		w.Write(r)
 	}
@@ -181,7 +181,7 @@ func TestListFlights(t *testing.T) {
 			t.Fatalf("got unknown flight info: %s", fname)
 		}
 
-		sc, err := ipc.SchemaFromFlightInfo(info.GetSchema())
+		sc, err := flight.DeserializeSchema(info.GetSchema(), f.mem)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -225,7 +225,7 @@ func TestGetSchema(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			schema, err := ipc.SchemaFromFlightInfo(res.GetSchema())
+			schema, err := flight.DeserializeSchema(res.GetSchema(), f.getmem())
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -283,7 +283,7 @@ func TestServer(t *testing.T) {
 		t.Error(err)
 	}
 
-	r, err := ipc.NewFlightDataReader(fdata)
+	r, err := flight.NewRecordReader(fdata)
 	if err != nil {
 		t.Error(err)
 	}

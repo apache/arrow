@@ -73,11 +73,53 @@ test_that("Garbage R metadata doesn't break things", {
     "Invalid metadata$r",
     fixed = TRUE
   )
-  tab$metadata$r <- .serialize_arrow_r_metadata("garbage")
+  # serialize data like .serialize_arrow_r_metadata does, but don't call that
+  # directly since it checks to ensure that the data is a list
+  tab$metadata$r <- rawToChar(serialize("garbage", NULL, ascii = TRUE))
   expect_warning(
     expect_identical(as.data.frame(tab), example_data[1:6]),
     "Invalid metadata$r",
     fixed = TRUE
+  )
+})
+
+test_that("Metadata serialization compression", {
+  # attributes that (when serialized) are just under 100kb are not compressed,
+  # and simply serialized
+  strings <- as.list(rep(make_string_of_size(1), 98))
+  small <- .serialize_arrow_r_metadata(strings)
+  expect_equal(
+    object.size(small),
+    object.size(rawToChar(serialize(strings, NULL, ascii = TRUE)))
+  )
+
+  # Large strings will be compressed
+  large_strings <- as.list(rep(make_string_of_size(1), 100))
+  large <- .serialize_arrow_r_metadata(large_strings)
+  expect_lt(
+    object.size(large),
+    object.size(rawToChar(serialize(large_strings, NULL, ascii = TRUE)))
+  )
+  # and this compression ends up being smaller than even the "small" strings
+  expect_lt(object.size(large), object.size(small))
+
+  # However strings where compression + serialization is not effective are no
+  # worse than only serialization alone
+  large_few_strings <- as.list(rep(make_random_string_of_size(50), 2))
+  large_few <- .serialize_arrow_r_metadata(large_few_strings)
+  expect_equal(
+    object.size(large_few),
+    object.size(rawToChar(serialize(large_few_strings, NULL, ascii = TRUE)))
+  )
+
+  # But we can disable compression
+  op <- options(arrow.compress_metadata = FALSE); on.exit(options(op))
+
+  large_strings <- as.list(rep(make_string_of_size(1), 100))
+  large <- .serialize_arrow_r_metadata(large_strings)
+  expect_equal(
+    object.size(large),
+    object.size(rawToChar(serialize(large_strings, NULL, ascii = TRUE)))
   )
 })
 
@@ -133,4 +175,32 @@ test_that("metadata keeps attribute of top level data frame", {
   tab <- Table$create(df)
   expect_identical(attr(as.data.frame(tab), "foo"), "bar")
   expect_identical(as.data.frame(tab), df)
+})
+
+
+test_that("metadata drops readr's problems attribute", {
+  readr_like <- tibble::tibble(
+    dbl = 1.1,
+    not_here = NA_character_
+  )
+  attributes(readr_like) <- append(
+    attributes(readr_like),
+    list(problems = tibble::tibble(
+      row = 1L,
+      col = NA_character_,
+      expected = "2 columns",
+      actual = "1 columns",
+      file = "'test'"
+    ))
+  )
+
+  tab <- Table$create(readr_like)
+  expect_null(attr(as.data.frame(tab), "problems"))
+})
+
+test_that("metadata of list elements (ARROW-10386)", {
+  df <- data.frame(x = I(list(structure(1, foo = "bar"), structure(2, baz = "qux"))))
+  tab <- Table$create(df)
+  expect_identical(attr(as.data.frame(tab)$x[[1]], "foo"), "bar")
+  expect_identical(attr(as.data.frame(tab)$x[[2]], "baz"), "qux")
 })

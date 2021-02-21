@@ -33,6 +33,7 @@
 #include "arrow/array/array_base.h"
 #include "arrow/array/data.h"
 #include "arrow/buffer.h"
+#include "arrow/buffer_builder.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_common.h"
@@ -43,7 +44,6 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_stream_utils.h"
-#include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap.h"
 #include "arrow/util/bitmap_generate.h"
 #include "arrow/util/bitmap_ops.h"
@@ -51,10 +51,12 @@
 #include "arrow/util/bitmap_visit.h"
 #include "arrow/util/bitmap_writer.h"
 #include "arrow/util/bitset_stack.h"
+#include "arrow/util/endian.h"
 
 namespace arrow {
 
 using internal::BitmapAnd;
+using internal::BitmapAndNot;
 using internal::BitmapOr;
 using internal::BitmapXor;
 using internal::BitsetStack;
@@ -63,6 +65,13 @@ using internal::CountSetBits;
 using internal::InvertBitmap;
 
 using ::testing::ElementsAreArray;
+
+namespace internal {
+
+void PrintTo(const BitRun& run, std::ostream* os) { *os << run.ToString(); }
+void PrintTo(const SetBitRun& run, std::ostream* os) { *os << run.ToString(); }
+
+}  // namespace internal
 
 template <class BitmapWriter>
 void WriteVectorToWriter(BitmapWriter& writer, const std::vector<int> values) {
@@ -84,6 +93,31 @@ void BitmapFromVector(const std::vector<int>& values, int64_t bit_offset,
   ASSERT_OK_AND_ASSIGN(*out_buffer, AllocateEmptyBitmap(length + bit_offset));
   auto writer = internal::BitmapWriter((*out_buffer)->mutable_data(), bit_offset, length);
   WriteVectorToWriter(writer, values);
+}
+
+std::shared_ptr<Buffer> BitmapFromString(const std::string& s) {
+  TypedBufferBuilder<bool> builder;
+  ABORT_NOT_OK(builder.Reserve(s.size()));
+  for (const char c : s) {
+    switch (c) {
+      case '0':
+        builder.UnsafeAppend(false);
+        break;
+      case '1':
+        builder.UnsafeAppend(true);
+        break;
+      case ' ':
+      case '\t':
+      case '\n':
+      case '\r':
+        break;
+      default:
+        ARROW_LOG(FATAL) << "Unexpected character in bitmap string";
+    }
+  }
+  std::shared_ptr<Buffer> buffer;
+  ABORT_NOT_OK(builder.Finish(&buffer));
+  return buffer;
 }
 
 #define ASSERT_READER_SET(reader)    \
@@ -201,11 +235,331 @@ TEST(BitmapReader, DoesNotReadOutOfBounds) {
   internal::BitmapReader r3(nullptr, 0, 0);
 }
 
-namespace internal {
-void PrintTo(const internal::BitRun& run, std::ostream* os) {
-  *os << run.ToString();  // whatever needed to print bar to os
+class TestBitmapUInt64Reader : public ::testing::Test {
+ public:
+  void AssertWords(const Buffer& buffer, int64_t start_offset, int64_t length,
+                   const std::vector<uint64_t>& expected) {
+    internal::BitmapUInt64Reader reader(buffer.data(), start_offset, length);
+    ASSERT_EQ(reader.position(), 0);
+    ASSERT_EQ(reader.length(), length);
+    for (const uint64_t word : expected) {
+      ASSERT_EQ(reader.NextWord(), word);
+    }
+    ASSERT_EQ(reader.position(), length);
+  }
+
+  void Check(const Buffer& buffer, int64_t start_offset, int64_t length) {
+    internal::BitmapUInt64Reader reader(buffer.data(), start_offset, length);
+    for (int64_t i = 0; i < length; i += 64) {
+      ASSERT_EQ(reader.position(), i);
+      const auto nbits = std::min<int64_t>(64, length - i);
+      uint64_t word = reader.NextWord();
+      for (int64_t j = 0; j < nbits; ++j) {
+        ASSERT_EQ(word & 1, BitUtil::GetBit(buffer.data(), start_offset + i + j));
+        word >>= 1;
+      }
+    }
+    ASSERT_EQ(reader.position(), length);
+  }
+
+  void CheckExtensive(const Buffer& buffer) {
+    for (const int64_t offset : kTestOffsets) {
+      for (int64_t length : kTestOffsets) {
+        if (offset + length <= buffer.size()) {
+          Check(buffer, offset, length);
+          length = buffer.size() - offset - length;
+          if (offset + length <= buffer.size()) {
+            Check(buffer, offset, length);
+          }
+        }
+      }
+    }
+  }
+
+ protected:
+  const std::vector<int64_t> kTestOffsets = {0, 1, 6, 7, 8, 33, 62, 63, 64, 65};
+};
+
+TEST_F(TestBitmapUInt64Reader, Empty) {
+  for (const int64_t offset : kTestOffsets) {
+    // Does not access invalid memory
+    internal::BitmapUInt64Reader reader(nullptr, offset, 0);
+    ASSERT_EQ(reader.position(), 0);
+    ASSERT_EQ(reader.length(), 0);
+  }
 }
-}  // namespace internal
+
+TEST_F(TestBitmapUInt64Reader, Small) {
+  auto buffer = BitmapFromString(
+      "11111111 10000000 00000000 00000000 00000000 00000000 00000001 11111111"
+      "11111111 10000000 00000000 00000000 00000000 00000000 00000001 11111111"
+      "11111111 10000000 00000000 00000000 00000000 00000000 00000001 11111111"
+      "11111111 10000000 00000000 00000000 00000000 00000000 00000001 11111111");
+
+  // One word
+  AssertWords(*buffer, 0, 9, {0x1ff});
+  AssertWords(*buffer, 1, 9, {0xff});
+  AssertWords(*buffer, 7, 9, {0x3});
+  AssertWords(*buffer, 8, 9, {0x1});
+  AssertWords(*buffer, 9, 9, {0x0});
+
+  AssertWords(*buffer, 54, 10, {0x3fe});
+  AssertWords(*buffer, 54, 9, {0x1fe});
+  AssertWords(*buffer, 54, 8, {0xfe});
+
+  AssertWords(*buffer, 55, 9, {0x1ff});
+  AssertWords(*buffer, 56, 8, {0xff});
+  AssertWords(*buffer, 57, 7, {0x7f});
+  AssertWords(*buffer, 63, 1, {0x1});
+
+  AssertWords(*buffer, 0, 64, {0xff800000000001ffULL});
+
+  // One straddling word
+  AssertWords(*buffer, 54, 12, {0xffe});
+  AssertWords(*buffer, 63, 2, {0x3});
+
+  // One word (start_offset >= 64)
+  AssertWords(*buffer, 96, 64, {0x000001ffff800000ULL});
+
+  // Two words
+  AssertWords(*buffer, 0, 128, {0xff800000000001ffULL, 0xff800000000001ffULL});
+  AssertWords(*buffer, 0, 127, {0xff800000000001ffULL, 0x7f800000000001ffULL});
+  AssertWords(*buffer, 1, 127, {0xffc00000000000ffULL, 0x7fc00000000000ffULL});
+  AssertWords(*buffer, 1, 128, {0xffc00000000000ffULL, 0xffc00000000000ffULL});
+  AssertWords(*buffer, 63, 128, {0xff000000000003ffULL, 0xff000000000003ffULL});
+  AssertWords(*buffer, 63, 65, {0xff000000000003ffULL, 0x1});
+
+  // More than two words
+  AssertWords(*buffer, 0, 256,
+              {0xff800000000001ffULL, 0xff800000000001ffULL, 0xff800000000001ffULL,
+               0xff800000000001ffULL});
+  AssertWords(*buffer, 1, 255,
+              {0xffc00000000000ffULL, 0xffc00000000000ffULL, 0xffc00000000000ffULL,
+               0x7fc00000000000ffULL});
+  AssertWords(*buffer, 63, 193,
+              {0xff000000000003ffULL, 0xff000000000003ffULL, 0xff000000000003ffULL, 0x1});
+  AssertWords(*buffer, 63, 192,
+              {0xff000000000003ffULL, 0xff000000000003ffULL, 0xff000000000003ffULL});
+
+  CheckExtensive(*buffer);
+}
+
+TEST_F(TestBitmapUInt64Reader, Random) {
+  random::RandomArrayGenerator rng(42);
+  auto buffer = rng.NullBitmap(500, 0.5);
+  CheckExtensive(*buffer);
+}
+
+class TestSetBitRunReader : public ::testing::Test {
+ public:
+  std::vector<internal::SetBitRun> ReferenceBitRuns(const uint8_t* data,
+                                                    int64_t start_offset,
+                                                    int64_t length) {
+    std::vector<internal::SetBitRun> runs;
+    internal::BitRunReaderLinear reader(data, start_offset, length);
+    int64_t position = 0;
+    while (position < length) {
+      const auto br = reader.NextRun();
+      if (br.set) {
+        runs.push_back({position, br.length});
+      }
+      position += br.length;
+    }
+    return runs;
+  }
+
+  template <typename SetBitRunReaderType>
+  std::vector<internal::SetBitRun> AllBitRuns(SetBitRunReaderType* reader) {
+    std::vector<internal::SetBitRun> runs;
+    auto run = reader->NextRun();
+    while (!run.AtEnd()) {
+      runs.push_back(run);
+      run = reader->NextRun();
+    }
+    return runs;
+  }
+
+  template <typename SetBitRunReaderType>
+  void AssertBitRuns(SetBitRunReaderType* reader,
+                     const std::vector<internal::SetBitRun>& expected) {
+    ASSERT_EQ(AllBitRuns(reader), expected);
+  }
+
+  void AssertBitRuns(const uint8_t* data, int64_t start_offset, int64_t length,
+                     const std::vector<internal::SetBitRun>& expected) {
+    {
+      internal::SetBitRunReader reader(data, start_offset, length);
+      AssertBitRuns(&reader, expected);
+    }
+    {
+      internal::ReverseSetBitRunReader reader(data, start_offset, length);
+      auto reversed_expected = expected;
+      std::reverse(reversed_expected.begin(), reversed_expected.end());
+      AssertBitRuns(&reader, reversed_expected);
+    }
+  }
+
+  void AssertBitRuns(const Buffer& buffer, int64_t start_offset, int64_t length,
+                     const std::vector<internal::SetBitRun>& expected) {
+    AssertBitRuns(buffer.data(), start_offset, length, expected);
+  }
+
+  void CheckAgainstReference(const Buffer& buffer, int64_t start_offset, int64_t length) {
+    const auto expected = ReferenceBitRuns(buffer.data(), start_offset, length);
+    AssertBitRuns(buffer.data(), start_offset, length, expected);
+  }
+
+  struct Range {
+    int64_t offset;
+    int64_t length;
+
+    int64_t end_offset() const { return offset + length; }
+  };
+
+  std::vector<Range> BufferTestRanges(const Buffer& buffer) {
+    const int64_t buffer_size = buffer.size() * 8;  // in bits
+    std::vector<Range> ranges;
+    for (const int64_t offset : kTestOffsets) {
+      for (const int64_t length_adjust : kTestOffsets) {
+        int64_t length = std::min(buffer_size - offset, length_adjust);
+        EXPECT_GE(length, 0);
+        ranges.push_back({offset, length});
+        length = std::min(buffer_size - offset, buffer_size - length_adjust);
+        EXPECT_GE(length, 0);
+        ranges.push_back({offset, length});
+      }
+    }
+    return ranges;
+  }
+
+ protected:
+  const std::vector<int64_t> kTestOffsets = {0, 1, 6, 7, 8, 33, 63, 64, 65, 71};
+};
+
+TEST_F(TestSetBitRunReader, Empty) {
+  for (const int64_t offset : kTestOffsets) {
+    // Does not access invalid memory
+    AssertBitRuns(nullptr, offset, 0, {});
+  }
+}
+
+TEST_F(TestSetBitRunReader, OneByte) {
+  auto buffer = BitmapFromString("01101101");
+  AssertBitRuns(*buffer, 0, 8, {{1, 2}, {4, 2}, {7, 1}});
+
+  for (const char* bitmap_string : {"01101101", "10110110", "00000000", "11111111"}) {
+    auto buffer = BitmapFromString(bitmap_string);
+    for (int64_t offset = 0; offset < 8; ++offset) {
+      for (int64_t length = 0; length <= 8 - offset; ++length) {
+        CheckAgainstReference(*buffer, offset, length);
+      }
+    }
+  }
+}
+
+TEST_F(TestSetBitRunReader, Tiny) {
+  auto buffer = BitmapFromString("11100011 10001110 00111000 11100011 10001110 00111000");
+
+  AssertBitRuns(*buffer, 0, 48,
+                {{0, 3}, {6, 3}, {12, 3}, {18, 3}, {24, 3}, {30, 3}, {36, 3}, {42, 3}});
+  AssertBitRuns(*buffer, 0, 46,
+                {{0, 3}, {6, 3}, {12, 3}, {18, 3}, {24, 3}, {30, 3}, {36, 3}, {42, 3}});
+  AssertBitRuns(*buffer, 0, 45,
+                {{0, 3}, {6, 3}, {12, 3}, {18, 3}, {24, 3}, {30, 3}, {36, 3}, {42, 3}});
+  AssertBitRuns(*buffer, 0, 42,
+                {{0, 3}, {6, 3}, {12, 3}, {18, 3}, {24, 3}, {30, 3}, {36, 3}});
+  AssertBitRuns(*buffer, 3, 45,
+                {{3, 3}, {9, 3}, {15, 3}, {21, 3}, {27, 3}, {33, 3}, {39, 3}});
+  AssertBitRuns(*buffer, 3, 43,
+                {{3, 3}, {9, 3}, {15, 3}, {21, 3}, {27, 3}, {33, 3}, {39, 3}});
+  AssertBitRuns(*buffer, 3, 42,
+                {{3, 3}, {9, 3}, {15, 3}, {21, 3}, {27, 3}, {33, 3}, {39, 3}});
+  AssertBitRuns(*buffer, 3, 39, {{3, 3}, {9, 3}, {15, 3}, {21, 3}, {27, 3}, {33, 3}});
+}
+
+TEST_F(TestSetBitRunReader, AllZeros) {
+  const int64_t kBufferSize = 256;
+  ASSERT_OK_AND_ASSIGN(auto buffer, AllocateEmptyBitmap(kBufferSize));
+
+  for (const auto range : BufferTestRanges(*buffer)) {
+    AssertBitRuns(*buffer, range.offset, range.length, {});
+  }
+}
+
+TEST_F(TestSetBitRunReader, AllOnes) {
+  const int64_t kBufferSize = 256;
+  ASSERT_OK_AND_ASSIGN(auto buffer, AllocateEmptyBitmap(kBufferSize));
+  BitUtil::SetBitsTo(buffer->mutable_data(), 0, kBufferSize, true);
+
+  for (const auto range : BufferTestRanges(*buffer)) {
+    if (range.length > 0) {
+      AssertBitRuns(*buffer, range.offset, range.length, {{0, range.length}});
+    } else {
+      AssertBitRuns(*buffer, range.offset, range.length, {});
+    }
+  }
+}
+
+TEST_F(TestSetBitRunReader, Small) {
+  // Ones then zeros then ones
+  const int64_t kBufferSize = 256;
+  const int64_t kOnesLength = 64;
+  const int64_t kSecondOnesStart = kBufferSize - kOnesLength;
+  ASSERT_OK_AND_ASSIGN(auto buffer, AllocateEmptyBitmap(kBufferSize));
+  BitUtil::SetBitsTo(buffer->mutable_data(), 0, kBufferSize, false);
+  BitUtil::SetBitsTo(buffer->mutable_data(), 0, kOnesLength, true);
+  BitUtil::SetBitsTo(buffer->mutable_data(), kSecondOnesStart, kOnesLength, true);
+
+  for (const auto range : BufferTestRanges(*buffer)) {
+    std::vector<internal::SetBitRun> expected;
+    if (range.offset < kOnesLength && range.length > 0) {
+      expected.push_back({0, std::min(kOnesLength - range.offset, range.length)});
+    }
+    if (range.offset + range.length > kSecondOnesStart) {
+      expected.push_back({kSecondOnesStart - range.offset,
+                          range.length + range.offset - kSecondOnesStart});
+    }
+    AssertBitRuns(*buffer, range.offset, range.length, expected);
+  }
+}
+
+TEST_F(TestSetBitRunReader, SingleRun) {
+  // One single run of ones, at varying places in the buffer
+  const int64_t kBufferSize = 512;
+  ASSERT_OK_AND_ASSIGN(auto buffer, AllocateEmptyBitmap(kBufferSize));
+
+  for (const auto ones_range : BufferTestRanges(*buffer)) {
+    BitUtil::SetBitsTo(buffer->mutable_data(), 0, kBufferSize, false);
+    BitUtil::SetBitsTo(buffer->mutable_data(), ones_range.offset, ones_range.length,
+                       true);
+    for (const auto range : BufferTestRanges(*buffer)) {
+      std::vector<internal::SetBitRun> expected;
+
+      if (range.length && ones_range.length && range.offset < ones_range.end_offset() &&
+          ones_range.offset < range.end_offset()) {
+        // The two ranges intersect
+        const int64_t intersect_start = std::max(range.offset, ones_range.offset);
+        const int64_t intersect_stop =
+            std::min(range.end_offset(), ones_range.end_offset());
+        expected.push_back(
+            {intersect_start - range.offset, intersect_stop - intersect_start});
+      }
+      AssertBitRuns(*buffer, range.offset, range.length, expected);
+    }
+  }
+}
+
+TEST_F(TestSetBitRunReader, Random) {
+  const int64_t kBufferSize = 4096;
+  arrow::random::RandomArrayGenerator rng(42);
+  for (const double set_probability : {0.003, 0.01, 0.1, 0.5, 0.9, 0.99, 0.997}) {
+    auto arr = rng.Boolean(kBufferSize, set_probability);
+    auto buffer = arr->data()->buffers[1];
+    for (const auto range : BufferTestRanges(*buffer)) {
+      CheckAgainstReference(*buffer, range.offset, range.length);
+    }
+  }
+}
 
 TEST(BitRunReader, ZeroLength) {
   internal::BitRunReader reader(nullptr, /*start_offset=*/0, /*length=*/0);
@@ -963,6 +1317,22 @@ struct BitmapXorOp : public BitmapOperation {
   }
 };
 
+struct BitmapAndNotOp : public BitmapOperation {
+  Result<std::shared_ptr<Buffer>> Call(MemoryPool* pool, const uint8_t* left,
+                                       int64_t left_offset, const uint8_t* right,
+                                       int64_t right_offset, int64_t length,
+                                       int64_t out_offset) const override {
+    return BitmapAndNot(pool, left, left_offset, right, right_offset, length, out_offset);
+  }
+
+  Status Call(const uint8_t* left, int64_t left_offset, const uint8_t* right,
+              int64_t right_offset, int64_t length, int64_t out_offset,
+              uint8_t* out_buffer) const override {
+    BitmapAndNot(left, left_offset, right, right_offset, length, out_offset, out_buffer);
+    return Status::OK();
+  }
+};
+
 class BitmapOp : public TestBase {
  public:
   void TestAligned(const BitmapOperation& op, const std::vector<int>& left_bits,
@@ -1050,6 +1420,16 @@ TEST_F(BitmapOp, Xor) {
   std::vector<int> left = {0, 1, 1, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1};
   std::vector<int> right = {0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 1, 0, 1, 0};
   std::vector<int> result = {0, 1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1};
+
+  TestAligned(op, left, right, result);
+  TestUnaligned(op, left, right, result);
+}
+
+TEST_F(BitmapOp, AndNot) {
+  BitmapAndNotOp op;
+  std::vector<int> left = {0, 1, 1, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1};
+  std::vector<int> right = {0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 1, 0, 1, 0};
+  std::vector<int> result = {0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1};
 
   TestAligned(op, left, right, result);
   TestUnaligned(op, left, right, result);
@@ -1406,6 +1786,20 @@ TEST(BitUtil, ByteSwap) {
 
   EXPECT_EQ(BitUtil::ByteSwap(static_cast<uint16_t>(0)), 0);
   EXPECT_EQ(BitUtil::ByteSwap(static_cast<uint16_t>(0x1122)), 0x2211);
+
+  EXPECT_EQ(BitUtil::ByteSwap(static_cast<int8_t>(0)), 0);
+  EXPECT_EQ(BitUtil::ByteSwap(static_cast<int8_t>(0x11)), 0x11);
+
+  EXPECT_EQ(BitUtil::ByteSwap(static_cast<uint8_t>(0)), 0);
+  EXPECT_EQ(BitUtil::ByteSwap(static_cast<uint8_t>(0x11)), 0x11);
+
+  EXPECT_EQ(BitUtil::ByteSwap(static_cast<float>(0)), 0);
+  uint32_t srci32 = 0xaabbccdd, expectedi32 = 0xddccbbaa;
+  EXPECT_EQ(BitUtil::ByteSwap(*reinterpret_cast<float*>(&srci32)),
+            *reinterpret_cast<float*>(&expectedi32));
+  uint64_t srci64 = 0xaabb11223344ccdd, expectedi64 = 0xddcc44332211bbaa;
+  EXPECT_EQ(BitUtil::ByteSwap(*reinterpret_cast<double*>(&srci64)),
+            *reinterpret_cast<double*>(&expectedi64));
 }
 
 TEST(BitUtil, Log2) {

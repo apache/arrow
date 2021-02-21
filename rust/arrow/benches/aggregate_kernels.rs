@@ -19,49 +19,48 @@
 extern crate criterion;
 use criterion::Criterion;
 
-use rand::Rng;
-use std::sync::Arc;
-
 extern crate arrow;
 
-use arrow::array::*;
 use arrow::compute::kernels::aggregate::*;
+use arrow::util::bench_util::*;
+use arrow::{array::*, datatypes::Float32Type};
 
-fn create_array(size: usize, with_nulls: bool) -> ArrayRef {
-    // use random numbers to avoid spurious compiler optimizations wrt to branching
-    let mut rng = rand::thread_rng();
-    let mut builder = Float32Builder::new(size);
-
-    for _ in 0..size {
-        if with_nulls && rng.gen::<f32>() > 0.5 {
-            builder.append_null().unwrap();
-        } else {
-            builder.append_value(rng.gen()).unwrap();
-        }
-    }
-    Arc::new(builder.finish())
-}
-
-fn bench_sum(arr_a: &ArrayRef) {
-    let arr_a = arr_a.as_any().downcast_ref::<Float32Array>().unwrap();
+fn bench_sum(arr_a: &Float32Array) {
     criterion::black_box(sum(&arr_a).unwrap());
 }
 
-fn bench_min(arr_a: &ArrayRef) {
-    let arr_a = arr_a.as_any().downcast_ref::<Float32Array>().unwrap();
+fn bench_min(arr_a: &Float32Array) {
     criterion::black_box(min(&arr_a).unwrap());
 }
 
+fn bench_max(arr_a: &Float32Array) {
+    criterion::black_box(max(&arr_a).unwrap());
+}
+
+fn bench_min_string(arr_a: &StringArray) {
+    criterion::black_box(min_string(&arr_a).unwrap());
+}
+
 fn add_benchmark(c: &mut Criterion) {
-    let arr_a = create_array(512, false);
+    let arr_a = create_primitive_array::<Float32Type>(512, 0.0);
 
     c.bench_function("sum 512", |b| b.iter(|| bench_sum(&arr_a)));
     c.bench_function("min 512", |b| b.iter(|| bench_min(&arr_a)));
+    c.bench_function("max 512", |b| b.iter(|| bench_max(&arr_a)));
 
-    let arr_a = create_array(512, true);
+    let arr_a = create_primitive_array::<Float32Type>(512, 0.5);
 
     c.bench_function("sum nulls 512", |b| b.iter(|| bench_sum(&arr_a)));
     c.bench_function("min nulls 512", |b| b.iter(|| bench_min(&arr_a)));
+    c.bench_function("max nulls 512", |b| b.iter(|| bench_max(&arr_a)));
+
+    let arr_b = create_string_array(512, 0.0);
+    c.bench_function("min string 512", |b| b.iter(|| bench_min_string(&arr_b)));
+
+    let arr_b = create_string_array(512, 0.5);
+    c.bench_function("min nulls string 512", |b| {
+        b.iter(|| bench_min_string(&arr_b))
+    });
 }
 
 criterion_group!(benches, add_benchmark);

@@ -20,6 +20,7 @@
 #include <cassert>
 #include <functional>
 #include <memory>
+#include <queue>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -185,6 +186,127 @@ class Iterator : public util::EqualityComparable<Iterator<T>> {
   /// type then invokes its Next member function.
   Result<T> (*next_)(void*) = NULLPTR;
 };
+
+template <typename T>
+struct TransformFlow {
+  using YieldValueType = T;
+
+  TransformFlow(YieldValueType value, bool ready_for_next)
+      : finished_(false),
+        ready_for_next_(ready_for_next),
+        yield_value_(std::move(value)) {}
+  TransformFlow(bool finished, bool ready_for_next)
+      : finished_(finished), ready_for_next_(ready_for_next), yield_value_() {}
+
+  bool HasValue() const { return yield_value_.has_value(); }
+  bool Finished() const { return finished_; }
+  bool ReadyForNext() const { return ready_for_next_; }
+  T Value() const { return *yield_value_; }
+
+  bool finished_ = false;
+  bool ready_for_next_ = false;
+  util::optional<YieldValueType> yield_value_;
+};
+
+struct TransformFinish {
+  template <typename T>
+  operator TransformFlow<T>() && {  // NOLINT explicit
+    return TransformFlow<T>(true, true);
+  }
+};
+
+struct TransformSkip {
+  template <typename T>
+  operator TransformFlow<T>() && {  // NOLINT explicit
+    return TransformFlow<T>(false, true);
+  }
+};
+
+template <typename T>
+TransformFlow<T> TransformYield(T value = {}, bool ready_for_next = true) {
+  return TransformFlow<T>(std::move(value), ready_for_next);
+}
+
+template <typename T, typename V>
+using Transformer = std::function<Result<TransformFlow<V>>(T)>;
+
+template <typename T, typename V>
+class TransformIterator {
+ public:
+  explicit TransformIterator(Iterator<T> it, Transformer<T, V> transformer)
+      : it_(std::move(it)),
+        transformer_(std::move(transformer)),
+        last_value_(),
+        finished_() {}
+
+  Result<V> Next() {
+    while (!finished_) {
+      ARROW_ASSIGN_OR_RAISE(util::optional<V> next, Pump());
+      if (next.has_value()) {
+        return std::move(*next);
+      }
+      ARROW_ASSIGN_OR_RAISE(last_value_, it_.Next());
+    }
+    return IterationTraits<V>::End();
+  }
+
+ private:
+  // Calls the transform function on the current value.  Can return in several ways
+  // * If the next value is requested (e.g. skip) it will return an empty optional
+  // * If an invalid status is encountered that will be returned
+  // * If finished it will return IterationTraits<V>::End()
+  // * If a value is returned by the transformer that will be returned
+  Result<util::optional<V>> Pump() {
+    if (!finished_ && last_value_.has_value()) {
+      auto next_res = transformer_(*last_value_);
+      if (!next_res.ok()) {
+        finished_ = true;
+        return next_res.status();
+      }
+      auto next = *next_res;
+      if (next.ReadyForNext()) {
+        if (*last_value_ == IterationTraits<T>::End()) {
+          finished_ = true;
+        }
+        last_value_.reset();
+      }
+      if (next.Finished()) {
+        finished_ = true;
+      }
+      if (next.HasValue()) {
+        return next.Value();
+      }
+    }
+    if (finished_) {
+      return IterationTraits<V>::End();
+    }
+    return util::nullopt;
+  }
+
+  Iterator<T> it_;
+  Transformer<T, V> transformer_;
+  util::optional<T> last_value_;
+  bool finished_ = false;
+};
+
+/// \brief Transforms an iterator according to a transformer, returning a new Iterator.
+///
+/// The transformer will be called on each element of the source iterator and for each
+/// call it can yield a value, skip, or finish the iteration.  When yielding a value the
+/// transformer can choose to consume the source item (the default, ready_for_next = true)
+/// or to keep it and it will be called again on the same value.
+///
+/// This is essentially a more generic form of the map operation that can return 0, 1, or
+/// many values for each of the source items.
+///
+/// The transformer will be exposed to the end of the source sequence
+/// (IterationTraits::End) in case it needs to return some penultimate item(s).
+///
+/// Any invalid status returned by the transformer will be returned immediately.
+template <typename T, typename V>
+Iterator<V> MakeTransformedIterator(Iterator<T> it, Transformer<T, V> op) {
+  return Iterator<V>(TransformIterator<T, V>(std::move(it), std::move(op)));
+}
 
 template <typename T>
 struct IterationTraits<Iterator<T>> {
@@ -412,119 +534,6 @@ class FlattenIterator {
 template <typename T>
 Iterator<T> MakeFlattenIterator(Iterator<Iterator<T>> it) {
   return Iterator<T>(FlattenIterator<T>(std::move(it)));
-}
-
-namespace detail {
-
-// A type-erased promise object for ReadaheadQueue.
-struct ARROW_EXPORT ReadaheadPromise {
-  virtual ~ReadaheadPromise();
-  virtual void Call() = 0;
-};
-
-template <typename T>
-struct ReadaheadIteratorPromise : ReadaheadPromise {
-  ~ReadaheadIteratorPromise() override {}
-
-  explicit ReadaheadIteratorPromise(Iterator<T>* it) : it_(it) {}
-
-  void Call() override {
-    assert(!called_);
-    out_ = it_->Next();
-    called_ = true;
-  }
-
-  Iterator<T>* it_;
-  Result<T> out_ = IterationTraits<T>::End();
-  bool called_ = false;
-};
-
-class ARROW_EXPORT ReadaheadQueue {
- public:
-  explicit ReadaheadQueue(int readahead_queue_size);
-  ~ReadaheadQueue();
-
-  Status Append(std::unique_ptr<ReadaheadPromise>);
-  Status PopDone(std::unique_ptr<ReadaheadPromise>*);
-  Status Pump(std::function<std::unique_ptr<ReadaheadPromise>()> factory);
-  Status Shutdown();
-  void EnsureShutdownOrDie();
-
- protected:
-  class Impl;
-  std::shared_ptr<Impl> impl_;
-};
-
-}  // namespace detail
-
-/// \brief Readahead iterator that iterates on the underlying iterator in a
-/// separate thread, getting up to N values in advance.
-template <typename T>
-class ReadaheadIterator {
-  using PromiseType = typename detail::ReadaheadIteratorPromise<T>;
-
- public:
-  // Public default constructor creates an empty iterator
-  ReadaheadIterator() : done_(true) {}
-
-  ~ReadaheadIterator() {
-    if (queue_) {
-      // Make sure the queue doesn't call any promises after this object
-      // is destroyed.
-      queue_->EnsureShutdownOrDie();
-    }
-  }
-
-  ARROW_DEFAULT_MOVE_AND_ASSIGN(ReadaheadIterator);
-  ARROW_DISALLOW_COPY_AND_ASSIGN(ReadaheadIterator);
-
-  Result<T> Next() {
-    if (done_) {
-      return IterationTraits<T>::End();
-    }
-
-    std::unique_ptr<detail::ReadaheadPromise> promise;
-    ARROW_RETURN_NOT_OK(queue_->PopDone(&promise));
-    auto it_promise = static_cast<PromiseType*>(promise.get());
-
-    ARROW_RETURN_NOT_OK(queue_->Append(MakePromise()));
-
-    ARROW_ASSIGN_OR_RAISE(auto out, it_promise->out_);
-    if (out == IterationTraits<T>::End()) {
-      done_ = true;
-    }
-    return out;
-  }
-
-  static Result<Iterator<T>> Make(Iterator<T> it, int readahead_queue_size) {
-    ReadaheadIterator rh(std::move(it), readahead_queue_size);
-    ARROW_RETURN_NOT_OK(rh.Pump());
-    return Iterator<T>(std::move(rh));
-  }
-
- private:
-  explicit ReadaheadIterator(Iterator<T> it, int readahead_queue_size)
-      : it_(new Iterator<T>(std::move(it))),
-        queue_(new detail::ReadaheadQueue(readahead_queue_size)) {}
-
-  Status Pump() {
-    return queue_->Pump([this]() { return MakePromise(); });
-  }
-
-  std::unique_ptr<detail::ReadaheadPromise> MakePromise() {
-    return std::unique_ptr<detail::ReadaheadPromise>(new PromiseType{it_.get()});
-  }
-
-  // The underlying iterator is referenced by pointer in ReadaheadPromise,
-  // so make sure it doesn't move.
-  std::unique_ptr<Iterator<T>> it_;
-  std::unique_ptr<detail::ReadaheadQueue> queue_;
-  bool done_ = false;
-};
-
-template <typename T>
-Result<Iterator<T>> MakeReadaheadIterator(Iterator<T> it, int readahead_queue_size) {
-  return ReadaheadIterator<T>::Make(std::move(it), readahead_queue_size);
 }
 
 }  // namespace arrow

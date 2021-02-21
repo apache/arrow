@@ -17,7 +17,7 @@
 
 //! Contains structs and methods to build Parquet schema and schema descriptors.
 
-use std::{collections::HashMap, convert::From, fmt, rc::Rc};
+use std::{collections::HashMap, convert::From, fmt, sync::Arc};
 
 use parquet_format::SchemaElement;
 
@@ -27,12 +27,12 @@ use crate::errors::{ParquetError, Result};
 // ----------------------------------------------------------------------
 // Parquet Type definitions
 
-/// Type alias for `Rc<Type>`.
-pub type TypePtr = Rc<Type>;
-/// Type alias for `Rc<SchemaDescriptor>`.
-pub type SchemaDescPtr = Rc<SchemaDescriptor>;
-/// Type alias for `Rc<ColumnDescriptor>`.
-pub type ColumnDescPtr = Rc<ColumnDescriptor>;
+/// Type alias for `Arc<Type>`.
+pub type TypePtr = Arc<Type>;
+/// Type alias for `Arc<SchemaDescriptor>`.
+pub type SchemaDescPtr = Arc<SchemaDescriptor>;
+/// Type alias for `Arc<ColumnDescriptor>`.
+pub type ColumnDescPtr = Arc<ColumnDescriptor>;
 
 /// Representation of a Parquet type.
 /// Used to describe primitive leaf fields and structs, including top-level schema.
@@ -103,6 +103,24 @@ impl Type {
         }
     }
 
+    /// Gets precision of this primitive type.
+    /// Note that this will panic if called on a non-primitive type.
+    pub fn get_precision(&self) -> i32 {
+        match *self {
+            Type::PrimitiveType { precision, .. } => precision,
+            _ => panic!("Cannot call get_precision() on non-primitive type"),
+        }
+    }
+
+    /// Gets scale of this primitive type.
+    /// Note that this will panic if called on a non-primitive type.
+    pub fn get_scale(&self) -> i32 {
+        match *self {
+            Type::PrimitiveType { scale, .. } => scale,
+            _ => panic!("Cannot call get_scale() on non-primitive type"),
+        }
+    }
+
     /// Checks if `sub_type` schema is part of current schema.
     /// This method can be used to check if projected columns are part of the root schema.
     pub fn check_contains(&self, sub_type: &Type) -> bool {
@@ -143,18 +161,12 @@ impl Type {
 
     /// Returns `true` if this type is a primitive type, `false` otherwise.
     pub fn is_primitive(&self) -> bool {
-        match *self {
-            Type::PrimitiveType { .. } => true,
-            _ => false,
-        }
+        matches!(*self, Type::PrimitiveType { .. })
     }
 
     /// Returns `true` if this type is a group type, `false` otherwise.
     pub fn is_group(&self) -> bool {
-        match *self {
-            Type::GroupType { .. } => true,
-            _ => false,
-        }
+        matches!(*self, Type::GroupType { .. })
     }
 
     /// Returns `true` if this type is the top-level schema type (message type).
@@ -592,13 +604,6 @@ pub struct ColumnDescriptor {
     // The "leaf" primitive type of this column
     primitive_type: TypePtr,
 
-    // The root type of this column. For instance, if the column is "a.b.c.d", then the
-    // primitive type is 'd' while the root_type is 'a'.
-    //
-    // NOTE: this is sometimes `None` for the convenience of testing. It should NEVER be
-    // `None` when running in production.
-    root_type: Option<TypePtr>,
-
     // The maximum definition level for this column
     max_def_level: i16,
 
@@ -613,14 +618,12 @@ impl ColumnDescriptor {
     /// Creates new descriptor for leaf-level column.
     pub fn new(
         primitive_type: TypePtr,
-        root_type: Option<TypePtr>,
         max_def_level: i16,
         max_rep_level: i16,
         path: ColumnPath,
     ) -> Self {
         Self {
             primitive_type,
-            root_type,
             max_def_level,
             max_rep_level,
             path,
@@ -651,13 +654,6 @@ impl ColumnDescriptor {
     /// column.
     pub fn self_type_ptr(&self) -> TypePtr {
         self.primitive_type.clone()
-    }
-
-    /// Returns root [`Type`](crate::schema::types::Type) (most top-level parent field)
-    /// for this leaf column.
-    pub fn root_type(&self) -> &Type {
-        assert!(self.root_type.is_some());
-        self.root_type.as_ref().unwrap()
     }
 
     /// Returns column name.
@@ -724,7 +720,16 @@ pub struct SchemaDescriptor {
     // -- -- b     |
     // -- -- -- c  |
     // -- -- -- -- d
-    leaf_to_base: HashMap<usize, TypePtr>,
+    leaf_to_base: Vec<TypePtr>,
+}
+
+impl fmt::Debug for SchemaDescriptor {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Skip leaves and leaf_to_base as they only a cache information already found in `schema`
+        f.debug_struct("SchemaDescriptor")
+            .field("schema", &self.schema)
+            .finish()
+    }
 }
 
 impl SchemaDescriptor {
@@ -732,19 +737,10 @@ impl SchemaDescriptor {
     pub fn new(tp: TypePtr) -> Self {
         assert!(tp.is_group(), "SchemaDescriptor should take a GroupType");
         let mut leaves = vec![];
-        let mut leaf_to_base = HashMap::new();
+        let mut leaf_to_base = Vec::new();
         for f in tp.get_fields() {
             let mut path = vec![];
-            build_tree(
-                f.clone(),
-                tp.clone(),
-                f.clone(),
-                0,
-                0,
-                &mut leaves,
-                &mut leaf_to_base,
-                &mut path,
-            );
+            build_tree(f, f, 0, 0, &mut leaves, &mut leaf_to_base, &mut path);
         }
 
         Self {
@@ -788,7 +784,7 @@ impl SchemaDescriptor {
         result.clone()
     }
 
-    fn column_root_of(&self, i: usize) -> &TypePtr {
+    fn column_root_of(&self, i: usize) -> &Arc<Type> {
         assert!(
             i < self.leaves.len(),
             "Index out of bound: {} not in [0, {})",
@@ -796,13 +792,9 @@ impl SchemaDescriptor {
             self.leaves.len()
         );
 
-        let result = self.leaf_to_base.get(&i);
-        assert!(
-            result.is_some(),
-            "Expected a value for index {} but found None",
-            i
-        );
-        result.unwrap()
+        self.leaf_to_base
+            .get(i)
+            .unwrap_or_else(|| panic!("Expected a value for index {} but found None", i))
     }
 
     /// Returns schema as [`Type`](crate::schema::types::Type).
@@ -820,19 +812,18 @@ impl SchemaDescriptor {
     }
 }
 
-fn build_tree(
-    tp: TypePtr,
-    root_tp: TypePtr,
-    base_tp: TypePtr,
+fn build_tree<'a>(
+    tp: &'a TypePtr,
+    base_tp: &TypePtr,
     mut max_rep_level: i16,
     mut max_def_level: i16,
     leaves: &mut Vec<ColumnDescPtr>,
-    leaf_to_base: &mut HashMap<usize, TypePtr>,
-    path_so_far: &mut Vec<String>,
+    leaf_to_base: &mut Vec<TypePtr>,
+    path_so_far: &mut Vec<&'a str>,
 ) {
     assert!(tp.get_basic_info().has_repetition());
 
-    path_so_far.push(String::from(tp.name()));
+    path_so_far.push(tp.name());
     match tp.get_basic_info().repetition() {
         Repetition::OPTIONAL => {
             max_def_level += 1;
@@ -847,30 +838,27 @@ fn build_tree(
     match tp.as_ref() {
         Type::PrimitiveType { .. } => {
             let mut path: Vec<String> = vec![];
-            path.extend_from_slice(&path_so_far[..]);
-            leaves.push(Rc::new(ColumnDescriptor::new(
+            path.extend(path_so_far.iter().copied().map(String::from));
+            leaves.push(Arc::new(ColumnDescriptor::new(
                 tp.clone(),
-                Some(root_tp),
                 max_def_level,
                 max_rep_level,
                 ColumnPath::new(path),
             )));
-            leaf_to_base.insert(leaves.len() - 1, base_tp);
+            leaf_to_base.push(base_tp.clone());
         }
         Type::GroupType { ref fields, .. } => {
             for f in fields {
                 build_tree(
-                    f.clone(),
-                    root_tp.clone(),
-                    base_tp.clone(),
+                    f,
+                    base_tp,
                     max_rep_level,
                     max_def_level,
                     leaves,
                     leaf_to_base,
                     path_so_far,
                 );
-                let idx = path_so_far.len() - 1;
-                path_so_far.remove(idx);
+                path_so_far.pop();
             }
         }
     }
@@ -944,7 +932,7 @@ fn from_thrift_helper(
             if let Some(id) = field_id {
                 builder = builder.with_id(id);
             }
-            Ok((index + 1, Rc::new(builder.build()?)))
+            Ok((index + 1, Arc::new(builder.build()?)))
         }
         Some(n) => {
             let repetition = elements[index].repetition_type.map(Repetition::from);
@@ -974,7 +962,7 @@ fn from_thrift_helper(
             if let Some(id) = field_id {
                 builder = builder.with_id(id);
             }
-            Ok((next_index, Rc::new(builder.build().unwrap())))
+            Ok((next_index, Arc::new(builder.build().unwrap())))
         }
     }
 }
@@ -1317,8 +1305,8 @@ mod tests {
         assert!(f2.is_ok());
 
         let mut fields = vec![];
-        fields.push(Rc::new(f1.unwrap()));
-        fields.push(Rc::new(f2.unwrap()));
+        fields.push(Arc::new(f1.unwrap()));
+        fields.push(Arc::new(f2.unwrap()));
 
         let result = Type::group_type_builder("foo")
             .with_repetition(Repetition::REPEATED)
@@ -1354,19 +1342,7 @@ mod tests {
             .with_logical_type(LogicalType::UTF8)
             .build()?;
 
-        let root_tp = Type::group_type_builder("root")
-            .with_logical_type(LogicalType::LIST)
-            .build()
-            .unwrap();
-        let root_tp_rc = Rc::new(root_tp);
-
-        let descr = ColumnDescriptor::new(
-            Rc::new(tp),
-            Some(root_tp_rc.clone()),
-            4,
-            1,
-            ColumnPath::from("name"),
-        );
+        let descr = ColumnDescriptor::new(Arc::new(tp), 4, 1, ColumnPath::from("name"));
 
         assert_eq!(descr.path(), &ColumnPath::from("name"));
         assert_eq!(descr.logical_type(), LogicalType::UTF8);
@@ -1377,7 +1353,6 @@ mod tests {
         assert_eq!(descr.type_length(), -1);
         assert_eq!(descr.type_precision(), -1);
         assert_eq!(descr.type_scale(), -1);
-        assert_eq!(descr.root_type(), root_tp_rc.as_ref());
 
         Ok(())
     }
@@ -1400,16 +1375,16 @@ mod tests {
             .with_repetition(Repetition::REQUIRED)
             .with_logical_type(LogicalType::INT_32)
             .build()?;
-        fields.push(Rc::new(inta));
+        fields.push(Arc::new(inta));
         let intb = Type::primitive_type_builder("b", PhysicalType::INT64)
             .with_logical_type(LogicalType::INT_64)
             .build()?;
-        fields.push(Rc::new(intb));
+        fields.push(Arc::new(intb));
         let intc = Type::primitive_type_builder("c", PhysicalType::BYTE_ARRAY)
             .with_repetition(Repetition::REPEATED)
             .with_logical_type(LogicalType::UTF8)
             .build()?;
-        fields.push(Rc::new(intc));
+        fields.push(Arc::new(intc));
 
         // 3-level list encoding
         let item1 = Type::primitive_type_builder("item1", PhysicalType::INT64)
@@ -1425,19 +1400,19 @@ mod tests {
         let list = Type::group_type_builder("records")
             .with_repetition(Repetition::REPEATED)
             .with_logical_type(LogicalType::LIST)
-            .with_fields(&mut vec![Rc::new(item1), Rc::new(item2), Rc::new(item3)])
+            .with_fields(&mut vec![Arc::new(item1), Arc::new(item2), Arc::new(item3)])
             .build()?;
         let bag = Type::group_type_builder("bag")
             .with_repetition(Repetition::OPTIONAL)
-            .with_fields(&mut vec![Rc::new(list)])
+            .with_fields(&mut vec![Arc::new(list)])
             .build()?;
-        fields.push(Rc::new(bag));
+        fields.push(Arc::new(bag));
 
         let schema = Type::group_type_builder("schema")
             .with_repetition(Repetition::REPEATED)
             .with_fields(&mut fields)
             .build()?;
-        let descr = SchemaDescriptor::new(Rc::new(schema));
+        let descr = SchemaDescriptor::new(Arc::new(schema));
 
         let nleaves = 6;
         assert_eq!(descr.num_columns(), nleaves);
@@ -1492,7 +1467,7 @@ mod tests {
     }
     ";
         let schema = parse_message_type(message_type).expect("should parse schema");
-        let descr = SchemaDescriptor::new(Rc::new(schema));
+        let descr = SchemaDescriptor::new(Arc::new(schema));
         // required int32 a
         assert_eq!(descr.column(0).max_def_level(), 0);
         assert_eq!(descr.column(0).max_rep_level(), 0);
@@ -1586,7 +1561,7 @@ mod tests {
     fn test_new_group_type(name: &str, repetition: Repetition, types: Vec<Type>) -> Type {
         let mut fields = Vec::new();
         for tpe in types {
-            fields.push(Rc::new(tpe))
+            fields.push(Arc::new(tpe))
         }
         Type::group_type_builder(name)
             .with_repetition(repetition)
@@ -1842,7 +1817,7 @@ mod tests {
         let expected_schema = parse_message_type(message_type).unwrap();
         let thrift_schema = to_thrift(&expected_schema).unwrap();
         let result_schema = from_thrift(&thrift_schema).unwrap();
-        assert_eq!(result_schema, Rc::new(expected_schema));
+        assert_eq!(result_schema, Arc::new(expected_schema));
     }
 
     #[test]
@@ -1858,7 +1833,7 @@ mod tests {
         let expected_schema = parse_message_type(message_type).unwrap();
         let thrift_schema = to_thrift(&expected_schema).unwrap();
         let result_schema = from_thrift(&thrift_schema).unwrap();
-        assert_eq!(result_schema, Rc::new(expected_schema));
+        assert_eq!(result_schema, Arc::new(expected_schema));
     }
 
     // Tests schema conversion from thrift, when num_children is set to Some(0) for a
@@ -1887,7 +1862,7 @@ mod tests {
         }
 
         let result_schema = from_thrift(&thrift_schema).unwrap();
-        assert_eq!(result_schema, Rc::new(expected_schema));
+        assert_eq!(result_schema, Arc::new(expected_schema));
     }
 
     // Sometimes parquet-cpp sets repetition level for the root node, which is against
@@ -1907,6 +1882,6 @@ mod tests {
         thrift_schema[0].repetition_type = Some(Repetition::REQUIRED.into());
 
         let result_schema = from_thrift(&thrift_schema).unwrap();
-        assert_eq!(result_schema, Rc::new(expected_schema));
+        assert_eq!(result_schema, Arc::new(expected_schema));
     }
 }

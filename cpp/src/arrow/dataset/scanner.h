@@ -21,11 +21,11 @@
 
 #include <memory>
 #include <string>
-#include <unordered_set>
 #include <utility>
 #include <vector>
 
 #include "arrow/dataset/dataset.h"
+#include "arrow/dataset/expression.h"
 #include "arrow/dataset/projector.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
@@ -63,10 +63,7 @@ class ARROW_DS_EXPORT ScanOptions {
   std::shared_ptr<ScanOptions> ReplaceSchema(std::shared_ptr<Schema> schema) const;
 
   // Filter
-  std::shared_ptr<Expression> filter = scalar(true);
-
-  // Evaluator for Filter
-  std::shared_ptr<ExpressionEvaluator> evaluator;
+  Expression filter = literal(true);
 
   // Schema to which record batches will be reconciled
   const std::shared_ptr<Schema>& schema() const { return projector.schema(); }
@@ -173,7 +170,7 @@ class ARROW_DS_EXPORT Scanner {
   Result<std::shared_ptr<Table>> ToTable();
 
   /// \brief GetFragments returns an iterator over all Fragments in this scan.
-  FragmentIterator GetFragments();
+  Result<FragmentIterator> GetFragments();
 
   const std::shared_ptr<Schema>& schema() const { return scan_options_->schema(); }
 
@@ -223,7 +220,6 @@ class ARROW_DS_EXPORT ScannerBuilder {
   ///
   /// \return Failure if any referenced columns does not exist in the dataset's
   ///         Schema.
-  Status Filter(std::shared_ptr<Expression> filter);
   Status Filter(const Expression& filter);
 
   /// \brief Indicate if the Scanner should make use of the available
@@ -241,11 +237,12 @@ class ARROW_DS_EXPORT ScannerBuilder {
   /// \brief Return the constructed now-immutable Scanner object
   Result<std::shared_ptr<Scanner>> Finish() const;
 
-  std::shared_ptr<Schema> schema() const { return scan_options_->schema(); }
+  const std::shared_ptr<Schema>& schema() const;
 
  private:
   std::shared_ptr<Dataset> dataset_;
   std::shared_ptr<Fragment> fragment_;
+  std::shared_ptr<Schema> fragment_schema_;
   std::shared_ptr<ScanOptions> scan_options_;
   std::shared_ptr<ScanContext> scan_context_;
   bool has_projection_ = false;

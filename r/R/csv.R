@@ -289,7 +289,7 @@ read_tsv_arrow <- function(file,
 #' @export
 CsvTableReader <- R6Class("CsvTableReader", inherit = ArrowObject,
   public = list(
-    Read = function() shared_ptr(Table, csv___TableReader__Read(self))
+    Read = function() csv___TableReader__Read(self)
   )
 )
 CsvTableReader$create <- function(file,
@@ -298,10 +298,7 @@ CsvTableReader$create <- function(file,
                                   convert_options = CsvConvertOptions$create(),
                                   ...) {
   assert_is(file, "InputStream")
-  shared_ptr(
-    CsvTableReader,
-    csv___TableReader__Make(file, read_options, parse_options, convert_options)
-  )
+  csv___TableReader__Make(file, read_options, parse_options, convert_options)
 }
 
 #' @title File reader options
@@ -400,8 +397,7 @@ CsvReadOptions$create <- function(use_threads = option_use_threads(),
                                   skip_rows = 0L,
                                   column_names = character(0),
                                   autogenerate_column_names = FALSE) {
-
-  shared_ptr(CsvReadOptions, csv___ReadOptions__initialize(
+  csv___ReadOptions__initialize(
     list(
       use_threads = use_threads,
       block_size = block_size,
@@ -409,7 +405,7 @@ CsvReadOptions$create <- function(use_threads = option_use_threads(),
       column_names = column_names,
       autogenerate_column_names = autogenerate_column_names
     )
-  ))
+  )
 }
 
 readr_to_csv_read_options <- function(skip, col_names, col_types) {
@@ -439,7 +435,7 @@ CsvParseOptions$create <- function(delimiter = ",",
                                    newlines_in_values = FALSE,
                                    ignore_empty_lines = TRUE) {
 
-  shared_ptr(CsvParseOptions, csv___ParseOptions__initialize(
+  csv___ParseOptions__initialize(
     list(
       delimiter = delimiter,
       quoting = quoting,
@@ -450,7 +446,7 @@ CsvParseOptions$create <- function(delimiter = ",",
       newlines_in_values = newlines_in_values,
       ignore_empty_lines = ignore_empty_lines
     )
-  ))
+  )
 }
 
 readr_to_csv_parse_options <- function(delim = ",",
@@ -485,9 +481,9 @@ TimestampParser <- R6Class("TimestampParser", inherit = ArrowObject,
 )
 TimestampParser$create <- function(format = NULL) {
   if (is.null(format)) {
-    shared_ptr(TimestampParser, TimestampParser__MakeISO8601())
+    TimestampParser__MakeISO8601()
   } else {
-    shared_ptr(TimestampParser, TimestampParser__MakeStrptime(format))
+    TimestampParser__MakeStrptime(format)
   }
 }
 
@@ -516,7 +512,7 @@ CsvConvertOptions$create <- function(check_utf8 = TRUE,
     ))
   }
 
-  shared_ptr(CsvConvertOptions, csv___ConvertOptions__initialize(
+  csv___ConvertOptions__initialize(
     list(
       check_utf8 = check_utf8,
       null_values = null_values,
@@ -530,7 +526,7 @@ CsvConvertOptions$create <- function(check_utf8 = TRUE,
       include_missing_columns = include_missing_columns,
       timestamp_parsers = timestamp_parsers
     )
-  ))
+  )
 }
 
 readr_to_csv_convert_options <- function(na,

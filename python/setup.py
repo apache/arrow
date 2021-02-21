@@ -385,18 +385,6 @@ class build_ext(_build_ext):
                 build_prefix, build_lib,
                 "{}_regex".format(self.boost_namespace),
                 implib_required=False)
-        if sys.platform == 'win32':
-            # zlib uses zlib.dll for Windows
-            zlib_lib_name = 'zlib'
-            move_shared_libs(build_prefix, build_lib, zlib_lib_name,
-                             implib_required=False)
-            if self.with_flight:
-                # DLL dependencies for gRPC / Flight
-                for lib_name in ['cares', 'libprotobuf',
-                                 'libcrypto-1_1-x64',
-                                 'libssl-1_1-x64']:
-                    move_shared_libs(build_prefix, build_lib, lib_name,
-                                     implib_required=False)
 
     def _bundle_cython_cpp(self, name, lib_path):
         cpp_generated_path = self.get_ext_generated_cpp_source(name)
@@ -527,7 +515,7 @@ def _move_shared_libs_unix(build_prefix, build_lib, lib_name):
 
 # If the event of not running from a git clone (e.g. from a git archive
 # or a Python sdist), see if we can set the version number ourselves
-default_version = '3.0.0-SNAPSHOT'
+default_version = '4.0.0-SNAPSHOT'
 if (not os.path.exists('../.git') and
         not os.environ.get('SETUPTOOLS_SCM_PRETEND_VERSION')):
     if os.path.exists('PKG-INFO'):
@@ -573,7 +561,7 @@ class BinaryDistribution(Distribution):
 
 
 install_requires = (
-    'numpy >= 1.14',
+    'numpy >= 1.16.6',
 )
 
 
@@ -618,16 +606,16 @@ setup(
     setup_requires=['setuptools_scm', 'cython >= 0.29'] + setup_requires,
     install_requires=install_requires,
     tests_require=['pytest', 'pandas', 'hypothesis'],
-    python_requires='>=3.5',
+    python_requires='>=3.6',
     description='Python library for Apache Arrow',
     long_description=long_description,
     long_description_content_type='text/markdown',
     classifiers=[
         'License :: OSI Approved :: Apache Software License',
-        'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
     ],
     license='Apache License, Version 2.0',
     maintainer='Apache Arrow Developers',

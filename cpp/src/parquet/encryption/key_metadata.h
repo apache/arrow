@@ -70,14 +70,14 @@ class PARQUET_EXPORT KeyMetadata {
     if (!is_internal_storage_) {
       throw ParquetException("key material is stored externally.");
     }
-    return arrow::util::get<0>(key_material_or_reference_);
+    return ::arrow::util::get<KeyMaterial>(key_material_or_reference_);
   }
 
   const std::string& key_reference() const {
     if (is_internal_storage_) {
       throw ParquetException("key material is stored internally.");
     }
-    return arrow::util::get<1>(key_material_or_reference_);
+    return ::arrow::util::get<std::string>(key_material_or_reference_);
   }
 
  private:
@@ -87,7 +87,7 @@ class PARQUET_EXPORT KeyMetadata {
   bool is_internal_storage_;
   /// If is_internal_storage_ is true, KeyMaterial is set,
   /// else a string referencing to an outside "key material" is set.
-  arrow::util::variant<KeyMaterial, std::string> key_material_or_reference_;
+  ::arrow::util::Variant<KeyMaterial, std::string> key_material_or_reference_;
 };
 
 }  // namespace encryption

@@ -20,6 +20,7 @@
 #include <atomic>
 #include <condition_variable>
 #include <cstdint>
+#include <functional>
 #include <mutex>
 #include <utility>
 
@@ -44,30 +45,21 @@ class SerialTaskGroup : public TaskGroup {
 
   Status current_status() override { return status_; }
 
-  bool ok() override { return status_.ok(); }
+  bool ok() const override { return status_.ok(); }
 
   Status Finish() override {
     if (!finished_) {
       finished_ = true;
-      if (parent_) {
-        parent_->status_ &= status_;
-      }
     }
     return status_;
   }
 
+  Future<> FinishAsync() override { return Future<>::MakeFinished(Finish()); }
+
   int parallelism() override { return 1; }
 
-  std::shared_ptr<TaskGroup> MakeSubGroup() override {
-    auto child = new SerialTaskGroup();
-    child->parent_ = this;
-    return std::shared_ptr<TaskGroup>(child);
-  }
-
- protected:
   Status status_;
   bool finished_ = false;
-  SerialTaskGroup* parent_ = nullptr;
 };
 
 ////////////////////////////////////////////////////////////////////////
@@ -85,20 +77,24 @@ class ThreadedTaskGroup : public TaskGroup {
   }
 
   void AppendReal(std::function<Status()> task) override {
+    DCHECK(!finished_);
     // The hot path is unlocked thanks to atomics
     // Only if an error occurs is the lock taken
     if (ok_.load(std::memory_order_acquire)) {
       nremaining_.fetch_add(1, std::memory_order_acquire);
 
       auto self = checked_pointer_cast<ThreadedTaskGroup>(shared_from_this());
-      Status st = executor_->Spawn([self, task]() {
-        if (self->ok_.load(std::memory_order_acquire)) {
-          // XXX what about exceptions?
-          Status st = task();
-          self->UpdateStatus(std::move(st));
-        }
-        self->OneTaskDone();
-      });
+      Status st = executor_->Spawn(std::bind(
+          [](const std::shared_ptr<ThreadedTaskGroup>& self,
+             const std::function<Status()>& task) {
+            if (self->ok_.load(std::memory_order_acquire)) {
+              // XXX what about exceptions?
+              Status st = task();
+              self->UpdateStatus(std::move(st));
+            }
+            self->OneTaskDone();
+          },
+          std::move(self), std::move(task)));
       UpdateStatus(std::move(st));
     }
   }
@@ -108,7 +104,7 @@ class ThreadedTaskGroup : public TaskGroup {
     return status_;
   }
 
-  bool ok() override { return ok_.load(); }
+  bool ok() const override { return ok_.load(); }
 
   Status Finish() override {
     std::unique_lock<std::mutex> lock(mutex_);
@@ -116,22 +112,23 @@ class ThreadedTaskGroup : public TaskGroup {
       cv_.wait(lock, [&]() { return nremaining_.load() == 0; });
       // Current tasks may start other tasks, so only set this when done
       finished_ = true;
-      if (parent_) {
-        parent_->OneTaskDone();
-      }
     }
     return status_;
   }
 
-  int parallelism() override { return executor_->GetCapacity(); }
-
-  std::shared_ptr<TaskGroup> MakeSubGroup() override {
+  Future<> FinishAsync() override {
     std::lock_guard<std::mutex> lock(mutex_);
-    auto child = new ThreadedTaskGroup(executor_);
-    child->parent_ = this;
-    nremaining_.fetch_add(1, std::memory_order_acquire);
-    return std::shared_ptr<TaskGroup>(child);
+    if (!completion_future_.has_value()) {
+      if (nremaining_.load() == 0) {
+        completion_future_ = Future<>::MakeFinished(status_);
+      } else {
+        completion_future_ = Future<>::Make();
+      }
+    }
+    return *completion_future_;
   }
+
+  int parallelism() override { return executor_->GetCapacity(); }
 
  protected:
   void UpdateStatus(Status&& st) {
@@ -152,6 +149,21 @@ class ThreadedTaskGroup : public TaskGroup {
       // before cv.notify_one() has returned
       std::unique_lock<std::mutex> lock(mutex_);
       cv_.notify_one();
+      if (completion_future_.has_value()) {
+        // MarkFinished could be slow.  We don't want to call it while we are holding
+        // the lock.
+        auto& future = *completion_future_;
+        const auto finished = completion_future_->is_finished();
+        const auto& status = status_;
+        // This will be redundant if the user calls Finish and not FinishAsync
+        if (!finished && !finished_) {
+          finished_ = true;
+          lock.unlock();
+          future.MarkFinished(status);
+        } else {
+          lock.unlock();
+        }
+      }
     }
   }
 
@@ -165,7 +177,7 @@ class ThreadedTaskGroup : public TaskGroup {
   std::condition_variable cv_;
   Status status_;
   bool finished_ = false;
-  ThreadedTaskGroup* parent_ = nullptr;
+  util::optional<Future<>> completion_future_;
 };
 
 std::shared_ptr<TaskGroup> TaskGroup::MakeSerial() {

@@ -581,7 +581,7 @@ Status ReadListReply(const uint8_t* data, size_t size, ObjectTable* objects) {
   DCHECK(data);
   auto message = flatbuffers::GetRoot<fb::PlasmaListReply>(data);
   DCHECK(VerifyFlatbuffer(message, data, size));
-  for (auto const& object : *message->objects()) {
+  for (auto const object : *message->objects()) {
     ObjectID object_id = ObjectID::from_binary(object->object_id()->str());
     auto entry = std::unique_ptr<ObjectTableEntry>(new ObjectTableEntry());
     entry->data_size = object->data_size();

@@ -31,8 +31,7 @@ use arrow_flight::{FlightDescriptor, Ticket};
 /// This example is run along-side the example `flight_server`.
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let testdata =
-        std::env::var("PARQUET_TEST_DATA").expect("PARQUET_TEST_DATA not defined");
+    let testdata = arrow::util::test_util::parquet_test_data();
 
     // Create Flight client
     let mut client = FlightServiceClient::connect("http://localhost:50051").await?;
@@ -63,10 +62,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // all the remaining stream messages should be dictionary and record batches
     let mut results = vec![];
+    let dictionaries_by_field = vec![None; schema.fields().len()];
     while let Some(flight_data) = stream.message().await? {
-        // the unwrap is infallible and thus safe
-        let record_batch =
-            flight_data_to_arrow_batch(&flight_data, schema.clone()).unwrap()?;
+        let record_batch = flight_data_to_arrow_batch(
+            &flight_data,
+            schema.clone(),
+            &dictionaries_by_field,
+        )?;
         results.push(record_batch);
     }
 

@@ -87,7 +87,8 @@ class PARQUET_EXPORT KeyMaterial {
 
   static KeyMaterial Parse(const std::string& key_material_string);
 
-  static KeyMaterial Parse(const arrow::json::internal::ObjectParser* key_material_json);
+  static KeyMaterial Parse(
+      const ::arrow::json::internal::ObjectParser* key_material_json);
 
   /// This method returns a json string that will be stored either inside a parquet file
   /// or in a key material store outside the parquet file.

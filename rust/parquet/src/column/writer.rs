@@ -16,7 +16,7 @@
 // under the License.
 
 //! Contains column writer API.
-use std::{cmp, collections::VecDeque, rc::Rc};
+use std::{cmp, collections::VecDeque, convert::TryFrom, marker::PhantomData, sync::Arc};
 
 use crate::basic::{Compression, Encoding, PageType, Type};
 use crate::column::page::{CompressedPage, Page, PageWriteSpec, PageWriter};
@@ -196,6 +196,7 @@ pub struct ColumnWriterImpl<T: DataType> {
     def_levels_sink: Vec<i16>,
     rep_levels_sink: Vec<i16>,
     data_pages: VecDeque<CompressedPage>,
+    _phantom: PhantomData<T>,
 }
 
 impl<T: DataType> ColumnWriterImpl<T> {
@@ -209,9 +210,9 @@ impl<T: DataType> ColumnWriterImpl<T> {
 
         // Optionally set dictionary encoder.
         let dict_encoder = if props.dictionary_enabled(descr.path())
-            && Self::has_dictionary_support(&props)
+            && has_dictionary_support(T::get_physical_type(), &props)
         {
-            Some(DictEncoder::new(descr.clone(), Rc::new(MemTracker::new())))
+            Some(DictEncoder::new(descr.clone(), Arc::new(MemTracker::new())))
         } else {
             None
         };
@@ -224,8 +225,8 @@ impl<T: DataType> ColumnWriterImpl<T> {
             descr.clone(),
             props
                 .encoding(descr.path())
-                .unwrap_or_else(|| Self::fallback_encoding(&props)),
-            Rc::new(MemTracker::new()),
+                .unwrap_or_else(|| fallback_encoding(T::get_physical_type(), &props)),
+            Arc::new(MemTracker::new()),
         )
         .unwrap();
 
@@ -259,6 +260,7 @@ impl<T: DataType> ColumnWriterImpl<T> {
             max_column_value: None,
             num_column_nulls: 0,
             column_distinct_count: None,
+            _phantom: PhantomData,
         }
     }
 
@@ -295,20 +297,13 @@ impl<T: DataType> ColumnWriterImpl<T> {
         let write_batch_size = self.props.write_batch_size();
         let num_batches = min_len / write_batch_size;
 
-        let mut values_offset = 0;
-        let mut levels_offset = 0;
-
         // Process pre-calculated statistics
         match (min, max) {
             (Some(min), Some(max)) => {
-                if self.min_column_value.is_none()
-                    || self.min_column_value.as_ref().unwrap() > min
-                {
+                if self.min_column_value.as_ref().map_or(true, |v| v > min) {
                     self.min_column_value = Some(min.clone());
                 }
-                if self.max_column_value.is_none()
-                    || self.max_column_value.as_ref().unwrap() < max
-                {
+                if self.max_column_value.as_ref().map_or(true, |v| v < max) {
                     self.max_column_value = Some(max.clone());
                 }
             }
@@ -331,6 +326,8 @@ impl<T: DataType> ColumnWriterImpl<T> {
             && null_count.is_none()
             && distinct_count.is_none();
 
+        let mut values_offset = 0;
+        let mut levels_offset = 0;
         for _ in 0..num_batches {
             values_offset += self.write_mini_batch(
                 &values[values_offset..values_offset + write_batch_size],
@@ -435,20 +432,11 @@ impl<T: DataType> ColumnWriterImpl<T> {
         rep_levels: Option<&[i16]>,
         calculate_page_stats: bool,
     ) -> Result<usize> {
-        let num_values;
         let mut values_to_write = 0;
 
         // Check if number of definition levels is the same as number of repetition
         // levels.
-        if def_levels.is_some() && rep_levels.is_some() {
-            let def = match def_levels {
-                Some(a) => a,
-                _ => unreachable!(),
-            };
-            let rep = match rep_levels {
-                Some(a) => a,
-                _ => unreachable!(),
-            };
+        if let (Some(def), Some(rep)) = (def_levels, rep_levels) {
             if def.len() != rep.len() {
                 return Err(general_err!(
                     "Inconsistent length of definition and repetition levels: {} != {}",
@@ -459,16 +447,14 @@ impl<T: DataType> ColumnWriterImpl<T> {
         }
 
         // Process definition levels and determine how many values to write.
-        if self.descr.max_def_level() > 0 {
-            if def_levels.is_none() {
-                return Err(general_err!(
+        let num_values = if self.descr.max_def_level() > 0 {
+            let levels = def_levels.ok_or_else(|| {
+                general_err!(
                     "Definition levels are required, because max definition level = {}",
                     self.descr.max_def_level()
-                ));
-            }
+                )
+            })?;
 
-            let levels = def_levels.unwrap();
-            num_values = levels.len();
             for &level in levels {
                 if level == self.descr.max_def_level() {
                     values_to_write += 1;
@@ -478,23 +464,23 @@ impl<T: DataType> ColumnWriterImpl<T> {
             }
 
             self.write_definition_levels(levels);
+            u32::try_from(levels.len()).unwrap()
         } else {
             values_to_write = values.len();
-            num_values = values_to_write;
-        }
+            u32::try_from(values_to_write).unwrap()
+        };
 
         // Process repetition levels and determine how many rows we are about to process.
         if self.descr.max_rep_level() > 0 {
             // A row could contain more than one value.
-            if rep_levels.is_none() {
-                return Err(general_err!(
+            let levels = rep_levels.ok_or_else(|| {
+                general_err!(
                     "Repetition levels are required, because max repetition level = {}",
                     self.descr.max_rep_level()
-                ));
-            }
+                )
+            })?;
 
             // Count the occasions where we start a new row
-            let levels = rep_levels.unwrap();
             for &level in levels {
                 self.num_buffered_rows += (level == 0) as u32
             }
@@ -503,28 +489,28 @@ impl<T: DataType> ColumnWriterImpl<T> {
         } else {
             // Each value is exactly one row.
             // Equals to the number of values, we count nulls as well.
-            self.num_buffered_rows += num_values as u32;
+            self.num_buffered_rows += num_values;
         }
 
         // Check that we have enough values to write.
-        if values.len() < values_to_write {
-            return Err(general_err!(
+        let values_to_write = values.get(0..values_to_write).ok_or_else(|| {
+            general_err!(
                 "Expected to write {} values, but have only {}",
                 values_to_write,
                 values.len()
-            ));
-        }
+            )
+        })?;
 
         if calculate_page_stats {
-            for val in &values[0..values_to_write] {
+            for val in values_to_write {
                 self.update_page_min_max(val);
             }
         }
 
-        self.write_values(&values[0..values_to_write])?;
+        self.write_values(values_to_write)?;
 
-        self.num_buffered_values += num_values as u32;
-        self.num_buffered_encoded_values += values_to_write as u32;
+        self.num_buffered_values += num_values;
+        self.num_buffered_encoded_values += u32::try_from(values_to_write.len()).unwrap();
 
         if self.should_add_data_page() {
             self.add_data_page(calculate_page_stats)?;
@@ -534,7 +520,7 @@ impl<T: DataType> ColumnWriterImpl<T> {
             self.dict_fallback()?;
         }
 
-        Ok(values_to_write)
+        Ok(values_to_write.len())
     }
 
     #[inline]
@@ -689,14 +675,9 @@ impl<T: DataType> ColumnWriterImpl<T> {
                 // Data Page v2 compresses values only.
                 match self.compressor {
                     Some(ref mut cmpr) => {
-                        let mut compressed_buf =
-                            Vec::with_capacity(value_bytes.data().len());
-                        cmpr.compress(value_bytes.data(), &mut compressed_buf)?;
-                        buffer.extend_from_slice(&compressed_buf[..]);
+                        cmpr.compress(value_bytes.data(), &mut buffer)?;
                     }
-                    None => {
-                        buffer.extend_from_slice(value_bytes.data());
-                    }
+                    None => buffer.extend_from_slice(value_bytes.data()),
                 }
 
                 let data_page = Page::DataPageV2 {
@@ -840,12 +821,12 @@ impl<T: DataType> ColumnWriterImpl<T> {
     /// Writes dictionary page into underlying sink.
     #[inline]
     fn write_dictionary_page(&mut self) -> Result<()> {
-        if self.dict_encoder.is_none() {
-            return Err(general_err!("Dictionary encoder is not set"));
-        }
-
         let compressed_page = {
-            let encoder = self.dict_encoder.as_ref().unwrap();
+            let encoder = self
+                .dict_encoder
+                .as_ref()
+                .ok_or_else(|| general_err!("Dictionary encoder is not set"))?;
+
             let is_sorted = encoder.is_sorted();
             let num_values = encoder.num_entries();
             let mut values_buf = encoder.write_dict()?;
@@ -941,24 +922,26 @@ impl<T: DataType> ColumnWriterImpl<T> {
     }
 
     fn update_page_min_max(&mut self, val: &T::T) {
-        if self.min_page_value.is_none() || self.min_page_value.as_ref().unwrap() > val {
+        if self.min_page_value.as_ref().map_or(true, |min| min > val) {
             self.min_page_value = Some(val.clone());
         }
-        if self.max_page_value.is_none() || self.max_page_value.as_ref().unwrap() < val {
+        if self.max_page_value.as_ref().map_or(true, |max| max < val) {
             self.max_page_value = Some(val.clone());
         }
     }
 
     fn update_column_min_max(&mut self) {
-        if self.min_column_value.is_none()
-            || self.min_column_value.as_ref().unwrap()
-                > self.min_page_value.as_ref().unwrap()
+        if self
+            .min_column_value
+            .as_ref()
+            .map_or(true, |min| min > self.min_page_value.as_ref().unwrap())
         {
             self.min_column_value = self.min_page_value.clone();
         }
-        if self.max_column_value.is_none()
-            || self.max_column_value.as_ref().unwrap()
-                < self.max_page_value.as_ref().unwrap()
+        if self
+            .max_column_value
+            .as_ref()
+            .map_or(true, |max| max < self.max_page_value.as_ref().unwrap())
         {
             self.max_column_value = self.max_page_value.clone();
         }
@@ -974,81 +957,33 @@ impl<T: DataType> ColumnWriterImpl<T> {
 /// Trait to define default encoding for types, including whether or not the type
 /// supports dictionary encoding.
 trait EncodingWriteSupport {
-    /// Returns encoding for a column when no other encoding is provided in writer
-    /// properties.
-    fn fallback_encoding(props: &WriterProperties) -> Encoding;
-
     /// Returns true if dictionary is supported for column writer, false otherwise.
     fn has_dictionary_support(props: &WriterProperties) -> bool;
 }
 
-// Basic implementation, always falls back to PLAIN and supports dictionary.
-impl<T: DataType> EncodingWriteSupport for ColumnWriterImpl<T> {
-    default fn fallback_encoding(_props: &WriterProperties) -> Encoding {
-        Encoding::PLAIN
-    }
-
-    default fn has_dictionary_support(_props: &WriterProperties) -> bool {
-        true
+/// Returns encoding for a column when no other encoding is provided in writer properties.
+fn fallback_encoding(kind: Type, props: &WriterProperties) -> Encoding {
+    match (kind, props.writer_version()) {
+        (Type::BOOLEAN, WriterVersion::PARQUET_2_0) => Encoding::RLE,
+        (Type::INT32, WriterVersion::PARQUET_2_0) => Encoding::DELTA_BINARY_PACKED,
+        (Type::INT64, WriterVersion::PARQUET_2_0) => Encoding::DELTA_BINARY_PACKED,
+        (Type::BYTE_ARRAY, WriterVersion::PARQUET_2_0) => Encoding::DELTA_BYTE_ARRAY,
+        (Type::FIXED_LEN_BYTE_ARRAY, WriterVersion::PARQUET_2_0) => {
+            Encoding::DELTA_BYTE_ARRAY
+        }
+        _ => Encoding::PLAIN,
     }
 }
 
-impl EncodingWriteSupport for ColumnWriterImpl<BoolType> {
-    fn fallback_encoding(props: &WriterProperties) -> Encoding {
-        match props.writer_version() {
-            WriterVersion::PARQUET_1_0 => Encoding::PLAIN,
-            WriterVersion::PARQUET_2_0 => Encoding::RLE,
-        }
-    }
-
-    // Boolean column does not support dictionary encoding and should fall back to
-    // whatever fallback encoding is defined.
-    fn has_dictionary_support(_props: &WriterProperties) -> bool {
-        false
-    }
-}
-
-impl EncodingWriteSupport for ColumnWriterImpl<Int32Type> {
-    fn fallback_encoding(props: &WriterProperties) -> Encoding {
-        match props.writer_version() {
-            WriterVersion::PARQUET_1_0 => Encoding::PLAIN,
-            WriterVersion::PARQUET_2_0 => Encoding::DELTA_BINARY_PACKED,
-        }
-    }
-}
-
-impl EncodingWriteSupport for ColumnWriterImpl<Int64Type> {
-    fn fallback_encoding(props: &WriterProperties) -> Encoding {
-        match props.writer_version() {
-            WriterVersion::PARQUET_1_0 => Encoding::PLAIN,
-            WriterVersion::PARQUET_2_0 => Encoding::DELTA_BINARY_PACKED,
-        }
-    }
-}
-
-impl EncodingWriteSupport for ColumnWriterImpl<ByteArrayType> {
-    fn fallback_encoding(props: &WriterProperties) -> Encoding {
-        match props.writer_version() {
-            WriterVersion::PARQUET_1_0 => Encoding::PLAIN,
-            WriterVersion::PARQUET_2_0 => Encoding::DELTA_BYTE_ARRAY,
-        }
-    }
-}
-
-impl EncodingWriteSupport for ColumnWriterImpl<FixedLenByteArrayType> {
-    fn fallback_encoding(props: &WriterProperties) -> Encoding {
-        match props.writer_version() {
-            WriterVersion::PARQUET_1_0 => Encoding::PLAIN,
-            WriterVersion::PARQUET_2_0 => Encoding::DELTA_BYTE_ARRAY,
-        }
-    }
-
-    fn has_dictionary_support(props: &WriterProperties) -> bool {
-        match props.writer_version() {
-            // Dictionary encoding was not enabled in PARQUET 1.0
-            WriterVersion::PARQUET_1_0 => false,
-            WriterVersion::PARQUET_2_0 => true,
-        }
+/// Returns true if dictionary is supported for column writer, false otherwise.
+fn has_dictionary_support(kind: Type, props: &WriterProperties) -> bool {
+    match (kind, props.writer_version()) {
+        // Booleans do not support dict encoding and should use a fallback encoding.
+        (Type::BOOLEAN, _) => false,
+        // Dictionary encoding was not enabled in PARQUET 1.0
+        (Type::FIXED_LEN_BYTE_ARRAY, WriterVersion::PARQUET_1_0) => false,
+        (Type::FIXED_LEN_BYTE_ARRAY, WriterVersion::PARQUET_2_0) => true,
+        _ => true,
     }
 }
 
@@ -1075,7 +1010,7 @@ mod tests {
     #[test]
     fn test_column_writer_inconsistent_def_rep_length() {
         let page_writer = get_test_page_writer();
-        let props = Rc::new(WriterProperties::builder().build());
+        let props = Arc::new(WriterProperties::builder().build());
         let mut writer = get_test_column_writer::<Int32Type>(page_writer, 1, 1, props);
         let res = writer.write_batch(&[1, 2, 3, 4], Some(&[1, 1, 1]), Some(&[0, 0]));
         assert!(res.is_err());
@@ -1090,7 +1025,7 @@ mod tests {
     #[test]
     fn test_column_writer_invalid_def_levels() {
         let page_writer = get_test_page_writer();
-        let props = Rc::new(WriterProperties::builder().build());
+        let props = Arc::new(WriterProperties::builder().build());
         let mut writer = get_test_column_writer::<Int32Type>(page_writer, 1, 0, props);
         let res = writer.write_batch(&[1, 2, 3, 4], None, None);
         assert!(res.is_err());
@@ -1105,7 +1040,7 @@ mod tests {
     #[test]
     fn test_column_writer_invalid_rep_levels() {
         let page_writer = get_test_page_writer();
-        let props = Rc::new(WriterProperties::builder().build());
+        let props = Arc::new(WriterProperties::builder().build());
         let mut writer = get_test_column_writer::<Int32Type>(page_writer, 0, 1, props);
         let res = writer.write_batch(&[1, 2, 3, 4], None, None);
         assert!(res.is_err());
@@ -1120,7 +1055,7 @@ mod tests {
     #[test]
     fn test_column_writer_not_enough_values_to_write() {
         let page_writer = get_test_page_writer();
-        let props = Rc::new(WriterProperties::builder().build());
+        let props = Arc::new(WriterProperties::builder().build());
         let mut writer = get_test_column_writer::<Int32Type>(page_writer, 1, 0, props);
         let res = writer.write_batch(&[1, 2], Some(&[1, 1, 1, 1]), None);
         assert!(res.is_err());
@@ -1136,7 +1071,7 @@ mod tests {
     #[should_panic(expected = "Dictionary offset is already set")]
     fn test_column_writer_write_only_one_dictionary_page() {
         let page_writer = get_test_page_writer();
-        let props = Rc::new(WriterProperties::builder().build());
+        let props = Arc::new(WriterProperties::builder().build());
         let mut writer = get_test_column_writer::<Int32Type>(page_writer, 0, 0, props);
         writer.write_batch(&[1, 2, 3, 4], None, None).unwrap();
         // First page should be correctly written.
@@ -1148,7 +1083,7 @@ mod tests {
     #[test]
     fn test_column_writer_error_when_writing_disabled_dictionary() {
         let page_writer = get_test_page_writer();
-        let props = Rc::new(
+        let props = Arc::new(
             WriterProperties::builder()
                 .set_dictionary_enabled(false)
                 .build(),
@@ -1168,7 +1103,7 @@ mod tests {
     #[test]
     fn test_column_writer_boolean_type_does_not_support_dictionary() {
         let page_writer = get_test_page_writer();
-        let props = Rc::new(
+        let props = Arc::new(
             WriterProperties::builder()
                 .set_dictionary_enabled(true)
                 .build(),
@@ -1417,28 +1352,28 @@ mod tests {
         check_encoding_write_support::<FixedLenByteArrayType>(
             WriterVersion::PARQUET_1_0,
             true,
-            &[ByteArray::from(vec![1u8])],
+            &[ByteArray::from(vec![1u8]).into()],
             None,
             &[Encoding::PLAIN, Encoding::RLE],
         );
         check_encoding_write_support::<FixedLenByteArrayType>(
             WriterVersion::PARQUET_1_0,
             false,
-            &[ByteArray::from(vec![1u8])],
+            &[ByteArray::from(vec![1u8]).into()],
             None,
             &[Encoding::PLAIN, Encoding::RLE],
         );
         check_encoding_write_support::<FixedLenByteArrayType>(
             WriterVersion::PARQUET_2_0,
             true,
-            &[ByteArray::from(vec![1u8])],
+            &[ByteArray::from(vec![1u8]).into()],
             Some(0),
             &[Encoding::PLAIN, Encoding::RLE_DICTIONARY, Encoding::RLE],
         );
         check_encoding_write_support::<FixedLenByteArrayType>(
             WriterVersion::PARQUET_2_0,
             false,
-            &[ByteArray::from(vec![1u8])],
+            &[ByteArray::from(vec![1u8]).into()],
             None,
             &[Encoding::DELTA_BYTE_ARRAY, Encoding::RLE],
         );
@@ -1447,7 +1382,7 @@ mod tests {
     #[test]
     fn test_column_writer_check_metadata() {
         let page_writer = get_test_page_writer();
-        let props = Rc::new(WriterProperties::builder().build());
+        let props = Arc::new(WriterProperties::builder().build());
         let mut writer = get_test_column_writer::<Int32Type>(page_writer, 0, 0, props);
         writer.write_batch(&[1, 2, 3, 4], None, None).unwrap();
 
@@ -1481,7 +1416,7 @@ mod tests {
     #[test]
     fn test_column_writer_precalculated_statistics() {
         let page_writer = get_test_page_writer();
-        let props = Rc::new(WriterProperties::builder().build());
+        let props = Arc::new(WriterProperties::builder().build());
         let mut writer = get_test_column_writer::<Int32Type>(page_writer, 0, 0, props);
         writer
             .write_batch_with_statistics(
@@ -1679,7 +1614,7 @@ mod tests {
         let file = get_temp_file("test_column_writer_add_data_pages_with_dict", &[]);
         let sink = FileSink::new(&file);
         let page_writer = Box::new(SerializedPageWriter::new(sink));
-        let props = Rc::new(
+        let props = Arc::new(
             WriterProperties::builder()
                 .set_data_pagesize_limit(15) // actually each page will have size 15-18 bytes
                 .set_write_batch_size(3) // write 3 values at a time
@@ -1795,7 +1730,7 @@ mod tests {
             page_writer,
             max_def_level,
             max_rep_level,
-            Rc::new(props),
+            Arc::new(props),
         );
 
         let values_written = writer.write_batch(values, def_levels, rep_levels).unwrap();
@@ -1863,7 +1798,7 @@ mod tests {
         values: &[T::T],
     ) -> ColumnChunkMetaData {
         let page_writer = get_test_page_writer();
-        let props = Rc::new(props);
+        let props = Arc::new(props);
         let mut writer = get_test_column_writer::<T>(page_writer, 0, 0, props);
         writer.write_batch(values, None, None).unwrap();
         let (_, _, metadata) = writer.close().unwrap();
@@ -1912,7 +1847,7 @@ mod tests {
         max_rep_level: i16,
         props: WriterPropertiesPtr,
     ) -> ColumnWriterImpl<T> {
-        let descr = Rc::new(get_test_column_descr::<T>(max_def_level, max_rep_level));
+        let descr = Arc::new(get_test_column_descr::<T>(max_def_level, max_rep_level));
         let column_writer = get_column_writer(descr, props, page_writer);
         get_typed_column_writer::<T>(column_writer)
     }
@@ -1923,7 +1858,7 @@ mod tests {
         max_def_level: i16,
         max_rep_level: i16,
     ) -> ColumnReaderImpl<T> {
-        let descr = Rc::new(get_test_column_descr::<T>(max_def_level, max_rep_level));
+        let descr = Arc::new(get_test_column_descr::<T>(max_def_level, max_rep_level));
         let column_reader = get_column_reader(descr, page_reader);
         get_typed_column_reader::<T>(column_reader)
     }
@@ -1940,7 +1875,7 @@ mod tests {
             .with_length(1)
             .build()
             .unwrap();
-        ColumnDescriptor::new(Rc::new(tpe), None, max_def_level, max_rep_level, path)
+        ColumnDescriptor::new(Arc::new(tpe), max_def_level, max_rep_level, path)
     }
 
     /// Returns page writer that collects pages without serializing them.

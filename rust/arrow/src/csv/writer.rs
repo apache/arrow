@@ -48,7 +48,7 @@
 //!     Some(-556132.25),
 //! ]);
 //! let c3 = PrimitiveArray::<UInt32Type>::from(vec![3, 2, 1]);
-//! let c4 = PrimitiveArray::<BooleanType>::from(vec![Some(true), Some(false), None]);
+//! let c4 = BooleanArray::from(vec![Some(true), Some(false), None]);
 //!
 //! let batch = RecordBatch::try_new(
 //!     Arc::new(schema),
@@ -69,11 +69,10 @@ use csv as csv_crate;
 
 use std::io::Write;
 
-use crate::array::*;
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 use crate::record_batch::RecordBatch;
-
+use crate::{array::*, util::serialization::lexical_to_string};
 const DEFAULT_DATE_FORMAT: &str = "%F";
 const DEFAULT_TIME_FORMAT: &str = "%T";
 const DEFAULT_TIMESTAMP_FORMAT: &str = "%FT%H:%M:%S.%9f";
@@ -81,10 +80,10 @@ const DEFAULT_TIMESTAMP_FORMAT: &str = "%FT%H:%M:%S.%9f";
 fn write_primitive_value<T>(array: &ArrayRef, i: usize) -> String
 where
     T: ArrowNumericType,
-    T::Native: std::string::ToString,
+    T::Native: lexical_core::ToLexical,
 {
     let c = array.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
-    c.value(i).to_string()
+    lexical_to_string(c.value(i))
 }
 
 /// A CSV writer
@@ -98,6 +97,8 @@ pub struct Writer<W: Write> {
     has_headers: bool,
     /// The date format for date arrays
     date_format: String,
+    /// The datetime format for datetime arrays
+    datetime_format: String,
     /// The timestamp format for timestamp arrays
     timestamp_format: String,
     /// The time format for time arrays
@@ -117,6 +118,7 @@ impl<W: Write> Writer<W> {
             delimiter,
             has_headers: true,
             date_format: DEFAULT_DATE_FORMAT.to_string(),
+            datetime_format: DEFAULT_TIMESTAMP_FORMAT.to_string(),
             time_format: DEFAULT_TIME_FORMAT.to_string(),
             timestamp_format: DEFAULT_TIMESTAMP_FORMAT.to_string(),
             beginning: true,
@@ -124,14 +126,18 @@ impl<W: Write> Writer<W> {
     }
 
     /// Convert a record to a string vector
-    fn convert(&self, batch: &RecordBatch, row_index: usize) -> Result<Vec<String>> {
+    fn convert(
+        &self,
+        batch: &RecordBatch,
+        row_index: usize,
+        buffer: &mut [String],
+    ) -> Result<()> {
         // TODO: it'd be more efficient if we could create `record: Vec<&[u8]>
-        let mut record: Vec<String> = Vec::with_capacity(batch.num_columns());
-        for col_index in 0..batch.num_columns() {
+        for (col_index, item) in buffer.iter_mut().enumerate() {
             let col = batch.column(col_index);
             if col.is_null(row_index) {
                 // write an empty value
-                record.push(String::from(""));
+                *item = "".to_string();
                 continue;
             }
             let string = match col.data_type() {
@@ -153,18 +159,22 @@ impl<W: Write> Writer<W> {
                     let c = col.as_any().downcast_ref::<StringArray>().unwrap();
                     c.value(row_index).to_owned()
                 }
-                DataType::Date32(DateUnit::Day) => {
+                DataType::LargeUtf8 => {
+                    let c = col.as_any().downcast_ref::<LargeStringArray>().unwrap();
+                    c.value(row_index).to_owned()
+                }
+                DataType::Date32 => {
                     let c = col.as_any().downcast_ref::<Date32Array>().unwrap();
                     c.value_as_date(row_index)
                         .unwrap()
                         .format(&self.date_format)
                         .to_string()
                 }
-                DataType::Date64(DateUnit::Millisecond) => {
+                DataType::Date64 => {
                     let c = col.as_any().downcast_ref::<Date64Array>().unwrap();
-                    c.value_as_date(row_index)
+                    c.value_as_datetime(row_index)
                         .unwrap()
-                        .format(&self.date_format)
+                        .format(&self.datetime_format)
                         .to_string()
                 }
                 DataType::Time32(TimeUnit::Second) => {
@@ -243,10 +253,9 @@ impl<W: Write> Writer<W> {
                     )));
                 }
             };
-
-            record.push(string);
+            *item = string;
         }
-        Ok(record)
+        Ok(())
     }
 
     /// Write a vector of record batches to a writable object
@@ -265,9 +274,11 @@ impl<W: Write> Writer<W> {
             self.beginning = false;
         }
 
+        let mut buffer = vec!["".to_string(); batch.num_columns()];
+
         for row_index in 0..batch.num_rows() {
-            let record = self.convert(batch, row_index)?;
-            self.writer.write_record(&record[..])?;
+            self.convert(batch, row_index, &mut buffer)?;
+            self.writer.write_record(&buffer)?;
         }
         self.writer.flush()?;
 
@@ -284,6 +295,8 @@ pub struct WriterBuilder {
     has_headers: bool,
     /// Optional date format for date arrays
     date_format: Option<String>,
+    /// Optional datetime format for datetime arrays
+    datetime_format: Option<String>,
     /// Optional timestamp format for timestamp arrays
     timestamp_format: Option<String>,
     /// Optional time format for time arrays
@@ -296,6 +309,7 @@ impl Default for WriterBuilder {
             has_headers: true,
             delimiter: None,
             date_format: Some(DEFAULT_DATE_FORMAT.to_string()),
+            datetime_format: Some(DEFAULT_TIMESTAMP_FORMAT.to_string()),
             time_format: Some(DEFAULT_TIME_FORMAT.to_string()),
             timestamp_format: Some(DEFAULT_TIMESTAMP_FORMAT.to_string()),
         }
@@ -371,6 +385,9 @@ impl WriterBuilder {
             date_format: self
                 .date_format
                 .unwrap_or_else(|| DEFAULT_DATE_FORMAT.to_string()),
+            datetime_format: self
+                .datetime_format
+                .unwrap_or_else(|| DEFAULT_TIMESTAMP_FORMAT.to_string()),
             time_format: self
                 .time_format
                 .unwrap_or_else(|| DEFAULT_TIME_FORMAT.to_string()),
@@ -386,11 +403,12 @@ impl WriterBuilder {
 mod tests {
     use super::*;
 
+    use crate::csv::Reader;
     use crate::datatypes::{Field, Schema};
     use crate::util::string_writer::StringWriter;
     use crate::util::test_util::get_temp_file;
     use std::fs::File;
-    use std::io::Read;
+    use std::io::{Cursor, Read};
     use std::sync::Arc;
 
     #[test]
@@ -415,7 +433,7 @@ mod tests {
             Some(-556132.25),
         ]);
         let c3 = PrimitiveArray::<UInt32Type>::from(vec![3, 2, 1]);
-        let c4 = PrimitiveArray::<BooleanType>::from(vec![Some(true), Some(false), None]);
+        let c4 = BooleanArray::from(vec![Some(true), Some(false), None]);
         let c5 = TimestampMillisecondArray::from_opt_vec(
             vec![None, Some(1555584887378), Some(1555555555555)],
             None,
@@ -482,7 +500,7 @@ sed do eiusmod tempor,-556132.25,1,,2019-04-18T02:45:55.555000000,23:46:03
             Some(-556132.25),
         ]);
         let c3 = PrimitiveArray::<UInt32Type>::from(vec![3, 2, 1]);
-        let c4 = PrimitiveArray::<BooleanType>::from(vec![Some(true), Some(false), None]);
+        let c4 = BooleanArray::from(vec![Some(true), Some(false), None]);
         let c6 = Time32SecondArray::from(vec![1234, 24680, 85563]);
 
         let batch = RecordBatch::try_new(
@@ -543,7 +561,7 @@ sed do eiusmod tempor,-556132.25,1,,2019-04-18T02:45:55.555000000,23:46:03
             Some(-556132.25),
         ]);
         let c3 = PrimitiveArray::<UInt32Type>::from(vec![3, 2, 1]);
-        let c4 = PrimitiveArray::<BooleanType>::from(vec![Some(true), Some(false), None]);
+        let c4 = BooleanArray::from(vec![Some(true), Some(false), None]);
         let c5 = TimestampMillisecondArray::from_opt_vec(
             vec![None, Some(1555584887378), Some(1555555555555)],
             None,
@@ -579,5 +597,55 @@ consectetur adipiscing elit,,2,false,2019-04-18T10:54:47.378000000,06:51:20
 sed do eiusmod tempor,-556132.25,1,,2019-04-18T02:45:55.555000000,23:46:03\n";
         let right = writer.writer.into_inner().map(|s| s.to_string());
         assert_eq!(Some(left.to_string()), right.ok());
+    }
+
+    #[test]
+    fn test_conversion_consistency() {
+        // test if we can serialize and deserialize whilst retaining the same type information/ precision
+
+        let schema = Schema::new(vec![
+            Field::new("c1", DataType::Date32, false),
+            Field::new("c2", DataType::Date64, false),
+        ]);
+
+        let c1 = Date32Array::from(vec![3, 2, 1]);
+        let c2 = Date64Array::from(vec![3, 2, 1]);
+
+        let batch = RecordBatch::try_new(
+            Arc::new(schema.clone()),
+            vec![Arc::new(c1), Arc::new(c2)],
+        )
+        .unwrap();
+
+        let builder = WriterBuilder::new().has_headers(false);
+
+        let mut buf: Cursor<Vec<u8>> = Default::default();
+        // drop the writer early to release the borrow.
+        {
+            let mut writer = builder.build(&mut buf);
+            writer.write(&batch).unwrap();
+        }
+        buf.set_position(0);
+
+        let mut reader = Reader::new(
+            buf,
+            Arc::new(schema),
+            false,
+            None,
+            3,
+            // starting at row 2 and up to row 6.
+            None,
+            None,
+        );
+        let rb = reader.next().unwrap().unwrap();
+        let c1 = rb.column(0).as_any().downcast_ref::<Date32Array>().unwrap();
+        let c2 = rb.column(1).as_any().downcast_ref::<Date64Array>().unwrap();
+
+        let actual = c1.into_iter().collect::<Vec<_>>();
+        let expected = vec![Some(3), Some(2), Some(1)];
+        assert_eq!(actual, expected);
+        let actual = c2.into_iter().collect::<Vec<_>>();
+        let expected = vec![Some(3), Some(2), Some(1)];
+        assert_eq!(actual, expected);
     }
 }

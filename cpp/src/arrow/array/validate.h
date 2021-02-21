@@ -18,21 +18,38 @@
 #pragma once
 
 #include "arrow/status.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
-class Array;
-
 namespace internal {
 
 // Internal functions implementing Array::Validate() and friends.
+
+// O(1) array metadata validation
 
 ARROW_EXPORT
 Status ValidateArray(const Array& array);
 
 ARROW_EXPORT
-Status ValidateArrayData(const Array& array);
+Status ValidateArray(const ArrayData& data);
+
+// O(N) array data validation.
+// Note the "full" routines don't validate metadata.  It should be done
+// beforehand using ValidateArray(), otherwise invalid memory accesses
+// may occur.
+
+ARROW_EXPORT
+Status ValidateArrayFull(const Array& array);
+
+ARROW_EXPORT
+Status ValidateArrayFull(const ArrayData& data);
+
+ARROW_EXPORT
+Status ValidateUTF8(const Array& array);
+
+ARROW_EXPORT
+Status ValidateUTF8(const ArrayData& data);
 
 }  // namespace internal
 }  // namespace arrow

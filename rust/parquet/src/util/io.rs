@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use std::{cell::RefCell, cmp, io::*};
+use std::{cell::RefCell, cmp, fmt, io::*};
 
 use crate::file::{reader::Length, writer::ParquetWriter};
 
@@ -63,6 +63,19 @@ pub struct FileSource<R: ParquetReader> {
     buf_cap: usize, // current number of bytes read into the buffer
 }
 
+impl<R: ParquetReader> fmt::Debug for FileSource<R> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("FileSource")
+            .field("reader", &"OPAQUE")
+            .field("start", &self.start)
+            .field("end", &self.end)
+            .field("buf.len", &self.buf.len())
+            .field("buf_pos", &self.buf_pos)
+            .field("buf_cap", &self.buf_cap)
+            .finish()
+    }
+}
+
 impl<R: ParquetReader> FileSource<R> {
     /// Creates new file reader with start and length from a file handle
     pub fn new(fd: &R, start: u64, length: usize) -> Self {
@@ -71,7 +84,7 @@ impl<R: ParquetReader> FileSource<R> {
             reader,
             start,
             end: start + length as u64,
-            buf: vec![0 as u8; DEFAULT_BUF_SIZE],
+            buf: vec![0_u8; DEFAULT_BUF_SIZE],
             buf_pos: 0,
             buf_cap: 0,
         }
@@ -249,7 +262,7 @@ mod tests {
         let mut file = get_test_file("alltypes_plain.parquet");
         let mut src = FileSource::new(&file, 0, 4);
 
-        file.seek(SeekFrom::Start(5 as u64))
+        file.seek(SeekFrom::Start(5_u64))
             .expect("File seek to a position");
 
         let bytes_read = src.read(&mut buf[..]).unwrap();

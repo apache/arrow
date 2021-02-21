@@ -31,11 +31,11 @@ pub type DynComparator<'a> = Box<dyn Fn(usize, usize) -> Ordering + 'a>;
 
 /// compares two floats, placing NaNs at last
 fn cmp_nans_last<T: Float>(a: &T, b: &T) -> Ordering {
-    match (a, b) {
-        (x, y) if x.is_nan() && y.is_nan() => Ordering::Equal,
-        (x, _) if x.is_nan() => Ordering::Greater,
-        (_, y) if y.is_nan() => Ordering::Less,
-        (_, _) => a.partial_cmp(b).unwrap(),
+    match (a.is_nan(), b.is_nan()) {
+        (true, true) => Ordering::Equal,
+        (true, false) => Ordering::Greater,
+        (false, true) => Ordering::Less,
+        _ => a.partial_cmp(b).unwrap(),
     }
 }
 
@@ -48,6 +48,12 @@ where
 {
     let left = left.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
     let right = right.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
+    Box::new(move |i, j| left.value(i).cmp(&right.value(j)))
+}
+
+fn compare_boolean<'a>(left: &'a Array, right: &'a Array) -> DynComparator<'a> {
+    let left = left.as_any().downcast_ref::<BooleanArray>().unwrap();
+    let right = right.as_any().downcast_ref::<BooleanArray>().unwrap();
     Box::new(move |i, j| left.value(i).cmp(&right.value(j)))
 }
 
@@ -129,7 +135,7 @@ pub fn build_compare<'a>(left: &'a Array, right: &'a Array) -> Result<DynCompara
                 "Can't compare arrays of different types".to_string(),
             ));
         }
-        (Boolean, Boolean) => compare_primitives::<BooleanType>(left, right),
+        (Boolean, Boolean) => compare_boolean(left, right),
         (UInt8, UInt8) => compare_primitives::<UInt8Type>(left, right),
         (UInt16, UInt16) => compare_primitives::<UInt16Type>(left, right),
         (UInt32, UInt32) => compare_primitives::<UInt32Type>(left, right),
@@ -140,8 +146,8 @@ pub fn build_compare<'a>(left: &'a Array, right: &'a Array) -> Result<DynCompara
         (Int64, Int64) => compare_primitives::<Int64Type>(left, right),
         (Float32, Float32) => compare_float::<Float32Type>(left, right),
         (Float64, Float64) => compare_float::<Float64Type>(left, right),
-        (Date32(_), Date32(_)) => compare_primitives::<Date32Type>(left, right),
-        (Date64(_), Date64(_)) => compare_primitives::<Date64Type>(left, right),
+        (Date32, Date32) => compare_primitives::<Date32Type>(left, right),
+        (Date64, Date64) => compare_primitives::<Date64Type>(left, right),
         (Time32(Second), Time32(Second)) => {
             compare_primitives::<Time32SecondType>(left, right)
         }

@@ -195,4 +195,4 @@ int Main(int argc, char** argv) {
 
 }  // namespace arrow
 
-int main(int argc, char** argv) { return arrow::Main(argc, argv); }
+int main(int argc, char** argv) { return ::arrow::Main(argc, argv); }

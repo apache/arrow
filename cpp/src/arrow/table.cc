@@ -569,7 +569,7 @@ Result<std::shared_ptr<Table>> Table::CombineChunks(MemoryPool* pool) const {
       compacted_columns[i] = std::make_shared<ChunkedArray>(compacted);
     }
   }
-  return Table::Make(schema(), std::move(compacted_columns));
+  return Table::Make(schema(), std::move(compacted_columns), num_rows_);
 }
 
 // ----------------------------------------------------------------------

@@ -32,10 +32,10 @@
 namespace arrow {
 namespace internal {
 
-Executor::~Executor() {}
+Executor::~Executor() = default;
 
 struct ThreadPool::State {
-  State() : desired_capacity_(0), please_shutdown_(false), quick_shutdown_(false) {}
+  State() = default;
 
   // NOTE: in case locking becomes too expensive, we can investigate lock-free FIFOs
   // such as https://github.com/cameron314/concurrentqueue
@@ -47,13 +47,17 @@ struct ThreadPool::State {
   std::list<std::thread> workers_;
   // Trashcan for finished threads
   std::vector<std::thread> finished_workers_;
-  std::deque<std::function<void()>> pending_tasks_;
+  std::deque<FnOnce<void()>> pending_tasks_;
 
   // Desired number of threads
-  int desired_capacity_;
+  int desired_capacity_ = 0;
+
+  // Number of threads ready to execute a task immediately
+  int ready_count_ = 0;
+
   // Are we shutting down?
-  bool please_shutdown_;
-  bool quick_shutdown_;
+  bool please_shutdown_ = false;
+  bool quick_shutdown_ = false;
 };
 
 // The worker loop is an independent function so that it can keep running
@@ -71,6 +75,7 @@ static void WorkerLoop(std::shared_ptr<ThreadPool::State> state,
     return state->workers_.size() > static_cast<size_t>(state->desired_capacity_);
   };
 
+  ++state->ready_count_;
   while (true) {
     // By the time this thread is started, some tasks may have been pushed
     // or shutdown could even have been requested.  So we only wait on the
@@ -83,13 +88,16 @@ static void WorkerLoop(std::shared_ptr<ThreadPool::State> state,
       if (should_secede()) {
         break;
       }
+      --state->ready_count_;
+      DCHECK_GE(state->ready_count_, 0);
       {
-        std::function<void()> task = std::move(state->pending_tasks_.front());
+        FnOnce<void()> task = std::move(state->pending_tasks_.front());
         state->pending_tasks_.pop_front();
         lock.unlock();
-        task();
+        std::move(task)();
       }
       lock.lock();
+      ++state->ready_count_;
     }
     // Now either the queue is empty *or* a quick shutdown was requested
     if (state->please_shutdown_ || should_secede()) {
@@ -98,6 +106,8 @@ static void WorkerLoop(std::shared_ptr<ThreadPool::State> state,
     // Wait for next wakeup
     state->cv_.wait(lock);
   }
+  --state->ready_count_;
+  DCHECK_GE(state->ready_count_, 0);
 
   // We're done.  Move our thread object to the trashcan of finished
   // workers.  This has two motivations:
@@ -168,11 +178,14 @@ Status ThreadPool::SetCapacity(int threads) {
   CollectFinishedWorkersUnlocked();
 
   state_->desired_capacity_ = threads;
-  int diff = static_cast<int>(threads - state_->workers_.size());
-  if (diff > 0) {
-    LaunchWorkersUnlocked(diff);
-  } else if (diff < 0) {
-    // Wake threads to ask them to stop
+  // See if we need to increase or decrease the number of running threads
+  const int required = std::min(static_cast<int>(state_->pending_tasks_.size()),
+                                threads - static_cast<int>(state_->workers_.size()));
+  if (required > 0) {
+    // Some tasks are pending, spawn the number of needed threads immediately
+    LaunchWorkersUnlocked(required);
+  } else if (required < 0) {
+    // Excess threads are running, wake them so that they stop
     state_->cv_.notify_all();
   }
   return Status::OK();
@@ -207,6 +220,7 @@ Status ThreadPool::Shutdown(bool wait) {
     state_->pending_tasks_.clear();
   }
   CollectFinishedWorkersUnlocked();
+  DCHECK_EQ(state_->ready_count_, 0);
   return Status::OK();
 }
 
@@ -228,7 +242,7 @@ void ThreadPool::LaunchWorkersUnlocked(int threads) {
   }
 }
 
-Status ThreadPool::SpawnReal(TaskHints hints, std::function<void()> task) {
+Status ThreadPool::SpawnReal(TaskHints hints, FnOnce<void()> task) {
   {
     ProtectAgainstFork();
     std::lock_guard<std::mutex> lock(state_->mutex_);
@@ -236,6 +250,12 @@ Status ThreadPool::SpawnReal(TaskHints hints, std::function<void()> task) {
       return Status::Invalid("operation forbidden during or after shutdown");
     }
     CollectFinishedWorkersUnlocked();
+    if (state_->desired_capacity_ > static_cast<int>(state_->workers_.size()) &&
+        state_->ready_count_ == 0) {
+      // Pool capacity is not full and no workers are ready to execute the task,
+      // spawn one more thread.
+      LaunchWorkersUnlocked(/*threads=*/1);
+    }
     state_->pending_tasks_.push_back(std::move(task));
   }
   state_->cv_.notify_one();

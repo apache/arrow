@@ -19,17 +19,16 @@ use std::cmp::{max, min};
 use std::collections::{HashMap, HashSet};
 use std::marker::PhantomData;
 use std::mem::size_of;
-use std::rc::Rc;
 use std::result::Result::Ok;
 use std::sync::Arc;
 use std::vec::Vec;
 
 use arrow::array::{
-    Array, ArrayData, ArrayDataBuilder, ArrayDataRef, ArrayRef, BinaryArray,
-    BinaryBuilder, BooleanBufferBuilder, BufferBuilderTrait, FixedSizeBinaryArray,
-    FixedSizeBinaryBuilder, GenericListArray, Int16BufferBuilder, ListBuilder,
-    OffsetSizeTrait, PrimitiveArray, PrimitiveBuilder, StringArray, StringBuilder,
-    StructArray,
+    new_empty_array, Array, ArrayData, ArrayDataBuilder, ArrayDataRef, ArrayRef,
+    BinaryArray, BinaryBuilder, BooleanArray, BooleanBufferBuilder, BooleanBuilder,
+    DecimalBuilder, FixedSizeBinaryArray, FixedSizeBinaryBuilder, GenericListArray,
+    Int16BufferBuilder, Int32Array, Int64Array, OffsetSizeTrait, PrimitiveArray,
+    PrimitiveBuilder, StringArray, StringBuilder, StructArray,
 };
 use arrow::buffer::{Buffer, MutableBuffer};
 use arrow::datatypes::{
@@ -41,7 +40,7 @@ use arrow::datatypes::{
     DurationSecondType as ArrowDurationSecondType, Field,
     Float32Type as ArrowFloat32Type, Float64Type as ArrowFloat64Type,
     Int16Type as ArrowInt16Type, Int32Type as ArrowInt32Type,
-    Int64Type as ArrowInt64Type, Int8Type as ArrowInt8Type, Schema,
+    Int64Type as ArrowInt64Type, Int8Type as ArrowInt8Type, IntervalUnit, Schema,
     Time32MillisecondType as ArrowTime32MillisecondType,
     Time32SecondType as ArrowTime32SecondType,
     Time64MicrosecondType as ArrowTime64MicrosecondType,
@@ -56,10 +55,12 @@ use arrow::datatypes::{
 use arrow::util::bit_util;
 
 use crate::arrow::converter::{
-    BinaryArrayConverter, BinaryConverter, Converter, FixedLenBinaryConverter,
-    FixedSizeArrayConverter, Int96ArrayConverter, Int96Converter,
-    LargeBinaryArrayConverter, LargeBinaryConverter, LargeUtf8ArrayConverter,
-    LargeUtf8Converter, Utf8ArrayConverter, Utf8Converter,
+    BinaryArrayConverter, BinaryConverter, Converter, DecimalArrayConverter,
+    DecimalConverter, FixedLenBinaryConverter, FixedSizeArrayConverter,
+    Int96ArrayConverter, Int96Converter, IntervalDayTimeArrayConverter,
+    IntervalDayTimeConverter, IntervalYearMonthArrayConverter,
+    IntervalYearMonthConverter, LargeBinaryArrayConverter, LargeBinaryConverter,
+    LargeUtf8ArrayConverter, LargeUtf8Converter, Utf8ArrayConverter, Utf8Converter,
 };
 use crate::arrow::record_reader::RecordReader;
 use crate::arrow::schema::parquet_to_arrow_field;
@@ -290,8 +291,8 @@ impl<T: DataType> ArrayReader for PrimitiveArrayReader<T> {
         if T::get_physical_type() == PhysicalType::BOOLEAN {
             let mut boolean_buffer = BooleanBufferBuilder::new(record_data.len());
 
-            for e in record_data.data() {
-                boolean_buffer.append(*e > 0)?;
+            for e in record_data.as_slice() {
+                boolean_buffer.append(*e > 0);
             }
             record_data = boolean_buffer.finish();
         }
@@ -306,8 +307,7 @@ impl<T: DataType> ArrayReader for PrimitiveArrayReader<T> {
 
         let array = match T::get_physical_type() {
             PhysicalType::BOOLEAN => {
-                Arc::new(PrimitiveArray::<ArrowBooleanType>::from(array_data.build()))
-                    as ArrayRef
+                Arc::new(BooleanArray::from(array_data.build())) as ArrayRef
             }
             PhysicalType::INT32 => {
                 Arc::new(PrimitiveArray::<ArrowInt32Type>::from(array_data.build()))
@@ -335,11 +335,53 @@ impl<T: DataType> ArrayReader for PrimitiveArrayReader<T> {
         };
 
         // cast to Arrow type
-        // TODO: we need to check if it's fine for this to be fallible.
-        // My assumption is that we can't get to an illegal cast as we can only
-        // generate types that are supported, because we'd have gotten them from
-        // the metadata which was written to the Parquet sink
-        let array = arrow::compute::cast(&array, self.get_data_type())?;
+        // We make a strong assumption here that the casts should be infallible.
+        // If the cast fails because of incompatible datatypes, then there might
+        // be a bigger problem with how Arrow schemas are converted to Parquet.
+        //
+        // As there is not always a 1:1 mapping between Arrow and Parquet, there
+        // are datatypes which we must convert explicitly.
+        // These are:
+        // - date64: we should cast int32 to date32, then date32 to date64.
+        let target_type = self.get_data_type();
+        let array = match target_type {
+            ArrowType::Date64 => {
+                // this is cheap as it internally reinterprets the data
+                let a = arrow::compute::cast(&array, &ArrowType::Date32)?;
+                arrow::compute::cast(&a, target_type)?
+            }
+            ArrowType::Decimal(p, s) => {
+                let mut builder = DecimalBuilder::new(array.len(), *p, *s);
+                match array.data_type() {
+                    ArrowType::Int32 => {
+                        let values = array.as_any().downcast_ref::<Int32Array>().unwrap();
+                        for maybe_value in values.iter() {
+                            match maybe_value {
+                                Some(value) => builder.append_value(value as i128)?,
+                                None => builder.append_null()?,
+                            }
+                        }
+                    }
+                    ArrowType::Int64 => {
+                        let values = array.as_any().downcast_ref::<Int64Array>().unwrap();
+                        for maybe_value in values.iter() {
+                            match maybe_value {
+                                Some(value) => builder.append_value(value as i128)?,
+                                None => builder.append_null()?,
+                            }
+                        }
+                    }
+                    _ => {
+                        return Err(ArrowError(format!(
+                            "Cannot convert {:?} to decimal",
+                            array.data_type()
+                        )))
+                    }
+                }
+                Arc::new(builder.finish()) as ArrayRef
+            }
+            _ => arrow::compute::cast(&array, target_type)?,
+        };
 
         // save definition and repetition buffers
         self.def_levels_buffer = self.record_reader.consume_def_levels()?;
@@ -393,15 +435,10 @@ where
     }
 
     fn next_batch(&mut self, batch_size: usize) -> Result<ArrayRef> {
-        // Try to initialized column reader
+        // Try to initialize column reader
         if self.column_reader.is_none() {
-            let init_result = self.next_column_reader()?;
-            if !init_result {
-                return Err(general_err!("No page left!"));
-            }
+            self.next_column_reader()?;
         }
-
-        assert!(self.column_reader.is_some());
 
         let mut data_buffer: Vec<T::T> = Vec::with_capacity(batch_size);
         data_buffer.resize_with(batch_size, T::T::default);
@@ -424,7 +461,7 @@ where
 
         let mut num_read = 0;
 
-        while num_read < batch_size {
+        while self.column_reader.is_some() && num_read < batch_size {
             let num_to_read = batch_size - num_read;
             let cur_data_buf = &mut data_buffer[num_read..];
             let cur_def_levels_buf =
@@ -587,104 +624,6 @@ impl<OffsetSize: OffsetSizeTrait> ListArrayReader<OffsetSize> {
     }
 }
 
-macro_rules! build_empty_list_array_with_primitive_items {
-    ($item_type:ident) => {{
-        let values_builder = PrimitiveBuilder::<$item_type>::new(0);
-        let mut builder = ListBuilder::new(values_builder);
-        let empty_list_array = builder.finish();
-        Ok(Arc::new(empty_list_array))
-    }};
-}
-
-macro_rules! build_empty_list_array_with_non_primitive_items {
-    ($builder:ident) => {{
-        let values_builder = $builder::new(0);
-        let mut builder = ListBuilder::new(values_builder);
-        let empty_list_array = builder.finish();
-        Ok(Arc::new(empty_list_array))
-    }};
-}
-
-fn build_empty_list_array(item_type: ArrowType) -> Result<ArrayRef> {
-    match item_type {
-        ArrowType::UInt8 => build_empty_list_array_with_primitive_items!(ArrowUInt8Type),
-        ArrowType::UInt16 => {
-            build_empty_list_array_with_primitive_items!(ArrowUInt16Type)
-        }
-        ArrowType::UInt32 => {
-            build_empty_list_array_with_primitive_items!(ArrowUInt32Type)
-        }
-        ArrowType::UInt64 => {
-            build_empty_list_array_with_primitive_items!(ArrowUInt64Type)
-        }
-        ArrowType::Int8 => build_empty_list_array_with_primitive_items!(ArrowInt8Type),
-        ArrowType::Int16 => build_empty_list_array_with_primitive_items!(ArrowInt16Type),
-        ArrowType::Int32 => build_empty_list_array_with_primitive_items!(ArrowInt32Type),
-        ArrowType::Int64 => build_empty_list_array_with_primitive_items!(ArrowInt64Type),
-        ArrowType::Float32 => {
-            build_empty_list_array_with_primitive_items!(ArrowFloat32Type)
-        }
-        ArrowType::Float64 => {
-            build_empty_list_array_with_primitive_items!(ArrowFloat64Type)
-        }
-        ArrowType::Boolean => {
-            build_empty_list_array_with_primitive_items!(ArrowBooleanType)
-        }
-        ArrowType::Date32(_) => {
-            build_empty_list_array_with_primitive_items!(ArrowDate32Type)
-        }
-        ArrowType::Date64(_) => {
-            build_empty_list_array_with_primitive_items!(ArrowDate64Type)
-        }
-        ArrowType::Time32(ArrowTimeUnit::Second) => {
-            build_empty_list_array_with_primitive_items!(ArrowTime32SecondType)
-        }
-        ArrowType::Time32(ArrowTimeUnit::Millisecond) => {
-            build_empty_list_array_with_primitive_items!(ArrowTime32MillisecondType)
-        }
-        ArrowType::Time64(ArrowTimeUnit::Microsecond) => {
-            build_empty_list_array_with_primitive_items!(ArrowTime64MicrosecondType)
-        }
-        ArrowType::Time64(ArrowTimeUnit::Nanosecond) => {
-            build_empty_list_array_with_primitive_items!(ArrowTime64NanosecondType)
-        }
-        ArrowType::Duration(ArrowTimeUnit::Second) => {
-            build_empty_list_array_with_primitive_items!(ArrowDurationSecondType)
-        }
-        ArrowType::Duration(ArrowTimeUnit::Millisecond) => {
-            build_empty_list_array_with_primitive_items!(ArrowDurationMillisecondType)
-        }
-        ArrowType::Duration(ArrowTimeUnit::Microsecond) => {
-            build_empty_list_array_with_primitive_items!(ArrowDurationMicrosecondType)
-        }
-        ArrowType::Duration(ArrowTimeUnit::Nanosecond) => {
-            build_empty_list_array_with_primitive_items!(ArrowDurationNanosecondType)
-        }
-        ArrowType::Timestamp(ArrowTimeUnit::Second, _) => {
-            build_empty_list_array_with_primitive_items!(ArrowTimestampSecondType)
-        }
-        ArrowType::Timestamp(ArrowTimeUnit::Millisecond, _) => {
-            build_empty_list_array_with_primitive_items!(ArrowTimestampMillisecondType)
-        }
-        ArrowType::Timestamp(ArrowTimeUnit::Microsecond, _) => {
-            build_empty_list_array_with_primitive_items!(ArrowTimestampMicrosecondType)
-        }
-        ArrowType::Timestamp(ArrowTimeUnit::Nanosecond, _) => {
-            build_empty_list_array_with_primitive_items!(ArrowTimestampNanosecondType)
-        }
-        ArrowType::Utf8 => {
-            build_empty_list_array_with_non_primitive_items!(StringBuilder)
-        }
-        ArrowType::Binary => {
-            build_empty_list_array_with_non_primitive_items!(BinaryBuilder)
-        }
-        _ => Err(ParquetError::General(format!(
-            "ListArray of type List({:?}) is not supported by array_reader",
-            item_type
-        ))),
-    }
-}
-
 macro_rules! remove_primitive_array_indices {
     ($arr: expr, $item_type:ty, $indices:expr) => {{
         let array_data = match $arr.as_any().downcast_ref::<PrimitiveArray<$item_type>>() {
@@ -773,12 +712,17 @@ fn remove_indices(
             remove_primitive_array_indices!(arr, ArrowFloat64Type, indices)
         }
         ArrowType::Boolean => {
-            remove_primitive_array_indices!(arr, ArrowBooleanType, indices)
+            remove_array_indices_custom_builder!(
+                arr,
+                BooleanArray,
+                BooleanBuilder,
+                indices
+            )
         }
-        ArrowType::Date32(_) => {
+        ArrowType::Date32 => {
             remove_primitive_array_indices!(arr, ArrowDate32Type, indices)
         }
-        ArrowType::Date64(_) => {
+        ArrowType::Date64 => {
             remove_primitive_array_indices!(arr, ArrowDate64Type, indices)
         }
         ArrowType::Time32(ArrowTimeUnit::Second) => {
@@ -854,7 +798,7 @@ impl<OffsetSize: OffsetSizeTrait> ArrayReader for ListArrayReader<OffsetSize> {
         let item_type = self.item_reader.get_data_type().clone();
 
         if next_batch_array.len() == 0 {
-            return build_empty_list_array(item_type);
+            return Ok(new_empty_array(&self.data_type));
         }
         let def_levels = self
             .item_reader
@@ -873,11 +817,36 @@ impl<OffsetSize: OffsetSizeTrait> ArrayReader for ListArrayReader<OffsetSize> {
             ));
         }
 
-        // Need to remove from the values array the nulls that represent null lists rather than null items
-        // null lists have def_level = 0
+        // List definitions can be encoded as 4 values:
+        // - n + 0: the list slot is null
+        // - n + 1: the list slot is not null, but is empty (i.e. [])
+        // - n + 2: the list slot is not null, but its child is empty (i.e. [ null ])
+        // - n + 3: the list slot is not null, and its child is not empty
+        // Where n is the max definition level of the list's parent.
+        // If a Parquet schema's only leaf is the list, then n = 0.
+
+        // TODO: ARROW-10391 - add a test case with a non-nullable child, check if max is 3
+        let list_field_type = match self.get_data_type() {
+            ArrowType::List(field)
+            | ArrowType::FixedSizeList(field, _)
+            | ArrowType::LargeList(field) => field,
+            _ => {
+                // Panic: this is safe as we only write lists from list datatypes
+                unreachable!()
+            }
+        };
+        let max_list_def_range = if list_field_type.is_nullable() { 3 } else { 2 };
+        let max_list_definition = *(def_levels.iter().max().unwrap());
+        // TODO: ARROW-10391 - Find a reliable way of validating deeply-nested lists
+        // debug_assert!(
+        //     max_list_definition >= max_list_def_range,
+        //     "Lift definition max less than range"
+        // );
+        let list_null_def = max_list_definition - max_list_def_range;
+        let list_empty_def = max_list_definition - 1;
         let mut null_list_indices: Vec<usize> = Vec::new();
         for i in 0..def_levels.len() {
-            if def_levels[i] == 0 {
+            if def_levels[i] == list_null_def {
                 null_list_indices.push(i);
             }
         }
@@ -898,15 +867,15 @@ impl<OffsetSize: OffsetSizeTrait> ArrayReader for ListArrayReader<OffsetSize> {
             if rep_levels[i] == 0 {
                 offsets.push(cur_offset)
             }
-            if def_levels[i] > 0 {
-                cur_offset = cur_offset + OffsetSize::one();
+            if def_levels[i] >= list_empty_def {
+                cur_offset += OffsetSize::one();
             }
         }
         offsets.push(cur_offset);
 
         let num_bytes = bit_util::ceil(offsets.len(), 8);
         let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
-        let null_slice = null_buf.data_mut();
+        let null_slice = null_buf.as_slice_mut();
         let mut list_index = 0;
         for i in 0..rep_levels.len() {
             if rep_levels[i] == 0 && def_levels[i] != 0 {
@@ -918,15 +887,11 @@ impl<OffsetSize: OffsetSizeTrait> ArrayReader for ListArrayReader<OffsetSize> {
         }
         let value_offsets = Buffer::from(&offsets.to_byte_slice());
 
-        // null list has def_level = 0
-        let null_count = def_levels.iter().filter(|x| x == &&0).count();
-
         let list_data = ArrayData::builder(self.get_data_type().clone())
             .len(offsets.len() - 1)
             .add_buffer(value_offsets)
             .add_child_data(batch_values.data())
-            .null_bit_buffer(null_buf.freeze())
-            .null_count(null_count)
+            .null_bit_buffer(null_buf.into())
             .offset(next_batch_array.offset())
             .build();
 
@@ -1039,7 +1004,7 @@ impl ArrayReader for StructArrayReader {
         // calculate struct def level data
         let buffer_size = children_array_len * size_of::<i16>();
         let mut def_level_data_buffer = MutableBuffer::new(buffer_size);
-        def_level_data_buffer.resize(buffer_size)?;
+        def_level_data_buffer.resize(buffer_size, 0);
 
         let def_level_data = def_level_data_buffer.typed_data_mut();
 
@@ -1062,19 +1027,14 @@ impl ArrayReader for StructArrayReader {
 
         // calculate bitmap for current array
         let mut bitmap_builder = BooleanBufferBuilder::new(children_array_len);
-        let mut null_count = 0;
         for def_level in def_level_data {
             let not_null = *def_level >= self.struct_def_level;
-            if !not_null {
-                null_count += 1;
-            }
-            bitmap_builder.append(not_null)?;
+            bitmap_builder.append(not_null);
         }
 
         // Now we can build array data
         let array_data = ArrayDataBuilder::new(self.data_type.clone())
             .len(children_array_len)
-            .null_count(null_count)
             .null_bit_buffer(bitmap_builder.finish())
             .child_data(
                 children_array
@@ -1096,12 +1056,12 @@ impl ArrayReader for StructArrayReader {
             .get_rep_levels()
             .map(|data| -> Result<Buffer> {
                 let mut buffer = Int16BufferBuilder::new(children_array_len);
-                buffer.append_slice(data)?;
+                buffer.append_slice(data);
                 Ok(buffer.finish())
             })
             .transpose()?;
 
-        self.def_level_buffer = Some(def_level_data_buffer.freeze());
+        self.def_level_buffer = Some(def_level_data_buffer.into());
         self.rep_level_buffer = rep_level_data;
         Ok(Arc::new(StructArray::from(array_data)))
     }
@@ -1124,7 +1084,7 @@ pub fn build_array_reader<T>(
     parquet_schema: SchemaDescPtr,
     arrow_schema: Schema,
     column_indices: T,
-    file_reader: Rc<dyn FileReader>,
+    file_reader: Arc<dyn FileReader>,
 ) -> Result<Box<dyn ArrayReader>>
 where
     T: IntoIterator<Item = usize>,
@@ -1162,9 +1122,9 @@ where
     };
 
     ArrayReaderBuilder::new(
-        Rc::new(proj),
-        Rc::new(arrow_schema),
-        Rc::new(leaves),
+        Arc::new(proj),
+        Arc::new(arrow_schema),
+        Arc::new(leaves),
         file_reader,
     )
     .build_array_reader()
@@ -1173,11 +1133,11 @@ where
 /// Used to build array reader.
 struct ArrayReaderBuilder {
     root_schema: TypePtr,
-    arrow_schema: Rc<Schema>,
+    arrow_schema: Arc<Schema>,
     // Key: columns that need to be included in final array builder
     // Value: column index in schema
-    columns_included: Rc<HashMap<*const Type, usize>>,
-    file_reader: Rc<dyn FileReader>,
+    columns_included: Arc<HashMap<*const Type, usize>>,
+    file_reader: Arc<dyn FileReader>,
 }
 
 /// Used in type visitor.
@@ -1243,7 +1203,7 @@ impl<'a> TypeVisitor<Option<Box<dyn ArrayReader>>, &'a ArrayReaderBuilderContext
     /// Build array reader for struct type.
     fn visit_struct(
         &mut self,
-        cur_type: Rc<Type>,
+        cur_type: Arc<Type>,
         context: &'a ArrayReaderBuilderContext,
     ) -> Result<Option<Box<ArrayReader>>> {
         let mut new_context = context.clone();
@@ -1281,7 +1241,7 @@ impl<'a> TypeVisitor<Option<Box<dyn ArrayReader>>, &'a ArrayReaderBuilderContext
     /// Currently this is not supported.
     fn visit_map(
         &mut self,
-        _cur_type: Rc<Type>,
+        _cur_type: Arc<Type>,
         _context: &'a ArrayReaderBuilderContext,
     ) -> Result<Option<Box<dyn ArrayReader>>> {
         Err(ArrowError(
@@ -1292,8 +1252,8 @@ impl<'a> TypeVisitor<Option<Box<dyn ArrayReader>>, &'a ArrayReaderBuilderContext
     /// Build array reader for list type.
     fn visit_list_with_item(
         &mut self,
-        list_type: Rc<Type>,
-        item_type: Rc<Type>,
+        list_type: Arc<Type>,
+        item_type: Arc<Type>,
         context: &'a ArrayReaderBuilderContext,
     ) -> Result<Option<Box<dyn ArrayReader>>> {
         let list_child = &list_type
@@ -1348,7 +1308,11 @@ impl<'a> TypeVisitor<Option<Box<dyn ArrayReader>>, &'a ArrayReaderBuilderContext
                     .ok()
                     .map(|f| f.data_type().to_owned())
                     .unwrap_or_else(|| {
-                        ArrowType::List(Box::new(item_reader_type.clone()))
+                        ArrowType::List(Box::new(Field::new(
+                            list_type.name(),
+                            item_reader_type.clone(),
+                            list_type.is_optional(),
+                        )))
                     });
 
                 let list_array_reader: Box<dyn ArrayReader> = match arrow_type {
@@ -1385,9 +1349,9 @@ impl<'a> ArrayReaderBuilder {
     /// Construct array reader builder.
     fn new(
         root_schema: TypePtr,
-        arrow_schema: Rc<Schema>,
-        columns_included: Rc<HashMap<*const Type, usize>>,
-        file_reader: Rc<dyn FileReader>,
+        arrow_schema: Arc<Schema>,
+        columns_included: Arc<HashMap<*const Type, usize>>,
+        file_reader: Arc<dyn FileReader>,
     ) -> Self {
         Self {
             root_schema,
@@ -1420,9 +1384,8 @@ impl<'a> ArrayReaderBuilder {
         cur_type: TypePtr,
         context: &'a ArrayReaderBuilderContext,
     ) -> Result<Box<dyn ArrayReader>> {
-        let column_desc = Rc::new(ColumnDescriptor::new(
+        let column_desc = Arc::new(ColumnDescriptor::new(
             cur_type.clone(),
-            Some(self.root_schema.clone()),
             context.def_level,
             context.rep_level,
             context.path.clone(),
@@ -1465,7 +1428,18 @@ impl<'a> ArrayReaderBuilder {
                 arrow_type,
             )?)),
             PhysicalType::INT96 => {
-                let converter = Int96Converter::new(Int96ArrayConverter {});
+                // get the optional timezone information from arrow type
+                let timezone = arrow_type
+                    .as_ref()
+                    .map(|data_type| {
+                        if let ArrowType::Timestamp(_, tz) = data_type {
+                            tz.clone()
+                        } else {
+                            None
+                        }
+                    })
+                    .flatten();
+                let converter = Int96Converter::new(Int96ArrayConverter { timezone });
                 Ok(Box::new(ComplexObjectArrayReader::<
                     Int96Type,
                     Int96Converter,
@@ -1539,29 +1513,110 @@ impl<'a> ArrayReaderBuilder {
                     )?))
                 }
             }
-            PhysicalType::FIXED_LEN_BYTE_ARRAY => {
-                let byte_width = match *cur_type {
-                    Type::PrimitiveType {
-                        ref type_length, ..
-                    } => *type_length,
-                    _ => {
-                        return Err(ArrowError(
-                            "Expected a physical type, not a group type".to_string(),
-                        ))
-                    }
-                };
-                let converter = FixedLenBinaryConverter::new(
-                    FixedSizeArrayConverter::new(byte_width),
-                );
+            PhysicalType::FIXED_LEN_BYTE_ARRAY
+                if cur_type.get_basic_info().logical_type() == LogicalType::DECIMAL =>
+            {
+                let converter = DecimalConverter::new(DecimalArrayConverter::new(
+                    cur_type.get_precision(),
+                    cur_type.get_scale(),
+                ));
                 Ok(Box::new(ComplexObjectArrayReader::<
                     FixedLenByteArrayType,
-                    FixedLenBinaryConverter,
+                    DecimalConverter,
                 >::new(
                     page_iterator,
                     column_desc,
                     converter,
                     arrow_type,
                 )?))
+            }
+            PhysicalType::FIXED_LEN_BYTE_ARRAY => {
+                if cur_type.get_basic_info().logical_type() == LogicalType::INTERVAL {
+                    let byte_width = match *cur_type {
+                        Type::PrimitiveType {
+                            ref type_length, ..
+                        } => *type_length,
+                        _ => {
+                            return Err(ArrowError(
+                                "Expected a physical type, not a group type".to_string(),
+                            ))
+                        }
+                    };
+                    if byte_width != 12 {
+                        return Err(ArrowError(format!(
+                            "Parquet interval type should have length of 12, found {}",
+                            byte_width
+                        )));
+                    }
+                    match arrow_type {
+                        Some(ArrowType::Interval(IntervalUnit::DayTime)) => {
+                            let converter = IntervalDayTimeConverter::new(
+                                IntervalDayTimeArrayConverter {},
+                            );
+                            Ok(Box::new(ComplexObjectArrayReader::<
+                                FixedLenByteArrayType,
+                                IntervalDayTimeConverter,
+                            >::new(
+                                page_iterator,
+                                column_desc,
+                                converter,
+                                arrow_type,
+                            )?))
+                        }
+                        Some(ArrowType::Interval(IntervalUnit::YearMonth)) => {
+                            let converter = IntervalYearMonthConverter::new(
+                                IntervalYearMonthArrayConverter {},
+                            );
+                            Ok(Box::new(ComplexObjectArrayReader::<
+                                FixedLenByteArrayType,
+                                IntervalYearMonthConverter,
+                            >::new(
+                                page_iterator,
+                                column_desc,
+                                converter,
+                                arrow_type,
+                            )?))
+                        }
+                        Some(t) => Err(ArrowError(format!(
+                            "Cannot write a Parquet interval to {:?}",
+                            t
+                        ))),
+                        None => {
+                            // we do not support an interval not matched to an Arrow type,
+                            // because we risk data loss as we won't know which of the 12 bytes
+                            // are or should be populated
+                            Err(ArrowError(
+                                "Cannot write a Parquet interval with no Arrow type specified.
+                                There is a risk of data loss as Arrow either supports YearMonth or
+                                DayTime precision. Without the Arrow type, we cannot infer the type.
+                                ".to_string()
+                            ))
+                        }
+                    }
+                } else {
+                    let byte_width = match *cur_type {
+                        Type::PrimitiveType {
+                            ref type_length, ..
+                        } => *type_length,
+                        _ => {
+                            return Err(ArrowError(
+                                "Expected a physical type, not a group type".to_string(),
+                            ))
+                        }
+                    };
+                    let converter = FixedLenBinaryConverter::new(
+                        FixedSizeArrayConverter::new(byte_width),
+                    );
+                    Ok(Box::new(ComplexObjectArrayReader::<
+                        FixedLenByteArrayType,
+                        FixedLenBinaryConverter,
+                    >::new(
+                        page_iterator,
+                        column_desc,
+                        converter,
+                        arrow_type,
+                    )?))
+                }
             }
         }
     }
@@ -1636,7 +1691,6 @@ mod tests {
     use rand::{thread_rng, Rng};
     use std::any::Any;
     use std::collections::VecDeque;
-    use std::rc::Rc;
     use std::sync::Arc;
 
     fn make_column_chunks<T: DataType>(
@@ -1691,7 +1745,7 @@ mod tests {
         ";
 
         let schema = parse_message_type(message_type)
-            .map(|t| Rc::new(SchemaDescriptor::new(Rc::new(t))))
+            .map(|t| Arc::new(SchemaDescriptor::new(Arc::new(t))))
             .unwrap();
 
         let column_desc = schema.column(0);
@@ -1719,7 +1773,7 @@ mod tests {
         ";
 
         let schema = parse_message_type(message_type)
-            .map(|t| Rc::new(SchemaDescriptor::new(Rc::new(t))))
+            .map(|t| Arc::new(SchemaDescriptor::new(Arc::new(t))))
             .unwrap();
 
         let column_desc = schema.column(0);
@@ -1801,8 +1855,8 @@ mod tests {
                 $physical_type, $logical_type_str
             );
             let schema = parse_message_type(&message_type)
-                .map(|t| Rc::new(SchemaDescriptor::new(Rc::new(t))))
-                .expect("Unable to parse message type into a schema descriptor");
+                .map(|t| Arc::new(SchemaDescriptor::new(Arc::new(t))))
+                .unwrap();
 
             let column_desc = schema.column(0);
 
@@ -1935,7 +1989,7 @@ mod tests {
         ";
 
         let schema = parse_message_type(message_type)
-            .map(|t| Rc::new(SchemaDescriptor::new(Rc::new(t))))
+            .map(|t| Arc::new(SchemaDescriptor::new(Arc::new(t))))
             .unwrap();
 
         let column_desc = schema.column(0);
@@ -2010,6 +2064,37 @@ mod tests {
     }
 
     #[test]
+    fn test_complex_array_reader_no_pages() {
+        let message_type = "
+        message test_schema {
+            REPEATED Group test_mid {
+                OPTIONAL BYTE_ARRAY leaf (UTF8);
+            }
+        }
+        ";
+        let schema = parse_message_type(message_type)
+            .map(|t| Arc::new(SchemaDescriptor::new(Arc::new(t))))
+            .unwrap();
+        let column_desc = schema.column(0);
+        let pages: Vec<Vec<Page>> = Vec::new();
+        let page_iterator = InMemoryPageIterator::new(schema, column_desc.clone(), pages);
+
+        let converter = Utf8Converter::new(Utf8ArrayConverter {});
+        let mut array_reader =
+            ComplexObjectArrayReader::<ByteArrayType, Utf8Converter>::new(
+                Box::new(page_iterator),
+                column_desc,
+                converter,
+                None,
+            )
+            .unwrap();
+
+        let values_per_page = 100; // this value is arbitrary in this test - the result should always be an array of 0 length
+        let array = array_reader.next_batch(values_per_page).unwrap();
+        assert_eq!(array.len(), 0);
+    }
+
+    #[test]
     fn test_complex_array_reader_def_and_rep_levels() {
         // Construct column schema
         let message_type = "
@@ -2024,7 +2109,7 @@ mod tests {
         let str_base = "Hello World";
 
         let schema = parse_message_type(message_type)
-            .map(|t| Rc::new(SchemaDescriptor::new(Rc::new(t))))
+            .map(|t| Arc::new(SchemaDescriptor::new(Arc::new(t))))
             .unwrap();
 
         let max_def_level = schema.column(0).max_def_level();
@@ -2045,10 +2130,10 @@ mod tests {
             let mut values = Vec::with_capacity(values_per_page);
 
             for _ in 0..values_per_page {
-                let def_level = rng.gen_range(0, max_def_level + 1);
-                let rep_level = rng.gen_range(0, max_rep_level + 1);
+                let def_level = rng.gen_range(0..max_def_level + 1);
+                let rep_level = rng.gen_range(0..max_rep_level + 1);
                 if def_level == max_def_level {
-                    let len = rng.gen_range(1, str_base.len());
+                    let len = rng.gen_range(1..str_base.len());
                     let slice = &str_base[..len];
                     values.push(ByteArray::from(slice));
                     all_values.push(Some(slice.to_string()));
@@ -2263,7 +2348,7 @@ mod tests {
     #[test]
     fn test_create_array_reader() {
         let file = get_test_file("nulls.snappy.parquet");
-        let file_reader = Rc::new(SerializedFileReader::new(file).unwrap());
+        let file_reader = Arc::new(SerializedFileReader::new(file).unwrap());
 
         let file_metadata = file_reader.metadata().file_metadata();
         let arrow_schema = parquet_to_arrow_schema(
@@ -2310,7 +2395,7 @@ mod tests {
 
         let mut list_array_reader = ListArrayReader::<i32>::new(
             Box::new(item_array_reader),
-            ArrowType::List(Box::new(ArrowType::Int32)),
+            ArrowType::List(Box::new(Field::new("item", ArrowType::Int32, true))),
             ArrowType::Int32,
             1,
             1,
@@ -2364,7 +2449,7 @@ mod tests {
 
         let mut list_array_reader = ListArrayReader::<i64>::new(
             Box::new(item_array_reader),
-            ArrowType::LargeList(Box::new(ArrowType::Int32)),
+            ArrowType::LargeList(Box::new(Field::new("item", ArrowType::Int32, true))),
             ArrowType::Int32,
             1,
             1,

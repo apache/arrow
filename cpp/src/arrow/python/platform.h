@@ -20,6 +20,10 @@
 
 #pragma once
 
+// If PY_SSIZE_T_CLEAN is defined, argument parsing functions treat #-specifier
+// to mean Py_ssize_t (defining this to suppress deprecation warning)
+#define PY_SSIZE_T_CLEAN
+
 #include <Python.h> // IWYU pragma: export
 #include <datetime.h>
 

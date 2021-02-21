@@ -206,9 +206,8 @@ def test_decimal256():
     v = decimal.Decimal("1.1234")
     with pytest.raises(pa.ArrowInvalid):
         pa.scalar(v, type=pa.decimal256(4, scale=3))
-    # TODO: Add the following after implementing Decimal256 scaling.
-    # with pytest.raises(pa.ArrowInvalid):
-    #     pa.scalar(v, type=pa.decimal256(5, scale=3))
+    with pytest.raises(pa.ArrowInvalid):
+        pa.scalar(v, type=pa.decimal256(5, scale=3))
 
     s = pa.scalar(v, type=pa.decimal256(5, scale=4))
     assert isinstance(s, pa.Decimal256Scalar)
@@ -224,6 +223,15 @@ def test_date():
         for d in [d1, d2]:
             s = pa.scalar(d, type=ty)
             assert s.as_py() == d
+
+
+def test_date_cast():
+    # ARROW-10472 - casting fo scalars doesn't segfault
+    scalar = pa.scalar(datetime.datetime(2012, 1, 1), type=pa.timestamp("us"))
+    expected = datetime.date(2012, 1, 1)
+    for ty in [pa.date32(), pa.date64()]:
+        result = scalar.cast(ty)
+        assert result.as_py() == expected
 
 
 def test_time():

@@ -17,11 +17,19 @@
 
 package org.apache.arrow.adapter.jdbc;
 
+import static org.apache.arrow.vector.types.FloatingPointPrecision.DOUBLE;
+import static org.apache.arrow.vector.types.FloatingPointPrecision.SINGLE;
+
+import java.sql.Types;
 import java.util.Calendar;
 import java.util.Map;
+import java.util.function.Function;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.types.DateUnit;
+import org.apache.arrow.vector.types.TimeUnit;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 
 /**
  * This class configures the JDBC-to-Arrow conversion process.
@@ -47,11 +55,11 @@ import org.apache.arrow.util.Preconditions;
  */
 public final class JdbcToArrowConfig {
 
-  private Calendar calendar;
-  private BufferAllocator allocator;
-  private boolean includeMetadata;
-  private Map<Integer, JdbcFieldInfo> arraySubTypesByColumnIndex;
-  private Map<String, JdbcFieldInfo> arraySubTypesByColumnName;
+  private final Calendar calendar;
+  private final BufferAllocator allocator;
+  private final boolean includeMetadata;
+  private final Map<Integer, JdbcFieldInfo> arraySubTypesByColumnIndex;
+  private final Map<String, JdbcFieldInfo> arraySubTypesByColumnName;
 
   public static final int DEFAULT_TARGET_BATCH_SIZE = 1024;
   public static final int NO_LIMIT_BATCH_SIZE = -1;
@@ -66,7 +74,9 @@ public final class JdbcToArrowConfig {
    * 2) if targetBatchSize == -1, it will convert full data into a single vector in {@link ArrowVectorIterator}
    * </p>
    */
-  private int targetBatchSize = DEFAULT_TARGET_BATCH_SIZE;
+  private final int targetBatchSize;
+
+  private final Function<JdbcFieldInfo, ArrowType> jdbcToArrowTypeConverter;
 
   /**
    * Constructs a new configuration from the provided allocator and calendar.  The <code>allocator</code>
@@ -77,13 +87,7 @@ public final class JdbcToArrowConfig {
    * @param calendar        The calendar to use when constructing Timestamp fields and reading time-based results.
    */
   JdbcToArrowConfig(BufferAllocator allocator, Calendar calendar) {
-    Preconditions.checkNotNull(allocator, "Memory allocator cannot be null");
-
-    this.allocator = allocator;
-    this.calendar = calendar;
-    this.includeMetadata = false;
-    this.arraySubTypesByColumnIndex = null;
-    this.arraySubTypesByColumnName = null;
+    this(allocator, calendar, false, null, null, DEFAULT_TARGET_BATCH_SIZE, null);
   }
 
   /**
@@ -96,6 +100,35 @@ public final class JdbcToArrowConfig {
    * @param includeMetadata Whether to include JDBC field metadata in the Arrow Schema Field metadata.
    * @param arraySubTypesByColumnIndex The type of the JDBC array at the column index (1-based).
    * @param arraySubTypesByColumnName  The type of the JDBC array at the column name.
+   * @param jdbcToArrowTypeConverter The function that maps JDBC field type information to arrow type. If set to null,
+   *                                 the default mapping will be used, which is defined as:
+   *  <ul>
+   *    <li>CHAR --> ArrowType.Utf8</li>
+   *    <li>NCHAR --> ArrowType.Utf8</li>
+   *    <li>VARCHAR --> ArrowType.Utf8</li>
+   *    <li>NVARCHAR --> ArrowType.Utf8</li>
+   *    <li>LONGVARCHAR --> ArrowType.Utf8</li>
+   *    <li>LONGNVARCHAR --> ArrowType.Utf8</li>
+   *    <li>NUMERIC --> ArrowType.Decimal(precision, scale)</li>
+   *    <li>DECIMAL --> ArrowType.Decimal(precision, scale)</li>
+   *    <li>BIT --> ArrowType.Bool</li>
+   *    <li>TINYINT --> ArrowType.Int(8, signed)</li>
+   *    <li>SMALLINT --> ArrowType.Int(16, signed)</li>
+   *    <li>INTEGER --> ArrowType.Int(32, signed)</li>
+   *    <li>BIGINT --> ArrowType.Int(64, signed)</li>
+   *    <li>REAL --> ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)</li>
+   *    <li>FLOAT --> ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)</li>
+   *    <li>DOUBLE --> ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)</li>
+   *    <li>BINARY --> ArrowType.Binary</li>
+   *    <li>VARBINARY --> ArrowType.Binary</li>
+   *    <li>LONGVARBINARY --> ArrowType.Binary</li>
+   *    <li>DATE --> ArrowType.Date(DateUnit.DAY)</li>
+   *    <li>TIME --> ArrowType.Time(TimeUnit.MILLISECOND, 32)</li>
+   *    <li>TIMESTAMP --> ArrowType.Timestamp(TimeUnit.MILLISECOND, calendar timezone)</li>
+   *    <li>CLOB --> ArrowType.Utf8</li>
+   *    <li>BLOB --> ArrowType.Binary</li>
+   *    <li>NULL --> ArrowType.Null</li>
+   *  </ul>
    */
   JdbcToArrowConfig(
       BufferAllocator allocator,
@@ -103,14 +136,76 @@ public final class JdbcToArrowConfig {
       boolean includeMetadata,
       Map<Integer, JdbcFieldInfo> arraySubTypesByColumnIndex,
       Map<String, JdbcFieldInfo> arraySubTypesByColumnName,
-      int targetBatchSize) {
-
-    this(allocator, calendar);
-
+      int targetBatchSize,
+      Function<JdbcFieldInfo, ArrowType> jdbcToArrowTypeConverter) {
+    Preconditions.checkNotNull(allocator, "Memory allocator cannot be null");
+    this.allocator = allocator;
+    this.calendar = calendar;
     this.includeMetadata = includeMetadata;
     this.arraySubTypesByColumnIndex = arraySubTypesByColumnIndex;
     this.arraySubTypesByColumnName = arraySubTypesByColumnName;
     this.targetBatchSize = targetBatchSize;
+
+    // set up type converter
+    this.jdbcToArrowTypeConverter = jdbcToArrowTypeConverter != null ? jdbcToArrowTypeConverter :
+        fieldInfo -> {
+          final String timezone;
+          if (calendar != null) {
+            timezone = calendar.getTimeZone().getID();
+          } else {
+            timezone = null;
+          }
+
+          switch (fieldInfo.getJdbcType()) {
+            case Types.BOOLEAN:
+            case Types.BIT:
+              return new ArrowType.Bool();
+            case Types.TINYINT:
+              return new ArrowType.Int(8, true);
+            case Types.SMALLINT:
+              return new ArrowType.Int(16, true);
+            case Types.INTEGER:
+              return new ArrowType.Int(32, true);
+            case Types.BIGINT:
+              return new ArrowType.Int(64, true);
+            case Types.NUMERIC:
+            case Types.DECIMAL:
+              int precision = fieldInfo.getPrecision();
+              int scale = fieldInfo.getScale();
+              return new ArrowType.Decimal(precision, scale, 128);
+            case Types.REAL:
+            case Types.FLOAT:
+              return new ArrowType.FloatingPoint(SINGLE);
+            case Types.DOUBLE:
+              return new ArrowType.FloatingPoint(DOUBLE);
+            case Types.CHAR:
+            case Types.NCHAR:
+            case Types.VARCHAR:
+            case Types.NVARCHAR:
+            case Types.LONGVARCHAR:
+            case Types.LONGNVARCHAR:
+            case Types.CLOB:
+              return new ArrowType.Utf8();
+            case Types.DATE:
+              return new ArrowType.Date(DateUnit.DAY);
+            case Types.TIME:
+              return new ArrowType.Time(TimeUnit.MILLISECOND, 32);
+            case Types.TIMESTAMP:
+              return new ArrowType.Timestamp(TimeUnit.MILLISECOND, timezone);
+            case Types.BINARY:
+            case Types.VARBINARY:
+            case Types.LONGVARBINARY:
+            case Types.BLOB:
+              return new ArrowType.Binary();
+            case Types.ARRAY:
+              return new ArrowType.List();
+            case Types.NULL:
+              return new ArrowType.Null();
+            default:
+              // no-op, shouldn't get here
+              return null;
+          }
+        };
   }
 
   /**
@@ -146,6 +241,13 @@ public final class JdbcToArrowConfig {
    */
   public int getTargetBatchSize() {
     return targetBatchSize;
+  }
+
+  /**
+   * Gets the mapping between JDBC type information to Arrow type.
+   */
+  public Function<JdbcFieldInfo, ArrowType> getJdbcToArrowTypeConverter() {
+    return jdbcToArrowTypeConverter;
   }
 
   /**

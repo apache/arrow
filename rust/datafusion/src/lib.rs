@@ -14,8 +14,14 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-
 #![warn(missing_docs)]
+// Clippy lints, some should be disabled incrementally
+#![allow(
+    clippy::float_cmp,
+    clippy::module_inception,
+    clippy::new_without_default,
+    clippy::type_complexity
+)]
 
 //! DataFusion is an extensible query execution framework that uses
 //! [Apache Arrow](https://arrow.apache.org) as its in-memory format.
@@ -40,7 +46,7 @@
 //!
 //! // create a plan
 //! let df = df.filter(col("a").lt_eq(col("b")))?
-//!            .aggregate(vec![col("a")], vec![min(col("b"))])?
+//!            .aggregate(&[col("a")], &[min(col("b"))])?
 //!            .limit(100)?;
 //!
 //! // execute the plan

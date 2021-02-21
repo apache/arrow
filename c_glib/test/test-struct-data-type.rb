@@ -33,6 +33,10 @@ class TestStructDataType < Test::Unit::TestCase
     assert_equal(Arrow::Type::STRUCT, @data_type.id)
   end
 
+  def test_name
+    assert_equal("struct", @data_type.name)
+  end
+
   def test_to_s
     assert_equal("struct<enabled: bool, message: string>",
                  @data_type.to_s)

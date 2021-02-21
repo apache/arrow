@@ -32,6 +32,7 @@ RUN apt-get update -y -q && \
       liblz4-dev \
       libprotobuf-dev \
       libprotoc-dev \
+      libre2-dev \
       libsnappy-dev \
       libthrift-dev \
       libutf8proc-dev \
