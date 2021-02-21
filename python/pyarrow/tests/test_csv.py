@@ -36,7 +36,8 @@ import numpy as np
 
 import pyarrow as pa
 from pyarrow.csv import (
-    open_csv, read_csv, ReadOptions, ParseOptions, ConvertOptions, ISO8601, write_csv)
+    open_csv, read_csv, ReadOptions, ParseOptions, ConvertOptions, ISO8601,
+    write_csv, WriteOptions)
 
 
 def generate_col_names():
@@ -1265,13 +1266,13 @@ def test_write_read_round_trip():
     for data in [t, record_batch]:
         # test with header
         buf = io.BytesIO()
-        write_csv(buf, data, include_header=True)
+        write_csv(data, buf, WriteOptions(include_header=True))
         buf.seek(0)
         assert t == read_csv(buf)
 
         # Test without header
         buf = io.BytesIO()
-        write_csv(buf, data, include_header=False)
+        write_csv(data, buf, WriteOptions(include_header=False))
         buf.seek(0)
 
         read_options = ReadOptions(column_names=t.column_names)

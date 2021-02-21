@@ -766,7 +766,7 @@ def open_csv(input_file, read_options=None, parse_options=None,
                  maybe_unbox_memory_pool(memory_pool))
     return reader
 
-cdef class WriterOptions(_Weakrefable):
+cdef class WriteOptions(_Weakrefable):
     """
     Options for writing CSV files.
 
@@ -784,22 +784,33 @@ cdef class WriterOptions(_Weakrefable):
     # Avoid mistakingly creating attributes
     __slots__ = ()
 
-    def __init__(include_header=True, batch_size=1024):
-        options.include_header = include_header
-        options.batch_size = 1024
+    def __init__(self, *, include_header=None, batch_size=None):
+        self.options = CCSVWriteOptions.Defaults()
+        if include_header is not None:
+          self.options.include_header = include_header
+        if batch_size is not None:
+          self.options.batch_size = 1024
 
 
-def write_csv(output_file, data, include_header=True,
+cdef _get_write_options(WriteOptions write_options, CCSVWriteOptions* out):
+    if write_options is None:
+        out[0] = CCSVWriteOptions.Defaults()
+    else:
+        out[0] = write_options.options
+
+
+def write_csv(data, output_file, write_options=None,
               MemoryPool memory_pool=None):
     """
 
     Parameters
     ----------
-    output_file: string, path, pyarrow.OutputStream or file-like object
-        The location of CSV data.
     data: The data to write.
         Either a pyarrow.RecordBatch or a pyarrow.Table
+    output_file: string, path, pyarrow.OutputStream or file-like object
+        The location of CSV data.
     write_options: pyarrow.csv.WriteOptions
+        Options to configure writing the CSV file.
     memory_pool: MemoryPool, optional
         Pool for temporary allocations.
 
@@ -813,10 +824,7 @@ def write_csv(output_file, data, include_header=True,
         CMemoryPool* c_memory_pool
         CRecordBatch* batch
         CTable* table
-    if write_options is None:
-        c_write_options = CCSVWriteOptions.Defaults()
-    else:
-        c_write_options = write_options.options
+    _get_write_options(write_options, &c_write_options)
 
     try:
         where = _stringify_path(output_file)
@@ -826,7 +834,6 @@ def write_csv(output_file, data, include_header=True,
         c_where = tobytes(where)
         stream = GetResultValue(FileOutputStream.Open(c_where))
 
-    c_write_options.include_header = include_header
     c_memory_pool = maybe_unbox_memory_pool(memory_pool)
     if isinstance(data, RecordBatch):
         batch = (<RecordBatch>data).batch

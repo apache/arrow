@@ -143,6 +143,9 @@ struct WriteOptions {
   // The writer processes batches of rows together.  This is the
   // maximum number of rows processed at a time.
   int32_t batch_size = 1024;
+
+  // Create write options with default values.
+  static WriteOptions Defaults();
 };
 
 }  // namespace csv
