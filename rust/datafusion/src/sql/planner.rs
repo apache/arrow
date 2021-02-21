@@ -240,9 +240,12 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
             0 => Ok(left),
             n => {
                 let mut left = self.parse_relation_join(&left, &t.joins[0])?;
+                println!("xxx2");
                 for i in 1..n {
                     left = self.parse_relation_join(&left, &t.joins[i])?;
                 }
+                println!("xxx4");
+
                 Ok(left)
             }
         }
@@ -281,11 +284,9 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
         match constraint {
             JoinConstraint::On(sql_expr) => {
                 let mut keys: Vec<(String, String)> = vec![];
-                // TODO: FIX!
-                let join_schema = left.schema().join(&right.schema())?;
 
                 // parse ON expression
-                let expr = self.sql_to_rex(sql_expr, &join_schema)?;
+                let expr = self.sql_to_rex(sql_expr, &[left.schema(), right.schema()])?;
 
                 // extract join keys
                 extract_join_keys(&expr, &mut keys)?;
@@ -293,7 +294,6 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                     keys.iter().map(|pair| pair.0.as_str()).collect();
                 let right_keys: Vec<&str> =
                     keys.iter().map(|pair| pair.1.as_str()).collect();
-
                 // return the logical plan representing the join
                 LogicalPlanBuilder::from(&left)
                     .join(&right, join_type, &left_keys, &right_keys)?
@@ -345,7 +345,6 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
 
     /// Generate a logic plan from an SQL select
     fn select_to_plan(&self, select: &Select) -> Result<LogicalPlan> {
-
         let plans = self.plan_from_tables(&select.from)?;
 
         let plan = match &select.selection {
@@ -357,7 +356,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                 }
                 let join_schema = DFSchema::new(fields)?;
 
-                let filter_expr = self.sql_to_rex(predicate_expr, &join_schema)?;
+                let filter_expr = self.sql_to_rex(predicate_expr, &[&join_schema])?;
 
                 // look for expressions of the form `<column> = <column>`
                 let mut possible_join_keys = vec![];
@@ -537,7 +536,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
         expr: &[Expr],
         force: bool,
     ) -> Result<LogicalPlan> {
-        self.validate_schema_satisfies_exprs(&input.schema(), &expr)?;
+        self.validate_schema_satisfies_exprs(&[input.schema()], &expr)?;
         let plan = LogicalPlanBuilder::from(input).project(expr)?.build()?;
 
         let project = force
@@ -563,7 +562,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
     ) -> Result<(LogicalPlan, Vec<Expr>, Option<Expr>)> {
         let group_by_exprs = group_by
             .iter()
-            .map(|e| self.sql_to_rex(e, &input.schema()))
+            .map(|e| self.sql_to_rex(e, &[input.schema()]))
             .collect::<Result<Vec<Expr>>>()?;
 
         let aggr_projection_exprs = group_by_exprs
@@ -623,7 +622,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
     fn limit(&self, input: &LogicalPlan, limit: &Option<SQLExpr>) -> Result<LogicalPlan> {
         match *limit {
             Some(ref limit_expr) => {
-                let n = match self.sql_to_rex(&limit_expr, &input.schema())? {
+                let n = match self.sql_to_rex(&limit_expr, &[input.schema()])? {
                     Expr::Literal(ScalarValue::Int64(Some(n))) => Ok(n as usize),
                     _ => Err(DataFusionError::Plan(
                         "Unexpected expression for LIMIT clause".to_string(),
@@ -651,7 +650,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
             .iter()
             .map(|e| {
                 Ok(Expr::Sort {
-                    expr: Box::new(self.sql_to_rex(&e.expr, &input_schema)?),
+                    expr: Box::new(self.sql_to_rex(&e.expr, &[input_schema])?),
                     // by default asc
                     asc: e.asc.unwrap_or(true),
                     // by default nulls first to be consistent with spark
@@ -668,20 +667,35 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
     /// Validate the schema provides all of the columns referenced in the expressions.
     fn validate_schema_satisfies_exprs(
         &self,
-        schema: &DFSchema,
+        schemas: &[&DFSchema],
         exprs: &[Expr],
     ) -> Result<()> {
         find_column_exprs(exprs)
             .iter()
             .try_for_each(|col| match col {
                 Expr::Column(name) => {
-                    schema.field_with_unqualified_name(&name).map_err(|_| {
-                        DataFusionError::Plan(format!(
-                            "Invalid identifier '{}' for schema {}",
-                            name,
-                            schema.to_string()
-                        ))
-                    })?;
+                    if !schemas
+                        .iter()
+                        .any(|schema| schema.field_with_unqualified_name(&name).is_ok())
+                    {
+                        if schemas.len() == 1 {
+                            Err(DataFusionError::Plan(format!(
+                                "Invalid identifier '{}' for schema {}",
+                                name,
+                                schemas[0].to_string()
+                            )))?;
+                        } else {
+                            Err(DataFusionError::Plan(format!(
+                                "Invalid identifier '{}' for schemas {}",
+                                name,
+                                schemas
+                                    .iter()
+                                    .map(|s| s.to_string())
+                                    .collect::<Vec<String>>()
+                                    .join(", ")
+                            )))?;
+                        }
+                    }
                     Ok(())
                 }
                 _ => Err(DataFusionError::Internal("Not a column".to_string())),
@@ -691,9 +705,9 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
     /// Generate a relational expression from a select SQL expression
     fn sql_select_to_rex(&self, sql: &SelectItem, schema: &DFSchema) -> Result<Expr> {
         match sql {
-            SelectItem::UnnamedExpr(expr) => self.sql_to_rex(expr, schema),
+            SelectItem::UnnamedExpr(expr) => self.sql_to_rex(expr, &[schema]),
             SelectItem::ExprWithAlias { expr, alias } => Ok(Alias(
-                Box::new(self.sql_to_rex(&expr, schema)?),
+                Box::new(self.sql_to_rex(&expr, &[schema])?),
                 alias.value.clone(),
             )),
             SelectItem::Wildcard => Ok(Expr::Wildcard),
@@ -704,7 +718,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
     }
 
     /// Generate a relational expression from a SQL expression
-    pub fn sql_to_rex(&self, sql: &SQLExpr, schema: &DFSchema) -> Result<Expr> {
+    pub fn sql_to_rex(&self, sql: &SQLExpr, schema: &[&DFSchema]) -> Result<Expr> {
         let expr = self.sql_expr_to_logical_expr(sql)?;
         self.validate_schema_satisfies_exprs(schema, &[expr.clone()])?;
         Ok(expr)

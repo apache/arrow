@@ -32,7 +32,9 @@ use crate::{
 };
 
 use super::dfschema::ToDFSchema;
-use super::{col, exprlist_to_fields, Expr, JoinType, LogicalPlan, PlanType, StringifiedPlan};
+use super::{
+    col, exprlist_to_fields, Expr, JoinType, LogicalPlan, PlanType, StringifiedPlan,
+};
 use crate::logical_plan::{DFField, DFSchema, DFSchemaRef, Partitioning};
 use std::collections::HashSet;
 
@@ -224,7 +226,8 @@ impl LogicalPlanBuilder {
 
         validate_unique_names("Aggregations", &all_expr, self.plan.schema())?;
 
-        let aggr_schema = DFSchema::new(exprlist_to_fields(&all_expr, self.plan.schema())?)?;
+        let aggr_schema =
+            DFSchema::new(exprlist_to_fields(&all_expr, self.plan.schema())?)?;
 
         Ok(Self::from(&LogicalPlan::Aggregate {
             input: Arc::new(self.plan.clone()),
@@ -342,11 +345,14 @@ mod tests {
 
     #[test]
     fn plan_builder_simple() -> Result<()> {
-        let plan =
-            LogicalPlanBuilder::scan_empty("employee.csv", &employee_schema(), Some(vec![0, 3]))?
-                .filter(col("state").eq(lit("CO")))?
-                .project(&[col("id")])?
-                .build()?;
+        let plan = LogicalPlanBuilder::scan_empty(
+            "employee.csv",
+            &employee_schema(),
+            Some(vec![0, 3]),
+        )?
+        .filter(col("state").eq(lit("CO")))?
+        .project(&[col("id")])?
+        .build()?;
 
         let expected = "Projection: #id\
         \n  Filter: #state Eq Utf8(\"CO\")\
@@ -359,11 +365,14 @@ mod tests {
 
     #[test]
     fn plan_builder_aggregate() -> Result<()> {
-        let plan =
-            LogicalPlanBuilder::scan_empty("employee.csv", &employee_schema(), Some(vec![3, 4]))?
-                .aggregate(&[col("state")], &[sum(col("salary")).alias("total_salary")])?
-                .project(&[col("state"), col("total_salary")])?
-                .build()?;
+        let plan = LogicalPlanBuilder::scan_empty(
+            "employee.csv",
+            &employee_schema(),
+            Some(vec![3, 4]),
+        )?
+        .aggregate(&[col("state")], &[sum(col("salary")).alias("total_salary")])?
+        .project(&[col("state"), col("total_salary")])?
+        .build()?;
 
         let expected = "Projection: #state, #total_salary\
         \n  Aggregate: groupBy=[[#state]], aggr=[[SUM(#salary) AS total_salary]]\
@@ -376,21 +385,24 @@ mod tests {
 
     #[test]
     fn plan_builder_sort() -> Result<()> {
-        let plan =
-            LogicalPlanBuilder::scan_empty("employee.csv", &employee_schema(), Some(vec![3, 4]))?
-                .sort(&[
-                    Expr::Sort {
-                        expr: Box::new(col("state")),
-                        asc: true,
-                        nulls_first: true,
-                    },
-                    Expr::Sort {
-                        expr: Box::new(col("total_salary")),
-                        asc: false,
-                        nulls_first: false,
-                    },
-                ])?
-                .build()?;
+        let plan = LogicalPlanBuilder::scan_empty(
+            "employee.csv",
+            &employee_schema(),
+            Some(vec![3, 4]),
+        )?
+        .sort(&[
+            Expr::Sort {
+                expr: Box::new(col("state")),
+                asc: true,
+                nulls_first: true,
+            },
+            Expr::Sort {
+                expr: Box::new(col("total_salary")),
+                asc: false,
+                nulls_first: false,
+            },
+        ])?
+        .build()?;
 
         let expected = "Sort: #state ASC NULLS FIRST, #total_salary DESC NULLS LAST\
         \n  TableScan: employee.csv projection=Some([3, 4])";
@@ -402,10 +414,13 @@ mod tests {
 
     #[test]
     fn projection_non_unique_names() -> Result<()> {
-        let plan =
-            LogicalPlanBuilder::scan_empty("employee.csv", &employee_schema(), Some(vec![0, 3]))?
-                // two columns with the same name => error
-                .project(&[col("id"), col("first_name").alias("id")]);
+        let plan = LogicalPlanBuilder::scan_empty(
+            "employee.csv",
+            &employee_schema(),
+            Some(vec![0, 3]),
+        )?
+        // two columns with the same name => error
+        .project(&[col("id"), col("first_name").alias("id")]);
 
         match plan {
             Err(DataFusionError::Plan(e)) => {
@@ -425,10 +440,13 @@ mod tests {
 
     #[test]
     fn aggregate_non_unique_names() -> Result<()> {
-        let plan =
-            LogicalPlanBuilder::scan_empty("employee.csv", &employee_schema(), Some(vec![0, 3]))?
-                // two columns with the same name => error
-                .aggregate(&[col("state")], &[sum(col("salary")).alias("state")]);
+        let plan = LogicalPlanBuilder::scan_empty(
+            "employee.csv",
+            &employee_schema(),
+            Some(vec![0, 3]),
+        )?
+        // two columns with the same name => error
+        .aggregate(&[col("state")], &[sum(col("salary")).alias("state")]);
 
         match plan {
             Err(DataFusionError::Plan(e)) => {
@@ -458,11 +476,13 @@ mod tests {
 
     #[test]
     fn stringified_plan() {
-        let stringified_plan = StringifiedPlan::new(PlanType::LogicalPlan, "...the plan...");
+        let stringified_plan =
+            StringifiedPlan::new(PlanType::LogicalPlan, "...the plan...");
         assert!(stringified_plan.should_display(true));
         assert!(stringified_plan.should_display(false)); // display in non verbose mode too
 
-        let stringified_plan = StringifiedPlan::new(PlanType::PhysicalPlan, "...the plan...");
+        let stringified_plan =
+            StringifiedPlan::new(PlanType::PhysicalPlan, "...the plan...");
         assert!(stringified_plan.should_display(true));
         assert!(!stringified_plan.should_display(false));
 

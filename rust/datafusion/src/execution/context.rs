@@ -37,7 +37,9 @@ use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
 use crate::error::{DataFusionError, Result};
 use crate::execution::dataframe_impl::DataFrameImpl;
-use crate::logical_plan::{FunctionRegistry, LogicalPlan, LogicalPlanBuilder, ToDFSchema};
+use crate::logical_plan::{
+    FunctionRegistry, LogicalPlan, LogicalPlanBuilder, ToDFSchema,
+};
 use crate::optimizer::constant_folding::ConstantFolding;
 use crate::optimizer::filter_push_down::FilterPushDown;
 use crate::optimizer::optimizer::OptimizerRule;
@@ -264,8 +266,10 @@ impl ExecutionContext {
     /// Registers a Parquet data source so that it can be referenced from SQL statements
     /// executed against this context.
     pub fn register_parquet(&mut self, name: &str, filename: &str) -> Result<()> {
-        let table =
-            ParquetTable::try_new(&filename, self.state.lock().unwrap().config.concurrency)?;
+        let table = ParquetTable::try_new(
+            &filename,
+            self.state.lock().unwrap().config.concurrency,
+        )?;
         self.register_table(name, Arc::new(table));
         Ok(())
     }
@@ -291,7 +295,10 @@ impl ExecutionContext {
     /// Deregisters the named table.
     ///
     /// Returns the registered provider, if any
-    pub fn deregister_table(&mut self, name: &str) -> Option<Arc<dyn TableProvider + Send + Sync>> {
+    pub fn deregister_table(
+        &mut self,
+        name: &str,
+    ) -> Option<Arc<dyn TableProvider + Send + Sync>> {
         self.state.lock().unwrap().datasources.remove(name)
     }
 
@@ -363,7 +370,11 @@ impl ExecutionContext {
     }
 
     /// Executes a query and writes the results to a partitioned CSV file.
-    pub async fn write_csv(&self, plan: Arc<dyn ExecutionPlan>, path: String) -> Result<()> {
+    pub async fn write_csv(
+        &self,
+        plan: Arc<dyn ExecutionPlan>,
+        path: String,
+    ) -> Result<()> {
         // create directory to contain the CSV files (one per partition)
         let fs_path = Path::new(&path);
         match fs::create_dir(fs_path) {
@@ -564,7 +575,10 @@ pub struct ExecutionContextState {
 }
 
 impl ContextProvider for ExecutionContextState {
-    fn get_table_provider(&self, name: &str) -> Option<Arc<dyn TableProvider + Send + Sync>> {
+    fn get_table_provider(
+        &self,
+        name: &str,
+    ) -> Option<Arc<dyn TableProvider + Send + Sync>> {
         self.datasources.get(name).map(|ds| Arc::clone(ds))
     }
 
@@ -618,9 +632,12 @@ mod tests {
         logical_plan::{col, create_udf, sum},
     };
     use crate::{
-        datasource::MemTable, logical_plan::create_udaf, physical_plan::expressions::AvgAccumulator,
+        datasource::MemTable, logical_plan::create_udaf,
+        physical_plan::expressions::AvgAccumulator,
     };
-    use arrow::array::{Array, ArrayRef, DictionaryArray, Float64Array, Int32Array, Int64Array};
+    use arrow::array::{
+        Array, ArrayRef, DictionaryArray, Float64Array, Int32Array, Int64Array,
+    };
     use arrow::compute::add;
     use arrow::datatypes::*;
     use arrow::record_batch::RecordBatch;
@@ -709,7 +726,8 @@ mod tests {
         let provider = test::create_table_dual();
         ctx.register_table("dual", provider);
 
-        let results = plan_and_collect(&mut ctx, "SELECT @@version, @name FROM dual").await?;
+        let results =
+            plan_and_collect(&mut ctx, "SELECT @@version, @name FROM dual").await?;
 
         let expected = vec![
             "+----------------------+------------------------+",
@@ -932,7 +950,8 @@ mod tests {
 
     #[tokio::test]
     async fn sort() -> Result<()> {
-        let results = execute("SELECT c1, c2 FROM test ORDER BY c1 DESC, c2 ASC", 4).await?;
+        let results =
+            execute("SELECT c1, c2 FROM test ORDER BY c1 DESC, c2 ASC", 4).await?;
         assert_eq!(results.len(), 1);
 
         let expected: Vec<&str> = vec![
@@ -1133,7 +1152,8 @@ mod tests {
 
     #[tokio::test]
     async fn boolean_literal() -> Result<()> {
-        let results = execute("SELECT c1, c3 FROM test WHERE c1 > 2 AND c3 = true", 4).await?;
+        let results =
+            execute("SELECT c1, c3 FROM test WHERE c1 > 2 AND c3 = true", 4).await?;
         assert_eq!(results.len(), 1);
 
         let expected = vec![
@@ -1154,7 +1174,8 @@ mod tests {
 
     #[tokio::test]
     async fn aggregate_grouped_empty() -> Result<()> {
-        let results = execute("SELECT c1, AVG(c2) FROM test WHERE c1 = 123 GROUP BY c1", 4).await?;
+        let results =
+            execute("SELECT c1, AVG(c2) FROM test WHERE c1 = 123 GROUP BY c1", 4).await?;
         assert_eq!(results.len(), 1);
 
         let expected = vec!["++", "||", "++", "++"];
@@ -1330,15 +1351,18 @@ mod tests {
                 Field::new("val", val_array.data_type().clone(), false),
             ]));
 
-            let batch = RecordBatch::try_new(schema.clone(), vec![dict_array, val_array]).unwrap();
+            let batch = RecordBatch::try_new(schema.clone(), vec![dict_array, val_array])
+                .unwrap();
 
             let provider = MemTable::try_new(schema.clone(), vec![vec![batch]]).unwrap();
             ctx.register_table("t", Arc::new(provider));
 
-            let results =
-                plan_and_collect(&mut ctx, "SELECT dict, count(val) FROM t GROUP BY dict")
-                    .await
-                    .expect("ran plan correctly");
+            let results = plan_and_collect(
+                &mut ctx,
+                "SELECT dict, count(val) FROM t GROUP BY dict",
+            )
+            .await
+            .expect("ran plan correctly");
 
             let expected = vec![
                 "+------+------------+",
@@ -1352,9 +1376,10 @@ mod tests {
             assert_batches_sorted_eq!(expected, &results);
 
             // Now, use dict as an aggregate
-            let results = plan_and_collect(&mut ctx, "SELECT val, count(dict) FROM t GROUP BY val")
-                .await
-                .expect("ran plan correctly");
+            let results =
+                plan_and_collect(&mut ctx, "SELECT val, count(dict) FROM t GROUP BY val")
+                    .await
+                    .expect("ran plan correctly");
 
             let expected = vec![
                 "+-----+-------------+",
@@ -1635,7 +1660,8 @@ mod tests {
                 .file_extension(file_extension),
         )?;
         let results =
-            plan_and_collect(&mut ctx, "SELECT SUM(c1), SUM(c2), COUNT(*) FROM test").await?;
+            plan_and_collect(&mut ctx, "SELECT SUM(c1), SUM(c2), COUNT(*) FROM test")
+                .await?;
 
         assert_eq!(results.len(), 1);
         let expected = vec![
@@ -1664,7 +1690,9 @@ mod tests {
                 thread::spawn(move || {
                     let ctx = ctx_clone.lock().expect("Locked context");
                     // Ensure we can create logical plan code on a separate thread.
-                    ctx.create_logical_plan("SELECT c1, c2 FROM test WHERE c1 > 0 AND c1 < 3")
+                    ctx.create_logical_plan(
+                        "SELECT c1, c2 FROM test WHERE c1 > 0 AND c1 < 3",
+                    )
                 })
             })
             .collect();
@@ -1793,7 +1821,8 @@ mod tests {
 
         let mut ctx = ExecutionContext::new();
 
-        let provider = MemTable::try_new(Arc::new(schema), vec![vec![batch1], vec![batch2]])?;
+        let provider =
+            MemTable::try_new(Arc::new(schema), vec![vec![batch1], vec![batch2]])?;
         ctx.register_table("t", Arc::new(provider));
 
         let result = plan_and_collect(&mut ctx, "SELECT AVG(a) FROM t").await?;
@@ -1829,7 +1858,8 @@ mod tests {
 
         let mut ctx = ExecutionContext::new();
 
-        let provider = MemTable::try_new(Arc::new(schema), vec![vec![batch1], vec![batch2]])?;
+        let provider =
+            MemTable::try_new(Arc::new(schema), vec![vec![batch1], vec![batch2]])?;
         ctx.register_table("t", Arc::new(provider));
 
         // define a udaf, using a DataFusion's accumulator
@@ -1896,7 +1926,10 @@ mod tests {
     }
 
     /// Execute SQL and return results
-    async fn plan_and_collect(ctx: &mut ExecutionContext, sql: &str) -> Result<Vec<RecordBatch>> {
+    async fn plan_and_collect(
+        ctx: &mut ExecutionContext,
+        sql: &str,
+    ) -> Result<Vec<RecordBatch>> {
         let logical_plan = ctx.create_logical_plan(sql)?;
         let logical_plan = ctx.optimize(&logical_plan)?;
         let physical_plan = ctx.create_physical_plan(&logical_plan)?;
@@ -1911,7 +1944,11 @@ mod tests {
     }
 
     /// Execute SQL and write results to partitioned csv files
-    async fn write_csv(ctx: &mut ExecutionContext, sql: &str, out_dir: &str) -> Result<()> {
+    async fn write_csv(
+        ctx: &mut ExecutionContext,
+        sql: &str,
+        out_dir: &str,
+    ) -> Result<()> {
         let logical_plan = ctx.create_logical_plan(sql)?;
         let logical_plan = ctx.optimize(&logical_plan)?;
         let physical_plan = ctx.create_physical_plan(&logical_plan)?;
