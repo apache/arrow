@@ -29,7 +29,6 @@ mod extension;
 mod operators;
 mod plan;
 mod registry;
-
 pub use builder::LogicalPlanBuilder;
 pub use dfschema::{DFField, DFSchema, DFSchemaRef, ToDFSchema};
 pub use display::display_schema;

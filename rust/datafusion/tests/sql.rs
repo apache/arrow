@@ -1717,7 +1717,7 @@ fn make_timestamp_nano_table() -> Result<Arc<MemTable>> {
 }
 
 #[tokio::test]
-async fn to_timstamp() -> Result<()> {
+async fn to_timestamp() -> Result<()> {
     let mut ctx = ExecutionContext::new();
     ctx.register_table("ts_data", make_timestamp_nano_table()?);
 
@@ -2130,6 +2130,24 @@ async fn crypto_expressions() -> Result<()> {
         "6e1b9b3fe840680e37051f7ad5e959d6f39ad0f8885d855166f55c659469d3c8b78118c44a2a49c72ddb481cd6d8731034e11cc030070ba843a90b3495cb8d3e",
         "cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e"
     ]];
+    assert_eq!(expected, actual);
+    Ok(())
+}
+
+#[tokio::test]
+async fn extract_date_part() -> Result<()> {
+    let mut ctx = ExecutionContext::new();
+    let sql = "SELECT
+        date_part('hour', CAST('2020-01-01' AS DATE)) AS hr1,
+        EXTRACT(HOUR FROM CAST('2020-01-01' AS DATE)) AS hr2,
+        EXTRACT(HOUR FROM to_timestamp('2020-09-08T12:00:00+00:00')) AS hr3,
+        date_part('YEAR', CAST('2000-01-01' AS DATE)) AS year1,
+        EXTRACT(year FROM to_timestamp('2020-09-08T12:00:00+00:00')) AS year2
+    ";
+
+    let actual = execute(&mut ctx, sql).await;
+
+    let expected = vec![vec!["0", "0", "12", "2000", "2020"]];
     assert_eq!(expected, actual);
     Ok(())
 }

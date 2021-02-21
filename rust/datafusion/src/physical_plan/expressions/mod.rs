@@ -58,7 +58,6 @@ pub use negative::{negative, NegativeExpr};
 pub use not::{not, NotExpr};
 pub use nullif::{nullif_func, SUPPORTED_NULLIF_TYPES};
 pub use sum::{sum_return_type, Sum};
-
 /// returns the name of the state
 pub fn format_state_name(name: &str, state_name: &str) -> String {
     format!("{}[{}]", name, state_name)

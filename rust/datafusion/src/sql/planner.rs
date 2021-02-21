@@ -726,6 +726,13 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
             SQLExpr::Value(Value::Boolean(n)) => Ok(lit(*n)),
 
             SQLExpr::Value(Value::Null) => Ok(Expr::Literal(ScalarValue::Utf8(None))),
+            SQLExpr::Extract { field, expr } => Ok(Expr::ScalarFunction {
+                fun: functions::BuiltinScalarFunction::DatePart,
+                args: vec![
+                    Expr::Literal(ScalarValue::Utf8(Some(format!("{}", field)))),
+                    self.sql_expr_to_logical_expr(expr)?,
+                ],
+            }),
 
             SQLExpr::Value(Value::Interval {
                 value,

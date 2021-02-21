@@ -29,7 +29,7 @@
 //! i64. However, i64 -> i32 is never performed as there are i64
 //! values which can not be represented by i32 values.
 
-use std::sync::Arc;
+use std::{sync::Arc, vec};
 
 use arrow::datatypes::{DataType, Schema, TimeUnit};
 
@@ -68,6 +68,32 @@ pub fn data_types(
     current_types: &[DataType],
     signature: &Signature,
 ) -> Result<Vec<DataType>> {
+    let valid_types = get_valid_types(signature, current_types)?;
+
+    if valid_types
+        .iter()
+        .any(|data_type| data_type == current_types)
+    {
+        return Ok(current_types.to_vec());
+    }
+
+    for valid_types in valid_types {
+        if let Some(types) = maybe_data_types(&valid_types, &current_types) {
+            return Ok(types);
+        }
+    }
+
+    // none possible -> Error
+    Err(DataFusionError::Plan(format!(
+        "Coercion from {:?} to the signature {:?} failed.",
+        current_types, signature
+    )))
+}
+
+fn get_valid_types(
+    signature: &Signature,
+    current_types: &[DataType],
+) -> Result<Vec<Vec<DataType>>> {
     let valid_types = match signature {
         Signature::Variadic(valid_types) => valid_types
             .iter()
@@ -95,23 +121,16 @@ pub fn data_types(
             }
             vec![(0..*number).map(|i| current_types[i].clone()).collect()]
         }
+        Signature::OneOf(types) => {
+            let mut r = vec![];
+            for s in types {
+                r.extend(get_valid_types(s, current_types)?);
+            }
+            r
+        }
     };
 
-    if valid_types.contains(&current_types.to_owned()) {
-        return Ok(current_types.to_vec());
-    }
-
-    for valid_types in valid_types {
-        if let Some(types) = maybe_data_types(&valid_types, &current_types) {
-            return Ok(types);
-        }
-    }
-
-    // none possible -> Error
-    Err(DataFusionError::Plan(format!(
-        "Coercion from {:?} to the signature {:?} failed.",
-        current_types, signature
-    )))
+    Ok(valid_types)
 }
 
 /// Try to coerce current_types into valid_types.

@@ -1144,9 +1144,9 @@ fn create_name(e: &Expr, input_schema: &DFSchema) -> Result<String> {
             let expr = create_name(expr, input_schema)?;
             let list = list.iter().map(|expr| create_name(expr, input_schema));
             if *negated {
-                Ok(format!("{:?} NOT IN ({:?})", expr, list))
+                Ok(format!("{} NOT IN ({:?})", expr, list))
             } else {
-                Ok(format!("{:?} IN ({:?})", expr, list))
+                Ok(format!("{} IN ({:?})", expr, list))
             }
         }
         other => Err(DataFusionError::NotImplemented(format!(

@@ -71,6 +71,8 @@ pub enum Signature {
     Exact(Vec<DataType>),
     /// fixed number of arguments of arbitrary types
     Any(usize),
+    /// One of a list of signatures
+    OneOf(Vec<Signature>),
 }
 
 /// Scalar function
@@ -138,6 +140,8 @@ pub enum BuiltinScalarFunction {
     NullIf,
     /// Date truncate
     DateTrunc,
+    /// Date part
+    DatePart,
     /// MD5
     MD5,
     /// SHA224
@@ -192,6 +196,7 @@ impl FromStr for BuiltinScalarFunction {
             "upper" => BuiltinScalarFunction::Upper,
             "to_timestamp" => BuiltinScalarFunction::ToTimestamp,
             "date_trunc" => BuiltinScalarFunction::DateTrunc,
+            "date_part" => BuiltinScalarFunction::DatePart,
             "array" => BuiltinScalarFunction::Array,
             "nullif" => BuiltinScalarFunction::NullIf,
             "md5" => BuiltinScalarFunction::MD5,
@@ -294,6 +299,7 @@ pub fn return_type(
         BuiltinScalarFunction::DateTrunc => {
             Ok(DataType::Timestamp(TimeUnit::Nanosecond, None))
         }
+        BuiltinScalarFunction::DatePart => Ok(DataType::Int32),
         BuiltinScalarFunction::Array => Ok(DataType::FixedSizeList(
             Box::new(Field::new("item", arg_types[0].clone(), true)),
             arg_types.len() as i32,
@@ -463,6 +469,7 @@ pub fn create_physical_expr(
                 _ => unreachable!(),
             },
         },
+        BuiltinScalarFunction::DatePart => datetime_expressions::date_part,
     });
     // coerce
     let args = coerce(args, input_schema, &signature(fun))?;
@@ -506,6 +513,26 @@ fn signature(fun: &BuiltinScalarFunction) -> Signature {
         BuiltinScalarFunction::DateTrunc => Signature::Exact(vec![
             DataType::Utf8,
             DataType::Timestamp(TimeUnit::Nanosecond, None),
+        ]),
+        BuiltinScalarFunction::DatePart => Signature::OneOf(vec![
+            Signature::Exact(vec![DataType::Utf8, DataType::Date32]),
+            Signature::Exact(vec![DataType::Utf8, DataType::Date64]),
+            Signature::Exact(vec![
+                DataType::Utf8,
+                DataType::Timestamp(TimeUnit::Second, None),
+            ]),
+            Signature::Exact(vec![
+                DataType::Utf8,
+                DataType::Timestamp(TimeUnit::Microsecond, None),
+            ]),
+            Signature::Exact(vec![
+                DataType::Utf8,
+                DataType::Timestamp(TimeUnit::Millisecond, None),
+            ]),
+            Signature::Exact(vec![
+                DataType::Utf8,
+                DataType::Timestamp(TimeUnit::Nanosecond, None),
+            ]),
         ]),
         BuiltinScalarFunction::Array => {
             Signature::Variadic(array_expressions::SUPPORTED_ARRAY_TYPES.to_vec())

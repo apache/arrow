@@ -16,26 +16,29 @@
 // under the License.
 
 //! DateTime expressions
-
 use std::sync::Arc;
 
+use super::ColumnarValue;
 use crate::{
     error::{DataFusionError, Result},
     scalar::{ScalarType, ScalarValue},
 };
-use arrow::temporal_conversions::timestamp_ns_to_datetime;
+use arrow::{
+    array::{Array, ArrayRef, GenericStringArray, PrimitiveArray, StringOffsetSizeTrait},
+    datatypes::{ArrowPrimitiveType, DataType, TimestampNanosecondType},
+};
 use arrow::{
     array::{
-        Array, GenericStringArray, PrimitiveArray, StringOffsetSizeTrait,
-        TimestampNanosecondArray,
+        Date32Array, Date64Array, TimestampMicrosecondArray, TimestampMillisecondArray,
+        TimestampNanosecondArray, TimestampSecondArray,
     },
-    datatypes::{ArrowPrimitiveType, DataType, TimestampNanosecondType},
+    compute::kernels::temporal,
+    datatypes::TimeUnit,
+    temporal_conversions::timestamp_ns_to_datetime,
 };
 use chrono::prelude::*;
 use chrono::Duration;
 use chrono::LocalResult;
-
-use super::ColumnarValue;
 
 #[inline]
 /// Accepts a string in RFC3339 / ISO8601 standard format and some
@@ -341,6 +344,98 @@ pub fn date_trunc(args: &[ColumnarValue]) -> Result<ColumnarValue> {
 
             ColumnarValue::Array(Arc::new(array))
         }
+    })
+}
+
+macro_rules! extract_date_part {
+    ($ARRAY: expr, $FN:expr) => {
+        match $ARRAY.data_type() {
+            DataType::Date32 => {
+                let array = $ARRAY.as_any().downcast_ref::<Date32Array>().unwrap();
+                Ok($FN(array)?)
+            }
+            DataType::Date64 => {
+                let array = $ARRAY.as_any().downcast_ref::<Date64Array>().unwrap();
+                Ok($FN(array)?)
+            }
+            DataType::Timestamp(time_unit, None) => match time_unit {
+                TimeUnit::Second => {
+                    let array = $ARRAY
+                        .as_any()
+                        .downcast_ref::<TimestampSecondArray>()
+                        .unwrap();
+                    Ok($FN(array)?)
+                }
+                TimeUnit::Millisecond => {
+                    let array = $ARRAY
+                        .as_any()
+                        .downcast_ref::<TimestampMillisecondArray>()
+                        .unwrap();
+                    Ok($FN(array)?)
+                }
+                TimeUnit::Microsecond => {
+                    let array = $ARRAY
+                        .as_any()
+                        .downcast_ref::<TimestampMicrosecondArray>()
+                        .unwrap();
+                    Ok($FN(array)?)
+                }
+                TimeUnit::Nanosecond => {
+                    let array = $ARRAY
+                        .as_any()
+                        .downcast_ref::<TimestampNanosecondArray>()
+                        .unwrap();
+                    Ok($FN(array)?)
+                }
+            },
+            datatype => Err(DataFusionError::Internal(format!(
+                "Extract does not support datatype {:?}",
+                datatype
+            ))),
+        }
+    };
+}
+
+/// DATE_PART SQL function
+pub fn date_part(args: &[ColumnarValue]) -> Result<ColumnarValue> {
+    if args.len() != 2 {
+        return Err(DataFusionError::Execution(
+            "Expected two arguments in DATE_PART".to_string(),
+        ));
+    }
+    let (date_part, array) = (&args[0], &args[1]);
+
+    let date_part = if let ColumnarValue::Scalar(ScalarValue::Utf8(Some(v))) = date_part {
+        v
+    } else {
+        return Err(DataFusionError::Execution(
+            "First argument of `DATE_PART` must be non-null scalar Utf8".to_string(),
+        ));
+    };
+
+    let is_scalar = matches!(array, ColumnarValue::Scalar(_));
+
+    let array = match array {
+        ColumnarValue::Array(array) => array.clone(),
+        ColumnarValue::Scalar(scalar) => scalar.to_array(),
+    };
+
+    let arr = match date_part.to_lowercase().as_str() {
+        "hour" => extract_date_part!(array, temporal::hour),
+        "year" => extract_date_part!(array, temporal::year),
+        _ => Err(DataFusionError::Execution(format!(
+            "Date part '{}' not supported",
+            date_part
+        ))),
+    }?;
+
+    Ok(if is_scalar {
+        ColumnarValue::Scalar(ScalarValue::try_from_array(
+            &(Arc::new(arr) as ArrayRef),
+            0,
+        )?)
+    } else {
+        ColumnarValue::Array(Arc::new(arr))
     })
 }
 
