@@ -15,6 +15,22 @@
 # specific language governing permissions and limitations
 # under the License.
 
+if(ARROW_VCPKG)
+  message(STATUS "IN FondBoostAlt.cmake > ARROW_VCPKG")
+  if(NOT DEFINED BOOST_ROOT)
+    set(BOOST_ROOT "${ARROW_VCPKG_PREFIX}")
+    message(STATUS "Setting BOOST_ROOT: ${BOOST_ROOT}")
+  endif()
+  if(NOT DEFINED BOOST_INCLUDEDIR)
+    set(BOOST_INCLUDEDIR "${ARROW_VCPKG_PREFIX}/include")
+    message(STATUS "Setting BOOST_INCLUDEDIR: ${BOOST_INCLUDEDIR}")
+  endif()
+  if(NOT DEFINED BOOST_LIBRARYDIR)
+    set(BOOST_LIBRARYDIR "${ARROW_VCPKG_PREFIX}/lib")
+    message(STATUS "Setting BOOST_LIBRARYDIR: ${BOOST_LIBRARYDIR}")
+  endif()
+endif()
+
 if(DEFINED ENV{BOOST_ROOT} OR DEFINED BOOST_ROOT)
   # In older versions of CMake (such as 3.2), the system paths for Boost will
   # be looked in first even if we set $BOOST_ROOT or pass -DBOOST_ROOT
