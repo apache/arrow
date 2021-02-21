@@ -101,7 +101,6 @@ message(STATUS "Using ${ARROW_DEPENDENCY_SOURCE} approach to find dependencies")
 # NOTE(ianmcook): the case when ARROW_DEPENDENCY_SOURCE=VCPKG is
 # handled separately in Findvcpkg.cmake, because that code must
 # run before the project() command in CMakeLists.txt
-
 if(ARROW_DEPENDENCY_SOURCE STREQUAL "CONDA")
   if(MSVC)
     set(ARROW_PACKAGE_PREFIX "$ENV{CONDA_PREFIX}/Library")
