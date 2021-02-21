@@ -200,7 +200,7 @@ class SerialReadaheadGenerator {
       }
       auto next_ptr = state_->readahead_queue.frontPtr();
       DCHECK(next_ptr != NULLPTR);
-      auto next = **next_ptr;
+      auto next = std::move(**next_ptr);
       state_->readahead_queue.popFront();
       auto last_available = state_->spaces_available.fetch_add(1);
       if (last_available == 0 && !finished) {
@@ -226,8 +226,8 @@ class SerialReadaheadGenerator {
       // to the queue messing up the order
       auto next_slot = std::make_shared<Future<T>>();
       auto written = readahead_queue.write(next_slot);
-      *next_slot = source().Then(Callback{self});
       DCHECK(written);
+      *next_slot = source().Then(Callback{self});
     }
 
     // Only accessed by the consumer end
