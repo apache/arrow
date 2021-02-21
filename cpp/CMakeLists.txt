@@ -58,6 +58,12 @@ endif()
 string(TOLOWER ${CMAKE_BUILD_TYPE} LOWERCASE_BUILD_TYPE)
 string(TOUPPER ${CMAKE_BUILD_TYPE} UPPERCASE_BUILD_TYPE)
 
+# this must be included before the project() command, because of the way
+# vcpkg (ab)uses CMAKE_TOOLCHAIN_FILE to inject its logic into CMake
+if(ARROW_DEPENDENCY_SOURCE STREQUAL "VCPKG")
+  include(Findvcpkg)
+endif()
+
 project(arrow VERSION "${ARROW_BASE_VERSION}")
 
 set(ARROW_VERSION_MAJOR "${arrow_VERSION_MAJOR}")
