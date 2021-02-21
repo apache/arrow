@@ -1125,18 +1125,21 @@ pub fn starts_with<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayR
 }
 
 /// Returns starting index of specified substring within string, or zero if it's not present. (Same as position(substring in string), but note the reversed argument order.)
-/// strpos_i32('high', 'ig') = 2
-pub fn strpos_i32(args: &[ArrayRef]) -> Result<ArrayRef> {
-    let string_array: &GenericStringArray<i32> = args[0]
+/// strpos('high', 'ig') = 2
+pub fn strpos<T: ArrowPrimitiveType>(args: &[ArrayRef]) -> Result<ArrayRef>
+where
+    T::Native: StringOffsetSizeTrait,
+{
+    let string_array: &GenericStringArray<T::Native> = args[0]
         .as_any()
-        .downcast_ref::<GenericStringArray<i32>>()
+        .downcast_ref::<GenericStringArray<T::Native>>()
         .ok_or_else(|| {
             DataFusionError::Internal("could not cast string to StringArray".to_string())
         })?;
 
-    let substring_array: &GenericStringArray<i32> = args[1]
+    let substring_array: &GenericStringArray<T::Native> = args[1]
         .as_any()
-        .downcast_ref::<GenericStringArray<i32>>()
+        .downcast_ref::<GenericStringArray<T::Native>>()
         .ok_or_else(|| {
             DataFusionError::Internal(
                 "could not cast substring to StringArray".to_string(),
@@ -1155,75 +1158,27 @@ pub fn strpos_i32(args: &[ArrayRef]) -> Result<ArrayRef> {
                     // the rfind method returns the byte index which may or may not be the same as the character index due to UTF8 encoding
                     // this method first finds the matching byte using rfind
                     // then maps that to the character index by matching on the grapheme_index of the byte_index
-                    x.to_string().rfind(substring).map_or(0, |byte_offset| {
-                        x.grapheme_indices(true)
-                            .collect::<Vec<(usize, &str)>>()
-                            .iter()
-                            .enumerate()
-                            .filter(|(_, (offset, _))| *offset == byte_offset)
-                            .map(|(index, _)| index as i32)
-                            .collect::<Vec<i32>>()
-                            .first()
-                            .unwrap()
-                            .to_owned()
-                            + 1
-                    })
+                    T::Native::from_usize(x.to_string().rfind(substring).map_or(
+                        0,
+                        |byte_offset| {
+                            x.grapheme_indices(true)
+                                .collect::<Vec<(usize, &str)>>()
+                                .iter()
+                                .enumerate()
+                                .filter(|(_, (offset, _))| *offset == byte_offset)
+                                .map(|(index, _)| index)
+                                .collect::<Vec<usize>>()
+                                .first()
+                                .unwrap()
+                                .to_owned()
+                                + 1
+                        },
+                    ))
+                    .unwrap()
                 })
             }
         })
-        .collect::<Int32Array>();
-
-    Ok(Arc::new(result) as ArrayRef)
-}
-
-/// Returns starting index of specified substring within string, or zero if it's not present. (Same as position(substring in string), but note the reversed argument order.)
-/// strpos_i64('high', 'ig') = 2
-pub fn strpos_i64(args: &[ArrayRef]) -> Result<ArrayRef> {
-    let string_array: &GenericStringArray<i64> = args[0]
-        .as_any()
-        .downcast_ref::<GenericStringArray<i64>>()
-        .ok_or_else(|| {
-            DataFusionError::Internal("could not cast string to StringArray".to_string())
-        })?;
-
-    let substring_array: &GenericStringArray<i64> = args[1]
-        .as_any()
-        .downcast_ref::<GenericStringArray<i64>>()
-        .ok_or_else(|| {
-            DataFusionError::Internal(
-                "could not cast substring to StringArray".to_string(),
-            )
-        })?;
-
-    let result = string_array
-        .iter()
-        .enumerate()
-        .map(|(i, x)| {
-            if substring_array.is_null(i) {
-                None
-            } else {
-                x.map(|x: &str| {
-                    let substring: &str = substring_array.value(i);
-                    // the rfind method returns the byte index which may or may not be the same as the character index due to UTF8 encoding
-                    // this method first finds the matching byte using rfind
-                    // then maps that to the character index by matching on the grapheme_index of the byte_index
-                    x.to_string().rfind(substring).map_or(0, |byte_offset| {
-                        x.grapheme_indices(true)
-                            .collect::<Vec<(usize, &str)>>()
-                            .iter()
-                            .enumerate()
-                            .filter(|(_, (offset, _))| *offset == byte_offset)
-                            .map(|(index, _)| index as i64)
-                            .collect::<Vec<i64>>()
-                            .first()
-                            .unwrap()
-                            .to_owned()
-                            + 1
-                    })
-                })
-            }
-        })
-        .collect::<Int64Array>();
+        .collect::<PrimitiveArray<T>>();
 
     Ok(Arc::new(result) as ArrayRef)
 }
@@ -1354,30 +1309,20 @@ pub fn substr<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
 }
 
 /// Converts the number to its equivalent hexadecimal representation.
-/// to_hex_i32(2147483647) = '7fffffff'
-pub fn to_hex_i32(args: &[ArrayRef]) -> Result<ArrayRef> {
-    let integer_array: &Int32Array =
-        args[0].as_any().downcast_ref::<Int32Array>().unwrap();
+/// to_hex(2147483647) = '7fffffff'
+pub fn to_hex<T: ArrowPrimitiveType>(args: &[ArrayRef]) -> Result<ArrayRef>
+where
+    T::Native: StringOffsetSizeTrait,
+{
+    let integer_array: &PrimitiveArray<T> = args[0]
+        .as_any()
+        .downcast_ref::<PrimitiveArray<T>>()
+        .unwrap();
 
     // first map is the iterator, second is for the `Option<_>`
     let result = integer_array
         .iter()
-        .map(|x| x.map(|x| format!("{:x}", x)))
-        .collect::<GenericStringArray<i32>>();
-
-    Ok(Arc::new(result) as ArrayRef)
-}
-
-/// Converts the number to its equivalent hexadecimal representation.
-/// to_hex_i64(9223372036854775807) = '7fffffffffffffff'
-pub fn to_hex_i64(args: &[ArrayRef]) -> Result<ArrayRef> {
-    let integer_array: &Int64Array =
-        args[0].as_any().downcast_ref::<Int64Array>().unwrap();
-
-    // first map is the iterator, second is for the `Option<_>`
-    let result = integer_array
-        .iter()
-        .map(|x| x.map(|x| format!("{:x}", x)))
+        .map(|x| x.map(|x| format!("{:x}", x.to_usize().unwrap())))
         .collect::<GenericStringArray<i32>>();
 
     Ok(Arc::new(result) as ArrayRef)

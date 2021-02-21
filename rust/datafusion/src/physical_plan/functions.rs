@@ -860,9 +860,11 @@ pub fn create_physical_expr(
             ))),
         },
         BuiltinScalarFunction::Strpos => |args| match args[0].data_type() {
-            DataType::Utf8 => make_scalar_function(string_expressions::strpos_i32)(args),
+            DataType::Utf8 => {
+                make_scalar_function(string_expressions::strpos::<Int32Type>)(args)
+            }
             DataType::LargeUtf8 => {
-                make_scalar_function(string_expressions::strpos_i64)(args)
+                make_scalar_function(string_expressions::strpos::<Int64Type>)(args)
             }
             other => Err(DataFusionError::Internal(format!(
                 "Unsupported data type {:?} for function strpos",
@@ -882,8 +884,12 @@ pub fn create_physical_expr(
             ))),
         },
         BuiltinScalarFunction::ToHex => |args| match args[0].data_type() {
-            DataType::Int32 => make_scalar_function(string_expressions::to_hex_i32)(args),
-            DataType::Int64 => make_scalar_function(string_expressions::to_hex_i64)(args),
+            DataType::Int32 => {
+                make_scalar_function(string_expressions::to_hex::<Int32Type>)(args)
+            }
+            DataType::Int64 => {
+                make_scalar_function(string_expressions::to_hex::<Int64Type>)(args)
+            }
             other => Err(DataFusionError::Internal(format!(
                 "Unsupported data type {:?} for function to_hex",
                 other,
@@ -1052,9 +1058,10 @@ fn signature(fun: &BuiltinScalarFunction) -> Signature {
         BuiltinScalarFunction::Replace | BuiltinScalarFunction::Translate => {
             Signature::Uniform(3, vec![DataType::Utf8, DataType::LargeUtf8])
         }
-        BuiltinScalarFunction::ToHex => {
-            Signature::Uniform(1, vec![DataType::Int64, DataType::Int32])
-        }
+        BuiltinScalarFunction::ToHex => Signature::OneOf(vec![
+            Signature::Exact(vec![DataType::Int32]),
+            Signature::Exact(vec![DataType::Int64]),
+        ]),
 
         // math expressions expect 1 argument of type f64 or f32
         // priority is given to f64 because e.g. `sqrt(1i32)` is in IR (real numbers) and thus we
