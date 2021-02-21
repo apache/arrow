@@ -348,13 +348,13 @@ impl Expr {
     ///
     /// This function errors when it is impossible to cast the
     /// expression to the target [arrow::datatypes::DataType].
-    pub fn cast_to(&self, cast_to_type: &DataType, schema: &DFSchema) -> Result<Expr> {
+    pub fn cast_to(self, cast_to_type: &DataType, schema: &DFSchema) -> Result<Expr> {
         let this_type = self.get_type(schema)?;
         if this_type == *cast_to_type {
-            Ok(self.clone())
+            Ok(self)
         } else if can_cast_types(&this_type, cast_to_type) {
             Ok(Expr::Cast {
-                expr: Box::new(self.clone()),
+                expr: Box::new(self),
                 data_type: cast_to_type.clone(),
             })
         } else {
@@ -365,75 +365,78 @@ impl Expr {
         }
     }
 
-    /// Equal
-    pub fn eq(&self, other: Expr) -> Expr {
-        binary_expr(self.clone(), Operator::Eq, other)
+    /// Return `self == other`
+    pub fn eq(self, other: Expr) -> Expr {
+        binary_expr(self, Operator::Eq, other)
     }
 
-    /// Not equal
-    pub fn not_eq(&self, other: Expr) -> Expr {
-        binary_expr(self.clone(), Operator::NotEq, other)
+    /// Return `self != other`
+    pub fn not_eq(self, other: Expr) -> Expr {
+        binary_expr(self, Operator::NotEq, other)
     }
 
-    /// Greater than
-    pub fn gt(&self, other: Expr) -> Expr {
-        binary_expr(self.clone(), Operator::Gt, other)
+    /// Return `self > other`
+    pub fn gt(self, other: Expr) -> Expr {
+        binary_expr(self, Operator::Gt, other)
     }
 
-    /// Greater than or equal to
-    pub fn gt_eq(&self, other: Expr) -> Expr {
-        binary_expr(self.clone(), Operator::GtEq, other)
+    /// Return `self >= other`
+    pub fn gt_eq(self, other: Expr) -> Expr {
+        binary_expr(self, Operator::GtEq, other)
     }
 
-    /// Less than
-    pub fn lt(&self, other: Expr) -> Expr {
-        binary_expr(self.clone(), Operator::Lt, other)
+    /// Return `self < other`
+    pub fn lt(self, other: Expr) -> Expr {
+        binary_expr(self, Operator::Lt, other)
     }
 
-    /// Less than or equal to
-    pub fn lt_eq(&self, other: Expr) -> Expr {
-        binary_expr(self.clone(), Operator::LtEq, other)
+    /// Return `self <= other`
+    pub fn lt_eq(self, other: Expr) -> Expr {
+        binary_expr(self, Operator::LtEq, other)
     }
 
-    /// And
-    pub fn and(&self, other: Expr) -> Expr {
-        binary_expr(self.clone(), Operator::And, other)
+    /// Return `self && other`
+    pub fn and(self, other: Expr) -> Expr {
+        binary_expr(self, Operator::And, other)
     }
 
-    /// Or
-    pub fn or(&self, other: Expr) -> Expr {
-        binary_expr(self.clone(), Operator::Or, other)
+    /// Return `self || other`
+    pub fn or(self, other: Expr) -> Expr {
+        binary_expr(self, Operator::Or, other)
     }
 
-    /// Not
-    pub fn not(&self) -> Expr {
-        Expr::Not(Box::new(self.clone()))
+    /// Return `!self`
+    #[allow(clippy::should_implement_trait)]
+    pub fn not(self) -> Expr {
+        Expr::Not(Box::new(self))
     }
 
-    /// Calculate the modulus of two expressions
-    pub fn modulus(&self, other: Expr) -> Expr {
-        binary_expr(self.clone(), Operator::Modulus, other)
+    /// Calculate the modulus of two expressions.
+    /// Return `self % other`
+    pub fn modulus(self, other: Expr) -> Expr {
+        binary_expr(self, Operator::Modulus, other)
     }
 
-    /// like (string) another expression
-    pub fn like(&self, other: Expr) -> Expr {
-        binary_expr(self.clone(), Operator::Like, other)
+    /// Return `self LIKE other`
+    pub fn like(self, other: Expr) -> Expr {
+        binary_expr(self, Operator::Like, other)
     }
 
-    /// not like another expression
-    pub fn not_like(&self, other: Expr) -> Expr {
-        binary_expr(self.clone(), Operator::NotLike, other)
+    /// Return `self NOT LIKE other`
+    pub fn not_like(self, other: Expr) -> Expr {
+        binary_expr(self, Operator::NotLike, other)
     }
 
-    /// Alias
-    pub fn alias(&self, name: &str) -> Expr {
-        Expr::Alias(Box::new(self.clone()), name.to_owned())
+    /// Return `self AS name` alias expression
+    pub fn alias(self, name: &str) -> Expr {
+        Expr::Alias(Box::new(self), name.to_owned())
     }
 
-    /// InList
-    pub fn in_list(&self, list: Vec<Expr>, negated: bool) -> Expr {
+    /// Return `self IN <list>` if `negated` is false, otherwise
+    /// return `self NOT IN <list>`.a
+    pub fn in_list(self, list: Vec<Expr>, negated: bool) -> Expr {
         Expr::InList {
-            expr: Box::new(self.clone()),
+            expr: Box::new(self),
             list,
             negated,
         }
@@ -445,9 +448,9 @@ impl Expr {
     /// # use datafusion::logical_plan::col;
     /// let sort_expr = col("foo").sort(true, true); // SORT ASC NULLS_FIRST
     /// ```
-    pub fn sort(&self, asc: bool, nulls_first: bool) -> Expr {
+    pub fn sort(self, asc: bool, nulls_first: bool) -> Expr {
         Expr::Sort {
-            expr: Box::new(self.clone()),
+            expr: Box::new(self),
             asc,
             nulls_first,
         }
@@ -784,7 +787,7 @@ pub fn in_list(expr: Expr, list: Vec<Expr>, negated: bool) -> Expr {
     }
 }
 
-/// Whether it can be represented as a literal expression
+/// Trait for converting a type to a [`Literal`] literal expression.
 pub trait Literal {
     /// convert the value to a Literal expression
     fn lit(&self) -> Expr;
