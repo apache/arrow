@@ -199,7 +199,7 @@ class SerialReadaheadGenerator {
         return Future<T>::MakeFinished(IterationTraits<T>::End());
       }
       auto next_ptr = state_->readahead_queue.frontPtr();
-      DCHECK(next_ptr != nullptr);
+      DCHECK(next_ptr != NULLPTR);
       auto next = **next_ptr;
       state_->readahead_queue.popFront();
       auto last_available = state_->spaces_available.fetch_add(1);
