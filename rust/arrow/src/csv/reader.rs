@@ -98,7 +98,8 @@ fn infer_field_schema(string: &str) -> DataType {
 ///
 /// If `max_read_records` is not set, the whole file is read to infer its schema.
 ///
-/// Return infered schema and number of records used for inference.
+/// Return infered schema and number of records used for inference. This function will also
+/// automatically reset reader cursor offset to 0 (start of the byte stream).
 pub fn infer_file_schema<R: Read + Seek>(
     reader: &mut R,
     delimiter: u8,
@@ -106,7 +107,7 @@ pub fn infer_file_schema<R: Read + Seek>(
     has_header: bool,
 ) -> Result<(Schema, usize)> {
     let (schema, records_count) =
-        infer_schema_from_reader(reader, delimiter, max_read_records, has_header)?;
+        infer_reader_schema(reader, delimiter, max_read_records, has_header)?;
     // return the reader seek back to the start
     reader.seek(SeekFrom::Start(0))?;
 
@@ -119,7 +120,7 @@ pub fn infer_file_schema<R: Read + Seek>(
 /// not set, all records are read to infer the schema.
 ///
 /// Return infered schema and number of records used for inference.
-pub fn infer_schema_from_reader<R: Read>(
+pub fn infer_reader_schema<R: Read>(
     reader: &mut R,
     delimiter: u8,
     max_read_records: Option<usize>,
