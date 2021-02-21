@@ -28,8 +28,12 @@
 pub use crate::dataframe::DataFrame;
 pub use crate::execution::context::{ExecutionConfig, ExecutionContext};
 pub use crate::logical_plan::{
-    array, avg, bit_length, character_length, col, concat, count, create_udf, in_list,
-    length, lit, lower, ltrim, max, md5, min, octet_length, rtrim, sha224, sha256,
-    sha384, sha512, sum, trim, upper, JoinType, Partitioning,
+    abs, acos, and, array, ascii, asin, atan, avg, binary_expr, bit_length, btrim, case,
+    ceil, character_length, chr, col, concat, concat_ws, cos, count, count_distinct,
+    create_udaf, create_udf, exp, exprlist_to_fields, floor, in_list, initcap, left, lit,
+    ln, log10, log2, lower, lpad, ltrim, max, md5, min, octet_length, or, regexp_replace,
+    repeat, replace, reverse, right, round, rpad, rtrim, sha224, sha256, sha384, sha512,
+    signum, sin, split_part, sqrt, starts_with, strpos, substr, sum, tan, translate,
+    trim, trunc, upper, when, Expr, JoinType, Literal, Partitioning,
 };
 pub use crate::physical_plan::csv::CsvReadOptions;

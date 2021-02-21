@@ -156,6 +156,9 @@
 extern crate arrow;
 extern crate sqlparser;
 
+#[macro_use]
+extern crate lazy_static;
+
 pub mod dataframe;
 pub mod datasource;
 pub mod error;

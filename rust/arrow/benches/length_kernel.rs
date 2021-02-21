@@ -21,8 +21,7 @@ use criterion::Criterion;
 
 extern crate arrow;
 
-use arrow::array::*;
-use arrow::compute::kernels::length::length;
+use arrow::{array::*, compute::kernels::length::length};
 
 fn bench_length(array: &StringArray) {
     criterion::black_box(length(array).unwrap());

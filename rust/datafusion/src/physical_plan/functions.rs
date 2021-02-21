@@ -56,6 +56,17 @@ use std::{any::Any, fmt, str::FromStr, sync::Arc};
 /// A function's signature, which defines the function's supported argument types.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Signature {
+    /// fixed number of arguments of arbitrary types
+    Any(usize),
+    /// exact number of arguments of an exact type
+    Exact(Vec<DataType>),
+    /// One of a list of signatures
+    OneOf(Vec<Signature>),
+    /// fixed number of arguments of an arbitrary but equal type out of a list of valid types
+    // A function of one argument of f64 is `Uniform(1, vec![DataType::Float64])`
+    // A function of one argument of f64 or f32 is `Uniform(1, vec![DataType::Float32, DataType::Float64])`
+    // A function of two arguments where both arguments must be the same type of f64 or f32 is `Uniform(2, vec![DataType::Float32, DataType::Float64])`
+    Uniform(usize, Vec<DataType>),
     /// arbitrary number of arguments of an common type out of a list of valid types
     // A function such as `concat` is `Variadic(vec![DataType::Utf8, DataType::LargeUtf8])`
     Variadic(Vec<DataType>),
@@ -63,16 +74,6 @@ pub enum Signature {
     // A function such as `array` is `VariadicEqual`
     // The first argument decides the type used for coercion
     VariadicEqual,
-    /// fixed number of arguments of an arbitrary but equal type out of a list of valid types
-    // A function of one argument of f64 is `Uniform(1, vec![DataType::Float64])`
-    // A function of one argument of f64 or f32 is `Uniform(1, vec![DataType::Float32, DataType::Float64])`
-    Uniform(usize, Vec<DataType>),
-    /// exact number of arguments of an exact type
-    Exact(Vec<DataType>),
-    /// fixed number of arguments of arbitrary types
-    Any(usize),
-    /// One of a list of signatures
-    OneOf(Vec<Signature>),
 }
 
 /// Scalar function
@@ -120,20 +121,64 @@ pub enum BuiltinScalarFunction {
     Abs,
     /// signum
     Signum,
+    /// ascii
+    Ascii,
+    /// bit_length
+    BitLength,
+    /// btrim
+    Btrim,
+    /// character_length
+    CharacterLength,
+    /// chr
+    Chr,
     /// concat
     Concat,
+    /// concat_ws
+    ConcatWithSeparator,
+    /// initcap
+    InitCap,
+    /// left
+    Left,
+    /// lpad
+    Lpad,
     /// lower
     Lower,
-    /// upper
-    Upper,
-    /// trim
-    Trim,
     /// trim left
     Ltrim,
-    /// trim right
+    /// length
+    OctetLength,
+    /// regexp_replace
+    RegexpReplace,
+    /// repeat
+    Repeat,
+    /// replace
+    Replace,
+    /// reverse
+    Reverse,
+    /// right
+    Right,
+    /// rpad
+    Rpad,
+    /// rtrim
     Rtrim,
+    /// split_part
+    SplitPart,
+    /// starts_with
+    StartsWith,
+    /// strpos
+    Strpos,
+    /// substr
+    Substr,
+    /// to_hex
+    ToHex,
+    /// translate
+    Translate,
+    /// trim
+    Trim,
     /// to_timestamp
     ToTimestamp,
+    /// upper
+    Upper,
     /// construct an array from columns
     Array,
     /// SQL NULLIF()
@@ -152,12 +197,6 @@ pub enum BuiltinScalarFunction {
     SHA384,
     /// SHA512,
     SHA512,
-    /// bit_length
-    BitLength,
-    /// character_length
-    CharacterLength,
-    /// octet_length
-    OctetLength,
 }
 
 impl fmt::Display for BuiltinScalarFunction {
@@ -188,11 +227,35 @@ impl FromStr for BuiltinScalarFunction {
             "truc" => BuiltinScalarFunction::Trunc,
             "abs" => BuiltinScalarFunction::Abs,
             "signum" => BuiltinScalarFunction::Signum,
+            "ascii" => BuiltinScalarFunction::Ascii,
+            "bit_length" => BuiltinScalarFunction::BitLength,
+            "btrim" => BuiltinScalarFunction::Btrim,
+            "chr" => BuiltinScalarFunction::Chr,
+            "char_length" => BuiltinScalarFunction::CharacterLength,
+            "character_length" => BuiltinScalarFunction::CharacterLength,
             "concat" => BuiltinScalarFunction::Concat,
+            "concat_ws" => BuiltinScalarFunction::ConcatWithSeparator,
+            "initcap" => BuiltinScalarFunction::InitCap,
+            "left" => BuiltinScalarFunction::Left,
+            "length" => BuiltinScalarFunction::CharacterLength,
+            "lpad" => BuiltinScalarFunction::Lpad,
             "lower" => BuiltinScalarFunction::Lower,
-            "trim" => BuiltinScalarFunction::Trim,
             "ltrim" => BuiltinScalarFunction::Ltrim,
+            "octet_length" => BuiltinScalarFunction::OctetLength,
+            "regexp_replace" => BuiltinScalarFunction::RegexpReplace,
+            "repeat" => BuiltinScalarFunction::Repeat,
+            "replace" => BuiltinScalarFunction::Replace,
+            "reverse" => BuiltinScalarFunction::Reverse,
+            "right" => BuiltinScalarFunction::Right,
+            "rpad" => BuiltinScalarFunction::Rpad,
             "rtrim" => BuiltinScalarFunction::Rtrim,
+            "split_part" => BuiltinScalarFunction::SplitPart,
+            "starts_with" => BuiltinScalarFunction::StartsWith,
+            "strpos" => BuiltinScalarFunction::Strpos,
+            "substr" => BuiltinScalarFunction::Substr,
+            "to_hex" => BuiltinScalarFunction::ToHex,
+            "translate" => BuiltinScalarFunction::Translate,
+            "trim" => BuiltinScalarFunction::Trim,
             "upper" => BuiltinScalarFunction::Upper,
             "to_timestamp" => BuiltinScalarFunction::ToTimestamp,
             "date_trunc" => BuiltinScalarFunction::DateTrunc,
@@ -204,11 +267,6 @@ impl FromStr for BuiltinScalarFunction {
             "sha256" => BuiltinScalarFunction::SHA256,
             "sha384" => BuiltinScalarFunction::SHA384,
             "sha512" => BuiltinScalarFunction::SHA512,
-            "bit_length" => BuiltinScalarFunction::BitLength,
-            "octet_length" => BuiltinScalarFunction::OctetLength,
-            "length" => BuiltinScalarFunction::CharacterLength,
-            "char_length" => BuiltinScalarFunction::CharacterLength,
-            "character_length" => BuiltinScalarFunction::CharacterLength,
             _ => {
                 return Err(DataFusionError::Plan(format!(
                     "There is no built-in function named {}",
@@ -242,14 +300,77 @@ pub fn return_type(
     // the return type of the built in function.
     // Some built-in functions' return type depends on the incoming type.
     match fun {
+        BuiltinScalarFunction::Ascii => Ok(DataType::Int32),
+        BuiltinScalarFunction::BitLength => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::Int64,
+            DataType::Utf8 => DataType::Int32,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The bit_length function can only accept strings.".to_string(),
+                ));
+            }
+        }),
+        BuiltinScalarFunction::Btrim => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::LargeUtf8,
+            DataType::Utf8 => DataType::Utf8,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The btrim function can only accept strings.".to_string(),
+                ));
+            }
+        }),
+        BuiltinScalarFunction::CharacterLength => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::Int64,
+            DataType::Utf8 => DataType::Int32,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The character_length function can only accept strings.".to_string(),
+                ));
+            }
+        }),
+        BuiltinScalarFunction::Chr => Ok(DataType::Utf8),
         BuiltinScalarFunction::Concat => Ok(DataType::Utf8),
+        BuiltinScalarFunction::ConcatWithSeparator => Ok(DataType::Utf8),
+        BuiltinScalarFunction::InitCap => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::LargeUtf8,
+            DataType::Utf8 => DataType::Utf8,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The initcap function can only accept strings.".to_string(),
+                ));
+            }
+        }),
+        BuiltinScalarFunction::Left => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::LargeUtf8,
+            DataType::Utf8 => DataType::Utf8,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The left function can only accept strings.".to_string(),
+                ));
+            }
+        }),
         BuiltinScalarFunction::Lower => Ok(match arg_types[0] {
             DataType::LargeUtf8 => DataType::LargeUtf8,
             DataType::Utf8 => DataType::Utf8,
             _ => {
                 // this error is internal as `data_types` should have captured this.
                 return Err(DataFusionError::Internal(
-                    "The upper function can only accept strings.".to_string(),
+                    "The left function can only accept strings.".to_string(),
+                ));
+            }
+        }),
+        BuiltinScalarFunction::Lpad => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::LargeUtf8,
+            DataType::Utf8 => DataType::Utf8,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The lpad function can only accept strings.".to_string(),
                 ));
             }
         }),
@@ -263,6 +384,76 @@ pub fn return_type(
                 ));
             }
         }),
+        BuiltinScalarFunction::OctetLength => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::Int64,
+            DataType::Utf8 => DataType::Int32,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The octet_length function can only accept strings.".to_string(),
+                ));
+            }
+        }),
+        BuiltinScalarFunction::RegexpReplace => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::LargeUtf8,
+            DataType::Utf8 => DataType::Utf8,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The regexp_replace function can only accept strings.".to_string(),
+                ));
+            }
+        }),
+        BuiltinScalarFunction::Repeat => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::LargeUtf8,
+            DataType::Utf8 => DataType::Utf8,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The repeat function can only accept strings.".to_string(),
+                ));
+            }
+        }),
+        BuiltinScalarFunction::Replace => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::LargeUtf8,
+            DataType::Utf8 => DataType::Utf8,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The replace function can only accept strings.".to_string(),
+                ));
+            }
+        }),
+        BuiltinScalarFunction::Reverse => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::LargeUtf8,
+            DataType::Utf8 => DataType::Utf8,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The reverse function can only accept strings.".to_string(),
+                ));
+            }
+        }),
+        BuiltinScalarFunction::Right => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::LargeUtf8,
+            DataType::Utf8 => DataType::Utf8,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The right function can only accept strings.".to_string(),
+                ));
+            }
+        }),
+        BuiltinScalarFunction::Rpad => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::LargeUtf8,
+            DataType::Utf8 => DataType::Utf8,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The rpad function can only accept strings.".to_string(),
+                ));
+            }
+        }),
         BuiltinScalarFunction::Rtrim => Ok(match arg_types[0] {
             DataType::LargeUtf8 => DataType::LargeUtf8,
             DataType::Utf8 => DataType::Utf8,
@@ -270,6 +461,58 @@ pub fn return_type(
                 // this error is internal as `data_types` should have captured this.
                 return Err(DataFusionError::Internal(
                     "The rtrim function can only accept strings.".to_string(),
+                ));
+            }
+        }),
+        BuiltinScalarFunction::SplitPart => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::LargeUtf8,
+            DataType::Utf8 => DataType::Utf8,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The split_part function can only accept strings.".to_string(),
+                ));
+            }
+        }),
+        BuiltinScalarFunction::StartsWith => Ok(DataType::Boolean),
+        BuiltinScalarFunction::Strpos => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::Int64,
+            DataType::Utf8 => DataType::Int32,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The strpos function can only accept strings.".to_string(),
+                ));
+            }
+        }),
+        BuiltinScalarFunction::Substr => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::LargeUtf8,
+            DataType::Utf8 => DataType::Utf8,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The substr function can only accept strings.".to_string(),
+                ));
+            }
+        }),
+        BuiltinScalarFunction::ToHex => Ok(match arg_types[0] {
+            DataType::Int8 | DataType::Int16 | DataType::Int32 | DataType::Int64 => {
+                DataType::Utf8
+            }
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The to_hex function can only accept integers.".to_string(),
+                ));
+            }
+        }),
+        BuiltinScalarFunction::Translate => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::LargeUtf8,
+            DataType::Utf8 => DataType::Utf8,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The translate function can only accept strings.".to_string(),
                 ));
             }
         }),
@@ -359,36 +602,6 @@ pub fn return_type(
                 ));
             }
         }),
-        BuiltinScalarFunction::BitLength => Ok(match arg_types[0] {
-            DataType::LargeUtf8 => DataType::Int64,
-            DataType::Utf8 => DataType::Int32,
-            _ => {
-                // this error is internal as `data_types` should have captured this.
-                return Err(DataFusionError::Internal(
-                    "The bit_length function can only accept strings.".to_string(),
-                ));
-            }
-        }),
-        BuiltinScalarFunction::CharacterLength => Ok(match arg_types[0] {
-            DataType::LargeUtf8 => DataType::Int64,
-            DataType::Utf8 => DataType::Int32,
-            _ => {
-                // this error is internal as `data_types` should have captured this.
-                return Err(DataFusionError::Internal(
-                    "The character_length function can only accept strings.".to_string(),
-                ));
-            }
-        }),
-        BuiltinScalarFunction::OctetLength => Ok(match arg_types[0] {
-            DataType::LargeUtf8 => DataType::Int64,
-            DataType::Utf8 => DataType::Int32,
-            _ => {
-                // this error is internal as `data_types` should have captured this.
-                return Err(DataFusionError::Internal(
-                    "The octet_length function can only accept strings.".to_string(),
-                ));
-            }
-        }),
         _ => Ok(DataType::Float64),
     }
 }
@@ -424,15 +637,21 @@ pub fn create_physical_expr(
         BuiltinScalarFunction::SHA256 => crypto_expressions::sha256,
         BuiltinScalarFunction::SHA384 => crypto_expressions::sha384,
         BuiltinScalarFunction::SHA512 => crypto_expressions::sha512,
-        BuiltinScalarFunction::Concat => string_expressions::concatenate,
-        BuiltinScalarFunction::Lower => string_expressions::lower,
-        BuiltinScalarFunction::Trim => string_expressions::trim,
-        BuiltinScalarFunction::Ltrim => string_expressions::ltrim,
-        BuiltinScalarFunction::Rtrim => string_expressions::rtrim,
-        BuiltinScalarFunction::Upper => string_expressions::upper,
         BuiltinScalarFunction::ToTimestamp => datetime_expressions::to_timestamp,
         BuiltinScalarFunction::DateTrunc => datetime_expressions::date_trunc,
         BuiltinScalarFunction::Array => array_expressions::array,
+        BuiltinScalarFunction::Ascii => |args| match args[0].data_type() {
+            DataType::Utf8 => {
+                make_scalar_function(string_expressions::ascii::<i32>)(args)
+            }
+            DataType::LargeUtf8 => {
+                make_scalar_function(string_expressions::ascii::<i64>)(args)
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function ascii",
+                other,
+            ))),
+        },
         BuiltinScalarFunction::BitLength => |args| match &args[0] {
             ColumnarValue::Array(v) => Ok(ColumnarValue::Array(bit_length(v.as_ref())?)),
             ColumnarValue::Scalar(v) => match v {
@@ -445,6 +664,18 @@ pub fn create_physical_expr(
                 _ => unreachable!(),
             },
         },
+        BuiltinScalarFunction::Btrim => |args| match args[0].data_type() {
+            DataType::Utf8 => {
+                make_scalar_function(string_expressions::btrim::<i32>)(args)
+            }
+            DataType::LargeUtf8 => {
+                make_scalar_function(string_expressions::btrim::<i64>)(args)
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function btrim",
+                other,
+            ))),
+        },
         BuiltinScalarFunction::CharacterLength => |args| match args[0].data_type() {
             DataType::Utf8 => make_scalar_function(
                 string_expressions::character_length::<Int32Type>,
@@ -454,6 +685,58 @@ pub fn create_physical_expr(
             )(args),
             other => Err(DataFusionError::Internal(format!(
                 "Unsupported data type {:?} for function character_length",
+                other,
+            ))),
+        },
+        BuiltinScalarFunction::Chr => {
+            |args| make_scalar_function(string_expressions::chr)(args)
+        }
+        BuiltinScalarFunction::Concat => string_expressions::concat,
+        BuiltinScalarFunction::ConcatWithSeparator => {
+            |args| make_scalar_function(string_expressions::concat_ws)(args)
+        }
+        BuiltinScalarFunction::InitCap => |args| match args[0].data_type() {
+            DataType::Utf8 => {
+                make_scalar_function(string_expressions::initcap::<i32>)(args)
+            }
+            DataType::LargeUtf8 => {
+                make_scalar_function(string_expressions::initcap::<i64>)(args)
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function initcap",
+                other,
+            ))),
+        },
+        BuiltinScalarFunction::Left => |args| match args[0].data_type() {
+            DataType::Utf8 => make_scalar_function(string_expressions::left::<i32>)(args),
+            DataType::LargeUtf8 => {
+                make_scalar_function(string_expressions::left::<i64>)(args)
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function left",
+                other,
+            ))),
+        },
+        BuiltinScalarFunction::Lower => string_expressions::lower,
+        BuiltinScalarFunction::Lpad => |args| match args[0].data_type() {
+            DataType::Utf8 => make_scalar_function(string_expressions::lpad::<i32>)(args),
+            DataType::LargeUtf8 => {
+                make_scalar_function(string_expressions::lpad::<i64>)(args)
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function lpad",
+                other,
+            ))),
+        },
+        BuiltinScalarFunction::Ltrim => |args| match args[0].data_type() {
+            DataType::Utf8 => {
+                make_scalar_function(string_expressions::ltrim::<i32>)(args)
+            }
+            DataType::LargeUtf8 => {
+                make_scalar_function(string_expressions::ltrim::<i64>)(args)
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function ltrim",
                 other,
             ))),
         },
@@ -470,6 +753,167 @@ pub fn create_physical_expr(
             },
         },
         BuiltinScalarFunction::DatePart => datetime_expressions::date_part,
+        BuiltinScalarFunction::RegexpReplace => |args| match args[0].data_type() {
+            DataType::Utf8 => {
+                make_scalar_function(string_expressions::regexp_replace::<i32>)(args)
+            }
+            DataType::LargeUtf8 => {
+                make_scalar_function(string_expressions::regexp_replace::<i64>)(args)
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function regexp_replace",
+                other,
+            ))),
+        },
+        BuiltinScalarFunction::Repeat => |args| match args[0].data_type() {
+            DataType::Utf8 => {
+                make_scalar_function(string_expressions::repeat::<i32>)(args)
+            }
+            DataType::LargeUtf8 => {
+                make_scalar_function(string_expressions::repeat::<i64>)(args)
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function repeat",
+                other,
+            ))),
+        },
+        BuiltinScalarFunction::Replace => |args| match args[0].data_type() {
+            DataType::Utf8 => {
+                make_scalar_function(string_expressions::replace::<i32>)(args)
+            }
+            DataType::LargeUtf8 => {
+                make_scalar_function(string_expressions::replace::<i64>)(args)
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function replace",
+                other,
+            ))),
+        },
+        BuiltinScalarFunction::Reverse => |args| match args[0].data_type() {
+            DataType::Utf8 => {
+                make_scalar_function(string_expressions::reverse::<i32>)(args)
+            }
+            DataType::LargeUtf8 => {
+                make_scalar_function(string_expressions::reverse::<i64>)(args)
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function reverse",
+                other,
+            ))),
+        },
+        BuiltinScalarFunction::Right => |args| match args[0].data_type() {
+            DataType::Utf8 => {
+                make_scalar_function(string_expressions::right::<i32>)(args)
+            }
+            DataType::LargeUtf8 => {
+                make_scalar_function(string_expressions::right::<i64>)(args)
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function right",
+                other,
+            ))),
+        },
+        BuiltinScalarFunction::Rpad => |args| match args[0].data_type() {
+            DataType::Utf8 => make_scalar_function(string_expressions::rpad::<i32>)(args),
+            DataType::LargeUtf8 => {
+                make_scalar_function(string_expressions::rpad::<i64>)(args)
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function rpad",
+                other,
+            ))),
+        },
+        BuiltinScalarFunction::Rtrim => |args| match args[0].data_type() {
+            DataType::Utf8 => {
+                make_scalar_function(string_expressions::rtrim::<i32>)(args)
+            }
+            DataType::LargeUtf8 => {
+                make_scalar_function(string_expressions::rtrim::<i64>)(args)
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function rtrim",
+                other,
+            ))),
+        },
+        BuiltinScalarFunction::SplitPart => |args| match args[0].data_type() {
+            DataType::Utf8 => {
+                make_scalar_function(string_expressions::split_part::<i32>)(args)
+            }
+            DataType::LargeUtf8 => {
+                make_scalar_function(string_expressions::split_part::<i64>)(args)
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function split_part",
+                other,
+            ))),
+        },
+        BuiltinScalarFunction::StartsWith => |args| match args[0].data_type() {
+            DataType::Utf8 => {
+                make_scalar_function(string_expressions::starts_with::<i32>)(args)
+            }
+            DataType::LargeUtf8 => {
+                make_scalar_function(string_expressions::starts_with::<i64>)(args)
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function starts_with",
+                other,
+            ))),
+        },
+        BuiltinScalarFunction::Strpos => |args| match args[0].data_type() {
+            DataType::Utf8 => make_scalar_function(string_expressions::strpos_i32)(args),
+            DataType::LargeUtf8 => {
+                make_scalar_function(string_expressions::strpos_i64)(args)
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function strpos",
+                other,
+            ))),
+        },
+        BuiltinScalarFunction::Substr => |args| match args[0].data_type() {
+            DataType::Utf8 => {
+                make_scalar_function(string_expressions::substr::<i32>)(args)
+            }
+            DataType::LargeUtf8 => {
+                make_scalar_function(string_expressions::substr::<i64>)(args)
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function substr",
+                other,
+            ))),
+        },
+        BuiltinScalarFunction::ToHex => |args| match args[0].data_type() {
+            DataType::Int32 => make_scalar_function(string_expressions::to_hex_i32)(args),
+            DataType::Int64 => make_scalar_function(string_expressions::to_hex_i64)(args),
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function to_hex",
+                other,
+            ))),
+        },
+        BuiltinScalarFunction::Translate => |args| match args[0].data_type() {
+            DataType::Utf8 => {
+                make_scalar_function(string_expressions::translate::<i32>)(args)
+            }
+            DataType::LargeUtf8 => {
+                make_scalar_function(string_expressions::translate::<i64>)(args)
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function translate",
+                other,
+            ))),
+        },
+        BuiltinScalarFunction::Trim => |args| match args[0].data_type() {
+            DataType::Utf8 => {
+                make_scalar_function(string_expressions::btrim::<i32>)(args)
+            }
+            DataType::LargeUtf8 => {
+                make_scalar_function(string_expressions::btrim::<i64>)(args)
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function trim",
+                other,
+            ))),
+        },
+        BuiltinScalarFunction::Upper => string_expressions::upper,
     });
     // coerce
     let args = coerce(args, input_schema, &signature(fun))?;
@@ -491,24 +935,82 @@ pub fn create_physical_expr(
 fn signature(fun: &BuiltinScalarFunction) -> Signature {
     // note: the physical expression must accept the type returned by this function or the execution panics.
 
-    // for now, the list is small, as we do not have many built-in functions.
     match fun {
         BuiltinScalarFunction::Concat => Signature::Variadic(vec![DataType::Utf8]),
-        BuiltinScalarFunction::Upper
-        | BuiltinScalarFunction::Lower
+        BuiltinScalarFunction::ConcatWithSeparator => {
+            Signature::Variadic(vec![DataType::Utf8])
+        }
+        BuiltinScalarFunction::Ascii
         | BuiltinScalarFunction::BitLength
         | BuiltinScalarFunction::CharacterLength
-        | BuiltinScalarFunction::OctetLength
-        | BuiltinScalarFunction::Trim
-        | BuiltinScalarFunction::Ltrim
-        | BuiltinScalarFunction::Rtrim
+        | BuiltinScalarFunction::InitCap
+        | BuiltinScalarFunction::Lower
         | BuiltinScalarFunction::MD5
+        | BuiltinScalarFunction::OctetLength
+        | BuiltinScalarFunction::Reverse
         | BuiltinScalarFunction::SHA224
         | BuiltinScalarFunction::SHA256
         | BuiltinScalarFunction::SHA384
-        | BuiltinScalarFunction::SHA512 => {
+        | BuiltinScalarFunction::SHA512
+        | BuiltinScalarFunction::Trim
+        | BuiltinScalarFunction::Upper => {
             Signature::Uniform(1, vec![DataType::Utf8, DataType::LargeUtf8])
         }
+        BuiltinScalarFunction::Btrim
+        | BuiltinScalarFunction::Ltrim
+        | BuiltinScalarFunction::Rtrim => {
+            Signature::Variadic(vec![DataType::Utf8, DataType::LargeUtf8])
+        }
+        BuiltinScalarFunction::Lpad | BuiltinScalarFunction::Rpad => {
+            Signature::OneOf(vec![
+                Signature::Exact(vec![DataType::Utf8, DataType::Int64]),
+                Signature::Exact(vec![DataType::LargeUtf8, DataType::Int64]),
+                Signature::Exact(vec![DataType::Utf8, DataType::Int64, DataType::Utf8]),
+                Signature::Exact(vec![
+                    DataType::LargeUtf8,
+                    DataType::Int64,
+                    DataType::Utf8,
+                ]),
+                Signature::Exact(vec![
+                    DataType::Utf8,
+                    DataType::Int64,
+                    DataType::LargeUtf8,
+                ]),
+                Signature::Exact(vec![
+                    DataType::LargeUtf8,
+                    DataType::Int64,
+                    DataType::LargeUtf8,
+                ]),
+            ])
+        }
+        BuiltinScalarFunction::SplitPart => Signature::OneOf(vec![
+            Signature::Exact(vec![DataType::Utf8, DataType::Utf8, DataType::Int64]),
+            Signature::Exact(vec![DataType::LargeUtf8, DataType::Utf8, DataType::Int64]),
+            Signature::Exact(vec![DataType::Utf8, DataType::LargeUtf8, DataType::Int64]),
+            Signature::Exact(vec![
+                DataType::LargeUtf8,
+                DataType::LargeUtf8,
+                DataType::Int64,
+            ]),
+        ]),
+        BuiltinScalarFunction::Strpos | BuiltinScalarFunction::StartsWith => {
+            Signature::Uniform(2, vec![DataType::Utf8, DataType::LargeUtf8])
+        }
+        BuiltinScalarFunction::Substr => Signature::OneOf(vec![
+            Signature::Exact(vec![DataType::Utf8, DataType::Int64]),
+            Signature::Exact(vec![DataType::LargeUtf8, DataType::Int64]),
+            Signature::Exact(vec![DataType::Utf8, DataType::Int64, DataType::Int64]),
+            Signature::Exact(vec![DataType::LargeUtf8, DataType::Int64, DataType::Int64]),
+        ]),
+        BuiltinScalarFunction::RegexpReplace => Signature::OneOf(vec![
+            Signature::Exact(vec![DataType::Utf8, DataType::Utf8, DataType::Utf8]),
+            Signature::Exact(vec![
+                DataType::Utf8,
+                DataType::Utf8,
+                DataType::Utf8,
+                DataType::Utf8,
+            ]),
+        ]),
         BuiltinScalarFunction::ToTimestamp => Signature::Uniform(1, vec![DataType::Utf8]),
         BuiltinScalarFunction::DateTrunc => Signature::Exact(vec![
             DataType::Utf8,
@@ -540,6 +1042,20 @@ fn signature(fun: &BuiltinScalarFunction) -> Signature {
         BuiltinScalarFunction::NullIf => {
             Signature::Uniform(2, SUPPORTED_NULLIF_TYPES.to_vec())
         }
+        BuiltinScalarFunction::Left
+        | BuiltinScalarFunction::Repeat
+        | BuiltinScalarFunction::Right => Signature::OneOf(vec![Signature::Exact(vec![
+            DataType::Utf8,
+            DataType::Int64,
+        ])]),
+        BuiltinScalarFunction::Chr => Signature::Uniform(1, vec![DataType::Int64]),
+        BuiltinScalarFunction::Replace | BuiltinScalarFunction::Translate => {
+            Signature::Uniform(3, vec![DataType::Utf8, DataType::LargeUtf8])
+        }
+        BuiltinScalarFunction::ToHex => {
+            Signature::Uniform(1, vec![DataType::Int64, DataType::Int32])
+        }
+
         // math expressions expect 1 argument of type f64 or f32
         // priority is given to f64 because e.g. `sqrt(1i32)` is in IR (real numbers) and thus we
         // return the best approximation for it (in f64).
@@ -696,8 +1212,8 @@ mod tests {
     };
     use arrow::{
         array::{
-            Array, ArrayRef, FixedSizeListArray, Float64Array, Int32Array, StringArray,
-            UInt32Array, UInt64Array,
+            Array, ArrayRef, BooleanArray, FixedSizeListArray, Float64Array, Int32Array,
+            StringArray, UInt32Array, UInt64Array,
         },
         datatypes::Field,
         record_batch::RecordBatch,
@@ -754,6 +1270,154 @@ mod tests {
     #[test]
     fn test_functions() -> Result<()> {
         test_function!(
+            Ascii,
+            &[lit(ScalarValue::Utf8(Some("x".to_string())))],
+            Ok(Some(120)),
+            i32,
+            Int32,
+            Int32Array
+        );
+        test_function!(
+            Ascii,
+            &[lit(ScalarValue::Utf8(Some("ésoj".to_string())))],
+            Ok(Some(233)),
+            i32,
+            Int32,
+            Int32Array
+        );
+        test_function!(
+            Ascii,
+            &[lit(ScalarValue::Utf8(Some("💯".to_string())))],
+            Ok(Some(128175)),
+            i32,
+            Int32,
+            Int32Array
+        );
+        test_function!(
+            Ascii,
+            &[lit(ScalarValue::Utf8(Some("💯a".to_string())))],
+            Ok(Some(128175)),
+            i32,
+            Int32,
+            Int32Array
+        );
+        test_function!(
+            Ascii,
+            &[lit(ScalarValue::Utf8(Some("".to_string())))],
+            Ok(Some(0)),
+            i32,
+            Int32,
+            Int32Array
+        );
+        test_function!(
+            Ascii,
+            &[lit(ScalarValue::Utf8(None))],
+            Ok(None),
+            i32,
+            Int32,
+            Int32Array
+        );
+        test_function!(
+            BitLength,
+            &[lit(ScalarValue::Utf8(Some("chars".to_string())))],
+            Ok(Some(40)),
+            i32,
+            Int32,
+            Int32Array
+        );
+        test_function!(
+            BitLength,
+            &[lit(ScalarValue::Utf8(Some("josé".to_string())))],
+            Ok(Some(40)),
+            i32,
+            Int32,
+            Int32Array
+        );
+        test_function!(
+            BitLength,
+            &[lit(ScalarValue::Utf8(Some("".to_string())))],
+            Ok(Some(0)),
+            i32,
+            Int32,
+            Int32Array
+        );
+        test_function!(
+            Btrim,
+            &[lit(ScalarValue::Utf8(Some(" trim ".to_string())))],
+            Ok(Some("trim")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Btrim,
+            &[lit(ScalarValue::Utf8(Some(" trim".to_string())))],
+            Ok(Some("trim")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Btrim,
+            &[lit(ScalarValue::Utf8(Some("trim ".to_string())))],
+            Ok(Some("trim")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Btrim,
+            &[lit(ScalarValue::Utf8(Some("\n trim \n".to_string())))],
+            Ok(Some("\n trim \n")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Btrim,
+            &[
+                lit(ScalarValue::Utf8(Some("xyxtrimyyx".to_string()))),
+                lit(ScalarValue::Utf8(Some("xyz".to_string()))),
+            ],
+            Ok(Some("trim")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Btrim,
+            &[
+                lit(ScalarValue::Utf8(Some("\nxyxtrimyyx\n".to_string()))),
+                lit(ScalarValue::Utf8(Some("xyz\n".to_string()))),
+            ],
+            Ok(Some("trim")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Btrim,
+            &[
+                lit(ScalarValue::Utf8(None)),
+                lit(ScalarValue::Utf8(Some("xyz".to_string()))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Btrim,
+            &[
+                lit(ScalarValue::Utf8(Some("xyxtrimyyx".to_string()))),
+                lit(ScalarValue::Utf8(None)),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
             CharacterLength,
             &[lit(ScalarValue::Utf8(Some("chars".to_string())))],
             Ok(Some(5)),
@@ -784,6 +1448,148 @@ mod tests {
             i32,
             Int32,
             Int32Array
+        );
+        test_function!(
+            Chr,
+            &[lit(ScalarValue::Int64(Some(128175)))],
+            Ok(Some("💯")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Chr,
+            &[lit(ScalarValue::Int64(None))],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Chr,
+            &[lit(ScalarValue::Int64(Some(120)))],
+            Ok(Some("x")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Chr,
+            &[lit(ScalarValue::Int64(Some(128175)))],
+            Ok(Some("💯")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Chr,
+            &[lit(ScalarValue::Int64(None))],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Chr,
+            &[lit(ScalarValue::Int64(Some(0)))],
+            Err(DataFusionError::Execution(
+                "null character not permitted.".to_string(),
+            )),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Chr,
+            &[lit(ScalarValue::Int64(Some(i64::MAX)))],
+            Err(DataFusionError::Execution(
+                "requested character too large for encoding.".to_string(),
+            )),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Concat,
+            &[
+                lit(ScalarValue::Utf8(Some("aa".to_string()))),
+                lit(ScalarValue::Utf8(Some("bb".to_string()))),
+                lit(ScalarValue::Utf8(Some("cc".to_string()))),
+            ],
+            Ok(Some("aabbcc")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Concat,
+            &[
+                lit(ScalarValue::Utf8(Some("aa".to_string()))),
+                lit(ScalarValue::Utf8(None)),
+                lit(ScalarValue::Utf8(Some("cc".to_string()))),
+            ],
+            Ok(Some("aacc")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Concat,
+            &[lit(ScalarValue::Utf8(None))],
+            Ok(Some("")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            ConcatWithSeparator,
+            &[
+                lit(ScalarValue::Utf8(Some("|".to_string()))),
+                lit(ScalarValue::Utf8(Some("aa".to_string()))),
+                lit(ScalarValue::Utf8(Some("bb".to_string()))),
+                lit(ScalarValue::Utf8(Some("cc".to_string()))),
+            ],
+            Ok(Some("aa|bb|cc")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            ConcatWithSeparator,
+            &[
+                lit(ScalarValue::Utf8(Some("|".to_string()))),
+                lit(ScalarValue::Utf8(None)),
+            ],
+            Ok(Some("")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            ConcatWithSeparator,
+            &[
+                lit(ScalarValue::Utf8(None)),
+                lit(ScalarValue::Utf8(Some("aa".to_string()))),
+                lit(ScalarValue::Utf8(Some("bb".to_string()))),
+                lit(ScalarValue::Utf8(Some("cc".to_string()))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            ConcatWithSeparator,
+            &[
+                lit(ScalarValue::Utf8(Some("|".to_string()))),
+                lit(ScalarValue::Utf8(Some("aa".to_string()))),
+                lit(ScalarValue::Utf8(None)),
+                lit(ScalarValue::Utf8(Some("cc".to_string()))),
+            ],
+            Ok(Some("aa|cc")),
+            &str,
+            Utf8,
+            StringArray
         );
         test_function!(
             Exp,
@@ -825,40 +1631,1430 @@ mod tests {
             Float64,
             Float64Array
         );
+        test_function!(
+            InitCap,
+            &[lit(ScalarValue::Utf8(Some("hi THOMAS".to_string())))],
+            Ok(Some("Hi Thomas")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            InitCap,
+            &[lit(ScalarValue::Utf8(Some("".to_string())))],
+            Ok(Some("")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            InitCap,
+            &[lit(ScalarValue::Utf8(Some("".to_string())))],
+            Ok(Some("")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            InitCap,
+            &[lit(ScalarValue::Utf8(None))],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Left,
+            &[
+                lit(ScalarValue::Utf8(Some("abcde".to_string()))),
+                lit(ScalarValue::Int8(Some(2))),
+            ],
+            Ok(Some("ab")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Left,
+            &[
+                lit(ScalarValue::Utf8(Some("abcde".to_string()))),
+                lit(ScalarValue::Int64(Some(200))),
+            ],
+            Ok(Some("abcde")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Left,
+            &[
+                lit(ScalarValue::Utf8(Some("abcde".to_string()))),
+                lit(ScalarValue::Int64(Some(-2))),
+            ],
+            Ok(Some("abc")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Left,
+            &[
+                lit(ScalarValue::Utf8(Some("abcde".to_string()))),
+                lit(ScalarValue::Int64(Some(-200))),
+            ],
+            Ok(Some("")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Left,
+            &[
+                lit(ScalarValue::Utf8(Some("abcde".to_string()))),
+                lit(ScalarValue::Int64(Some(0))),
+            ],
+            Ok(Some("")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Left,
+            &[
+                lit(ScalarValue::Utf8(None)),
+                lit(ScalarValue::Int64(Some(2))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Left,
+            &[
+                lit(ScalarValue::Utf8(Some("abcde".to_string()))),
+                lit(ScalarValue::Int64(None)),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Left,
+            &[
+                lit(ScalarValue::Utf8(Some("joséésoj".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+            ],
+            Ok(Some("joséé")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Left,
+            &[
+                lit(ScalarValue::Utf8(Some("joséésoj".to_string()))),
+                lit(ScalarValue::Int64(Some(-3))),
+            ],
+            Ok(Some("joséé")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(Some("josé".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+            ],
+            Ok(Some(" josé")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+            ],
+            Ok(Some("   hi")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(0))),
+            ],
+            Ok(Some("")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(None)),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(None)),
+                lit(ScalarValue::Int64(Some(5))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+                lit(ScalarValue::Utf8(Some("xy".to_string()))),
+            ],
+            Ok(Some("xyxhi")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(21))),
+                lit(ScalarValue::Utf8(Some("abcdef".to_string()))),
+            ],
+            Ok(Some("abcdefabcdefabcdefahi")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+                lit(ScalarValue::Utf8(Some(" ".to_string()))),
+            ],
+            Ok(Some("   hi")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+                lit(ScalarValue::Utf8(Some("".to_string()))),
+            ],
+            Ok(Some("hi")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(None)),
+                lit(ScalarValue::Int64(Some(5))),
+                lit(ScalarValue::Utf8(Some("xy".to_string()))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(None)),
+                lit(ScalarValue::Utf8(Some("xy".to_string()))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+                lit(ScalarValue::Utf8(None)),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Utf8(Some("5".to_string()))),
+                lit(ScalarValue::Utf8(Some("xy".to_string()))),
+            ],
+            Ok(Some("xyxhi")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(Some("josé".to_string()))),
+                lit(ScalarValue::Int64(Some(10))),
+                lit(ScalarValue::Utf8(Some("xy".to_string()))),
+            ],
+            Ok(Some("xyxyxyjosé")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(Some("josé".to_string()))),
+                lit(ScalarValue::Int64(Some(10))),
+                lit(ScalarValue::Utf8(Some("éñ".to_string()))),
+            ],
+            Ok(Some("éñéñéñjosé")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Lower,
+            &[lit(ScalarValue::Utf8(Some("LOWER".to_string())))],
+            Ok(Some("lower")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Lower,
+            &[lit(ScalarValue::Utf8(Some("lower".to_string())))],
+            Ok(Some("lower")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Lower,
+            &[lit(ScalarValue::Utf8(None))],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Ltrim,
+            &[lit(ScalarValue::Utf8(Some(" trim".to_string())))],
+            Ok(Some("trim")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Ltrim,
+            &[lit(ScalarValue::Utf8(Some(" trim ".to_string())))],
+            Ok(Some("trim ")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Ltrim,
+            &[lit(ScalarValue::Utf8(Some("trim ".to_string())))],
+            Ok(Some("trim ")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Ltrim,
+            &[lit(ScalarValue::Utf8(Some("trim".to_string())))],
+            Ok(Some("trim")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Ltrim,
+            &[lit(ScalarValue::Utf8(Some("\n trim ".to_string())))],
+            Ok(Some("\n trim ")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Ltrim,
+            &[lit(ScalarValue::Utf8(None))],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            OctetLength,
+            &[lit(ScalarValue::Utf8(Some("chars".to_string())))],
+            Ok(Some(5)),
+            i32,
+            Int32,
+            Int32Array
+        );
+        test_function!(
+            OctetLength,
+            &[lit(ScalarValue::Utf8(Some("josé".to_string())))],
+            Ok(Some(5)),
+            i32,
+            Int32,
+            Int32Array
+        );
+        test_function!(
+            OctetLength,
+            &[lit(ScalarValue::Utf8(Some("".to_string())))],
+            Ok(Some(0)),
+            i32,
+            Int32,
+            Int32Array
+        );
+        test_function!(
+            OctetLength,
+            &[lit(ScalarValue::Utf8(None))],
+            Ok(None),
+            i32,
+            Int32,
+            Int32Array
+        );
+        test_function!(
+            RegexpReplace,
+            &[
+                lit(ScalarValue::Utf8(Some("Thomas".to_string()))),
+                lit(ScalarValue::Utf8(Some(".[mN]a.".to_string()))),
+                lit(ScalarValue::Utf8(Some("M".to_string()))),
+            ],
+            Ok(Some("ThM")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            RegexpReplace,
+            &[
+                lit(ScalarValue::Utf8(Some("foobarbaz".to_string()))),
+                lit(ScalarValue::Utf8(Some("b..".to_string()))),
+                lit(ScalarValue::Utf8(Some("X".to_string()))),
+            ],
+            Ok(Some("fooXbaz")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            RegexpReplace,
+            &[
+                lit(ScalarValue::Utf8(Some("foobarbaz".to_string()))),
+                lit(ScalarValue::Utf8(Some("b..".to_string()))),
+                lit(ScalarValue::Utf8(Some("X".to_string()))),
+                lit(ScalarValue::Utf8(Some("g".to_string()))),
+            ],
+            Ok(Some("fooXX")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            RegexpReplace,
+            &[
+                lit(ScalarValue::Utf8(Some("foobarbaz".to_string()))),
+                lit(ScalarValue::Utf8(Some("b(..)".to_string()))),
+                lit(ScalarValue::Utf8(Some("X\\1Y".to_string()))),
+                lit(ScalarValue::Utf8(Some("g".to_string()))),
+            ],
+            Ok(Some("fooXarYXazY")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            RegexpReplace,
+            &[
+                lit(ScalarValue::Utf8(None)),
+                lit(ScalarValue::Utf8(Some("b(..)".to_string()))),
+                lit(ScalarValue::Utf8(Some("X\\1Y".to_string()))),
+                lit(ScalarValue::Utf8(Some("g".to_string()))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            RegexpReplace,
+            &[
+                lit(ScalarValue::Utf8(Some("foobarbaz".to_string()))),
+                lit(ScalarValue::Utf8(None)),
+                lit(ScalarValue::Utf8(Some("X\\1Y".to_string()))),
+                lit(ScalarValue::Utf8(Some("g".to_string()))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            RegexpReplace,
+            &[
+                lit(ScalarValue::Utf8(Some("foobarbaz".to_string()))),
+                lit(ScalarValue::Utf8(Some("b(..)".to_string()))),
+                lit(ScalarValue::Utf8(None)),
+                lit(ScalarValue::Utf8(Some("g".to_string()))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            RegexpReplace,
+            &[
+                lit(ScalarValue::Utf8(Some("foobarbaz".to_string()))),
+                lit(ScalarValue::Utf8(Some("b(..)".to_string()))),
+                lit(ScalarValue::Utf8(Some("X\\1Y".to_string()))),
+                lit(ScalarValue::Utf8(None)),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            RegexpReplace,
+            &[
+                lit(ScalarValue::Utf8(Some("ABCabcABC".to_string()))),
+                lit(ScalarValue::Utf8(Some("(abc)".to_string()))),
+                lit(ScalarValue::Utf8(Some("X".to_string()))),
+                lit(ScalarValue::Utf8(Some("gi".to_string()))),
+            ],
+            Ok(Some("XXX")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            RegexpReplace,
+            &[
+                lit(ScalarValue::Utf8(Some("ABCabcABC".to_string()))),
+                lit(ScalarValue::Utf8(Some("(abc)".to_string()))),
+                lit(ScalarValue::Utf8(Some("X".to_string()))),
+                lit(ScalarValue::Utf8(Some("i".to_string()))),
+            ],
+            Ok(Some("XabcABC")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Repeat,
+            &[
+                lit(ScalarValue::Utf8(Some("Pg".to_string()))),
+                lit(ScalarValue::Int64(Some(4))),
+            ],
+            Ok(Some("PgPgPgPg")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Repeat,
+            &[
+                lit(ScalarValue::Utf8(None)),
+                lit(ScalarValue::Int64(Some(4))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Repeat,
+            &[
+                lit(ScalarValue::Utf8(Some("Pg".to_string()))),
+                lit(ScalarValue::Int64(None)),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Replace,
+            &[
+                lit(ScalarValue::Utf8(Some("abcdefabcdef".to_string()))),
+                lit(ScalarValue::Utf8(Some("cd".to_string()))),
+                lit(ScalarValue::Utf8(Some("XX".to_string()))),
+            ],
+            Ok(Some("abXXefabXXef")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Replace,
+            &[
+                lit(ScalarValue::Utf8(Some("abcdefabcdef".to_string()))),
+                lit(ScalarValue::Utf8(Some("notmatch".to_string()))),
+                lit(ScalarValue::Utf8(Some("XX".to_string()))),
+            ],
+            Ok(Some("abcdefabcdef")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Replace,
+            &[
+                lit(ScalarValue::Utf8(None)),
+                lit(ScalarValue::Utf8(Some("cd".to_string()))),
+                lit(ScalarValue::Utf8(Some("XX".to_string()))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Replace,
+            &[
+                lit(ScalarValue::Utf8(Some("abcdefabcdef".to_string()))),
+                lit(ScalarValue::Utf8(None)),
+                lit(ScalarValue::Utf8(Some("XX".to_string()))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Replace,
+            &[
+                lit(ScalarValue::Utf8(Some("abcdefabcdef".to_string()))),
+                lit(ScalarValue::Utf8(Some("cd".to_string()))),
+                lit(ScalarValue::Utf8(None)),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Reverse,
+            &[lit(ScalarValue::Utf8(Some("abcde".to_string())))],
+            Ok(Some("edcba")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Reverse,
+            &[lit(ScalarValue::Utf8(Some("loẅks".to_string())))],
+            Ok(Some("skẅol")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Reverse,
+            &[lit(ScalarValue::Utf8(Some("loẅks".to_string())))],
+            Ok(Some("skẅol")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Reverse,
+            &[lit(ScalarValue::Utf8(None))],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Right,
+            &[
+                lit(ScalarValue::Utf8(Some("abcde".to_string()))),
+                lit(ScalarValue::Int8(Some(2))),
+            ],
+            Ok(Some("de")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Right,
+            &[
+                lit(ScalarValue::Utf8(Some("abcde".to_string()))),
+                lit(ScalarValue::Int64(Some(200))),
+            ],
+            Ok(Some("abcde")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Right,
+            &[
+                lit(ScalarValue::Utf8(Some("abcde".to_string()))),
+                lit(ScalarValue::Int64(Some(-2))),
+            ],
+            Ok(Some("cde")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Right,
+            &[
+                lit(ScalarValue::Utf8(Some("abcde".to_string()))),
+                lit(ScalarValue::Int64(Some(-200))),
+            ],
+            Ok(Some("")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Right,
+            &[
+                lit(ScalarValue::Utf8(Some("abcde".to_string()))),
+                lit(ScalarValue::Int64(Some(0))),
+            ],
+            Ok(Some("")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Right,
+            &[
+                lit(ScalarValue::Utf8(None)),
+                lit(ScalarValue::Int64(Some(2))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Right,
+            &[
+                lit(ScalarValue::Utf8(Some("abcde".to_string()))),
+                lit(ScalarValue::Int64(None)),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Right,
+            &[
+                lit(ScalarValue::Utf8(Some("joséésoj".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+            ],
+            Ok(Some("éésoj")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Right,
+            &[
+                lit(ScalarValue::Utf8(Some("joséésoj".to_string()))),
+                lit(ScalarValue::Int64(Some(-3))),
+            ],
+            Ok(Some("éésoj")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(Some("josé".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+            ],
+            Ok(Some("josé ")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+            ],
+            Ok(Some("hi   ")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(0))),
+            ],
+            Ok(Some("")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(None)),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(None)),
+                lit(ScalarValue::Int64(Some(5))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+                lit(ScalarValue::Utf8(Some("xy".to_string()))),
+            ],
+            Ok(Some("hixyx")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(21))),
+                lit(ScalarValue::Utf8(Some("abcdef".to_string()))),
+            ],
+            Ok(Some("hiabcdefabcdefabcdefa")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+                lit(ScalarValue::Utf8(Some(" ".to_string()))),
+            ],
+            Ok(Some("hi   ")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+                lit(ScalarValue::Utf8(Some("".to_string()))),
+            ],
+            Ok(Some("hi")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(None)),
+                lit(ScalarValue::Int64(Some(5))),
+                lit(ScalarValue::Utf8(Some("xy".to_string()))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(None)),
+                lit(ScalarValue::Utf8(Some("xy".to_string()))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+                lit(ScalarValue::Utf8(None)),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(Some("josé".to_string()))),
+                lit(ScalarValue::Int64(Some(10))),
+                lit(ScalarValue::Utf8(Some("xy".to_string()))),
+            ],
+            Ok(Some("joséxyxyxy")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(Some("josé".to_string()))),
+                lit(ScalarValue::Int64(Some(10))),
+                lit(ScalarValue::Utf8(Some("éñ".to_string()))),
+            ],
+            Ok(Some("josééñéñéñ")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rtrim,
+            &[lit(ScalarValue::Utf8(Some("trim ".to_string())))],
+            Ok(Some("trim")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rtrim,
+            &[lit(ScalarValue::Utf8(Some(" trim ".to_string())))],
+            Ok(Some(" trim")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rtrim,
+            &[lit(ScalarValue::Utf8(Some(" trim \n".to_string())))],
+            Ok(Some(" trim \n")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rtrim,
+            &[lit(ScalarValue::Utf8(Some(" trim".to_string())))],
+            Ok(Some(" trim")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rtrim,
+            &[lit(ScalarValue::Utf8(Some("trim".to_string())))],
+            Ok(Some("trim")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rtrim,
+            &[lit(ScalarValue::Utf8(None))],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Strpos,
+            &[
+                lit(ScalarValue::Utf8(Some("abc".to_string()))),
+                lit(ScalarValue::Utf8(Some("c".to_string()))),
+            ],
+            Ok(Some(3)),
+            i32,
+            Int32,
+            Int32Array
+        );
+        test_function!(
+            Strpos,
+            &[
+                lit(ScalarValue::Utf8(Some("josé".to_string()))),
+                lit(ScalarValue::Utf8(Some("é".to_string()))),
+            ],
+            Ok(Some(4)),
+            i32,
+            Int32,
+            Int32Array
+        );
+        test_function!(
+            Strpos,
+            &[
+                lit(ScalarValue::Utf8(Some("joséésoj".to_string()))),
+                lit(ScalarValue::Utf8(Some("so".to_string()))),
+            ],
+            Ok(Some(6)),
+            i32,
+            Int32,
+            Int32Array
+        );
+        test_function!(
+            Strpos,
+            &[
+                lit(ScalarValue::Utf8(Some("joséésoj".to_string()))),
+                lit(ScalarValue::Utf8(Some("abc".to_string()))),
+            ],
+            Ok(Some(0)),
+            i32,
+            Int32,
+            Int32Array
+        );
+        test_function!(
+            Strpos,
+            &[
+                lit(ScalarValue::Utf8(None)),
+                lit(ScalarValue::Utf8(Some("abc".to_string()))),
+            ],
+            Ok(None),
+            i32,
+            Int32,
+            Int32Array
+        );
+        test_function!(
+            Strpos,
+            &[
+                lit(ScalarValue::Utf8(Some("joséésoj".to_string()))),
+                lit(ScalarValue::Utf8(None)),
+            ],
+            Ok(None),
+            i32,
+            Int32,
+            Int32Array
+        );
+        test_function!(
+            Trim,
+            &[lit(ScalarValue::Utf8(Some(" trim ".to_string())))],
+            Ok(Some("trim")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Trim,
+            &[lit(ScalarValue::Utf8(Some("trim ".to_string())))],
+            Ok(Some("trim")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Trim,
+            &[lit(ScalarValue::Utf8(Some(" trim".to_string())))],
+            Ok(Some("trim")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Trim,
+            &[lit(ScalarValue::Utf8(None))],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            SplitPart,
+            &[
+                lit(ScalarValue::Utf8(Some("abc~@~def~@~ghi".to_string()))),
+                lit(ScalarValue::Utf8(Some("~@~".to_string()))),
+                lit(ScalarValue::Int64(Some(2))),
+            ],
+            Ok(Some("def")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            SplitPart,
+            &[
+                lit(ScalarValue::Utf8(Some("abc~@~def~@~ghi".to_string()))),
+                lit(ScalarValue::Utf8(Some("~@~".to_string()))),
+                lit(ScalarValue::Int64(Some(20))),
+            ],
+            Ok(Some("")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            SplitPart,
+            &[
+                lit(ScalarValue::Utf8(Some("abc~@~def~@~ghi".to_string()))),
+                lit(ScalarValue::Utf8(Some("~@~".to_string()))),
+                lit(ScalarValue::Int64(Some(-1))),
+            ],
+            Err(DataFusionError::Execution(
+                "field position must be greater than zero".to_string(),
+            )),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            StartsWith,
+            &[
+                lit(ScalarValue::Utf8(Some("alphabet".to_string()))),
+                lit(ScalarValue::Utf8(Some("alph".to_string()))),
+            ],
+            Ok(Some(true)),
+            bool,
+            Boolean,
+            BooleanArray
+        );
+        test_function!(
+            StartsWith,
+            &[
+                lit(ScalarValue::Utf8(Some("alphabet".to_string()))),
+                lit(ScalarValue::Utf8(Some("blph".to_string()))),
+            ],
+            Ok(Some(false)),
+            bool,
+            Boolean,
+            BooleanArray
+        );
+        test_function!(
+            StartsWith,
+            &[
+                lit(ScalarValue::Utf8(None)),
+                lit(ScalarValue::Utf8(Some("alph".to_string()))),
+            ],
+            Ok(None),
+            bool,
+            Boolean,
+            BooleanArray
+        );
+        test_function!(
+            StartsWith,
+            &[
+                lit(ScalarValue::Utf8(Some("alphabet".to_string()))),
+                lit(ScalarValue::Utf8(None)),
+            ],
+            Ok(None),
+            bool,
+            Boolean,
+            BooleanArray
+        );
+        test_function!(
+            Substr,
+            &[
+                lit(ScalarValue::Utf8(Some("alphabet".to_string()))),
+                lit(ScalarValue::Int64(Some(0))),
+            ],
+            Ok(Some("alphabet")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Substr,
+            &[
+                lit(ScalarValue::Utf8(Some("joséésoj".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+            ],
+            Ok(Some("ésoj")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Substr,
+            &[
+                lit(ScalarValue::Utf8(Some("alphabet".to_string()))),
+                lit(ScalarValue::Int64(Some(1))),
+            ],
+            Ok(Some("alphabet")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Substr,
+            &[
+                lit(ScalarValue::Utf8(Some("alphabet".to_string()))),
+                lit(ScalarValue::Int64(Some(2))),
+            ],
+            Ok(Some("lphabet")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Substr,
+            &[
+                lit(ScalarValue::Utf8(Some("alphabet".to_string()))),
+                lit(ScalarValue::Int64(Some(3))),
+            ],
+            Ok(Some("phabet")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Substr,
+            &[
+                lit(ScalarValue::Utf8(Some("alphabet".to_string()))),
+                lit(ScalarValue::Int64(Some(-3))),
+            ],
+            Ok(Some("alphabet")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Substr,
+            &[
+                lit(ScalarValue::Utf8(Some("alphabet".to_string()))),
+                lit(ScalarValue::Int64(Some(30))),
+            ],
+            Ok(Some("")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Substr,
+            &[
+                lit(ScalarValue::Utf8(Some("alphabet".to_string()))),
+                lit(ScalarValue::Int64(None)),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Substr,
+            &[
+                lit(ScalarValue::Utf8(Some("alphabet".to_string()))),
+                lit(ScalarValue::Int64(Some(3))),
+                lit(ScalarValue::Int64(Some(2))),
+            ],
+            Ok(Some("ph")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Substr,
+            &[
+                lit(ScalarValue::Utf8(Some("alphabet".to_string()))),
+                lit(ScalarValue::Int64(Some(3))),
+                lit(ScalarValue::Int64(Some(20))),
+            ],
+            Ok(Some("phabet")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Substr,
+            &[
+                lit(ScalarValue::Utf8(Some("alphabet".to_string()))),
+                lit(ScalarValue::Int64(None)),
+                lit(ScalarValue::Int64(Some(20))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Substr,
+            &[
+                lit(ScalarValue::Utf8(Some("alphabet".to_string()))),
+                lit(ScalarValue::Int64(Some(3))),
+                lit(ScalarValue::Int64(None)),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Substr,
+            &[
+                lit(ScalarValue::Utf8(Some("alphabet".to_string()))),
+                lit(ScalarValue::Int64(Some(1))),
+                lit(ScalarValue::Int64(Some(-1))),
+            ],
+            Err(DataFusionError::Execution(
+                "negative substring length not allowed".to_string(),
+            )),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Substr,
+            &[
+                lit(ScalarValue::Utf8(Some("joséésoj".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+                lit(ScalarValue::Int64(Some(2))),
+            ],
+            Ok(Some("és")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            ToHex,
+            &[lit(ScalarValue::Int32(Some(2147483647)))],
+            Ok(Some("7fffffff")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            ToHex,
+            &[lit(ScalarValue::Int64(Some(9223372036854775807)))],
+            Ok(Some("7fffffffffffffff")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            ToHex,
+            &[lit(ScalarValue::Int32(None))],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Translate,
+            &[
+                lit(ScalarValue::Utf8(Some("12345".to_string()))),
+                lit(ScalarValue::Utf8(Some("143".to_string()))),
+                lit(ScalarValue::Utf8(Some("ax".to_string()))),
+            ],
+            Ok(Some("a2x5")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Translate,
+            &[
+                lit(ScalarValue::Utf8(None)),
+                lit(ScalarValue::Utf8(Some("143".to_string()))),
+                lit(ScalarValue::Utf8(Some("ax".to_string()))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Translate,
+            &[
+                lit(ScalarValue::Utf8(Some("12345".to_string()))),
+                lit(ScalarValue::Utf8(None)),
+                lit(ScalarValue::Utf8(Some("ax".to_string()))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Translate,
+            &[
+                lit(ScalarValue::Utf8(Some("12345".to_string()))),
+                lit(ScalarValue::Utf8(Some("143".to_string()))),
+                lit(ScalarValue::Utf8(None)),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Translate,
+            &[
+                lit(ScalarValue::Utf8(Some("é2íñ5".to_string()))),
+                lit(ScalarValue::Utf8(Some("éñí".to_string()))),
+                lit(ScalarValue::Utf8(Some("óü".to_string()))),
+            ],
+            Ok(Some("ó2ü5")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Upper,
+            &[lit(ScalarValue::Utf8(Some("upper".to_string())))],
+            Ok(Some("UPPER")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Upper,
+            &[lit(ScalarValue::Utf8(Some("UPPER".to_string())))],
+            Ok(Some("UPPER")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Upper,
+            &[lit(ScalarValue::Utf8(None))],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
         Ok(())
-    }
-
-    fn test_concat(value: ScalarValue, expected: &str) -> Result<()> {
-        // any type works here: we evaluate against a literal of `value`
-        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
-        let columns: Vec<ArrayRef> = vec![Arc::new(Int32Array::from(vec![1]))];
-
-        // concat(value, value)
-        let expr = create_physical_expr(
-            &BuiltinScalarFunction::Concat,
-            &[lit(value.clone()), lit(value)],
-            &schema,
-        )?;
-
-        // type is correct
-        assert_eq!(expr.data_type(&schema)?, DataType::Utf8);
-
-        // evaluate works
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), columns)?;
-        let result = expr.evaluate(&batch)?.into_array(batch.num_rows());
-
-        // downcast works
-        let result = result.as_any().downcast_ref::<StringArray>().unwrap();
-
-        // value is correct
-        assert_eq!(result.value(0).to_string(), expected);
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_concat_utf8() -> Result<()> {
-        test_concat(ScalarValue::Utf8(Some("aa".to_string())), "aaaa")
     }
 
     #[test]

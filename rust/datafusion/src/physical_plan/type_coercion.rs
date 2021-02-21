@@ -95,22 +95,6 @@ fn get_valid_types(
     current_types: &[DataType],
 ) -> Result<Vec<Vec<DataType>>> {
     let valid_types = match signature {
-        Signature::Variadic(valid_types) => valid_types
-            .iter()
-            .map(|valid_type| current_types.iter().map(|_| valid_type.clone()).collect())
-            .collect(),
-        Signature::Uniform(number, valid_types) => valid_types
-            .iter()
-            .map(|valid_type| (0..*number).map(|_| valid_type.clone()).collect())
-            .collect(),
-        Signature::VariadicEqual => {
-            // one entry with the same len as current_types, whose type is `current_types[0]`.
-            vec![current_types
-                .iter()
-                .map(|_| current_types[0].clone())
-                .collect()]
-        }
-        Signature::Exact(valid_types) => vec![valid_types.clone()],
         Signature::Any(number) => {
             if current_types.len() != *number {
                 return Err(DataFusionError::Plan(format!(
@@ -121,12 +105,28 @@ fn get_valid_types(
             }
             vec![(0..*number).map(|i| current_types[i].clone()).collect()]
         }
+        Signature::Exact(valid_types) => vec![valid_types.clone()],
         Signature::OneOf(types) => {
             let mut r = vec![];
             for s in types {
                 r.extend(get_valid_types(s, current_types)?);
             }
             r
+        }
+        Signature::Uniform(number, valid_types) => valid_types
+            .iter()
+            .map(|valid_type| (0..*number).map(|_| valid_type.clone()).collect())
+            .collect(),
+        Signature::Variadic(valid_types) => valid_types
+            .iter()
+            .map(|valid_type| current_types.iter().map(|_| valid_type.clone()).collect())
+            .collect(),
+        Signature::VariadicEqual => {
+            // one entry with the same len as current_types, whose type is `current_types[0]`.
+            vec![current_types
+                .iter()
+                .map(|_| current_types[0].clone())
+                .collect()]
         }
     };
 
@@ -168,20 +168,35 @@ fn maybe_data_types(
 pub fn can_coerce_from(type_into: &DataType, type_from: &DataType) -> bool {
     use self::DataType::*;
     match type_into {
-        Int8 => matches!(type_from, Int8),
-        Int16 => matches!(type_from, Int8 | Int16 | UInt8),
-        Int32 => matches!(type_from, Int8 | Int16 | Int32 | UInt8 | UInt16),
+        Int8 => matches!(type_from, Int8 | Utf8 | LargeUtf8),
+        Int16 => matches!(type_from, Int8 | Int16 | UInt8 | Utf8 | LargeUtf8),
+        Int32 => matches!(
+            type_from,
+            Int8 | Int16 | Int32 | UInt8 | UInt16 | Utf8 | LargeUtf8
+        ),
         Int64 => matches!(
             type_from,
-            Int8 | Int16 | Int32 | Int64 | UInt8 | UInt16 | UInt32
+            Int8 | Int16 | Int32 | Int64 | UInt8 | UInt16 | UInt32 | Utf8 | LargeUtf8
         ),
-        UInt8 => matches!(type_from, UInt8),
-        UInt16 => matches!(type_from, UInt8 | UInt16),
-        UInt32 => matches!(type_from, UInt8 | UInt16 | UInt32),
-        UInt64 => matches!(type_from, UInt8 | UInt16 | UInt32 | UInt64),
+        UInt8 => matches!(type_from, UInt8 | Utf8 | LargeUtf8),
+        UInt16 => matches!(type_from, UInt8 | UInt16 | Utf8 | LargeUtf8),
+        UInt32 => matches!(type_from, UInt8 | UInt16 | UInt32 | Utf8 | LargeUtf8),
+        UInt64 => matches!(
+            type_from,
+            UInt8 | UInt16 | UInt32 | UInt64 | Utf8 | LargeUtf8
+        ),
         Float32 => matches!(
             type_from,
-            Int8 | Int16 | Int32 | Int64 | UInt8 | UInt16 | UInt32 | UInt64 | Float32
+            Int8 | Int16
+                | Int32
+                | Int64
+                | UInt8
+                | UInt16
+                | UInt32
+                | UInt64
+                | Float32
+                | Utf8
+                | LargeUtf8
         ),
         Float64 => matches!(
             type_from,
@@ -194,9 +209,12 @@ pub fn can_coerce_from(type_into: &DataType, type_from: &DataType) -> bool {
                 | UInt64
                 | Float32
                 | Float64
+                | Utf8
+                | LargeUtf8
         ),
         Timestamp(TimeUnit::Nanosecond, None) => matches!(type_from, Timestamp(_, None)),
         Utf8 => true,
+        LargeUtf8 => true,
         _ => false,
     }
 }
@@ -280,6 +298,11 @@ mod tests {
                 Signature::Uniform(1, vec![DataType::UInt32]),
                 vec![DataType::UInt32],
             )?,
+            case(
+                vec![DataType::UInt16],
+                Signature::OneOf(vec![Signature::Exact(vec![DataType::UInt32])]),
+                vec![DataType::UInt32],
+            )?,
             // same type
             case(
                 vec![DataType::UInt32, DataType::UInt32],
@@ -287,8 +310,21 @@ mod tests {
                 vec![DataType::UInt32, DataType::UInt32],
             )?,
             case(
+                vec![DataType::UInt32, DataType::UInt32],
+                Signature::OneOf(vec![Signature::Exact(vec![
+                    DataType::UInt32,
+                    DataType::UInt32,
+                ])]),
+                vec![DataType::UInt32, DataType::UInt32],
+            )?,
+            case(
                 vec![DataType::UInt32],
                 Signature::Uniform(1, vec![DataType::Float32, DataType::Float64]),
+                vec![DataType::Float32],
+            )?,
+            case(
+                vec![DataType::UInt32],
+                Signature::OneOf(vec![Signature::Exact(vec![DataType::Float32])]),
                 vec![DataType::Float32],
             )?,
             // u32 -> f32
@@ -328,7 +364,7 @@ mod tests {
             // we do not know how to cast bool to UInt16 => fail
             case(
                 vec![DataType::Boolean],
-                Signature::Uniform(1, vec![DataType::UInt16]),
+                Signature::OneOf(vec![Signature::Exact(vec![DataType::UInt16])]),
                 vec![],
             )?,
             // u32 and bool are not uniform

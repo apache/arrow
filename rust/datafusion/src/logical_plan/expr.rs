@@ -874,28 +874,38 @@ unary_scalar_expr!(Log2, log2);
 unary_scalar_expr!(Log10, log10);
 
 // string functions
+unary_scalar_expr!(Ascii, ascii);
 unary_scalar_expr!(BitLength, bit_length);
+unary_scalar_expr!(Btrim, btrim);
 unary_scalar_expr!(CharacterLength, character_length);
-unary_scalar_expr!(CharacterLength, length);
+unary_scalar_expr!(Chr, chr);
+unary_scalar_expr!(Concat, concat);
+unary_scalar_expr!(ConcatWithSeparator, concat_ws);
+unary_scalar_expr!(InitCap, initcap);
+unary_scalar_expr!(Left, left);
 unary_scalar_expr!(Lower, lower);
+unary_scalar_expr!(Lpad, lpad);
 unary_scalar_expr!(Ltrim, ltrim);
 unary_scalar_expr!(MD5, md5);
 unary_scalar_expr!(OctetLength, octet_length);
+unary_scalar_expr!(RegexpReplace, regexp_replace);
+unary_scalar_expr!(Repeat, repeat);
+unary_scalar_expr!(Replace, replace);
+unary_scalar_expr!(Reverse, reverse);
+unary_scalar_expr!(Right, right);
+unary_scalar_expr!(Rpad, rpad);
 unary_scalar_expr!(Rtrim, rtrim);
 unary_scalar_expr!(SHA224, sha224);
 unary_scalar_expr!(SHA256, sha256);
 unary_scalar_expr!(SHA384, sha384);
 unary_scalar_expr!(SHA512, sha512);
+unary_scalar_expr!(SplitPart, split_part);
+unary_scalar_expr!(StartsWith, starts_with);
+unary_scalar_expr!(Strpos, strpos);
+unary_scalar_expr!(Substr, substr);
+unary_scalar_expr!(Translate, translate);
 unary_scalar_expr!(Trim, trim);
 unary_scalar_expr!(Upper, upper);
-
-/// returns the concatenation of string expressions
-pub fn concat(args: Vec<Expr>) -> Expr {
-    Expr::ScalarFunction {
-        fun: functions::BuiltinScalarFunction::Concat,
-        args,
-    }
-}
 
 /// returns an array of fixed size with each argument on it.
 pub fn array(args: Vec<Expr>) -> Expr {
