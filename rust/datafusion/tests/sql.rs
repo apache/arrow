@@ -350,8 +350,7 @@ async fn csv_query_group_by_float32() -> Result<()> {
     let mut ctx = ExecutionContext::new();
     register_aggregate_simple_csv(&mut ctx)?;
 
-    let sql =
-        "SELECT COUNT(*) as cnt, c1 FROM aggregate_simple GROUP BY c1 ORDER BY cnt DESC";
+    let sql = "SELECT COUNT(*) as cnt, c1 FROM aggregate_simple GROUP BY c1 ORDER BY cnt DESC";
     let actual = execute(&mut ctx, sql).await;
 
     let expected = vec![
@@ -371,8 +370,7 @@ async fn csv_query_group_by_float64() -> Result<()> {
     let mut ctx = ExecutionContext::new();
     register_aggregate_simple_csv(&mut ctx)?;
 
-    let sql =
-        "SELECT COUNT(*) as cnt, c2 FROM aggregate_simple GROUP BY c2 ORDER BY cnt DESC";
+    let sql = "SELECT COUNT(*) as cnt, c2 FROM aggregate_simple GROUP BY c2 ORDER BY cnt DESC";
     let actual = execute(&mut ctx, sql).await;
 
     let expected = vec![
@@ -392,8 +390,7 @@ async fn csv_query_group_by_boolean() -> Result<()> {
     let mut ctx = ExecutionContext::new();
     register_aggregate_simple_csv(&mut ctx)?;
 
-    let sql =
-        "SELECT COUNT(*) as cnt, c3 FROM aggregate_simple GROUP BY c3 ORDER BY cnt DESC";
+    let sql = "SELECT COUNT(*) as cnt, c3 FROM aggregate_simple GROUP BY c3 ORDER BY cnt DESC";
     let actual = execute(&mut ctx, sql).await;
 
     let expected = vec![vec!["9", "true"], vec!["6", "false"]];
@@ -1051,8 +1048,7 @@ async fn csv_query_external_table_sum() {
     let mut ctx = ExecutionContext::new();
     // cast smallint and int to bigint to avoid overflow during calculation
     register_aggregate_csv_by_sql(&mut ctx).await;
-    let sql =
-        "SELECT SUM(CAST(c7 AS BIGINT)), SUM(CAST(c8 AS BIGINT)) FROM aggregate_test_100";
+    let sql = "SELECT SUM(CAST(c7 AS BIGINT)), SUM(CAST(c8 AS BIGINT)) FROM aggregate_test_100";
     let actual = execute(&mut ctx, sql).await;
     let expected = vec![vec!["13060", "3017641"]];
     assert_eq!(expected, actual);
@@ -1154,8 +1150,7 @@ fn create_case_context() -> Result<ExecutionContext> {
 #[tokio::test]
 async fn equijoin() -> Result<()> {
     let mut ctx = create_join_context("t1_id", "t2_id")?;
-    let sql =
-        "SELECT t1_id, t1_name, t2_name FROM t1 JOIN t2 ON t1_id = t2_id ORDER BY t1_id";
+    let sql = "SELECT t1_id, t1_name, t2_name FROM t1 JOIN t2 ON t1_id = t2_id ORDER BY t1_id";
     let actual = execute(&mut ctx, sql).await;
     let expected = vec![
         vec!["11", "a", "z"],
@@ -1215,8 +1210,7 @@ async fn left_join_using() -> Result<()> {
 #[tokio::test]
 async fn equijoin_implicit_syntax() -> Result<()> {
     let mut ctx = create_join_context("t1_id", "t2_id")?;
-    let sql =
-        "SELECT t1_id, t1_name, t2_name FROM t1, t2 WHERE t1_id = t2_id ORDER BY t1_id";
+    let sql = "SELECT t1_id, t1_name, t2_name FROM t1, t2 WHERE t1_id = t2_id ORDER BY t1_id";
     let actual = execute(&mut ctx, sql).await;
     let expected = vec![
         vec!["11", "a", "z"],
@@ -1249,8 +1243,7 @@ async fn equijoin_implicit_syntax_with_filter() -> Result<()> {
 #[tokio::test]
 async fn equijoin_implicit_syntax_reversed() -> Result<()> {
     let mut ctx = create_join_context("t1_id", "t2_id")?;
-    let sql =
-        "SELECT t1_id, t1_name, t2_name FROM t1, t2 WHERE t2_id = t1_id ORDER BY t1_id";
+    let sql = "SELECT t1_id, t1_name, t2_name FROM t1, t2 WHERE t2_id = t1_id ORDER BY t1_id";
     let actual = execute(&mut ctx, sql).await;
     let expected = vec![
         vec!["11", "a", "z"],
@@ -1273,10 +1266,7 @@ async fn cartesian_join() -> Result<()> {
     Ok(())
 }
 
-fn create_join_context(
-    column_left: &str,
-    column_right: &str,
-) -> Result<ExecutionContext> {
+fn create_join_context(column_left: &str, column_right: &str) -> Result<ExecutionContext> {
     let mut ctx = ExecutionContext::new();
 
     let t1_schema = Arc::new(Schema::new(vec![
@@ -1808,8 +1798,7 @@ async fn query_count_distinct() -> Result<()> {
 async fn query_on_string_dictionary() -> Result<()> {
     // Test to ensure DataFusion can operate on dictionary types
     // Use StringDictionary (32 bit indexes = keys)
-    let field_type =
-        DataType::Dictionary(Box::new(DataType::Int32), Box::new(DataType::Utf8));
+    let field_type = DataType::Dictionary(Box::new(DataType::Int32), Box::new(DataType::Utf8));
     let schema = Arc::new(Schema::new(vec![Field::new("d1", field_type, true)]));
 
     let keys_builder = PrimitiveBuilder::<Int32Type>::new(10);
@@ -1984,6 +1973,54 @@ async fn csv_group_by_date() -> Result<()> {
     assert_eq!(expected, actual);
     Ok(())
 }
+#[tokio::test]
+async fn test_join_same_names() -> Result<()>  {
+    let schema1 = Arc::new(Schema::new(vec![
+        Field::new("a", DataType::Utf8, false),
+        Field::new("b", DataType::Int32, false),
+    ]));
+    let schema2 = Arc::new(Schema::new(vec![
+        Field::new("a", DataType::Utf8, false),
+        Field::new("c", DataType::Int32, false),
+    ]));
+
+    // define data.
+    let batch1 = RecordBatch::try_new(
+        schema1.clone(),
+        vec![
+            Arc::new(StringArray::from(vec!["a", "b"])),
+            Arc::new(Int32Array::from(vec![1, 10])),
+        ],
+    )?;
+    // define data.
+    let batch2 = RecordBatch::try_new(
+        schema2.clone(),
+        vec![
+            Arc::new(StringArray::from(vec!["a", "c",])),
+            Arc::new(Int32Array::from(vec![1, 10])),
+        ],
+    )?;
+
+    let mut ctx = ExecutionContext::new();
+
+    let table1 = MemTable::try_new(schema1, vec![vec![batch1]])?;
+    let table2 = MemTable::try_new(schema2, vec![vec![batch2]])?;
+
+    ctx.register_table("t1", Arc::new(table1));
+    ctx.register_table("t2", Arc::new(table2));
+
+    let sql = concat!("SELECT b FROM t1 JOIN t2 ON t1.a = t2.a");
+    println!("1");
+
+    let plan = ctx.create_logical_plan(&sql)?;
+    println!("2");
+    let plan = ctx.optimize(&plan)?;
+    println!("3");
+
+    let plan = ctx.create_physical_plan(&plan)?;
+
+    Ok(())
+}
 
 #[tokio::test]
 async fn string_expressions() -> Result<()> {
@@ -2005,8 +2042,7 @@ async fn string_expressions() -> Result<()> {
     let actual = execute(&mut ctx, sql).await;
 
     let expected = vec![vec![
-        "3", "NULL", "3", "NULL", "tom", "NULL", "TOM", "NULL", "tom", "NULL", "tom ",
-        " tom",
+        "3", "NULL", "3", "NULL", "tom", "NULL", "TOM", "NULL", "tom", "NULL", "tom ", " tom",
     ]];
     assert_eq!(expected, actual);
     Ok(())
@@ -2210,11 +2246,10 @@ async fn in_list_scalar() -> Result<()> {
     let actual = execute(&mut ctx, sql).await;
 
     let expected = vec![vec![
-        "true", "false", "true", "false", "NULL", "NULL", "true", "NULL", "false",
-        "NULL", "true", "false", "true", "false", "NULL", "NULL", "true", "NULL",
-        "false", "NULL", "true", "false", "true", "false", "NULL", "NULL", "true",
-        "NULL", "false", "NULL", "true", "false", "true", "false", "NULL", "NULL",
-        "true", "NULL", "false", "NULL",
+        "true", "false", "true", "false", "NULL", "NULL", "true", "NULL", "false", "NULL", "true",
+        "false", "true", "false", "NULL", "NULL", "true", "NULL", "false", "NULL", "true", "false",
+        "true", "false", "NULL", "NULL", "true", "NULL", "false", "NULL", "true", "false", "true",
+        "false", "NULL", "NULL", "true", "NULL", "false", "NULL",
     ]];
     assert_eq!(expected, actual);
     Ok(())
