@@ -195,9 +195,7 @@ if(ARROW_DEPENDENCY_SOURCE STREQUAL "VCPKG")
   # Get VCPKG_TARGET_TRIPLET and _VCPKG_INSTALLED_DIR
   #
   if(DEFINED ENV{VCPKG_DEFAULT_TRIPLET} AND NOT DEFINED VCPKG_TARGET_TRIPLET)
-    set(VCPKG_TARGET_TRIPLET
-        "$ENV{VCPKG_DEFAULT_TRIPLET}"
-        CACHE STRING "vcpkg triplet for the target environment")
+    set(VCPKG_TARGET_TRIPLET "$ENV{VCPKG_DEFAULT_TRIPLET}")
   endif()
   # explicitly set manifest mode on if it is not set and vcpkg.json exists
   if(NOT DEFINED VCPKG_MANIFEST_MODE AND EXISTS "${ARROW_SOURCE_DIR}/vcpkg.json")
@@ -256,6 +254,9 @@ if(ARROW_DEPENDENCY_SOURCE STREQUAL "VCPKG")
         "for triplet ${VCPKG_TARGET_TRIPLET}. "
         "Install packages with vcpkg before executing cmake.")
   endif()
+  set(VCPKG_TARGET_TRIPLET
+      "${VCPKG_TARGET_TRIPLET}"
+      CACHE STRING "vcpkg triplet for the target environment" FORCE)
   set(ARROW_VCPKG_PREFIX
       "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}"
       CACHE STRING
