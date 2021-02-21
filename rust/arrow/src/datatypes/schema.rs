@@ -280,14 +280,19 @@ impl Schema {
         }
     }
 
-    /// Check to see if `self` is a superset of `other` schema Here are the comparision rules:
+    /// Check to see if `self` is a superset of `other` schema. Here are the comparision rules:
     ///
-    /// * for every field `f` in other, the field in self with corresponding index should be a
+    /// * `self` and `other` should contain the same number of fields
+    /// * for every field `f` in `other`, the field in `self` with corresponding index should be a
     /// superset of `f`.
     /// * self.metadata is a superset of other.metadata
     ///
     /// In other words, any record conforms to `other` should also conform to `self`.
     pub fn contains(&self, other: &Schema) -> bool {
+        if self.fields.len() != other.fields.len() {
+            return false;
+        }
+
         for (i, field) in other.fields.iter().enumerate() {
             if !self.fields[i].contains(field) {
                 return false;

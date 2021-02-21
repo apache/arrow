@@ -334,7 +334,7 @@ mod tests {
     }
 
     #[test]
-    fn test_schema_validation() -> Result<()> {
+    fn test_schema_validation_incompatible_column() -> Result<()> {
         let schema1 = Arc::new(Schema::new(vec![
             Field::new("a", DataType::Int32, false),
             Field::new("b", DataType::Int32, false),
@@ -353,6 +353,38 @@ mod tests {
                 Arc::new(Int32Array::from(vec![1, 2, 3])),
                 Arc::new(Int32Array::from(vec![4, 5, 6])),
                 Arc::new(Int32Array::from(vec![7, 8, 9])),
+            ],
+        )?;
+
+        match MemTable::try_new(schema2, vec![vec![batch]]) {
+            Err(DataFusionError::Plan(e)) => assert_eq!(
+                "\"Mismatch between schema and batches\"",
+                format!("{:?}", e)
+            ),
+            _ => panic!("MemTable::new should have failed due to schema mismatch"),
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_schema_validation_different_column_count() -> Result<()> {
+        let schema1 = Arc::new(Schema::new(vec![
+            Field::new("a", DataType::Int32, false),
+            Field::new("c", DataType::Int32, false),
+        ]));
+
+        let schema2 = Arc::new(Schema::new(vec![
+            Field::new("a", DataType::Int32, false),
+            Field::new("b", DataType::Int32, false),
+            Field::new("c", DataType::Int32, false),
+        ]));
+
+        let batch = RecordBatch::try_new(
+            schema1,
+            vec![
+                Arc::new(Int32Array::from(vec![1, 2, 3])),
+                Arc::new(Int32Array::from(vec![7, 5, 9])),
             ],
         )?;
 
