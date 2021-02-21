@@ -18,7 +18,9 @@
 use std::{any::Any, sync::Arc};
 
 use arrow::array::*;
-use arrow::compute::kernels::arithmetic::{add, divide, multiply, subtract};
+use arrow::compute::kernels::arithmetic::{
+    add, divide, divide_scalar, multiply, subtract,
+};
 use arrow::compute::kernels::boolean::{and, or};
 use arrow::compute::kernels::comparison::{eq, gt, gt_eq, lt, lt_eq, neq};
 use arrow::compute::kernels::comparison::{
@@ -162,7 +164,7 @@ macro_rules! compute_op {
 
 macro_rules! binary_string_array_op_scalar {
     ($LEFT:expr, $RIGHT:expr, $OP:ident) => {{
-        let result = match $LEFT.data_type() {
+        let result: Result<Arc<dyn Array>> = match $LEFT.data_type() {
             DataType::Utf8 => compute_utf8_op_scalar!($LEFT, $RIGHT, $OP, StringArray),
             other => Err(DataFusionError::Internal(format!(
                 "Unsupported data type {:?}",
@@ -209,12 +211,37 @@ macro_rules! binary_primitive_array_op {
     }};
 }
 
+/// Invoke a compute kernel on an array and a scalar
+/// The binary_primitive_array_op_scalar macro only evaluates for primitive
+/// types like integers and floats.
+macro_rules! binary_primitive_array_op_scalar {
+    ($LEFT:expr, $RIGHT:expr, $OP:ident) => {{
+        let result: Result<Arc<dyn Array>> = match $LEFT.data_type() {
+            DataType::Int8 => compute_op_scalar!($LEFT, $RIGHT, $OP, Int8Array),
+            DataType::Int16 => compute_op_scalar!($LEFT, $RIGHT, $OP, Int16Array),
+            DataType::Int32 => compute_op_scalar!($LEFT, $RIGHT, $OP, Int32Array),
+            DataType::Int64 => compute_op_scalar!($LEFT, $RIGHT, $OP, Int64Array),
+            DataType::UInt8 => compute_op_scalar!($LEFT, $RIGHT, $OP, UInt8Array),
+            DataType::UInt16 => compute_op_scalar!($LEFT, $RIGHT, $OP, UInt16Array),
+            DataType::UInt32 => compute_op_scalar!($LEFT, $RIGHT, $OP, UInt32Array),
+            DataType::UInt64 => compute_op_scalar!($LEFT, $RIGHT, $OP, UInt64Array),
+            DataType::Float32 => compute_op_scalar!($LEFT, $RIGHT, $OP, Float32Array),
+            DataType::Float64 => compute_op_scalar!($LEFT, $RIGHT, $OP, Float64Array),
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?}",
+                other
+            ))),
+        };
+        Some(result)
+    }};
+}
+
 /// The binary_array_op_scalar macro includes types that extend beyond the primitive,
 /// such as Utf8 strings.
 #[macro_export]
 macro_rules! binary_array_op_scalar {
     ($LEFT:expr, $RIGHT:expr, $OP:ident) => {{
-        let result = match $LEFT.data_type() {
+        let result: Result<Arc<dyn Array>> = match $LEFT.data_type() {
             DataType::Int8 => compute_op_scalar!($LEFT, $RIGHT, $OP, Int8Array),
             DataType::Int16 => compute_op_scalar!($LEFT, $RIGHT, $OP, Int16Array),
             DataType::Int32 => compute_op_scalar!($LEFT, $RIGHT, $OP, Int32Array),
@@ -423,6 +450,9 @@ impl PhysicalExpr for BinaryExpr {
                     }
                     Operator::NotLike => {
                         binary_string_array_op_scalar!(array, scalar.clone(), nlike)
+                    }
+                    Operator::Divide => {
+                        binary_primitive_array_op_scalar!(array, scalar.clone(), divide)
                     }
                     // if scalar operation is not supported - fallback to array implementation
                     _ => None,
