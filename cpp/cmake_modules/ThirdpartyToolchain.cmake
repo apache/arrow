@@ -184,7 +184,7 @@ if(ARROW_DEPENDENCY_SOURCE STREQUAL "VCPKG")
     endif()
     set(CMAKE_TOOLCHAIN_FILE
         "${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
-        CACHE STRING "Path to vcpkg CMake toolchain file")
+        CACHE STRING "Path to vcpkg CMake toolchain file" FORCE)
     set(EP_COMMON_CMAKE_ARGS
         ${EP_COMMON_CMAKE_ARGS}
         -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE})
