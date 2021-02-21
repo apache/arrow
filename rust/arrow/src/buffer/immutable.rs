@@ -293,7 +293,7 @@ impl Buffer {
 
     /// Creates a [`Buffer`] from an [`Iterator`] with a trusted (upper) length or errors
     /// if any of the items of the iterator is an error.
-    /// Prefer this to `collect` whenever possible, as it is faster ~60% faster.
+    /// Prefer this to `collect` whenever possible, as it is ~60% faster.
     /// # Safety
     /// This method assumes that the iterator's size is correct and is undefined behavior
     /// to use it on an iterator that reports an incorrect length.

@@ -13,23 +13,34 @@
 // "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
-// under the License.pub},
+// under the License.
 
-//! A "prelude" for users of the datafusion crate.
-//!
-//! Like the standard library's prelude, this module simplifies importing of
-//! common items. Unlike the standard prelude, the contents of this module must
-//! be imported manually:
-//!
-//! ```
-//! use datafusion::prelude::*;
-//! ```
+#[macro_use]
+extern crate criterion;
+use criterion::Criterion;
 
-pub use crate::dataframe::DataFrame;
-pub use crate::execution::context::{ExecutionConfig, ExecutionContext};
-pub use crate::logical_plan::{
-    array, avg, bit_length, character_length, col, concat, count, create_udf, in_list,
-    length, lit, lower, ltrim, max, md5, min, octet_length, rtrim, sha224, sha256,
-    sha384, sha512, sum, trim, upper, JoinType, Partitioning,
-};
-pub use crate::physical_plan::csv::CsvReadOptions;
+extern crate arrow;
+
+use arrow::{array::*, compute::kernels::length::bit_length};
+
+fn bench_bit_length(array: &StringArray) {
+    criterion::black_box(bit_length(array).unwrap());
+}
+
+fn add_benchmark(c: &mut Criterion) {
+    fn double_vec<T: Clone>(v: Vec<T>) -> Vec<T> {
+        [&v[..], &v[..]].concat()
+    }
+
+    // double ["hello", " ", "world", "!"] 10 times
+    let mut values = vec!["one", "on", "o", ""];
+    for _ in 0..10 {
+        values = double_vec(values);
+    }
+    let array = StringArray::from(values);
+
+    c.bench_function("bit_length", |b| b.iter(|| bench_bit_length(&array)));
+}
+
+criterion_group!(benches, add_benchmark);
+criterion_main!(benches);

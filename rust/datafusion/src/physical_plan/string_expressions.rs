@@ -24,9 +24,13 @@ use crate::{
     scalar::ScalarValue,
 };
 use arrow::{
-    array::{Array, GenericStringArray, StringArray, StringOffsetSizeTrait},
-    datatypes::DataType,
+    array::{
+        Array, ArrayRef, GenericStringArray, PrimitiveArray, StringArray,
+        StringOffsetSizeTrait,
+    },
+    datatypes::{ArrowNativeType, ArrowPrimitiveType, DataType},
 };
+use unicode_segmentation::UnicodeSegmentation;
 
 use super::ColumnarValue;
 
@@ -113,6 +117,27 @@ where
             ))),
         },
     }
+}
+
+/// Returns number of characters in the string.
+/// character_length('josé') = 4
+pub fn character_length<T: ArrowPrimitiveType>(args: &[ArrayRef]) -> Result<ArrayRef>
+where
+    T::Native: StringOffsetSizeTrait,
+{
+    let string_array: &GenericStringArray<T::Native> = args[0]
+        .as_any()
+        .downcast_ref::<GenericStringArray<T::Native>>()
+        .unwrap();
+
+    let result = string_array
+        .iter()
+        .map(|x| {
+            x.map(|x: &str| T::Native::from_usize(x.graphemes(true).count()).unwrap())
+        })
+        .collect::<PrimitiveArray<T>>();
+
+    Ok(Arc::new(result) as ArrayRef)
 }
 
 /// concatenate string columns together.

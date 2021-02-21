@@ -57,7 +57,11 @@ DataFusion includes a simple command-line interactive SQL utility. See the [CLI 
 - [x] UDAFs (user-defined aggregate functions)
 - [x] Common math functions
 - String functions
-  - [x] Length
+  - [x] bit_Length
+  - [x] char_length
+  - [x] character_length
+  - [x] length
+  - [x] octet_length
   - [x] Concatenate
 - Miscellaneous/Boolean functions
   - [x] nullif

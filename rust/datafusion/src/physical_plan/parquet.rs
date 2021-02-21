@@ -298,7 +298,7 @@ pub struct RowGroupPredicateBuilder {
 }
 
 impl RowGroupPredicateBuilder {
-    /// Try to create a new instance of PredicateExpressionBuilder.  
+    /// Try to create a new instance of PredicateExpressionBuilder.
     /// This will translate the filter expression into a statistics predicate expression
     /// (for example (column / 2) = 4 becomes (column_min / 2) <= 4 && 4 <= (column_max / 2)),
     /// then convert it to a DataFusion PhysicalExpression and cache it for later use by build_row_group_predicate.
@@ -340,11 +340,11 @@ impl RowGroupPredicateBuilder {
         })
     }
 
-    /// Generate a predicate function used to filter row group metadata.  
+    /// Generate a predicate function used to filter row group metadata.
     /// This function takes a list of all row groups as parameter,
     /// so that DataFusion's physical expressions can be re-used by
     /// generating a RecordBatch, containing statistics arrays,
-    /// on which the physical predicate expression is executed to generate a row group filter array.  
+    /// on which the physical predicate expression is executed to generate a row group filter array.
     /// The generated filter array is then used in the returned closure to filter row groups.
     pub fn build_row_group_predicate(
         &self,
@@ -611,7 +611,7 @@ fn build_predicate_expression(
             let max_column_expr = expr_builder.max_column_expr()?;
             min_column_expr
                 .lt_eq(expr_builder.scalar_expr().clone())
-                .and(expr_builder.scalar_expr().lt_eq(max_column_expr))
+                .and(expr_builder.scalar_expr().clone().lt_eq(max_column_expr))
         }
         Operator::Gt => {
             // column > literal => (min, max) > literal => max > literal

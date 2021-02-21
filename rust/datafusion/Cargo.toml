@@ -64,6 +64,7 @@ log = "^0.4"
 md-5 = "^0.9.1"
 sha2 = "^0.9.1"
 ordered-float = "2.0"
+unicode-segmentation = "^1.7.1"
 
 [dev-dependencies]
 rand = "0.8"
