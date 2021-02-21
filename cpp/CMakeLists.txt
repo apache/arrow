@@ -58,9 +58,6 @@ endif()
 string(TOLOWER ${CMAKE_BUILD_TYPE} LOWERCASE_BUILD_TYPE)
 string(TOUPPER ${CMAKE_BUILD_TYPE} UPPERCASE_BUILD_TYPE)
 
-set(ARROW_SOURCE_DIR ${PROJECT_SOURCE_DIR})
-set(ARROW_BINARY_DIR ${PROJECT_BINARY_DIR})
-
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules")
 
 # this must be included before the project() command, because of the way
@@ -95,6 +92,9 @@ message(STATUS "Arrow version: "
                "${ARROW_VERSION_MAJOR}.${ARROW_VERSION_MINOR}.${ARROW_VERSION_PATCH} "
                "(full: '${ARROW_VERSION}')")
 message(STATUS "Arrow SO version: ${ARROW_SO_VERSION} (full: ${ARROW_FULL_SO_VERSION})")
+
+set(ARROW_SOURCE_DIR ${PROJECT_SOURCE_DIR})
+set(ARROW_BINARY_DIR ${PROJECT_BINARY_DIR})
 
 include(CMakePackageConfigHelpers)
 include(CMakeParseArguments)
