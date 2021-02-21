@@ -16,18 +16,14 @@
 # under the License.
 
 if(ARROW_VCPKG)
-  message(STATUS "IN FondBoostAlt.cmake > ARROW_VCPKG")
   if(NOT DEFINED BOOST_ROOT)
     set(BOOST_ROOT "${ARROW_VCPKG_PREFIX}")
-    message(STATUS "Setting BOOST_ROOT: ${BOOST_ROOT}")
   endif()
   if(NOT DEFINED BOOST_INCLUDEDIR)
     set(BOOST_INCLUDEDIR "${ARROW_VCPKG_PREFIX}/include/boost")
-    message(STATUS "Setting BOOST_INCLUDEDIR: ${BOOST_INCLUDEDIR}")
   endif()
   if(NOT DEFINED BOOST_LIBRARYDIR)
     set(BOOST_LIBRARYDIR "${ARROW_VCPKG_PREFIX}/lib")
-    message(STATUS "Setting BOOST_LIBRARYDIR: ${BOOST_LIBRARYDIR}")
   endif()
 endif()
 
