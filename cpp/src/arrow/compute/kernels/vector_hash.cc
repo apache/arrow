@@ -689,6 +689,7 @@ const FunctionDoc value_counts_doc(
      "Nulls in the input are ignored."),
     {"array"});
 
+const auto kDefaultDictionaryEncodeOptions = DictionaryEncodeOptions::Defaults();
 const FunctionDoc dictionary_encode_doc(
     "Dictionary-encode array",
     ("Return a dictionary-encoded version of the input array."), {"array"},
@@ -737,8 +738,6 @@ void RegisterVectorHash(FunctionRegistry* registry) {
 
   // ----------------------------------------------------------------------
   // dictionary_encode
-
-  const auto kDefaultDictionaryEncodeOptions = DictionaryEncodeOptions::Defaults();
 
   base.finalize = DictEncodeFinalize;
   // Unique and ValueCounts output unchunked arrays

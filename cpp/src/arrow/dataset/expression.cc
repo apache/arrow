@@ -51,10 +51,6 @@ Expression::Expression(Parameter parameter)
 
 Expression literal(Datum lit) { return Expression(std::move(lit)); }
 
-Expression null_literal(const std::shared_ptr<DataType>& type) {
-  return Expression(MakeNullScalar(type));
-}
-
 Expression field_ref(FieldRef ref) {
   return Expression(Expression::Parameter{std::move(ref), {}});
 }

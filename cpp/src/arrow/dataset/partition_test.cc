@@ -375,7 +375,9 @@ TEST_F(TestPartitioning, HivePartitioningFormat) {
 }
 
 TEST_F(TestPartitioning, DiscoverHiveSchema) {
-  factory_ = HivePartitioning::MakeFactory();
+  auto options = HivePartitioningFactoryOptions();
+  options.infer_dictionary = "xyz";
+  factory_ = HivePartitioning::MakeFactory(options);
 
   // type is int32 if possible
   AssertInspect({"/alpha=0/beta=1"}, {Int("alpha"), Int("beta")});
@@ -387,6 +389,12 @@ TEST_F(TestPartitioning, DiscoverHiveSchema) {
   // schema field names are in order of first occurrence
   // (...so ensure your partitions are ordered the same for all paths)
   AssertInspect({"/alpha=0/beta=1", "/beta=2/alpha=3"}, {Int("alpha"), Int("beta")});
+
+  // Null fallback strings shouldn't interfere with type inference
+  AssertInspect({"/alpha=xyz/beta=x", "/alpha=7/beta=xyz"}, {Int("alpha"), Str("beta")});
+
+  // Only null strings are inferred as text
+  AssertInspect({"/alpha=xyz"}, {Str("alpha")});
 
   // If there are too many digits fall back to string
   AssertInspect({"/alpha=3760212050"}, {Str("alpha")});
@@ -611,7 +619,7 @@ class RangePartitioning : public Partitioning {
       }
 
       std::smatch matches;
-      RETURN_NOT_OK(DoRegex(key->value, &matches));
+      RETURN_NOT_OK(DoRegex(*key->value, &matches));
 
       auto& min_cmp = matches[1] == "[" ? greater_equal : greater;
       std::string min_repr = matches[2];

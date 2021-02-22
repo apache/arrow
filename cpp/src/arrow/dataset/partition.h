@@ -124,8 +124,8 @@ class ARROW_DS_EXPORT KeyValuePartitioning : public Partitioning {
   /// An unconverted equality expression consisting of a field name and the representation
   /// of a scalar value
   struct Key {
-    std::string name, value;
-    bool null;
+    std::string name;
+    util::optional<std::string> value;
   };
 
   static Status SetDefaultValuesFromKeys(const Expression& expr,

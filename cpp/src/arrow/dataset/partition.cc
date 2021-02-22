@@ -162,7 +162,7 @@ Result<Expression> KeyValuePartitioning::ConvertKey(const Key& key) const {
 
   std::shared_ptr<Scalar> converted;
 
-  if (key.null) {
+  if (!key.value.has_value()) {
     return is_null(field_ref(field->name()));
   } else if (field->type()->id() == Type::DICTIONARY) {
     if (dictionaries_.empty() || dictionaries_[field_index] == nullptr) {
@@ -181,7 +181,7 @@ Result<Expression> KeyValuePartitioning::ConvertKey(const Key& key) const {
     }
 
     // look up the partition value in the dictionary
-    ARROW_ASSIGN_OR_RAISE(converted, Scalar::Parse(value.dictionary->type(), key.value));
+    ARROW_ASSIGN_OR_RAISE(converted, Scalar::Parse(value.dictionary->type(), *key.value));
     ARROW_ASSIGN_OR_RAISE(auto index, compute::IndexIn(converted, value.dictionary));
     value.index = index.scalar();
     if (!value.index->is_valid) {
@@ -190,7 +190,7 @@ Result<Expression> KeyValuePartitioning::ConvertKey(const Key& key) const {
     }
     converted = std::make_shared<DictionaryScalar>(std::move(value), field->type());
   } else {
-    ARROW_ASSIGN_OR_RAISE(converted, Scalar::Parse(field->type(), key.value));
+    ARROW_ASSIGN_OR_RAISE(converted, Scalar::Parse(field->type(), *key.value));
   }
 
   return equal(field_ref(field->name()), literal(std::move(converted)));
@@ -254,7 +254,7 @@ std::vector<KeyValuePartitioning::Key> DirectoryPartitioning::ParseKeys(
   for (auto&& segment : fs::internal::SplitAbstractPath(path)) {
     if (i >= schema_->num_fields()) break;
 
-    keys.push_back({schema_->field(i++)->name(), std::move(segment), false});
+    keys.push_back({schema_->field(i++)->name(), std::move(segment)});
   }
 
   return keys;
@@ -441,11 +441,12 @@ util::optional<KeyValuePartitioning::Key> HivePartitioning::ParseKey(
     return util::nullopt;
   }
 
+  auto name = segment.substr(0, name_end);
   auto value = segment.substr(name_end + 1);
   if (value == null_fallback) {
-    return Key{segment.substr(0, name_end), "", true};
+    return Key{name, util::nullopt};
   }
-  return Key{segment.substr(0, name_end), segment.substr(name_end + 1), false};
+  return Key{name, value};
 }
 
 std::vector<KeyValuePartitioning::Key> HivePartitioning::ParseKeys(
@@ -493,8 +494,8 @@ class HivePartitioningFactory : public KeyValuePartitioningFactory {
     for (auto path : paths) {
       for (auto&& segment : fs::internal::SplitAbstractPath(path)) {
         if (auto key = HivePartitioning::ParseKey(segment, null_fallback_)) {
-          if (!key->null) {
-            RETURN_NOT_OK(InsertRepr(key->name, key->value));
+          if (key->value.has_value()) {
+            RETURN_NOT_OK(InsertRepr(key->name, *key->value));
           }
         }
       }
@@ -656,10 +657,10 @@ class StructDictionary {
   Status AddOne(Datum column, std::shared_ptr<Int32Array>* fused_indices) {
     if (column.type()->id() == Type::DICTIONARY) {
       if (column.null_count() != 0) {
-        // TODO Optimize this by allowign DictionaryEncode to transfer a null-masked
-        // dictionary to a null-encoded dictionary.  At the moment we decode and then
-        // encode causing one extra copy, and a potentially expansive decoding copy at
-        // that.
+        // TODO(ARROW-11732) Optimize this by allowign DictionaryEncode to transfer a
+        // null-masked dictionary to a null-encoded dictionary.  At the moment we decode
+        // and then encode causing one extra copy, and a potentially expansive decoding
+        // copy at that.
         ARROW_ASSIGN_OR_RAISE(
             auto decoded_dictionary,
             compute::Cast(

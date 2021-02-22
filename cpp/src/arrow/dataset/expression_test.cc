@@ -240,6 +240,10 @@ TEST(Expression, Equality) {
             call("cast", {field_ref("a")}, compute::CastOptions::Unsafe(int32())));
 }
 
+Expression null_literal(const std::shared_ptr<DataType>& type) {
+  return Expression(MakeNullScalar(type));
+}
+
 TEST(Expression, Hash) {
   std::unordered_set<Expression, Expression::Hash> set;
 
