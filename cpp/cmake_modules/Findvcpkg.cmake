@@ -128,7 +128,7 @@ set(_INST_VCPKG_ROOT "${VCPKG_ROOT}/installed")
 # Iterate over the places
 foreach(_INST_DIR IN LISTS _INST_SOURCE_DIR _INST_VCPKG_ROOT "notfound")
   if(_INST_DIR STREQUAL "notfound")
-    message(FATAL_ERROR "vcpkg installed directory not found. "
+    message(FATAL_ERROR "vcpkg installed libraries directory not found. "
                         "Install packages with vcpkg before executing cmake.")
   elseif(NOT EXISTS "${_INST_DIR}")
     continue()
@@ -191,6 +191,7 @@ if(NOT DEFINED VCPKG_LIBRARY_LINKAGE)
       CACHE STRING "vcpkg preferred library linkage (static|dynamic)")
 endif()
 
+message(STATUS "Using vcpkg installed libraries directory: ${_VCPKG_INSTALLED_DIR}")
 message(STATUS "Using VCPKG_TARGET_TRIPLET: ${VCPKG_TARGET_TRIPLET}")
 message(STATUS "Using VCPKG_BUILD_TYPE: ${VCPKG_BUILD_TYPE}")
 message(STATUS "Using VCPKG_LIBRARY_LINKAGE: ${VCPKG_LIBRARY_LINKAGE}")
