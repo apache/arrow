@@ -178,6 +178,11 @@ set(VCPKG_TARGET_TRIPLET
     "${VCPKG_TARGET_TRIPLET}"
     CACHE STRING "vcpkg triplet for the target environment")
 
+set(VCPKG_BUILD_TYPE
+    LOWERCASE_BUILD_TYPE
+    CACHE STRING
+    "vcpkg build type (release|debug)")
+
 set(ARROW_VCPKG_PREFIX
     "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}"
     CACHE STRING
