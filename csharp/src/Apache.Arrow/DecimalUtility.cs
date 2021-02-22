@@ -96,7 +96,8 @@ namespace Apache.Arrow
             {
                 Buffer.BlockCopy(integerBytes, 0, result, 0, integerBytes.Length);
                 Buffer.BlockCopy(_minusOne, 0, result, integerBytes.Length, byteWidth - integerBytes.Length);
-            } else
+            }
+            else
             {
                 Buffer.BlockCopy(integerBytes, 0, result, 0, integerBytes.Length);
             }
