@@ -161,8 +161,6 @@ TEST_F(TestPartitioning, Partition) {
                   expected_expressions);
 }
 
-TEST_F(TestPartitioning, StructDictionaryNull) {}
-
 TEST_F(TestPartitioning, DirectoryPartitioning) {
   partitioning_ = std::make_shared<DirectoryPartitioning>(
       schema({field("alpha", int32()), field("beta", utf8())}));
