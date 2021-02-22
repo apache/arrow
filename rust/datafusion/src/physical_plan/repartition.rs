@@ -29,7 +29,7 @@ use arrow::datatypes::SchemaRef;
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::RecordBatch;
 
-use super::{RecordBatchStream, SendableRecordBatchStream};
+use super::{hash_join::create_hashes, RecordBatchStream, SendableRecordBatchStream};
 use async_trait::async_trait;
 
 use crossbeam::channel::{unbounded, Receiver, Sender};
@@ -120,8 +120,11 @@ impl ExecutionPlan for RepartitionExec {
                 let (sender, receiver) = unbounded::<Option<ArrowResult<RecordBatch>>>();
                 channels.push((sender, receiver));
             }
+            let random = ahash::RandomState::new();
+
             // launch one async task per *input* partition
             for i in 0..num_input_partitions {
+                let random_state = random.clone();
                 let input = self.input.clone();
                 let mut channels = channels.clone();
                 let partitioning = self.partitioning.clone();
@@ -129,13 +132,32 @@ impl ExecutionPlan for RepartitionExec {
                     let mut stream = input.execute(i).await?;
                     let mut counter = 0;
                     while let Some(result) = stream.next().await {
-                        match partitioning {
+                        match &partitioning {
                             Partitioning::RoundRobinBatch(_) => {
                                 let output_partition = counter % num_output_partitions;
                                 let tx = &mut channels[output_partition].0;
-                                tx.send(Some(result)).map_err(|e| {
-                                    DataFusionError::Execution(e.to_string())
-                                })?;
+                                tx.send(Some(result))
+                                    .map_err(|e| DataFusionError::Execution(e.to_string()))?;
+                            }
+                            Partitioning::Hash(expr, _) => {
+                                let batch = result?;
+                                let arrays = expr
+                                    .iter()
+                                    .map(|b| Ok(b.evaluate(&batch)?.into_array(batch.num_rows())))
+                                    .collect::<Result<Vec<_>>>()?;
+                                // Hash arrays and compute buckets based on number of partitions 
+                                let hashes = create_hashes(&arrays, &random_state)?;
+                                let partions: Vec<u64> = hashes.iter().map(|x| x % num_output_partitions as u64).collect();
+                                //let mut cols = vec![];
+                                for c in batch.columns() {
+                                    for i in  0..batch.num_rows() {
+                                        let partition = partions[i];
+                                        //TODO split array on partition values
+                                    }
+
+                                }
+
+
                             }
                             other => {
                                 // this should be unreachable as long as the validation logic
@@ -177,10 +199,7 @@ impl ExecutionPlan for RepartitionExec {
 
 impl RepartitionExec {
     /// Create a new RepartitionExec
-    pub fn try_new(
-        input: Arc<dyn ExecutionPlan>,
-        partitioning: Partitioning,
-    ) -> Result<Self> {
+    pub fn try_new(input: Arc<dyn ExecutionPlan>, partitioning: Partitioning) -> Result<Self> {
         match &partitioning {
             Partitioning::RoundRobinBatch(_) => Ok(RepartitionExec {
                 input,
@@ -209,10 +228,7 @@ struct RepartitionStream {
 impl Stream for RepartitionStream {
     type Item = ArrowResult<RecordBatch>;
 
-    fn poll_next(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-    ) -> Poll<Option<Self::Item>> {
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         match self.input.recv() {
             Ok(Some(batch)) => Poll::Ready(Some(batch)),
             // End of results from one input partition
