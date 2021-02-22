@@ -345,15 +345,16 @@ TEST(GroupBy, SumOnly) {
 
 TEST(GroupBy, StringKey) {
   auto key = ArrayFromJSON(utf8(), R"(["alfa", "beta", "gamma", "gamma", null, "beta"])");
-  auto aggregand = ArrayFromJSON(int64(), 
-    "[10, 5, 4, 2, 12, 9]");
+  auto aggregand = ArrayFromJSON(int64(), "[10, 5, 4, 2, 12, 9]");
   GroupByOptions options;
   options.aggregates = {GroupByOptions::Aggregate{"sum", nullptr, "sum"}};
   options.key_names = {"key"};
   ASSERT_OK_AND_ASSIGN(Datum boxed, CallFunction("group_by", {aggregand, key}, &options));
   auto aggregated_and_grouped = boxed.array_as<StructArray>();
-  auto result_sum = checked_pointer_cast<Int64Array>(aggregated_and_grouped->GetFieldByName("sum"));
-  auto result_key = checked_pointer_cast<StringArray>(aggregated_and_grouped->GetFieldByName("key"));
+  auto result_sum =
+      checked_pointer_cast<Int64Array>(aggregated_and_grouped->GetFieldByName("sum"));
+  auto result_key =
+      checked_pointer_cast<StringArray>(aggregated_and_grouped->GetFieldByName("key"));
   ASSERT_EQ(result_key->length(), 4);
   for (int64_t i = 0; i < result_key->length(); ++i) {
     int32_t key_length;
