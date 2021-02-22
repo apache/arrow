@@ -221,19 +221,21 @@ endif()
 if(PARQUET_REQUIRE_ENCRYPTION)
   set(PARQUET_SRCS ${PARQUET_SRCS} encryption/encryption_internal.cc)
 
-  # these source files are for encryption key management
-  set(PARQUET_SRCS
-      ${PARQUET_SRCS}
-      encryption/file_key_unwrapper.cc
-      encryption/file_key_wrapper.cc
-      encryption/test_in_memory_kms.cc
-      encryption/key_material.cc
-      encryption/key_metadata.cc
-      encryption/key_toolkit.cc
-      encryption/key_toolkit_internal.cc
-      encryption/kms_client.cc
-      encryption/local_wrap_kms_client.cc
-      encryption/properties_driven_crypto_factory.cc)
+  if(ARROW_JSON)
+    # these source files are for encryption key management
+    set(PARQUET_SRCS
+        ${PARQUET_SRCS}
+        encryption/file_key_unwrapper.cc
+        encryption/file_key_wrapper.cc
+        encryption/test_in_memory_kms.cc
+        encryption/key_material.cc
+        encryption/key_metadata.cc
+        encryption/key_toolkit.cc
+        encryption/key_toolkit_internal.cc
+        encryption/kms_client.cc
+        encryption/local_wrap_kms_client.cc
+        encryption/properties_driven_crypto_factory.cc)
+  endif()
 else()
   set(PARQUET_SRCS ${PARQUET_SRCS} encryption/encryption_internal_nossl.cc)
 endif()
@@ -402,14 +404,16 @@ if(PARQUET_REQUIRE_ENCRYPTION)
                    encryption/test_encryption_util.cc
                    test_util.cc)
 
-  add_parquet_test(encryption-key-management-test
-                   SOURCES
-                   encryption/key_management_test.cc
-                   encryption/key_metadata_test.cc
-                   encryption/key_wrapping_test.cc
-                   encryption/test_encryption_util.cc
-                   encryption/two_level_cache_with_expiration_test.cc
-                   test_util.cc)
+  if(ARROW_JSON)
+    add_parquet_test(encryption-key-management-test
+                     SOURCES
+                     encryption/key_management_test.cc
+                     encryption/key_metadata_test.cc
+                     encryption/key_wrapping_test.cc
+                     encryption/test_encryption_util.cc
+                     encryption/two_level_cache_with_expiration_test.cc
+                     test_util.cc)
+  endif()
 endif()
 
 # Those tests need to use static linking as they access thrift-generated
