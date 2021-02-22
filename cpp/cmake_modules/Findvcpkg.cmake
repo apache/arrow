@@ -191,8 +191,11 @@ set(ARROW_VCPKG_PREFIX
     CACHE STRING
     "Path to target triplet subdirectory in vcpkg installed directory")
 
+set(ARROW_VCPKG
+    ON
+    CACHE BOOL
+    "Use vcpkg for dependencies")
 
-set(ARROW_VCPKG ON CACHE BOOL "Use vcpkg for dependencies") # this is used in other CMake scripts
 set(ARROW_DEPENDENCY_SOURCE
     "SYSTEM"
     CACHE STRING
