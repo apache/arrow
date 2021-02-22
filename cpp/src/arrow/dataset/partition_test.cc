@@ -374,7 +374,7 @@ TEST_F(TestPartitioning, HivePartitioningFormat) {
 
 TEST_F(TestPartitioning, DiscoverHiveSchema) {
   auto options = HivePartitioningFactoryOptions();
-  options.infer_dictionary = "xyz";
+  options.null_fallback = "xyz";
   factory_ = HivePartitioning::MakeFactory(options);
 
   // type is int32 if possible
@@ -391,8 +391,8 @@ TEST_F(TestPartitioning, DiscoverHiveSchema) {
   // Null fallback strings shouldn't interfere with type inference
   AssertInspect({"/alpha=xyz/beta=x", "/alpha=7/beta=xyz"}, {Int("alpha"), Str("beta")});
 
-  // Only null strings are inferred as text
-  AssertInspect({"/alpha=xyz"}, {Str("alpha")});
+  // Cannot infer if the only values are null
+  AssertInspectError({"/alpha=xyz"});
 
   // If there are too many digits fall back to string
   AssertInspect({"/alpha=3760212050"}, {Str("alpha")});

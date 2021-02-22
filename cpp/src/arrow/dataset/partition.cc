@@ -186,7 +186,7 @@ Result<Expression> KeyValuePartitioning::ConvertKey(const Key& key) const {
     value.index = index.scalar();
     if (!value.index->is_valid) {
       return Status::Invalid("Dictionary supplied for field ", field->ToString(),
-                             " does not contain '", key.value, "'");
+                             " does not contain '", *key.value, "'");
     }
     converted = std::make_shared<DictionaryScalar>(std::move(value), field->type());
   } else {
@@ -311,8 +311,13 @@ class KeyValuePartitioningFactory : public PartitioningFactory {
     return it_inserted.first->second;
   }
 
-  Status InsertRepr(const std::string& name, util::string_view repr) {
-    return InsertRepr(GetOrInsertField(name), repr);
+  Status InsertRepr(const std::string& name, util::optional<string_view> repr) {
+    auto field_index = GetOrInsertField(name);
+    if (repr.has_value()) {
+      return InsertRepr(field_index, *repr);
+    } else {
+      return Status::OK();
+    }
   }
 
   Status InsertRepr(int index, util::string_view repr) {
@@ -333,7 +338,7 @@ class KeyValuePartitioningFactory : public PartitioningFactory {
       RETURN_NOT_OK(repr_memos_[index]->GetArrayData(0, &reprs));
 
       if (reprs->length == 0) {
-        return Status::Invalid("No segments were available for field '", name,
+        return Status::Invalid("No non-null segments were available for field '", name,
                                "'; couldn't infer type");
       }
 
@@ -494,9 +499,7 @@ class HivePartitioningFactory : public KeyValuePartitioningFactory {
     for (auto path : paths) {
       for (auto&& segment : fs::internal::SplitAbstractPath(path)) {
         if (auto key = HivePartitioning::ParseKey(segment, null_fallback_)) {
-          if (key->value.has_value()) {
-            RETURN_NOT_OK(InsertRepr(key->name, *key->value));
-          }
+          RETURN_NOT_OK(InsertRepr(key->name, key->value));
         }
       }
     }
