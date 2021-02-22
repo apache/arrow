@@ -1342,7 +1342,7 @@ fn create_join_context_qualified() -> Result<ExecutionContext> {
     let t2_schema = Arc::new(Schema::new(vec![
         Field::new("a", DataType::UInt32, true),
         Field::new("b", DataType::UInt32, true),
-        Field::new("c", DataType::Utf8, true),
+        Field::new("c", DataType::UInt32, true),
     ]));
     let t2_data = RecordBatch::try_new(
         t2_schema.clone(),
