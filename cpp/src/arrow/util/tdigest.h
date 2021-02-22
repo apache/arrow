@@ -80,7 +80,7 @@ class ARROW_EXPORT TDigest {
   double Quantile(double q);
 
   // check if this tdigest contains no valid data points
-  bool is_empty();
+  bool is_empty() const;
 
  private:
   // merge input data with current tdigest

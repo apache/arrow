@@ -332,7 +332,7 @@ class TDigest::TDigestImpl {
     return Lerp(td[ci_left].mean, td[ci_right].mean, diff);
   }
 
-  double total_weight() { return total_weight_; }
+  double total_weight() const { return total_weight_; }
 
  private:
   // must be delcared before merger_, see constructor initialization list
@@ -387,13 +387,15 @@ double TDigest::Quantile(double q) {
   return impl_->Quantile(q);
 }
 
+bool TDigest::is_empty() const {
+  return input_.size() == 0 && impl_->total_weight() == 0;
+}
+
 void TDigest::MergeInput() {
   if (input_.size() > 0) {
     impl_->MergeInput(input_);  // will mutate input_
   }
 }
-
-bool TDigest::is_empty() { return impl_->total_weight() == 0; }
 
 }  // namespace internal
 }  // namespace arrow
