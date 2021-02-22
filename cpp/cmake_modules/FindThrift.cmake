@@ -27,6 +27,10 @@
 #  THRIFT_LIB, THRIFT library
 #  THRIFT_FOUND, If false, do not try to use ant
 
+if(ARROW_VCPKG AND NOT DEFINED Thrift_ROOT)
+  set(Thrift_ROOT "${ARROW_VCPKG_PREFIX}/lib")
+endif()
+
 function(EXTRACT_THRIFT_VERSION)
   if(THRIFT_INCLUDE_DIR)
     file(READ "${THRIFT_INCLUDE_DIR}/thrift/config.h" THRIFT_CONFIG_H_CONTENT)
