@@ -178,8 +178,14 @@ set(VCPKG_TARGET_TRIPLET
     "${VCPKG_TARGET_TRIPLET}"
     CACHE STRING "vcpkg triplet for the target environment")
 
+
+if(ARROW_DEPENDENCY_USE_SHARED)
+  set(VCPKG_LIBRARY_LINKAGE "dynamic")
+else()
+  set(VCPKG_LIBRARY_LINKAGE "static")
+endif()
 set(VCPKG_LIBRARY_LINKAGE
-    "static"
+    "${VCPKG_LIBRARY_LINKAGE}"
     CACHE STRING
     "vcpkg preferred library linkage (static|dynamic)")
 
