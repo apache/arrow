@@ -161,10 +161,8 @@ fn generate_fields(spec: &HashMap<String, InferredType>) -> Result<Vec<Field>> {
 }
 
 /// Generate schema from JSON field names and inferred data types
-fn generate_schema(spec: HashMap<String, InferredType>) -> Result<SchemaRef> {
-    let fields = generate_fields(&spec)?;
-    let schema = Schema::new(fields);
-    Ok(Arc::new(schema))
+fn generate_schema(spec: HashMap<String, InferredType>) -> Result<Schema> {
+    Ok(Schema::new(generate_fields(&spec)?))
 }
 
 /// JSON file reader that produces a serde_json::Value iterator from a Read trait
@@ -266,7 +264,7 @@ impl<'a, R: Read> Iterator for ValueIter<'a, R> {
 pub fn infer_json_schema_from_seekable<R: Read + Seek>(
     reader: &mut BufReader<R>,
     max_read_records: Option<usize>,
-) -> Result<SchemaRef> {
+) -> Result<Schema> {
     let schema = infer_json_schema(reader, max_read_records);
     // return the reader seek back to the start
     reader.seek(SeekFrom::Start(0))?;
@@ -303,7 +301,7 @@ pub fn infer_json_schema_from_seekable<R: Read + Seek>(
 pub fn infer_json_schema<R: Read>(
     reader: &mut BufReader<R>,
     max_read_records: Option<usize>,
-) -> Result<SchemaRef> {
+) -> Result<Schema> {
     infer_json_schema_from_iterator(ValueIter::new(reader, max_read_records))
 }
 
@@ -528,7 +526,7 @@ fn collect_field_types_from_object(
 /// The reason we diverge here is because we don't have utilities to deal with JSON data once it's
 /// interpreted as Strings. We should match Spark's behavior once we added more JSON parsing
 /// kernels in the future.
-pub fn infer_json_schema_from_iterator<I>(value_iter: I) -> Result<SchemaRef>
+pub fn infer_json_schema_from_iterator<I>(value_iter: I) -> Result<Schema>
 where
     I: Iterator<Item = Result<Value>>,
 {
@@ -559,12 +557,13 @@ where
 /// use arrow::json::reader::{Decoder, ValueIter, infer_json_schema};
 /// use std::fs::File;
 /// use std::io::{BufReader, Seek, SeekFrom};
+/// use std::sync::Arc;
 ///
 /// let mut reader =
 ///     BufReader::new(File::open("test/data/mixed_arrays.json").unwrap());
 /// let inferred_schema = infer_json_schema(&mut reader, None).unwrap();
 /// let batch_size = 1024;
-/// let decoder = Decoder::new(inferred_schema, batch_size, None);
+/// let decoder = Decoder::new(Arc::new(inferred_schema), batch_size, None);
 ///
 /// // seek back to start so that the original file is usable again
 /// reader.seek(SeekFrom::Start(0)).unwrap();
@@ -1551,7 +1550,10 @@ impl ReaderBuilder {
         // check if schema should be inferred
         let schema = match self.schema {
             Some(schema) => schema,
-            None => infer_json_schema_from_seekable(&mut buf_reader, self.max_records)?,
+            None => Arc::new(infer_json_schema_from_seekable(
+                &mut buf_reader,
+                self.max_records,
+            )?),
         };
 
         Ok(Reader::from_buf_reader(
@@ -1923,7 +1925,7 @@ mod tests {
         file.seek(SeekFrom::Start(0)).unwrap();
 
         let reader = BufReader::new(GzDecoder::new(&file));
-        let mut reader = Reader::from_buf_reader(reader, schema, 64, None);
+        let mut reader = Reader::from_buf_reader(reader, Arc::new(schema), 64, None);
         let batch_gz = reader.next().unwrap().unwrap();
 
         for batch in vec![batch, batch_gz] {
@@ -2591,13 +2593,13 @@ mod tests {
             BufReader::new(File::open("test/data/mixed_arrays.json").unwrap());
         let inferred_schema = infer_json_schema_from_seekable(&mut reader, None).unwrap();
 
-        assert_eq!(inferred_schema, Arc::new(schema.clone()));
+        assert_eq!(inferred_schema, schema);
 
         let file = File::open("test/data/mixed_arrays.json.gz").unwrap();
         let mut reader = BufReader::new(GzDecoder::new(&file));
         let inferred_schema = infer_json_schema(&mut reader, None).unwrap();
 
-        assert_eq!(inferred_schema, Arc::new(schema));
+        assert_eq!(inferred_schema, schema);
     }
 
     #[test]
@@ -2629,7 +2631,7 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(inferred_schema, Arc::new(schema));
+        assert_eq!(inferred_schema, schema);
     }
 
     #[test]
@@ -2671,7 +2673,7 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(inferred_schema, Arc::new(schema));
+        assert_eq!(inferred_schema, schema);
     }
 
     #[test]
@@ -2707,7 +2709,7 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(inferred_schema, Arc::new(schema));
+        assert_eq!(inferred_schema, schema);
     }
 
     #[test]
