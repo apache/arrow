@@ -132,6 +132,8 @@ class TestNthToIndices : public TestBase {
  protected:
   void AssertNthToIndicesArray(const std::shared_ptr<Array> values, int n) {
     ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> offsets, NthToIndices(*values, n));
+    // null_count field should have been initialized to 0, for convenience
+    ASSERT_EQ(offsets->data()->null_count, 0);
     ASSERT_OK(offsets->ValidateFull());
     Validate<ArrayType>(*checked_pointer_cast<ArrayType>(values), n,
                         *checked_pointer_cast<UInt64Array>(offsets));
