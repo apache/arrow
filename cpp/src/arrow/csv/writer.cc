@@ -156,7 +156,7 @@ class UnquotedColumnPopulator : public ColumnPopulator {
           int64_t next_column_offset = s.length() + /*end_char*/ 1;
           memcpy((output + *offsets - next_column_offset), s.data(), s.length());
           *(output + *offsets - 1) = end_char_;
-          *offsets -= next_column_offset;
+          *offsets -= static_cast<int32_t>(next_column_offset);
           offsets++;
         },
         [&]() {
@@ -188,7 +188,8 @@ class QuotedColumnPopulator : public ColumnPopulator {
           int64_t escaped_count = CountEscapes(s);
           // TODO: Maybe use 64 bit row lengths or safe cast?
           row_needs_escaping_[row_number] = escaped_count > 0;
-          row_lengths[row_number] += s.length() + escaped_count + kQuoteCount;
+          row_lengths[row_number] += static_cast<int32_t>(s.length()) +
+                                     static_cast<int32_t>(escaped_count + kQuoteCount);
           row_number++;
         },
         [&]() {
@@ -213,7 +214,8 @@ class QuotedColumnPopulator : public ColumnPopulator {
           } else {
             // Adjust row_end by 3: 1 quote char, 1 end char and 1 to position at the
             // first position to write to.
-            next_column_offset = row_end - EscapeReverse(s, row_end - 3);
+            next_column_offset =
+                static_cast<int32_t>(row_end - EscapeReverse(s, row_end - 3));
           }
           *(row_end - next_column_offset) = '"';
           *(row_end - 2) = '"';
@@ -375,8 +377,8 @@ class CSVConverter {
 
     // Calculate relative offsets for each row (excluding delimiters)
     for (size_t col = 0; col < column_populators_.size(); col++) {
-      RETURN_NOT_OK(
-          column_populators_[col]->UpdateRowLengths(*batch.column(col), offsets_.data()));
+      RETURN_NOT_OK(column_populators_[static_cast<int32_t>(col)]->UpdateRowLengths(
+          *batch.column(col), offsets_.data()));
     }
     // Calculate cumulalative offsets for each row (including delimiters).
     offsets_[0] += batch.num_columns();
