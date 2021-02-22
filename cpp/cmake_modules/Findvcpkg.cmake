@@ -213,5 +213,4 @@ if(CMAKE_HOST_WIN32)
   set(utf8proc_MSVC_STATIC_LIB_SUFFIX "")
   set(ZSTD_MSVC_LIB_PREFIX "")
   set(ZSTD_MSVC_STATIC_LIB_SUFFIX "")
-else
 endif()
