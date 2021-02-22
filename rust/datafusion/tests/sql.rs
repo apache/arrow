@@ -2281,7 +2281,6 @@ async fn in_list_scalar() -> Result<()> {
 #[tokio::test]
 #[ignore]
 async fn inner_join_qualified_names() -> Result<()> {
-
     // Setup the statements that test qualified names function correctly.
     let equivalent_sql = [
         "SELECT t1.a, t1.b, t1.c, t2.a, t2.b, t2.c
@@ -2295,9 +2294,9 @@ async fn inner_join_qualified_names() -> Result<()> {
     ];
 
     let expected = vec![
-        vec!["1","10","50","1","100","500"],
-        vec!["2","20","60","2","20","600"],
-        vec!["4","40","80","4","400","800"],
+        vec!["1", "10", "50", "1", "100", "500"],
+        vec!["2", "20", "60", "2", "20", "600"],
+        vec!["4", "40", "80", "4", "400", "800"],
     ];
 
     for sql in equivalent_sql.iter() {
