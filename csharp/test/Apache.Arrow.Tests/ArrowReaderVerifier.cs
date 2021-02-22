@@ -18,6 +18,7 @@ using Apache.Arrow.Types;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Apache.Arrow.Arrays;
 using Xunit;
 
 namespace Apache.Arrow.Tests
@@ -150,29 +151,12 @@ namespace Apache.Arrow.Tests
                 Assert.True(expectedArray.Values.Slice(0, expectedArray.Length).SequenceEqual(actualArray.Values.Slice(0, actualArray.Length)));
             }
 
-            private void CompareArrays(Decimal128Array actualArray)
+            private void CompareArrays(FixedSizeBinaryArray actualArray)
             {
-                Assert.IsAssignableFrom<Decimal128Array>(_expectedArray);
-                Assert.IsAssignableFrom<Decimal128Array>(actualArray);
+                Assert.IsAssignableFrom<FixedSizeBinaryArray>(_expectedArray);
+                Assert.IsAssignableFrom<FixedSizeBinaryArray>(actualArray);
 
-                var expectedArray = (Decimal128Array)_expectedArray;
-
-                actualArray.Data.DataType.Accept(_arrayTypeComparer);
-
-                Assert.Equal(expectedArray.Length, actualArray.Length);
-                Assert.Equal(expectedArray.NullCount, actualArray.NullCount);
-                Assert.Equal(expectedArray.Offset, actualArray.Offset);
-
-                Assert.True(expectedArray.NullBitmapBuffer.Span.SequenceEqual(actualArray.NullBitmapBuffer.Span));
-                Assert.True(expectedArray.ValueBuffer.Span.Slice(0, expectedArray.Length).SequenceEqual(actualArray.ValueBuffer.Span.Slice(0, actualArray.Length)));
-            }
-
-            private void CompareArrays(Decimal256Array actualArray)
-            {
-                Assert.IsAssignableFrom<Decimal256Array>(_expectedArray);
-                Assert.IsAssignableFrom<Decimal256Array>(actualArray);
-
-                var expectedArray = (Decimal256Array)_expectedArray;
+                var expectedArray = (FixedSizeBinaryArray)_expectedArray;
 
                 actualArray.Data.DataType.Accept(_arrayTypeComparer);
 

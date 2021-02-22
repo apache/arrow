@@ -79,7 +79,6 @@ namespace Apache.Arrow
         }
         public override void Accept(IArrowArrayVisitor visitor) => Accept(this, visitor);
 
-        public ArrowBuffer ValueBuffer => Data.Buffers[1];
         public int Scale => ((Decimal128Type)Data.DataType).Scale;
         public int Precision => ((Decimal128Type)Data.DataType).Precision;
         public int ByteWidth => ((Decimal128Type)Data.DataType).ByteWidth;

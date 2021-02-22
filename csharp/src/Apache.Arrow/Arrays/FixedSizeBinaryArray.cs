@@ -36,6 +36,10 @@ namespace Apache.Arrow.Arrays
             data.EnsureBufferCount(2);
         }
 
+        public override void Accept(IArrowArrayVisitor visitor) => Accept(this, visitor);
+
+        public ArrowBuffer ValueBuffer => Data.Buffers[1];
+
         public abstract class BuilderBase<TArray, TBuilder> : IArrowArrayBuilder<byte[], TArray, TBuilder>
             where TArray : IArrowArray
             where TBuilder : class, IArrowArrayBuilder<byte[], TArray, TBuilder>
