@@ -22,7 +22,7 @@ namespace Apache.Arrow.Flatbuf
 /// Enums added to this list should be assigned power-of-two values
 /// to facilitate exchanging and comparing bitmaps for supported
 /// features.
-public enum Feature : long
+internal enum Feature : long
 {
   /// Needed to make flatbuffers happy.
  UNUSED = 0,

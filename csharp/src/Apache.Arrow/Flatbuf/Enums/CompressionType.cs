@@ -5,7 +5,7 @@
 namespace Apache.Arrow.Flatbuf
 {
 
-public enum CompressionType : sbyte
+internal enum CompressionType : sbyte
 {
  LZ4_FRAME = 0,
  ZSTD = 1,

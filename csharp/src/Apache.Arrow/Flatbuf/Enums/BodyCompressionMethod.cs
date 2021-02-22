@@ -8,7 +8,7 @@ namespace Apache.Arrow.Flatbuf
 /// Provided for forward compatibility in case we need to support different
 /// strategies for compressing the IPC message body (like whole-body
 /// compression rather than buffer-level) in the future
-public enum BodyCompressionMethod : sbyte
+internal enum BodyCompressionMethod : sbyte
 {
   /// Each constituent buffer is first compressed with the indicated
   /// compressor, and then written with the uncompressed length in the first 8
