@@ -343,6 +343,37 @@ TEST(GroupBy, SumOnly) {
   }
 }
 
+TEST(GroupBy, StringKey) {
+  auto key = ArrayFromJSON(utf8(), R"(["alfa", "beta", "gamma", "gamma", null, "beta"])");
+  auto aggregand = ArrayFromJSON(int64(), 
+    "[10, 5, 4, 2, 12, 9]");
+  GroupByOptions options;
+  options.aggregates = {GroupByOptions::Aggregate{"sum", nullptr, "sum"}};
+  options.key_names = {"key"};
+  ASSERT_OK_AND_ASSIGN(Datum boxed, CallFunction("group_by", {aggregand, key}, &options));
+  auto aggregated_and_grouped = boxed.array_as<StructArray>();
+  auto result_sum = checked_pointer_cast<Int64Array>(aggregated_and_grouped->GetFieldByName("sum"));
+  auto result_key = checked_pointer_cast<StringArray>(aggregated_and_grouped->GetFieldByName("key"));
+  ASSERT_EQ(result_key->length(), 4);
+  for (int64_t i = 0; i < result_key->length(); ++i) {
+    int32_t key_length;
+    const uint8_t* key_chars = result_key->GetValue(i, &key_length);
+    std::string key_str((char*)key_chars, key_length);
+    if (key_str.compare("alfa") == 0) {
+      ASSERT_EQ(result_sum->Value(i), 10);
+    }
+    if (key_str.compare("beta") == 0) {
+      ASSERT_EQ(result_sum->Value(i), 14);
+    }
+    if (key_str.compare("gamma") == 0) {
+      ASSERT_EQ(result_sum->Value(i), 6);
+    }
+    if (key_str.compare("") == 0) {
+      ASSERT_EQ(result_sum->Value(i), 12);
+    }
+  }
+}
+
 TEST(GroupBy, CountOnly) {
   auto key = ArrayFromJSON(int64(),
                            "[1, 2, 1,"
@@ -487,15 +518,32 @@ TEST(GroupBy, RandomArraySum) {
       auto actual = boxed.array_as<StructArray>();
       ASSERT_EQ(actual->length(), n_groups);
 
+      std::vector<std::pair<int64_t, double>> vexpected;
+      std::vector<std::pair<int64_t, double>> vactual;
+
       for (int64_t i_group = 0; i_group < n_groups; ++i_group) {
         const auto& expected_for_group = expected[i_group];
         auto actual_for_group =
             checked_pointer_cast<StructScalar>(*actual->GetScalar(i_group))->value;
 
         ASSERT_EQ(expected_for_group.size(), actual_for_group.size());
-        for (size_t i = 0; i < expected_for_group.size(); ++i) {
-          AssertScalarsEqual(*expected_for_group[i], *actual_for_group[i]);
-        }
+        ASSERT_EQ(expected_for_group.size(), 2);
+
+        double expected_sum = ((DoubleScalar*)expected_for_group[0].get())->value;
+        int64_t expected_key = ((Int64Scalar*)expected_for_group[1].get())->value;
+        double actual_sum = ((DoubleScalar*)actual_for_group[0].get())->value;
+        int64_t actual_key = ((Int64Scalar*)actual_for_group[1].get())->value;
+
+        vexpected.push_back(std::make_pair(expected_key, expected_sum));
+        vactual.push_back(std::make_pair(actual_key, actual_sum));
+      }
+
+      std::sort(vexpected.begin(), vexpected.end());
+      std::sort(vactual.begin(), vactual.end());
+
+      for (size_t i = 0; i < vexpected.size(); ++i) {
+        ASSERT_EQ(vexpected[i].first, vactual[i].first);
+        ASSERT_EQ(vexpected[i].second, vactual[i].second);
       }
     }
   }

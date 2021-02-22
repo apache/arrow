@@ -168,7 +168,7 @@ struct GroupedCountImpl : public GroupedAggregator {
     *out = std::make_shared<Int64Array>(length, std::move(counts));
   }
 
-  int64_t num_groups() const override { return counts->size() * sizeof(int64_t); }
+  int64_t num_groups() const override { return counts->size() / sizeof(int64_t); }
 
   CountOptions options;
   std::shared_ptr<ResizableBuffer> counts;
@@ -270,7 +270,7 @@ struct GroupedSumImpl : public GroupedAggregator {
                            {/*null_bitmap=*/nullptr, std::move(sums)});
   }
 
-  int64_t num_groups() const override { return sums->size() * kSumSize; }
+  int64_t num_groups() const override { return sums->size() / kSumSize; }
 
   std::shared_ptr<ResizableBuffer> sums;
   std::shared_ptr<DataType> out_type;
@@ -660,22 +660,21 @@ struct GroupByImpl : public ScalarAggregator {
     static void DecodeNulls(KernelContext* ctx, int32_t length, uint8_t** encoded_bytes, std::shared_ptr<ResizableBuffer>* null_buf, int32_t &null_count) {
       // Do we have nulls?
       null_count = 0;
-      for (size_t i = 0; i < length; ++i) {
+      for (int32_t i = 0; i < length; ++i) {
         null_count += encoded_bytes[i][0];        
       }
-      null_buf = NULLPTR;
       if (null_count > 0) {
-        KERNEL_ASSIGN_OR_RAISE(*null_buf, ctx, ctx->Allocate((length + 7) / 8));
+        ctx->SetStatus(ctx->Allocate((length + 7) / 8).Value(null_buf));
         uint8_t* nulls = (*null_buf)->mutable_data();
         memset(nulls, 0, (length + 7) / 8);
-        for (size_t i = 0; i < length; ++i) {
+        for (int32_t i = 0; i < length; ++i) {
           if (encoded_bytes[i][0]) {
             BitUtil::SetBit(nulls, i);
           }
           encoded_bytes[i] += 1;
         }
       } else {
-        for (size_t i = 0; i < length; ++i) {
+        for (int32_t i = 0; i < length; ++i) {
           encoded_bytes[i] += 1;
         }
       }
@@ -690,7 +689,7 @@ struct GroupByImpl : public ScalarAggregator {
       KERNEL_ASSIGN_OR_RAISE(auto key_buf, ctx, ctx->Allocate(NumBits == 1 ? (length + 7) / 8 : (NumBits / 8) * length));
 
       uint8_t* raw_output = key_buf->mutable_data();
-      for (size_t i = 0; i < length; ++i) {
+      for (int32_t i = 0; i < length; ++i) {
         auto &encoded_ptr = encoded_bytes[i];
         if (NumBits == 1) {
           BitUtil::SetBitTo(raw_output, i, encoded_ptr[0] != 0);
@@ -742,6 +741,8 @@ struct GroupByImpl : public ScalarAggregator {
         case Type::INT64:
           *out = ArrayData::Make(int64(), length, {null_buf, key_buf}, null_count);
           // *out = std::make_shared<Int64Array>(length, key_buf, null_buf);
+          break;
+        default:
           break;
       }
     }
@@ -875,9 +876,11 @@ struct GroupByImpl : public ScalarAggregator {
     }
     int32_t total_length = 0;
     for (int64_t i = 0; i < batch.length; ++i) {
+      auto total_length_before = total_length;
       total_length += offsets_batch_[i];
-      offsets_batch_[i + 1] = total_length;
+      offsets_batch_[i] = total_length_before;
     }
+    offsets_batch_[batch.length] = total_length;
 
     key_bytes_batch_.clear();
     key_bytes_batch_.resize(total_length);
