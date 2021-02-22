@@ -306,8 +306,8 @@ TEST_F(TestHashKernel, ValueCountsBoolean) {
 }
 
 TEST_F(TestHashKernel, ValueCountsNull) {
-  CheckValueCounts<NullType, std::nullptr_t>(
-      null(), {nullptr, nullptr, nullptr}, {true, false, true}, {nullptr}, {false}, {3});
+  CheckValueCounts(ArrayFromJSON(null(), "[null, null, null]"),
+                   ArrayFromJSON(null(), "[null]"), ArrayFromJSON(int64(), "[3]"));
 }
 
 TEST_F(TestHashKernel, DictEncodeBoolean) {
