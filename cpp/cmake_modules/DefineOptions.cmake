@@ -276,10 +276,11 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   #   location, or if you are using a non-standard toolchain, you can also pass
   #   ARROW_PACKAGE_PREFIX to set the *_ROOT variables to look in that
   #   directory
-  # * CONDA: Same as system but set all *_ROOT variables to
+  # * CONDA: Same as SYSTEM but set all *_ROOT variables to
   #   ENV{CONDA_PREFIX}. If this is run within an active conda environment,
   #   then ENV{CONDA_PREFIX} will be used for dependencies unless
   #   ARROW_DEPENDENCY_SOURCE is set explicitly to one of the other options
+  # * VCPKG: Searches for dependencies installed by vcpkg.
   # * BREW: Use SYSTEM but search for select packages with brew.
   if(NOT "$ENV{CONDA_PREFIX}" STREQUAL "")
     set(ARROW_DEPENDENCY_SOURCE_DEFAULT "CONDA")
@@ -293,6 +294,7 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
                        "BUNDLED"
                        "SYSTEM"
                        "CONDA"
+                       "VCPKG"
                        "BREW")
 
   define_option(ARROW_VERBOSE_THIRDPARTY_BUILD

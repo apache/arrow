@@ -52,6 +52,7 @@ patterns = [
     'cpp/cmake_modules/FindRapidJSONAlt.cmake',
     'cpp/cmake_modules/FindSnappyAlt.cmake',
     'cpp/cmake_modules/FindThrift.cmake',
+    'cpp/cmake_modules/Findvcpkg.cmake',
     'cpp/cmake_modules/FindZSTD.cmake',
     'cpp/cmake_modules/Findc-aresAlt.cmake',
     'cpp/cmake_modules/FindgRPCAlt.cmake',

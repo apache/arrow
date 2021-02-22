@@ -59,10 +59,9 @@ cmake -G "Visual Studio 16 2019" -A x64 ^
       -DARROW_BUILD_TESTS=ON ^
       -DARROW_CXXFLAGS="/MP" ^
       -DARROW_DATASET=ON ^
-      -DARROW_DEPENDENCY_SOURCE=SYSTEM ^
+      -DARROW_DEPENDENCY_SOURCE=VCPKG ^
       -DARROW_FLIGHT=ON ^
       -DARROW_MIMALLOC=ON ^
-      -DARROW_PACKAGE_PREFIX="%VCPKG_INSTALLED%\x64-windows" ^
       -DARROW_PARQUET=ON ^
       -DARROW_PYTHON=OFF ^
       -DARROW_WITH_BROTLI=ON ^
@@ -72,14 +71,7 @@ cmake -G "Visual Studio 16 2019" -A x64 ^
       -DARROW_WITH_ZLIB=ON ^
       -DARROW_WITH_ZSTD=ON ^
       -DCMAKE_BUILD_TYPE=release ^
-      -DCMAKE_TOOLCHAIN_FILE="C:\vcpkg\scripts\buildsystems\vcpkg.cmake" ^
       -DCMAKE_UNITY_BUILD=ON ^
-      -DLZ4_MSVC_LIB_PREFIX="" ^
-      -DLZ4_MSVC_STATIC_LIB_SUFFIX="" ^
-      -D_VCPKG_INSTALLED_DIR="%VCPKG_INSTALLED%" ^
-      -DVCPKG_MANIFEST_MODE=ON ^
-      -DVCPKG_TARGET_TRIPLET="x64-windows" ^
-      -DZSTD_MSVC_LIB_PREFIX="" ^
       .. || exit /B 1
 
 cmake --build . --target INSTALL --config Release || exit /B 1

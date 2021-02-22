@@ -282,8 +282,9 @@ the build system how to resolve each dependency. There are a few options:
 * ``SYSTEM``: Finding the dependency in system paths using CMake's built-in
   ``find_package`` function, or using ``pkg-config`` for packages that do not
   have this feature
-* ``BREW``: Use Homebrew default paths as an alternative ``SYSTEM`` path
 * ``CONDA``: Use ``$CONDA_PREFIX`` as alternative ``SYSTEM`` PATH
+* ``VCPKG``: Find dependencies installed by ``vcpkg``
+* ``BREW``: Use Homebrew default paths as an alternative ``SYSTEM`` path
 
 The default method is ``AUTO`` unless you are developing within an active conda
 environment (detected by presence of the ``$CONDA_PREFIX`` environment
