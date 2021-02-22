@@ -178,25 +178,29 @@ set(VCPKG_TARGET_TRIPLET
     "${VCPKG_TARGET_TRIPLET}"
     CACHE STRING "vcpkg triplet for the target environment")
 
-
-if(ARROW_DEPENDENCY_USE_SHARED)
-  set(VCPKG_LIBRARY_LINKAGE "dynamic")
-else()
-  set(VCPKG_LIBRARY_LINKAGE "static")
-endif()
-set(VCPKG_LIBRARY_LINKAGE
-    "${VCPKG_LIBRARY_LINKAGE}"
-    CACHE STRING
-    "vcpkg preferred library linkage (static|dynamic)")
-
+if(NOT DEFINED VCPKG_BUILD_TYPE)
 set(VCPKG_BUILD_TYPE
     LOWERCASE_BUILD_TYPE
     CACHE STRING
     "vcpkg build type (release|debug)")
+endif()
+
+if(NOT DEFINED VCPKG_LIBRARY_LINKAGE)
+  if(ARROW_DEPENDENCY_USE_SHARED)
+    set(VCPKG_LIBRARY_LINKAGE "dynamic")
+  else()
+    set(VCPKG_LIBRARY_LINKAGE "static")
+  endif()
+  set(VCPKG_LIBRARY_LINKAGE
+      "${VCPKG_LIBRARY_LINKAGE}"
+      CACHE STRING
+      "vcpkg preferred library linkage (static|dynamic)")
+endif()
 
 message(STATUS "Using VCPKG_TARGET_TRIPLET: ${VCPKG_TARGET_TRIPLET}")
 message(STATUS "Using _VCPKG_INSTALLED_DIR: ${_VCPKG_INSTALLED_DIR}")
 message(STATUS "Using VCPKG_BUILD_TYPE: ${VCPKG_BUILD_TYPE}")
+message(STATUS "Using VCPKG_LIBRARY_LINKAGE: ${VCPKG_LIBRARY_LINKAGE}")
 
 set(ARROW_VCPKG_PREFIX
     "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}"
