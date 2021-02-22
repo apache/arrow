@@ -15,10 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-if(MSVC AND NOT DEFINED ZSTD_MSVC_LIB_PREFIX)
+if(MSVC_TOOLCHAIN)
   if(ARROW_VCPKG)
     set(ZSTD_MSVC_LIB_PREFIX "")
-  else()
+  elseif(NOT DEFINED ZSTD_MSVC_LIB_PREFIX)
     set(ZSTD_MSVC_LIB_PREFIX "lib")
   endif()
 endif()
@@ -38,8 +38,12 @@ if(ARROW_ZSTD_USE_SHARED)
       ZSTD_LIB_NAMES
       "${CMAKE_SHARED_LIBRARY_PREFIX}${ZSTD_LIB_NAME_BASE}${CMAKE_SHARED_LIBRARY_SUFFIX}")
 else()
-  if(MSVC AND NOT DEFINED ZSTD_MSVC_STATIC_LIB_SUFFIX)
-    set(ZSTD_MSVC_STATIC_LIB_SUFFIX "_static")
+  if(MSVC_TOOLCHAIN)
+    if(ARROW_VCPKG)
+      set(ZSTD_MSVC_STATIC_LIB_SUFFIX "")
+    elseif(NOT DEFINED ZSTD_MSVC_STATIC_LIB_SUFFIX)
+      set(ZSTD_MSVC_STATIC_LIB_SUFFIX "_static")
+    endif()
   endif()
   set(ZSTD_STATIC_LIB_SUFFIX
       "${ZSTD_MSVC_STATIC_LIB_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}")
