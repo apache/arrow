@@ -48,8 +48,8 @@ namespace Apache.Arrow.Tests
                 builder.Field(CreateField(TimestampType.Default, i));
                 builder.Field(CreateField(StringType.Default, i));
                 builder.Field(CreateField(new StructType(new List<Field> { CreateField(StringType.Default, i), CreateField(Int32Type.Default, i) }), i));
-                builder.Field(CreateField(new Decimal128Type(20, 10), i));
-                builder.Field(CreateField(new Decimal256Type(20, 10), i));
+                builder.Field(CreateField(new Decimal128Type(10, 4), i));
+                builder.Field(CreateField(new Decimal256Type(16, 8), i));
                 //builder.Field(CreateField(new FixedSizeBinaryType(16), i));
                 //builder.Field(CreateField(HalfFloatType.Default));
                 //builder.Field(CreateField(StringType.Default));
