@@ -194,4 +194,8 @@ message(STATUS "Using VCPKG_TARGET_TRIPLET: ${VCPKG_TARGET_TRIPLET}")
 message(STATUS "Using _VCPKG_INSTALLED_DIR: ${_VCPKG_INSTALLED_DIR}")
 
 set(ARROW_VCPKG ON CACHE BOOL "Use vcpkg for dependencies") # this is used in other CMake scripts
-set(ARROW_DEPENDENCY_SOURCE "SYSTEM" CACHE STRING "Use find_package or pkg-config to find dependencies not found by vcpkg")
+set(ARROW_DEPENDENCY_SOURCE
+    "SYSTEM"
+    CACHE STRING
+    "Use find_package or pkg-config to find dependencies not found by vcpkg"
+    FORCE)
