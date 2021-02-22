@@ -208,7 +208,7 @@ class QuotedColumnPopulator : public ColumnPopulator {
           char* row_end = output + *offsets;
           int32_t next_column_offset = 0;
           if (!*needs_escaping) {
-            next_column_offset = s.length() + kQuoteDelimiterCount;
+            next_column_offset = static_cast<int32_t>(s.length() + kQuoteDelimiterCount);
             memcpy(row_end - next_column_offset + /*quote_offset=*/1, s.data(),
                    s.length());
           } else {
@@ -376,9 +376,9 @@ class CSVConverter {
     std::fill(offsets_.begin(), offsets_.end(), 0);
 
     // Calculate relative offsets for each row (excluding delimiters)
-    for (size_t col = 0; col < column_populators_.size(); col++) {
-      RETURN_NOT_OK(column_populators_[static_cast<int32_t>(col)]->UpdateRowLengths(
-          *batch.column(col), offsets_.data()));
+    for (int32_t col = 0; col < static_cast<int32_t>(column_populators_.size()); col++) {
+      RETURN_NOT_OK(
+          column_populators_[col]->UpdateRowLengths(*batch.column(col), offsets_.data()));
     }
     // Calculate cumulalative offsets for each row (including delimiters).
     offsets_[0] += batch.num_columns();

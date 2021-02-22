@@ -1644,8 +1644,10 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
 # Writer is included explicity to avoid having to set additional
 # C-Processor definitions in setup.py for cmake.
 cdef extern from "arrow/csv/writer.h" namespace "arrow::csv" nogil:
-    cdef CStatus WriteCSV(CTable&, CCSVWriteOptions& options, CMemoryPool*, COutputStream*)
-    cdef CStatus WriteCSV(CRecordBatch&, CCSVWriteOptions& options, CMemoryPool*, COutputStream*)
+    cdef CStatus WriteCSV(
+        CTable&, CCSVWriteOptions& options, CMemoryPool*, COutputStream*)
+    cdef CStatus WriteCSV(
+        CRecordBatch&, CCSVWriteOptions& options, CMemoryPool*, COutputStream*)
 
 
 cdef extern from "arrow/json/options.h" nogil:

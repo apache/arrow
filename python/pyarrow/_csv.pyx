@@ -774,7 +774,7 @@ cdef class WriteOptions(_Weakrefable):
     Parameters
     ----------
     include_header : bool, optional (default True)
-        Whether to include the header 
+        Whether to include the header
     batch_size : int, optional (default 1024)
         How many rows to process together when converting and writing
         CSV
