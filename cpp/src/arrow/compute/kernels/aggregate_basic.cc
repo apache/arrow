@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <map>
+#include <unordered_map>
 
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/kernels/aggregate_basic_internal.h"
@@ -1010,7 +1010,7 @@ struct GroupByImpl : public ScalarAggregator {
   std::vector<uint8_t*> key_buf_ptrs_;
   std::vector<uint32_t> group_ids_batch_;
 
-  std::map<std::string, uint32_t> map_;
+  std::unordered_map<std::string, uint32_t> map_;
   std::vector<int32_t> offsets_;
   std::vector<uint8_t> key_bytes_;
   uint32_t n_groups;
