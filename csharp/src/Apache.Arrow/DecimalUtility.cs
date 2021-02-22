@@ -23,7 +23,7 @@ namespace Apache.Arrow
     /// <summary>
     /// This is semi-optimised best attempt at converting to / from decimal and the buffers
     /// </summary>
-    public static class DecimalUtility
+    internal static class DecimalUtility
     {
         private static readonly byte[] _minusOne = { 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255 };
         private static readonly BigInteger _maxDecimal = new BigInteger(decimal.MaxValue);
