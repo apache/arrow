@@ -1023,23 +1023,7 @@ if(PARQUET_REQUIRE_ENCRYPTION AND NOT ARROW_PARQUET)
   set(PARQUET_REQUIRE_ENCRYPTION OFF)
 endif()
 set(ARROW_OPENSSL_REQUIRED_VERSION "1.0.2")
-if(ARROW_VCPKG)
-  if(NOT DEFINED OPENSSL_INCLUDE_DIR)
-    set(OPENSSL_INCLUDE_DIR
-        "${ARROW_VCPKG_PREFIX}/include"
-        CACHE STRING "OpenSSL include directory")
-  endif()
-  if(NOT DEFINED OPENSSL_ROOT_DIR)
-    set(OPENSSL_ROOT_DIR
-        "${ARROW_VCPKG_PREFIX}"
-        CACHE STRING "Root directory of the OpenSSL installation")
-  endif()
-  if(NOT DEFINED OPENSSL_LIBRARIES)
-    set(OPENSSL_LIBRARIES
-        "${ARROW_VCPKG_PREFIX}/lib"
-        CACHE STRING "OpenSSL libraries")
-  endif()
-elseif(BREW_BIN AND NOT OPENSSL_ROOT_DIR)
+if(BREW_BIN AND NOT OPENSSL_ROOT_DIR)
   execute_process(COMMAND ${BREW_BIN} --prefix "openssl@1.1"
                   OUTPUT_VARIABLE OPENSSL11_BREW_PREFIX
                   OUTPUT_STRIP_TRAILING_WHITESPACE)
