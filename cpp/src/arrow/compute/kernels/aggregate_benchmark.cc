@@ -301,6 +301,56 @@ BENCHMARK_TEMPLATE(ReferenceSum, SumBitmapVectorizeUnroll<int64_t>)
 #endif  // ARROW_WITH_BENCHMARKS_REFERENCE
 
 //
+// GroupBy
+//
+
+static void BenchmarkGroupBy(benchmark::State& state,
+                             std::vector<GroupByOptions::Aggregate> aggregates,
+                             std::vector<Datum> aggregands, std::vector<Datum> keys) {
+  std::vector<Datum> arguments;
+  for (const Datum& aggregand : aggregands) {
+    arguments.push_back(aggregand);
+  }
+
+  for (const Datum& key : keys) {
+    arguments.push_back(key);
+  }
+
+  GroupByOptions options;
+  options.aggregates = aggregates;
+  options.key_names.resize(keys.size(), "ignored");
+
+  for (auto _ : state) {
+    ABORT_NOT_OK(CallFunction("group_by", arguments, &options).status());
+  }
+}
+
+#define GROUP_BY_BENCHMARK(Name, Impl)                               \
+  static void Name(benchmark::State& state) {                        \
+    RegressionArgs args(state, false);                               \
+    auto rng = random::RandomArrayGenerator(1923);                   \
+    (Impl)();                                                        \
+  }                                                                  \
+  BENCHMARK(Name)->Apply([](benchmark::internal::Benchmark* bench) { \
+    BenchmarkSetArgsWithSizes(bench, {1 * 1024 * 1024});             \
+  })
+
+GROUP_BY_BENCHMARK(SumDoublesGroupedByStrings, [&] {
+  auto summand = rng.Float64(args.size,
+                             /*min=*/0.0,
+                             /*max=*/1.0e14,
+                             /*null_probability=*/args.null_proportion,
+                             /*nan_probability=*/args.null_proportion / 10);
+
+  auto key = rng.StringWithRepeats(args.size,
+                                   /*unique=*/16,
+                                   /*min_length=*/3,
+                                   /*max_length=*/32);
+
+  BenchmarkGroupBy(state, {{"sum", NULLPTR, "summed f64"}}, {summand}, {key});
+});
+
+//
 // Sum
 //
 
