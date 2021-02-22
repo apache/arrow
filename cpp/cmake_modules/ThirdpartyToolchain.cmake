@@ -1447,13 +1447,7 @@ if(ARROW_WITH_PROTOBUF)
     endif()
     set(ARROW_PROTOBUF_LIBPROTOC protobuf::libprotoc)
   endif()
-  if(ARROW_VCPKG)
-    if(CMAKE_HOST_WIN32)
-      set(ARROW_PROTOBUF_PROTOC "${ARROW_VCPKG_PREFIX}/tools/protobuf/protoc.exe")
-    else()
-      set(ARROW_PROTOBUF_PROTOC "${ARROW_VCPKG_PREFIX}/tools/protobuf/protoc")
-    endif()
-  elseif(TARGET arrow::protobuf::protoc)
+  if(TARGET arrow::protobuf::protoc)
     set(ARROW_PROTOBUF_PROTOC arrow::protobuf::protoc)
   else()
     if(NOT TARGET protobuf::protoc)
@@ -1466,12 +1460,8 @@ if(ARROW_WITH_PROTOBUF)
 
   # Log protobuf paths as we often see issues with mixed sources for
   # the libraries and protoc.
-  if(ARROW_VCPKG)
-    set(PROTOBUF_PROTOC_EXECUTABLE "${ARROW_PROTOBUF_PROTOC}")
-  else()
-    get_target_property(PROTOBUF_PROTOC_EXECUTABLE ${ARROW_PROTOBUF_PROTOC}
-                        IMPORTED_LOCATION)
-  endif()
+  get_target_property(PROTOBUF_PROTOC_EXECUTABLE ${ARROW_PROTOBUF_PROTOC}
+                      IMPORTED_LOCATION)
   message(STATUS "Found protoc: ${PROTOBUF_PROTOC_EXECUTABLE}")
   # Protobuf_PROTOC_LIBRARY is set by all versions of FindProtobuf.cmake
   message(STATUS "Found libprotoc: ${Protobuf_PROTOC_LIBRARY}")
