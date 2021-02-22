@@ -90,8 +90,7 @@ else()
         message(
           FATAL_ERROR
             "vcpkg not found. Install vcpkg if not installed, "
-            "then run vcpkg integrate install "
-            "or set environment variable VCPKG_ROOT.")
+            "then run vcpkg integrate install or set environment variable VCPKG_ROOT.")
       endif()
       find_program(
         _VCPKG_BIN vcpkg
@@ -116,9 +115,11 @@ message(STATUS "Using VCPKG_ROOT: ${VCPKG_ROOT}")
 if(DEFINED ENV{VCPKG_DEFAULT_TRIPLET} AND NOT DEFINED VCPKG_TARGET_TRIPLET)
   set(VCPKG_TARGET_TRIPLET "$ENV{VCPKG_DEFAULT_TRIPLET}")
 endif()
-# explicitly set manifest mode on if it is not set and vcpkg.json exists
+# Explicitly set manifest mode on if it is not set and vcpkg.json exists
 if(NOT DEFINED VCPKG_MANIFEST_MODE AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg.json")
-  set(VCPKG_MANIFEST_MODE ON CACHE BOOL "Use vcpkg.json manifest")
+  set(VCPKG_MANIFEST_MODE
+      ON
+      CACHE BOOL "Use vcpkg.json manifest")
   message(STATUS "vcpkg.json manifest found. Using VCPKG_MANIFEST_MODE: ON")
 endif()
 # vcpkg can install packages in two different places
@@ -165,8 +166,7 @@ if(NOT DEFINED VCPKG_TARGET_TRIPLET)
 elseif(NOT DEFINED _VCPKG_INSTALLED_DIR)
   message(
     FATAL_ERROR
-      "Could not find installed vcpkg packages "
-      "for triplet ${VCPKG_TARGET_TRIPLET}. "
+      "Could not find installed vcpkg packages for triplet ${VCPKG_TARGET_TRIPLET}. "
       "Install packages with vcpkg before executing cmake.")
 endif()
 
@@ -175,10 +175,9 @@ set(VCPKG_TARGET_TRIPLET
     CACHE STRING "vcpkg triplet for the target environment")
 
 if(NOT DEFINED VCPKG_BUILD_TYPE)
-set(VCPKG_BUILD_TYPE
-    LOWERCASE_BUILD_TYPE
-    CACHE STRING
-    "vcpkg build type (release|debug)")
+  set(VCPKG_BUILD_TYPE
+      LOWERCASE_BUILD_TYPE
+      CACHE STRING "vcpkg build type (release|debug)")
 endif()
 
 if(NOT DEFINED VCPKG_LIBRARY_LINKAGE)
@@ -189,8 +188,7 @@ if(NOT DEFINED VCPKG_LIBRARY_LINKAGE)
   endif()
   set(VCPKG_LIBRARY_LINKAGE
       "${VCPKG_LIBRARY_LINKAGE}"
-      CACHE STRING
-      "vcpkg preferred library linkage (static|dynamic)")
+      CACHE STRING "vcpkg preferred library linkage (static|dynamic)")
 endif()
 
 message(STATUS "Using VCPKG_TARGET_TRIPLET: ${VCPKG_TARGET_TRIPLET}")
@@ -199,32 +197,52 @@ message(STATUS "Using VCPKG_LIBRARY_LINKAGE: ${VCPKG_LIBRARY_LINKAGE}")
 
 set(ARROW_VCPKG_PREFIX
     "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}"
-    CACHE STRING
-    "Path to target triplet subdirectory in vcpkg installed directory")
+    CACHE STRING "Path to target triplet subdirectory in vcpkg installed directory")
 
 set(ARROW_VCPKG
     ON
-    CACHE BOOL
-    "Use vcpkg for dependencies")
+    CACHE BOOL "Use vcpkg for dependencies")
 
 set(ARROW_DEPENDENCY_SOURCE
     "SYSTEM"
-    CACHE STRING
-    "The specified value VCPKG is implemented internally as SYSTEM"
-    FORCE)
+    CACHE STRING "The specified value VCPKG is implemented internally as SYSTEM" FORCE)
 
-set(BOOST_ROOT "${ARROW_VCPKG_PREFIX}" CACHE STRING "")
-set(BOOST_INCLUDEDIR "${ARROW_VCPKG_PREFIX}/include/boost" CACHE STRING "")
-set(BOOST_LIBRARYDIR "${ARROW_VCPKG_PREFIX}/lib" CACHE STRING "")
-set(OPENSSL_INCLUDE_DIR "${ARROW_VCPKG_PREFIX}/include" CACHE STRING "")
-set(OPENSSL_LIBRARIES "${ARROW_VCPKG_PREFIX}/lib" CACHE STRING "")
-set(OPENSSL_ROOT_DIR "${ARROW_VCPKG_PREFIX}" CACHE STRING "")
-set(Thrift_ROOT "${ARROW_VCPKG_PREFIX}/lib" CACHE STRING "")
-set(ZSTD_INCLUDE_DIR "${ARROW_VCPKG_PREFIX}/include" CACHE STRING "")
-set(ZSTD_ROOT "${ARROW_VCPKG_PREFIX}" CACHE STRING "")
+set(BOOST_ROOT
+    "${ARROW_VCPKG_PREFIX}"
+    CACHE STRING "")
+set(BOOST_INCLUDEDIR
+    "${ARROW_VCPKG_PREFIX}/include/boost"
+    CACHE STRING "")
+set(BOOST_LIBRARYDIR
+    "${ARROW_VCPKG_PREFIX}/lib"
+    CACHE STRING "")
+set(OPENSSL_INCLUDE_DIR
+    "${ARROW_VCPKG_PREFIX}/include"
+    CACHE STRING "")
+set(OPENSSL_LIBRARIES
+    "${ARROW_VCPKG_PREFIX}/lib"
+    CACHE STRING "")
+set(OPENSSL_ROOT_DIR
+    "${ARROW_VCPKG_PREFIX}"
+    CACHE STRING "")
+set(Thrift_ROOT
+    "${ARROW_VCPKG_PREFIX}/lib"
+    CACHE STRING "")
+set(ZSTD_INCLUDE_DIR
+    "${ARROW_VCPKG_PREFIX}/include"
+    CACHE STRING "")
+set(ZSTD_ROOT
+    "${ARROW_VCPKG_PREFIX}"
+    CACHE STRING "")
 
 if(CMAKE_HOST_WIN32)
-  set(LZ4_MSVC_LIB_PREFIX "" CACHE STRING "")
-  set(LZ4_MSVC_STATIC_LIB_SUFFIX "" CACHE STRING "")
-  set(ZSTD_MSVC_LIB_PREFIX "" CACHE STRING "")
+  set(LZ4_MSVC_LIB_PREFIX
+      ""
+      CACHE STRING "")
+  set(LZ4_MSVC_STATIC_LIB_SUFFIX
+      ""
+      CACHE STRING "")
+  set(ZSTD_MSVC_LIB_PREFIX
+      ""
+      CACHE STRING "")
 endif()
