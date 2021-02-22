@@ -18,10 +18,10 @@
 //! The repartition operator maps N input partitions to M output partitions based on a
 //! partitioning scheme.
 
-use std::any::Any;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
+use std::{any::Any, vec};
 
 use crate::error::{DataFusionError, Result};
 use crate::physical_plan::{ExecutionPlan, Partitioning};
@@ -145,19 +145,23 @@ impl ExecutionPlan for RepartitionExec {
                                     .iter()
                                     .map(|b| Ok(b.evaluate(&batch)?.into_array(batch.num_rows())))
                                     .collect::<Result<Vec<_>>>()?;
-                                // Hash arrays and compute buckets based on number of partitions 
+                                // Hash arrays and compute buckets based on number of partitions
                                 let hashes = create_hashes(&arrays, &random_state)?;
-                                let partions: Vec<u64> = hashes.iter().map(|x| x % num_output_partitions as u64).collect();
-                                //let mut cols = vec![];
-                                for c in batch.columns() {
-                                    for i in  0..batch.num_rows() {
-                                        let partition = partions[i];
-                                        //TODO split array on partition values
-                                    }
-
+                                let partitions: Vec<u64> = hashes
+                                    .iter()
+                                    .map(|x| x % num_output_partitions as u64)
+                                    .collect();
+                                let mut indices = vec![vec![]; num_output_partitions];
+                                for (i, partition) in partitions.iter().enumerate() {
+                                    indices[*partition as usize].push(i)
                                 }
-
-
+                                for i in 0..num_output_partitions {
+                                    for c in batch.columns() {
+                                        for i in 0..batch.num_rows() {
+                                            //TODO take based on indices
+                                        }
+                                    }
+                                }
                             }
                             other => {
                                 // this should be unreachable as long as the validation logic
