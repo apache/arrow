@@ -118,7 +118,7 @@ namespace Apache.Arrow.Benchmarks
                         break;
                     case ArrowTypeId.Decimal128:
                         Decimal128Array decimalArray = (Decimal128Array)array;
-                        sum += (double)Sum(decimalArray);
+                        sum += Sum(decimalArray);
                         break;
                 }
             }
