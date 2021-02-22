@@ -188,22 +188,38 @@ class ARROW_DS_EXPORT ScannerBuilder {
 
   /// \brief Set the subset of columns to materialize.
   ///
-  /// This subset will be passed down to Sources and corresponding Fragments.
-  /// The goal is to avoid loading/copying/deserializing columns that will
-  /// not be required further down the compute chain.
+  /// Columns which are not referenced may not be loaded from disk.
   ///
   /// \param[in] columns list of columns to project. Order and duplicates will
   ///            be preserved.
   ///
   /// \return Failure if any column name does not exists in the dataset's
   ///         Schema.
-  Status Project(std::vector<std::string> columns);
+  Status Project(std::vector<std::string> columns) {
+    std::vector<Expression> exprs(columns.size());
+    for (size_t i = 0; i < exprs.size(); ++i) {
+      exprs[i] = field_ref(columns[i]);
+    }
+    return Project(std::move(exprs), std::move(columns));
+  }
+
+  /// \brief Set expressions which will be evaluated to produce the materialized columns.
+  ///
+  /// Columns which are not referenced may not be loaded from disk.
+  ///
+  /// \param[in] exprs expressions to evaluate to produce columns.
+  /// \param[in] names list of names for the resulting columns.
+  ///
+  /// \return Failure if any referenced column does not exists in the dataset's
+  ///         Schema.
+  Status Project(std::vector<Expression> exprs, std::vector<std::string> names);
 
   /// \brief Set the filter expression to return only rows matching the filter.
   ///
   /// The predicate will be passed down to Sources and corresponding
   /// Fragments to exploit predicate pushdown if possible using
   /// partition information or Fragment internal metadata, e.g. Parquet statistics.
+  /// Columns which are not referenced may not be loaded from disk.
   ///
   /// \param[in] filter expression to filter rows with.
   ///

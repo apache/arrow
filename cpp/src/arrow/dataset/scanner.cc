@@ -32,6 +32,9 @@
 #include "arrow/util/thread_pool.h"
 
 namespace arrow {
+
+using internal::checked_cast;
+
 namespace dataset {
 
 std::vector<std::string> ScanOptions::MaterializedFields() const {
@@ -105,9 +108,30 @@ const std::shared_ptr<Schema>& ScannerBuilder::schema() const {
   return scan_options_->dataset_schema;
 }
 
-Status ScannerBuilder::Project(std::vector<std::string> columns) {
-  RETURN_NOT_OK(schema()->CanReferenceFieldsByNames(columns));
-  return SetProjection(scan_options_.get(), columns);
+Status ScannerBuilder::Project(std::vector<Expression> exprs,
+                               std::vector<std::string> names) {
+  compute::ProjectOptions project_options{std::move(names)};
+
+  for (size_t i = 0; i < exprs.size(); ++i) {
+    if (auto ref = exprs[i].field_ref()) {
+      if (!ref->name()) continue;
+
+      // set metadata and nullability for plain field references
+      ARROW_ASSIGN_OR_RAISE(auto field, ref->GetOne(*schema()));
+      project_options.field_nullability[i] = field->nullable();
+      project_options.field_metadata[i] = field->metadata();
+    }
+  }
+
+  ARROW_ASSIGN_OR_RAISE(
+      scan_options_->projection,
+      call("project", std::move(exprs), std::move(project_options)).Bind(*schema()));
+
+  DCHECK_EQ(scan_options_->projection.type()->id(), Type::STRUCT);
+  scan_options_->projected_schema = ::arrow::schema(
+      checked_cast<const StructType&>(*scan_options_->projection.type()).fields(),
+      schema()->metadata());
+  return Status::OK();
 }
 
 Status ScannerBuilder::Filter(const Expression& filter) {

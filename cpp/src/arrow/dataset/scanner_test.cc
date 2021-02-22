@@ -181,9 +181,19 @@ TEST_F(TestScannerBuilder, TestProject) {
   ASSERT_OK(builder.Project({}));
   ASSERT_OK(builder.Project({"i64", "b", "i8"}));
   ASSERT_OK(builder.Project({"i16", "i16"}));
+  ASSERT_OK(builder.Project(
+      {field_ref("i16"), call("multiply", {field_ref("i16"), literal(2)})},
+      {"i16 renamed", "i16 * 2"}));
 
   ASSERT_RAISES(Invalid, builder.Project({"not_found_column"}));
   ASSERT_RAISES(Invalid, builder.Project({"i8", "not_found_column"}));
+  ASSERT_RAISES(Invalid,
+                builder.Project({field_ref("not_found_column"),
+                                 call("multiply", {field_ref("i16"), literal(2)})},
+                                {"i16 renamed", "i16 * 2"}));
+
+  // provided more field names than column exprs
+  ASSERT_RAISES(Invalid, builder.Project({}, {"i16 renamed", "i16 * 2"}));
 }
 
 TEST_F(TestScannerBuilder, TestFilter) {
