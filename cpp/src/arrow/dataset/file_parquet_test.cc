@@ -139,8 +139,6 @@ class TestParquetFileFormat : public ArrowParquetWriterMixin {
     return internal::make_unique<FileSource>(std::move(buffer));
   }
 
-  std::unique_ptr<RecordBatchReader> GetRecordBatchReader() { return {}; }
-
   std::unique_ptr<RecordBatchReader> GetRecordBatchReader(
       std::shared_ptr<Schema> schema) {
     return MakeGeneratedRecordBatch(schema, kBatchSize, kBatchRepetitions);
@@ -269,10 +267,10 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReaderDictEncoded) {
 }
 
 TEST_F(TestParquetFileFormat, ScanRecordBatchReaderPreBuffer) {
-  auto reader = GetRecordBatchReader();
+  auto reader = GetRecordBatchReader(schema({field("f64", float64())}));
   auto source = GetFileSource(reader.get());
 
-  opts_ = ScanOptions::Make(reader->schema());
+  SetSchema(reader->schema()->fields());
   SetFilter(literal(true));
 
   format_->reader_options.pre_buffer = true;
