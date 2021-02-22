@@ -178,6 +178,11 @@ set(VCPKG_TARGET_TRIPLET
     "${VCPKG_TARGET_TRIPLET}"
     CACHE STRING "vcpkg triplet for the target environment")
 
+set(VCPKG_LIBRARY_LINKAGE
+    "static"
+    CACHE STRING
+    "vcpkg preferred library linkage (static|dynamic)")
+
 set(VCPKG_BUILD_TYPE
     LOWERCASE_BUILD_TYPE
     CACHE STRING
