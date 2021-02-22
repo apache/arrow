@@ -1625,7 +1625,6 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
         @staticmethod
         CCSVWriteOptions Defaults()
 
-
     cdef cppclass CCSVReader" arrow::csv::TableReader":
         @staticmethod
         CResult[shared_ptr[CCSVReader]] Make(

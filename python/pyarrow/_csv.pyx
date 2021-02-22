@@ -766,6 +766,7 @@ def open_csv(input_file, read_options=None, parse_options=None,
                  maybe_unbox_memory_pool(memory_pool))
     return reader
 
+
 cdef class WriteOptions(_Weakrefable):
     """
     Options for writing CSV files.
@@ -787,9 +788,9 @@ cdef class WriteOptions(_Weakrefable):
     def __init__(self, *, include_header=None, batch_size=None):
         self.options = CCSVWriteOptions.Defaults()
         if include_header is not None:
-          self.options.include_header = include_header
+            self.options.include_header = include_header
         if batch_size is not None:
-          self.options.batch_size = 1024
+            self.options.batch_size = 1024
 
 
 cdef _get_write_options(WriteOptions write_options, CCSVWriteOptions* out):
