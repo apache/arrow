@@ -24,6 +24,7 @@
 #include "arrow/csv/writer.h"
 #include "arrow/io/memory.h"
 #include "arrow/record_batch.h"
+#include "arrow/result_internal.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
@@ -79,41 +80,50 @@ std::vector<TestParams> GenerateTestCases() {
        expected_header + expected_without_header}};
 }
 
-class TestWriteCSV : public ::testing::TestWithParam<TestParams> {};
+class TestWriteCSV : public ::testing::TestWithParam<TestParams> {
+ protected:
+  template <typename Data>
+  Result<std::string> ToCsvString(const Data& data, const WriteOptions& options) {
+    std::shared_ptr<io::BufferOutputStream> out;
+    ASSIGN_OR_RAISE(out, io::BufferOutputStream::Create());
+
+    RETURN_NOT_OK(WriteCSV(data, options, default_memory_pool(), out.get()));
+    ASSIGN_OR_RAISE(std::shared_ptr<Buffer> buffer, out->Finish());
+    return std::string(reinterpret_cast<const char*>(buffer->data()), buffer->size());
+  }
+};
 
 TEST_P(TestWriteCSV, TestWrite) {
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<io::BufferOutputStream> out,
                        io::BufferOutputStream::Create());
   WriteOptions options = GetParam().options;
-
-  ASSERT_OK(
-      WriteCSV(*GetParam().record_batch, options, default_memory_pool(), out.get()));
-  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> buffer, out->Finish());
-  EXPECT_EQ(std::string(reinterpret_cast<const char*>(buffer->data()), buffer->size()),
-            GetParam().expected_output);
-  ASSERT_OK(out->Reset());
+  std::string csv;
+  ASSERT_OK_AND_ASSIGN(csv, ToCsvString(*GetParam().record_batch, options));
+  EXPECT_EQ(csv, GetParam().expected_output);
 
   // Batch size shouldn't matter.
   options.batch_size /= 2;
-  ASSERT_OK(
-      WriteCSV(*GetParam().record_batch, options, default_memory_pool(), out.get()));
-  ASSERT_OK_AND_ASSIGN(buffer, out->Finish());
-  EXPECT_EQ(std::string(reinterpret_cast<const char*>(buffer->data()), buffer->size()),
-            GetParam().expected_output);
-  ASSERT_OK(out->Reset());
+  ASSERT_OK_AND_ASSIGN(csv, ToCsvString(*GetParam().record_batch, options));
+  EXPECT_EQ(csv, GetParam().expected_output);
 
   // Table and Record batch should work identically.
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Table> table,
                        Table::FromRecordBatches({GetParam().record_batch}));
-  ASSERT_OK(WriteCSV(*table, options, default_memory_pool(), out.get()));
-  ASSERT_OK_AND_ASSIGN(buffer, out->Finish());
-  EXPECT_EQ(std::string(reinterpret_cast<const char*>(buffer->data()), buffer->size()),
-            GetParam().expected_output);
-  ASSERT_OK(out->Reset());
+  ASSERT_OK_AND_ASSIGN(csv, ToCsvString(*table, options));
+  EXPECT_EQ(csv, GetParam().expected_output);
 }
 
-INSTANTIATE_TEST_SUITE_P(WriteCSVTest, TestWriteCSV,
+INSTANTIATE_TEST_SUITE_P(MultiColumnWriteCSVTest, TestWriteCSV,
                          ::testing::ValuesIn(GenerateTestCases()));
+
+INSTANTIATE_TEST_SUITE_P(
+    SingleColumnWriteCSVTest, TestWriteCSV,
+    ::testing::Values(TestParams{
+        RecordBatchFromJSON(schema({field("int64", int64())}),
+                            R"([{ "int64": 9999}, {}, { "int64": -15}])"),
+        WriteOptions(),
+        R"("int64")"
+        "\n9999\n\n-15\n"}));
 
 }  // namespace csv
 }  // namespace arrow
