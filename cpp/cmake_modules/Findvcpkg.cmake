@@ -178,6 +178,9 @@ set(VCPKG_TARGET_TRIPLET
     "${VCPKG_TARGET_TRIPLET}"
     CACHE STRING "vcpkg triplet for the target environment")
 
+message(STATUS "Using VCPKG_TARGET_TRIPLET: ${VCPKG_TARGET_TRIPLET}")
+message(STATUS "Using _VCPKG_INSTALLED_DIR: ${_VCPKG_INSTALLED_DIR}")
+
 set(VCPKG_BUILD_TYPE
     LOWERCASE_BUILD_TYPE
     CACHE STRING
@@ -188,8 +191,6 @@ set(ARROW_VCPKG_PREFIX
     CACHE STRING
     "Path to target triplet subdirectory in vcpkg installed directory")
 
-message(STATUS "Using VCPKG_TARGET_TRIPLET: ${VCPKG_TARGET_TRIPLET}")
-message(STATUS "Using _VCPKG_INSTALLED_DIR: ${_VCPKG_INSTALLED_DIR}")
 
 set(ARROW_VCPKG ON CACHE BOOL "Use vcpkg for dependencies") # this is used in other CMake scripts
 set(ARROW_DEPENDENCY_SOURCE
