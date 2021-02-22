@@ -127,44 +127,6 @@ namespace Apache.Arrow
             return true;
         }
 
-        private static decimal GetDecimalFromBigInteger(BigInteger value, int scale)
-        {
-            var b = new BigIntegerLayout(value);
-            if (b.Bits == null)
-                return b.Sign;
-
-            int length = b.Bits.Length;
-            if (length > 3) throw new OverflowException("Decimal overflow");
-
-            int lo = 0, mi = 0, hi = 0;
-
-            unchecked
-            {
-                if (length > 2) hi = b.Bits[2];
-                if (length > 1) mi = b.Bits[1];
-                if (length > 0) lo = b.Bits[0];
-            }
-
-            return new decimal(lo, mi, hi, b.Sign < 0, (byte)scale);
-        }
-
-        [StructLayout(LayoutKind.Explicit)]
-        readonly struct BigIntegerLayout
-        {
-            public BigIntegerLayout(BigInteger value)
-            {
-                this = default;
-                bi = value;
-            }
-
-            [FieldOffset(0)] readonly BigInteger bi;
-            [FieldOffset(0)] readonly int[] bits;
-
-            public int Sign => bi.Sign;
-            public int[] Bits =>  bits;
-        }
-
-
         [StructLayout(LayoutKind.Explicit)]
         readonly struct DecimalLayout
         {
