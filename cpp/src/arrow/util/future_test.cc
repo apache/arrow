@@ -409,6 +409,10 @@ TEST(FutureSyncTest, ImplicitConstructors) {
     ASSERT_RAISES(Invalid, fut.result());
   }
   {
+    auto fut = ([]() -> Future<MoveOnlyDataType> { return MoveOnlyDataType(42); })();
+    AssertSuccessful(fut);
+  }
+  {
     auto fut = ([]() -> Future<MoveOnlyDataType> {
       return arrow::Result<MoveOnlyDataType>(MoveOnlyDataType(42));
     })();

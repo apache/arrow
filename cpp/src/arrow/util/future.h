@@ -493,9 +493,15 @@ class ARROW_MUST_USE_TYPE Future {
     });
   }
 
+  /// \brief Implicit constructor to create a finished future from a value
+  Future(ValueType val) : Future() {  // NOLINT runtime/explicit
+    impl_ = FutureImpl::MakeFinished(FutureState::SUCCESS);
+    SetResult(std::move(val));
+  }
+
   /// \brief Implicit constructor to create a future from a Result, enabling use
   ///     of macros like ARROW_ASSIGN_OR_RAISE.
-  Future(Result<ValueType> res) : Future() {  // NOLINT(runtime/explicit)
+  Future(Result<ValueType> res) : Future() {  // NOLINT runtime/explicit
     if (ARROW_PREDICT_TRUE(res.ok())) {
       impl_ = FutureImpl::MakeFinished(FutureState::SUCCESS);
     } else {
@@ -506,7 +512,7 @@ class ARROW_MUST_USE_TYPE Future {
 
   /// \brief Implicit constructor to create a future from a Status, enabling use
   ///     of macros like ARROW_RETURN_NOT_OK.
-  Future(Status s)  // NOLINT(runtime/explicit)
+  Future(Status s)  // NOLINT runtime/explicit
       : Future(Result<ValueType>(std::move(s))) {}
 
  protected:
