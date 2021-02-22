@@ -335,7 +335,7 @@ static void BenchmarkGroupBy(benchmark::State& state,
     BenchmarkSetArgsWithSizes(bench, {1 * 1024 * 1024});             \
   })
 
-GROUP_BY_BENCHMARK(SumDoublesGroupedByStrings, [&] {
+GROUP_BY_BENCHMARK(SumDoublesGroupedBySmallStringSet, [&] {
   auto summand = rng.Float64(args.size,
                              /*min=*/0.0,
                              /*max=*/1.0e14,
@@ -346,6 +346,20 @@ GROUP_BY_BENCHMARK(SumDoublesGroupedByStrings, [&] {
                                    /*unique=*/16,
                                    /*min_length=*/3,
                                    /*max_length=*/32);
+
+  BenchmarkGroupBy(state, {{"sum", NULLPTR, "summed f64"}}, {summand}, {key});
+});
+
+GROUP_BY_BENCHMARK(SumDoublesGroupedBySmallIntegerSet, [&] {
+  auto summand = rng.Float64(args.size,
+                             /*min=*/0.0,
+                             /*max=*/1.0e14,
+                             /*null_probability=*/args.null_proportion,
+                             /*nan_probability=*/args.null_proportion / 10);
+
+  auto key = rng.Int64(args.size,
+                       /*min=*/0,
+                       /*max=*/15);
 
   BenchmarkGroupBy(state, {{"sum", NULLPTR, "summed f64"}}, {summand}, {key});
 });
