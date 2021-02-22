@@ -1594,7 +1594,7 @@ cdef class HivePartitioning(Partitioning):
         corresponding entry of `dictionaries` must be an array containing
         every value which may be taken by the corresponding column or an
         error will be raised in parsing.
-    null_fallback : str
+    null_fallback : str, default "__HIVE_DEFAULT_PARTITION__"
         If any field is None then this fallback will be used as a label
 
     Returns
