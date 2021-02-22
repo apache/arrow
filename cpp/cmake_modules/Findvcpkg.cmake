@@ -197,5 +197,5 @@ set(ARROW_VCPKG ON CACHE BOOL "Use vcpkg for dependencies") # this is used in ot
 set(ARROW_DEPENDENCY_SOURCE
     "SYSTEM"
     CACHE STRING
-    "Use find_package or pkg-config to find dependencies not found by vcpkg"
+    "The specified value VCPKG is implemented internally as SYSTEM"
     FORCE)
