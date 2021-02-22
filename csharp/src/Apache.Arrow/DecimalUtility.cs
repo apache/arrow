@@ -128,7 +128,7 @@ namespace Apache.Arrow
         }
 
         [StructLayout(LayoutKind.Explicit)]
-        readonly struct DecimalLayout
+        private readonly struct DecimalLayout
         {
             public DecimalLayout(decimal value)
             {
@@ -136,16 +136,22 @@ namespace Apache.Arrow
                 d = value;
             }
 
-            [FieldOffset(0)] readonly decimal d;
-            [FieldOffset(0)] readonly int flags;
-            [FieldOffset(4)] readonly int hi;
-            [FieldOffset(8)] readonly int lo;
-            [FieldOffset(12)] readonly int mid;
+            [FieldOffset(0)] private readonly decimal d;
 
-            public int Scale => (flags >> 16) & 0x7F;
-            public int Lo => lo;
-            public int Mid => mid;
-            public int Hi => hi;
+            [FieldOffset(0)] private readonly int flags;
+            [FieldOffset(4)] private readonly int hi;
+#if BIGENDIAN
+            [FieldOffset(8)] private readonly int mid;
+            [FieldOffset(12)] private readonly int lo;
+#else
+            [FieldOffset(8)] private readonly int lo;
+            [FieldOffset(12)] private readonly int mid;
+#endif
+
+            internal int Scale => (flags >> 16) & 0x7F;
+            internal int Lo => lo;
+            internal int Mid => mid;
+            internal int Hi => hi;
         }
     }
 }
