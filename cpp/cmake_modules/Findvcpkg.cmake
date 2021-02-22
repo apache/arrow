@@ -111,7 +111,7 @@ message(STATUS "Using CMAKE_TOOLCHAIN_FILE: ${CMAKE_TOOLCHAIN_FILE}")
 message(STATUS "Using VCPKG_ROOT: ${VCPKG_ROOT}")
 
 # ----------------------------------------------------------------------
-# Get VCPKG_TARGET_TRIPLET and _VCPKG_INSTALLED_DIR
+# Get VCPKG_TARGET_TRIPLET
 
 if(DEFINED ENV{VCPKG_DEFAULT_TRIPLET} AND NOT DEFINED VCPKG_TARGET_TRIPLET)
   set(VCPKG_TARGET_TRIPLET "$ENV{VCPKG_DEFAULT_TRIPLET}")
@@ -143,9 +143,7 @@ foreach(_INST_DIR IN LISTS _INST_SOURCE_DIR _INST_VCPKG_ROOT "notfound")
     # Check if a subdirectory named VCPKG_TARGET_TRIPLET
     # exists in the vcpkg installed directory
     if(EXISTS "${_INST_DIR}/${VCPKG_TARGET_TRIPLET}")
-      set(_VCPKG_INSTALLED_DIR
-          "${_INST_DIR}"
-          CACHE STRING "Path to vcpkg installed directory")
+      set(_VCPKG_INSTALLED_DIR "${_INST_DIR}")
       break()
     endif()
   else()
@@ -156,9 +154,7 @@ foreach(_INST_DIR IN LISTS _INST_SOURCE_DIR _INST_VCPKG_ROOT "notfound")
     list(LENGTH _VCPKG_TRIPLET_SUBDIRS _NUM_VCPKG_TRIPLET_SUBDIRS)
     if(_NUM_VCPKG_TRIPLET_SUBDIRS EQUAL 1)
       list(GET _VCPKG_TRIPLET_SUBDIRS 0 VCPKG_TARGET_TRIPLET)
-      set(_VCPKG_INSTALLED_DIR
-          "${_INST_DIR}"
-          CACHE STRING "Path to vcpkg installed directory")
+      set(_VCPKG_INSTALLED_DIR "${_INST_DIR}")
       break()
     endif()
   endif()
@@ -198,7 +194,6 @@ if(NOT DEFINED VCPKG_LIBRARY_LINKAGE)
 endif()
 
 message(STATUS "Using VCPKG_TARGET_TRIPLET: ${VCPKG_TARGET_TRIPLET}")
-message(STATUS "Using _VCPKG_INSTALLED_DIR: ${_VCPKG_INSTALLED_DIR}")
 message(STATUS "Using VCPKG_BUILD_TYPE: ${VCPKG_BUILD_TYPE}")
 message(STATUS "Using VCPKG_LIBRARY_LINKAGE: ${VCPKG_LIBRARY_LINKAGE}")
 
