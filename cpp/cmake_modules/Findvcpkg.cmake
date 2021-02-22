@@ -188,13 +188,6 @@ set(ARROW_VCPKG_PREFIX
     CACHE STRING
     "Path to target triplet subdirectory in vcpkg installed directory")
 
-# include_directories(SYSTEM "${ARROW_VCPKG_PREFIX}")
-# include_directories(SYSTEM "${ARROW_VCPKG_PREFIX}/lib")
-# include_directories(SYSTEM "${ARROW_VCPKG_PREFIX}/include")
-
-#set(ARROW_PACKAGE_PREFIX "${ARROW_VCPKG_PREFIX}" CACHE STRING "")
-
-#message(STATUS "Using ARROW_PACKAGE_PREFIX: ${ARROW_PACKAGE_PREFIX}")
 message(STATUS "Using VCPKG_TARGET_TRIPLET: ${VCPKG_TARGET_TRIPLET}")
 message(STATUS "Using _VCPKG_INSTALLED_DIR: ${_VCPKG_INSTALLED_DIR}")
 
