@@ -152,7 +152,7 @@ class ValueCountsAction final : ActionBase {
     }
   }
 
-  bool ShouldEncodeNulls() { return true; }
+  constexpr bool ShouldEncodeNulls() const { return true; }
 
  private:
   Int64Builder count_builder_;
