@@ -15,10 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-if(MSVC_TOOLCHAIN AND NOT DEFINED LZ4_MSVC_LIB_PREFIX)
+if(MSVC_TOOLCHAIN)
   if(ARROW_VCPKG)
     set(LZ4_MSVC_LIB_PREFIX "")
-  else()
+  elseif(NOT DEFINED LZ4_MSVC_LIB_PREFIX)
     set(LZ4_MSVC_LIB_PREFIX "lib")
   endif()
 endif()
@@ -38,10 +38,10 @@ if(ARROW_LZ4_USE_SHARED)
       LZ4_LIB_NAMES
       "${CMAKE_SHARED_LIBRARY_PREFIX}${LZ4_LIB_NAME_BASE}${CMAKE_SHARED_LIBRARY_SUFFIX}")
 else()
-  if(MSVC_TOOLCHAIN AND NOT DEFINED LZ4_MSVC_STATIC_LIB_SUFFIX)
+  if(MSVC_TOOLCHAIN)
     if(ARROW_VCPKG)
       set(LZ4_MSVC_STATIC_LIB_SUFFIX "")
-    else()
+    elseif(NOT DEFINED LZ4_MSVC_STATIC_LIB_SUFFIX)
       set(LZ4_MSVC_STATIC_LIB_SUFFIX "_static")
     endif()
   endif()
