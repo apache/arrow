@@ -578,7 +578,6 @@ std::unique_ptr<KernelState> DictionaryHashInit(KernelContext* ctx,
       DCHECK(false) << "Unsupported dictionary index type";
       break;
   }
-  DictionaryEncodeOptions options = DictionaryEncodeOptions::Defaults();
   return ::arrow::internal::make_unique<DictionaryHashKernel>(std::move(indices_hasher));
 }
 
