@@ -67,7 +67,11 @@ class GoogleBenchmarkCommand(Command):
 class GoogleBenchmarkObservation:
     """ Represents one run of a single (google c++) benchmark.
 
-    Aggregates are reported when running with `--repetitions`.
+    Aggregates are reported by Google Benchmark executables alongside
+    other observations whenever repetitions are specified (with
+    `--benchmark_repetitions` on the bare benchmark, or with the
+    archery option `--repetitions`). Aggregate observations are not
+    included in `GoogleBenchmark.runs`.
 
     RegressionSumKernel/32768/0                 1 us          1 us  25.8077GB/s
     RegressionSumKernel/32768/0                 1 us          1 us  25.7066GB/s
