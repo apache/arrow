@@ -221,7 +221,7 @@ class SerialReadaheadGenerator {
           spaces_available(max_readahead),
           readahead_queue(max_readahead) {}
 
-    Status Pump(std::shared_ptr<State>& self) {
+    Status Pump(const std::shared_ptr<State>& self) {
       // Can't do readahead_queue.write(source().Then(Callback{self})) because then the
       // callback might run immediately and add itself to the queue before this gets added
       // to the queue messing up the order
