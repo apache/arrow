@@ -104,7 +104,7 @@ class GoogleBenchmarkObservation:
     @property
     def is_realtime(self):
         """ Indicate if the preferred value is realtime instead of cputime. """
-        return self.name.find("/realtime") != -1
+        return self.name.find("/real_time") != -1
 
     @property
     def name(self):
