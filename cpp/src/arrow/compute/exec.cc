@@ -473,6 +473,9 @@ class KernelExecutorImpl : public KernelExecutor {
     if (validity_preallocated_) {
       ARROW_ASSIGN_OR_RAISE(out->buffers[0], kernel_ctx_->AllocateBitmap(length));
     }
+    if (kernel_->null_handling == NullHandling::OUTPUT_NOT_NULL) {
+      out->null_count = 0;
+    }
     for (size_t i = 0; i < data_preallocated_.size(); ++i) {
       const auto& prealloc = data_preallocated_[i];
       if (prealloc.bit_width >= 0) {

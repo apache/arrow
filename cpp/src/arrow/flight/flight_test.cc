@@ -51,10 +51,10 @@
 #include "arrow/flight/middleware_internal.h"
 #include "arrow/flight/test_util.h"
 
-namespace pb = arrow::flight::protocol;
-
 namespace arrow {
 namespace flight {
+
+namespace pb = arrow::flight::protocol;
 
 const char kValidUsername[] = "flight_username";
 const char kValidPassword[] = "flight_password";

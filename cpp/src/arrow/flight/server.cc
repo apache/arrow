@@ -60,10 +60,10 @@ using ServerContext = grpc::ServerContext;
 template <typename T>
 using ServerWriter = grpc::ServerWriter<T>;
 
-namespace pb = arrow::flight::protocol;
-
 namespace arrow {
 namespace flight {
+
+namespace pb = arrow::flight::protocol;
 
 // Macro that runs interceptors before returning the given status
 #define RETURN_WITH_MIDDLEWARE(CONTEXT, STATUS) \

@@ -53,7 +53,7 @@ PrimitiveArg GetPrimitiveArg(const ArrayData& arr) {
     arg.data += arr.offset * arg.bit_width / 8;
   }
   // This may be kUnknownNullCount
-  arg.null_count = arr.null_count.load();
+  arg.null_count = (arg.is_valid != nullptr) ? arr.null_count.load() : 0;
   return arg;
 }
 

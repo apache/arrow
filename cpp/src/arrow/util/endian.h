@@ -22,6 +22,8 @@
 #else
 #if defined(__APPLE__) || defined(__FreeBSD__)
 #include <machine/endian.h>  // IWYU pragma: keep
+#elif defined(sun) || defined(__sun)
+#include <sys/byteorder.h>  // IWYU pragma: keep
 #else
 #include <endian.h>  // IWYU pragma: keep
 #endif
