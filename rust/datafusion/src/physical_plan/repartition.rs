@@ -180,7 +180,7 @@ impl ExecutionPlan for RepartitionExec {
                                         columns,
                                     );
                                     let tx = &mut channels[num_output_partition].0;
-                                    tx.send(Some(input_batch)).map_err(|e| {
+                                    tx.send(Some(output_batch)).map_err(|e| {
                                         DataFusionError::Execution(e.to_string())
                                     })?;
                                 }
