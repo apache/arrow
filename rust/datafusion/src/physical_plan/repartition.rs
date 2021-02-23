@@ -366,6 +366,7 @@ mod tests {
 
         let total_rows: usize = output_partitions.iter().map(|x| x.len()).sum();
 
+        assert_eq!(8, output_partitions.len());
         assert_eq!(total_rows, 8 * 50 * 3);
 
         Ok(())
