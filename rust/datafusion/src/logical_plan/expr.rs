@@ -875,8 +875,11 @@ unary_scalar_expr!(Log10, log10);
 
 // string functions
 unary_scalar_expr!(BitLength, bit_length);
+unary_scalar_expr!(Btrim, btrim);
 unary_scalar_expr!(CharacterLength, character_length);
 unary_scalar_expr!(CharacterLength, length);
+unary_scalar_expr!(Concat, concat);
+unary_scalar_expr!(ConcatWithSeparator, concat_ws);
 unary_scalar_expr!(Lower, lower);
 unary_scalar_expr!(Ltrim, ltrim);
 unary_scalar_expr!(MD5, md5);
@@ -886,16 +889,9 @@ unary_scalar_expr!(SHA224, sha224);
 unary_scalar_expr!(SHA256, sha256);
 unary_scalar_expr!(SHA384, sha384);
 unary_scalar_expr!(SHA512, sha512);
+unary_scalar_expr!(Substr, substr);
 unary_scalar_expr!(Trim, trim);
 unary_scalar_expr!(Upper, upper);
-
-/// returns the concatenation of string expressions
-pub fn concat(args: Vec<Expr>) -> Expr {
-    Expr::ScalarFunction {
-        fun: functions::BuiltinScalarFunction::Concat,
-        args,
-    }
-}
 
 /// returns an array of fixed size with each argument on it.
 pub fn array(args: Vec<Expr>) -> Expr {

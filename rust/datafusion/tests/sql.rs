@@ -1639,7 +1639,7 @@ async fn query_concat() -> Result<()> {
     let expected = vec![
         vec!["-hi-0"],
         vec!["a-hi-1"],
-        vec!["NULL"],
+        vec!["aa-hi-"],
         vec!["aaa-hi-3"],
     ];
     assert_eq!(expected, actual);
@@ -1886,7 +1886,7 @@ async fn query_on_string_dictionary() -> Result<()> {
     // Expression evaluation
     let sql = "SELECT concat(d1, '-foo') FROM test";
     let actual = execute(&mut ctx, sql).await;
-    let expected = vec![vec!["one-foo"], vec!["NULL"], vec!["three-foo"]];
+    let expected = vec![vec!["one-foo"], vec!["-foo"], vec!["three-foo"]];
     assert_eq!(expected, actual);
 
     // aggregation
@@ -2023,170 +2023,290 @@ async fn csv_group_by_date() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
-async fn string_expressions() -> Result<()> {
-    let mut ctx = ExecutionContext::new();
-    let sql = "SELECT
-        char_length('tom') AS char_length
-        ,char_length(NULL) AS char_length_null
-        ,character_length('tom') AS character_length
-        ,character_length(NULL) AS character_length_null
-        ,lower('TOM') AS lower
-        ,lower(NULL) AS lower_null
-        ,upper('tom') AS upper
-        ,upper(NULL) AS upper_null
-        ,trim(' tom ') AS trim
-        ,trim(NULL) AS trim_null
-        ,ltrim(' tom ') AS trim_left
-        ,rtrim(' tom ') AS trim_right
-    ";
-    let actual = execute(&mut ctx, sql).await;
+macro_rules! test_expression {
+    ($SQL:expr, $EXPECTED:expr) => {
+        let mut ctx = ExecutionContext::new();
+        let sql = format!("SELECT {}", $SQL);
+        let actual = execute(&mut ctx, sql.as_str()).await;
+        assert_eq!($EXPECTED, actual[0][0]);
+    };
+}
 
-    let expected = vec![vec![
-        "3", "NULL", "3", "NULL", "tom", "NULL", "TOM", "NULL", "tom", "NULL", "tom ",
-        " tom",
-    ]];
-    assert_eq!(expected, actual);
+#[tokio::test]
+async fn test_string_expressions() -> Result<()> {
+    test_expression!("bit_length('')", "0");
+    test_expression!("bit_length('chars')", "40");
+    test_expression!("bit_length('josé')", "40");
+    test_expression!("bit_length(NULL)", "NULL");
+    test_expression!("btrim(' xyxtrimyyx ', NULL)", "NULL");
+    test_expression!("btrim(' xyxtrimyyx ')", "xyxtrimyyx");
+    test_expression!("btrim('\n xyxtrimyyx \n')", "\n xyxtrimyyx \n");
+    test_expression!("btrim('xyxtrimyyx', 'xyz')", "trim");
+    test_expression!("btrim('\nxyxtrimyyx\n', 'xyz\n')", "trim");
+    test_expression!("btrim(NULL, 'xyz')", "NULL");
+    test_expression!("char_length('')", "0");
+    test_expression!("char_length('chars')", "5");
+    test_expression!("char_length(NULL)", "NULL");
+    test_expression!("character_length('')", "0");
+    test_expression!("character_length('chars')", "5");
+    test_expression!("character_length('josé')", "4");
+    test_expression!("character_length(NULL)", "NULL");
+    test_expression!("concat('a','b','c')", "abc");
+    test_expression!("concat('abcde', 2, NULL, 22)", "abcde222");
+    test_expression!("concat(NULL)", "");
+    test_expression!("concat_ws(',', 'abcde', 2, NULL, 22)", "abcde,2,22");
+    test_expression!("concat_ws('|','a','b','c')", "a|b|c");
+    test_expression!("concat_ws('|',NULL)", "");
+    test_expression!("concat_ws(NULL,'a',NULL,'b','c')", "NULL");
+    test_expression!("ltrim(' zzzytest ', NULL)", "NULL");
+    test_expression!("ltrim(' zzzytest ')", "zzzytest ");
+    test_expression!("ltrim('zzzytest', 'xyz')", "test");
+    test_expression!("ltrim(NULL, 'xyz')", "NULL");
+    test_expression!("lower('')", "");
+    test_expression!("lower('TOM')", "tom");
+    test_expression!("lower(NULL)", "NULL");
+    test_expression!("octet_length('')", "0");
+    test_expression!("octet_length('chars')", "5");
+    test_expression!("octet_length('josé')", "5");
+    test_expression!("octet_length(NULL)", "NULL");
+    test_expression!("rtrim(' testxxzx ')", " testxxzx");
+    test_expression!("rtrim(' zzzytest ', NULL)", "NULL");
+    test_expression!("rtrim('testxxzx', 'xyz')", "test");
+    test_expression!("rtrim(NULL, 'xyz')", "NULL");
+    test_expression!("substr('alphabet', -3)", "alphabet");
+    test_expression!("substr('alphabet', 0)", "alphabet");
+    test_expression!("substr('alphabet', 1)", "alphabet");
+    test_expression!("substr('alphabet', 2)", "lphabet");
+    test_expression!("substr('alphabet', 3)", "phabet");
+    test_expression!("substr('alphabet', 30)", "");
+    test_expression!("substr('alphabet', CAST(NULL AS int))", "NULL");
+    test_expression!("substr('alphabet', 3, 2)", "ph");
+    test_expression!("substr('alphabet', 3, 20)", "phabet");
+    test_expression!("substr('alphabet', CAST(NULL AS int), 20)", "NULL");
+    test_expression!("substr('alphabet', 3, CAST(NULL AS int))", "NULL");
+    test_expression!("trim(' tom ')", "tom");
+    test_expression!("trim(' tom')", "tom");
+    test_expression!("trim('')", "");
+    test_expression!("trim('tom ')", "tom");
+    test_expression!("upper('')", "");
+    test_expression!("upper('tom')", "TOM");
+    test_expression!("upper(NULL)", "NULL");
     Ok(())
 }
 
 #[tokio::test]
-async fn boolean_expressions() -> Result<()> {
-    let mut ctx = ExecutionContext::new();
-    let sql = "SELECT
-        true AS val_1,
-        false AS val_2
-    ";
-    let actual = execute(&mut ctx, sql).await;
-
-    let expected = vec![vec!["true", "false"]];
-    assert_eq!(expected, actual);
+async fn test_boolean_expressions() -> Result<()> {
+    test_expression!("true", "true");
+    test_expression!("false", "false");
     Ok(())
 }
 
 #[tokio::test]
-async fn interval_expressions() -> Result<()> {
-    let mut ctx = ExecutionContext::new();
-    let sql = "SELECT
-        (interval '1') as interval_1,
-        (interval '1 second') as interval_2,
-        (interval '500 milliseconds') as interval_3,
-        (interval '5 second') as interval_4,
-        (interval '1 minute') as interval_5,
-        (interval '0.5 minute') as interval_6,
-        (interval '.5 minute') as interval_7,
-        (interval '5 minute') as interval_8,
-        (interval '5 minute 1 second') as interval_9,
-        (interval '1 hour') as interval_10,
-        (interval '5 hour') as interval_11,
-        (interval '1 day') as interval_12,
-        (interval '1 day 1') as interval_13,
-        (interval '0.5') as interval_14,
-        (interval '0.5 day 1') as interval_15,
-        (interval '0.49 day') as interval_16,
-        (interval '0.499 day') as interval_17,
-        (interval '0.4999 day') as interval_18,
-        (interval '0.49999 day') as interval_19,
-        (interval '0.49999999999 day') as interval_20,
-        (interval '5 day') as interval_21,
-        (interval '5 day 4 hours 3 minutes 2 seconds 100 milliseconds') as interval_22,
-        (interval '0.5 month') as interval_23,
-        (interval '1 month') as interval_24,
-        (interval '5 month') as interval_25,
-        (interval '13 month') as interval_26,
-        (interval '0.5 year') as interval_27,
-        (interval '1 year') as interval_28,
-        (interval '2 year') as interval_29
-    ";
-    let actual = execute(&mut ctx, sql).await;
-
-    let expected = vec![vec![
-        "0 years 0 mons 0 days 0 hours 0 mins 1.00 secs",
-        "0 years 0 mons 0 days 0 hours 0 mins 1.00 secs",
-        "0 years 0 mons 0 days 0 hours 0 mins 0.500 secs",
-        "0 years 0 mons 0 days 0 hours 0 mins 5.00 secs",
-        "0 years 0 mons 0 days 0 hours 1 mins 0.00 secs",
-        "0 years 0 mons 0 days 0 hours 0 mins 30.00 secs",
-        "0 years 0 mons 0 days 0 hours 0 mins 30.00 secs",
-        "0 years 0 mons 0 days 0 hours 5 mins 0.00 secs",
-        "0 years 0 mons 0 days 0 hours 5 mins 1.00 secs",
-        "0 years 0 mons 0 days 1 hours 0 mins 0.00 secs",
-        "0 years 0 mons 0 days 5 hours 0 mins 0.00 secs",
-        "0 years 0 mons 1 days 0 hours 0 mins 0.00 secs",
-        "0 years 0 mons 1 days 0 hours 0 mins 1.00 secs",
-        "0 years 0 mons 0 days 0 hours 0 mins 0.500 secs",
-        "0 years 0 mons 0 days 12 hours 0 mins 1.00 secs",
-        "0 years 0 mons 0 days 11 hours 45 mins 36.00 secs",
-        "0 years 0 mons 0 days 11 hours 58 mins 33.596 secs",
-        "0 years 0 mons 0 days 11 hours 59 mins 51.364 secs",
-        "0 years 0 mons 0 days 11 hours 59 mins 59.136 secs",
-        "0 years 0 mons 0 days 12 hours 0 mins 0.00 secs",
-        "0 years 0 mons 5 days 0 hours 0 mins 0.00 secs",
-        "0 years 0 mons 5 days 4 hours 3 mins 2.100 secs",
-        "0 years 0 mons 15 days 0 hours 0 mins 0.00 secs",
-        "0 years 1 mons 0 days 0 hours 0 mins 0.00 secs",
-        "0 years 5 mons 0 days 0 hours 0 mins 0.00 secs",
-        "1 years 1 mons 0 days 0 hours 0 mins 0.00 secs",
-        "0 years 6 mons 0 days 0 hours 0 mins 0.00 secs",
-        "1 years 0 mons 0 days 0 hours 0 mins 0.00 secs",
-        "2 years 0 mons 0 days 0 hours 0 mins 0.00 secs",
-    ]];
-    assert_eq!(expected, actual);
+async fn test_interval_expressions() -> Result<()> {
+    test_expression!(
+        "interval '1'",
+        "0 years 0 mons 0 days 0 hours 0 mins 1.00 secs"
+    );
+    test_expression!(
+        "interval '1 second'",
+        "0 years 0 mons 0 days 0 hours 0 mins 1.00 secs"
+    );
+    test_expression!(
+        "interval '500 milliseconds'",
+        "0 years 0 mons 0 days 0 hours 0 mins 0.500 secs"
+    );
+    test_expression!(
+        "interval '5 second'",
+        "0 years 0 mons 0 days 0 hours 0 mins 5.00 secs"
+    );
+    test_expression!(
+        "interval '0.5 minute'",
+        "0 years 0 mons 0 days 0 hours 0 mins 30.00 secs"
+    );
+    test_expression!(
+        "interval '.5 minute'",
+        "0 years 0 mons 0 days 0 hours 0 mins 30.00 secs"
+    );
+    test_expression!(
+        "interval '5 minute'",
+        "0 years 0 mons 0 days 0 hours 5 mins 0.00 secs"
+    );
+    test_expression!(
+        "interval '5 minute 1 second'",
+        "0 years 0 mons 0 days 0 hours 5 mins 1.00 secs"
+    );
+    test_expression!(
+        "interval '1 hour'",
+        "0 years 0 mons 0 days 1 hours 0 mins 0.00 secs"
+    );
+    test_expression!(
+        "interval '5 hour'",
+        "0 years 0 mons 0 days 5 hours 0 mins 0.00 secs"
+    );
+    test_expression!(
+        "interval '1 day'",
+        "0 years 0 mons 1 days 0 hours 0 mins 0.00 secs"
+    );
+    test_expression!(
+        "interval '1 day 1'",
+        "0 years 0 mons 1 days 0 hours 0 mins 1.00 secs"
+    );
+    test_expression!(
+        "interval '0.5'",
+        "0 years 0 mons 0 days 0 hours 0 mins 0.500 secs"
+    );
+    test_expression!(
+        "interval '0.5 day 1'",
+        "0 years 0 mons 0 days 12 hours 0 mins 1.00 secs"
+    );
+    test_expression!(
+        "interval '0.49 day'",
+        "0 years 0 mons 0 days 11 hours 45 mins 36.00 secs"
+    );
+    test_expression!(
+        "interval '0.499 day'",
+        "0 years 0 mons 0 days 11 hours 58 mins 33.596 secs"
+    );
+    test_expression!(
+        "interval '0.4999 day'",
+        "0 years 0 mons 0 days 11 hours 59 mins 51.364 secs"
+    );
+    test_expression!(
+        "interval '0.49999 day'",
+        "0 years 0 mons 0 days 11 hours 59 mins 59.136 secs"
+    );
+    test_expression!(
+        "interval '0.49999999999 day'",
+        "0 years 0 mons 0 days 12 hours 0 mins 0.00 secs"
+    );
+    test_expression!(
+        "interval '5 day'",
+        "0 years 0 mons 5 days 0 hours 0 mins 0.00 secs"
+    );
+    test_expression!(
+        "interval '5 day 4 hours 3 minutes 2 seconds 100 milliseconds'",
+        "0 years 0 mons 5 days 4 hours 3 mins 2.100 secs"
+    );
+    test_expression!(
+        "interval '0.5 month'",
+        "0 years 0 mons 15 days 0 hours 0 mins 0.00 secs"
+    );
+    test_expression!(
+        "interval '1 month'",
+        "0 years 1 mons 0 days 0 hours 0 mins 0.00 secs"
+    );
+    test_expression!(
+        "interval '5 month'",
+        "0 years 5 mons 0 days 0 hours 0 mins 0.00 secs"
+    );
+    test_expression!(
+        "interval '13 month'",
+        "1 years 1 mons 0 days 0 hours 0 mins 0.00 secs"
+    );
+    test_expression!(
+        "interval '0.5 year'",
+        "0 years 6 mons 0 days 0 hours 0 mins 0.00 secs"
+    );
+    test_expression!(
+        "interval '1 year'",
+        "1 years 0 mons 0 days 0 hours 0 mins 0.00 secs"
+    );
+    test_expression!(
+        "interval '2 year'",
+        "2 years 0 mons 0 days 0 hours 0 mins 0.00 secs"
+    );
     Ok(())
 }
 
 #[tokio::test]
-async fn crypto_expressions() -> Result<()> {
-    let mut ctx = ExecutionContext::new();
-    let sql = "SELECT
-        md5('tom') AS md5_tom,
-        md5('') AS md5_empty_str,
-        md5(null) AS md5_null,
-        sha224('tom') AS sha224_tom,
-        sha224('') AS sha224_empty_str,
-        sha224(null) AS sha224_null,
-        sha256('tom') AS sha256_tom,
-        sha256('') AS sha256_empty_str,
-        sha384('tom') AS sha348_tom,
-        sha384('') AS sha384_empty_str,
-        sha512('tom') AS sha512_tom,
-        sha512('') AS sha512_empty_str
-    ";
-    let actual = execute(&mut ctx, sql).await;
-
-    let expected = vec![vec![
-        "34b7da764b21d298ef307d04d8152dc5",
-        "d41d8cd98f00b204e9800998ecf8427e",
-        "NULL",
-        "0bf6cb62649c42a9ae3876ab6f6d92ad36cb5414e495f8873292be4d",
-        "d14a028c2a3a2bc9476102bb288234c415a2b01f828ea62ac5b3e42f",
-        "NULL",
-        "e1608f75c5d7813f3d4031cb30bfb786507d98137538ff8e128a6ff74e84e643",
-        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-        "096f5b68aa77848e4fdf5c1c0b350de2dbfad60ffd7c25d9ea07c6c19b8a4d55a9187eb117c557883f58c16dfac3e343",
-        "38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b",
-        "6e1b9b3fe840680e37051f7ad5e959d6f39ad0f8885d855166f55c659469d3c8b78118c44a2a49c72ddb481cd6d8731034e11cc030070ba843a90b3495cb8d3e",
-        "cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e"
-    ]];
-    assert_eq!(expected, actual);
+async fn test_crypto_expressions() -> Result<()> {
+    test_expression!("md5('tom')", "34b7da764b21d298ef307d04d8152dc5");
+    test_expression!("md5('')", "d41d8cd98f00b204e9800998ecf8427e");
+    test_expression!("md5(NULL)", "NULL");
+    test_expression!(
+        "sha224('tom')",
+        "0bf6cb62649c42a9ae3876ab6f6d92ad36cb5414e495f8873292be4d"
+    );
+    test_expression!(
+        "sha224('')",
+        "d14a028c2a3a2bc9476102bb288234c415a2b01f828ea62ac5b3e42f"
+    );
+    test_expression!("sha224(NULL)", "NULL");
+    test_expression!(
+        "sha256('tom')",
+        "e1608f75c5d7813f3d4031cb30bfb786507d98137538ff8e128a6ff74e84e643"
+    );
+    test_expression!(
+        "sha256('')",
+        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    );
+    test_expression!("sha256(NULL)", "NULL");
+    test_expression!("sha384('tom')", "096f5b68aa77848e4fdf5c1c0b350de2dbfad60ffd7c25d9ea07c6c19b8a4d55a9187eb117c557883f58c16dfac3e343");
+    test_expression!("sha384('')", "38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b");
+    test_expression!("sha384(NULL)", "NULL");
+    test_expression!("sha512('tom')", "6e1b9b3fe840680e37051f7ad5e959d6f39ad0f8885d855166f55c659469d3c8b78118c44a2a49c72ddb481cd6d8731034e11cc030070ba843a90b3495cb8d3e");
+    test_expression!("sha512('')", "cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e");
+    test_expression!("sha512(NULL)", "NULL");
+    Ok(())
+}
+#[tokio::test]
+async fn test_extract_date_part() -> Result<()> {
+    test_expression!("date_part('hour', CAST('2020-01-01' AS DATE))", "0");
+    test_expression!("EXTRACT(HOUR FROM CAST('2020-01-01' AS DATE))", "0");
+    test_expression!(
+        "EXTRACT(HOUR FROM to_timestamp('2020-09-08T12:00:00+00:00'))",
+        "12"
+    );
+    test_expression!("date_part('YEAR', CAST('2000-01-01' AS DATE))", "2000");
+    test_expression!(
+        "EXTRACT(year FROM to_timestamp('2020-09-08T12:00:00+00:00'))",
+        "2020"
+    );
     Ok(())
 }
 
 #[tokio::test]
-async fn extract_date_part() -> Result<()> {
-    let mut ctx = ExecutionContext::new();
-    let sql = "SELECT
-        date_part('hour', CAST('2020-01-01' AS DATE)) AS hr1,
-        EXTRACT(HOUR FROM CAST('2020-01-01' AS DATE)) AS hr2,
-        EXTRACT(HOUR FROM to_timestamp('2020-09-08T12:00:00+00:00')) AS hr3,
-        date_part('YEAR', CAST('2000-01-01' AS DATE)) AS year1,
-        EXTRACT(year FROM to_timestamp('2020-09-08T12:00:00+00:00')) AS year2
-    ";
-
-    let actual = execute(&mut ctx, sql).await;
-
-    let expected = vec![vec!["0", "0", "12", "2000", "2020"]];
-    assert_eq!(expected, actual);
+async fn test_in_list_scalar() -> Result<()> {
+    test_expression!("'a' IN ('a','b')", "true");
+    test_expression!("'c' IN ('a','b')", "false");
+    test_expression!("'c' NOT IN ('a','b')", "true");
+    test_expression!("'a' NOT IN ('a','b')", "false");
+    test_expression!("NULL IN ('a','b')", "NULL");
+    test_expression!("NULL NOT IN ('a','b')", "NULL");
+    test_expression!("'a' IN ('a','b',NULL)", "true");
+    test_expression!("'c' IN ('a','b',NULL)", "NULL");
+    test_expression!("'a' NOT IN ('a','b',NULL)", "false");
+    test_expression!("'c' NOT IN ('a','b',NULL)", "NULL");
+    test_expression!("0 IN (0,1,2)", "true");
+    test_expression!("3 IN (0,1,2)", "false");
+    test_expression!("3 NOT IN (0,1,2)", "true");
+    test_expression!("0 NOT IN (0,1,2)", "false");
+    test_expression!("NULL IN (0,1,2)", "NULL");
+    test_expression!("NULL NOT IN (0,1,2)", "NULL");
+    test_expression!("0 IN (0,1,2,NULL)", "true");
+    test_expression!("3 IN (0,1,2,NULL)", "NULL");
+    test_expression!("0 NOT IN (0,1,2,NULL)", "false");
+    test_expression!("3 NOT IN (0,1,2,NULL)", "NULL");
+    test_expression!("0.0 IN (0.0,0.1,0.2)", "true");
+    test_expression!("0.3 IN (0.0,0.1,0.2)", "false");
+    test_expression!("0.3 NOT IN (0.0,0.1,0.2)", "true");
+    test_expression!("0.0 NOT IN (0.0,0.1,0.2)", "false");
+    test_expression!("NULL IN (0.0,0.1,0.2)", "NULL");
+    test_expression!("NULL NOT IN (0.0,0.1,0.2)", "NULL");
+    test_expression!("0.0 IN (0.0,0.1,0.2,NULL)", "true");
+    test_expression!("0.3 IN (0.0,0.1,0.2,NULL)", "NULL");
+    test_expression!("0.0 NOT IN (0.0,0.1,0.2,NULL)", "false");
+    test_expression!("0.3 NOT IN (0.0,0.1,0.2,NULL)", "NULL");
+    test_expression!("'1' IN ('a','b',1)", "true");
+    test_expression!("'2' IN ('a','b',1)", "false");
+    test_expression!("'2' NOT IN ('a','b',1)", "true");
+    test_expression!("'1' NOT IN ('a','b',1)", "false");
+    test_expression!("NULL IN ('a','b',1)", "NULL");
+    test_expression!("NULL NOT IN ('a','b',1)", "NULL");
+    test_expression!("'1' IN ('a','b',NULL,1)", "true");
+    test_expression!("'2' IN ('a','b',NULL,1)", "NULL");
+    test_expression!("'1' NOT IN ('a','b',NULL,1)", "false");
+    test_expression!("'2' NOT IN ('a','b',NULL,1)", "NULL");
     Ok(())
 }
 
@@ -2211,67 +2331,6 @@ async fn in_list_array() -> Result<()> {
         vec!["false", "false", "true", "true", "NULL"],
         vec!["false", "false", "true", "true", "NULL"],
     ];
-    assert_eq!(expected, actual);
-    Ok(())
-}
-
-#[tokio::test]
-async fn in_list_scalar() -> Result<()> {
-    let mut ctx = ExecutionContext::new();
-    let sql = "SELECT
-        'a' IN ('a','b') AS utf8_in_true
-        ,'c' IN ('a','b') AS utf8_in_false
-        ,'c' NOT IN ('a','b') AS utf8_not_in_true
-        ,'a' NOT IN ('a','b') AS utf8_not_in_false
-        ,NULL IN ('a','b') AS utf8_in_null
-        ,NULL NOT IN ('a','b') AS utf8_not_in_null
-        ,'a' IN ('a','b',NULL) AS utf8_in_null_true
-        ,'c' IN ('a','b',NULL) AS utf8_in_null_null
-        ,'a' NOT IN ('a','b',NULL) AS utf8_not_in_null_false
-        ,'c' NOT IN ('a','b',NULL) AS utf8_not_in_null_null
-
-        ,0 IN (0,1,2) AS int64_in_true
-        ,3 IN (0,1,2) AS int64_in_false
-        ,3 NOT IN (0,1,2) AS int64_not_in_true
-        ,0 NOT IN (0,1,2) AS int64_not_in_false
-        ,NULL IN (0,1,2) AS int64_in_null
-        ,NULL NOT IN (0,1,2) AS int64_not_in_null
-        ,0 IN (0,1,2,NULL) AS int64_in_null_true
-        ,3 IN (0,1,2,NULL) AS int64_in_null_null
-        ,0 NOT IN (0,1,2,NULL) AS int64_not_in_null_false
-        ,3 NOT IN (0,1,2,NULL) AS int64_not_in_null_null
-
-        ,0.0 IN (0.0,0.1,0.2) AS float64_in_true
-        ,0.3 IN (0.0,0.1,0.2) AS float64_in_false
-        ,0.3 NOT IN (0.0,0.1,0.2) AS float64_not_in_true
-        ,0.0 NOT IN (0.0,0.1,0.2) AS float64_not_in_false
-        ,NULL IN (0.0,0.1,0.2) AS float64_in_null
-        ,NULL NOT IN (0.0,0.1,0.2) AS float64_not_in_null
-        ,0.0 IN (0.0,0.1,0.2,NULL) AS float64_in_null_true
-        ,0.3 IN (0.0,0.1,0.2,NULL) AS float64_in_null_null
-        ,0.0 NOT IN (0.0,0.1,0.2,NULL) AS float64_not_in_null_false
-        ,0.3 NOT IN (0.0,0.1,0.2,NULL) AS float64_not_in_null_null
-
-        ,'1' IN ('a','b',1) AS utf8_cast_in_true
-        ,'2' IN ('a','b',1) AS utf8_cast_in_false
-        ,'2' NOT IN ('a','b',1) AS utf8_cast_not_in_true
-        ,'1' NOT IN ('a','b',1) AS utf8_cast_not_in_false
-        ,NULL IN ('a','b',1) AS utf8_cast_in_null
-        ,NULL NOT IN ('a','b',1) AS utf8_cast_not_in_null
-        ,'1' IN ('a','b',NULL,1) AS utf8_cast_in_null_true
-        ,'2' IN ('a','b',NULL,1) AS utf8_cast_in_null_null
-        ,'1' NOT IN ('a','b',NULL,1) AS utf8_cast_not_in_null_false
-        ,'2' NOT IN ('a','b',NULL,1) AS utf8_cast_not_in_null_null
-    ";
-    let actual = execute(&mut ctx, sql).await;
-
-    let expected = vec![vec![
-        "true", "false", "true", "false", "NULL", "NULL", "true", "NULL", "false",
-        "NULL", "true", "false", "true", "false", "NULL", "NULL", "true", "NULL",
-        "false", "NULL", "true", "false", "true", "false", "NULL", "NULL", "true",
-        "NULL", "false", "NULL", "true", "false", "true", "false", "NULL", "NULL",
-        "true", "NULL", "false", "NULL",
-    ]];
     assert_eq!(expected, actual);
     Ok(())
 }
