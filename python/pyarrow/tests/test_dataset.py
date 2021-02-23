@@ -548,12 +548,8 @@ def test_file_format_pickling():
         'subdir/2/yyy/file1.parquet',
     ]
 ])
-<<<<<<< HEAD
 @pytest.mark.parametrize('pre_buffer', [False, True])
 def test_filesystem_factory(mockfs, paths_or_selector, pre_buffer):
-=======
-def test_filesystem_factory(mockfs, paths_or_selector):
->>>>>>> Final lint pass.  Turns out I was relying on black which was messing up everything
     format = ds.ParquetFileFormat(
         read_options=ds.ParquetReadOptions(dictionary_columns={"str"},
                                            pre_buffer=pre_buffer)
