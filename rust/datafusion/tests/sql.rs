@@ -1320,6 +1320,44 @@ fn create_join_context(
     Ok(ctx)
 }
 
+fn create_join_context_qualified() -> Result<ExecutionContext> {
+    let mut ctx = ExecutionContext::new();
+
+    let t1_schema = Arc::new(Schema::new(vec![
+        Field::new("a", DataType::UInt32, true),
+        Field::new("b", DataType::UInt32, true),
+        Field::new("c", DataType::UInt32, true),
+    ]));
+    let t1_data = RecordBatch::try_new(
+        t1_schema.clone(),
+        vec![
+            Arc::new(UInt32Array::from(vec![1, 2, 3, 4])),
+            Arc::new(UInt32Array::from(vec![10, 20, 30, 40])),
+            Arc::new(UInt32Array::from(vec![50, 60, 70, 80])),
+        ],
+    )?;
+    let t1_table = MemTable::try_new(t1_schema, vec![vec![t1_data]])?;
+    ctx.register_table("t1", Arc::new(t1_table));
+
+    let t2_schema = Arc::new(Schema::new(vec![
+        Field::new("a", DataType::UInt32, true),
+        Field::new("b", DataType::UInt32, true),
+        Field::new("c", DataType::UInt32, true),
+    ]));
+    let t2_data = RecordBatch::try_new(
+        t2_schema.clone(),
+        vec![
+            Arc::new(UInt32Array::from(vec![1, 2, 9, 4])),
+            Arc::new(UInt32Array::from(vec![100, 200, 300, 400])),
+            Arc::new(UInt32Array::from(vec![500, 600, 700, 800])),
+        ],
+    )?;
+    let t2_table = MemTable::try_new(t2_schema, vec![vec![t2_data]])?;
+    ctx.register_table("t2", Arc::new(t2_table));
+
+    Ok(ctx)
+}
+
 #[tokio::test]
 async fn csv_explain() {
     let mut ctx = ExecutionContext::new();
@@ -2235,5 +2273,36 @@ async fn in_list_scalar() -> Result<()> {
         "true", "NULL", "false", "NULL",
     ]];
     assert_eq!(expected, actual);
+    Ok(())
+}
+
+// TODO Tests to prove correct implementation of INNER JOIN's with qualified names.
+//  https://issues.apache.org/jira/projects/ARROW/issues/ARROW-11432.
+#[tokio::test]
+#[ignore]
+async fn inner_join_qualified_names() -> Result<()> {
+    // Setup the statements that test qualified names function correctly.
+    let equivalent_sql = [
+        "SELECT t1.a, t1.b, t1.c, t2.a, t2.b, t2.c
+            FROM t1
+            INNER JOIN t2 ON t1.a = t2.a
+            ORDER BY t1.a",
+        "SELECT t1.a, t1.b, t1.c, t2.a, t2.b, t2.c
+            FROM t1
+            INNER JOIN t2 ON t2.a = t1.a
+            ORDER BY t1.a",
+    ];
+
+    let expected = vec![
+        vec!["1", "10", "50", "1", "100", "500"],
+        vec!["2", "20", "60", "2", "20", "600"],
+        vec!["4", "40", "80", "4", "400", "800"],
+    ];
+
+    for sql in equivalent_sql.iter() {
+        let mut ctx = create_join_context_qualified()?;
+        let actual = execute(&mut ctx, sql).await;
+        assert_eq!(expected, actual);
+    }
     Ok(())
 }
