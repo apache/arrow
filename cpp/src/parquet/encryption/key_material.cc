@@ -60,7 +60,7 @@ KeyMaterial::KeyMaterial(bool is_footer_key, const std::string& kms_instance_id,
 
 KeyMaterial KeyMaterial::Parse(const std::string& key_material_string) {
   ObjectParser json_parser;
-  arrow::Status status = json_parser.Parse(key_material_string);
+  ::arrow::Status status = json_parser.Parse(key_material_string);
   if (!status.ok()) {
     throw ParquetException("Failed to parse key material " + key_material_string);
   }

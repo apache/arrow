@@ -38,7 +38,7 @@ KeyMetadata::KeyMetadata(const KeyMaterial& key_material)
 
 KeyMetadata KeyMetadata::Parse(const std::string& key_metadata) {
   ObjectParser json_parser;
-  arrow::Status status = json_parser.Parse(key_metadata);
+  ::arrow::Status status = json_parser.Parse(key_metadata);
   if (!status.ok()) {
     throw ParquetException("Failed to parse key metadata " + key_metadata);
   }
