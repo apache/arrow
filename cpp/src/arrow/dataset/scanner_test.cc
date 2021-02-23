@@ -192,6 +192,9 @@ TEST_F(TestScannerBuilder, TestProject) {
                                  call("multiply", {field_ref("i16"), literal(2)})},
                                 {"i16 renamed", "i16 * 2"}));
 
+  ASSERT_RAISES(NotImplemented, builder.Project({field_ref(FieldRef("nested", "column"))},
+                                                {"nested column"}));
+
   // provided more field names than column exprs
   ASSERT_RAISES(Invalid, builder.Project({}, {"i16 renamed", "i16 * 2"}));
 }
@@ -207,6 +210,10 @@ TEST_F(TestScannerBuilder, TestFilter) {
   ASSERT_OK(builder.Filter(equal(field_ref("i64"), literal<double>(10))));
 
   ASSERT_RAISES(Invalid, builder.Filter(equal(field_ref("not_a_column"), literal(true))));
+
+  ASSERT_RAISES(
+      NotImplemented,
+      builder.Filter(equal(field_ref(FieldRef("nested", "column")), literal(true))));
 
   ASSERT_RAISES(Invalid,
                 builder.Filter(or_(equal(field_ref("i64"), literal<int64_t>(10)),

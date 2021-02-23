@@ -108,13 +108,19 @@ const std::shared_ptr<Schema>& ScannerBuilder::schema() const {
   return scan_options_->dataset_schema;
 }
 
+static Status NestedFieldRefsNotImplemented() {
+  // TODO(ARROW-11259) Several functions (for example, IpcScanTask::Make) assume that
+  // only top level fields will be materialized.
+  return Status::NotImplemented("Nested field references in scans.");
+}
+
 Status ScannerBuilder::Project(std::vector<Expression> exprs,
                                std::vector<std::string> names) {
   compute::ProjectOptions project_options{std::move(names)};
 
   for (size_t i = 0; i < exprs.size(); ++i) {
     if (auto ref = exprs[i].field_ref()) {
-      if (!ref->name()) continue;
+      if (!ref->name()) return NestedFieldRefsNotImplemented();
 
       // set metadata and nullability for plain field references
       ARROW_ASSIGN_OR_RAISE(auto field, ref->GetOne(*schema()));
@@ -136,6 +142,8 @@ Status ScannerBuilder::Project(std::vector<Expression> exprs,
 
 Status ScannerBuilder::Filter(const Expression& filter) {
   for (const auto& ref : FieldsInExpression(filter)) {
+    if (!ref.name()) return NestedFieldRefsNotImplemented();
+
     RETURN_NOT_OK(ref.FindOne(*schema()));
   }
   ARROW_ASSIGN_OR_RAISE(scan_options_->filter, filter.Bind(*schema()));
