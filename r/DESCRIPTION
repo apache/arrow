@@ -97,3 +97,5 @@ Collate:
     'reexports-tidyselect.R'
     'schema.R'
     'util.R'
+Remotes:
+    r-lib/pkgdown
