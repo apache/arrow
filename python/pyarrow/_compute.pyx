@@ -965,3 +965,22 @@ class QuantileOptions(_QuantileOptions):
         if not isinstance(q, (list, tuple, np.ndarray)):
             q = [q]
         self._set_options(q, interpolation)
+
+
+cdef class _TDigestOptions(FunctionOptions):
+    cdef:
+        unique_ptr[CTDigestOptions] tdigest_options
+
+    cdef const CFunctionOptions* get_options(self) except NULL:
+        return self.tdigest_options.get()
+
+    def _set_options(self, quantiles, delta, buffer_size):
+        self.tdigest_options.reset(
+            new CTDigestOptions(quantiles, delta, buffer_size))
+
+
+class TDigestOptions(_TDigestOptions):
+    def __init__(self, *, q=0.5, delta=100, buffer_size=500):
+        if not isinstance(q, (list, tuple, np.ndarray)):
+            q = [q]
+        self._set_options(q, delta, buffer_size)

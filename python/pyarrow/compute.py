@@ -43,6 +43,7 @@ from pyarrow._compute import (  # noqa
     SortOptions,
     StrptimeOptions,
     TakeOptions,
+    TDigestOptions,
     TrimOptions,
     VarianceOptions,
     # Functions

@@ -332,6 +332,8 @@ class TDigest::TDigestImpl {
     return Lerp(td[ci_left].mean, td[ci_right].mean, diff);
   }
 
+  double total_weight() const { return total_weight_; }
+
  private:
   // must be delcared before merger_, see constructor initialization list
   const uint32_t delta_;
@@ -352,6 +354,8 @@ TDigest::TDigest(uint32_t delta, uint32_t buffer_size) : impl_(new TDigestImpl(d
 }
 
 TDigest::~TDigest() = default;
+TDigest::TDigest(TDigest&&) = default;
+TDigest& TDigest::operator=(TDigest&&) = default;
 
 void TDigest::Reset() {
   input_.resize(0);
@@ -368,14 +372,14 @@ void TDigest::Dump() {
   impl_->Dump();
 }
 
-void TDigest::Merge(std::vector<std::unique_ptr<TDigest>>* tdigests) {
+void TDigest::Merge(std::vector<TDigest>* tdigests) {
   MergeInput();
 
   std::vector<const TDigestImpl*> tdigest_impls;
   tdigest_impls.reserve(tdigests->size());
   for (auto& td : *tdigests) {
-    td->MergeInput();
-    tdigest_impls.push_back(td->impl_.get());
+    td.MergeInput();
+    tdigest_impls.push_back(td.impl_.get());
   }
   impl_->Merge(tdigest_impls);
 }
@@ -383,6 +387,10 @@ void TDigest::Merge(std::vector<std::unique_ptr<TDigest>>* tdigests) {
 double TDigest::Quantile(double q) {
   MergeInput();
   return impl_->Quantile(q);
+}
+
+bool TDigest::is_empty() const {
+  return input_.size() == 0 && impl_->total_weight() == 0;
 }
 
 void TDigest::MergeInput() {
