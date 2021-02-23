@@ -167,7 +167,7 @@ macro_rules! binary_string_array_op_scalar {
         let result: Result<Arc<dyn Array>> = match $LEFT.data_type() {
             DataType::Utf8 => compute_utf8_op_scalar!($LEFT, $RIGHT, $OP, StringArray),
             other => Err(DataFusionError::Internal(format!(
-                "Unsupported data type {:?}",
+                "Data type {:?} not supported for scalar operation on string array",
                 other
             ))),
         };
@@ -180,7 +180,7 @@ macro_rules! binary_string_array_op {
         match $LEFT.data_type() {
             DataType::Utf8 => compute_utf8_op!($LEFT, $RIGHT, $OP, StringArray),
             other => Err(DataFusionError::Internal(format!(
-                "Unsupported data type {:?}",
+                "Data type {:?} not supported for binary operation on string arrays",
                 other
             ))),
         }
@@ -204,7 +204,7 @@ macro_rules! binary_primitive_array_op {
             DataType::Float32 => compute_op!($LEFT, $RIGHT, $OP, Float32Array),
             DataType::Float64 => compute_op!($LEFT, $RIGHT, $OP, Float64Array),
             other => Err(DataFusionError::Internal(format!(
-                "Unsupported data type {:?}",
+                "Data type {:?} not supported for binary operation on primitive arrays",
                 other
             ))),
         }
@@ -228,7 +228,7 @@ macro_rules! binary_primitive_array_op_scalar {
             DataType::Float32 => compute_op_scalar!($LEFT, $RIGHT, $OP, Float32Array),
             DataType::Float64 => compute_op_scalar!($LEFT, $RIGHT, $OP, Float64Array),
             other => Err(DataFusionError::Internal(format!(
-                "Unsupported data type {:?}",
+                "Data type {:?} not supported for scalar operation on primitive array",
                 other
             ))),
         };
@@ -260,7 +260,7 @@ macro_rules! binary_array_op_scalar {
                 compute_op_scalar!($LEFT, $RIGHT, $OP, Date32Array)
             }
             other => Err(DataFusionError::Internal(format!(
-                "Unsupported data type {:?}",
+                "Data type {:?} not supported for scalar operation on dyn array",
                 other
             ))),
         };
@@ -295,7 +295,7 @@ macro_rules! binary_array_op {
                 compute_op!($LEFT, $RIGHT, $OP, Date64Array)
             }
             other => Err(DataFusionError::Internal(format!(
-                "Unsupported data type {:?}",
+                "Data type {:?} not supported for binary operation on dyn arrays",
                 other
             ))),
         }
