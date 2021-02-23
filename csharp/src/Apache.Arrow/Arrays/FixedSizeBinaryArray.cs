@@ -131,7 +131,7 @@ namespace Apache.Arrow.Arrays
                 return Instance;
             }
 
-            private TBuilder Append(ReadOnlySpan<byte> span)
+            public TBuilder Append(ReadOnlySpan<byte> span)
             {
                 ValueBuffer.Append(span);
                 ValidityBuffer.Append(true);
@@ -164,12 +164,17 @@ namespace Apache.Arrow.Arrays
 
             public TBuilder Set(int index, byte[] value)
             {
+                return Set(index, value.AsSpan());
+            }
+
+            public TBuilder Set(int index, ReadOnlySpan<byte> value)
+            {
                 int startIndex = index * ByteWidth;
                 for (int i = 0; i < ByteWidth; i++)
                 {
                     ValueBuffer.Span[startIndex + i] = value[i];
                 }
-                
+
                 ValidityBuffer.Set(index, true);
                 return Instance;
             }

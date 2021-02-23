@@ -25,7 +25,6 @@ namespace Apache.Arrow
     /// </summary>
     internal static class DecimalUtility
     {
-        private static readonly byte[] _minusOne = { 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255 };
         private static readonly BigInteger _maxDecimal = new BigInteger(decimal.MaxValue);
         private static readonly BigInteger _minDecimal = new BigInteger(decimal.MinValue);
         private static readonly ulong[] s_powersOfTen =
@@ -35,7 +34,6 @@ namespace Apache.Arrow
             1000000000000000000, 10000000000000000000
         };
         private static int PowersOfTenLength => s_powersOfTen.Length - 1;
-
 
         public static decimal GetDecimal(in ArrowBuffer valueBuffer, int index, int scale, int byteWidth,
             bool isUnsigned = false)
@@ -80,29 +78,37 @@ namespace Apache.Arrow
             return result;
         }
 
-        public static byte[] GetBytes(BigInteger integerValue, int byteWidth)
+        public static void GetBytes(BigInteger integerValue, int byteWidth, ref Span<byte> bytes)
         {
-            byte[] integerBytes = integerValue.ToByteArray();
+            if (bytes.Length != byteWidth)
+            {
+                throw new OverflowException("ValueBuffer size not equal to " + byteWidth + " byte width: " + bytes.Length);
+            }
+
+            Span<byte> integerBytes = integerValue.ToByteArray().AsSpan();
             if (integerBytes.Length > byteWidth)
             {
                 throw new OverflowException("Decimal size greater than " + byteWidth + " bytes: " + integerBytes.Length);
             }
 
             if (integerBytes.Length == byteWidth)
-                return integerBytes;
+            {
+                bytes = integerBytes;
+                return;
+            }
 
-            byte[] result = new byte[byteWidth];
             if (integerValue.Sign == -1)
             {
-                Buffer.BlockCopy(integerBytes, 0, result, 0, integerBytes.Length);
-                Buffer.BlockCopy(_minusOne, 0, result, integerBytes.Length, byteWidth - integerBytes.Length);
+                integerBytes.CopyTo(bytes);
+                for (int i = integerBytes.Length; i < byteWidth; i++)
+                {
+                    bytes[i] = 255;
+                }
             }
             else
             {
-                Buffer.BlockCopy(integerBytes, 0, result, 0, integerBytes.Length);
+                integerBytes.CopyTo(bytes);
             }
-
-            return result;
         }
 
         public static bool CheckPrecisionAndScale(decimal value, int precision, int scale, out BigInteger integerValue)

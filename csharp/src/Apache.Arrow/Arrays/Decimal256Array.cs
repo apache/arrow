@@ -41,7 +41,8 @@ namespace Apache.Arrow
             public Builder Append(decimal value)
             {
                 DecimalUtility.CheckPrecisionAndScale(value, DataType.Precision, DataType.Scale, out BigInteger integerValue);
-                byte[] bytes = DecimalUtility.GetBytes(integerValue, DataType.ByteWidth);
+                Span<byte> bytes = stackalloc byte[DataType.ByteWidth];
+                DecimalUtility.GetBytes(integerValue, DataType.ByteWidth, ref bytes);
 
                 return Append(bytes);
             }
@@ -64,7 +65,8 @@ namespace Apache.Arrow
             public Builder Set(int index, decimal value)
             {
                 DecimalUtility.CheckPrecisionAndScale(value, DataType.Precision, DataType.Scale, out BigInteger integerValue);
-                byte[] bytes = DecimalUtility.GetBytes(integerValue, DataType.ByteWidth);
+                Span<byte> bytes = stackalloc byte[DataType.ByteWidth];
+                DecimalUtility.GetBytes(integerValue, DataType.ByteWidth, ref bytes);
 
                 return Set(index, bytes);
             }
