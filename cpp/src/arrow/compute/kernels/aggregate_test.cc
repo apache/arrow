@@ -1205,6 +1205,21 @@ TEST_F(TestVarStdKernelMergeStability, Basics) {
 #endif
 }
 
+// Test round-off error
+class TestVarStdKernelRoundOff : public TestPrimitiveVarStdKernel<DoubleType> {};
+
+TEST_F(TestVarStdKernelRoundOff, Basics) {
+  // build array: np.arange(321000, dtype='float64')
+  double value = 0;
+  ASSERT_OK_AND_ASSIGN(
+      auto array, ArrayFromBuilderVisitor(float64(), 321000, [&](DoubleBuilder* builder) {
+        builder->UnsafeAppend(value++);
+      }));
+
+  // reference value from numpy.var()
+  this->AssertVarStdIs(*array, VarianceOptions{0}, 8586749999.916667);
+}
+
 // Test integer arithmetic code
 class TestVarStdKernelInt32 : public TestPrimitiveVarStdKernel<Int32Type> {};
 
