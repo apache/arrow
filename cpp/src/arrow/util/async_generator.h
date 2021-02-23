@@ -191,24 +191,25 @@ class SerialReadaheadGenerator {
       state_->first = false;
       auto next = state_->source();
       return next.Then(Callback{state_});
-    } else {
-      // This generator is not async-reentrant.  We won't be called until the last
-      // future finished so we know there is something in the queue
-      auto finished = state_->finished.load();
-      if (finished && state_->readahead_queue.isEmpty()) {
-        return Future<T>::MakeFinished(IterationTraits<T>::End());
-      }
-      auto next_ptr = state_->readahead_queue.frontPtr();
-      DCHECK(next_ptr != NULLPTR);
-      auto next = std::move(**next_ptr);
-      state_->readahead_queue.popFront();
-      auto last_available = state_->spaces_available.fetch_add(1);
-      if (last_available == 0 && !finished) {
-        // Reader idled out, we need to restart it
-        state_->Pump(state_);
-      }
-      return next;
     }
+
+    // This generator is not async-reentrant.  We won't be called until the last
+    // future finished so we know there is something in the queue
+    auto finished = state_->finished.load();
+    if (finished && state_->readahead_queue.isEmpty()) {
+      return Future<T>::MakeFinished(IterationTraits<T>::End());
+    }
+
+    auto next_ptr = state_->readahead_queue.frontPtr();
+    auto next = std::move(**next_ptr);
+    state_->readahead_queue.popFront();
+
+    auto last_available = state_->spaces_available.fetch_add(1);
+    if (last_available == 0 && !finished) {
+      // Reader idled out, we need to restart it
+      RETURN_NOT_OK(state_->Pump(state_));
+    }
+    return next;
   }
 
  private:
@@ -220,14 +221,17 @@ class SerialReadaheadGenerator {
           spaces_available(max_readahead),
           readahead_queue(max_readahead) {}
 
-    void Pump(std::shared_ptr<State>& self) {
+    Status Pump(std::shared_ptr<State>& self) {
       // Can't do readahead_queue.write(source().Then(Callback{self})) because then the
       // callback might run immediately and add itself to the queue before this gets added
       // to the queue messing up the order
       auto next_slot = std::make_shared<Future<T>>();
       auto written = readahead_queue.write(next_slot);
-      DCHECK(written);
+      if (!written) {
+        return Status::UnknownError("Could not write to readahead_queue");
+      }
       *next_slot = source().Then(Callback{self});
+      return Status::OK();
     }
 
     // Only accessed by the consumer end
@@ -240,21 +244,21 @@ class SerialReadaheadGenerator {
   };
 
   struct Callback {
-    Result<T> operator()(const Result<T>& next_result) {
-      if (!next_result.ok()) {
+    Result<T> operator()(const Result<T>& maybe_next) {
+      if (!maybe_next.ok()) {
         state_->finished.store(true);
-        return next_result;
+        return maybe_next;
       }
-      const auto& next = *next_result;
+      const auto& next = *maybe_next;
       if (next == IterationTraits<T>::End()) {
         state_->finished = true;
-        return next_result;
+        return maybe_next;
       }
       auto last_available = state_->spaces_available.fetch_sub(1);
       if (last_available > 1) {
-        state_->Pump(state_);
+        RETURN_NOT_OK(state_->Pump(state_));
       }
-      return next_result;
+      return maybe_next;
     }
 
     std::shared_ptr<State> state_;

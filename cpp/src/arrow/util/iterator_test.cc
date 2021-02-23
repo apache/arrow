@@ -731,9 +731,9 @@ TEST(TestAsyncUtil, CompleteBackgroundStressTest) {
 }
 
 template <typename T>
-class SlowSourcePreventingReentrant {
+class ReentrantChecker {
  public:
-  explicit SlowSourcePreventingReentrant(AsyncGenerator<T> source)
+  explicit ReentrantChecker(AsyncGenerator<T> source)
       : state_(std::make_shared<State>(std::move(source))) {}
 
   Future<TestInt> operator()() {
@@ -770,11 +770,11 @@ class SlowSourcePreventingReentrant {
 
 TEST(TestAsyncUtil, SerialReadaheadSlowProducer) {
   AsyncGenerator<TestInt> it = BackgroundAsyncVectorIt({1, 2, 3, 4, 5});
-  SlowSourcePreventingReentrant<TestInt> tracker(std::move(it));
-  SerialReadaheadGenerator<TestInt> serial_readahead(tracker, 2);
+  ReentrantChecker<TestInt> checker(std::move(it));
+  SerialReadaheadGenerator<TestInt> serial_readahead(checker, 2);
   AssertAsyncGeneratorMatch({1, 2, 3, 4, 5},
                             static_cast<AsyncGenerator<TestInt>>(serial_readahead));
-  tracker.AssertValid();
+  checker.AssertValid();
 }
 
 TEST(TestAsyncUtil, SerialReadaheadSlowConsumer) {
@@ -799,39 +799,33 @@ TEST(TestAsyncUtil, SerialReadaheadSlowConsumer) {
 TEST(TestAsyncUtil, SerialReadaheadStress) {
   constexpr int NTASKS = 20;
   constexpr int NITEMS = 50;
-  constexpr int EXPECTED_SUM = (NITEMS * (NITEMS - 1)) / 2;
   for (int i = 0; i < NTASKS; i++) {
     AsyncGenerator<TestInt> it = BackgroundAsyncVectorIt(RangeVector(NITEMS));
-    SerialReadaheadGenerator<TestInt> serial_readahead(it, 2);
-    unsigned int sum = 0;
-    auto visit_fut = VisitAsyncGenerator<TestInt>(
-        serial_readahead, [&sum](TestInt test_int) -> Status {
-          sum += test_int.value;
+    ReentrantChecker<TestInt> checker(std::move(it));
+    SerialReadaheadGenerator<TestInt> serial_readahead(checker, 2);
+    auto visit_fut =
+        VisitAsyncGenerator<TestInt>(serial_readahead, [](TestInt test_int) -> Status {
           // Normally sleeping in a visit function would be a faux-pas but we want to slow
           // the reader down to match the producer to maximize the stress
           std::this_thread::sleep_for(kYieldDuration);
           return Status::OK();
         });
     ASSERT_FINISHES_OK(visit_fut);
-    ASSERT_EQ(EXPECTED_SUM, sum);
+    checker.AssertValid();
   }
 }
 
 TEST(TestAsyncUtil, SerialReadaheadStressFast) {
   constexpr int NTASKS = 20;
   constexpr int NITEMS = 50;
-  constexpr int EXPECTED_SUM = (NITEMS * (NITEMS - 1)) / 2;
   for (int i = 0; i < NTASKS; i++) {
     AsyncGenerator<TestInt> it = BackgroundAsyncVectorIt(RangeVector(NITEMS), false);
-    SerialReadaheadGenerator<TestInt> serial_readahead(it, 2);
-    unsigned int sum = 0;
-    auto visit_fut = VisitAsyncGenerator<TestInt>(serial_readahead,
-                                                  [&sum](TestInt test_int) -> Status {
-                                                    sum += test_int.value;
-                                                    return Status::OK();
-                                                  });
+    ReentrantChecker<TestInt> checker(std::move(it));
+    SerialReadaheadGenerator<TestInt> serial_readahead(checker, 2);
+    auto visit_fut = VisitAsyncGenerator<TestInt>(
+        serial_readahead, [](TestInt test_int) -> Status { return Status::OK(); });
     ASSERT_FINISHES_OK(visit_fut);
-    ASSERT_EQ(EXPECTED_SUM, sum);
+    checker.AssertValid();
   }
 }
 
