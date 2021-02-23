@@ -22,10 +22,7 @@ message(STATUS "Using vcpkg to find dependencies")
 
 # macro to list subdirectirectories (non-recursive)
 macro(list_subdirs SUBDIRS DIR)
-  file(
-    GLOB children_
-    RELATIVE ${DIR}
-    ${DIR}/*)
+  file(GLOB children_ RELATIVE ${DIR} ${DIR}/*)
   set(subdirs_ "")
   foreach(child_ ${children_})
     if(IS_DIRECTORY "${DIR}/${child_}")
@@ -54,20 +51,14 @@ if(DEFINED CMAKE_TOOLCHAIN_FILE)
 else()
   if(DEFINED VCPKG_ROOT)
     # Get it from the CMake variable VCPKG_ROOT
-    find_program(
-      _VCPKG_BIN vcpkg
-      PATHS "${VCPKG_ROOT}"
-      NO_DEFAULT_PATH)
+    find_program(_VCPKG_BIN vcpkg PATHS "${VCPKG_ROOT}" NO_DEFAULT_PATH)
     if(NOT _VCPKG_BIN)
       message(FATAL_ERROR "vcpkg not found in directory specified in -DVCPKG_ROOT")
     endif()
   elseif(DEFINED ENV{VCPKG_ROOT})
     # Get it from the environment variable VCPKG_ROOT
     set(VCPKG_ROOT ENV{VCPKG_ROOT})
-    find_program(
-      _VCPKG_BIN vcpkg
-      PATHS "${VCPKG_ROOT}"
-      NO_DEFAULT_PATH)
+    find_program(_VCPKG_BIN vcpkg PATHS "${VCPKG_ROOT}" NO_DEFAULT_PATH)
     if(NOT _VCPKG_BIN)
       message(
         FATAL_ERROR "vcpkg not found in directory in environment variable VCPKG_ROOT")
@@ -92,10 +83,7 @@ else()
             "vcpkg not found. Install vcpkg if not installed, "
             "then run vcpkg integrate install or set environment variable VCPKG_ROOT.")
       endif()
-      find_program(
-        _VCPKG_BIN vcpkg
-        PATHS "${VCPKG_ROOT}"
-        NO_DEFAULT_PATH)
+      find_program(_VCPKG_BIN vcpkg PATHS "${VCPKG_ROOT}" NO_DEFAULT_PATH)
       if(NOT _VCPKG_BIN)
         message(FATAL_ERROR "vcpkg not found. Re-run vcpkg integrate install "
                             "or set environment variable VCPKG_ROOT.")
@@ -117,16 +105,19 @@ if(DEFINED ENV{VCPKG_DEFAULT_TRIPLET} AND NOT DEFINED VCPKG_TARGET_TRIPLET)
 endif()
 # Explicitly set manifest mode on if it is not set and vcpkg.json exists
 if(NOT DEFINED VCPKG_MANIFEST_MODE AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg.json")
-  set(VCPKG_MANIFEST_MODE
-      ON
-      CACHE BOOL "Use vcpkg.json manifest")
+  set(VCPKG_MANIFEST_MODE ON CACHE BOOL "Use vcpkg.json manifest")
   message(STATUS "vcpkg.json manifest found. Using VCPKG_MANIFEST_MODE: ON")
 endif()
 # vcpkg can install packages in two different places
 set(_INST_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed") # try here first
 set(_INST_VCPKG_ROOT "${VCPKG_ROOT}/installed")
 # Iterate over the places
-foreach(_INST_DIR IN LISTS _INST_SOURCE_DIR _INST_VCPKG_ROOT "notfound")
+foreach(_INST_DIR
+        IN
+        LISTS
+        _INST_SOURCE_DIR
+        _INST_VCPKG_ROOT
+        "notfound")
   if(_INST_DIR STREQUAL "notfound")
     message(FATAL_ERROR "vcpkg installed libraries directory not found. "
                         "Install packages with vcpkg before executing cmake.")
@@ -200,50 +191,24 @@ set(ARROW_VCPKG_PREFIX
     "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}"
     CACHE STRING "Path to target triplet subdirectory in vcpkg installed directory")
 
-set(ARROW_VCPKG
-    ON
-    CACHE BOOL "Use vcpkg for dependencies")
+set(ARROW_VCPKG ON CACHE BOOL "Use vcpkg for dependencies")
 
 set(ARROW_DEPENDENCY_SOURCE
     "SYSTEM"
     CACHE STRING "The specified value VCPKG is implemented internally as SYSTEM" FORCE)
 
-set(BOOST_ROOT
-    "${ARROW_VCPKG_PREFIX}"
-    CACHE STRING "")
-set(BOOST_INCLUDEDIR
-    "${ARROW_VCPKG_PREFIX}/include/boost"
-    CACHE STRING "")
-set(BOOST_LIBRARYDIR
-    "${ARROW_VCPKG_PREFIX}/lib"
-    CACHE STRING "")
-set(OPENSSL_INCLUDE_DIR
-    "${ARROW_VCPKG_PREFIX}/include"
-    CACHE STRING "")
-set(OPENSSL_LIBRARIES
-    "${ARROW_VCPKG_PREFIX}/lib"
-    CACHE STRING "")
-set(OPENSSL_ROOT_DIR
-    "${ARROW_VCPKG_PREFIX}"
-    CACHE STRING "")
-set(Thrift_ROOT
-    "${ARROW_VCPKG_PREFIX}/lib"
-    CACHE STRING "")
-set(ZSTD_INCLUDE_DIR
-    "${ARROW_VCPKG_PREFIX}/include"
-    CACHE STRING "")
-set(ZSTD_ROOT
-    "${ARROW_VCPKG_PREFIX}"
-    CACHE STRING "")
+set(BOOST_ROOT "${ARROW_VCPKG_PREFIX}" CACHE STRING "")
+set(BOOST_INCLUDEDIR "${ARROW_VCPKG_PREFIX}/include/boost" CACHE STRING "")
+set(BOOST_LIBRARYDIR "${ARROW_VCPKG_PREFIX}/lib" CACHE STRING "")
+set(OPENSSL_INCLUDE_DIR "${ARROW_VCPKG_PREFIX}/include" CACHE STRING "")
+set(OPENSSL_LIBRARIES "${ARROW_VCPKG_PREFIX}/lib" CACHE STRING "")
+set(OPENSSL_ROOT_DIR "${ARROW_VCPKG_PREFIX}" CACHE STRING "")
+set(Thrift_ROOT "${ARROW_VCPKG_PREFIX}/lib" CACHE STRING "")
+set(ZSTD_INCLUDE_DIR "${ARROW_VCPKG_PREFIX}/include" CACHE STRING "")
+set(ZSTD_ROOT "${ARROW_VCPKG_PREFIX}" CACHE STRING "")
 
 if(CMAKE_HOST_WIN32)
-  set(LZ4_MSVC_LIB_PREFIX
-      ""
-      CACHE STRING "")
-  set(LZ4_MSVC_STATIC_LIB_SUFFIX
-      ""
-      CACHE STRING "")
-  set(ZSTD_MSVC_LIB_PREFIX
-      ""
-      CACHE STRING "")
+  set(LZ4_MSVC_LIB_PREFIX "" CACHE STRING "")
+  set(LZ4_MSVC_STATIC_LIB_SUFFIX "" CACHE STRING "")
+  set(ZSTD_MSVC_LIB_PREFIX "" CACHE STRING "")
 endif()
