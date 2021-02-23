@@ -392,6 +392,34 @@ TEST(FutureSyncTest, GetStatusFuture) {
   }
 }
 
+// Ensure the implicit convenience constructors behave as desired.
+TEST(FutureSyncTest, ImplicitConstructors) {
+  {
+    auto fut = ([]() -> Future<MoveOnlyDataType> {
+      return arrow::Status::Invalid("Invalid");
+    })();
+    AssertFailed(fut);
+    ASSERT_RAISES(Invalid, fut.result());
+  }
+  {
+    auto fut = ([]() -> Future<MoveOnlyDataType> {
+      return arrow::Result<MoveOnlyDataType>(arrow::Status::Invalid("Invalid"));
+    })();
+    AssertFailed(fut);
+    ASSERT_RAISES(Invalid, fut.result());
+  }
+  {
+    auto fut = ([]() -> Future<MoveOnlyDataType> { return MoveOnlyDataType(42); })();
+    AssertSuccessful(fut);
+  }
+  {
+    auto fut = ([]() -> Future<MoveOnlyDataType> {
+      return arrow::Result<MoveOnlyDataType>(MoveOnlyDataType(42));
+    })();
+    AssertSuccessful(fut);
+  }
+}
+
 TEST(FutureRefTest, ChainRemoved) {
   // Creating a future chain should not prevent the futures from being deleted if the
   // entire chain is deleted
