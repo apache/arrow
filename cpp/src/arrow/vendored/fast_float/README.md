@@ -5,3 +5,4 @@ See https://github.com/lemire/fast_float
 
 Changes:
 - enclosed in `arrow_vendored` namespace.
+- changeset e0bd5735300e761d8553a24b0525dd1e856fa4ca has been applied (Solaris endian header)
