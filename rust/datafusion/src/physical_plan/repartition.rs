@@ -160,7 +160,7 @@ impl ExecutionPlan for RepartitionExec {
                                 for num_output_partition in 0..num_output_partitions {
                                     let col_indices =
                                         indices[num_output_partition].clone().into();
-
+                                    // Produce batched based on column indices
                                     let columns = batch
                                         .columns()
                                         .iter()
@@ -226,17 +226,11 @@ impl RepartitionExec {
         input: Arc<dyn ExecutionPlan>,
         partitioning: Partitioning,
     ) -> Result<Self> {
-        match &partitioning {
-            Partitioning::RoundRobinBatch(_) => Ok(RepartitionExec {
-                input,
-                partitioning,
-                channels: Arc::new(Mutex::new(vec![])),
-            }),
-            other => Err(DataFusionError::NotImplemented(format!(
-                "Partitioning scheme not supported yet: {:?}",
-                other
-            ))),
-        }
+        Ok(RepartitionExec {
+            input,
+            partitioning,
+            channels: Arc::new(Mutex::new(vec![])),
+        })
     }
 }
 
@@ -346,6 +340,33 @@ mod tests {
         assert_eq!(30, output_partitions[2].len());
         assert_eq!(30, output_partitions[3].len());
         assert_eq!(30, output_partitions[4].len());
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn many_to_many_hash_partition() -> Result<()> {
+        // define input partitions
+        let schema = test_schema();
+        let partition = create_vec_batches(&schema, 50);
+        let partitions = vec![partition.clone(), partition.clone(), partition.clone()];
+
+        // repartition from 3 input to 5 output
+        let output_partitions = repartition(
+            &schema,
+            partitions,
+            Partitioning::Hash(
+                vec![Arc::new(crate::physical_plan::expressions::Column::new(
+                    &"c0",
+                ))],
+                8,
+            ),
+        )
+        .await?;
+
+        let total_rows: usize = output_partitions.iter().map(|x| x.len()).sum();
+
+        assert_eq!(total_rows, 8 * 50 * 3);
 
         Ok(())
     }
