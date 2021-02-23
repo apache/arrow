@@ -140,12 +140,13 @@ impl ExecutionPlan for RepartitionExec {
                                     DataFusionError::Execution(e.to_string())
                                 })?;
                             }
-                            Partitioning::Hash(expr, _) => {
+                            Partitioning::Hash(exprs, _) => {
                                 let batch = result?;
-                                let arrays = expr
+                                let arrays = exprs
                                     .iter()
-                                    .map(|b| {
-                                        Ok(b.evaluate(&batch)?
+                                    .map(|expr| {
+                                        Ok(expr
+                                            .evaluate(&batch)?
                                             .into_array(batch.num_rows()))
                                     })
                                     .collect::<Result<Vec<_>>>()?;
@@ -158,14 +159,14 @@ impl ExecutionPlan for RepartitionExec {
                                         .push(index as u64)
                                 }
                                 for num_output_partition in 0..num_output_partitions {
-                                    let col_indices =
+                                    let indices =
                                         indices[num_output_partition].clone().into();
-                                    // Produce batched based on column indices
+                                    // Produce batches based on indices
                                     let columns = batch
                                         .columns()
                                         .iter()
                                         .map(|c| {
-                                            take(c.as_ref(), &col_indices, None).map_err(
+                                            take(c.as_ref(), &indices, None).map_err(
                                                 |e| {
                                                     DataFusionError::Execution(
                                                         e.to_string(),
