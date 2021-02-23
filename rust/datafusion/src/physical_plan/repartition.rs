@@ -162,7 +162,7 @@ impl ExecutionPlan for RepartitionExec {
                                     let indices =
                                         indices[num_output_partition].clone().into();
                                     // Produce batches based on indices
-                                    let columns = batch
+                                    let columns = input_batch
                                         .columns()
                                         .iter()
                                         .map(|c| {
