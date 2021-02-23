@@ -40,6 +40,8 @@ class ARROW_EXPORT TDigest {
  public:
   explicit TDigest(uint32_t delta = 100, uint32_t buffer_size = 500);
   ~TDigest();
+  TDigest(TDigest&&);
+  TDigest& operator=(TDigest&&);
 
   // reset and re-use this tdigest
   void Reset();
@@ -62,7 +64,6 @@ class ARROW_EXPORT TDigest {
   }
 
   // skip NAN on adding
-  // TODO(yibo): store NAN as is, partition to buffer end before merging
   template <typename T>
   typename std::enable_if<std::is_floating_point<T>::value>::type NanAdd(T value) {
     if (!std::isnan(value)) Add(value);
@@ -74,7 +75,7 @@ class ARROW_EXPORT TDigest {
   }
 
   // merge with other t-digests, called infrequently
-  void Merge(std::vector<std::unique_ptr<TDigest>>* tdigests);
+  void Merge(std::vector<TDigest>* tdigests);
 
   // calculate quantile
   double Quantile(double q);

@@ -354,6 +354,8 @@ TDigest::TDigest(uint32_t delta, uint32_t buffer_size) : impl_(new TDigestImpl(d
 }
 
 TDigest::~TDigest() = default;
+TDigest::TDigest(TDigest&&) = default;
+TDigest& TDigest::operator=(TDigest&&) = default;
 
 void TDigest::Reset() {
   input_.resize(0);
@@ -370,14 +372,14 @@ void TDigest::Dump() {
   impl_->Dump();
 }
 
-void TDigest::Merge(std::vector<std::unique_ptr<TDigest>>* tdigests) {
+void TDigest::Merge(std::vector<TDigest>* tdigests) {
   MergeInput();
 
   std::vector<const TDigestImpl*> tdigest_impls;
   tdigest_impls.reserve(tdigests->size());
   for (auto& td : *tdigests) {
-    td->MergeInput();
-    tdigest_impls.push_back(td->impl_.get());
+    td.MergeInput();
+    tdigest_impls.push_back(td.impl_.get());
   }
   impl_->Merge(tdigest_impls);
 }

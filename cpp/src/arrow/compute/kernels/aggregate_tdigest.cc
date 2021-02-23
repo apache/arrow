@@ -37,18 +37,17 @@ struct TDigestImpl : public ScalarAggregator {
   using CType = typename ArrowType::c_type;
 
   explicit TDigestImpl(const TDigestOptions& options)
-      : q{options.q}, tdigest{new TDigest(options.delta, options.buffer_size)} {}
+      : q{options.q}, tdigest{options.delta, options.buffer_size} {}
 
   void Consume(KernelContext*, const ExecBatch& batch) override {
-    ArrayType array{batch[0].array()};
-    const ArrayData& data = *array.data();
+    const ArrayData& data = *batch[0].array();
     const CType* values = data.GetValues<CType>(1);
 
-    if (array.length() > array.null_count()) {
+    if (data.length > data.GetNullCount()) {
       VisitSetBitRunsVoid(data.buffers[0], data.offset, data.length,
                           [&](int64_t pos, int64_t len) {
                             for (int64_t i = 0; i < len; ++i) {
-                              this->tdigest->NanAdd(values[pos + i]);
+                              this->tdigest.NanAdd(values[pos + i]);
                             }
                           });
     }
@@ -56,13 +55,13 @@ struct TDigestImpl : public ScalarAggregator {
 
   void MergeFrom(KernelContext*, KernelState&& src) override {
     auto& other = checked_cast<ThisType&>(src);
-    std::vector<std::unique_ptr<TDigest>> other_tdigest;
+    std::vector<TDigest> other_tdigest;
     other_tdigest.push_back(std::move(other.tdigest));
-    this->tdigest->Merge(&other_tdigest);
+    this->tdigest.Merge(&other_tdigest);
   }
 
   void Finalize(KernelContext* ctx, Datum* out) override {
-    const int64_t out_length = this->tdigest->is_empty() ? 0 : this->q.size();
+    const int64_t out_length = this->tdigest.is_empty() ? 0 : this->q.size();
     auto out_data = ArrayData::Make(float64(), out_length, 0);
     out_data->buffers.resize(2, nullptr);
 
@@ -71,7 +70,7 @@ struct TDigestImpl : public ScalarAggregator {
                              ctx->Allocate(out_length * sizeof(double)));
       double* out_buffer = out_data->template GetMutableValues<double>(1);
       for (int64_t i = 0; i < out_length; ++i) {
-        out_buffer[i] = this->tdigest->Quantile(this->q[i]);
+        out_buffer[i] = this->tdigest.Quantile(this->q[i]);
       }
     }
 
@@ -79,7 +78,7 @@ struct TDigestImpl : public ScalarAggregator {
   }
 
   const std::vector<double>& q;
-  std::unique_ptr<TDigest> tdigest;
+  TDigest tdigest;
 };
 
 struct TDigestInitState {
