@@ -2119,8 +2119,19 @@ DEALINGS IN THE SOFTWARE.
 
 --------------------------------------------------------------------------------
 
-Some source code from Folly (https://github.com/facebook/folly) has been adapted
-for PyArrow. Folly is released under the Apache License, Version 2.0.
+This project includes code from Folly.
+
+ * cpp/src/arrow/vendored/ProducerConsumerQueue.h
+
+is based on Folly's
+
+ * folly/Portability.h
+ * folly/lang/Align.h
+ * folly/ProducerConsumerQueue.h
+
+Copyright: Copyright (c) Facebook, Inc. and its affiliates.
+Home page: https://github.com/facebook/folly
+License: http://www.apache.org/licenses/LICENSE-2.0
 
 --------------------------------------------------------------------------------
 
