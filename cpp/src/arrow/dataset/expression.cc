@@ -718,7 +718,7 @@ Status ExtractKnownFieldValuesImpl(
       known_values->emplace(*ref, *lit);
     } else if (call->function_name == "is_null") {
       auto ref = call->arguments[0].field_ref();
-      known_values->emplace(*ref, std::make_shared<NullScalar>());
+      known_values->emplace(*ref, Datum(std::make_shared<NullScalar>()));
     }
   }
 
