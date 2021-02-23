@@ -141,13 +141,13 @@ impl ExecutionPlan for RepartitionExec {
                                 })?;
                             }
                             Partitioning::Hash(exprs, _) => {
-                                let batch = result?;
+                                let input_batch = result?;
                                 let arrays = exprs
                                     .iter()
                                     .map(|expr| {
                                         Ok(expr
-                                            .evaluate(&batch)?
-                                            .into_array(batch.num_rows()))
+                                            .evaluate(&input_batch)?
+                                            .into_array(input_batch.num_rows()))
                                     })
                                     .collect::<Result<Vec<_>>>()?;
                                 // Hash arrays and compute buckets based on number of partitions
@@ -175,10 +175,12 @@ impl ExecutionPlan for RepartitionExec {
                                             )
                                         })
                                         .collect::<Result<Vec<Arc<dyn Array>>>>()?;
-                                    let res_batch =
-                                        RecordBatch::try_new(batch.schema(), columns);
+                                    let output_batch = RecordBatch::try_new(
+                                        input_batch.schema(),
+                                        columns,
+                                    );
                                     let tx = &mut channels[num_output_partition].0;
-                                    tx.send(Some(res_batch)).map_err(|e| {
+                                    tx.send(Some(input_batch)).map_err(|e| {
                                         DataFusionError::Execution(e.to_string())
                                     })?;
                                 }
