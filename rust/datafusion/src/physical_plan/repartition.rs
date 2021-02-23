@@ -25,9 +25,9 @@ use std::{any::Any, vec};
 
 use crate::error::{DataFusionError, Result};
 use crate::physical_plan::{ExecutionPlan, Partitioning};
-use arrow::datatypes::SchemaRef;
-use arrow::error::Result as ArrowResult;
 use arrow::record_batch::RecordBatch;
+use arrow::{array::Array, error::Result as ArrowResult};
+use arrow::{compute::take, datatypes::SchemaRef};
 
 use super::{hash_join::create_hashes, RecordBatchStream, SendableRecordBatchStream};
 use async_trait::async_trait;
@@ -136,31 +136,50 @@ impl ExecutionPlan for RepartitionExec {
                             Partitioning::RoundRobinBatch(_) => {
                                 let output_partition = counter % num_output_partitions;
                                 let tx = &mut channels[output_partition].0;
-                                tx.send(Some(result))
-                                    .map_err(|e| DataFusionError::Execution(e.to_string()))?;
+                                tx.send(Some(result)).map_err(|e| {
+                                    DataFusionError::Execution(e.to_string())
+                                })?;
                             }
                             Partitioning::Hash(expr, _) => {
                                 let batch = result?;
                                 let arrays = expr
                                     .iter()
-                                    .map(|b| Ok(b.evaluate(&batch)?.into_array(batch.num_rows())))
+                                    .map(|b| {
+                                        Ok(b.evaluate(&batch)?
+                                            .into_array(batch.num_rows()))
+                                    })
                                     .collect::<Result<Vec<_>>>()?;
                                 // Hash arrays and compute buckets based on number of partitions
                                 let hashes = create_hashes(&arrays, &random_state)?;
-                                let partitions: Vec<u64> = hashes
-                                    .iter()
-                                    .map(|x| x % num_output_partitions as u64)
-                                    .collect();
                                 let mut indices = vec![vec![]; num_output_partitions];
-                                for (i, partition) in partitions.iter().enumerate() {
-                                    indices[*partition as usize].push(i)
+                                for (index, hash) in hashes.iter().enumerate() {
+                                    indices
+                                        [(*hash % num_output_partitions as u64) as usize]
+                                        .push(index as u64)
                                 }
-                                for i in 0..num_output_partitions {
-                                    for c in batch.columns() {
-                                        for i in 0..batch.num_rows() {
-                                            //TODO take based on indices
-                                        }
-                                    }
+                                for num_output_partition in 0..num_output_partitions {
+                                    let col_indices =
+                                        indices[num_output_partition].clone().into();
+
+                                    let columns = batch
+                                        .columns()
+                                        .iter()
+                                        .map(|c| {
+                                            take(c.as_ref(), &col_indices, None).map_err(
+                                                |e| {
+                                                    DataFusionError::Execution(
+                                                        e.to_string(),
+                                                    )
+                                                },
+                                            )
+                                        })
+                                        .collect::<Result<Vec<Arc<dyn Array>>>>()?;
+                                    let res_batch =
+                                        RecordBatch::try_new(batch.schema(), columns);
+                                    let tx = &mut channels[num_output_partition].0;
+                                    tx.send(Some(res_batch)).map_err(|e| {
+                                        DataFusionError::Execution(e.to_string())
+                                    })?;
                                 }
                             }
                             other => {
@@ -203,7 +222,10 @@ impl ExecutionPlan for RepartitionExec {
 
 impl RepartitionExec {
     /// Create a new RepartitionExec
-    pub fn try_new(input: Arc<dyn ExecutionPlan>, partitioning: Partitioning) -> Result<Self> {
+    pub fn try_new(
+        input: Arc<dyn ExecutionPlan>,
+        partitioning: Partitioning,
+    ) -> Result<Self> {
         match &partitioning {
             Partitioning::RoundRobinBatch(_) => Ok(RepartitionExec {
                 input,
@@ -232,7 +254,10 @@ struct RepartitionStream {
 impl Stream for RepartitionStream {
     type Item = ArrowResult<RecordBatch>;
 
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    fn poll_next(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Option<Self::Item>> {
         match self.input.recv() {
             Ok(Some(batch)) => Poll::Ready(Some(batch)),
             // End of results from one input partition
