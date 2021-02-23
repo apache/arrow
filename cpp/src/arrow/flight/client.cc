@@ -58,11 +58,11 @@
 #include "arrow/flight/serialization_internal.h"
 #include "arrow/flight/types.h"
 
-namespace pb = arrow::flight::protocol;
-
 namespace arrow {
 
 namespace flight {
+
+namespace pb = arrow::flight::protocol;
 
 const char* kWriteSizeDetailTypeId = "flight::FlightWriteSizeStatusDetail";
 
