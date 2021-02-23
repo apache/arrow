@@ -417,7 +417,7 @@ test_that("record_batch() handles null type (ARROW-7064)", {
 })
 
 test_that("record_batch() scalar recycling", {
-  skip("Not implemented (ARROW-11705")
+  skip("Not implemented (ARROW-11705)")
   expect_data_frame(
     record_batch(a = 1:10, b = 5),
     tibble::tibble(a = 1:10, b = 5)
