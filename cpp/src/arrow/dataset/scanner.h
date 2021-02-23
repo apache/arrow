@@ -195,13 +195,7 @@ class ARROW_DS_EXPORT ScannerBuilder {
   ///
   /// \return Failure if any column name does not exists in the dataset's
   ///         Schema.
-  Status Project(std::vector<std::string> columns) {
-    std::vector<Expression> exprs(columns.size());
-    for (size_t i = 0; i < exprs.size(); ++i) {
-      exprs[i] = field_ref(columns[i]);
-    }
-    return Project(std::move(exprs), std::move(columns));
-  }
+  Status Project(std::vector<std::string> columns);
 
   /// \brief Set expressions which will be evaluated to produce the materialized columns.
   ///

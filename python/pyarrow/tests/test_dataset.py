@@ -1526,7 +1526,7 @@ def test_construct_dataset_with_invalid_schema():
         ('a', pa.int64()),
         ('a', pa.string())
     ]))
-    with pytest.raises(ValueError, match='Field.*not unique'):
+    with pytest.raises(ValueError, match='Multiple matches for .*a.* in '):
         empty.to_table()
 
 
@@ -2111,11 +2111,20 @@ def test_specified_schema(tempdir):
                         names=['a', 'c'])
     _check_dataset(schema, expected)
 
-    # Specifying with incompatible schema
+    # Specifying with differing field types
     schema = pa.schema([('a', 'int32'), ('b', 'float64')])
     dataset = ds.dataset(str(tempdir / "data.parquet"), schema=schema)
+    expected = pa.table([table['a'].cast('int32'),
+                         table['b']],
+                        names=['a', 'b'])
+    _check_dataset(schema, expected)
+
+    # Specifying with incompatible schema
+    schema = pa.schema([('a', pa.list_(pa.int32())), ('b', 'float64')])
+    dataset = ds.dataset(str(tempdir / "data.parquet"), schema=schema)
     assert dataset.schema.equals(schema)
-    with pytest.raises(TypeError):
+    with pytest.raises(NotImplementedError,
+                       match='Unsupported cast from int64 to list'):
         dataset.to_table()
 
 
@@ -2372,13 +2381,14 @@ def test_filter_mismatching_schema(tempdir):
     dataset = ds.dataset(
         tempdir / "data.parquet", format="parquet", schema=schema)
 
-    # filtering on a column with such type mismatch should give a proper error
-    with pytest.raises(TypeError):
-        dataset.to_table(filter=ds.field("col") > 2)
+    # filtering on a column with such type mismatch should implicitly
+    # cast the column
+    filtered = dataset.to_table(filter=ds.field("col") > 2)
+    assert filtered["col"].equals(table["col"].cast('int64').slice(2))
 
     fragment = list(dataset.get_fragments())[0]
-    with pytest.raises(TypeError):
-        fragment.to_table(filter=ds.field("col") > 2, schema=schema)
+    filtered = fragment.to_table(filter=ds.field("col") > 2, schema=schema)
+    assert filtered["col"].equals(table["col"].cast('int64').slice(2))
 
 
 @pytest.mark.parquet

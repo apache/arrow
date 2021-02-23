@@ -26,15 +26,18 @@
 #include "arrow/testing/generator.h"
 #include "arrow/testing/util.h"
 
+using testing::ElementsAre;
+using testing::IsEmpty;
+
 namespace arrow {
 namespace dataset {
 
+constexpr int64_t kNumberChildDatasets = 2;
+constexpr int64_t kNumberBatches = 16;
+constexpr int64_t kBatchSize = 1024;
+
 class TestScanner : public DatasetFixtureMixin {
  protected:
-  static constexpr int64_t kNumberChildDatasets = 2;
-  static constexpr int64_t kNumberBatches = 16;
-  static constexpr int64_t kBatchSize = 1024;
-
   Scanner MakeScanner(std::shared_ptr<RecordBatch> batch) {
     std::vector<std::shared_ptr<RecordBatch>> batches{static_cast<size_t>(kNumberBatches),
                                                       batch};
@@ -57,10 +60,6 @@ class TestScanner : public DatasetFixtureMixin {
     AssertScannerEquals(expected.get(), &scanner);
   }
 };
-
-constexpr int64_t TestScanner::kNumberChildDatasets;
-constexpr int64_t TestScanner::kNumberBatches;
-constexpr int64_t TestScanner::kBatchSize;
 
 TEST_F(TestScanner, Scan) {
   SetSchema({field("i32", int32()), field("f64", float64())});
@@ -195,8 +194,9 @@ TEST_F(TestScannerBuilder, TestProject) {
   ASSERT_RAISES(NotImplemented, builder.Project({field_ref(FieldRef("nested", "column"))},
                                                 {"nested column"}));
 
-  // provided more field names than column exprs
+  // provided more field names than column exprs or vice versa
   ASSERT_RAISES(Invalid, builder.Project({}, {"i16 renamed", "i16 * 2"}));
+  ASSERT_RAISES(Invalid, builder.Project({literal(2), field_ref("a")}, {"a"}));
 }
 
 TEST_F(TestScannerBuilder, TestFilter) {
@@ -220,9 +220,6 @@ TEST_F(TestScannerBuilder, TestFilter) {
                                    equal(field_ref("not_a_column"), literal(true)))));
 }
 
-using testing::ElementsAre;
-using testing::IsEmpty;
-
 TEST(ScanOptions, TestMaterializedFields) {
   auto i32 = field("i32", int32());
   auto i64 = field("i64", int64());
@@ -230,7 +227,7 @@ TEST(ScanOptions, TestMaterializedFields) {
 
   // empty dataset, project nothing = nothing materialized
   opts->dataset_schema = schema({});
-  ASSERT_OK(SetProjection(opts.get(), {}));
+  ASSERT_OK(SetProjection(opts.get(), {}, {}));
   EXPECT_THAT(opts->MaterializedFields(), IsEmpty());
 
   // non-empty dataset, project nothing = nothing materialized

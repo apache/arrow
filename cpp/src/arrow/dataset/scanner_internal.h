@@ -31,6 +31,9 @@
 #include "arrow/util/logging.h"
 
 namespace arrow {
+
+using internal::checked_cast;
+
 namespace dataset {
 
 inline RecordBatchIterator FilterRecordBatch(RecordBatchIterator it, Expression filter,
@@ -85,18 +88,16 @@ class FilterAndProjectScanTask : public ScanTask {
   explicit FilterAndProjectScanTask(std::shared_ptr<ScanTask> task, Expression partition)
       : ScanTask(task->options(), task->context()),
         task_(std::move(task)),
-        partition_(std::move(partition)),
-        filter_(options()->filter),
-        projection_(options()->projection) {}
+        partition_(std::move(partition)) {}
 
   Result<RecordBatchIterator> Execute() override {
     ARROW_ASSIGN_OR_RAISE(auto it, task_->Execute());
 
     ARROW_ASSIGN_OR_RAISE(Expression simplified_filter,
-                          SimplifyWithGuarantee(filter_, partition_));
+                          SimplifyWithGuarantee(options()->filter, partition_));
 
     ARROW_ASSIGN_OR_RAISE(Expression simplified_projection,
-                          SimplifyWithGuarantee(projection_, partition_));
+                          SimplifyWithGuarantee(options()->projection, partition_));
 
     RecordBatchIterator filter_it =
         FilterRecordBatch(std::move(it), simplified_filter, context_->pool);
@@ -108,8 +109,6 @@ class FilterAndProjectScanTask : public ScanTask {
  private:
   std::shared_ptr<ScanTask> task_;
   Expression partition_;
-  Expression filter_;
-  Expression projection_;
 };
 
 /// \brief GetScanTaskIterator transforms an Iterator<Fragment> in a
@@ -140,23 +139,60 @@ inline Result<ScanTaskIterator> GetScanTaskIterator(
   return MakeFlattenIterator(std::move(maybe_scantask_it));
 }
 
-// FIXME delete this
-inline Status SetProjection(ScanOptions* options, const std::vector<std::string>& names) {
-  options->projected_schema = SchemaFromColumnNames(options->dataset_schema, names);
+inline Status NestedFieldRefsNotImplemented() {
+  // TODO(ARROW-11259) Several functions (for example, IpcScanTask::Make) assume that
+  // only top level fields will be materialized.
+  return Status::NotImplemented("Nested field references in scans.");
+}
 
-  std::vector<Expression> project_args;
-  compute::ProjectOptions project_options{{}};
+inline Status SetProjection(ScanOptions* options, const Expression& projection) {
+  ARROW_ASSIGN_OR_RAISE(options->projection, projection.Bind(*options->dataset_schema));
 
-  for (const auto& field : options->projected_schema->fields()) {
-    project_args.push_back(field_ref(field->name()));
-    project_options.field_names.push_back(field->name());
-    project_options.field_nullability.push_back(field->nullable());
-    project_options.field_metadata.push_back(field->metadata());
+  if (options->projection.type()->id() != Type::STRUCT) {
+    return Status::Invalid("Projection ", projection.ToString(),
+                           " cannot yield record batches");
+  }
+  options->projected_schema = ::arrow::schema(
+      checked_cast<const StructType&>(*options->projection.type()).fields(),
+      options->dataset_schema->metadata());
+
+  return Status::OK();
+}
+
+inline Status SetProjection(ScanOptions* options, std::vector<Expression> exprs,
+                            std::vector<std::string> names) {
+  compute::ProjectOptions project_options{std::move(names)};
+
+  for (size_t i = 0; i < exprs.size(); ++i) {
+    if (auto ref = exprs[i].field_ref()) {
+      if (!ref->name()) return NestedFieldRefsNotImplemented();
+
+      // set metadata and nullability for plain field references
+      ARROW_ASSIGN_OR_RAISE(auto field, ref->GetOne(*options->dataset_schema));
+      project_options.field_nullability[i] = field->nullable();
+      project_options.field_metadata[i] = field->metadata();
+    }
   }
 
-  ARROW_ASSIGN_OR_RAISE(options->projection, call("project", std::move(project_args),
-                                                  std::move(project_options))
-                                                 .Bind(*options->dataset_schema));
+  return SetProjection(options,
+                       call("project", std::move(exprs), std::move(project_options)));
+}
+
+inline Status SetProjection(ScanOptions* options, std::vector<std::string> names) {
+  std::vector<Expression> exprs(names.size());
+  for (size_t i = 0; i < exprs.size(); ++i) {
+    exprs[i] = field_ref(names[i]);
+  }
+  return SetProjection(options, std::move(exprs), std::move(names));
+}
+
+inline Status SetFilter(ScanOptions* options, const Expression& filter) {
+  for (const auto& ref : FieldsInExpression(filter)) {
+    if (!ref.name()) return NestedFieldRefsNotImplemented();
+
+    RETURN_NOT_OK(ref.FindOne(*options->dataset_schema));
+  }
+  ARROW_ASSIGN_OR_RAISE(options->filter, filter.Bind(*options->dataset_schema));
   return Status::OK();
 }
 
