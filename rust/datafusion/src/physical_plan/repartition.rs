@@ -351,7 +351,6 @@ mod tests {
         let partition = create_vec_batches(&schema, 50);
         let partitions = vec![partition.clone(), partition.clone(), partition.clone()];
 
-        // repartition from 3 input to 5 output
         let output_partitions = repartition(
             &schema,
             partitions,
