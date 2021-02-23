@@ -82,6 +82,8 @@ pub fn can_cast_types(from_type: &DataType, to_type: &DataType) -> bool {
         (_, Boolean) => DataType::is_numeric(from_type),
         (Boolean, _) => DataType::is_numeric(to_type) || to_type == &Utf8,
 
+        (Utf8, LargeUtf8) => true,
+        (LargeUtf8, Utf8) => true,
         (Utf8, Date32) => true,
         (Utf8, Date64) => true,
         (Utf8, Timestamp(TimeUnit::Nanosecond, None)) => true,
@@ -361,6 +363,7 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
             ))),
         },
         (Utf8, _) => match to_type {
+            LargeUtf8 => cast_str_container::<i32, i64>(&**array),
             UInt8 => cast_string_to_numeric::<UInt8Type>(array),
             UInt16 => cast_string_to_numeric::<UInt16Type>(array),
             UInt32 => cast_string_to_numeric::<UInt32Type>(array),
@@ -428,6 +431,7 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
             ))),
         },
         (_, Utf8) => match from_type {
+            LargeUtf8 => cast_str_container::<i64, i32>(&**array),
             UInt8 => cast_numeric_to_string::<UInt8Type, i32>(array),
             UInt16 => cast_numeric_to_string::<UInt16Type, i32>(array),
             UInt32 => cast_numeric_to_string::<UInt32Type, i32>(array),
@@ -1297,6 +1301,53 @@ fn cast_list_inner<OffsetSize: OffsetSizeTrait>(
     Ok(Arc::new(list) as ArrayRef)
 }
 
+/// Helper function to cast from `Utf8` to `LargeUtf8` and vice versa. If the `LargeUtf8` is too large for
+/// a `Utf8` array it will return an Error.
+fn cast_str_container<OffsetSizeFrom, OffsetSizeTo>(array: &dyn Array) -> Result<ArrayRef>
+where
+    OffsetSizeFrom: StringOffsetSizeTrait + ToPrimitive,
+    OffsetSizeTo: StringOffsetSizeTrait + NumCast + ArrowNativeType,
+{
+    let str_array = array
+        .as_any()
+        .downcast_ref::<GenericStringArray<OffsetSizeFrom>>()
+        .unwrap();
+    let list_data = array.data();
+    let str_values_buf = str_array.value_data();
+
+    let offsets = unsafe { list_data.buffers()[0].typed_data::<OffsetSizeFrom>() };
+
+    let mut offset_builder = BufferBuilder::<OffsetSizeTo>::new(offsets.len());
+    offsets.iter().try_for_each::<_, Result<_>>(|offset| {
+        let offset = OffsetSizeTo::from(*offset).ok_or_else(|| {
+            ArrowError::ComputeError(
+                "large-utf8 array too large to cast to utf8-array".into(),
+            )
+        })?;
+        offset_builder.append(offset);
+        Ok(())
+    })?;
+
+    let offset_buffer = offset_builder.finish();
+
+    let dtype = if matches!(std::mem::size_of::<OffsetSizeTo>(), 8) {
+        DataType::LargeUtf8
+    } else {
+        DataType::Utf8
+    };
+
+    let mut builder = ArrayData::builder(dtype)
+        .len(array.len())
+        .add_buffer(offset_buffer)
+        .add_buffer(str_values_buf);
+
+    if let Some(buf) = list_data.null_buffer() {
+        builder = builder.null_bit_buffer(buf.clone())
+    }
+    let data = builder.build();
+    Ok(Arc::new(GenericStringArray::<OffsetSizeTo>::from(data)))
+}
+
 /// Cast the container type of List/Largelist array but not the inner types.
 /// This function can leave the value data intact and only has to cast the offset dtypes.
 fn cast_list_container<OffsetSizeFrom, OffsetSizeTo>(
@@ -1776,6 +1827,46 @@ mod tests {
             .into_iter()
             .collect::<Vec<_>>();
         assert_eq!(out, vec![Some("1"), Some("2"), Some("3")]);
+    }
+
+    #[test]
+    fn test_str_to_str_casts() {
+        for data in vec![
+            vec![Some("foo"), Some("bar"), Some("ham")],
+            vec![Some("foo"), None, Some("bar")],
+        ] {
+            let a = Arc::new(LargeStringArray::from(data.clone())) as ArrayRef;
+            let to = cast(&a, &DataType::Utf8).unwrap();
+            let expect = a
+                .as_any()
+                .downcast_ref::<LargeStringArray>()
+                .unwrap()
+                .into_iter()
+                .collect::<Vec<_>>();
+            let out = to
+                .as_any()
+                .downcast_ref::<StringArray>()
+                .unwrap()
+                .into_iter()
+                .collect::<Vec<_>>();
+            assert_eq!(expect, out);
+
+            let a = Arc::new(StringArray::from(data)) as ArrayRef;
+            let to = cast(&a, &DataType::LargeUtf8).unwrap();
+            let expect = a
+                .as_any()
+                .downcast_ref::<StringArray>()
+                .unwrap()
+                .into_iter()
+                .collect::<Vec<_>>();
+            let out = to
+                .as_any()
+                .downcast_ref::<LargeStringArray>()
+                .unwrap()
+                .into_iter()
+                .collect::<Vec<_>>();
+            assert_eq!(expect, out);
+        }
     }
 
     #[test]
