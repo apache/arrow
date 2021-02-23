@@ -23,7 +23,7 @@ namespace arrow {
 namespace util {
 
 template <typename T>
-using SpscQueue = folly::ProducerConsumerQueue<T>;
+using SpscQueue = nonstd::folly::ProducerConsumerQueue<T>;
 
 }
 }  // namespace arrow

@@ -29,6 +29,7 @@
 #include <type_traits>
 #include <utility>
 
+namespace nonstd {
 namespace folly {
 
 // Vendored from folly/Portability.h
@@ -202,10 +203,12 @@ struct ProducerConsumerQueue {
   const uint32_t size_;
   T* const records_;
 
-  alignas(hardware_destructive_interference_size) AtomicIndex readIndex_;
-  alignas(hardware_destructive_interference_size) AtomicIndex writeIndex_;
-
+  AtomicIndex readIndex_;
   char pad1_[hardware_destructive_interference_size - sizeof(AtomicIndex)];
+  AtomicIndex writeIndex_;
+
+  char pad2_[hardware_destructive_interference_size - sizeof(AtomicIndex)];
 };
 
 }  // namespace folly
+}  // namespace nonstd
