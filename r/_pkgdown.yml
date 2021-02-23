@@ -155,5 +155,7 @@ reference:
   - install_pyarrow
 
 repo:
+  jira_projects: [ARROW]
   url:
     source: https://github.com/apache/arrow/blob/master/r/
+    issue: https://issues.apache.org/jira/browse/
