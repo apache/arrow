@@ -29,7 +29,7 @@
 #include <type_traits>
 #include <utility>
 
-namespace nonstd {
+namespace arrow_vendored {
 namespace folly {
 
 // Vendored from folly/Portability.h
@@ -211,4 +211,4 @@ struct ProducerConsumerQueue {
 };
 
 }  // namespace folly
-}  // namespace nonstd
+}  // namespace arrow_vendored
