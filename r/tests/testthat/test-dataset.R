@@ -717,6 +717,25 @@ test_that("filter() with expressions", {
   )
 })
 
+test_that("mutate()", {
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl, int) %>%
+      filter(dbl * 2 > 14 & dbl - 50 < 3L) %>%
+      mutate(twice = int * 2) %>%
+      collect() %>%
+      arrange(dbl),
+    rbind(
+      df1[8:10, c("chr", "dbl", "int")],
+      df2[1:2, c("chr", "dbl", "int")]
+    ) %>%
+      mutate(
+        twice = int * 2
+      )
+  )
+})
+
 test_that("filter scalar validation doesn't crash (ARROW-7772)", {
   expect_error(
     ds %>%
@@ -832,7 +851,6 @@ test_that("dplyr method not implemented messages", {
     expect_error(x, "is not currently implemented for Arrow Datasets")
   }
   expect_not_implemented(ds %>% arrange(int))
-  expect_not_implemented(ds %>% mutate(int = int + 2))
   expect_not_implemented(ds %>% filter(int == 1) %>% summarize(n()))
 })
 

@@ -50,8 +50,11 @@ std::shared_ptr<ds::Expression> dataset___expr__field_ref(std::string name) {
 // [[arrow::export]]
 std::string dataset___expr__get_field_ref_name(
     const std::shared_ptr<ds::Expression>& ref) {
-  auto refname = ref->field_ref()->name();
-  return *refname;
+  auto field_ref = ref->field_ref();
+  if (field_ref == nullptr) {
+    return "";
+  }
+  return *field_ref->name();
 }
 
 // [[arrow::export]]

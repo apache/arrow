@@ -308,9 +308,22 @@ std::shared_ptr<ds::PartitioningFactory> dataset___HivePartitioning__MakeFactory
 // ScannerBuilder, Scanner
 
 // [[arrow::export]]
-void dataset___ScannerBuilder__Project(const std::shared_ptr<ds::ScannerBuilder>& sb,
-                                       const std::vector<std::string>& cols) {
+void dataset___ScannerBuilder__ProjectNames(const std::shared_ptr<ds::ScannerBuilder>& sb,
+                                            const std::vector<std::string>& cols) {
   StopIfNotOk(sb->Project(cols));
+}
+
+// [[arrow::export]]
+void dataset___ScannerBuilder__ProjectExprs(
+    const std::shared_ptr<ds::ScannerBuilder>& sb,
+    const std::vector<std::shared_ptr<ds::Expression>>& exprs,
+    const std::vector<std::string>& names) {
+  // We have shared_ptrs of expressions but need the Expressions
+  std::vector<ds::Expression> expressions;
+  for (auto expr : exprs) {
+    expressions.push_back(*expr);
+  }
+  StopIfNotOk(sb->Project(expressions, names));
 }
 
 // [[arrow::export]]

@@ -157,13 +157,19 @@ ScannerBuilder <- R6Class("ScannerBuilder", inherit = ArrowObject,
   public = list(
     Project = function(cols) {
       # cols is either a character vector or a named list of Expressions
-      if (!is.character(cols)) {
-        # We don't yet support mutate() on datasets, so this is just a list
-        # of FieldRefs, and we need to back out the field names
-        cols <- get_field_names(cols)
+      if (is.character(cols)) {
+        dataset___ScannerBuilder__ProjectNames(self, cols)
+      } else {
+        # If we have expressions, but they all turn out to be field_refs,
+        # we can still call the simple method
+        field_names <- get_field_names(cols)
+        if (all(nzchar(field_names))) {
+          dataset___ScannerBuilder__ProjectNames(self, field_names)
+        } else {
+          # Else, we are projecting/mutating
+          dataset___ScannerBuilder__ProjectExprs(self, cols, names(cols))
+        }
       }
-      assert_is(cols, "character")
-      dataset___ScannerBuilder__Project(self, cols)
       self
     },
     Filter = function(expr) {

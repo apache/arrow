@@ -506,9 +506,6 @@ mutate.arrow_dplyr_query <- function(.data,
   }
 
   .data <- arrow_dplyr_query(.data)
-  if (query_on_dataset(.data)) {
-    not_implemented_for_dataset("mutate()")
-  }
 
   .keep <- match.arg(.keep)
   .before <- enquo(.before)

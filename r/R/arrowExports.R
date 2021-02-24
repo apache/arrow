@@ -448,8 +448,12 @@ dataset___HivePartitioning__MakeFactory <- function(null_fallback){
     .Call(`_arrow_dataset___HivePartitioning__MakeFactory`, null_fallback)
 }
 
-dataset___ScannerBuilder__Project <- function(sb, cols){
-    invisible(.Call(`_arrow_dataset___ScannerBuilder__Project`, sb, cols))
+dataset___ScannerBuilder__ProjectNames <- function(sb, cols){
+    invisible(.Call(`_arrow_dataset___ScannerBuilder__ProjectNames`, sb, cols))
+}
+
+dataset___ScannerBuilder__ProjectExprs <- function(sb, exprs, names){
+    invisible(.Call(`_arrow_dataset___ScannerBuilder__ProjectExprs`, sb, exprs, names))
 }
 
 dataset___ScannerBuilder__Filter <- function(sb, expr){
