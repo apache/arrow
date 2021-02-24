@@ -511,13 +511,11 @@ mutate.arrow_dplyr_query <- function(.data,
     # This doesn't matter on scalar ops (arithmetic etc.) but it does
     # for things with aggregations (e.g. subtracting the mean)
     return(abandon_ship(call, .data, 'mutate() on grouped data not supported in Arrow'))
-  } else if (!all(nzchar(names(exprs)))) {
-    # This is either user error or a function that returns a data.frame
-    # e.g. across() that dplyr::mutate() will autosplice
-    # TODO(ARROW-16999)
-    msg <- 'all ... expressions must be named: autosplicing multi-column results not supported in Arrow'
-    return(abandon_ship(call, .data, msg))
   }
+
+  unnamed <- !nzchar(names(exprs))
+  # Deparse and take the first element in case they're long expressions
+  names(exprs)[unnamed] <- map_chr(exprs[unnamed], ~deparse(.)[1])
 
   mask <- arrow_mask(.data)
   results <- list()

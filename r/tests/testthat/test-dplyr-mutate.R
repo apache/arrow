@@ -82,6 +82,19 @@ test_that("mutate with .data pronoun", {
   )
 })
 
+test_that("mutate with unnamed expressions", {
+  expect_dplyr_equal(
+    input %>%
+      select(int, padded_strings) %>%
+      mutate(
+        nchar(padded_strings)
+      ) %>%
+      filter(int > 5) %>%
+      collect(),
+    tbl
+  )
+})
+
 test_that("mutate with single value for recycling", {
   skip("Not implemented (ARROW-11705")
   expect_dplyr_equal(
@@ -133,7 +146,7 @@ test_that("dplyr::mutate's examples", {
         collect(),
       starwars
     ),
-    "not supported in Arrow"
+    "Expression across.*not supported in Arrow"
   )
 
   # group_by then mutate
