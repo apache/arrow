@@ -40,14 +40,15 @@
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
-namespace json {
-
-namespace rj = arrow::rapidjson;
 
 using internal::BitsetStack;
 using internal::checked_cast;
 using internal::make_unique;
 using util::string_view;
+
+namespace json {
+
+namespace rj = arrow::rapidjson;
 
 template <typename... T>
 static Status ParseError(T&&... t) {
@@ -73,8 +74,8 @@ const std::shared_ptr<const KeyValueMetadata>& Kind::Tag(Kind::type kind) {
   return tags[kind];
 }
 
-static internal::Trie MakeFromTagTrie() {
-  internal::TrieBuilder builder;
+static arrow::internal::Trie MakeFromTagTrie() {
+  arrow::internal::TrieBuilder builder;
   for (auto kind : {Kind::kNull, Kind::kBoolean, Kind::kNumber, Kind::kString,
                     Kind::kArray, Kind::kObject}) {
     DCHECK_OK(builder.Append(Kind::Name(kind)));
@@ -85,7 +86,7 @@ static internal::Trie MakeFromTagTrie() {
 }
 
 Kind::type Kind::FromTag(const std::shared_ptr<const KeyValueMetadata>& tag) {
-  static internal::Trie name_to_kind = MakeFromTagTrie();
+  static arrow::internal::Trie name_to_kind = MakeFromTagTrie();
   DCHECK_NE(tag->FindKey("json_kind"), -1);
   util::string_view name = tag->value(tag->FindKey("json_kind"));
   DCHECK_NE(name_to_kind.Find(name), -1);

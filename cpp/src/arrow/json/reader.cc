@@ -205,9 +205,8 @@ Result<std::shared_ptr<RecordBatch>> ParseOne(ParseOptions options,
           ? GetPromotionGraph()
           : nullptr;
   std::shared_ptr<ChunkedArrayBuilder> builder;
-  RETURN_NOT_OK(MakeChunkedArrayBuilder(internal::TaskGroup::MakeSerial(),
-                                        default_memory_pool(), promotion_graph, type,
-                                        &builder));
+  RETURN_NOT_OK(MakeChunkedArrayBuilder(TaskGroup::MakeSerial(), default_memory_pool(),
+                                        promotion_graph, type, &builder));
 
   builder->Insert(0, field("", type), parsed);
   std::shared_ptr<ChunkedArray> converted_chunked;
