@@ -138,7 +138,7 @@ struct ARROW_EXPORT ReadOptions {
 };
 
 /// Experimental
-struct WriteOptions {
+struct ARROW_EXPORT WriteOptions {
   bool include_header = true;
   // The writer processes batches of rows together.  This is the
   // maximum number of rows processed at a time.
