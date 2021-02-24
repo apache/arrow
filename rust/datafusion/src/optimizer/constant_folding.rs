@@ -118,92 +118,83 @@ impl<'a> ExprRewriter for ConstantRewriter<'a> {
     /// rewrite the expression simplifying any constant expressions
     fn mutate(&mut self, expr: Expr) -> Result<Expr> {
         let new_expr = match expr {
-            Expr::BinaryExpr { left, op, right } => {
-                let left = left.rewrite(self)?;
-                let right = right.rewrite(self)?;
-                match op {
-                    Operator::Eq => match (&left, &right) {
-                        (
-                            Expr::Literal(ScalarValue::Boolean(l)),
-                            Expr::Literal(ScalarValue::Boolean(r)),
-                        ) => match (l, r) {
-                            (Some(l), Some(r)) => {
-                                Expr::Literal(ScalarValue::Boolean(Some(l == r)))
-                            }
-                            _ => Expr::Literal(ScalarValue::Boolean(None)),
-                        },
-                        (Expr::Literal(ScalarValue::Boolean(b)), _)
-                            if self.is_boolean_type(&right) =>
-                        {
-                            match b {
-                                Some(true) => right,
-                                Some(false) => Expr::Not(Box::new(right)),
-                                None => Expr::Literal(ScalarValue::Boolean(None)),
-                            }
+            Expr::BinaryExpr { left, op, right } => match op {
+                Operator::Eq => match (left.as_ref(), right.as_ref()) {
+                    (
+                        Expr::Literal(ScalarValue::Boolean(l)),
+                        Expr::Literal(ScalarValue::Boolean(r)),
+                    ) => match (l, r) {
+                        (Some(l), Some(r)) => {
+                            Expr::Literal(ScalarValue::Boolean(Some(l == r)))
                         }
-                        (_, Expr::Literal(ScalarValue::Boolean(b)))
-                            if self.is_boolean_type(&left) =>
-                        {
-                            match b {
-                                Some(true) => left,
-                                Some(false) => Expr::Not(Box::new(left)),
-                                None => Expr::Literal(ScalarValue::Boolean(None)),
-                            }
-                        }
-                        _ => Expr::BinaryExpr {
-                            left: Box::new(left),
-                            op: Operator::Eq,
-                            right: Box::new(right),
-                        },
+                        _ => Expr::Literal(ScalarValue::Boolean(None)),
                     },
-                    Operator::NotEq => match (&left, &right) {
-                        (
-                            Expr::Literal(ScalarValue::Boolean(l)),
-                            Expr::Literal(ScalarValue::Boolean(r)),
-                        ) => match (l, r) {
-                            (Some(l), Some(r)) => {
-                                Expr::Literal(ScalarValue::Boolean(Some(l != r)))
-                            }
-                            _ => Expr::Literal(ScalarValue::Boolean(None)),
-                        },
-                        (Expr::Literal(ScalarValue::Boolean(b)), _)
-                            if self.is_boolean_type(&right) =>
-                        {
-                            match b {
-                                Some(true) => Expr::Not(Box::new(right)),
-                                Some(false) => right,
-                                None => Expr::Literal(ScalarValue::Boolean(None)),
-                            }
+                    (Expr::Literal(ScalarValue::Boolean(b)), _)
+                        if self.is_boolean_type(&right) =>
+                    {
+                        match b {
+                            Some(true) => *right,
+                            Some(false) => Expr::Not(right),
+                            None => Expr::Literal(ScalarValue::Boolean(None)),
                         }
-                        (_, Expr::Literal(ScalarValue::Boolean(b)))
-                            if self.is_boolean_type(&left) =>
-                        {
-                            match b {
-                                Some(true) => Expr::Not(Box::new(left)),
-                                Some(false) => left,
-                                None => Expr::Literal(ScalarValue::Boolean(None)),
-                            }
+                    }
+                    (_, Expr::Literal(ScalarValue::Boolean(b)))
+                        if self.is_boolean_type(&left) =>
+                    {
+                        match b {
+                            Some(true) => *left,
+                            Some(false) => Expr::Not(left),
+                            None => Expr::Literal(ScalarValue::Boolean(None)),
                         }
-                        _ => Expr::BinaryExpr {
-                            left: Box::new(left),
-                            op: Operator::NotEq,
-                            right: Box::new(right),
-                        },
-                    },
+                    }
                     _ => Expr::BinaryExpr {
-                        left: Box::new(left),
-                        op,
-                        right: Box::new(right),
+                        left,
+                        op: Operator::Eq,
+                        right,
                     },
-                }
-            }
+                },
+                Operator::NotEq => match (left.as_ref(), right.as_ref()) {
+                    (
+                        Expr::Literal(ScalarValue::Boolean(l)),
+                        Expr::Literal(ScalarValue::Boolean(r)),
+                    ) => match (l, r) {
+                        (Some(l), Some(r)) => {
+                            Expr::Literal(ScalarValue::Boolean(Some(l != r)))
+                        }
+                        _ => Expr::Literal(ScalarValue::Boolean(None)),
+                    },
+                    (Expr::Literal(ScalarValue::Boolean(b)), _)
+                        if self.is_boolean_type(&right) =>
+                    {
+                        match b {
+                            Some(true) => Expr::Not(right),
+                            Some(false) => *right,
+                            None => Expr::Literal(ScalarValue::Boolean(None)),
+                        }
+                    }
+                    (_, Expr::Literal(ScalarValue::Boolean(b)))
+                        if self.is_boolean_type(&left) =>
+                    {
+                        match b {
+                            Some(true) => Expr::Not(left),
+                            Some(false) => *left,
+                            None => Expr::Literal(ScalarValue::Boolean(None)),
+                        }
+                    }
+                    _ => Expr::BinaryExpr {
+                        left,
+                        op: Operator::NotEq,
+                        right,
+                    },
+                },
+                _ => Expr::BinaryExpr { left, op, right },
+            },
             Expr::Not(inner) => {
                 // Not(Not(expr)) --> expr
-                let inner = inner.rewrite(self)?;
-                if let Expr::Not(negated_inner) = inner {
+                if let Expr::Not(negated_inner) = *inner {
                     *negated_inner
                 } else {
-                    Expr::Not(Box::new(inner))
+                    Expr::Not(inner)
                 }
             }
             expr => {
