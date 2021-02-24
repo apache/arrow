@@ -158,9 +158,10 @@ impl ExecutionPlan for RepartitionExec {
                                         [(*hash % num_output_partitions as u64) as usize]
                                         .push(index as u64)
                                 }
-                                for num_output_partition in 0..num_output_partitions {
-                                    let indices =
-                                        indices[num_output_partition].clone().into();
+                                for (num_output_partition, partition_indices) in
+                                    indices.into_iter().enumerate()
+                                {
+                                    let indices = partition_indices.into();
                                     // Produce batches based on indices
                                     let columns = input_batch
                                         .columns()
