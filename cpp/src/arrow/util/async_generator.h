@@ -207,7 +207,7 @@ class SerialReadaheadGenerator {
     auto last_available = state_->spaces_available.fetch_add(1);
     if (last_available == 0 && !finished) {
       // Reader idled out, we need to restart it
-      RETURN_NOT_OK(state_->Pump(state_));
+      ARROW_RETURN_NOT_OK(state_->Pump(state_));
     }
     return next;
   }
@@ -256,7 +256,7 @@ class SerialReadaheadGenerator {
       }
       auto last_available = state_->spaces_available.fetch_sub(1);
       if (last_available > 1) {
-        RETURN_NOT_OK(state_->Pump(state_));
+        ARROW_RETURN_NOT_OK(state_->Pump(state_));
       }
       return maybe_next;
     }
