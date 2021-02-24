@@ -16,10 +16,11 @@
 // under the License.
 
 //! Crypto expressions
-
 use std::sync::Arc;
 
+#[cfg(feature = "crypto-functions")]
 use md5::Md5;
+#[cfg(feature = "crypto-functions")]
 use sha2::{
     digest::Output as SHA2DigestOutput, Digest as SHA2Digest, Sha224, Sha256, Sha384,
     Sha512,
@@ -37,6 +38,7 @@ use arrow::{
 use super::{string_expressions::unary_string_function, ColumnarValue};
 
 /// Computes the md5 of a string.
+#[cfg(feature = "crypto-functions")]
 fn md5_process(input: &str) -> String {
     let mut digest = Md5::default();
     digest.update(&input);
@@ -51,6 +53,7 @@ fn md5_process(input: &str) -> String {
 }
 
 // It's not possible to return &[u8], because trait in trait without short lifetime
+#[cfg(feature = "crypto-functions")]
 fn sha_process<D: SHA2Digest + Default>(input: &str) -> SHA2DigestOutput<D> {
     let mut digest = D::default();
     digest.update(&input);
@@ -62,6 +65,7 @@ fn sha_process<D: SHA2Digest + Default>(input: &str) -> SHA2DigestOutput<D> {
 /// This function errors when:
 /// * the number of arguments is not 1
 /// * the first argument is not castable to a `GenericStringArray`
+#[cfg(feature = "crypto-functions")]
 fn unary_binary_function<T, R, F>(
     args: &[&dyn Array],
     op: F,
@@ -91,6 +95,7 @@ where
     Ok(array.iter().map(|x| x.map(|x| op(x))).collect())
 }
 
+#[cfg(feature = "crypto-functions")]
 fn handle<F, R>(args: &[ColumnarValue], op: F, name: &str) -> Result<ColumnarValue>
 where
     R: AsRef<[u8]>,
@@ -138,6 +143,7 @@ where
     }
 }
 
+#[cfg(feature = "crypto-functions")]
 fn md5_array<T: StringOffsetSizeTrait>(
     args: &[&dyn Array],
 ) -> Result<GenericStringArray<i32>> {
@@ -145,6 +151,7 @@ fn md5_array<T: StringOffsetSizeTrait>(
 }
 
 /// crypto function that accepts Utf8 or LargeUtf8 and returns a [`ColumnarValue`]
+#[cfg(feature = "crypto-functions")]
 pub fn md5(args: &[ColumnarValue]) -> Result<ColumnarValue> {
     match &args[0] {
         ColumnarValue::Array(a) => match a.data_type() {
@@ -179,21 +186,60 @@ pub fn md5(args: &[ColumnarValue]) -> Result<ColumnarValue> {
 }
 
 /// crypto function that accepts Utf8 or LargeUtf8 and returns a [`ColumnarValue`]
+#[cfg(feature = "crypto-functions")]
 pub fn sha224(args: &[ColumnarValue]) -> Result<ColumnarValue> {
     handle(args, sha_process::<Sha224>, "ssh224")
 }
 
 /// crypto function that accepts Utf8 or LargeUtf8 and returns a [`ColumnarValue`]
+#[cfg(feature = "crypto-functions")]
 pub fn sha256(args: &[ColumnarValue]) -> Result<ColumnarValue> {
     handle(args, sha_process::<Sha256>, "sha256")
 }
 
 /// crypto function that accepts Utf8 or LargeUtf8 and returns a [`ColumnarValue`]
+#[cfg(feature = "crypto-functions")]
 pub fn sha384(args: &[ColumnarValue]) -> Result<ColumnarValue> {
     handle(args, sha_process::<Sha384>, "sha384")
 }
 
 /// crypto function that accepts Utf8 or LargeUtf8 and returns a [`ColumnarValue`]
+#[cfg(feature = "crypto-functions")]
 pub fn sha512(args: &[ColumnarValue]) -> Result<ColumnarValue> {
     handle(args, sha_process::<Sha512>, "sha512")
+}
+
+#[cfg(not(feature = "crypto-functions"))]
+pub fn md5(_: &[ColumnarValue]) -> Result<ColumnarValue> {
+    Err(DataFusionError::Internal(
+        "requires compilation with feature flag: crypto-functions".to_string(),
+    ))
+}
+
+#[cfg(not(feature = "crypto-functions"))]
+pub fn sha224(_: &[ColumnarValue]) -> Result<ColumnarValue> {
+    Err(DataFusionError::Internal(
+        "requires compilation with feature flag: crypto-functions".to_string(),
+    ))
+}
+
+#[cfg(not(feature = "crypto-functions"))]
+pub fn sha256(_: &[ColumnarValue]) -> Result<ColumnarValue> {
+    Err(DataFusionError::Internal(
+        "requires compilation with feature flag: crypto-functions".to_string(),
+    ))
+}
+
+#[cfg(not(feature = "crypto-functions"))]
+pub fn sha384(_: &[ColumnarValue]) -> Result<ColumnarValue> {
+    Err(DataFusionError::Internal(
+        "requires compilation with feature flag: crypto-functions".to_string(),
+    ))
+}
+
+#[cfg(not(feature = "crypto-functions"))]
+pub fn sha512(_: &[ColumnarValue]) -> Result<ColumnarValue> {
+    Err(DataFusionError::Internal(
+        "requires compilation with feature flag: crypto-functions".to_string(),
+    ))
 }

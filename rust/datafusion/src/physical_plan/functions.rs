@@ -1462,6 +1462,72 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "crypto-functions"), ignore)]
+    fn test_functions_crypto_functions_feature_flag_on() -> Result<()> {
+        test_function!(
+            MD5,
+            &[lit(ScalarValue::Utf8(Some("tom".to_string())))],
+            Ok(Some("34b7da764b21d298ef307d04d8152dc5")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            MD5,
+            &[lit(ScalarValue::Utf8(Some("".to_string())))],
+            Ok(Some("d41d8cd98f00b204e9800998ecf8427e")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            MD5,
+            &[lit(ScalarValue::Utf8(None))],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        Ok(())
+    }
+
+    #[test]
+    #[cfg_attr(feature = "crypto-functions", ignore)]
+    fn test_functions_crypto_functions_feature_flag_off() -> Result<()> {
+        test_function!(
+            MD5,
+            &[lit(ScalarValue::Utf8(Some("tom".to_string())))],
+            Err(DataFusionError::Internal(
+                "requires compilation with feature flag: crypto-functions".to_string()
+            )),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            MD5,
+            &[lit(ScalarValue::Utf8(Some("".to_string())))],
+            Err(DataFusionError::Internal(
+                "requires compilation with feature flag: crypto-functions".to_string()
+            )),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            MD5,
+            &[lit(ScalarValue::Utf8(None))],
+            Err(DataFusionError::Internal(
+                "requires compilation with feature flag: crypto-functions".to_string()
+            )),
+            &str,
+            Utf8,
+            StringArray
+        );
+        Ok(())
+    }
+
+    #[test]
     fn test_concat_error() -> Result<()> {
         let result = return_type(&BuiltinScalarFunction::Concat, &[]);
         if result.is_ok() {
