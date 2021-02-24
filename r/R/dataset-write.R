@@ -43,7 +43,7 @@
 #' (`key1=value1/key2=value2/file.ext`) or as just bare values. Default is `TRUE`.
 #' @param hive_null_fallback If writing partition segments as Hive-style
 #' directories then this value will be used in place of any null value in a
-#' patition column.
+#' partition column.
 #' @param ... additional format-specific arguments. For available Parquet
 #' options, see [write_parquet()]. The available Feather options are
 #' - `use_legacy_format` logical: write data formatted so that Arrow libraries

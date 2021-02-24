@@ -35,7 +35,7 @@
 #' "/year=2019/month=2/data.parquet". Because fields are named in the path
 #' segments, order does not matter. This partitioning scheme allows `NULL`
 #' values. They will be replaced by a configurable `null_fallback` which
-#' defaults to `__HIVE_DEFAULT_PARTITION__`.
+#' defaults to the string `"__HIVE_DEFAULT_PARTITION__"`.
 #'
 #' `PartitioningFactory` subclasses instruct the `DatasetFactory` to detect
 #' partition features from the file paths.
@@ -77,7 +77,7 @@ HivePartitioning$create <- dataset___HivePartitioning
 #' Because fields are named in the path segments, order of fields passed to
 #' `hive_partition()` does not matter.
 #' @param ... named list of [data types][data-type], passed to [schema()]
-#' @param null_fallback character to be used in place of `NA` and `NULL` values
+#' @param null_fallback character to be used in place of missing values (`NA` or `NULL`)
 #' in columns that are being partitioned by. (default:
 #' `"__HIVE_DEFAULT_PARTITION__"`)
 #' @return A [HivePartitioning][Partitioning], or a `HivePartitioningFactory` if
