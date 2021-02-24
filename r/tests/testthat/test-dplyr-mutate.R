@@ -87,9 +87,22 @@ test_that("mutate with unnamed expressions", {
     input %>%
       select(int, padded_strings) %>%
       mutate(
-        nchar(padded_strings)
+        int,                   # bare column name
+        nchar(padded_strings)  # expression
       ) %>%
       filter(int > 5) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("mutate with reassigning same name", {
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        new = lgl,
+        new = chr
+      ) %>%
       collect(),
     tbl
   )

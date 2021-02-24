@@ -527,14 +527,17 @@ mutate.arrow_dplyr_query <- function(.data,
   # Check for unnamed expressions and fix if any
   unnamed <- !nzchar(names(exprs))
   # Deparse and take the first element in case they're long expressions
-  names(exprs)[unnamed] <- map_chr(exprs[unnamed], ~deparse(.)[1])
+  names(exprs)[unnamed] <- map_chr(exprs[unnamed], as_label)
 
   mask <- arrow_mask(.data)
   results <- list()
-  for (new_var in names(exprs)) {
-    results[[new_var]] <- arrow_eval(exprs[[new_var]], mask)
+  for (i in seq_along(exprs)) {
+    # Iterate over the indices and not the names because names may be repeated
+    # (which overwrites the previous name)
+    new_var <- names(exprs)[i]
+    results[[new_var]] <- arrow_eval(exprs[[i]], mask)
     if (inherits(results[[new_var]], "try-error")) {
-      msg <- paste('Expression', as_label(exprs[[new_var]]), 'not supported in Arrow')
+      msg <- paste('Expression', as_label(exprs[[i]]), 'not supported in Arrow')
       return(abandon_ship(call, .data, msg))
     }
     # Put it in the data mask too
