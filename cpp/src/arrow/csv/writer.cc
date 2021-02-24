@@ -176,7 +176,7 @@ class QuotedColumnPopulator : public ColumnPopulator {
  public:
   QuotedColumnPopulator(MemoryPool* pool, char end_char)
       : ColumnPopulator(pool, end_char),
-        row_needs_escaping_(::arrow::stl::allocator<uint8_t>(pool)) {}
+        row_needs_escaping_() {}
 
   Status UpdateRowLengths(int32_t* row_lengths) override {
     const StringArray& input = *casted_array_;
@@ -234,7 +234,10 @@ class QuotedColumnPopulator : public ColumnPopulator {
   }
 
  private:
-  std::vector<uint8_t, ::arrow::stl::allocator<uint8_t>> row_needs_escaping_;
+  // Older version of GCC don't support custom allocators
+  // at some point we should change this to use memory_pool
+  // backed allocator.
+  std::vector<bool> row_needs_escaping_;
 };
 
 struct PopulatorFactory {
