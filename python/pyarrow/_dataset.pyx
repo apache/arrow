@@ -206,6 +206,10 @@ cdef class Expression(_Weakrefable):
         """Checks whether the expression is not-null (valid)"""
         return Expression._call("is_valid", [self])
 
+    def is_null(self):
+        """Checks whether the expression is null"""
+        return Expression._call("is_null", [self])
+
     def cast(self, type, bint safe=True):
         """Explicitly change the expression's data type"""
         cdef shared_ptr[CCastOptions] c_options
@@ -1546,7 +1550,7 @@ cdef class DirectoryPartitioning(Partitioning):
 
         Returns
         -------
-        DirectoryPartitioningFactory
+        PartitioningFactory
             To be used in the FileSystemFactoryOptions.
         """
         cdef:
@@ -1590,6 +1594,8 @@ cdef class HivePartitioning(Partitioning):
         corresponding entry of `dictionaries` must be an array containing
         every value which may be taken by the corresponding column or an
         error will be raised in parsing.
+    null_fallback : str, default "__HIVE_DEFAULT_PARTITION__"
+        If any field is None then this fallback will be used as a label
 
     Returns
     -------
@@ -1608,13 +1614,19 @@ cdef class HivePartitioning(Partitioning):
     cdef:
         CHivePartitioning* hive_partitioning
 
-    def __init__(self, Schema schema not None, dictionaries=None):
+    def __init__(self,
+                 Schema schema not None,
+                 dictionaries=None,
+                 null_fallback="__HIVE_DEFAULT_PARTITION__"):
+
         cdef:
             shared_ptr[CHivePartitioning] c_partitioning
+            c_string c_null_fallback = tobytes(null_fallback)
 
         c_partitioning = make_shared[CHivePartitioning](
             pyarrow_unwrap_schema(schema),
-            _partitioning_dictionaries(schema, dictionaries)
+            _partitioning_dictionaries(schema, dictionaries),
+            c_null_fallback
         )
         self.init(<shared_ptr[CPartitioning]> c_partitioning)
 
@@ -1623,7 +1635,9 @@ cdef class HivePartitioning(Partitioning):
         self.hive_partitioning = <CHivePartitioning*> sp.get()
 
     @staticmethod
-    def discover(infer_dictionary=False, max_partition_dictionary_size=0):
+    def discover(infer_dictionary=False,
+                 max_partition_dictionary_size=0,
+                 null_fallback="__HIVE_DEFAULT_PARTITION__"):
         """
         Discover a HivePartitioning.
 
@@ -1639,6 +1653,10 @@ cdef class HivePartitioning(Partitioning):
             Synonymous with infer_dictionary for backwards compatibility with
             1.0: setting this to -1 or None is equivalent to passing
             infer_dictionary=True.
+        null_fallback : str, default "__HIVE_DEFAULT_PARTITION__"
+            When inferring a schema for partition fields this value will be
+            replaced by null.  The default is set to __HIVE_DEFAULT_PARTITION__
+            for compatibility with Spark
 
         Returns
         -------
@@ -1646,7 +1664,7 @@ cdef class HivePartitioning(Partitioning):
             To be used in the FileSystemFactoryOptions.
         """
         cdef:
-            CPartitioningFactoryOptions c_options
+            CHivePartitioningFactoryOptions c_options
 
         if max_partition_dictionary_size in {-1, None}:
             infer_dictionary = True
@@ -1656,6 +1674,8 @@ cdef class HivePartitioning(Partitioning):
 
         if infer_dictionary:
             c_options.infer_dictionary = True
+
+        c_options.null_fallback = tobytes(null_fallback)
 
         return PartitioningFactory.wrap(
             CHivePartitioning.MakeFactory(c_options))

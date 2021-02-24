@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/compute/cast.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
@@ -88,9 +89,18 @@ Status RecordBatchProjector::SetDefaultValue(FieldRef ref,
 
   auto field_type = to_->field(index)->type();
   if (!field_type->Equals(scalar->type)) {
-    return Status::TypeError("field ", to_->field(index)->ToString(),
-                             " cannot be materialized from scalar of type ",
-                             *scalar->type);
+    if (scalar->is_valid) {
+      auto maybe_converted = compute::Cast(scalar, field_type);
+      if (!maybe_converted.ok()) {
+        return Status::TypeError("Field ", to_->field(index)->ToString(),
+                                 " cannot be materialized from scalar of type ",
+                                 *scalar->type,
+                                 ". Cast error: ", maybe_converted.status().message());
+      }
+      scalar = maybe_converted->scalar();
+    } else {
+      scalar = MakeNullScalar(field_type);
+    }
   }
 
   scalars_[index] = std::move(scalar);

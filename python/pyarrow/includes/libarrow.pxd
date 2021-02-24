@@ -1802,6 +1802,20 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CFilterOptions(CFilterNullSelectionBehavior null_selection)
         CFilterNullSelectionBehavior null_selection_behavior
 
+    enum CDictionaryEncodeNullEncodingBehavior \
+            "arrow::compute::DictionaryEncodeOptions::NullEncodingBehavior":
+        CDictionaryEncodeNullEncodingBehavior_ENCODE \
+            "arrow::compute::DictionaryEncodeOptions::ENCODE"
+        CDictionaryEncodeNullEncodingBehavior_MASK \
+            "arrow::compute::DictionaryEncodeOptions::MASK"
+
+    cdef cppclass CDictionaryEncodeOptions \
+            "arrow::compute::DictionaryEncodeOptions"(CFunctionOptions):
+        CDictionaryEncodeOptions()
+        CDictionaryEncodeOptions(
+            CDictionaryEncodeNullEncodingBehavior null_encoding)
+        CDictionaryEncodeNullEncodingBehavior null_encoding
+
     cdef cppclass CTakeOptions \
             " arrow::compute::TakeOptions"(CFunctionOptions):
         CTakeOptions(c_bool boundscheck)

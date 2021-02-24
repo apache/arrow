@@ -30,6 +30,7 @@ from pyarrow._compute import (  # noqa
     ArraySortOptions,
     CastOptions,
     CountOptions,
+    DictionaryEncodeOptions,
     FilterOptions,
     MatchSubstringOptions,
     MinMaxOptions,

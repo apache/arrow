@@ -58,7 +58,10 @@ class UniqueAction final : public ActionBase {
   using ActionBase::ActionBase;
 
   static constexpr bool with_error_status = false;
-  static constexpr bool with_memo_visit_null = true;
+
+  UniqueAction(const std::shared_ptr<DataType>& type, const FunctionOptions* options,
+               MemoryPool* pool)
+      : ActionBase(type, pool) {}
 
   Status Reset() { return Status::OK(); }
 
@@ -76,6 +79,8 @@ class UniqueAction final : public ActionBase {
   template <class Index>
   void ObserveNotFound(Index index) {}
 
+  bool ShouldEncodeNulls() { return true; }
+
   Status Flush(Datum* out) { return Status::OK(); }
 
   Status FlushFinal(Datum* out) { return Status::OK(); }
@@ -89,9 +94,9 @@ class ValueCountsAction final : ActionBase {
   using ActionBase::ActionBase;
 
   static constexpr bool with_error_status = true;
-  static constexpr bool with_memo_visit_null = true;
 
-  ValueCountsAction(const std::shared_ptr<DataType>& type, MemoryPool* pool)
+  ValueCountsAction(const std::shared_ptr<DataType>& type, const FunctionOptions* options,
+                    MemoryPool* pool)
       : ActionBase(type, pool), count_builder_(pool) {}
 
   Status Reserve(const int64_t length) {
@@ -147,6 +152,8 @@ class ValueCountsAction final : ActionBase {
     }
   }
 
+  bool ShouldEncodeNulls() const { return true; }
+
  private:
   Int64Builder count_builder_;
 };
@@ -159,10 +166,14 @@ class DictEncodeAction final : public ActionBase {
   using ActionBase::ActionBase;
 
   static constexpr bool with_error_status = false;
-  static constexpr bool with_memo_visit_null = false;
 
-  DictEncodeAction(const std::shared_ptr<DataType>& type, MemoryPool* pool)
-      : ActionBase(type, pool), indices_builder_(pool) {}
+  DictEncodeAction(const std::shared_ptr<DataType>& type, const FunctionOptions* options,
+                   MemoryPool* pool)
+      : ActionBase(type, pool), indices_builder_(pool) {
+    if (auto options_ptr = static_cast<const DictionaryEncodeOptions*>(options)) {
+      encode_options_ = *options_ptr;
+    }
+  }
 
   Status Reset() {
     indices_builder_.Reset();
@@ -173,12 +184,16 @@ class DictEncodeAction final : public ActionBase {
 
   template <class Index>
   void ObserveNullFound(Index index) {
-    indices_builder_.UnsafeAppendNull();
+    if (encode_options_.null_encoding_behavior == DictionaryEncodeOptions::MASK) {
+      indices_builder_.UnsafeAppendNull();
+    } else {
+      indices_builder_.UnsafeAppend(index);
+    }
   }
 
   template <class Index>
   void ObserveNullNotFound(Index index) {
-    indices_builder_.UnsafeAppendNull();
+    ObserveNullFound(index);
   }
 
   template <class Index>
@@ -189,6 +204,10 @@ class DictEncodeAction final : public ActionBase {
   template <class Index>
   void ObserveNotFound(Index index) {
     ObserveFound(index);
+  }
+
+  bool ShouldEncodeNulls() {
+    return encode_options_.null_encoding_behavior == DictionaryEncodeOptions::ENCODE;
   }
 
   Status Flush(Datum* out) {
@@ -202,10 +221,14 @@ class DictEncodeAction final : public ActionBase {
 
  private:
   Int32Builder indices_builder_;
+  DictionaryEncodeOptions encode_options_;
 };
 
 class HashKernel : public KernelState {
  public:
+  HashKernel() : options_(nullptr) {}
+  explicit HashKernel(const FunctionOptions* options) : options_(options) {}
+
   // Reset for another run.
   virtual Status Reset() = 0;
 
@@ -229,6 +252,7 @@ class HashKernel : public KernelState {
   virtual Status Append(const ArrayData& arr) = 0;
 
  protected:
+  const FunctionOptions* options_;
   std::mutex lock_;
 };
 
@@ -237,12 +261,12 @@ class HashKernel : public KernelState {
 // (NullType has a separate implementation)
 
 template <typename Type, typename Scalar, typename Action,
-          bool with_error_status = Action::with_error_status,
-          bool with_memo_visit_null = Action::with_memo_visit_null>
+          bool with_error_status = Action::with_error_status>
 class RegularHashKernel : public HashKernel {
  public:
-  RegularHashKernel(const std::shared_ptr<DataType>& type, MemoryPool* pool)
-      : pool_(pool), type_(type), action_(type, pool) {}
+  RegularHashKernel(const std::shared_ptr<DataType>& type, const FunctionOptions* options,
+                    MemoryPool* pool)
+      : HashKernel(options), pool_(pool), type_(type), action_(type, options, pool) {}
 
   Status Reset() override {
     memo_table_.reset(new MemoTable(pool_, 0));
@@ -282,7 +306,7 @@ class RegularHashKernel : public HashKernel {
                                           &unused_memo_index);
         },
         [this]() {
-          if (with_memo_visit_null) {
+          if (action_.ShouldEncodeNulls()) {
             auto on_found = [this](int32_t memo_index) {
               action_.ObserveNullFound(memo_index);
             };
@@ -318,16 +342,14 @@ class RegularHashKernel : public HashKernel {
         [this]() {
           // Null
           Status s = Status::OK();
-          if (with_memo_visit_null) {
-            auto on_found = [this](int32_t memo_index) {
-              action_.ObserveNullFound(memo_index);
-            };
-            auto on_not_found = [this, &s](int32_t memo_index) {
-              action_.ObserveNullNotFound(memo_index, &s);
-            };
+          auto on_found = [this](int32_t memo_index) {
+            action_.ObserveNullFound(memo_index);
+          };
+          auto on_not_found = [this, &s](int32_t memo_index) {
+            action_.ObserveNullNotFound(memo_index, &s);
+          };
+          if (action_.ShouldEncodeNulls()) {
             memo_table_->GetOrInsertNull(std::move(on_found), std::move(on_not_found));
-          } else {
-            action_.ObserveNullNotFound(-1);
           }
           return s;
         });
@@ -345,18 +367,23 @@ class RegularHashKernel : public HashKernel {
 // ----------------------------------------------------------------------
 // Hash kernel implementation for nulls
 
-template <typename Action>
+template <typename Action, bool with_error_status = Action::with_error_status>
 class NullHashKernel : public HashKernel {
  public:
-  NullHashKernel(const std::shared_ptr<DataType>& type, MemoryPool* pool)
-      : pool_(pool), type_(type), action_(type, pool) {}
+  NullHashKernel(const std::shared_ptr<DataType>& type, const FunctionOptions* options,
+                 MemoryPool* pool)
+      : pool_(pool), type_(type), action_(type, options, pool) {}
 
   Status Reset() override { return action_.Reset(); }
 
-  Status Append(const ArrayData& arr) override {
+  Status Append(const ArrayData& arr) override { return DoAppend(arr); }
+
+  template <bool HasError = with_error_status>
+  enable_if_t<!HasError, Status> DoAppend(const ArrayData& arr) {
     RETURN_NOT_OK(action_.Reserve(arr.length));
     for (int64_t i = 0; i < arr.length; ++i) {
       if (i == 0) {
+        seen_null_ = true;
         action_.ObserveNullNotFound(0);
       } else {
         action_.ObserveNullFound(0);
@@ -365,12 +392,31 @@ class NullHashKernel : public HashKernel {
     return Status::OK();
   }
 
+  template <bool HasError = with_error_status>
+  enable_if_t<HasError, Status> DoAppend(const ArrayData& arr) {
+    Status s = Status::OK();
+    RETURN_NOT_OK(action_.Reserve(arr.length));
+    for (int64_t i = 0; i < arr.length; ++i) {
+      if (seen_null_ == false && i == 0) {
+        seen_null_ = true;
+        action_.ObserveNullNotFound(0, &s);
+      } else {
+        action_.ObserveNullFound(0);
+      }
+    }
+    return s;
+  }
+
   Status Flush(Datum* out) override { return action_.Flush(out); }
   Status FlushFinal(Datum* out) override { return action_.FlushFinal(out); }
 
   Status GetDictionary(std::shared_ptr<ArrayData>* out) override {
-    // TODO(wesm): handle null being a valid dictionary value
-    auto null_array = std::make_shared<NullArray>(0);
+    std::shared_ptr<NullArray> null_array;
+    if (seen_null_) {
+      null_array = std::make_shared<NullArray>(1);
+    } else {
+      null_array = std::make_shared<NullArray>(0);
+    }
     *out = null_array->data();
     return Status::OK();
   }
@@ -380,6 +426,7 @@ class NullHashKernel : public HashKernel {
  protected:
   MemoryPool* pool_;
   std::shared_ptr<DataType> type_;
+  bool seen_null_ = false;
   Action action_;
 };
 
@@ -451,8 +498,8 @@ struct HashKernelTraits<Type, Action, enable_if_has_string_view<Type>> {
 template <typename Type, typename Action>
 std::unique_ptr<HashKernel> HashInitImpl(KernelContext* ctx, const KernelInitArgs& args) {
   using HashKernelType = typename HashKernelTraits<Type, Action>::HashKernel;
-  auto result = ::arrow::internal::make_unique<HashKernelType>(args.inputs[0].type,
-                                                               ctx->memory_pool());
+  auto result = ::arrow::internal::make_unique<HashKernelType>(
+      args.inputs[0].type, args.options, ctx->memory_pool());
   ctx->SetStatus(result->Reset());
   return std::move(result);
 }
@@ -506,6 +553,8 @@ KernelInit GetHashInit(Type::type type_id) {
       return nullptr;
   }
 }
+
+using DictionaryEncodeState = OptionsWrapper<DictionaryEncodeOptions>;
 
 template <typename Action>
 std::unique_ptr<KernelState> DictionaryHashInit(KernelContext* ctx,
@@ -639,9 +688,11 @@ const FunctionDoc value_counts_doc(
      "Nulls in the input are ignored."),
     {"array"});
 
+const auto kDefaultDictionaryEncodeOptions = DictionaryEncodeOptions::Defaults();
 const FunctionDoc dictionary_encode_doc(
     "Dictionary-encode array",
-    ("Return a dictionary-encoded version of the input array."), {"array"});
+    ("Return a dictionary-encoded version of the input array."), {"array"},
+    "DictionaryEncodeOptions");
 
 }  // namespace
 
@@ -691,7 +742,8 @@ void RegisterVectorHash(FunctionRegistry* registry) {
   // Unique and ValueCounts output unchunked arrays
   base.output_chunked = true;
   auto dict_encode = std::make_shared<VectorFunction>("dictionary_encode", Arity::Unary(),
-                                                      &dictionary_encode_doc);
+                                                      &dictionary_encode_doc,
+                                                      &kDefaultDictionaryEncodeOptions);
   AddHashKernels<DictEncodeAction>(dict_encode.get(), base, OutputType(DictEncodeOutput));
 
   // Calling dictionary_encode on dictionary input not supported, but if it

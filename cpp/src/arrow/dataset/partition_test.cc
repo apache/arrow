@@ -27,6 +27,7 @@
 #include <vector>
 
 #include "arrow/compute/api_scalar.h"
+#include "arrow/compute/api_vector.h"
 #include "arrow/dataset/scanner_internal.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/filesystem/path_util.h"
@@ -77,6 +78,39 @@ class TestPartitioning : public ::testing::Test {
     ASSERT_OK_AND_ASSIGN(partitioning_, factory_->Finish(actual));
   }
 
+  void AssertPartition(const std::shared_ptr<Partitioning> partitioning,
+                       const std::shared_ptr<RecordBatch> full_batch,
+                       const RecordBatchVector& expected_batches,
+                       const std::vector<Expression>& expected_expressions) {
+    ASSERT_OK_AND_ASSIGN(auto partition_results, partitioning->Partition(full_batch));
+    std::shared_ptr<RecordBatch> rest = full_batch;
+    ASSERT_EQ(partition_results.batches.size(), expected_batches.size());
+    auto max_index = std::min(partition_results.batches.size(), expected_batches.size());
+    for (std::size_t partition_index = 0; partition_index < max_index;
+         partition_index++) {
+      std::shared_ptr<RecordBatch> actual_batch =
+          partition_results.batches[partition_index];
+      AssertBatchesEqual(*expected_batches[partition_index], *actual_batch);
+      Expression actual_expression = partition_results.expressions[partition_index];
+      ASSERT_EQ(expected_expressions[partition_index], actual_expression);
+    }
+  }
+
+  void AssertPartition(const std::shared_ptr<Partitioning> partitioning,
+                       const std::shared_ptr<Schema> schema,
+                       const std::string& record_batch_json,
+                       const std::shared_ptr<Schema> partitioned_schema,
+                       const std::vector<std::string>& expected_record_batch_strs,
+                       const std::vector<Expression>& expected_expressions) {
+    auto record_batch = RecordBatchFromJSON(schema, record_batch_json);
+    RecordBatchVector expected_batches;
+    for (const auto& expected_record_batch_str : expected_record_batch_strs) {
+      expected_batches.push_back(
+          RecordBatchFromJSON(partitioned_schema, expected_record_batch_str));
+    }
+    AssertPartition(partitioning, record_batch, expected_batches, expected_expressions);
+  }
+
   void AssertInspectError(const std::vector<std::string>& paths) {
     ASSERT_RAISES(Invalid, factory_->Inspect(paths));
   }
@@ -102,6 +136,30 @@ class TestPartitioning : public ::testing::Test {
   std::shared_ptr<PartitioningFactory> factory_;
   std::shared_ptr<Schema> written_schema_;
 };
+
+TEST_F(TestPartitioning, Partition) {
+  auto partition_schema = schema({field("a", int32()), field("b", utf8())});
+  auto schema_ = schema({field("a", int32()), field("b", utf8()), field("c", uint32())});
+  auto remaining_schema = schema({field("c", uint32())});
+  auto partitioning = std::make_shared<DirectoryPartitioning>(partition_schema);
+  std::string json = R"([{"a": 3,    "b": "x",  "c": 0},
+                         {"a": 3,    "b": "x",  "c": 1},
+                         {"a": 1,    "b": null, "c": 2},
+                         {"a": null, "b": null, "c": 3},
+                         {"a": null, "b": "z",  "c": 4},
+                         {"a": null, "b": null, "c": 5}
+                       ])";
+  std::vector<std::string> expected_batches = {R"([{"c": 0}, {"c": 1}])", R"([{"c": 2}])",
+                                               R"([{"c": 3}, {"c": 5}])",
+                                               R"([{"c": 4}])"};
+  std::vector<Expression> expected_expressions = {
+      and_(equal(field_ref("a"), literal(3)), equal(field_ref("b"), literal("x"))),
+      and_(equal(field_ref("a"), literal(1)), is_null(field_ref("b"))),
+      and_(is_null(field_ref("a")), is_null(field_ref("b"))),
+      and_(is_null(field_ref("a")), equal(field_ref("b"), literal("z")))};
+  AssertPartition(partitioning, schema_, json, remaining_schema, expected_batches,
+                  expected_expressions);
+}
 
 TEST_F(TestPartitioning, DirectoryPartitioning) {
   partitioning_ = std::make_shared<DirectoryPartitioning>(
@@ -136,6 +194,10 @@ TEST_F(TestPartitioning, DirectoryPartitioningFormat) {
                     equal(field_ref("alpha"), literal(0))),
                "0/hello");
   AssertFormat(equal(field_ref("alpha"), literal(0)), "0");
+  AssertFormat(and_(equal(field_ref("alpha"), literal(0)), is_null(field_ref("beta"))),
+               "0");
+  AssertFormatError(
+      and_(is_null(field_ref("alpha")), equal(field_ref("beta"), literal("hello"))));
   AssertFormatError(equal(field_ref("beta"), literal("hello")));
   AssertFormat(literal(true), "");
 
@@ -209,6 +271,8 @@ TEST_F(TestPartitioning, DictionaryInference) {
   // successful dictionary inference
   AssertInspect({"/a/0"}, {DictStr("alpha"), DictInt("beta")});
   AssertInspect({"/a/0", "/a/1"}, {DictStr("alpha"), DictInt("beta")});
+  AssertInspect({"/a/0", "/a"}, {DictStr("alpha"), DictInt("beta")});
+  AssertInspect({"/0/a", "/1"}, {DictInt("alpha"), DictStr("beta")});
   AssertInspect({"/a/0", "/b/0", "/a/1", "/b/1"}, {DictStr("alpha"), DictInt("beta")});
   AssertInspect({"/a/-", "/b/-", "/a/_", "/b/_"}, {DictStr("alpha"), DictStr("beta")});
 }
@@ -246,13 +310,15 @@ TEST_F(TestPartitioning, DiscoverSchemaSegfault) {
 
 TEST_F(TestPartitioning, HivePartitioning) {
   partitioning_ = std::make_shared<HivePartitioning>(
-      schema({field("alpha", int32()), field("beta", float32())}));
+      schema({field("alpha", int32()), field("beta", float32())}), ArrayVector(), "xyz");
 
   AssertParse("/alpha=0/beta=3.25", and_(equal(field_ref("alpha"), literal(0)),
                                          equal(field_ref("beta"), literal(3.25f))));
   AssertParse("/beta=3.25/alpha=0", and_(equal(field_ref("beta"), literal(3.25f)),
                                          equal(field_ref("alpha"), literal(0))));
   AssertParse("/alpha=0", equal(field_ref("alpha"), literal(0)));
+  AssertParse("/alpha=xyz/beta=3.25", and_(is_null(field_ref("alpha")),
+                                           equal(field_ref("beta"), literal(3.25f))));
   AssertParse("/beta=3.25", equal(field_ref("beta"), literal(3.25f)));
   AssertParse("", literal(true));
 
@@ -271,7 +337,7 @@ TEST_F(TestPartitioning, HivePartitioning) {
 
 TEST_F(TestPartitioning, HivePartitioningFormat) {
   partitioning_ = std::make_shared<HivePartitioning>(
-      schema({field("alpha", int32()), field("beta", float32())}));
+      schema({field("alpha", int32()), field("beta", float32())}), ArrayVector(), "xyz");
 
   written_schema_ = partitioning_->schema();
 
@@ -282,8 +348,15 @@ TEST_F(TestPartitioning, HivePartitioningFormat) {
                     equal(field_ref("alpha"), literal(0))),
                "alpha=0/beta=3.25");
   AssertFormat(equal(field_ref("alpha"), literal(0)), "alpha=0");
-  AssertFormat(equal(field_ref("beta"), literal(3.25f)), "alpha/beta=3.25");
+  AssertFormat(and_(equal(field_ref("alpha"), literal(0)), is_null(field_ref("beta"))),
+               "alpha=0/beta=xyz");
+  AssertFormat(
+      and_(is_null(field_ref("alpha")), equal(field_ref("beta"), literal(3.25f))),
+      "alpha=xyz/beta=3.25");
   AssertFormat(literal(true), "");
+
+  AssertFormat(and_(is_null(field_ref("alpha")), is_null(field_ref("beta"))),
+               "alpha=xyz/beta=xyz");
 
   ASSERT_OK_AND_ASSIGN(written_schema_,
                        written_schema_->AddField(0, field("gamma", utf8())));
@@ -300,7 +373,9 @@ TEST_F(TestPartitioning, HivePartitioningFormat) {
 }
 
 TEST_F(TestPartitioning, DiscoverHiveSchema) {
-  factory_ = HivePartitioning::MakeFactory();
+  auto options = HivePartitioningFactoryOptions();
+  options.null_fallback = "xyz";
+  factory_ = HivePartitioning::MakeFactory(options);
 
   // type is int32 if possible
   AssertInspect({"/alpha=0/beta=1"}, {Int("alpha"), Int("beta")});
@@ -313,6 +388,12 @@ TEST_F(TestPartitioning, DiscoverHiveSchema) {
   // (...so ensure your partitions are ordered the same for all paths)
   AssertInspect({"/alpha=0/beta=1", "/beta=2/alpha=3"}, {Int("alpha"), Int("beta")});
 
+  // Null fallback strings shouldn't interfere with type inference
+  AssertInspect({"/alpha=xyz/beta=x", "/alpha=7/beta=xyz"}, {Int("alpha"), Str("beta")});
+
+  // Cannot infer if the only values are null
+  AssertInspectError({"/alpha=xyz"});
+
   // If there are too many digits fall back to string
   AssertInspect({"/alpha=3760212050"}, {Str("alpha")});
 
@@ -322,8 +403,9 @@ TEST_F(TestPartitioning, DiscoverHiveSchema) {
 }
 
 TEST_F(TestPartitioning, HiveDictionaryInference) {
-  PartitioningFactoryOptions options;
+  HivePartitioningFactoryOptions options;
   options.infer_dictionary = true;
+  options.null_fallback = "xyz";
   factory_ = HivePartitioning::MakeFactory(options);
 
   // type is still int32 if possible
@@ -335,6 +417,8 @@ TEST_F(TestPartitioning, HiveDictionaryInference) {
   // successful dictionary inference
   AssertInspect({"/alpha=a/beta=0"}, {DictStr("alpha"), DictInt("beta")});
   AssertInspect({"/alpha=a/beta=0", "/alpha=a/1"}, {DictStr("alpha"), DictInt("beta")});
+  AssertInspect({"/alpha=a/beta=0", "/alpha=xyz/beta=xyz"},
+                {DictStr("alpha"), DictInt("beta")});
   AssertInspect(
       {"/alpha=a/beta=0", "/alpha=b/beta=0", "/alpha=a/beta=1", "/alpha=b/beta=1"},
       {DictStr("alpha"), DictInt("beta")});
@@ -343,8 +427,19 @@ TEST_F(TestPartitioning, HiveDictionaryInference) {
       {DictStr("alpha"), DictStr("beta")});
 }
 
+TEST_F(TestPartitioning, HiveNullFallbackPassedOn) {
+  HivePartitioningFactoryOptions options;
+  options.null_fallback = "xyz";
+  factory_ = HivePartitioning::MakeFactory(options);
+
+  EXPECT_OK_AND_ASSIGN(auto schema, factory_->Inspect({"/alpha=a/beta=0"}));
+  EXPECT_OK_AND_ASSIGN(auto partitioning, factory_->Finish(schema));
+  ASSERT_EQ("xyz",
+            std::static_pointer_cast<HivePartitioning>(partitioning)->null_fallback());
+}
+
 TEST_F(TestPartitioning, HiveDictionaryHasUniqueValues) {
-  PartitioningFactoryOptions options;
+  HivePartitioningFactoryOptions options;
   options.infer_dictionary = true;
   factory_ = HivePartitioning::MakeFactory(options);
 
@@ -367,6 +462,55 @@ TEST_F(TestPartitioning, HiveDictionaryHasUniqueValues) {
   }
 
   AssertParseError("/alpha=yosemite");  // not in inspected dictionary
+}
+
+TEST_F(TestPartitioning, SetDefaultValuesConcrete) {
+  auto small_schm = schema({field("c", int32())});
+  auto schm = schema({field("a", int32()), field("b", utf8())});
+  auto full_schm = schema({field("a", int32()), field("b", utf8()), field("c", int32())});
+  RecordBatchProjector record_batch_projector(full_schm);
+  HivePartitioning part(schm);
+  ARROW_EXPECT_OK(part.SetDefaultValuesFromKeys(
+      and_(equal(field_ref("a"), literal(10)), is_valid(field_ref("b"))),
+      &record_batch_projector));
+
+  auto in_rb = RecordBatchFromJSON(small_schm, R"([{"c": 0},
+                                                  {"c": 1},
+                                                  {"c": 2},
+                                                  {"c": 3}
+                                                ])");
+
+  EXPECT_OK_AND_ASSIGN(auto out_rb, record_batch_projector.Project(*in_rb));
+  auto expected_rb = RecordBatchFromJSON(full_schm, R"([{"a": 10,  "b": null, "c": 0},
+                                                        {"a": 10,  "b": null, "c": 1},
+                                                        {"a": 10,  "b": null, "c": 2},
+                                                        {"a": 10,  "b": null, "c": 3}
+                                                      ])");
+  AssertBatchesEqual(*expected_rb, *out_rb);
+}
+
+TEST_F(TestPartitioning, SetDefaultValuesNull) {
+  auto small_schm = schema({field("c", int32())});
+  auto schm = schema({field("a", int32()), field("b", utf8())});
+  auto full_schm = schema({field("a", int32()), field("b", utf8()), field("c", int32())});
+  RecordBatchProjector record_batch_projector(full_schm);
+  HivePartitioning part(schm);
+  ARROW_EXPECT_OK(part.SetDefaultValuesFromKeys(
+      and_(is_null(field_ref("a")), is_null(field_ref("b"))), &record_batch_projector));
+
+  auto in_rb = RecordBatchFromJSON(small_schm, R"([{"c": 0},
+                                                  {"c": 1},
+                                                  {"c": 2},
+                                                  {"c": 3}
+                                                ])");
+
+  EXPECT_OK_AND_ASSIGN(auto out_rb, record_batch_projector.Project(*in_rb));
+  auto expected_rb = RecordBatchFromJSON(full_schm, R"([{"a": null,  "b": null, "c": 0},
+                                                        {"a": null,  "b": null, "c": 1},
+                                                        {"a": null,  "b": null, "c": 2},
+                                                        {"a": null,  "b": null, "c": 3}
+                                                      ])");
+  AssertBatchesEqual(*expected_rb, *out_rb);
 }
 
 TEST_F(TestPartitioning, EtlThenHive) {
@@ -467,13 +611,13 @@ class RangePartitioning : public Partitioning {
     std::vector<Expression> ranges;
 
     for (auto segment : fs::internal::SplitAbstractPath(path)) {
-      auto key = HivePartitioning::ParseKey(segment);
+      auto key = HivePartitioning::ParseKey(segment, "");
       if (!key) {
         return Status::Invalid("can't parse '", segment, "' as a range");
       }
 
       std::smatch matches;
-      RETURN_NOT_OK(DoRegex(key->value, &matches));
+      RETURN_NOT_OK(DoRegex(*key->value, &matches));
 
       auto& min_cmp = matches[1] == "[" ? greater_equal : greater;
       std::string min_repr = matches[2];
@@ -600,20 +744,45 @@ TEST(GroupTest, Basics) {
 }
 
 TEST(GroupTest, WithNulls) {
-  auto has_nulls = checked_pointer_cast<StructArray>(
-      ArrayFromJSON(struct_({field("a", utf8()), field("b", int32())}), R"([
-    {"a": "ex",  "b": 0},
-    {"a": null,  "b": 0},
-    {"a": "why", "b": 0},
-    {"a": "ex",  "b": 1},
-    {"a": "why", "b": 0},
-    {"a": "ex",  "b": 1},
-    {"a": "ex",  "b": 0},
-    {"a": "why", "b": null}
-  ])"));
-  ASSERT_RAISES(NotImplemented, MakeGroupings(*has_nulls));
+  AssertGrouping({field("a", utf8()), field("b", int32())},
+                 R"([
+                   {"a": "ex",  "b": 0,    "id": 0},
+                   {"a": null,  "b": 0,    "id": 1},
+                   {"a": null,  "b": 0,    "id": 2},
+                   {"a": "ex",  "b": 1,    "id": 3},
+                   {"a": null,  "b": null, "id": 4},
+                   {"a": "ex",  "b": 1,    "id": 5},
+                   {"a": "ex",  "b": 0,    "id": 6},
+                   {"a": "why", "b": null, "id": 7}
+                 ])",
+                 R"([
+                   {"a": "ex", "b": 0, "ids": [0, 6]},
+                   {"a": null, "b": 0, "ids": [1, 2]},
+                   {"a": "ex", "b": 1, "ids": [3, 5]},
+                   {"a": null, "b": null, "ids": [4]},
+                   {"a": "why", "b": null, "ids": [7]}
+  ])");
 
-  has_nulls = checked_pointer_cast<StructArray>(
+  AssertGrouping({field("a", dictionary(int32(), utf8())), field("b", int32())},
+                 R"([
+                   {"a": "ex",  "b": 0,    "id": 0},
+                   {"a": null,  "b": 0,    "id": 1},
+                   {"a": null,  "b": 0,    "id": 2},
+                   {"a": "ex",  "b": 1,    "id": 3},
+                   {"a": null,  "b": null, "id": 4},
+                   {"a": "ex",  "b": 1,    "id": 5},
+                   {"a": "ex",  "b": 0,    "id": 6},
+                   {"a": "why", "b": null, "id": 7}
+                 ])",
+                 R"([
+                   {"a": "ex", "b": 0, "ids": [0, 6]},
+                   {"a": null, "b": 0, "ids": [1, 2]},
+                   {"a": "ex", "b": 1, "ids": [3, 5]},
+                   {"a": null, "b": null, "ids": [4]},
+                   {"a": "why", "b": null, "ids": [7]}
+  ])");
+
+  auto has_nulls = checked_pointer_cast<StructArray>(
       ArrayFromJSON(struct_({field("a", utf8()), field("b", int32())}), R"([
     {"a": "ex",  "b": 0},
     null,

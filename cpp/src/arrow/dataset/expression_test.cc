@@ -240,6 +240,10 @@ TEST(Expression, Equality) {
             call("cast", {field_ref("a")}, compute::CastOptions::Unsafe(int32())));
 }
 
+Expression null_literal(const std::shared_ptr<DataType>& type) {
+  return Expression(MakeNullScalar(type));
+}
+
 TEST(Expression, Hash) {
   std::unordered_set<Expression, Expression::Hash> set;
 
@@ -250,6 +254,9 @@ TEST(Expression, Hash) {
   EXPECT_FALSE(set.emplace(literal(1)).second) << "already inserted";
   EXPECT_TRUE(set.emplace(literal(3)).second);
 
+  EXPECT_TRUE(set.emplace(null_literal(int32())).second);
+  EXPECT_FALSE(set.emplace(null_literal(int32())).second) << "already inserted";
+  EXPECT_TRUE(set.emplace(null_literal(float32())).second);
   // NB: no validation on construction; we couldn't execute
   //     add with zero arguments
   EXPECT_TRUE(set.emplace(call("add", {})).second);
@@ -258,7 +265,7 @@ TEST(Expression, Hash) {
   // NB: unbound expressions don't check for availability in any registry
   EXPECT_TRUE(set.emplace(call("widgetify", {})).second);
 
-  EXPECT_EQ(set.size(), 6);
+  EXPECT_EQ(set.size(), 8);
 }
 
 TEST(Expression, IsScalarExpression) {
@@ -603,6 +610,8 @@ TEST(Expression, FoldConstants) {
   // call against literals (3 + 2 == 5)
   ExpectFoldsTo(call("add", {literal(3), literal(2)}), literal(5));
 
+  ExpectFoldsTo(call("equal", {literal(3), literal(3)}), literal(true));
+
   // call against literal and field_ref
   ExpectFoldsTo(call("add", {literal(3), field_ref("i32")}),
                 call("add", {literal(3), field_ref("i32")}));
@@ -722,7 +731,7 @@ TEST(Expression, ExtractKnownFieldValues) {
 TEST(Expression, ReplaceFieldsWithKnownValues) {
   auto ExpectReplacesTo =
       [](Expression expr,
-         std::unordered_map<FieldRef, Datum, FieldRef::Hash> known_values,
+         const std::unordered_map<FieldRef, Datum, FieldRef::Hash>& known_values,
          Expression unbound_expected) {
         ASSERT_OK_AND_ASSIGN(expr, expr.Bind(*kBoringSchema));
         ASSERT_OK_AND_ASSIGN(auto expected, unbound_expected.Bind(*kBoringSchema));
@@ -765,6 +774,19 @@ TEST(Expression, ReplaceFieldsWithKnownValues) {
                                         }),
                                    literal(2),
                                }));
+
+  std::unordered_map<FieldRef, Datum, FieldRef::Hash> i32_valid_str_null{
+      {"i32", Datum(3)}, {"str", MakeNullScalar(utf8())}};
+
+  ExpectReplacesTo(is_null(field_ref("i32")), i32_valid_str_null, is_null(literal(3)));
+
+  ExpectReplacesTo(is_valid(field_ref("i32")), i32_valid_str_null, is_valid(literal(3)));
+
+  ExpectReplacesTo(is_null(field_ref("str")), i32_valid_str_null,
+                   is_null(null_literal(utf8())));
+
+  ExpectReplacesTo(is_valid(field_ref("str")), i32_valid_str_null,
+                   is_valid(null_literal(utf8())));
 }
 
 struct {
@@ -1013,6 +1035,22 @@ TEST(Expression, SimplifyWithGuarantee) {
   Simplify{greater(field_ref("dict_i32"), literal(int64_t(1)))}
       .WithGuarantee(equal(field_ref("dict_i32"), literal(0)))
       .Expect(false);
+
+  Simplify{equal(field_ref("i32"), literal(7))}
+      .WithGuarantee(equal(field_ref("i32"), literal(7)))
+      .Expect(literal(true));
+
+  Simplify{equal(field_ref("i32"), literal(7))}
+      .WithGuarantee(not_(equal(field_ref("i32"), literal(7))))
+      .Expect(equal(field_ref("i32"), literal(7)));
+
+  Simplify{is_null(field_ref("i32"))}
+      .WithGuarantee(is_null(field_ref("i32")))
+      .Expect(literal(true));
+
+  Simplify{is_valid(field_ref("i32"))}
+      .WithGuarantee(is_valid(field_ref("i32")))
+      .Expect(is_valid(field_ref("i32")));
 }
 
 TEST(Expression, SimplifyThenExecute) {
