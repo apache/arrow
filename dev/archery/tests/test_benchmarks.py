@@ -58,6 +58,61 @@ def test_benchmark_median():
         pass
 
 
+def assert_benchmark(name, google_result, archery_result):
+    observation = GoogleBenchmarkObservation(**google_result)
+    benchmark = GoogleBenchmark(name, [observation])
+    result = json.dumps(benchmark, cls=JsonEncoder)
+    assert json.loads(result) == archery_result
+
+
+def test_prefer_real_time():
+    name = "AllocateDeallocate<Jemalloc>/size:1048576/real_time"
+    google_result = {
+        "cpu_time": 1778.6004847419827,
+        "iterations": 352765,
+        "name": name,
+        "real_time": 1835.3137357788837,
+        "repetition_index": 0,
+        "repetitions": 0,
+        "run_name": "AllocateDeallocate<Jemalloc>/size:1048576/real_time",
+        "run_type": "iteration",
+        "threads": 1,
+        "time_unit": "ns",
+    }
+    archery_result = {
+        "name": name,
+        "unit": "ns",
+        "less_is_better": True,
+        "values": [1835.3137357788837],
+    }
+    assert name.endswith("/real_time")
+    assert_benchmark(name, google_result, archery_result)
+
+
+def test_prefer_cpu_time():
+    name = "AllocateDeallocate<Jemalloc>/size:1048576"
+    google_result = {
+        "cpu_time": 1778.6004847419827,
+        "iterations": 352765,
+        "name": name,
+        "real_time": 1835.3137357788837,
+        "repetition_index": 0,
+        "repetitions": 0,
+        "run_name": "AllocateDeallocate<Jemalloc>/size:1048576",
+        "run_type": "iteration",
+        "threads": 1,
+        "time_unit": "ns",
+    }
+    archery_result = {
+        "name": name,
+        "unit": "ns",
+        "less_is_better": True,
+        "values": [1778.6004847419827],
+    }
+    assert not name.endswith("/real_time")
+    assert_benchmark(name, google_result, archery_result)
+
+
 def test_omits_aggregates():
     name = "AllocateDeallocate<Jemalloc>/size:1048576/real_time"
     google_aggregate = {
@@ -88,7 +143,7 @@ def test_omits_aggregates():
         "name": name,
         "unit": "ns",
         "less_is_better": True,
-        "values": [1778.6004847419827],
+        "values": [1835.3137357788837],
     }
     assert google_aggregate["run_type"] == "aggregate"
     assert google_result["run_type"] == "iteration"
