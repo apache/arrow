@@ -96,7 +96,7 @@ else
       echo "**** or retry with ARROW_USE_PKG_CONFIG=false"
     fi
   else
-    if [ "$UNAME" = "Darwin" ]; then
+    if [ "$UNAME" = "Darwin" ] && [ "$NO_AUTOBREW" = "" ]; then
       if [ "$FORCE_AUTOBREW" != "true" ] && [ "`command -v brew`" ] && [ "`brew ls --versions ${PKG_BREW_NAME}`" != "" ]; then
         echo "*** Using Homebrew ${PKG_BREW_NAME}"
         BREWDIR=`brew --prefix`
