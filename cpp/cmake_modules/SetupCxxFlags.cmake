@@ -629,8 +629,3 @@ if(MSVC)
     set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${MSVC_LINKER_FLAGS}")
   endif()
 endif()
-
-#--------------------------------------------------------------------------------------
-if(ARROW_COMPUTE)
-  add_definitions(-DARROW_HAVE_COMPUTE_MODULE)
-endif()

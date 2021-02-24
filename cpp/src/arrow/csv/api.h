@@ -21,6 +21,6 @@
 #include "arrow/csv/reader.h"
 
 // The writer depends on compute module for casting.
-#ifdef ARROW_HAVE_COMPUTE_MODULE
+#ifdef ARROW_COMPUTE
 #include "arrow/csv/writer.h"
 #endif

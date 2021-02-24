@@ -31,6 +31,7 @@ from pyarrow.lib cimport (check_status, Field, MemoryPool, Schema,
                           RecordBatchReader, ensure_type,
                           maybe_unbox_memory_pool, get_input_stream,
                           get_writer, native_transcoding_input_stream,
+                          pyarrow_unwrap_batch, pyarrow_unwrap_table,
                           pyarrow_wrap_schema, pyarrow_wrap_table,
                           pyarrow_wrap_data_type, pyarrow_unwrap_data_type,
                           Table, RecordBatch)
@@ -803,6 +804,7 @@ cdef _get_write_options(WriteOptions write_options, CCSVWriteOptions* out):
 def write_csv(data, output_file, write_options=None,
               MemoryPool memory_pool=None):
     """
+    Writes data to output_file.
 
     Parameters
     ----------
@@ -814,10 +816,6 @@ def write_csv(data, output_file, write_options=None,
         Options to configure writing the CSV file.
     memory_pool: MemoryPool, optional
         Pool for temporary allocations.
-
-    Returns
-    -------
-    None
     """
     cdef:
         shared_ptr[COutputStream] stream
@@ -827,24 +825,17 @@ def write_csv(data, output_file, write_options=None,
         CTable* table
     _get_write_options(write_options, &c_write_options)
 
-    try:
-        where = _stringify_path(output_file)
-    except TypeError:
-        get_writer(output_file, &stream)
-    else:
-        c_where = tobytes(where)
-        stream = GetResultValue(FileOutputStream.Open(c_where))
-
+    get_writer(output_file, &stream)
     c_memory_pool = maybe_unbox_memory_pool(memory_pool)
     if isinstance(data, RecordBatch):
-        batch = (<RecordBatch>data).batch
+        batch = pyarrow_unwrap_batch(data).get()
         with nogil:
             check_status(WriteCSV(deref(batch), c_write_options, c_memory_pool,
                                   stream.get()))
     elif isinstance(data, Table):
-        table = (<Table>data).table
+        table = pyarrow_unwrap_table(data).get()
         with nogil:
             check_status(WriteCSV(deref(table), c_write_options, c_memory_pool,
                                   stream.get()))
     else:
-        raise ValueError(type(data))
+        raise TypeError(f"Expected Table or RecordBatch, got '{type(data)}'")
