@@ -78,6 +78,8 @@ fn json_to_arrow(json_name: &str, arrow_name: &str, verbose: bool) -> Result<()>
         writer.write(&b)?;
     }
 
+    writer.finish()?;
+
     Ok(())
 }
 

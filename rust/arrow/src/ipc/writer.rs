@@ -434,6 +434,12 @@ impl<W: Write> FileWriter<W> {
 
     /// Write footer and closing tag, then mark the writer as done
     pub fn finish(&mut self) -> Result<()> {
+        if self.finished {
+            return Err(ArrowError::IoError(
+                "Cannot write footer to file writer as it is closed".to_string(),
+            ));
+        }
+
         // write EOS
         write_continuation(&mut self.writer, &self.write_options, 0)?;
 
@@ -460,15 +466,6 @@ impl<W: Write> FileWriter<W> {
         self.finished = true;
 
         Ok(())
-    }
-}
-
-/// Finish the file if it is not 'finished' when it goes out of scope
-impl<W: Write> Drop for FileWriter<W> {
-    fn drop(&mut self) {
-        if !self.finished {
-            let _ = self.finish();
-        }
     }
 }
 
@@ -537,20 +534,17 @@ impl<W: Write> StreamWriter<W> {
 
     /// Write continuation bytes, and mark the stream as done
     pub fn finish(&mut self) -> Result<()> {
+        if self.finished {
+            return Err(ArrowError::IoError(
+                "Cannot write footer to stream writer as it is closed".to_string(),
+            ));
+        }
+
         write_continuation(&mut self.writer, &self.write_options, 0)?;
 
         self.finished = true;
 
         Ok(())
-    }
-}
-
-/// Finish the stream if it is not 'finished' when it goes out of scope
-impl<W: Write> Drop for StreamWriter<W> {
-    fn drop(&mut self) {
-        if !self.finished {
-            let _ = self.finish();
-        }
     }
 }
 
@@ -776,7 +770,7 @@ mod tests {
             let mut writer = FileWriter::try_new(file, &schema).unwrap();
 
             writer.write(&batch).unwrap();
-            // this is inside a block to test the implicit finishing of the file on `Drop`
+            writer.finish().unwrap();
         }
 
         {
@@ -826,7 +820,7 @@ mod tests {
                 FileWriter::try_new_with_options(file, &schema, options).unwrap();
 
             writer.write(&batch).unwrap();
-            // this is inside a block to test the implicit finishing of the file on `Drop`
+            writer.finish().unwrap();
         }
 
         {
