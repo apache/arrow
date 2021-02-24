@@ -48,4 +48,15 @@ public interface CompressionCodec {
    * @return the name of the codec.
    */
   String getCodecName();
+
+  /**
+   * Factory to create compression codec.
+   */
+  interface Factory {
+
+    /**
+     * Creates the codec based on the codec type.
+     */
+    CompressionCodec createCodec(byte codecType);
+  }
 }

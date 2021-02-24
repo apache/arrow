@@ -15,11 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.vector.compression;
-
-import static org.apache.arrow.memory.util.MemoryUtil.LITTLE_ENDIAN;
-import static org.apache.arrow.vector.compression.CompressionUtil.NO_COMPRESSION_LENGTH;
-import static org.apache.arrow.vector.compression.CompressionUtil.SIZE_OF_UNCOMPRESSED_LENGTH;
+package org.apache.arrow.compression;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -30,7 +26,10 @@ import java.io.OutputStream;
 import org.apache.arrow.flatbuf.CompressionType;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.util.MemoryUtil;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.compression.CompressionCodec;
+import org.apache.arrow.vector.compression.CompressionUtil;
 import org.apache.commons.compress.compressors.lz4.FramedLZ4CompressorInputStream;
 import org.apache.commons.compress.compressors.lz4.FramedLZ4CompressorOutputStream;
 import org.apache.commons.compress.utils.IOUtils;
@@ -49,16 +48,16 @@ public class Lz4CompressionCodec implements CompressionCodec {
 
     if (uncompressedBuffer.writerIndex() == 0L) {
       // shortcut for empty buffer
-      ArrowBuf compressedBuffer = allocator.buffer(SIZE_OF_UNCOMPRESSED_LENGTH);
+      ArrowBuf compressedBuffer = allocator.buffer(CompressionUtil.SIZE_OF_UNCOMPRESSED_LENGTH);
       compressedBuffer.setLong(0, 0);
-      compressedBuffer.writerIndex(SIZE_OF_UNCOMPRESSED_LENGTH);
+      compressedBuffer.writerIndex(CompressionUtil.SIZE_OF_UNCOMPRESSED_LENGTH);
       uncompressedBuffer.close();
       return compressedBuffer;
     }
 
     try {
       ArrowBuf compressedBuffer = doCompress(allocator, uncompressedBuffer);
-      long compressedLength = compressedBuffer.writerIndex() - SIZE_OF_UNCOMPRESSED_LENGTH;
+      long compressedLength = compressedBuffer.writerIndex() - CompressionUtil.SIZE_OF_UNCOMPRESSED_LENGTH;
       if (compressedLength > uncompressedBuffer.writerIndex()) {
         // compressed buffer is larger, send the raw buffer
         compressedBuffer.close();
@@ -83,10 +82,10 @@ public class Lz4CompressionCodec implements CompressionCodec {
 
     byte[] outBytes = baos.toByteArray();
 
-    ArrowBuf compressedBuffer = allocator.buffer(SIZE_OF_UNCOMPRESSED_LENGTH + outBytes.length);
+    ArrowBuf compressedBuffer = allocator.buffer(CompressionUtil.SIZE_OF_UNCOMPRESSED_LENGTH + outBytes.length);
 
     long uncompressedLength = uncompressedBuffer.writerIndex();
-    if (!LITTLE_ENDIAN) {
+    if (!MemoryUtil.LITTLE_ENDIAN) {
       uncompressedLength = Long.reverseBytes(uncompressedLength);
     }
     // first 8 bytes reserved for uncompressed length, to be consistent with the
@@ -94,8 +93,8 @@ public class Lz4CompressionCodec implements CompressionCodec {
     compressedBuffer.setLong(0, uncompressedLength);
 
     PlatformDependent.copyMemory(
-        outBytes, 0, compressedBuffer.memoryAddress() + SIZE_OF_UNCOMPRESSED_LENGTH, outBytes.length);
-    compressedBuffer.writerIndex(SIZE_OF_UNCOMPRESSED_LENGTH + outBytes.length);
+        outBytes, 0, compressedBuffer.memoryAddress() + CompressionUtil.SIZE_OF_UNCOMPRESSED_LENGTH, outBytes.length);
+    compressedBuffer.writerIndex(CompressionUtil.SIZE_OF_UNCOMPRESSED_LENGTH + outBytes.length);
     return compressedBuffer;
   }
 
@@ -104,11 +103,11 @@ public class Lz4CompressionCodec implements CompressionCodec {
     Preconditions.checkArgument(compressedBuffer.writerIndex() <= Integer.MAX_VALUE,
         "The compressed buffer size exceeds the integer limit");
 
-    Preconditions.checkArgument(compressedBuffer.writerIndex() >= SIZE_OF_UNCOMPRESSED_LENGTH,
+    Preconditions.checkArgument(compressedBuffer.writerIndex() >= CompressionUtil.SIZE_OF_UNCOMPRESSED_LENGTH,
         "Not enough data to decompress.");
 
     long decompressedLength = compressedBuffer.getLong(0);
-    if (!LITTLE_ENDIAN) {
+    if (!MemoryUtil.LITTLE_ENDIAN) {
       decompressedLength = Long.reverseBytes(decompressedLength);
     }
 
@@ -118,7 +117,7 @@ public class Lz4CompressionCodec implements CompressionCodec {
       return allocator.getEmpty();
     }
 
-    if (decompressedLength == NO_COMPRESSION_LENGTH) {
+    if (decompressedLength == CompressionUtil.NO_COMPRESSION_LENGTH) {
       // no compression
       return CompressionUtil.decompressRawBuffer(compressedBuffer);
     }
@@ -134,13 +133,13 @@ public class Lz4CompressionCodec implements CompressionCodec {
 
   private ArrowBuf doDecompress(BufferAllocator allocator, ArrowBuf compressedBuffer) throws IOException {
     long decompressedLength = compressedBuffer.getLong(0);
-    if (!LITTLE_ENDIAN) {
+    if (!MemoryUtil.LITTLE_ENDIAN) {
       decompressedLength = Long.reverseBytes(decompressedLength);
     }
 
-    byte[] inBytes = new byte[(int) (compressedBuffer.writerIndex() - SIZE_OF_UNCOMPRESSED_LENGTH)];
+    byte[] inBytes = new byte[(int) (compressedBuffer.writerIndex() - CompressionUtil.SIZE_OF_UNCOMPRESSED_LENGTH)];
     PlatformDependent.copyMemory(
-        compressedBuffer.memoryAddress() + SIZE_OF_UNCOMPRESSED_LENGTH, inBytes, 0, inBytes.length);
+        compressedBuffer.memoryAddress() + CompressionUtil.SIZE_OF_UNCOMPRESSED_LENGTH, inBytes, 0, inBytes.length);
     ByteArrayOutputStream out = new ByteArrayOutputStream((int) decompressedLength);
     try (InputStream in = new FramedLZ4CompressorInputStream(new ByteArrayInputStream(inBytes))) {
       IOUtils.copy(in, out);

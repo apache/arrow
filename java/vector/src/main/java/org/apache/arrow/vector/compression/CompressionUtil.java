@@ -28,13 +28,13 @@ import org.apache.arrow.vector.ipc.message.ArrowBodyCompression;
  */
 public class CompressionUtil {
 
-  static final long SIZE_OF_UNCOMPRESSED_LENGTH = 8L;
+  public static final long SIZE_OF_UNCOMPRESSED_LENGTH = 8L;
 
   /**
    * Special flag to indicate no compression.
    * (e.g. when the compressed buffer has a larger size.)
    */
-  static final long NO_COMPRESSION_LENGTH = -1L;
+  public static final long NO_COMPRESSION_LENGTH = -1L;
 
   private CompressionUtil() {
   }
@@ -53,20 +53,6 @@ public class CompressionUtil {
         return new ArrowBodyCompression(CompressionType.ZSTD, BodyCompressionMethod.BUFFER);
       default:
         throw new IllegalArgumentException("Unknown codec: " + codec.getCodecName());
-    }
-  }
-
-  /**
-   * Creates the {@link CompressionCodec} given the compression type.
-   */
-  public static CompressionCodec createCodec(byte compressionType) {
-    switch (compressionType) {
-      case NoCompressionCodec.COMPRESSION_TYPE:
-        return NoCompressionCodec.INSTANCE;
-      case CompressionType.LZ4_FRAME:
-        return new Lz4CompressionCodec();
-      default:
-        throw new IllegalArgumentException("Compression type not supported: " + compressionType);
     }
   }
 

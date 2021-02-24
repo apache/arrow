@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.vector.compression;
+package org.apache.arrow.compression;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -32,6 +32,8 @@ import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
+import org.apache.arrow.vector.compression.CompressionCodec;
+import org.apache.arrow.vector.compression.NoCompressionCodec;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.junit.After;
 import org.junit.Before;

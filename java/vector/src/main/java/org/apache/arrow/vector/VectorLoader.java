@@ -26,7 +26,7 @@ import java.util.List;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.util.Collections2;
 import org.apache.arrow.vector.compression.CompressionCodec;
-import org.apache.arrow.vector.compression.CompressionUtil;
+import org.apache.arrow.vector.compression.NoCompressionCodec;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -38,13 +38,26 @@ public class VectorLoader {
 
   private final VectorSchemaRoot root;
 
+  private final CompressionCodec.Factory factory;
+
   /**
    * Construct with a root to load and will create children in root based on schema.
    *
    * @param root the root to add vectors to based on schema
    */
   public VectorLoader(VectorSchemaRoot root) {
+    this(root, NoCompressionCodec.Factory.INSTANCE);
+  }
+
+  /**
+   * Construct with a root to load and will create children in root based on schema.
+   *
+   * @param root the root to add vectors to based on schema.
+   * @param factory the factory to create codec.
+   */
+  public VectorLoader(VectorSchemaRoot root, CompressionCodec.Factory factory) {
     this.root = root;
+    this.factory = factory;
   }
 
   /**
@@ -56,7 +69,7 @@ public class VectorLoader {
   public void load(ArrowRecordBatch recordBatch) {
     Iterator<ArrowBuf> buffers = recordBatch.getBuffers().iterator();
     Iterator<ArrowFieldNode> nodes = recordBatch.getNodes().iterator();
-    CompressionCodec codec = CompressionUtil.createCodec(recordBatch.getBodyCompression().getCodec());
+    CompressionCodec codec = factory.createCodec(recordBatch.getBodyCompression().getCodec());
     for (FieldVector fieldVector : root.getFieldVectors()) {
       loadBuffers(fieldVector, fieldVector.getField(), buffers, nodes, codec);
     }

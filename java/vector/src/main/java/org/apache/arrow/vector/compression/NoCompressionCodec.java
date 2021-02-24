@@ -51,4 +51,17 @@ public class NoCompressionCodec implements CompressionCodec {
   public String getCodecName() {
     return "default";
   }
+
+  /**
+   * The default factory that creates a {@link NoCompressionCodec}.
+   */
+  public static class Factory implements CompressionCodec.Factory {
+
+    public static final NoCompressionCodec.Factory INSTANCE = new NoCompressionCodec.Factory();
+
+    @Override
+    public CompressionCodec createCodec(byte codecType) {
+      return NoCompressionCodec.INSTANCE;
+    }
+  }
 }

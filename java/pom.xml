@@ -676,6 +676,7 @@
     <module>performance</module>
     <module>algorithm</module>
     <module>adapter/avro</module>
+    <module>compression</module>
   </modules>
 
   <profiles>
