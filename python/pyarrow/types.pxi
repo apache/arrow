@@ -2135,7 +2135,7 @@ cpdef DataType decimal128(int precision, int scale=0):
 
     ``decimal128(5, -3)`` can exactly represent the number 12345000
     (encoded internally as the 128-bit integer 12345), but neither
-    123456000 nor 12345600.
+    123450000 nor 1234500.
 
     If you need a precision higher than 38 significant digits, consider
     using ``decimal256``.
@@ -2426,13 +2426,13 @@ def struct(fields):
     return pyarrow_wrap_data_type(struct_type)
 
 
-cdef _extract_union_params(children_fields, type_codes,
+cdef _extract_union_params(child_fields, type_codes,
                            vector[shared_ptr[CField]]* c_fields,
                            vector[int8_t]* c_type_codes):
     cdef:
         Field child_field
 
-    for child_field in children_fields:
+    for child_field in child_fields:
         c_fields[0].push_back(child_field.sp_field)
 
     if type_codes is not None:
@@ -2445,16 +2445,16 @@ cdef _extract_union_params(children_fields, type_codes,
         c_type_codes[0] = range(c_fields.size())
 
 
-def sparse_union(children_fields, type_codes=None):
+def sparse_union(child_fields, type_codes=None):
     """
-    Create SparseUnionType from children fields.
+    Create SparseUnionType from child fields.
 
     A union is defined by an ordered sequence of child types; each slot in
     the union can have a value chosen from these types.
 
     Parameters
     ----------
-    fields : sequence of Field values
+    child_fields : sequence of Field values
         Each field must have a UTF8-encoded name, and these field names are
         part of the type metadata.
     type_codes : list of integers, default None
@@ -2467,23 +2467,23 @@ def sparse_union(children_fields, type_codes=None):
         vector[shared_ptr[CField]] c_fields
         vector[int8_t] c_type_codes
 
-    _extract_union_params(children_fields, type_codes,
+    _extract_union_params(child_fields, type_codes,
                           &c_fields, &c_type_codes)
 
     return pyarrow_wrap_data_type(
         CMakeSparseUnionType(move(c_fields), move(c_type_codes)))
 
 
-def dense_union(children_fields, type_codes=None):
+def dense_union(child_fields, type_codes=None):
     """
-    Create DenseUnionType from children fields.
+    Create DenseUnionType from child fields.
 
     A union is defined by an ordered sequence of child types; each slot in
     the union can have a value chosen from these types.
 
     Parameters
     ----------
-    fields : sequence of Field values
+    child_fields : sequence of Field values
         Each field must have a UTF8-encoded name, and these field names are
         part of the type metadata.
     type_codes : list of integers, default None
@@ -2496,23 +2496,23 @@ def dense_union(children_fields, type_codes=None):
         vector[shared_ptr[CField]] c_fields
         vector[int8_t] c_type_codes
 
-    _extract_union_params(children_fields, type_codes,
+    _extract_union_params(child_fields, type_codes,
                           &c_fields, &c_type_codes)
 
     return pyarrow_wrap_data_type(
         CMakeDenseUnionType(move(c_fields), move(c_type_codes)))
 
 
-def union(children_fields, mode, type_codes=None):
+def union(child_fields, mode, type_codes=None):
     """
-    Create UnionType from children fields.
+    Create UnionType from child fields.
 
     A union is defined by an ordered sequence of child types; each slot in
     the union can have a value chosen from these types.
 
     Parameters
     ----------
-    fields : sequence of Field values
+    child_fields : sequence of Field values
         Each field must have a UTF8-encoded name, and these field names are
         part of the type metadata.
     mode : str
@@ -2542,9 +2542,9 @@ def union(children_fields, mode, type_codes=None):
             raise ValueError("Invalid union mode {0!r}".format(mode))
 
     if mode == _UnionMode_SPARSE:
-        return sparse_union(children_fields, type_codes)
+        return sparse_union(child_fields, type_codes)
     else:
-        return dense_union(children_fields, type_codes)
+        return dense_union(child_fields, type_codes)
 
 
 cdef dict _type_aliases = {

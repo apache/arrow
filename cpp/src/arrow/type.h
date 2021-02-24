@@ -905,6 +905,10 @@ class ARROW_EXPORT DecimalType : public FixedSizeBinaryType {
 /// As an example, `Decimal128Type(7, 3)` can exactly represent the numbers
 /// 1234.567 and -1234.567 (encoded internally as the 128-bit integers
 /// 1234567 and -1234567, respectively), but neither 12345.67 nor 123.4567.
+///
+/// Decimal128Type has a maximum precision of 38 significant digits
+/// (also available as Decimal128Type::kMaxPrecision).
+/// If higher precision is needed, consider using Decimal256Type.
 class ARROW_EXPORT Decimal128Type : public DecimalType {
  public:
   static constexpr Type::type type_id = Type::DECIMAL128;
@@ -932,10 +936,12 @@ class ARROW_EXPORT Decimal128Type : public DecimalType {
 /// decimal type can represent; the scale is the number of digits after
 /// the decimal point (note the scale can be negative).
 ///
+/// Decimal256Type has a maximum precision of 76 significant digits.
+/// (also available as Decimal256Type::kMaxPrecision).
+///
 /// For most use cases, the maximum precision offered by Decimal128Type
 /// is sufficient, and it will result in a more compact and more efficient
-/// encoding.  Decimal256Type is useful if you need a precision higher
-/// than 38 significant digits.
+/// encoding.
 class ARROW_EXPORT Decimal256Type : public DecimalType {
  public:
   static constexpr Type::type type_id = Type::DECIMAL256;
@@ -1031,7 +1037,7 @@ class ARROW_EXPORT SparseUnionType : public UnionType {
   std::string name() const override { return "sparse_union"; }
 };
 
-/// \brief Concrete type class for sparse union data
+/// \brief Concrete type class for dense union data
 ///
 /// A dense union is a nested type where each logical value is taken from
 /// a single child, at a specific offset.  A buffer of 8-bit type ids
