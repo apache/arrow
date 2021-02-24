@@ -11,6 +11,7 @@ write_dataset(
   partitioning = dplyr::group_vars(dataset),
   basename_template = paste0("part-{i}.", as.character(format)),
   hive_style = TRUE,
+  hive_null_fallback = "__HIVE_DEFAULT_PARTITION__",
   ...
 )
 }
@@ -40,6 +41,10 @@ will yield \verb{"part-0.feather", ...}.}
 
 \item{hive_style}{logical: write partition segments as Hive-style
 (\code{key1=value1/key2=value2/file.ext}) or as just bare values. Default is \code{TRUE}.}
+
+\item{hive_null_fallback}{If writing partition segments as Hive-style
+directories then this value will be used in place of any null value in a
+patition column.}
 
 \item{...}{additional format-specific arguments. For available Parquet
 options, see \code{\link[=write_parquet]{write_parquet()}}. The available Feather options are

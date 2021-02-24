@@ -77,6 +77,9 @@ HivePartitioning$create <- dataset___HivePartitioning
 #' Because fields are named in the path segments, order of fields passed to
 #' `hive_partition()` does not matter.
 #' @param ... named list of [data types][data-type], passed to [schema()]
+#' @param null_fallback character to be used in place of `NA` and `NULL` values
+#' in columns that are being partitioned by. (default:
+#' `"__HIVE_DEFAULT_PARTITION__"`)
 #' @return A [HivePartitioning][Partitioning], or a `HivePartitioningFactory` if
 #' calling `hive_partition()` with no arguments.
 #' @examples
