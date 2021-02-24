@@ -675,7 +675,7 @@ gdv_timestamp castTIMESTAMP_utf8(int64_t context, const char* input, gdv_int32 l
     if (sub_seconds_len > 3) {
       double millis =
           (ts_fields[TimeFields::kSubSeconds] * 1.0) / pow(10, sub_seconds_len - 3);
-      ts_fields[TimeFields::kSubSeconds] = round(millis);
+      ts_fields[TimeFields::kSubSeconds] = (int)round(millis);
     } else {
       while (sub_seconds_len < 3) {
         ts_fields[TimeFields::kSubSeconds] *= 10;
