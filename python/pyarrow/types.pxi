@@ -2449,8 +2449,13 @@ def sparse_union(child_fields, type_codes=None):
     """
     Create SparseUnionType from child fields.
 
-    A union is defined by an ordered sequence of child types; each slot in
-    the union can have a value chosen from these types.
+    A sparse union is a nested type where each logical value is taken from
+    a single child.  A buffer of 8-bit type ids indicates which child
+    a given logical value is to be taken from.
+
+    In a sparse union, each child array should have the same length as the
+    union array, regardless of the actual number of union values that
+    refer to it.
 
     Parameters
     ----------
@@ -2478,8 +2483,16 @@ def dense_union(child_fields, type_codes=None):
     """
     Create DenseUnionType from child fields.
 
-    A union is defined by an ordered sequence of child types; each slot in
-    the union can have a value chosen from these types.
+    A dense union is a nested type where each logical value is taken from
+    a single child, at a specific offset.  A buffer of 8-bit type ids
+    indicates which child a given logical value is to be taken from,
+    and a buffer of 32-bit offsets indicates at which physical position
+    in the given child array the logical value is to be taken from.
+
+    Unlike a sparse union, a dense union allows encoding only the child array
+    values which are actually referred to by the union array.  This is
+    counterbalanced by the additional footprint of the offsets buffer, and
+    the additional indirection cost when looking up values.
 
     Parameters
     ----------
@@ -2507,8 +2520,12 @@ def union(child_fields, mode, type_codes=None):
     """
     Create UnionType from child fields.
 
-    A union is defined by an ordered sequence of child types; each slot in
-    the union can have a value chosen from these types.
+    A union is a nested type where each logical value is taken from a
+    single child.  A buffer of 8-bit type ids indicates which child
+    a given logical value is to be taken from.
+
+    Unions come in two flavors: sparse and dense
+    (see also `pyarrow.sparse_union` and `pyarrow.dense_union`).
 
     Parameters
     ----------
