@@ -148,19 +148,31 @@ N/A
   EXPECT_EQ(supported, true);
 }
 
-TEST_F(TestCsvFileFormat, NonMaterializedFieldWithDifferingTypeFromInferred) {
-  auto source = GetFileSource(R"(f64,str
+TEST_F(TestCsvFileFormat, NonProjectedFieldWithDifferingTypeFromInferred) {
+  auto source = GetFileSource(R"(betrayal_not_really_f64,str
 1.0,foo
 ,
 N/A,bar
 2,baz)");
   ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
+  ASSERT_OK_AND_ASSIGN(auto physical_schema, fragment->ReadPhysicalSchema());
+  AssertSchemaEqual(
+      Schema({field("betrayal_not_really_f64", float64()), field("str", utf8())}),
+      *physical_schema);
 
-  // a valid schema for source:
-  auto dataset_schema = schema({field("f64", utf8()), field("str", utf8())});
+  // CSV is a text format, so it is valid to read column betrayal_not_really_f64 as string
+  // rather than double
+  auto not_float64 = utf8();
+  auto dataset_schema =
+      schema({field("betrayal_not_really_f64", not_float64), field("str", utf8())});
+
   ScannerBuilder builder(dataset_schema, fragment, ctx_);
-  // filter expression validated against declared schema
-  ASSERT_OK(builder.Filter(equal(field_ref("f64"), field_ref("str"))));
+
+  // This filter is valid with declared schema, but would *not* be valid
+  // if betrayal_not_really_f64 were read as double rather than string.
+  ASSERT_OK(
+      builder.Filter(equal(field_ref("betrayal_not_really_f64"), field_ref("str"))));
+
   // project only "str"
   ASSERT_OK(builder.Project({"str"}));
   ASSERT_OK_AND_ASSIGN(auto scanner, builder.Finish());
@@ -170,9 +182,10 @@ N/A,bar
     ASSERT_OK_AND_ASSIGN(auto scan_task, maybe_scan_task);
     ASSERT_OK_AND_ASSIGN(auto batch_it, scan_task->Execute());
     for (auto maybe_batch : batch_it) {
-      // ERROR: "f64" is not projected and reverts to inferred type,
-      // breaking the comparison expression
       ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+      // Run through the scan checking for errors to ensure that "f64" is read with the
+      // specified type and does not revert to the inferred type (if it reverts to
+      // inferring float64 then evaluation of the comparison expression should break)
     }
   }
 }

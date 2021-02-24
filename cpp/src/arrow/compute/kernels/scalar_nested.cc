@@ -71,7 +71,7 @@ Result<ValueDescr> ProjectResolve(KernelContext* ctx,
     return Status::Invalid("project() was passed ", descrs.size(), " arguments but ",
                            names.size(), " field names, ", nullable.size(),
                            " nullability bits, and ", metadata.size(),
-                           " nullability bits.");
+                           " metadata dictionaries.");
   }
 
   size_t i = 0;
@@ -101,6 +101,16 @@ Result<ValueDescr> ProjectResolve(KernelContext* ctx,
 
 void ProjectExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   KERNEL_ASSIGN_OR_RAISE(auto descr, ctx, ProjectResolve(ctx, batch.GetDescriptors()));
+
+  for (int i = 0; i < batch.num_values(); ++i) {
+    const auto& field = checked_cast<const StructType&>(*descr.type).field(i);
+    if (batch[i].null_count() > 0 && !field->nullable()) {
+      ctx->SetStatus(Status::Invalid("Output field ", field, " (#", i,
+                                     ") does not allow nulls but the corresponding "
+                                     "argument was not entirely valid."));
+      return;
+    }
+  }
 
   if (descr.shape == ValueDescr::SCALAR) {
     ScalarVector scalars(batch.num_values());

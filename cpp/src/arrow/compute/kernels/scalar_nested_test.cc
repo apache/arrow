@@ -96,6 +96,10 @@ TEST(Project, NullableMetadataPassedThru) {
                                     field("i", int32(), /*nullable=*/true, metadata[0]),
                                     field("s", utf8(), /*nullable=*/false, nullptr),
                                 }));
+
+  // error: projecting an array containing nulls with nullable=false
+  str = ArrayFromJSON(utf8(), R"(["aa", null, "aa"])");
+  ASSERT_RAISES(Invalid, Project({i32, str}, field_names, nullability, metadata));
 }
 
 TEST(Project, ChunkedArray) {
