@@ -48,20 +48,20 @@ struct {
 } Project;
 
 TEST(Project, Scalar) {
-  std::shared_ptr<StructScalar> expected(new StructScalar{{}, struct_({})});
-  ASSERT_OK_AND_EQ(Datum(expected), Project({}, {}));
-
   auto i32 = MakeScalar(1);
   auto f64 = MakeScalar(2.5);
   auto str = MakeScalar("yo");
 
-  expected.reset(new StructScalar{
-      {i32, f64, str},
-      struct_({field("i", i32->type), field("f", f64->type), field("s", str->type)})});
+  ASSERT_OK_AND_ASSIGN(auto expected,
+                       StructScalar::Make({i32, f64, str}, {"i", "f", "s"}));
   ASSERT_OK_AND_EQ(Datum(expected), Project({i32, f64, str}, {"i", "f", "s"}));
 
   // Three field names but one input value
   ASSERT_RAISES(Invalid, Project({str}, {"i", "f", "s"}));
+
+  // No field names or input values is fine
+  expected.reset(new StructScalar{{}, struct_({})});
+  ASSERT_OK_AND_EQ(Datum(expected), Project(/*args=*/{}, /*field_names=*/{}));
 }
 
 TEST(Project, Array) {

@@ -55,7 +55,7 @@ struct ARROW_DS_EXPORT ScanOptions {
   Expression filter = literal(true);
   Expression projection;
 
-  // Schema with which batches will be read from disk
+  // Schema with which batches will be read from fragments
   std::shared_ptr<Schema> dataset_schema;
 
   // Schema of projected record batches
@@ -188,7 +188,7 @@ class ARROW_DS_EXPORT ScannerBuilder {
 
   /// \brief Set the subset of columns to materialize.
   ///
-  /// Columns which are not referenced may not be loaded from disk.
+  /// Columns which are not referenced may not be read from fragments.
   ///
   /// \param[in] columns list of columns to project. Order and duplicates will
   ///            be preserved.
@@ -199,7 +199,7 @@ class ARROW_DS_EXPORT ScannerBuilder {
 
   /// \brief Set expressions which will be evaluated to produce the materialized columns.
   ///
-  /// Columns which are not referenced may not be loaded from disk.
+  /// Columns which are not referenced may not be read from fragments.
   ///
   /// \param[in] exprs expressions to evaluate to produce columns.
   /// \param[in] names list of names for the resulting columns.
@@ -213,7 +213,7 @@ class ARROW_DS_EXPORT ScannerBuilder {
   /// The predicate will be passed down to Sources and corresponding
   /// Fragments to exploit predicate pushdown if possible using
   /// partition information or Fragment internal metadata, e.g. Parquet statistics.
-  /// Columns which are not referenced may not be loaded from disk.
+  /// Columns which are not referenced may not be read from fragments.
   ///
   /// \param[in] filter expression to filter rows with.
   ///
