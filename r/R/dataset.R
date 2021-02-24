@@ -64,11 +64,15 @@ open_dataset <- function(sources,
                          partitioning = hive_partition(),
                          unify_schemas = NULL,
                          ...) {
-  # If you aren't explicit with the argument names it looks like everything
-  # works but it will create a segfault and crash the R session, this fixes it
-  if (any(class(schema) %in% "HivePartitioning")) {
-    partitioning <- schema
-    schema <- NULL
+  if (isFALSE(inherits(schema, "Schema")) && isFALSE(is.null(schema))) {
+    stop(
+      paste("The specified schema does not inherit Schema class",
+        "Did you try to pass partitioning = hive_partition(...)?",
+        "Try, for example,",
+        "open_dataset(hive_dir, partitioning = hive_partition(other = utf8(), group = uint8()))",
+        sep = "\n"
+      )
+    )
   }
   if (is_list_of(sources, "Dataset")) {
     if (is.null(schema)) {

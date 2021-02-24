@@ -194,8 +194,26 @@ test_that("Hive partitioning", {
   )
 })
 
-test_that("Hive partitioning without explicit argument name", {
-  ds <- open_dataset(hive_dir, hive_partition(other = utf8(), group = uint8()))
+test_that("open_dataset fails when partitioning is passed as schema", {
+  expect_error(
+    open_dataset(hive_dir, hive_partition(other = utf8(), group = uint8()))
+  )
+
+  # skipping schema
+  ds <- open_dataset(hive_dir, , hive_partition(other = utf8(), group = uint8()))
+  expect_is(ds, "Dataset")
+  expect_equivalent(
+    ds %>%
+      filter(group == 2) %>%
+      select(chr, dbl) %>%
+      filter(dbl > 7 & dbl < 53) %>%
+      collect() %>%
+      arrange(dbl),
+    df2[1:2, c("chr", "dbl")]
+  )
+
+  # and again with explicit argument
+  ds <- open_dataset(hive_dir, partitioning = hive_partition(other = utf8(), group = uint8()))
   expect_is(ds, "Dataset")
   expect_equivalent(
     ds %>%
