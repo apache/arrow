@@ -663,11 +663,14 @@ struct ScalarUnaryNotNullStateful {
     static void Exec(const ThisType& functor, KernelContext* ctx, const ArrayData& arg0,
                      Datum* out) {
       ArrayData* out_arr = out->mutable_array();
-      auto out_data = out_arr->GetMutableValues<Decimal128>(1);
+      // Decimal128 data buffers are not safely reinterpret_cast-able on big-endian
+      using endian_agnostic = std::array<uint8_t, sizeof(Decimal128)>;
+      auto out_data = out_arr->GetMutableValues<endian_agnostic>(1);
       VisitArrayValuesInline<Arg0Type>(
           arg0,
           [&](Arg0Value v) {
-            *out_data++ = functor.op.template Call<OutValue, Arg0Value>(ctx, v);
+            functor.op.template Call<OutValue, Arg0Value>(ctx, v).ToBytes(
+                out_data++->data());
           },
           [&]() { ++out_data; });
     }
