@@ -104,33 +104,12 @@ jobs:
         # We should use LLVM provided by Ubuntu.
         LLVM: "10"
         UBUNTU: "20.04"
-
-    - name: "Go on s390x"
-      os: linux
-      arch: s390x
-      env:
-        <<: *global_env
-        ARCH: s390x
-        ARROW_CI_MODULES: "GO"
-        DOCKER_IMAGE_ID: debian-go
-
-    - name: "Java on s390x"
-      os: linux
-      arch: s390x
-      env:
-        <<: *global_env
-        ARCH: s390x
-        ARROW_CI_MODULES: "JAVA"
-        DOCKER_IMAGE_ID: debian-java
-        JDK: 11
-        
-    
     - name: "C++ on ppc64le"
       os: linux
       arch: ppc64le
       env:
         <<: *global_env
-        ARCH: s390x
+        ARCH: ppc64le
         ARROW_CI_MODULES: "CPP"
         DOCKER_IMAGE_ID: ubuntu-cpp
         # Can't enable ARROW_MIMALLOC because of failures in memory pool tests.
@@ -156,25 +135,43 @@ jobs:
         # We should use LLVM provided by Ubuntu.
         LLVM: "10"
         UBUNTU: "20.04"
+ 
 
-    - name: "Go on ppc64le"
+    - name: "Go on s390x"
       os: linux
-      arch: ppc64le
+      arch: s390x
       env:
         <<: *global_env
         ARCH: s390x
         ARROW_CI_MODULES: "GO"
         DOCKER_IMAGE_ID: debian-go
-
-    - name: "Java on ppc64le"
+    - name: "Go on ppc64le"
       os: linux
       arch: ppc64le
+      env:
+        <<: *global_env
+        ARCH: ppc64le
+        ARROW_CI_MODULES: "GO"
+        DOCKER_IMAGE_ID: debian-go
+
+    - name: "Java on s390x"
+      os: linux
+      arch: s390x
       env:
         <<: *global_env
         ARCH: s390x
         ARROW_CI_MODULES: "JAVA"
         DOCKER_IMAGE_ID: debian-java
-        JDK: 11    
+        JDK: 11
+    - name: "Java on ppc64le"
+      os: linux
+      arch: ppc64le
+      env:
+        <<: *global_env
+        ARCH: ppc64le
+        ARROW_CI_MODULES: "JAVA"
+        DOCKER_IMAGE_ID: debian-java
+        JDK: 11 
 
   allow_failures:
     - arch: s390x
