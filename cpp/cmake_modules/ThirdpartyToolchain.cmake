@@ -1939,9 +1939,12 @@ macro(build_xsimd)
 endmacro()
 
 # For now xsimd is always bundled from upstream
-build_xsimd()
-# TODO: Don't use global includes but rather target_include_directories
-include_directories(SYSTEM ${XSIMD_INCLUDE_DIR})
+if(1)
+  set(xsimd_SOURCE "BUNDLED")
+  resolve_dependency(xsimd)
+  # TODO: Don't use global includes but rather target_include_directories
+  include_directories(SYSTEM ${XSIMD_INCLUDE_DIR})
+endif()
 
 macro(build_zlib)
   message(STATUS "Building ZLIB from source")
