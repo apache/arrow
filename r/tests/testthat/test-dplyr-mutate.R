@@ -271,6 +271,19 @@ twice: expr
 
 See $.data for the source Arrow object',
   fixed = TRUE)
+
+  # Handling non-expressions/edge cases
+  expect_output(
+    Table$create(tbl) %>%
+      select(int) %>%
+      mutate(again = 1:10) %>%
+      print(),
+'Table (query)
+int: int32
+again: expr
+
+See $.data for the source Arrow object',
+  fixed = TRUE)
 })
 
 test_that("mutate and write_dataset", {

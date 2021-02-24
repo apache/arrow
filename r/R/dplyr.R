@@ -84,7 +84,18 @@ get_field_names <- function(selected_cols) {
   if (inherits(selected_cols, "arrow_dplyr_query")) {
     selected_cols <- selected_cols$selected_columns
   }
-  map_chr(selected_cols, ~.$field_name %||% .$args$field_name %||% "")
+  map_chr(selected_cols, function(x) {
+    if (inherits(x, "Expression")) {
+      out <- x$field_name
+    } else if (inherits(x, "array_expression")) {
+      out <- x$args$field_name
+    } else {
+      out <- NULL
+    }
+    # If x isn't some kind of field reference, out is NULL,
+    # but we always need to return a string
+    out %||% ""
+  })
 }
 
 make_field_refs <- function(field_names, dataset = TRUE) {
@@ -513,6 +524,7 @@ mutate.arrow_dplyr_query <- function(.data,
     return(abandon_ship(call, .data, 'mutate() on grouped data not supported in Arrow'))
   }
 
+  # Check for unnamed expressions and fix if any
   unnamed <- !nzchar(names(exprs))
   # Deparse and take the first element in case they're long expressions
   names(exprs)[unnamed] <- map_chr(exprs[unnamed], ~deparse(.)[1])
