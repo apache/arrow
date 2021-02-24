@@ -626,8 +626,10 @@ class ARROW_EXPORT LargeListType : public BaseListType {
 /// \brief Concrete type class for map data
 ///
 /// Map data is nested data where each value is a variable number of
-/// key-item pairs.  Maps can be recursively nested, for example
-/// map(utf8, map(utf8, int32)).
+/// key-item pairs.  Its physical representation is the same as
+/// a list of `{key, item}` structs.
+///
+/// Maps can be recursively nested, for example map(utf8, map(utf8, int32)).
 class ARROW_EXPORT MapType : public ListType {
  public:
   static constexpr Type::type type_id = Type::MAP;
@@ -894,6 +896,19 @@ class ARROW_EXPORT DecimalType : public FixedSizeBinaryType {
 };
 
 /// \brief Concrete type class for 128-bit decimal data
+///
+/// Arrow decimals are fixed-point decimal numbers encoded as a scaled
+/// integer.  The precision is the number of significant digits that the
+/// decimal type can represent; the scale is the number of digits after
+/// the decimal point (note the scale can be negative).
+///
+/// As an example, `Decimal128Type(7, 3)` can exactly represent the numbers
+/// 1234.567 and -1234.567 (encoded internally as the 128-bit integers
+/// 1234567 and -1234567, respectively), but neither 12345.67 nor 123.4567.
+///
+/// Decimal128Type has a maximum precision of 38 significant digits
+/// (also available as Decimal128Type::kMaxPrecision).
+/// If higher precision is needed, consider using Decimal256Type.
 class ARROW_EXPORT Decimal128Type : public DecimalType {
  public:
   static constexpr Type::type type_id = Type::DECIMAL128;
@@ -915,6 +930,18 @@ class ARROW_EXPORT Decimal128Type : public DecimalType {
 };
 
 /// \brief Concrete type class for 256-bit decimal data
+///
+/// Arrow decimals are fixed-point decimal numbers encoded as a scaled
+/// integer.  The precision is the number of significant digits that the
+/// decimal type can represent; the scale is the number of digits after
+/// the decimal point (note the scale can be negative).
+///
+/// Decimal256Type has a maximum precision of 76 significant digits.
+/// (also available as Decimal256Type::kMaxPrecision).
+///
+/// For most use cases, the maximum precision offered by Decimal128Type
+/// is sufficient, and it will result in a more compact and more efficient
+/// encoding.
 class ARROW_EXPORT Decimal256Type : public DecimalType {
  public:
   static constexpr Type::type type_id = Type::DECIMAL256;
@@ -935,7 +962,7 @@ class ARROW_EXPORT Decimal256Type : public DecimalType {
   static constexpr int32_t kByteWidth = 32;
 };
 
-/// \brief Concrete type class for union data
+/// \brief Base type class for union data
 class ARROW_EXPORT UnionType : public NestedType {
  public:
   static constexpr int8_t kMaxTypeCode = 127;
@@ -983,6 +1010,17 @@ class ARROW_EXPORT UnionType : public NestedType {
   std::vector<int> child_ids_;
 };
 
+/// \brief Concrete type class for sparse union data
+///
+/// A sparse union is a nested type where each logical value is taken from
+/// a single child.  A buffer of 8-bit type ids indicates which child
+/// a given logical value is to be taken from.
+///
+/// In a sparse union, each child array should have the same length as the
+/// union array, regardless of the actual number of union values that
+/// refer to it.
+///
+/// Note that, unlike most other types, unions don't have a top-level validity bitmap.
 class ARROW_EXPORT SparseUnionType : public UnionType {
  public:
   static constexpr Type::type type_id = Type::SPARSE_UNION;
@@ -999,6 +1037,20 @@ class ARROW_EXPORT SparseUnionType : public UnionType {
   std::string name() const override { return "sparse_union"; }
 };
 
+/// \brief Concrete type class for dense union data
+///
+/// A dense union is a nested type where each logical value is taken from
+/// a single child, at a specific offset.  A buffer of 8-bit type ids
+/// indicates which child a given logical value is to be taken from,
+/// and a buffer of 32-bit offsets indicates at which physical position
+/// in the given child array the logical value is to be taken from.
+///
+/// Unlike a sparse union, a dense union allows encoding only the child array
+/// values which are actually referred to by the union array.  This is
+/// counterbalanced by the additional footprint of the offsets buffer, and
+/// the additional indirection cost when looking up values.
+///
+/// Note that, unlike most other types, unions don't have a top-level validity bitmap.
 class ARROW_EXPORT DenseUnionType : public UnionType {
  public:
   static constexpr Type::type type_id = Type::DENSE_UNION;

@@ -94,9 +94,9 @@ cdef api object pyarrow_wrap_data_type(
     elif type.get().id() == _Type_STRUCT:
         out = StructType.__new__(StructType)
     elif type.get().id() == _Type_SPARSE_UNION:
-        out = UnionType.__new__(UnionType)
+        out = SparseUnionType.__new__(SparseUnionType)
     elif type.get().id() == _Type_DENSE_UNION:
-        out = UnionType.__new__(UnionType)
+        out = DenseUnionType.__new__(DenseUnionType)
     elif type.get().id() == _Type_TIMESTAMP:
         out = TimestampType.__new__(TimestampType)
     elif type.get().id() == _Type_DURATION:
