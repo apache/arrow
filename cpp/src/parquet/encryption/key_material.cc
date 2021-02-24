@@ -22,8 +22,8 @@
 #include "parquet/encryption/key_metadata.h"
 #include "parquet/exception.h"
 
-using arrow::json::internal::ObjectParser;
-using arrow::json::internal::ObjectWriter;
+using ::arrow::json::internal::ObjectParser;
+using ::arrow::json::internal::ObjectWriter;
 
 namespace parquet {
 namespace encryption {

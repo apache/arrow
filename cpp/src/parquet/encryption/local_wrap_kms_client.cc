@@ -22,8 +22,8 @@
 #include "parquet/encryption/local_wrap_kms_client.h"
 #include "parquet/exception.h"
 
-using arrow::json::internal::ObjectParser;
-using arrow::json::internal::ObjectWriter;
+using ::arrow::json::internal::ObjectParser;
+using ::arrow::json::internal::ObjectWriter;
 
 namespace parquet {
 namespace encryption {
@@ -51,7 +51,7 @@ std::string LocalWrapKmsClient::LocalKeyWrap::CreateSerialized(
 LocalWrapKmsClient::LocalKeyWrap LocalWrapKmsClient::LocalKeyWrap::Parse(
     const std::string& wrapped_key) {
   ObjectParser json_parser;
-  arrow::Status status = json_parser.Parse(wrapped_key);
+  ::arrow::Status status = json_parser.Parse(wrapped_key);
   if (!status.ok()) {
     throw ParquetException("Failed to parse local key wrap json " + wrapped_key);
   }
