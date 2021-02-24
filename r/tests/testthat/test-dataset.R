@@ -194,6 +194,20 @@ test_that("Hive partitioning", {
   )
 })
 
+test_that("Hive partitioning without explicit argument name", {
+  ds <- open_dataset(hive_dir, hive_partition(other = utf8(), group = uint8()))
+  expect_is(ds, "Dataset")
+  expect_equivalent(
+    ds %>%
+      filter(group == 2) %>%
+      select(chr, dbl) %>%
+      filter(dbl > 7 & dbl < 53) %>%
+      collect() %>%
+      arrange(dbl),
+    df2[1:2, c("chr", "dbl")]
+  )
+})
+
 test_that("Partitioning inference", {
   # These are the same tests as above, just using the *PartitioningFactory
   ds1 <- open_dataset(dataset_dir, partitioning = "part")

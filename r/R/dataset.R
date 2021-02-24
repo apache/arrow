@@ -64,6 +64,12 @@ open_dataset <- function(sources,
                          partitioning = hive_partition(),
                          unify_schemas = NULL,
                          ...) {
+  # If you aren't explicit with the argument names it looks like everything
+  # works but it will create a segfault and crash the R session, this fixes it
+  if (any(class(schema) %in% "HivePartitioning")) {
+    partitioning <- schema
+    schema <- NULL
+  }
   if (is_list_of(sources, "Dataset")) {
     if (is.null(schema)) {
       if (is.null(unify_schemas) || isTRUE(unify_schemas)) {
