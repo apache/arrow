@@ -21,6 +21,7 @@ extern "C" {
 
 #define __STDC_FORMAT_MACROS
 #include <inttypes.h>
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -672,13 +673,14 @@ gdv_timestamp castTIMESTAMP_utf8(int64_t context, const char* input, gdv_int32 l
   // adjust the milliseconds
   if (sub_seconds_len > 0) {
     if (sub_seconds_len > 3) {
-      const char* msg = "Invalid millis for timestamp value ";
-      set_error_for_date(length, input, msg, context);
-      return 0;
-    }
-    while (sub_seconds_len < 3) {
-      ts_fields[TimeFields::kSubSeconds] *= 10;
-      sub_seconds_len++;
+      double millis =
+          (ts_fields[TimeFields::kSubSeconds] * 1.0) / pow(10, sub_seconds_len - 3);
+      ts_fields[TimeFields::kSubSeconds] = round(millis);
+    } else {
+      while (sub_seconds_len < 3) {
+        ts_fields[TimeFields::kSubSeconds] *= 10;
+        sub_seconds_len++;
+      }
     }
   }
   // handle timezone

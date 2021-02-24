@@ -121,15 +121,16 @@ TEST(TestTime, TestCastTimestamp) {
             "Not a valid time for timestamp value 2000-01-01 00:00:100");
   context.Reset();
 
-  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-01-01 00:00:00.0001", 24), 0);
-  EXPECT_EQ(context.get_error(),
-            "Invalid millis for timestamp value 2000-01-01 00:00:00.0001");
-  context.Reset();
-
-  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-01-01 00:00:00.1000", 24), 0);
-  EXPECT_EQ(context.get_error(),
-            "Invalid millis for timestamp value 2000-01-01 00:00:00.1000");
-  context.Reset();
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-01-01 00:00:00.0001", 24),
+            castTIMESTAMP_utf8(context_ptr, "2000-01-01 00:00:00", 19));
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-01-01 00:00:00.1000", 24),
+            castTIMESTAMP_utf8(context_ptr, "2000-01-01 00:00:00", 19) + 100);
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-01-01 00:00:00.999999999", 29),
+            castTIMESTAMP_utf8(context_ptr, "2000-01-01 00:00:01", 19));
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-01-01 00:00:00.123456", 26),
+            castTIMESTAMP_utf8(context_ptr, "2000-01-01 00:00:00", 19) + 123);
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-01-01 00:00:00.000999", 26),
+            castTIMESTAMP_utf8(context_ptr, "2000-01-01 00:00:00", 19) + 1);
 }
 
 #ifndef _WIN32
