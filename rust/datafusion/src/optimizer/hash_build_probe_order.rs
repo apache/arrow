@@ -146,10 +146,10 @@ impl OptimizerRule for HashBuildProbeOrder {
             | LogicalPlan::CreateExternalTable { .. }
             | LogicalPlan::Explain { .. }
             | LogicalPlan::Extension { .. } => {
-                let expr = utils::expressions(plan);
+                let expr = plan.expressions();
 
                 // apply the optimization to all inputs of the plan
-                let inputs = utils::inputs(plan);
+                let inputs = plan.inputs();
                 let new_inputs = inputs
                     .iter()
                     .map(|plan| self.optimize(plan))
