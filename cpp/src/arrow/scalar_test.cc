@@ -111,10 +111,12 @@ TYPED_TEST(TestNumericScalar, Hashing) {
   using ScalarType = typename TypeTraits<TypeParam>::ScalarType;
 
   std::unordered_set<std::shared_ptr<Scalar>, Scalar::Hash, Scalar::PtrsEqual> set;
+  set.emplace(std::make_shared<ScalarType>());
   for (T i = 0; i < 10; ++i) {
     set.emplace(std::make_shared<ScalarType>(i));
   }
 
+  ASSERT_FALSE(set.emplace(std::make_shared<ScalarType>()).second);
   for (T i = 0; i < 10; ++i) {
     ASSERT_FALSE(set.emplace(std::make_shared<ScalarType>(i)).second);
   }
@@ -404,6 +406,23 @@ TEST(TestBinaryScalar, Basics) {
   ASSERT_TRUE(one->Equals(BinaryScalar(Buffer::FromString("one"))));
   ASSERT_TRUE(two->Equals(BinaryScalar(Buffer::FromString("two"))));
   ASSERT_FALSE(two->Equals(BinaryScalar(Buffer::FromString("else"))));
+}
+
+TEST(TestBinaryScalar, Hashing) {
+  auto FromInt = [](int i) {
+    return std::make_shared<BinaryScalar>(Buffer::FromString(std::to_string(i)));
+  };
+
+  std::unordered_set<std::shared_ptr<Scalar>, Scalar::Hash, Scalar::PtrsEqual> set;
+  set.emplace(std::make_shared<BinaryScalar>());
+  for (int i = 0; i < 10; ++i) {
+    set.emplace(FromInt(i));
+  }
+
+  ASSERT_FALSE(set.emplace(std::make_shared<BinaryScalar>()).second);
+  for (int i = 0; i < 10; ++i) {
+    ASSERT_FALSE(set.emplace(FromInt(i)).second);
+  }
 }
 
 TEST(TestStringScalar, MakeScalar) {
