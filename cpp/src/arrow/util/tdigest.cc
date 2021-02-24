@@ -332,6 +332,14 @@ class TDigest::TDigestImpl {
     return Lerp(td[ci_left].mean, td[ci_right].mean, diff);
   }
 
+  double Mean() const {
+    double sum = 0;
+    for (const auto& centroid : tdigests_[current_]) {
+      sum += centroid.mean * centroid.weight;
+    }
+    return total_weight_ == 0 ? NAN : sum / total_weight_;
+  }
+
   double total_weight() const { return total_weight_; }
 
  private:
@@ -387,6 +395,11 @@ void TDigest::Merge(std::vector<TDigest>* tdigests) {
 double TDigest::Quantile(double q) {
   MergeInput();
   return impl_->Quantile(q);
+}
+
+double TDigest::Mean() {
+  MergeInput();
+  return impl_->Mean();
 }
 
 bool TDigest::is_empty() const {

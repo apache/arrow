@@ -21,12 +21,6 @@
 #include <string>
 #include <vector>
 
-#include <boost/accumulators/accumulators.hpp>
-#include <boost/accumulators/statistics/extended_p_square_quantile.hpp>
-#include <boost/accumulators/statistics/max.hpp>
-#include <boost/accumulators/statistics/mean.hpp>
-#include <boost/accumulators/statistics/stats.hpp>
-
 #include <gflags/gflags.h>
 
 #include "arrow/io/memory.h"
@@ -34,6 +28,7 @@
 #include "arrow/record_batch.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/stopwatch.h"
+#include "arrow/util/tdigest.h"
 #include "arrow/util/thread_pool.h"
 
 #include "arrow/flight/api.h"
@@ -59,7 +54,6 @@ DEFINE_int32(records_per_batch, 4096, "Total records per batch within stream");
 DEFINE_bool(test_put, false, "Test DoPut instead of DoGet");
 
 namespace perf = arrow::flight::perf;
-namespace acc = boost::accumulators;
 
 namespace arrow {
 
@@ -75,17 +69,12 @@ struct PerformanceResult {
 };
 
 struct PerformanceStats {
-  using accumulator_type = acc::accumulator_set<
-      double, acc::stats<acc::tag::extended_p_square_quantile(acc::quadratic),
-                         acc::tag::mean, acc::tag::max>>;
-
-  PerformanceStats() : latencies(acc::extended_p_square_probabilities = quantiles) {}
   std::mutex mutex;
   int64_t total_batches = 0;
   int64_t total_records = 0;
   int64_t total_bytes = 0;
   const std::array<double, 3> quantiles = {0.5, 0.95, 0.99};
-  accumulator_type latencies;
+  mutable arrow::internal::TDigest latencies;
 
   void Update(int64_t total_batches, int64_t total_records, int64_t total_bytes) {
     std::lock_guard<std::mutex> lock(this->mutex);
@@ -99,17 +88,15 @@ struct PerformanceStats {
   // A better approach may be calculate per-thread quantiles and merge.
   void AddLatency(uint64_t elapsed_nanos) {
     std::lock_guard<std::mutex> lock(this->mutex);
-    latencies(elapsed_nanos);
+    latencies.Add(static_cast<double>(elapsed_nanos));
   }
 
   // ns -> us
-  uint64_t max_latency() const { return acc::max(latencies) / 1000; }
+  uint64_t max_latency() const { return latencies.Max() / 1000; }
 
-  uint64_t mean_latency() const { return acc::mean(latencies) / 1000; }
+  uint64_t mean_latency() const { return latencies.Mean() / 1000; }
 
-  uint64_t quantile_latency(double q) const {
-    return acc::quantile(latencies, acc::quantile_probability = q) / 1000;
-  }
+  uint64_t quantile_latency(double q) const { return latencies.Quantile(q) / 1000; }
 };
 
 Status WaitForReady(FlightClient* client) {

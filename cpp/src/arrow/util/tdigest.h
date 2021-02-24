@@ -80,6 +80,10 @@ class ARROW_EXPORT TDigest {
   // calculate quantile
   double Quantile(double q);
 
+  double Min() { return Quantile(0); }
+  double Max() { return Quantile(1); }
+  double Mean();
+
   // check if this tdigest contains no valid data points
   bool is_empty() const;
 
