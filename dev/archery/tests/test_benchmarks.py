@@ -17,32 +17,36 @@
 
 import json
 
+from archery.benchmark.codec import JsonEncoder
 from archery.benchmark.core import Benchmark, median
 from archery.benchmark.compare import BenchmarkComparator
 from archery.benchmark.google import (
     GoogleBenchmark, GoogleBenchmarkObservation
 )
-from archery.utils.codec import JsonEncoder
 
 
 def test_benchmark_comparator():
     unit = "micros"
 
     assert not BenchmarkComparator(
-        Benchmark("contender", unit, True, [10]),
-        Benchmark("baseline", unit, True, [20])).regression
+        Benchmark("contender", unit, True, [10], unit, [1]),
+        Benchmark("baseline", unit, True, [20], unit, [1]),
+    ).regression
 
     assert BenchmarkComparator(
-        Benchmark("contender", unit, False, [10]),
-        Benchmark("baseline", unit, False, [20])).regression
+        Benchmark("contender", unit, False, [10], unit, [1]),
+        Benchmark("baseline", unit, False, [20], unit, [1]),
+    ).regression
 
     assert BenchmarkComparator(
-        Benchmark("contender", unit, True, [20]),
-        Benchmark("baseline", unit, True, [10])).regression
+        Benchmark("contender", unit, True, [20], unit, [1]),
+        Benchmark("baseline", unit, True, [10], unit, [1]),
+    ).regression
 
     assert not BenchmarkComparator(
-        Benchmark("contender", unit, False, [20]),
-        Benchmark("baseline", unit, False, [10])).regression
+        Benchmark("contender", unit, False, [20], unit, [1]),
+        Benchmark("baseline", unit, False, [10], unit, [1]),
+    ).regression
 
 
 def test_benchmark_median():
@@ -65,7 +69,97 @@ def assert_benchmark(name, google_result, archery_result):
     assert json.loads(result) == archery_result
 
 
-def test_prefer_real_time():
+def test_items_per_second():
+    name = "ArrayArrayKernel<AddChecked, UInt8Type>/32768/0"
+    google_result = {
+        "cpu_time": 116292.58886653671,
+        "items_per_second": 281772039.9844759,
+        "iterations": 5964,
+        "name": name,
+        "null_percent": 0.0,
+        "real_time": 119811.77313729875,
+        "repetition_index": 0,
+        "repetitions": 0,
+        "run_name": name,
+        "run_type": "iteration",
+        "size": 32768.0,
+        "threads": 1,
+        "time_unit": "ns",
+    }
+    archery_result = {
+        "name": name,
+        "unit": "items_per_second",
+        "less_is_better": False,
+        "values": [281772039.9844759],
+        "time_unit": "ns",
+        "times": [119811.77313729875],
+    }
+    assert "items_per_second" in google_result
+    assert "bytes_per_second" not in google_result
+    assert_benchmark(name, google_result, archery_result)
+
+
+def test_bytes_per_second():
+    name = "BufferOutputStreamLargeWrites/real_time"
+    google_result = {
+        "bytes_per_second": 1890209037.3405428,
+        "cpu_time": 17018127.659574457,
+        "iterations": 47,
+        "name": name,
+        "real_time": 17458386.53190963,
+        "repetition_index": 1,
+        "repetitions": 0,
+        "run_name": name,
+        "run_type": "iteration",
+        "threads": 1,
+        "time_unit": "ns",
+    }
+    archery_result = {
+        "name": name,
+        "unit": "bytes_per_second",
+        "less_is_better": False,
+        "values": [1890209037.3405428],
+        "time_unit": "ns",
+        "times": [17458386.53190963],
+    }
+    assert "items_per_second" not in google_result
+    assert "bytes_per_second" in google_result
+    assert_benchmark(name, google_result, archery_result)
+
+
+def test_both_items_and_bytes_per_second():
+    name = "ArrayArrayKernel<AddChecked, UInt8Type>/32768/0"
+    google_result = {
+        "bytes_per_second": 281772039.9844759,
+        "cpu_time": 116292.58886653671,
+        "items_per_second": 281772039.9844759,
+        "iterations": 5964,
+        "name": name,
+        "null_percent": 0.0,
+        "real_time": 119811.77313729875,
+        "repetition_index": 0,
+        "repetitions": 0,
+        "run_name": name,
+        "run_type": "iteration",
+        "size": 32768.0,
+        "threads": 1,
+        "time_unit": "ns",
+    }
+    # Note that bytes_per_second trumps items_per_second
+    archery_result = {
+        "name": name,
+        "unit": "bytes_per_second",
+        "less_is_better": False,
+        "values": [281772039.9844759],
+        "time_unit": "ns",
+        "times": [119811.77313729875],
+    }
+    assert "items_per_second" in google_result
+    assert "bytes_per_second" in google_result
+    assert_benchmark(name, google_result, archery_result)
+
+
+def test_neither_items_nor_bytes_per_second():
     name = "AllocateDeallocate<Jemalloc>/size:1048576/real_time"
     google_result = {
         "cpu_time": 1778.6004847419827,
@@ -74,7 +168,7 @@ def test_prefer_real_time():
         "real_time": 1835.3137357788837,
         "repetition_index": 0,
         "repetitions": 0,
-        "run_name": "AllocateDeallocate<Jemalloc>/size:1048576/real_time",
+        "run_name": name,
         "run_type": "iteration",
         "threads": 1,
         "time_unit": "ns",
@@ -84,6 +178,35 @@ def test_prefer_real_time():
         "unit": "ns",
         "less_is_better": True,
         "values": [1835.3137357788837],
+        "time_unit": "ns",
+        "times": [1835.3137357788837],
+    }
+    assert "items_per_second" not in google_result
+    assert "bytes_per_second" not in google_result
+    assert_benchmark(name, google_result, archery_result)
+
+
+def test_prefer_real_time():
+    name = "AllocateDeallocate<Jemalloc>/size:1048576/real_time"
+    google_result = {
+        "cpu_time": 1778.6004847419827,
+        "iterations": 352765,
+        "name": name,
+        "real_time": 1835.3137357788837,
+        "repetition_index": 0,
+        "repetitions": 0,
+        "run_name": name,
+        "run_type": "iteration",
+        "threads": 1,
+        "time_unit": "ns",
+    }
+    archery_result = {
+        "name": name,
+        "unit": "ns",
+        "less_is_better": True,
+        "values": [1835.3137357788837],
+        "time_unit": "ns",
+        "times": [1835.3137357788837],
     }
     assert name.endswith("/real_time")
     assert_benchmark(name, google_result, archery_result)
@@ -98,7 +221,7 @@ def test_prefer_cpu_time():
         "real_time": 1835.3137357788837,
         "repetition_index": 0,
         "repetitions": 0,
-        "run_name": "AllocateDeallocate<Jemalloc>/size:1048576",
+        "run_name": name,
         "run_type": "iteration",
         "threads": 1,
         "time_unit": "ns",
@@ -108,6 +231,8 @@ def test_prefer_cpu_time():
         "unit": "ns",
         "less_is_better": True,
         "values": [1778.6004847419827],
+        "time_unit": "ns",
+        "times": [1835.3137357788837],
     }
     assert not name.endswith("/real_time")
     assert_benchmark(name, google_result, archery_result)
@@ -122,7 +247,7 @@ def test_omits_aggregates():
         "name": "AllocateDeallocate<Jemalloc>/size:1048576/real_time_mean",
         "real_time": 1849.3869337041162,
         "repetitions": 0,
-        "run_name": "AllocateDeallocate<Jemalloc>/size:1048576/real_time",
+        "run_name": name,
         "run_type": "aggregate",
         "threads": 1,
         "time_unit": "ns",
@@ -134,7 +259,7 @@ def test_omits_aggregates():
         "real_time": 1835.3137357788837,
         "repetition_index": 0,
         "repetitions": 0,
-        "run_name": "AllocateDeallocate<Jemalloc>/size:1048576/real_time",
+        "run_name": name,
         "run_type": "iteration",
         "threads": 1,
         "time_unit": "ns",
@@ -144,6 +269,8 @@ def test_omits_aggregates():
         "unit": "ns",
         "less_is_better": True,
         "values": [1835.3137357788837],
+        "time_unit": "ns",
+        "times": [1835.3137357788837],
     }
     assert google_aggregate["run_type"] == "aggregate"
     assert google_result["run_type"] == "iteration"

@@ -25,10 +25,10 @@ import os
 import pathlib
 import sys
 
+from .benchmark.codec import JsonEncoder
 from .benchmark.compare import RunnerComparator, DEFAULT_THRESHOLD
 from .benchmark.runner import BenchmarkRunner, CppBenchmarkRunner
 from .lang.cpp import CppCMakeDefinition, CppConfiguration
-from .utils.codec import JsonEncoder
 from .utils.lint import linter, python_numpydoc, LintValidationException
 from .utils.logger import logger, ctx as log_ctx
 from .utils.source import ArrowSources, InvalidArrowSource
