@@ -261,3 +261,8 @@ Java_org_apache_arrow_plasma_PlasmaClientJNI_list(JNIEnv* env, jclass cls, jlong
 
   return ret;
 }
+
+JNIEXPORT jint JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_metrics(
+    JNIEnv* env, jclass cls, jlong conn, jlongArray result) {
+  return 0;
+}

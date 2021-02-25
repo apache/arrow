@@ -135,6 +135,14 @@ JNIEXPORT jobjectArray JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_list
                                                                                  jclass,
                                                                                  jlong);
 
+/*
+ * Class:     org_apache_arrow_plasma_PlasmaClientJNI
+ * Method:    metrics
+ * Signature: (J[J)I
+ */
+JNIEXPORT jint JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_metrics
+  (JNIEnv *, jclass, jlong, jlongArray);
+
 #ifdef __cplusplus
 }
 #endif
