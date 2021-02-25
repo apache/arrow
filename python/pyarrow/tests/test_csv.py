@@ -204,6 +204,21 @@ def test_convert_options():
     assert opts.timestamp_parsers == [ISO8601, '%Y-%m-%d']
 
 
+def test_write_options():
+    cls = WriteOptions
+    opts = cls()
+
+    check_options_class(
+        cls, include_header=[True, False])
+
+    assert opts.batch_size > 0
+    opts.batch_size = 12345
+    assert opts.batch_size == 12345
+
+    opts = cls(batch_size=9876)
+    assert opts.batch_size == 9876
+
+
 class BaseTestCSVRead:
 
     def read_bytes(self, b, **kwargs):
@@ -1264,7 +1279,7 @@ def test_write_read_round_trip():
     t = pa.Table.from_arrays([[1, 2, 3], ["a", "b", "c"]], ["c1", "c2"])
     record_batch = t.to_batches(max_chunksize=4)[0]
     for data in [t, record_batch]:
-        # test with header
+        # Test with header
         buf = io.BytesIO()
         write_csv(data, buf, WriteOptions(include_header=True))
         buf.seek(0)

@@ -775,10 +775,10 @@ cdef class WriteOptions(_Weakrefable):
     Parameters
     ----------
     include_header : bool, optional (default True)
-        Whether to include the header
+        Whether to write an initial header line with column names
     batch_size : int, optional (default 1024)
         How many rows to process together when converting and writing
-        CSV
+        CSV data
     """
     cdef:
         CCSVWriteOptions options
@@ -789,9 +789,32 @@ cdef class WriteOptions(_Weakrefable):
     def __init__(self, *, include_header=None, batch_size=None):
         self.options = CCSVWriteOptions.Defaults()
         if include_header is not None:
-            self.options.include_header = include_header
+            self.include_header = include_header
         if batch_size is not None:
-            self.options.batch_size = 1024
+            self.batch_size = batch_size
+
+    @property
+    def include_header(self):
+        """
+        Whether to write an initial header line with column names.
+        """
+        return self.options.include_header
+
+    @include_header.setter
+    def include_header(self, value):
+        self.options.include_header = value
+
+    @property
+    def batch_size(self):
+        """
+        How many rows to process together when converting and writing
+        CSV data.
+        """
+        return self.options.batch_size
+
+    @batch_size.setter
+    def batch_size(self, value):
+        self.options.batch_size = value
 
 
 cdef _get_write_options(WriteOptions write_options, CCSVWriteOptions* out):
@@ -804,16 +827,16 @@ cdef _get_write_options(WriteOptions write_options, CCSVWriteOptions* out):
 def write_csv(data, output_file, write_options=None,
               MemoryPool memory_pool=None):
     """
-    Writes data to output_file.
+    Write record batch or table to a CSV file.
 
     Parameters
     ----------
-    data: The data to write.
-        Either a pyarrow.RecordBatch or a pyarrow.Table
+    data: pyarrow.RecordBatch or pyarrow.Table
+        The data to write.
     output_file: string, path, pyarrow.OutputStream or file-like object
-        The location of CSV data.
+        The location where to write the CSV data.
     write_options: pyarrow.csv.WriteOptions
-        Options to configure writing the CSV file.
+        Options to configure writing the CSV data.
     memory_pool: MemoryPool, optional
         Pool for temporary allocations.
     """
