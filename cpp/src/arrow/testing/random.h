@@ -225,6 +225,17 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
     }
   }
 
+  /// \brief Generate a random Decimal128Array
+  ///
+  /// \param[in] type the type of the array to generate
+  ///            (must be an instance of Decimal128Type)
+  /// \param[in] size the size of the array to generate
+  /// \param[in] null_probability the probability of a row being null
+  ///
+  /// \return a generated Array
+  std::shared_ptr<Array> Decimal128(std::shared_ptr<DataType> type, int64_t size,
+                                    double null_probability = 0);
+
   /// \brief Generate an array of offsets (for use in e.g. ListArray::FromArrays)
   ///
   /// \param[in] size the size of the array to generate
