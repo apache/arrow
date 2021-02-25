@@ -633,22 +633,27 @@ public class TestMapVector {
       MapWriter valueWriter;
 
       // we are essentially writing Map<Long, Map<Long, Long>>
+      // populate map vector with the following three records
+      // [
+      //    null,
+      //    [1:[50: 100, 200:400], 2:[75: 175, 150: 250]],
+      //    [3:[10: 20], 4:[15: 20], 5:[25: 30, 35: null]]
+      // ]
 
+      /* write null at index 0 */
       mapWriter.setPosition(0);
+      mapWriter.writeNull();
+
+      /* write one or more maps at index 1 */
+      mapWriter.setPosition(1);
       mapWriter.startMap();
 
       mapWriter.startEntry();
       mapWriter.key().bigInt().writeBigInt(1);
       valueWriter = mapWriter.value().map(false);
       valueWriter.startMap();
-      valueWriter.startEntry();
-      valueWriter.key().bigInt().writeBigInt(50);
-      valueWriter.value().bigInt().writeBigInt(100);
-      valueWriter.endEntry();
-      valueWriter.startEntry();
-      valueWriter.key().bigInt().writeBigInt(200);
-      valueWriter.value().bigInt().writeBigInt(400);
-      valueWriter.endEntry();
+      writeEntry(valueWriter, 50, 100L);
+      writeEntry(valueWriter, 200, 400L);
       valueWriter.endMap();
       mapWriter.endEntry();
 
@@ -656,31 +661,22 @@ public class TestMapVector {
       mapWriter.key().bigInt().writeBigInt(2);
       valueWriter = mapWriter.value().map(false);
       valueWriter.startMap();
-      valueWriter.startEntry();
-      valueWriter.key().bigInt().writeBigInt(75);
-      valueWriter.value().bigInt().writeBigInt(175);
-      valueWriter.endEntry();
-      valueWriter.startEntry();
-      valueWriter.key().bigInt().writeBigInt(150);
-      valueWriter.value().bigInt().writeBigInt(250);
-      valueWriter.endEntry();
+      writeEntry(valueWriter, 75, 175L);
+      writeEntry(valueWriter, 150, 250L);
       valueWriter.endMap();
       mapWriter.endEntry();
 
       mapWriter.endMap();
 
-      /* write one or more maps at index 1 */
-      mapWriter.setPosition(1);
+      /* write one or more maps at index 2 */
+      mapWriter.setPosition(2);
       mapWriter.startMap();
 
       mapWriter.startEntry();
       mapWriter.key().bigInt().writeBigInt(3);
       valueWriter = mapWriter.value().map(true);
       valueWriter.startMap();
-      valueWriter.startEntry();
-      valueWriter.key().bigInt().writeBigInt(10);
-      valueWriter.value().bigInt().writeBigInt(20);
-      valueWriter.endEntry();
+      writeEntry(valueWriter, 10, 20L);
       valueWriter.endMap();
       mapWriter.endEntry();
 
@@ -688,10 +684,7 @@ public class TestMapVector {
       mapWriter.key().bigInt().writeBigInt(4);
       valueWriter = mapWriter.value().map(false);
       valueWriter.startMap();
-      valueWriter.startEntry();
-      valueWriter.key().bigInt().writeBigInt(15);
-      valueWriter.value().bigInt().writeBigInt(20);
-      valueWriter.endEntry();
+      writeEntry(valueWriter, 15, 20L);
       valueWriter.endMap();
       mapWriter.endEntry();
 
@@ -699,26 +692,25 @@ public class TestMapVector {
       mapWriter.key().bigInt().writeBigInt(5);
       valueWriter = mapWriter.value().map(false);
       valueWriter.startMap();
-      valueWriter.startEntry();
-      valueWriter.key().bigInt().writeBigInt(25);
-      valueWriter.value().bigInt().writeBigInt(30);
-      valueWriter.endEntry();
-      valueWriter.startEntry();
-      valueWriter.key().bigInt().writeBigInt(35);
-      valueWriter.endEntry();
+      writeEntry(valueWriter, 25, 30L);
+      writeEntry(valueWriter, 35, (Long) null);
       valueWriter.endMap();
       mapWriter.endEntry();
 
       mapWriter.endMap();
 
-      assertEquals(1, mapVector.getLastSet());
+      assertEquals(2, mapVector.getLastSet());
 
-      mapWriter.setValueCount(2);
+      mapWriter.setValueCount(3);
 
-      assertEquals(2, mapVector.getValueCount());
+      assertEquals(3, mapVector.getValueCount());
 
       // Get mapVector element at index 0
       Object result = mapVector.getObject(0);
+      assertNull(result);
+
+      // Get mapVector element at index 1
+      result = mapVector.getObject(1);
       ArrayList<?> resultSet = (ArrayList<?>) result;
 
       // 2 map entries at index 0
@@ -748,8 +740,8 @@ public class TestMapVector {
       assertEquals(150L, getResultKey(innerMap));
       assertEquals(250L, getResultValue(innerMap));
 
-      // Get mapVector element at index 1
-      result = mapVector.getObject(1);
+      // Get mapVector element at index 2
+      result = mapVector.getObject(2);
       resultSet = (ArrayList<?>) result;
 
       // 3 map entries at index 1
@@ -786,16 +778,18 @@ public class TestMapVector {
       assertNull(innerMap.get(MapVector.VALUE_NAME));
 
       /* check underlying bitVector */
-      assertFalse(mapVector.isNull(0));
+      assertTrue(mapVector.isNull(0));
       assertFalse(mapVector.isNull(1));
+      assertFalse(mapVector.isNull(2));
 
       /* check underlying offsets */
       final ArrowBuf offsetBuffer = mapVector.getOffsetBuffer();
 
-      /* mapVector has 2 entries at index 0 and 3 entries at index 1 */
+      /* mapVector has 0 entries at index 0, 2 entries at index 1, and 3 entries at index 2 */
       assertEquals(0, offsetBuffer.getInt(0 * MapVector.OFFSET_WIDTH));
-      assertEquals(2, offsetBuffer.getInt(1 * MapVector.OFFSET_WIDTH));
-      assertEquals(5, offsetBuffer.getInt(2 * MapVector.OFFSET_WIDTH));
+      assertEquals(0, offsetBuffer.getInt(1 * MapVector.OFFSET_WIDTH));
+      assertEquals(2, offsetBuffer.getInt(2 * MapVector.OFFSET_WIDTH));
+      assertEquals(5, offsetBuffer.getInt(3 * MapVector.OFFSET_WIDTH));
     }
   }
 
@@ -808,6 +802,11 @@ public class TestMapVector {
       MapWriter valueWriter;
 
       // we are essentially writing Map<Map<Integer, Integer>, Map<Long, Long>>
+      // populate map vector with the following two records
+      // [
+      //    [[5: 10, 20: 40]:[50: 100, 200: 400], [50: 100]:[75: 175, 150: 250]],
+      //    [[1: 2]:[10: 20], [30: 40]:[15: 20], [50: 60, 70: null]:[25: 30, 35: null], [5: null]: null]
+      // ]
 
       mapWriter.setPosition(0);
       mapWriter.startMap();
@@ -815,46 +814,25 @@ public class TestMapVector {
       mapWriter.startEntry();
       keyWriter = mapWriter.key().map(false);
       keyWriter.startMap();
-      keyWriter.startEntry();
-      keyWriter.key().integer().writeInt(5);
-      keyWriter.value().integer().writeInt(10);
-      keyWriter.endEntry();
-      keyWriter.startEntry();
-      keyWriter.key().integer().writeInt(20);
-      keyWriter.value().integer().writeInt(40);
-      keyWriter.endEntry();
+      writeEntry(keyWriter, 5, 10);
+      writeEntry(keyWriter, 20, 40);
       keyWriter.endMap();
       valueWriter = mapWriter.value().map(false);
       valueWriter.startMap();
-      valueWriter.startEntry();
-      valueWriter.key().bigInt().writeBigInt(50);
-      valueWriter.value().bigInt().writeBigInt(100);
-      valueWriter.endEntry();
-      valueWriter.startEntry();
-      valueWriter.key().bigInt().writeBigInt(200);
-      valueWriter.value().bigInt().writeBigInt(400);
-      valueWriter.endEntry();
+      writeEntry(valueWriter, 50, 100L);
+      writeEntry(valueWriter, 200, 400L);
       valueWriter.endMap();
       mapWriter.endEntry();
 
       mapWriter.startEntry();
       keyWriter = mapWriter.key().map(false);
       keyWriter.startMap();
-      keyWriter.startEntry();
-      keyWriter.key().integer().writeInt(50);
-      keyWriter.value().integer().writeInt(100);
-      keyWriter.endEntry();
+      writeEntry(keyWriter, 50, 100);
       keyWriter.endMap();
       valueWriter = mapWriter.value().map(false);
       valueWriter.startMap();
-      valueWriter.startEntry();
-      valueWriter.key().bigInt().writeBigInt(75);
-      valueWriter.value().bigInt().writeBigInt(175);
-      valueWriter.endEntry();
-      valueWriter.startEntry();
-      valueWriter.key().bigInt().writeBigInt(150);
-      valueWriter.value().bigInt().writeBigInt(250);
-      valueWriter.endEntry();
+      writeEntry(valueWriter, 75, 175L);
+      writeEntry(valueWriter, 150, 250L);
       valueWriter.endMap();
       mapWriter.endEntry();
 
@@ -867,58 +845,45 @@ public class TestMapVector {
       mapWriter.startEntry();
       keyWriter = mapWriter.key().map(false);
       keyWriter.startMap();
-      keyWriter.startEntry();
-      keyWriter.key().integer().writeInt(1);
-      keyWriter.value().integer().writeInt(2);
-      keyWriter.endEntry();
+      writeEntry(keyWriter, 1, 2);
       keyWriter.endMap();
       valueWriter = mapWriter.value().map(true);
       valueWriter.startMap();
-      valueWriter.startEntry();
-      valueWriter.key().bigInt().writeBigInt(10);
-      valueWriter.value().bigInt().writeBigInt(20);
-      valueWriter.endEntry();
+      writeEntry(valueWriter, 10, 20L);
       valueWriter.endMap();
       mapWriter.endEntry();
 
       mapWriter.startEntry();
       keyWriter = mapWriter.key().map(false);
       keyWriter.startMap();
-      keyWriter.startEntry();
-      keyWriter.key().integer().writeInt(30);
-      keyWriter.value().integer().writeInt(40);
-      keyWriter.endEntry();
+      writeEntry(keyWriter, 30, 40);
       keyWriter.endMap();
       valueWriter = mapWriter.value().map(false);
       valueWriter.startMap();
-      valueWriter.startEntry();
-      valueWriter.key().bigInt().writeBigInt(15);
-      valueWriter.value().bigInt().writeBigInt(20);
-      valueWriter.endEntry();
+      writeEntry(valueWriter, 15, 20L);
       valueWriter.endMap();
       mapWriter.endEntry();
 
       mapWriter.startEntry();
       keyWriter = mapWriter.key().map(false);
       keyWriter.startMap();
-      keyWriter.startEntry();
-      keyWriter.key().integer().writeInt(50);
-      keyWriter.value().integer().writeInt(60);
-      keyWriter.endEntry();
-      keyWriter.startEntry();
-      keyWriter.key().integer().writeInt(70);
-      keyWriter.endEntry();
+      writeEntry(keyWriter, 50, 60);
+      writeEntry(keyWriter, 70, (Integer) null);
       keyWriter.endMap();
       valueWriter = mapWriter.value().map(false);
       valueWriter.startMap();
-      valueWriter.startEntry();
-      valueWriter.key().bigInt().writeBigInt(25);
-      valueWriter.value().bigInt().writeBigInt(30);
-      valueWriter.endEntry();
-      valueWriter.startEntry();
-      valueWriter.key().bigInt().writeBigInt(35);
-      valueWriter.endEntry();
+      writeEntry(valueWriter, 25, 30L);
+      writeEntry(valueWriter, 35, (Long) null);
       valueWriter.endMap();
+      mapWriter.endEntry();
+
+      mapWriter.startEntry();
+      keyWriter = mapWriter.key().map(false);
+      keyWriter.startMap();
+      writeEntry(keyWriter, 5, (Integer) null);
+      keyWriter.endMap();
+      valueWriter = mapWriter.value().map(false);
+      valueWriter.writeNull();
       mapWriter.endEntry();
 
       mapWriter.endMap();
@@ -977,8 +942,8 @@ public class TestMapVector {
       result = mapVector.getObject(1);
       resultSet = (ArrayList<?>) result;
 
-      // 3 map entries at index 1
-      assertEquals(3, resultSet.size());
+      // 4 map entries at index 1
+      assertEquals(4, resultSet.size());
 
       // First Map entry
       resultStruct = (Map<?, ArrayList<Map<?, ?>>>) resultSet.get(0);
@@ -1028,6 +993,16 @@ public class TestMapVector {
       assertEquals(35L, getResultKey(innerMap));
       assertNull(innerMap.get(MapVector.VALUE_NAME));
 
+      // Fourth Map entry
+      resultStruct = (Map<?, ArrayList<Map<?, ?>>>) resultSet.get(3);
+      list = getResultKey(resultStruct);
+      assertEquals(1, list.size()); // key is a list of two maps
+      innerMap = list.get(0);
+      assertEquals(5, getResultKey(innerMap));
+      assertNull(innerMap.get(MapVector.VALUE_NAME));
+
+      assertNull(resultStruct.get(MapVector.VALUE_NAME));
+
       /* check underlying bitVector */
       assertFalse(mapVector.isNull(0));
       assertFalse(mapVector.isNull(1));
@@ -1035,11 +1010,29 @@ public class TestMapVector {
       /* check underlying offsets */
       final ArrowBuf offsetBuffer = mapVector.getOffsetBuffer();
 
-      /* mapVector has 2 entries at index 0 and 3 entries at index 1 */
+      /* mapVector has 2 entries at index 0 and 4 entries at index 1 */
       assertEquals(0, offsetBuffer.getInt(0 * MapVector.OFFSET_WIDTH));
       assertEquals(2, offsetBuffer.getInt(1 * MapVector.OFFSET_WIDTH));
-      assertEquals(5, offsetBuffer.getInt(2 * MapVector.OFFSET_WIDTH));
+      assertEquals(6, offsetBuffer.getInt(2 * MapVector.OFFSET_WIDTH));
     }
+  }
+
+  private void writeEntry(MapWriter writer, long key, Long value) {
+    writer.startEntry();
+    writer.key().bigInt().writeBigInt(key);
+    if (value != null) {
+      writer.value().bigInt().writeBigInt(value);
+    }
+    writer.endEntry();
+  }
+
+  private void writeEntry(MapWriter writer, int key, Integer value) {
+    writer.startEntry();
+    writer.key().integer().writeInt(key);
+    if (value != null) {
+      writer.value().integer().writeInt(value);
+    }
+    writer.endEntry();
   }
 
   @Test

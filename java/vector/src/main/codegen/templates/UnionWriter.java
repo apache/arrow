@@ -144,8 +144,11 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
   }
 
   private MapWriter getMapWriter() {
-    // returns existing writer
-    Preconditions.checkNotNull(mapWriter);
+    if (mapWriter == null) {
+      mapWriter = new UnionMapWriter(data.getMap(new ArrowType.Map(false)));
+      mapWriter.setPosition(idx());
+      writers.add(mapWriter);
+    }
     return mapWriter;
   }
 

@@ -674,7 +674,7 @@ public class UnionVector implements FieldVector {
         case LIST:
           return getList();
         case MAP:
-          return getMap();
+          return getMap(name, arrowType);
         default:
           throw new UnsupportedOperationException("Cannot support type: " + MinorType.values()[typeId]);
       }

@@ -191,10 +191,7 @@ public class ${mode}StructWriter extends AbstractFieldWriter {
 
   @Override
   public MapWriter map(String name) {
-    // returns existing writer
-    final FieldWriter writer = fields.get(handleCase(name));
-    Preconditions.checkNotNull(writer);
-    return writer;
+    return map(name, false);
   }
 
   @Override
@@ -221,7 +218,7 @@ public class ${mode}StructWriter extends AbstractFieldWriter {
     } else {
       if (writer instanceof PromotableWriter) {
         // ensure writers are initialized
-        ((PromotableWriter)writer).getWriter(MinorType.MAP, new org.apache.arrow.vector.types.pojo.ArrowType.Map(keysSorted));
+        ((PromotableWriter)writer).getWriter(MinorType.MAP, new ArrowType.Map(keysSorted));
       }
     }
     return writer;
