@@ -27,6 +27,7 @@ DatasetFactory <- R6Class("DatasetFactory", inherit = ArrowObject,
       if (is.null(schema)) {
         dataset___DatasetFactory__Finish1(self, unify_schemas)
       } else {
+        assert_is(schema, "Schema")
         dataset___DatasetFactory__Finish2(self, schema)
       }
     },

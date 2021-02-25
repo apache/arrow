@@ -64,9 +64,6 @@ open_dataset <- function(sources,
                          partitioning = hive_partition(),
                          unify_schemas = NULL,
                          ...) {
-  if (isFALSE(inherits(schema, "Schema")) && isFALSE(is.null(schema))) {
-    stop("'schema' must be a Schema object", call. = FALSE)
-  }
   if (is_list_of(sources, "Dataset")) {
     if (is.null(schema)) {
       if (is.null(unify_schemas) || isTRUE(unify_schemas)) {
@@ -75,6 +72,7 @@ open_dataset <- function(sources,
       } else {
         # Take the first one.
         schema <- sources[[1]]$schema
+        assert_is(schema, "Schema")
       }
     }
     # Enforce that all datasets have the same schema
