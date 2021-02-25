@@ -55,10 +55,21 @@ struct ARROW_DS_EXPORT ScanOptions {
   Expression filter = literal(true);
   Expression projection;
 
-  // Schema with which batches will be read from fragments
+  // Schema with which batches will be read from fragments. This is also known as the
+  // "reader schema" it will be used (for example) in constructing CSV file readers to
+  // identify column types for parsing. Usually only a subset of its fields (see
+  // MaterializedFields) will be materialized during a scan.
   std::shared_ptr<Schema> dataset_schema;
 
-  // Schema of projected record batches
+  // Schema of projected record batches. This is independent of dataset_schema as its
+  // fields are derived from the projection. For example, let
+  //
+  //   dataset_schema = {"a": int32, "b": int32, "id": utf8}
+  //   projection = project({equal(field_ref("a"), field_ref("b"))}, {"a_plus_b"})
+  //
+  // (no filter specified). In this case, the projected_schema would be
+  //
+  //   {"a_plus_b": int32}
   std::shared_ptr<Schema> projected_schema;
 
   // Maximum row count for scanned batches.
@@ -76,7 +87,7 @@ struct ARROW_DS_EXPORT ScanOptions {
   // used in the final projection but is still required to evaluate the
   // expression.
   //
-  // This is used by Fragments implementation to apply the column
+  // This is used by Fragment implementations to apply the column
   // sub-selection optimization.
   std::vector<std::string> MaterializedFields() const;
 };

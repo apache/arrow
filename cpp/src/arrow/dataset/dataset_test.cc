@@ -613,6 +613,27 @@ TEST_F(TestSchemaUnification, SelectPhysicalColumnsFilterPartitionColumn) {
   AssertBuilderEquals(scan_builder, rows);
 }
 
+TEST_F(TestSchemaUnification, SelectSyntheticColumn) {
+  // Select only a synthetic column
+  ASSERT_OK_AND_ASSIGN(auto scan_builder, dataset_->NewScan());
+  ASSERT_OK(scan_builder->Project(
+      {call("add", {field_ref("phy_1"), field_ref("part_df")})}, {"phy_1 + part_df"}));
+
+  ASSERT_OK_AND_ASSIGN(auto scanner, scan_builder->Finish());
+  AssertSchemaEqual(Schema({field("phy_1 + part_df", int32())}),
+                    *scanner->options()->projected_schema);
+
+  using TupleType = std::tuple<i32>;
+  std::vector<TupleType> rows = {
+      TupleType(111 + 1),
+      TupleType(nullopt),
+      TupleType(nullopt),
+      TupleType(nullopt),
+  };
+
+  AssertBuilderEquals(scan_builder, rows);
+}
+
 TEST_F(TestSchemaUnification, SelectPartitionColumns) {
   // Selects partition (virtual) columns, it ensures:
   //

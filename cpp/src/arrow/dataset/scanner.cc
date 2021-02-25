@@ -37,13 +37,11 @@ namespace dataset {
 std::vector<std::string> ScanOptions::MaterializedFields() const {
   std::vector<std::string> fields;
 
-  for (const auto& f : projected_schema->fields()) {
-    fields.push_back(f->name());
-  }
-
-  for (const FieldRef& ref : FieldsInExpression(filter)) {
-    DCHECK(ref.name());
-    fields.push_back(*ref.name());
+  for (const Expression* expr : {&filter, &projection}) {
+    for (const FieldRef& ref : FieldsInExpression(*expr)) {
+      DCHECK(ref.name());
+      fields.push_back(*ref.name());
+    }
   }
 
   return fields;

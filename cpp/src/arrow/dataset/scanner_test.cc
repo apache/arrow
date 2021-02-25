@@ -243,6 +243,12 @@ TEST(ScanOptions, TestMaterializedFields) {
   ASSERT_OK(SetProjection(opts.get(), {"i32", "i64"}));
   EXPECT_THAT(opts->MaterializedFields(), ElementsAre("i32", "i64"));
 
+  // project i32 + i64, filter nothing = materialize i32 & i64
+  opts->filter = literal(true);
+  ASSERT_OK(SetProjection(opts.get(), {call("add", {field_ref("i32"), field_ref("i64")})},
+                          {"i32 + i64"}));
+  EXPECT_THAT(opts->MaterializedFields(), ElementsAre("i32", "i64"));
+
   // project i32, filter nothing = materialize i32
   ASSERT_OK(SetProjection(opts.get(), {"i32"}));
   EXPECT_THAT(opts->MaterializedFields(), ElementsAre("i32"));
@@ -251,9 +257,13 @@ TEST(ScanOptions, TestMaterializedFields) {
   opts->filter = equal(field_ref("i32"), literal(10));
   EXPECT_THAT(opts->MaterializedFields(), ElementsAre("i32", "i32"));
 
+  // project i32, filter on i32 & i64 = materialize i64, i32 (reported twice)
+  opts->filter = less(field_ref("i32"), field_ref("i64"));
+  EXPECT_THAT(opts->MaterializedFields(), ElementsAre("i32", "i64", "i32"));
+
   // project i32, filter on i64 = materialize i32 & i64
   opts->filter = equal(field_ref("i64"), literal(10));
-  EXPECT_THAT(opts->MaterializedFields(), ElementsAre("i32", "i64"));
+  EXPECT_THAT(opts->MaterializedFields(), ElementsAre("i64", "i32"));
 }
 
 }  // namespace dataset
