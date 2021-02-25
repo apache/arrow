@@ -1045,9 +1045,9 @@ Status MakeRandomTensor(const std::shared_ptr<DataType>& type,
   const auto& element_type = internal::checked_cast<const FixedWidthType&>(*type);
   std::vector<int64_t> strides;
   if (row_major_p) {
-    internal::ComputeRowMajorStrides(element_type, shape, &strides);
+    RETURN_NOT_OK(internal::ComputeRowMajorStrides(element_type, shape, &strides));
   } else {
-    internal::ComputeColumnMajorStrides(element_type, shape, &strides);
+    RETURN_NOT_OK(internal::ComputeColumnMajorStrides(element_type, shape, &strides));
   }
 
   const int64_t element_size = element_type.bit_width() / CHAR_BIT;

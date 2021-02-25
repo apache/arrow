@@ -137,6 +137,18 @@ struct ARROW_EXPORT IpcReadOptions {
   /// like decompression
   bool use_threads = true;
 
+  /// \brief EXPERIMENTAL: Convert incoming data to platform-native endianness
+  ///
+  /// If the endianness of the received schema is not equal to platform-native
+  /// endianness, then all buffers with endian-sensitive data will be byte-swapped.
+  /// This includes the value buffers of numeric types, temporal types, decimal
+  /// types, as well as the offset buffers of variable-sized binary and list-like
+  /// types.
+  ///
+  /// Endianness conversion is achieved by the RecordBatchFileReader,
+  /// RecordBatchStreamReader and StreamDecoder classes.
+  bool ensure_native_endian = true;
+
   static IpcReadOptions Defaults();
 };
 

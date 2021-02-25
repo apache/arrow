@@ -649,6 +649,32 @@ class FilterOptions(_FilterOptions):
         self._set_options(null_selection_behavior)
 
 
+cdef class _DictionaryEncodeOptions(FunctionOptions):
+    cdef:
+        unique_ptr[CDictionaryEncodeOptions] dictionary_encode_options
+
+    cdef const CFunctionOptions* get_options(self) except NULL:
+        return self.dictionary_encode_options.get()
+
+    def _set_options(self, null_encoding_behavior):
+        if null_encoding_behavior == 'encode':
+            self.dictionary_encode_options.reset(
+                new CDictionaryEncodeOptions(
+                    CDictionaryEncodeNullEncodingBehavior_ENCODE))
+        elif null_encoding_behavior == 'mask':
+            self.dictionary_encode_options.reset(
+                new CDictionaryEncodeOptions(
+                    CDictionaryEncodeNullEncodingBehavior_MASK))
+        else:
+            raise ValueError('"{}" is not a valid null_encoding_behavior'
+                             .format(null_encoding_behavior))
+
+
+class DictionaryEncodeOptions(_DictionaryEncodeOptions):
+    def __init__(self, null_encoding_behavior='mask'):
+        self._set_options(null_encoding_behavior)
+
+
 cdef class _TakeOptions(FunctionOptions):
     cdef:
         unique_ptr[CTakeOptions] take_options
@@ -965,3 +991,22 @@ class QuantileOptions(_QuantileOptions):
         if not isinstance(q, (list, tuple, np.ndarray)):
             q = [q]
         self._set_options(q, interpolation)
+
+
+cdef class _TDigestOptions(FunctionOptions):
+    cdef:
+        unique_ptr[CTDigestOptions] tdigest_options
+
+    cdef const CFunctionOptions* get_options(self) except NULL:
+        return self.tdigest_options.get()
+
+    def _set_options(self, quantiles, delta, buffer_size):
+        self.tdigest_options.reset(
+            new CTDigestOptions(quantiles, delta, buffer_size))
+
+
+class TDigestOptions(_TDigestOptions):
+    def __init__(self, *, q=0.5, delta=100, buffer_size=500):
+        if not isinstance(q, (list, tuple, np.ndarray)):
+            q = [q]
+        self._set_options(q, delta, buffer_size)

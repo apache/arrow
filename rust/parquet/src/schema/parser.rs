@@ -345,7 +345,7 @@ impl<'a> Parser<'a> {
         if let Some(id) = id {
             builder = builder.with_id(id);
         }
-        Ok(builder.build()?)
+        builder.build()
     }
 }
 

@@ -40,6 +40,8 @@ class ARROW_EXPORT TDigest {
  public:
   explicit TDigest(uint32_t delta = 100, uint32_t buffer_size = 500);
   ~TDigest();
+  TDigest(TDigest&&);
+  TDigest& operator=(TDigest&&);
 
   // reset and re-use this tdigest
   void Reset();
@@ -52,6 +54,7 @@ class ARROW_EXPORT TDigest {
 
   // buffer a single data point, consume internal buffer if full
   // this function is intensively called and performance critical
+  // call it only if you are sure no NAN exists in input data
   void Add(double value) {
     DCHECK(!std::isnan(value)) << "cannot add NAN";
     if (ARROW_PREDICT_FALSE(input_.size() == input_.capacity())) {
@@ -60,11 +63,29 @@ class ARROW_EXPORT TDigest {
     input_.push_back(value);
   }
 
+  // skip NAN on adding
+  template <typename T>
+  typename std::enable_if<std::is_floating_point<T>::value>::type NanAdd(T value) {
+    if (!std::isnan(value)) Add(value);
+  }
+
+  template <typename T>
+  typename std::enable_if<std::is_integral<T>::value>::type NanAdd(T value) {
+    Add(static_cast<double>(value));
+  }
+
   // merge with other t-digests, called infrequently
-  void Merge(std::vector<std::unique_ptr<TDigest>>* tdigests);
+  void Merge(std::vector<TDigest>* tdigests);
 
   // calculate quantile
   double Quantile(double q);
+
+  double Min() { return Quantile(0); }
+  double Max() { return Quantile(1); }
+  double Mean();
+
+  // check if this tdigest contains no valid data points
+  bool is_empty() const;
 
  private:
   // merge input data with current tdigest

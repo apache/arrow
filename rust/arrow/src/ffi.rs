@@ -193,11 +193,11 @@ fn to_datatype(format: &str) -> Result<DataType> {
         "ttm" => DataType::Time32(TimeUnit::Millisecond),
         "ttu" => DataType::Time64(TimeUnit::Microsecond),
         "ttn" => DataType::Time64(TimeUnit::Nanosecond),
-        _ => {
-            return Err(ArrowError::CDataInterface(
-                "The datatype \"{}\" is still not supported in Rust implementation"
-                    .to_string(),
-            ))
+        dt => {
+            return Err(ArrowError::CDataInterface(format!(
+                "The datatype \"{}\" is not supported in the Rust implementation",
+                dt
+            )))
         }
     })
 }

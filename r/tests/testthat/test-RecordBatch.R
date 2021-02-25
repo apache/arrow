@@ -147,6 +147,11 @@ test_that("[ on RecordBatch", {
   expect_data_frame(batch[batch$lgl,], tbl[tbl$lgl,])
   # int Array
   expect_data_frame(batch[Array$create(5:6), 2:4], tbl[6:7, 2:4])
+
+  # input validation
+  expect_error(batch[, c("dbl", "NOTACOLUMN")], 'Column not found: "NOTACOLUMN"')
+  expect_error(batch[, c(6, NA)], 'Column indices cannot be NA')
+  expect_error(batch[, c(2, -2)], 'Invalid column index')
 })
 
 test_that("[[ and $ on RecordBatch", {

@@ -32,6 +32,10 @@
 #else
 #if defined(__APPLE__) || defined(__FreeBSD__)
 #include <machine/endian.h>
+// Start: addition to Arrow for Solaris support
+#elif defined(sun) || defined(__sun)
+#include <sys/byteorder.h>  // IWYU pragma: keep
+// End
 #else
 #include <endian.h>
 #endif

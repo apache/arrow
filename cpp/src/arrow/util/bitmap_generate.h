@@ -77,7 +77,7 @@ void GenerateBitsUnrolled(uint8_t* bitmap, int64_t start_offset, int64_t length,
   if (bit_mask != 0x01) {
     current_byte = *cur & BitUtil::kPrecedingBitmask[start_bit_offset];
     while (bit_mask != 0 && remaining > 0) {
-      current_byte = g() ? (current_byte | bit_mask) : current_byte;
+      current_byte |= g() * bit_mask;
       bit_mask = static_cast<uint8_t>(bit_mask << 1);
       --remaining;
     }
@@ -100,7 +100,7 @@ void GenerateBitsUnrolled(uint8_t* bitmap, int64_t start_offset, int64_t length,
     current_byte = 0;
     bit_mask = 0x01;
     while (remaining_bits-- > 0) {
-      current_byte = g() ? (current_byte | bit_mask) : current_byte;
+      current_byte |= g() * bit_mask;
       bit_mask = static_cast<uint8_t>(bit_mask << 1);
     }
     *cur++ = current_byte;

@@ -1095,6 +1095,7 @@ where
 
     for c in column_indices {
         let column = parquet_schema.column(c).self_type() as *const Type;
+
         leaves.insert(column, c);
 
         let root = parquet_schema.get_column_root_ptr(c);
@@ -1395,12 +1396,11 @@ impl<'a> ArrayReaderBuilder {
             self.file_reader.clone(),
         )?);
 
-        let arrow_type = self
-            .arrow_schema
-            .field_with_name(cur_type.name())
-            .ok()
-            .map(|f| f.data_type())
-            .cloned();
+        let arrow_type: Option<ArrowType> = match self.get_arrow_field(&cur_type, context)
+        {
+            Some(f) => Some(f.data_type().clone()),
+            _ => None,
+        };
 
         match cur_type.get_physical_type() {
             PhysicalType::BOOLEAN => Ok(Box::new(PrimitiveArrayReader::<BoolType>::new(
@@ -1631,9 +1631,13 @@ impl<'a> ArrayReaderBuilder {
         let mut children_reader = Vec::with_capacity(cur_type.get_fields().len());
 
         for child in cur_type.get_fields() {
+            let mut struct_context = context.clone();
             if let Some(child_reader) = self.dispatch(child.clone(), context)? {
-                let field = match self.arrow_schema.field_with_name(child.name()) {
-                    Ok(f) => f.to_owned(),
+                // TODO: this results in calling get_arrow_field twice, it could be reused
+                // from child_reader above, by making child_reader carry its `Field`
+                struct_context.path.append(vec![child.name().to_string()]);
+                let field = match self.get_arrow_field(child, &struct_context) {
+                    Some(f) => f.clone(),
                     _ => Field::new(
                         child.name(),
                         child_reader.get_data_type().clone(),
@@ -1655,6 +1659,45 @@ impl<'a> ArrayReaderBuilder {
             ))))
         } else {
             Ok(None)
+        }
+    }
+
+    fn get_arrow_field(
+        &self,
+        cur_type: &Type,
+        context: &'a ArrayReaderBuilderContext,
+    ) -> Option<&Field> {
+        let parts: Vec<&str> = context
+            .path
+            .parts()
+            .iter()
+            .map(|x| -> &str { x })
+            .collect::<Vec<&str>>();
+
+        // If the parts length is one it'll have the top level "schema" type. If
+        // it's two then it'll be a top-level type that we can get from the arrow
+        // schema directly.
+        if parts.len() <= 2 {
+            self.arrow_schema.field_with_name(cur_type.name()).ok()
+        } else {
+            // If it's greater than two then we need to traverse the type path
+            // until we find the actual field we're looking for.
+            let mut field: Option<&Field> = None;
+
+            for (i, part) in parts.iter().enumerate().skip(1) {
+                if i == 1 {
+                    field = self.arrow_schema.field_with_name(part).ok();
+                } else if let Some(f) = field {
+                    if let ArrowType::Struct(fields) = f.data_type() {
+                        field = fields.iter().find(|f| f.name() == part)
+                    } else {
+                        field = None
+                    }
+                } else {
+                    field = None
+                }
+            }
+            field
         }
     }
 }

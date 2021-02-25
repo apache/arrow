@@ -384,6 +384,7 @@ impl<R: Read> Iterator for Reader<R> {
         let result = parse(
             &self.batch_records[..read_records],
             &self.schema.fields(),
+            Some(self.schema.metadata.clone()),
             &self.projection,
             self.line_number,
         );
@@ -398,6 +399,7 @@ impl<R: Read> Iterator for Reader<R> {
 fn parse(
     rows: &[StringRecord],
     fields: &[Field],
+    metadata: Option<std::collections::HashMap<String, String>>,
     projection: &Option<Vec<usize>>,
     line_number: usize,
 ) -> Result<RecordBatch> {
@@ -473,7 +475,10 @@ fn parse(
     let projected_fields: Vec<Field> =
         projection.iter().map(|i| fields[*i].clone()).collect();
 
-    let projected_schema = Arc::new(Schema::new(projected_fields));
+    let projected_schema = Arc::new(match metadata {
+        None => Schema::new(projected_fields),
+        Some(metadata) => Schema::new_with_metadata(projected_fields, metadata),
+    });
 
     arrays.and_then(|arr| RecordBatch::try_new(projected_schema, arr))
 }
@@ -839,6 +844,38 @@ mod tests {
     }
 
     #[test]
+    fn test_csv_schema_metadata() {
+        let mut metadata = std::collections::HashMap::new();
+        metadata.insert("foo".to_owned(), "bar".to_owned());
+        let schema = Schema::new_with_metadata(
+            vec![
+                Field::new("city", DataType::Utf8, false),
+                Field::new("lat", DataType::Float64, false),
+                Field::new("lng", DataType::Float64, false),
+            ],
+            metadata.clone(),
+        );
+
+        let file = File::open("test/data/uk_cities.csv").unwrap();
+
+        let mut csv = Reader::new(
+            file,
+            Arc::new(schema.clone()),
+            false,
+            None,
+            1024,
+            None,
+            None,
+        );
+        assert_eq!(Arc::new(schema), csv.schema());
+        let batch = csv.next().unwrap().unwrap();
+        assert_eq!(37, batch.num_rows());
+        assert_eq!(3, batch.num_columns());
+
+        assert_eq!(&metadata, batch.schema().metadata());
+    }
+
+    #[test]
     fn test_csv_from_buf_reader() {
         let schema = Schema::new(vec![
             Field::new("city", DataType::Utf8, false),
@@ -1153,7 +1190,7 @@ mod tests {
     }
 
     #[test]
-    fn test_bounded() -> Result<()> {
+    fn test_bounded() {
         let schema = Schema::new(vec![Field::new("int", DataType::UInt32, false)]);
         let data = vec![
             vec!["0"],
@@ -1196,7 +1233,6 @@ mod tests {
         assert_eq!(a, &UInt32Array::from(vec![4, 5]));
 
         assert!(csv.next().is_none());
-        Ok(())
     }
 
     #[test]

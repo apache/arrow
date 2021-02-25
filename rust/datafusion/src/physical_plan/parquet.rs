@@ -39,8 +39,11 @@ use crate::{
     optimizer::utils,
     prelude::ExecutionConfig,
 };
-use arrow::error::{ArrowError, Result as ArrowResult};
 use arrow::record_batch::RecordBatch;
+use arrow::{
+    array::new_null_array,
+    error::{ArrowError, Result as ArrowResult},
+};
 use arrow::{
     array::{make_array, ArrayData, ArrayRef, BooleanArray, BooleanBufferBuilder},
     buffer::MutableBuffer,
@@ -295,7 +298,7 @@ pub struct RowGroupPredicateBuilder {
 }
 
 impl RowGroupPredicateBuilder {
-    /// Try to create a new instance of PredicateExpressionBuilder.  
+    /// Try to create a new instance of PredicateExpressionBuilder.
     /// This will translate the filter expression into a statistics predicate expression
     /// (for example (column / 2) = 4 becomes (column_min / 2) <= 4 && 4 <= (column_max / 2)),
     /// then convert it to a DataFusion PhysicalExpression and cache it for later use by build_row_group_predicate.
@@ -337,11 +340,11 @@ impl RowGroupPredicateBuilder {
         })
     }
 
-    /// Generate a predicate function used to filter row group metadata.  
+    /// Generate a predicate function used to filter row group metadata.
     /// This function takes a list of all row groups as parameter,
     /// so that DataFusion's physical expressions can be re-used by
     /// generating a RecordBatch, containing statistics arrays,
-    /// on which the physical predicate expression is executed to generate a row group filter array.  
+    /// on which the physical predicate expression is executed to generate a row group filter array.
     /// The generated filter array is then used in the returned closure to filter row groups.
     pub fn build_row_group_predicate(
         &self,
@@ -608,7 +611,7 @@ fn build_predicate_expression(
             let max_column_expr = expr_builder.max_column_expr()?;
             min_column_expr
                 .lt_eq(expr_builder.scalar_expr().clone())
-                .and(expr_builder.scalar_expr().lt_eq(max_column_expr))
+                .and(expr_builder.scalar_expr().clone().lt_eq(max_column_expr))
         }
         Operator::Gt => {
             // column > literal => (min, max) > literal => max > literal
@@ -646,13 +649,6 @@ enum StatisticsType {
     Max,
 }
 
-fn build_null_array(data_type: &DataType, length: usize) -> ArrayRef {
-    Arc::new(arrow::array::NullArray::new_with_type(
-        length,
-        data_type.clone(),
-    ))
-}
-
 fn build_statistics_array(
     statistics: &[Option<&ParquetStatistics>],
     statistics_type: StatisticsType,
@@ -665,7 +661,7 @@ fn build_statistics_array(
         statistics
     } else {
         // no row group has statistics defined
-        return build_null_array(data_type, statistics_count);
+        return new_null_array(data_type, statistics_count);
     };
 
     let (data_size, arrow_type) = match first_group_stats {
@@ -678,7 +674,7 @@ fn build_statistics_array(
         }
         _ => {
             // type of statistics not supported
-            return build_null_array(data_type, statistics_count);
+            return new_null_array(data_type, statistics_count);
         }
     };
 
@@ -735,7 +731,7 @@ fn build_statistics_array(
     }
     // cast statistics array to required data type
     arrow::compute::cast(&statistics_array, data_type)
-        .unwrap_or_else(|_| build_null_array(data_type, statistics_count))
+        .unwrap_or_else(|_| new_null_array(data_type, statistics_count))
 }
 
 #[async_trait]

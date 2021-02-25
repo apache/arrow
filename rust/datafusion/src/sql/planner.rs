@@ -310,6 +310,9 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                     "NATURAL JOIN is not supported (https://issues.apache.org/jira/browse/ARROW-10727)".to_string(),
                 ))
             }
+            JoinConstraint::None => Err(DataFusionError::NotImplemented(
+                "NONE contraint is not supported".to_string(),
+            )),
         }
     }
 
@@ -646,7 +649,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
             .iter()
             .map(|e| {
                 Ok(Expr::Sort {
-                    expr: Box::new(self.sql_to_rex(&e.expr, &input_schema).unwrap()),
+                    expr: Box::new(self.sql_to_rex(&e.expr, &input_schema)?),
                     // by default asc
                     asc: e.asc.unwrap_or(true),
                     // by default nulls first to be consistent with spark
@@ -714,7 +717,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
 
     fn sql_expr_to_logical_expr(&self, sql: &SQLExpr) -> Result<Expr> {
         match sql {
-            SQLExpr::Value(Value::Number(n)) => match n.parse::<i64>() {
+            SQLExpr::Value(Value::Number(n, _)) => match n.parse::<i64>() {
                 Ok(n) => Ok(lit(n)),
                 Err(_) => Ok(lit(n.parse::<f64>().unwrap())),
             },
@@ -723,6 +726,13 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
             SQLExpr::Value(Value::Boolean(n)) => Ok(lit(*n)),
 
             SQLExpr::Value(Value::Null) => Ok(Expr::Literal(ScalarValue::Utf8(None))),
+            SQLExpr::Extract { field, expr } => Ok(Expr::ScalarFunction {
+                fun: functions::BuiltinScalarFunction::DatePart,
+                args: vec![
+                    Expr::Literal(ScalarValue::Utf8(Some(format!("{}", field)))),
+                    self.sql_expr_to_logical_expr(expr)?,
+                ],
+            }),
 
             SQLExpr::Value(Value::Interval {
                 value,
@@ -833,7 +843,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                     match expr.as_ref() {
                         // optimization: if it's a number literal, we applly the negative operator
                         // here directly to calculate the new literal.
-                        SQLExpr::Value(Value::Number(n)) => match n.parse::<i64>() {
+                        SQLExpr::Value(Value::Number(n,_)) => match n.parse::<i64>() {
                             Ok(n) => Ok(lit(-n)),
                             Err(_) => Ok(lit(-n
                                 .parse::<f64>()
@@ -938,6 +948,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                             .iter()
                             .map(|a| match a {
                                 FunctionArg::Unnamed(SQLExpr::Value(Value::Number(
+                                    _,
                                     _,
                                 ))) => Ok(lit(1_u8)),
                                 FunctionArg::Unnamed(SQLExpr::Wildcard) => Ok(lit(1_u8)),
@@ -1405,7 +1416,8 @@ mod tests {
 
     #[test]
     fn test_timestamp_filter() {
-        let sql = "SELECT state FROM person WHERE birth_date < CAST (158412331400600000 as timestamp)";
+        let sql =
+            "SELECT state FROM person WHERE birth_date < CAST (158412331400600000 as timestamp)";
 
         let expected = "Projection: #state\
             \n  Filter: #birth_date Lt CAST(Int64(158412331400600000) AS Timestamp(Nanosecond, None))\
@@ -2052,7 +2064,8 @@ mod tests {
     fn select_simple_aggregate_with_groupby_non_column_expression_nested_and_not_resolvable(
     ) {
         // The query should fail, because age + 9 is not in the group by.
-        let sql = "SELECT ((age + 1) / 2) * (age + 9), MIN(first_name) FROM person GROUP BY age + 1";
+        let sql =
+            "SELECT ((age + 1) / 2) * (age + 9), MIN(first_name) FROM person GROUP BY age + 1";
         let err = logical_plan(sql).expect_err("query should have failed");
         assert_eq!(
             "Plan(\"Projection references non-aggregate values\")",
@@ -2336,6 +2349,17 @@ mod tests {
     }
 
     #[test]
+    fn boolean_literal_in_condition_expression() {
+        let sql = "SELECT order_id \
+        FROM orders \
+        WHERE delivered = false OR delivered = true";
+        let expected = "Projection: #order_id\
+            \n  Filter: #delivered Eq Boolean(false) Or #delivered Eq Boolean(true)\
+            \n    TableScan: orders projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
     fn select_typedstring() {
         let sql = "SELECT date '2020-12-10' AS date FROM person";
         let expected = "Projection: CAST(Utf8(\"2020-12-10\") AS Date32) AS date\
@@ -2383,6 +2407,7 @@ mod tests {
                     Field::new("o_item_id", DataType::Utf8, false),
                     Field::new("qty", DataType::Int32, false),
                     Field::new("price", DataType::Float64, false),
+                    Field::new("delivered", DataType::Boolean, false),
                 ])),
                 "lineitem" => Some(Schema::new(vec![
                     Field::new("l_item_id", DataType::UInt32, false),

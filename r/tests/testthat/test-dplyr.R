@@ -18,6 +18,7 @@
 context("dplyr verbs")
 
 library(dplyr)
+library(stringr)
 
 expect_dplyr_equal <- function(expr, # A dplyr pipeline with `input` as its start
                                tbl,  # A tbl/df as reference, will make RB/Table with
@@ -83,6 +84,11 @@ expect_dplyr_error <- function(expr, # A dplyr pipeline with `input` as its star
 }
 
 tbl <- example_data
+# Add some better string data
+tbl$verses <- verses[[1]]
+# c(" a ", "  b  ", "   c   ", ...) increasing padding
+# nchar =   3  5  7  9 11 13 15 17 19 21
+tbl$padded_strings <- stringr::str_pad(letters[1:10], width = 2*(1:10)+1, side = "both")
 
 test_that("basic select/filter/collect", {
   batch <- record_batch(tbl)
@@ -256,6 +262,50 @@ test_that("filter() with %in%", {
   )
 })
 
+test_that("filter() with string ops", {
+  # Extra instrumentation to ensure that we're calling Arrow compute here
+  # because many base R string functions implicitly call as.character,
+  # which means they still work on Arrays but actually force data into R
+  # 1) wrapper that raises a warning if as.character is called. Can't wrap
+  #    the whole test because as.character apparently gets called in other
+  #    (presumably legitimate) places
+  # 2) Wrap the test in expect_warning(expr, NA) to catch the warning
+
+  with_no_as_character <- function(expr) {
+    trace(
+      "as.character",
+      tracer = quote(warning("as.character was called")),
+      print = FALSE,
+      where = toupper
+    )
+    on.exit(untrace("as.character", where = toupper))
+    force(expr)
+  }
+
+  expect_warning(
+    expect_dplyr_equal(
+      input %>%
+        filter(dbl > 2, with_no_as_character(toupper(chr)) %in% c("D", "F")) %>%
+        collect(),
+      tbl
+    ),
+  NA)
+
+  expect_dplyr_equal(
+    input %>%
+      filter(dbl > 2, str_length(verses) > 25) %>%
+      collect(),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(dbl > 2, str_length(str_trim(padded_strings, "left")) > 5) %>%
+      collect(),
+    tbl
+  )
+})
+
 test_that("filter environment scope", {
   # "object 'b_var' not found"
   expect_dplyr_error(input %>% filter(batch, chr == b_var))
@@ -396,6 +446,14 @@ test_that("group_by groupings are recorded", {
   expect_identical(collect(batch), tbl)
 })
 
+test_that("group_by doesn't yet support creating/renaming", {
+  expect_error(
+    record_batch(tbl) %>%
+      group_by(chr, numbers = int),
+    "Cannot create or rename columns in group_by on Arrow objects"
+  )
+})
+
 test_that("ungroup", {
   expect_dplyr_equal(
     input %>%
@@ -481,6 +539,25 @@ test_that("group_by then rename", {
       select(string = chr, int) %>%
       collect(),
     tbl
+  )
+})
+
+test_that("group_by with .drop", {
+  expect_identical(
+    Table$create(tbl) %>% 
+      group_by(chr, .drop = TRUE) %>%
+      group_vars(), 
+    "chr"
+  )
+  expect_dplyr_equal(
+    input %>%
+      group_by(chr, .drop = TRUE) %>%
+      collect(),
+    tbl
+  )
+  expect_error(
+    Table$create(tbl) %>% group_by(chr, .drop = FALSE),
+    "not supported"
   )
 })
 

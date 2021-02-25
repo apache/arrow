@@ -226,7 +226,7 @@ mod tests {
     }
 
     #[test]
-    fn test_swap_order() -> Result<()> {
+    fn test_swap_order() {
         let lp_left = LogicalPlan::TableScan {
             table_name: "left".to_string(),
             projection: None,
@@ -245,7 +245,5 @@ mod tests {
 
         assert!(should_swap_join_order(&lp_left, &lp_right));
         assert!(!should_swap_join_order(&lp_right, &lp_left));
-
-        Ok(())
     }
 }

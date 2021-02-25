@@ -23,7 +23,7 @@ use crate::file::writer::TryClone;
 
 /// This is object to use if your file is already in memory.
 /// The sliceable cursor is similar to std::io::Cursor, except that it makes it easy to create "cursor slices".
-/// To achieve this, it uses Arc instead of shared references. Indeed reference fields are painfull
+/// To achieve this, it uses Arc instead of shared references. Indeed reference fields are painful
 /// because the lack of Generic Associated Type implies that you would require complex lifetime propagation when
 /// returning such a cursor.
 #[allow(clippy::rc_buffer)]

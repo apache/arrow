@@ -561,6 +561,10 @@ impl ColumnPath {
     pub fn append(&mut self, mut tail: Vec<String>) {
         self.parts.append(&mut tail);
     }
+
+    pub fn parts(&self) -> &[String] {
+        &self.parts
+    }
 }
 
 impl fmt::Display for ColumnPath {

@@ -270,6 +270,7 @@ impl<T: DataType> DictEncoder<T> {
     }
 
     #[inline]
+    #[allow(clippy::unnecessary_wraps)]
     fn put_one(&mut self, value: &T::T) -> Result<()> {
         let mut j = (hash_util::hash(value, 0) & self.mod_bitmask) as usize;
         let mut index = self.hash_slots[j];

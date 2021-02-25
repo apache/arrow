@@ -1201,6 +1201,7 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>,
       auto result = values_;
       PARQUET_THROW_NOT_OK(result->Resize(bytes_for_values(values_written_), true));
       values_ = AllocateBuffer(this->pool_);
+      values_capacity_ = 0;
       return result;
     } else {
       return nullptr;

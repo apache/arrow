@@ -119,10 +119,10 @@ FORCE_INLINE
 gdv_int64 round_int64(gdv_int64 num) { return num; }
 
 // rounds the number to the nearest integer
-#define ROUND_DECIMAL(TYPE)                                                \
-  FORCE_INLINE                                                             \
-  gdv_##TYPE round_##TYPE(gdv_##TYPE num) {                                \
-    return static_cast<gdv_##TYPE>(trunc(num + ((num > 0) ? 0.5 : -0.5))); \
+#define ROUND_DECIMAL(TYPE)                                                 \
+  FORCE_INLINE                                                              \
+  gdv_##TYPE round_##TYPE(gdv_##TYPE num) {                                 \
+    return static_cast<gdv_##TYPE>(trunc(num + ((num >= 0) ? 0.5 : -0.5))); \
   }
 
 ROUND_DECIMAL(float32)
@@ -134,7 +134,7 @@ ROUND_DECIMAL(float64)
   gdv_##TYPE round_##TYPE##_int32(gdv_##TYPE number, gdv_int32 out_scale) { \
     gdv_float64 scale_multiplier = get_scale_multiplier(out_scale);         \
     return static_cast<gdv_##TYPE>(                                         \
-        trunc(number * scale_multiplier + ((number > 0) ? 0.5 : -0.5)) /    \
+        trunc(number * scale_multiplier + ((number >= 0) ? 0.5 : -0.5)) /   \
         scale_multiplier);                                                  \
   }
 

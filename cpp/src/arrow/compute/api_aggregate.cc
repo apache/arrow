@@ -68,5 +68,10 @@ Result<Datum> Quantile(const Datum& value, const QuantileOptions& options,
   return CallFunction("quantile", {value}, &options, ctx);
 }
 
+Result<Datum> TDigest(const Datum& value, const TDigestOptions& options,
+                      ExecContext* ctx) {
+  return CallFunction("tdigest", {value}, &options, ctx);
+}
+
 }  // namespace compute
 }  // namespace arrow

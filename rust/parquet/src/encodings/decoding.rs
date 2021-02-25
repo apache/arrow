@@ -995,7 +995,7 @@ mod tests {
         let mut decoder: PlainDecoder<T> = PlainDecoder::new(type_length);
         let result = decoder.set_data(data, num_values);
         assert!(result.is_ok());
-        let result = decoder.get(&mut buffer[..]);
+        let result = decoder.get(buffer);
         assert!(result.is_ok());
         assert_eq!(decoder.values_left(), 0);
         assert_eq!(buffer, expected);
@@ -1013,7 +1013,7 @@ mod tests {
         let mut decoder: PlainDecoder<T> = PlainDecoder::new(type_length);
         let result = decoder.set_data(data, num_values);
         assert!(result.is_ok());
-        let result = decoder.get_spaced(&mut buffer[..], num_nulls, valid_bits);
+        let result = decoder.get_spaced(buffer, num_nulls, valid_bits);
         assert!(result.is_ok());
         assert_eq!(num_values + num_nulls, result.unwrap());
         assert_eq!(decoder.values_left(), 0);
@@ -1317,6 +1317,7 @@ mod tests {
 
     /// A util trait to convert slices of different types to byte arrays
     trait ToByteArray<T: DataType> {
+        #[allow(clippy::wrong_self_convention)]
         fn to_byte_array(data: &[T::T]) -> Vec<u8>;
     }
 

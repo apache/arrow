@@ -189,7 +189,6 @@ set(ARROW_SRCS
     util/future.cc
     util/int_util.cc
     util/io_util.cc
-    util/iterator.cc
     util/logging.cc
     util/key_value_metadata.cc
     util/memory.cc
@@ -367,6 +366,7 @@ if(ARROW_COMPUTE)
               compute/kernels/aggregate_basic.cc
               compute/kernels/aggregate_mode.cc
               compute/kernels/aggregate_quantile.cc
+              compute/kernels/aggregate_tdigest.cc
               compute/kernels/aggregate_var_std.cc
               compute/kernels/codegen_internal.cc
               compute/kernels/scalar_arithmetic.cc

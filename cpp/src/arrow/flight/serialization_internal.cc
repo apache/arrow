@@ -53,13 +53,13 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/logging.h"
 
-namespace pb = arrow::flight::protocol;
-
 static constexpr int64_t kInt32Max = std::numeric_limits<int32_t>::max();
 
 namespace arrow {
 namespace flight {
 namespace internal {
+
+namespace pb = arrow::flight::protocol;
 
 using arrow::ipc::IpcPayload;
 

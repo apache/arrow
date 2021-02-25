@@ -165,6 +165,13 @@ class PrepareTest < Test::Unit::TestCase
                      ],
                    },
                    {
+                     path: "cpp/vcpkg.json",
+                     hunks: [
+                       ["-  \"version-string\": \"#{@snapshot_version}\",",
+                        "+  \"version-string\": \"#{@release_version}\","],
+                     ],
+                   },
+                   {
                      path: "csharp/Directory.Build.props",
                      hunks: [
                        ["-    <Version>#{@snapshot_version}</Version>",
@@ -408,6 +415,13 @@ class PrepareTest < Test::Unit::TestCase
                      hunks: [
                        ["-set(ARROW_VERSION \"#{@release_version}\")",
                         "+set(ARROW_VERSION \"#{@next_snapshot_version}\")"],
+                     ],
+                   },
+                   {
+                     path: "cpp/vcpkg.json",
+                     hunks: [
+                       ["-  \"version-string\": \"#{@release_version}\",",
+                        "+  \"version-string\": \"#{@next_snapshot_version}\","],
                      ],
                    },
                    {

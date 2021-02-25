@@ -17,7 +17,6 @@
 
 import os
 import re
-import shlex
 import subprocess
 from io import StringIO
 
@@ -41,6 +40,12 @@ def flatten(node, parents=None):
             yield from flatten(value, parents=parents + [key])
     else:
         raise TypeError(node)
+
+
+def _sanitize_command(cmd):
+    if isinstance(cmd, list):
+        cmd = " ".join(cmd)
+    return re.sub(r"\s+", " ", cmd)
 
 
 class UndefinedImage(Exception):
@@ -224,9 +229,13 @@ class DockerCompose(Command):
             _pull(service)
 
     def build(self, service_name, use_cache=True, use_leaf_cache=True,
-              using_docker=False):
+              using_docker=False, using_buildx=False):
         def _build(service, use_cache):
-            args = ['build']
+            if 'build' not in service:
+                # nothing to do
+                return
+
+            args = []
             cache_from = list(service.get('build', {}).get('cache_from', []))
             if use_cache:
                 for image in cache_from:
@@ -240,10 +249,36 @@ class DockerCompose(Command):
             else:
                 args.append('--no-cache')
 
-            if using_docker:
-                if 'build' not in service:
-                    # nothing to do
-                    return
+            # turn on inline build cache, this is a docker buildx feature
+            # used to bundle the image build cache to the pushed image manifest
+            # so the build cache can be reused across hosts, documented at
+            # https://github.com/docker/buildx#--cache-tonametypetypekeyvalue
+            if self.config.env.get('BUILDKIT_INLINE_CACHE') == '1':
+                args.extend(['--build-arg', 'BUILDKIT_INLINE_CACHE=1'])
+
+            if using_buildx:
+                for k, v in service['build'].get('args', {}).items():
+                    args.extend(['--build-arg', '{}={}'.format(k, v)])
+
+                if use_cache:
+                    cache_ref = '{}-cache'.format(service['image'])
+                    cache_from = 'type=registry,ref={}'.format(cache_ref)
+                    cache_to = (
+                        'type=registry,ref={},mode=max'.format(cache_ref)
+                    )
+                    args.extend([
+                        '--cache-from', cache_from,
+                        '--cache-to', cache_to,
+                    ])
+
+                args.extend([
+                    '--output', 'type=docker',
+                    '-f', service['build']['dockerfile'],
+                    '-t', service['image'],
+                    service['build'].get('context', '.')
+                ])
+                self._execute_docker("buildx", "build", *args)
+            elif using_docker:
                 # better for caching
                 for k, v in service['build'].get('args', {}).items():
                     args.extend(['--build-arg', '{}={}'.format(k, v)])
@@ -254,9 +289,9 @@ class DockerCompose(Command):
                     '-t', service['image'],
                     service['build'].get('context', '.')
                 ])
-                self._execute_docker(*args)
+                self._execute_docker("build", *args)
             else:
-                self._execute_compose(*args, service['name'])
+                self._execute_compose("build", *args, service['name'])
 
         service = self.config.get(service_name)
         # build ancestor services
@@ -313,10 +348,9 @@ class DockerCompose(Command):
                 args.append(command)
             else:
                 # replace whitespaces from the preformatted compose command
-                cmd = shlex.split(service.get('command', ''))
-                cmd = [re.sub(r"\s+", " ", token) for token in cmd]
+                cmd = _sanitize_command(service.get('command', ''))
                 if cmd:
-                    args.extend(cmd)
+                    args.append(cmd)
 
             # execute as a plain docker cli command
             self._execute_docker('run', '--rm', *args)

@@ -21,37 +21,71 @@
 #include <vector>
 
 #include "arrow/array/builder_nested.h"
+#include "arrow/compute/api_scalar.h"
 #include "arrow/compute/cast.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/compute/kernels/scalar_cast_internal.h"
+#include "arrow/util/bitmap_ops.h"
 
 namespace arrow {
+
+using internal::CopyBitmap;
+
 namespace compute {
 namespace internal {
 
 template <typename Type>
 void CastListExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  const CastOptions& options = checked_cast<const CastState&>(*ctx->state()).options;
+  using offset_type = typename Type::offset_type;
+  using ScalarType = typename TypeTraits<Type>::ScalarType;
 
-  const ArrayData& input = *batch[0].array();
-  ArrayData* result = out->mutable_array();
+  const CastOptions& options = CastState::Get(ctx);
 
-  if (input.offset != 0) {
-    ctx->SetStatus(Status::NotImplemented(
-        "Casting sliced lists (non-zero offset) not yet implemented"));
+  auto child_type = checked_cast<const Type&>(*out->type()).value_type();
+
+  if (out->kind() == Datum::SCALAR) {
+    const auto& in_scalar = checked_cast<const ScalarType&>(*batch[0].scalar());
+    auto out_scalar = checked_cast<ScalarType*>(out->scalar().get());
+
+    DCHECK(!out_scalar->is_valid);
+    if (in_scalar.is_valid) {
+      KERNEL_ASSIGN_OR_RAISE(
+          out_scalar->value, ctx,
+          Cast(*in_scalar.value, child_type, options, ctx->exec_context()));
+
+      out_scalar->is_valid = true;
+    }
     return;
   }
-  // Copy buffers from parent
-  result->buffers = input.buffers;
 
-  auto child_type = checked_cast<const Type&>(*result->type).value_type();
+  const ArrayData& in_array = *batch[0].array();
+  ArrayData* out_array = out->mutable_array();
 
-  Datum casted_child;
-  KERNEL_RETURN_IF_ERROR(
-      ctx, Cast(Datum(input.child_data[0]), child_type, options, ctx->exec_context())
-               .Value(&casted_child));
-  DCHECK_EQ(Datum::ARRAY, casted_child.kind());
-  result->child_data.push_back(casted_child.array());
+  // Copy from parent
+  out_array->buffers = in_array.buffers;
+  Datum values = in_array.child_data[0];
+
+  if (in_array.offset != 0) {
+    KERNEL_ASSIGN_OR_RAISE(out_array->buffers[0], ctx,
+                           CopyBitmap(ctx->memory_pool(), in_array.buffers[0]->data(),
+                                      in_array.offset, in_array.length));
+    KERNEL_ASSIGN_OR_RAISE(out_array->buffers[1], ctx,
+                           ctx->Allocate(sizeof(offset_type) * (in_array.length + 1)));
+
+    auto offsets = in_array.GetValues<offset_type>(1);
+    auto shifted_offsets = out_array->GetMutableValues<offset_type>(1);
+
+    for (int64_t i = 0; i < in_array.length + 1; ++i) {
+      shifted_offsets[i] = offsets[i] - offsets[0];
+    }
+    values = in_array.child_data[0]->Slice(offsets[0], offsets[in_array.length]);
+  }
+
+  KERNEL_ASSIGN_OR_RAISE(Datum cast_values, ctx,
+                         Cast(values, child_type, options, ctx->exec_context()));
+
+  DCHECK_EQ(Datum::ARRAY, cast_values.kind());
+  out_array->child_data.push_back(cast_values.array());
 }
 
 template <typename Type>

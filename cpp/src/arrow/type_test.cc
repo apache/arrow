@@ -475,6 +475,31 @@ TEST_F(TestSchema, Basics) {
 
   ASSERT_EQ(schema->fingerprint(), schema2->fingerprint());
   ASSERT_NE(schema->fingerprint(), schema3->fingerprint());
+
+  auto schema4 = ::arrow::schema({f0}, Endianness::Little);
+  auto schema5 = ::arrow::schema({f0}, Endianness::Little);
+  auto schema6 = ::arrow::schema({f0}, Endianness::Big);
+  auto schema7 = ::arrow::schema({f0});
+
+  AssertSchemaEqual(schema4, schema5);
+  AssertSchemaNotEqual(schema4, schema6);
+#if ARROW_LITTLE_ENDIAN
+  AssertSchemaEqual(schema4, schema7);
+  AssertSchemaNotEqual(schema6, schema7);
+#else
+  AssertSchemaNotEqual(schema4, schema6);
+  AssertSchemaEqual(schema6, schema7);
+#endif
+
+  ASSERT_EQ(schema4->fingerprint(), schema5->fingerprint());
+  ASSERT_NE(schema4->fingerprint(), schema6->fingerprint());
+#if ARROW_LITTLE_ENDIAN
+  ASSERT_EQ(schema4->fingerprint(), schema7->fingerprint());
+  ASSERT_NE(schema6->fingerprint(), schema7->fingerprint());
+#else
+  ASSERT_NE(schema4->fingerprint(), schema7->fingerprint());
+  ASSERT_EQ(schema6->fingerprint(), schema7->fingerprint());
+#endif
 }
 
 TEST_F(TestSchema, ToString) {
@@ -495,14 +520,38 @@ f3: list<item: int16>)";
   ASSERT_EQ(expected, result);
 
   result = schema->ToString(/*print_metadata=*/true);
+  std::string expected_with_metadata = expected + R"(
+-- metadata --
+foo: bar)";
+
+  ASSERT_EQ(expected_with_metadata, result);
+
+  // With swapped endianness
+#if ARROW_LITTLE_ENDIAN
+  schema = schema->WithEndianness(Endianness::Big);
   expected = R"(f0: int32
 f1: uint8 not null
 f2: string
 f3: list<item: int16>
+-- endianness: big --)";
+#else
+  schema = schema->WithEndianness(Endianness::Little);
+  expected = R"(f0: int32
+f1: uint8 not null
+f2: string
+f3: list<item: int16>
+-- endianness: little --)";
+#endif
+
+  result = schema->ToString();
+  ASSERT_EQ(expected, result);
+
+  result = schema->ToString(/*print_metadata=*/true);
+  expected_with_metadata = expected + R"(
 -- metadata --
 foo: bar)";
 
-  ASSERT_EQ(expected, result);
+  ASSERT_EQ(expected_with_metadata, result);
 }
 
 TEST_F(TestSchema, GetFieldByName) {

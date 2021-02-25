@@ -1075,7 +1075,7 @@ mod tests {
     }
 
     #[test]
-    fn test_fixed_size_binary_append() -> Result<()> {
+    fn test_fixed_size_binary_append() {
         let a = vec![Some(vec![1, 2]), Some(vec![3, 4]), Some(vec![5, 6])];
         let a = FixedSizeBinaryArray::from(a).data();
 
@@ -1118,7 +1118,6 @@ mod tests {
         ];
         let expected = FixedSizeBinaryArray::from(expected).data();
         assert_eq!(&result, expected.as_ref());
-        Ok(())
     }
 
     /*

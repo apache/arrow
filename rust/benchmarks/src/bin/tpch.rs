@@ -17,8 +17,11 @@
 
 //! Benchmark derived from TPC-H. This is not an official TPC-H benchmark.
 
-use std::path::{Path, PathBuf};
 use std::time::Instant;
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use arrow::datatypes::{DataType, Field, Schema};
 use arrow::util::pretty;
@@ -142,18 +145,15 @@ async fn benchmark(opt: BenchmarkOpt) -> Result<Vec<arrow::record_batch::RecordB
             println!("Loading table '{}' into memory", table);
             let start = Instant::now();
 
-            let memtable = MemTable::load(
-                table_provider.as_ref(),
-                opt.batch_size,
-                Some(opt.partitions),
-            )
-            .await?;
+            let memtable =
+                MemTable::load(table_provider, opt.batch_size, Some(opt.partitions))
+                    .await?;
             println!(
                 "Loaded table '{}' into memory in {} ms",
                 table,
                 start.elapsed().as_millis()
             );
-            ctx.register_table(table, Box::new(memtable));
+            ctx.register_table(table, Arc::new(memtable));
         } else {
             ctx.register_table(table, table_provider);
         }
@@ -385,7 +385,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
         //     where
         //         l_shipdate >= date '1994-01-01'
         //         and l_shipdate < date '1994-01-01' + interval '1' year
-        //         and l_discount between 0.06 - 0.01 and 0.06 + 0.01
+        //         and l_discount between .06 - 0.01 and .06 + 0.01
         //         and l_quantity < 24;"
         // ),
         6 => ctx.create_logical_plan(
@@ -396,7 +396,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
             where
                 l_shipdate >= date '1994-01-01'
                 and l_shipdate < date '1995-01-01'
-                and l_discount between 0.06 - 0.01 and 0.06 + 0.01
+                and l_discount between .06 - 0.01 and .06 + 0.01
                 and l_quantity < 24;",
         ),
 
@@ -1101,7 +1101,7 @@ fn get_table(
     table: &str,
     table_format: &str,
     max_concurrency: usize,
-) -> Result<Box<dyn TableProvider + Send + Sync>> {
+) -> Result<Arc<dyn TableProvider + Send + Sync>> {
     match table_format {
         // dbgen creates .tbl ('|' delimited) files without header
         "tbl" => {
@@ -1113,18 +1113,18 @@ fn get_table(
                 .has_header(false)
                 .file_extension(".tbl");
 
-            Ok(Box::new(CsvFile::try_new(&path, options)?))
+            Ok(Arc::new(CsvFile::try_new(&path, options)?))
         }
         "csv" => {
             let path = format!("{}/{}", path, table);
             let schema = get_schema(table);
             let options = CsvReadOptions::new().schema(&schema).has_header(true);
 
-            Ok(Box::new(CsvFile::try_new(&path, options)?))
+            Ok(Arc::new(CsvFile::try_new(&path, options)?))
         }
         "parquet" => {
             let path = format!("{}/{}", path, table);
-            Ok(Box::new(ParquetTable::try_new(&path, max_concurrency)?))
+            Ok(Arc::new(ParquetTable::try_new(&path, max_concurrency)?))
         }
         other => {
             unimplemented!("Invalid file format '{}'", other);
@@ -1610,7 +1610,7 @@ mod tests {
 
             let provider = MemTable::try_new(Arc::new(schema), vec![vec![batch]])?;
 
-            ctx.register_table(table, Box::new(provider));
+            ctx.register_table(table, Arc::new(provider));
         }
 
         let plan = create_logical_plan(&mut ctx, n)?;

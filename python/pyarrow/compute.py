@@ -30,6 +30,7 @@ from pyarrow._compute import (  # noqa
     ArraySortOptions,
     CastOptions,
     CountOptions,
+    DictionaryEncodeOptions,
     FilterOptions,
     MatchSubstringOptions,
     MinMaxOptions,
@@ -43,6 +44,7 @@ from pyarrow._compute import (  # noqa
     SortOptions,
     StrptimeOptions,
     TakeOptions,
+    TDigestOptions,
     TrimOptions,
     VarianceOptions,
     # Functions

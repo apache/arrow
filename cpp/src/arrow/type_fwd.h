@@ -52,6 +52,7 @@ class DataType;
 class Field;
 class FieldRef;
 class KeyValueMetadata;
+enum class Endianness;
 class Schema;
 
 using DataTypeVector = std::vector<std::shared_ptr<DataType>>;
@@ -437,7 +438,10 @@ std::shared_ptr<DataType> ARROW_EXPORT date64();
 ARROW_EXPORT
 std::shared_ptr<DataType> fixed_size_binary(int32_t byte_width);
 
-/// \brief Create a Decimal128Type or Decimal256Type instance depending on the precision
+/// \brief Create a DecimalType instance depending on the precision
+///
+/// If the precision is greater than 38, a Decimal128Type is returned,
+/// otherwise a Decimal256Type.
 ARROW_EXPORT
 std::shared_ptr<DataType> decimal(int32_t precision, int32_t scale);
 
@@ -633,6 +637,17 @@ field(std::string name, std::shared_ptr<DataType> type, bool nullable = true,
 ARROW_EXPORT
 std::shared_ptr<Schema> schema(
     std::vector<std::shared_ptr<Field>> fields,
+    std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
+
+/// \brief Create a Schema instance
+///
+/// \param fields the schema's fields
+/// \param endianness the endianness of the data
+/// \param metadata any custom key-value metadata, default null
+/// \return schema shared_ptr to Schema
+ARROW_EXPORT
+std::shared_ptr<Schema> schema(
+    std::vector<std::shared_ptr<Field>> fields, Endianness endianness,
     std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
 
 /// @}

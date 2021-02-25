@@ -61,11 +61,11 @@ async fn join() -> Result<()> {
     let table1 = MemTable::try_new(schema1, vec![vec![batch1]])?;
     let table2 = MemTable::try_new(schema2, vec![vec![batch2]])?;
 
-    ctx.register_table("aa", Box::new(table1));
+    ctx.register_table("aa", Arc::new(table1));
 
     let df1 = ctx.table("aa")?;
 
-    ctx.register_table("aaa", Box::new(table2));
+    ctx.register_table("aaa", Arc::new(table2));
 
     let df2 = ctx.table("aaa")?;
 

@@ -43,6 +43,7 @@ test_that("compare ops with Array", {
   expect_array_compares(Array$create(c(NA, 1:5)), 4)
   expect_array_compares(Array$create(as.numeric(c(NA, 1:5))), 4)
   expect_array_compares(Array$create(c(NA, 1:5)), Array$create(rev(c(NA, 1:5))))
+  expect_array_compares(Array$create(c(NA, 1:5)), Array$create(rev(c(NA, 1:5)), type=double()))
 })
 
 test_that("compare ops with ChunkedArray", {

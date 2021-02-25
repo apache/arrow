@@ -27,6 +27,7 @@ pub enum ArrowError {
     /// Returned when functionality is not yet available.
     NotYetImplemented(String),
     ExternalError(Box<dyn Error + Send + Sync>),
+    CastError(String),
     MemoryError(String),
     ParseError(String),
     SchemaError(String),
@@ -96,6 +97,7 @@ impl Display for ArrowError {
                 write!(f, "Not yet implemented: {}", &source)
             }
             ArrowError::ExternalError(source) => write!(f, "External error: {}", &source),
+            ArrowError::CastError(desc) => write!(f, "Cast error: {}", desc),
             ArrowError::MemoryError(desc) => write!(f, "Memory error: {}", desc),
             ArrowError::ParseError(desc) => write!(f, "Parser error: {}", desc),
             ArrowError::SchemaError(desc) => write!(f, "Schema error: {}", desc),
