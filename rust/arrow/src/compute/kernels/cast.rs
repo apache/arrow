@@ -73,7 +73,6 @@ pub fn can_cast_types(from_type: &DataType, to_type: &DataType) -> bool {
         (List(_), _) => false,
         (_, List(list_to)) => can_cast_types(from_type, list_to.data_type()),
         (_, LargeList(list_to)) => can_cast_types(from_type, list_to.data_type()),
-        (Dictionary(_, _), LargeUtf8) => false,
         (Dictionary(_, from_value_type), Dictionary(_, to_value_type)) => {
             can_cast_types(from_value_type, to_value_type)
         }
@@ -369,28 +368,8 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
                 from_type, to_type,
             ))),
         },
-        (LargeUtf8, _) => match to_type {
-            UInt8 => cast_string_to_numeric::<UInt8Type, i64>(array),
-            UInt16 => cast_string_to_numeric::<UInt16Type, i64>(array),
-            UInt32 => cast_string_to_numeric::<UInt32Type, i64>(array),
-            UInt64 => cast_string_to_numeric::<UInt64Type, i64>(array),
-            Int8 => cast_string_to_numeric::<Int8Type, i64>(array),
-            Int16 => cast_string_to_numeric::<Int16Type, i64>(array),
-            Int32 => cast_string_to_numeric::<Int32Type, i64>(array),
-            Int64 => cast_string_to_numeric::<Int64Type, i64>(array),
-            Float32 => cast_string_to_numeric::<Float32Type, i64>(array),
-            Float64 => cast_string_to_numeric::<Float64Type, i64>(array),
-            Date32 => cast_string_to_date32::<i64>(&**array),
-            Date64 => cast_string_to_date64::<i64>(&**array),
-            Timestamp(TimeUnit::Nanosecond, None) => {
-                cast_string_to_timestamp_ns::<i64>(&**array)
-            }
-            _ => Err(ArrowError::ComputeError(format!(
-                "Casting from {:?} to {:?} not supported",
-                from_type, to_type,
-            ))),
-        },
         (Utf8, _) => match to_type {
+            LargeUtf8 => cast_str_container::<i32, i64>(&**array),
             UInt8 => cast_string_to_numeric::<UInt8Type, i32>(array),
             UInt16 => cast_string_to_numeric::<UInt16Type, i32>(array),
             UInt32 => cast_string_to_numeric::<UInt32Type, i32>(array),
@@ -460,6 +439,27 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
                         })
                         .collect::<LargeStringArray>(),
                 ))
+            }
+            _ => Err(ArrowError::ComputeError(format!(
+                "Casting from {:?} to {:?} not supported",
+                from_type, to_type,
+            ))),
+        },
+        (LargeUtf8, _) => match to_type {
+            UInt8 => cast_string_to_numeric::<UInt8Type, i64>(array),
+            UInt16 => cast_string_to_numeric::<UInt16Type, i64>(array),
+            UInt32 => cast_string_to_numeric::<UInt32Type, i64>(array),
+            UInt64 => cast_string_to_numeric::<UInt64Type, i64>(array),
+            Int8 => cast_string_to_numeric::<Int8Type, i64>(array),
+            Int16 => cast_string_to_numeric::<Int16Type, i64>(array),
+            Int32 => cast_string_to_numeric::<Int32Type, i64>(array),
+            Int64 => cast_string_to_numeric::<Int64Type, i64>(array),
+            Float32 => cast_string_to_numeric::<Float32Type, i64>(array),
+            Float64 => cast_string_to_numeric::<Float64Type, i64>(array),
+            Date32 => cast_string_to_date32::<i64>(&**array),
+            Date64 => cast_string_to_date64::<i64>(&**array),
+            Timestamp(TimeUnit::Nanosecond, None) => {
+                cast_string_to_timestamp_ns::<i64>(&**array)
             }
             _ => Err(ArrowError::ComputeError(format!(
                 "Casting from {:?} to {:?} not supported",
