@@ -63,7 +63,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules")
 # this must be included before the project() command, because of the way
 # vcpkg (ab)uses CMAKE_TOOLCHAIN_FILE to inject its logic into CMake
 if(ARROW_DEPENDENCY_SOURCE STREQUAL "VCPKG")
-  include(Findvcpkg)
+  include(Usevcpkg)
 endif()
 
 project(arrow VERSION "${ARROW_BASE_VERSION}")
