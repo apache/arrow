@@ -34,6 +34,8 @@
 
 #define ARROW_PACKAGE_KIND "@ARROW_PACKAGE_KIND@"
 
+#cmakedefine ARROW_COMPUTE
+
 #cmakedefine ARROW_S3
 #cmakedefine ARROW_USE_NATIVE_INT128
 

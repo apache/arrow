@@ -137,5 +137,20 @@ struct ARROW_EXPORT ReadOptions {
   static ReadOptions Defaults();
 };
 
+/// Experimental
+struct ARROW_EXPORT WriteOptions {
+  /// Whether to write an initial header line with column names
+  bool include_header = true;
+
+  /// \brief Maximum number of rows processed at a time
+  ///
+  /// The CSV writer converts and writes data in batches of N rows.
+  /// This number can impact performance.
+  int32_t batch_size = 1024;
+
+  /// Create write options with default values
+  static WriteOptions Defaults();
+};
+
 }  // namespace csv
 }  // namespace arrow

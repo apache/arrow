@@ -30,10 +30,13 @@ from pyarrow.includes.libarrow cimport *
 from pyarrow.lib cimport (check_status, Field, MemoryPool, Schema,
                           RecordBatchReader, ensure_type,
                           maybe_unbox_memory_pool, get_input_stream,
-                          native_transcoding_input_stream,
+                          get_writer, native_transcoding_input_stream,
+                          pyarrow_unwrap_batch, pyarrow_unwrap_table,
                           pyarrow_wrap_schema, pyarrow_wrap_table,
-                          pyarrow_wrap_data_type, pyarrow_unwrap_data_type)
+                          pyarrow_wrap_data_type, pyarrow_unwrap_data_type,
+                          Table, RecordBatch)
 from pyarrow.lib import frombytes, tobytes
+from pyarrow.util import _stringify_path
 
 
 cdef unsigned char _single_char(s) except 0:
@@ -763,3 +766,99 @@ def open_csv(input_file, read_options=None, parse_options=None,
                  move(c_convert_options),
                  maybe_unbox_memory_pool(memory_pool))
     return reader
+
+
+cdef class WriteOptions(_Weakrefable):
+    """
+    Options for writing CSV files.
+
+    Parameters
+    ----------
+    include_header : bool, optional (default True)
+        Whether to write an initial header line with column names
+    batch_size : int, optional (default 1024)
+        How many rows to process together when converting and writing
+        CSV data
+    """
+    cdef:
+        CCSVWriteOptions options
+
+    # Avoid mistakingly creating attributes
+    __slots__ = ()
+
+    def __init__(self, *, include_header=None, batch_size=None):
+        self.options = CCSVWriteOptions.Defaults()
+        if include_header is not None:
+            self.include_header = include_header
+        if batch_size is not None:
+            self.batch_size = batch_size
+
+    @property
+    def include_header(self):
+        """
+        Whether to write an initial header line with column names.
+        """
+        return self.options.include_header
+
+    @include_header.setter
+    def include_header(self, value):
+        self.options.include_header = value
+
+    @property
+    def batch_size(self):
+        """
+        How many rows to process together when converting and writing
+        CSV data.
+        """
+        return self.options.batch_size
+
+    @batch_size.setter
+    def batch_size(self, value):
+        self.options.batch_size = value
+
+
+cdef _get_write_options(WriteOptions write_options, CCSVWriteOptions* out):
+    if write_options is None:
+        out[0] = CCSVWriteOptions.Defaults()
+    else:
+        out[0] = write_options.options
+
+
+def write_csv(data, output_file, write_options=None,
+              MemoryPool memory_pool=None):
+    """
+    Write record batch or table to a CSV file.
+
+    Parameters
+    ----------
+    data: pyarrow.RecordBatch or pyarrow.Table
+        The data to write.
+    output_file: string, path, pyarrow.OutputStream or file-like object
+        The location where to write the CSV data.
+    write_options: pyarrow.csv.WriteOptions
+        Options to configure writing the CSV data.
+    memory_pool: MemoryPool, optional
+        Pool for temporary allocations.
+    """
+    cdef:
+        shared_ptr[COutputStream] stream
+        CCSVWriteOptions c_write_options
+        CMemoryPool* c_memory_pool
+        CRecordBatch* batch
+        CTable* table
+    _get_write_options(write_options, &c_write_options)
+
+    get_writer(output_file, &stream)
+    c_memory_pool = maybe_unbox_memory_pool(memory_pool)
+    if isinstance(data, RecordBatch):
+        batch = pyarrow_unwrap_batch(data).get()
+        with nogil:
+            check_status(WriteCSV(deref(batch), c_write_options, c_memory_pool,
+                                  stream.get()))
+    elif isinstance(data, Table):
+        table = pyarrow_unwrap_table(data).get()
+        with nogil:
+            check_status(WriteCSV(deref(table), c_write_options, c_memory_pool,
+                                  stream.get()))
+    else:
+        raise TypeError(f"Expected Table or RecordBatch, got '{type(data)}'")

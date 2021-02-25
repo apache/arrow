@@ -349,6 +349,9 @@ if(ARROW_CSV)
               csv/options.cc
               csv/parser.cc
               csv/reader.cc)
+  if(ARROW_COMPUTE)
+    list(APPEND ARROW_SRCS csv/writer.cc)
+  endif()
 
   list(APPEND ARROW_TESTING_SRCS csv/test_common.cc)
 endif()
