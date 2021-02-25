@@ -175,8 +175,7 @@ class UnquotedColumnPopulator : public ColumnPopulator {
 class QuotedColumnPopulator : public ColumnPopulator {
  public:
   QuotedColumnPopulator(MemoryPool* pool, char end_char)
-      : ColumnPopulator(pool, end_char),
-        row_needs_escaping_() {}
+      : ColumnPopulator(pool, end_char) {}
 
   Status UpdateRowLengths(int32_t* row_lengths) override {
     const StringArray& input = *casted_array_;
