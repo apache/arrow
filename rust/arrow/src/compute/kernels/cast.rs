@@ -73,6 +73,7 @@ pub fn can_cast_types(from_type: &DataType, to_type: &DataType) -> bool {
         (List(_), _) => false,
         (_, List(list_to)) => can_cast_types(from_type, list_to.data_type()),
         (_, LargeList(list_to)) => can_cast_types(from_type, list_to.data_type()),
+        (Dictionary(_, _), LargeUtf8) => false,
         (Dictionary(_, from_value_type), Dictionary(_, to_value_type)) => {
             can_cast_types(from_value_type, to_value_type)
         }
