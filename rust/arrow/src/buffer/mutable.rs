@@ -1,9 +1,9 @@
 use std::ptr::NonNull;
 
 use crate::{
+    alloc,
     bytes::{Bytes, Deallocation},
     datatypes::{ArrowNativeType, ToByteSlice},
-    memory,
     util::bit_util,
 };
 
@@ -53,8 +53,14 @@ impl MutableBuffer {
     /// Allocate a new [MutableBuffer] with initial capacity to be at least `capacity`.
     #[inline]
     pub fn new(capacity: usize) -> Self {
+        Self::with_capacity(capacity)
+    }
+
+    /// Allocate a new [MutableBuffer] with initial capacity to be at least `capacity`.
+    #[inline]
+    pub fn with_capacity(capacity: usize) -> Self {
         let capacity = bit_util::round_upto_multiple_of_64(capacity);
-        let ptr = memory::allocate_aligned(capacity);
+        let ptr = alloc::allocate_aligned(capacity);
         Self {
             data: ptr,
             len: 0,
@@ -75,7 +81,7 @@ impl MutableBuffer {
     /// ```
     pub fn from_len_zeroed(len: usize) -> Self {
         let new_capacity = bit_util::round_upto_multiple_of_64(len);
-        let ptr = memory::allocate_aligned_zeroed(new_capacity);
+        let ptr = alloc::allocate_aligned_zeroed(new_capacity);
         Self {
             data: ptr,
             len,
@@ -324,7 +330,7 @@ unsafe fn reallocate(
 ) -> (NonNull<u8>, usize) {
     let new_capacity = bit_util::round_upto_multiple_of_64(new_capacity);
     let new_capacity = std::cmp::max(new_capacity, old_capacity * 2);
-    let ptr = memory::reallocate(ptr, old_capacity, new_capacity);
+    let ptr = alloc::reallocate(ptr, old_capacity, new_capacity);
     (ptr, new_capacity)
 }
 
@@ -460,7 +466,7 @@ impl std::ops::DerefMut for MutableBuffer {
 
 impl Drop for MutableBuffer {
     fn drop(&mut self) {
-        unsafe { memory::free_aligned(self.data, self.capacity) };
+        unsafe { alloc::free_aligned(self.data, self.capacity) };
     }
 }
 
