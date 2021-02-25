@@ -57,9 +57,6 @@ GARROW_AVAILABLE_IN_1_0
 GADScanOptions *gad_scan_options_new(GArrowSchema *schema);
 GARROW_AVAILABLE_IN_1_0
 GArrowSchema *gad_scan_options_get_schema(GADScanOptions *scan_options);
-GARROW_AVAILABLE_IN_1_0
-GADScanOptions *gad_scan_options_replace_schema(GADScanOptions *scan_options,
-                                                GArrowSchema *schema);
 
 /* arrow::dataset::ScanTask */
 
