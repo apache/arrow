@@ -167,7 +167,7 @@ set(VCPKG_TARGET_TRIPLET
 
 if(NOT DEFINED VCPKG_BUILD_TYPE)
   set(VCPKG_BUILD_TYPE
-      LOWERCASE_BUILD_TYPE
+      "${LOWERCASE_BUILD_TYPE}"
       CACHE STRING "vcpkg build type (release|debug)")
 endif()
 
