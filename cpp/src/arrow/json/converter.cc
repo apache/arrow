@@ -32,10 +32,11 @@
 #include "arrow/util/value_parsing.h"
 
 namespace arrow {
-namespace json {
 
 using internal::checked_cast;
 using util::string_view;
+
+namespace json {
 
 template <typename... Args>
 Status GenericConversionError(const DataType& type, Args&&... args) {
@@ -126,7 +127,7 @@ class NumericConverter : public PrimitiveConverter {
 
     auto visit_valid = [&](string_view repr) {
       value_type value;
-      if (!internal::ParseValue(numeric_type_, repr.data(), repr.size(), &value)) {
+      if (!arrow::internal::ParseValue(numeric_type_, repr.data(), repr.size(), &value)) {
         return GenericConversionError(*out_type_, ", couldn't parse:", repr);
       }
 

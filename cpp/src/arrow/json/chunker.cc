@@ -31,12 +31,13 @@
 #include "arrow/util/string_view.h"
 
 namespace arrow {
-namespace json {
-
-namespace rj = arrow::rapidjson;
 
 using internal::make_unique;
 using util::string_view;
+
+namespace json {
+
+namespace rj = arrow::rapidjson;
 
 static size_t ConsumeWhitespace(string_view view) {
 #ifdef RAPIDJSON_SIMD
