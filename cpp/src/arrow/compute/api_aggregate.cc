@@ -73,5 +73,15 @@ Result<Datum> TDigest(const Datum& value, const TDigestOptions& options,
   return CallFunction("tdigest", {value}, &options, ctx);
 }
 
+Result<Datum> GroupBy(const std::vector<Datum>& aggregands,
+                      const std::vector<Datum>& keys, const GroupByOptions& options,
+                      ExecContext* ctx) {
+  std::vector<Datum> args = aggregands;
+  for (const Datum& key : keys) {
+    args.push_back(key);
+  }
+  return CallFunction("group_by", args, &options, ctx);
+}
+
 }  // namespace compute
 }  // namespace arrow

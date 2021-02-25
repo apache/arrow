@@ -145,7 +145,7 @@ struct ScalarHashImpl {
   size_t hash_;
 };
 
-size_t Scalar::Hash::hash(const Scalar& scalar) { return ScalarHashImpl(scalar).hash_; }
+size_t Scalar::hash() const { return ScalarHashImpl(*this).hash_; }
 
 StringScalar::StringScalar(std::string s)
     : StringScalar(Buffer::FromString(std::move(s))) {}

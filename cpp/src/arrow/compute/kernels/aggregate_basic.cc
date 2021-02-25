@@ -119,6 +119,8 @@ struct GroupedAggregator {
       Resize(ctx, new_size);
     }
   }
+
+  virtual std::shared_ptr<DataType> out_type() const = 0;
 };
 
 struct GroupedCountImpl : public GroupedAggregator {
@@ -126,17 +128,17 @@ struct GroupedCountImpl : public GroupedAggregator {
                                                 const DataType& input_type,
                                                 const FunctionOptions* options) {
     auto out = ::arrow::internal::make_unique<GroupedCountImpl>();
-    out->options = checked_cast<const CountOptions&>(*options);
-    ctx->SetStatus(ctx->Allocate(0).Value(&out->counts));
+    out->options_ = checked_cast<const CountOptions&>(*options);
+    ctx->SetStatus(ctx->Allocate(0).Value(&out->counts_));
     return out;
   }
 
   void Resize(KernelContext* ctx, int64_t new_num_groups) override {
     auto old_size = num_groups();
-    KERNEL_RETURN_IF_ERROR(ctx, counts->TypedResize<int64_t>(new_num_groups));
+    KERNEL_RETURN_IF_ERROR(ctx, counts_->TypedResize<int64_t>(new_num_groups));
     auto new_size = num_groups();
 
-    auto raw_counts = reinterpret_cast<int64_t*>(counts->mutable_data());
+    auto raw_counts = reinterpret_cast<int64_t*>(counts_->mutable_data());
     for (auto i = old_size; i < new_size; ++i) {
       raw_counts[i] = 0;
     }
@@ -147,17 +149,17 @@ struct GroupedCountImpl : public GroupedAggregator {
     MaybeResize(ctx, batch.length, group_ids);
     if (ctx->HasError()) return;
 
-    auto raw_counts = reinterpret_cast<int64_t*>(counts->mutable_data());
+    auto raw_counts = reinterpret_cast<int64_t*>(counts_->mutable_data());
 
-    if (options.count_mode == CountOptions::COUNT_NON_NULL) {
-      auto input = batch[0].make_array();
-
+    auto input = batch[0].make_array();
+    if (options_.count_mode == CountOptions::COUNT_NON_NULL) {
       for (int64_t i = 0; i < input->length(); ++i) {
         if (input->IsNull(i)) continue;
         raw_counts[group_ids[i]]++;
       }
     } else {
       for (int64_t i = 0; i < batch.length; ++i) {
+        if (input->IsValid(i)) continue;
         raw_counts[group_ids[i]]++;
       }
     }
@@ -165,13 +167,15 @@ struct GroupedCountImpl : public GroupedAggregator {
 
   void Finalize(KernelContext* ctx, Datum* out) override {
     auto length = num_groups();
-    *out = std::make_shared<Int64Array>(length, std::move(counts));
+    *out = std::make_shared<Int64Array>(length, std::move(counts_));
   }
 
-  int64_t num_groups() const override { return counts->size() / sizeof(int64_t); }
+  int64_t num_groups() const override { return counts_->size() / sizeof(int64_t); }
 
-  CountOptions options;
-  std::shared_ptr<ResizableBuffer> counts;
+  std::shared_ptr<DataType> out_type() const override { return int64(); }
+
+  CountOptions options_;
+  std::shared_ptr<ResizableBuffer> counts_;
 };
 
 struct GroupedSumImpl : public GroupedAggregator {
@@ -179,25 +183,27 @@ struct GroupedSumImpl : public GroupedAggregator {
   // we always have 64 bits per group in the sums buffer.
   static constexpr size_t kSumSize = sizeof(int64_t);
 
-  using ConsumeImpl =
-      std::function<void(const std::shared_ptr<ArrayData>&, const uint32_t*, Buffer*)>;
+  using ConsumeImpl = std::function<void(const std::shared_ptr<ArrayData>&,
+                                         const uint32_t*, Buffer*, Buffer*)>;
 
   struct GetConsumeImpl {
     template <typename T,
               typename AccumulatorType = typename FindAccumulatorType<T>::Type>
     Status Visit(const T&) {
       consume_impl = [](const std::shared_ptr<ArrayData>& input,
-                        const uint32_t* group_ids, Buffer* sums) {
+                        const uint32_t* group_ids, Buffer* sums, Buffer* counts) {
         auto raw_input = reinterpret_cast<const typename TypeTraits<T>::CType*>(
             input->buffers[1]->data());
         auto raw_sums = reinterpret_cast<typename TypeTraits<AccumulatorType>::CType*>(
             sums->mutable_data());
+        auto raw_counts = reinterpret_cast<int64_t*>(counts->mutable_data());
 
         arrow::internal::VisitSetBitRunsVoid(
             input->buffers[0], input->offset, input->length,
             [&](int64_t begin, int64_t length) {
               for (int64_t i = begin, end = begin + length; i < end; ++i) {
                 raw_sums[group_ids[i]] += raw_input[i];
+                raw_counts[group_ids[i]] += 1;
               }
             });
       };
@@ -207,15 +213,17 @@ struct GroupedSumImpl : public GroupedAggregator {
 
     Status Visit(const BooleanType&) {
       consume_impl = [](const std::shared_ptr<ArrayData>& input,
-                        const uint32_t* group_ids, Buffer* sums) {
+                        const uint32_t* group_ids, Buffer* sums, Buffer* counts) {
         auto raw_input = input->buffers[1]->data();
         auto raw_sums = reinterpret_cast<uint64_t*>(sums->mutable_data());
+        auto raw_counts = reinterpret_cast<int64_t*>(counts->mutable_data());
 
         arrow::internal::VisitSetBitRunsVoid(
             input->buffers[0], input->offset, input->length,
             [&](int64_t begin, int64_t length) {
               for (int64_t i = begin, end = begin + length; i < end; ++i) {
                 raw_sums[group_ids[i]] += BitUtil::GetBit(raw_input, i);
+                raw_counts[group_ids[i]] += 1;
               }
             });
       };
@@ -239,42 +247,64 @@ struct GroupedSumImpl : public GroupedAggregator {
                                               const DataType& input_type,
                                               const FunctionOptions* options) {
     auto out = ::arrow::internal::make_unique<GroupedSumImpl>();
-    ctx->SetStatus(ctx->Allocate(0).Value(&out->sums));
+
+    ctx->SetStatus(ctx->Allocate(0).Value(&out->sums_));
+    if (ctx->HasError()) return nullptr;
+
+    ctx->SetStatus(ctx->Allocate(0).Value(&out->counts_));
     if (ctx->HasError()) return nullptr;
 
     GetConsumeImpl get_consume_impl;
     ctx->SetStatus(VisitTypeInline(input_type, &get_consume_impl));
 
-    out->consume_impl = std::move(get_consume_impl.consume_impl);
-    out->out_type = std::move(get_consume_impl.out_type);
+    out->consume_impl_ = std::move(get_consume_impl.consume_impl);
+    out->out_type_ = std::move(get_consume_impl.out_type);
     return out;
   }
 
   void Resize(KernelContext* ctx, int64_t new_num_groups) override {
     auto old_size = num_groups() * kSumSize;
-    KERNEL_RETURN_IF_ERROR(ctx, sums->Resize(new_num_groups * kSumSize));
+    KERNEL_RETURN_IF_ERROR(ctx, sums_->Resize(new_num_groups * kSumSize));
+    KERNEL_RETURN_IF_ERROR(ctx, counts_->Resize(new_num_groups * sizeof(int64_t)));
     auto new_size = num_groups() * kSumSize;
-    std::memset(sums->mutable_data() + old_size, 0, new_size - old_size);
+    std::memset(sums_->mutable_data() + old_size, 0, new_size - old_size);
+    std::memset(counts_->mutable_data() + old_size, 0, new_size - old_size);
   }
 
   void Consume(KernelContext* ctx, const ExecBatch& batch,
                const uint32_t* group_ids) override {
     MaybeResize(ctx, batch.length, group_ids);
     if (ctx->HasError()) return;
-    consume_impl(batch[0].array(), group_ids, sums.get());
+    consume_impl_(batch[0].array(), group_ids, sums_.get(), counts_.get());
   }
 
   void Finalize(KernelContext* ctx, Datum* out) override {
-    auto length = num_groups();
-    *out = ArrayData::Make(std::move(out_type), length,
-                           {/*null_bitmap=*/nullptr, std::move(sums)});
+    std::shared_ptr<Buffer> null_bitmap;
+    int64_t null_count = 0;
+
+    for (int64_t i = 0; i < num_groups(); ++i) {
+      if (reinterpret_cast<const int64_t*>(counts_->data())[i] > 0) continue;
+
+      if (null_bitmap == nullptr) {
+        KERNEL_ASSIGN_OR_RAISE(null_bitmap, ctx, ctx->AllocateBitmap(num_groups()));
+        BitUtil::SetBitsTo(null_bitmap->mutable_data(), 0, num_groups(), true);
+      }
+
+      null_count += 1;
+      BitUtil::SetBitTo(null_bitmap->mutable_data(), i, false);
+    }
+
+    *out = ArrayData::Make(std::move(out_type_), num_groups(),
+                           {std::move(null_bitmap), std::move(sums_)}, null_count);
   }
 
-  int64_t num_groups() const override { return sums->size() / kSumSize; }
+  int64_t num_groups() const override { return counts_->size() / sizeof(int64_t); }
 
-  std::shared_ptr<ResizableBuffer> sums;
-  std::shared_ptr<DataType> out_type;
-  ConsumeImpl consume_impl;
+  std::shared_ptr<DataType> out_type() const override { return out_type_; }
+
+  std::shared_ptr<ResizableBuffer> sums_, counts_;
+  std::shared_ptr<DataType> out_type_;
+  ConsumeImpl consume_impl_;
 };
 
 std::unique_ptr<KernelState> CountInit(KernelContext*, const KernelInitArgs& args) {
@@ -409,6 +439,7 @@ struct GroupByImpl : public ScalarAggregator {
       const auto offsets = data->GetValues<offset_type>(1);
       if (data->MayHaveNulls()) {
         const uint8_t* nulls = data->buffers[0]->data();
+
         for (int64_t i = 0; i < data->length; ++i) {
           bool is_null = !BitUtil::GetBit(nulls, offset + i);
           if (is_null) {
@@ -680,20 +711,20 @@ struct GroupByImpl : public ScalarAggregator {
                                             std::shared_ptr<ArrayData>*)>;
 
   struct GetDecodeNextImpl {
-    static void DecodeNulls(KernelContext* ctx, int32_t length, uint8_t** encoded_bytes,
-                            std::shared_ptr<ResizableBuffer>* null_buf,
-                            int32_t& null_count) {
+    static Status DecodeNulls(KernelContext* ctx, int32_t length, uint8_t** encoded_bytes,
+                              std::shared_ptr<ResizableBuffer>* null_buf,
+                              int32_t* null_count) {
       // Do we have nulls?
-      null_count = 0;
+      *null_count = 0;
       for (int32_t i = 0; i < length; ++i) {
-        null_count += encoded_bytes[i][0];
+        *null_count += encoded_bytes[i][0];
       }
-      if (null_count > 0) {
-        ctx->SetStatus(ctx->Allocate((length + 7) / 8).Value(null_buf));
+      if (*null_count > 0) {
+        ARROW_ASSIGN_OR_RAISE(*null_buf, ctx->AllocateBitmap(length));
         uint8_t* nulls = (*null_buf)->mutable_data();
-        memset(nulls, 0, (length + 7) / 8);
+        memset(nulls, 0, (*null_buf)->size());
         for (int32_t i = 0; i < length; ++i) {
-          if (encoded_bytes[i][0]) {
+          if (!encoded_bytes[i][0]) {
             BitUtil::SetBit(nulls, i);
           }
           encoded_bytes[i] += 1;
@@ -703,6 +734,7 @@ struct GroupByImpl : public ScalarAggregator {
           encoded_bytes[i] += 1;
         }
       }
+      return Status ::OK();
     }
 
     template <int NumBits>
@@ -711,7 +743,8 @@ struct GroupByImpl : public ScalarAggregator {
                                  std::shared_ptr<ArrayData>* out) {
       std::shared_ptr<ResizableBuffer> null_buf;
       int32_t null_count;
-      DecodeNulls(ctx, length, encoded_bytes, &null_buf, null_count);
+      KERNEL_RETURN_IF_ERROR(
+          ctx, DecodeNulls(ctx, length, encoded_bytes, &null_buf, &null_count));
 
       KERNEL_ASSIGN_OR_RAISE(
           auto key_buf, ctx,
@@ -745,45 +778,16 @@ struct GroupByImpl : public ScalarAggregator {
         }
       }
 
-      switch (output_type) {
-        case Type::BOOL:
-          *out = ArrayData::Make(int64(), length, {null_buf, key_buf}, null_count);
-          break;
-        case Type::UINT8:
-          *out = ArrayData::Make(int64(), length, {null_buf, key_buf}, null_count);
-          break;
-        case Type::INT8:
-          *out = ArrayData::Make(int64(), length, {null_buf, key_buf}, null_count);
-          break;
-        case Type::UINT16:
-          *out = ArrayData::Make(int64(), length, {null_buf, key_buf}, null_count);
-          break;
-        case Type::INT16:
-          *out = ArrayData::Make(int64(), length, {null_buf, key_buf}, null_count);
-          break;
-        case Type::UINT32:
-          *out = ArrayData::Make(int64(), length, {null_buf, key_buf}, null_count);
-          break;
-        case Type::INT32:
-          *out = ArrayData::Make(int64(), length, {null_buf, key_buf}, null_count);
-          break;
-        case Type::UINT64:
-          *out = ArrayData::Make(int64(), length, {null_buf, key_buf}, null_count);
-          break;
-        case Type::INT64:
-          *out = ArrayData::Make(int64(), length, {null_buf, key_buf}, null_count);
-          // *out = std::make_shared<Int64Array>(length, key_buf, null_buf);
-          break;
-        default:
-          break;
-      }
+      DCHECK(is_integer(output_type) || output_type == Type::BOOL);
+      *out = ArrayData::Make(int64(), length, {null_buf, key_buf}, null_count);
     }
 
     static void DecodeBigFixed(KernelContext* ctx, int num_bytes, int32_t length,
                                uint8_t** encoded_bytes, std::shared_ptr<ArrayData>* out) {
       std::shared_ptr<ResizableBuffer> null_buf;
       int32_t null_count;
-      DecodeNulls(ctx, length, encoded_bytes, &null_buf, null_count);
+      KERNEL_RETURN_IF_ERROR(
+          ctx, DecodeNulls(ctx, length, encoded_bytes, &null_buf, &null_count));
 
       KERNEL_ASSIGN_OR_RAISE(auto key_buf, ctx, ctx->Allocate(num_bytes * length));
       auto raw_output = key_buf->mutable_data();
@@ -801,7 +805,8 @@ struct GroupByImpl : public ScalarAggregator {
                                 std::shared_ptr<ArrayData>* out) {
       std::shared_ptr<ResizableBuffer> null_buf;
       int32_t null_count;
-      DecodeNulls(ctx, length, encoded_bytes, &null_buf, null_count);
+      KERNEL_RETURN_IF_ERROR(
+          ctx, DecodeNulls(ctx, length, encoded_bytes, &null_buf, &null_count));
 
       using offset_type = typename StringType::offset_type;
 
@@ -1073,7 +1078,7 @@ std::unique_ptr<KernelState> GroupByInit(KernelContext* ctx, const KernelInitArg
     }
     if (ctx->HasError()) return nullptr;
 
-    out_fields[i] = field(aggregates[i].name, input_type);
+    out_fields[i] = field(aggregates[i].name, impl->aggregators[i]->out_type());
   }
 
   size_t n_keys = args.inputs.size() - aggregates.size();

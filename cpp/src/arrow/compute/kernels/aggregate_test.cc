@@ -254,8 +254,53 @@ Result<std::shared_ptr<ListArray>> ApplyGroupings(const ListArray& groupings,
                                      groupings.value_offsets(), sorted.make_array());
 }
 
-Result<std::vector<ScalarVector>> NaiveGroupBy(GroupByOptions options,
-                                               ArrayVector aggregands, ArrayVector keys) {
+struct ScalarsToScalarsMap {
+  struct Eq {
+    bool operator()(const ScalarVector& l, const ScalarVector& r) const {
+      return l.size() == r.size() &&
+             std::equal(l.begin(), l.end(), r.begin(),
+                        [](const std::shared_ptr<Scalar>& l,
+                           const std::shared_ptr<Scalar>& r) { return l->Equals(r); });
+    }
+  };
+
+  struct Hash {
+    size_t operator()(const ScalarVector& vec) const {
+      size_t hash = 0;
+      for (const auto& scalar : vec) {
+        hash ^= scalar->hash();
+      }
+      return hash;
+    }
+  };
+
+  static std::string ToString(const ScalarVector& vec) {
+    std::string out = "[";
+    int i = 0;
+    for (const auto& scalar : vec) {
+      if (i++ != 0) {
+        out += ",";
+      }
+      out += scalar->ToString();
+    }
+    out += "]";
+    return out;
+  }
+
+  std::string ToString() const {
+    std::string out = "{\n";
+    for (const auto& key_value : map) {
+      out += "  " + ToString(key_value.first) + ": " + ToString(key_value.second) + "\n";
+    }
+    out += "}\n";
+    return out;
+  }
+
+  std::unordered_map<ScalarVector, ScalarVector, Hash, Eq> map;
+};
+
+Result<ScalarsToScalarsMap> NaiveGroupBy(GroupByOptions options, ArrayVector aggregands,
+                                         ArrayVector keys) {
   ARROW_ASSIGN_OR_RAISE(auto keys_struct, StructArray::Make(keys, options.key_names));
   ARROW_ASSIGN_OR_RAISE(auto groupings_and_values, MakeGroupings(*keys_struct));
 
@@ -267,7 +312,7 @@ Result<std::vector<ScalarVector>> NaiveGroupBy(GroupByOptions options,
 
   int64_t n_groups = groupings->length();
 
-  std::vector<ScalarVector> out(n_groups);
+  std::vector<ScalarVector> grouped_aggregates(n_groups);
 
   auto aggregate_spec = options.aggregates.begin();
   for (const auto& aggregand : aggregands) {
@@ -277,219 +322,215 @@ Result<std::vector<ScalarVector>> NaiveGroupBy(GroupByOptions options,
       ARROW_ASSIGN_OR_RAISE(auto grouped_aggregate,
                             CallFunction(aggregate_spec->function,
                                          {grouped_aggregand->value_slice(i_group)}));
-      out[i_group].push_back(grouped_aggregate.scalar());
+      grouped_aggregates[i_group].push_back(grouped_aggregate.scalar());
     }
 
     ++aggregate_spec;
   }
 
+  ScalarsToScalarsMap out;
+
   for (int64_t i_group = 0; i_group < n_groups; ++i_group) {
     ARROW_ASSIGN_OR_RAISE(auto keys_for_group, keys_unique->GetScalar(i_group));
-    for (const auto& key : checked_cast<const StructScalar&>(*keys_for_group).value) {
-      out[i_group].push_back(key);
-    }
+    out.map.emplace(checked_cast<const StructScalar&>(*keys_for_group).value,
+                    std::move(grouped_aggregates[i_group]));
   }
 
   return out;
 }
 
+void ValidateGroupBy(GroupByOptions options, ArrayVector aggregands, ArrayVector keys) {
+  ASSERT_OK_AND_ASSIGN(auto expected,
+                       group_helpers::NaiveGroupBy(options, aggregands, keys));
+
+  std::vector<Datum> arguments;
+  for (const auto& aggregand : aggregands) {
+    arguments.emplace_back(aggregand->data());
+  }
+  for (const auto& key : keys) {
+    arguments.emplace_back(key->data());
+  }
+
+  const int n_aggregands = static_cast<int>(aggregands.size());
+  const int n_keys = static_cast<int>(keys.size());
+
+  ASSERT_OK_AND_ASSIGN(auto aggregated_and_grouped,
+                       CallFunction("group_by", arguments, &options).Map([](Datum d) {
+                         return d.array_as<StructArray>();
+                       }));
+
+  ScalarsToScalarsMap actual;
+  for (int64_t i_group = 0; i_group < aggregated_and_grouped->length(); ++i_group) {
+    ScalarVector aggregated_i(n_aggregands), keys_i(n_keys);
+
+    for (int i_field = 0; i_field < aggregated_and_grouped->num_fields(); ++i_field) {
+      if (i_field < n_aggregands) {
+        ASSERT_OK_AND_ASSIGN(aggregated_i[i_field],
+                             aggregated_and_grouped->field(i_field)->GetScalar(i_group));
+      } else {
+        ASSERT_OK_AND_ASSIGN(keys_i[i_field - n_aggregands],
+                             aggregated_and_grouped->field(i_field)->GetScalar(i_group));
+      }
+    }
+
+    actual.map.emplace(std::move(keys_i), std::move(aggregated_i));
+  }
+
+  ScalarsToScalarsMap unexpected;
+  for (const auto& pair : actual.map) {
+    if (expected.map.find(pair.first) == expected.map.end()) {
+      unexpected.map.insert(pair);
+    }
+  }
+  EXPECT_TRUE(unexpected.map.empty()) << "  unexpected groups: " << unexpected.ToString();
+
+  ScalarsToScalarsMap missing;
+  for (const auto& pair : expected.map) {
+    if (actual.map.find(pair.first) == actual.map.end()) {
+      missing.map.insert(pair);
+    }
+  }
+  EXPECT_TRUE(missing.map.empty()) << "  missing groups: " << missing.ToString();
+
+  for (const auto& pair : expected.map) {
+    auto it = actual.map.find(pair.first);
+    if (it == actual.map.end()) continue;
+
+    const auto& expected_aggregated = pair.second;
+    const auto& actual_aggregated = it->second;
+
+    static ScalarsToScalarsMap::Eq eq;
+    EXPECT_TRUE(eq(expected_aggregated, actual_aggregated))
+        << "  group " << ScalarsToScalarsMap::ToString(pair.first)
+        << "\n  had:      " << ScalarsToScalarsMap::ToString(actual_aggregated)
+        << "\n  expected: " << ScalarsToScalarsMap::ToString(expected_aggregated);
+  }
+}
+
 }  // namespace
 }  // namespace group_helpers
 
-// TODO(michalursa) add tests
 TEST(GroupBy, SumOnly) {
-  auto key = ArrayFromJSON(int64(),
-                           "[1, 2, 1,"
-                           "3, 2, 3]");
-  auto aggregand = ArrayFromJSON(float64(),
-                                 "[1.0, 0.0, null, "
-                                 "3.25, 0.125, -0.25]");
+  auto aggregand = ArrayFromJSON(float64(), "[1.0, 0.0, null, 3.25, 0.125, -0.25, 0.75]");
+  auto key = ArrayFromJSON(int64(), "[1, 2, 3, 1, 2, 2, null]");
 
-  ASSERT_EQ(key->length(), aggregand->length());
+  ASSERT_OK_AND_ASSIGN(
+      Datum aggregated_and_grouped,
+      GroupBy({aggregand}, {key},
+              GroupByOptions(/*aggregates=*/{{"sum", nullptr, "f64 summed"}},
+                             /*key_names=*/{"i64 key"})));
 
-  GroupByOptions options;
-  options.aggregates = {GroupByOptions::Aggregate{"sum", nullptr, "f64 summed"}};
-  options.key_names = {"i64 key"};
-
-  ASSERT_OK_AND_ASSIGN(Datum boxed, CallFunction("group_by",
-                                                 {
-                                                     aggregand,
-                                                     key,
-                                                 },
-                                                 &options));
-
-  auto aggregated_and_grouped = boxed.array_as<StructArray>();
-
-  auto f64_summed = checked_pointer_cast<DoubleArray>(
-      aggregated_and_grouped->GetFieldByName("f64 summed"));
-
-  auto i64_key =
-      checked_pointer_cast<Int64Array>(aggregated_and_grouped->GetFieldByName("i64 key"));
-
-  ASSERT_EQ(i64_key->length(), 3);
-
-  for (int64_t i = 0; i < i64_key->length(); ++i) {
-    int64_t key = i64_key->Value(i);
-
-    if (key == 1) {
-      ASSERT_EQ(f64_summed->Value(i), 1.0);
-    }
-    if (key == 2) {
-      ASSERT_EQ(f64_summed->Value(i), 0.125);
-    }
-    if (key == 3) {
-      ASSERT_EQ(f64_summed->Value(i), 3.0);
-    }
-  }
-}
-
-TEST(GroupBy, StringKey) {
-  auto key = ArrayFromJSON(utf8(), R"(["alfa", "beta", "gamma", "gamma", null, "beta"])");
-  auto aggregand = ArrayFromJSON(int64(), "[10, 5, 4, 2, 12, 9]");
-  GroupByOptions options;
-  options.aggregates = {GroupByOptions::Aggregate{"sum", nullptr, "sum"}};
-  options.key_names = {"key"};
-  ASSERT_OK_AND_ASSIGN(Datum boxed, CallFunction("group_by", {aggregand, key}, &options));
-  auto aggregated_and_grouped = boxed.array_as<StructArray>();
-  auto result_sum =
-      checked_pointer_cast<Int64Array>(aggregated_and_grouped->GetFieldByName("sum"));
-  auto result_key =
-      checked_pointer_cast<StringArray>(aggregated_and_grouped->GetFieldByName("key"));
-  ASSERT_EQ(result_key->length(), 4);
-  for (int64_t i = 0; i < result_key->length(); ++i) {
-    int32_t key_length;
-    const uint8_t* key_chars = result_key->GetValue(i, &key_length);
-    std::string key_str((char*)key_chars, key_length);
-    if (key_str.compare("alfa") == 0) {
-      ASSERT_EQ(result_sum->Value(i), 10);
-    }
-    if (key_str.compare("beta") == 0) {
-      ASSERT_EQ(result_sum->Value(i), 14);
-    }
-    if (key_str.compare("gamma") == 0) {
-      ASSERT_EQ(result_sum->Value(i), 6);
-    }
-    if (key_str.compare("") == 0) {
-      ASSERT_EQ(result_sum->Value(i), 12);
-    }
-  }
-}
-
-TEST(GroupBy, CountOnly) {
-  auto key = ArrayFromJSON(int64(),
-                           "[1, 2, 1,"
-                           "3, 2, 3]");
-  auto aggregand = ArrayFromJSON(float64(),
-                                 "[1.0, 0.0, null, "
-                                 "3.25, 0.125, -0.25]");
-
-  ASSERT_EQ(key->length(), aggregand->length());
-
-  GroupByOptions options;
-  CountOptions count_options;
-  count_options.count_mode = CountOptions::COUNT_NON_NULL;
-  options.aggregates = {
-      GroupByOptions::Aggregate{"count", &count_options, "f64 counted"}};
-  options.key_names = {"i64 key"};
-
-  ASSERT_OK_AND_ASSIGN(Datum boxed, CallFunction("group_by",
-                                                 {
-                                                     aggregand,
-                                                     key,
-                                                 },
-                                                 &options));
-
-  auto aggregated_and_grouped = boxed.array_as<StructArray>();
-
-  auto f64_counted = checked_pointer_cast<Int64Array>(
-      aggregated_and_grouped->GetFieldByName("f64 counted"));
-
-  auto i64_key =
-      checked_pointer_cast<Int64Array>(aggregated_and_grouped->GetFieldByName("i64 key"));
-
-  ASSERT_EQ(i64_key->length(), 3);
-
-  for (int64_t i = 0; i < i64_key->length(); ++i) {
-    int64_t key = i64_key->Value(i);
-
-    if (key == 1) {
-      ASSERT_EQ(f64_counted->Value(i), 1);
-    } else {
-      ASSERT_EQ(f64_counted->Value(i), 2);
-    }
-  }
+  AssertDatumsEqual(ArrayFromJSON(struct_({
+                                      field("f64 summed", float64()),
+                                      field("i64 key", int64()),
+                                  }),
+                                  R"([
+    [4.25,   1],
+    [-0.125, 2],
+    [null,   3],
+    [0.75,   null]
+  ])"),
+                    aggregated_and_grouped,
+                    /*verbose=*/true);
 }
 
 TEST(GroupBy, CountAndSum) {
-  auto key = ArrayFromJSON(int64(),
-                           "[1, 2, 1,"
-                           "3, 2, 3]");
-  auto aggregand = ArrayFromJSON(float32(),
-                                 "[1.0, 0.0, null, "
-                                 "3.25, 0.125, -0.25]");
+  auto aggregand = ArrayFromJSON(float32(), "[1.0, 0.0, null, 3.25, 0.125, -0.25, 0.75]");
+  auto key = ArrayFromJSON(int64(), "[1, 2, 1, 3, 2, 3, null]");
 
-  ASSERT_EQ(key->length(), aggregand->length());
-
-  GroupByOptions options;
   CountOptions count_options;
   count_options.count_mode = CountOptions::COUNT_NON_NULL;
-  options.aggregates = {
-      GroupByOptions::Aggregate{"count", &count_options, "f32 counted"},
-      GroupByOptions::Aggregate{"sum", nullptr, "f32 summed"},
-      GroupByOptions::Aggregate{"sum", nullptr, "i64 summed"},
-  };
-  options.key_names = {"i64 key"};
 
-  ASSERT_OK_AND_ASSIGN(Datum boxed,
-                       CallFunction("group_by",
-                                    {
-                                        // NB: passing the same aggregand twice
-                                        aggregand,
-                                        aggregand,
-                                        // NB: passing the key column also as an aggregand
-                                        key,
-                                        key,
-                                    },
-                                    &options));
+  ASSERT_OK_AND_ASSIGN(
+      Datum aggregated_and_grouped,
+      // NB: passing an aggregand twice or also using it as a key is legal
+      GroupBy({aggregand, aggregand, key}, {key},
+              GroupByOptions(/*aggregates=*/
+                             {
+                                 {"count", &count_options, "f32 counted"},
+                                 {"sum", nullptr, "f32 summed"},
+                                 {"sum", nullptr, "i64 summed"},
+                             },
+                             /*key_names=*/{"i64 key"})));
 
-  auto aggregated_and_grouped = boxed.array_as<StructArray>();
+  AssertDatumsEqual(
+      ArrayFromJSON(struct_({
+                        field("f32 counted", int64()),
+                        // NB: summing a float32 array results in float64 sums
+                        field("f32 summed", float64()),
+                        field("i64 summed", int64()),
+                        field("i64 key", int64()),
+                    }),
+                    R"([
+    [1, 1.0,   2,    1],
+    [2, 0.125, 4,    2],
+    [2, 3.0,   6,    3],
+    [1, 0.75,  null, null]
+  ])"),
+      aggregated_and_grouped,
+      /*verbose=*/true);
+}
 
-  auto f32_counted = checked_pointer_cast<Int64Array>(
-      aggregated_and_grouped->GetFieldByName("f32 counted"));
+TEST(GroupBy, StringKey) {
+  auto aggregand = ArrayFromJSON(int64(), "[10, 5, 4, 2, 12, 9]");
+  auto key = ArrayFromJSON(utf8(), R"(["alfa", "beta", "gamma", "gamma", null, "beta"])");
 
-  // NB: summing a float32 array results in float64 sums
-  auto f32_summed = checked_pointer_cast<DoubleArray>(
-      aggregated_and_grouped->GetFieldByName("f32 summed"));
+  ASSERT_OK_AND_ASSIGN(
+      Datum aggregated_and_grouped,
+      GroupBy({aggregand}, {key},
+              GroupByOptions(/*aggregates=*/{{"sum", nullptr, "i64 summed"}},
+                             /*key_names=*/{"str key"})));
 
-  auto i64_summed = checked_pointer_cast<Int64Array>(
-      aggregated_and_grouped->GetFieldByName("i64 summed"));
+  AssertDatumsEqual(ArrayFromJSON(struct_({
+                                      field("i64 summed", int64()),
+                                      field("str key", utf8()),
+                                  }),
+                                  R"([
+    [10,   "alfa"],
+    [14,   "beta"],
+    [6,    "gamma"],
+    [12,   null]
+  ])"),
+                    aggregated_and_grouped,
+                    /*verbose=*/true);
+}
 
-  auto i64_key =
-      checked_pointer_cast<Int64Array>(aggregated_and_grouped->GetFieldByName("i64 key"));
+TEST(GroupBy, MultipleKeys) {
+  auto aggregand = ArrayFromJSON(float32(), "[0.125, 0.5, -0.75, 8, 1.0, 2.0]");
+  auto int_key = ArrayFromJSON(int32(), "[0, 1, 0, 1, 0, 1]");
+  auto str_key =
+      ArrayFromJSON(utf8(), R"(["beta", "beta", "gamma", "gamma", null, "beta"])");
 
-  ASSERT_EQ(i64_key->length(), 3);
+  ASSERT_OK_AND_ASSIGN(
+      Datum aggregated_and_grouped,
+      GroupBy({aggregand}, {int_key, str_key},
+              GroupByOptions(/*aggregates=*/{{"sum", nullptr, "f32 summed"}},
+                             /*key_names=*/{"int key", "str key"})));
 
-  for (int64_t i = 0; i < i64_key->length(); ++i) {
-    int64_t key = i64_key->Value(i);
+  AssertDatumsEqual(ArrayFromJSON(struct_({
+                                      field("f32 summed", float64()),
+                                      field("int key", int32()),
+                                      field("str key", utf8()),
+                                  }),
+                                  R"([
+    [0.125, 0, "beta"],
+    [2.5,   1, "beta"],
+    [-0.75, 0, "gamma"],
+    [8,     1, "gamma"],
+    [1.0,   0, null]
+  ])"),
+                    aggregated_and_grouped,
+                    /*verbose=*/true);
+}
 
-    if (key == 1) {
-      ASSERT_EQ(f32_counted->Value(i), 1);
-    } else {
-      ASSERT_EQ(f32_counted->Value(i), 2);
-    }
+TEST(GroupBy, ConcreteCaseWithValidateGroupBy) {
+  auto aggregand = ArrayFromJSON(int64(), "[10, 5, 4, 2, 12]");
+  auto key = ArrayFromJSON(utf8(), R"(["alfa", "beta", "gamma", "gamma", "beta"])");
 
-    ASSERT_EQ(i64_summed->Value(i), key * 2);
-
-    if (key == 1) {
-      ASSERT_EQ(f32_summed->Value(i), 1.0);
-    }
-    if (key == 2) {
-      ASSERT_EQ(f32_summed->Value(i), 0.125);
-    }
-    if (key == 3) {
-      ASSERT_EQ(f32_summed->Value(i), 3.0);
-    }
-  }
+  group_helpers::ValidateGroupBy(
+      GroupByOptions(/*aggregates=*/{{"sum", nullptr, "i64 summed"}},
+                     /*key_names=*/{"str key"}),
+      {aggregand}, {key});
 }
 
 TEST(GroupBy, RandomArraySum) {
@@ -506,46 +547,7 @@ TEST(GroupBy, RandomArraySum) {
       auto summand = rand.Float32(length, -100, 100, null_probability);
       auto key = rand.Int64(length, 0, 12);
 
-      ASSERT_OK_AND_ASSIGN(auto expected,
-                           group_helpers::NaiveGroupBy(options, {summand}, {key}));
-      auto n_groups = static_cast<int64_t>(expected.size());
-
-      ASSERT_OK_AND_ASSIGN(Datum boxed, CallFunction("group_by",
-                                                     {
-                                                         summand,
-                                                         key,
-                                                     },
-                                                     &options));
-      auto actual = boxed.array_as<StructArray>();
-      ASSERT_EQ(actual->length(), n_groups);
-
-      std::vector<std::pair<int64_t, double>> vexpected;
-      std::vector<std::pair<int64_t, double>> vactual;
-
-      for (int64_t i_group = 0; i_group < n_groups; ++i_group) {
-        const auto& expected_for_group = expected[i_group];
-        auto actual_for_group =
-            checked_pointer_cast<StructScalar>(*actual->GetScalar(i_group))->value;
-
-        ASSERT_EQ(expected_for_group.size(), actual_for_group.size());
-        ASSERT_EQ(expected_for_group.size(), 2);
-
-        double expected_sum = ((DoubleScalar*)expected_for_group[0].get())->value;
-        int64_t expected_key = ((Int64Scalar*)expected_for_group[1].get())->value;
-        double actual_sum = ((DoubleScalar*)actual_for_group[0].get())->value;
-        int64_t actual_key = ((Int64Scalar*)actual_for_group[1].get())->value;
-
-        vexpected.push_back(std::make_pair(expected_key, expected_sum));
-        vactual.push_back(std::make_pair(actual_key, actual_sum));
-      }
-
-      std::sort(vexpected.begin(), vexpected.end());
-      std::sort(vactual.begin(), vactual.end());
-
-      for (size_t i = 0; i < vexpected.size(); ++i) {
-        ASSERT_EQ(vexpected[i].first, vactual[i].first);
-        ASSERT_EQ(vexpected[i].second, vactual[i].second);
-      }
+      group_helpers::ValidateGroupBy(options, {summand}, {key});
     }
   }
 }
