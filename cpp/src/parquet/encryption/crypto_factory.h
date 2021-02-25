@@ -94,6 +94,11 @@ struct PARQUET_EXPORT DecryptionConfiguration {
   uint64_t cache_lifetime_seconds = kDefaultCacheLifetimeSeconds;
 };
 
+/// This is a core class, that translates the parameters of high level encryption (like
+/// the names of encrypted columns, names of master keys, etc), into parameters of low
+/// level encryption (like the key metadata, DEK, etc). A factory that produces the low
+/// level FileEncryptionProperties and FileDecryptionProperties objects, from the high
+/// level parameters.
 class PARQUET_EXPORT CryptoFactory {
  public:
   /// a KmsClientFactory object must be registered via this method before calling any of
