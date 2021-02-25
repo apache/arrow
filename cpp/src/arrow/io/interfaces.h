@@ -48,7 +48,12 @@ struct ReadRange {
   }
 };
 
-// EXPERIMENTAL
+/// EXPERIMENTAL: options provider for IO tasks
+///
+/// Includes an Executor (which will be used to execute asynchronous reads),
+/// a MemoryPool (which will be used to allocate buffers when zero copy reads
+/// are not possible), and an external id (in case the executor receives tasks from
+/// multiple sources and must distinguish tasks associated with this IOContext).
 struct ARROW_EXPORT IOContext {
   // No specified executor: will use a global IO thread pool
   IOContext() : IOContext(default_memory_pool()) {}
@@ -76,8 +81,9 @@ struct ARROW_EXPORT IOContext {
   int64_t external_id_;
 };
 
-// Deprecated name (renamed to IOContext in 4.0.0)
-using AsyncContext = IOContext;
+struct ARROW_DEPRECATED("renamed to IOContext in 4.0.0") AsyncContext : public IOContext {
+  using IOContext::IOContext;
+};
 
 class ARROW_EXPORT FileInterface {
  public:

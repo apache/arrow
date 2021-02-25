@@ -391,7 +391,14 @@ ARROW_EXPORT
 Result<std::shared_ptr<FileSystem>> FileSystemFromUri(const std::string& uri,
                                                       std::string* out_path = NULLPTR);
 
-/// XXX
+/// \brief Create a new FileSystem by URI with a custom IO context
+///
+/// Recognized schemes are "file", "mock", "hdfs" and "s3fs".
+///
+/// \param[in] uri a URI-based path, ex: file:///some/local/path
+/// \param[in] io_context an IOContext which will be associated with the filesystem
+/// \param[out] out_path (optional) Path inside the filesystem.
+/// \return out_fs FileSystem instance.
 ARROW_EXPORT
 Result<std::shared_ptr<FileSystem>> FileSystemFromUri(const std::string& uri,
                                                       const io::IOContext& io_context,
@@ -406,6 +413,11 @@ ARROW_EXPORT
 Result<std::shared_ptr<FileSystem>> FileSystemFromUriOrPath(
     const std::string& uri, std::string* out_path = NULLPTR);
 
+/// \brief Create a new FileSystem by URI with a custom IO context
+///
+/// Same as FileSystemFromUri, but in addition also recognize non-URIs
+/// and treat them as local filesystem paths.  Only absolute local filesystem
+/// paths are allowed.
 ARROW_EXPORT
 Result<std::shared_ptr<FileSystem>> FileSystemFromUriOrPath(
     const std::string& uri, const io::IOContext& io_context,

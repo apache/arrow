@@ -931,12 +931,7 @@ class AsyncThreadedTableReader
   AsyncGenerator<std::shared_ptr<Buffer>> buffer_generator_;
 };
 
-}  // namespace
-
-/////////////////////////////////////////////////////////////////////////
-// Factory functions
-
-Result<std::shared_ptr<TableReader>> TableReader::Make(
+Result<std::shared_ptr<TableReader>> MakeTableReader(
     MemoryPool* pool, io::IOContext io_context, std::shared_ptr<io::InputStream> input,
     const ReadOptions& read_options, const ParseOptions& parse_options,
     const ConvertOptions& convert_options) {
@@ -953,6 +948,27 @@ Result<std::shared_ptr<TableReader>> TableReader::Make(
   }
   RETURN_NOT_OK(reader->Init());
   return reader;
+}
+
+}  // namespace
+
+/////////////////////////////////////////////////////////////////////////
+// Factory functions
+
+Result<std::shared_ptr<TableReader>> TableReader::Make(
+    io::IOContext io_context, std::shared_ptr<io::InputStream> input,
+    const ReadOptions& read_options, const ParseOptions& parse_options,
+    const ConvertOptions& convert_options) {
+  return MakeTableReader(io_context.pool(), io_context, std::move(input), read_options,
+                         parse_options, convert_options);
+}
+
+Result<std::shared_ptr<TableReader>> TableReader::Make(
+    MemoryPool* pool, io::IOContext io_context, std::shared_ptr<io::InputStream> input,
+    const ReadOptions& read_options, const ParseOptions& parse_options,
+    const ConvertOptions& convert_options) {
+  return MakeTableReader(pool, io_context, std::move(input), read_options, parse_options,
+                         convert_options);
 }
 
 Result<std::shared_ptr<StreamingReader>> StreamingReader::Make(

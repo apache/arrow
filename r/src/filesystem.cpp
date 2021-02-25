@@ -269,7 +269,7 @@ void fs___CopyFiles(const std::shared_ptr<fs::FileSystem>& source_fs,
                     const std::string& destination_base_dir,
                     int64_t chunk_size = 1024 * 1024, bool use_threads = true) {
   StopIfNotOk(fs::CopyFiles(source_fs, *source_sel, destination_fs, destination_base_dir,
-                            io::IOContext{}, chunk_size, use_threads));
+                            io::default_io_context(), chunk_size, use_threads));
 }
 
 #endif
