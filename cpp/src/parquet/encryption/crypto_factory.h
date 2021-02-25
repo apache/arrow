@@ -94,7 +94,7 @@ struct PARQUET_EXPORT DecryptionConfiguration {
   uint64_t cache_lifetime_seconds = kDefaultCacheLifetimeSeconds;
 };
 
-class PARQUET_EXPORT PropertiesDrivenCryptoFactory {
+class PARQUET_EXPORT CryptoFactory {
  public:
   /// a KmsClientFactory object must be registered via this method before calling any of
   /// GetFileEncryptionProperties()/GetFileDecryptionProperties() methods.
@@ -105,8 +105,8 @@ class PARQUET_EXPORT PropertiesDrivenCryptoFactory {
       std::shared_ptr<EncryptionConfiguration> encryption_config);
 
   /// The returned FileDecryptionProperties object will use the cache inside this
-  /// PropertiesDrivenCryptoFactory object, so please keep this
-  /// PropertiesDrivenCryptoFactory object alive along with the returned
+  /// CryptoFactory object, so please keep this
+  /// CryptoFactory object alive along with the returned
   /// FileDecryptionProperties object.
   std::shared_ptr<FileDecryptionProperties> GetFileDecryptionProperties(
       const KmsConnectionConfig& kms_connection_config,

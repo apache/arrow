@@ -24,8 +24,8 @@
 
 #include "arrow/testing/util.h"
 
+#include "parquet/encryption/crypto_factory.h"
 #include "parquet/encryption/key_toolkit.h"
-#include "parquet/encryption/properties_driven_crypto_factory.h"
 #include "parquet/encryption/test_encryption_util.h"
 #include "parquet/encryption/test_in_memory_kms.h"
 #include "parquet/test_util.h"
@@ -52,7 +52,7 @@ class TestEncrytionKeyManagement : public ::testing::Test {
   std::unordered_map<std::string, std::string> key_list_;
   std::string column_key_mapping_;
   KmsConnectionConfig kms_connection_config_;
-  PropertiesDrivenCryptoFactory crypto_factory_;
+  CryptoFactory crypto_factory_;
   bool wrap_locally_;
 
   void SetupCryptoFactory(bool wrap_locally) {

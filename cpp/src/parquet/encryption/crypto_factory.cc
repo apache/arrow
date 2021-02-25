@@ -22,22 +22,21 @@
 #include "arrow/util/string.h"
 #include "arrow/util/string_view.h"
 
+#include "parquet/encryption/crypto_factory.h"
 #include "parquet/encryption/encryption_internal.h"
 #include "parquet/encryption/file_key_material_store.h"
 #include "parquet/encryption/file_key_unwrapper.h"
 #include "parquet/encryption/key_toolkit_internal.h"
-#include "parquet/encryption/properties_driven_crypto_factory.h"
 
 namespace parquet {
 namespace encryption {
 
-void PropertiesDrivenCryptoFactory::RegisterKmsClientFactory(
+void CryptoFactory::RegisterKmsClientFactory(
     std::shared_ptr<KmsClientFactory> kms_client_factory) {
   key_toolkit_.RegisterKmsClientFactory(kms_client_factory);
 }
 
-std::shared_ptr<FileEncryptionProperties>
-PropertiesDrivenCryptoFactory::GetFileEncryptionProperties(
+std::shared_ptr<FileEncryptionProperties> CryptoFactory::GetFileEncryptionProperties(
     const KmsConnectionConfig& kms_connection_config,
     std::shared_ptr<EncryptionConfiguration> encryption_config) {
   if (encryption_config == NULL) {
@@ -96,8 +95,7 @@ PropertiesDrivenCryptoFactory::GetFileEncryptionProperties(
   return properties_builder.build();
 }
 
-ColumnPathToEncryptionPropertiesMap
-PropertiesDrivenCryptoFactory::GetColumnEncryptionProperties(
+ColumnPathToEncryptionPropertiesMap CryptoFactory::GetColumnEncryptionProperties(
     int dek_length, const std::string column_keys, FileKeyWrapper& key_wrapper) {
   ColumnPathToEncryptionPropertiesMap encrypted_columns;
 
@@ -166,8 +164,7 @@ PropertiesDrivenCryptoFactory::GetColumnEncryptionProperties(
   return encrypted_columns;
 }
 
-std::shared_ptr<FileDecryptionProperties>
-PropertiesDrivenCryptoFactory::GetFileDecryptionProperties(
+std::shared_ptr<FileDecryptionProperties> CryptoFactory::GetFileDecryptionProperties(
     const KmsConnectionConfig& kms_connection_config,
     std::shared_ptr<DecryptionConfiguration> decryption_config) {
   std::shared_ptr<DecryptionKeyRetriever> key_retriever(new FileKeyUnwrapper(
