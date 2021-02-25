@@ -128,7 +128,7 @@ struct CoalesceBatchesStream {
     /// Buffered row count
     buffered_rows: usize,
     /// Whether the stream has finished returning all of its data or not
-    is_closed: bool
+    is_closed: bool,
 }
 
 impl Stream for CoalesceBatchesStream {
@@ -294,7 +294,8 @@ mod tests {
     ) -> Result<Vec<Vec<RecordBatch>>> {
         // create physical plan
         let exec = MemoryExec::try_new(&input_partitions, schema.clone(), None)?;
-        let exec = RepartitionExec::try_new(Arc::new(exec), Partitioning::RoundRobinBatch(1))?;
+        let exec =
+            RepartitionExec::try_new(Arc::new(exec), Partitioning::RoundRobinBatch(1))?;
         let exec: Arc<dyn ExecutionPlan> =
             Arc::new(CoalesceBatchesExec::new(Arc::new(exec), target_batch_size));
 
