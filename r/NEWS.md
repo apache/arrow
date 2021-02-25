@@ -19,6 +19,13 @@
 
 # arrow 3.0.0.9000
 
+## dplyr methods
+
+* `dplyr::mutate()` on Arrow `Table` and `RecordBatch` is now supported in Arrow for many applications. Where not yet supported, the implementation falls back to pulling data into an R `data.frame` first.
+* String functions `nchar()`, `tolower()`, and `toupper()`, along with their `stringr` spellings `str_length()`, `str_to_lower()`, and `str_to_upper()`, are supported in Arrow `dplyr` calls. `str_trim()` is also supported.
+
+## Other improvements
+
 * `value_counts()` to tabulate values in an `Array` or `ChunkedArray`, similar to `base::table()`.
 * `StructArray` objects gain data.frame-like methods, including `names()`, `$`, `[[`, and `dim()`.
 * RecordBatch columns can now be added, replaced, or removed by assigning (`<-`) with either `$` or `[[`
