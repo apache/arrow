@@ -1094,8 +1094,8 @@ impl<OffsetSize: BinaryOffsetSizeTrait> GenericBinaryBuilder<OffsetSize> {
     ///
     /// Automatically calls the `append` method to delimit the slice appended in as a
     /// distinct array element.
-    pub fn append_value(&mut self, value: &[u8]) -> Result<()> {
-        self.builder.values().append_slice(value)?;
+    pub fn append_value(&mut self, value: impl AsRef<[u8]>) -> Result<()> {
+        self.builder.values().append_slice(value.as_ref())?;
         self.builder.append(true)?;
         Ok(())
     }
@@ -1140,8 +1140,10 @@ impl<OffsetSize: StringOffsetSizeTrait> GenericStringBuilder<OffsetSize> {
     ///
     /// Automatically calls the `append` method to delimit the string appended in as a
     /// distinct array element.
-    pub fn append_value(&mut self, value: &str) -> Result<()> {
-        self.builder.values().append_slice(value.as_bytes())?;
+    pub fn append_value(&mut self, value: impl AsRef<str>) -> Result<()> {
+        self.builder
+            .values()
+            .append_slice(value.as_ref().as_bytes())?;
         self.builder.append(true)?;
         Ok(())
     }
@@ -1176,13 +1178,13 @@ impl FixedSizeBinaryBuilder {
     ///
     /// Automatically calls the `append` method to delimit the slice appended in as a
     /// distinct array element.
-    pub fn append_value(&mut self, value: &[u8]) -> Result<()> {
-        if self.builder.value_length() != value.len() as i32 {
+    pub fn append_value(&mut self, value: impl AsRef<[u8]>) -> Result<()> {
+        if self.builder.value_length() != value.as_ref().len() as i32 {
             return Err(ArrowError::InvalidArgumentError(
                 "Byte slice does not have the same length as FixedSizeBinaryBuilder value lengths".to_string()
             ));
         }
-        self.builder.values().append_slice(value)?;
+        self.builder.values().append_slice(value.as_ref())?;
         self.builder.append(true)
     }
 
@@ -1999,8 +2001,8 @@ where
     /// Append a primitive value to the array. Return an existing index
     /// if already present in the values array or a new index if the
     /// value is appended to the values array.
-    pub fn append(&mut self, value: &str) -> Result<K::Native> {
-        if let Some(&key) = self.map.get(value.as_bytes()) {
+    pub fn append(&mut self, value: impl AsRef<str>) -> Result<K::Native> {
+        if let Some(&key) = self.map.get(value.as_ref().as_bytes()) {
             // Append existing value.
             self.keys_builder.append_value(key)?;
             Ok(key)
@@ -2008,9 +2010,9 @@ where
             // Append new value.
             let key = K::Native::from_usize(self.values_builder.len())
                 .ok_or(ArrowError::DictionaryKeyOverflowError)?;
-            self.values_builder.append_value(value)?;
+            self.values_builder.append_value(value.as_ref())?;
             self.keys_builder.append_value(key as K::Native)?;
-            self.map.insert(value.as_bytes().into(), key);
+            self.map.insert(value.as_ref().as_bytes().into(), key);
             Ok(key)
         }
     }

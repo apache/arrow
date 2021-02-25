@@ -106,7 +106,7 @@ impl ExecutionPlan for ExplainExec {
 
         for p in &self.stringified_plans {
             type_builder.append_value(&String::from(&p.plan_type))?;
-            plan_builder.append_value(&p.plan)?;
+            plan_builder.append_value(&*p.plan)?;
         }
 
         let record_batch = RecordBatch::try_new(
