@@ -37,7 +37,6 @@
 #include "arrow/util/thread_pool.h"
 
 namespace arrow {
-
 using RecordBatchGenerator = AsyncGenerator<std::shared_ptr<RecordBatch>>;
 
 namespace csv {

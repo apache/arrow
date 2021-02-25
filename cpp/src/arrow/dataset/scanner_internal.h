@@ -28,59 +28,65 @@
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/partition.h"
 #include "arrow/dataset/scanner.h"
+#include "arrow/util/algorithm.h"
+#include "arrow/util/async_generator.h"
+#include "arrow/util/future.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/vector.h"
 
 namespace arrow {
 
 using internal::checked_cast;
+using RecordBatchGenerator = AsyncGenerator<std::shared_ptr<RecordBatch>>;
 
 namespace dataset {
 
-inline RecordBatchIterator FilterRecordBatch(RecordBatchIterator it, Expression filter,
-                                             MemoryPool* pool) {
-  return MakeMaybeMapIterator(
-      [=](std::shared_ptr<RecordBatch> in) -> Result<std::shared_ptr<RecordBatch>> {
-        compute::ExecContext exec_context{pool};
-        ARROW_ASSIGN_OR_RAISE(Datum mask,
-                              ExecuteScalarExpression(filter, Datum(in), &exec_context));
+inline RecordBatchGenerator FilterRecordBatch(RecordBatchGenerator rbs, Expression filter,
+                                              MemoryPool* pool) {
+  std::function<Result<std::shared_ptr<RecordBatch>>(const std::shared_ptr<RecordBatch>&)>
+      mapper = [=](const std::shared_ptr<RecordBatch>& in)
+      -> Result<std::shared_ptr<RecordBatch>> {
+    compute::ExecContext exec_context{pool};
+    ARROW_ASSIGN_OR_RAISE(Datum mask,
+                          ExecuteScalarExpression(filter, Datum(in), &exec_context));
 
-        if (mask.is_scalar()) {
-          const auto& mask_scalar = mask.scalar_as<BooleanScalar>();
-          if (mask_scalar.is_valid && mask_scalar.value) {
-            return std::move(in);
-          }
-          return in->Slice(0, 0);
-        }
+    if (mask.is_scalar()) {
+      const auto& mask_scalar = mask.scalar_as<BooleanScalar>();
+      if (mask_scalar.is_valid && mask_scalar.value) {
+        return std::move(in);
+      }
+      return in->Slice(0, 0);
+    }
 
-        ARROW_ASSIGN_OR_RAISE(
-            Datum filtered,
-            compute::Filter(in, mask, compute::FilterOptions::Defaults(), &exec_context));
-        return filtered.record_batch();
-      },
-      std::move(it));
+    ARROW_ASSIGN_OR_RAISE(
+        Datum filtered,
+        compute::Filter(in, mask, compute::FilterOptions::Defaults(), &exec_context));
+    return filtered.record_batch();
+  };
+  return MakeMappedGenerator(std::move(rbs), mapper);
 }
 
-inline RecordBatchIterator ProjectRecordBatch(RecordBatchIterator it,
-                                              Expression projection, MemoryPool* pool) {
-  return MakeMaybeMapIterator(
-      [=](std::shared_ptr<RecordBatch> in) -> Result<std::shared_ptr<RecordBatch>> {
-        compute::ExecContext exec_context{pool};
-        ARROW_ASSIGN_OR_RAISE(Datum projected, ExecuteScalarExpression(
-                                                   projection, Datum(in), &exec_context));
+inline RecordBatchGenerator ProjectRecordBatch(RecordBatchGenerator rbs,
+                                               Expression projection, MemoryPool* pool) {
+  std::function<Result<std::shared_ptr<RecordBatch>>(const std::shared_ptr<RecordBatch>&)>
+      mapper = [=](const std::shared_ptr<RecordBatch>& in)
+      -> Result<std::shared_ptr<RecordBatch>> {
+    compute::ExecContext exec_context{pool};
+    ARROW_ASSIGN_OR_RAISE(Datum projected,
+                          ExecuteScalarExpression(projection, Datum(in), &exec_context));
+    DCHECK_EQ(projected.type()->id(), Type::STRUCT);
+    if (projected.shape() == ValueDescr::SCALAR) {
+      // Only virtual columns are projected. Broadcast to an array
+      ARROW_ASSIGN_OR_RAISE(
+          projected, MakeArrayFromScalar(*projected.scalar(), in->num_rows(), pool));
+    }
 
-        DCHECK_EQ(projected.type()->id(), Type::STRUCT);
-        if (projected.shape() == ValueDescr::SCALAR) {
-          // Only virtual columns are projected. Broadcast to an array
-          ARROW_ASSIGN_OR_RAISE(
-              projected, MakeArrayFromScalar(*projected.scalar(), in->num_rows(), pool));
-        }
+    ARROW_ASSIGN_OR_RAISE(
+        auto out, RecordBatch::FromStructArray(projected.array_as<StructArray>()));
 
-        ARROW_ASSIGN_OR_RAISE(
-            auto out, RecordBatch::FromStructArray(projected.array_as<StructArray>()));
-
-        return out->ReplaceSchemaMetadata(in->schema()->metadata());
-      },
-      std::move(it));
+    return out->ReplaceSchemaMetadata(in->schema()->metadata());
+  };
+  return MakeMappedGenerator(std::move(rbs), mapper);
 }
 
 class FilterAndProjectScanTask : public ScanTask {
@@ -90,19 +96,18 @@ class FilterAndProjectScanTask : public ScanTask {
         task_(std::move(task)),
         partition_(std::move(partition)) {}
 
-  Result<RecordBatchIterator> Execute() override {
-    ARROW_ASSIGN_OR_RAISE(auto it, task_->Execute());
-
+  Result<RecordBatchGenerator> ExecuteAsync() override {
+    ARROW_ASSIGN_OR_RAISE(auto rbs, task_->ExecuteAsync());
     ARROW_ASSIGN_OR_RAISE(Expression simplified_filter,
                           SimplifyWithGuarantee(options()->filter, partition_));
 
     ARROW_ASSIGN_OR_RAISE(Expression simplified_projection,
                           SimplifyWithGuarantee(options()->projection, partition_));
 
-    RecordBatchIterator filter_it =
-        FilterRecordBatch(std::move(it), simplified_filter, options_->pool);
+    RecordBatchGenerator filtered_rbs =
+        FilterRecordBatch(rbs, simplified_filter, options_->pool);
 
-    return ProjectRecordBatch(std::move(filter_it), simplified_projection,
+    return ProjectRecordBatch(std::move(filtered_rbs), simplified_projection,
                               options_->pool);
   }
 
@@ -111,30 +116,38 @@ class FilterAndProjectScanTask : public ScanTask {
   Expression partition_;
 };
 
-/// \brief GetScanTaskIterator transforms an Iterator<Fragment> in a
-/// flattened Iterator<ScanTask>.
-inline Result<ScanTaskIterator> GetScanTaskIterator(
-    FragmentIterator fragments, std::shared_ptr<ScanOptions> options) {
-  // Fragment -> ScanTaskIterator
-  auto fn = [options](std::shared_ptr<Fragment> fragment) -> Result<ScanTaskIterator> {
-    ARROW_ASSIGN_OR_RAISE(auto scan_task_it, fragment->Scan(options));
-
+/// \brief GetScanTaskGenerator transforms FragmentVector->ScanTaskGenerator
+inline Result<ScanTaskGenerator> GetScanTaskGenerator(
+    const FragmentVector& fragments, std::shared_ptr<ScanOptions> options) {
+  // FragmentVector -> FragmentGenerator
+  auto fragment_generator = MakeVectorGenerator(fragments);
+  // Fragment -> ScanTaskGenerator
+  // FIXME - how to use auto?
+  std::function<Future<ScanTaskGenerator>(const std::shared_ptr<Fragment>&)>
+      fragment_mapper =
+          [options](
+              const std::shared_ptr<Fragment>& fragment) -> Future<ScanTaskGenerator> {
     auto partition = fragment->partition_expression();
-    // Apply the filter and/or projection to incoming RecordBatches by
-    // wrapping the ScanTask with a FilterAndProjectScanTask
-    auto wrap_scan_task =
-        [partition](std::shared_ptr<ScanTask> task) -> std::shared_ptr<ScanTask> {
-      return std::make_shared<FilterAndProjectScanTask>(std::move(task), partition);
-    };
+    return fragment->Scan(options).Then([partition](const ScanTaskVector& scan_tasks) {
+      // Apply the filter and/or projection to incoming RecordBatches by
+      // wrapping the ScanTask with a FilterAndProjectScanTask
+      // FIXME - use auto
+      std::function<Result<std::shared_ptr<ScanTask>>(const std::shared_ptr<ScanTask>&)>
+          wrap_scan_task = [partition](const std::shared_ptr<ScanTask>& task)
+          -> Result<std::shared_ptr<ScanTask>> {
+        return std::make_shared<FilterAndProjectScanTask>(std::move(task), partition);
+      };
 
-    return MakeMapIterator(wrap_scan_task, std::move(scan_task_it));
+      auto scan_tasks_gen = MakeVectorGenerator(scan_tasks);
+      return MakeMappedGenerator(scan_tasks_gen, wrap_scan_task);
+    });
   };
-
-  // Iterator<Iterator<ScanTask>>
-  auto maybe_scantask_it = MakeMaybeMapIterator(fn, std::move(fragments));
-
-  // Iterator<ScanTask>
-  return MakeFlattenIterator(std::move(maybe_scantask_it));
+  // FragmentGenerator -> ScanTaskGeneratorGenerator
+  auto scan_tasks_generator =
+      MakeMappedGenerator(std::move(fragment_generator), fragment_mapper);
+  // ScanTaskGeneratorGenerator -> ScanTaskGenerator
+  // FIXME - 4 should be an option or constant (how many files to process at once)
+  return MakeMergedGenerator(std::move(scan_tasks_generator), 4);
 }
 
 inline Status NestedFieldRefsNotImplemented() {

@@ -31,9 +31,11 @@
 #include "arrow/dataset/visibility.h"
 #include "arrow/memory_pool.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/async_generator.h"
 #include "arrow/util/type_fwd.h"
 
 namespace arrow {
+using RecordBatchGenerator = AsyncGenerator<std::shared_ptr<RecordBatch>>;
 namespace dataset {
 
 constexpr int64_t kDefaultBatchSize = 1 << 20;
@@ -100,7 +102,11 @@ class ARROW_DS_EXPORT ScanTask {
   /// \brief Iterate through sequence of materialized record batches
   /// resulting from the Scan. Execution semantics are encapsulated in the
   /// particular ScanTask implementation
-  virtual Result<RecordBatchIterator> Execute() = 0;
+  virtual Result<RecordBatchGenerator> ExecuteAsync() = 0;
+  virtual Result<RecordBatchIterator> Execute() {
+    ARROW_ASSIGN_OR_RAISE(auto gen, ExecuteAsync());
+    return MakeGeneratorIterator(gen);
+  }
 
   virtual ~ScanTask() = default;
 
@@ -124,15 +130,11 @@ class ARROW_DS_EXPORT InMemoryScanTask : public ScanTask {
       : ScanTask(std::move(options), std::move(fragment)),
         record_batches_(std::move(record_batches)) {}
 
-  Result<RecordBatchIterator> Execute() override;
+  Result<RecordBatchGenerator> ExecuteAsync() override;
 
  protected:
   std::vector<std::shared_ptr<RecordBatch>> record_batches_;
 };
-
-ARROW_DS_EXPORT Result<ScanTaskIterator> ScanTaskIteratorFromRecordBatch(
-    std::vector<std::shared_ptr<RecordBatch>> batches,
-    std::shared_ptr<ScanOptions> options);
 
 /// \brief Scanner is a materialized scan operation with context and options
 /// bound. A scanner is the class that glues ScanTask, Fragment,
@@ -150,10 +152,20 @@ class ARROW_DS_EXPORT Scanner {
   Scanner(std::shared_ptr<Fragment> fragment, std::shared_ptr<ScanOptions> scan_options)
       : fragment_(std::move(fragment)), scan_options_(std::move(scan_options)) {}
 
+  /// \brief The Scan operator returns a stream of ScanTask futures. The caller is
+  /// responsible to dispatch/schedule said tasks. Tasks should be safe to run
+  /// in a concurrent fashion and outlive the iterator.
+  Future<ScanTaskGenerator> ScanAsync();
+
   /// \brief The Scan operator returns a stream of ScanTask. The caller is
   /// responsible to dispatch/schedule said tasks. Tasks should be safe to run
   /// in a concurrent fashion and outlive the iterator.
-  Result<ScanTaskIterator> Scan();
+  Result<ScanTaskIterator> Scan() {
+    auto scan_fut = ScanAsync();
+    scan_fut.Wait();
+    ARROW_ASSIGN_OR_RAISE(auto gen, scan_fut.result());
+    return MakeGeneratorIterator(std::move(gen));
+  }
 
   /// \brief Convert a Scanner into a Table.
   ///
@@ -161,8 +173,20 @@ class ARROW_DS_EXPORT Scanner {
   /// Scan result in memory before creating the Table.
   Result<std::shared_ptr<Table>> ToTable();
 
-  /// \brief GetFragments returns an iterator over all Fragments in this scan.
-  Result<FragmentIterator> GetFragments();
+  /// \brief Convert a Scanner into a Table.
+  ///
+  /// Use this convenience utility with care. This will serially materialize the
+  /// Scan result in memory before creating the Table.
+  Future<std::shared_ptr<Table>> ToTableAsync();
+
+  /// \brief GetFragments returns an vector of all Fragments in this scan.
+  Future<FragmentVector> GetFragmentsAsync();
+  Result<FragmentIterator> GetFragments() {
+    auto fut = GetFragmentsAsync();
+    fut.Wait();
+    ARROW_ASSIGN_OR_RAISE(auto fragments_vec, fut.result());
+    return MakeVectorIterator(fragments_vec);
+  }
 
   const std::shared_ptr<Schema>& schema() const {
     return scan_options_->projected_schema;

@@ -150,15 +150,19 @@ class TestParquetFileFormat : public ArrowParquetWriterMixin {
     return std::make_shared<io::BufferOutputStream>(buffer);
   }
 
-  RecordBatchIterator Batches(ScanTaskIterator scan_task_it) {
-    return MakeFlattenIterator(MakeMaybeMapIterator(
-        [](std::shared_ptr<ScanTask> scan_task) { return scan_task->Execute(); },
-        std::move(scan_task_it)));
+  RecordBatchVector Batches(ScanTaskVector scan_tasks) {
+    RecordBatchVector rbs;
+    for (auto&& scan_task : scan_tasks) {
+      EXPECT_OK_AND_ASSIGN(auto task_rbs_it, scan_task->Execute());
+      EXPECT_OK_AND_ASSIGN(auto task_rbs, task_rbs_it.ToVector());
+      rbs.insert(rbs.end(), task_rbs.begin(), task_rbs.end());
+    }
+    return rbs;
   }
 
-  RecordBatchIterator Batches(Fragment* fragment) {
-    EXPECT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(opts_));
-    return Batches(std::move(scan_task_it));
+  RecordBatchVector Batches(Fragment* fragment) {
+    EXPECT_FINISHES_OK_AND_ASSIGN(auto scan_tasks, fragment->Scan(opts_));
+    return Batches(std::move(scan_tasks));
   }
 
   void SetFilter(Expression filter) {
@@ -166,7 +170,7 @@ class TestParquetFileFormat : public ArrowParquetWriterMixin {
   }
 
   std::shared_ptr<RecordBatch> SingleBatch(Fragment* fragment) {
-    auto batches = IteratorToVector(Batches(fragment));
+    auto batches = Batches(fragment);
     EXPECT_EQ(batches.size(), 1);
     return batches.front();
   }
@@ -176,8 +180,7 @@ class TestParquetFileFormat : public ArrowParquetWriterMixin {
     int64_t actual_rows = 0;
     int64_t actual_batches = 0;
 
-    for (auto maybe_batch : Batches(fragment)) {
-      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+    for (auto batch : Batches(fragment)) {
       actual_rows += batch->num_rows();
       ++actual_batches;
     }
@@ -229,8 +232,7 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReader) {
 
   int64_t row_count = 0;
 
-  for (auto maybe_batch : Batches(fragment.get())) {
-    ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+  for (auto batch : Batches(fragment.get())) {
     row_count += batch->num_rows();
   }
 
@@ -247,13 +249,12 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReaderDictEncoded) {
   format_->reader_options.dict_columns = {"utf8"};
   ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
 
-  ASSERT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(opts_));
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto scan_tasks, fragment->Scan(opts_));
   int64_t row_count = 0;
 
   Schema expected_schema({field("utf8", dictionary(int32(), utf8()))});
 
-  for (auto maybe_task : scan_task_it) {
-    ASSERT_OK_AND_ASSIGN(auto task, maybe_task);
+  for (auto task : scan_tasks) {
     ASSERT_OK_AND_ASSIGN(auto rb_it, task->Execute());
     for (auto maybe_batch : rb_it) {
       ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
@@ -274,13 +275,12 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReaderPreBuffer) {
 
   format_->reader_options.pre_buffer = true;
   ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
-  ASSERT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(opts_));
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto scan_tasks, fragment->Scan(opts_));
 
   int64_t task_count = 0;
   int64_t row_count = 0;
 
-  for (auto maybe_task : scan_task_it) {
-    ASSERT_OK_AND_ASSIGN(auto task, maybe_task);
+  for (auto task : scan_tasks) {
     task_count += 1;
     ASSERT_OK_AND_ASSIGN(auto rb_it, task->Execute());
     for (auto maybe_batch : rb_it) {
@@ -328,8 +328,7 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReaderProjected) {
 
   int64_t row_count = 0;
 
-  for (auto maybe_batch : Batches(fragment.get())) {
-    ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+  for (auto batch : Batches(fragment.get())) {
     row_count += batch->num_rows();
     AssertSchemaEqual(*batch->schema(), *expected_schema,
                       /*check_metadata=*/false);
@@ -369,8 +368,7 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReaderProjectedMissingCols) {
 
     int64_t row_count = 0;
 
-    for (auto maybe_batch : Batches(fragment.get())) {
-      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+    for (auto batch : Batches(fragment.get())) {
       row_count += batch->num_rows();
       AssertSchemaEqual(*batch->schema(), *expected_schema,
                         /*check_metadata=*/false);
@@ -590,10 +588,12 @@ TEST_F(TestParquetFileFormat, ExplicitRowGroupSelection) {
   SetFilter(greater(field_ref("i64"), literal(3)));
   CountRowsAndBatchesInScan(row_groups_fragment({2, 3, 4, 5}), 4 + 5 + 6, 3);
 
+  auto scan_fut = row_groups_fragment({kNumRowGroups + 1})->Scan(opts_);
+  ASSERT_FINISHES_ERR(IndexError, scan_fut);
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       IndexError,
       testing::HasSubstr("only has " + std::to_string(kNumRowGroups) + " row groups"),
-      row_groups_fragment({kNumRowGroups + 1})->Scan(opts_));
+      scan_fut.result());
 }
 
 TEST_F(TestParquetFileFormat, WriteRecordBatchReader) {

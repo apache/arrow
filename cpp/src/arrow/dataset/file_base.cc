@@ -34,6 +34,7 @@
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
 #include "arrow/util/compression.h"
+#include "arrow/util/future.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"
@@ -106,7 +107,7 @@ Result<std::shared_ptr<Schema>> FileFragment::ReadPhysicalSchemaImpl() {
   return format_->Inspect(source_);
 }
 
-Result<ScanTaskIterator> FileFragment::Scan(std::shared_ptr<ScanOptions> options) {
+Future<ScanTaskVector> FileFragment::Scan(std::shared_ptr<ScanOptions> options) {
   auto self = std::dynamic_pointer_cast<FileFragment>(shared_from_this());
   return format_->ScanFile(std::move(options), self);
 }
@@ -207,10 +208,11 @@ void FileSystemDataset::SetupSubtreePruning() {
   });
 }
 
-Result<FragmentIterator> FileSystemDataset::GetFragmentsImpl(Expression predicate) {
+Future<FragmentVector> FileSystemDataset::GetFragmentsImpl(Expression predicate) {
   if (predicate == literal(true)) {
     // trivial predicate; skip subtree pruning
-    return MakeVectorIterator(FragmentVector(fragments_.begin(), fragments_.end()));
+    return Future<FragmentVector>::MakeFinished(
+        FragmentVector(fragments_.begin(), fragments_.end()));
   }
 
   std::vector<int> fragment_indices;
@@ -244,7 +246,7 @@ Result<FragmentIterator> FileSystemDataset::GetFragmentsImpl(Expression predicat
   std::transform(fragment_indices.begin(), fragment_indices.end(), fragments.begin(),
                  [this](int i) { return fragments_[i]; });
 
-  return MakeVectorIterator(std::move(fragments));
+  return Future<FragmentVector>::MakeFinished(std::move(fragments));
 }
 
 Status FileWriter::Write(RecordBatchReader* batches) {

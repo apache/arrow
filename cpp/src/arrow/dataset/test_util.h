@@ -140,12 +140,11 @@ class DatasetFixtureMixin : public ::testing::Test {
   /// record batches yielded by the data fragment.
   void AssertFragmentEquals(RecordBatchReader* expected, Fragment* fragment,
                             bool ensure_drained = true) {
-    ASSERT_OK_AND_ASSIGN(auto it, fragment->Scan(options_));
+    ASSERT_FINISHES_OK_AND_ASSIGN(auto scan_tasks, fragment->Scan(options_));
 
-    ARROW_EXPECT_OK(it.Visit([&](std::shared_ptr<ScanTask> task) -> Status {
-      AssertScanTaskEquals(expected, task.get(), false);
-      return Status::OK();
-    }));
+    for (auto&& scan_task : scan_tasks) {
+      AssertScanTaskEquals(expected, scan_task.get(), false);
+    }
 
     if (ensure_drained) {
       EnsureRecordBatchReaderDrained(expected);
@@ -157,12 +156,11 @@ class DatasetFixtureMixin : public ::testing::Test {
   void AssertDatasetFragmentsEqual(RecordBatchReader* expected, Dataset* dataset,
                                    bool ensure_drained = true) {
     ASSERT_OK_AND_ASSIGN(auto predicate, options_->filter.Bind(*dataset->schema()));
-    ASSERT_OK_AND_ASSIGN(auto it, dataset->GetFragments(predicate));
+    ASSERT_FINISHES_OK_AND_ASSIGN(auto fragments, dataset->GetFragmentsAsync(predicate));
 
-    ARROW_EXPECT_OK(it.Visit([&](std::shared_ptr<Fragment> fragment) -> Status {
+    for (auto&& fragment : fragments) {
       AssertFragmentEquals(expected, fragment.get(), false);
-      return Status::OK();
-    }));
+    }
 
     if (ensure_drained) {
       EnsureRecordBatchReaderDrained(expected);
@@ -235,10 +233,10 @@ class DummyFileFormat : public FileFormat {
   }
 
   /// \brief Open a file for scanning (always returns an empty iterator)
-  Result<ScanTaskIterator> ScanFile(
+  Future<ScanTaskVector> ScanFile(
       std::shared_ptr<ScanOptions> options,
       const std::shared_ptr<FileFragment>& fragment) const override {
-    return MakeEmptyIterator<std::shared_ptr<ScanTask>>();
+    return Future<ScanTaskVector>::MakeFinished(ScanTaskVector());
   }
 
   Result<std::shared_ptr<FileWriter>> MakeWriter(
@@ -274,8 +272,20 @@ class JSONRecordBatchFileFormat : public FileFormat {
     return resolver_(source);
   }
 
+  Future<ScanTaskVector> ScanTaskVectorFromRecordBatch(
+      std::vector<std::shared_ptr<RecordBatch>> batches,
+      std::shared_ptr<ScanOptions> options) const {
+    if (batches.empty()) {
+      return Future<ScanTaskVector>::MakeFinished(ScanTaskVector());
+    }
+    auto schema = batches[0]->schema();
+    auto fragment =
+        std::make_shared<InMemoryFragment>(std::move(schema), std::move(batches));
+    return fragment->Scan(std::move(options));
+  }
+
   /// \brief Open a file for scanning
-  Result<ScanTaskIterator> ScanFile(
+  Future<ScanTaskVector> ScanFile(
       std::shared_ptr<ScanOptions> options,
       const std::shared_ptr<FileFragment>& fragment) const override {
     ARROW_ASSIGN_OR_RAISE(auto file, fragment->source().Open());
@@ -286,7 +296,7 @@ class JSONRecordBatchFileFormat : public FileFormat {
 
     ARROW_ASSIGN_OR_RAISE(auto schema, Inspect(fragment->source()));
     std::shared_ptr<RecordBatch> batch = RecordBatchFromJSON(schema, view);
-    return ScanTaskIteratorFromRecordBatch({batch}, std::move(options));
+    return ScanTaskVectorFromRecordBatch({batch}, std::move(options));
   }
 
   Result<std::shared_ptr<FileWriter>> MakeWriter(
@@ -415,12 +425,12 @@ static std::vector<Expression> PartitionExpressionsOf(const FragmentVector& frag
 
 void AssertFragmentsHavePartitionExpressions(std::shared_ptr<Dataset> dataset,
                                              std::vector<Expression> expected) {
-  ASSERT_OK_AND_ASSIGN(auto fragment_it, dataset->GetFragments());
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto fragments, dataset->GetFragmentsAsync());
   for (auto& expr : expected) {
     ASSERT_OK_AND_ASSIGN(expr, expr.Bind(*dataset->schema()));
   }
   // Ordering is not guaranteed.
-  EXPECT_THAT(PartitionExpressionsOf(IteratorToVector(std::move(fragment_it))),
+  EXPECT_THAT(PartitionExpressionsOf(fragments),
               testing::UnorderedElementsAreArray(expected));
 }
 
@@ -724,6 +734,11 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
     AssertWrittenAsExpected();
   }
 
+  RecordBatchIterator IteratorFromReader(
+      const std::shared_ptr<RecordBatchReader>& reader) {
+    return MakeFunctionIterator([reader] { return reader->Next(); });
+  }
+
   void AssertWrittenAsExpected() {
     std::unordered_set<std::string> expected_paths, actual_paths;
     for (const auto& file_contents : expected_files_) {
@@ -734,10 +749,8 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
     }
     EXPECT_THAT(actual_paths, testing::UnorderedElementsAreArray(expected_paths));
 
-    ASSERT_OK_AND_ASSIGN(auto written_fragments_it, written_->GetFragments());
-    for (auto maybe_fragment : written_fragments_it) {
-      ASSERT_OK_AND_ASSIGN(auto fragment, maybe_fragment);
-
+    ASSERT_FINISHES_OK_AND_ASSIGN(auto written_fragments, written_->GetFragmentsAsync());
+    for (auto fragment : written_fragments) {
       ASSERT_OK_AND_ASSIGN(auto actual_physical_schema, fragment->ReadPhysicalSchema());
       AssertSchemaEqual(*expected_physical_schema_, *actual_physical_schema,
                         check_metadata_);

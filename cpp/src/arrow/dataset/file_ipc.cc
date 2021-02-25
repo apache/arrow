@@ -25,9 +25,11 @@
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/scanner.h"
+#include "arrow/dataset/type_fwd.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/future.h"
 #include "arrow/util/iterator.h"
 
 namespace arrow {
@@ -79,9 +81,9 @@ class IpcScanTask : public ScanTask {
               std::shared_ptr<ScanOptions> options)
       : ScanTask(std::move(options), fragment), source_(fragment->source()) {}
 
-  Result<RecordBatchIterator> Execute() override {
+  Result<RecordBatchGenerator> ExecuteAsync() override {
     struct Impl {
-      static Result<RecordBatchIterator> Make(
+      static Result<RecordBatchGenerator> Make(
           const FileSource& source, std::vector<std::string> materialized_fields,
           MemoryPool* pool) {
         ARROW_ASSIGN_OR_RAISE(auto reader, OpenReader(source));
@@ -92,15 +94,19 @@ class IpcScanTask : public ScanTask {
                               GetIncludedFields(*reader->schema(), materialized_fields));
 
         ARROW_ASSIGN_OR_RAISE(reader, OpenReader(source, options));
-        return RecordBatchIterator(Impl{std::move(reader), 0});
+        RecordBatchGenerator generator = Impl{std::move(reader), 0};
+        return generator;
       }
 
-      Result<std::shared_ptr<RecordBatch>> Next() {
+      Future<std::shared_ptr<RecordBatch>> operator()() {
         if (i_ == reader_->num_record_batches()) {
-          return nullptr;
+          return AsyncGeneratorEnd<std::shared_ptr<RecordBatch>>();
         }
 
-        return reader_->ReadRecordBatch(i_++);
+        // TODO(ARROW-11772) Once RBFR is async then switch over to that instead of this
+        // synchronous wrapper
+        return Future<std::shared_ptr<RecordBatch>>::MakeFinished(
+            reader_->ReadRecordBatch(i_++));
       }
 
       std::shared_ptr<ipc::RecordBatchFileReader> reader_;
@@ -114,33 +120,6 @@ class IpcScanTask : public ScanTask {
   FileSource source_;
 };
 
-class IpcScanTaskIterator {
- public:
-  static Result<ScanTaskIterator> Make(std::shared_ptr<ScanOptions> options,
-                                       std::shared_ptr<FileFragment> fragment) {
-    return ScanTaskIterator(IpcScanTaskIterator(std::move(options), std::move(fragment)));
-  }
-
-  Result<std::shared_ptr<ScanTask>> Next() {
-    if (once_) {
-      // Iteration is done.
-      return nullptr;
-    }
-
-    once_ = true;
-    return std::shared_ptr<ScanTask>(new IpcScanTask(fragment_, options_));
-  }
-
- private:
-  IpcScanTaskIterator(std::shared_ptr<ScanOptions> options,
-                      std::shared_ptr<FileFragment> fragment)
-      : options_(std::move(options)), fragment_(std::move(fragment)) {}
-
-  bool once_ = false;
-  std::shared_ptr<ScanOptions> options_;
-  std::shared_ptr<FileFragment> fragment_;
-};
-
 Result<bool> IpcFileFormat::IsSupported(const FileSource& source) const {
   RETURN_NOT_OK(source.Open().status());
   return OpenReader(source).ok();
@@ -151,10 +130,11 @@ Result<std::shared_ptr<Schema>> IpcFileFormat::Inspect(const FileSource& source)
   return reader->schema();
 }
 
-Result<ScanTaskIterator> IpcFileFormat::ScanFile(
+Future<ScanTaskVector> IpcFileFormat::ScanFile(
     std::shared_ptr<ScanOptions> options,
     const std::shared_ptr<FileFragment>& fragment) const {
-  return IpcScanTaskIterator::Make(std::move(options), std::move(fragment));
+  return Future<ScanTaskVector>::MakeFinished(
+      ScanTaskVector{std::make_shared<IpcScanTask>(fragment, std::move(options))});
 }
 
 //

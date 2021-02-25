@@ -73,15 +73,19 @@ class TestCsvFileFormat : public testing::TestWithParam<Compression::type> {
     return internal::make_unique<FileSource>(info, fs, GetCompression());
   }
 
-  RecordBatchIterator Batches(ScanTaskIterator scan_task_it) {
-    return MakeFlattenIterator(MakeMaybeMapIterator(
-        [](std::shared_ptr<ScanTask> scan_task) { return scan_task->Execute(); },
-        std::move(scan_task_it)));
+  RecordBatchVector Batches(ScanTaskVector scan_tasks) {
+    RecordBatchVector rbs;
+    for (auto&& scan_task : scan_tasks) {
+      EXPECT_OK_AND_ASSIGN(auto task_rbs_it, scan_task->Execute());
+      EXPECT_OK_AND_ASSIGN(auto task_rbs, task_rbs_it.ToVector());
+      rbs.insert(rbs.end(), task_rbs.begin(), task_rbs.end());
+    }
+    return rbs;
   }
 
-  RecordBatchIterator Batches(Fragment* fragment) {
-    EXPECT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(opts_));
-    return Batches(std::move(scan_task_it));
+  RecordBatchVector Batches(Fragment* fragment) {
+    EXPECT_FINISHES_OK_AND_ASSIGN(auto scan_tasks, fragment->Scan(opts_));
+    return Batches(std::move(scan_tasks));
   }
 
   void SetSchema(std::vector<std::shared_ptr<Field>> fields) {
@@ -104,8 +108,7 @@ N/A
 
   int64_t row_count = 0;
 
-  for (auto maybe_batch : Batches(fragment.get())) {
-    ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+  for (auto batch : Batches(fragment.get())) {
     row_count += batch->num_rows();
   }
 
@@ -126,8 +129,7 @@ bar)");
   opts_->fragment_scan_options = fragment_scan_options;
 
   int64_t null_count = 0;
-  for (auto maybe_batch : Batches(fragment.get())) {
-    ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+  for (const auto& batch : Batches(fragment.get())) {
     null_count += batch->GetColumnByName("str")->null_count();
   }
 
@@ -186,8 +188,7 @@ N/A
 
   int64_t row_count = 0;
 
-  for (auto maybe_batch : Batches(fragment.get())) {
-    ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+  for (auto batch : Batches(fragment.get())) {
     AssertSchemaEqual(*batch->schema(), *physical_schema);
     row_count += batch->num_rows();
   }

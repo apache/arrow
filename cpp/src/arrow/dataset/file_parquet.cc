@@ -70,14 +70,14 @@ class ParquetScanTask : public ScanTask {
         io_context_(io_context),
         cache_options_(cache_options) {}
 
-  Result<RecordBatchIterator> Execute() override {
+  Result<RecordBatchGenerator> ExecuteAsync() override {
     // The construction of parquet's RecordBatchReader is deferred here to
     // control the memory usage of consumers who materialize all ScanTasks
     // before dispatching them, e.g. for scheduling purposes.
     //
     // The memory and IO incurred by the RecordBatchReader is allocated only
     // when Execute is called.
-    struct {
+    struct GetNextBatch {
       Result<std::shared_ptr<RecordBatch>> operator()() const {
         return record_batch_reader->Next();
       }
@@ -86,13 +86,16 @@ class ParquetScanTask : public ScanTask {
       // since it must outlive the wrapped RecordBatchReader
       std::shared_ptr<parquet::arrow::FileReader> file_reader;
       std::unique_ptr<RecordBatchReader> record_batch_reader;
-    } NextBatch;
+    };
+    auto next_batch = std::make_shared<GetNextBatch>();
 
     RETURN_NOT_OK(EnsurePreBuffered());
-    NextBatch.file_reader = reader_;
+    next_batch->file_reader = reader_;
     RETURN_NOT_OK(reader_->GetRecordBatchReader({row_group_}, column_projection_,
-                                                &NextBatch.record_batch_reader));
-    return MakeFunctionIterator(std::move(NextBatch));
+                                                &next_batch->record_batch_reader));
+    // TODO(ARROW-11843)
+    RecordBatchGenerator batch_generator = [next_batch]() { return (*next_batch)(); };
+    return batch_generator;
   }
 
   // Ensure that pre-buffering has been applied to the underlying Parquet reader
@@ -319,7 +322,7 @@ Result<std::unique_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
   return std::move(arrow_reader);
 }
 
-Result<ScanTaskIterator> ParquetFileFormat::ScanFile(
+Future<ScanTaskVector> ParquetFileFormat::ScanFile(
     std::shared_ptr<ScanOptions> options,
     const std::shared_ptr<FileFragment>& fragment) const {
   auto* parquet_fragment = checked_cast<ParquetFileFragment*>(fragment.get());
@@ -367,7 +370,7 @@ Result<ScanTaskIterator> ParquetFileFormat::ScanFile(
         reader_options.io_context, reader_options.cache_options, options, fragment);
   }
 
-  return MakeVectorIterator(std::move(tasks));
+  return Future<ScanTaskVector>::MakeFinished(std::move(tasks));
 }
 
 Result<std::shared_ptr<ParquetFileFragment>> ParquetFileFormat::MakeFragment(

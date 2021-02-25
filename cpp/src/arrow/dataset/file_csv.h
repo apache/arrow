@@ -49,7 +49,7 @@ class ARROW_DS_EXPORT CsvFileFormat : public FileFormat {
   Result<std::shared_ptr<Schema>> Inspect(const FileSource& source) const override;
 
   /// \brief Open a file for scanning
-  Result<ScanTaskIterator> ScanFile(
+  Future<ScanTaskVector> ScanFile(
       std::shared_ptr<ScanOptions> options,
       const std::shared_ptr<FileFragment>& fragment) const override;
 
