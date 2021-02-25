@@ -4,12 +4,12 @@
 \alias{hive_partition}
 \title{Construct Hive partitioning}
 \usage{
-hive_partition(..., null_fallback = "__HIVE_DEFAULT_PARTITION__")
+hive_partition(..., null_fallback = NULL)
 }
 \arguments{
 \item{...}{named list of \link[=data-type]{data types}, passed to \code{\link[=schema]{schema()}}}
 
-\item{null_fallback}{character to be used in place of \code{NA} and \code{NULL} values
+\item{null_fallback}{character to be used in place of missing values (\code{NA} or \code{NULL})
 in columns that are being partitioned by. (default:
 \code{"__HIVE_DEFAULT_PARTITION__"})}
 }
