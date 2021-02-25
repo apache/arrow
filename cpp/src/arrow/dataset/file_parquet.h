@@ -68,8 +68,6 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
 
   std::string type_name() const override { return "parquet"; }
 
-  bool splittable() const override { return true; }
-
   bool Equals(const FileFormat& other) const override;
 
   struct ReaderOptions {
@@ -113,7 +111,7 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
   Result<std::shared_ptr<Schema>> Inspect(const FileSource& source) const override;
 
   /// \brief Open a file for scanning
-  Result<ScanTaskIterator> ScanFile(
+  Future<ScanTaskVector> ScanFile(
       std::shared_ptr<ScanOptions> options,
       const std::shared_ptr<FileFragment>& file) const override;
 

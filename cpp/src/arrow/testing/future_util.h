@@ -67,6 +67,24 @@
     ASSERT_EQ(expected, _actual);                        \
   } while (0)
 
+#define EXPECT_FINISHES_IMPL(fut)                                   \
+  do {                                                              \
+    EXPECT_TRUE(fut.Wait(300));                                     \
+    if (!fut.is_finished()) {                                       \
+      ADD_FAILURE() << "Future did not finish in a timely fashion"; \
+    }                                                               \
+  } while (false)
+
+#define ON_FINISH_ASSIGN_OR_HANDLE_ERROR_IMPL(handle_error, future_name, lhs, rexpr) \
+  auto future_name = (rexpr);                                                        \
+  EXPECT_FINISHES_IMPL(future_name);                                                 \
+  handle_error(future_name.status());                                                \
+  EXPECT_OK_AND_ASSIGN(lhs, future_name.result());
+
+#define EXPECT_FINISHES_OK_AND_ASSIGN(lhs, rexpr) \
+  ON_FINISH_ASSIGN_OR_HANDLE_ERROR_IMPL(          \
+      ARROW_EXPECT_OK, ARROW_ASSIGN_OR_RAISE_NAME(_fut, __COUNTER__), lhs, rexpr);
+
 namespace arrow {
 
 template <typename T>

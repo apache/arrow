@@ -30,6 +30,7 @@
 #include "arrow/io/memory.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
+#include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 
@@ -73,15 +74,19 @@ class TestCsvFileFormat : public testing::TestWithParam<Compression::type> {
     return internal::make_unique<FileSource>(info, fs, GetCompression());
   }
 
-  RecordBatchIterator Batches(ScanTaskIterator scan_task_it) {
-    return MakeFlattenIterator(MakeMaybeMapIterator(
-        [](std::shared_ptr<ScanTask> scan_task) { return scan_task->Execute(); },
-        std::move(scan_task_it)));
+  RecordBatchVector Batches(ScanTaskVector scan_tasks) {
+    RecordBatchVector rbs;
+    for (auto&& scan_task : scan_tasks) {
+      EXPECT_OK_AND_ASSIGN(auto task_rbs_it, scan_task->Execute());
+      EXPECT_OK_AND_ASSIGN(auto task_rbs, task_rbs_it.ToVector());
+      rbs.insert(rbs.end(), task_rbs.begin(), task_rbs.end());
+    }
+    return rbs;
   }
 
-  RecordBatchIterator Batches(Fragment* fragment) {
-    EXPECT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(opts_));
-    return Batches(std::move(scan_task_it));
+  RecordBatchVector Batches(Fragment* fragment) {
+    EXPECT_FINISHES_OK_AND_ASSIGN(auto scan_tasks, fragment->Scan(opts_));
+    return Batches(std::move(scan_tasks));
   }
 
   void SetSchema(std::vector<std::shared_ptr<Field>> fields) {
@@ -104,8 +109,7 @@ N/A
 
   int64_t row_count = 0;
 
-  for (auto maybe_batch : Batches(fragment.get())) {
-    ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+  for (auto batch : Batches(fragment.get())) {
     row_count += batch->num_rows();
   }
 
@@ -126,8 +130,7 @@ bar)");
   opts_->fragment_scan_options = fragment_scan_options;
 
   int64_t null_count = 0;
-  for (auto maybe_batch : Batches(fragment.get())) {
-    ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+  for (const auto& batch : Batches(fragment.get())) {
     null_count += batch->GetColumnByName("str")->null_count();
   }
 
@@ -151,8 +154,7 @@ bar)");
 
   {
     int64_t rows = 0;
-    for (auto maybe_batch : Batches(fragment.get())) {
-      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+    for (const auto& batch : Batches(fragment.get())) {
       rows += batch->GetColumnByName("str")->length();
     }
     ASSERT_EQ(rows, 4);
@@ -163,8 +165,7 @@ bar)");
     fragment_scan_options->read_options.block_size = 1 << 22;
     opts_->fragment_scan_options = fragment_scan_options;
     int64_t rows = 0;
-    for (auto maybe_batch : Batches(fragment.get())) {
-      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+    for (const auto& batch : Batches(fragment.get())) {
       rows += batch->GetColumnByName("header_skipped")->length();
     }
     ASSERT_EQ(rows, 5);
@@ -186,8 +187,7 @@ N/A
 
   int64_t row_count = 0;
 
-  for (auto maybe_batch : Batches(fragment.get())) {
-    ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+  for (auto batch : Batches(fragment.get())) {
     AssertSchemaEqual(*batch->schema(), *physical_schema);
     row_count += batch->num_rows();
   }
@@ -270,16 +270,12 @@ N/A,bar
   ASSERT_OK(builder.Project({"str"}));
   ASSERT_OK_AND_ASSIGN(auto scanner, builder.Finish());
 
-  ASSERT_OK_AND_ASSIGN(auto scan_task_it, scanner->Scan());
-  for (auto maybe_scan_task : scan_task_it) {
-    ASSERT_OK_AND_ASSIGN(auto scan_task, maybe_scan_task);
-    ASSERT_OK_AND_ASSIGN(auto batch_it, scan_task->Execute());
-    for (auto maybe_batch : batch_it) {
-      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
-      // Run through the scan checking for errors to ensure that "f64" is read with the
-      // specified type and does not revert to the inferred type (if it reverts to
-      // inferring float64 then evaluation of the comparison expression should break)
-    }
+  ASSERT_OK_AND_ASSIGN(auto batch_it, scanner->ScanBatches());
+  for (auto maybe_batch : batch_it) {
+    ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+    // Run through the scan checking for errors to ensure that "f64" is read with the
+    // specified type and does not revert to the inferred type (if it reverts to
+    // inferring float64 then evaluation of the comparison expression should break)
   }
 }
 

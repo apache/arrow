@@ -26,6 +26,7 @@
 #include "arrow/dataset/partition.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/filesystem/test_util.h"
+#include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/checked_cast.h"
@@ -140,8 +141,8 @@ class FileSystemDatasetFactoryTest : public DatasetFactoryTest {
     options_->dataset_schema = schema;
     ASSERT_OK(SetProjection(options_.get(), schema->field_names()));
     ASSERT_OK_AND_ASSIGN(dataset_, factory_->Finish(schema));
-    ASSERT_OK_AND_ASSIGN(auto fragment_it, dataset_->GetFragments());
-    AssertFragmentsAreFromPath(std::move(fragment_it), paths);
+    ASSERT_OK_AND_ASSIGN(auto fragments_it, dataset_->GetFragments());
+    AssertFragmentsAreFromPath(std::move(fragments_it), paths);
   }
 
  protected:
@@ -373,9 +374,8 @@ TEST_F(FileSystemDatasetFactoryTest, FilenameNotPartOfPartitions) {
   auto expected = equal(field_ref("first"), literal("one"));
 
   ASSERT_OK_AND_ASSIGN(auto dataset, factory_->Finish());
-  ASSERT_OK_AND_ASSIGN(auto fragment_it, dataset->GetFragments());
-  for (const auto& maybe_fragment : fragment_it) {
-    ASSERT_OK_AND_ASSIGN(auto fragment, maybe_fragment);
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto fragments, dataset->GetFragmentsAsync());
+  for (const auto& fragment : fragments) {
     EXPECT_EQ(fragment->partition_expression(), expected);
   }
 }

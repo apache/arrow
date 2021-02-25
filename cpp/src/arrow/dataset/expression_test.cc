@@ -29,6 +29,7 @@
 #include "arrow/compute/registry.h"
 #include "arrow/dataset/expression_internal.h"
 #include "arrow/dataset/test_util.h"
+#include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 
 using testing::HasSubstr;

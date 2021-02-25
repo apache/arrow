@@ -17,7 +17,9 @@
 
 #include "arrow/dataset/scanner.h"
 
+#include <condition_variable>
 #include <memory>
+#include <mutex>
 
 #include "arrow/dataset/scanner_internal.h"
 #include "arrow/dataset/test_util.h"
@@ -35,6 +37,122 @@ namespace dataset {
 constexpr int64_t kNumberChildDatasets = 2;
 constexpr int64_t kNumberBatches = 16;
 constexpr int64_t kBatchSize = 1024;
+
+class ControlledScanTask : public ScanTask {
+ public:
+  ControlledScanTask(std::shared_ptr<ScanOptions> options,
+                     std::shared_ptr<Fragment> fragment, std::shared_ptr<Schema> schema)
+      : ScanTask(std::move(options), std::move(fragment)), schema_(std::move(schema)) {}
+  virtual ~ControlledScanTask() = default;
+  Result<RecordBatchGenerator> ExecuteAsync() override {
+    execute_called_ = true;
+    return record_batch_generator_;
+  };
+
+  std::shared_ptr<RecordBatch> MakeRecordBatch(uint32_t value) {
+    auto arr = ConstantArrayGenerator::Int32(1, value);
+    return RecordBatch::Make(schema_, 1, {arr});
+  }
+
+  void DeliverBatch(uint32_t value) {
+    return record_batch_generator_.producer().Push(MakeRecordBatch(value));
+  }
+
+  void Close() { record_batch_generator_.producer().Close(); }
+
+  bool execute_called() { return execute_called_; }
+
+ private:
+  std::shared_ptr<Schema> schema_;
+  PushGenerator<std::shared_ptr<RecordBatch>> record_batch_generator_;
+  bool execute_called_ = false;
+};
+
+class ControlledFragment : public Fragment {
+ public:
+  ControlledFragment(std::shared_ptr<ScanOptions> options, std::shared_ptr<Schema> schema)
+      : tasks_fut_(Future<ScanTaskVector>::Make()), options_(std::move(options)) {
+    physical_schema_ = schema;
+  }
+  virtual ~ControlledFragment() {}
+
+  Future<ScanTaskVector> Scan(std::shared_ptr<ScanOptions> options) override {
+    Future<ScanTaskVector> tasks_fut = tasks_fut_;
+    // Can't hold onto the scan tasks once we've delivered them or else we have a circular
+    // reference.  If they haven't been marked finished yet then we will reset later
+    if (tasks_fut_.is_finished()) {
+      tasks_fut_ = Future<ScanTaskVector>::Make();
+    } else {
+      delivered = true;
+    }
+    return tasks_fut;
+  }
+  std::vector<std::shared_ptr<ControlledScanTask>> DeliverScanTasks(int num_tasks) {
+    auto fragment = shared_from_this();
+    std::vector<std::shared_ptr<ControlledScanTask>> tasks;
+    ScanTaskVector base_tasks;
+    for (int i = 0; i < num_tasks; i++) {
+      auto task =
+          std::make_shared<ControlledScanTask>(options_, fragment, physical_schema_);
+      tasks.push_back(task);
+      base_tasks.push_back(task);
+    }
+    tasks_fut_.MarkFinished(base_tasks);
+    if (delivered) {
+      tasks_fut_ = Future<ScanTaskVector>::Make();
+      delivered = false;
+    }
+    return tasks;
+  }
+
+  std::string type_name() const override { return "unit-test-fragment"; }
+
+  Result<std::shared_ptr<Schema>> ReadPhysicalSchemaImpl() override {
+    return physical_schema_;
+  }
+
+ private:
+  Future<ScanTaskVector> tasks_fut_;
+  std::shared_ptr<ScanOptions> options_;
+  bool delivered = false;
+};
+
+class ControlledDataset : public Dataset {
+ public:
+  // Dataset API
+  explicit ControlledDataset(std::shared_ptr<Schema> schema,
+                             std::shared_ptr<ScanOptions> scan_options)
+      : Dataset(schema),
+        scan_options_(scan_options),
+        fragments_fut_(Future<FragmentVector>::Make()) {}
+
+  virtual ~ControlledDataset() {}
+  std::string type_name() const override { return "unit-test-gated-in-memory"; }
+  Result<std::shared_ptr<Dataset>> ReplaceSchema(
+      std::shared_ptr<Schema> schema) const override {
+    return Status::NotImplemented("Should not be called by unit test");
+  }
+
+  std::vector<std::shared_ptr<ControlledFragment>> DeliverFragments(int num_fragments) {
+    std::vector<std::shared_ptr<ControlledFragment>> fragments;
+    std::vector<std::shared_ptr<Fragment>> base_fragments;
+    for (int i = 0; i < num_fragments; i++) {
+      fragments.push_back(std::make_shared<ControlledFragment>(scan_options_, schema_));
+      base_fragments.push_back(fragments[i]);
+    }
+    fragments_fut_.MarkFinished(base_fragments);
+    return fragments;
+  }
+
+ protected:
+  Future<FragmentVector> GetFragmentsImpl(Expression predicate) override {
+    return fragments_fut_;
+  }
+
+ private:
+  std::shared_ptr<ScanOptions> scan_options_;
+  Future<FragmentVector> fragments_fut_;
+};
 
 class TestScanner : public DatasetFixtureMixin {
  protected:
@@ -59,12 +177,26 @@ class TestScanner : public DatasetFixtureMixin {
     // structures of the scanner, i.e. Scanner[Dataset[ScanTask[RecordBatch]]]
     AssertScannerEquals(expected.get(), &scanner);
   }
+
+  void AssertScanBatchesEqualsRepetitionsOf(
+      Scanner scanner, std::shared_ptr<RecordBatch> batch,
+      const int64_t total_batches = kNumberChildDatasets * kNumberBatches) {
+    auto expected = ConstantArrayGenerator::Repeat(total_batches, batch);
+
+    AssertScanBatchesEquals(expected.get(), &scanner);
+  }
 };
 
 TEST_F(TestScanner, Scan) {
   SetSchema({field("i32", int32()), field("f64", float64())});
   auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
   AssertScannerEqualsRepetitionsOf(MakeScanner(batch), batch);
+}
+
+TEST_F(TestScanner, ScanBatches) {
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
+  AssertScanBatchesEqualsRepetitionsOf(MakeScanner(batch), batch);
 }
 
 TEST_F(TestScanner, ScanWithCappedBatchSize) {
@@ -129,6 +261,100 @@ TEST_F(TestScanner, MaterializeMissingColumn) {
   AssertScannerEqualsRepetitionsOf(*scanner, batch_with_f64);
 }
 
+TEST_F(TestScanner, PreservesOrder) {
+  auto sch = schema({field("i32", int32())});
+  auto scan_options = std::make_shared<ScanOptions>();
+  scan_options->use_threads = true;
+  auto dataset = std::make_shared<ControlledDataset>(sch, scan_options);
+
+  ScannerBuilder builder{dataset, scan_options};
+  ASSERT_OK_AND_ASSIGN(auto scanner, builder.Finish());
+
+  auto table_fut = scanner->ToTableAsync();
+
+  auto fragments = dataset->DeliverFragments(2);
+  auto f2_tasks = fragments[1]->DeliverScanTasks(2);
+  SleepABit();
+  f2_tasks[1]->DeliverBatch(3);
+  SleepABit();
+  auto f1_tasks = fragments[0]->DeliverScanTasks(2);
+  SleepABit();
+  f1_tasks[1]->DeliverBatch(1);
+  SleepABit();
+  f2_tasks[0]->DeliverBatch(2);
+  SleepABit();
+  f1_tasks[0]->DeliverBatch(0);
+  f2_tasks[1]->Close();
+  f2_tasks[0]->Close();
+  f1_tasks[0]->Close();
+  f1_tasks[1]->Close();
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto table, table_fut);
+  auto chunks = table->column(0)->chunks();
+  ASSERT_EQ(4, chunks.size());
+  ASSERT_EQ(4, table->num_rows());
+  EXPECT_EQ("0", chunks[0]->GetScalar(0).ValueOrDie()->ToString());
+  EXPECT_EQ("1", chunks[1]->GetScalar(0).ValueOrDie()->ToString());
+  EXPECT_EQ("2", chunks[2]->GetScalar(0).ValueOrDie()->ToString());
+  EXPECT_EQ("3", chunks[3]->GetScalar(0).ValueOrDie()->ToString());
+}
+
+int CountExecuted(std::vector<std::shared_ptr<ControlledScanTask>> scan_tasks) {
+  int result = 0;
+  for (const auto& scan_task : scan_tasks) {
+    if (scan_task->execute_called()) {
+      result++;
+    }
+  }
+  return result;
+}
+
+TEST_F(TestScanner, FileReadahead) {
+  auto sch = schema({field("i32", int32())});
+  auto scan_options = std::make_shared<ScanOptions>();
+  scan_options->use_threads = true;
+  scan_options->file_readahead = 2;
+  scan_options->batch_readahead = 100;
+  auto dataset = std::make_shared<ControlledDataset>(sch, scan_options);
+
+  ScannerBuilder builder{dataset, scan_options};
+  ASSERT_OK_AND_ASSIGN(auto scanner, builder.Finish());
+
+  auto table_fut = scanner->ToTableAsync();
+
+  // Pretend the first two files are very slow.  It should not start reading the third
+  // file
+  auto fragments = dataset->DeliverFragments(5);
+  std::vector<std::shared_ptr<ControlledScanTask>> scan_tasks;
+  for (int i = 2; i < 5; i++) {
+    auto later_scan_tasks = fragments[i]->DeliverScanTasks(1);
+    later_scan_tasks[0]->DeliverBatch(i);
+    later_scan_tasks[0]->Close();
+    scan_tasks.push_back(later_scan_tasks[0]);
+  }
+  // The first file returns a scan task but no batches arrive but the second file doesn't
+  // even return a scan task
+  auto first_scan_tasks = fragments[0]->DeliverScanTasks(1);
+  ASSERT_FALSE(table_fut.Wait(0.1));
+  ASSERT_EQ(0, CountExecuted(scan_tasks));
+
+  // Finish up the two slow files and then the whole table should read, in order
+  first_scan_tasks[0]->DeliverBatch(0);
+  first_scan_tasks[0]->Close();
+  first_scan_tasks = fragments[1]->DeliverScanTasks(1);
+  first_scan_tasks[0]->DeliverBatch(1);
+  first_scan_tasks[0]->Close();
+
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto table, table_fut);
+  auto chunks = table->column(0)->chunks();
+  ASSERT_EQ(5, chunks.size());
+  ASSERT_EQ(5, table->num_rows());
+  EXPECT_EQ("0", chunks[0]->GetScalar(0).ValueOrDie()->ToString());
+  EXPECT_EQ("1", chunks[1]->GetScalar(0).ValueOrDie()->ToString());
+  EXPECT_EQ("2", chunks[2]->GetScalar(0).ValueOrDie()->ToString());
+  EXPECT_EQ("3", chunks[3]->GetScalar(0).ValueOrDie()->ToString());
+  EXPECT_EQ("4", chunks[4]->GetScalar(0).ValueOrDie()->ToString());
+}
+
 TEST_F(TestScanner, ToTable) {
   SetSchema({field("i32", int32()), field("f64", float64())});
   auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
@@ -186,6 +412,11 @@ class TestScannerBuilder : public ::testing::Test {
   std::shared_ptr<Schema> schema_;
   std::shared_ptr<Dataset> dataset_;
 };
+
+TEST_F(TestScannerBuilder, DefaultOptions) {
+  ScannerBuilder builder(dataset_);
+  ASSERT_OK(builder.Finish());
+}
 
 TEST_F(TestScannerBuilder, TestProject) {
   ScannerBuilder builder(dataset_, options_);

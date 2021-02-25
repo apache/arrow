@@ -165,13 +165,6 @@ class CsvScanTask : public ScanTask {
         format_(std::move(format)),
         source_(fragment->source()) {}
 
-  Result<RecordBatchIterator> Execute() override {
-    ARROW_ASSIGN_OR_RAISE(auto gen, ExecuteAsync());
-    return MakeGeneratorIterator(std::move(gen));
-  }
-
-  bool supports_async() const override { return true; }
-
   Result<RecordBatchGenerator> ExecuteAsync() override {
     auto reader_fut = OpenReaderAsync(source_, *format_, options(), options()->pool);
     auto generator_fut = reader_fut.Then(
@@ -212,14 +205,14 @@ Result<std::shared_ptr<Schema>> CsvFileFormat::Inspect(const FileSource& source)
   return reader->schema();
 }
 
-Result<ScanTaskIterator> CsvFileFormat::ScanFile(
+Future<ScanTaskVector> CsvFileFormat::ScanFile(
     std::shared_ptr<ScanOptions> options,
     const std::shared_ptr<FileFragment>& fragment) const {
   auto this_ = checked_pointer_cast<const CsvFileFormat>(shared_from_this());
   auto task = std::make_shared<CsvScanTask>(std::move(this_), std::move(options),
                                             std::move(fragment));
 
-  return MakeVectorIterator<std::shared_ptr<ScanTask>>({std::move(task)});
+  return Future<ScanTaskVector>::MakeFinished(ScanTaskVector{std::move(task)});
 }
 
 }  // namespace dataset

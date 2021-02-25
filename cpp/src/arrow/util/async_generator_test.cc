@@ -219,6 +219,8 @@ ReentrantCheckerGuard<T> ExpectNotAccessedReentrantly(AsyncGenerator<T>* generat
 
 class GeneratorTestFixture : public ::testing::TestWithParam<bool> {
  protected:
+  AsyncGenerator<TestInt> MakeEmptySource() { return MakeSource({}); }
+
   AsyncGenerator<TestInt> MakeSource(const std::vector<TestInt>& items) {
     std::vector<TestInt> wrapped(items.begin(), items.end());
     auto gen = AsyncVectorIt(std::move(wrapped));
@@ -250,7 +252,6 @@ class GeneratorTestFixture : public ::testing::TestWithParam<bool> {
     }
   }
 };
-
 template <typename T>
 class ManualIteratorControl {
  public:
@@ -1127,6 +1128,32 @@ TEST_P(SequencerTestFixture, SequenceStress) {
 }
 
 INSTANTIATE_TEST_SUITE_P(SequencerTests, SequencerTestFixture,
+                         ::testing::Values(false, true));
+
+class EnumeratedTestFixture : public GeneratorTestFixture {};
+
+TEST_P(EnumeratedTestFixture, Empty) {
+  auto source = MakeEmptySource();
+  auto enumerated = MakeEnumeratedGenerator(std::move(source));
+  AssertGeneratorExhausted(enumerated);
+}
+
+TEST_P(EnumeratedTestFixture, Basic) {
+  auto source = MakeSource({1, 2});
+  auto enumerated = MakeEnumeratedGenerator(std::move(source));
+
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto first, enumerated());
+  ASSERT_EQ(1, first.value->value);
+  ASSERT_EQ(0, first.index);
+  ASSERT_FALSE(first.last);
+
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto second, enumerated());
+  ASSERT_EQ(2, second.value->value);
+  ASSERT_EQ(1, second.index);
+  ASSERT_TRUE(second.last);
+}
+
+INSTANTIATE_TEST_SUITE_P(EnumeratedTests, EnumeratedTestFixture,
                          ::testing::Values(false, true));
 
 TEST(TestAsyncIteratorTransform, SkipSome) {

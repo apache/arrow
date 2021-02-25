@@ -29,34 +29,40 @@
 #include "arrow/record_batch.h"
 #include "arrow/scalar.h"
 #include "arrow/type.h"
+#include "arrow/util/future.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/optional.h"
+#include "arrow/util/vector.h"
 
 namespace arrow {
 namespace dataset {
 
 /// \brief GetFragmentsFromDatasets transforms a vector<Dataset> into a
 /// flattened FragmentIterator.
-inline Result<FragmentIterator> GetFragmentsFromDatasets(const DatasetVector& datasets,
-                                                         Expression predicate) {
-  // Iterator<Dataset>
-  auto datasets_it = MakeVectorIterator(datasets);
-
-  // Dataset -> Iterator<Fragment>
-  auto fn = [predicate](std::shared_ptr<Dataset> dataset) -> Result<FragmentIterator> {
-    return dataset->GetFragments(predicate);
+inline Future<FragmentVector> GetFragmentsFromDatasets(const DatasetVector& datasets,
+                                                       Expression predicate) {
+  // Dataset -> Future<FragmentVector>
+  auto fn = [predicate](std::shared_ptr<Dataset> dataset) -> Future<FragmentVector> {
+    return dataset->GetFragmentsAsync(predicate);
   };
 
-  // Iterator<Iterator<Fragment>>
-  auto fragments_it = MakeMaybeMapIterator(fn, std::move(datasets_it));
+  auto fragment_futures = internal::MapVector(fn, datasets);
 
-  // Iterator<Fragment>
-  return MakeFlattenIterator(std::move(fragments_it));
+  return All(fragment_futures)
+      .Then([](const std::vector<Result<FragmentVector>>& fragment_vecs)
+                -> Result<FragmentVector> {
+        ARROW_ASSIGN_OR_RAISE(auto unwrapped_vecs, internal::UnwrapOrRaise(fragment_vecs))
+        return internal::FlattenVectors(std::move(unwrapped_vecs));
+      });
 }
 
-inline RecordBatchIterator IteratorFromReader(
-    const std::shared_ptr<RecordBatchReader>& reader) {
-  return MakeFunctionIterator([reader] { return reader->Next(); });
+inline RecordBatchGenerator GeneratorFromReader(
+    std::shared_ptr<RecordBatchReader> reader) {
+  auto generator = [reader]() -> Future<std::shared_ptr<RecordBatch>> {
+    return DeferNotOk(
+        internal::GetCpuThreadPool()->Submit([reader] { return reader->Next(); }));
+  };
+  return generator;
 }
 
 inline std::shared_ptr<Schema> SchemaFromColumnNames(

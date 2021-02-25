@@ -64,11 +64,15 @@ struct Foo {
 template <>
 struct IterationTraits<Foo> {
   static Foo End() { return Foo(-1); }
+  static bool IsEnd(const Foo& val) { return val == IterationTraits<Foo>::End(); }
 };
 
 template <>
 struct IterationTraits<MoveOnlyDataType> {
   static MoveOnlyDataType End() { return MoveOnlyDataType(-1); }
+  static bool IsEnd(const MoveOnlyDataType& val) {
+    return val == IterationTraits<MoveOnlyDataType>::End();
+  }
 };
 
 template <typename T>
@@ -83,10 +87,10 @@ IteratorResults<T> IteratorToResults(Iterator<T> iterator) {
 
   while (true) {
     auto res = iterator.Next();
-    if (res == IterationTraits<T>::End()) {
-      break;
-    }
     if (res.ok()) {
+      if (IsIterationEnd(*res)) {
+        break;
+      }
       results.values.push_back(*std::move(res));
     } else {
       results.errors.push_back(res.status());
@@ -1454,8 +1458,10 @@ class FutureTestBase : public ::testing::Test {
       ASSERT_OK_AND_EQ(0, it.Next());
       executor_->SetFinishedDeferred({{1, true}});
       ASSERT_OK_AND_EQ(1, it.Next());
-      ASSERT_OK_AND_EQ(IterationTraits<T>::End(), it.Next());
-      ASSERT_OK_AND_EQ(IterationTraits<T>::End(), it.Next());  // idempotent
+      EXPECT_OK_AND_ASSIGN(auto next, it.Next());
+      ASSERT_TRUE(IsIterationEnd(next));
+      EXPECT_OK_AND_ASSIGN(next, it.Next());
+      ASSERT_TRUE(IsIterationEnd(next));  // idempotent
     }
   }
 
