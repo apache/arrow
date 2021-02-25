@@ -1141,7 +1141,9 @@ impl<OffsetSize: StringOffsetSizeTrait> GenericStringBuilder<OffsetSize> {
     /// Automatically calls the `append` method to delimit the string appended in as a
     /// distinct array element.
     pub fn append_value(&mut self, value: impl AsRef<str>) -> Result<()> {
-        self.builder.values().append_slice(value.as_ref().as_bytes())?;
+        self.builder
+            .values()
+            .append_slice(value.as_ref().as_bytes())?;
         self.builder.append(true)?;
         Ok(())
     }
