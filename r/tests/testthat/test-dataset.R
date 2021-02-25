@@ -194,7 +194,7 @@ test_that("Hive partitioning", {
   )
 })
 
-test_that("open_dataset fails when partitioning is passed as schema", {
+test_that("input validation", {
   expect_error(
     open_dataset(hive_dir, hive_partition(other = utf8(), group = uint8()))
   )
