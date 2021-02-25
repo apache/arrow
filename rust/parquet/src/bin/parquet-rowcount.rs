@@ -34,30 +34,44 @@
 //! ```
 //!
 //! # Usage
+//! ```
+//! parquet-rowcount <file-paths>...
+//! ```
 //!
-//! ```
-//! parquet-rowcount <file-path> ...
-//! ```
-//! where `file-path` is the path to a Parquet file and `...` is any additional number of
-//! parquet files to count the number of rows from.
+//! ## Flags
+//!     -h, --help       Prints help information
+//!     -V, --version    Prints version information
+//!
+//! ## Args
+//!     <file-paths>...    List of Parquet files to read from
 //!
 //! Note that `parquet-rowcount` reads full file schema, no projection or filtering is
 //! applied.
 
 extern crate parquet;
 
-use std::{env, fs::File, path::Path, process};
+use std::{env, fs::File, path::Path};
+
+use clap::{crate_authors, crate_version, App, Arg};
 
 use parquet::file::reader::{FileReader, SerializedFileReader};
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
-    if args.len() < 2 {
-        println!("Usage: parquet-rowcount <file-path> ...");
-        process::exit(1);
-    }
+    let matches = App::new("parquet-rowcount")
+        .version(crate_version!())
+        .author(crate_authors!())
+        .about("Return number of rows in Parquet file")
+        .arg(
+            Arg::with_name("file_paths")
+                .value_name("file-paths")
+                .required(true)
+                .multiple(true)
+                .help("List of Parquet files to read from separated by space"),
+        )
+        .get_matches();
 
-    for filename in &args[1..] {
+    let filenames: Vec<&str> = matches.values_of("file_paths").unwrap().collect();
+    for filename in &filenames {
         let path = Path::new(filename);
         let file = File::open(path).unwrap();
         let parquet_reader = SerializedFileReader::new(file).unwrap();

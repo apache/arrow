@@ -61,7 +61,7 @@ public class FlightInfo {
    */
   public FlightInfo(Schema schema, FlightDescriptor descriptor, List<FlightEndpoint> endpoints, long bytes,
       long records) {
-    this(schema, descriptor, endpoints, bytes, records, new IpcOption());
+    this(schema, descriptor, endpoints, bytes, records, IpcOption.DEFAULT);
   }
 
   /**
@@ -108,7 +108,7 @@ public class FlightInfo {
     }
     bytes = pbFlightInfo.getTotalBytes();
     records = pbFlightInfo.getTotalRecords();
-    option = new IpcOption();
+    option = IpcOption.DEFAULT;
   }
 
   public Schema getSchema() {

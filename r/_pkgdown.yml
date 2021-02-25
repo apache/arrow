@@ -117,7 +117,6 @@ reference:
   - DataType
   - DictionaryType
   - FixedWidthType
-  - cast_options
 - title: Flight
   contents:
   - load_flight_server
@@ -146,6 +145,7 @@ reference:
 - title: Computation
   contents:
   - match_arrow
+  - value_counts
 - title: Configuration
   contents:
   - arrow_info
@@ -155,5 +155,7 @@ reference:
   - install_pyarrow
 
 repo:
+  jira_projects: [ARROW]
   url:
     source: https://github.com/apache/arrow/blob/master/r/
+    issue: https://issues.apache.org/jira/browse/

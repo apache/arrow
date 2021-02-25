@@ -20,6 +20,7 @@ use crate::{
     error::{DataFusionError, Result},
     logical_plan::{ExpressionVisitor, Recursion},
 };
+use std::collections::HashMap;
 
 /// Resolves an `Expr::Wildcard` to a collection of `Expr::Column`'s.
 pub(crate) fn expand_wildcard(expr: &Expr, schema: &DFSchema) -> Vec<Expr> {
@@ -36,7 +37,7 @@ pub(crate) fn expand_wildcard(expr: &Expr, schema: &DFSchema) -> Vec<Expr> {
 /// Collect all deeply nested `Expr::AggregateFunction` and
 /// `Expr::AggregateUDF`. They are returned in order of occurrence (depth
 /// first), with duplicates omitted.
-pub(crate) fn find_aggregate_exprs(exprs: &Vec<Expr>) -> Vec<Expr> {
+pub(crate) fn find_aggregate_exprs(exprs: &[Expr]) -> Vec<Expr> {
     find_exprs_in_exprs(exprs, &|nested_expr| {
         matches!(
             nested_expr,
@@ -47,14 +48,14 @@ pub(crate) fn find_aggregate_exprs(exprs: &Vec<Expr>) -> Vec<Expr> {
 
 /// Collect all deeply nested `Expr::Column`'s. They are returned in order of
 /// appearance (depth first), with duplicates omitted.
-pub(crate) fn find_column_exprs(exprs: &Vec<Expr>) -> Vec<Expr> {
+pub(crate) fn find_column_exprs(exprs: &[Expr]) -> Vec<Expr> {
     find_exprs_in_exprs(exprs, &|nested_expr| matches!(nested_expr, Expr::Column(_)))
 }
 
 /// Search the provided `Expr`'s, and all of their nested `Expr`, for any that
 /// pass the provided test. The returned `Expr`'s are deduplicated and returned
 /// in order of appearance (depth first).
-fn find_exprs_in_exprs<F>(exprs: &Vec<Expr>, test_fn: &F) -> Vec<Expr>
+fn find_exprs_in_exprs<F>(exprs: &[Expr], test_fn: &F) -> Vec<Expr>
 where
     F: Fn(&Expr) -> bool,
 {
@@ -146,7 +147,7 @@ pub(crate) fn expr_as_column_expr(expr: &Expr, plan: &LogicalPlan) -> Result<Exp
 /// `a + b` found in the GROUP BY.
 pub(crate) fn rebase_expr(
     expr: &Expr,
-    base_exprs: &Vec<Expr>,
+    base_exprs: &[Expr],
     plan: &LogicalPlan,
 ) -> Result<Expr> {
     clone_with_replacement(expr, &|nested_expr| {
@@ -161,8 +162,8 @@ pub(crate) fn rebase_expr(
 /// Determines if the set of `Expr`'s are a valid projection on the input
 /// `Expr::Column`'s.
 pub(crate) fn can_columns_satisfy_exprs(
-    columns: &Vec<Expr>,
-    exprs: &Vec<Expr>,
+    columns: &[Expr],
+    exprs: &[Expr],
 ) -> Result<bool> {
     columns.iter().try_for_each(|c| match c {
         Expr::Column(_) => Ok(()),
@@ -334,4 +335,36 @@ where
             Expr::Wildcard => Ok(Expr::Wildcard),
         },
     }
+}
+
+/// Returns mapping of each alias (`String`) to the expression (`Expr`) it is
+/// aliasing.
+pub(crate) fn extract_aliases(exprs: &[Expr]) -> HashMap<String, Expr> {
+    exprs
+        .iter()
+        .filter_map(|expr| match expr {
+            Expr::Alias(nested_expr, alias_name) => {
+                Some((alias_name.clone(), *nested_expr.clone()))
+            }
+            _ => None,
+        })
+        .collect::<HashMap<String, Expr>>()
+}
+
+/// Rebuilds an `Expr` with columns that refer to aliases replaced by the
+/// alias' underlying `Expr`.
+pub(crate) fn resolve_aliases_to_exprs(
+    expr: &Expr,
+    aliases: &HashMap<String, Expr>,
+) -> Result<Expr> {
+    clone_with_replacement(expr, &|nested_expr| match nested_expr {
+        Expr::Column(name) => {
+            if let Some(aliased_expr) = aliases.get(name) {
+                Ok(Some(aliased_expr.clone()))
+            } else {
+                Ok(None)
+            }
+        }
+        _ => Ok(None),
+    })
 }

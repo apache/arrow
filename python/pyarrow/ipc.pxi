@@ -92,6 +92,8 @@ cdef class IpcWriteOptions(_Weakrefable):
     metadata_version : MetadataVersion, default MetadataVersion.V5
         The metadata version to write.  V5 is the current and latest,
         V4 is the pre-1.0 metadata version (with incompatible Union layout).
+    allow_64bit: bool, default False
+        If true, allow field lengths that don't fit in a signed 32-bit int.
     use_legacy_format : bool, default False
         Whether to use the pre-Arrow 0.15 IPC format.
     compression: str or None
@@ -109,15 +111,25 @@ cdef class IpcWriteOptions(_Weakrefable):
     # cdef block is in lib.pxd
 
     def __init__(self, *, metadata_version=MetadataVersion.V5,
-                 use_legacy_format=False, compression=None,
-                 bint use_threads=True, bint emit_dictionary_deltas=False):
+                 bint allow_64bit=False, use_legacy_format=False,
+                 compression=None, bint use_threads=True,
+                 bint emit_dictionary_deltas=False):
         self.c_options = CIpcWriteOptions.Defaults()
+        self.allow_64bit = allow_64bit
         self.use_legacy_format = use_legacy_format
         self.metadata_version = metadata_version
         if compression is not None:
             self.compression = compression
         self.use_threads = use_threads
         self.emit_dictionary_deltas = emit_dictionary_deltas
+
+    @property
+    def allow_64bit(self):
+        return self.c_options.allow_64bit
+
+    @allow_64bit.setter
+    def allow_64bit(self, bint value):
+        self.c_options.allow_64bit = value
 
     @property
     def use_legacy_format(self):

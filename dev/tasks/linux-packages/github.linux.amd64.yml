@@ -27,7 +27,7 @@ on:
 jobs:
   package:
     name: Package
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-18.04
     steps:
       - name: Set up Ruby
         uses: actions/setup-ruby@v1
@@ -46,7 +46,7 @@ jobs:
           pushd arrow/dev/tasks/linux-packages
           rake version:update
           rake docker:pull || :
-          rake BUILD_DIR=build {{ build_task }}
+          rake --trace {{ task_namespace }}:build BUILD_DIR=build
           sudo rm -rf */*/build
           popd
         env:
@@ -55,7 +55,6 @@ jobs:
           REPO: {{ '${{ secrets.REPO }}' }}
           YUM_TARGETS: {{ target }}
       - name: Docker Push
-        if: success()
         continue-on-error: true
         shell: bash
         run: |
@@ -68,6 +67,36 @@ jobs:
           APT_TARGETS: {{ target }}
           REPO: {{ '${{ secrets.REPO }}' }}
           YUM_TARGETS: {{ target }}
+      - name: Set up test
+        run: |
+          set -e
+          sudo apt update
+          sudo apt install -y \
+            apt-utils \
+            createrepo \
+            devscripts \
+            gpg \
+            rpm
+          (echo "Key-Type: RSA"; \
+           echo "Key-Length: 4096"; \
+           echo "Name-Real: Test"; \
+           echo "Name-Email: test@example.com"; \
+           echo "%no-protection") | \
+            gpg --full-generate-key --batch
+          GPG_KEY_ID=$(gpg --list-keys --with-colon test@example.com | grep fpr | cut -d: -f10)
+          echo "GPG_KEY_ID=${GPG_KEY_ID}" >> ${GITHUB_ENV}
+          gpg --export --armor test@example.com > arrow/dev/tasks/linux-packages/KEYS
+      - name: Test
+        run: |
+          set -e
+          pushd arrow/dev/tasks/linux-packages
+          rake --trace {{ task_namespace }}:test
+          rm -rf {{ task_namespace }}/repositories
+          popd
+        env:
+          APT_TARGETS: {{ target }}
+          ARROW_VERSION: {{ arrow.version }}
+          YUM_TARGETS: {{ target }}
       # Using GitHub release tries to find a common ancestor between the
       # currently pushed tag and the latest tag of the GitHub repository
       # (don't know why).
@@ -79,15 +108,7 @@ jobs:
           python-version: 3.8
       - name: Set up Crossbow
         run: |
-          pip install \
-            click \
-            github3.py \
-            jinja2 \
-            jira \
-            pygit2 \
-            ruamel.yaml \
-            setuptools_scm \
-            toolz
+          pip install --requirement arrow/dev/tasks/requirements-crossbow.txt
       - name: Upload artifacts
         run: |
           python arrow/dev/tasks/crossbow.py \
@@ -95,7 +116,7 @@ jobs:
             --queue-remote {{ queue_remote_url }} \
             upload-artifacts \
           {%- for extension in upload_extensions %}
-            --pattern "**/*{{ extension }}" \
+            --pattern "arrow/dev/tasks/linux-packages/**/*{{ extension }}" \
           {%- endfor %}
             --sha {{ task.branch }} \
             --tag {{ task.tag }}

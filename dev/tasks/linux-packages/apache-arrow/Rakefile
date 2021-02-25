@@ -89,13 +89,30 @@ class ApacheArrowPackageTask < PackageTask
     false
   end
 
-  def apt_prepare_debian_control(control_in, target)
+  def apt_prepare_debian_control_cuda_architecture(control, target)
     if apt_arm64_cuda_available_target?(target)
       cuda_architecture = "any"
     else
       cuda_architecture = "i386 amd64"
     end
-    control_in.gsub(/@CUDA_ARCHITECTURE@/, cuda_architecture)
+    control.gsub(/@CUDA_ARCHITECTURE@/, cuda_architecture)
+  end
+
+  def apt_prepare_debian_control_grpc(control, target)
+    case target
+    when /\Adebian-/, /\Aubuntu-(?:xenial|bionic|focal)/
+      use_system_grpc = "#"
+    else
+      use_system_grpc = ""
+    end
+    control.gsub(/@USE_SYSTEM_GRPC@/, use_system_grpc)
+  end
+
+  def apt_prepare_debian_control(control_in, target)
+    control = control_in.dup
+    control = apt_prepare_debian_control_cuda_architecture(control, target)
+    control = apt_prepare_debian_control_grpc(control, target)
+    control
   end
 end
 

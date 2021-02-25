@@ -322,6 +322,10 @@ build_libarrow <- function(src_dir, dst_dir) {
   env_vars <- paste0(names(env_var_list), '="', env_var_list, '"', collapse = " ")
   env_vars <- with_s3_support(env_vars)
   env_vars <- with_mimalloc(env_vars)
+  if (tolower(Sys.info()[["sysname"]]) %in% "sunos") {
+    # jemalloc doesn't seem to build on Solaris
+    env_vars <- paste(env_vars, "ARROW_JEMALLOC=OFF")
+  }
   cat("**** arrow", ifelse(quietly, "", paste("with", env_vars)), "\n")
   status <- system(
     paste(env_vars, "inst/build_arrow_static.sh"),

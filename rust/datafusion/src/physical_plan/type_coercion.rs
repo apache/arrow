@@ -29,7 +29,7 @@
 //! i64. However, i64 -> i32 is never performed as there are i64
 //! values which can not be represented by i32 values.
 
-use std::sync::Arc;
+use std::{sync::Arc, vec};
 
 use arrow::datatypes::{DataType, Schema, TimeUnit};
 
@@ -42,7 +42,7 @@ use crate::physical_plan::expressions::cast;
 ///
 /// See the module level documentation for more detail on coercion.
 pub fn coerce(
-    expressions: &Vec<Arc<dyn PhysicalExpr>>,
+    expressions: &[Arc<dyn PhysicalExpr>],
     schema: &Schema,
     signature: &Signature,
 ) -> Result<Vec<Arc<dyn PhysicalExpr>>> {
@@ -65,9 +65,35 @@ pub fn coerce(
 ///
 /// See the module level documentation for more detail on coercion.
 pub fn data_types(
-    current_types: &Vec<DataType>,
+    current_types: &[DataType],
     signature: &Signature,
 ) -> Result<Vec<DataType>> {
+    let valid_types = get_valid_types(signature, current_types)?;
+
+    if valid_types
+        .iter()
+        .any(|data_type| data_type == current_types)
+    {
+        return Ok(current_types.to_vec());
+    }
+
+    for valid_types in valid_types {
+        if let Some(types) = maybe_data_types(&valid_types, &current_types) {
+            return Ok(types);
+        }
+    }
+
+    // none possible -> Error
+    Err(DataFusionError::Plan(format!(
+        "Coercion from {:?} to the signature {:?} failed.",
+        current_types, signature
+    )))
+}
+
+fn get_valid_types(
+    signature: &Signature,
+    current_types: &[DataType],
+) -> Result<Vec<Vec<DataType>>> {
     let valid_types = match signature {
         Signature::Variadic(valid_types) => valid_types
             .iter()
@@ -95,29 +121,22 @@ pub fn data_types(
             }
             vec![(0..*number).map(|i| current_types[i].clone()).collect()]
         }
+        Signature::OneOf(types) => {
+            let mut r = vec![];
+            for s in types {
+                r.extend(get_valid_types(s, current_types)?);
+            }
+            r
+        }
     };
 
-    if valid_types.contains(current_types) {
-        return Ok(current_types.clone());
-    }
-
-    for valid_types in valid_types {
-        if let Some(types) = maybe_data_types(&valid_types, &current_types) {
-            return Ok(types);
-        }
-    }
-
-    // none possible -> Error
-    Err(DataFusionError::Plan(format!(
-        "Coercion from {:?} to the signature {:?} failed.",
-        current_types, signature
-    )))
+    Ok(valid_types)
 }
 
 /// Try to coerce current_types into valid_types.
 fn maybe_data_types(
-    valid_types: &Vec<DataType>,
-    current_types: &Vec<DataType>,
+    valid_types: &[DataType],
+    current_types: &[DataType],
 ) -> Option<Vec<DataType>> {
     if valid_types.len() != current_types.len() {
         return None;
@@ -189,7 +208,7 @@ mod tests {
     use arrow::datatypes::{DataType, Field, Schema};
 
     #[test]
-    fn test_maybe_data_types() -> Result<()> {
+    fn test_maybe_data_types() {
         // this vec contains: arg1, arg2, expected result
         let cases = vec![
             // 2 entries, same values
@@ -223,7 +242,6 @@ mod tests {
         for case in cases {
             assert_eq!(maybe_data_types(&case.0, &case.1), case.2)
         }
-        Ok(())
     }
 
     #[test]

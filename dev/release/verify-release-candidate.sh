@@ -158,7 +158,7 @@ test_apt() {
            "${target}" \
            /arrow/dev/release/verify-apt.sh \
            "${VERSION}" \
-           "yes" \
+           "rc" \
            "${BINTRAY_REPOSITORY}"; then
       echo "Failed to verify the APT repository for ${target}"
       exit 1
@@ -184,7 +184,7 @@ test_yum() {
            "${target}" \
            /arrow/dev/release/verify-yum.sh \
            "${VERSION}" \
-           "yes" \
+           "rc" \
            "${BINTRAY_REPOSITORY}"; then
       echo "Failed to verify the Yum repository for ${target}"
       exit 1
@@ -215,7 +215,11 @@ setup_tempdir() {
 setup_miniconda() {
   # Setup short-lived miniconda for Python and integration tests
   if [ "$(uname)" == "Darwin" ]; then
-    MINICONDA_URL=https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh
+    if [ "$(uname -m)" == "arm64" ]; then
+	MINICONDA_URL=https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-MacOSX-arm64.sh
+    else
+        MINICONDA_URL=https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh
+    fi
   else
     MINICONDA_URL=https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
   fi
@@ -233,7 +237,7 @@ setup_miniconda() {
   . $MINICONDA/etc/profile.d/conda.sh
 
   conda create -n arrow-test -y -q -c conda-forge \
-    python=3.6 \
+    python=3.8 \
     nomkl \
     numpy \
     pandas \

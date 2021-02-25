@@ -50,26 +50,25 @@ pub struct GenericStringArray<OffsetSize: StringOffsetSizeTrait> {
 }
 
 impl<OffsetSize: StringOffsetSizeTrait> GenericStringArray<OffsetSize> {
-    /// Returns the offset for the element at index `i`.
-    ///
-    /// Note this doesn't do any bound checking, for performance reason.
-    #[inline]
-    pub fn value_offset(&self, i: usize) -> OffsetSize {
-        self.value_offset_at(self.data.offset() + i)
-    }
-
     /// Returns the length for the element at index `i`.
-    ///
-    /// Note this doesn't do any bound checking, for performance reason.
     #[inline]
-    pub fn value_length(&self, mut i: usize) -> OffsetSize {
-        i += self.data.offset();
-        self.value_offset_at(i + 1) - self.value_offset_at(i)
+    pub fn value_length(&self, i: usize) -> OffsetSize {
+        let offsets = self.value_offsets();
+        offsets[i + 1] - offsets[i]
     }
 
-    /// Returns a clone of the value offset buffer
-    pub fn value_offsets(&self) -> Buffer {
-        self.data.buffers()[0].clone()
+    /// Returns the offset values in the offsets buffer
+    #[inline]
+    pub fn value_offsets(&self) -> &[OffsetSize] {
+        // Soundness
+        //     pointer alignment & location is ensured by RawPtrBox
+        //     buffer bounds/offset is ensured by the ArrayData instance.
+        unsafe {
+            std::slice::from_raw_parts(
+                self.value_offsets.as_ptr().add(self.data.offset()),
+                self.len() + 1,
+            )
+        }
     }
 
     /// Returns a clone of the value data buffer
@@ -77,22 +76,40 @@ impl<OffsetSize: StringOffsetSizeTrait> GenericStringArray<OffsetSize> {
         self.data.buffers()[1].clone()
     }
 
-    #[inline]
-    fn value_offset_at(&self, i: usize) -> OffsetSize {
-        unsafe { *self.value_offsets.as_ptr().add(i) }
+    /// Returns the element at index
+    /// # Safety
+    /// caller is responsible for ensuring that index is within the array bounds
+    pub unsafe fn value_unchecked(&self, i: usize) -> &str {
+        let end = self.value_offsets().get_unchecked(i + 1);
+        let start = self.value_offsets().get_unchecked(i);
+
+        // Soundness
+        // pointer alignment & location is ensured by RawPtrBox
+        // buffer bounds/offset is ensured by the value_offset invariants
+        // ISSUE: utf-8 well formedness is not checked
+        let slice = std::slice::from_raw_parts(
+            self.value_data.as_ptr().offset(start.to_isize()),
+            (*end - *start).to_usize().unwrap(),
+        );
+        std::str::from_utf8_unchecked(slice)
     }
 
     /// Returns the element at index `i` as &str
     pub fn value(&self, i: usize) -> &str {
         assert!(i < self.data.len(), "StringArray out of bounds access");
-        let offset = i.checked_add(self.data.offset()).unwrap();
-        unsafe {
-            let pos = self.value_offset_at(offset);
-            let slice = std::slice::from_raw_parts(
-                self.value_data.as_ptr().offset(pos.to_isize()),
-                (self.value_offset_at(offset + 1) - pos).to_usize().unwrap(),
-            );
+        //Soundness: length checked above, offset buffer length is 1 larger than logical array length
+        let end = unsafe { self.value_offsets().get_unchecked(i + 1) };
+        let start = unsafe { self.value_offsets().get_unchecked(i) };
 
+        // Soundness
+        // pointer alignment & location is ensured by RawPtrBox
+        // buffer bounds/offset is ensured by the value_offset invariants
+        // ISSUE: utf-8 well formedness is not checked
+        unsafe {
+            let slice = std::slice::from_raw_parts(
+                self.value_data.as_ptr().offset(start.to_isize()),
+                (*end - *start).to_usize().unwrap(),
+            );
             std::str::from_utf8_unchecked(slice)
         }
     }
@@ -340,9 +357,12 @@ mod tests {
         assert_eq!(3, string_array.len());
         assert_eq!(0, string_array.null_count());
         assert_eq!("hello", string_array.value(0));
+        assert_eq!("hello", unsafe { string_array.value_unchecked(0) });
         assert_eq!("", string_array.value(1));
+        assert_eq!("", unsafe { string_array.value_unchecked(1) });
         assert_eq!("parquet", string_array.value(2));
-        assert_eq!(5, string_array.value_offset(2));
+        assert_eq!("parquet", unsafe { string_array.value_unchecked(2) });
+        assert_eq!(5, string_array.value_offsets()[2]);
         assert_eq!(7, string_array.value_length(2));
         for i in 0..3 {
             assert!(string_array.is_valid(i));
@@ -367,9 +387,12 @@ mod tests {
         assert_eq!(3, string_array.len());
         assert_eq!(0, string_array.null_count());
         assert_eq!("hello", string_array.value(0));
+        assert_eq!("hello", unsafe { string_array.value_unchecked(0) });
         assert_eq!("", string_array.value(1));
+        assert_eq!("", unsafe { string_array.value_unchecked(1) });
         assert_eq!("parquet", string_array.value(2));
-        assert_eq!(5, string_array.value_offset(2));
+        assert_eq!("parquet", unsafe { string_array.value_unchecked(2) });
+        assert_eq!(5, string_array.value_offsets()[2]);
         assert_eq!(7, string_array.value_length(2));
         for i in 0..3 {
             assert!(string_array.is_valid(i));
@@ -399,12 +422,15 @@ mod tests {
         let first_list = first_slot.as_any().downcast_ref::<StringArray>().unwrap();
         assert_eq!(first_list.len(), 2);
         assert_eq!(first_list.value(0), "foo");
+        assert_eq!(unsafe { first_list.value_unchecked(0) }, "foo");
         assert_eq!(first_list.value(1), "bar");
+        assert_eq!(unsafe { first_list.value_unchecked(1) }, "bar");
 
         let second_slot = list_of_strings.value(1);
         let second_list = second_slot.as_any().downcast_ref::<StringArray>().unwrap();
         assert_eq!(second_list.len(), 1);
         assert_eq!(second_list.value(0), "foobar");
+        assert_eq!(unsafe { second_list.value_unchecked(0) }, "foobar");
     }
 
     #[test]

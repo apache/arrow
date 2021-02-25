@@ -85,9 +85,9 @@ fn infer_field_schema(string: &str) -> DataType {
     } else if INTEGER_RE.is_match(string) {
         DataType::Int64
     } else if DATETIME_RE.is_match(string) {
-        DataType::Date64(DateUnit::Millisecond)
+        DataType::Date64
     } else if DATE_RE.is_match(string) {
-        DataType::Date32(DateUnit::Day)
+        DataType::Date32
     } else {
         DataType::Utf8
     }
@@ -222,7 +222,7 @@ pub fn infer_schema_from_files(
         }
     }
 
-    Schema::try_merge(&schemas)
+    Schema::try_merge(schemas)
 }
 
 // optional bounds of the reader, of the form (min line, max line).
@@ -384,6 +384,7 @@ impl<R: Read> Iterator for Reader<R> {
         let result = parse(
             &self.batch_records[..read_records],
             &self.schema.fields(),
+            Some(self.schema.metadata.clone()),
             &self.projection,
             self.line_number,
         );
@@ -398,6 +399,7 @@ impl<R: Read> Iterator for Reader<R> {
 fn parse(
     rows: &[StringRecord],
     fields: &[Field],
+    metadata: Option<std::collections::HashMap<String, String>>,
     projection: &Option<Vec<usize>>,
     line_number: usize,
 ) -> Result<RecordBatch> {
@@ -443,10 +445,10 @@ fn parse(
                 &DataType::Float64 => {
                     build_primitive_array::<Float64Type>(line_number, rows, i)
                 }
-                &DataType::Date32(_) => {
+                &DataType::Date32 => {
                     build_primitive_array::<Date32Type>(line_number, rows, i)
                 }
-                &DataType::Date64(_) => {
+                &DataType::Date64 => {
                     build_primitive_array::<Date64Type>(line_number, rows, i)
                 }
                 &DataType::Timestamp(TimeUnit::Microsecond, _) => {
@@ -473,7 +475,10 @@ fn parse(
     let projected_fields: Vec<Field> =
         projection.iter().map(|i| fields[*i].clone()).collect();
 
-    let projected_schema = Arc::new(Schema::new(projected_fields));
+    let projected_schema = Arc::new(match metadata {
+        None => Schema::new(projected_fields),
+        Some(metadata) => Schema::new_with_metadata(projected_fields, metadata),
+    });
 
     arrays.and_then(|arr| RecordBatch::try_new(projected_schema, arr))
 }
@@ -520,7 +525,7 @@ impl Parser for Date32Type {
         use chrono::Datelike;
 
         match Self::DATA_TYPE {
-            DataType::Date32(DateUnit::Day) => {
+            DataType::Date32 => {
                 let date = string.parse::<chrono::NaiveDate>().ok()?;
                 Self::Native::from_i32(date.num_days_from_ce() - EPOCH_DAYS_FROM_CE)
             }
@@ -532,7 +537,7 @@ impl Parser for Date32Type {
 impl Parser for Date64Type {
     fn parse(string: &str) -> Option<i64> {
         match Self::DATA_TYPE {
-            DataType::Date64(DateUnit::Millisecond) => {
+            DataType::Date64 => {
                 let date_time = string.parse::<chrono::NaiveDateTime>().ok()?;
                 Self::Native::from_i64(date_time.timestamp_millis())
             }
@@ -839,6 +844,38 @@ mod tests {
     }
 
     #[test]
+    fn test_csv_schema_metadata() {
+        let mut metadata = std::collections::HashMap::new();
+        metadata.insert("foo".to_owned(), "bar".to_owned());
+        let schema = Schema::new_with_metadata(
+            vec![
+                Field::new("city", DataType::Utf8, false),
+                Field::new("lat", DataType::Float64, false),
+                Field::new("lng", DataType::Float64, false),
+            ],
+            metadata.clone(),
+        );
+
+        let file = File::open("test/data/uk_cities.csv").unwrap();
+
+        let mut csv = Reader::new(
+            file,
+            Arc::new(schema.clone()),
+            false,
+            None,
+            1024,
+            None,
+            None,
+        );
+        assert_eq!(Arc::new(schema), csv.schema());
+        let batch = csv.next().unwrap().unwrap();
+        assert_eq!(37, batch.num_rows());
+        assert_eq!(3, batch.num_columns());
+
+        assert_eq!(&metadata, batch.schema().metadata());
+    }
+
+    #[test]
     fn test_csv_from_buf_reader() {
         let schema = Schema::new(vec![
             Field::new("city", DataType::Utf8, false),
@@ -1012,14 +1049,8 @@ mod tests {
         assert_eq!(&DataType::Float64, schema.field(1).data_type());
         assert_eq!(&DataType::Float64, schema.field(2).data_type());
         assert_eq!(&DataType::Boolean, schema.field(3).data_type());
-        assert_eq!(
-            &DataType::Date32(DateUnit::Day),
-            schema.field(4).data_type()
-        );
-        assert_eq!(
-            &DataType::Date64(DateUnit::Millisecond),
-            schema.field(5).data_type()
-        );
+        assert_eq!(&DataType::Date32, schema.field(4).data_type());
+        assert_eq!(&DataType::Date64, schema.field(5).data_type());
 
         let names: Vec<&str> =
             schema.fields().iter().map(|x| x.name().as_str()).collect();
@@ -1088,14 +1119,8 @@ mod tests {
         assert_eq!(infer_field_schema("10.2"), DataType::Float64);
         assert_eq!(infer_field_schema("true"), DataType::Boolean);
         assert_eq!(infer_field_schema("false"), DataType::Boolean);
-        assert_eq!(
-            infer_field_schema("2020-11-08"),
-            DataType::Date32(DateUnit::Day)
-        );
-        assert_eq!(
-            infer_field_schema("2020-11-08T14:20:01"),
-            DataType::Date64(DateUnit::Millisecond)
-        );
+        assert_eq!(infer_field_schema("2020-11-08"), DataType::Date32);
+        assert_eq!(infer_field_schema("2020-11-08T14:20:01"), DataType::Date64);
     }
 
     #[test]
@@ -1165,7 +1190,7 @@ mod tests {
     }
 
     #[test]
-    fn test_bounded() -> Result<()> {
+    fn test_bounded() {
         let schema = Schema::new(vec![Field::new("int", DataType::UInt32, false)]);
         let data = vec![
             vec!["0"],
@@ -1208,7 +1233,6 @@ mod tests {
         assert_eq!(a, &UInt32Array::from(vec![4, 5]));
 
         assert!(csv.next().is_none());
-        Ok(())
     }
 
     #[test]

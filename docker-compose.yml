@@ -113,6 +113,7 @@ x-hierarchy:
     - ubuntu-cuda-python
   - ubuntu-csharp
   - ubuntu-cpp-sanitizer
+  - ubuntu-cpp-thread-sanitizer
   - ubuntu-r-sanitizer
   - python-sdist
   - r
@@ -348,6 +349,37 @@ services:
       ARROW_USE_UBSAN: "ON"
       # utf8proc 2.1.0 in Ubuntu Bionic has test failures
       utf8proc_SOURCE: "BUNDLED"
+    command: *cpp-command
+
+  ubuntu-cpp-thread-sanitizer:
+    # Usage:
+    #   docker-compose build ubuntu-cpp-thread-sanitizer
+    #   docker-compose run --rm ubuntu-cpp-thread-sanitizer
+    # Parameters:
+    #   ARCH: amd64, arm64v8, ...
+    #   UBUNTU: 16.04, 18.04, 20.04
+    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
+    build:
+      context: .
+      dockerfile: ci/docker/ubuntu-${UBUNTU}-cpp.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
+      args:
+        arch: ${ARCH}
+        clang_tools: ${CLANG_TOOLS}
+        llvm: ${LLVM}
+    shm_size: *shm-size
+    volumes: *ubuntu-volumes
+    environment:
+      <<: *ccache
+      CC: clang-${CLANG_TOOLS}
+      CXX: clang++-${CLANG_TOOLS}
+      ARROW_ENABLE_TIMING_TESTS:  # inherit
+      ARROW_DATASET: "ON"
+      ARROW_JEMALLOC: "OFF"
+      ARROW_ORC: "OFF"
+      ARROW_S3: "OFF"
+      ARROW_USE_TSAN: "ON"
     command: *cpp-command
 
   fedora-cpp:
@@ -1115,9 +1147,16 @@ services:
     volumes: *conda-volumes
     environment:
       <<: *ccache
+      ARROW_BUILD_STATIC: "OFF"
+      ARROW_COMPUTE: "OFF"
+      ARROW_CSV: "OFF"
+      ARROW_FLIGHT: "ON"
+      ARROW_GANDIVA: "OFF"
+      ARROW_PARQUET: "OFF"
+      ARROW_S3: "OFF"
       # tell archery where the arrow binaries are located
       ARROW_CPP_EXE_PATH: /build/cpp/debug
-    # Running integration tests serially until ARROW-8176 resolved
+      CMAKE_UNITY_BUILD: "ON"
     command:
       ["/arrow/ci/scripts/rust_build.sh /arrow /build &&
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
@@ -1268,6 +1307,8 @@ services:
       ARROW_HDFS_TEST_HOST: impala
       ARROW_HDFS_TEST_PORT: 8020
       ARROW_HDFS_TEST_USER: hdfs
+      ARROW_S3: "OFF"
+      CMAKE_UNITY_BUILD: "ON"
     shm_size: *shm-size
     volumes: &conda-maven-volumes
       - .:/arrow:delegated
@@ -1307,4 +1348,4 @@ services:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         /arrow/ci/scripts/java_build.sh /arrow /build &&
-        /arrow/ci/scripts/integration_spark.sh /arrow /spark"]
+        /arrow/ci/scripts/integration_spark.sh /arrow /spark ${TEST_PYARROW_ONLY:-false}"]

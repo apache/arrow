@@ -17,6 +17,7 @@
 
 #include <gtest/gtest.h>
 #include <time.h>
+
 #include "../execution_context.h"
 #include "gandiva/precompiled/testing.h"
 #include "gandiva/precompiled/types.h"
@@ -94,6 +95,41 @@ TEST(TestTime, TestCastTimestamp) {
   EXPECT_EQ(castTIMESTAMP_date64(
                 castDATE_utf8(context_ptr, "2000-09-23 9:45:30.920 +08:00", 29)),
             castTIMESTAMP_utf8(context_ptr, "2000-09-23 0:00:00.000 +00:00", 29));
+
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-09-23 9:45:30.1", 20),
+            castTIMESTAMP_utf8(context_ptr, "2000-09-23 9:45:30", 18) + 100);
+
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-09-23 9:45:30.10", 20),
+            castTIMESTAMP_utf8(context_ptr, "2000-09-23 9:45:30", 18) + 100);
+
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-09-23 9:45:30.100", 20),
+            castTIMESTAMP_utf8(context_ptr, "2000-09-23 9:45:30", 18) + 100);
+
+  // error cases
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-01-01 24:00:00", 19), 0);
+  EXPECT_EQ(context.get_error(),
+            "Not a valid time for timestamp value 2000-01-01 24:00:00");
+  context.Reset();
+
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-01-01 00:60:00", 19), 0);
+  EXPECT_EQ(context.get_error(),
+            "Not a valid time for timestamp value 2000-01-01 00:60:00");
+  context.Reset();
+
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-01-01 00:00:100", 20), 0);
+  EXPECT_EQ(context.get_error(),
+            "Not a valid time for timestamp value 2000-01-01 00:00:100");
+  context.Reset();
+
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-01-01 00:00:00.0001", 24), 0);
+  EXPECT_EQ(context.get_error(),
+            "Invalid millis for timestamp value 2000-01-01 00:00:00.0001");
+  context.Reset();
+
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-01-01 00:00:00.1000", 24), 0);
+  EXPECT_EQ(context.get_error(),
+            "Invalid millis for timestamp value 2000-01-01 00:00:00.1000");
+  context.Reset();
 }
 
 #ifndef _WIN32

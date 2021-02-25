@@ -16,6 +16,8 @@
 # under the License.
 
 import contextlib
+import os
+import posixpath
 import pathlib
 import pickle
 import textwrap
@@ -381,16 +383,27 @@ def test_partitioning():
     with pytest.raises(pa.ArrowInvalid):
         partitioning.parse('/prefix/3/aaa')
 
+    expr = partitioning.parse('/3')
+    expected = ds.field('group') == 3
+    assert expr.equals(expected)
+
     partitioning = ds.HivePartitioning(
         pa.schema([
             pa.field('alpha', pa.int64()),
             pa.field('beta', pa.int64())
-        ])
+        ]),
+        null_fallback='xyz'
     )
     expr = partitioning.parse('/alpha=0/beta=3')
     expected = (
         (ds.field('alpha') == ds.scalar(0)) &
         (ds.field('beta') == ds.scalar(3))
+    )
+    assert expr.equals(expected)
+
+    expr = partitioning.parse('/alpha=xyz/beta=3')
+    expected = (
+        (ds.field('alpha').is_null() & (ds.field('beta') == ds.scalar(3)))
     )
     assert expr.equals(expected)
 
@@ -412,7 +425,7 @@ def test_expression_serialization():
                  d.is_valid(), a.cast(pa.int32(), safe=False),
                  a.cast(pa.int32(), safe=False), a.isin([1, 2, 3]),
                  ds.field('i64') > 5, ds.field('i64') == 5,
-                 ds.field('i64') == 7]
+                 ds.field('i64') == 7, ds.field('i64').is_null()]
     for expr in all_exprs:
         assert isinstance(expr, ds.Expression)
         restored = pickle.loads(pickle.dumps(expr))
@@ -441,6 +454,24 @@ def test_expression_construction():
         field != {1}
 
 
+def test_expression_boolean_operators():
+    # https://issues.apache.org/jira/browse/ARROW-11412
+    true = ds.scalar(True)
+    false = ds.scalar(False)
+
+    with pytest.raises(ValueError, match="cannot be evaluated to python True"):
+        true and false
+
+    with pytest.raises(ValueError, match="cannot be evaluated to python True"):
+        true or false
+
+    with pytest.raises(ValueError, match="cannot be evaluated to python True"):
+        bool(true)
+
+    with pytest.raises(ValueError, match="cannot be evaluated to python True"):
+        not true
+
+
 def test_partition_keys():
     a, b, c = [ds.field(f) == f for f in 'abc']
     assert ds._get_partition_keys(a) == {'a': 'a'}
@@ -450,6 +481,9 @@ def test_partition_keys():
     assert ds._get_partition_keys(nope) == {}
     assert ds._get_partition_keys(a & nope) == {'a': 'a'}
 
+    null = ds.field('a').is_null()
+    assert ds._get_partition_keys(null) == {'a': None}
+
 
 def test_parquet_read_options():
     opts1 = ds.ParquetReadOptions()
@@ -457,22 +491,33 @@ def test_parquet_read_options():
                                   dictionary_columns=['a', 'b'])
     opts3 = ds.ParquetReadOptions(buffer_size=2**13, use_buffered_stream=True,
                                   dictionary_columns={'a', 'b'})
+    opts4 = ds.ParquetReadOptions(buffer_size=2**13, pre_buffer=True,
+                                  dictionary_columns={'a', 'b'})
 
     assert opts1.use_buffered_stream is False
     assert opts1.buffer_size == 2**13
+    assert opts1.pre_buffer is False
     assert opts1.dictionary_columns == set()
 
     assert opts2.use_buffered_stream is False
     assert opts2.buffer_size == 2**12
+    assert opts2.pre_buffer is False
     assert opts2.dictionary_columns == {'a', 'b'}
 
     assert opts3.use_buffered_stream is True
     assert opts3.buffer_size == 2**13
+    assert opts3.pre_buffer is False
     assert opts3.dictionary_columns == {'a', 'b'}
+
+    assert opts4.use_buffered_stream is False
+    assert opts4.buffer_size == 2**13
+    assert opts4.pre_buffer is True
+    assert opts4.dictionary_columns == {'a', 'b'}
 
     assert opts1 == opts1
     assert opts1 != opts2
     assert opts2 != opts3
+    assert opts3 != opts4
 
 
 def test_file_format_pickling():
@@ -503,9 +548,11 @@ def test_file_format_pickling():
         'subdir/2/yyy/file1.parquet',
     ]
 ])
-def test_filesystem_factory(mockfs, paths_or_selector):
+@pytest.mark.parametrize('pre_buffer', [False, True])
+def test_filesystem_factory(mockfs, paths_or_selector, pre_buffer):
     format = ds.ParquetFileFormat(
-        read_options=ds.ParquetReadOptions(dictionary_columns={"str"})
+        read_options=ds.ParquetReadOptions(dictionary_columns={"str"},
+                                           pre_buffer=pre_buffer)
     )
 
     options = ds.FileSystemFactoryOptions('subdir')
@@ -1208,6 +1255,57 @@ def test_partitioning_factory_dictionary(mockfs, infer_dictionary):
         assert inferred_schema.field('key').type == pa.string()
 
 
+def test_dictionary_partitioning_outer_nulls_raises(tempdir):
+    table = pa.table({'a': ['x', 'y', None], 'b': ['x', 'y', 'z']})
+    part = ds.partitioning(
+        pa.schema([pa.field('a', pa.string()), pa.field('b', pa.string())]))
+    with pytest.raises(pa.ArrowInvalid):
+        ds.write_dataset(table, tempdir, format='parquet', partitioning=part)
+
+
+def _has_subdirs(basedir):
+    elements = os.listdir(basedir)
+    return any([os.path.isdir(os.path.join(basedir, el)) for el in elements])
+
+
+def _do_list_all_dirs(basedir, path_so_far, result):
+    for f in os.listdir(basedir):
+        true_nested = os.path.join(basedir, f)
+        if os.path.isdir(true_nested):
+            norm_nested = posixpath.join(path_so_far, f)
+            if _has_subdirs(true_nested):
+                _do_list_all_dirs(true_nested, norm_nested, result)
+            else:
+                result.append(norm_nested)
+
+
+def _list_all_dirs(basedir):
+    result = []
+    _do_list_all_dirs(basedir, '', result)
+    return result
+
+
+def _check_dataset_directories(tempdir, expected_directories):
+    actual_directories = set(_list_all_dirs(tempdir))
+    assert actual_directories == set(expected_directories)
+
+
+def test_dictionary_partitioning_inner_nulls(tempdir):
+    table = pa.table({'a': ['x', 'y', 'z'], 'b': ['x', 'y', None]})
+    part = ds.partitioning(
+        pa.schema([pa.field('a', pa.string()), pa.field('b', pa.string())]))
+    ds.write_dataset(table, tempdir, format='parquet', partitioning=part)
+    _check_dataset_directories(tempdir, ['x/x', 'y/y', 'z'])
+
+
+def test_hive_partitioning_nulls(tempdir):
+    table = pa.table({'a': ['x', None, 'z'], 'b': ['x', 'y', None]})
+    part = ds.HivePartitioning(pa.schema(
+        [pa.field('a', pa.string()), pa.field('b', pa.string())]), None, 'xyz')
+    ds.write_dataset(table, tempdir, format='parquet', partitioning=part)
+    _check_dataset_directories(tempdir, ['a=x/b=x', 'a=xyz/b=y', 'a=z/b=xyz'])
+
+
 def test_partitioning_function():
     schema = pa.schema([("year", pa.int16()), ("month", pa.int8())])
     names = ["year", "month"]
@@ -1569,25 +1667,48 @@ def test_open_dataset_non_existing_file():
 
 @pytest.mark.parquet
 @pytest.mark.parametrize('partitioning', ["directory", "hive"])
+@pytest.mark.parametrize('null_fallback', ['xyz', None])
+@pytest.mark.parametrize('infer_dictionary', [False, True])
 @pytest.mark.parametrize('partition_keys', [
     (["A", "B", "C"], [1, 2, 3]),
     ([1, 2, 3], ["A", "B", "C"]),
     (["A", "B", "C"], ["D", "E", "F"]),
     ([1, 2, 3], [4, 5, 6]),
+    ([1, None, 3], ["A", "B", "C"]),
+    ([1, 2, 3], ["A", None, "C"]),
+    ([None, 2, 3], [None, 2, 3]),
 ])
-def test_open_dataset_partitioned_dictionary_type(tempdir, partitioning,
-                                                  partition_keys):
+def test_partition_discovery(
+    tempdir, partitioning, null_fallback, infer_dictionary, partition_keys
+):
     # ARROW-9288 / ARROW-9476
     import pyarrow.parquet as pq
-    table = pa.table({'a': range(9), 'b': [0.] * 4 + [1.] * 5})
+
+    table = pa.table({'a': range(9), 'b': [0.0] * 4 + [1.0] * 5})
+
+    has_null = None in partition_keys[0] or None in partition_keys[1]
+    if partitioning == "directory" and has_null:
+        # Directory partitioning can't handle the first part being null
+        return
 
     if partitioning == "directory":
         partitioning = ds.DirectoryPartitioning.discover(
-            ["part1", "part2"], infer_dictionary=True)
+            ["part1", "part2"], infer_dictionary=infer_dictionary)
         fmt = "{0}/{1}"
+        null_value = None
     else:
-        partitioning = ds.HivePartitioning.discover(infer_dictionary=True)
+        if null_fallback:
+            partitioning = ds.HivePartitioning.discover(
+                infer_dictionary=infer_dictionary, null_fallback=null_fallback
+            )
+        else:
+            partitioning = ds.HivePartitioning.discover(
+                infer_dictionary=infer_dictionary)
         fmt = "part1={0}/part2={1}"
+        if null_fallback:
+            null_value = null_fallback
+        else:
+            null_value = "__HIVE_DEFAULT_PARTITION__"
 
     basepath = tempdir / "dataset"
     basepath.mkdir()
@@ -1595,21 +1716,56 @@ def test_open_dataset_partitioned_dictionary_type(tempdir, partitioning,
     part_keys1, part_keys2 = partition_keys
     for part1 in part_keys1:
         for part2 in part_keys2:
-            path = basepath / fmt.format(part1, part2)
+            path = basepath / \
+                fmt.format(part1 or null_value, part2 or null_value)
             path.mkdir(parents=True)
             pq.write_table(table, path / "test.parquet")
 
     dataset = ds.dataset(str(basepath), partitioning=partitioning)
 
-    def dict_type(key):
-        value_type = pa.string() if isinstance(key, str) else pa.int32()
-        return pa.dictionary(pa.int32(), value_type)
+    def expected_type(key):
+        if infer_dictionary:
+            value_type = pa.string() if isinstance(key, str) else pa.int32()
+            return pa.dictionary(pa.int32(), value_type)
+        else:
+            return pa.string() if isinstance(key, str) else pa.int32()
     expected_schema = table.schema.append(
-        pa.field("part1", dict_type(part_keys1[0]))
+        pa.field("part1", expected_type(part_keys1[0]))
     ).append(
-        pa.field("part2", dict_type(part_keys2[0]))
+        pa.field("part2", expected_type(part_keys2[0]))
     )
     assert dataset.schema.equals(expected_schema)
+
+
+@pytest.mark.pandas
+def test_dataset_partitioned_dictionary_type_reconstruct(tempdir):
+    # https://issues.apache.org/jira/browse/ARROW-11400
+    table = pa.table({'part': np.repeat(['A', 'B'], 5), 'col': range(10)})
+    part = ds.partitioning(table.select(['part']).schema, flavor="hive")
+    ds.write_dataset(table, tempdir, partitioning=part, format="feather")
+
+    dataset = ds.dataset(
+        tempdir, format="feather",
+        partitioning=ds.HivePartitioning.discover(infer_dictionary=True)
+    )
+    expected = pa.table(
+        {'col': table['col'], 'part': table['part'].dictionary_encode()}
+    )
+    assert dataset.to_table().equals(expected)
+    fragment = list(dataset.get_fragments())[0]
+    assert fragment.to_table(schema=dataset.schema).equals(expected[:5])
+    part_expr = fragment.partition_expression
+
+    restored = pickle.loads(pickle.dumps(dataset))
+    assert restored.to_table().equals(expected)
+
+    restored = pickle.loads(pickle.dumps(fragment))
+    assert restored.to_table(schema=dataset.schema).equals(expected[:5])
+    # to_pandas call triggers computation of the actual dictionary values
+    assert restored.to_table(schema=dataset.schema).to_pandas().equals(
+        expected[:5].to_pandas()
+    )
+    assert restored.partition_expression.equals(part_expr)
 
 
 @pytest.fixture
@@ -1751,6 +1907,34 @@ def test_open_dataset_from_fsspec(tempdir):
     localfs = fsspec.filesystem("file")
     dataset = ds.dataset(path, filesystem=localfs)
     assert dataset.schema.equals(table.schema)
+
+
+@pytest.mark.pandas
+def test_filter_timestamp(tempdir):
+    # ARROW-11379
+    path = tempdir / "test_partition_timestamps"
+
+    table = pa.table({
+        "dates": ['2012-01-01', '2012-01-02'] * 5,
+        "id": range(10)})
+
+    # write dataset partitioned on dates (as strings)
+    part = ds.partitioning(table.select(['dates']).schema, flavor="hive")
+    ds.write_dataset(table, path, partitioning=part, format="feather")
+
+    # read dataset partitioned on dates (as timestamps)
+    part = ds.partitioning(pa.schema([("dates", pa.timestamp("s"))]),
+                           flavor="hive")
+    dataset = ds.dataset(path, format="feather", partitioning=part)
+
+    condition = ds.field("dates") > pd.Timestamp("2012-01-01")
+    table = dataset.to_table(filter=condition)
+    assert table.column('id').to_pylist() == [1, 3, 5, 7, 9]
+
+    import datetime
+    condition = ds.field("dates") > datetime.datetime(2012, 1, 1)
+    table = dataset.to_table(filter=condition)
+    assert table.column('id').to_pylist() == [1, 3, 5, 7, 9]
 
 
 @pytest.mark.parquet
@@ -2212,6 +2396,52 @@ def test_dataset_project_only_partition_columns(tempdir):
     part_only = dataset.to_table(columns=['part'], use_threads=False)
 
     assert all_cols.column('part').equals(part_only.column('part'))
+
+
+@pytest.mark.parquet
+@pytest.mark.pandas
+def test_write_to_dataset_given_null_just_works(tempdir):
+    import pyarrow.parquet as pq
+
+    schema = pa.schema([
+        pa.field('col', pa.int64()),
+        pa.field('part', pa.dictionary(pa.int32(), pa.string()))
+    ])
+    table = pa.table({'part': [None, None, 'a', 'a'],
+                      'col': list(range(4))}, schema=schema)
+
+    path = str(tempdir / 'test_dataset')
+    pq.write_to_dataset(table, path, partition_cols=[
+                        'part'], use_legacy_dataset=False)
+
+    actual_table = pq.read_table(tempdir / 'test_dataset')
+    # column.equals can handle the difference in chunking but not the fact
+    # that `part` will have different dictionaries for the two chunks
+    assert actual_table.column('part').to_pylist(
+    ) == table.column('part').to_pylist()
+    assert actual_table.column('col').equals(table.column('col'))
+
+
+@pytest.mark.parquet
+@pytest.mark.pandas
+def test_legacy_write_to_dataset_drops_null(tempdir):
+    import pyarrow.parquet as pq
+
+    schema = pa.schema([
+        pa.field('col', pa.int64()),
+        pa.field('part', pa.dictionary(pa.int32(), pa.string()))
+    ])
+    table = pa.table({'part': ['a', 'a', None, None],
+                      'col': list(range(4))}, schema=schema)
+    expected = pa.table(
+        {'part': ['a', 'a'], 'col': list(range(2))}, schema=schema)
+
+    path = str(tempdir / 'test_dataset')
+    pq.write_to_dataset(table, path, partition_cols=[
+                        'part'], use_legacy_dataset=True)
+
+    actual = pq.read_table(tempdir / 'test_dataset')
+    assert actual == expected
 
 
 @pytest.mark.parquet

@@ -43,7 +43,7 @@ type Error = Box<dyn std::error::Error + Send + Sync + 'static>;
 type Result<T = (), E = Error> = std::result::Result<T, E>;
 
 pub async fn scenario_setup(port: &str) -> Result {
-    let (mut listener, addr) = super::listen_on(port).await?;
+    let addr = super::listen_on(port).await?;
 
     let service = FlightServiceImpl {
         server_location: format!("grpc+tcp://{}", addr),
@@ -51,10 +51,7 @@ pub async fn scenario_setup(port: &str) -> Result {
     };
     let svc = FlightServiceServer::new(service);
 
-    Server::builder()
-        .add_service(svc)
-        .serve_with_incoming(listener.incoming())
-        .await?;
+    Server::builder().add_service(svc).serve(addr).await?;
 
     Ok(())
 }

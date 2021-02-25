@@ -84,7 +84,37 @@ cdef CFileSource _make_file_source(object file, FileSystem filesystem=None):
 
 
 cdef class Expression(_Weakrefable):
+    """
+    A logical expression to be evaluated against some input.
 
+    To create an expression:
+
+    - Use the factory function ``pyarrow.dataset.scalar()`` to create a
+      scalar (not necessary when combined, see example below).
+    - Use the factory function ``pyarrow.dataset.field()`` to reference
+      a field (column in table).
+    - Compare fields and scalars with ``<``, ``<=``, ``==``, ``>=``, ``>``.
+    - Combine expressions using python operators ``&`` (logical and),
+      ``|`` (logical or) and ``~`` (logical not).
+      Note: python keywords ``and``, ``or`` and ``not`` cannot be used
+      to combine expressions.
+    - Check whether the expression is contained in a list of values with
+      the ``pyarrow.dataset.Expression.isin()`` member function.
+
+    Examples:
+    --------
+    >>> import pyarrow.dataset as ds
+    >>> (ds.field("a") < ds.scalar(3)) | (ds.field("b") > 7)
+    <pyarrow.dataset.Expression ((a < 3:int64) or (b > 7:int64))>
+    >>> ds.field('a') != 3
+    <pyarrow.dataset.Expression (a != 3)>
+    >>> ds.field('a').isin([1, 2, 3])
+    <pyarrow.dataset.Expression (a is in [
+      1,
+      2,
+      3
+    ])>
+    """
     cdef:
         CExpression expr
 
@@ -154,6 +184,13 @@ cdef class Expression(_Weakrefable):
             Py_LE: "less_equal",
         }[op], [self, other])
 
+    def __bool__(self):
+        raise ValueError(
+            "An Expression cannot be evaluated to python True or False. "
+            "If you are using the 'and', 'or' or 'not' operators, use '&', "
+            "'|' or '~' instead."
+        )
+
     def __invert__(self):
         return Expression._call("invert", [self])
 
@@ -168,6 +205,10 @@ cdef class Expression(_Weakrefable):
     def is_valid(self):
         """Checks whether the expression is not-null (valid)"""
         return Expression._call("is_valid", [self])
+
+    def is_null(self):
+        """Checks whether the expression is null"""
+        return Expression._call("is_null", [self])
 
     def cast(self, type, bint safe=True):
         """Explicitly change the expression's data type"""
@@ -450,8 +491,9 @@ cdef class FileSystemDataset(Dataset):
             CResult[shared_ptr[CDataset]] result
             shared_ptr[CFileSystem] c_filesystem
 
-        root_partition = root_partition or _true
-        if not isinstance(root_partition, Expression):
+        if root_partition is None:
+            root_partition = _true
+        elif not isinstance(root_partition, Expression):
             raise TypeError(
                 "Argument 'root_partition' has incorrect type (expected "
                 "Epression, got {0})".format(type(root_partition))
@@ -518,7 +560,9 @@ cdef class FileSystemDataset(Dataset):
         cdef:
             FileFragment fragment
 
-        root_partition = root_partition or _true
+        if root_partition is None:
+            root_partition = _true
+
         for arg, class_, name in [
             (schema, Schema, 'schema'),
             (format, FileFormat, 'format'),
@@ -653,7 +697,8 @@ cdef class FileFormat(_Weakrefable):
         fields absent from the provided schema. If no schema is provided then
         one will be inferred.
         """
-        partition_expression = partition_expression or _true
+        if partition_expression is None:
+            partition_expression = _true
 
         c_source = _make_file_source(file, filesystem)
         c_fragment = <shared_ptr[CFragment]> GetResultValue(
@@ -1079,6 +1124,10 @@ cdef class ParquetReadOptions(_Weakrefable):
     dictionary_columns : list of string, default None
         Names of columns which should be dictionary encoded as
         they are read.
+    pre_buffer : bool, default False
+        If enabled, pre-buffer the raw Parquet data instead of issuing one
+        read per column chunk. This can improve performance on high-latency
+        filesystems.
     enable_parallel_column_conversion : bool, default False
         EXPERIMENTAL: Parallelize conversion across columns. This option is
         ignored if a scan is already parallelized across input files to avoid
@@ -1090,17 +1139,20 @@ cdef class ParquetReadOptions(_Weakrefable):
         bint use_buffered_stream
         uint32_t buffer_size
         set dictionary_columns
+        bint pre_buffer
         bint enable_parallel_column_conversion
 
     def __init__(self, bint use_buffered_stream=False,
                  buffer_size=8192,
                  dictionary_columns=None,
+                 bint pre_buffer=False,
                  bint enable_parallel_column_conversion=False):
         self.use_buffered_stream = use_buffered_stream
         if buffer_size <= 0:
             raise ValueError("Buffer size must be larger than zero")
         self.buffer_size = buffer_size
         self.dictionary_columns = set(dictionary_columns or set())
+        self.pre_buffer = pre_buffer
         self.enable_parallel_column_conversion = \
             enable_parallel_column_conversion
 
@@ -1109,6 +1161,7 @@ cdef class ParquetReadOptions(_Weakrefable):
             self.use_buffered_stream == other.use_buffered_stream and
             self.buffer_size == other.buffer_size and
             self.dictionary_columns == other.dictionary_columns and
+            self.pre_buffer == other.pre_buffer and
             self.enable_parallel_column_conversion ==
             other.enable_parallel_column_conversion
         )
@@ -1220,6 +1273,7 @@ cdef class ParquetFileFormat(FileFormat):
         options = &(wrapped.get().reader_options)
         options.use_buffered_stream = read_options.use_buffered_stream
         options.buffer_size = read_options.buffer_size
+        options.pre_buffer = read_options.pre_buffer
         options.enable_parallel_column_conversion = \
             read_options.enable_parallel_column_conversion
         if read_options.dictionary_columns is not None:
@@ -1241,6 +1295,7 @@ cdef class ParquetFileFormat(FileFormat):
             buffer_size=options.buffer_size,
             dictionary_columns={frombytes(col)
                                 for col in options.dict_columns},
+            pre_buffer=options.pre_buffer,
             enable_parallel_column_conversion=(
                 options.enable_parallel_column_conversion
             )
@@ -1264,7 +1319,8 @@ cdef class ParquetFileFormat(FileFormat):
         cdef:
             vector[int] c_row_groups
 
-        partition_expression = partition_expression or _true
+        if partition_expression is None:
+            partition_expression = _true
 
         if row_groups is None:
             return super().make_fragment(file, filesystem,
@@ -1494,7 +1550,7 @@ cdef class DirectoryPartitioning(Partitioning):
 
         Returns
         -------
-        DirectoryPartitioningFactory
+        PartitioningFactory
             To be used in the FileSystemFactoryOptions.
         """
         cdef:
@@ -1538,6 +1594,8 @@ cdef class HivePartitioning(Partitioning):
         corresponding entry of `dictionaries` must be an array containing
         every value which may be taken by the corresponding column or an
         error will be raised in parsing.
+    null_fallback : str, default "__HIVE_DEFAULT_PARTITION__"
+        If any field is None then this fallback will be used as a label
 
     Returns
     -------
@@ -1556,13 +1614,19 @@ cdef class HivePartitioning(Partitioning):
     cdef:
         CHivePartitioning* hive_partitioning
 
-    def __init__(self, Schema schema not None, dictionaries=None):
+    def __init__(self,
+                 Schema schema not None,
+                 dictionaries=None,
+                 null_fallback="__HIVE_DEFAULT_PARTITION__"):
+
         cdef:
             shared_ptr[CHivePartitioning] c_partitioning
+            c_string c_null_fallback = tobytes(null_fallback)
 
         c_partitioning = make_shared[CHivePartitioning](
             pyarrow_unwrap_schema(schema),
-            _partitioning_dictionaries(schema, dictionaries)
+            _partitioning_dictionaries(schema, dictionaries),
+            c_null_fallback
         )
         self.init(<shared_ptr[CPartitioning]> c_partitioning)
 
@@ -1571,7 +1635,9 @@ cdef class HivePartitioning(Partitioning):
         self.hive_partitioning = <CHivePartitioning*> sp.get()
 
     @staticmethod
-    def discover(infer_dictionary=False, max_partition_dictionary_size=0):
+    def discover(infer_dictionary=False,
+                 max_partition_dictionary_size=0,
+                 null_fallback="__HIVE_DEFAULT_PARTITION__"):
         """
         Discover a HivePartitioning.
 
@@ -1587,6 +1653,10 @@ cdef class HivePartitioning(Partitioning):
             Synonymous with infer_dictionary for backwards compatibility with
             1.0: setting this to -1 or None is equivalent to passing
             infer_dictionary=True.
+        null_fallback : str, default "__HIVE_DEFAULT_PARTITION__"
+            When inferring a schema for partition fields this value will be
+            replaced by null.  The default is set to __HIVE_DEFAULT_PARTITION__
+            for compatibility with Spark
 
         Returns
         -------
@@ -1594,7 +1664,7 @@ cdef class HivePartitioning(Partitioning):
             To be used in the FileSystemFactoryOptions.
         """
         cdef:
-            CPartitioningFactoryOptions c_options
+            CHivePartitioningFactoryOptions c_options
 
         if max_partition_dictionary_size in {-1, None}:
             infer_dictionary = True
@@ -1604,6 +1674,8 @@ cdef class HivePartitioning(Partitioning):
 
         if infer_dictionary:
             c_options.infer_dictionary = True
+
+        c_options.null_fallback = tobytes(null_fallback)
 
         return PartitioningFactory.wrap(
             CHivePartitioning.MakeFactory(c_options))

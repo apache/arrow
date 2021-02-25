@@ -18,6 +18,8 @@
 //! Transfer data between the Arrow memory format and JSON line-delimited records.
 
 pub mod reader;
+pub mod writer;
 
 pub use self::reader::Reader;
 pub use self::reader::ReaderBuilder;
+pub use self::writer::Writer;

@@ -19,31 +19,12 @@
 extern crate criterion;
 use criterion::Criterion;
 
-use rand::distributions::Alphanumeric;
 use rand::Rng;
-
-use std::sync::Arc;
 
 extern crate arrow;
 
-use arrow::array::*;
 use arrow::util::test_util::seedable_rng;
-
-fn create_strings(size: usize, null_density: f32) -> ArrayRef {
-    let rng = &mut seedable_rng();
-
-    let mut builder = StringBuilder::new(size);
-    for _ in 0..size {
-        let x = rng.gen::<f32>();
-        if x < null_density {
-            let value = rng.sample_iter(&Alphanumeric).take(4).collect::<String>();
-            builder.append_value(&value).unwrap();
-        } else {
-            builder.append_null().unwrap()
-        }
-    }
-    Arc::new(builder.finish())
-}
+use arrow::{array::*, util::bench_util::create_string_array};
 
 fn create_slices(size: usize) -> Vec<(usize, usize)> {
     let rng = &mut seedable_rng();
@@ -57,7 +38,7 @@ fn create_slices(size: usize) -> Vec<(usize, usize)> {
         .collect()
 }
 
-fn bench(v1: &ArrayRef, slices: &[(usize, usize)]) {
+fn bench<T: Array>(v1: &T, slices: &[(usize, usize)]) {
     let mut mutable = MutableArrayData::new(vec![v1.data_ref()], false, 5);
     for (start, end) in slices {
         mutable.extend(0, *start, *end)
@@ -66,11 +47,11 @@ fn bench(v1: &ArrayRef, slices: &[(usize, usize)]) {
 }
 
 fn add_benchmark(c: &mut Criterion) {
-    let v1 = create_strings(1024, 0.0);
+    let v1 = create_string_array(1024, 0.0);
     let v2 = create_slices(1024);
     c.bench_function("mutable str 1024", |b| b.iter(|| bench(&v1, &v2)));
 
-    let v1 = create_strings(1024, 0.5);
+    let v1 = create_string_array(1024, 0.5);
     let v2 = create_slices(1024);
     c.bench_function("mutable str nulls 1024", |b| b.iter(|| bench(&v1, &v2)));
 }

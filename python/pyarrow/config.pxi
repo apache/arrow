@@ -28,6 +28,9 @@ BuildInfo = namedtuple(
      'compiler_id', 'compiler_version', 'compiler_flags',
      'git_id', 'git_description', 'package_kind'))
 
+RuntimeInfo = namedtuple('RuntimeInfo',
+                         ('simd_level', 'detected_simd_level'))
+
 cdef _build_info():
     cdef:
         const CBuildInfo* c_info
@@ -51,3 +54,21 @@ cdef _build_info():
 cpp_build_info = _build_info()
 cpp_version = cpp_build_info.version
 cpp_version_info = cpp_build_info.version_info
+
+
+def runtime_info():
+    """
+    Get runtime information.
+
+    Returns
+    -------
+    info : pyarrow.RuntimeInfo
+    """
+    cdef:
+        CRuntimeInfo c_info
+
+    c_info = GetRuntimeInfo()
+
+    return RuntimeInfo(
+        simd_level=frombytes(c_info.simd_level),
+        detected_simd_level=frombytes(c_info.detected_simd_level))

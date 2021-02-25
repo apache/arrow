@@ -77,7 +77,8 @@ jobs:
             --queue-path . \
             --queue-remote {{ queue_remote_url }} \
             upload-artifacts \
-            --pattern "arrow/csharp/artifacts/Apache.Arrow/Release/Apache.Arrow.*" \
+            --pattern "arrow/csharp/artifacts/**/*.nupkg" \
+            --pattern "arrow/csharp/artifacts/**/*.snupkg" \
             --sha {{ task.branch }} \
             --tag {{ task.tag }}
         env:

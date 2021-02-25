@@ -47,7 +47,7 @@ pub(crate) fn mutable_buffer_to_builder<T: ArrowNativeType>(
     }
 }
 
-///  Converts a `BufferBuilder<T>` into it's underlying `MutableBuffer`.
+///  Converts a `BufferBuilder<T>` into its underlying `MutableBuffer`.
 ///
 /// `From` is not implemented because associated type bounds are unstable.
 pub(crate) fn builder_to_mutable_buffer<T: ArrowNativeType>(
@@ -297,14 +297,17 @@ impl BooleanBufferBuilder {
         Self { buffer, len: 0 }
     }
 
+    #[inline]
     pub fn len(&self) -> usize {
         self.len
     }
 
+    #[inline]
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
 
+    #[inline]
     pub fn capacity(&self) -> usize {
         self.buffer.capacity() * 8
     }
@@ -369,6 +372,13 @@ impl BooleanBufferBuilder {
         let buf = std::mem::replace(&mut self.buffer, MutableBuffer::new(0));
         self.len = 0;
         buf.into()
+    }
+}
+
+impl From<BooleanBufferBuilder> for Buffer {
+    #[inline]
+    fn from(builder: BooleanBufferBuilder) -> Self {
+        builder.buffer.into()
     }
 }
 
@@ -1256,7 +1266,6 @@ impl DecimalBuilder {
 /// properly called to maintain the consistency of the data structure.
 pub struct StructBuilder {
     fields: Vec<Field>,
-    field_anys: Vec<Box<Any>>,
     field_builders: Vec<Box<ArrayBuilder>>,
     bitmap_builder: BooleanBufferBuilder,
     len: usize,
@@ -1266,7 +1275,6 @@ impl fmt::Debug for StructBuilder {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("StructBuilder")
             .field("fields", &self.fields)
-            .field("field_anys", &self.field_anys)
             .field("bitmap_builder", &self.bitmap_builder)
             .field("len", &self.len)
             .finish()
@@ -1342,8 +1350,8 @@ pub fn make_builder(datatype: &DataType, capacity: usize) -> Box<ArrayBuilder> {
             Box::new(DecimalBuilder::new(capacity, *precision, *scale))
         }
         DataType::Utf8 => Box::new(StringBuilder::new(capacity)),
-        DataType::Date32(DateUnit::Day) => Box::new(Date32Builder::new(capacity)),
-        DataType::Date64(DateUnit::Millisecond) => Box::new(Date64Builder::new(capacity)),
+        DataType::Date32 => Box::new(Date32Builder::new(capacity)),
+        DataType::Date64 => Box::new(Date64Builder::new(capacity)),
         DataType::Time32(TimeUnit::Second) => {
             Box::new(Time32SecondBuilder::new(capacity))
         }
@@ -1394,25 +1402,9 @@ pub fn make_builder(datatype: &DataType, capacity: usize) -> Box<ArrayBuilder> {
 }
 
 impl StructBuilder {
-    pub fn new(fields: Vec<Field>, builders: Vec<Box<ArrayBuilder>>) -> Self {
-        let mut field_anys = Vec::with_capacity(builders.len());
-        let mut field_builders = Vec::with_capacity(builders.len());
-
-        // Create and maintain two references for each of the input builder. We need the
-        // extra `Any` reference because we need to cast the builder to a specific type
-        // in `field_builder()` by calling `downcast_mut`.
-        for f in builders.into_iter() {
-            let raw_f = Box::into_raw(f);
-            let raw_f_copy = raw_f;
-            unsafe {
-                field_anys.push(Box::from_raw(raw_f).into_box_any());
-                field_builders.push(Box::from_raw(raw_f_copy));
-            }
-        }
-
+    pub fn new(fields: Vec<Field>, field_builders: Vec<Box<ArrayBuilder>>) -> Self {
         Self {
             fields,
-            field_anys,
             field_builders,
             bitmap_builder: BooleanBufferBuilder::new(0),
             len: 0,
@@ -1431,7 +1423,7 @@ impl StructBuilder {
     /// Result will be `None` if the input type `T` provided doesn't match the actual
     /// field builder's type.
     pub fn field_builder<T: ArrayBuilder>(&mut self, i: usize) -> Option<&mut T> {
-        self.field_anys[i].downcast_mut::<T>()
+        self.field_builders[i].as_any_mut().downcast_mut::<T>()
     }
 
     /// Returns the number of fields for the struct this builder is building.
@@ -1475,14 +1467,6 @@ impl StructBuilder {
     }
 }
 
-impl Drop for StructBuilder {
-    fn drop(&mut self) {
-        // To avoid double drop on the field array builders.
-        let builders = std::mem::replace(&mut self.field_builders, Vec::new());
-        std::mem::forget(builders);
-    }
-}
-
 /// `FieldData` is a helper struct to track the state of the fields in the `UnionBuilder`.
 #[derive(Debug)]
 struct FieldData {
@@ -1515,6 +1499,7 @@ impl FieldData {
     }
 
     /// Appends a single value to this `FieldData`'s `values_buffer`.
+    #[allow(clippy::unnecessary_wraps)]
     fn append_to_values_buffer<T: ArrowPrimitiveType>(
         &mut self,
         v: T::Native,
@@ -1537,6 +1522,7 @@ impl FieldData {
     }
 
     /// Appends a null to this `FieldData`.
+    #[allow(clippy::unnecessary_wraps)]
     fn append_null<T: ArrowPrimitiveType>(&mut self) -> Result<()> {
         if let Some(b) = &mut self.bitmap_builder {
             let values_buffer = self
@@ -1569,14 +1555,14 @@ impl FieldData {
             DataType::Int8 => self.append_null::<Int8Type>()?,
             DataType::Int16 => self.append_null::<Int16Type>()?,
             DataType::Int32
-            | DataType::Date32(_)
+            | DataType::Date32
             | DataType::Time32(_)
             | DataType::Interval(IntervalUnit::YearMonth) => {
                 self.append_null::<Int32Type>()?
             }
             DataType::Int64
             | DataType::Timestamp(_, _)
-            | DataType::Date64(_)
+            | DataType::Date64
             | DataType::Time64(_)
             | DataType::Interval(IntervalUnit::DayTime)
             | DataType::Duration(_) => self.append_null::<Int64Type>()?,
@@ -2420,7 +2406,7 @@ mod tests {
         assert_eq!(DataType::Int32, list_array.value_type());
         assert_eq!(3, list_array.len());
         assert_eq!(0, list_array.null_count());
-        assert_eq!(6, list_array.value_offset(2));
+        assert_eq!(6, list_array.value_offsets()[2]);
         assert_eq!(2, list_array.value_length(2));
         for i in 0..3 {
             assert!(list_array.is_valid(i));
@@ -2456,7 +2442,7 @@ mod tests {
         assert_eq!(DataType::Int32, list_array.value_type());
         assert_eq!(3, list_array.len());
         assert_eq!(0, list_array.null_count());
-        assert_eq!(6, list_array.value_offset(2));
+        assert_eq!(6, list_array.value_offsets()[2]);
         assert_eq!(2, list_array.value_length(2));
         for i in 0..3 {
             assert!(list_array.is_valid(i));
@@ -2487,7 +2473,7 @@ mod tests {
         assert_eq!(DataType::Int32, list_array.value_type());
         assert_eq!(4, list_array.len());
         assert_eq!(1, list_array.null_count());
-        assert_eq!(3, list_array.value_offset(2));
+        assert_eq!(3, list_array.value_offsets()[2]);
         assert_eq!(3, list_array.value_length(2));
     }
 
@@ -2514,7 +2500,7 @@ mod tests {
         assert_eq!(DataType::Int32, list_array.value_type());
         assert_eq!(4, list_array.len());
         assert_eq!(1, list_array.null_count());
-        assert_eq!(3, list_array.value_offset(2));
+        assert_eq!(3, list_array.value_offsets()[2]);
         assert_eq!(3, list_array.value_length(2));
     }
 
@@ -2681,7 +2667,7 @@ mod tests {
         assert_eq!([b'h', b'e', b'l', b'l', b'o'], binary_array.value(0));
         assert_eq!([] as [u8; 0], binary_array.value(1));
         assert_eq!([b'w', b'o', b'r', b'l', b'd'], binary_array.value(2));
-        assert_eq!(5, binary_array.value_offset(2));
+        assert_eq!(5, binary_array.value_offsets()[2]);
         assert_eq!(5, binary_array.value_length(2));
     }
 
@@ -2710,7 +2696,7 @@ mod tests {
         assert_eq!([b'h', b'e', b'l', b'l', b'o'], binary_array.value(0));
         assert_eq!([] as [u8; 0], binary_array.value(1));
         assert_eq!([b'w', b'o', b'r', b'l', b'd'], binary_array.value(2));
-        assert_eq!(5, binary_array.value_offset(2));
+        assert_eq!(5, binary_array.value_offsets()[2]);
         assert_eq!(5, binary_array.value_length(2));
     }
 
@@ -2729,7 +2715,7 @@ mod tests {
         assert_eq!("hello", string_array.value(0));
         assert_eq!("", string_array.value(1));
         assert_eq!("world", string_array.value(2));
-        assert_eq!(5, string_array.value_offset(2));
+        assert_eq!(5, string_array.value_offsets()[2]);
         assert_eq!(5, string_array.value_length(2));
     }
 
@@ -2802,7 +2788,7 @@ mod tests {
         assert_eq!("hello", string_array.value(0));
         assert_eq!("", string_array.value(1));
         assert_eq!("world", string_array.value(2));
-        assert_eq!(5, string_array.value_offset(2));
+        assert_eq!(5, string_array.value_offsets()[2]);
         assert_eq!(5, string_array.value_length(2));
     }
 

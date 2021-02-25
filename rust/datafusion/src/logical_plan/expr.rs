@@ -15,7 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! This module provides an `Expr` enum for representing expressions such as `col = 5` or `SUM(col)`
+//! This module provides an `Expr` enum for representing expressions
+//! such as `col = 5` or `SUM(col)`. See examples on the [`Expr`] struct.
 
 pub use super::Operator;
 
@@ -34,20 +35,49 @@ use crate::{physical_plan::udaf::AggregateUDF, scalar::ScalarValue};
 use functions::{ReturnTypeFunction, ScalarFunctionImplementation, Signature};
 use std::collections::HashSet;
 
-/// `Expr` is a logical expression. A logical expression is something like `1 + 1`, or `CAST(c1 AS int)`.
-/// Logical expressions know how to compute its [arrow::datatypes::DataType] and nullability.
-/// `Expr` is a central struct of DataFusion's query API.
+/// `Expr` is a central struct of DataFusion's query API, and
+/// represent logical expressions such as `A + 1`, or `CAST(c1 AS
+/// int)`.
+///
+/// An `Expr` can compute its [DataType](arrow::datatypes::DataType)
+/// and nullability, and has functions for building up complex
+/// expressions.
 ///
 /// # Examples
 ///
+/// ## Create an expression `c1` referring to column named "c1"
 /// ```
-/// # use datafusion::logical_plan::Expr;
-/// # use datafusion::error::Result;
-/// # fn main() -> Result<()> {
-/// let expr = Expr::Column("c1".to_string()) + Expr::Column("c2".to_string());
-/// println!("{:?}", expr);
-/// # Ok(())
-/// # }
+/// # use datafusion::logical_plan::*;
+/// let expr = col("c1");
+/// assert_eq!(expr, Expr::Column("c1".to_string()));
+/// ```
+///
+/// ## Create the expression `c1 + c2` to add columns "c1" and "c2" together
+/// ```
+/// # use datafusion::logical_plan::*;
+/// let expr = col("c1") + col("c2");
+///
+/// assert!(matches!(expr, Expr::BinaryExpr { ..} ));
+/// if let Expr::BinaryExpr { left, right, op } = expr {
+///   assert_eq!(*left, col("c1"));
+///   assert_eq!(*right, col("c2"));
+///   assert_eq!(op, Operator::Plus);
+/// }
+/// ```
+///
+/// ## Create expression `c1 = 42` to compare the value in coumn "c1" to the literal value `42`
+/// ```
+/// # use datafusion::logical_plan::*;
+/// # use datafusion::scalar::*;
+/// let expr = col("c1").eq(lit(42));
+///
+/// assert!(matches!(expr, Expr::BinaryExpr { ..} ));
+/// if let Expr::BinaryExpr { left, right, op } = expr {
+///   assert_eq!(*left, col("c1"));
+///   let scalar = ScalarValue::Int32(Some(42));
+///   assert_eq!(*right, Expr::Literal(scalar));
+///   assert_eq!(op, Operator::Eq);
+/// }
 /// ```
 #[derive(Clone, PartialEq)]
 pub enum Expr {
@@ -318,13 +348,13 @@ impl Expr {
     ///
     /// This function errors when it is impossible to cast the
     /// expression to the target [arrow::datatypes::DataType].
-    pub fn cast_to(&self, cast_to_type: &DataType, schema: &DFSchema) -> Result<Expr> {
+    pub fn cast_to(self, cast_to_type: &DataType, schema: &DFSchema) -> Result<Expr> {
         let this_type = self.get_type(schema)?;
         if this_type == *cast_to_type {
-            Ok(self.clone())
+            Ok(self)
         } else if can_cast_types(&this_type, cast_to_type) {
             Ok(Expr::Cast {
-                expr: Box::new(self.clone()),
+                expr: Box::new(self),
                 data_type: cast_to_type.clone(),
             })
         } else {
@@ -335,75 +365,78 @@ impl Expr {
         }
     }
 
-    /// Equal
-    pub fn eq(&self, other: Expr) -> Expr {
-        binary_expr(self.clone(), Operator::Eq, other)
+    /// Return `self == other`
+    pub fn eq(self, other: Expr) -> Expr {
+        binary_expr(self, Operator::Eq, other)
     }
 
-    /// Not equal
-    pub fn not_eq(&self, other: Expr) -> Expr {
-        binary_expr(self.clone(), Operator::NotEq, other)
+    /// Return `self != other`
+    pub fn not_eq(self, other: Expr) -> Expr {
+        binary_expr(self, Operator::NotEq, other)
     }
 
-    /// Greater than
-    pub fn gt(&self, other: Expr) -> Expr {
-        binary_expr(self.clone(), Operator::Gt, other)
+    /// Return `self > other`
+    pub fn gt(self, other: Expr) -> Expr {
+        binary_expr(self, Operator::Gt, other)
     }
 
-    /// Greater than or equal to
-    pub fn gt_eq(&self, other: Expr) -> Expr {
-        binary_expr(self.clone(), Operator::GtEq, other)
+    /// Return `self >= other`
+    pub fn gt_eq(self, other: Expr) -> Expr {
+        binary_expr(self, Operator::GtEq, other)
     }
 
-    /// Less than
-    pub fn lt(&self, other: Expr) -> Expr {
-        binary_expr(self.clone(), Operator::Lt, other)
+    /// Return `self < other`
+    pub fn lt(self, other: Expr) -> Expr {
+        binary_expr(self, Operator::Lt, other)
     }
 
-    /// Less than or equal to
-    pub fn lt_eq(&self, other: Expr) -> Expr {
-        binary_expr(self.clone(), Operator::LtEq, other)
+    /// Return `self <= other`
+    pub fn lt_eq(self, other: Expr) -> Expr {
+        binary_expr(self, Operator::LtEq, other)
     }
 
-    /// And
-    pub fn and(&self, other: Expr) -> Expr {
-        binary_expr(self.clone(), Operator::And, other)
+    /// Return `self && other`
+    pub fn and(self, other: Expr) -> Expr {
+        binary_expr(self, Operator::And, other)
     }
 
-    /// Or
-    pub fn or(&self, other: Expr) -> Expr {
-        binary_expr(self.clone(), Operator::Or, other)
+    /// Return `self || other`
+    pub fn or(self, other: Expr) -> Expr {
+        binary_expr(self, Operator::Or, other)
     }
 
-    /// Not
-    pub fn not(&self) -> Expr {
-        Expr::Not(Box::new(self.clone()))
+    /// Return `!self`
+    #[allow(clippy::should_implement_trait)]
+    pub fn not(self) -> Expr {
+        Expr::Not(Box::new(self))
     }
 
-    /// Calculate the modulus of two expressions
-    pub fn modulus(&self, other: Expr) -> Expr {
-        binary_expr(self.clone(), Operator::Modulus, other)
+    /// Calculate the modulus of two expressions.
+    /// Return `self % other`
+    pub fn modulus(self, other: Expr) -> Expr {
+        binary_expr(self, Operator::Modulus, other)
     }
 
-    /// like (string) another expression
-    pub fn like(&self, other: Expr) -> Expr {
-        binary_expr(self.clone(), Operator::Like, other)
+    /// Return `self LIKE other`
+    pub fn like(self, other: Expr) -> Expr {
+        binary_expr(self, Operator::Like, other)
     }
 
-    /// not like another expression
-    pub fn not_like(&self, other: Expr) -> Expr {
-        binary_expr(self.clone(), Operator::NotLike, other)
+    /// Return `self NOT LIKE other`
+    pub fn not_like(self, other: Expr) -> Expr {
+        binary_expr(self, Operator::NotLike, other)
     }
 
-    /// Alias
-    pub fn alias(&self, name: &str) -> Expr {
-        Expr::Alias(Box::new(self.clone()), name.to_owned())
+    /// Return `self AS name` alias expression
+    pub fn alias(self, name: &str) -> Expr {
+        Expr::Alias(Box::new(self), name.to_owned())
     }
 
-    /// InList
-    pub fn in_list(&self, list: Vec<Expr>, negated: bool) -> Expr {
+    /// Return `self IN <list>` if `negated` is false, otherwise
+    /// return `self NOT IN <list>`.a
+    pub fn in_list(self, list: Vec<Expr>, negated: bool) -> Expr {
         Expr::InList {
-            expr: Box::new(self.clone()),
+            expr: Box::new(self),
             list,
             negated,
         }
@@ -415,9 +448,9 @@ impl Expr {
     /// # use datafusion::logical_plan::col;
     /// let sort_expr = col("foo").sort(true, true); // SORT ASC NULLS_FIRST
     /// ```
-    pub fn sort(&self, asc: bool, nulls_first: bool) -> Expr {
+    pub fn sort(self, asc: bool, nulls_first: bool) -> Expr {
         Expr::Sort {
-            expr: Box::new(self.clone()),
+            expr: Box::new(self),
             asc,
             nulls_first,
         }
@@ -433,9 +466,11 @@ impl Expr {
     /// and algorithms that walk the tree.
     ///
     /// For an expression tree such as
+    /// ```text
     /// BinaryExpr (GT)
     ///    left: Column("foo")
     ///    right: Column("bar")
+    /// ```
     ///
     /// The nodes are visited using the following order
     /// ```text
@@ -661,6 +696,20 @@ pub fn and(left: Expr, right: Expr) -> Expr {
     }
 }
 
+/// Combines an array of filter expressions into a single filter expression
+/// consisting of the input filter expressions joined with logical AND.
+/// Returns None if the filters array is empty.
+pub fn combine_filters(filters: &[Expr]) -> Option<Expr> {
+    if filters.is_empty() {
+        return None;
+    }
+    let combined_filter = filters
+        .iter()
+        .skip(1)
+        .fold(filters[0].clone(), |acc, filter| and(acc, filter.clone()));
+    Some(combined_filter)
+}
+
 /// return a new expression with a logical OR
 pub fn or(left: Expr, right: Expr) -> Expr {
     Expr::BinaryExpr {
@@ -738,7 +787,7 @@ pub fn in_list(expr: Expr, list: Vec<Expr>, negated: bool) -> Expr {
     }
 }
 
-/// Whether it can be represented as a literal expression
+/// Trait for converting a type to a [`Literal`] literal expression.
 pub trait Literal {
     /// convert the value to a Literal expression
     fn lit(&self) -> Expr;
@@ -753,6 +802,12 @@ impl Literal for &str {
 impl Literal for String {
     fn lit(&self) -> Expr {
         Expr::Literal(ScalarValue::Utf8(Some((*self).to_owned())))
+    }
+}
+
+impl Literal for ScalarValue {
+    fn lit(&self) -> Expr {
+        Expr::Literal(self.clone())
     }
 }
 
@@ -798,6 +853,8 @@ macro_rules! unary_scalar_expr {
 }
 
 // generate methods for creating the supported unary expressions
+
+// math functions
 unary_scalar_expr!(Sqrt, sqrt);
 unary_scalar_expr!(Sin, sin);
 unary_scalar_expr!(Cos, cos);
@@ -815,32 +872,26 @@ unary_scalar_expr!(Exp, exp);
 unary_scalar_expr!(Log, ln);
 unary_scalar_expr!(Log2, log2);
 unary_scalar_expr!(Log10, log10);
+
+// string functions
+unary_scalar_expr!(BitLength, bit_length);
+unary_scalar_expr!(Btrim, btrim);
+unary_scalar_expr!(CharacterLength, character_length);
+unary_scalar_expr!(CharacterLength, length);
+unary_scalar_expr!(Concat, concat);
+unary_scalar_expr!(ConcatWithSeparator, concat_ws);
 unary_scalar_expr!(Lower, lower);
-unary_scalar_expr!(Trim, trim);
 unary_scalar_expr!(Ltrim, ltrim);
-unary_scalar_expr!(Rtrim, rtrim);
-unary_scalar_expr!(Upper, upper);
 unary_scalar_expr!(MD5, md5);
+unary_scalar_expr!(OctetLength, octet_length);
+unary_scalar_expr!(Rtrim, rtrim);
 unary_scalar_expr!(SHA224, sha224);
 unary_scalar_expr!(SHA256, sha256);
 unary_scalar_expr!(SHA384, sha384);
 unary_scalar_expr!(SHA512, sha512);
-
-/// returns the length of a string in bytes
-pub fn length(e: Expr) -> Expr {
-    Expr::ScalarFunction {
-        fun: functions::BuiltinScalarFunction::Length,
-        args: vec![e],
-    }
-}
-
-/// returns the concatenation of string expressions
-pub fn concat(args: Vec<Expr>) -> Expr {
-    Expr::ScalarFunction {
-        fun: functions::BuiltinScalarFunction::Concat,
-        args,
-    }
-}
+unary_scalar_expr!(Substr, substr);
+unary_scalar_expr!(Trim, trim);
+unary_scalar_expr!(Upper, upper);
 
 /// returns an array of fixed size with each argument on it.
 pub fn array(args: Vec<Expr>) -> Expr {
@@ -888,9 +939,9 @@ pub fn create_udaf(
 
 fn fmt_function(
     f: &mut fmt::Formatter,
-    fun: &String,
+    fun: &str,
     distinct: bool,
-    args: &Vec<Expr>,
+    args: &[Expr],
 ) -> fmt::Result {
     let args: Vec<String> = args.iter().map(|arg| format!("{:?}", arg)).collect();
     let distinct_str = match distinct {
@@ -995,7 +1046,7 @@ impl fmt::Debug for Expr {
 }
 
 fn create_function_name(
-    fun: &String,
+    fun: &str,
     distinct: bool,
     args: &[Expr],
     input_schema: &DFSchema,
@@ -1089,9 +1140,9 @@ fn create_name(e: &Expr, input_schema: &DFSchema) -> Result<String> {
             let expr = create_name(expr, input_schema)?;
             let list = list.iter().map(|expr| create_name(expr, input_schema));
             if *negated {
-                Ok(format!("{:?} NOT IN ({:?})", expr, list))
+                Ok(format!("{} NOT IN ({:?})", expr, list))
             } else {
-                Ok(format!("{:?} IN ({:?})", expr, list))
+                Ok(format!("{} IN ({:?})", expr, list))
             }
         }
         other => Err(DataFusionError::NotImplemented(format!(
@@ -1123,11 +1174,10 @@ mod tests {
     }
 
     #[test]
-    fn case_when_different_literal_then_types() -> Result<()> {
+    fn case_when_different_literal_then_types() {
         let maybe_expr = when(col("state").eq(lit("CO")), lit(303))
             .when(col("state").eq(lit("NY")), lit("212"))
             .end();
         assert!(maybe_expr.is_err());
-        Ok(())
     }
 }

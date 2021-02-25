@@ -460,6 +460,16 @@ test_that("Array$create() handles data frame -> struct arrays (ARROW-3811)", {
   expect_equivalent(as.vector(a), df)
 })
 
+test_that("StructArray methods", {
+  df <- tibble::tibble(x = 1:10, y = x / 2, z = letters[1:10])
+  a <- Array$create(df)
+  expect_equal(a$x, Array$create(df$x))
+  expect_equal(a[["x"]], Array$create(df$x))
+  expect_equal(a[[1]], Array$create(df$x))
+  expect_identical(names(a), c("x", "y", "z"))
+  expect_identical(dim(a), c(10L, 3L))
+})
+
 test_that("Array$create() can handle data frame with custom struct type (not inferred)", {
   df <- tibble::tibble(x = 1:10, y = 1:10)
   type <- struct(x = float64(), y = int16())

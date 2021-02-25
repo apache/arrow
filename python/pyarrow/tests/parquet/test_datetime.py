@@ -270,6 +270,17 @@ def test_timestamp_restore_timezone():
     _check_roundtrip(t)
 
 
+def test_timestamp_restore_timezone_nanosecond():
+    # ARROW-9634, also restore timezone for nanosecond data that get stored
+    # as microseconds in the parquet file
+    ty = pa.timestamp('ns', tz='America/New_York')
+    arr = pa.array([1000, 2000, 3000], type=ty)
+    table = pa.table([arr], names=['f0'])
+    ty_us = pa.timestamp('us', tz='America/New_York')
+    expected = pa.table([arr.cast(ty_us)], names=['f0'])
+    _check_roundtrip(table, expected=expected)
+
+
 @pytest.mark.pandas
 def test_list_of_datetime_time_roundtrip():
     # ARROW-4135

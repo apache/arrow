@@ -331,8 +331,12 @@ def test_stream_simple_roundtrip(stream_fixture, use_legacy_ipc_format):
 
 def test_write_options():
     options = pa.ipc.IpcWriteOptions()
+    assert options.allow_64bit is False
     assert options.use_legacy_format is False
     assert options.metadata_version == pa.ipc.MetadataVersion.V5
+
+    options.allow_64bit = True
+    assert options.allow_64bit is True
 
     options.use_legacy_format = True
     assert options.use_legacy_format is True
@@ -358,10 +362,12 @@ def test_write_options():
 
     options = pa.ipc.IpcWriteOptions(
         metadata_version=pa.ipc.MetadataVersion.V4,
+        allow_64bit=True,
         use_legacy_format=True,
         compression='lz4',
         use_threads=False)
     assert options.metadata_version == pa.ipc.MetadataVersion.V4
+    assert options.allow_64bit is True
     assert options.use_legacy_format is True
     assert options.compression == 'lz4'
     assert options.use_threads is False
@@ -378,6 +384,7 @@ def test_write_options_legacy_exclusive(stream_fixture):
 
 @pytest.mark.parametrize('options', [
     pa.ipc.IpcWriteOptions(),
+    pa.ipc.IpcWriteOptions(allow_64bit=True),
     pa.ipc.IpcWriteOptions(use_legacy_format=True),
     pa.ipc.IpcWriteOptions(metadata_version=pa.ipc.MetadataVersion.V4),
     pa.ipc.IpcWriteOptions(use_legacy_format=True,
@@ -823,7 +830,7 @@ def test_serialize_pandas_no_preserve_index():
 
 
 @pytest.mark.pandas
-@pytest.mark.filterwarnings("ignore:'pyarrow:DeprecationWarning")
+@pytest.mark.filterwarnings("ignore:'pyarrow:FutureWarning")
 def test_serialize_with_pandas_objects():
     df = pd.DataFrame({'a': [1, 2, 3]}, index=[1, 2, 3])
     s = pd.Series([1, 2, 3, 4])

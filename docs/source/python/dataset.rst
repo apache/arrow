@@ -182,7 +182,7 @@ The easiest way to construct those :class:`Expression` objects is by using the
 referenced using the :func:`field` function (which creates a
 :class:`FieldExpression`). Operator overloads are provided to compose filters
 including the comparisons (equal, larger/less than, etc), set membership
-testing, and boolean combinations (and, or, not):
+testing, and boolean combinations (``&``, ``|``, ``~``):
 
 .. ipython:: python
 
@@ -190,6 +190,8 @@ testing, and boolean combinations (and, or, not):
     ds.field('a').isin([1, 2, 3])
     (ds.field('a') > ds.field('b')) & (ds.field('b') > 1)
 
+Note that :class:`Expression` objects can **not** be combined by python logical
+operators ``and``, ``or`` and ``not``.
 
 Reading partitioned data
 ------------------------

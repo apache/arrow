@@ -26,10 +26,13 @@ pub(super) fn build_extend(array: &ArrayData) -> Extend {
                   index: usize,
                   start: usize,
                   len: usize| {
-                mutable
-                    .child_data
-                    .iter_mut()
-                    .for_each(|child| child.extend(index, start, start + len))
+                mutable.child_data.iter_mut().for_each(|child| {
+                    child.extend(
+                        index,
+                        array.offset() + start,
+                        array.offset() + start + len,
+                    )
+                })
             },
         )
     } else {
@@ -38,7 +41,7 @@ pub(super) fn build_extend(array: &ArrayData) -> Extend {
                   index: usize,
                   start: usize,
                   len: usize| {
-                (start..start + len).for_each(|i| {
+                (array.offset() + start..array.offset() + start + len).for_each(|i| {
                     if array.is_valid(i) {
                         mutable
                             .child_data

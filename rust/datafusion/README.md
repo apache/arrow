@@ -50,14 +50,25 @@ DataFusion includes a simple command-line interactive SQL utility. See the [CLI 
 
 - [x] Projection
 - [x] Filter (WHERE)
+- [x] Filter post-aggregate (HAVING)
 - [x] Limit
 - [x] Aggregate
 - [x] UDFs (user-defined functions)
 - [x] UDAFs (user-defined aggregate functions)
 - [x] Common math functions
 - String functions
-  - [x] Length
-  - [x] Concatenate
+  - [x] bit_Length
+  - [x] btrim
+  - [x] char_length
+  - [x] character_length
+  - [x] concat
+  - [x] concat_ws
+  - [x] length
+  - [x] ltrim
+  - [x] octet_length
+  - [x] rtrim
+  - [x] substr
+  - [x] trim
 - Miscellaneous/Boolean functions
   - [x] nullif
 - Common date/time functions
@@ -71,6 +82,7 @@ DataFusion includes a simple command-line interactive SQL utility. See the [CLI 
 - [ ] Lists
 - [x] Subqueries
 - [ ] Joins
+- [ ] Window
 
 ## Data Sources
 
@@ -122,9 +134,9 @@ are mapped to Arrow types according to the following table
 | `REAL`          | `Float64`                        |
 | `DOUBLE`        | `Float64`                        |
 | `BOOLEAN`       | `Boolean`                        |
-| `DATE`          | `Date64(DateUnit::Day)`          |
+| `DATE`          | `Date32`                         |
 | `TIME`          | `Time64(TimeUnit::Millisecond)`  |
-| `TIMESTAMP`     | `Date64(DateUnit::Millisecond)`  |
+| `TIMESTAMP`     | `Date64`                         |
 | `INTERVAL`      | *Not yet supported*              |
 | `REGCLASS`      | *Not yet supported*              |
 | `TEXT`          | *Not yet supported*              |

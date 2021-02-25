@@ -27,15 +27,15 @@ license = "Apache-2.0"
 
 [dependencies]
 arrow = { path = "../arrow", version = "4.0.0-SNAPSHOT" }
-tonic = "0.3"
+tonic = "0.4"
 bytes = "1"
-prost = "0.6"
-prost-derive = "0.6"
-tokio = { version = "0.2", features = ["macros"] }
+prost = "0.7"
+prost-derive = "0.7"
+tokio = { version = "1.0", features = ["macros", "rt", "rt-multi-thread"] }
 futures = { version = "0.3", default-features = false, features = ["alloc"]}
 
 [build-dependencies]
-tonic-build = "0.3"
+tonic-build = "0.4"
 # Pin specific version of the tonic-build dependencies to avoid auto-generated
 # (and checked in) arrow.flight.protocol.rs from changing
 proc-macro2 = "=1.0.24"

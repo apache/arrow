@@ -44,7 +44,7 @@ pub fn seedable_rng() -> StdRng {
 }
 
 fn query(ctx: Arc<Mutex<ExecutionContext>>, sql: &str) {
-    let mut rt = Runtime::new().unwrap();
+    let rt = Runtime::new().unwrap();
 
     // execute the query
     let df = ctx.lock().unwrap().sql(&sql).unwrap();
@@ -150,7 +150,7 @@ fn create_context(
 
     // declare a table in memory. In spark API, this corresponds to createDataFrame(...).
     let provider = MemTable::try_new(schema, partitions)?;
-    ctx.register_table("t", Box::new(provider));
+    ctx.register_table("t", Arc::new(provider));
 
     Ok(Arc::new(Mutex::new(ctx)))
 }

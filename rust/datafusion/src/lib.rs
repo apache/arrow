@@ -20,7 +20,6 @@
     clippy::float_cmp,
     clippy::module_inception,
     clippy::new_without_default,
-    clippy::ptr_arg,
     clippy::type_complexity
 )]
 
@@ -47,7 +46,7 @@
 //!
 //! // create a plan
 //! let df = df.filter(col("a").lt_eq(col("b")))?
-//!            .aggregate(vec![col("a")], vec![min(col("b"))])?
+//!            .aggregate(&[col("a")], &[min(col("b"))])?
 //!            .limit(100)?;
 //!
 //! // execute the plan

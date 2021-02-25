@@ -146,8 +146,8 @@ pub fn build_compare<'a>(left: &'a Array, right: &'a Array) -> Result<DynCompara
         (Int64, Int64) => compare_primitives::<Int64Type>(left, right),
         (Float32, Float32) => compare_float::<Float32Type>(left, right),
         (Float64, Float64) => compare_float::<Float64Type>(left, right),
-        (Date32(_), Date32(_)) => compare_primitives::<Date32Type>(left, right),
-        (Date64(_), Date64(_)) => compare_primitives::<Date64Type>(left, right),
+        (Date32, Date32) => compare_primitives::<Date32Type>(left, right),
+        (Date64, Date64) => compare_primitives::<Date64Type>(left, right),
         (Time32(Second), Time32(Second)) => {
             compare_primitives::<Time32SecondType>(left, right)
         }

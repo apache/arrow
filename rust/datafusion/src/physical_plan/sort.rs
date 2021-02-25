@@ -48,8 +48,6 @@ pub struct SortExec {
     input: Arc<dyn ExecutionPlan>,
     /// Sort expressions
     expr: Vec<PhysicalSortExpr>,
-    /// Number of threads to execute input partitions on before combining into a single partition
-    concurrency: usize,
 }
 
 impl SortExec {
@@ -57,13 +55,8 @@ impl SortExec {
     pub fn try_new(
         expr: Vec<PhysicalSortExpr>,
         input: Arc<dyn ExecutionPlan>,
-        concurrency: usize,
     ) -> Result<Self> {
-        Ok(Self {
-            expr,
-            input,
-            concurrency,
-        })
+        Ok(Self { expr, input })
     }
 
     /// Input schema
@@ -109,7 +102,6 @@ impl ExecutionPlan for SortExec {
             1 => Ok(Arc::new(SortExec::try_new(
                 self.expr.clone(),
                 children[0].clone(),
-                self.concurrency,
             )?)),
             _ => Err(DataFusionError::Internal(
                 "SortExec wrong number of children".to_string(),
@@ -138,7 +130,7 @@ impl ExecutionPlan for SortExec {
 }
 
 fn sort_batches(
-    batches: &Vec<RecordBatch>,
+    batches: &[RecordBatch],
     schema: &SchemaRef,
     expr: &[PhysicalSortExpr],
 ) -> ArrowResult<Option<RecordBatch>> {
@@ -301,7 +293,6 @@ mod tests {
                 },
             ],
             Arc::new(MergeExec::new(Arc::new(csv))),
-            2,
         )?);
 
         let result: Vec<RecordBatch> = collect(sort_exec).await?;
@@ -375,8 +366,7 @@ mod tests {
                     },
                 },
             ],
-            Arc::new(MemoryExec::try_new(&vec![vec![batch]], schema, None)?),
-            2,
+            Arc::new(MemoryExec::try_new(&[vec![batch]], schema, None)?),
         )?);
 
         assert_eq!(DataType::Float32, *sort_exec.schema().field(0).data_type());

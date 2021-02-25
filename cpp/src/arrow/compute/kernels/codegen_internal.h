@@ -442,7 +442,7 @@ namespace applicator {
 // static void Call(KernelContext*, const ArrayData& in, ArrayData* out)
 // static void Call(KernelContext*, const Scalar& in, Scalar* out)
 template <typename Operator>
-void SimpleUnary(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+static void SimpleUnary(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   if (batch[0].kind() == Datum::SCALAR) {
     Operator::Call(ctx, *batch[0].scalar(), out->scalar().get());
   } else if (batch.length > 0) {
@@ -464,7 +464,7 @@ void SimpleUnary(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
 // static void Call(KernelContext*, const Scalar& arg0, const Scalar& arg1,
 //                  Scalar* out)
 template <typename Operator>
-void SimpleBinary(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+static void SimpleBinary(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   if (batch.length == 0) return;
 
   if (batch[0].kind() == Datum::ARRAY) {
@@ -663,14 +663,16 @@ struct ScalarUnaryNotNullStateful {
     static void Exec(const ThisType& functor, KernelContext* ctx, const ArrayData& arg0,
                      Datum* out) {
       ArrayData* out_arr = out->mutable_array();
-      auto out_data = out_arr->GetMutableValues<uint8_t>(1);
+      // Decimal128 data buffers are not safely reinterpret_cast-able on big-endian
+      using endian_agnostic = std::array<uint8_t, sizeof(Decimal128)>;
+      auto out_data = out_arr->GetMutableValues<endian_agnostic>(1);
       VisitArrayValuesInline<Arg0Type>(
           arg0,
           [&](Arg0Value v) {
-            functor.op.template Call<OutValue, Arg0Value>(ctx, v).ToBytes(out_data);
-            out_data += 16;
+            functor.op.template Call<OutValue, Arg0Value>(ctx, v).ToBytes(
+                out_data++->data());
           },
-          [&]() { out_data += 16; });
+          [&]() { ++out_data; });
     }
   };
 
@@ -1185,6 +1187,24 @@ ArrayKernelExec GenerateTemporal(detail::GetTypeId get_id) {
 
 // END of kernel generator-dispatchers
 // ----------------------------------------------------------------------
+
+ARROW_EXPORT
+void EnsureDictionaryDecoded(std::vector<ValueDescr>* descrs);
+
+ARROW_EXPORT
+void ReplaceNullWithOtherType(std::vector<ValueDescr>* descrs);
+
+ARROW_EXPORT
+void ReplaceTypes(const std::shared_ptr<DataType>&, std::vector<ValueDescr>* descrs);
+
+ARROW_EXPORT
+std::shared_ptr<DataType> CommonNumeric(const std::vector<ValueDescr>& descrs);
+
+ARROW_EXPORT
+std::shared_ptr<DataType> CommonTimestamp(const std::vector<ValueDescr>& descrs);
+
+ARROW_EXPORT
+std::shared_ptr<DataType> CommonBinary(const std::vector<ValueDescr>& descrs);
 
 }  // namespace internal
 }  // namespace compute

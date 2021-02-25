@@ -50,16 +50,19 @@ namespace arrow {
 namespace dataset {
 
 const std::shared_ptr<Schema> kBoringSchema = schema({
+    field("bool", boolean()),
+    field("i8", int8()),
     field("i32", int32()),
     field("i32_req", int32(), /*nullable=*/false),
+    field("u32", uint32()),
     field("i64", int64()),
-    field("date64", date64()),
     field("f32", float32()),
     field("f32_req", float32(), /*nullable=*/false),
     field("f64", float64()),
-    field("bool", boolean()),
+    field("date64", date64()),
     field("str", utf8()),
     field("dict_str", dictionary(int32(), utf8())),
+    field("dict_i32", dictionary(int32(), int32())),
     field("ts_ns", timestamp(TimeUnit::NANO)),
 });
 

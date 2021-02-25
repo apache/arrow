@@ -50,29 +50,30 @@ use arrow::compute::SortOptions;
 use arrow::datatypes::{Schema, SchemaRef};
 use expressions::col;
 
-/// This trait permits the `DefaultPhysicalPlanner` to create plans for
-/// user defined `ExtensionPlanNode`s
+/// This trait exposes the ability to plan an [`ExecutionPlan`] out of a [`LogicalPlan`].
 pub trait ExtensionPlanner {
-    /// Create a physical plan for an extension node
+    /// Create a physical plan for a [`UserDefinedLogicalNode`].
+    /// This errors when the planner knows how to plan the concrete implementation of `node`
+    /// but errors while doing so, and `None` when the planner does not know how to plan the `node`
+    /// and wants to delegate the planning to another [`ExtensionPlanner`].
     fn plan_extension(
         &self,
         node: &dyn UserDefinedLogicalNode,
-        inputs: Vec<Arc<dyn ExecutionPlan>>,
+        inputs: &[Arc<dyn ExecutionPlan>],
         ctx_state: &ExecutionContextState,
-    ) -> Result<Arc<dyn ExecutionPlan>>;
+    ) -> Result<Option<Arc<dyn ExecutionPlan>>>;
 }
 
 /// Default single node physical query planner that converts a
 /// `LogicalPlan` to an `ExecutionPlan` suitable for execution.
 pub struct DefaultPhysicalPlanner {
-    extension_planner: Arc<dyn ExtensionPlanner + Send + Sync>,
+    extension_planners: Vec<Arc<dyn ExtensionPlanner + Send + Sync>>,
 }
 
 impl Default for DefaultPhysicalPlanner {
-    /// Create an implementation of the default physical planner
     fn default() -> Self {
         Self {
-            extension_planner: Arc::new(DefaultExtensionPlanner {}),
+            extension_planners: vec![],
         }
     }
 }
@@ -90,12 +91,14 @@ impl PhysicalPlanner for DefaultPhysicalPlanner {
 }
 
 impl DefaultPhysicalPlanner {
-    /// Create a physical planner that uses `extension_planner` to
-    /// plan extension nodes.
-    pub fn with_extension_planner(
-        extension_planner: Arc<dyn ExtensionPlanner + Send + Sync>,
+    /// Create a physical planner that uses `extension_planners` to
+    /// plan user-defined logical nodes [`LogicalPlan::Extension`].
+    /// The planner uses the first [`ExtensionPlanner`] to return a non-`None`
+    /// plan.
+    pub fn with_extension_planners(
+        extension_planners: Vec<Arc<dyn ExtensionPlanner + Send + Sync>>,
     ) -> Self {
-        Self { extension_planner }
+        Self { extension_planners }
     }
 
     /// Create a physical plan from a logical plan
@@ -183,6 +186,7 @@ impl DefaultPhysicalPlanner {
             } => {
                 // Initially need to perform the aggregate and then merge the partitions
                 let input_exec = self.create_physical_plan(input, ctx_state)?;
+                let input_schema = input_exec.schema();
                 let physical_input_schema = input_exec.as_ref().schema();
                 let logical_input_schema = input.as_ref().schema();
 
@@ -216,6 +220,7 @@ impl DefaultPhysicalPlanner {
                     groups.clone(),
                     aggregates.clone(),
                     input_exec,
+                    input_schema.clone(),
                 )?);
 
                 let final_group: Vec<Arc<dyn PhysicalExpr>> =
@@ -232,6 +237,7 @@ impl DefaultPhysicalPlanner {
                         .collect(),
                     aggregates,
                     initial_aggr,
+                    input_schema,
                 )?))
             }
             LogicalPlan::Projection { input, expr, .. } => {
@@ -312,11 +318,7 @@ impl DefaultPhysicalPlanner {
                     })
                     .collect::<Result<Vec<_>>>()?;
 
-                Ok(Arc::new(SortExec::try_new(
-                    sort_expr,
-                    input,
-                    ctx_state.config.concurrency,
-                )?))
+                Ok(Arc::new(SortExec::try_new(sort_expr, input)?))
             }
             LogicalPlan::Join {
                 left,
@@ -360,11 +362,7 @@ impl DefaultPhysicalPlanner {
                     Arc::new(LocalLimitExec::new(input, limit))
                 };
 
-                Ok(Arc::new(GlobalLimitExec::new(
-                    input,
-                    limit,
-                    ctx_state.config.concurrency,
-                )))
+                Ok(Arc::new(GlobalLimitExec::new(input, limit)))
             }
             LogicalPlan::CreateExternalTable { .. } => {
                 // There is no default plan for "CREATE EXTERNAL
@@ -408,11 +406,19 @@ impl DefaultPhysicalPlanner {
                     .map(|input_plan| self.create_physical_plan(input_plan, ctx_state))
                     .collect::<Result<Vec<_>>>()?;
 
-                let plan = self.extension_planner.plan_extension(
-                    node.as_ref(),
-                    inputs,
-                    ctx_state,
+                let maybe_plan = self.extension_planners.iter().try_fold(
+                    None,
+                    |maybe_plan, planner| {
+                        if let Some(plan) = maybe_plan {
+                            Ok(Some(plan))
+                        } else {
+                            planner.plan_extension(node.as_ref(), &inputs, ctx_state)
+                        }
+                    },
                 )?;
+                let plan = maybe_plan.ok_or_else(|| DataFusionError::Plan(format!(
+                    "No installed planner was able to convert the custom node to an execution plan: {:?}", node
+                )))?;
 
                 // Ensure the ExecutionPlan's  schema matches the
                 // declared logical schema to catch and warn about
@@ -730,23 +736,6 @@ fn tuple_err<T, R>(value: (Result<T>, Result<R>)) -> Result<(T, R)> {
     }
 }
 
-struct DefaultExtensionPlanner {}
-
-impl ExtensionPlanner for DefaultExtensionPlanner {
-    fn plan_extension(
-        &self,
-        node: &dyn UserDefinedLogicalNode,
-        _inputs: Vec<Arc<dyn ExecutionPlan>>,
-        _ctx_state: &ExecutionContextState,
-    ) -> Result<Arc<dyn ExecutionPlan>> {
-        Err(DataFusionError::NotImplemented(format!(
-            "DefaultPhysicalPlanner does not know how to plan {:?}. \
-                     Provide a custom ExtensionPlanNodePlanner that does",
-            node
-        )))
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -788,9 +777,9 @@ mod tests {
         let logical_plan = LogicalPlanBuilder::scan_csv(&path, options, None)?
             // filter clause needs the type coercion rule applied
             .filter(col("c7").lt(lit(5_u8)))?
-            .project(vec![col("c1"), col("c2")])?
-            .aggregate(vec![col("c1")], vec![sum(col("c2"))])?
-            .sort(vec![col("c1").sort(true, true)])?
+            .project(&[col("c1"), col("c2")])?
+            .aggregate(&[col("c1")], &[sum(col("c2"))])?
+            .sort(&[col("c1").sort(true, true)])?
             .limit(10)?
             .build()?;
 
@@ -861,18 +850,18 @@ mod tests {
         ];
         for case in cases {
             let logical_plan = LogicalPlanBuilder::scan_csv(&path, options, None)?
-                .project(vec![case.clone()]);
+                .project(&[case.clone()]);
             let message = format!(
                 "Expression {:?} expected to error due to impossible coercion",
                 case
             );
-            assert!(logical_plan.is_err(), message);
+            assert!(logical_plan.is_err(), "{}", message);
         }
         Ok(())
     }
 
     #[test]
-    fn default_extension_planner() -> Result<()> {
+    fn default_extension_planner() {
         let ctx_state = make_ctx_state();
         let planner = DefaultPhysicalPlanner::default();
         let logical_plan = LogicalPlan::Extension {
@@ -880,7 +869,7 @@ mod tests {
         };
         let plan = planner.create_physical_plan(&logical_plan, &ctx_state);
 
-        let expected_error = "DefaultPhysicalPlanner does not know how to plan NoOp";
+        let expected_error = "No installed planner was able to convert the custom node to an execution plan: NoOp";
         match plan {
             Ok(_) => panic!("Expected planning failure"),
             Err(e) => assert!(
@@ -890,17 +879,16 @@ mod tests {
                 expected_error
             ),
         }
-        Ok(())
     }
 
     #[test]
-    fn bad_extension_planner() -> Result<()> {
+    fn bad_extension_planner() {
         // Test that creating an execution plan whose schema doesn't
         // match the logical plan's schema generates an error.
         let ctx_state = make_ctx_state();
-        let planner = DefaultPhysicalPlanner::with_extension_planner(Arc::new(
+        let planner = DefaultPhysicalPlanner::with_extension_planners(vec![Arc::new(
             BadExtensionPlanner {},
-        ));
+        )]);
 
         let logical_plan = LogicalPlan::Extension {
             node: Arc::new(NoOpExtensionNode::default()),
@@ -936,7 +924,6 @@ mod tests {
                 expected_error
             ),
         }
-        Ok(())
     }
 
     #[test]
@@ -953,7 +940,7 @@ mod tests {
         let logical_plan = LogicalPlanBuilder::scan_csv(&path, options, None)?
             // filter clause needs the type coercion rule applied
             .filter(col("c12").lt(lit(0.05)))?
-            .project(vec![col("c1").in_list(list, false)])?
+            .project(&[col("c1").in_list(list, false)])?
             .build()?;
         let execution_plan = plan(&logical_plan)?;
         // verify that the plan correctly adds cast from Int64(1) to Utf8
@@ -968,7 +955,7 @@ mod tests {
         let logical_plan = LogicalPlanBuilder::scan_csv(&path, options, None)?
             // filter clause needs the type coercion rule applied
             .filter(col("c12").lt(lit(0.05)))?
-            .project(vec![col("c12").lt_eq(lit(0.025)).in_list(list, false)])?
+            .project(&[col("c12").lt_eq(lit(0.025)).in_list(list, false)])?
             .build()?;
         let execution_plan = plan(&logical_plan);
 
@@ -982,6 +969,29 @@ mod tests {
                 expected_error
             ),
         }
+
+        Ok(())
+    }
+
+    #[test]
+    fn hash_agg_input_schema() -> Result<()> {
+        let testdata = arrow::util::test_util::arrow_test_data();
+        let path = format!("{}/csv/aggregate_test_100.csv", testdata);
+
+        let options = CsvReadOptions::new().schema_infer_max_records(100);
+        let logical_plan = LogicalPlanBuilder::scan_csv(&path, options, None)?
+            .aggregate(&[col("c1")], &[sum(col("c2"))])?
+            .build()?;
+
+        let execution_plan = plan(&logical_plan)?;
+        let final_hash_agg = execution_plan
+            .as_any()
+            .downcast_ref::<HashAggregateExec>()
+            .expect("hash aggregate");
+        assert_eq!("SUM(c2)", final_hash_agg.schema().field(1).name());
+        // we need access to the input to the partial aggregate so that other projects can
+        // implement serde
+        assert_eq!("c2", final_hash_agg.input_schema().field(1).name());
 
         Ok(())
     }
@@ -1031,8 +1041,8 @@ mod tests {
 
         fn from_template(
             &self,
-            _exprs: &Vec<Expr>,
-            _inputs: &Vec<LogicalPlan>,
+            _exprs: &[Expr],
+            _inputs: &[LogicalPlan],
         ) -> Arc<dyn UserDefinedLogicalNode + Send + Sync> {
             unimplemented!("NoOp");
         }
@@ -1083,16 +1093,16 @@ mod tests {
         fn plan_extension(
             &self,
             _node: &dyn UserDefinedLogicalNode,
-            _inputs: Vec<Arc<dyn ExecutionPlan>>,
+            _inputs: &[Arc<dyn ExecutionPlan>],
             _ctx_state: &ExecutionContextState,
-        ) -> Result<Arc<dyn ExecutionPlan>> {
-            Ok(Arc::new(NoOpExecutionPlan {
+        ) -> Result<Option<Arc<dyn ExecutionPlan>>> {
+            Ok(Some(Arc::new(NoOpExecutionPlan {
                 schema: SchemaRef::new(Schema::new(vec![Field::new(
                     "b",
                     DataType::Int32,
                     false,
                 )])),
-            }))
+            })))
         }
     }
 }

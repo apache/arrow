@@ -1522,7 +1522,7 @@ mod tests {
     }
 
     #[test]
-    fn test_file_reader_iter() -> Result<()> {
+    fn test_file_reader_iter() {
         let path = get_test_path("alltypes_plain.parquet");
         let vec = vec![path]
             .iter()
@@ -1532,12 +1532,10 @@ mod tests {
             .collect::<Vec<_>>();
 
         assert_eq!(vec, vec![4, 5, 6, 7, 2, 3, 0, 1]);
-
-        Ok(())
     }
 
     #[test]
-    fn test_file_reader_iter_projection() -> Result<()> {
+    fn test_file_reader_iter_projection() {
         let path = get_test_path("alltypes_plain.parquet");
         let values = vec![path]
             .iter()
@@ -1553,8 +1551,6 @@ mod tests {
             .join(", ");
 
         assert_eq!(values, "id:4, id:5, id:6, id:7, id:2, id:3, id:0, id:1");
-
-        Ok(())
     }
 
     #[test]

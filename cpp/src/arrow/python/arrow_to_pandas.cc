@@ -2183,7 +2183,9 @@ Status ConvertCategoricals(const PandasOptions& options, ChunkedArrayVector* arr
                              "only zero-copy conversions allowed");
     }
     compute::ExecContext ctx(options.pool);
-    ARROW_ASSIGN_OR_RAISE(Datum out, DictionaryEncode((*arrays)[i], &ctx));
+    ARROW_ASSIGN_OR_RAISE(
+        Datum out, DictionaryEncode((*arrays)[i],
+                                    compute::DictionaryEncodeOptions::Defaults(), &ctx));
     (*arrays)[i] = out.chunked_array();
     (*fields)[i] = (*fields)[i]->WithType((*arrays)[i]->type());
     return Status::OK();
@@ -2232,7 +2234,9 @@ Status ConvertChunkedArrayToPandas(const PandasOptions& options,
                              "only zero-copy conversions allowed");
     }
     compute::ExecContext ctx(options.pool);
-    ARROW_ASSIGN_OR_RAISE(Datum out, DictionaryEncode(arr, &ctx));
+    ARROW_ASSIGN_OR_RAISE(
+        Datum out,
+        DictionaryEncode(arr, compute::DictionaryEncodeOptions::Defaults(), &ctx));
     arr = out.chunked_array();
   }
 

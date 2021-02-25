@@ -52,26 +52,11 @@ pub struct GenericBinaryArray<OffsetSize: BinaryOffsetSizeTrait> {
 }
 
 impl<OffsetSize: BinaryOffsetSizeTrait> GenericBinaryArray<OffsetSize> {
-    /// Returns the offset for the element at index `i`.
-    ///
-    /// Note this doesn't do any bound checking, for performance reason.
+    /// Returns the length for value at index `i`.
     #[inline]
-    pub fn value_offset(&self, i: usize) -> OffsetSize {
-        self.value_offset_at(self.data.offset() + i)
-    }
-
-    /// Returns the length for the element at index `i`.
-    ///
-    /// Note this doesn't do any bound checking, for performance reason.
-    #[inline]
-    pub fn value_length(&self, mut i: usize) -> OffsetSize {
-        i += self.data.offset();
-        self.value_offset_at(i + 1) - self.value_offset_at(i)
-    }
-
-    /// Returns a clone of the value offset buffer
-    pub fn value_offsets(&self) -> Buffer {
-        self.data.buffers()[0].clone()
+    pub fn value_length(&self, i: usize) -> OffsetSize {
+        let offsets = self.value_offsets();
+        offsets[i + 1] - offsets[i]
     }
 
     /// Returns a clone of the value data buffer
@@ -79,20 +64,50 @@ impl<OffsetSize: BinaryOffsetSizeTrait> GenericBinaryArray<OffsetSize> {
         self.data.buffers()[1].clone()
     }
 
+    /// Returns the offset values in the offsets buffer
     #[inline]
-    fn value_offset_at(&self, i: usize) -> OffsetSize {
-        unsafe { *self.value_offsets.as_ptr().add(i) }
+    pub fn value_offsets(&self) -> &[OffsetSize] {
+        // Soundness
+        //     pointer alignment & location is ensured by RawPtrBox
+        //     buffer bounds/offset is ensured by the ArrayData instance.
+        unsafe {
+            std::slice::from_raw_parts(
+                self.value_offsets.as_ptr().add(self.data.offset()),
+                self.len() + 1,
+            )
+        }
     }
 
-    /// Returns the element at index `i` as a byte slice.
+    /// Returns the element at index `i` as bytes slice
+    /// # Safety
+    /// Caller is responsible for ensuring that the index is within the bounds of the array
+    pub unsafe fn value_unchecked(&self, i: usize) -> &[u8] {
+        let end = *self.value_offsets().get_unchecked(i + 1);
+        let start = *self.value_offsets().get_unchecked(i);
+
+        // Soundness
+        // pointer alignment & location is ensured by RawPtrBox
+        // buffer bounds/offset is ensured by the value_offset invariants
+        std::slice::from_raw_parts(
+            self.value_data.as_ptr().offset(start.to_isize()),
+            (end - start).to_usize().unwrap(),
+        )
+    }
+
+    /// Returns the element at index `i` as bytes slice
     pub fn value(&self, i: usize) -> &[u8] {
         assert!(i < self.data.len(), "BinaryArray out of bounds access");
-        let offset = i.checked_add(self.data.offset()).unwrap();
+        //Soundness: length checked above, offset buffer length is 1 larger than logical array length
+        let end = unsafe { self.value_offsets().get_unchecked(i + 1) };
+        let start = unsafe { self.value_offsets().get_unchecked(i) };
+
+        // Soundness
+        // pointer alignment & location is ensured by RawPtrBox
+        // buffer bounds/offset is ensured by the value_offset invariants
         unsafe {
-            let pos = self.value_offset_at(offset);
             std::slice::from_raw_parts(
-                self.value_data.as_ptr().offset(pos.to_isize()),
-                (self.value_offset_at(offset + 1) - pos).to_usize().unwrap(),
+                self.value_data.as_ptr().offset(start.to_isize()),
+                (*end - *start).to_usize().unwrap(),
             )
         }
     }
@@ -648,12 +663,19 @@ mod tests {
         assert_eq!(3, binary_array.len());
         assert_eq!(0, binary_array.null_count());
         assert_eq!([b'h', b'e', b'l', b'l', b'o'], binary_array.value(0));
+        assert_eq!([b'h', b'e', b'l', b'l', b'o'], unsafe {
+            binary_array.value_unchecked(0)
+        });
         assert_eq!([] as [u8; 0], binary_array.value(1));
+        assert_eq!([] as [u8; 0], unsafe { binary_array.value_unchecked(1) });
         assert_eq!(
             [b'p', b'a', b'r', b'q', b'u', b'e', b't'],
             binary_array.value(2)
         );
-        assert_eq!(5, binary_array.value_offset(2));
+        assert_eq!([b'p', b'a', b'r', b'q', b'u', b'e', b't'], unsafe {
+            binary_array.value_unchecked(2)
+        });
+        assert_eq!(5, binary_array.value_offsets()[2]);
         assert_eq!(7, binary_array.value_length(2));
         for i in 0..3 {
             assert!(binary_array.is_valid(i));
@@ -672,9 +694,9 @@ mod tests {
             [b'p', b'a', b'r', b'q', b'u', b'e', b't'],
             binary_array.value(1)
         );
-        assert_eq!(5, binary_array.value_offset(0));
+        assert_eq!(5, binary_array.value_offsets()[0]);
         assert_eq!(0, binary_array.value_length(0));
-        assert_eq!(5, binary_array.value_offset(1));
+        assert_eq!(5, binary_array.value_offsets()[1]);
         assert_eq!(7, binary_array.value_length(1));
     }
 
@@ -695,12 +717,19 @@ mod tests {
         assert_eq!(3, binary_array.len());
         assert_eq!(0, binary_array.null_count());
         assert_eq!([b'h', b'e', b'l', b'l', b'o'], binary_array.value(0));
+        assert_eq!([b'h', b'e', b'l', b'l', b'o'], unsafe {
+            binary_array.value_unchecked(0)
+        });
         assert_eq!([] as [u8; 0], binary_array.value(1));
+        assert_eq!([] as [u8; 0], unsafe { binary_array.value_unchecked(1) });
         assert_eq!(
             [b'p', b'a', b'r', b'q', b'u', b'e', b't'],
             binary_array.value(2)
         );
-        assert_eq!(5, binary_array.value_offset(2));
+        assert_eq!([b'p', b'a', b'r', b'q', b'u', b'e', b't'], unsafe {
+            binary_array.value_unchecked(2)
+        });
+        assert_eq!(5, binary_array.value_offsets()[2]);
         assert_eq!(7, binary_array.value_length(2));
         for i in 0..3 {
             assert!(binary_array.is_valid(i));
@@ -719,9 +748,12 @@ mod tests {
             [b'p', b'a', b'r', b'q', b'u', b'e', b't'],
             binary_array.value(1)
         );
-        assert_eq!(5, binary_array.value_offset(0));
+        assert_eq!([b'p', b'a', b'r', b'q', b'u', b'e', b't'], unsafe {
+            binary_array.value_unchecked(1)
+        });
+        assert_eq!(5, binary_array.value_offsets()[0]);
         assert_eq!(0, binary_array.value_length(0));
-        assert_eq!(5, binary_array.value_offset(1));
+        assert_eq!(5, binary_array.value_offsets()[1]);
         assert_eq!(7, binary_array.value_length(1));
     }
 
@@ -757,9 +789,12 @@ mod tests {
 
         assert_eq!(binary_array1.len(), binary_array2.len());
         assert_eq!(binary_array1.null_count(), binary_array2.null_count());
+        assert_eq!(binary_array1.value_offsets(), binary_array2.value_offsets());
         for i in 0..binary_array1.len() {
             assert_eq!(binary_array1.value(i), binary_array2.value(i));
-            assert_eq!(binary_array1.value_offset(i), binary_array2.value_offset(i));
+            assert_eq!(binary_array1.value(i), unsafe {
+                binary_array2.value_unchecked(i)
+            });
             assert_eq!(binary_array1.value_length(i), binary_array2.value_length(i));
         }
     }
@@ -796,9 +831,12 @@ mod tests {
 
         assert_eq!(binary_array1.len(), binary_array2.len());
         assert_eq!(binary_array1.null_count(), binary_array2.null_count());
+        assert_eq!(binary_array1.value_offsets(), binary_array2.value_offsets());
         for i in 0..binary_array1.len() {
             assert_eq!(binary_array1.value(i), binary_array2.value(i));
-            assert_eq!(binary_array1.value_offset(i), binary_array2.value_offset(i));
+            assert_eq!(binary_array1.value(i), unsafe {
+                binary_array2.value_unchecked(i)
+            });
             assert_eq!(binary_array1.value_length(i), binary_array2.value_length(i));
         }
     }

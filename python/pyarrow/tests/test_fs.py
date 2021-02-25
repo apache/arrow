@@ -18,6 +18,7 @@
 from datetime import datetime, timezone, timedelta
 from distutils.version import LooseVersion
 import gzip
+import os
 import pathlib
 import pickle
 import sys
@@ -1344,8 +1345,10 @@ def test_s3_real_aws():
     # Exercise connection code with an AWS-backed S3 bucket.
     # This is a minimal integration check for ARROW-9261 and similar issues.
     from pyarrow.fs import S3FileSystem
+    default_region = (os.environ.get('PYARROW_TEST_S3_REGION') or
+                      'us-east-1')
     fs = S3FileSystem(anonymous=True)
-    assert fs.region == 'us-east-1'  # default region
+    assert fs.region == default_region
 
     fs = S3FileSystem(anonymous=True, region='us-east-2')
     entries = fs.get_file_info(FileSelector('ursa-labs-taxi-data'))

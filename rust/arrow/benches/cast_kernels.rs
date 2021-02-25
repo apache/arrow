@@ -19,7 +19,6 @@
 extern crate criterion;
 use criterion::Criterion;
 use rand::distributions::{Distribution, Standard, Uniform};
-use rand::prelude::random;
 use rand::Rng;
 
 use std::sync::Arc;
@@ -29,44 +28,15 @@ extern crate arrow;
 use arrow::array::*;
 use arrow::compute::cast;
 use arrow::datatypes::*;
+use arrow::util::bench_util::*;
 use arrow::util::test_util::seedable_rng;
 
-fn build_array<FROM>(size: usize) -> ArrayRef
+fn build_array<T: ArrowPrimitiveType>(size: usize) -> ArrayRef
 where
-    FROM: ArrowNumericType,
-    Standard: Distribution<FROM::Native>,
-    PrimitiveArray<FROM>: std::convert::From<Vec<Option<FROM::Native>>>,
+    Standard: Distribution<T::Native>,
 {
-    let values = (0..size)
-        .map(|_| {
-            // 10% nulls, i.e. dense.
-            if random::<f64>() < 0.1 {
-                None
-            } else {
-                Some(random::<FROM::Native>())
-            }
-        })
-        .collect();
-
-    Arc::new(PrimitiveArray::<FROM>::from(values))
-}
-
-fn build_timestamp_array<FROM>(size: usize) -> ArrayRef
-where
-    FROM: ArrowTimestampType,
-    Standard: Distribution<FROM::Native>,
-{
-    let values = (0..size)
-        .map(|_| {
-            if random::<f64>() < 0.5 {
-                None
-            } else {
-                Some(random::<i64>())
-            }
-        })
-        .collect::<Vec<Option<i64>>>();
-
-    Arc::new(PrimitiveArray::<FROM>::from_opt_vec(values, None))
+    let array = create_primitive_array::<T>(size, 0.1);
+    Arc::new(array)
 }
 
 fn build_utf8_date_array(size: usize, with_nulls: bool) -> ArrayRef {
@@ -127,8 +97,8 @@ fn add_benchmark(c: &mut Criterion) {
     let date32_array = build_array::<Date32Type>(512);
     let time32s_array = build_array::<Time32SecondType>(512);
     let time64ns_array = build_array::<Time64NanosecondType>(512);
-    let time_ns_array = build_timestamp_array::<TimestampNanosecondType>(512);
-    let time_ms_array = build_timestamp_array::<TimestampMillisecondType>(512);
+    let time_ns_array = build_array::<TimestampNanosecondType>(512);
+    let time_ms_array = build_array::<TimestampMillisecondType>(512);
     let utf8_date_array = build_utf8_date_array(512, true);
     let utf8_date_time_array = build_utf8_date_time_array(512, true);
 
@@ -160,10 +130,10 @@ fn add_benchmark(c: &mut Criterion) {
         b.iter(|| cast_array(&i64_array, DataType::Int32))
     });
     c.bench_function("cast date64 to date32 512", |b| {
-        b.iter(|| cast_array(&date64_array, DataType::Date32(DateUnit::Day)))
+        b.iter(|| cast_array(&date64_array, DataType::Date32))
     });
     c.bench_function("cast date32 to date64 512", |b| {
-        b.iter(|| cast_array(&date32_array, DataType::Date64(DateUnit::Millisecond)))
+        b.iter(|| cast_array(&date32_array, DataType::Date64))
     });
     c.bench_function("cast time32s to time32ms 512", |b| {
         b.iter(|| cast_array(&time32s_array, DataType::Time32(TimeUnit::Millisecond)))
@@ -204,15 +174,10 @@ fn add_benchmark(c: &mut Criterion) {
         b.iter(|| cast_array(&time_ms_array, DataType::Int64))
     });
     c.bench_function("cast utf8 to date32 512", |b| {
-        b.iter(|| cast_array(&utf8_date_array, DataType::Date32(DateUnit::Day)))
+        b.iter(|| cast_array(&utf8_date_array, DataType::Date32))
     });
     c.bench_function("cast utf8 to date64 512", |b| {
-        b.iter(|| {
-            cast_array(
-                &utf8_date_time_array,
-                DataType::Date64(DateUnit::Millisecond),
-            )
-        })
+        b.iter(|| cast_array(&utf8_date_time_array, DataType::Date64))
     });
 }
 

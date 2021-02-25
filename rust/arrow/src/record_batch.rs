@@ -278,12 +278,13 @@ impl From<&StructArray> for RecordBatch {
     }
 }
 
-impl Into<StructArray> for RecordBatch {
-    fn into(self) -> StructArray {
-        self.schema
+impl From<RecordBatch> for StructArray {
+    fn from(batch: RecordBatch) -> Self {
+        batch
+            .schema
             .fields
             .iter()
-            .zip(self.columns.iter())
+            .zip(batch.columns.iter())
             .map(|t| (t.0.clone(), t.1.clone()))
             .collect::<Vec<(Field, ArrayRef)>>()
             .into()

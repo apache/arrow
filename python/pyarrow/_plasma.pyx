@@ -539,7 +539,7 @@ cdef class PlasmaClient(_Weakrefable):
             warnings.warn(
                 "'serialization_context' is deprecated and will be removed "
                 "in a future version.",
-                DeprecationWarning, stacklevel=2
+                FutureWarning, stacklevel=2
             )
         serialized = pyarrow.lib._serialize(value, serialization_context)
         buffer = self.create(target_id, serialized.total_bytes)
@@ -576,7 +576,7 @@ cdef class PlasmaClient(_Weakrefable):
             warnings.warn(
                 "'serialization_context' is deprecated and will be removed "
                 "in a future version.",
-                DeprecationWarning, stacklevel=2
+                FutureWarning, stacklevel=2
             )
         if isinstance(object_ids, Sequence):
             results = []

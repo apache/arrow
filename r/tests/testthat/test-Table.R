@@ -141,6 +141,10 @@ test_that("[, [[, $ for Table", {
   expect_error(tab[1000],  "Invalid column index")
   expect_error(tab[1:1000], "Invalid column index")
 
+  # input validation
+  expect_error(tab[, c("dbl", "NOTACOLUMN")], 'Column not found: "NOTACOLUMN"')
+  expect_error(tab[, c(6, NA)], 'Column indices cannot be NA')
+
   skip("Table with 0 cols doesn't know how many rows it should have")
   expect_data_frame(tab[0], tbl[0])
 })
@@ -207,10 +211,11 @@ test_that("[[<- assignment", {
 
   # nonsense indexes
   expect_error(tab[[NA]] <- letters[10:1], "'i' must be character or numeric, not logical")
-  expect_error(tab[[NA_integer_]] <- letters[10:1], "'i' cannot be NA")
-  expect_error(tab[[NA_real_]] <- letters[10:1], "'i' cannot be NA")
-  expect_error(tab[[NA_character_]] <- letters[10:1], "'i' cannot be NA")
   expect_error(tab[[NULL]] <- letters[10:1], "'i' must be character or numeric, not NULL")
+  expect_error(tab[[NA_integer_]] <- letters[10:1], "!is.na(i) is not TRUE", fixed = TRUE)
+  expect_error(tab[[NA_real_]] <- letters[10:1], "!is.na(i) is not TRUE", fixed = TRUE)
+  expect_error(tab[[NA_character_]] <- letters[10:1], "!is.na(i) is not TRUE", fixed = TRUE)
+  expect_error(tab[[c(1, 4)]] <- letters[10:1], "length(i) not equal to 1", fixed = TRUE)
 })
 
 test_that("Table$Slice", {

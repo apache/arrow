@@ -86,6 +86,28 @@ class ARROW_EXPORT Executor {
     return SpawnReal(hints, std::forward<Function>(func));
   }
 
+  // Transfers a future to this executor.  Any continuations added to the
+  // returned future will run in this executor.  Otherwise they would run
+  // on the same thread that called MarkFinished.
+  //
+  // This is necessary when (for example) an I/O task is completing a future.
+  // The continuations of that future should run on the CPU thread pool keeping
+  // CPU heavy work off the I/O thread pool.  So the I/O task should transfer
+  // the future to the CPU executor before returning.
+  template <typename T>
+  Future<T> Transfer(Future<T> future) {
+    auto transferred = Future<T>::Make();
+    future.AddCallback([this, transferred](const Result<T>& result) mutable {
+      auto spawn_status = Spawn([transferred, result]() mutable {
+        transferred.MarkFinished(std::move(result));
+      });
+      if (!spawn_status.ok()) {
+        transferred.MarkFinished(spawn_status);
+      }
+    });
+    return transferred;
+  }
+
   // Submit a callable and arguments for execution.  Return a future that
   // will return the callable's result value once.
   // The callable's arguments are copied before execution.
@@ -142,8 +164,12 @@ class ARROW_EXPORT ThreadPool : public Executor {
   int GetCapacity() override;
 
   // Dynamically change the number of worker threads.
-  // This function returns quickly, but it may take more time before the
-  // thread count is fully adjusted.
+  //
+  // This function always returns immediately.
+  // If fewer threads are running than this number, new threads are spawned
+  // on-demand when needed for task execution.
+  // If more threads are running than this number, excess threads are reaped
+  // as soon as possible.
   Status SetCapacity(int threads);
 
   // Heuristic for the default capacity of a thread pool for CPU-bound tasks.

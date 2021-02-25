@@ -241,6 +241,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         c_bool use_buffered_stream
         int64_t buffer_size
         unordered_set[c_string] dict_columns
+        c_bool pre_buffer
         c_bool enable_parallel_column_conversion
 
     cdef cppclass CParquetFileFormat "arrow::dataset::ParquetFileFormat"(
@@ -273,6 +274,11 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             "arrow::dataset::PartitioningFactoryOptions":
         c_bool infer_dictionary
 
+    cdef cppclass CHivePartitioningFactoryOptions \
+            "arrow::dataset::HivePartitioningFactoryOptions":
+        c_bool infer_dictionary,
+        c_string null_fallback
+
     cdef cppclass CPartitioningFactory "arrow::dataset::PartitioningFactory":
         pass
 
@@ -292,7 +298,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
         @staticmethod
         shared_ptr[CPartitioningFactory] MakeFactory(
-            CPartitioningFactoryOptions)
+            CHivePartitioningFactoryOptions)
 
     cdef cppclass CPartitioningOrFactory \
             "arrow::dataset::PartitioningOrFactory":

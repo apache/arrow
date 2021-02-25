@@ -17,10 +17,13 @@
 
 //! Benchmark derived from TPC-H. This is not an official TPC-H benchmark.
 
-use std::path::{Path, PathBuf};
 use std::time::Instant;
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
-use arrow::datatypes::{DataType, DateUnit, Field, Schema};
+use arrow::datatypes::{DataType, Field, Schema};
 use arrow::util::pretty;
 use datafusion::datasource::parquet::ParquetTable;
 use datafusion::datasource::{CsvFile, MemTable, TableProvider};
@@ -142,18 +145,15 @@ async fn benchmark(opt: BenchmarkOpt) -> Result<Vec<arrow::record_batch::RecordB
             println!("Loading table '{}' into memory", table);
             let start = Instant::now();
 
-            let memtable = MemTable::load(
-                table_provider.as_ref(),
-                opt.batch_size,
-                Some(opt.partitions),
-            )
-            .await?;
+            let memtable =
+                MemTable::load(table_provider, opt.batch_size, Some(opt.partitions))
+                    .await?;
             println!(
                 "Loaded table '{}' into memory in {} ms",
                 table,
                 start.elapsed().as_millis()
             );
-            ctx.register_table(table, Box::new(memtable));
+            ctx.register_table(table, Arc::new(memtable));
         } else {
             ctx.register_table(table, table_provider);
         }
@@ -179,7 +179,6 @@ async fn benchmark(opt: BenchmarkOpt) -> Result<Vec<arrow::record_batch::RecordB
 
 fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<LogicalPlan> {
     match query {
-
         // original
         // 1 => ctx.create_logical_plan(
         //     "select
@@ -271,7 +270,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                 s_acctbal desc,
                 n_name,
                 s_name,
-                p_partkey;"
+                p_partkey;",
         ),
 
         3 => ctx.create_logical_plan(
@@ -296,7 +295,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                 o_shippriority
             order by
                 revenue desc,
-                o_orderdate;"
+                o_orderdate;",
         ),
 
         4 => ctx.create_logical_plan(
@@ -320,7 +319,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
             group by
                 o_orderpriority
             order by
-                o_orderpriority;"
+                o_orderpriority;",
         ),
 
         // original
@@ -374,7 +373,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
             group by
                 n_name
             order by
-                revenue desc;"
+                revenue desc;",
         ),
 
         // original
@@ -386,7 +385,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
         //     where
         //         l_shipdate >= date '1994-01-01'
         //         and l_shipdate < date '1994-01-01' + interval '1' year
-        //         and l_discount between 0.06 - 0.01 and 0.06 + 0.01
+        //         and l_discount between .06 - 0.01 and .06 + 0.01
         //         and l_quantity < 24;"
         // ),
         6 => ctx.create_logical_plan(
@@ -397,8 +396,8 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
             where
                 l_shipdate >= date '1994-01-01'
                 and l_shipdate < date '1995-01-01'
-                and l_discount between 0.06 - 0.01 and 0.06 + 0.01
-                and l_quantity < 24;"
+                and l_discount between .06 - 0.01 and .06 + 0.01
+                and l_quantity < 24;",
         ),
 
         7 => ctx.create_logical_plan(
@@ -440,7 +439,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
             order by
                 supp_nation,
                 cust_nation,
-                l_year;"
+                l_year;",
         ),
 
         8 => ctx.create_logical_plan(
@@ -480,7 +479,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
             group by
                 o_year
             order by
-                o_year;"
+                o_year;",
         ),
 
         9 => ctx.create_logical_plan(
@@ -515,7 +514,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                 o_year
             order by
                 nation,
-                o_year desc;"
+                o_year desc;",
         ),
 
         // 10 => ctx.create_logical_plan(
@@ -582,7 +581,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                 c_address,
                 c_comment
             order by
-                revenue desc;"
+                revenue desc;",
         ),
 
         11 => ctx.create_logical_plan(
@@ -612,7 +611,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                             and n_name = 'GERMANY'
                     )
             order by
-                value desc;"
+                value desc;",
         ),
 
         // original
@@ -676,7 +675,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
             group by
                 l_shipmode
             order by
-                l_shipmode;"
+                l_shipmode;",
         ),
 
         13 => ctx.create_logical_plan(
@@ -699,7 +698,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                 c_count
             order by
                 custdist desc,
-                c_count desc;"
+                c_count desc;",
         ),
 
         14 => ctx.create_logical_plan(
@@ -715,7 +714,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
             where
                 l_partkey = p_partkey
                 and l_shipdate >= date '1995-09-01'
-                and l_shipdate < date '1995-10-01';"
+                and l_shipdate < date '1995-10-01';",
         ),
 
         15 => ctx.create_logical_plan(
@@ -751,7 +750,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
             order by
                 s_suppkey;
 
-            drop view revenue0;"
+            drop view revenue0;",
         ),
 
         16 => ctx.create_logical_plan(
@@ -784,7 +783,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                 supplier_cnt desc,
                 p_brand,
                 p_type,
-                p_size;"
+                p_size;",
         ),
 
         17 => ctx.create_logical_plan(
@@ -804,7 +803,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                         lineitem
                     where
                         l_partkey = p_partkey
-                );"
+                );",
         ),
 
         18 => ctx.create_logical_plan(
@@ -839,7 +838,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                 o_totalprice
             order by
                 o_totalprice desc,
-                o_orderdate;"
+                o_orderdate;",
         ),
 
         19 => ctx.create_logical_plan(
@@ -877,7 +876,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                     and p_size between 1 and 15
                     and l_shipmode in ('AIR', 'AIR REG')
                     and l_shipinstruct = 'DELIVER IN PERSON'
-                );"
+                );",
         ),
 
         20 => ctx.create_logical_plan(
@@ -917,7 +916,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                 and s_nationkey = n_nationkey
                 and n_name = 'CANADA'
             order by
-                s_name;"
+                s_name;",
         ),
 
         21 => ctx.create_logical_plan(
@@ -959,7 +958,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                 s_name
             order by
                 numwait desc,
-                s_name;"
+                s_name;",
         ),
 
         22 => ctx.create_logical_plan(
@@ -999,7 +998,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
             group by
                 cntrycode
             order by
-                cntrycode;"
+                cntrycode;",
         ),
 
         _ => unimplemented!("invalid query. Expected value between 1 and 22"),
@@ -1102,7 +1101,7 @@ fn get_table(
     table: &str,
     table_format: &str,
     max_concurrency: usize,
-) -> Result<Box<dyn TableProvider + Send + Sync>> {
+) -> Result<Arc<dyn TableProvider + Send + Sync>> {
     match table_format {
         // dbgen creates .tbl ('|' delimited) files without header
         "tbl" => {
@@ -1114,18 +1113,18 @@ fn get_table(
                 .has_header(false)
                 .file_extension(".tbl");
 
-            Ok(Box::new(CsvFile::try_new(&path, options)?))
+            Ok(Arc::new(CsvFile::try_new(&path, options)?))
         }
         "csv" => {
             let path = format!("{}/{}", path, table);
             let schema = get_schema(table);
             let options = CsvReadOptions::new().schema(&schema).has_header(true);
 
-            Ok(Box::new(CsvFile::try_new(&path, options)?))
+            Ok(Arc::new(CsvFile::try_new(&path, options)?))
         }
         "parquet" => {
             let path = format!("{}/{}", path, table);
-            Ok(Box::new(ParquetTable::try_new(&path, max_concurrency)?))
+            Ok(Arc::new(ParquetTable::try_new(&path, max_concurrency)?))
         }
         other => {
             unimplemented!("Invalid file format '{}'", other);
@@ -1185,7 +1184,7 @@ fn get_schema(table: &str) -> Schema {
             Field::new("o_custkey", DataType::Int32, false),
             Field::new("o_orderstatus", DataType::Utf8, false),
             Field::new("o_totalprice", DataType::Float64, false),
-            Field::new("o_orderdate", DataType::Date32(DateUnit::Day), false),
+            Field::new("o_orderdate", DataType::Date32, false),
             Field::new("o_orderpriority", DataType::Utf8, false),
             Field::new("o_clerk", DataType::Utf8, false),
             Field::new("o_shippriority", DataType::Int32, false),
@@ -1203,9 +1202,9 @@ fn get_schema(table: &str) -> Schema {
             Field::new("l_tax", DataType::Float64, false),
             Field::new("l_returnflag", DataType::Utf8, false),
             Field::new("l_linestatus", DataType::Utf8, false),
-            Field::new("l_shipdate", DataType::Date32(DateUnit::Day), false),
-            Field::new("l_commitdate", DataType::Date32(DateUnit::Day), false),
-            Field::new("l_receiptdate", DataType::Date32(DateUnit::Day), false),
+            Field::new("l_shipdate", DataType::Date32, false),
+            Field::new("l_commitdate", DataType::Date32, false),
+            Field::new("l_receiptdate", DataType::Date32, false),
             Field::new("l_shipinstruct", DataType::Utf8, false),
             Field::new("l_shipmode", DataType::Utf8, false),
             Field::new("l_comment", DataType::Utf8, false),
@@ -1351,6 +1350,41 @@ mod tests {
         verify_query(22).await
     }
 
+    #[tokio::test]
+    async fn run_q1() -> Result<()> {
+        run_query(1).await
+    }
+
+    #[tokio::test]
+    async fn run_q3() -> Result<()> {
+        run_query(3).await
+    }
+
+    #[tokio::test]
+    async fn run_q5() -> Result<()> {
+        run_query(5).await
+    }
+
+    #[tokio::test]
+    async fn run_q6() -> Result<()> {
+        run_query(6).await
+    }
+
+    #[tokio::test]
+    async fn run_q10() -> Result<()> {
+        run_query(10).await
+    }
+
+    #[tokio::test]
+    async fn run_q12() -> Result<()> {
+        run_query(12).await
+    }
+
+    #[tokio::test]
+    async fn run_q14() -> Result<()> {
+        run_query(14).await
+    }
+
     /// Specialised String representation
     fn col_str(column: &ArrayRef, row_index: usize) -> String {
         if column.is_null(row_index) {
@@ -1421,7 +1455,7 @@ mod tests {
             3 => Schema::new(vec![
                 Field::new("l_orderkey", DataType::Int32, true),
                 Field::new("revenue", DataType::Float64, true),
-                Field::new("o_orderdat", DataType::Date32(DateUnit::Day), true),
+                Field::new("o_orderdat", DataType::Date32, true),
                 Field::new("o_shippriority", DataType::Int32, true),
             ]),
 
@@ -1499,7 +1533,7 @@ mod tests {
                 Field::new("c_name", DataType::Utf8, true),
                 Field::new("c_custkey", DataType::Int32, true),
                 Field::new("o_orderkey", DataType::Int32, true),
-                Field::new("o_orderdat", DataType::Date32(DateUnit::Day), true),
+                Field::new("o_orderdat", DataType::Date32, true),
                 Field::new("o_totalprice", DataType::Float64, true),
                 Field::new("sum_l_quantity", DataType::Float64, true),
             ]),
@@ -1562,6 +1596,29 @@ mod tests {
         )
     }
 
+    async fn run_query(n: usize) -> Result<()> {
+        // Tests running query with empty tables, to see whether they run succesfully.
+
+        let config = ExecutionConfig::new()
+            .with_concurrency(1)
+            .with_batch_size(10);
+        let mut ctx = ExecutionContext::with_config(config);
+
+        for &table in TABLES {
+            let schema = get_schema(table);
+            let batch = RecordBatch::new_empty(Arc::new(schema.to_owned()));
+
+            let provider = MemTable::try_new(Arc::new(schema), vec![vec![batch]])?;
+
+            ctx.register_table(table, Arc::new(provider));
+        }
+
+        let plan = create_logical_plan(&mut ctx, n)?;
+        execute_query(&mut ctx, &plan, false).await?;
+
+        Ok(())
+    }
+
     async fn verify_query(n: usize) -> Result<()> {
         if let Ok(path) = env::var("TPCH_DATA") {
             // load expected answers from tpch-dbgen
@@ -1575,7 +1632,7 @@ mod tests {
                 .file_extension(".out");
             let df = ctx.read_csv(&format!("{}/answers/q{}.out", path, n), options)?;
             let df = df.select(
-                get_answer_schema(n)
+                &get_answer_schema(n)
                     .fields()
                     .iter()
                     .map(|field| {

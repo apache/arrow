@@ -31,12 +31,21 @@ addons:
 services:
   - docker
 
+# Note that the global "env" setting isn't inherited automatically by
+# matrix entries with their own "env", so we have to insert it explicitly.
+env: &global_env
+  ARROW_ENABLE_TIMING_TESTS: "OFF"
+  COMPOSE_DOCKER_CLI_BUILD: 1
+  DOCKER_BUILDKIT: 0
+  DOCKER_VOLUME_PREFIX: $TRAVIS_BUILD_DIR/.docker/
+
 jobs:
   include:
     - name: "C++ on ARM"
       os: linux
       arch: arm64
       env:
+        <<: *global_env
         ARCH: arm64v8
         ARROW_CI_MODULES: "CPP"
         DOCKER_IMAGE_ID: ubuntu-cpp
@@ -47,6 +56,9 @@ jobs:
         # been received in the last 10m0s, this potentially indicates
         # a stalled build or something wrong with the build itself."
         # on Travis CI.
+        #
+        # Limiting CPP_MAKE_PARALLELISM is required to avoid random compiler
+        # crashes.
         DOCKER_RUN_ARGS: >-
           "
           -e ARROW_BUILD_STATIC=OFF
@@ -54,16 +66,7 @@ jobs:
           -e ARROW_S3=OFF
           -e ARROW_USE_GLOG=OFF
           -e CMAKE_UNITY_BUILD=ON
-          "
-        # We need to use smaller build when cache doesn't exist
-        # because Travis CI has "No output has been received in the
-        # last 10m0s" limitation. If we build many modules, we reach
-        # the limitation.
-        DOCKER_RUN_ARGS_NO_CACHE: >-
-          "
-          -e ARROW_BUILD_TESTS=OFF
-          -e ARROW_GANDIVA=OFF
-          -e ARROW_PARQUET=OFF
+          -e CPP_MAKE_PARALLELISM=4
           "
         # The LLVM's APT repository provides only arm64 binaries.
         # We should use LLVM provided by Ubuntu.
@@ -74,10 +77,10 @@ jobs:
       os: linux
       arch: s390x
       env:
+        <<: *global_env
         ARCH: s390x
         ARROW_CI_MODULES: "CPP"
         DOCKER_IMAGE_ID: ubuntu-cpp
-        # Can't use CMAKE_UNITY_BUILD=ON because of compiler crash.
         # Can't enable ARROW_MIMALLOC because of failures in memory pool tests.
         # Can't enable ARROW_S3 because compiler is killed while compiling
         # aws-sdk-cpp.
@@ -89,6 +92,8 @@ jobs:
           -e ARROW_ORC=OFF
           -e ARROW_PARQUET=OFF
           -e ARROW_S3=OFF
+          -e CMAKE_UNITY_BUILD=ON
+          -e CPP_MAKE_PARALLELISM=4
           -e PARQUET_BUILD_EXAMPLES=OFF
           -e PARQUET_BUILD_EXECUTABLES=OFF
           -e Protobuf_SOURCE=BUNDLED
@@ -104,6 +109,7 @@ jobs:
       os: linux
       arch: s390x
       env:
+        <<: *global_env
         ARCH: s390x
         ARROW_CI_MODULES: "GO"
         DOCKER_IMAGE_ID: debian-go
@@ -112,18 +118,15 @@ jobs:
       os: linux
       arch: s390x
       env:
+        <<: *global_env
         ARCH: s390x
         ARROW_CI_MODULES: "JAVA"
         DOCKER_IMAGE_ID: debian-java
         JDK: 11
 
   allow_failures:
-    - arch: s390x
-
-env:
-  DOCKER_BUILDKIT: 0
-  COMPOSE_DOCKER_CLI_BUILD: 1
-  ARROW_ENABLE_TIMING_TESTS: "OFF"
+    - name: "Go on s390x"
+    - name: "Java on s390x"
 
 before_install:
   - eval "$(python ci/detect-changes.py)"
@@ -148,10 +151,6 @@ script:
   #   /home/travis/.travis/functions: line 109: ulimit: core file size: cannot modify limit: Operation not permitted
   - |
     ulimit -c unlimited || :
-  - |
-    if [ $(ls $TRAVIS_BUILD_DIR/.docker | wc -l) -eq 0 ]; then
-      DOCKER_RUN_ARGS="${DOCKER_RUN_ARGS} ${DOCKER_RUN_ARGS_NO_CACHE}"
-    fi
   - |
     archery docker run \
       ${DOCKER_RUN_ARGS} \

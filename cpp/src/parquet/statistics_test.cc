@@ -28,6 +28,7 @@
 
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 
 #include "parquet/column_reader.h"
@@ -43,6 +44,8 @@
 
 using arrow::default_memory_pool;
 using arrow::MemoryPool;
+
+namespace BitUtil = arrow::BitUtil;
 
 namespace parquet {
 

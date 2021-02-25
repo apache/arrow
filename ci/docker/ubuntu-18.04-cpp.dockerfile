@@ -66,7 +66,6 @@ RUN apt-get update -y -q && \
         git \
         libbenchmark-dev \
         libboost-filesystem-dev \
-        libboost-regex-dev \
         libboost-system-dev \
         libbrotli-dev \
         libbz2-dev \
@@ -112,6 +111,7 @@ ENV ARROW_BUILD_TESTS=ON \
     ARROW_PLASMA=ON \
     ARROW_USE_ASAN=OFF \
     ARROW_USE_CCACHE=ON \
+    ARROW_USE_TSAN=OFF \
     ARROW_USE_UBSAN=OFF \
     ARROW_WITH_BROTLI=ON \
     ARROW_WITH_BZ2=ON \

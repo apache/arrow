@@ -50,7 +50,7 @@ pub struct MemTable {
 // Calculates statistics based on partitions
 fn calculate_statistics(
     schema: &SchemaRef,
-    partitions: &Vec<Vec<RecordBatch>>,
+    partitions: &[Vec<RecordBatch>],
 ) -> Statistics {
     let num_rows: usize = partitions
         .iter()
@@ -107,7 +107,7 @@ impl MemTable {
 
     /// Create a mem table by reading from another data source
     pub async fn load(
-        t: &dyn TableProvider,
+        t: Arc<dyn TableProvider + Send + Sync>,
         batch_size: usize,
         output_partitions: Option<usize>,
     ) -> Result<Self> {

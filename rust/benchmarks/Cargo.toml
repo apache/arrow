@@ -35,7 +35,7 @@ arrow = { path = "../arrow" }
 parquet = { path = "../parquet" }
 datafusion = { path = "../datafusion" }
 structopt = { version = "0.3", default-features = false }
-tokio = { version = "0.2", features = ["macros", "rt-core", "rt-threaded"] }
+tokio = { version = "^1.0", features = ["macros", "rt", "rt-multi-thread"] }
 futures = "0.3"
 env_logger = "^0.8"
 snmalloc-rs = {version = "0.2", optional = true, features= ["cache-friendly"] }

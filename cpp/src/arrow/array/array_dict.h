@@ -120,4 +120,61 @@ class ARROW_EXPORT DictionaryArray : public Array {
   mutable std::shared_ptr<Array> dictionary_;
 };
 
+/// \brief Helper class for incremental dictionary unification
+class ARROW_EXPORT DictionaryUnifier {
+ public:
+  virtual ~DictionaryUnifier() = default;
+
+  /// \brief Construct a DictionaryUnifier
+  /// \param[in] value_type the data type of the dictionaries
+  /// \param[in] pool MemoryPool to use for memory allocations
+  static Result<std::unique_ptr<DictionaryUnifier>> Make(
+      std::shared_ptr<DataType> value_type, MemoryPool* pool = default_memory_pool());
+
+  /// \brief Unify dictionaries accross array chunks
+  ///
+  /// The dictionaries in the array chunks will be unified, their indices
+  /// accordingly transposed.
+  ///
+  /// Only dictionaries with a primitive value type are currently supported.
+  /// However, dictionaries nested inside a more complex type are correctly unified.
+  static Result<std::shared_ptr<ChunkedArray>> UnifyChunkedArray(
+      const std::shared_ptr<ChunkedArray>& array,
+      MemoryPool* pool = default_memory_pool());
+
+  /// \brief Unify dictionaries accross the chunks of each table column
+  ///
+  /// The dictionaries in each table column will be unified, their indices
+  /// accordingly transposed.
+  ///
+  /// Only dictionaries with a primitive value type are currently supported.
+  /// However, dictionaries nested inside a more complex type are correctly unified.
+  static Result<std::shared_ptr<Table>> UnifyTable(
+      const Table& table, MemoryPool* pool = default_memory_pool());
+
+  /// \brief Append dictionary to the internal memo
+  virtual Status Unify(const Array& dictionary) = 0;
+
+  /// \brief Append dictionary and compute transpose indices
+  /// \param[in] dictionary the dictionary values to unify
+  /// \param[out] out_transpose a Buffer containing computed transpose indices
+  /// as int32_t values equal in length to the passed dictionary. The value in
+  /// each slot corresponds to the new index value for each original index
+  /// for a DictionaryArray with the old dictionary
+  virtual Status Unify(const Array& dictionary,
+                       std::shared_ptr<Buffer>* out_transpose) = 0;
+
+  /// \brief Return a result DictionaryType with the smallest possible index
+  /// type to accommodate the unified dictionary. The unifier cannot be used
+  /// after this is called
+  virtual Status GetResult(std::shared_ptr<DataType>* out_type,
+                           std::shared_ptr<Array>* out_dict) = 0;
+
+  /// \brief Return a unified dictionary with the given index type.  If
+  /// the index type is not large enough then an invalid status will be returned.
+  /// The unifier cannot be used after this is called
+  virtual Status GetResultWithIndexType(const std::shared_ptr<DataType>& index_type,
+                                        std::shared_ptr<Array>* out_dict) = 0;
+};
+
 }  // namespace arrow

@@ -45,11 +45,11 @@ cli = ["rustyline"]
 simd = ["arrow/simd"]
 
 [dependencies]
-ahash = "0.6"
+ahash = "0.7"
 hashbrown = "0.9"
 arrow = { path = "../arrow", version = "4.0.0-SNAPSHOT", features = ["prettyprint"] }
 parquet = { path = "../parquet", version = "4.0.0-SNAPSHOT", features = ["arrow"] }
-sqlparser = "0.7.0"
+sqlparser = "0.8.0"
 clap = "2.33"
 rustyline = {version = "7.0", optional = true}
 crossbeam = "0.8"
@@ -59,19 +59,20 @@ chrono = "0.4"
 async-trait = "0.1.41"
 futures = "0.3"
 pin-project-lite= "^0.2.0"
-tokio = { version = "0.2", features = ["macros", "blocking", "rt-core", "rt-threaded", "sync"] }
+tokio = { version = "1.0", features = ["macros", "rt", "rt-multi-thread", "sync"] }
 log = "^0.4"
 md-5 = "^0.9.1"
 sha2 = "^0.9.1"
 ordered-float = "2.0"
+unicode-segmentation = "^1.7.1"
 
 [dev-dependencies]
 rand = "0.8"
 criterion = "0.3"
 tempfile = "3"
-prost = "0.6"
+prost = "0.7"
 arrow-flight = { path = "../arrow-flight", version = "4.0.0-SNAPSHOT" }
-tonic = "0.3"
+tonic = "0.4"
 
 [[bench]]
 name = "aggregate_query_sql"
@@ -87,4 +88,8 @@ harness = false
 
 [[bench]]
 name = "filter_query_sql"
+harness = false
+
+[[bench]]
+name = "scalar"
 harness = false

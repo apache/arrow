@@ -63,6 +63,24 @@ enum class SortOrder {
   Descending,
 };
 
+/// \brief Options for the dictionary encode function
+struct DictionaryEncodeOptions : public FunctionOptions {
+  /// Configure how null values will be encoded
+  enum NullEncodingBehavior {
+    /// the null value will be added to the dictionary with a proper index
+    ENCODE,
+    /// the null value will be masked in the indices array
+    MASK
+  };
+
+  explicit DictionaryEncodeOptions(NullEncodingBehavior null_encoding = MASK)
+      : null_encoding_behavior(null_encoding) {}
+
+  static DictionaryEncodeOptions Defaults() { return DictionaryEncodeOptions(); }
+
+  NullEncodingBehavior null_encoding_behavior = MASK;
+};
+
 /// \brief One sort key for PartitionNthIndices (TODO) and SortIndices
 struct ARROW_EXPORT SortKey {
   explicit SortKey(std::string name, SortOrder order = SortOrder::Ascending)
@@ -289,14 +307,29 @@ Result<std::shared_ptr<StructArray>> ValueCounts(const Datum& value,
                                                  ExecContext* ctx = NULLPTR);
 
 /// \brief Dictionary-encode values in an array-like object
+///
+/// Any nulls encountered in the dictionary will be handled according to the
+/// specified null encoding behavior.
+///
+/// For example, given values ["a", "b", null, "a", null] the output will be
+/// (null_encoding == ENCODE) Indices: [0, 1, 2, 0, 2] / Dict: ["a", "b", null]
+/// (null_encoding == MASK)   Indices: [0, 1, null, 0, null] / Dict: ["a", "b"]
+///
+/// If the input is already dictionary encoded this function is a no-op unless
+/// it needs to modify the null_encoding (TODO)
+///
 /// \param[in] data array-like input
 /// \param[in] ctx the function execution context, optional
+/// \param[in] options configures null encoding behavior
 /// \return result with same shape and type as input
 ///
 /// \since 1.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Result<Datum> DictionaryEncode(const Datum& data, ExecContext* ctx = NULLPTR);
+Result<Datum> DictionaryEncode(
+    const Datum& data,
+    const DictionaryEncodeOptions& options = DictionaryEncodeOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
 
 // ----------------------------------------------------------------------
 // Deprecated functions

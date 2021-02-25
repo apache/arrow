@@ -128,14 +128,15 @@ impl LevelInfo {
             | DataType::Utf8
             | DataType::LargeUtf8
             | DataType::Timestamp(_, _)
-            | DataType::Date32(_)
-            | DataType::Date64(_)
+            | DataType::Date32
+            | DataType::Date64
             | DataType::Time32(_)
             | DataType::Time64(_)
             | DataType::Duration(_)
             | DataType::Interval(_)
             | DataType::Binary
-            | DataType::LargeBinary => {
+            | DataType::LargeBinary
+            | DataType::Decimal(_, _) => {
                 // we return a vector of 1 value to represent the primitive
                 vec![self.calculate_child_levels(
                     array_offsets,
@@ -145,7 +146,6 @@ impl LevelInfo {
                 )]
             }
             DataType::FixedSizeBinary(_) => unimplemented!(),
-            DataType::Decimal(_, _) => unimplemented!(),
             DataType::List(list_field) | DataType::LargeList(list_field) => {
                 // Calculate the list level
                 let list_level = self.calculate_child_levels(
@@ -178,8 +178,8 @@ impl LevelInfo {
                     | DataType::Float32
                     | DataType::Float64
                     | DataType::Timestamp(_, _)
-                    | DataType::Date32(_)
-                    | DataType::Date64(_)
+                    | DataType::Date32
+                    | DataType::Date64
                     | DataType::Time32(_)
                     | DataType::Time64(_)
                     | DataType::Duration(_)
@@ -188,7 +188,8 @@ impl LevelInfo {
                     | DataType::LargeBinary
                     | DataType::Utf8
                     | DataType::LargeUtf8
-                    | DataType::Dictionary(_, _) => {
+                    | DataType::Dictionary(_, _)
+                    | DataType::Decimal(_, _) => {
                         vec![list_level.calculate_child_levels(
                             child_offsets,
                             child_mask,
@@ -197,7 +198,6 @@ impl LevelInfo {
                         )]
                     }
                     DataType::FixedSizeBinary(_) => unimplemented!(),
-                    DataType::Decimal(_, _) => unimplemented!(),
                     DataType::List(_) | DataType::LargeList(_) | DataType::Struct(_) => {
                         list_level.calculate_array_levels(&child_array, list_field)
                     }
@@ -588,8 +588,8 @@ impl LevelInfo {
             | DataType::Float32
             | DataType::Float64
             | DataType::Timestamp(_, _)
-            | DataType::Date32(_)
-            | DataType::Date64(_)
+            | DataType::Date32
+            | DataType::Date64
             | DataType::Time32(_)
             | DataType::Time64(_)
             | DataType::Duration(_)

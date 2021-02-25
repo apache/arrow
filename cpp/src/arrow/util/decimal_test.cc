@@ -32,6 +32,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/int128_internal.h"
 #include "arrow/util/macros.h"
 

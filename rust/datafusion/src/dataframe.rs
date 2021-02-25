@@ -44,14 +44,14 @@ use async_trait::async_trait;
 /// let mut ctx = ExecutionContext::new();
 /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
 /// let df = df.filter(col("a").lt_eq(col("b")))?
-///            .aggregate(vec![col("a")], vec![min(col("b"))])?
+///            .aggregate(&[col("a")], &[min(col("b"))])?
 ///            .limit(100)?;
 /// let results = df.collect();
 /// # Ok(())
 /// # }
 /// ```
 #[async_trait]
-pub trait DataFrame {
+pub trait DataFrame: Send + Sync {
     /// Filter the DataFrame by column. Returns a new DataFrame only containing the
     /// specified columns.
     ///
@@ -61,11 +61,11 @@ pub trait DataFrame {
     /// # fn main() -> Result<()> {
     /// let mut ctx = ExecutionContext::new();
     /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
-    /// let df = df.select_columns(vec!["a", "b"])?;
+    /// let df = df.select_columns(&["a", "b"])?;
     /// # Ok(())
     /// # }
     /// ```
-    fn select_columns(&self, columns: Vec<&str>) -> Result<Arc<dyn DataFrame>>;
+    fn select_columns(&self, columns: &[&str]) -> Result<Arc<dyn DataFrame>>;
 
     /// Create a projection based on arbitrary expressions.
     ///
@@ -75,11 +75,11 @@ pub trait DataFrame {
     /// # fn main() -> Result<()> {
     /// let mut ctx = ExecutionContext::new();
     /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
-    /// let df = df.select(vec![col("a") * col("b"), col("c")])?;
+    /// let df = df.select(&[col("a") * col("b"), col("c")])?;
     /// # Ok(())
     /// # }
     /// ```
-    fn select(&self, expr: Vec<Expr>) -> Result<Arc<dyn DataFrame>>;
+    fn select(&self, expr: &[Expr]) -> Result<Arc<dyn DataFrame>>;
 
     /// Filter a DataFrame to only include rows that match the specified filter expression.
     ///
@@ -105,17 +105,17 @@ pub trait DataFrame {
     /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
     ///
     /// // The following use is the equivalent of "SELECT MIN(b) GROUP BY a"
-    /// let _ = df.aggregate(vec![col("a")], vec![min(col("b"))])?;
+    /// let _ = df.aggregate(&[col("a")], &[min(col("b"))])?;
     ///
     /// // The following use is the equivalent of "SELECT MIN(b)"
-    /// let _ = df.aggregate(vec![], vec![min(col("b"))])?;
+    /// let _ = df.aggregate(&[], &[min(col("b"))])?;
     /// # Ok(())
     /// # }
     /// ```
     fn aggregate(
         &self,
-        group_expr: Vec<Expr>,
-        aggr_expr: Vec<Expr>,
+        group_expr: &[Expr],
+        aggr_expr: &[Expr],
     ) -> Result<Arc<dyn DataFrame>>;
 
     /// Limit the number of rows returned from this DataFrame.
@@ -141,11 +141,11 @@ pub trait DataFrame {
     /// # fn main() -> Result<()> {
     /// let mut ctx = ExecutionContext::new();
     /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
-    /// let df = df.sort(vec![col("a").sort(true, true), col("b").sort(false, false)])?;
+    /// let df = df.sort(&[col("a").sort(true, true), col("b").sort(false, false)])?;
     /// # Ok(())
     /// # }
     /// ```
-    fn sort(&self, expr: Vec<Expr>) -> Result<Arc<dyn DataFrame>>;
+    fn sort(&self, expr: &[Expr]) -> Result<Arc<dyn DataFrame>>;
 
     /// Join this DataFrame with another DataFrame using the specified columns as join keys
     ///
@@ -157,7 +157,7 @@ pub trait DataFrame {
     /// let mut ctx = ExecutionContext::new();
     /// let left = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
     /// let right = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?
-    ///   .select(vec![
+    ///   .select(&[
     ///     col("a").alias("a2"),
     ///     col("b").alias("b2"),
     ///     col("c").alias("c2")])?;
@@ -205,6 +205,22 @@ pub trait DataFrame {
     /// # }
     /// ```
     async fn collect(&self) -> Result<Vec<RecordBatch>>;
+
+    /// Executes this DataFrame and collects all results into a vector of vector of RecordBatch
+    /// maintaining the input partitioning.
+    ///
+    /// ```
+    /// # use datafusion::prelude::*;
+    /// # use datafusion::error::Result;
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<()> {
+    /// let mut ctx = ExecutionContext::new();
+    /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
+    /// let batches = df.collect_partitioned().await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    async fn collect_partitioned(&self) -> Result<Vec<Vec<RecordBatch>>>;
 
     /// Returns the schema describing the output of this DataFrame in terms of columns returned,
     /// where each column has a name, data type, and nullability attribute.

@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "arrow/extension_type.h"
+#include "arrow/io/memory.h"
 #include "arrow/ipc/api.h"
 #include "arrow/result_internal.h"
 #include "arrow/type.h"
@@ -862,11 +863,15 @@ Result<bool> ApplyOriginalStorageMetadata(const Field& origin_field,
     const auto& ts_origin_type =
         checked_cast<const ::arrow::TimestampType&>(*origin_type);
 
-    // If the unit is the same and the data is tz-aware, then set the original
-    // time zone, since Parquet has no native storage for timezones
-    if (ts_type.unit() == ts_origin_type.unit() && ts_type.timezone() == "UTC" &&
-        ts_origin_type.timezone() != "") {
-      inferred->field = inferred->field->WithType(origin_type);
+    // If the data is tz-aware, then set the original time zone, since Parquet
+    // has no native storage for timezones
+    if (ts_type.timezone() == "UTC" && ts_origin_type.timezone() != "") {
+      if (ts_type.unit() == ts_origin_type.unit()) {
+        inferred->field = inferred->field->WithType(origin_type);
+      } else {
+        auto ts_type_new = ::arrow::timestamp(ts_type.unit(), ts_origin_type.timezone());
+        inferred->field = inferred->field->WithType(ts_type_new);
+      }
     }
     modified = true;
   }

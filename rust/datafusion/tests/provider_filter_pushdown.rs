@@ -149,13 +149,13 @@ async fn assert_provider_row_count(value: i64, expected_count: u64) -> Result<()
     let df = ctx
         .read_table(Arc::new(provider.clone()))?
         .filter(col("flag").eq(lit(value)))?
-        .aggregate(vec![], vec![count(col("flag"))])?;
+        .aggregate(&[], &[count(col("flag"))])?;
 
     let results = df.collect().await?;
     let result_col: &UInt64Array = as_primitive_array(results[0].column(0));
     assert_eq!(result_col.value(0), expected_count);
 
-    ctx.register_table("data", Box::new(provider));
+    ctx.register_table("data", Arc::new(provider));
     let sql_results = ctx
         .sql(&format!("select count(*) from data where flag = {}", value))?
         .collect()

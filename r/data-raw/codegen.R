@@ -34,6 +34,15 @@
 # }
 # #endif
 
+
+# Different flags can be used to export different features.
+# [[feature::export]]
+# maps to
+# #if defined(ARROW_R_WITH_FEATURE)
+# and each feature is written to its own set of export files.
+
+features <- c("arrow", "s3")
+
 suppressPackageStartupMessages({
   library(decor)
   library(dplyr)
@@ -68,38 +77,82 @@ wrap_call <- function(name, return_type, args) {
   }
 }
 
+feature_available <- function(feat) {
+  glue::glue(
+'extern "C" SEXP _{feat}_available() {{
+return Rf_ScalarLogical(
+#if defined(ARROW_R_WITH_{toupper(feat)})
+  TRUE
+#else
+  FALSE
+#endif
+);
+}}
+')
+}
+
+write_if_modified <- function(code, file) {
+  old <- try(readLines(file), silent=TRUE)
+  new <- unclass(unlist(strsplit(code, "\n")))
+  # We don't care about changes in empty lines
+  if (!identical(old[nzchar(old)], new[nzchar(new)])) {
+    writeLines(con = file, code)
+    # To debug why they're different if you think they shouldn't be:
+    # print(waldo::compare(old[nzchar(old)], new[nzchar(new)]))
+    message(glue::glue("*** > generated file `{file}`"))
+  } else {
+    message(glue::glue("*** > `{file}` not modified"))
+  }
+}
+
 all_decorations <- cpp_decorations()
-arrow_exports <- get_exported_functions(all_decorations, c("arrow", "s3"))
+arrow_exports <- get_exported_functions(all_decorations, features)
 
 arrow_classes <- c(
   "Table"   = "arrow::Table",
   "RecordBatch" = "arrow::RecordBatch"
 )
 
+# This takes a cpp11 C wrapper and conditionally makes it available based on
+# a feature decoration
+ifdef_wrap <- function(cpp11_wrapped, name, sexp_signature, decoration) {
+  if (identical(decoration, "arrow")) {
+    # Arrow is now required
+    return(cpp11_wrapped)
+  }
+  glue('
+  #if defined(ARROW_R_WITH_{toupper(decoration)})
+  {cpp11_wrapped}
+  #else
+  extern "C" SEXP {sexp_signature}{{
+  \tRf_error("Cannot call {name}(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+  }}
+  #endif
+  \n')
+}
+
 cpp_functions_definitions <- arrow_exports %>%
   select(name, return_type, args, file, line, decoration) %>%
-  pmap_chr(function(name, return_type, args, file, line, decoration){
-    glue::glue('
-    // {basename(file)}
-    #if defined(ARROW_R_WITH_{toupper(decoration)})
-    {return_type} {name}({real_params});
-    extern "C" SEXP _arrow_{name}({sexp_params}){{
-    BEGIN_CPP11
-    {input_params}{return_line}{wrap_call(name, return_type, args)}
-    END_CPP11
-    }}
-    #else
-    extern "C" SEXP _arrow_{name}({sexp_params}){{
-    \tRf_error("Cannot call {name}(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-    }}
-    #endif
-
-    ',
+  pmap_chr(function(name, return_type, args, file, line, decoration) {
+    sexp_params <- glue_collapse_data(args, "SEXP {name}_sexp")
+    sexp_signature <- glue('_arrow_{name}({sexp_params})')
+    cpp11_wrapped <- glue('
+      {return_type} {name}({real_params});
+      extern "C" SEXP {sexp_signature}{{
+      BEGIN_CPP11
+      {input_params}{return_line}{wrap_call(name, return_type, args)}
+      END_CPP11
+      }}',
       sep = "\n",
       real_params = glue_collapse_data(args, "{type} {name}"),
-      sexp_params = glue_collapse_data(args, "SEXP {name}_sexp"),
       input_params = glue_collapse_data(args, "\tarrow::r::Input<{type}>::type {name}({name}_sexp);", sep = "\n"),
-      return_line = if(nrow(args)) "\n" else ""
+      return_line = if(nrow(args)) "\n" else "")
+
+    glue::glue('
+    // {basename(file)}
+    {ifdef_wrap(cpp11_wrapped, name, sexp_signature, decoration)}
+    ',
+      sep = "\n",
     )
   }) %>%
   glue_collapse(sep = "\n")
@@ -109,61 +162,39 @@ cpp_functions_registration <- arrow_exports %>%
   pmap_chr(function(name, return_type, args){
     glue('\t\t{{ "_arrow_{name}", (DL_FUNC) &_arrow_{name}, {nrow(args)}}}, ')
   }) %>%
-  glue_collapse(sep  = "\n")
+  glue_collapse(sep = "\n")
 
 cpp_classes_finalizers <- map2(names(arrow_classes), arrow_classes, function(name, class) {
-  glue::glue('
-  # if defined(ARROW_R_WITH_ARROW)
-  extern "C" SEXP _arrow_{name}__Reset(SEXP r6) {{
+  sexp_signature <- glue('_arrow_{name}__Reset(SEXP r6)')
+  cpp11_wrapped <- glue('
+    extern "C" SEXP {sexp_signature} {{
     BEGIN_CPP11
     arrow::r::r6_reset_pointer<{class}>(r6);
     END_CPP11
     return R_NilValue;
-  }}
-  # else
-  extern "C" SEXP _arrow_{name}__Reset(SEXP r6) {{
-    Rf_error("Cannot call _arrow_{name}__Reset(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-  }}
-  # endif
-  ')
+    }}')
+  ifdef_wrap(cpp11_wrapped, name, sexp_signature, "arrow")
 }) %>%
   glue_collapse(sep = "\n")
 
-classes_finalizers_registration <- map2(names(arrow_classes), arrow_classes, function(name, class) {
-    glue('\t\t{{ "_arrow_{name}__Reset", (DL_FUNC) &_arrow_{name}__Reset, 1}}, ')
-  }) %>%
-  glue_collapse(sep  = "\n")
+classes_finalizers_registration <- glue('\t\t{{ "_arrow_{names(arrow_classes)}__Reset", (DL_FUNC) &_arrow_{names(arrow_classes)}__Reset, 1}}, ') %>%
+  glue_collapse(sep = "\n")
 
-
-writeLines(con = "src/arrowExports.cpp", glue::glue('
-// Generated by using data-raw/codegen.R -> do not edit by hand
+cpp_file_header <- '// Generated by using data-raw/codegen.R -> do not edit by hand
 #include <cpp11.hpp>
 #include <cpp11/declarations.hpp>
 
 #include "./arrow_types.h"
+'
 
+arrow_exports_cpp <- glue::glue('
+{cpp_file_header}
 {cpp_functions_definitions}
 {cpp_classes_finalizers}
 
-extern "C" SEXP _arrow_available() {{
-return Rf_ScalarLogical(
-#if defined(ARROW_R_WITH_ARROW)
-  TRUE
-#else
-  FALSE
-#endif
-);
-}}
+{feature_available("arrow")}
 
-extern "C" SEXP _s3_available() {{
-return Rf_ScalarLogical(
-#if defined(ARROW_R_WITH_S3)
-  TRUE
-#else
-  FALSE
-#endif
-);
-}}
+{feature_available("s3")}
 
 static const R_CallMethodDef CallEntries[] = {{
 \t\t{{ "_arrow_available", (DL_FUNC)& _arrow_available, 0 }},
@@ -177,10 +208,9 @@ extern "C" void R_init_arrow(DllInfo* dll){{
   R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
   R_useDynamicSymbols(dll, FALSE);
 }}
+\n')
 
-') )
-
-message("*** > generated file `src/arrowExports.cpp`")
+write_if_modified(arrow_exports_cpp, "src/arrowExports.cpp")
 
 r_functions <- arrow_exports %>%
   select(name, return_type, args) %>%
@@ -190,10 +220,9 @@ r_functions <- arrow_exports %>%
     } else {
       ""
     }
-    call <- if(return_type == "void") {
-      glue::glue('invisible(.Call(`_arrow_{name}` {params}))')
-    } else {
-      glue::glue('.Call(`_arrow_{name}` {params})')
+    call <- glue::glue('.Call(`_arrow_{name}`{params})')
+    if (return_type == "void") {
+      call <- glue::glue('invisible({call})')
     }
 
     glue::glue('
@@ -208,10 +237,11 @@ r_functions <- arrow_exports %>%
   }) %>%
   glue_collapse(sep = "\n")
 
-writeLines(con = "R/arrowExports.R", glue::glue('
+arrow_exports_r <- glue::glue('
 # Generated by using data-raw/codegen.R -> do not edit by hand
 
 {r_functions}
 
-'))
-message("*** > generated file `R/arrowExports.R`")
+\n')
+
+write_if_modified(arrow_exports_r, "R/arrowExports.R")

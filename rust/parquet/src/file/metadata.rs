@@ -226,6 +226,11 @@ impl RowGroupMetaData {
         self.total_byte_size
     }
 
+    /// Total size of all compressed column data in this row group.
+    pub fn compressed_size(&self) -> i64 {
+        self.columns.iter().map(|c| c.total_compressed_size).sum()
+    }
+
     /// Returns reference to a schema descriptor.
     pub fn schema_descr(&self) -> &SchemaDescriptor {
         self.schema_descr.as_ref()
@@ -734,6 +739,31 @@ mod tests {
                 .to_thrift();
 
         assert_eq!(col_chunk_res, col_chunk_exp);
+    }
+
+    #[test]
+    fn test_compressed_size() {
+        let schema_descr = get_test_schema_descr();
+
+        let mut columns = vec![];
+        for column_descr in schema_descr.columns() {
+            let column = ColumnChunkMetaData::builder(column_descr.clone())
+                .set_total_compressed_size(500)
+                .set_total_uncompressed_size(700)
+                .build()
+                .unwrap();
+            columns.push(column);
+        }
+        let row_group_meta = RowGroupMetaData::builder(schema_descr)
+            .set_num_rows(1000)
+            .set_column_metadata(columns)
+            .build()
+            .unwrap();
+
+        let compressed_size_res: i64 = row_group_meta.compressed_size();
+        let compressed_size_exp: i64 = 1000;
+
+        assert_eq!(compressed_size_res, compressed_size_exp);
     }
 
     /// Returns sample schema descriptor so we can create column metadata.

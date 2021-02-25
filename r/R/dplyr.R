@@ -147,13 +147,13 @@ tbl_vars.arrow_dplyr_query <- function(x) names(x$selected_columns)
 select.arrow_dplyr_query <- function(.data, ...) {
   column_select(arrow_dplyr_query(.data), !!!enquos(...))
 }
-select.Dataset <- select.Table <- select.RecordBatch <- select.arrow_dplyr_query
+select.Dataset <- select.ArrowTabular <- select.arrow_dplyr_query
 
 #' @importFrom tidyselect vars_rename
 rename.arrow_dplyr_query <- function(.data, ...) {
   column_select(arrow_dplyr_query(.data), !!!enquos(...), .FUN = vars_rename)
 }
-rename.Dataset <- rename.Table <- rename.RecordBatch <- rename.arrow_dplyr_query
+rename.Dataset <- rename.ArrowTabular <- rename.arrow_dplyr_query
 
 column_select <- function(.data, ..., .FUN = vars_select) {
   # .FUN is either tidyselect::vars_select or tidyselect::vars_rename
@@ -236,33 +236,52 @@ filter.arrow_dplyr_query <- function(.data, ..., .preserve = FALSE) {
 
   set_filters(.data, filters)
 }
-filter.Dataset <- filter.Table <- filter.RecordBatch <- filter.arrow_dplyr_query
+filter.Dataset <- filter.ArrowTabular <- filter.arrow_dplyr_query
+
+# Helper to assemble the functions that go in the NSE data mask
+# The only difference between the Dataset and the Table/RecordBatch versions
+# is that they use a different wrapping function (FUN) to hold the unevaluated
+# expression.
+build_function_list <- function(FUN) {
+  wrapper <- function(operator) {
+    force(operator)
+    function(e1, e2) FUN(operator, e1, e2)
+  }
+
+  c(
+    lapply(set_names(names(.array_function_map)), wrapper),
+    # TODO: lapply also for the arrow spellings?
+    # See list_compute_functions()
+    # (would want to do these first, and then modifyList with the R ones
+    # in case of name collision)
+    # Would need to generalize FUN to accept ... args
+    str_trim = function(string, side = c("both", "left", "right")) {
+      side <- match.arg(side)
+      switch(
+        side,
+        left = FUN("utf8_ltrim_whitespace", string),
+        right = FUN("utf8_rtrim_whitespace", string),
+        both = FUN("utf8_trim_whitespace", string)
+      )
+    }
+  )
+}
+
+# Create these once, at package build time
+dataset_function_list <- build_function_list(build_dataset_expression)
+array_function_list <- build_function_list(build_array_expression)
 
 # Create a data mask for evaluating a filter expression
 filter_mask <- function(.data) {
-  f_env <- env()
-
-  # Insert functions/operators and field references
-  # TODO: define functions in env once, outside of this function
-  # filter_env <- env(parent = if (data_is_dataset) function_env1 else function_env2)
   if (query_on_dataset(.data)) {
-    comp_func <- function(operator) {
-      force(operator)
-      function(e1, e2) build_dataset_expression(operator, e1, e2)
-    }
+    f_env <- new_environment(dataset_function_list)
     var_binder <- function(x) Expression$field_ref(x)
   } else {
-    comp_func <- function(operator) {
-      force(operator)
-      function(e1, e2) build_array_expression(operator, e1, e2)
-    }
+    f_env <- new_environment(array_function_list)
     var_binder <- function(x) .data$.data[[x]]
   }
 
-  # First add the functions
-  func_names <- set_names(names(.array_function_map))
-  env_bind(f_env, !!!lapply(func_names, comp_func))
-  # Then add the column references
+  # Add the column references
   # Renaming is handled automatically by the named list
   data_pronoun <- lapply(.data$selected_columns, var_binder)
   env_bind(f_env, !!!data_pronoun)
@@ -301,8 +320,7 @@ collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
     restore_dplyr_features(tab, x)
   }
 }
-collect.Table <- as.data.frame.Table
-collect.RecordBatch <- as.data.frame.RecordBatch
+collect.ArrowTabular <- as.data.frame.ArrowTabular
 collect.Dataset <- function(x, ...) dplyr::collect(arrow_dplyr_query(x), ...)
 
 ensure_group_vars <- function(x) {
@@ -345,7 +363,7 @@ pull.arrow_dplyr_query <- function(.data, var = -1) {
   .data$selected_columns <- set_names(.data$selected_columns[var], var)
   dplyr::collect(.data)[[1]]
 }
-pull.Dataset <- pull.Table <- pull.RecordBatch <- pull.arrow_dplyr_query
+pull.Dataset <- pull.ArrowTabular <- pull.arrow_dplyr_query
 
 summarise.arrow_dplyr_query <- function(.data, ...) {
   .data <- arrow_dplyr_query(.data)
@@ -361,10 +379,27 @@ summarise.arrow_dplyr_query <- function(.data, ...) {
   # TODO: determine whether work can be pushed down to Arrow
   dplyr::summarise(dplyr::collect(.data), ...)
 }
-summarise.Dataset <- summarise.Table <- summarise.RecordBatch <- summarise.arrow_dplyr_query
+summarise.Dataset <- summarise.ArrowTabular <- summarise.arrow_dplyr_query
 
-group_by.arrow_dplyr_query <- function(.data, ..., .add = FALSE, add = .add) {
+group_by.arrow_dplyr_query <- function(.data,
+                                       ...,
+                                       .add = FALSE,
+                                       add = .add,
+                                       .drop = TRUE) {
+  if (!isTRUE(.drop)) {
+    stop(".drop argument not supported for Arrow objects", call. = FALSE)
+  }
   .data <- arrow_dplyr_query(.data)
+  # ... can contain expressions (i.e. can add (or rename?) columns)
+  # Check for those (they show up as named expressions)
+  new_groups <- enquos(...)
+  new_groups <- new_groups[nzchar(names(new_groups))]
+  if (length(new_groups)) {
+    # TODO(ARROW-11658): either find a way to let group_by_prepare handle this
+    # (it may call mutate() for us)
+    # or essentially reimplement it here (see dplyr:::add_computed_columns)
+    stop("Cannot create or rename columns in group_by on Arrow objects", call. = FALSE)
+  }
   if (".add" %in% names(formals(dplyr::group_by))) {
     # dplyr >= 1.0
     gv <- dplyr::group_by_prepare(.data, ..., .add = .add)$group_names
@@ -374,19 +409,19 @@ group_by.arrow_dplyr_query <- function(.data, ..., .add = FALSE, add = .add) {
   .data$group_by_vars <- gv
   .data
 }
-group_by.Dataset <- group_by.Table <- group_by.RecordBatch <- group_by.arrow_dplyr_query
+group_by.Dataset <- group_by.ArrowTabular <- group_by.arrow_dplyr_query
 
 groups.arrow_dplyr_query <- function(x) syms(dplyr::group_vars(x))
-groups.Dataset <- groups.Table <- groups.RecordBatch <- function(x) NULL
+groups.Dataset <- groups.ArrowTabular <- function(x) NULL
 
 group_vars.arrow_dplyr_query <- function(x) x$group_by_vars
-group_vars.Dataset <- group_vars.Table <- group_vars.RecordBatch <- function(x) NULL
+group_vars.Dataset <- group_vars.ArrowTabular <- function(x) NULL
 
 ungroup.arrow_dplyr_query <- function(x, ...) {
   x$group_by_vars <- character()
   x
 }
-ungroup.Dataset <- ungroup.Table <- ungroup.RecordBatch <- force
+ungroup.Dataset <- ungroup.ArrowTabular <- force
 
 mutate.arrow_dplyr_query <- function(.data, ...) {
   .data <- arrow_dplyr_query(.data)
@@ -398,7 +433,7 @@ mutate.arrow_dplyr_query <- function(.data, ...) {
   # vector transformation functions aren't yet implemented in Arrow C++.
   dplyr::mutate(dplyr::collect(.data), ...)
 }
-mutate.Dataset <- mutate.Table <- mutate.RecordBatch <- mutate.arrow_dplyr_query
+mutate.Dataset <- mutate.ArrowTabular <- mutate.arrow_dplyr_query
 # TODO: add transmute() that does what summarise() does (select only the vars we need)
 
 arrange.arrow_dplyr_query <- function(.data, ...) {
@@ -409,7 +444,7 @@ arrange.arrow_dplyr_query <- function(.data, ...) {
 
   dplyr::arrange(dplyr::collect(.data), ...)
 }
-arrange.Dataset <- arrange.Table <- arrange.RecordBatch <- arrange.arrow_dplyr_query
+arrange.Dataset <- arrange.ArrowTabular <- arrange.arrow_dplyr_query
 
 query_on_dataset <- function(x) inherits(x$.data, "Dataset")
 

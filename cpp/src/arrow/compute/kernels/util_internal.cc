@@ -53,17 +53,18 @@ PrimitiveArg GetPrimitiveArg(const ArrayData& arr) {
     arg.data += arr.offset * arg.bit_width / 8;
   }
   // This may be kUnknownNullCount
-  arg.null_count = arr.null_count.load();
+  arg.null_count = (arg.is_valid != nullptr) ? arr.null_count.load() : 0;
   return arg;
 }
 
-ArrayKernelExec TrivialScalarUnaryAsArraysExec(ArrayKernelExec exec) {
-  return [exec](KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+ArrayKernelExec TrivialScalarUnaryAsArraysExec(ArrayKernelExec exec,
+                                               NullHandling::type null_handling) {
+  return [=](KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     if (out->is_array()) {
       return exec(ctx, batch, out);
     }
 
-    if (!batch[0].scalar()->is_valid) {
+    if (null_handling == NullHandling::INTERSECTION && !batch[0].scalar()->is_valid) {
       out->scalar()->is_valid = false;
       return;
     }

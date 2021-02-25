@@ -54,8 +54,7 @@ cdef extern from "arrow/util/decimal.h" namespace "arrow" nogil:
         c_string ToString(int32_t scale) const
 
 
-cdef extern from "arrow/api.h" namespace "arrow" nogil:
-
+cdef extern from "arrow/config.h" namespace "arrow" nogil:
     cdef cppclass CBuildInfo "arrow::BuildInfo":
         int version
         int version_major
@@ -73,6 +72,14 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     const CBuildInfo& GetBuildInfo()
 
+    cdef cppclass CRuntimeInfo "arrow::RuntimeInfo":
+        c_string simd_level
+        c_string detected_simd_level
+
+    CRuntimeInfo GetRuntimeInfo()
+
+
+cdef extern from "arrow/api.h" namespace "arrow" nogil:
     enum Type" arrow::Type::type":
         _Type_NA" arrow::Type::NA"
 
@@ -1027,6 +1034,16 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CConcatenateTablesOptions options,
         CMemoryPool* memory_pool)
 
+    cdef cppclass CDictionaryUnifier" arrow::DictionaryUnifier":
+        @staticmethod
+        CResult[shared_ptr[CChunkedArray]] UnifyChunkedArray(
+            shared_ptr[CChunkedArray] array, CMemoryPool* pool)
+
+        @staticmethod
+        CResult[shared_ptr[CTable]] UnifyTable(
+            const CTable& table, CMemoryPool* pool)
+
+
 cdef extern from "arrow/builder.h" namespace "arrow" nogil:
 
     cdef cppclass CArrayBuilder" arrow::ArrayBuilder":
@@ -1122,6 +1139,9 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
     enum ObjectType" arrow::io::ObjectType::type":
         ObjectType_FILE" arrow::io::ObjectType::FILE"
         ObjectType_DIRECTORY" arrow::io::ObjectType::DIRECTORY"
+
+    cdef cppclass CAsyncContext" arrow::io::AsyncContext":
+        CAsyncContext()
 
     cdef cppclass FileStatistics:
         int64_t size
@@ -1601,7 +1621,7 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
     cdef cppclass CCSVReader" arrow::csv::TableReader":
         @staticmethod
         CResult[shared_ptr[CCSVReader]] Make(
-            CMemoryPool*, shared_ptr[CInputStream],
+            CMemoryPool*, CAsyncContext, shared_ptr[CInputStream],
             CCSVReadOptions, CCSVParseOptions, CCSVConvertOptions)
 
         CResult[shared_ptr[CTable]] Read()
@@ -1782,6 +1802,20 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CFilterOptions(CFilterNullSelectionBehavior null_selection)
         CFilterNullSelectionBehavior null_selection_behavior
 
+    enum CDictionaryEncodeNullEncodingBehavior \
+            "arrow::compute::DictionaryEncodeOptions::NullEncodingBehavior":
+        CDictionaryEncodeNullEncodingBehavior_ENCODE \
+            "arrow::compute::DictionaryEncodeOptions::ENCODE"
+        CDictionaryEncodeNullEncodingBehavior_MASK \
+            "arrow::compute::DictionaryEncodeOptions::MASK"
+
+    cdef cppclass CDictionaryEncodeOptions \
+            "arrow::compute::DictionaryEncodeOptions"(CFunctionOptions):
+        CDictionaryEncodeOptions()
+        CDictionaryEncodeOptions(
+            CDictionaryEncodeNullEncodingBehavior null_encoding)
+        CDictionaryEncodeNullEncodingBehavior null_encoding
+
     cdef cppclass CTakeOptions \
             " arrow::compute::TakeOptions"(CFunctionOptions):
         CTakeOptions(c_bool boundscheck)
@@ -1869,6 +1903,14 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CQuantileOptions(vector[double] q, CQuantileInterp interpolation)
         vector[double] q
         CQuantileInterp interpolation
+
+    cdef cppclass CTDigestOptions \
+            "arrow::compute::TDigestOptions"(CFunctionOptions):
+        CTDigestOptions(vector[double] q,
+                        unsigned int delta, unsigned int buffer_size)
+        vector[double] q
+        unsigned int delta
+        unsigned int buffer_size
 
     enum DatumType" arrow::Datum::type":
         DatumType_NONE" arrow::Datum::NONE"

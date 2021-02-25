@@ -39,7 +39,7 @@ ARROW_R_DEV=`echo $ARROW_R_DEV | tr '[:upper:]' '[:lower:]'`
 FORCE_AUTOBREW=`echo $FORCE_AUTOBREW | tr '[:upper:]' '[:lower:]'`
 ARROW_USE_PKG_CONFIG=`echo $ARROW_USE_PKG_CONFIG | tr '[:upper:]' '[:lower:]'`
 
-VERSION=`grep ^Version DESCRIPTION | sed s/Version:\ //`
+VERSION=`grep '^Version' DESCRIPTION | sed s/Version:\ //`
 UNAME=`uname -s`
 
 # generate code
@@ -116,7 +116,7 @@ else
         fi
         # autobrew sets `PKG_LIBS` and `PKG_CFLAGS`
       fi
-    elif [ "$UNAME" = "Linux" ]; then
+    else
       # Set some default values/backwards compatibility
       if [ "${LIBARROW_DOWNLOAD}" = "" ] && [ "${NOT_CRAN}" != "" ]; then
         LIBARROW_DOWNLOAD=$NOT_CRAN; export LIBARROW_DOWNLOAD

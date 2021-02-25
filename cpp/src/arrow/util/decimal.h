@@ -55,7 +55,8 @@ class ARROW_EXPORT Decimal128 : public BasicDecimal128 {
   /// \endcond
 
   /// \brief constructor creates a Decimal128 from a BasicDecimal128.
-  constexpr Decimal128(const BasicDecimal128& value) noexcept : BasicDecimal128(value) {}
+  constexpr Decimal128(const BasicDecimal128& value) noexcept  // NOLINT runtime/explicit
+      : BasicDecimal128(value) {}
 
   /// \brief Parse the number from a base 10 string representation.
   explicit Decimal128(const std::string& value);

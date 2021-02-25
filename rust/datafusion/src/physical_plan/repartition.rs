@@ -125,7 +125,7 @@ impl ExecutionPlan for RepartitionExec {
                 let input = self.input.clone();
                 let mut channels = channels.clone();
                 let partitioning = self.partitioning.clone();
-                let _: JoinHandle<Result<()>> = tokio::spawn(async move {
+                let join_handle: JoinHandle<Result<()>> = tokio::spawn(async move {
                     let mut stream = input.execute(i).await?;
                     let mut counter = 0;
                     while let Some(result) = stream.next().await {
@@ -157,6 +157,10 @@ impl ExecutionPlan for RepartitionExec {
                     }
                     Ok(())
                 });
+                join_handle
+                    .await
+                    .map(|_| ())
+                    .map_err(|e| DataFusionError::Execution(e.to_string()))?;
             }
         }
 
@@ -243,11 +247,11 @@ mod tests {
     use arrow::datatypes::{DataType, Field, Schema};
     use arrow::record_batch::RecordBatch;
 
-    #[tokio::test(threaded_scheduler)]
+    #[tokio::test(flavor = "multi_thread")]
     async fn one_to_many_round_robin() -> Result<()> {
         // define input partitions
         let schema = test_schema();
-        let partition = create_vec_batches(&schema, 50)?;
+        let partition = create_vec_batches(&schema, 50);
         let partitions = vec![partition];
 
         // repartition from 1 input to 4 output
@@ -263,11 +267,11 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test(threaded_scheduler)]
+    #[tokio::test(flavor = "multi_thread")]
     async fn many_to_one_round_robin() -> Result<()> {
         // define input partitions
         let schema = test_schema();
-        let partition = create_vec_batches(&schema, 50)?;
+        let partition = create_vec_batches(&schema, 50);
         let partitions = vec![partition.clone(), partition.clone(), partition.clone()];
 
         // repartition from 3 input to 1 output
@@ -280,11 +284,11 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test(threaded_scheduler)]
+    #[tokio::test(flavor = "multi_thread")]
     async fn many_to_many_round_robin() -> Result<()> {
         // define input partitions
         let schema = test_schema();
-        let partition = create_vec_batches(&schema, 50)?;
+        let partition = create_vec_batches(&schema, 50);
         let partitions = vec![partition.clone(), partition.clone(), partition.clone()];
 
         // repartition from 3 input to 5 output
@@ -305,13 +309,13 @@ mod tests {
         Arc::new(Schema::new(vec![Field::new("c0", DataType::UInt32, false)]))
     }
 
-    fn create_vec_batches(schema: &Arc<Schema>, n: usize) -> Result<Vec<RecordBatch>> {
+    fn create_vec_batches(schema: &Arc<Schema>, n: usize) -> Vec<RecordBatch> {
         let batch = create_batch(schema);
         let mut vec = Vec::with_capacity(n);
         for _ in 0..n {
             vec.push(batch.clone());
         }
-        Ok(vec)
+        vec
     }
 
     fn create_batch(schema: &Arc<Schema>) -> RecordBatch {

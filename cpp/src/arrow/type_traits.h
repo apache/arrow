@@ -929,6 +929,52 @@ static inline bool is_fixed_width(Type::type type_id) {
   return is_primitive(type_id) || is_dictionary(type_id) || is_fixed_size_binary(type_id);
 }
 
+static inline int bit_width(Type::type type_id) {
+  switch (type_id) {
+    case Type::BOOL:
+      return 1;
+    case Type::UINT8:
+    case Type::INT8:
+      return 8;
+    case Type::UINT16:
+    case Type::INT16:
+      return 16;
+    case Type::UINT32:
+    case Type::INT32:
+    case Type::DATE32:
+    case Type::TIME32:
+      return 32;
+    case Type::UINT64:
+    case Type::INT64:
+    case Type::DATE64:
+    case Type::TIME64:
+    case Type::TIMESTAMP:
+    case Type::DURATION:
+      return 64;
+
+    case Type::HALF_FLOAT:
+      return 16;
+    case Type::FLOAT:
+      return 32;
+    case Type::DOUBLE:
+      return 64;
+
+    case Type::INTERVAL_MONTHS:
+      return 32;
+    case Type::INTERVAL_DAY_TIME:
+      return 64;
+
+    case Type::DECIMAL128:
+      return 128;
+    case Type::DECIMAL256:
+      return 256;
+
+    default:
+      break;
+  }
+  return 0;
+}
+
 static inline bool is_nested(Type::type type_id) {
   switch (type_id) {
     case Type::LIST:
@@ -943,6 +989,24 @@ static inline bool is_nested(Type::type type_id) {
       break;
   }
   return false;
+}
+
+static inline int offset_bit_width(Type::type type_id) {
+  switch (type_id) {
+    case Type::STRING:
+    case Type::BINARY:
+    case Type::LIST:
+    case Type::MAP:
+    case Type::DENSE_UNION:
+      return 32;
+    case Type::LARGE_STRING:
+    case Type::LARGE_BINARY:
+    case Type::LARGE_LIST:
+      return 64;
+    default:
+      break;
+  }
+  return 0;
 }
 
 }  // namespace arrow

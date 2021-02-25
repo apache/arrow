@@ -24,6 +24,7 @@
 
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_reader.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 

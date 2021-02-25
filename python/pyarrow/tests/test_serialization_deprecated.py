@@ -23,34 +23,34 @@ import pyarrow as pa
 
 
 def test_serialization_deprecated():
-    with pytest.warns(DeprecationWarning):
+    with pytest.warns(FutureWarning):
         ser = pa.serialize(1)
 
-    with pytest.warns(DeprecationWarning):
+    with pytest.warns(FutureWarning):
         pa.deserialize(ser.to_buffer())
 
     f = pa.BufferOutputStream()
-    with pytest.warns(DeprecationWarning):
+    with pytest.warns(FutureWarning):
         pa.serialize_to(12, f)
 
     buf = f.getvalue()
     f = pa.BufferReader(buf)
-    with pytest.warns(DeprecationWarning):
+    with pytest.warns(FutureWarning):
         pa.read_serialized(f).deserialize()
 
-    with pytest.warns(DeprecationWarning):
+    with pytest.warns(FutureWarning):
         pa.default_serialization_context()
 
     context = pa.lib.SerializationContext()
-    with pytest.warns(DeprecationWarning):
+    with pytest.warns(FutureWarning):
         pa.register_default_serialization_handlers(context)
 
 
 @pytest.mark.skipif(sys.version_info < (3, 7),
                     reason="getattr needs Python 3.7")
 def test_serialization_deprecated_toplevel():
-    with pytest.warns(DeprecationWarning):
+    with pytest.warns(FutureWarning):
         pa.SerializedPyObject()
 
-    with pytest.warns(DeprecationWarning):
+    with pytest.warns(FutureWarning):
         pa.SerializationContext()

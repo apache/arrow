@@ -55,7 +55,7 @@ except ImportError:
 
 # ignore all serialization deprecation warnings in this file, we test that the
 # warnings are actually raised in test_serialization_deprecated.py
-pytestmark = pytest.mark.filterwarnings("ignore:'pyarrow:DeprecationWarning")
+pytestmark = pytest.mark.filterwarnings("ignore:'pyarrow:FutureWarning")
 
 
 def assert_equal(obj1, obj2):
@@ -239,7 +239,7 @@ CUSTOM_OBJECTS = [Exception("Test object."), CustomError(), Point(11, y=22),
 
 
 def make_serialization_context():
-    with pytest.warns(DeprecationWarning):
+    with pytest.warns(FutureWarning):
         context = pa.default_serialization_context()
 
     context.register_type(Foo, "Foo")

@@ -2818,12 +2818,12 @@ def test_roundtrip_with_bytes_unicode(columns):
 
 
 def _check_serialize_components_roundtrip(pd_obj):
-    with pytest.warns(DeprecationWarning):
+    with pytest.warns(FutureWarning):
         ctx = pa.default_serialization_context()
 
-    with pytest.warns(DeprecationWarning):
+    with pytest.warns(FutureWarning):
         components = ctx.serialize(pd_obj).to_components()
-    with pytest.warns(DeprecationWarning):
+    with pytest.warns(FutureWarning):
         deserialized = ctx.deserialize_components(components)
 
     if isinstance(pd_obj, pd.DataFrame):

@@ -36,13 +36,6 @@ set -x
 SOURCE_DIR="$(cd "${SOURCE_DIR}" && pwd)"
 DEST_DIR="$(mkdir -p "${DEST_DIR}" && cd "${DEST_DIR}" && pwd)"
 
-if [ "$CMAKE_GENERATOR" = "" ]; then
-  # Look for ninja, prefer it
-  if which ninja >/dev/null 2>&1; then
-    CMAKE_GENERATOR="Ninja"
-  fi
-fi
-
 if [ "$LIBARROW_MINIMAL" = "false" ]; then
   ARROW_DEFAULT_PARAM="ON"
 else
@@ -69,7 +62,6 @@ ${CMAKE} -DARROW_BOOST_USE_SHARED=OFF \
     -DARROW_WITH_BZ2=${ARROW_WITH_BZ2:-$ARROW_DEFAULT_PARAM} \
     -DARROW_WITH_LZ4=${ARROW_WITH_LZ4:-$ARROW_DEFAULT_PARAM} \
     -DARROW_WITH_SNAPPY=${ARROW_WITH_SNAPPY:-$ARROW_DEFAULT_PARAM} \
-    -DARROW_WITH_UTF8PROC=OFF \
     -DARROW_WITH_ZLIB=${ARROW_WITH_ZLIB:-$ARROW_DEFAULT_PARAM} \
     -DARROW_WITH_ZSTD=${ARROW_WITH_ZSTD:-$ARROW_DEFAULT_PARAM} \
     -DCMAKE_BUILD_TYPE=Release \

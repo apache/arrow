@@ -43,7 +43,6 @@ RUN \
     git \
     gtk-doc-tools \
     libboost-filesystem-dev \
-    libboost-regex-dev \
     libboost-system-dev \
     libbrotli-dev \
     libbz2-dev \
