@@ -62,8 +62,12 @@ write_dataset <- function(dataset,
                           hive_style = TRUE,
                           ...) {
   if (inherits(dataset, "arrow_dplyr_query")) {
+    if (inherits(dataset$.data, "ArrowTabular")) {
+      # collect() to materialize any mutate/rename
+      dataset <- dplyr::collect(dataset, as_data_frame = FALSE)
+    }
     # We can select a subset of columns but we can't rename them
-    if (!all(dataset$selected_columns == names(dataset$selected_columns))) {
+    if (!all(get_field_names(dataset) == names(dataset$selected_columns))) {
       stop("Renaming columns when writing a dataset is not yet supported", call. = FALSE)
     }
     # partitioning vars need to be in the `select` schema

@@ -59,3 +59,66 @@ verify_output <- function(...) {
   }
   testthat::verify_output(...)
 }
+
+expect_dplyr_equal <- function(expr, # A dplyr pipeline with `input` as its start
+                               tbl,  # A tbl/df as reference, will make RB/Table with
+                               skip_record_batch = NULL, # Msg, if should skip RB test
+                               skip_table = NULL,        # Msg, if should skip Table test
+                               ...) {
+  expr <- rlang::enquo(expr)
+  expected <- rlang::eval_tidy(expr, rlang::new_data_mask(rlang::env(input = tbl)))
+
+  skip_msg <- NULL
+
+  if (is.null(skip_record_batch)) {
+    via_batch <- rlang::eval_tidy(
+      expr,
+      rlang::new_data_mask(rlang::env(input = record_batch(tbl)))
+    )
+    expect_equivalent(via_batch, expected, ...)
+  } else {
+    skip_msg <- c(skip_msg, skip_record_batch)
+  }
+
+  if (is.null(skip_table)) {
+    via_table <- rlang::eval_tidy(
+      expr,
+      rlang::new_data_mask(rlang::env(input = Table$create(tbl)))
+    )
+    expect_equivalent(via_table, expected, ...)
+  } else {
+    skip_msg <- c(skip_msg, skip_table)
+  }
+
+  if (!is.null(skip_msg)) {
+    skip(paste(skip_msg, collpase = "\n"))
+  }
+}
+
+expect_dplyr_error <- function(expr, # A dplyr pipeline with `input` as its start
+                               tbl,  # A tbl/df as reference, will make RB/Table with
+                               ...) {
+  expr <- rlang::enquo(expr)
+  msg <- tryCatch(
+    rlang::eval_tidy(expr, rlang::new_data_mask(rlang::env(input = tbl))),
+    error = function (e) conditionMessage(e)
+  )
+  expect_is(msg, "character", label = "dplyr on data.frame did not error")
+
+  expect_error(
+    rlang::eval_tidy(
+      expr,
+      rlang::new_data_mask(rlang::env(input = record_batch(tbl)))
+    ),
+    msg,
+    ...
+  )
+  expect_error(
+    rlang::eval_tidy(
+      expr,
+      rlang::new_data_mask(rlang::env(input = Table$create(tbl)))
+    ),
+    msg,
+    ...
+  )
+}

@@ -34,8 +34,20 @@ test_that("array_expression print method", {
   )
 })
 
+test_that("array_refs", {
+  tab <- Table$create(a = 1:5)
+  ex <- build_array_expression(">", array_expression("array_ref", field_name = "a"), 4)
+  expect_is(ex, "array_expression")
+  expect_identical(ex$args[[1]]$args$field_name, "a")
+  expect_identical(find_array_refs(ex), "a")
+  out <- eval_array_expression(ex, tab)
+  expect_is(out, "ChunkedArray")
+  expect_equal(as.vector(out), c(FALSE, FALSE, FALSE, FALSE, TRUE))
+})
+
 test_that("C++ expressions", {
   f <- Expression$field_ref("f")
+  expect_identical(f$field_name, "f")
   g <- Expression$field_ref("g")
   date <- Expression$scalar(as.Date("2020-01-15"))
   ts <- Expression$scalar(as.POSIXct("2020-01-17 11:11:11"))

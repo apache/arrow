@@ -416,6 +416,14 @@ test_that("record_batch() handles null type (ARROW-7064)", {
   expect_equivalent(batch$schema,  schema(a = int32(), n = null()))
 })
 
+test_that("record_batch() scalar recycling", {
+  skip("Not implemented (ARROW-11705)")
+  expect_data_frame(
+    record_batch(a = 1:10, b = 5),
+    tibble::tibble(a = 1:10, b = 5)
+  )
+})
+
 test_that("RecordBatch$Equals", {
   df <- tibble::tibble(x = 1:10, y = letters[1:10])
   a <- record_batch(df)
