@@ -942,9 +942,11 @@ Result<std::shared_ptr<TableReader>> TableReader::Make(
     const ConvertOptions& convert_options) {
   std::shared_ptr<BaseTableReader> reader;
   if (read_options.use_threads) {
-    reader = std::make_shared<AsyncThreadedTableReader>(
-        pool, input, read_options, parse_options, convert_options, io_context.executor(),
-        internal::GetCpuThreadPool());
+    auto cpu_executor = internal::GetCpuThreadPool();
+    auto io_executor = io_context.executor();
+    reader = std::make_shared<AsyncThreadedTableReader>(pool, input, read_options,
+                                                        parse_options, convert_options,
+                                                        cpu_executor, io_executor);
   } else {
     reader = std::make_shared<SerialTableReader>(pool, input, read_options, parse_options,
                                                  convert_options);
