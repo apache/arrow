@@ -194,6 +194,12 @@ test_that("Hive partitioning", {
   )
 })
 
+test_that("input validation", {
+  expect_error(
+    open_dataset(hive_dir, hive_partition(other = utf8(), group = uint8()))
+  )
+})
+
 test_that("Partitioning inference", {
   # These are the same tests as above, just using the *PartitioningFactory
   ds1 <- open_dataset(dataset_dir, partitioning = "part")
