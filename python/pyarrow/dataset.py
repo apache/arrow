@@ -50,6 +50,7 @@ from pyarrow._dataset import (  # noqa
     RowGroupInfo,
     Scanner,
     ScanTask,
+    TaggedRecordBatch,
     UnionDataset,
     UnionDatasetFactory,
     _get_partition_keys,

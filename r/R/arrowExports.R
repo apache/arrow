@@ -504,6 +504,10 @@ dataset___Scanner__ToTable <- function(scanner){
     .Call(`_arrow_dataset___Scanner__ToTable`, scanner)
 }
 
+dataset___Scanner__ScanBatches <- function(scanner){
+    .Call(`_arrow_dataset___Scanner__ScanBatches`, scanner)
+}
+
 dataset___Scanner__head <- function(scanner, n){
     .Call(`_arrow_dataset___Scanner__head`, scanner, n)
 }
@@ -522,6 +526,10 @@ dataset___ScanTask__get_batches <- function(scan_task){
 
 dataset___Dataset__Write <- function(file_write_options, filesystem, base_dir, partitioning, basename_template, scanner){
     invisible(.Call(`_arrow_dataset___Dataset__Write`, file_write_options, filesystem, base_dir, partitioning, basename_template, scanner))
+}
+
+dataset___Scanner__TakeRows <- function(scanner, indices){
+    .Call(`_arrow_dataset___Scanner__TakeRows`, scanner, indices)
 }
 
 Int8__initialize <- function(){

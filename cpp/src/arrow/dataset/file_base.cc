@@ -460,8 +460,24 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
   //
   // NB: neither of these will have any impact whatsoever on the common case of writing
   //     an in-memory table to disk.
+
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#elif defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable : 4996)
+#endif
+
+  // TODO: (ARROW-11782/ARROW-12288) Remove calls to Scan()
   ARROW_ASSIGN_OR_RAISE(auto scan_task_it, scanner->Scan());
   ARROW_ASSIGN_OR_RAISE(ScanTaskVector scan_tasks, scan_task_it.ToVector());
+
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#elif defined(_MSC_VER)
+#pragma warning(pop)
+#endif
 
   WriteState state(write_options);
   auto res = internal::RunSynchronously<arrow::detail::Empty>(
