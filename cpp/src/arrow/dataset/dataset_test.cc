@@ -244,109 +244,6 @@ TEST(TestProjector, CheckProjectable) {
                                 "fields had matching names but differing types");
 }
 
-TEST(TestProjector, MismatchedType) {
-  constexpr int64_t kBatchSize = 1024;
-
-  auto from_schema = schema({field("f64", float64())});
-  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, from_schema);
-
-  auto to_schema = schema({field("f64", int32())});
-  RecordBatchProjector projector(to_schema);
-
-  auto result = projector.Project(*batch);
-  ASSERT_RAISES(TypeError, result.status());
-}
-
-TEST(TestProjector, AugmentWithNull) {
-  constexpr int64_t kBatchSize = 1024;
-
-  auto from_schema =
-      schema({field("f64", float64()), field("b", boolean()), field("str", null())});
-  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, from_schema);
-  auto to_schema =
-      schema({field("i32", int32()), field("f64", float64()), field("str", utf8())});
-
-  RecordBatchProjector projector(to_schema);
-
-  ASSERT_OK_AND_ASSIGN(auto null_i32, MakeArrayOfNull(int32(), batch->num_rows()));
-  ASSERT_OK_AND_ASSIGN(auto null_str, MakeArrayOfNull(utf8(), batch->num_rows()));
-  auto expected_batch = RecordBatch::Make(to_schema, batch->num_rows(),
-                                          {null_i32, batch->column(0), null_str});
-
-  ASSERT_OK_AND_ASSIGN(auto reconciled_batch, projector.Project(*batch));
-  AssertBatchesEqual(*expected_batch, *reconciled_batch);
-}
-
-TEST(TestProjector, AugmentWithScalar) {
-  static constexpr int64_t kBatchSize = 1024;
-  static constexpr int32_t kScalarValue = 3;
-
-  auto from_schema = schema({field("f64", float64()), field("b", boolean())});
-  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, from_schema);
-  auto to_schema = schema({field("i32", int32()), field("f64", float64())});
-
-  auto scalar_i32 = std::make_shared<Int32Scalar>(kScalarValue);
-
-  RecordBatchProjector projector(to_schema);
-  ASSERT_OK(projector.SetDefaultValue(to_schema->GetFieldIndex("i32"), scalar_i32));
-
-  ASSERT_OK_AND_ASSIGN(auto array_i32,
-                       ArrayFromBuilderVisitor(int32(), kBatchSize, [](Int32Builder* b) {
-                         b->UnsafeAppend(kScalarValue);
-                       }));
-
-  auto expected_batch =
-      RecordBatch::Make(to_schema, batch->num_rows(), {array_i32, batch->column(0)});
-
-  ASSERT_OK_AND_ASSIGN(auto reconciled_batch, projector.Project(*batch));
-  AssertBatchesEqual(*expected_batch, *reconciled_batch);
-}
-
-TEST(TestProjector, NonTrivial) {
-  static constexpr int64_t kBatchSize = 1024;
-
-  static constexpr float kScalarValue = 3.14f;
-
-  auto from_schema =
-      schema({field("i8", int8()), field("u8", uint8()), field("i16", int16()),
-              field("u16", uint16()), field("i32", int32()), field("u32", uint32())});
-
-  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, from_schema);
-
-  auto to_schema =
-      schema({field("i32", int32()), field("f64", float64()), field("u16", uint16()),
-              field("u8", uint8()), field("b", boolean()), field("u32", uint32()),
-              field("f32", float32())});
-
-  auto scalar_f32 = std::make_shared<FloatScalar>(kScalarValue);
-  auto scalar_f64 = std::make_shared<DoubleScalar>(kScalarValue);
-
-  RecordBatchProjector projector(to_schema);
-  ASSERT_OK(projector.SetDefaultValue(to_schema->GetFieldIndex("f64"), scalar_f64));
-  ASSERT_OK(projector.SetDefaultValue(to_schema->GetFieldIndex("f32"), scalar_f32));
-
-  ASSERT_OK_AND_ASSIGN(
-      auto array_f32, ArrayFromBuilderVisitor(float32(), kBatchSize, [](FloatBuilder* b) {
-        b->UnsafeAppend(kScalarValue);
-      }));
-  ASSERT_OK_AND_ASSIGN(auto array_f64, ArrayFromBuilderVisitor(
-                                           float64(), kBatchSize, [](DoubleBuilder* b) {
-                                             b->UnsafeAppend(kScalarValue);
-                                           }));
-  ASSERT_OK_AND_ASSIGN(
-      auto null_b, ArrayFromBuilderVisitor(boolean(), kBatchSize, [](BooleanBuilder* b) {
-        b->UnsafeAppendNull();
-      }));
-
-  auto expected_batch = RecordBatch::Make(
-      to_schema, batch->num_rows(),
-      {batch->GetColumnByName("i32"), array_f64, batch->GetColumnByName("u16"),
-       batch->GetColumnByName("u8"), null_b, batch->GetColumnByName("u32"), array_f32});
-
-  ASSERT_OK_AND_ASSIGN(auto reconciled_batch, projector.Project(*batch));
-  AssertBatchesEqual(*expected_batch, *reconciled_batch);
-}
-
 class TestEndToEnd : public TestUnionDataset {
   void SetUp() override {
     bool nullable = false;
@@ -716,6 +613,27 @@ TEST_F(TestSchemaUnification, SelectPhysicalColumnsFilterPartitionColumn) {
   AssertBuilderEquals(scan_builder, rows);
 }
 
+TEST_F(TestSchemaUnification, SelectSyntheticColumn) {
+  // Select only a synthetic column
+  ASSERT_OK_AND_ASSIGN(auto scan_builder, dataset_->NewScan());
+  ASSERT_OK(scan_builder->Project(
+      {call("add", {field_ref("phy_1"), field_ref("part_df")})}, {"phy_1 + part_df"}));
+
+  ASSERT_OK_AND_ASSIGN(auto scanner, scan_builder->Finish());
+  AssertSchemaEqual(Schema({field("phy_1 + part_df", int32())}),
+                    *scanner->options()->projected_schema);
+
+  using TupleType = std::tuple<i32>;
+  std::vector<TupleType> rows = {
+      TupleType(111 + 1),
+      TupleType(nullopt),
+      TupleType(nullopt),
+      TupleType(nullopt),
+  };
+
+  AssertBuilderEquals(scan_builder, rows);
+}
+
 TEST_F(TestSchemaUnification, SelectPartitionColumns) {
   // Selects partition (virtual) columns, it ensures:
   //
@@ -794,7 +712,7 @@ TEST(TestDictPartitionColumn, SelectPartitionColumnFilterPhysicalColumn) {
   ASSERT_OK_AND_ASSIGN(auto scanner, scan_builder->Finish());
   ASSERT_OK_AND_ASSIGN(auto table, scanner->ToTable());
   AssertArraysEqual(*table->column(0)->chunk(0),
-                    *DictArrayFromJSON(partition_field->type(), "[0]", "[\"one\"]"));
+                    *ArrayFromJSON(partition_field->type(), R"(["one"])"));
 }
 
 }  // namespace dataset

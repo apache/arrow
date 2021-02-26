@@ -21,13 +21,19 @@
 #include <utility>
 
 #include "arrow/array/array_nested.h"
+#include "arrow/array/util.h"
+#include "arrow/compute/api_scalar.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/partition.h"
 #include "arrow/dataset/scanner.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
+
+using internal::checked_cast;
+
 namespace dataset {
 
 inline RecordBatchIterator FilterRecordBatch(RecordBatchIterator it, Expression filter,
@@ -55,15 +61,24 @@ inline RecordBatchIterator FilterRecordBatch(RecordBatchIterator it, Expression 
 }
 
 inline RecordBatchIterator ProjectRecordBatch(RecordBatchIterator it,
-                                              RecordBatchProjector* projector,
-                                              MemoryPool* pool) {
+                                              Expression projection, MemoryPool* pool) {
   return MakeMaybeMapIterator(
-      [=](std::shared_ptr<RecordBatch> in) {
-        // The RecordBatchProjector is shared across ScanTasks of the same
-        // Fragment. The resize operation of missing columns is not thread safe.
-        // Ensure that each ScanTask gets his own projector.
-        RecordBatchProjector local_projector{*projector};
-        return local_projector.Project(*in, pool);
+      [=](std::shared_ptr<RecordBatch> in) -> Result<std::shared_ptr<RecordBatch>> {
+        compute::ExecContext exec_context{pool};
+        ARROW_ASSIGN_OR_RAISE(Datum projected, ExecuteScalarExpression(
+                                                   projection, Datum(in), &exec_context));
+
+        DCHECK_EQ(projected.type()->id(), Type::STRUCT);
+        if (projected.shape() == ValueDescr::SCALAR) {
+          // Only virtual columns are projected. Broadcast to an array
+          ARROW_ASSIGN_OR_RAISE(
+              projected, MakeArrayFromScalar(*projected.scalar(), in->num_rows(), pool));
+        }
+
+        ARROW_ASSIGN_OR_RAISE(
+            auto out, RecordBatch::FromStructArray(projected.array_as<StructArray>()));
+
+        return out->ReplaceSchemaMetadata(in->schema()->metadata());
       },
       std::move(it));
 }
@@ -73,30 +88,27 @@ class FilterAndProjectScanTask : public ScanTask {
   explicit FilterAndProjectScanTask(std::shared_ptr<ScanTask> task, Expression partition)
       : ScanTask(task->options(), task->context()),
         task_(std::move(task)),
-        partition_(std::move(partition)),
-        filter_(options()->filter),
-        projector_(options()->projector) {}
+        partition_(std::move(partition)) {}
 
   Result<RecordBatchIterator> Execute() override {
     ARROW_ASSIGN_OR_RAISE(auto it, task_->Execute());
 
     ARROW_ASSIGN_OR_RAISE(Expression simplified_filter,
-                          SimplifyWithGuarantee(filter_, partition_));
+                          SimplifyWithGuarantee(options()->filter, partition_));
+
+    ARROW_ASSIGN_OR_RAISE(Expression simplified_projection,
+                          SimplifyWithGuarantee(options()->projection, partition_));
 
     RecordBatchIterator filter_it =
         FilterRecordBatch(std::move(it), simplified_filter, context_->pool);
 
-    RETURN_NOT_OK(
-        KeyValuePartitioning::SetDefaultValuesFromKeys(partition_, &projector_));
-
-    return ProjectRecordBatch(std::move(filter_it), &projector_, context_->pool);
+    return ProjectRecordBatch(std::move(filter_it), simplified_projection,
+                              context_->pool);
   }
 
  private:
   std::shared_ptr<ScanTask> task_;
   Expression partition_;
-  Expression filter_;
-  RecordBatchProjector projector_;
 };
 
 /// \brief GetScanTaskIterator transforms an Iterator<Fragment> in a
@@ -125,6 +137,63 @@ inline Result<ScanTaskIterator> GetScanTaskIterator(
 
   // Iterator<ScanTask>
   return MakeFlattenIterator(std::move(maybe_scantask_it));
+}
+
+inline Status NestedFieldRefsNotImplemented() {
+  // TODO(ARROW-11259) Several functions (for example, IpcScanTask::Make) assume that
+  // only top level fields will be materialized.
+  return Status::NotImplemented("Nested field references in scans.");
+}
+
+inline Status SetProjection(ScanOptions* options, const Expression& projection) {
+  ARROW_ASSIGN_OR_RAISE(options->projection, projection.Bind(*options->dataset_schema));
+
+  if (options->projection.type()->id() != Type::STRUCT) {
+    return Status::Invalid("Projection ", projection.ToString(),
+                           " cannot yield record batches");
+  }
+  options->projected_schema = ::arrow::schema(
+      checked_cast<const StructType&>(*options->projection.type()).fields(),
+      options->dataset_schema->metadata());
+
+  return Status::OK();
+}
+
+inline Status SetProjection(ScanOptions* options, std::vector<Expression> exprs,
+                            std::vector<std::string> names) {
+  compute::ProjectOptions project_options{std::move(names)};
+
+  for (size_t i = 0; i < exprs.size(); ++i) {
+    if (auto ref = exprs[i].field_ref()) {
+      if (!ref->name()) return NestedFieldRefsNotImplemented();
+
+      // set metadata and nullability for plain field references
+      ARROW_ASSIGN_OR_RAISE(auto field, ref->GetOne(*options->dataset_schema));
+      project_options.field_nullability[i] = field->nullable();
+      project_options.field_metadata[i] = field->metadata();
+    }
+  }
+
+  return SetProjection(options,
+                       call("project", std::move(exprs), std::move(project_options)));
+}
+
+inline Status SetProjection(ScanOptions* options, std::vector<std::string> names) {
+  std::vector<Expression> exprs(names.size());
+  for (size_t i = 0; i < exprs.size(); ++i) {
+    exprs[i] = field_ref(names[i]);
+  }
+  return SetProjection(options, std::move(exprs), std::move(names));
+}
+
+inline Status SetFilter(ScanOptions* options, const Expression& filter) {
+  for (const auto& ref : FieldsInExpression(filter)) {
+    if (!ref.name()) return NestedFieldRefsNotImplemented();
+
+    RETURN_NOT_OK(ref.FindOne(*options->dataset_schema));
+  }
+  ARROW_ASSIGN_OR_RAISE(options->filter, filter.Bind(*options->dataset_schema));
+  return Status::OK();
 }
 
 }  // namespace dataset

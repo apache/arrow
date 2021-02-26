@@ -39,11 +39,6 @@ public class TestReservationListener extends TestDataset {
 
   public static final String AVRO_SCHEMA_USER = "user.avsc";
 
-  /**
-   * The default block size of C++ ReservationListenableMemoryPool.
-   */
-  public static final long DEFAULT_NATIVE_MEMORY_POOL_BLOCK_SIZE = 512 * 1024;
-
   @Test
   public void testDirectReservationListener() throws Exception {
     ParquetWriteSupport writeSupport = ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a");
@@ -58,9 +53,8 @@ public class TestReservationListener extends TestDataset {
     AutoCloseables.close(datum);
     AutoCloseables.close(pool);
     long finalReservation = DirectReservationListener.instance().getCurrentDirectMemReservation();
-    final long expected_diff = DEFAULT_NATIVE_MEMORY_POOL_BLOCK_SIZE;
-    Assert.assertEquals(expected_diff, reservation - initReservation);
-    Assert.assertEquals(-expected_diff, finalReservation - reservation);
+    Assert.assertTrue(reservation >= initReservation);
+    Assert.assertTrue(finalReservation == initReservation);
   }
 
   @Test
@@ -88,8 +82,7 @@ public class TestReservationListener extends TestDataset {
     AutoCloseables.close(datum);
     AutoCloseables.close(pool);
     long finalReservation = reserved.get();
-    final long expected_diff = DEFAULT_NATIVE_MEMORY_POOL_BLOCK_SIZE;
-    Assert.assertEquals(expected_diff, reservation - initReservation);
-    Assert.assertEquals(-expected_diff, finalReservation - reservation);
+    Assert.assertTrue(reservation >= initReservation);
+    Assert.assertTrue(finalReservation == initReservation);
   }
 }

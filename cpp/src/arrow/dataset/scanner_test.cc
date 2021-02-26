@@ -19,21 +19,25 @@
 
 #include <memory>
 
+#include "arrow/dataset/scanner_internal.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
 #include "arrow/testing/generator.h"
 #include "arrow/testing/util.h"
 
+using testing::ElementsAre;
+using testing::IsEmpty;
+
 namespace arrow {
 namespace dataset {
 
+constexpr int64_t kNumberChildDatasets = 2;
+constexpr int64_t kNumberBatches = 16;
+constexpr int64_t kBatchSize = 1024;
+
 class TestScanner : public DatasetFixtureMixin {
  protected:
-  static constexpr int64_t kNumberChildDatasets = 2;
-  static constexpr int64_t kNumberBatches = 16;
-  static constexpr int64_t kBatchSize = 1024;
-
   Scanner MakeScanner(std::shared_ptr<RecordBatch> batch) {
     std::vector<std::shared_ptr<RecordBatch>> batches{static_cast<size_t>(kNumberBatches),
                                                       batch};
@@ -56,10 +60,6 @@ class TestScanner : public DatasetFixtureMixin {
     AssertScannerEquals(expected.get(), &scanner);
   }
 };
-
-constexpr int64_t TestScanner::kNumberChildDatasets;
-constexpr int64_t TestScanner::kNumberBatches;
-constexpr int64_t TestScanner::kBatchSize;
 
 TEST_F(TestScanner, Scan) {
   SetSchema({field("i32", int32()), field("f64", float64())});
@@ -111,8 +111,10 @@ TEST_F(TestScanner, MaterializeMissingColumn) {
   auto batch_missing_f64 =
       ConstantArrayGenerator::Zeroes(kBatchSize, schema({field("i32", int32())}));
 
-  ASSERT_OK(options_->projector.SetDefaultValue(schema_->GetFieldIndex("f64"),
-                                                MakeScalar(2.5)));
+  auto fragment_missing_f64 = std::make_shared<InMemoryFragment>(
+      RecordBatchVector{static_cast<size_t>(kNumberChildDatasets * kNumberBatches),
+                        batch_missing_f64},
+      equal(field_ref("f64"), literal(2.5)));
 
   ASSERT_OK_AND_ASSIGN(auto f64, ArrayFromBuilderVisitor(float64(), kBatchSize,
                                                          [&](DoubleBuilder* builder) {
@@ -121,7 +123,10 @@ TEST_F(TestScanner, MaterializeMissingColumn) {
   auto batch_with_f64 =
       RecordBatch::Make(schema_, f64->length(), {batch_missing_f64->column(0), f64});
 
-  AssertScannerEqualsRepetitionsOf(MakeScanner(batch_missing_f64), batch_with_f64);
+  ScannerBuilder builder{schema_, fragment_missing_f64, ctx_};
+  ASSERT_OK_AND_ASSIGN(auto scanner, builder.Finish());
+
+  AssertScannerEqualsRepetitionsOf(*scanner, batch_with_f64);
 }
 
 TEST_F(TestScanner, ToTable) {
@@ -175,9 +180,23 @@ TEST_F(TestScannerBuilder, TestProject) {
   ASSERT_OK(builder.Project({}));
   ASSERT_OK(builder.Project({"i64", "b", "i8"}));
   ASSERT_OK(builder.Project({"i16", "i16"}));
+  ASSERT_OK(builder.Project(
+      {field_ref("i16"), call("multiply", {field_ref("i16"), literal(2)})},
+      {"i16 renamed", "i16 * 2"}));
 
   ASSERT_RAISES(Invalid, builder.Project({"not_found_column"}));
   ASSERT_RAISES(Invalid, builder.Project({"i8", "not_found_column"}));
+  ASSERT_RAISES(Invalid,
+                builder.Project({field_ref("not_found_column"),
+                                 call("multiply", {field_ref("i16"), literal(2)})},
+                                {"i16 renamed", "i16 * 2"}));
+
+  ASSERT_RAISES(NotImplemented, builder.Project({field_ref(FieldRef("nested", "column"))},
+                                                {"nested column"}));
+
+  // provided more field names than column exprs or vice versa
+  ASSERT_RAISES(Invalid, builder.Project({}, {"i16 renamed", "i16 * 2"}));
+  ASSERT_RAISES(Invalid, builder.Project({literal(2), field_ref("a")}, {"a"}));
 }
 
 TEST_F(TestScannerBuilder, TestFilter) {
@@ -192,35 +211,59 @@ TEST_F(TestScannerBuilder, TestFilter) {
 
   ASSERT_RAISES(Invalid, builder.Filter(equal(field_ref("not_a_column"), literal(true))));
 
+  ASSERT_RAISES(
+      NotImplemented,
+      builder.Filter(equal(field_ref(FieldRef("nested", "column")), literal(true))));
+
   ASSERT_RAISES(Invalid,
                 builder.Filter(or_(equal(field_ref("i64"), literal<int64_t>(10)),
                                    equal(field_ref("not_a_column"), literal(true)))));
 }
 
-using testing::ElementsAre;
-using testing::IsEmpty;
-
 TEST(ScanOptions, TestMaterializedFields) {
   auto i32 = field("i32", int32());
   auto i64 = field("i64", int64());
+  auto opts = std::make_shared<ScanOptions>();
 
-  auto opts = ScanOptions::Make(schema({}));
+  // empty dataset, project nothing = nothing materialized
+  opts->dataset_schema = schema({});
+  ASSERT_OK(SetProjection(opts.get(), {}, {}));
   EXPECT_THAT(opts->MaterializedFields(), IsEmpty());
 
+  // non-empty dataset, project nothing = nothing materialized
+  opts->dataset_schema = schema({i32, i64});
+  EXPECT_THAT(opts->MaterializedFields(), IsEmpty());
+
+  // project nothing, filter on i32 = materialize i32
   opts->filter = equal(field_ref("i32"), literal(10));
   EXPECT_THAT(opts->MaterializedFields(), ElementsAre("i32"));
 
-  opts = ScanOptions::Make(schema({i32, i64}));
+  // project i32 & i64, filter nothing = materialize i32 & i64
+  opts->filter = literal(true);
+  ASSERT_OK(SetProjection(opts.get(), {"i32", "i64"}));
   EXPECT_THAT(opts->MaterializedFields(), ElementsAre("i32", "i64"));
 
-  opts = opts->ReplaceSchema(schema({i32}));
+  // project i32 + i64, filter nothing = materialize i32 & i64
+  opts->filter = literal(true);
+  ASSERT_OK(SetProjection(opts.get(), {call("add", {field_ref("i32"), field_ref("i64")})},
+                          {"i32 + i64"}));
+  EXPECT_THAT(opts->MaterializedFields(), ElementsAre("i32", "i64"));
+
+  // project i32, filter nothing = materialize i32
+  ASSERT_OK(SetProjection(opts.get(), {"i32"}));
   EXPECT_THAT(opts->MaterializedFields(), ElementsAre("i32"));
 
+  // project i32, filter on i32 = materialize i32 (reported twice)
   opts->filter = equal(field_ref("i32"), literal(10));
   EXPECT_THAT(opts->MaterializedFields(), ElementsAre("i32", "i32"));
 
+  // project i32, filter on i32 & i64 = materialize i64, i32 (reported twice)
+  opts->filter = less(field_ref("i32"), field_ref("i64"));
+  EXPECT_THAT(opts->MaterializedFields(), ElementsAre("i32", "i64", "i32"));
+
+  // project i32, filter on i64 = materialize i32 & i64
   opts->filter = equal(field_ref("i64"), literal(10));
-  EXPECT_THAT(opts->MaterializedFields(), ElementsAre("i32", "i64"));
+  EXPECT_THAT(opts->MaterializedFields(), ElementsAre("i64", "i32"));
 }
 
 }  // namespace dataset

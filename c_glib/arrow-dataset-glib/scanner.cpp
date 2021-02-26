@@ -265,7 +265,7 @@ gad_scan_options_class_init(GADScanOptionsClass *klass)
   gobject_class->set_property = gad_scan_options_set_property;
   gobject_class->get_property = gad_scan_options_get_property;
 
-  auto scan_options = arrow::dataset::ScanOptions::Make(arrow::schema({}));
+  auto scan_options = std::make_shared<arrow::dataset::ScanOptions>();
 
   spec = g_param_spec_pointer("scan-options",
                               "ScanOptions",
@@ -307,7 +307,8 @@ GADScanOptions *
 gad_scan_options_new(GArrowSchema *schema)
 {
   auto arrow_schema = garrow_schema_get_raw(schema);
-  auto arrow_scan_options = arrow::dataset::ScanOptions::Make(arrow_schema);
+  auto arrow_scan_options = std::make_shared<arrow::dataset::ScanOptions>();
+  arrow_scan_options->dataset_schema = arrow_schema;
   return gad_scan_options_new_raw(&arrow_scan_options);
 }
 
@@ -323,28 +324,8 @@ GArrowSchema *
 gad_scan_options_get_schema(GADScanOptions *scan_options)
 {
   auto priv = GAD_SCAN_OPTIONS_GET_PRIVATE(scan_options);
-  auto arrow_schema = priv->scan_options->schema();
+  auto arrow_schema = priv->scan_options->dataset_schema;
   return garrow_schema_new_raw(&arrow_schema);
-}
-
-/**
- * gad_scan_options_replace_schema:
- * @scan_options: A #GADScanOptions.
- * @schema: A #GArrowSchema.
- *
- * Returns: (transfer full):
- *   A copy of the #GADScanOptions with the given #GArrowSchema.
- *
- * Since: 1.0.0
- */
-GADScanOptions *
-gad_scan_options_replace_schema(GADScanOptions *scan_options,
-                                GArrowSchema *schema)
-{
-  auto priv = GAD_SCAN_OPTIONS_GET_PRIVATE(scan_options);
-  auto arrow_schema = garrow_schema_get_raw(schema);
-  auto arrow_scan_options_copy = priv->scan_options->ReplaceSchema(arrow_schema);
-  return gad_scan_options_new_raw(&arrow_scan_options_copy);
 }
 
 /* arrow::dataset::ScanTask */

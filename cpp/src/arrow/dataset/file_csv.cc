@@ -83,25 +83,12 @@ static inline Result<csv::ConvertOptions> GetConvertOptions(
 
   auto convert_options = csv::ConvertOptions::Defaults();
 
-  for (const auto& field : scan_options->schema()->fields()) {
+  for (FieldRef ref : scan_options->MaterializedFields()) {
+    ARROW_ASSIGN_OR_RAISE(auto field, ref.GetOne(*scan_options->dataset_schema));
+
     if (column_names.find(field->name()) == column_names.end()) continue;
     convert_options.column_types[field->name()] = field->type();
-    convert_options.include_columns.push_back(field->name());
   }
-
-  // FIXME(bkietz) also acquire types of fields materialized but not projected.
-  // (This will require that scan_options include the full dataset schema, not just
-  // the projected schema).
-  for (const FieldRef& ref : FieldsInExpression(scan_options->filter)) {
-    DCHECK(ref.name());
-    ARROW_ASSIGN_OR_RAISE(auto match, ref.FindOneOrNone(*scan_options->schema()));
-
-    if (match.empty()) {
-      // a field was filtered but not in the projected schema; be sure it is included
-      convert_options.include_columns.push_back(*ref.name());
-    }
-  }
-
   return convert_options;
 }
 
@@ -126,11 +113,11 @@ static inline Result<std::shared_ptr<csv::StreamingReader>> OpenReader(
 
   const auto& parse_options = format.parse_options;
 
-  ARROW_ASSIGN_OR_RAISE(
-      auto convert_options,
-      scan_options == nullptr
-          ? ToResult(csv::ConvertOptions::Defaults())
-          : GetConvertOptions(format, scan_options, *first_block, pool));
+  auto convert_options = csv::ConvertOptions::Defaults();
+  if (scan_options != nullptr) {
+    ARROW_ASSIGN_OR_RAISE(convert_options,
+                          GetConvertOptions(format, scan_options, *first_block, pool));
+  }
 
   auto maybe_reader = csv::StreamingReader::Make(pool, std::move(input), reader_options,
                                                  parse_options, convert_options);
