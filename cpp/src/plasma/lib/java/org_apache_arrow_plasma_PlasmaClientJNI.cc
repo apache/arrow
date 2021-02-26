@@ -264,5 +264,24 @@ Java_org_apache_arrow_plasma_PlasmaClientJNI_list(JNIEnv* env, jclass cls, jlong
 
 JNIEXPORT jint JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_metrics(
     JNIEnv* env, jclass cls, jlong conn, jlongArray result) {
+  plasma::PlasmaClient* client = reinterpret_cast<plasma::PlasmaClient*>(conn);
+  int64_t* metrics;
+  plasma::PlasmaMetrics plasmaMetrics;
+  client->Metrics(&plasmaMetrics);
+  if (result != nullptr) {
+    metrics = (int64_t*)env->GetPrimitiveArrayCritical(result, 0);
+  }
+  if (metrics == nullptr) {
+    return -1;
+  }
+  metrics[0] = plasmaMetrics.share_mem_total;
+  metrics[1] = plasmaMetrics.share_mem_used;
+  metrics[2] = plasmaMetrics.external_total;
+  metrics[3] = plasmaMetrics.external_used;
+
+  if(result != nullptr) {
+    env->ReleasePrimitiveArrayCritical(result, (void*)metrics, 0);
+  }
+
   return 0;
 }
