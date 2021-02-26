@@ -495,26 +495,25 @@ mod tests {
 
     #[test]
     fn test_string_array_from_unbound_iter() {
-         // iterator that doesn't declare (upper) size bound
-        let string_iter = (0..).scan(0usize, |pos, i| { 
-            if *pos < 10 {
-                *pos += 1;
-                Some(Some(format!("value {}", i)))
-            }
-            else {
-                // actually returns up to 10 values
-                None
-            }
-        })
-        // limited using take()
-        .take(100);
+        // iterator that doesn't declare (upper) size bound
+        let string_iter = (0..)
+            .scan(0usize, |pos, i| {
+                if *pos < 10 {
+                    *pos += 1;
+                    Some(Some(format!("value {}", i)))
+                } else {
+                    // actually returns up to 10 values
+                    None
+                }
+            })
+            // limited using take()
+            .take(100);
 
-        let (lower_size_bound, upper_size_bound) = string_iter.size_hint();
-        assert_eq!(lower_size_bound, 0);
+        let (_, upper_size_bound) = string_iter.size_hint();
         // the upper bound, defined by take above, is 100
         assert_eq!(upper_size_bound, Some(100));
         let string_array: StringArray = string_iter.collect();
-        // but the actual number of items in the array is 10
+        // but the actual number of items in the array should be 10
         assert_eq!(string_array.len(), 10);
     }
 }
