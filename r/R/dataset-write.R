@@ -53,6 +53,34 @@
 #' - `codec`: A [Codec] which will be used to compress body buffers of written
 #'   files. Default (NULL) will not compress body buffers.
 #' @return The input `dataset`, invisibly
+#' @examples
+#' dout1 <- paste0(tempdir(), "/direct")
+#' dout2 <- paste0(tempdir(), "/group_by")
+#'
+#' # partitioning ----
+#' write_dataset(mtcars, dout1, "feather",
+#'  partitioning = "cyl",
+#'  basename_template = "{i}.feather",
+#'  hive_style = F)
+#'
+#' # group_by (same result as above) ----
+#' library(dplyr)
+#'
+#' mtcars %>%
+#'  group_by(cyl) %>%
+#'  write_dataset(dout2, "feather",
+#'   basename_template = "{i}.feather",
+#'   hive_style = F)
+#'
+#' # compare ----
+#' finp1 <- list.files(dout1, full.names = T, recursive = T,
+#'  pattern = "feather")
+#'
+#' finp2 <- list.files(dout2, full.names = T, recursive = T,
+#'  pattern = "feather")
+#'
+#' finp1
+#' finp2
 #' @export
 write_dataset <- function(dataset,
                           path,
