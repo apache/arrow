@@ -32,6 +32,7 @@
 #include "arrow/compute/cast.h"
 #include "arrow/compute/kernels/aggregate_internal.h"
 #include "arrow/compute/kernels/test_util.h"
+#include "arrow/compute/registry.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bitmap_reader.h"
@@ -254,157 +255,143 @@ Result<std::shared_ptr<ListArray>> ApplyGroupings(const ListArray& groupings,
                                      groupings.value_offsets(), sorted.make_array());
 }
 
-struct ScalarsToScalarsMap {
-  struct Eq {
-    bool operator()(const ScalarVector& l, const ScalarVector& r) const {
-      return l.size() == r.size() &&
-             std::equal(l.begin(), l.end(), r.begin(),
-                        [](const std::shared_ptr<Scalar>& l,
-                           const std::shared_ptr<Scalar>& r) { return l->Equals(r); });
+struct ScalarVectorToArray {
+  template <typename T, typename AppendScalar,
+            typename BuilderType = typename TypeTraits<T>::BuilderType,
+            typename ScalarType = typename TypeTraits<T>::ScalarType>
+  Status UseBuilder(const AppendScalar& append) {
+    BuilderType builder(type(), default_memory_pool());
+    for (const auto& s : scalars_) {
+      if (s->is_valid) {
+        RETURN_NOT_OK(append(checked_cast<const ScalarType&>(*s), &builder));
+      } else {
+        RETURN_NOT_OK(builder.AppendNull());
+      }
+    }
+    return builder.FinishInternal(&data_);
+  }
+
+  struct AppendValue {
+    template <typename BuilderType, typename ScalarType>
+    Status operator()(const ScalarType& s, BuilderType* builder) const {
+      return builder->Append(s.value);
     }
   };
 
-  struct Hash {
-    size_t operator()(const ScalarVector& vec) const {
-      size_t hash = 0;
-      for (const auto& scalar : vec) {
-        hash ^= scalar->hash();
-      }
-      return hash;
+  struct AppendBuffer {
+    template <typename BuilderType, typename ScalarType>
+    Status operator()(const ScalarType& s, BuilderType* builder) const {
+      const Buffer& buffer = *s.value;
+      return builder->Append(util::string_view{buffer});
     }
   };
 
-  static std::string ToString(const ScalarVector& vec) {
-    std::string out = "[";
-    int i = 0;
-    for (const auto& scalar : vec) {
-      if (i++ != 0) {
-        out += ",";
-      }
-      out += scalar->ToString();
-    }
-    out += "]";
-    return out;
+  template <typename T>
+  enable_if_primitive_ctype<T, Status> Visit(const T&) {
+    return UseBuilder<T>(AppendValue{});
   }
 
-  std::string ToString() const {
-    std::string out = "{\n";
-    for (const auto& key_value : map) {
-      out += "  " + ToString(key_value.first) + ": " + ToString(key_value.second) + "\n";
-    }
-    out += "}\n";
-    return out;
+  template <typename T>
+  enable_if_has_string_view<T, Status> Visit(const T&) {
+    return UseBuilder<T>(AppendBuffer{});
   }
 
-  std::unordered_map<ScalarVector, ScalarVector, Hash, Eq> map;
+  Status Visit(const DataType& type) {
+    return Status::NotImplemented("ScalarVectorToArray for type ", type);
+  }
+
+  Result<Datum> Convert(ScalarVector scalars) && {
+    if (scalars.size() == 0) {
+      return Status::NotImplemented("ScalarVectorToArray with no scalars");
+    }
+    scalars_ = std::move(scalars);
+    RETURN_NOT_OK(VisitTypeInline(*type(), this));
+    return Datum(std::move(data_));
+  }
+
+  const std::shared_ptr<DataType>& type() { return scalars_[0]->type; }
+
+  ScalarVector scalars_;
+  std::shared_ptr<ArrayData> data_;
 };
 
-Result<ScalarsToScalarsMap> NaiveGroupBy(GroupByOptions options, ArrayVector aggregands,
-                                         ArrayVector keys) {
-  ARROW_ASSIGN_OR_RAISE(auto keys_struct, StructArray::Make(keys, options.key_names));
+Result<Datum> NaiveGroupBy(std::vector<Datum> aggregands, std::vector<Datum> keys,
+                           GroupByOptions options) {
+  ArrayVector keys_arrays;
+  for (const Datum& key : keys) keys_arrays.push_back(key.make_array());
+  ARROW_ASSIGN_OR_RAISE(auto keys_struct,
+                        StructArray::Make(std::move(keys_arrays), options.key_names));
+
   ARROW_ASSIGN_OR_RAISE(auto groupings_and_values, MakeGroupings(*keys_struct));
 
   auto groupings =
       checked_pointer_cast<ListArray>(groupings_and_values->GetFieldByName("groupings"));
 
-  auto keys_unique =
-      checked_pointer_cast<StructArray>(groupings_and_values->GetFieldByName("values"));
-
   int64_t n_groups = groupings->length();
 
-  std::vector<ScalarVector> grouped_aggregates(n_groups);
+  std::vector<std::string> out_names;
+  ArrayVector out_columns;
 
-  auto aggregate_spec = options.aggregates.begin();
-  for (const auto& aggregand : aggregands) {
-    ARROW_ASSIGN_OR_RAISE(auto grouped_aggregand, ApplyGroupings(*groupings, *aggregand));
+  for (size_t i_agg = 0; i_agg < aggregands.size(); ++i_agg) {
+    const Datum& aggregand = aggregands[i_agg];
+    const std::string& function = options.aggregates[i_agg].function;
+    out_names.push_back(options.aggregates[i_agg].name);
 
-    for (int64_t i_group = 0; i_group < n_groups; ++i_group) {
-      ARROW_ASSIGN_OR_RAISE(auto grouped_aggregate,
-                            CallFunction(aggregate_spec->function,
-                                         {grouped_aggregand->value_slice(i_group)}));
-      grouped_aggregates[i_group].push_back(grouped_aggregate.scalar());
+    ScalarVector aggregated_scalars;
+
+    if (n_groups > 0) {
+      ARROW_ASSIGN_OR_RAISE(auto grouped_aggregand,
+                            ApplyGroupings(*groupings, *aggregand.make_array()));
+
+      for (int64_t i_group = 0; i_group < n_groups; ++i_group) {
+        ARROW_ASSIGN_OR_RAISE(
+            Datum d, CallFunction(function, {grouped_aggregand->value_slice(i_group)}));
+        aggregated_scalars.push_back(d.scalar());
+      }
+    } else {
+      DCHECK_EQ(aggregand.length(), 0);
+      ARROW_ASSIGN_OR_RAISE(Datum d, CallFunction(function, {aggregand}));
+      aggregated_scalars.push_back(d.scalar());
     }
 
-    ++aggregate_spec;
+    ARROW_ASSIGN_OR_RAISE(Datum aggregated_column,
+                          ScalarVectorToArray{}.Convert(std::move(aggregated_scalars)));
+    out_columns.push_back(aggregated_column.make_array());
   }
 
-  ScalarsToScalarsMap out;
-
-  for (int64_t i_group = 0; i_group < n_groups; ++i_group) {
-    ARROW_ASSIGN_OR_RAISE(auto keys_for_group, keys_unique->GetScalar(i_group));
-    out.map.emplace(checked_cast<const StructScalar&>(*keys_for_group).value,
-                    std::move(grouped_aggregates[i_group]));
+  keys_struct =
+      checked_pointer_cast<StructArray>(groupings_and_values->GetFieldByName("values"));
+  for (size_t i_key = 0; i_key < aggregands.size(); ++i_key) {
+    out_names.push_back(options.key_names[i_key]);
+    out_columns.push_back(keys_struct->field(i_key));
   }
 
-  return out;
+  return StructArray::Make(std::move(out_columns), std::move(out_names));
 }
 
-void ValidateGroupBy(GroupByOptions options, ArrayVector aggregands, ArrayVector keys) {
-  ASSERT_OK_AND_ASSIGN(auto expected,
-                       group_helpers::NaiveGroupBy(options, aggregands, keys));
+void ValidateGroupBy(GroupByOptions options, std::vector<Datum> aggregands,
+                     std::vector<Datum> keys) {
+  ASSERT_OK_AND_ASSIGN(Datum expected,
+                       group_helpers::NaiveGroupBy(aggregands, keys, options));
 
-  std::vector<Datum> arguments;
-  for (const auto& aggregand : aggregands) {
-    arguments.emplace_back(aggregand->data());
-  }
-  for (const auto& key : keys) {
-    arguments.emplace_back(key->data());
-  }
+  ASSERT_OK_AND_ASSIGN(Datum actual, GroupBy(aggregands, keys, options));
 
-  const int n_aggregands = static_cast<int>(aggregands.size());
-  const int n_keys = static_cast<int>(keys.size());
+  // Ordering of groups is not important, so sort by key columns to ensure the comparison
+  // doesn't fail spuriously
 
-  ASSERT_OK_AND_ASSIGN(auto aggregated_and_grouped,
-                       CallFunction("group_by", arguments, &options).Map([](Datum d) {
-                         return d.array_as<StructArray>();
-                       }));
-
-  ScalarsToScalarsMap actual;
-  for (int64_t i_group = 0; i_group < aggregated_and_grouped->length(); ++i_group) {
-    ScalarVector aggregated_i(n_aggregands), keys_i(n_keys);
-
-    for (int i_field = 0; i_field < aggregated_and_grouped->num_fields(); ++i_field) {
-      if (i_field < n_aggregands) {
-        ASSERT_OK_AND_ASSIGN(aggregated_i[i_field],
-                             aggregated_and_grouped->field(i_field)->GetScalar(i_group));
-      } else {
-        ASSERT_OK_AND_ASSIGN(keys_i[i_field - n_aggregands],
-                             aggregated_and_grouped->field(i_field)->GetScalar(i_group));
-      }
-    }
-
-    actual.map.emplace(std::move(keys_i), std::move(aggregated_i));
+  SortOptions sort_options;
+  for (const std::string& key_name : options.key_names) {
+    sort_options.sort_keys.emplace_back(key_name);
   }
 
-  ScalarsToScalarsMap unexpected;
-  for (const auto& pair : actual.map) {
-    if (expected.map.find(pair.first) == expected.map.end()) {
-      unexpected.map.insert(pair);
-    }
+  for (Datum* out : {&expected, &actual}) {
+    ASSERT_OK_AND_ASSIGN(Datum batch,
+                         RecordBatch::FromStructArray(out->array_as<StructArray>()));
+    ASSERT_OK_AND_ASSIGN(Datum sort_indices, SortIndices(batch, sort_options));
+    ASSERT_OK_AND_ASSIGN(*out, Take(*out, sort_indices, TakeOptions::NoBoundsCheck()));
   }
-  EXPECT_TRUE(unexpected.map.empty()) << "  unexpected groups: " << unexpected.ToString();
 
-  ScalarsToScalarsMap missing;
-  for (const auto& pair : expected.map) {
-    if (actual.map.find(pair.first) == actual.map.end()) {
-      missing.map.insert(pair);
-    }
-  }
-  EXPECT_TRUE(missing.map.empty()) << "  missing groups: " << missing.ToString();
-
-  for (const auto& pair : expected.map) {
-    auto it = actual.map.find(pair.first);
-    if (it == actual.map.end()) continue;
-
-    const auto& expected_aggregated = pair.second;
-    const auto& actual_aggregated = it->second;
-
-    static ScalarsToScalarsMap::Eq eq;
-    EXPECT_TRUE(eq(expected_aggregated, actual_aggregated))
-        << "  group " << ScalarsToScalarsMap::ToString(pair.first)
-        << "\n  had:      " << ScalarsToScalarsMap::ToString(actual_aggregated)
-        << "\n  expected: " << ScalarsToScalarsMap::ToString(expected_aggregated);
-  }
+  AssertDatumsEqual(expected, actual, /*verbose=*/true);
 }
 
 }  // namespace
