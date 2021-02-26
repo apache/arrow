@@ -143,12 +143,13 @@ fn get_join_predicates<'a>(
 
 /// Optimizes the plan
 fn push_down(state: &State, plan: &LogicalPlan) -> Result<LogicalPlan> {
-    let new_inputs = utils::inputs(&plan)
+    let new_inputs = plan
+        .inputs()
         .iter()
         .map(|input| optimize(input, state.clone()))
         .collect::<Result<Vec<_>>>()?;
 
-    let expr = utils::expressions(&plan);
+    let expr = plan.expressions();
     utils::from_plan(&plan, &expr, &new_inputs)
 }
 
@@ -326,7 +327,7 @@ fn optimize(plan: &LogicalPlan, mut state: State) -> Result<LogicalPlan> {
             let right = optimize(right, right_state)?;
 
             // create a new Join with the new `left` and `right`
-            let expr = utils::expressions(&plan);
+            let expr = plan.expressions();
             let plan = utils::from_plan(&plan, &expr, &[left, right])?;
 
             if keep.0.is_empty() {

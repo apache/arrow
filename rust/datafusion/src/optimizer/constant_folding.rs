@@ -73,13 +73,14 @@ impl OptimizerRule for ConstantFolding {
             | LogicalPlan::Limit { .. }
             | LogicalPlan::Join { .. } => {
                 // apply the optimization to all inputs of the plan
-                let inputs = utils::inputs(plan);
+                let inputs = plan.inputs();
                 let new_inputs = inputs
                     .iter()
                     .map(|plan| self.optimize(plan))
                     .collect::<Result<Vec<_>>>()?;
 
-                let expr = utils::expressions(plan)
+                let expr = plan
+                    .expressions()
                     .into_iter()
                     .map(|e| e.rewrite(&mut rewriter))
                     .collect::<Result<Vec<_>>>()?;
