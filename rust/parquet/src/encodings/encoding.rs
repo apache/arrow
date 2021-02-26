@@ -24,7 +24,7 @@ use crate::data_type::private::ParquetValueType;
 use crate::data_type::*;
 use crate::encodings::rle::RleEncoder;
 use crate::errors::{ParquetError, Result};
-use crate::schema::types::ColumnDescPtr;
+use crate::schema::v1::types::ColumnDescPtr;
 use crate::util::{
     bit_util::{self, log2, num_required_bits, BitWriter},
     hash_util,
@@ -923,7 +923,7 @@ mod tests {
     use std::sync::Arc;
 
     use crate::decoding::{get_decoder, Decoder, DictDecoder, PlainDecoder};
-    use crate::schema::types::{
+    use crate::schema::v1::types::{
         ColumnDescPtr, ColumnDescriptor, ColumnPath, Type as SchemaType,
     };
     use crate::util::{

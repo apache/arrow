@@ -23,7 +23,7 @@
 //! ```rust
 //! use parquet::{
 //!     file::reader::{FileReader, SerializedFileReader},
-//!     schema::printer::{print_file_metadata, print_parquet_metadata, print_schema},
+//!     schema::v1::printer::{print_file_metadata, print_parquet_metadata, print_schema},
 //! };
 //! use std::{fs::File, path::Path};
 //!
@@ -49,7 +49,7 @@ use crate::basic::{LogicalType, Type as PhysicalType};
 use crate::file::metadata::{
     ColumnChunkMetaData, FileMetaData, ParquetMetaData, RowGroupMetaData,
 };
-use crate::schema::types::Type;
+use crate::schema::v1::types::Type;
 
 /// Prints Parquet metadata [`ParquetMetaData`](crate::file::metadata::ParquetMetaData)
 /// information.
@@ -92,7 +92,7 @@ pub fn print_file_metadata(out: &mut io::Write, file_metadata: &FileMetaData) {
     print_schema(out, schema);
 }
 
-/// Prints Parquet [`Type`](crate::schema::types::Type) information.
+/// Prints Parquet [`Type`](crate::schema::v1::types::Type) information.
 #[allow(unused_must_use)]
 pub fn print_schema(out: &mut io::Write, tp: &Type) {
     // TODO: better if we can pass fmt::Write to Printer.
@@ -274,7 +274,7 @@ mod tests {
     use std::sync::Arc;
 
     use crate::basic::{Repetition, Type as PhysicalType};
-    use crate::schema::{parser::parse_message_type, types::Type};
+    use crate::schema::v1::{parser::parse_message_type, types::Type};
 
     fn assert_print_parse_message(message: Type) {
         let mut s = String::new();

@@ -30,7 +30,7 @@ use crate::errors::{ParquetError, Result};
 use crate::file::{footer, metadata::*, reader::*, statistics};
 use crate::record::reader::RowIter;
 use crate::record::Row;
-use crate::schema::types::Type as SchemaType;
+use crate::schema::v1::types::Type as SchemaType;
 use crate::util::{io::TryClone, memory::ByteBufferPtr};
 
 // export `SliceableCursor` and `FileSource` publically so clients can
@@ -394,7 +394,7 @@ mod tests {
     use super::*;
     use crate::basic::ColumnOrder;
     use crate::record::RowAccessor;
-    use crate::schema::parser::parse_message_type;
+    use crate::schema::v1::parser::parse_message_type;
     use crate::util::test_common::{get_test_file, get_test_path};
     use std::sync::Arc;
 

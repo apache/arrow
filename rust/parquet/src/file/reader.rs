@@ -26,7 +26,7 @@ use crate::errors::{ParquetError, Result};
 use crate::file::metadata::*;
 pub use crate::file::serialized_reader::{SerializedFileReader, SerializedPageReader};
 use crate::record::reader::RowIter;
-use crate::schema::types::{ColumnDescPtr, SchemaDescPtr, Type as SchemaType};
+use crate::schema::v1::types::{ColumnDescPtr, SchemaDescPtr, Type as SchemaType};
 
 use crate::basic::Type;
 

@@ -40,7 +40,7 @@ use parquet_format::{ColumnChunk, ColumnMetaData, RowGroup};
 use crate::basic::{ColumnOrder, Compression, Encoding, Type};
 use crate::errors::{ParquetError, Result};
 use crate::file::statistics::{self, Statistics};
-use crate::schema::types::{
+use crate::schema::v1::types::{
     ColumnDescPtr, ColumnDescriptor, ColumnPath, SchemaDescPtr, SchemaDescriptor,
     Type as SchemaType,
 };

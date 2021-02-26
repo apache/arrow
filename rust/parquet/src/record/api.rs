@@ -25,7 +25,7 @@ use num_bigint::{BigInt, Sign};
 use crate::basic::{LogicalType, Type as PhysicalType};
 use crate::data_type::{ByteArray, Decimal, Int96};
 use crate::errors::{ParquetError, Result};
-use crate::schema::types::ColumnDescPtr;
+use crate::schema::v1::types::ColumnDescPtr;
 
 #[cfg(feature = "cli")]
 use serde_json::Value;
@@ -833,7 +833,7 @@ mod tests {
 
     use std::sync::Arc;
 
-    use crate::schema::types::{ColumnDescriptor, ColumnPath, PrimitiveTypeBuilder};
+    use crate::schema::v1::types::{ColumnDescriptor, ColumnPath, PrimitiveTypeBuilder};
 
     /// Creates test column descriptor based on provided type parameters.
     macro_rules! make_column_descr {

@@ -33,7 +33,7 @@ use crate::file::{
     metadata::ColumnChunkMetaData,
     properties::{WriterProperties, WriterPropertiesPtr, WriterVersion},
 };
-use crate::schema::types::ColumnDescPtr;
+use crate::schema::v1::types::ColumnDescPtr;
 use crate::util::bit_util::FromBytes;
 use crate::util::memory::{ByteBufferPtr, MemTracker};
 
@@ -999,7 +999,7 @@ mod tests {
         properties::WriterProperties, reader::SerializedPageReader,
         writer::SerializedPageWriter,
     };
-    use crate::schema::types::{ColumnDescriptor, ColumnPath, Type as SchemaType};
+    use crate::schema::v1::types::{ColumnDescriptor, ColumnPath, Type as SchemaType};
     use crate::util::{
         io::{FileSink, FileSource},
         test_common::{get_temp_file, random_numbers_range},

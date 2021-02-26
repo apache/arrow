@@ -538,7 +538,7 @@ impl ColumnPath {
 
     /// Returns string representation of this column path.
     /// ```rust
-    /// use parquet::schema::types::ColumnPath;
+    /// use parquet::schema::v1::types::ColumnPath;
     ///
     /// let path = ColumnPath::new(vec!["a".to_string(), "b".to_string(), "c".to_string()]);
     /// assert_eq!(&path.string(), "a.b.c");
@@ -549,7 +549,7 @@ impl ColumnPath {
 
     /// Appends more components to end of column path.
     /// ```rust
-    /// use parquet::schema::types::ColumnPath;
+    /// use parquet::schema::v1::types::ColumnPath;
     ///
     /// let mut path = ColumnPath::new(vec!["a".to_string(), "b".to_string(), "c"
     /// .to_string()]);
@@ -649,12 +649,12 @@ impl ColumnDescriptor {
         &self.path
     }
 
-    /// Returns self type [`Type`](crate::schema::types::Type) for this leaf column.
+    /// Returns self type [`Type`](crate::schema::v1::types::Type) for this leaf column.
     pub fn self_type(&self) -> &Type {
         self.primitive_type.as_ref()
     }
 
-    /// Returns self type [`TypePtr`](crate::schema::types::TypePtr)  for this leaf
+    /// Returns self type [`TypePtr`](crate::schema::v1::types::TypePtr)  for this leaf
     /// column.
     pub fn self_type_ptr(&self) -> TypePtr {
         self.primitive_type.clone()
@@ -775,13 +775,13 @@ impl SchemaDescriptor {
         self.leaves.len()
     }
 
-    /// Returns column root [`Type`](crate::schema::types::Type) for a field position.
+    /// Returns column root [`Type`](crate::schema::v1::types::Type) for a field position.
     pub fn get_column_root(&self, i: usize) -> &Type {
         let result = self.column_root_of(i);
         result.as_ref()
     }
 
-    /// Returns column root [`Type`](crate::schema::types::Type) pointer for a field
+    /// Returns column root [`Type`](crate::schema::v1::types::Type) pointer for a field
     /// position.
     pub fn get_column_root_ptr(&self, i: usize) -> TypePtr {
         let result = self.column_root_of(i);
@@ -801,7 +801,7 @@ impl SchemaDescriptor {
             .unwrap_or_else(|| panic!("Expected a value for index {} but found None", i))
     }
 
-    /// Returns schema as [`Type`](crate::schema::types::Type).
+    /// Returns schema as [`Type`](crate::schema::v1::types::Type).
     pub fn root_schema(&self) -> &Type {
         self.schema.as_ref()
     }
@@ -1060,7 +1060,7 @@ fn to_thrift_helper(schema: &Type, elements: &mut Vec<SchemaElement>) {
 mod tests {
     use super::*;
 
-    use crate::schema::parser::parse_message_type;
+    use crate::schema::v1::parser::parse_message_type;
 
     #[test]
     fn test_primitive_type() {

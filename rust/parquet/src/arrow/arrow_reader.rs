@@ -247,8 +247,8 @@ mod tests {
     use crate::file::properties::WriterProperties;
     use crate::file::reader::{FileReader, SerializedFileReader};
     use crate::file::writer::{FileWriter, SerializedFileWriter};
-    use crate::schema::parser::parse_message_type;
-    use crate::schema::types::TypePtr;
+    use crate::schema::v1::parser::parse_message_type;
+    use crate::schema::v1::types::TypePtr;
     use crate::util::test_common::{get_temp_filename, RandGen};
     use arrow::array::*;
     use arrow::record_batch::RecordBatchReader;

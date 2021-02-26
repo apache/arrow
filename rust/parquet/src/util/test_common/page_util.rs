@@ -23,7 +23,7 @@ use crate::encodings::encoding::{get_encoder, DictEncoder, Encoder};
 use crate::encodings::levels::max_buffer_size;
 use crate::encodings::levels::LevelEncoder;
 use crate::errors::Result;
-use crate::schema::types::{ColumnDescPtr, SchemaDescPtr};
+use crate::schema::v1::types::{ColumnDescPtr, SchemaDescPtr};
 use crate::util::memory::ByteBufferPtr;
 use crate::util::memory::MemTracker;
 use crate::util::memory::MemTrackerPtr;

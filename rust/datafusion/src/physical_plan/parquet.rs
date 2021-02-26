@@ -900,7 +900,7 @@ mod tests {
     use arrow::array::{Int32Array, StringArray};
     use futures::StreamExt;
     use parquet::basic::Type as PhysicalType;
-    use parquet::schema::types::SchemaDescPtr;
+    use parquet::schema::v1::types::SchemaDescPtr;
 
     #[test]
     fn test_split_files() {
@@ -1429,7 +1429,7 @@ mod tests {
     }
 
     fn get_test_schema_descr(fields: Vec<(&str, PhysicalType)>) -> SchemaDescPtr {
-        use parquet::schema::types::{SchemaDescriptor, Type as SchemaType};
+        use parquet::schema::v1::types::{SchemaDescriptor, Type as SchemaType};
         let mut schema_fields = fields
             .iter()
             .map(|(n, t)| {

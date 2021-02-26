@@ -20,7 +20,7 @@
 use crate::basic::{Encoding, PageType};
 use crate::errors::Result;
 use crate::file::{metadata::ColumnChunkMetaData, statistics::Statistics};
-use crate::schema::types::{ColumnDescPtr, SchemaDescPtr};
+use crate::schema::v1::types::{ColumnDescPtr, SchemaDescPtr};
 use crate::util::memory::ByteBufferPtr;
 
 /// Parquet Page definition.
