@@ -81,6 +81,9 @@ enum MessageType:long {
   // Touch a number of objects to bump their position in the LRU cache.
   PlasmaRefreshLRURequest,
   PlasmaRefreshLRUReply,
+  // Get Plasma metrics info
+  PlasmaMetricsRequest,
+  PlasmaMetricsReply,
 }
 
 enum PlasmaError:int {
@@ -114,6 +117,17 @@ struct PlasmaObjectSpec {
   metadata_size: ulong;
   // Device to create buffer on.
   device_num: int;
+}
+
+struct PlasmaMetricsSpec {
+  // total share memory allocated.
+  share_mem_total: long;
+  // used share memory currently.
+  share_mem_used: long;
+  // total external store size.
+  external_total: long;
+  // used external store size.
+  external_used: long;
 }
 
 table PlasmaSetOptionsRequest {
@@ -354,4 +368,12 @@ table PlasmaRefreshLRURequest {
 }
 
 table PlasmaRefreshLRUReply {
+}
+
+table PlasmaMetricsRequest {
+}
+
+table PlasmaMetricsReply {
+  // Metrics info to reply
+  metrics: PlasmaMetricsSpec;
 }
