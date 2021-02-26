@@ -864,6 +864,23 @@ TEST_F(TestPlasmaStore, ManyObjectTest) {
   }
 }
 
+TEST_F(TestPlasmaStore, MetricsTest) {
+  // Create an object
+  ObjectID object_id = random_object_id();
+  std::vector<uint8_t> data(100, 0);
+  CreateObject(client_, object_id, {42}, data);
+
+  bool has_object;
+  ARROW_CHECK_OK(client_.Contains(object_id, &has_object));
+  ASSERT_TRUE(has_object);
+
+  PlasmaMetrics plasmaMetrics;
+  ARROW_CHECK_OK(client_.Metrics(&plasmaMetrics));
+
+  ASSERT_TRUE(plasmaMetrics.share_mem_used > 0);
+  ASSERT_TRUE(plasmaMetrics.share_mem_used <= plasmaMetrics.share_mem_total);
+}
+
 #ifdef PLASMA_CUDA
 using arrow::cuda::CudaBuffer;
 using arrow::cuda::CudaBufferReader;
