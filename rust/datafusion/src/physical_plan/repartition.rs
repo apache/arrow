@@ -125,7 +125,7 @@ impl ExecutionPlan for RepartitionExec {
                 let input = self.input.clone();
                 let mut channels = channels.clone();
                 let partitioning = self.partitioning.clone();
-                let join_handle: JoinHandle<Result<()>> = tokio::spawn(async move {
+                let _: JoinHandle<Result<()>> = tokio::spawn(async move {
                     let mut stream = input.execute(i).await?;
                     let mut counter = 0;
                     while let Some(result) = stream.next().await {
@@ -157,10 +157,7 @@ impl ExecutionPlan for RepartitionExec {
                     }
                     Ok(())
                 });
-                join_handle
-                    .await
-                    .map(|_| ())
-                    .map_err(|e| DataFusionError::Execution(e.to_string()))?;
+                tokio::task::yield_now().await;
             }
         }
 
