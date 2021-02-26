@@ -699,7 +699,10 @@ macro_rules! hash_array {
 }
 
 /// Creates hash values for every element in the row based on the values in the columns
-fn create_hashes(arrays: &[ArrayRef], random_state: &RandomState) -> Result<Vec<u64>> {
+pub fn create_hashes(
+    arrays: &[ArrayRef],
+    random_state: &RandomState,
+) -> Result<Vec<u64>> {
     let rows = arrays[0].len();
     let mut hashes = vec![0; rows];
 
