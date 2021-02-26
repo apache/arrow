@@ -293,6 +293,15 @@ class ARROW_EXPORT PlasmaClient {
   /// \return Memory capacity of the store in bytes.
   int64_t store_capacity();
 
+  /// Get PlasmaStore memory usage metrics.
+  ///
+  /// This API is experimental and might change in the future.
+  ///
+  /// \param[out] metrics PlasmaStore memory uasge, including total share memory,
+  ///             used share memory, total external memory, used external memory.
+  /// \return The return status.
+  Status Metrics(PlasmaMetrics* metrics);
+
  private:
   friend class PlasmaBuffer;
   friend class PlasmaMutableBuffer;
