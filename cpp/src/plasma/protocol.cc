@@ -826,4 +826,31 @@ Status ReadRefreshLRUReply(const uint8_t* data, size_t size) {
   return Status::OK();
 }
 
+// Metrics message
+Status SendMetricsRequest(int sock) {
+  flatbuffers::FlatBufferBuilder fbb;
+  auto message = fb::CreatePlasmaMetricsRequest(fbb);
+  return PlasmaSend(sock, MessageType::PlasmaMetricsRequest, &fbb, message);
+}
+
+Status ReadMetricsRequest(const uint8_t* data, size_t size) { return Status::OK(); }
+
+Status SendMetricsReply(int sock, const PlasmaMetrics* metrics) {
+  flatbuffers::FlatBufferBuilder fbb;
+  plasma::flatbuf::PlasmaMetricsSpec metrics_(
+      metrics->share_mem_total, metrics->share_mem_used, metrics->external_total,
+      metrics->external_used);
+  auto message = fb::CreatePlasmaMetricsReply(fbb, &metrics_);
+  fbb.Finish(message);
+  return PlasmaSend(sock, MessageType::PlasmaMetricsReply, &fbb, message);
+}
+
+Status ReadMetricsReply(const uint8_t* data, size_t size, PlasmaMetrics* metrics) {
+  DCHECK(data);
+  auto message = flatbuffers::GetRoot<fb::PlasmaMetricsReply>(data);
+  DCHECK(VerifyFlatbuffer(message, data, size));
+  memcpy(metrics, message->metrics(), sizeof(PlasmaMetrics));
+  return Status::OK();
+}
+
 }  // namespace plasma

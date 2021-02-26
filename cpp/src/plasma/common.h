@@ -145,6 +145,14 @@ typedef std::unordered_map<ObjectID, std::unique_ptr<ObjectTableEntry>> ObjectTa
 /// by making it possible to pass a context object through dlmalloc.
 struct PlasmaStoreInfo;
 extern const PlasmaStoreInfo* plasma_config;
+
+/// This type is used to transfer plasma metrics between server and client.
+struct PlasmaMetrics {
+  int64_t share_mem_total;
+  int64_t share_mem_used;
+  int64_t external_total;
+  int64_t external_used;
+};
 }  // namespace plasma
 
 namespace std {

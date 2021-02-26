@@ -248,4 +248,12 @@ Status SendRefreshLRUReply(int sock);
 
 Status ReadRefreshLRUReply(const uint8_t* data, size_t size);
 
+Status SendMetricsRequest(int sock);
+
+Status ReadMetricsRequest(const uint8_t* data, size_t size);
+
+Status SendMetricsReply(int sock, const PlasmaMetrics* metrics);
+
+Status ReadMetricsReply(const uint8_t* data, size_t size, PlasmaMetrics* metrics);
+
 }  // namespace plasma
