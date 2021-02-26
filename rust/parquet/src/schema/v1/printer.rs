@@ -45,7 +45,7 @@
 
 use std::{fmt, io};
 
-use crate::basic::{LogicalType, Type as PhysicalType};
+use crate::basic::{ConvertedType, Type as PhysicalType};
 use crate::file::metadata::{
     ColumnChunkMetaData, FileMetaData, ParquetMetaData, RowGroupMetaData,
 };
@@ -215,9 +215,9 @@ impl<'a> Printer<'a> {
                     _ => format!("{}", physical_type),
                 };
                 // Also print logical type if it is available
-                let logical_type_str = match basic_info.logical_type() {
-                    LogicalType::NONE => format!(""),
-                    decimal @ LogicalType::DECIMAL => {
+                let converted_type_str = match basic_info.converted_type() {
+                    ConvertedType::NONE => format!(""),
+                    decimal @ ConvertedType::DECIMAL => {
                         // For decimal type we should print precision and scale if they
                         // are > 0, e.g. DECIMAL(9, 2) -
                         // DECIMAL(9) - DECIMAL
@@ -228,7 +228,7 @@ impl<'a> Printer<'a> {
                         };
                         format!(" ({}{})", decimal, precision_scale)
                     }
-                    other_logical_type => format!(" ({})", other_logical_type),
+                    other_converted_type => format!(" ({})", other_converted_type),
                 };
                 write!(
                     self.output,
@@ -236,7 +236,7 @@ impl<'a> Printer<'a> {
                     basic_info.repetition(),
                     phys_type_str,
                     basic_info.name(),
-                    logical_type_str
+                    converted_type_str
                 );
             }
             Type::GroupType {
@@ -246,8 +246,8 @@ impl<'a> Printer<'a> {
                 if basic_info.has_repetition() {
                     let r = basic_info.repetition();
                     write!(self.output, "{} group {} ", r, basic_info.name());
-                    if basic_info.logical_type() != LogicalType::NONE {
-                        write!(self.output, "({}) ", basic_info.logical_type());
+                    if basic_info.converted_type() != ConvertedType::NONE {
+                        write!(self.output, "({}) ", basic_info.converted_type());
                     }
                     writeln!(self.output, "{{");
                 } else {
@@ -293,7 +293,7 @@ mod tests {
             let mut p = Printer::new(&mut s);
             let field = Type::primitive_type_builder("field", PhysicalType::INT32)
                 .with_repetition(Repetition::REQUIRED)
-                .with_logical_type(LogicalType::INT_32)
+                .with_converted_type(ConvertedType::INT_32)
                 .build()
                 .unwrap();
             p.print(&field);
@@ -322,17 +322,17 @@ mod tests {
             let mut p = Printer::new(&mut s);
             let f1 = Type::primitive_type_builder("f1", PhysicalType::INT32)
                 .with_repetition(Repetition::REQUIRED)
-                .with_logical_type(LogicalType::INT_32)
+                .with_converted_type(ConvertedType::INT_32)
                 .with_id(0)
                 .build();
             let f2 = Type::primitive_type_builder("f2", PhysicalType::BYTE_ARRAY)
-                .with_logical_type(LogicalType::UTF8)
+                .with_converted_type(ConvertedType::UTF8)
                 .with_id(1)
                 .build();
             let f3 =
                 Type::primitive_type_builder("f3", PhysicalType::FIXED_LEN_BYTE_ARRAY)
                     .with_repetition(Repetition::REPEATED)
-                    .with_logical_type(LogicalType::INTERVAL)
+                    .with_converted_type(ConvertedType::INTERVAL)
                     .with_length(12)
                     .with_id(2)
                     .build();
@@ -369,13 +369,13 @@ mod tests {
     fn test_print_and_parse_primitive() {
         let a2 = Type::primitive_type_builder("a2", PhysicalType::BYTE_ARRAY)
             .with_repetition(Repetition::REPEATED)
-            .with_logical_type(LogicalType::UTF8)
+            .with_converted_type(ConvertedType::UTF8)
             .build()
             .unwrap();
 
         let a1 = Type::group_type_builder("a1")
             .with_repetition(Repetition::OPTIONAL)
-            .with_logical_type(LogicalType::LIST)
+            .with_converted_type(ConvertedType::LIST)
             .with_fields(&mut vec![Arc::new(a2)])
             .build()
             .unwrap();
@@ -392,14 +392,14 @@ mod tests {
 
         let b2 = Type::group_type_builder("b2")
             .with_repetition(Repetition::REPEATED)
-            .with_logical_type(LogicalType::NONE)
+            .with_converted_type(ConvertedType::NONE)
             .with_fields(&mut vec![Arc::new(b3), Arc::new(b4)])
             .build()
             .unwrap();
 
         let b1 = Type::group_type_builder("b1")
             .with_repetition(Repetition::OPTIONAL)
-            .with_logical_type(LogicalType::LIST)
+            .with_converted_type(ConvertedType::LIST)
             .with_fields(&mut vec![Arc::new(b2)])
             .build()
             .unwrap();
@@ -422,13 +422,13 @@ mod tests {
     fn test_print_and_parse_nested() {
         let f1 = Type::primitive_type_builder("f1", PhysicalType::INT32)
             .with_repetition(Repetition::REQUIRED)
-            .with_logical_type(LogicalType::INT_32)
+            .with_converted_type(ConvertedType::INT_32)
             .build()
             .unwrap();
 
         let f2 = Type::primitive_type_builder("f2", PhysicalType::BYTE_ARRAY)
             .with_repetition(Repetition::OPTIONAL)
-            .with_logical_type(LogicalType::UTF8)
+            .with_converted_type(ConvertedType::UTF8)
             .build()
             .unwrap();
 
@@ -440,7 +440,7 @@ mod tests {
 
         let f3 = Type::primitive_type_builder("f3", PhysicalType::FIXED_LEN_BYTE_ARRAY)
             .with_repetition(Repetition::REPEATED)
-            .with_logical_type(LogicalType::INTERVAL)
+            .with_converted_type(ConvertedType::INTERVAL)
             .with_length(12)
             .build()
             .unwrap();
@@ -457,7 +457,7 @@ mod tests {
     fn test_print_and_parse_decimal() {
         let f1 = Type::primitive_type_builder("f1", PhysicalType::INT32)
             .with_repetition(Repetition::OPTIONAL)
-            .with_logical_type(LogicalType::DECIMAL)
+            .with_converted_type(ConvertedType::DECIMAL)
             .with_precision(9)
             .with_scale(2)
             .build()
@@ -465,7 +465,7 @@ mod tests {
 
         let f2 = Type::primitive_type_builder("f2", PhysicalType::INT32)
             .with_repetition(Repetition::OPTIONAL)
-            .with_logical_type(LogicalType::DECIMAL)
+            .with_converted_type(ConvertedType::DECIMAL)
             .with_precision(9)
             .with_scale(0)
             .build()

@@ -20,14 +20,16 @@
 
 use std::{collections::HashMap, fmt, sync::Arc};
 
-use crate::basic::{LogicalType, Repetition};
+use crate::basic::{ConvertedType, Repetition};
 use crate::errors::{ParquetError, Result};
 use crate::file::reader::{FileReader, RowGroupReader};
 use crate::record::{
     api::{make_list, make_map, make_row, Field, Row},
     triplet::TripletIter,
 };
-use crate::schema::v1::types::{ColumnPath, SchemaDescPtr, SchemaDescriptor, Type, TypePtr};
+use crate::schema::v1::types::{
+    ColumnPath, SchemaDescPtr, SchemaDescriptor, Type, TypePtr,
+};
 
 /// Default batch size for a reader
 const DEFAULT_BATCH_SIZE: usize = 1024;
@@ -138,9 +140,9 @@ impl TreeBuilder {
             let column = TripletIter::new(col_descr, col_reader, self.batch_size);
             Reader::PrimitiveReader(field, column)
         } else {
-            match field.get_basic_info().logical_type() {
+            match field.get_basic_info().converted_type() {
                 // List types
-                LogicalType::LIST => {
+                ConvertedType::LIST => {
                     assert_eq!(
                         field.get_fields().len(),
                         1,
@@ -198,7 +200,7 @@ impl TreeBuilder {
                     }
                 }
                 // Map types (key-value pairs)
-                LogicalType::MAP | LogicalType::MAP_KEY_VALUE => {
+                ConvertedType::MAP | ConvertedType::MAP_KEY_VALUE => {
                     assert_eq!(
                         field.get_fields().len(),
                         1,
@@ -269,7 +271,7 @@ impl TreeBuilder {
                 _ if repetition == Repetition::REPEATED => {
                     let required_field = Type::group_type_builder(field.name())
                         .with_repetition(Repetition::REQUIRED)
-                        .with_logical_type(field.get_basic_info().logical_type())
+                        .with_converted_type(field.get_basic_info().converted_type())
                         .with_fields(&mut Vec::from(field.get_fields()))
                         .build()
                         .unwrap();
