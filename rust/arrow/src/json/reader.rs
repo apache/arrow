@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! JSON Reader
+//! # JSON Reader
 //!
 //! This JSON reader allows JSON line-delimited files to be read into the Arrow memory
 //! model. Records are loaded in batches and are then converted from row-based data to
