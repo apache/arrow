@@ -34,6 +34,7 @@ arrow = { path = "../arrow" }
 arrow-flight = { path = "../arrow-flight" }
 async-trait = "0.1.41"
 clap = "2.33"
+env_logger = "0.8.3"
 futures = "0.3"
 hex = "0.4"
 prost = "0.7"

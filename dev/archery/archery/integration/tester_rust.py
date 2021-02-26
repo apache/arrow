@@ -81,9 +81,11 @@ class RustTester(Tester):
             cmd = cmd + ["--scenario", scenario_name]
         if self.debug:
             log(' '.join(cmd))
+        env = os.environ.copy()
+        env["RUST_LOG"] = "debug"
         server = subprocess.Popen(cmd,
-                                  stdout=subprocess.PIPE,
-                                  stderr=subprocess.PIPE)
+                                  env=env,
+                                  stdout=subprocess.PIPE)
         try:
             output = server.stdout.readline().decode()
             if not output.startswith("Server listening on localhost:"):
@@ -97,6 +99,9 @@ class RustTester(Tester):
             yield port
         finally:
             server.kill()
+            out, err = server.communicate()
+            log(out)
+            log(err)
             server.wait(5)
 
     def flight_request(self, port, json_path=None, scenario_name=None):

@@ -24,6 +24,7 @@ type Result<T = (), E = Error> = std::result::Result<T, E>;
 
 #[tokio::main]
 async fn main() -> Result {
+    env_logger::init();
     #[cfg(feature = "logging")]
     tracing_subscriber::fmt::init();
 
