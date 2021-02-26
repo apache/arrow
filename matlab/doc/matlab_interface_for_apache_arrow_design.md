@@ -144,7 +144,7 @@ An analogous workflow could be followed to create `arrow.FeatherTableReader` to 
 
 Ultimately, many of the APIs exposed by the MATLAB Interface for Apache Arrow are targeted at advanced MATLAB users. By leveraging these building blocks, advanced MATLAB users can create high-level interfaces, which are useful to everyday MATLAB users. An example of such a high-level interface would be `featherwrite`, intended to make it easy to write Feather files. A diagram summarizing the overall workflow and specific pieces an advanced user would need to author to create such a high-level interface is included below.
 
-![Code flow diagram](https://github.com/mathworks/matlab-arrow-support-files/raw/main/design_doc_code_flow_diagram.svg)
+![Code flow diagram](https://github.com/mathworks/matlab-arrow-support-files/raw/main/images/design_doc_code_flow_diagram.svg)
 
 ### Use Case: UC3 
 
