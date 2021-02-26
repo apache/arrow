@@ -71,19 +71,25 @@ static FLBA FLBAFromString(const std::string& s) {
 TEST(Comparison, SignedByteArray) {
   auto comparator = MakeComparator<ByteArrayType>(Type::BYTE_ARRAY, SortOrder::SIGNED);
 
-  std::string s1 = "12345";
-  std::string s2 = "12345678";
-  ByteArray s1ba = ByteArrayFromString(s1);
-  ByteArray s2ba = ByteArrayFromString(s2);
-  ASSERT_TRUE(comparator->Compare(s1ba, s2ba));
+  std::vector<uint8_t> byte_values[] = {
+      {0x80, 0x80, 0, 0},       {/*0xFF,*/ 0x80, 0, 0},     {/*0xFF,*/ 0xFF, 0x01, 0},
+      {/*0xFF,0xFF,*/ 0x80, 0}, {/*0xFF,0xFF,0xFF,*/ 0x80}, {/*0xFF, 0xFF, 0xFF,*/ 0xFF},
+      {/*0, 0,*/ 0x01, 0x01},   {/*0,*/ 0x01, 0x01, 0},     {0x01, 0x01, 0, 0}};
+  constexpr uint8_t empty[] = {0};
+  std::vector<ByteArray> values_to_compare = {ByteArray()};
+  for (const auto& bytes : byte_values) {
+    values_to_compare.emplace_back(ByteArray(bytes.size(), bytes.data()));
+  }
 
-  // This is case where signed comparison UTF-8 (PARQUET-686) is incorrect
-  // This example is to only check signed comparison and not UTF-8.
-  s1 = u8"bügeln";
-  s2 = u8"braten";
-  s1ba = ByteArrayFromString(s1);
-  s2ba = ByteArrayFromString(s2);
-  ASSERT_TRUE(comparator->Compare(s1ba, s2ba));
+  for (size_t x = 0; x < values_to_compare.size(); x++) {
+    EXPECT_FALSE(comparator->Compare(values_to_compare[x], values_to_compare[x])) << x;
+    for (size_t y = x + 1; y < values_to_compare.size(); y++) {
+      EXPECT_TRUE(comparator->Compare(values_to_compare[x], values_to_compare[y]))
+          << x << " " << y;
+      EXPECT_FALSE(comparator->Compare(values_to_compare[y], values_to_compare[x]))
+          << y << " " << x;
+    }
+  }
 }
 
 TEST(Comparison, UnsignedByteArray) {
@@ -111,21 +117,40 @@ TEST(Comparison, UnsignedByteArray) {
 }
 
 TEST(Comparison, SignedFLBA) {
-  int size = 10;
+  int size = 4;
   auto comparator =
       MakeComparator<FLBAType>(Type::FIXED_LEN_BYTE_ARRAY, SortOrder::SIGNED, size);
 
-  std::string s1 = "Anti123456";
-  std::string s2 = "Bunkd123456";
-  FLBA s1flba = FLBAFromString(s1);
-  FLBA s2flba = FLBAFromString(s2);
-  ASSERT_TRUE(comparator->Compare(s1flba, s2flba));
+  std::vector<uint8_t> byte_values[] = {
+      {0x80, 0, 0, 0},          {0xFF, 0xFF, 0x01, 0},    {0xFF, 0xFF, 0x80, 0},
+      {0xFF, 0xFF, 0xFF, 0x80}, {0xFF, 0xFF, 0xFF, 0xFF}, {0, 0, 0x01, 0x01},
+      {0, 0x01, 0x01, 0},       {0x01, 0x01, 0, 0}};
+  std::vector<FLBA> values_to_compare;
+  for (auto& bytes : byte_values) {
+    values_to_compare.emplace_back(FLBA(bytes.data()));
+  }
 
-  s1 = "Bünk123456";
-  s2 = "Bunk123456";
-  s1flba = FLBAFromString(s1);
-  s2flba = FLBAFromString(s2);
-  ASSERT_TRUE(comparator->Compare(s1flba, s2flba));
+  for (size_t x = 0; x < values_to_compare.size(); x++) {
+    EXPECT_FALSE(comparator->Compare(values_to_compare[x], values_to_compare[x])) << x;
+    for (size_t y = x + 1; y < values_to_compare.size(); y++) {
+      EXPECT_TRUE(comparator->Compare(values_to_compare[x], values_to_compare[y]))
+          << x << " " << y << " "
+          << ::arrow::BitUtil::FromBigEndian(
+                 *reinterpret_cast<int32_t*>(byte_values[x].data()))
+          << " " << *reinterpret_cast<int32_t*>(byte_values[y].data());
+      EXPECT_FALSE(comparator->Compare(values_to_compare[y], values_to_compare[x]))
+          << y << " " << x;
+    }
+  }
+
+  constexpr uint8_t bytes1[] = {255, 127, 255};
+  constexpr uint8_t bytes2[] = {255, 255, 255};
+  EXPECT_TRUE(comparator->Compare(FLBA(bytes1), FLBA(bytes2)));
+  EXPECT_FALSE(comparator->Compare(FLBA(bytes2), FLBA(bytes1)));
+  EXPECT_FALSE(comparator->Compare(FLBA(bytes1), FLBA(bytes1)));
+  constexpr uint8_t bytes3[] = {127, 255, 255};
+  EXPECT_TRUE(comparator->Compare(FLBA(bytes2), FLBA(bytes3)));
+  EXPECT_FALSE(comparator->Compare(FLBA(bytes3), FLBA(bytes2)));
 }
 
 TEST(Comparison, UnsignedFLBA) {
