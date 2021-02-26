@@ -1205,6 +1205,24 @@ cdef class ParquetReader(_Weakrefable):
         return pyarrow_wrap_chunked_array(out)
 
 
+cdef class LowLevelEncryptionProperties(_Weakrefable):
+    """Wrapper for FileEncryptionProperties.
+
+    Not intended for direct use by Python users, currently, just wrapped to
+    enable testing of low-level decryption.
+    """
+    cdef:
+        shared_ptr[FileEncryptionProperties] encryption_properties
+
+    def __cinit__(self, footer_key, column_keys):  # TODO more options?
+        builder = FileEncryptionProperties.Builder(footer_key)
+        for column, key in column_keys.items():
+            c_column_keys[column] = ColumnEncryptionProperties.Builder(
+                column).key(key).build()
+            builder.column_keys(c_column_keys)
+        self.encryption_properties = builder.build()
+
+
 cdef shared_ptr[WriterProperties] _create_writer_properties(
         use_dictionary=None,
         compression=None,
@@ -1213,7 +1231,8 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
         data_page_size=None,
         compression_level=None,
         use_byte_stream_split=False,
-        data_page_version=None) except *:
+        data_page_version=None,
+        LowLevelEncryptionProperties lowlevel_encryption_properties=None) except *:
     """General writer properties"""
     cdef:
         shared_ptr[WriterProperties] properties
@@ -1295,6 +1314,9 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
 
     if data_page_size is not None:
         props.data_pagesize(data_page_size)
+
+    if lowlevel_encryption_properties is not None:
+        props.encryption(lowlevel_encryption_properties.encryption_properties)
 
     properties = props.build()
 
@@ -1385,7 +1407,8 @@ cdef class ParquetWriter(_Weakrefable):
                   compression_level=None,
                   use_byte_stream_split=False,
                   writer_engine_version=None,
-                  data_page_version=None):
+                  data_page_version=None,
+                  lowlevel_encryption_properties=None):
         cdef:
             shared_ptr[WriterProperties] properties
             shared_ptr[ArrowWriterProperties] arrow_properties
@@ -1411,7 +1434,8 @@ cdef class ParquetWriter(_Weakrefable):
             data_page_size=data_page_size,
             compression_level=compression_level,
             use_byte_stream_split=use_byte_stream_split,
-            data_page_version=data_page_version
+            data_page_version=data_page_version,
+            lowlevel_encryption_properties=lowlevel_encryption_properties,
         )
         arrow_properties = _create_arrow_writer_properties(
             use_deprecated_int96_timestamps=use_deprecated_int96_timestamps,
