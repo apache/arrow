@@ -21,7 +21,7 @@ use std::{collections::HashMap, convert::From, fmt, sync::Arc};
 
 use parquet_format::SchemaElement;
 
-use crate::basic::{ConvertedType, Repetition, Type as PhysicalType};
+use crate::basic::{ConvertedType, LogicalType, Repetition, Type as PhysicalType};
 use crate::errors::{ParquetError, Result};
 
 // ----------------------------------------------------------------------
@@ -193,6 +193,7 @@ pub struct PrimitiveTypeBuilder<'a> {
     repetition: Repetition,
     physical_type: PhysicalType,
     converted_type: ConvertedType,
+    logical_type: Option<LogicalType>,
     length: i32,
     precision: i32,
     scale: i32,
@@ -207,6 +208,7 @@ impl<'a> PrimitiveTypeBuilder<'a> {
             repetition: Repetition::OPTIONAL,
             physical_type,
             converted_type: ConvertedType::NONE,
+            logical_type: None,
             length: -1,
             precision: -1,
             scale: -1,
@@ -223,6 +225,12 @@ impl<'a> PrimitiveTypeBuilder<'a> {
     /// Sets [`ConvertedType`](crate::basic::ConvertedType) for this field and returns itself.
     pub fn with_converted_type(mut self, converted_type: ConvertedType) -> Self {
         self.converted_type = converted_type;
+        self
+    }
+
+    /// Sets [`LogicalType`](crate::basic::LogicalType) for this field and returns itself.
+    pub fn with_logical_type(mut self, logical_type: Option<LogicalType>) -> Self {
+        self.logical_type = logical_type;
         self
     }
 
@@ -262,6 +270,7 @@ impl<'a> PrimitiveTypeBuilder<'a> {
             name: String::from(self.name),
             repetition: Some(self.repetition),
             converted_type: self.converted_type,
+            logical_type: self.logical_type,
             id: self.id,
         };
 
@@ -419,6 +428,7 @@ pub struct GroupTypeBuilder<'a> {
     name: &'a str,
     repetition: Option<Repetition>,
     converted_type: ConvertedType,
+    logical_type: Option<LogicalType>,
     fields: Vec<TypePtr>,
     id: Option<i32>,
 }
@@ -430,6 +440,7 @@ impl<'a> GroupTypeBuilder<'a> {
             name,
             repetition: None,
             converted_type: ConvertedType::NONE,
+            logical_type: None,
             fields: Vec::new(),
             id: None,
         }
@@ -444,6 +455,12 @@ impl<'a> GroupTypeBuilder<'a> {
     /// Sets [`ConvertedType`](crate::basic::ConvertedType) for this field and returns itself.
     pub fn with_converted_type(mut self, converted_type: ConvertedType) -> Self {
         self.converted_type = converted_type;
+        self
+    }
+
+    /// Sets [`LogicalType`](crate::basic::LogicalType) for this field and returns itself.
+    pub fn with_logical_type(mut self, logical_type: Option<LogicalType>) -> Self {
+        self.logical_type = logical_type;
         self
     }
 
@@ -466,6 +483,7 @@ impl<'a> GroupTypeBuilder<'a> {
             name: String::from(self.name),
             repetition: self.repetition,
             converted_type: self.converted_type,
+            logical_type: self.logical_type,
             id: self.id,
         };
         Ok(Type::GroupType {
@@ -482,6 +500,7 @@ pub struct BasicTypeInfo {
     name: String,
     repetition: Option<Repetition>,
     converted_type: ConvertedType,
+    logical_type: Option<LogicalType>,
     id: Option<i32>,
 }
 
@@ -507,6 +526,12 @@ impl BasicTypeInfo {
     /// Returns [`ConvertedType`](crate::basic::ConvertedType) value for the type.
     pub fn converted_type(&self) -> ConvertedType {
         self.converted_type
+    }
+
+    /// Returns [`LogicalType`](crate::basic::LogicalType) value for the type.
+    pub fn logical_type(&self) -> Option<LogicalType> {
+        // Unlike ConvertedType, LogicalType cannot implement Copy, thus we clone it
+        self.logical_type.clone()
     }
 
     /// Returns `true` if id is set, `false` otherwise.
@@ -906,7 +931,14 @@ fn from_thrift_helper(
             elements.len()
         ));
     }
-    let converted_type = ConvertedType::from(elements[index].converted_type);
+    let element = &elements[index];
+    let converted_type = ConvertedType::from(element.converted_type);
+    // LogicalType is only present in v2 Parquet files. ConvertedType is always
+    // populated, regardless of the version of the file (v1 or v2).
+    let logical_type = element
+        .logical_type
+        .as_ref()
+        .map(|value| LogicalType::from(value.clone()));
     let field_id = elements[index].field_id;
     match elements[index].num_children {
         // From parquet-format:
@@ -930,6 +962,7 @@ fn from_thrift_helper(
             let mut builder = Type::primitive_type_builder(name, physical_type)
                 .with_repetition(repetition)
                 .with_converted_type(converted_type)
+                .with_logical_type(logical_type)
                 .with_length(length)
                 .with_precision(precision)
                 .with_scale(scale);
@@ -950,6 +983,7 @@ fn from_thrift_helper(
 
             let mut builder = Type::group_type_builder(&elements[index].name)
                 .with_converted_type(converted_type)
+                .with_logical_type(logical_type)
                 .with_fields(&mut fields);
             if let Some(rep) = repetition {
                 // Sometimes parquet-cpp and parquet-mr set repetition level REQUIRED or
@@ -972,18 +1006,22 @@ fn from_thrift_helper(
 }
 
 /// Method to convert to Thrift.
-pub fn to_thrift(schema: &Type) -> Result<Vec<SchemaElement>> {
+pub fn to_thrift(schema: &Type, writer_version: i32) -> Result<Vec<SchemaElement>> {
     if !schema.is_group() {
         return Err(general_err!("Root schema must be Group type"));
     }
     let mut elements: Vec<SchemaElement> = Vec::new();
-    to_thrift_helper(schema, &mut elements);
+    to_thrift_helper(schema, &mut elements, writer_version);
     Ok(elements)
 }
 
 /// Constructs list of `SchemaElement` from the schema using depth-first traversal.
 /// Here we assume that schema is always valid and starts with group type.
-fn to_thrift_helper(schema: &Type, elements: &mut Vec<SchemaElement>) {
+fn to_thrift_helper(
+    schema: &Type,
+    elements: &mut Vec<SchemaElement>,
+    writer_version: i32,
+) {
     match *schema {
         Type::PrimitiveType {
             ref basic_info,
@@ -1014,7 +1052,11 @@ fn to_thrift_helper(schema: &Type, elements: &mut Vec<SchemaElement>) {
                 } else {
                     None
                 },
-                logical_type: None,
+                logical_type: if writer_version > 1 {
+                    basic_info.logical_type().map(|value| value.into())
+                } else {
+                    None
+                },
             };
 
             elements.push(element);
@@ -1043,14 +1085,18 @@ fn to_thrift_helper(schema: &Type, elements: &mut Vec<SchemaElement>) {
                 } else {
                     None
                 },
-                logical_type: None,
+                logical_type: if writer_version > 1 {
+                    basic_info.logical_type().map(|value| value.into())
+                } else {
+                    None
+                },
             };
 
             elements.push(element);
 
             // Add child elements for a group
             for field in fields {
-                to_thrift_helper(field, elements);
+                to_thrift_helper(field, elements, writer_version);
             }
         }
     }
@@ -1061,6 +1107,8 @@ mod tests {
     use super::*;
 
     use crate::schema::v1::parser::parse_message_type;
+
+    // TODO: add tests for v2 types
 
     #[test]
     fn test_primitive_type() {
@@ -1760,7 +1808,7 @@ mod tests {
         let schema = Type::primitive_type_builder("col", PhysicalType::INT32)
             .build()
             .unwrap();
-        let thrift_schema = to_thrift(&schema);
+        let thrift_schema = to_thrift(&schema, 1);
         assert!(thrift_schema.is_err());
         if let Err(e) = thrift_schema {
             assert_eq!(
@@ -1819,7 +1867,7 @@ mod tests {
     }
     ";
         let expected_schema = parse_message_type(message_type).unwrap();
-        let thrift_schema = to_thrift(&expected_schema).unwrap();
+        let thrift_schema = to_thrift(&expected_schema, 1).unwrap();
         let result_schema = from_thrift(&thrift_schema).unwrap();
         assert_eq!(result_schema, Arc::new(expected_schema));
     }
@@ -1835,7 +1883,7 @@ mod tests {
     }
     ";
         let expected_schema = parse_message_type(message_type).unwrap();
-        let thrift_schema = to_thrift(&expected_schema).unwrap();
+        let thrift_schema = to_thrift(&expected_schema, 1).unwrap();
         let result_schema = from_thrift(&thrift_schema).unwrap();
         assert_eq!(result_schema, Arc::new(expected_schema));
     }
@@ -1857,7 +1905,7 @@ mod tests {
     ";
 
         let expected_schema = parse_message_type(message_type).unwrap();
-        let mut thrift_schema = to_thrift(&expected_schema).unwrap();
+        let mut thrift_schema = to_thrift(&expected_schema, 1).unwrap();
         // Change all of None to Some(0)
         for mut elem in &mut thrift_schema[..] {
             if elem.num_children == None {
@@ -1882,7 +1930,7 @@ mod tests {
     ";
 
         let expected_schema = parse_message_type(message_type).unwrap();
-        let mut thrift_schema = to_thrift(&expected_schema).unwrap();
+        let mut thrift_schema = to_thrift(&expected_schema, 1).unwrap();
         thrift_schema[0].repetition_type = Some(Repetition::REQUIRED.into());
 
         let result_schema = from_thrift(&thrift_schema).unwrap();

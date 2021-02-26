@@ -175,9 +175,10 @@ impl<W: ParquetWriter> SerializedFileWriter<W> {
 
     /// Assembles and writes metadata at the end of the file.
     fn write_metadata(&mut self) -> Result<()> {
+        let writer_version = self.props.writer_version().as_num();
         let file_metadata = parquet::FileMetaData {
-            version: self.props.writer_version().as_num(),
-            schema: types::to_thrift(self.schema.as_ref())?,
+            version: writer_version,
+            schema: types::to_thrift(self.schema.as_ref(), writer_version)?,
             num_rows: self.total_num_rows as i64,
             row_groups: self
                 .row_groups
