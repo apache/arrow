@@ -184,6 +184,8 @@ class PlasmaStore {
   void AddToClientObjectIds(const ObjectID& object_id, ObjectTableEntry* entry,
                             Client* client);
 
+  void UpdateMetrics(PlasmaMetrics* metrics);
+
   /// Remove a GetRequest and clean up the relevant data structures.
   ///
   /// \param get_request The GetRequest to remove.

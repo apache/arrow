@@ -893,6 +893,14 @@ void PlasmaStore::PushNotification(fb::ObjectInfoT* object_info, int client_fd) 
   }
 }
 
+void PlasmaStore::UpdateMetrics(PlasmaMetrics* metrics) {
+  metrics->share_mem_total = PlasmaAllocator::GetFootprintLimit();
+  metrics->share_mem_used = PlasmaAllocator::Allocated();
+  // TODO: get external store info.
+  metrics->external_total = 0;
+  metrics->external_used = 0;
+}
+
 // Subscribe to notifications about sealed objects.
 void PlasmaStore::SubscribeToUpdates(Client* client) {
   ARROW_LOG(DEBUG) << "subscribing to updates on fd " << client->fd;
@@ -1135,6 +1143,12 @@ Status PlasmaStore::ProcessMessage(Client* client) {
     case fb::MessageType::PlasmaGetDebugStringRequest: {
       HANDLE_SIGPIPE(SendGetDebugStringReply(client->fd, eviction_policy_.DebugString()),
                      client->fd);
+    } break;
+    case fb::MessageType::PlasmaMetricsRequest: {
+      RETURN_NOT_OK(ReadMetricsRequest(input, input_size));
+      PlasmaMetrics metrics;
+      UpdateMetrics(&metrics);
+      HANDLE_SIGPIPE(SendMetricsReply(client->fd, &metrics), client->fd);
     } break;
     default:
       // This code should be unreachable.
