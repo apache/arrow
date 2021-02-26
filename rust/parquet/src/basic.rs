@@ -24,6 +24,12 @@ use parquet_format as parquet;
 
 use crate::errors::ParquetError;
 
+// Re-export parquet_format types used in this module
+pub use parquet_format::{
+    BsonType, DateType, DecimalType, EnumType, IntType, JsonType, ListType, MapType,
+    NullType, StringType, TimeType, TimestampType, UUIDType,
+};
+
 // ----------------------------------------------------------------------
 // Types from the Thrift definition
 
@@ -144,6 +150,27 @@ pub enum ConvertedType {
     /// the number of milliseconds associated with the provided duration.
     /// This duration of time is independent of any particular timezone or date.
     INTERVAL,
+}
+
+// ----------------------------------------------------------------------
+// Mirrors `parquet::LogicalType`
+
+/// Logical types used by version 2 of the Parquet format.
+#[derive(Debug, Clone, PartialEq)]
+pub enum LogicalType {
+    STRING(StringType),
+    MAP(MapType),
+    LIST(ListType),
+    ENUM(EnumType),
+    DECIMAL(DecimalType),
+    DATE(DateType),
+    TIME(TimeType),
+    TIMESTAMP(TimestampType),
+    INTEGER(IntType),
+    UNKNOWN(NullType),
+    JSON(JsonType),
+    BSON(BsonType),
+    UUID(UUIDType),
 }
 
 // ----------------------------------------------------------------------
@@ -506,6 +533,49 @@ impl convert::From<ConvertedType> for Option<parquet::ConvertedType> {
 }
 
 // ----------------------------------------------------------------------
+// parquet::LogicalType <=> LogicalType conversion
+
+impl convert::From<parquet::LogicalType> for LogicalType {
+    fn from(value: parquet::LogicalType) -> Self {
+        match value {
+            parquet::LogicalType::STRING(t) => LogicalType::STRING(t),
+            parquet::LogicalType::MAP(t) => LogicalType::MAP(t),
+            parquet::LogicalType::LIST(t) => LogicalType::LIST(t),
+            parquet::LogicalType::ENUM(t) => LogicalType::ENUM(t),
+            parquet::LogicalType::DECIMAL(t) => LogicalType::DECIMAL(t),
+            parquet::LogicalType::DATE(t) => LogicalType::DATE(t),
+            parquet::LogicalType::TIME(t) => LogicalType::TIME(t),
+            parquet::LogicalType::TIMESTAMP(t) => LogicalType::TIMESTAMP(t),
+            parquet::LogicalType::INTEGER(t) => LogicalType::INTEGER(t),
+            parquet::LogicalType::UNKNOWN(t) => LogicalType::UNKNOWN(t),
+            parquet::LogicalType::JSON(t) => LogicalType::JSON(t),
+            parquet::LogicalType::BSON(t) => LogicalType::BSON(t),
+            parquet::LogicalType::UUID(t) => LogicalType::UUID(t),
+        }
+    }
+}
+
+impl convert::From<LogicalType> for parquet::LogicalType {
+    fn from(value: LogicalType) -> Self {
+        match value {
+            LogicalType::STRING(t) => parquet::LogicalType::STRING(t),
+            LogicalType::MAP(t) => parquet::LogicalType::MAP(t),
+            LogicalType::LIST(t) => parquet::LogicalType::LIST(t),
+            LogicalType::ENUM(t) => parquet::LogicalType::ENUM(t),
+            LogicalType::DECIMAL(t) => parquet::LogicalType::DECIMAL(t),
+            LogicalType::DATE(t) => parquet::LogicalType::DATE(t),
+            LogicalType::TIME(t) => parquet::LogicalType::TIME(t),
+            LogicalType::TIMESTAMP(t) => parquet::LogicalType::TIMESTAMP(t),
+            LogicalType::INTEGER(t) => parquet::LogicalType::INTEGER(t),
+            LogicalType::UNKNOWN(t) => parquet::LogicalType::UNKNOWN(t),
+            LogicalType::JSON(t) => parquet::LogicalType::JSON(t),
+            LogicalType::BSON(t) => parquet::LogicalType::BSON(t),
+            LogicalType::UUID(t) => parquet::LogicalType::UUID(t),
+        }
+    }
+}
+
+// ----------------------------------------------------------------------
 // parquet::FieldRepetitionType <=> Repetition conversion
 
 impl convert::From<parquet::FieldRepetitionType> for Repetition {
@@ -679,6 +749,100 @@ impl str::FromStr for ConvertedType {
             "JSON" => Ok(ConvertedType::JSON),
             "BSON" => Ok(ConvertedType::BSON),
             "INTERVAL" => Ok(ConvertedType::INTERVAL),
+            other => Err(general_err!("Invalid logical type {}", other)),
+        }
+    }
+}
+
+impl str::FromStr for LogicalType {
+    type Err = ParquetError;
+
+    fn from_str(s: &str) -> result::Result<Self, Self::Err> {
+        match s {
+            "INTEGER(8,true)" => Ok(LogicalType::INTEGER(IntType {
+                bit_width: 8,
+                is_signed: true,
+            })),
+            "INTEGER(16,true)" => Ok(LogicalType::INTEGER(IntType {
+                bit_width: 16,
+                is_signed: true,
+            })),
+            "INTEGER(32,true)" => Ok(LogicalType::INTEGER(IntType {
+                bit_width: 32,
+                is_signed: true,
+            })),
+            "INTEGER(64,true)" => Ok(LogicalType::INTEGER(IntType {
+                bit_width: 64,
+                is_signed: true,
+            })),
+            "INTEGER(8,false)" => Ok(LogicalType::INTEGER(IntType {
+                bit_width: 8,
+                is_signed: false,
+            })),
+            "INTEGER(16,false)" => Ok(LogicalType::INTEGER(IntType {
+                bit_width: 16,
+                is_signed: false,
+            })),
+            "INTEGER(32,false)" => Ok(LogicalType::INTEGER(IntType {
+                bit_width: 32,
+                is_signed: false,
+            })),
+            "INTEGER(64,false)" => Ok(LogicalType::INTEGER(IntType {
+                bit_width: 64,
+                is_signed: false,
+            })),
+            "MAP" => Ok(LogicalType::MAP(MapType {})),
+            // "MAP_KEY_VALUE" => Ok(ConvertedType::MAP_KEY_VALUE),
+            "LIST" => Ok(LogicalType::LIST(ListType {})),
+            "ENUM" => Ok(LogicalType::ENUM(EnumType {})),
+            // "DECIMAL" => Ok(ConvertedType::DECIMAL),
+            "DATE" => Ok(LogicalType::DATE(DateType {})),
+            "TIME(MILLIS,true)" => Ok(LogicalType::TIME(TimeType {
+                is_adjusted_to_u_t_c: true,
+                unit: parquet::TimeUnit::MILLIS(parquet::MilliSeconds {}),
+            })),
+            "TIME(MILLIS,false)" => Ok(LogicalType::TIME(TimeType {
+                is_adjusted_to_u_t_c: false,
+                unit: parquet::TimeUnit::MILLIS(parquet::MilliSeconds {}),
+            })),
+            "TIME(MICROS,true)" => Ok(LogicalType::TIME(TimeType {
+                is_adjusted_to_u_t_c: true,
+                unit: parquet::TimeUnit::MICROS(parquet::MicroSeconds {}),
+            })),
+            "TIME(MICROS,false)" => Ok(LogicalType::TIME(TimeType {
+                is_adjusted_to_u_t_c: false,
+                unit: parquet::TimeUnit::MICROS(parquet::MicroSeconds {}),
+            })),
+            "TIMESTAMP(MILLIS,true)" => Ok(LogicalType::TIMESTAMP(TimestampType {
+                is_adjusted_to_u_t_c: true,
+                unit: parquet::TimeUnit::MILLIS(parquet::MilliSeconds {}),
+            })),
+            "TIMESTAMP(MILLIS,false)" => Ok(LogicalType::TIMESTAMP(TimestampType {
+                is_adjusted_to_u_t_c: false,
+                unit: parquet::TimeUnit::MILLIS(parquet::MilliSeconds {}),
+            })),
+            "TIMESTAMP(MICROS,true)" => Ok(LogicalType::TIMESTAMP(TimestampType {
+                is_adjusted_to_u_t_c: true,
+                unit: parquet::TimeUnit::MICROS(parquet::MicroSeconds {}),
+            })),
+            "TIMESTAMP(MICROS,false)" => Ok(LogicalType::TIMESTAMP(TimestampType {
+                is_adjusted_to_u_t_c: false,
+                unit: parquet::TimeUnit::MICROS(parquet::MicroSeconds {}),
+            })),
+            "TIMESTAMP(NANOS,true)" => Ok(LogicalType::TIMESTAMP(TimestampType {
+                is_adjusted_to_u_t_c: true,
+                unit: parquet::TimeUnit::MICROS(parquet::MicroSeconds {}),
+            })),
+            "TIMESTAMP(NANOS,false)" => Ok(LogicalType::TIMESTAMP(TimestampType {
+                is_adjusted_to_u_t_c: false,
+                unit: parquet::TimeUnit::MICROS(parquet::MicroSeconds {}),
+            })),
+            "STRING" => Ok(LogicalType::STRING(StringType {})),
+            "JSON" => Ok(LogicalType::JSON(JsonType {})),
+            "BSON" => Ok(LogicalType::BSON(BsonType {})),
+            "UUID" => Ok(LogicalType::UUID(UUIDType {})),
+            "UNKNOWN" => Ok(LogicalType::UNKNOWN(NullType {})),
+            "INTERVAL" => Err(general_err!("Interval logical type not yet supported")),
             other => Err(general_err!("Invalid logical type {}", other)),
         }
     }
