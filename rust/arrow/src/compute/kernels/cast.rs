@@ -964,6 +964,7 @@ where
 }
 
 /// Casts generic string arrays to Date32Array
+#[allow(clippy::unnecessary_wraps)]
 fn cast_string_to_date32<Offset: StringOffsetSizeTrait>(
     array: &dyn Array,
 ) -> Result<ArrayRef> {
@@ -994,6 +995,7 @@ fn cast_string_to_date32<Offset: StringOffsetSizeTrait>(
 }
 
 /// Casts generic string arrays to Date64Array
+#[allow(clippy::unnecessary_wraps)]
 fn cast_string_to_date64<Offset: StringOffsetSizeTrait>(
     array: &dyn Array,
 ) -> Result<ArrayRef> {
@@ -1023,6 +1025,7 @@ fn cast_string_to_date64<Offset: StringOffsetSizeTrait>(
 }
 
 /// Casts generic string arrays to TimeStampNanosecondArray
+#[allow(clippy::unnecessary_wraps)]
 fn cast_string_to_timestamp_ns<Offset: StringOffsetSizeTrait>(
     array: &dyn Array,
 ) -> Result<ArrayRef> {
