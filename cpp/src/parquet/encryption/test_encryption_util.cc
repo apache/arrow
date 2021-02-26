@@ -81,7 +81,7 @@ struct ColumnData {
   std::vector<int16_t> definition_levels;
   std::vector<int16_t> repetition_levels;
 
-  int rows() const { return values.size(); }
+  int64_t rows() const { return values.size(); }
   const T* raw_values() const { return values.data(); }
   const int16_t* raw_definition_levels() const {
     return definition_levels.size() == 0 ? nullptr : definition_levels.data();
@@ -304,7 +304,7 @@ void ReadAndVerifyColumn(RowGroupReader* rg_reader, RowGroupMetadata* rg_md,
   ColumnData<DType> read_col_data;
   read_col_data.values.resize(rows_should_read);
   int64_t values_read;
-  int rows_read;
+  int64_t rows_read;
   if (expected_column_data.definition_levels.size() > 0 &&
       expected_column_data.repetition_levels.size() > 0) {
     std::vector<int16_t> definition_levels(rows_should_read);
@@ -354,7 +354,7 @@ void FileDecryptor::DecryptFile(
     // Get the RowGroupMetaData
     std::unique_ptr<RowGroupMetaData> rg_metadata = file_metadata->RowGroup(r);
 
-    int rows_per_rowgroup = rg_metadata->num_rows();
+    int64_t rows_per_rowgroup = rg_metadata->num_rows();
 
     int64_t values_read = 0;
     int64_t rows_read = 0;
