@@ -131,12 +131,17 @@ def frombytes(o):
     return o
 
 
-def run_cmd(cmd):
+def run_cmd(cmd, extra_env_vars=None):
     if isinstance(cmd, str):
         cmd = cmd.split(' ')
 
+    env = os.environ.copy()
+    if extra_env_vars:
+        env.update(**extra_env_vars)
+
     try:
-        output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+        output = subprocess.check_output(cmd, env=env,
+                                         stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
         # this avoids hiding the stdout / stderr of failed processes
         sio = io.StringIO()

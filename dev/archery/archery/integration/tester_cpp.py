@@ -113,4 +113,8 @@ class CPPTester(Tester):
 
         if self.debug:
             log(' '.join(cmd))
-        run_cmd(cmd)
+        # ARROW-11717: try to get more debug info from a flaky case
+        run_cmd(cmd, extra_env_vars={
+            "GRPC_VERBOSITY": "debug",
+            "GRPC_TRACE": "all",
+        })
