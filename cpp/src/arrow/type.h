@@ -913,7 +913,7 @@ class ARROW_EXPORT Decimal128Type : public DecimalType {
  public:
   static constexpr Type::type type_id = Type::DECIMAL128;
 
-  static constexpr const char* type_name() { return "decimal"; }
+  static constexpr const char* type_name() { return "decimal128"; }
 
   /// Decimal128Type constructor that aborts on invalid input.
   explicit Decimal128Type(int32_t precision, int32_t scale);
@@ -922,7 +922,7 @@ class ARROW_EXPORT Decimal128Type : public DecimalType {
   static Result<std::shared_ptr<DataType>> Make(int32_t precision, int32_t scale);
 
   std::string ToString() const override;
-  std::string name() const override { return "decimal"; }
+  std::string name() const override { return "decimal128"; }
 
   static constexpr int32_t kMinPrecision = 1;
   static constexpr int32_t kMaxPrecision = 38;

@@ -18,6 +18,7 @@
 #include "arrow/testing/random.h"
 
 #include <algorithm>
+#include <cmath>
 #include <limits>
 #include <memory>
 #include <random>
@@ -27,6 +28,7 @@
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
+#include "arrow/array/builder_decimal.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/buffer.h"
 #include "arrow/testing/gtest_util.h"
@@ -36,11 +38,13 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_reader.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
 
 using internal::checked_cast;
+using internal::checked_pointer_cast;
 
 namespace random {
 
@@ -219,6 +223,36 @@ std::shared_ptr<Array> RandomArrayGenerator::Float64(int64_t size, double min, d
 
 #undef PRIMITIVE_RAND_INTEGER_IMPL
 #undef PRIMITIVE_RAND_IMPL
+
+std::shared_ptr<Array> RandomArrayGenerator::Decimal128(std::shared_ptr<DataType> type,
+                                                        int64_t size,
+                                                        double null_probability) {
+  const auto& decimal_type = checked_cast<const Decimal128Type&>(*type);
+  const auto digits = decimal_type.precision();
+  if (digits > 18) {
+    // More than 18 digits + sign don't fit in a int64_t
+    ABORT_NOT_OK(
+        Status::NotImplemented("random decimal128 generation with precision > 18"));
+  }
+
+  // Generate logical values as integers, then convert them
+  const auto max = static_cast<int64_t>(std::llround(std::pow(10.0, digits)) - 1);
+  const auto int_array =
+      checked_pointer_cast<Int64Array>(Int64(size, -max, max, null_probability));
+
+  Decimal128Builder builder(type);
+  ABORT_NOT_OK(builder.Reserve(size));
+  for (int64_t i = 0; i < size; ++i) {
+    if (int_array->IsValid(i)) {
+      builder.UnsafeAppend(::arrow::Decimal128(int_array->Value(i)));
+    } else {
+      builder.UnsafeAppendNull();
+    }
+  }
+  std::shared_ptr<Array> array;
+  ABORT_NOT_OK(builder.Finish(&array));
+  return array;
+}
 
 template <typename TypeClass>
 static std::shared_ptr<Array> GenerateBinaryArray(RandomArrayGenerator* gen, int64_t size,
@@ -480,7 +514,7 @@ struct RandomArrayGeneratorOfImpl {
   }
 
   template <typename T>
-  enable_if_fixed_size_binary<T, Status> Visit(const T& t) {
+  enable_if_t<std::is_same<T, FixedSizeBinaryType>::value, Status> Visit(const T& t) {
     const int32_t value_size = t.byte_width();
     int64_t data_nbytes = size_ * value_size;
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> data, AllocateBuffer(data_nbytes));
@@ -494,12 +528,18 @@ struct RandomArrayGeneratorOfImpl {
     return Status::OK();
   }
 
+  Status Visit(const Decimal128Type&) {
+    out_ = rag_->Decimal128(type_, size_, null_probability_);
+    return Status::OK();
+  }
+
   Status Visit(const DataType& t) {
     return Status::NotImplemented("generation of random arrays of type ", t);
   }
 
   std::shared_ptr<Array> Finish() && {
     DCHECK_OK(VisitTypeInline(*type_, this));
+    DCHECK(type_->Equals(out_->type()));
     return std::move(out_);
   }
 
