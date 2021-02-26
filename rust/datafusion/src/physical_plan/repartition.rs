@@ -18,24 +18,24 @@
 //! The repartition operator maps N input partitions to M output partitions based on a
 //! partitioning scheme.
 
+use std::{any::Any, collections::HashMap, vec};
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
-use std::{any::Any, vec};
 
 use crate::error::{DataFusionError, Result};
 use crate::physical_plan::{ExecutionPlan, Partitioning};
 use arrow::record_batch::RecordBatch;
 use arrow::{array::Array, error::Result as ArrowResult};
 use arrow::{compute::take, datatypes::SchemaRef};
+use tokio_stream::wrappers::UnboundedReceiverStream;
 
 use super::{hash_join::create_hashes, RecordBatchStream, SendableRecordBatchStream};
 use async_trait::async_trait;
 
-use crossbeam::channel::{unbounded, Receiver, Sender};
 use futures::stream::Stream;
 use futures::StreamExt;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, mpsc::{UnboundedReceiver, UnboundedSender}};
 use tokio::task::JoinHandle;
 
 type MaybeBatch = Option<ArrowResult<RecordBatch>>;
@@ -48,9 +48,9 @@ pub struct RepartitionExec {
     input: Arc<dyn ExecutionPlan>,
     /// Partitioning scheme to use
     partitioning: Partitioning,
-    /// Channels for sending batches from input partitions to output partitions
-    /// there is one entry in this Vec for each output partition
-    channels: Arc<Mutex<Vec<(Sender<MaybeBatch>, Receiver<MaybeBatch>)>>>,
+    /// Channels for sending batches from input partitions to output partitions.
+    /// Key is the partition number
+    channels: Arc<Mutex<HashMap<usize, (UnboundedSender<MaybeBatch>, UnboundedReceiver<MaybeBatch>)>>>,
 }
 
 impl RepartitionExec {
@@ -110,15 +110,15 @@ impl ExecutionPlan for RepartitionExec {
         // if this is the first partition to be invoked then we need to set up initial state
         if channels.is_empty() {
             // create one channel per *output* partition
-            for _ in 0..num_output_partitions {
+            for partition in 0..num_output_partitions {
                 // Note that this operator uses unbounded channels to avoid deadlocks because
                 // the output partitions can be read in any order and this could cause input
-                // partitions to be blocked when sending data to output receivers that are not
+                // partitions to be blocked when sending data to output UnboundedReceivers that are not
                 // being read yet. This may cause high memory usage if the next operator is
                 // reading output partitions in order rather than concurrently. One workaround
                 // for this would be to add spill-to-disk capabilities.
-                let (sender, receiver) = unbounded::<Option<ArrowResult<RecordBatch>>>();
-                channels.push((sender, receiver));
+                let (sender, receiver) = tokio::sync::mpsc::unbounded_channel::<Option<ArrowResult<RecordBatch>>>();
+                channels.insert(partition, (sender, receiver));
             }
             let random = ahash::RandomState::new();
 
@@ -126,7 +126,10 @@ impl ExecutionPlan for RepartitionExec {
             for i in 0..num_input_partitions {
                 let random_state = random.clone();
                 let input = self.input.clone();
-                let mut channels = channels.clone();
+                let mut txs: HashMap<_, _> = channels
+                    .iter()
+                    .map(|(partition, (tx, _rx))| (*partition, tx.clone()) )
+                    .collect();
                 let partitioning = self.partitioning.clone();
                 let _: JoinHandle<Result<()>> = tokio::spawn(async move {
                     let mut stream = input.execute(i).await?;
@@ -135,7 +138,7 @@ impl ExecutionPlan for RepartitionExec {
                         match &partitioning {
                             Partitioning::RoundRobinBatch(_) => {
                                 let output_partition = counter % num_output_partitions;
-                                let tx = &mut channels[output_partition].0;
+                                let tx = txs.get_mut(&output_partition).unwrap();
                                 tx.send(Some(result)).map_err(|e| {
                                     DataFusionError::Execution(e.to_string())
                                 })?;
@@ -180,7 +183,7 @@ impl ExecutionPlan for RepartitionExec {
                                         input_batch.schema(),
                                         columns,
                                     );
-                                    let tx = &mut channels[num_output_partition].0;
+                                    let tx = txs.get_mut(&num_output_partition).unwrap();
                                     tx.send(Some(output_batch)).map_err(|e| {
                                         DataFusionError::Execution(e.to_string())
                                     })?;
@@ -199,8 +202,7 @@ impl ExecutionPlan for RepartitionExec {
                     }
 
                     // notify each output partition that this input partition has no more data
-                    for channel in channels.iter_mut().take(num_output_partitions) {
-                        let tx = &mut channel.0;
+                    for (_, tx) in txs {
                         tx.send(None)
                             .map_err(|e| DataFusionError::Execution(e.to_string()))?;
                     }
@@ -209,13 +211,14 @@ impl ExecutionPlan for RepartitionExec {
             }
         }
 
+
         // now return stream for the specified *output* partition which will
         // read from the channel
         Ok(Box::pin(RepartitionStream {
             num_input_partitions,
             num_input_partitions_processed: 0,
             schema: self.input.schema(),
-            input: channels[partition].1.clone(),
+            input: UnboundedReceiverStream::new(channels.remove(&partition).unwrap().1),
         }))
     }
 }
@@ -229,7 +232,7 @@ impl RepartitionExec {
         Ok(RepartitionExec {
             input,
             partitioning,
-            channels: Arc::new(Mutex::new(vec![])),
+            channels: Arc::new(Mutex::new(HashMap::new())),
         })
     }
 }
@@ -242,7 +245,7 @@ struct RepartitionStream {
     /// Schema
     schema: SchemaRef,
     /// channel containing the repartitioned batches
-    input: Receiver<Option<ArrowResult<RecordBatch>>>,
+    input: UnboundedReceiverStream<Option<ArrowResult<RecordBatch>>>,
 }
 
 impl Stream for RepartitionStream {
@@ -252,10 +255,9 @@ impl Stream for RepartitionStream {
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
     ) -> Poll<Option<Self::Item>> {
-        match self.input.recv() {
-            Ok(Some(batch)) => Poll::Ready(Some(batch)),
-            // End of results from one input partition
-            Ok(None) => {
+        match self.input.poll_next_unpin(cx) {
+            Poll::Ready(Some(Some(v))) => Poll::Ready(Some(v)),
+            Poll::Ready(Some(None)) => {
                 self.num_input_partitions_processed += 1;
                 if self.num_input_partitions == self.num_input_partitions_processed {
                     // all input partitions have finished sending batches
@@ -264,9 +266,9 @@ impl Stream for RepartitionStream {
                     // other partitions still have data to send
                     self.poll_next(cx)
                 }
-            }
-            // RecvError means receiver has exited and closed the channel
-            Err(_) => Poll::Ready(None),
+            },
+            Poll::Ready(None) => Poll::Ready(None),
+            Poll::Pending => Poll::Pending,
         }
     }
 }
