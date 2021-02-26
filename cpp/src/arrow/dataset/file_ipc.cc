@@ -193,20 +193,22 @@ Result<std::shared_ptr<FileWriter>> IpcFileFormat::MakeWriter(
                                             ipc_options->metadata));
 
   return std::shared_ptr<FileWriter>(
-      new IpcFileWriter(std::move(writer), std::move(schema), std::move(ipc_options)));
+      new IpcFileWriter(std::move(destination), std::move(writer), std::move(schema),
+                        std::move(ipc_options)));
 }
 
-IpcFileWriter::IpcFileWriter(std::shared_ptr<ipc::RecordBatchWriter> writer,
+IpcFileWriter::IpcFileWriter(std::shared_ptr<io::OutputStream> destination,
+                             std::shared_ptr<ipc::RecordBatchWriter> writer,
                              std::shared_ptr<Schema> schema,
                              std::shared_ptr<IpcFileWriteOptions> options)
-    : FileWriter(std::move(schema), std::move(options)),
+    : FileWriter(std::move(schema), std::move(options), std::move(destination)),
       batch_writer_(std::move(writer)) {}
 
 Status IpcFileWriter::Write(const std::shared_ptr<RecordBatch>& batch) {
   return batch_writer_->WriteRecordBatch(*batch);
 }
 
-Status IpcFileWriter::Finish() { return batch_writer_->Close(); }
+Status IpcFileWriter::FinishInternal() { return batch_writer_->Close(); }
 
 }  // namespace dataset
 }  // namespace arrow

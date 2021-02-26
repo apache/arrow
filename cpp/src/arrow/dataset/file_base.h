@@ -268,18 +268,24 @@ class ARROW_DS_EXPORT FileWriter {
 
   Status Write(RecordBatchReader* batches);
 
-  virtual Status Finish() = 0;
+  Status Finish();
 
   const std::shared_ptr<FileFormat>& format() const { return options_->format(); }
   const std::shared_ptr<Schema>& schema() const { return schema_; }
   const std::shared_ptr<FileWriteOptions>& options() const { return options_; }
 
  protected:
-  FileWriter(std::shared_ptr<Schema> schema, std::shared_ptr<FileWriteOptions> options)
-      : schema_(std::move(schema)), options_(std::move(options)) {}
+  FileWriter(std::shared_ptr<Schema> schema, std::shared_ptr<FileWriteOptions> options,
+             std::shared_ptr<io::OutputStream> destination)
+      : schema_(std::move(schema)),
+        options_(std::move(options)),
+        destination_(destination) {}
+
+  virtual Status FinishInternal() = 0;
 
   std::shared_ptr<Schema> schema_;
   std::shared_ptr<FileWriteOptions> options_;
+  std::shared_ptr<io::OutputStream> destination_;
 };
 
 struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {

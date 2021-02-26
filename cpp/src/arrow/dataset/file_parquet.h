@@ -97,7 +97,7 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
     std::unordered_set<std::string> dict_columns;
     bool pre_buffer = false;
     arrow::io::CacheOptions cache_options = arrow::io::CacheOptions::Defaults();
-    arrow::io::AsyncContext async_context;
+    arrow::io::IOContext io_context;
     /// @}
 
     /// EXPERIMENTAL: Parallelize conversion across columns. This option is ignored if a
@@ -226,11 +226,12 @@ class ARROW_DS_EXPORT ParquetFileWriter : public FileWriter {
 
   Status Write(const std::shared_ptr<RecordBatch>& batch) override;
 
-  Status Finish() override;
-
  private:
-  ParquetFileWriter(std::shared_ptr<parquet::arrow::FileWriter> writer,
+  ParquetFileWriter(std::shared_ptr<io::OutputStream> destination,
+                    std::shared_ptr<parquet::arrow::FileWriter> writer,
                     std::shared_ptr<ParquetFileWriteOptions> options);
+
+  Status FinishInternal() override;
 
   std::shared_ptr<parquet::arrow::FileWriter> parquet_writer_;
 

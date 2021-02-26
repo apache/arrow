@@ -73,6 +73,11 @@ Result<std::shared_ptr<FileSystem>> FSFromUri(const std::string& uri,
   return FileSystemFromUri(uri, out_path);
 }
 
+Result<std::shared_ptr<FileSystem>> FSFromUriOrPath(const std::string& uri,
+                                                    std::string* out_path = NULLPTR) {
+  return FileSystemFromUriOrPath(uri, out_path);
+}
+
 ////////////////////////////////////////////////////////////////////////////
 // Misc tests
 
@@ -192,7 +197,7 @@ class TestLocalFS : public LocalFSTestMixin {
   }
 
   void TestFileSystemFromUriOrPath(const std::string& uri) {
-    CheckFileSystemFromUriFunc(uri, FileSystemFromUriOrPath);
+    CheckFileSystemFromUriFunc(uri, FSFromUriOrPath);
   }
 
   template <typename FileSystemFromUriFunc>
@@ -213,7 +218,7 @@ class TestLocalFS : public LocalFSTestMixin {
   }
 
   void TestLocalUriOrPath(const std::string& uri, const std::string& expected_path) {
-    CheckLocalUri(uri, expected_path, FileSystemFromUriOrPath);
+    CheckLocalUri(uri, expected_path, FSFromUriOrPath);
   }
 
   void TestInvalidUri(const std::string& uri) {
