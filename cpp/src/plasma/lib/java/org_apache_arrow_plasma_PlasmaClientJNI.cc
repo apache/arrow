@@ -279,7 +279,7 @@ JNIEXPORT jint JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_metrics(
   metrics[2] = plasmaMetrics.external_total;
   metrics[3] = plasmaMetrics.external_used;
 
-  if(result != nullptr) {
+  if (result != nullptr) {
     env->ReleasePrimitiveArrayCritical(result, (void*)metrics, 0);
   }
 

@@ -877,8 +877,8 @@ TEST_F(TestPlasmaStore, MetricsTest) {
   PlasmaMetrics plasmaMetrics;
   ARROW_CHECK_OK(client_.Metrics(&plasmaMetrics));
 
-  ASSERT_TRUE(plasmaMetrics.share_mem_used > 0);
-  ASSERT_TRUE(plasmaMetrics.share_mem_used <= plasmaMetrics.share_mem_total);
+  ASSERT_GT(plasmaMetrics.share_mem_used, 0);
+  ASSERT_LE(plasmaMetrics.share_mem_used, plasmaMetrics.share_mem_total);
 }
 
 #ifdef PLASMA_CUDA
