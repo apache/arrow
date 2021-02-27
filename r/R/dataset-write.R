@@ -54,6 +54,7 @@
 #'   files. Default (NULL) will not compress body buffers.
 #' @return The input `dataset`, invisibly
 #' @examples
+#' \donttest{
 #' # we can group by cyl, cyl and gear or even more variables
 #' write_dataset(mtcars, tempdir(), "feather", partitioning = "cyl"))
 #' write_dataset(mtcars, tempdir(), "feather", partitioning = c("cyl", "gear"))
@@ -62,6 +63,7 @@
 #' # mtcars %>%
 #' #  group_by(cyl, gear) %>%
 #' #  write_dataset(dout2, "feather")
+#' }
 #' @export
 write_dataset <- function(dataset,
                           path,
