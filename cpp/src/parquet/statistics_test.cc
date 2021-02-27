@@ -139,15 +139,6 @@ TEST(Comparison, SignedFLBA) {
           << y << " " << x;
     }
   }
-
-  constexpr uint8_t bytes1[] = {255, 127, 255};
-  constexpr uint8_t bytes2[] = {255, 255, 255};
-  EXPECT_TRUE(comparator->Compare(FLBA(bytes1), FLBA(bytes2)));
-  EXPECT_FALSE(comparator->Compare(FLBA(bytes2), FLBA(bytes1)));
-  EXPECT_FALSE(comparator->Compare(FLBA(bytes1), FLBA(bytes1)));
-  constexpr uint8_t bytes3[] = {127, 255, 255};
-  EXPECT_TRUE(comparator->Compare(FLBA(bytes2), FLBA(bytes3)));
-  EXPECT_FALSE(comparator->Compare(FLBA(bytes3), FLBA(bytes2)));
 }
 
 TEST(Comparison, UnsignedFLBA) {
