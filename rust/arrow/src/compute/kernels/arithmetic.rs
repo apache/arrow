@@ -29,9 +29,9 @@ use num::{One, Zero};
 use crate::buffer::Buffer;
 #[cfg(simd)]
 use crate::buffer::MutableBuffer;
-use crate::compute::util::combine_option_bitmap;
 #[cfg(not(simd))]
 use crate::compute::kernels::arity::unary;
+use crate::compute::util::combine_option_bitmap;
 use crate::datatypes;
 use crate::datatypes::ArrowNumericType;
 use crate::error::{ArrowError, Result};
