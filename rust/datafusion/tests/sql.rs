@@ -660,16 +660,16 @@ async fn csv_query_nullif_divide_by_0() -> Result<()> {
     let actual = execute(&mut ctx, sql).await;
     let actual = &actual[80..90]; // We just want to compare rows 80-89
     let expected = vec![
-        vec!["258"],
-        vec!["664"],
+        vec!["258.280701754386"],
+        vec!["664.3827160493827"],
         vec!["NULL"],
-        vec!["22"],
-        vec!["164"],
-        vec!["448"],
-        vec!["365"],
-        vec!["1640"],
-        vec!["671"],
-        vec!["203"],
+        vec!["22.405405405405407"],
+        vec!["164.17961165048544"],
+        vec!["448.593984962406"],
+        vec!["365.0120481927711"],
+        vec!["1640.388888888889"],
+        vec!["671.5232558139535"],
+        vec!["203.7246376811594"],
     ];
     assert_eq!(expected, actual);
     Ok(())
@@ -1911,7 +1911,7 @@ async fn query_without_from() -> Result<()> {
 
     let sql = "SELECT 1+2, 3/4, cos(0)";
     let actual = execute(&mut ctx, sql).await;
-    let expected = vec![vec!["3", "0", "1"]];
+    let expected = vec![vec!["3", "0.75", "1"]];
     assert_eq!(expected, actual);
 
     Ok(())

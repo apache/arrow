@@ -43,7 +43,7 @@ use crate::physical_plan::expressions::cast;
 use crate::physical_plan::{ColumnarValue, PhysicalExpr};
 use crate::scalar::ScalarValue;
 
-use super::coercion::{eq_coercion, numerical_coercion, order_coercion, string_coercion};
+use super::coercion::{eq_coercion, order_coercion, string_coercion, numerical_arithmetic_coercion};
 
 /// Binary expression
 #[derive(Debug)]
@@ -342,7 +342,7 @@ fn common_binary_type(
         // for math expressions, the final value of the coercion is also the return type
         // because coercion favours higher information types
         Operator::Plus | Operator::Minus | Operator::Divide | Operator::Multiply => {
-            numerical_coercion(lhs_type, rhs_type)
+            numerical_arithmetic_coercion(&op, lhs_type, rhs_type)
         }
         Operator::Modulus => {
             return Err(DataFusionError::NotImplemented(
@@ -700,9 +700,9 @@ mod tests {
             DataType::UInt32,
             vec![1u32, 2u32],
             Operator::Plus,
-            Int32Array,
-            DataType::Int32,
-            vec![2i32, 4i32]
+            Int64Array,
+            DataType::Int64,
+            vec![2i64, 4i64]
         );
         test_coercion!(
             Int32Array,
@@ -712,9 +712,9 @@ mod tests {
             DataType::UInt16,
             vec![1u16],
             Operator::Plus,
-            Int32Array,
-            DataType::Int32,
-            vec![2i32]
+            Int64Array,
+            DataType::Int64,
+            vec![2i64]
         );
         test_coercion!(
             Float32Array,
@@ -724,9 +724,9 @@ mod tests {
             DataType::UInt16,
             vec![1u16],
             Operator::Plus,
-            Float32Array,
-            DataType::Float32,
-            vec![2f32]
+            Float64Array,
+            DataType::Float64,
+            vec![2f64]
         );
         test_coercion!(
             Float32Array,
@@ -736,9 +736,9 @@ mod tests {
             DataType::UInt16,
             vec![1u16],
             Operator::Multiply,
-            Float32Array,
-            DataType::Float32,
-            vec![2f32]
+            Float64Array,
+            DataType::Float64,
+            vec![2f64]
         );
         test_coercion!(
             StringArray,

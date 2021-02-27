@@ -18,6 +18,8 @@
 //! Coercion rules used to coerce types to match existing expressions' implementations
 
 use arrow::datatypes::DataType;
+use std::cmp;
+use crate::logical_plan::Operator;
 
 /// Determine if a DataType is signed numeric or not
 pub fn is_signed_numeric(dt: &DataType) -> bool {
@@ -43,6 +45,69 @@ pub fn is_numeric(dt: &DataType) -> bool {
             _ => false,
         }
 }
+
+/// Get next byte size of the integer number
+fn next_size(size: usize) -> usize {
+    if size < 8_usize {
+        return size * 2;
+    }
+    size
+}
+
+/// Determine if a DataType is float or not
+pub fn is_floating(dt: &DataType) -> bool {
+    matches!(
+        dt,
+        DataType::Float16 | DataType::Float32 | DataType::Float64
+    )
+}
+
+pub fn is_integer(dt: &DataType) -> bool {
+    is_numeric(dt) && !is_floating(dt)
+}
+
+pub fn numeric_byte_size(dt: &DataType) -> Option<usize> {
+    match dt {
+        DataType::Int8 | DataType::UInt8 => Some(1),
+        DataType::Int16 | DataType::UInt16 | DataType::Float16 => Some(2),
+        DataType::Int32 | DataType::UInt32 | DataType::Float32 => Some(4),
+        DataType::Int64 | DataType::UInt64 | DataType::Float64 => Some(8),
+        _ => None,
+    }
+}
+
+pub fn construct_numeric_type(
+    is_signed: bool,
+    is_floating: bool,
+    byte_size: usize,
+) -> Option<DataType> {
+    match (is_signed, is_floating, byte_size) {
+        (false, false, 1) => Some(DataType::UInt8),
+        (false, false, 2) => Some(DataType::UInt16),
+        (false, false, 4) => Some(DataType::UInt32),
+        (false, false, 8) => Some(DataType::UInt64),
+        (false, true, 1) => Some(DataType::Float16),
+        (false, true, 2) => Some(DataType::Float16),
+        (false, true, 4) => Some(DataType::Float32),
+        (false, true, 8) => Some(DataType::Float64),
+        (true, false, 1) => Some(DataType::Int8),
+        (true, false, 2) => Some(DataType::Int16),
+        (true, false, 4) => Some(DataType::Int32),
+        (true, false, 8) => Some(DataType::Int64),
+        (true, true, 1) => Some(DataType::Float32),
+        (true, true, 2) => Some(DataType::Float32),
+        (true, true, 4) => Some(DataType::Float32),
+        (true, true, 8) => Some(DataType::Float64),
+
+        // TODO support bigint and decimal types, now we just let's overflow
+        (false, false, d) if d > 8 => Some(DataType::Int64),
+        (true, false, d) if d > 8 => Some(DataType::UInt64),
+        (_, true, d) if d > 8 => Some(DataType::Float64),
+
+        _ => None,
+    }
+}
+
 
 /// Coercion rules for dictionary values (aka the type of the  dictionary itself)
 fn dictionary_value_coercion(
@@ -102,57 +167,126 @@ pub fn temporal_coercion(lhs_type: &DataType, rhs_type: &DataType) -> Option<Dat
     }
 }
 
-/// Coercion rule for numerical types: The type that both lhs and rhs
-/// can be casted to for numerical calculation, while maintaining
-/// maximum precision
-pub fn numerical_coercion(lhs_type: &DataType, rhs_type: &DataType) -> Option<DataType> {
-    use arrow::datatypes::DataType::*;
-
+pub fn numerical_arithmetic_coercion(
+    op: &Operator,
+    lhs_type: &DataType,
+    rhs_type: &DataType,
+) -> Option<DataType> {
     // error on any non-numeric type
     if !is_numeric(lhs_type) || !is_numeric(rhs_type) {
         return None;
     };
 
-    // same type => all good
-    if lhs_type == rhs_type {
-        return Some(lhs_type.clone());
+    let has_signed = is_signed_numeric(lhs_type) || is_signed_numeric(rhs_type);
+    let has_float = is_floating(lhs_type) || is_floating(rhs_type);
+    let max_size = cmp::max(
+        numeric_byte_size(lhs_type).unwrap(),
+        numeric_byte_size(rhs_type).unwrap(),
+    );
+
+    match op {
+        Operator::Plus | Operator::Multiply => {
+            construct_numeric_type(has_signed, has_float, next_size(max_size))
+        }
+        Operator::Minus => {
+            construct_numeric_type(true, has_float, next_size(max_size))
+        }
+        Operator::Divide => Some(DataType::Float64),
+        Operator::Modulus => {
+            // https://github.com/ClickHouse/ClickHouse/blob/master/src/Functions/DivisionUtils.h#L113-L117
+            let mut bytes_size = numeric_byte_size(rhs_type)?;
+            if has_signed {
+                bytes_size = next_size(bytes_size);
+            }
+            let type0 = construct_numeric_type(has_signed, false, bytes_size)?;
+            if has_float {
+                Some(DataType::Float64)
+            } else {
+                Some(type0)
+            }
+        }
+        _ => None
     }
+}
 
-    // these are ordered from most informative to least informative so
-    // that the coercion removes the least amount of information
-    match (lhs_type, rhs_type) {
-        (Float64, _) => Some(Float64),
-        (_, Float64) => Some(Float64),
+/// Coercion rule for numerical types: The type that both lhs and rhs
+/// can be casted to for numerical calculation, while maintaining
+/// maximum precision
+pub fn numerical_coercion(lhs_type: &DataType, rhs_type: &DataType) -> Option<DataType> {
+    let has_float = is_floating(lhs_type) || is_floating(rhs_type);
+    let has_integer = is_integer(lhs_type) || is_integer(rhs_type);
+    let has_signed = is_signed_numeric(lhs_type) || is_signed_numeric(rhs_type);
+    let has_unsigned = !is_signed_numeric(lhs_type) || !is_signed_numeric(rhs_type);
 
-        (_, Float32) => Some(Float32),
-        (Float32, _) => Some(Float32),
+    let size_of_lhs = numeric_byte_size(lhs_type)?;
+    let size_of_rhs = numeric_byte_size(rhs_type)?;
 
-        (Int64, _) => Some(Int64),
-        (_, Int64) => Some(Int64),
+    let max_size_of_unsigned_integer = cmp::max(
+        if is_signed_numeric(lhs_type) {
+            0
+        } else {
+            size_of_lhs
+        },
+        if is_signed_numeric(rhs_type) {
+            0
+        } else {
+            size_of_rhs
+        },
+    );
 
-        (Int32, _) => Some(Int32),
-        (_, Int32) => Some(Int32),
+    let max_size_of_signed_integer = cmp::max(
+        if !is_signed_numeric(lhs_type) {
+            0
+        } else {
+            size_of_lhs
+        },
+        if !is_signed_numeric(rhs_type) {
+            0
+        } else {
+            size_of_rhs
+        },
+    );
 
-        (Int16, _) => Some(Int16),
-        (_, Int16) => Some(Int16),
+    let max_size_of_integer = cmp::max(
+        if !is_integer(lhs_type) {
+            0
+        } else {
+            size_of_lhs
+        },
+        if !is_integer(rhs_type) {
+            0
+        } else {
+            size_of_rhs
+        },
+    );
 
-        (Int8, _) => Some(Int8),
-        (_, Int8) => Some(Int8),
+    let max_size_of_float = cmp::max(
+        if !is_floating(lhs_type) {
+            0
+        } else {
+            size_of_lhs
+        },
+        if !is_floating(rhs_type) {
+            0
+        } else {
+            size_of_rhs
+        },
+    );
 
-        (UInt64, _) => Some(UInt64),
-        (_, UInt64) => Some(UInt64),
+    let should_double = (has_float && has_integer && max_size_of_integer >= max_size_of_float)
+        || (has_signed
+        && has_unsigned
+        && max_size_of_unsigned_integer >= max_size_of_signed_integer);
 
-        (UInt32, _) => Some(UInt32),
-        (_, UInt32) => Some(UInt32),
-
-        (UInt16, _) => Some(UInt16),
-        (_, UInt16) => Some(UInt16),
-
-        (UInt8, _) => Some(UInt8),
-        (_, UInt8) => Some(UInt8),
-
-        _ => None,
-    }
+    construct_numeric_type(
+        has_signed,
+        has_float,
+        if should_double {
+            cmp::max(size_of_rhs, size_of_lhs) * 2
+        } else {
+            cmp::max(size_of_rhs, size_of_lhs)
+        },
+    )
 }
 
 // coercion rules for equality operations. This is a superset of all numerical coercion rules.
