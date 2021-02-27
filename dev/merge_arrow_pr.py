@@ -137,7 +137,6 @@ PR_TITLE_REGEXEN = [(project, re.compile(r'^(' + project + r'-[0-9]+)\b.*$'))
 
 
 def get_jira_id(title):
-    jira_id = None
     for project, regex in PR_TITLE_REGEXEN:
         m = regex.search(title)
         if m:
@@ -275,7 +274,8 @@ class GitHubAPI(object):
 
     def update_pr_title(self, number, title):
         if not self.headers:
-            msg = "Can not update PR {} title to '{}'. ARROW_GITHUB_API_TOKEN environment not set".format(
+            msg = ("Can not update PR {} title to '{}'. " +
+                   "ARROW_GITHUB_API_TOKEN environment not set").format(
                 number, title
             )
             raise Exception(msg)
@@ -283,10 +283,9 @@ class GitHubAPI(object):
         # note need to use the issues URL to update
         url = "%s/issues/%s" % (self.github_api, number)
         data = json.dumps({'title': title})
-        resp = requests.patch(url, data = data, headers=self.headers)
+        resp = requests.patch(url, data=data, headers=self.headers)
         resp.raise_for_status()
         return resp.json()
-
 
 
 class CommandInput(object):
@@ -570,6 +569,7 @@ def get_pr_num():
 
     return input("Which pull request would you like to merge? (e.g. 34): ")
 
+
 _JIRA_COMPONENT_REGEX = re.compile(r'(\[[^\]]*\])+')
 
 # Maps PR title prefixes to JIRA components
@@ -579,6 +579,7 @@ PR_COMPONENTS_TO_JIRA_COMPONENTS = {
     '[C++]': 'C++',
     '[R]': 'R',
 }
+
 
 # Return the best matching JIRA component from a PR title, if any
 # "[Rust] Fix something" --> Rust
@@ -607,7 +608,6 @@ def make_auto_jira(github_api, jira_con, cmd, pr_num):
     if get_jira_id(title)[0]:
         return pr_data
 
-
     print("No JIRA link found for PR", pr_num)
     options = ' or '.join('{0}-XXX'.format(project)
                           for project in SUPPORTED_PROJECTS)
@@ -620,18 +620,20 @@ def make_auto_jira(github_api, jira_con, cmd, pr_num):
     if not component:
         print("  Could not determine component from title")
         print("  Expected '[Component] description', found '{}'".format(title))
-        print("  Known components: {}".format(", ".join(PR_COMPONENTS_TO_JIRA_COMPONENTS)))
+        print("  Known components: {}".format(
+            ", ".join(PR_COMPONENTS_TO_JIRA_COMPONENTS)))
         return pr_data
 
-    components=[{"name": component}]
-    summary="{}".format(title)
+    components = [{"name": component}]
+    summary = "{}".format(title)
 
     print("=== NEW JIRA ===")
     print("Summary\t\t{}".format(summary))
     print("Assignee\tNONE")
     print("Components\t{}".format(component))
     print("Status\t\tNew")
-    description = "Issue automatically created from Pull Request [{}|{}]\n{}".format(
+    description = ("Issue automatically created " +
+                   "from Pull Request [{}|{}]\n{}").format(
         pr_num, html_link, pr_data.get("body")
     )
 
