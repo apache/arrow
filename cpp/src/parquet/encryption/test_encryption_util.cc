@@ -290,7 +290,7 @@ void FileEncryptor::EncryptFile(
 
 template <typename DType, typename RowGroupReader, typename RowGroupMetadata>
 void ReadAndVerifyColumn(RowGroupReader* rg_reader, RowGroupMetadata* rg_md,
-                         int column_index, int64_t rows) {
+                         int column_index, int rows) {
   ColumnData<DType> expected_column_data = GenerateSampleData<DType>(rows);
   std::shared_ptr<parquet::ColumnReader> column_reader = rg_reader->Column(column_index);
   TypedColumnReader<DType>* reader =
@@ -354,7 +354,7 @@ void FileDecryptor::DecryptFile(
     // Get the RowGroupMetaData
     std::unique_ptr<RowGroupMetaData> rg_metadata = file_metadata->RowGroup(r);
 
-    int64_t rows_per_rowgroup = rg_metadata->num_rows();
+    int rows_per_rowgroup = static_cast<int>(rg_metadata->num_rows());
 
     int64_t values_read = 0;
     int64_t rows_read = 0;
