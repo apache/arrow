@@ -23,11 +23,12 @@ use ahash::RandomState;
 
 use arrow::{
     array::{
-        ArrayRef, BooleanArray, LargeStringArray, TimestampMicrosecondArray,
-        TimestampNanosecondArray, UInt32Builder, UInt64Builder,
+        ArrayData, ArrayRef, BooleanArray, LargeStringArray, PrimitiveArray,
+        TimestampMicrosecondArray, TimestampNanosecondArray, UInt32BufferBuilder,
+        UInt32Builder, UInt64BufferBuilder, UInt64Builder,
     },
     compute,
-    datatypes::TimeUnit,
+    datatypes::{TimeUnit, UInt32Type, UInt64Type},
 };
 use std::time::Instant;
 use std::{any::Any, collections::HashSet};
@@ -480,11 +481,12 @@ fn build_join_indexes(
     let hash_values = create_hashes(&keys_values, &random_state)?;
     let left = &left_data.0;
 
-    let mut left_indices = UInt64Builder::new(0);
-    let mut right_indices = UInt32Builder::new(0);
-
     match join_type {
         JoinType::Inner => {
+            // Using a buffer builder to avoid slower normal builder
+            let mut left_indices = UInt64BufferBuilder::new(0);
+            let mut right_indices = UInt32BufferBuilder::new(0);
+
             // Visit all of the right rows
             for (row, hash_value) in hash_values.iter().enumerate() {
                 // Get the hash and find it in the build index
@@ -496,15 +498,30 @@ fn build_join_indexes(
                     for &i in indices {
                         // Check hash collisions
                         if equal_rows(i as usize, row, &left_join_values, &keys_values)? {
-                            left_indices.append_value(i)?;
-                            right_indices.append_value(row as u32)?;
+                            left_indices.append(i);
+                            right_indices.append(row as u32);
                         }
                     }
                 }
             }
-            Ok((left_indices.finish(), right_indices.finish()))
+            let left = ArrayData::builder(DataType::UInt64)
+                .len(left_indices.len())
+                .add_buffer(left_indices.finish())
+                .build();
+            let right = ArrayData::builder(DataType::UInt32)
+                .len(right_indices.len())
+                .add_buffer(right_indices.finish())
+                .build();
+
+            Ok((
+                PrimitiveArray::<UInt64Type>::from(left),
+                PrimitiveArray::<UInt32Type>::from(right),
+            ))
         }
         JoinType::Left => {
+            let mut left_indices = UInt64Builder::new(0);
+            let mut right_indices = UInt32Builder::new(0);
+
             // Keep track of which item is visited in the build input
             // TODO: this can be stored more efficiently with a marker
             //       https://issues.apache.org/jira/browse/ARROW-11116
@@ -534,10 +551,12 @@ fn build_join_indexes(
                     }
                 }
             }
-
             Ok((left_indices.finish(), right_indices.finish()))
         }
         JoinType::Right => {
+            let mut left_indices = UInt64Builder::new(0);
+            let mut right_indices = UInt32Builder::new(0);
+
             for (row, hash_value) in hash_values.iter().enumerate() {
                 match left.get(hash_value) {
                     Some(indices) => {

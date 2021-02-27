@@ -40,6 +40,7 @@ pub use datatype::*;
 /// A reference-counted reference to a [`Schema`](crate::datatypes::Schema).
 pub type SchemaRef = Arc<Schema>;
 
+
 #[cfg(test)]
 mod tests {
     use super::*;
