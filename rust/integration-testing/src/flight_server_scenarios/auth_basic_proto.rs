@@ -47,6 +47,9 @@ pub async fn scenario_setup(port: &str) -> Result {
     let svc = FlightServiceServer::new(service);
 
     Server::builder().add_service(svc).serve(addr).await?;
+
+    // NOTE: Log output used in tests to signal server is ready
+    println!("Server listening on localhost:{}", addr.port());
     Ok(())
 }
 

@@ -32,8 +32,6 @@ pub async fn listen_on(port: &str) -> Result<SocketAddr> {
 
     let listener = TcpListener::bind(addr).await?;
     let addr = listener.local_addr()?;
-    // NOTE: Log output used in tests
-    println!("Server listening on localhost:{}", addr.port());
 
     Ok(addr)
 }
