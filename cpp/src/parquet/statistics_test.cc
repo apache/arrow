@@ -77,7 +77,8 @@ TEST(Comparison, SignedByteArray) {
       {/*0, 0,*/ 0x01, 0x01},   {/*0,*/ 0x01, 0x01, 0},     {0x01, 0x01, 0, 0}};
   std::vector<ByteArray> values_to_compare = {ByteArray()};
   for (const auto& bytes : byte_values) {
-    values_to_compare.emplace_back(ByteArray(static_cast<int>(bytes.size()), bytes.data()));
+    values_to_compare.emplace_back(
+        ByteArray(static_cast<int>(bytes.size()), bytes.data()));
   }
 
   for (size_t x = 0; x < values_to_compare.size(); x++) {
