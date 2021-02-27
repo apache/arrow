@@ -43,7 +43,9 @@ use crate::physical_plan::expressions::cast;
 use crate::physical_plan::{ColumnarValue, PhysicalExpr};
 use crate::scalar::ScalarValue;
 
-use super::coercion::{eq_coercion, order_coercion, string_coercion, numerical_arithmetic_coercion};
+use super::coercion::{
+    eq_coercion, numerical_arithmetic_coercion, order_coercion, string_coercion,
+};
 
 /// Binary expression
 #[derive(Debug)]

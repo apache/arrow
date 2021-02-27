@@ -17,9 +17,9 @@
 
 //! Coercion rules used to coerce types to match existing expressions' implementations
 
+use crate::logical_plan::Operator;
 use arrow::datatypes::DataType;
 use std::cmp;
-use crate::logical_plan::Operator;
 
 /// Determine if a DataType is signed numeric or not
 pub fn is_signed_numeric(dt: &DataType) -> bool {
@@ -108,7 +108,6 @@ pub fn construct_numeric_type(
     }
 }
 
-
 /// Coercion rules for dictionary values (aka the type of the  dictionary itself)
 fn dictionary_value_coercion(
     lhs_type: &DataType,
@@ -188,9 +187,7 @@ pub fn numerical_arithmetic_coercion(
         Operator::Plus | Operator::Multiply => {
             construct_numeric_type(has_signed, has_float, next_size(max_size))
         }
-        Operator::Minus => {
-            construct_numeric_type(true, has_float, next_size(max_size))
-        }
+        Operator::Minus => construct_numeric_type(true, has_float, next_size(max_size)),
         Operator::Divide => Some(DataType::Float64),
         Operator::Modulus => {
             // https://github.com/ClickHouse/ClickHouse/blob/master/src/Functions/DivisionUtils.h#L113-L117
@@ -205,7 +202,7 @@ pub fn numerical_arithmetic_coercion(
                 Some(type0)
             }
         }
-        _ => None
+        _ => None,
     }
 }
 
@@ -273,10 +270,11 @@ pub fn numerical_coercion(lhs_type: &DataType, rhs_type: &DataType) -> Option<Da
         },
     );
 
-    let should_double = (has_float && has_integer && max_size_of_integer >= max_size_of_float)
-        || (has_signed
-        && has_unsigned
-        && max_size_of_unsigned_integer >= max_size_of_signed_integer);
+    let should_double =
+        (has_float && has_integer && max_size_of_integer >= max_size_of_float)
+            || (has_signed
+                && has_unsigned
+                && max_size_of_unsigned_integer >= max_size_of_signed_integer);
 
     construct_numeric_type(
         has_signed,
