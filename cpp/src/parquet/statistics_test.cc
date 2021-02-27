@@ -134,10 +134,7 @@ TEST(Comparison, SignedFLBA) {
     EXPECT_FALSE(comparator->Compare(values_to_compare[x], values_to_compare[x])) << x;
     for (size_t y = x + 1; y < values_to_compare.size(); y++) {
       EXPECT_TRUE(comparator->Compare(values_to_compare[x], values_to_compare[y]))
-          << x << " " << y << " "
-          << ::arrow::BitUtil::FromBigEndian(
-                 *reinterpret_cast<int32_t*>(byte_values[x].data()))
-          << " " << *reinterpret_cast<int32_t*>(byte_values[y].data());
+          << x << " " << y;
       EXPECT_FALSE(comparator->Compare(values_to_compare[y], values_to_compare[x]))
           << y << " " << x;
     }
