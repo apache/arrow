@@ -1796,7 +1796,7 @@ mod tests {
             Some("Not a valid date"),
             None,
         ])) as ArrayRef;
-        let a2 = Arc::new(StringArray::from(vec![
+        let a2 = Arc::new(LargeStringArray::from(vec![
             Some("2020-09-08T12:00:00+00:00"),
             Some("Not a valid date"),
             None,
