@@ -17,12 +17,12 @@
 
 //! Parquet schema parser.
 //! Provides methods to parse and validate string message type into Parquet
-//! [`Type`](crate::schema::v1::types::Type).
+//! [`Type`](crate::schema::types::Type).
 //!
 //! # Example
 //!
 //! ```rust
-//! use parquet::schema::v1::parser::parse_message_type;
+//! use parquet::schema::parser::parse_message_type;
 //!
 //! let message_type = "
 //!   message spark_schema {
@@ -46,9 +46,9 @@ use std::sync::Arc;
 
 use crate::basic::{ConvertedType, Repetition, Type as PhysicalType};
 use crate::errors::{ParquetError, Result};
-use crate::schema::v1::types::{Type, TypePtr};
+use crate::schema::types::{Type, TypePtr};
 
-/// Parses message type as string into a Parquet [`Type`](crate::schema::v1::types::Type)
+/// Parses message type as string into a Parquet [`Type`](crate::schema::types::Type)
 /// which, for example, could be used to extract individual columns. Returns Parquet
 /// general error when parsing or validation fails.
 pub fn parse_message_type(message_type: &str) -> Result<Type> {

@@ -30,7 +30,7 @@ use crate::encodings::{
     levels::LevelDecoder,
 };
 use crate::errors::{ParquetError, Result};
-use crate::schema::v1::types::ColumnDescPtr;
+use crate::schema::types::ColumnDescPtr;
 use crate::util::memory::ByteBufferPtr;
 
 /// Column reader for a Parquet type.
@@ -509,7 +509,7 @@ mod tests {
 
     use crate::basic::Type as PhysicalType;
     use crate::column::page::Page;
-    use crate::schema::v1::types::{ColumnDescriptor, ColumnPath, Type as SchemaType};
+    use crate::schema::types::{ColumnDescriptor, ColumnPath, Type as SchemaType};
     use crate::util::test_common::make_pages;
 
     const NUM_LEVELS: usize = 128;

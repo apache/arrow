@@ -33,7 +33,7 @@ use crate::file::{
     PARQUET_MAGIC,
 };
 
-use crate::schema::v1::types::{self, SchemaDescriptor};
+use crate::schema::types::{self, SchemaDescriptor};
 
 /// Layout of Parquet file
 /// +---------------------------+-----+---+
@@ -159,7 +159,7 @@ mod tests {
 
     use crate::basic::SortOrder;
     use crate::basic::Type;
-    use crate::schema::v1::types::Type as SchemaType;
+    use crate::schema::types::Type as SchemaType;
     use crate::util::test_common::get_temp_file;
     use parquet_format::TypeDefinedOrder;
 

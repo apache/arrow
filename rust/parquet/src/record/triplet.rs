@@ -20,7 +20,7 @@ use crate::column::reader::{get_typed_column_reader, ColumnReader, ColumnReaderI
 use crate::data_type::*;
 use crate::errors::{ParquetError, Result};
 use crate::record::api::Field;
-use crate::schema::v1::types::ColumnDescPtr;
+use crate::schema::types::ColumnDescPtr;
 
 /// Macro to generate simple functions that cover all types of triplet iterator.
 /// $func is a function of a typed triplet iterator and $token is a either {`ref`} or
@@ -359,7 +359,7 @@ mod tests {
     use super::*;
 
     use crate::file::reader::{FileReader, SerializedFileReader};
-    use crate::schema::v1::types::ColumnPath;
+    use crate::schema::types::ColumnPath;
     use crate::util::test_common::get_test_file;
 
     #[test]

@@ -34,7 +34,7 @@
 //!         properties::WriterProperties,
 //!         writer::{FileWriter, SerializedFileWriter},
 //!     },
-//!     schema::v1::parser::parse_message_type,
+//!     schema::parser::parse_message_type,
 //! };
 //!
 //! let path = Path::new("/path/to/sample.parquet");

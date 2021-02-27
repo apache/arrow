@@ -25,7 +25,7 @@ use crate::basic::*;
 use crate::data_type::private::*;
 use crate::data_type::*;
 use crate::errors::{ParquetError, Result};
-use crate::schema::v1::types::ColumnDescPtr;
+use crate::schema::types::ColumnDescPtr;
 use crate::util::{
     bit_util::{self, BitReader, FromBytes},
     memory::{ByteBuffer, ByteBufferPtr},
@@ -806,7 +806,7 @@ mod tests {
 
     use std::sync::Arc;
 
-    use crate::schema::v1::types::{
+    use crate::schema::types::{
         ColumnDescPtr, ColumnDescriptor, ColumnPath, Type as SchemaType,
     };
     use crate::util::{

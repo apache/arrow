@@ -18,7 +18,7 @@
 use crate::basic::{ConvertedType, Repetition};
 use crate::errors::ParquetError::General;
 use crate::errors::Result;
-use crate::schema::v1::types::{Type, TypePtr};
+use crate::schema::types::{Type, TypePtr};
 
 /// A utility trait to help user to traverse against parquet type.
 pub trait TypeVisitor<R, C> {
@@ -124,8 +124,8 @@ mod tests {
     use super::TypeVisitor;
     use crate::basic::Type as PhysicalType;
     use crate::errors::Result;
-    use crate::schema::v1::parser::parse_message_type;
-    use crate::schema::v1::types::TypePtr;
+    use crate::schema::parser::parse_message_type;
+    use crate::schema::types::TypePtr;
     use std::sync::Arc;
 
     struct TestVisitorContext {}

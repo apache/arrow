@@ -23,7 +23,7 @@
 //! use parquet::{
 //!     basic::{Compression, Encoding},
 //!     file::properties::*,
-//!     schema::v1::types::ColumnPath,
+//!     schema::types::ColumnPath,
 //! };
 //!
 //! // Create properties with default configuration.
@@ -52,7 +52,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use crate::basic::{Compression, Encoding};
 use crate::file::metadata::KeyValue;
-use crate::schema::v1::types::ColumnPath;
+use crate::schema::types::ColumnPath;
 
 const DEFAULT_PAGE_SIZE: usize = 1024 * 1024;
 const DEFAULT_WRITE_BATCH_SIZE: usize = 1024;

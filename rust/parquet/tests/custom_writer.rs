@@ -25,7 +25,7 @@ use std::{
 use parquet::file::writer::TryClone;
 use parquet::{
     basic::Repetition, basic::Type, file::properties::WriterProperties,
-    file::writer::SerializedFileWriter, schema::v1::types,
+    file::writer::SerializedFileWriter, schema::types,
 };
 use std::env;
 

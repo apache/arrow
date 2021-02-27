@@ -50,7 +50,7 @@ mod tests {
             properties::WriterProperties,
             writer::{FileWriter, SerializedFileWriter},
         },
-        schema::v1::parser::parse_message_type,
+        schema::parser::parse_message_type,
     };
     use std::{env, fs, io::Write, sync::Arc};
 

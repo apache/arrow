@@ -27,9 +27,7 @@ use crate::record::{
     api::{make_list, make_map, make_row, Field, Row},
     triplet::TripletIter,
 };
-use crate::schema::v1::types::{
-    ColumnPath, SchemaDescPtr, SchemaDescriptor, Type, TypePtr,
-};
+use crate::schema::types::{ColumnPath, SchemaDescPtr, SchemaDescriptor, Type, TypePtr};
 
 /// Default batch size for a reader
 const DEFAULT_BATCH_SIZE: usize = 1024;
@@ -823,7 +821,7 @@ mod tests {
     use crate::errors::{ParquetError, Result};
     use crate::file::reader::{FileReader, SerializedFileReader};
     use crate::record::api::{Field, Row, RowAccessor, RowFormatter};
-    use crate::schema::v1::parser::parse_message_type;
+    use crate::schema::parser::parse_message_type;
     use crate::util::test_common::{get_test_file, get_test_path};
     use std::convert::TryFrom;
 

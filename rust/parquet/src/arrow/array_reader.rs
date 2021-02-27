@@ -73,10 +73,10 @@ use crate::data_type::{
 };
 use crate::errors::{ParquetError, ParquetError::ArrowError, Result};
 use crate::file::reader::{FilePageIterator, FileReader};
-use crate::schema::v1::types::{
+use crate::schema::types::{
     ColumnDescPtr, ColumnDescriptor, ColumnPath, SchemaDescPtr, Type, TypePtr,
 };
-use crate::schema::v1::visitor::TypeVisitor;
+use crate::schema::visitor::TypeVisitor;
 use std::any::Any;
 
 /// Array reader reads parquet data into arrow array.
@@ -1713,8 +1713,8 @@ mod tests {
     use crate::data_type::{ByteArray, DataType, Int32Type, Int64Type};
     use crate::errors::Result;
     use crate::file::reader::{FileReader, SerializedFileReader};
-    use crate::schema::v1::parser::parse_message_type;
-    use crate::schema::v1::types::{ColumnDescPtr, SchemaDescriptor};
+    use crate::schema::parser::parse_message_type;
+    use crate::schema::types::{ColumnDescPtr, SchemaDescriptor};
     use crate::util::test_common::page_util::{
         DataPageBuilder, DataPageBuilderImpl, InMemoryPageIterator,
     };

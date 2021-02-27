@@ -31,7 +31,7 @@ use arrow::ipc::writer;
 
 use crate::errors::{ParquetError::ArrowError, Result};
 use crate::file::{metadata::KeyValue, properties::WriterProperties};
-use crate::schema::v1::types::{ColumnDescriptor, SchemaDescriptor, Type, TypePtr};
+use crate::schema::types::{ColumnDescriptor, SchemaDescriptor, Type, TypePtr};
 use crate::{
     basic::{ConvertedType, Repetition, Type as PhysicalType},
     errors::ParquetError,
@@ -808,7 +808,7 @@ mod tests {
     use crate::file::{metadata::KeyValue, reader::SerializedFileReader};
     use crate::{
         arrow::{ArrowReader, ArrowWriter, ParquetFileArrowReader},
-        schema::v1::{parser::parse_message_type, types::SchemaDescriptor},
+        schema::{parser::parse_message_type, types::SchemaDescriptor},
         util::test_common::get_temp_file,
     };
 
