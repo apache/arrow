@@ -41,6 +41,7 @@ import subprocess
 import sys
 import requests
 import getpass
+import json
 
 from six.moves import input
 import six
@@ -133,6 +134,15 @@ def fix_version_from_branch(branch, versions):
 SUPPORTED_PROJECTS = ['ARROW', 'PARQUET']
 PR_TITLE_REGEXEN = [(project, re.compile(r'^(' + project + r'-[0-9]+)\b.*$'))
                     for project in SUPPORTED_PROJECTS]
+
+
+def get_jira_id(title):
+    jira_id = None
+    for project, regex in PR_TITLE_REGEXEN:
+        m = regex.search(title)
+        if m:
+            return (m.group(1), project)
+    return (None, None)
 
 
 class JiraIssue(object):
@@ -263,6 +273,21 @@ class GitHubAPI(object):
         return get_json("%s/pulls/%s" % (self.github_api, number),
                         headers=self.headers)
 
+    def update_pr_title(self, number, title):
+        if not self.headers:
+            msg = "Can not update PR {} title to '{}'. ARROW_GITHUB_API_TOKEN environment not set".format(
+                number, title
+            )
+            raise Exception(msg)
+
+        # note need to use the issues URL to update
+        url = "%s/issues/%s" % (self.github_api, number)
+        data = json.dumps({'title': title})
+        resp = requests.patch(url, data = data, headers=self.headers)
+        resp.raise_for_status()
+        return resp.json()
+
+
 
 class CommandInput(object):
     """
@@ -292,12 +317,12 @@ class CommandInput(object):
 
 class PullRequest(object):
 
-    def __init__(self, cmd, github_api, git_remote, jira_con, number):
+    def __init__(self, cmd, pr_data, git_remote, jira_con, number):
         self.cmd = cmd
         self.git_remote = git_remote
         self.con = jira_con
         self.number = number
-        self._pr_data = github_api.get_pr_data(number)
+        self._pr_data = pr_data
         try:
             self.url = self._pr_data["url"]
             self.title = self._pr_data["title"]
@@ -327,12 +352,7 @@ class PullRequest(object):
         return bool(self._pr_data["mergeable"])
 
     def _get_jira(self):
-        jira_id = None
-        for project, regex in PR_TITLE_REGEXEN:
-            m = regex.search(self.title)
-            if m:
-                jira_id = m.group(1)
-                break
+        (jira_id, project) = get_jira_id(self.title)
 
         if jira_id is None:
             options = ' or '.join('{0}-XXX'.format(project)
@@ -550,6 +570,83 @@ def get_pr_num():
 
     return input("Which pull request would you like to merge? (e.g. 34): ")
 
+_JIRA_COMPONENT_REGEX = re.compile(r'(\[[^\]]*\])+')
+
+# Maps PR title prefixes to JIRA components
+PR_COMPONENTS_TO_JIRA_COMPONENTS = {
+    '[Rust]': 'Rust',
+    '[Rust][DataFusion]': 'Rust - DataFusion',
+    '[C++]': 'C++',
+    '[R]': 'R',
+}
+
+# Return the best matching JIRA component from a PR title, if any
+# "[Rust] Fix something" --> Rust
+# "[Rust][DataFusion] Fix" --> Rust - DataFusion
+# "[CPP] Fix " --> "C++"
+def jira_component_name_from_title(title):
+    match = _JIRA_COMPONENT_REGEX.match(title.strip())
+    if match:
+        pr_component = str(match.group(0))
+        return PR_COMPONENTS_TO_JIRA_COMPONENTS.get(pr_component)
+
+
+# If no jira ID can be found for the PR, offer to create one
+# returns returns the github pr_data
+def make_auto_jira(github_api, jira_con, cmd, pr_num):
+    pr_data = github_api.get_pr_data(pr_num)
+
+    try:
+        title = pr_data["title"]
+        html_link = pr_data["_links"]["html"]["href"]
+    except KeyError:
+        pprint.pprint(pr_data)
+        raise
+
+    # had valid JIRA already
+    if get_jira_id(title)[0]:
+        return pr_data
+
+
+    print("No JIRA link found for PR", pr_num)
+    options = ' or '.join('{0}-XXX'.format(project)
+                          for project in SUPPORTED_PROJECTS)
+    print("  Looked for PR title prefixed by {}".format(options))
+
+    # try to make a JIRA issue in the ARROW project with a
+    # component extracted from the PR title
+    component = jira_component_name_from_title(title)
+
+    if not component:
+        print("  Could not determine component from title")
+        print("  Expected '[Component] description', found '{}'".format(title))
+        print("  Known components: {}".format(", ".join(PR_COMPONENTS_TO_JIRA_COMPONENTS)))
+        return pr_data
+
+    components=[{"name": component}]
+    summary="{}".format(title)
+
+    print("=== NEW JIRA ===")
+    print("Summary\t\t{}".format(summary))
+    print("Assignee\tNONE")
+    print("Components\t{}".format(component))
+    print("Status\t\tNew")
+    description = "Issue automatically created from Pull Request [{}|{}]\n{}".format(
+        pr_num, html_link, pr_data.get("body")
+    )
+
+    cmd.continue_maybe("Create JIRA and link to PR?")
+    issue = jira_con.create_issue(project='ARROW',
+                                  summary=summary,
+                                  description=description,
+                                  issuetype={'name': 'Bug'},
+                                  components=components,
+                                  )
+    key = issue.key
+    print("  Created", key)
+    github_api.update_pr_title(pr_num, "{}: {}".format(key, title))
+    return github_api.get_pr_data(pr_num)
+
 
 def cli():
     # Location of your Arrow git clone
@@ -567,7 +664,8 @@ def cli():
     github_api = GitHubAPI(PROJECT_NAME)
 
     jira_con = connect_jira(cmd)
-    pr = PullRequest(cmd, github_api, PR_REMOTE_NAME, jira_con, pr_num)
+    pr_data = make_auto_jira(github_api, jira_con, cmd, pr_num)
+    pr = PullRequest(cmd, pr_data, PR_REMOTE_NAME, jira_con, pr_num)
 
     if pr.is_merged:
         print("Pull request %s has already been merged")

@@ -315,3 +315,14 @@ Assignee\tFoo Bar
 Components\tC++, Python
 Status\t\tResolved
 URL\t\thttps://issues.apache.org/jira/browse/ARROW-1234"""
+
+
+def test_jira_component_name_from_title():
+    assert merge_arrow_pr.jira_component_name_from_title('[Rust] Example PR') == 'Rust'
+    assert merge_arrow_pr.jira_component_name_from_title('[Rust ] Example PR') == None
+    assert merge_arrow_pr.jira_component_name_from_title(' [Rust] Example PR') == 'Rust'
+    assert merge_arrow_pr.jira_component_name_from_title('[Rust][DataFusion] Example PR') == 'Rust - DataFusion'
+    assert merge_arrow_pr.jira_component_name_from_title('[DataFusion][Rust] Example PR') == None
+    assert merge_arrow_pr.jira_component_name_from_title('[Rust][ddFusion] Example PR') ==  None
+    assert merge_arrow_pr.jira_component_name_from_title('[C++] Example PR') == 'C++'
+    assert merge_arrow_pr.jira_component_name_from_title('[R] Example PR') == 'R'
