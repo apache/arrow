@@ -576,6 +576,56 @@ impl convert::From<LogicalType> for parquet::LogicalType {
 }
 
 // ----------------------------------------------------------------------
+// LogicalType <=> ConvertedType conversion
+
+// Note: To prevent type loss when converting from ConvertedType to LogicalType,
+// the conversion from ConvertedType -> LogicalType is not implemented.
+// Such type loss includes:
+// - Not knowing the decimal scale and precision of ConvertedType
+// - Time and timestamp nanosecond precision, that is not supported in ConvertedType.
+
+impl From<Option<LogicalType>> for ConvertedType {
+    fn from(value: Option<LogicalType>) -> Self {
+        match value {
+            Some(value) => match value {
+                LogicalType::STRING(_) => ConvertedType::UTF8,
+                LogicalType::MAP(_) => ConvertedType::MAP,
+                LogicalType::LIST(_) => ConvertedType::LIST,
+                LogicalType::ENUM(_) => ConvertedType::ENUM,
+                LogicalType::DECIMAL(_) => ConvertedType::DECIMAL,
+                LogicalType::DATE(_) => ConvertedType::DATE,
+                LogicalType::TIME(t) => match t.unit {
+                    parquet::TimeUnit::MILLIS(_) => ConvertedType::TIME_MILLIS,
+                    parquet::TimeUnit::MICROS(_) => ConvertedType::TIME_MICROS,
+                    parquet::TimeUnit::NANOS(_) => ConvertedType::NONE,
+                },
+                LogicalType::TIMESTAMP(t) => match t.unit {
+                    parquet::TimeUnit::MILLIS(_) => ConvertedType::TIMESTAMP_MILLIS,
+                    parquet::TimeUnit::MICROS(_) => ConvertedType::TIMESTAMP_MICROS,
+                    parquet::TimeUnit::NANOS(_) => ConvertedType::NONE,
+                },
+                LogicalType::INTEGER(t) => match (t.bit_width, t.is_signed) {
+                    (8, true) => ConvertedType::INT_8,
+                    (16, true) => ConvertedType::INT_16,
+                    (32, true) => ConvertedType::INT_32,
+                    (64, true) => ConvertedType::INT_64,
+                    (8, false) => ConvertedType::UINT_8,
+                    (16, false) => ConvertedType::UINT_16,
+                    (32, false) => ConvertedType::UINT_32,
+                    (64, false) => ConvertedType::UINT_64,
+                    t => panic!("Integer type {:?} is not supported", t),
+                },
+                LogicalType::UNKNOWN(_) => ConvertedType::NONE,
+                LogicalType::JSON(_) => ConvertedType::JSON,
+                LogicalType::BSON(_) => ConvertedType::BSON,
+                LogicalType::UUID(_) => ConvertedType::NONE,
+            },
+            None => ConvertedType::NONE,
+        }
+    }
+}
+
+// ----------------------------------------------------------------------
 // parquet::FieldRepetitionType <=> Repetition conversion
 
 impl convert::From<parquet::FieldRepetitionType> for Repetition {
@@ -938,7 +988,7 @@ mod tests {
     }
 
     #[test]
-    fn test_display_logical_type() {
+    fn test_display_converted_type() {
         assert_eq!(ConvertedType::NONE.to_string(), "NONE");
         assert_eq!(ConvertedType::UTF8.to_string(), "UTF8");
         assert_eq!(ConvertedType::MAP.to_string(), "MAP");
@@ -972,8 +1022,9 @@ mod tests {
     }
 
     #[test]
-    fn test_from_logical_type() {
-        assert_eq!(ConvertedType::from(None), ConvertedType::NONE);
+    fn test_from_converted_type() {
+        let parquet_conv_none: Option<parquet::ConvertedType> = None;
+        assert_eq!(ConvertedType::from(parquet_conv_none), ConvertedType::NONE);
         assert_eq!(
             ConvertedType::from(Some(parquet::ConvertedType::Utf8)),
             ConvertedType::UTF8
@@ -1065,7 +1116,7 @@ mod tests {
     }
 
     #[test]
-    fn test_into_logical_type() {
+    fn test_into_converted_type() {
         let converted_type: Option<parquet::ConvertedType> = None;
         assert_eq!(converted_type, ConvertedType::NONE.into());
         assert_eq!(
@@ -1156,7 +1207,7 @@ mod tests {
     }
 
     #[test]
-    fn test_from_string_into_logical_type() {
+    fn test_from_string_into_converted_type() {
         assert_eq!(
             ConvertedType::NONE
                 .to_string()
@@ -1317,6 +1368,153 @@ mod tests {
                 .parse::<ConvertedType>()
                 .unwrap(),
             ConvertedType::INTERVAL
+        );
+    }
+
+    #[test]
+    fn test_logical_to_converted_type() {
+        let logical_none: Option<LogicalType> = None;
+        assert_eq!(ConvertedType::from(logical_none), ConvertedType::NONE);
+        assert_eq!(
+            ConvertedType::from(Some(LogicalType::DECIMAL(DecimalType {
+                precision: 20,
+                scale: 5
+            }))),
+            ConvertedType::DECIMAL
+        );
+        assert_eq!(
+            ConvertedType::from(Some(LogicalType::BSON(Default::default()))),
+            ConvertedType::BSON
+        );
+        assert_eq!(
+            ConvertedType::from(Some(LogicalType::JSON(Default::default()))),
+            ConvertedType::JSON
+        );
+        assert_eq!(
+            ConvertedType::from(Some(LogicalType::STRING(Default::default()))),
+            ConvertedType::UTF8
+        );
+        assert_eq!(
+            ConvertedType::from(Some(LogicalType::DATE(Default::default()))),
+            ConvertedType::DATE
+        );
+        assert_eq!(
+            ConvertedType::from(Some(LogicalType::TIME(TimeType {
+                unit: parquet::TimeUnit::MILLIS(Default::default()),
+                is_adjusted_to_u_t_c: true,
+            }))),
+            ConvertedType::TIME_MILLIS
+        );
+        assert_eq!(
+            ConvertedType::from(Some(LogicalType::TIME(TimeType {
+                unit: parquet::TimeUnit::MICROS(Default::default()),
+                is_adjusted_to_u_t_c: true,
+            }))),
+            ConvertedType::TIME_MICROS
+        );
+        assert_eq!(
+            ConvertedType::from(Some(LogicalType::TIME(TimeType {
+                unit: parquet::TimeUnit::NANOS(Default::default()),
+                is_adjusted_to_u_t_c: false,
+            }))),
+            ConvertedType::NONE
+        );
+        assert_eq!(
+            ConvertedType::from(Some(LogicalType::TIMESTAMP(TimestampType {
+                unit: parquet::TimeUnit::MILLIS(Default::default()),
+                is_adjusted_to_u_t_c: true,
+            }))),
+            ConvertedType::TIMESTAMP_MILLIS
+        );
+        assert_eq!(
+            ConvertedType::from(Some(LogicalType::TIMESTAMP(TimestampType {
+                unit: parquet::TimeUnit::MICROS(Default::default()),
+                is_adjusted_to_u_t_c: false,
+            }))),
+            ConvertedType::TIMESTAMP_MICROS
+        );
+        assert_eq!(
+            ConvertedType::from(Some(LogicalType::TIMESTAMP(TimestampType {
+                unit: parquet::TimeUnit::NANOS(Default::default()),
+                is_adjusted_to_u_t_c: false,
+            }))),
+            ConvertedType::NONE
+        );
+        assert_eq!(
+            ConvertedType::from(Some(LogicalType::INTEGER(IntType {
+                bit_width: 8,
+                is_signed: false
+            }))),
+            ConvertedType::UINT_8
+        );
+        assert_eq!(
+            ConvertedType::from(Some(LogicalType::INTEGER(IntType {
+                bit_width: 8,
+                is_signed: true
+            }))),
+            ConvertedType::INT_8
+        );
+        assert_eq!(
+            ConvertedType::from(Some(LogicalType::INTEGER(IntType {
+                bit_width: 16,
+                is_signed: false
+            }))),
+            ConvertedType::UINT_16
+        );
+        assert_eq!(
+            ConvertedType::from(Some(LogicalType::INTEGER(IntType {
+                bit_width: 16,
+                is_signed: true
+            }))),
+            ConvertedType::INT_16
+        );
+        assert_eq!(
+            ConvertedType::from(Some(LogicalType::INTEGER(IntType {
+                bit_width: 32,
+                is_signed: false
+            }))),
+            ConvertedType::UINT_32
+        );
+        assert_eq!(
+            ConvertedType::from(Some(LogicalType::INTEGER(IntType {
+                bit_width: 32,
+                is_signed: true
+            }))),
+            ConvertedType::INT_32
+        );
+        assert_eq!(
+            ConvertedType::from(Some(LogicalType::INTEGER(IntType {
+                bit_width: 64,
+                is_signed: false
+            }))),
+            ConvertedType::UINT_64
+        );
+        assert_eq!(
+            ConvertedType::from(Some(LogicalType::INTEGER(IntType {
+                bit_width: 64,
+                is_signed: true
+            }))),
+            ConvertedType::INT_64
+        );
+        assert_eq!(
+            ConvertedType::from(Some(LogicalType::LIST(Default::default()))),
+            ConvertedType::LIST
+        );
+        assert_eq!(
+            ConvertedType::from(Some(LogicalType::MAP(Default::default()))),
+            ConvertedType::MAP
+        );
+        assert_eq!(
+            ConvertedType::from(Some(LogicalType::UUID(Default::default()))),
+            ConvertedType::NONE
+        );
+        assert_eq!(
+            ConvertedType::from(Some(LogicalType::ENUM(Default::default()))),
+            ConvertedType::ENUM
+        );
+        assert_eq!(
+            ConvertedType::from(Some(LogicalType::UNKNOWN(Default::default()))),
+            ConvertedType::NONE
         );
     }
 
