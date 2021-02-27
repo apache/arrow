@@ -389,7 +389,7 @@ class PullRequest(object):
             had_conflicts = True
 
         commit_authors = run_cmd(['git', 'log', 'HEAD..%s' % pr_branch_name,
-                                 '--pretty=format:%an <%ae>']).split("\n")
+                                  '--pretty=format:%an <%ae>']).split("\n")
         distinct_authors = sorted(set(commit_authors),
                                   key=lambda x: commit_authors.count(x),
                                   reverse=True)
