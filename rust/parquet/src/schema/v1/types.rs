@@ -695,6 +695,11 @@ impl ColumnDescriptor {
         self.primitive_type.get_basic_info().converted_type()
     }
 
+    /// Returns [`LogicalType`](crate::basic::LogicalType) for this column.
+    pub fn logical_type(&self) -> Option<LogicalType> {
+        self.primitive_type.get_basic_info().logical_type()
+    }
+
     /// Returns physical type for this column.
     /// Note that it will panic if called on a non-primitive type.
     pub fn physical_type(&self) -> PhysicalType {

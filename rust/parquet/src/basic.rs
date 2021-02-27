@@ -311,8 +311,40 @@ pub enum ColumnOrder {
 
 impl ColumnOrder {
     /// Returns sort order for a physical/logical type.
-    pub fn get_sort_order(logical_type: ConvertedType, physical_type: Type) -> SortOrder {
+    pub fn get_sort_order(
+        logical_type: Option<LogicalType>,
+        converted_type: ConvertedType,
+        physical_type: Type,
+    ) -> SortOrder {
+        // TODO: Should this take converted and logical type, for compatibility?
         match logical_type {
+            Some(logical) => match logical {
+                LogicalType::STRING(_)
+                | LogicalType::ENUM(_)
+                | LogicalType::JSON(_)
+                | LogicalType::BSON(_) => SortOrder::UNSIGNED,
+                LogicalType::INTEGER(t) => match t.is_signed {
+                    true => SortOrder::SIGNED,
+                    false => SortOrder::UNSIGNED,
+                },
+                LogicalType::MAP(_) | LogicalType::LIST(_) => SortOrder::UNDEFINED,
+                LogicalType::DECIMAL(_) => SortOrder::SIGNED,
+                LogicalType::DATE(_) => SortOrder::SIGNED,
+                LogicalType::TIME(_) => SortOrder::SIGNED,
+                LogicalType::TIMESTAMP(_) => SortOrder::SIGNED,
+                LogicalType::UNKNOWN(_) => SortOrder::UNDEFINED,
+                LogicalType::UUID(_) => SortOrder::UNSIGNED,
+            },
+            // Fall back to converted type
+            None => Self::get_converted_sort_order(converted_type, physical_type),
+        }
+    }
+
+    fn get_converted_sort_order(
+        converted_type: ConvertedType,
+        physical_type: Type,
+    ) -> SortOrder {
+        match converted_type {
             // Unsigned byte-wise comparison.
             ConvertedType::UTF8
             | ConvertedType::JSON
@@ -339,7 +371,7 @@ impl ColumnOrder {
             | ConvertedType::TIMESTAMP_MILLIS
             | ConvertedType::TIMESTAMP_MICROS => SortOrder::SIGNED,
 
-            ConvertedType::INTERVAL => SortOrder::UNSIGNED,
+            ConvertedType::INTERVAL => SortOrder::UNDEFINED,
 
             ConvertedType::LIST | ConvertedType::MAP | ConvertedType::MAP_KEY_VALUE => {
                 SortOrder::UNDEFINED
@@ -364,8 +396,11 @@ impl ColumnOrder {
             // If the max is -0, the row group may contain +0 values as well.
             // When looking for NaN values, min and max should be ignored.
             Type::FLOAT | Type::DOUBLE => SortOrder::SIGNED,
-            // unsigned byte-wise comparison
-            Type::BYTE_ARRAY | Type::FIXED_LEN_BYTE_ARRAY => SortOrder::UNSIGNED,
+            // Unsigned byte-wise comparison
+            Type::BYTE_ARRAY => SortOrder::UNSIGNED,
+            // Only unsigned if there was a logical type that supports unsigned sort.
+            // Interval has no defined sort order, and should not use UNSIGNED.
+            Type::FIXED_LEN_BYTE_ARRAY => SortOrder::UNDEFINED,
         }
     }
 
@@ -1782,7 +1817,7 @@ mod tests {
         fn check_sort_order(types: Vec<ConvertedType>, expected_order: SortOrder) {
             for tpe in types {
                 assert_eq!(
-                    ColumnOrder::get_sort_order(tpe, Type::BYTE_ARRAY),
+                    ColumnOrder::get_sort_order(None, tpe, Type::BYTE_ARRAY),
                     expected_order
                 );
             }
@@ -1798,7 +1833,6 @@ mod tests {
             ConvertedType::UINT_16,
             ConvertedType::UINT_32,
             ConvertedType::UINT_64,
-            ConvertedType::INTERVAL,
         ];
         check_sort_order(unsigned, SortOrder::UNSIGNED);
 
@@ -1822,6 +1856,7 @@ mod tests {
             ConvertedType::LIST,
             ConvertedType::MAP,
             ConvertedType::MAP_KEY_VALUE,
+            ConvertedType::INTERVAL,
         ];
         check_sort_order(undefined, SortOrder::UNDEFINED);
 
@@ -1863,7 +1898,7 @@ mod tests {
         );
         assert_eq!(
             ColumnOrder::get_default_sort_order(Type::FIXED_LEN_BYTE_ARRAY),
-            SortOrder::UNSIGNED
+            SortOrder::UNDEFINED
         );
     }
 

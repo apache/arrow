@@ -139,6 +139,7 @@ fn parse_column_orders(
                 match orders[i] {
                     TColumnOrder::TYPEORDER(_) => {
                         let sort_order = ColumnOrder::get_sort_order(
+                            column.logical_type(),
                             column.converted_type(),
                             column.physical_type(),
                         );
