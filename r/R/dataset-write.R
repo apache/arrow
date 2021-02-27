@@ -54,33 +54,14 @@
 #'   files. Default (NULL) will not compress body buffers.
 #' @return The input `dataset`, invisibly
 #' @examples
-#' dout1 <- paste0(tempdir(), "/direct")
-#' dout2 <- paste0(tempdir(), "/group_by")
+#' # we can group by cyl, cyl and gear or even more variables
+#' write_dataset(mtcars, tempdir(), "feather", partitioning = "cyl"))
+#' write_dataset(mtcars, tempdir(), "feather", partitioning = c("cyl", "gear"))
 #'
-#' # partitioning ----
-#' write_dataset(mtcars, dout1, "feather",
-#'  partitioning = "cyl",
-#'  basename_template = "{i}.feather",
-#'  hive_style = F)
-#'
-#' # group_by (same result as above) ----
-#' library(dplyr)
-#'
-#' mtcars %>%
-#'  group_by(cyl) %>%
-#'  write_dataset(dout2, "feather",
-#'   basename_template = "{i}.feather",
-#'   hive_style = F)
-#'
-#' # compare ----
-#' finp1 <- list.files(dout1, full.names = T, recursive = T,
-#'  pattern = "feather")
-#'
-#' finp2 <- list.files(dout2, full.names = T, recursive = T,
-#'  pattern = "feather")
-#'
-#' finp1
-#' finp2
+#' # the latter example is the same as the following dplyr chained statement
+#' # mtcars %>%
+#' #  group_by(cyl, gear) %>%
+#' #  write_dataset(dout2, "feather")
 #' @export
 write_dataset <- function(dataset,
                           path,
