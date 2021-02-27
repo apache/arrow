@@ -343,7 +343,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
     }
 
     /// Generate a logic plan from an SQL select
-    fn select_to_plan(&self, select: &Select) -> Result<LogicalPlan> {
+    pub fn select_to_plan(&self, select: &Select) -> Result<LogicalPlan> {
         let plans = self.plan_from_tables(&select.from)?;
 
         let plan = match &select.selection {
