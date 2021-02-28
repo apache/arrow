@@ -21,6 +21,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use crate::datasource::TableProvider;
+use crate::execution::context::ExecutionConfig;
 use crate::logical_plan::Expr::Alias;
 use crate::logical_plan::{
     and, lit, DFSchema, Expr, LogicalPlan, LogicalPlanBuilder, Operator, PlanType,
@@ -36,7 +37,6 @@ use crate::{
     physical_plan::{aggregates, functions},
     sql::parser::{CreateExternalTable, FileType, Statement as DFStatement},
 };
-use crate::execution::context::ExecutionConfig;
 
 use arrow::datatypes::*;
 
