@@ -238,19 +238,26 @@ impl ExecutionPlan for HashJoinExec {
                     // This operation performs 2 steps at once:
                     // 1. creates a [JoinHashMap] of all batches from the stream
                     // 2. stores the batches in a vector.
-                    let initial =
-                        (JoinHashMap::with_hasher(IdHashBuilder {}), Vec::new(), 0);
-                    let (hashmap, batches, num_rows) = stream
+                    let initial = (
+                        JoinHashMap::with_hasher(IdHashBuilder {}),
+                        Vec::new(),
+                        0,
+                        Vec::new(),
+                    );
+                    let (hashmap, batches, num_rows, _) = stream
                         .try_fold(initial, |mut acc, batch| async {
                             let hash = &mut acc.0;
                             let values = &mut acc.1;
                             let offset = acc.2;
+                            acc.3.clear();
+                            acc.3.resize(batch.num_rows(), 0);
                             update_hash(
                                 &on_left,
                                 &batch,
                                 hash,
                                 offset,
                                 &self.random_state,
+                                &mut acc.3,
                             )
                             .unwrap();
                             acc.2 += batch.num_rows();
@@ -312,6 +319,7 @@ fn update_hash(
     hash: &mut JoinHashMap,
     offset: usize,
     random_state: &RandomState,
+    hashes_buffer: &mut Vec<u64>,
 ) -> Result<()> {
     // evaluate the keys
     let keys_values = on
@@ -320,7 +328,7 @@ fn update_hash(
         .collect::<Result<Vec<_>>>()?;
 
     // update the hash map
-    let hash_values = create_hashes(&keys_values, &random_state)?;
+    let hash_values = create_hashes(&keys_values, &random_state, hashes_buffer)?;
 
     // insert hashes to key of the hashmap
     for (row, hash_value) in hash_values.iter().enumerate() {
@@ -477,8 +485,8 @@ fn build_join_indexes(
                 .into_array(left_data.1.num_rows()))
         })
         .collect::<Result<Vec<_>>>()?;
-
-    let hash_values = create_hashes(&keys_values, &random_state)?;
+    let hash_buff = &mut vec![0; keys_values[0].len()];
+    let hash_values = create_hashes(&keys_values, &random_state, hash_buff)?;
     let left = &left_data.0;
 
     match join_type {
@@ -718,13 +726,11 @@ macro_rules! hash_array {
 }
 
 /// Creates hash values for every element in the row based on the values in the columns
-pub fn create_hashes(
+pub fn create_hashes<'a>(
     arrays: &[ArrayRef],
     random_state: &RandomState,
-) -> Result<Vec<u64>> {
-    let rows = arrays[0].len();
-    let mut hashes = vec![0; rows];
-
+    hashes: &'a mut Vec<u64>,
+) -> Result<&'a mut Vec<u64>> {
     for col in arrays {
         match col.data_type() {
             DataType::UInt8 => {
@@ -1155,8 +1161,9 @@ mod tests {
         );
 
         let random_state = RandomState::new();
-
-        let hashes = create_hashes(&[left.columns()[0].clone()], &random_state)?;
+        let hashes_buff = &mut vec![0; left.num_rows()];
+        let hashes =
+            create_hashes(&[left.columns()[0].clone()], &random_state, hashes_buff)?;
 
         // Create hash collisions
         hashmap_left.insert(hashes[0], vec![0, 1]);
