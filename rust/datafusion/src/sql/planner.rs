@@ -935,7 +935,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                 let input_name = function.name.to_string();
 
                 let case_sensitive = self.schema_provider.get_config().case_sensitive;
-                if case_sensitive == false {
+                if !case_sensitive {
                     name = input_name.to_lowercase();
                 } else {
                     name = input_name.clone();
