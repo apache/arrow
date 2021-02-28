@@ -45,7 +45,7 @@ fn bench_sort(arr_a: &ArrayRef, array_b: &ArrayRef) {
         },
     ];
 
-    criterion::black_box(lexsort(&columns).unwrap());
+    criterion::black_box(lexsort(&columns, None).unwrap());
 }
 
 fn add_benchmark(c: &mut Criterion) {

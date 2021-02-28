@@ -156,12 +156,14 @@ fn sort_batches(
     )?;
 
     // sort combined record batch
+    // TODO: pushup the limit expression to sort
     let indices = lexsort_to_indices(
         &expr
             .iter()
             .map(|e| e.evaluate_to_sort_column(&combined_batch))
             .collect::<Result<Vec<SortColumn>>>()
             .map_err(DataFusionError::into_arrow_external_error)?,
+        None,
     )?;
 
     // reorder all rows based on sorted indices
