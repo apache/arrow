@@ -1323,20 +1323,19 @@ fn create_name(e: &Expr, input_schema: &DFSchema) -> Result<String> {
             let expr = create_name(expr, input_schema)?;
             Ok(format!("{} IS NOT NULL", expr))
         }
-        Expr::ScalarFunction { input_name, fun, args, .. } => {
+        Expr::ScalarFunction { input_name, args, .. } => {
             create_function_name(input_name, false, args, input_schema)
         }
-        Expr::ScalarUDF { input_name, fun, args, .. } => {
+        Expr::ScalarUDF { input_name, args, .. } => {
             create_function_name(input_name, false, args, input_schema)
         }
         Expr::AggregateFunction {
             input_name,
-            fun,
             distinct,
             args,
             ..
         } => create_function_name(input_name, *distinct, args, input_schema),
-        Expr::AggregateUDF { input_name, fun, args } => {
+        Expr::AggregateUDF { input_name, args , ..} => {
             let mut names = Vec::with_capacity(args.len());
             for e in args {
                 names.push(create_name(e, input_schema)?);
