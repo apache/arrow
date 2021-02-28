@@ -288,7 +288,11 @@ where
                     None => None,
                 },
             }),
-            Expr::ScalarFunction { input_name, fun, args } => Ok(Expr::ScalarFunction {
+            Expr::ScalarFunction {
+                input_name,
+                fun,
+                args,
+            } => Ok(Expr::ScalarFunction {
                 input_name: input_name.clone(),
                 fun: fun.clone(),
                 args: args
@@ -296,7 +300,11 @@ where
                     .map(|e| clone_with_replacement(e, replacement_fn))
                     .collect::<Result<Vec<Expr>>>()?,
             }),
-            Expr::ScalarUDF { input_name, fun, args } => Ok(Expr::ScalarUDF {
+            Expr::ScalarUDF {
+                input_name,
+                fun,
+                args,
+            } => Ok(Expr::ScalarUDF {
                 input_name: input_name.clone(),
                 fun: fun.clone(),
                 args: args

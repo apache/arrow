@@ -949,7 +949,9 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                         .map(|a| self.sql_fn_arg_to_logical_expr(a))
                         .collect::<Result<Vec<Expr>>>()?;
 
-                    return Ok(Expr::ScalarFunction { input_name, fun, args });
+                    return Ok(Expr::ScalarFunction {
+                        input_name, fun, args,
+                    });
                 };
 
                 // next, aggregate built-ins
@@ -992,7 +994,11 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                             .map(|a| self.sql_fn_arg_to_logical_expr(a))
                             .collect::<Result<Vec<Expr>>>()?;
 
-                        Ok(Expr::ScalarUDF { input_name, fun: fm, args })
+                        Ok(Expr::ScalarUDF {
+                            input_name,
+                            fun: fm,
+                            args,
+                        })
                     }
                     None => match self.schema_provider.get_aggregate_meta(&name) {
                         Some(fm) => {
@@ -1002,7 +1008,11 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                                 .map(|a| self.sql_fn_arg_to_logical_expr(a))
                                 .collect::<Result<Vec<Expr>>>()?;
 
-                            Ok(Expr::AggregateUDF { input_name, fun: fm, args })
+                            Ok(Expr::AggregateUDF {
+                                input_name,
+                                fun: fm,
+                                args,
+                            })
                         }
                         _ => Err(DataFusionError::Plan(format!(
                             "Invalid function '{}'",

@@ -295,23 +295,31 @@ pub fn rewrite_expression(expr: &Expr, expressions: &[Expr]) -> Result<Expr> {
         }),
         Expr::IsNull(_) => Ok(Expr::IsNull(Box::new(expressions[0].clone()))),
         Expr::IsNotNull(_) => Ok(Expr::IsNotNull(Box::new(expressions[0].clone()))),
-        Expr::ScalarFunction { input_name, fun, .. } => Ok(Expr::ScalarFunction {
+        Expr::ScalarFunction {
+            input_name, fun, ..
+        } => Ok(Expr::ScalarFunction {
             input_name: input_name.to_string(),
             fun: fun.clone(),
             args: expressions.to_vec(),
         }),
-        Expr::ScalarUDF { input_name, fun, .. } => Ok(Expr::ScalarUDF {
+        Expr::ScalarUDF {
+            input_name, fun, ..
+        } => Ok(Expr::ScalarUDF {
             input_name: input_name.clone(),
             fun: fun.clone(),
             args: expressions.to_vec(),
         }),
-        Expr::AggregateFunction { input_name, fun, distinct, .. } => Ok(Expr::AggregateFunction {
+        Expr::AggregateFunction {
+            input_name, fun, distinct, ..
+        } => Ok(Expr::AggregateFunction {
             input_name: input_name.clone(),
             fun: fun.clone(),
             args: expressions.to_vec(),
             distinct: *distinct,
         }),
-        Expr::AggregateUDF { input_name, fun, .. } => Ok(Expr::AggregateUDF {
+        Expr::AggregateUDF {
+            input_name, fun, ..
+        } => Ok(Expr::AggregateUDF {
             input_name: input_name.clone(),
             fun: fun.clone(),
             args: expressions.to_vec(),
