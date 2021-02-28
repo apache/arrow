@@ -26,7 +26,7 @@ cmake
 gflags
 glog
 gmock>=1.10.0
-google-cloud-cpp>=1.20.0
+google-cloud-cpp=1.20.0
 grpc-cpp>=1.27.3
 gtest=1.10.0
 libprotobuf

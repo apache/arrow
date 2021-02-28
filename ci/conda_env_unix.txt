@@ -19,7 +19,7 @@
 
 autoconf
 ccache
-google-cloud-cpp>=1.20.0
+google-cloud-cpp=1.20.0
 nlohmann_json>=3.4.0
 orc
 pkg-config
