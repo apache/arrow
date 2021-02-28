@@ -349,6 +349,21 @@ namespace {
 
 using arrow::internal::checked_cast;
 
+// template <class ValueType>
+// struct NumericAppender {
+//   void VisitNull() {
+//     batch->notNull[orc_offset] = false;
+//     orc_offset++;
+//   }
+//   void VisitValue(ValueType value) {
+//     batch->data[*orc_offset] = value;
+//     batch->notNull[*orc_offset] = true;
+//     orc_offset++;
+//   }
+//   liborc::ColumnVectorBatch* batch;
+//   int orc_offset;
+// };
+
 arrow::Status WriteBatch(liborc::ColumnVectorBatch* column_vector_batch,
                          int64_t* arrow_offset, int64_t* orc_offset,
                          const int64_t& length, const arrow::Array& parray,
