@@ -2479,7 +2479,7 @@ mod tests {
         }
 
         fn get_config(&self) -> ExecutionConfig {
-            unimplemented!()
+            ExecutionConfig::new()
         }
     }
 }

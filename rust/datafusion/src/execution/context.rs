@@ -1372,7 +1372,7 @@ mod tests {
 
             let results = plan_and_collect(
                 &mut ctx,
-                "SELECT dict, count(val) FROM t GROUP BY dict",
+                "SELECT dict, COUNT(val) FROM t GROUP BY dict",
             )
             .await
             .expect("ran plan correctly");
@@ -1390,7 +1390,7 @@ mod tests {
 
             // Now, use dict as an aggregate
             let results =
-                plan_and_collect(&mut ctx, "SELECT val, count(dict) FROM t GROUP BY val")
+                plan_and_collect(&mut ctx, "SELECT val, COUNT(dict) FROM t GROUP BY val")
                     .await
                     .expect("ran plan correctly");
 
