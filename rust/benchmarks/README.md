@@ -53,10 +53,10 @@ The benchmark can then be run (assuming the data created from `dbgen` is in `/mn
 cargo run --release --bin tpch -- benchmark --iterations 3 --path /mnt/tpch-dbgen --format tbl --query 1 --batch-size 4096
 ```
 
-You can enable the features `simd` (to use SIMD instructions) and/or `snmalloc` (to use the snmalloc allocator) as features by passing them in as `--features`:
+You can enable the features `simd` (to use SIMD instructions) and/or `mimalloc` or `snmalloc` (to use either the mimalloc or snmalloc allocator) as features by passing them in as `--features`:
 
 ```
-cargo run --release --features "simd snmalloc" --bin tpch -- benchmark --iterations 3 --path /mnt/tpch-dbgen --format tbl --query 1 --batch-size 4096
+cargo run --release --features "simd mimalloc" --bin tpch -- benchmark --iterations 3 --path /mnt/tpch-dbgen --format tbl --query 1 --batch-size 4096
 ```
 
 The benchmark program also supports CSV and Parquet input file formats and a utility is provided to convert from `tbl`
