@@ -310,7 +310,10 @@ pub fn rewrite_expression(expr: &Expr, expressions: &[Expr]) -> Result<Expr> {
             args: expressions.to_vec(),
         }),
         Expr::AggregateFunction {
-            input_name, fun, distinct, ..
+            input_name,
+            fun,
+            distinct,
+            ..
         } => Ok(Expr::AggregateFunction {
             input_name: input_name.clone(),
             fun: fun.clone(),

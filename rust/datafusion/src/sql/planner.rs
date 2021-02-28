@@ -950,7 +950,9 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                         .collect::<Result<Vec<Expr>>>()?;
 
                     return Ok(Expr::ScalarFunction {
-                        input_name, fun, args,
+                        input_name,
+                        fun,
+                        args,
                     });
                 };
 

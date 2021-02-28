@@ -679,7 +679,7 @@ impl Expr {
             Expr::ScalarFunction {
                 input_name,
                 args,
-                fun
+                fun,
             } => Expr::ScalarFunction {
                 input_name,
                 args: rewrite_vec(args, rewriter)?,
@@ -709,7 +709,7 @@ impl Expr {
             Expr::AggregateUDF {
                 input_name,
                 args,
-                fun
+                fun,
             } => Expr::AggregateUDF {
                 input_name,
                 args: rewrite_vec(args, rewriter)?,
@@ -1337,16 +1337,11 @@ fn create_name(e: &Expr, input_schema: &DFSchema) -> Result<String> {
             Ok(format!("{} IS NOT NULL", expr))
         }
         Expr::ScalarFunction {
-            input_name,
-            args, ..
-        } => {
-            create_function_name(input_name, false, args, input_schema)
-        }
+            input_name, args, ..
+        } => create_function_name(input_name, false, args, input_schema),
         Expr::ScalarUDF {
             input_name, args, ..
-        } => {
-            create_function_name(input_name, false, args, input_schema)
-        }
+        } => create_function_name(input_name, false, args, input_schema),
         Expr::AggregateFunction {
             input_name,
             distinct,
@@ -1354,7 +1349,7 @@ fn create_name(e: &Expr, input_schema: &DFSchema) -> Result<String> {
             ..
         } => create_function_name(input_name, *distinct, args, input_schema),
         Expr::AggregateUDF {
-            input_name, args , ..
+            input_name, args, ..
         } => {
             let mut names = Vec::with_capacity(args.len());
             for e in args {
