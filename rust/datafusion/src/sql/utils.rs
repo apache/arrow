@@ -206,10 +206,12 @@ where
         // clone_with_replacement() on any nested expressions.
         None => match expr {
             Expr::AggregateFunction {
+                input_name,
                 fun,
                 args,
                 distinct,
             } => Ok(Expr::AggregateFunction {
+                input_name: input_name.to_string(),
                 fun: fun.clone(),
                 args: args
                     .iter()
@@ -217,7 +219,8 @@ where
                     .collect::<Result<Vec<Expr>>>()?,
                 distinct: *distinct,
             }),
-            Expr::AggregateUDF { fun, args } => Ok(Expr::AggregateUDF {
+            Expr::AggregateUDF { input_name, fun, args } => Ok(Expr::AggregateUDF {
+                input_name: input_name.to_string(),
                 fun: fun.clone(),
                 args: args
                     .iter()
@@ -285,14 +288,16 @@ where
                     None => None,
                 },
             }),
-            Expr::ScalarFunction { fun, args } => Ok(Expr::ScalarFunction {
+            Expr::ScalarFunction { input_name, fun, args } => Ok(Expr::ScalarFunction {
+                input_name: input_name.clone(),
                 fun: fun.clone(),
                 args: args
                     .iter()
                     .map(|e| clone_with_replacement(e, replacement_fn))
                     .collect::<Result<Vec<Expr>>>()?,
             }),
-            Expr::ScalarUDF { fun, args } => Ok(Expr::ScalarUDF {
+            Expr::ScalarUDF { input_name, fun, args } => Ok(Expr::ScalarUDF {
+                input_name: input_name.clone(),
                 fun: fun.clone(),
                 args: args
                     .iter()

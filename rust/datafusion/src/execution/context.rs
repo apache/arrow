@@ -502,6 +502,8 @@ pub struct ExecutionConfig {
     pub concurrency: usize,
     /// Default batch size when reading data sources
     pub batch_size: usize,
+    /// Case sensitive
+    pub case_sensitive: bool,
     /// Responsible for optimizing a logical plan
     optimizers: Vec<Arc<dyn OptimizerRule + Send + Sync>>,
     /// Responsible for planning `LogicalPlan`s, and `ExecutionPlan`
@@ -514,6 +516,7 @@ impl ExecutionConfig {
         Self {
             concurrency: num_cpus::get(),
             batch_size: 32768,
+            case_sensitive: true,
             optimizers: vec![
                 Arc::new(ConstantFolding::new()),
                 Arc::new(ProjectionPushDown::new()),
@@ -537,6 +540,12 @@ impl ExecutionConfig {
         // batch size must be greater than zero
         assert!(n > 0);
         self.batch_size = n;
+        self
+    }
+
+    /// Customize case sensitive
+    pub fn with_case_sensitive(mut self, cs: bool) -> Self {
+        self.case_sensitive = cs;
         self
     }
 
@@ -588,6 +597,10 @@ impl ContextProvider for ExecutionContextState {
 
     fn get_aggregate_meta(&self, name: &str) -> Option<Arc<AggregateUDF>> {
         self.aggregate_functions.get(name).cloned()
+    }
+
+    fn get_config(&self) -> ExecutionConfig {
+        self.config.clone()
     }
 }
 

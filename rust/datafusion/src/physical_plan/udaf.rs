@@ -93,6 +93,7 @@ impl AggregateUDF {
     /// This utility allows using the UDAF without requiring access to the registry.
     pub fn call(&self, args: Vec<Expr>) -> Expr {
         Expr::AggregateUDF {
+            input_name: self.name.to_string(),
             fun: Arc::new(self.clone()),
             args,
         }

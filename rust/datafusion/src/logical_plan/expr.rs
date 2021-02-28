@@ -160,6 +160,8 @@ pub enum Expr {
     },
     /// Represents the call of a built-in scalar function with a set of arguments.
     ScalarFunction {
+        /// The input name of the function
+        input_name: String,
         /// The function
         fun: functions::BuiltinScalarFunction,
         /// List of expressions to feed to the functions as arguments
@@ -167,6 +169,8 @@ pub enum Expr {
     },
     /// Represents the call of a user-defined scalar function with arguments.
     ScalarUDF {
+        /// The input name of the function
+        input_name: String,
         /// The function
         fun: Arc<ScalarUDF>,
         /// List of expressions to feed to the functions as arguments
@@ -174,6 +178,8 @@ pub enum Expr {
     },
     /// Represents the call of an aggregate built-in function with arguments.
     AggregateFunction {
+        /// The input name of the function
+        input_name: String,
         /// Name of the function
         fun: aggregates::AggregateFunction,
         /// List of expressions to feed to the functions as arguments
@@ -183,6 +189,8 @@ pub enum Expr {
     },
     /// aggregate function
     AggregateUDF {
+        /// The input name of the function
+        input_name: String,
         /// The function
         fun: Arc<AggregateUDF>,
         /// List of expressions to feed to the functions as arguments
@@ -220,21 +228,21 @@ impl Expr {
             Expr::Literal(l) => Ok(l.get_datatype()),
             Expr::Case { when_then_expr, .. } => when_then_expr[0].1.get_type(schema),
             Expr::Cast { data_type, .. } => Ok(data_type.clone()),
-            Expr::ScalarUDF { fun, args } => {
+            Expr::ScalarUDF { fun, args, .. } => {
                 let data_types = args
                     .iter()
                     .map(|e| e.get_type(schema))
                     .collect::<Result<Vec<_>>>()?;
                 Ok((fun.return_type)(&data_types)?.as_ref().clone())
             }
-            Expr::ScalarFunction { fun, args } => {
+            Expr::ScalarFunction {fun, args, .. } => {
                 let data_types = args
                     .iter()
                     .map(|e| e.get_type(schema))
                     .collect::<Result<Vec<_>>>()?;
                 functions::return_type(fun, &data_types)
             }
-            Expr::AggregateFunction { fun, args, .. } => {
+            Expr::AggregateFunction { input_name, fun, args, .. } => {
                 let data_types = args
                     .iter()
                     .map(|e| e.get_type(schema))
@@ -668,24 +676,29 @@ impl Expr {
                 asc,
                 nulls_first,
             },
-            Expr::ScalarFunction { args, fun } => Expr::ScalarFunction {
+            Expr::ScalarFunction { input_name, args, fun} => Expr::ScalarFunction {
+                input_name,
                 args: rewrite_vec(args, rewriter)?,
                 fun,
             },
-            Expr::ScalarUDF { args, fun } => Expr::ScalarUDF {
+            Expr::ScalarUDF { input_name, args, fun, .. } => Expr::ScalarUDF {
+                input_name,
                 args: rewrite_vec(args, rewriter)?,
                 fun,
             },
             Expr::AggregateFunction {
+                input_name,
                 args,
                 fun,
                 distinct,
             } => Expr::AggregateFunction {
+                input_name,
                 args: rewrite_vec(args, rewriter)?,
                 fun,
                 distinct,
             },
-            Expr::AggregateUDF { args, fun } => Expr::AggregateUDF {
+            Expr::AggregateUDF { input_name, args, fun} => Expr::AggregateUDF {
+                input_name,
                 args: rewrite_vec(args, rewriter)?,
                 fun,
             },
@@ -916,6 +929,7 @@ pub fn col(name: &str) -> Expr {
 /// Create an expression to represent the min() aggregate function
 pub fn min(expr: Expr) -> Expr {
     Expr::AggregateFunction {
+        input_name: aggregates::AggregateFunction::Min.to_string(),
         fun: aggregates::AggregateFunction::Min,
         distinct: false,
         args: vec![expr],
@@ -925,6 +939,7 @@ pub fn min(expr: Expr) -> Expr {
 /// Create an expression to represent the max() aggregate function
 pub fn max(expr: Expr) -> Expr {
     Expr::AggregateFunction {
+        input_name: aggregates::AggregateFunction::Max.to_string(),
         fun: aggregates::AggregateFunction::Max,
         distinct: false,
         args: vec![expr],
@@ -934,6 +949,7 @@ pub fn max(expr: Expr) -> Expr {
 /// Create an expression to represent the sum() aggregate function
 pub fn sum(expr: Expr) -> Expr {
     Expr::AggregateFunction {
+        input_name: aggregates::AggregateFunction::Sum.to_string(),
         fun: aggregates::AggregateFunction::Sum,
         distinct: false,
         args: vec![expr],
@@ -943,6 +959,7 @@ pub fn sum(expr: Expr) -> Expr {
 /// Create an expression to represent the avg() aggregate function
 pub fn avg(expr: Expr) -> Expr {
     Expr::AggregateFunction {
+        input_name: aggregates::AggregateFunction::Avg.to_string(),
         fun: aggregates::AggregateFunction::Avg,
         distinct: false,
         args: vec![expr],
@@ -952,6 +969,7 @@ pub fn avg(expr: Expr) -> Expr {
 /// Create an expression to represent the count() aggregate function
 pub fn count(expr: Expr) -> Expr {
     Expr::AggregateFunction {
+        input_name: aggregates::AggregateFunction::Count.to_string(),
         fun: aggregates::AggregateFunction::Count,
         distinct: false,
         args: vec![expr],
@@ -961,6 +979,7 @@ pub fn count(expr: Expr) -> Expr {
 /// Create an expression to represent the count(distinct) aggregate function
 pub fn count_distinct(expr: Expr) -> Expr {
     Expr::AggregateFunction {
+        input_name: aggregates::AggregateFunction::Count.to_string(),
         fun: aggregates::AggregateFunction::Count,
         distinct: true,
         args: vec![expr],
@@ -1034,6 +1053,7 @@ macro_rules! unary_scalar_expr {
         #[allow(missing_docs)]
         pub fn $FUNC(e: Expr) -> Expr {
             Expr::ScalarFunction {
+                input_name: functions::BuiltinScalarFunction::$ENUM.to_string(),
                 fun: functions::BuiltinScalarFunction::$ENUM,
                 args: vec![e],
             }
@@ -1085,6 +1105,7 @@ unary_scalar_expr!(Upper, upper);
 /// returns an array of fixed size with each argument on it.
 pub fn array(args: Vec<Expr>) -> Expr {
     Expr::ScalarFunction {
+        input_name: functions::BuiltinScalarFunction::Array.to_string(),
         fun: functions::BuiltinScalarFunction::Array,
         args,
     }
@@ -1302,24 +1323,25 @@ fn create_name(e: &Expr, input_schema: &DFSchema) -> Result<String> {
             let expr = create_name(expr, input_schema)?;
             Ok(format!("{} IS NOT NULL", expr))
         }
-        Expr::ScalarFunction { fun, args, .. } => {
-            create_function_name(&fun.to_string(), false, args, input_schema)
+        Expr::ScalarFunction { input_name, fun, args, .. } => {
+            create_function_name(input_name, false, args, input_schema)
         }
-        Expr::ScalarUDF { fun, args, .. } => {
-            create_function_name(&fun.name, false, args, input_schema)
+        Expr::ScalarUDF { input_name, fun, args, .. } => {
+            create_function_name(input_name, false, args, input_schema)
         }
         Expr::AggregateFunction {
+            input_name,
             fun,
             distinct,
             args,
             ..
-        } => create_function_name(&fun.to_string(), *distinct, args, input_schema),
-        Expr::AggregateUDF { fun, args } => {
+        } => create_function_name(input_name, *distinct, args, input_schema),
+        Expr::AggregateUDF { input_name, fun, args } => {
             let mut names = Vec::with_capacity(args.len());
             for e in args {
                 names.push(create_name(e, input_schema)?);
             }
-            Ok(format!("{}({})", fun.name, names.join(",")))
+            Ok(format!("{}({})", input_name, names.join(",")))
         }
         Expr::InList {
             expr,

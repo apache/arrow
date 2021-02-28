@@ -36,6 +36,7 @@ use crate::{
     physical_plan::{aggregates, functions},
     sql::parser::{CreateExternalTable, FileType, Statement as DFStatement},
 };
+use crate::execution::context::ExecutionConfig;
 
 use arrow::datatypes::*;
 
@@ -66,6 +67,8 @@ pub trait ContextProvider {
     fn get_function_meta(&self, name: &str) -> Option<Arc<ScalarUDF>>;
     /// Getter for a UDAF description
     fn get_aggregate_meta(&self, name: &str) -> Option<Arc<AggregateUDF>>;
+    /// Getter for a config
+    fn get_config(&self) -> ExecutionConfig;
 }
 
 /// SQL query planner
@@ -727,6 +730,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
 
             SQLExpr::Value(Value::Null) => Ok(Expr::Literal(ScalarValue::Utf8(None))),
             SQLExpr::Extract { field, expr } => Ok(Expr::ScalarFunction {
+                input_name: functions::BuiltinScalarFunction::DatePart.to_string(),
                 fun: functions::BuiltinScalarFunction::DatePart,
                 args: vec![
                     Expr::Literal(ScalarValue::Utf8(Some(format!("{}", field)))),
@@ -927,7 +931,15 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
             }
 
             SQLExpr::Function(function) => {
-                let name: String = function.name.to_string();
+                let name;
+                let input_name = function.name.to_string();
+
+                let case_sensitive = self.schema_provider.get_config().case_sensitive;
+                if case_sensitive == false {
+                    name = input_name.to_lowercase();
+                } else {
+                    name = input_name.to_string();
+                }
 
                 // first, scalar built-in
                 if let Ok(fun) = functions::BuiltinScalarFunction::from_str(&name) {
@@ -937,7 +949,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                         .map(|a| self.sql_fn_arg_to_logical_expr(a))
                         .collect::<Result<Vec<Expr>>>()?;
 
-                    return Ok(Expr::ScalarFunction { fun, args });
+                    return Ok(Expr::ScalarFunction { input_name, fun, args });
                 };
 
                 // next, aggregate built-ins
@@ -964,6 +976,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                     };
 
                     return Ok(Expr::AggregateFunction {
+                        input_name,
                         fun,
                         distinct: function.distinct,
                         args,
@@ -979,7 +992,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                             .map(|a| self.sql_fn_arg_to_logical_expr(a))
                             .collect::<Result<Vec<Expr>>>()?;
 
-                        Ok(Expr::ScalarUDF { fun: fm, args })
+                        Ok(Expr::ScalarUDF { input_name, fun: fm, args })
                     }
                     None => match self.schema_provider.get_aggregate_meta(&name) {
                         Some(fm) => {
@@ -989,7 +1002,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                                 .map(|a| self.sql_fn_arg_to_logical_expr(a))
                                 .collect::<Result<Vec<Expr>>>()?;
 
-                            Ok(Expr::AggregateUDF { fun: fm, args })
+                            Ok(Expr::AggregateUDF { input_name, fun: fm, args })
                         }
                         _ => Err(DataFusionError::Plan(format!(
                             "Invalid function '{}'",
@@ -2450,6 +2463,10 @@ mod tests {
         }
 
         fn get_aggregate_meta(&self, _name: &str) -> Option<Arc<AggregateUDF>> {
+            unimplemented!()
+        }
+
+        fn get_config(&self) -> ExecutionConfig {
             unimplemented!()
         }
     }

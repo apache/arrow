@@ -553,14 +553,14 @@ impl DefaultPhysicalPlanner {
             Expr::IsNotNull(expr) => expressions::is_not_null(
                 self.create_physical_expr(expr, input_schema, ctx_state)?,
             ),
-            Expr::ScalarFunction { fun, args } => {
+            Expr::ScalarFunction { fun, args, .. } => {
                 let physical_args = args
                     .iter()
                     .map(|e| self.create_physical_expr(e, input_schema, ctx_state))
                     .collect::<Result<Vec<_>>>()?;
                 functions::create_physical_expr(fun, &physical_args, input_schema)
             }
-            Expr::ScalarUDF { fun, args } => {
+            Expr::ScalarUDF { fun, args, .. } => {
                 let mut physical_args = vec![];
                 for e in args {
                     physical_args.push(self.create_physical_expr(
