@@ -301,18 +301,18 @@ pub fn rewrite_expression(expr: &Expr, expressions: &[Expr]) -> Result<Expr> {
             args: expressions.to_vec(),
         }),
         Expr::ScalarUDF { input_name, fun, .. } => Ok(Expr::ScalarUDF {
-            input_name: input_name.to_string(),
+            input_name: input_name.clone(),
             fun: fun.clone(),
             args: expressions.to_vec(),
         }),
         Expr::AggregateFunction { input_name, fun, distinct, .. } => Ok(Expr::AggregateFunction {
-            input_name: input_name.to_string(),
+            input_name: input_name.clone(),
             fun: fun.clone(),
             args: expressions.to_vec(),
             distinct: *distinct,
         }),
         Expr::AggregateUDF { input_name, fun, .. } => Ok(Expr::AggregateUDF {
-            input_name: input_name.to_string(),
+            input_name: input_name.clone(),
             fun: fun.clone(),
             args: expressions.to_vec(),
         }),

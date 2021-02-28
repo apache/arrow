@@ -242,7 +242,7 @@ impl Expr {
                     .collect::<Result<Vec<_>>>()?;
                 functions::return_type(fun, &data_types)
             }
-            Expr::AggregateFunction { input_name, fun, args, .. } => {
+            Expr::AggregateFunction { fun, args, .. } => {
                 let data_types = args
                     .iter()
                     .map(|e| e.get_type(schema))

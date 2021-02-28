@@ -220,7 +220,7 @@ where
                 distinct: *distinct,
             }),
             Expr::AggregateUDF { input_name, fun, args } => Ok(Expr::AggregateUDF {
-                input_name: input_name.to_string(),
+                input_name: input_name.clone(),
                 fun: fun.clone(),
                 args: args
                     .iter()

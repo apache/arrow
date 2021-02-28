@@ -938,7 +938,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                 if case_sensitive == false {
                     name = input_name.to_lowercase();
                 } else {
-                    name = input_name.to_string();
+                    name = input_name.clone();
                 }
 
                 // first, scalar built-in
