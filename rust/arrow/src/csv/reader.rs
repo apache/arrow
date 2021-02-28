@@ -98,8 +98,32 @@ fn infer_field_schema(string: &str) -> DataType {
 ///
 /// If `max_read_records` is not set, the whole file is read to infer its schema.
 ///
+/// Return infered schema and number of records used for inference. This function does not change
+/// reader cursor offset.
+pub fn infer_file_schema<R: Read + Seek>(
+    reader: &mut R,
+    delimiter: u8,
+    max_read_records: Option<usize>,
+    has_header: bool,
+) -> Result<(Schema, usize)> {
+    let saved_offset = reader.seek(SeekFrom::Current(0))?;
+
+    let (schema, records_count) =
+        infer_reader_schema(reader, delimiter, max_read_records, has_header)?;
+
+    // return the reader seek back to the start
+    reader.seek(SeekFrom::Start(saved_offset))?;
+
+    Ok((schema, records_count))
+}
+
+/// Infer schema of CSV records provided by struct that implements `Read` trait.
+///
+/// `max_read_records` controlling the maximum number of records to read. If `max_read_records` is
+/// not set, all records are read to infer the schema.
+///
 /// Return infered schema and number of records used for inference.
-fn infer_file_schema<R: Read + Seek>(
+pub fn infer_reader_schema<R: Read>(
     reader: &mut R,
     delimiter: u8,
     max_read_records: Option<usize>,
@@ -121,17 +145,11 @@ fn infer_file_schema<R: Read + Seek>(
             .collect()
     };
 
-    // save the csv reader position after reading headers
-    let position = csv_reader.position().clone();
-
     let header_length = headers.len();
     // keep track of inferred field types
     let mut column_types: Vec<HashSet<DataType>> = vec![HashSet::new(); header_length];
     // keep track of columns with nulls
     let mut nulls: Vec<bool> = vec![false; header_length];
-
-    // return csv reader position to after headers
-    csv_reader.seek(position)?;
 
     let mut records_count = 0;
     let mut fields = vec![];
@@ -183,9 +201,6 @@ fn infer_file_schema<R: Read + Seek>(
             _ => fields.push(Field::new(&field_name, DataType::Utf8, has_nulls)),
         }
     }
-
-    // return the reader seek back to the start
-    csv_reader.into_inner().seek(SeekFrom::Start(0))?;
 
     Ok((Schema::new(fields), records_count))
 }
