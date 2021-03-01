@@ -287,7 +287,7 @@ mod tests {
     use arrow::datatypes::{DataType, Field, Schema};
     use arrow::record_batch::RecordBatch;
 
-    #[tokio::test(flavor = "multi_thread")]
+    #[tokio::test]
     async fn one_to_many_round_robin() -> Result<()> {
         // define input partitions
         let schema = test_schema();
@@ -307,7 +307,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test(flavor = "multi_thread")]
+    #[tokio::test]
     async fn many_to_one_round_robin() -> Result<()> {
         // define input partitions
         let schema = test_schema();
@@ -324,7 +324,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test(flavor = "multi_thread")]
+    #[tokio::test]
     async fn many_to_many_round_robin() -> Result<()> {
         // define input partitions
         let schema = test_schema();
@@ -345,7 +345,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test(flavor = "multi_thread")]
+    #[tokio::test]
     async fn many_to_many_hash_partition() -> Result<()> {
         // define input partitions
         let schema = test_schema();
@@ -416,7 +416,7 @@ mod tests {
         Ok(output_partitions)
     }
 
-    #[tokio::test(flavor = "multi_thread")]
+    #[tokio::test]
     async fn many_to_many_round_robin_within_tokio_task() -> Result<()> {
         let join_handle: JoinHandle<Result<Vec<Vec<RecordBatch>>>> =
             tokio::spawn(async move {
