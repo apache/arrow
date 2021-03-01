@@ -809,7 +809,16 @@ class RListConverter : public ListConverter<T, RConverter, RConverterTrait> {
     }
 
     auto append_value = [this](SEXP value) {
-      auto n = vctrs::short_vec_size(value);
+      // TODO: this should always use vctrs::short_vec_size
+      //       but that introduced a regression:
+      //       https://github.com/apache/arrow/pull/8650#issuecomment-786940734
+      int n;
+      if (TYPEOF(value) == VECSXP && !Rf_inherits(value, "data.frame")) {
+        n = Rf_length(value);
+      } else {
+        n = vctrs::short_vec_size(value);
+      }
+
       RETURN_NOT_OK(this->list_builder_->ValidateOverflow(n));
       RETURN_NOT_OK(this->list_builder_->Append());
       return this->value_converter_.get()->Extend(value, n);
