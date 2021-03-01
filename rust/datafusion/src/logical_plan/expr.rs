@@ -442,6 +442,16 @@ impl Expr {
         }
     }
 
+    /// Return `IsNull(Box(self))
+    pub fn is_null(self) -> Expr {
+        Expr::IsNull(Box::new(self))
+    }
+
+    /// Return `IsNotNull(Box(self))
+    pub fn is_not_null(self) -> Expr {
+        Expr::IsNotNull(Box::new(self))
+    }
+
     /// Create a sort expression from an existing expression.
     ///
     /// ```
