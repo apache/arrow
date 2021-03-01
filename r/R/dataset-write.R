@@ -64,7 +64,7 @@
 #'
 #' list.files(two_part_dir, pattern = "parquet", recursive = TRUE)
 #'
-#' if(requireNamespace("dplyr")) {
+#' if(requireNamespace("dplyr", quietly = TRUE)) {
 #'  two_part_dir_2 <- tempfile()
 #'  two_part_dir_3 <- tempfile()
 #'
