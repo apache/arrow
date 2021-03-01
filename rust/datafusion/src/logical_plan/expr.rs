@@ -1398,6 +1398,14 @@ mod tests {
         )
     }
 
+    #[test]
+    fn filter_is_null_and_is_not_null() {
+        let col_null = Expr::Column("col1".to_string());
+        let col_not_null = Expr::Column("col2".to_string());
+        assert_eq!(format!("{:?}", col_null.is_null()), "#col1 IS NULL");
+        assert_eq!(format!("{:?}", col_not_null.is_not_null()), "#col2 IS NOT NULL");
+    }
+
     #[derive(Default)]
     struct RecordingRewriter {
         v: Vec<String>,
