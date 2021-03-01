@@ -653,7 +653,7 @@ where
         _ => {}
     }
 
-    /// we are not using partial_sort here, because array is ArrayRef. Something is not working good in that.
+    // we are not using partial_sort here, because array is ArrayRef. Something is not working good in that.
     if !descending {
         valids.sort_by(|a, b| cmp_array(a.1.as_ref(), b.1.as_ref()));
     } else {
