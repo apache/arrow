@@ -961,7 +961,7 @@ struct GroupByImpl : public ScalarAggregator {
       auto iter = map_.find(key);
       if (iter == map_.end()) {
         group_ids_batch_[i] = n_groups++;
-        int32_t next_key_offset = static_cast<int32_t>(key_bytes_.size());
+        auto next_key_offset = static_cast<int32_t>(key_bytes_.size());
         key_bytes_.resize(next_key_offset + key_length);
         offsets_.push_back(next_key_offset + key_length);
         memcpy(key_bytes_.data() + next_key_offset, key.c_str(), key_length);
@@ -1078,7 +1078,7 @@ std::unique_ptr<KernelState> GroupByInit(KernelContext* ctx, const KernelInitArg
     }
     if (ctx->HasError()) return nullptr;
 
-    out_fields[i] = field(aggregates[i].name, impl->aggregators[i]->out_type());
+    out_fields[i] = field("", impl->aggregators[i]->out_type());
   }
 
   size_t n_keys = args.inputs.size() - aggregates.size();
@@ -1103,7 +1103,7 @@ std::unique_ptr<KernelState> GroupByInit(KernelContext* ctx, const KernelInitArg
         ctx->SetStatus(Status::NotImplemented("Key of type", key_type->ToString()));
         return nullptr;
     }
-    out_fields[aggregates.size() + i] = field(impl->options.key_names[i], key_type);
+    out_fields[aggregates.size() + i] = field("", key_type);
   }
 
   impl->add_length_impl.resize(n_keys);

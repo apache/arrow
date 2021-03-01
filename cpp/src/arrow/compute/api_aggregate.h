@@ -157,20 +157,16 @@ struct ARROW_EXPORT GroupByOptions : public FunctionOptions {
 
     /// options for the aggregation function
     const FunctionOptions* options;
-
-    /// the name of the resulting column in output
-    std::string name;
   };
 
   GroupByOptions() = default;
 
-  GroupByOptions(std::vector<Aggregate> aggregates, std::vector<std::string> key_names)
-      : aggregates(std::move(aggregates)), key_names(std::move(key_names)) {}
+  GroupByOptions(std::initializer_list<Aggregate> aggregates) : aggregates(aggregates) {}
+
+  explicit GroupByOptions(std::vector<Aggregate> aggregates)
+      : aggregates(std::move(aggregates)) {}
 
   std::vector<Aggregate> aggregates;
-
-  /// the names of key columns
-  std::vector<std::string> key_names;
 };
 
 /// @}
