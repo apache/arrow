@@ -206,7 +206,6 @@ impl ExecutionPlan for RepartitionExec {
                     }
                     Ok(())
                 });
-                tokio::task::yield_now().await;
             }
         }
 
