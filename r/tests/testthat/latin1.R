@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-x <- iconv("Veitingastaðir", to = "latin1")
+x <- iconv("Veitingastaï¿½ir", to = "latin1")
 df <- tibble::tibble(
   chr = x,
   fct = as.factor(x)
@@ -69,6 +69,8 @@ feather_file <- tempfile()
 write_feather(df_struct, feather_file)
 expect_identical(read_feather(feather_file), df_struct)
 
-parquet_file <- tempfile()
-write_parquet(df, parquet_file) # Parquet doesn't yet support nested types
-expect_identical(read_parquet(parquet_file), df)
+if (arrow_with_parquet()) {
+  parquet_file <- tempfile()
+  write_parquet(df, parquet_file) # Parquet doesn't yet support nested types
+  expect_identical(read_parquet(parquet_file), df)
+}

@@ -27,6 +27,8 @@ Because fields are named in the path segments, order of fields passed to
 }
 \examples{
 \donttest{
-hive_partition(year = int16(), month = int8())
+if (arrow_with_dataset()) {
+  hive_partition(year = int16(), month = int8())
+}
 }
 }

@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+skip("Temporarily skip this")
+
 context("To/from Python")
 
 test_that("install_pyarrow", {

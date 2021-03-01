@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+skip("Temporarily skip this")
+
 # Assumes:
 # * We've already done arrow::install_pyarrow()
 # * R -e 'arrow::load_flight_server("demo_flight_server")$DemoFlightServer(port = 8089)$serve()'

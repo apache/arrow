@@ -16,7 +16,11 @@
 # under the License.
 
 skip_if_not_available <- function(feature) {
-  if (feature == "s3") {
+  if (feature == "dataset") {
+    skip_if_not(arrow_with_dataset())
+  } else if (feature == "parquet") {
+    skip_if_not(arrow_with_parquet())
+  } else if (feature == "s3") {
     skip_if_not(arrow_with_s3())
   } else if (!codec_is_available(feature)) {
     skip(paste("Arrow C++ not built with support for", feature))
