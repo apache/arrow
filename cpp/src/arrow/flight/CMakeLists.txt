@@ -86,7 +86,9 @@ function(test_grpc_version DST_VAR DETECT_VERSION TEST_FILE)
                 LINK_LIBRARIES gRPC::grpc gRPC::grpc++
                 OUTPUT_VARIABLE TLS_CREDENTIALS_OPTIONS_CHECK_OUTPUT CXX_STANDARD 11)
     if(HAS_GRPC_VERSION)
-      set(${DST_VAR} "${DETECT_VERSION}" PARENT_SCOPE)
+      set(${DST_VAR}
+          "${DETECT_VERSION}"
+          CACHE INTERNAL "The detected (approximate) gRPC version.")
     else()
       message(
         STATUS
