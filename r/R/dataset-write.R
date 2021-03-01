@@ -30,9 +30,8 @@
 #' @param path string path, URI, or `SubTreeFileSystem` referencing a directory
 #' to write to (directory will be created if it does not exist)
 #' @param format file format to write the dataset to. Currently supported
-#' formats are "parquet" and "feather" (aka "ipc"). Default is to write to
-#' "parquet" unless the `dataset` specifies a format, in which case it writes
-#' in the same specified format.
+#' formats are "feather" (aka "ipc") and "parquet". Default is to write to the
+#' same format as `dataset`.
 #' @param partitioning `Partitioning` or a character vector of columns to
 #' use as partition keys (to be written as path segments). Default is to
 #' use the current `group_by()` columns.
@@ -60,8 +59,8 @@
 #' one_part_dir <- tempfile()
 #' two_part_dir <- tempfile()
 #'
-#' write_dataset(mtcars, one_part_dir, partitioning = "cyl")
-#' write_dataset(mtcars, two_part_dir, partitioning = c("cyl", "gear"))
+#' write_dataset(mtcars, one_part_dir, "parquet", partitioning = "cyl")
+#' write_dataset(mtcars, two_part_dir, "parquet", partitioning = c("cyl", "gear"))
 #'
 #' list.files(two_part_dir, pattern = "parquet", recursive = TRUE)
 #'
@@ -72,13 +71,13 @@
 #'  d <- dplyr::group_by(mtcars, cyl, gear)
 #'
 #'  d %>%
-#'   write_dataset(two_part_dir_2)
+#'   write_dataset(two_part_dir_2, "parquet")
 #'
 #'  # Just passing an additional hive_style option to see the difference
 #'  # in the output
 #'
 #'  d %>%
-#'   write_dataset(two_part_dir_2, hive_style = FALSE)
+#'   write_dataset(two_part_dir_2, "parquet", hive_style = FALSE)
 #'
 #'  list.files(two_part_dir_2, pattern = "parquet", recursive = TRUE)
 #'  list.files(two_part_dir_3, pattern = "parquet", recursive = TRUE)
@@ -86,16 +85,11 @@
 #' @export
 write_dataset <- function(dataset,
                           path,
-                          format = "parquet",
+                          format = dataset$format,
                           partitioning = dplyr::group_vars(dataset),
                           basename_template = paste0("part-{i}.", as.character(format)),
                           hive_style = TRUE,
                           ...) {
-  if (inherits(dataset$format, "ParquetFileFormat")) {
-    format <- dataset$format
-    basename_template <- paste0("part-{i}.", as.character(format))
-  }
-
   if (inherits(dataset, "arrow_dplyr_query")) {
     if (inherits(dataset$.data, "ArrowTabular")) {
       # collect() to materialize any mutate/rename
