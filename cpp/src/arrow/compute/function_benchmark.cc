@@ -174,11 +174,41 @@ void BM_ExecuteScalarKernelOnScalar(benchmark::State& state) {
   state.SetItemsProcessed(state.iterations() * N);
 }
 
+void BM_ExecBatchIterator(benchmark::State& state) {
+  // Measure overhead related to deconstructing vector<Datum> into a sequence of ExecBatch
+  random::RandomArrayGenerator rag(kSeed);
+
+  const int64_t length = 1 << 20;
+  const int num_fields = 10;
+
+  std::vector<Datum> args(num_fields);
+  for (int i = 0; i < num_fields; ++i) {
+    args[i] = rag.Int64(length, 0, 100)->data();
+  }
+
+  for (auto _ : state) {
+    std::unique_ptr<ExecBatchIterator> it =
+        *ExecBatchIterator::Make(args, state.range(0));
+    ExecBatch batch;
+    while (it->Next(&batch)) {
+      for (int i = 0; i < num_fields; ++i) {
+        auto data = batch.values[i].array()->buffers[1]->data();
+        benchmark::DoNotOptimize(data);
+      }
+      continue;
+    }
+    benchmark::DoNotOptimize(batch);
+  }
+
+  state.SetItemsProcessed(state.iterations());
+}
+
 BENCHMARK(BM_CastDispatch);
 BENCHMARK(BM_CastDispatchBaseline);
 BENCHMARK(BM_AddDispatch);
 BENCHMARK(BM_ExecuteScalarFunctionOnScalar);
 BENCHMARK(BM_ExecuteScalarKernelOnScalar);
+BENCHMARK(BM_ExecBatchIterator)->RangeMultiplier(2)->Range(256, 32768);
 
 }  // namespace compute
 }  // namespace arrow
