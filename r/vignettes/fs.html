@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+
+<title>Working with Cloud Storage (S3)</title>
+
+<script>// Hide empty <a> tag within highlighted CodeBlock for screen reader accessibility (see https://github.com/jgm/pandoc/issues/6352#issuecomment-626106786) -->
+// v0.0.1
+// Written by JooYoung Seo (jooyoung@psu.edu) and Atsushi Yasumoto on June 1st, 2020.
+
+document.addEventListener('DOMContentLoaded', function() {
+  const codeList = document.getElementsByClassName("sourceCode");
+  for (var i = 0; i < codeList.length; i++) {
+    var linkList = codeList[i].getElementsByTagName('a');
+    for (var j = 0; j < linkList.length; j++) {
+      if (linkList[j].innerHTML === "") {
+        linkList[j].setAttribute('aria-hidden', 'true');
+      }
+    }
+  }
+});
+</script>
+
+<style type="text/css">
+  code{white-space: pre-wrap;}
+  span.smallcaps{font-variant: small-caps;}
+  span.underline{text-decoration: underline;}
+  div.column{display: inline-block; vertical-align: top; width: 50%;}
+  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+  ul.task-list{list-style: none;}
+    </style>
+
+
+<style type="text/css">
+  code {
+    white-space: pre;
+  }
+  .sourceCode {
+    overflow: visible;
+  }
+</style>
+<style type="text/css" data-origin="pandoc">
+code.sourceCode > span { display: inline-block; line-height: 1.25; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode { white-space: pre; position: relative; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+code.sourceCode { white-space: pre-wrap; }
+code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    for (var j = 0; j < rules.length; j++) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") continue;
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') continue;
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Working with Cloud Storage (S3)</h1>
+
+
+
+<p>The Arrow C++ library includes a generic filesystem interface and specific implementations for some cloud storage systems. This setup allows various parts of the project to be able to read and write data with different storage backends. In the <code>arrow</code> R package, support has been enabled for AWS S3. This vignette provides an overview of working with S3 data using Arrow.</p>
+<blockquote>
+<p>In Windows and macOS binary packages, S3 support is included. On Linux when installing from source, S3 support is not enabled by default, and it has additional system requirements. See <code>vignette(&quot;install&quot;, package = &quot;arrow&quot;)</code> for details.</p>
+</blockquote>
+<div id="uris" class="section level2">
+<h2>URIs</h2>
+<p>File readers and writers (<code>read_parquet()</code>, <code>write_feather()</code>, et al.) accept an S3 URI as the source or destination file, as do <code>open_dataset()</code> and <code>write_dataset()</code>. An S3 URI looks like:</p>
+<pre><code>s3://[access_key:secret_key@]bucket/path[?region=]</code></pre>
+<p>For example, one of the NYC taxi data files used in <code>vignette(&quot;dataset&quot;, package = &quot;arrow&quot;)</code> is found at</p>
+<pre><code>s3://ursa-labs-taxi-data/2019/06/data.parquet</code></pre>
+<p>Given this URI, we can pass it to <code>read_parquet()</code> just as if it were a local file path:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1"></a>df &lt;-<span class="st"> </span><span class="kw">read_parquet</span>(<span class="st">&quot;s3://ursa-labs-taxi-data/2019/06/data.parquet&quot;</span>)</span></code></pre></div>
+<p>Note that this will be slower to read than if the file were local, though if you’re running on a machine in the same AWS region as the file in S3, the cost of reading the data over the network should be much lower.</p>
+</div>
+<div id="creating-a-filesystem-object" class="section level2">
+<h2>Creating a FileSystem object</h2>
+<p>Another way to connect to S3 is to create a <code>FileSystem</code> object once and pass that to the read/write functions. <code>S3FileSystem</code> objects can be created with the <code>s3_bucket()</code> function, which automatically detects the bucket’s AWS region. Additionally, the resulting <code>FileSystem</code> will consider paths relative to the bucket’s path (so for example you don’t need to prefix the bucket path when listing a directory). This may be convenient when dealing with long URIs, and it’s necessary for some options and authentication methods that aren’t supported in the URI format.</p>
+<p>With a <code>FileSystem</code> object, we can point to specific files in it with the <code>$path()</code> method. In the previous example, this would look like:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1"></a>bucket &lt;-<span class="st"> </span><span class="kw">s3_bucket</span>(<span class="st">&quot;ursa-labs-taxi-data&quot;</span>)</span>
+<span id="cb4-2"><a href="#cb4-2"></a>df &lt;-<span class="st"> </span><span class="kw">read_parquet</span>(bucket<span class="op">$</span><span class="kw">path</span>(<span class="st">&quot;2019/06/data.parquet&quot;</span>))</span></code></pre></div>
+<p>See the help for <code>FileSystem</code> for a list of options that <code>s3_bucket()</code> and <code>S3FileSystem$create()</code> can take. <code>region</code>, <code>scheme</code>, and <code>endpoint_override</code> can be encoded as query parameters in the URI (though <code>region</code> will be auto-detected in <code>s3_bucket()</code> or from the URI if omitted). <code>access_key</code> and <code>secret_key</code> can also be included, but other options are not supported in the URI.</p>
+<p>The object that <code>s3_bucket()</code> returns is technically a <code>SubTreeFileSystem</code>, which holds a path and a file system to which it corresponds. <code>SubTreeFileSystem</code>s can be useful for holding a reference to a subdirectory somewhere, on S3 or elsewhere.</p>
+<p>One way to get a subtree is to call the <code>$cd()</code> method on a <code>FileSystem</code></p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1"></a>june2019 &lt;-<span class="st"> </span>bucket<span class="op">$</span><span class="kw">cd</span>(<span class="st">&quot;2019/06&quot;</span>)</span>
+<span id="cb5-2"><a href="#cb5-2"></a>df &lt;-<span class="st"> </span><span class="kw">read_parquet</span>(june2019<span class="op">$</span><span class="kw">path</span>(<span class="st">&quot;data.parquet&quot;</span>))</span></code></pre></div>
+<p><code>SubTreeFileSystem</code> can also be made from a URI:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1"></a>june2019 &lt;-<span class="st"> </span>SubTreeFileSystem<span class="op">$</span><span class="kw">create</span>(<span class="st">&quot;s3://ursa-labs-taxi-data/2019/06&quot;</span>)</span></code></pre></div>
+</div>
+<div id="authentication" class="section level2">
+<h2>Authentication</h2>
+<p>To access private S3 buckets, you need typically need two secret parameters: a <code>access_key</code>, which is like a user id, and <code>secret_key</code>, like a token. There are a few options for passing these credentials:</p>
+<ol style="list-style-type: decimal">
+<li><p>Include them in the URI, like <code>s3://access_key:secret_key@bucket-name/path/to/file</code>. Be sure to <a href="https://en.wikipedia.org/wiki/Percent-encoding">URL-encode</a> your secrets if they contain special characters like “/”.</p></li>
+<li><p>Pass them as <code>access_key</code> and <code>secret_key</code> to <code>S3FileSystem$create()</code> or <code>s3_bucket()</code></p></li>
+<li><p>Set them as environment variables named <code>AWS_ACCESS_KEY_ID</code> and <code>AWS_SECRET_ACCESS_KEY</code>, respectively.</p></li>
+<li><p>Define them in a <code>~/.aws/credentials</code> file, according to the <a href="https://docs.aws.amazon.com/sdk-for-cpp/v1/developer-guide/credentials.html">AWS documentation</a>.</p></li>
+</ol>
+<p>You can also use an <a href="https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRole.html">AccessRole</a> for temporary access by passing the <code>role_arn</code> identifier to <code>S3FileSystem$create()</code> or <code>s3_bucket()</code>.</p>
+</div>
+<div id="file-systems-that-emulate-s3" class="section level2">
+<h2>File systems that emulate S3</h2>
+<p>The <code>S3FileSystem</code> machinery enables you to work with any file system that provides an S3-compatible interface. For example, <a href="https://min.io/">MinIO</a> is and object-storage server that emulates the S3 API. If you were to run <code>minio server</code> locally with its default settings, you could connect to it with <code>arrow</code> using <code>S3FileSystem</code> like this:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1"></a>minio &lt;-<span class="st"> </span>S3FileSystem<span class="op">$</span><span class="kw">create</span>(</span>
+<span id="cb7-2"><a href="#cb7-2"></a>  <span class="dt">access_key =</span> <span class="st">&quot;minioadmin&quot;</span>,</span>
+<span id="cb7-3"><a href="#cb7-3"></a>  <span class="dt">secret_key =</span> <span class="st">&quot;minioadmin&quot;</span>,</span>
+<span id="cb7-4"><a href="#cb7-4"></a>  <span class="dt">scheme =</span> <span class="st">&quot;http&quot;</span>,</span>
+<span id="cb7-5"><a href="#cb7-5"></a>  <span class="dt">endpoint_override =</span> <span class="st">&quot;localhost:9000&quot;</span></span>
+<span id="cb7-6"><a href="#cb7-6"></a>)</span></code></pre></div>
+<p>or, as a URI, it would be</p>
+<pre><code>s3://minioadmin:minioadmin@?scheme=http&amp;endpoint_override=localhost%3A9000</code></pre>
+<p>(note the URL escaping of the <code>:</code> in <code>endpoint_override</code>).</p>
+<p>Among other applications, this can be useful for testing out code locally before running on a remote S3 bucket.</p>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

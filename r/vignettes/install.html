@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+
+<title>Installing the Arrow Package on Linux</title>
+
+<script>// Hide empty <a> tag within highlighted CodeBlock for screen reader accessibility (see https://github.com/jgm/pandoc/issues/6352#issuecomment-626106786) -->
+// v0.0.1
+// Written by JooYoung Seo (jooyoung@psu.edu) and Atsushi Yasumoto on June 1st, 2020.
+
+document.addEventListener('DOMContentLoaded', function() {
+  const codeList = document.getElementsByClassName("sourceCode");
+  for (var i = 0; i < codeList.length; i++) {
+    var linkList = codeList[i].getElementsByTagName('a');
+    for (var j = 0; j < linkList.length; j++) {
+      if (linkList[j].innerHTML === "") {
+        linkList[j].setAttribute('aria-hidden', 'true');
+      }
+    }
+  }
+});
+</script>
+
+<style type="text/css">
+  code{white-space: pre-wrap;}
+  span.smallcaps{font-variant: small-caps;}
+  span.underline{text-decoration: underline;}
+  div.column{display: inline-block; vertical-align: top; width: 50%;}
+  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+  ul.task-list{list-style: none;}
+    </style>
+
+
+<style type="text/css">
+  code {
+    white-space: pre;
+  }
+  .sourceCode {
+    overflow: visible;
+  }
+</style>
+<style type="text/css" data-origin="pandoc">
+code.sourceCode > span { display: inline-block; line-height: 1.25; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode { white-space: pre; position: relative; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+code.sourceCode { white-space: pre-wrap; }
+code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    for (var j = 0; j < rules.length; j++) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") continue;
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') continue;
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Installing the Arrow Package on Linux</h1>
+
+
+
+<p>On macOS and Windows, when you <code>install.packages(&quot;arrow&quot;)</code>, you get a binary package that contains Arrow’s C++ dependencies along with it. On Linux, <code>install.packages()</code> retrieves a source package that has to be compiled locally, and C++ dependencies need to be resolved as well. Generally for R packages with C++ dependencies, this requires either installing system packages, which you may not have privileges to do, or building the C++ dependencies separately, which introduces all sorts of additional ways for things to go wrong.</p>
+<p>Our goal is to make <code>install.packages(&quot;arrow&quot;)</code> “just work” for as many Linux distributions, versions, and configurations as possible. This document describes how it works and the options for fine-tuning Linux installation. The intended audience for this document is <code>arrow</code> R package users on Linux, not developers. If you’re contributing to the Arrow project, you’ll probably want to manage your C++ installation more directly. Note also that if you use <code>conda</code> to manage your R environment, this document does not apply. You can <code>conda install -c conda-forge --strict-channel-priority r-arrow</code> and you’ll get the latest official release of the R package along with any C++ dependencies.</p>
+<blockquote>
+<p>Having trouble installing <code>arrow</code>? See the “Troubleshooting” section below.</p>
+</blockquote>
+<div id="installation-basics" class="section level1">
+<h1>Installation basics</h1>
+<p>Install the latest release of <code>arrow</code> from CRAN with</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1"></a><span class="kw">install.packages</span>(<span class="st">&quot;arrow&quot;</span>)</span></code></pre></div>
+<p>Daily development builds, which are not official releases, can be installed from the Ursa Labs repository:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1"></a><span class="kw">install.packages</span>(<span class="st">&quot;arrow&quot;</span>, <span class="dt">repos =</span> <span class="st">&quot;https://arrow-r-nightly.s3.amazonaws.com&quot;</span>)</span></code></pre></div>
+<p>or for conda users via:</p>
+<pre><code>conda install -c arrow-nightlies -c conda-forge --strict-channel-priority r-arrow</code></pre>
+<p>You can also install the R package from a git checkout:</p>
+<pre class="shell"><code>git clone https://github.com/apache/arrow
+cd arrow/r
+R CMD INSTALL .</code></pre>
+<p>If you don’t already have the Arrow C++ libraries on your system, when installing the R package from source, it will also download and build the Arrow C++ libraries for you. To speed installation up, you can set</p>
+<pre class="shell"><code>export LIBARROW_BINARY=true</code></pre>
+<p>to look for C++ binaries prebuilt for your Linux distribution/version. Alternatively, you can set</p>
+<pre class="shell"><code>export LIBARROW_MINIMAL=false</code></pre>
+<p>to build the Arrow libraries with optional features such as compression libraries enabled. This will increase the build time but provides many useful features. Prebuilt binaries are built with this flag enabled, so you get the full functionality by using them as well.</p>
+<p>Both of these variables are also set this way if you have the <code>NOT_CRAN=true</code> environment variable set.</p>
+<p>If you already have <code>arrow</code> installed and want to upgrade to a different version, install a development build, or try to reinstall and fix issues with Linux C++ binaries, you can call <code>install_arrow()</code>. <code>install_arrow()</code> provides some convenience wrappers around the various environment variables described below. This function is part of the <code>arrow</code> package, and it is also available as a standalone script, so you can access it for convenience without first installing the package:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1"></a><span class="kw">source</span>(<span class="st">&quot;https://raw.githubusercontent.com/apache/arrow/master/r/R/install-arrow.R&quot;</span>)</span></code></pre></div>
+<p><code>install_arrow()</code> will install from CRAN, while <code>install_arrow(nightly = TRUE)</code> will give you a development build. <code>install_arrow()</code> does not require environment variables to be set in order to satisfy C++ dependencies.</p>
+<blockquote>
+<p>Note that, unlike packages like <code>tensorflow</code>, <code>blogdown</code>, and others that require external dependencies, you do not need to run <code>install_arrow()</code> after a successful <code>arrow</code> installation.</p>
+</blockquote>
+<!-- TODO: does remotes::install_github("apache/arrow/r") work now? -->
+<div id="s3-support" class="section level2">
+<h2>S3 support</h2>
+<p>The <code>arrow</code> package allows you to work with data in AWS S3 or in other cloud storage system that emulate S3. However, support for working with S3 is not enabled in the default build, and it has additional system requirements. To enable it, set the environment variable <code>LIBARROW_MINIMAL=false</code> or <code>NOT_CRAN=true</code> to choose the full-featured build, or more selectively set <code>ARROW_S3=ON</code>. You also need the following system dependencies:</p>
+<ul>
+<li><code>gcc</code> &gt;= 4.9 or <code>clang</code> &gt;= 3.3; note that the default compiler on CentOS 7 is gcc 4.8.5, which is not sufficient</li>
+<li>CURL: install <code>libcurl-devel</code> (rpm) or <code>libcurl4-openssl-dev</code> (deb)</li>
+<li>OpenSSL &gt;= 1.0.2: install <code>openssl-devel</code> (rpm) or <code>libssl-dev</code> (deb)</li>
+</ul>
+<p>The prebuilt C++ binaries come with S3 support enabled, so you will need to meet these system requirements in order to use them–the package will not install without them. If you’re building everything from source, the install script will check for the presence of these dependencies and turn off S3 support in the build if the prerequisites are not met–installation will succeed but without S3 functionality. If afterwards you install the missing system requirements, you’ll need to reinstall the package in order to enable S3 support.</p>
+</div>
+</div>
+<div id="how-dependencies-are-resolved" class="section level1">
+<h1>How dependencies are resolved</h1>
+<p>In order for the <code>arrow</code> R package to work, it needs the Arrow C++ library. There are a number of ways you can get it: a system package; a library you’ve built yourself outside of the context of installing the R package; or, if you don’t already have it, the R package will attempt to resolve it automatically when it installs.</p>
+<p>If you are authorized to install system packages and you’re installing a CRAN release, you may want to use the official Apache Arrow release packages corresponding to the R package version. See the <a href="https://arrow.apache.org/install/">Arrow project installation page</a> to find pre-compiled binary packages for some common Linux distributions, including Debian, Ubuntu, and CentOS. You’ll need to install <code>libparquet-dev</code> on Debian and Ubuntu, or <code>parquet-devel</code> on CentOS. This will also automatically install the Arrow C++ library as a dependency.</p>
+<p>When you install the <code>arrow</code> R package on Linux, it will first attempt to find the Arrow C++ libraries on your system using the <code>pkg-config</code> command. This will find either installed system packages or libraries you’ve built yourself. In order for <code>install.packages(&quot;arrow&quot;)</code> to work with these system packages, you’ll need to install them before installing the R package.</p>
+<p>If no Arrow C++ libraries are found on the system, the R package installation script will next attempt to download prebuilt static Arrow C++ libraries that match your both your local operating system and <code>arrow</code> R package version. C++ libraries (source or binary) will only be retrieved if you have set the environment variable <code>LIBARROW_BINARY</code> or <code>NOT_CRAN</code>. If found, they will be downloaded and bundled when your R package compiles. For a list of supported distributions and versions, see the <a href="https://github.com/ursa-labs/arrow-r-nightly/blob/master/README.md">arrow-r-nightly</a> project.</p>
+<p>If no binary is found, it will download the Arrow C++ source that matches the R package version (CRAN release or nightly build) and attempt to build it locally. If no matching source bundle is found, it will also look to see if you are in a checkout of the <code>apache/arrow</code> git repository and thus have the C++ source there. Depending on your system, building Arrow C++ from source likely will be slow; consequently, it is designed to happen only when you run <code>install.packages(&quot;arrow&quot;)</code> or <code>R CMD INSTALL</code> but not when running <code>R CMD check</code>, unless you’ve set the <code>NOT_CRAN=true</code> environment variable.</p>
+<p>For the mechanics of how all this works, see the R package <code>configure</code> script, which calls <code>tools/linuxlibs.R</code>. If the C++ library is built from source, <code>inst/build_arrow_static.sh</code> is executed. This build script is also what is used to generate the prebuilt binaries.</p>
+</div>
+<div id="troubleshooting" class="section level1">
+<h1>Troubleshooting</h1>
+<p>The intent is that <code>install.packages(&quot;arrow&quot;)</code> will just work and handle all C++ dependencies, but depending on your system, you may have better results if you tune one of several parameters. Here are some known complications and ways to address them.</p>
+<div id="package-installed-without-c-dependencies" class="section level2">
+<h2>Package installed without C++ dependencies</h2>
+<p>If you get an error like</p>
+<pre><code>Cannot call io___MemoryMappedFile__Open(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries.</code></pre>
+<p>for every <code>arrow</code> function you call, that means that installing the package failed to retrieve or build C++ libraries compatible with the current version of the R package.</p>
+<p>It is expected that C++ dependencies should be built successfully on all Linux distributions, so you should not see this message. If you do, please check the “Known installation issues” below to see if any apply. If none apply, retry the installation with <code>arrow::install_arrow(verbose = TRUE)</code> so that details on what failed are shown, then please <a href="https://issues.apache.org/jira/projects/ARROW/issues">report an issue</a> and include the full verbose installation output.</p>
+</div>
+<div id="using-system-libraries" class="section level2">
+<h2>Using system libraries</h2>
+<p>If a system library or other installed Arrow is found but it doesn’t match the R package version (for example, you have libarrow 1.0.0 on your system and are installing R package 2.0.0), it is likely that the R bindings will fail to compile. Because the Apache Arrow project is under active development, is it essential that versions of the C++ and R libraries match. When <code>install.packages(&quot;arrow&quot;)</code> has to download the C++ libraries, the install script ensures that you fetch the C++ libraries that correspond to your R package version. However, if you are using Arrow libraries already on your system, version match isn’t guaranteed.</p>
+<p>To fix version mismatch, you can either update your system packages to match the R package version, or set the environment variable <code>ARROW_USE_PKG_CONFIG=FALSE</code> to tell the configure script not to look for system Arrow packages. (The latter is the default of <code>install_arrow()</code>.) System packages are available corresponding to all CRAN releases but not for nightly or dev versions, so depending on the R package version you’re installing, system packages may not be an option.</p>
+<p>Note also that once you have a working R package installation based on system (shared) libraries, if you update your system Arrow, you’ll need to reinstall the R package to match its version. Similarly, if you’re using Arrow system libraries, running <code>update.packages()</code> after a new release of the <code>arrow</code> package will likely fail unless you first update the system packages.</p>
+</div>
+<div id="using-a-local-arrow-c-build" class="section level2">
+<h2>Using a local Arrow C++ build</h2>
+<p>If you’ve built the Arrow C++ libraries locally from source but haven’t installed them where <code>pkg-config</code> will find them, there are a few options for telling the R package how to locate them. You can set <code>PKG_CONFIG_PATH</code> to <code>/path/to/your/installation/pkgconfig</code> (that is, <code>PKG_CONFIG_PATH=${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/pkgconfig</code>, if you’ve set those variables). Alternatively, you can set the <code>INCLUDE_DIR</code> and <code>LIB_DIR</code> environment variables to point to their location.</p>
+<p>If the package fails to install/load with an error like this:</p>
+<pre><code>** testing if installed package can be loaded from temporary location
+Error: package or namespace load failed for &#39;arrow&#39; in dyn.load(file, DLLpath = DLLpath, ...):
+unable to load shared object &#39;/Users/you/R/00LOCK-r/00new/arrow/libs/arrow.so&#39;:
+dlopen(/Users/you/R/00LOCK-r/00new/arrow/libs/arrow.so, 6): Library not loaded: @rpath/libarrow.14.dylib</code></pre>
+<p>try setting the environment variable <code>R_LD_LIBRARY_PATH</code> to wherever Arrow C++ was put in <code>make install</code>, e.g. <code>export R_LD_LIBRARY_PATH=/usr/local/lib</code>, and retry installing the R package.</p>
+</div>
+<div id="using-prebuilt-binaries" class="section level2">
+<h2>Using prebuilt binaries</h2>
+<p>If the R package finds and downloads a prebuilt binary of the C++ library, but then the <code>arrow</code> package can’t be loaded, perhaps with “undefined symbols” errors, please <a href="https://issues.apache.org/jira/projects/ARROW/issues">report an issue</a>. This is likely a compiler mismatch and may be resolvable by setting some environment variables to instruct R to compile the packages to match the C++ library.</p>
+<p>A workaround would be to set the environment variable <code>LIBARROW_BINARY=FALSE</code> and retry installation: this value instructs the package to build the C++ library from source instead of downloading the prebuilt binary. That should guarantee that the compiler settings match.</p>
+<p>If a prebuilt binary wasn’t found for your operating system but you think it should have been, check the logs for a message that says <code>*** Unable to identify current OS/version</code>, or a message that says <code>*** No C++ binaries found for</code> an invalid OS. If you see either, please <a href="https://issues.apache.org/jira/projects/ARROW/issues">report an issue</a>. You may also set the environment variable <code>ARROW_R_DEV=TRUE</code> for additional debug messages.</p>
+<p>A workaround would be to set the environment variable <code>LIBARROW_BINARY</code> to a <code>distribution-version</code> that exists in the Ursa Labs repository. Setting <code>LIBARROW_BINARY</code> is also an option when there’s not an exact match for your OS but a similar version would work, such as if you’re on <code>ubuntu-18.10</code> and there’s only a binary for <code>ubuntu-18.04</code>.</p>
+<p>If that workaround works for you, and you believe that it should work for everyone else too, you may propose <a href="https://github.com/ursa-labs/arrow-r-nightly/edit/master/linux/distro-map.csv">adding an entry to this lookup table</a>. This table is checked during the installation process and tells the script to use binaries built on a different operating system/version because they’re known to work.</p>
+</div>
+<div id="building-c-from-source" class="section level2">
+<h2>Building C++ from source</h2>
+<p>If building the C++ library from source fails, check the error message. The install script attempts to install any necessary build dependencies, but it’s possible that some operating systems may require additional ones. You may be able to install them and retry. Regardless, if the C++ library fails to compile, please <a href="https://issues.apache.org/jira/projects/ARROW/issues">report an issue</a> so that we can attempt to improve the script.</p>
+</div>
+<div id="known-installation-issues" class="section level2">
+<h2>Known installation issues</h2>
+<ul>
+<li><p>On CentOS, if you are using a more modern <code>devtoolset</code>, you may need to set the environment variables <code>CC</code> and <code>CXX</code> either in the shell or in R’s <code>Makeconf</code>. For CentOS 7 and above, both the Arrow system packages and the C++ binaries for R are built with the default system compilers. If you want to use either of these and you have a <code>devtoolset</code> installed, set <code>CC=/usr/bin/gcc CXX=/usr/bin/g++</code> to use the system compilers instead of the <code>devtoolset</code>. Alternatively, if you want to build <code>arrow</code> with the newer <code>devtoolset</code> compilers, set both <code>ARROW_USE_PKG_CONFIG</code> and <code>LIBARROW_BINARY</code> to <code>false</code> so that you build the Arrow C++ from source using those compilers. Compiler mismatch between the arrow system libraries and the R package may cause R to segfault when <code>arrow</code> package functions are used. See discussions <a href="https://issues.apache.org/jira/browse/ARROW-8586">here</a> and <a href="https://issues.apache.org/jira/browse/ARROW-10780">here</a>.</p></li>
+<li><p>If you have multiple versions of <code>zstd</code> installed on your system, installation by building the C++ from source may fail with an undefined symbols error. Workarounds include (1) setting <code>LIBARROW_BINARY</code> to use a C++ binary; (2) setting <code>ARROW_WITH_ZSTD=OFF</code> to build without <code>zstd</code>; or (3) uninstalling the conflicting <code>zstd</code>. See discussion <a href="https://issues.apache.org/jira/browse/ARROW-8556">here</a>.</p></li>
+</ul>
+</div>
+<div id="summary-of-build-environment-variables" class="section level2">
+<h2>Summary of build environment variables</h2>
+<p>By default, these are all unset. All boolean variables are case-insensitive.</p>
+<ul>
+<li><code>ARROW_USE_PKG_CONFIG</code>: If set to <code>false</code>, the configure script won’t look for Arrow libraries on your system and instead will look to download/build them. Use this if you have a version mismatch between installed system libraries and the version of the R package you’re installing.</li>
+<li><code>LIBARROW_DOWNLOAD</code>: Unless set to <code>false</code>, the build script will attempt to download C++ binary or source bundles. If you’re in a checkout of the <code>apache/arrow</code> git repository and want to build the C++ library from the local source, make this <code>false</code>.</li>
+<li><code>LIBARROW_BINARY</code>: If set to <code>true</code>, the script will try to download a binary C++ library built for your operating system. You may also set it to some other string, a related “distro-version” that has binaries built that work for your OS. If no binary is found, installation will fall back to building C++ dependencies from source.</li>
+<li><code>LIBARROW_BUILD</code>: If set to <code>false</code>, the build script will not attempt to build the C++ from source. This means you will only get a working <code>arrow</code> R package if a prebuilt binary is found. Use this if you want to avoid compiling the C++ library, which may be slow and resource-intensive, and ensure that you only use a prebuilt binary.</li>
+<li><code>LIBARROW_MINIMAL</code>: If set to <code>false</code>, the build script will enable some optional features, including compression libraries, S3 support, and additional alternative memory allocators. This will increase the source build time but results in a more fully functional library.</li>
+<li><code>NOT_CRAN</code>: If this variable is set to <code>true</code>, as the <code>devtools</code> package does, the build script will set <code>LIBARROW_BINARY=true</code> and <code>LIBARROW_MINIMAL=false</code> unless those environment variables are already set. This provides for a more complete and fast installation experience for users who already have <code>NOT_CRAN=true</code> as part of their workflow, without requiring additional environment variables to be set.</li>
+<li><code>ARROW_R_DEV</code>: If set to <code>true</code>, more verbose messaging will be printed in the build script. <code>arrow::install_arrow(verbose = TRUE)</code> sets this. This variable also is needed if you’re modifying C++ code in the package: see “Editing C++ code” in the README.</li>
+<li><code>LIBARROW_DEBUG_DIR</code>: If the C++ library building from source fails (<code>cmake</code>), there may be messages telling you to check some log file in the build directory. However, when the library is built during R package installation, that location is in a temp directory that is already deleted. To capture those logs, set this variable to an absolute (not relative) path and the log files will be copied there. The directory will be created if it does not exist.</li>
+<li><code>CMAKE</code>: When building the C++ library from source, you can specify a <code>/path/to/cmake</code> to use a different version than whatever is found on the <code>$PATH</code></li>
+</ul>
+</div>
+</div>
+<div id="contributing" class="section level1">
+<h1>Contributing</h1>
+<p>As mentioned above, please <a href="https://issues.apache.org/jira/projects/ARROW/issues">report an issue</a> if you encounter ways to improve this. If you find that your Linux distribution or version is not supported, we welcome the contribution of Docker images (hosted on Docker Hub) that we can use in our continuous integration. These Docker images should be minimal, containing only R and the dependencies it requires. (For reference, see the images that <a href="https://github.com/r-hub/rhub-linux-builders">R-hub</a> uses.)</p>
+<p>You can test the <code>arrow</code> R package installation using the <code>docker-compose</code> setup included in the <code>apache/arrow</code> git repository. For example,</p>
+<pre><code>R_ORG=rhub R_IMAGE=ubuntu-gcc-release R_TAG=latest docker-compose build r
+R_ORG=rhub R_IMAGE=ubuntu-gcc-release R_TAG=latest docker-compose run r</code></pre>
+<p>installs the <code>arrow</code> R package, including the C++ source build, on the <a href="https://hub.docker.com/r/rhub/ubuntu-gcc-release">rhub/ubuntu-gcc-release</a> image.</p>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

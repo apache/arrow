@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+
+<title>Working with Arrow Datasets and dplyr</title>
+
+<script>// Hide empty <a> tag within highlighted CodeBlock for screen reader accessibility (see https://github.com/jgm/pandoc/issues/6352#issuecomment-626106786) -->
+// v0.0.1
+// Written by JooYoung Seo (jooyoung@psu.edu) and Atsushi Yasumoto on June 1st, 2020.
+
+document.addEventListener('DOMContentLoaded', function() {
+  const codeList = document.getElementsByClassName("sourceCode");
+  for (var i = 0; i < codeList.length; i++) {
+    var linkList = codeList[i].getElementsByTagName('a');
+    for (var j = 0; j < linkList.length; j++) {
+      if (linkList[j].innerHTML === "") {
+        linkList[j].setAttribute('aria-hidden', 'true');
+      }
+    }
+  }
+});
+</script>
+
+<style type="text/css">
+  code{white-space: pre-wrap;}
+  span.smallcaps{font-variant: small-caps;}
+  span.underline{text-decoration: underline;}
+  div.column{display: inline-block; vertical-align: top; width: 50%;}
+  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+  ul.task-list{list-style: none;}
+    </style>
+
+
+<style type="text/css">
+  code {
+    white-space: pre;
+  }
+  .sourceCode {
+    overflow: visible;
+  }
+</style>
+<style type="text/css" data-origin="pandoc">
+code.sourceCode > span { display: inline-block; line-height: 1.25; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode { white-space: pre; position: relative; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+code.sourceCode { white-space: pre-wrap; }
+code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    for (var j = 0; j < rules.length; j++) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") continue;
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') continue;
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Working with Arrow Datasets and dplyr</h1>
+
+
+
+<p>Apache Arrow lets you work efficiently with large, multi-file datasets. The <code>arrow</code> R package provides a <code>dplyr</code> interface to Arrow Datasets, as well as other tools for interactive exploration of Arrow data.</p>
+<p>This vignette introduces Datasets and shows how to use <code>dplyr</code> to analyze them. It describes both what is possible to do with Arrow now and what is on the immediate development roadmap.</p>
+<div id="example-nyc-taxi-data" class="section level2">
+<h2>Example: NYC taxi data</h2>
+<p>The <a href="https://www1.nyc.gov/site/tlc/about/tlc-trip-record-data.page">New York City taxi trip record data</a> is widely used in big data exercises and competitions. For demonstration purposes, we have hosted a Parquet-formatted version of about 10 years of the trip data in a public AWS S3 bucket.</p>
+<p>The total file size is around 37 gigabytes, even in the efficient Parquet file format. That’s bigger than memory on most people’s computers, so we can’t just read it all in and stack it into a single data frame.</p>
+<p>In Windows and macOS binary packages, S3 support is included. On Linux when installing from source, S3 support is not enabled by default, and it has additional system requirements. See <code>vignette(&quot;install&quot;, package = &quot;arrow&quot;)</code> for details. To see if your <code>arrow</code> installation has S3 support, run</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1"></a>arrow<span class="op">::</span><span class="kw">arrow_with_s3</span>()</span></code></pre></div>
+<pre><code>## [1] TRUE</code></pre>
+<p>Even with S3 support enabled network, speed will be a bottleneck unless your machine is located in the same AWS region as the data. So, for this vignette, we assume that the NYC taxi dataset has been downloaded locally in a “nyc-taxi” directory.</p>
+<p>If your <code>arrow</code> build has S3 support, you can sync the data locally with:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1"></a>arrow<span class="op">::</span><span class="kw">copy_files</span>(<span class="st">&quot;s3://ursa-labs-taxi-data&quot;</span>, <span class="st">&quot;nyc-taxi&quot;</span>)</span></code></pre></div>
+<p>If your <code>arrow</code> build doesn’t have S3 support, you can download the files with some additional code:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1"></a>bucket &lt;-<span class="st"> &quot;https://ursa-labs-taxi-data.s3.us-east-2.amazonaws.com&quot;</span></span>
+<span id="cb4-2"><a href="#cb4-2"></a><span class="cf">for</span> (year <span class="cf">in</span> <span class="dv">2009</span><span class="op">:</span><span class="dv">2019</span>) {</span>
+<span id="cb4-3"><a href="#cb4-3"></a>  <span class="cf">if</span> (year <span class="op">==</span><span class="st"> </span><span class="dv">2019</span>) {</span>
+<span id="cb4-4"><a href="#cb4-4"></a>    <span class="co"># We only have through June 2019 there</span></span>
+<span id="cb4-5"><a href="#cb4-5"></a>    months &lt;-<span class="st"> </span><span class="dv">1</span><span class="op">:</span><span class="dv">6</span></span>
+<span id="cb4-6"><a href="#cb4-6"></a>  } <span class="cf">else</span> {</span>
+<span id="cb4-7"><a href="#cb4-7"></a>    months &lt;-<span class="st"> </span><span class="dv">1</span><span class="op">:</span><span class="dv">12</span></span>
+<span id="cb4-8"><a href="#cb4-8"></a>  }</span>
+<span id="cb4-9"><a href="#cb4-9"></a>  <span class="cf">for</span> (month <span class="cf">in</span> <span class="kw">sprintf</span>(<span class="st">&quot;%02d&quot;</span>, months)) {</span>
+<span id="cb4-10"><a href="#cb4-10"></a>    <span class="kw">dir.create</span>(<span class="kw">file.path</span>(<span class="st">&quot;nyc-taxi&quot;</span>, year, month), <span class="dt">recursive =</span> <span class="ot">TRUE</span>)</span>
+<span id="cb4-11"><a href="#cb4-11"></a>    <span class="kw">try</span>(<span class="kw">download.file</span>(</span>
+<span id="cb4-12"><a href="#cb4-12"></a>      <span class="kw">paste</span>(bucket, year, month, <span class="st">&quot;data.parquet&quot;</span>, <span class="dt">sep =</span> <span class="st">&quot;/&quot;</span>),</span>
+<span id="cb4-13"><a href="#cb4-13"></a>      <span class="kw">file.path</span>(<span class="st">&quot;nyc-taxi&quot;</span>, year, month, <span class="st">&quot;data.parquet&quot;</span>),</span>
+<span id="cb4-14"><a href="#cb4-14"></a>      <span class="dt">mode =</span> <span class="st">&quot;wb&quot;</span></span>
+<span id="cb4-15"><a href="#cb4-15"></a>    ), <span class="dt">silent =</span> <span class="ot">TRUE</span>)</span>
+<span id="cb4-16"><a href="#cb4-16"></a>  }</span>
+<span id="cb4-17"><a href="#cb4-17"></a>}</span></code></pre></div>
+<p>Note that these download steps in the vignette are not executed: if you want to run with live data, you’ll have to do it yourself separately. Given the size, if you’re running this locally and don’t have a fast connection, feel free to grab only a year or two of data.</p>
+<p>If you don’t have the taxi data downloaded, the vignette will still run and will yield previously cached output for reference. To be explicit about which version is running, let’s check whether we’re running with live data:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1"></a><span class="kw">dir.exists</span>(<span class="st">&quot;nyc-taxi&quot;</span>)</span></code></pre></div>
+<pre><code>## [1] FALSE</code></pre>
+</div>
+<div id="getting-started" class="section level2">
+<h2>Getting started</h2>
+<p>Because <code>dplyr</code> is not necessary for many Arrow workflows, it is an optional (<code>Suggests</code>) dependency. So, to work with Datasets, we need to load both <code>arrow</code> and <code>dplyr</code>.</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1"></a><span class="kw">library</span>(arrow, <span class="dt">warn.conflicts =</span> <span class="ot">FALSE</span>)</span>
+<span id="cb7-2"><a href="#cb7-2"></a><span class="kw">library</span>(dplyr, <span class="dt">warn.conflicts =</span> <span class="ot">FALSE</span>)</span></code></pre></div>
+<p>The first step is to create our Dataset object, pointing at the directory of data.</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1"></a>ds &lt;-<span class="st"> </span><span class="kw">open_dataset</span>(<span class="st">&quot;nyc-taxi&quot;</span>, <span class="dt">partitioning =</span> <span class="kw">c</span>(<span class="st">&quot;year&quot;</span>, <span class="st">&quot;month&quot;</span>))</span></code></pre></div>
+<p>The default file format for <code>open_dataset()</code> is Parquet; if we had a directory of Arrow format files, we could include <code>format = &quot;arrow&quot;</code> in the call. Other supported formats include: “feather” (an alias for “arrow”, as Feather v2 is the Arrow file format), “csv”, “tsv” (for tab-delimited), and “text” for generic text-delimited files. For text files, you can pass any parsing options (“delim”, “quote”, etc.) to <code>open_dataset()</code> that you would otherwise pass to <code>read_csv_arrow()</code>.</p>
+<p>The <code>partitioning</code> argument lets us specify how the file paths provide information about how the dataset is chunked into different files. Our files in this example have file paths like</p>
+<pre><code>2009/01/data.parquet
+2009/02/data.parquet
+...</code></pre>
+<p>By providing a character vector to <code>partitioning</code>, we’re saying that the first path segment gives the value for “year” and the second segment is “month”. Every row in <code>2009/01/data.parquet</code> has a value of 2009 for “year” and 1 for “month”, even though those columns may not actually be present in the file.</p>
+<p>Indeed, when we look at the dataset, we see that in addition to the columns present in every file, there are also columns “year” and “month”.</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1"></a>ds</span></code></pre></div>
+<pre><code>## 
+## FileSystemDataset with 125 Parquet files
+## vendor_id: string
+## pickup_at: timestamp[us]
+## dropoff_at: timestamp[us]
+## passenger_count: int8
+## trip_distance: float
+## pickup_longitude: float
+## pickup_latitude: float
+## rate_code_id: string
+## store_and_fwd_flag: string
+## dropoff_longitude: float
+## dropoff_latitude: float
+## payment_type: string
+## fare_amount: float
+## extra: float
+## mta_tax: float
+## tip_amount: float
+## tolls_amount: float
+## total_amount: float
+## improvement_surcharge: float
+## pickup_location_id: int32
+## dropoff_location_id: int32
+## congestion_surcharge: float
+## year: int32
+## month: int32
+## 
+## See $metadata for additional Schema metadata</code></pre>
+<p>The other form of partitioning currently supported is <a href="https://hive.apache.org/">Hive</a>-style, in which the partition variable names are included in the path segments. If we had saved our files in paths like</p>
+<pre><code>year=2009/month=01/data.parquet
+year=2009/month=02/data.parquet
+...</code></pre>
+<p>we would not have had to provide the names in <code>partitioning</code>: we could have just called <code>ds &lt;- open_dataset(&quot;nyc-taxi&quot;)</code> and the partitions would have been detected automatically.</p>
+</div>
+<div id="querying-the-dataset" class="section level2">
+<h2>Querying the dataset</h2>
+<p>Up to this point, we haven’t loaded any data: we have walked directories to find files, we’ve parsed file paths to identify partitions, and we’ve read the headers of the Parquet files to inspect their schemas so that we can make sure they all line up.</p>
+<p>In the current release, <code>arrow</code> supports methods for selecting a window of data: <code>select()</code>, <code>rename()</code>, and <code>filter()</code>. Aggregation is not yet supported, nor is deriving or projecting new columns, so before you call <code>summarize()</code> or <code>mutate()</code>, you’ll need to <code>collect()</code> the data first, which pulls your selected window of data into an in-memory R data frame. While we could have made those methods <code>collect()</code> the data they needed automatically and invisibly to the end user, we thought it best to make it explicit when you’re pulling data into memory so that you can construct your queries most efficiently and not be surprised when some query consumes way more resources than expected.</p>
+<p>Here’s an example. Suppose I was curious about tipping behavior among the longest taxi rides. Let’s find the median tip percentage for rides with fares greater than $100 in 2015, broken down by the number of passengers:</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1"></a><span class="kw">system.time</span>(ds <span class="op">%&gt;%</span></span>
+<span id="cb13-2"><a href="#cb13-2"></a><span class="st">  </span><span class="kw">filter</span>(total_amount <span class="op">&gt;</span><span class="st"> </span><span class="dv">100</span>, year <span class="op">==</span><span class="st"> </span><span class="dv">2015</span>) <span class="op">%&gt;%</span></span>
+<span id="cb13-3"><a href="#cb13-3"></a><span class="st">  </span><span class="kw">select</span>(tip_amount, total_amount, passenger_count) <span class="op">%&gt;%</span></span>
+<span id="cb13-4"><a href="#cb13-4"></a><span class="st">  </span><span class="kw">group_by</span>(passenger_count) <span class="op">%&gt;%</span></span>
+<span id="cb13-5"><a href="#cb13-5"></a><span class="st">  </span><span class="kw">collect</span>() <span class="op">%&gt;%</span></span>
+<span id="cb13-6"><a href="#cb13-6"></a><span class="st">  </span><span class="kw">summarize</span>(</span>
+<span id="cb13-7"><a href="#cb13-7"></a>    <span class="dt">tip_pct =</span> <span class="kw">median</span>(<span class="dv">100</span> <span class="op">*</span><span class="st"> </span>tip_amount <span class="op">/</span><span class="st"> </span>total_amount),</span>
+<span id="cb13-8"><a href="#cb13-8"></a>    <span class="dt">n =</span> <span class="kw">n</span>()</span>
+<span id="cb13-9"><a href="#cb13-9"></a>  ) <span class="op">%&gt;%</span></span>
+<span id="cb13-10"><a href="#cb13-10"></a><span class="st">  </span><span class="kw">print</span>())</span></code></pre></div>
+<pre><code>## 
+## # A tibble: 10 x 3
+##    passenger_count tip_pct      n
+##              &lt;int&gt;   &lt;dbl&gt;  &lt;int&gt;
+##  1               0    9.84    380
+##  2               1   16.7  143087
+##  3               2   16.6   34418
+##  4               3   14.4    8922
+##  5               4   11.4    4771
+##  6               5   16.7    5806
+##  7               6   16.7    3338
+##  8               7   16.7      11
+##  9               8   16.7      32
+## 10               9   16.7      42
+## 
+##    user  system elapsed
+##   4.436   1.012   1.402</code></pre>
+<p>We just selected a window out of a dataset with around 2 billion rows and aggregated on it in under 2 seconds on my laptop. How does this work?</p>
+<p>First, <code>select()</code>/<code>rename()</code>, <code>filter()</code>, and <code>group_by()</code> record their actions but don’t evaluate on the data until you run <code>collect()</code>.</p>
+<div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1"></a>ds <span class="op">%&gt;%</span></span>
+<span id="cb15-2"><a href="#cb15-2"></a><span class="st">  </span><span class="kw">filter</span>(total_amount <span class="op">&gt;</span><span class="st"> </span><span class="dv">100</span>, year <span class="op">==</span><span class="st"> </span><span class="dv">2015</span>) <span class="op">%&gt;%</span></span>
+<span id="cb15-3"><a href="#cb15-3"></a><span class="st">  </span><span class="kw">select</span>(tip_amount, total_amount, passenger_count) <span class="op">%&gt;%</span></span>
+<span id="cb15-4"><a href="#cb15-4"></a><span class="st">  </span><span class="kw">group_by</span>(passenger_count)</span></code></pre></div>
+<pre><code>## 
+## FileSystemDataset (query)
+## tip_amount: float
+## total_amount: float
+## passenger_count: int8
+## 
+## * Filter: ((total_amount &gt; 100:double) and (year == 2015:double))
+## * Grouped by passenger_count
+## See $.data for the source Arrow object</code></pre>
+<p>This returns instantly and shows the window selection you’ve made, without loading data from the files. Because the evaluation of these queries is deferred, you can build up a query that selects down to a small window without generating intermediate datasets that would potentially be large.</p>
+<p>Second, all work is pushed down to the individual data files, and depending on the file format, chunks of data within the files. As a result, we can select a window of data from a much larger dataset by collecting the smaller slices from each file–we don’t have to load the whole dataset in memory in order to slice from it.</p>
+<p>Third, because of partitioning, we can ignore some files entirely. In this example, by filtering <code>year == 2015</code>, all files corresponding to other years are immediately excluded: we don’t have to load them in order to find that no rows match the filter. Relatedly, since Parquet files contain row groups with statistics on the data within, there may be entire chunks of data we can avoid scanning because they have no rows where <code>total_amount &gt; 100</code>.</p>
+</div>
+<div id="more-dataset-options" class="section level2">
+<h2>More dataset options</h2>
+<p>There are a few ways you can control the Dataset creation to adapt to special use cases. For one, you can specify a <code>schema</code> argument to declare the columns and their data types. This is useful if you have data files that have different storage schema (for example, a column could be <code>int32</code> in one and <code>int8</code> in another) and you want to ensure that the resulting Dataset has a specific type. To be clear, it’s not necessary to specify a schema, even in this example of mixed integer types, because the Dataset constructor will reconcile differences like these. The schema specification just lets you declare what you want the result to be.</p>
+<p>Similarly, you can provide a Schema in the <code>partitioning</code> argument of <code>open_dataset()</code> in order to declare the types of the virtual columns that define the partitions. This would be useful, in our taxi dataset example, if you wanted to keep “month” as a string instead of an integer for some reason.</p>
+<p>Another feature of Datasets is that they can be composed of multiple data sources. That is, you may have a directory of partitioned Parquet files in one location, and in another directory, files that haven’t been partitioned. Or, you could point to an S3 bucket of Parquet data and a directory of CSVs on the local file system and query them together as a single dataset. To create a multi-source dataset, provide a list of datasets to <code>open_dataset()</code> instead of a file path, or simply concatenate them like <code>big_dataset &lt;- c(ds1, ds2)</code>.</p>
+</div>
+<div id="writing-datasets" class="section level2">
+<h2>Writing datasets</h2>
+<p>As you can see, querying a large dataset can be made quite fast by storage in an efficient binary columnar format like Parquet or Feather and partitioning based on columns commonly used for filtering. However, we don’t always get our data delivered to us that way. Sometimes we start with one giant CSV. Our first step in analyzing data is cleaning is up and reshaping it into a more usable form.</p>
+<p>The <code>write_dataset()</code> function allows you to take a Dataset or other tabular data object—an Arrow <code>Table</code> or <code>RecordBatch</code>, or an R <code>data.frame</code>—and write it to a different file format, partitioned into multiple files.</p>
+<p>Assume we have a version of the NYC Taxi data as CSV:</p>
+<div class="sourceCode" id="cb17"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1"></a>ds &lt;-<span class="st"> </span><span class="kw">open_dataset</span>(<span class="st">&quot;nyc-taxi/csv/&quot;</span>, <span class="dt">format =</span> <span class="st">&quot;csv&quot;</span>)</span></code></pre></div>
+<p>We can write it to a new location and translate the files to the Feather format by calling <code>write_dataset()</code> on it:</p>
+<div class="sourceCode" id="cb18"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1"></a><span class="kw">write_dataset</span>(ds, <span class="st">&quot;nyc-taxi/feather&quot;</span>, <span class="dt">format =</span> <span class="st">&quot;feather&quot;</span>)</span></code></pre></div>
+<p>Next, let’s imagine that the “payment_type” column is something we often filter on, so we want to partition the data by that variable. By doing so we ensure that a filter like <code>payment_type == 3</code> will touch only a subset of files where payment_type is always 3.</p>
+<p>One natural way to express the columns you want to partition on is to use the <code>group_by()</code> method:</p>
+<div class="sourceCode" id="cb19"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1"></a>ds <span class="op">%&gt;%</span></span>
+<span id="cb19-2"><a href="#cb19-2"></a><span class="st">  </span><span class="kw">group_by</span>(payment_type) <span class="op">%&gt;%</span></span>
+<span id="cb19-3"><a href="#cb19-3"></a><span class="st">  </span><span class="kw">write_dataset</span>(<span class="st">&quot;nyc-taxi/feather&quot;</span>, <span class="dt">format =</span> <span class="st">&quot;feather&quot;</span>)</span></code></pre></div>
+<p>This will write files to a directory tree that looks like this:</p>
+<div class="sourceCode" id="cb20"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1"></a><span class="kw">system</span>(<span class="st">&quot;tree nyc-taxi/feather&quot;</span>)</span>
+<span id="cb20-2"><a href="#cb20-2"></a></span>
+<span id="cb20-3"><a href="#cb20-3"></a><span class="co"># feather</span></span>
+<span id="cb20-4"><a href="#cb20-4"></a><span class="co"># ├── payment_type=1</span></span>
+<span id="cb20-5"><a href="#cb20-5"></a><span class="co"># │   └── part-5.feather</span></span>
+<span id="cb20-6"><a href="#cb20-6"></a><span class="co"># ├── payment_type=2</span></span>
+<span id="cb20-7"><a href="#cb20-7"></a><span class="co"># │   └── part-0.feather</span></span>
+<span id="cb20-8"><a href="#cb20-8"></a><span class="co"># ...</span></span>
+<span id="cb20-9"><a href="#cb20-9"></a><span class="co"># └── payment_type=5</span></span>
+<span id="cb20-10"><a href="#cb20-10"></a><span class="co">#     └── part-2.feather</span></span>
+<span id="cb20-11"><a href="#cb20-11"></a><span class="co">#</span></span>
+<span id="cb20-12"><a href="#cb20-12"></a><span class="co"># 5 directories, 25 files</span></span></code></pre></div>
+<p>Note that the directory names are <code>payment_type=1</code> and similar: this is the Hive-style partitioning described above. This means that when we call <code>open_dataset()</code> on this directory, we don’t have to declare what the partitions are because they can be read from the file paths. (To instead write bare values for partition segments, i.e. <code>1</code> rather than <code>payment_type=1</code>, call <code>write_dataset()</code> with <code>hive_style = FALSE</code>.)</p>
+<p>Perhaps, though, <code>payment_type == 3</code> is the only data we ever care about, and we just want to drop the rest and have a smaller working set. For this, we can <code>filter()</code> them out when writing:</p>
+<div class="sourceCode" id="cb21"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1"></a>ds <span class="op">%&gt;%</span></span>
+<span id="cb21-2"><a href="#cb21-2"></a><span class="st">  </span><span class="kw">filter</span>(payment_type <span class="op">==</span><span class="st"> </span><span class="dv">3</span>) <span class="op">%&gt;%</span></span>
+<span id="cb21-3"><a href="#cb21-3"></a><span class="st">  </span><span class="kw">write_dataset</span>(<span class="st">&quot;nyc-taxi/feather&quot;</span>, <span class="dt">format =</span> <span class="st">&quot;feather&quot;</span>)</span></code></pre></div>
+<p>The other thing we can do when writing datasets is select a subset of and/or reorder columns. Suppose we never care about <code>vendor_id</code>, and being a string column, it can take up a lot of space when we read it in, so let’s drop it:</p>
+<div class="sourceCode" id="cb22"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1"></a>ds <span class="op">%&gt;%</span></span>
+<span id="cb22-2"><a href="#cb22-2"></a><span class="st">  </span><span class="kw">group_by</span>(payment_type) <span class="op">%&gt;%</span></span>
+<span id="cb22-3"><a href="#cb22-3"></a><span class="st">  </span><span class="kw">select</span>(<span class="op">-</span>vendor_id) <span class="op">%&gt;%</span></span>
+<span id="cb22-4"><a href="#cb22-4"></a><span class="st">  </span><span class="kw">write_dataset</span>(<span class="st">&quot;nyc-taxi/feather&quot;</span>, <span class="dt">format =</span> <span class="st">&quot;feather&quot;</span>)</span></code></pre></div>
+<p>Note that while you can select a subset of columns, you cannot currently rename columns when writing.</p>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
