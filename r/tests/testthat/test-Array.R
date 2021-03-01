@@ -723,6 +723,15 @@ test_that("[ accepts Arrays and otherwise handles bad input", {
   )
 })
 
+test_that("[ %in% looks up string key in dictionary", {
+  a1 <- Array$create(as.factor(c("A", "B", "C")))
+  a2 <- DictionaryArray$create(c(0L, 1L, 2L), c(4.5, 3.2, 1.1))
+  arrow:::call_function("is_in_meta_binary", a1, Array$create("B"))
+  arrow:::call_function("is_in_meta_binary", a1, Array$create("D"))
+  arrow:::call_function("is_in_meta_binary", a2, Array$create(3.2))
+  expect_error(arrow:::call_function("is_in_meta_binary", a2, Array$create("B")))
+})
+
 test_that("[ accepts Expressions", {
   vec <- 11:20
   a <- Array$create(vec)
