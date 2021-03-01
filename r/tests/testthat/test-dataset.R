@@ -1024,7 +1024,7 @@ expect_scan_result <- function(ds, schm) {
   )
 }
 
-if(arrow_with_parquet) {
+if(arrow_with_parquet()) {
   files <- c(
     file.path(dataset_dir, 1, "file1.parquet", fsep = "/"),
     file.path(dataset_dir, 2, "file2.parquet", fsep = "/")
