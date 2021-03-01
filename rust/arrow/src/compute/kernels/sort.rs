@@ -646,11 +646,8 @@ where
     let mut len = values.len();
     let descending = options.descending;
 
-    match limit {
-        Some(limit) => {
-            len = limit.min(len);
-        }
-        _ => {}
+    if let Some(size) = limit {
+        len = size.min(len);
     }
 
     // we are not using partial_sort here, because array is ArrayRef. Something is not working good in that.
