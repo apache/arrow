@@ -41,6 +41,18 @@ public class VectorLoader {
   private final CompressionCodec.Factory factory;
 
   /**
+   * A flag indicating if decompression actually performed.
+   * This will affect the behavior of releasing buffers.
+   */
+  private boolean decompressionPerformed;
+
+  /**
+   * Decompressed buffers. Such buffers are generated during decompression,
+   * so they need to be released explicitly.
+   */
+  private List<ArrowBuf> decompressedBuffers = new ArrayList<>();
+
+  /**
    * Construct with a root to load and will create children in root based on schema.
    *
    * @param root the root to add vectors to based on schema
@@ -70,6 +82,7 @@ public class VectorLoader {
     Iterator<ArrowBuf> buffers = recordBatch.getBuffers().iterator();
     Iterator<ArrowFieldNode> nodes = recordBatch.getNodes().iterator();
     CompressionCodec codec = factory.createCodec(recordBatch.getBodyCompression().getCodec());
+    decompressionPerformed = !(codec instanceof NoCompressionCodec);
     for (FieldVector fieldVector : root.getFieldVectors()) {
       loadBuffers(fieldVector, fieldVector.getField(), buffers, nodes, codec);
     }
@@ -92,7 +105,12 @@ public class VectorLoader {
     List<ArrowBuf> ownBuffers = new ArrayList<>(bufferLayoutCount);
     for (int j = 0; j < bufferLayoutCount; j++) {
       ArrowBuf nextBuf = buffers.next();
-      ownBuffers.add(codec.decompress(vector.getAllocator(), nextBuf));
+      // for vectors without nulls, the buffer is empty, so there is no need to decompress it.
+      ArrowBuf bufferToAdd = nextBuf.writerIndex() > 0 ? codec.decompress(vector.getAllocator(), nextBuf) : nextBuf;
+      ownBuffers.add(bufferToAdd);
+      if (decompressionPerformed) {
+        decompressedBuffers.add(bufferToAdd);
+      }
     }
     try {
       vector.loadFieldBuffers(fieldNode, ownBuffers);
@@ -114,4 +132,20 @@ public class VectorLoader {
     }
   }
 
+  /**
+   * Checks if decompression actually performed.
+   */
+  public boolean isDecompressionPerformed() {
+    return decompressionPerformed;
+  }
+
+  /**
+   * Release decompressed buffers.
+   */
+  public void releaseDecompressedBuffers() {
+    for (ArrowBuf buf : decompressedBuffers) {
+      buf.close();
+    }
+    decompressedBuffers.clear();
+  }
 }

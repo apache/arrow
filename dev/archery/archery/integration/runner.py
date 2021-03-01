@@ -135,9 +135,10 @@ class IntegrationRunner(object):
                 skip.add("Rust")
             if prefix == '2.0.0-compression':
                 skip.add("Go")
-                skip.add("Java")
                 skip.add("JS")
                 skip.add("Rust")
+            if name == 'zstd':
+                skip.add("Java")
             yield datagen.File(name, None, None, skip=skip, path=out_path)
 
     def _run_test_cases(self, producer, consumer, case_runner,

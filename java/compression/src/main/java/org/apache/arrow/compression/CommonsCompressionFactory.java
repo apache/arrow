@@ -26,6 +26,8 @@ import org.apache.arrow.vector.compression.NoCompressionCodec;
  */
 public class CommonsCompressionFactory implements CompressionCodec.Factory {
 
+  public static final CommonsCompressionFactory INSTANCE = new CommonsCompressionFactory();
+
   @Override
   public CompressionCodec createCodec(byte codecType) {
     switch (codecType) {

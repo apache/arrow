@@ -25,6 +25,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.channels.Channels;
 
+import org.apache.arrow.compression.CommonsCompressionFactory;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -40,7 +41,7 @@ public class StreamToFile {
    */
   public static void convert(InputStream in, OutputStream out) throws IOException {
     BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
-    try (ArrowStreamReader reader = new ArrowStreamReader(in, allocator)) {
+    try (ArrowStreamReader reader = new ArrowStreamReader(in, allocator, CommonsCompressionFactory.INSTANCE)) {
       VectorSchemaRoot root = reader.getVectorSchemaRoot();
       // load the first batch before instantiating the writer so that we have any dictionaries.
       // Only writeBatches if we load the first one.
