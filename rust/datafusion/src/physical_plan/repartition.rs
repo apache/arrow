@@ -18,10 +18,10 @@
 //! The repartition operator maps N input partitions to M output partitions based on a
 //! partitioning scheme.
 
-use std::{any::Any, collections::HashMap, vec};
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
+use std::{any::Any, collections::HashMap, vec};
 
 use crate::error::{DataFusionError, Result};
 use crate::physical_plan::{ExecutionPlan, Partitioning};
@@ -35,7 +35,10 @@ use async_trait::async_trait;
 
 use futures::stream::Stream;
 use futures::StreamExt;
-use tokio::sync::{Mutex, mpsc::{UnboundedReceiver, UnboundedSender}};
+use tokio::sync::{
+    mpsc::{UnboundedReceiver, UnboundedSender},
+    Mutex,
+};
 use tokio::task::JoinHandle;
 
 type MaybeBatch = Option<ArrowResult<RecordBatch>>;
@@ -50,7 +53,11 @@ pub struct RepartitionExec {
     partitioning: Partitioning,
     /// Channels for sending batches from input partitions to output partitions.
     /// Key is the partition number
-    channels: Arc<Mutex<HashMap<usize, (UnboundedSender<MaybeBatch>, UnboundedReceiver<MaybeBatch>)>>>,
+    channels: Arc<
+        Mutex<
+            HashMap<usize, (UnboundedSender<MaybeBatch>, UnboundedReceiver<MaybeBatch>)>,
+        >,
+    >,
 }
 
 impl RepartitionExec {
@@ -117,7 +124,9 @@ impl ExecutionPlan for RepartitionExec {
                 // being read yet. This may cause high memory usage if the next operator is
                 // reading output partitions in order rather than concurrently. One workaround
                 // for this would be to add spill-to-disk capabilities.
-                let (sender, receiver) = tokio::sync::mpsc::unbounded_channel::<Option<ArrowResult<RecordBatch>>>();
+                let (sender, receiver) = tokio::sync::mpsc::unbounded_channel::<
+                    Option<ArrowResult<RecordBatch>>,
+                >();
                 channels.insert(partition, (sender, receiver));
             }
             let random = ahash::RandomState::new();
@@ -128,7 +137,7 @@ impl ExecutionPlan for RepartitionExec {
                 let input = self.input.clone();
                 let mut txs: HashMap<_, _> = channels
                     .iter()
-                    .map(|(partition, (tx, _rx))| (*partition, tx.clone()) )
+                    .map(|(partition, (tx, _rx))| (*partition, tx.clone()))
                     .collect();
                 let partitioning = self.partitioning.clone();
                 let _: JoinHandle<Result<()>> = tokio::spawn(async move {
@@ -211,7 +220,6 @@ impl ExecutionPlan for RepartitionExec {
             }
         }
 
-
         // now return stream for the specified *output* partition which will
         // read from the channel
         Ok(Box::pin(RepartitionStream {
@@ -266,7 +274,7 @@ impl Stream for RepartitionStream {
                     // other partitions still have data to send
                     self.poll_next(cx)
                 }
-            },
+            }
             Poll::Ready(None) => Poll::Ready(None),
             Poll::Pending => Poll::Pending,
         }
