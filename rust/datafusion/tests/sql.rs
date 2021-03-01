@@ -2219,7 +2219,7 @@ async fn test_interval_expressions() -> Result<()> {
 }
 
 #[tokio::test]
-#[cfg_attr(not(feature = "crypto-functions"), ignore)]
+#[cfg_attr(not(feature = "crypto_expressions"), ignore)]
 async fn test_crypto_expressions() -> Result<()> {
     test_expression!("md5('tom')", "34b7da764b21d298ef307d04d8152dc5");
     test_expression!("md5('')", "d41d8cd98f00b204e9800998ecf8427e");

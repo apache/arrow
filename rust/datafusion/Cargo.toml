@@ -40,10 +40,10 @@ name = "datafusion-cli"
 path = "src/bin/main.rs"
 
 [features]
-default = ["cli", "crypto-functions"]
+default = ["cli", "crypto_expressions"]
 cli = ["rustyline"]
 simd = ["arrow/simd"]
-crypto-functions = ["md-5", "sha2"]
+crypto_expressions = ["md-5", "sha2"]
 
 [dependencies]
 ahash = "0.7"
