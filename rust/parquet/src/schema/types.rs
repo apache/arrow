@@ -1011,6 +1011,8 @@ fn from_thrift_helper(
 }
 
 /// Method to convert to Thrift.
+/// The `writer_version` is used to determine whether to populate `LogicalType`.
+/// Only the `ConvertedType` is populated if using version 1 of the writer.
 pub fn to_thrift(schema: &Type, writer_version: i32) -> Result<Vec<SchemaElement>> {
     if !schema.is_group() {
         return Err(general_err!("Root schema must be Group type"));

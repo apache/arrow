@@ -27,7 +27,7 @@ use crate::errors::ParquetError;
 // Re-export parquet_format types used in this module
 pub use parquet_format::{
     BsonType, DateType, DecimalType, EnumType, IntType, JsonType, ListType, MapType,
-    NullType, StringType, TimeType, TimestampType, UUIDType,
+    NullType, StringType, TimeType, TimeUnit, TimestampType, UUIDType,
 };
 
 // ----------------------------------------------------------------------
@@ -397,10 +397,7 @@ impl ColumnOrder {
             // When looking for NaN values, min and max should be ignored.
             Type::FLOAT | Type::DOUBLE => SortOrder::SIGNED,
             // Unsigned byte-wise comparison
-            Type::BYTE_ARRAY => SortOrder::UNSIGNED,
-            // Only unsigned if there was a logical type that supports unsigned sort.
-            // Interval has no defined sort order, and should not use UNSIGNED.
-            Type::FIXED_LEN_BYTE_ARRAY => SortOrder::UNDEFINED,
+            Type::BYTE_ARRAY | Type::FIXED_LEN_BYTE_ARRAY => SortOrder::UNSIGNED,
         }
     }
 
@@ -630,14 +627,14 @@ impl From<Option<LogicalType>> for ConvertedType {
                 LogicalType::DECIMAL(_) => ConvertedType::DECIMAL,
                 LogicalType::DATE(_) => ConvertedType::DATE,
                 LogicalType::TIME(t) => match t.unit {
-                    parquet::TimeUnit::MILLIS(_) => ConvertedType::TIME_MILLIS,
-                    parquet::TimeUnit::MICROS(_) => ConvertedType::TIME_MICROS,
-                    parquet::TimeUnit::NANOS(_) => ConvertedType::NONE,
+                    TimeUnit::MILLIS(_) => ConvertedType::TIME_MILLIS,
+                    TimeUnit::MICROS(_) => ConvertedType::TIME_MICROS,
+                    TimeUnit::NANOS(_) => ConvertedType::NONE,
                 },
                 LogicalType::TIMESTAMP(t) => match t.unit {
-                    parquet::TimeUnit::MILLIS(_) => ConvertedType::TIMESTAMP_MILLIS,
-                    parquet::TimeUnit::MICROS(_) => ConvertedType::TIMESTAMP_MICROS,
-                    parquet::TimeUnit::NANOS(_) => ConvertedType::NONE,
+                    TimeUnit::MILLIS(_) => ConvertedType::TIMESTAMP_MILLIS,
+                    TimeUnit::MICROS(_) => ConvertedType::TIMESTAMP_MICROS,
+                    TimeUnit::NANOS(_) => ConvertedType::NONE,
                 },
                 LogicalType::INTEGER(t) => match (t.bit_width, t.is_signed) {
                     (8, true) => ConvertedType::INT_8,
@@ -834,7 +831,7 @@ impl str::FromStr for ConvertedType {
             "JSON" => Ok(ConvertedType::JSON),
             "BSON" => Ok(ConvertedType::BSON),
             "INTERVAL" => Ok(ConvertedType::INTERVAL),
-            other => Err(general_err!("Invalid logical type {}", other)),
+            other => Err(general_err!("Invalid converted type {}", other)),
         }
     }
 }
@@ -877,50 +874,50 @@ impl str::FromStr for LogicalType {
                 is_signed: false,
             })),
             "MAP" => Ok(LogicalType::MAP(MapType {})),
-            // "MAP_KEY_VALUE" => Ok(ConvertedType::MAP_KEY_VALUE),
             "LIST" => Ok(LogicalType::LIST(ListType {})),
             "ENUM" => Ok(LogicalType::ENUM(EnumType {})),
-            // "DECIMAL" => Ok(ConvertedType::DECIMAL),
+            // TODO: ARROW-11365
+            // "DECIMAL" => Ok(LogicalType::DECIMAL),
             "DATE" => Ok(LogicalType::DATE(DateType {})),
             "TIME(MILLIS,true)" => Ok(LogicalType::TIME(TimeType {
                 is_adjusted_to_u_t_c: true,
-                unit: parquet::TimeUnit::MILLIS(parquet::MilliSeconds {}),
+                unit: TimeUnit::MILLIS(parquet::MilliSeconds {}),
             })),
             "TIME(MILLIS,false)" => Ok(LogicalType::TIME(TimeType {
                 is_adjusted_to_u_t_c: false,
-                unit: parquet::TimeUnit::MILLIS(parquet::MilliSeconds {}),
+                unit: TimeUnit::MILLIS(parquet::MilliSeconds {}),
             })),
             "TIME(MICROS,true)" => Ok(LogicalType::TIME(TimeType {
                 is_adjusted_to_u_t_c: true,
-                unit: parquet::TimeUnit::MICROS(parquet::MicroSeconds {}),
+                unit: TimeUnit::MICROS(parquet::MicroSeconds {}),
             })),
             "TIME(MICROS,false)" => Ok(LogicalType::TIME(TimeType {
                 is_adjusted_to_u_t_c: false,
-                unit: parquet::TimeUnit::MICROS(parquet::MicroSeconds {}),
+                unit: TimeUnit::MICROS(parquet::MicroSeconds {}),
             })),
             "TIMESTAMP(MILLIS,true)" => Ok(LogicalType::TIMESTAMP(TimestampType {
                 is_adjusted_to_u_t_c: true,
-                unit: parquet::TimeUnit::MILLIS(parquet::MilliSeconds {}),
+                unit: TimeUnit::MILLIS(parquet::MilliSeconds {}),
             })),
             "TIMESTAMP(MILLIS,false)" => Ok(LogicalType::TIMESTAMP(TimestampType {
                 is_adjusted_to_u_t_c: false,
-                unit: parquet::TimeUnit::MILLIS(parquet::MilliSeconds {}),
+                unit: TimeUnit::MILLIS(parquet::MilliSeconds {}),
             })),
             "TIMESTAMP(MICROS,true)" => Ok(LogicalType::TIMESTAMP(TimestampType {
                 is_adjusted_to_u_t_c: true,
-                unit: parquet::TimeUnit::MICROS(parquet::MicroSeconds {}),
+                unit: TimeUnit::MICROS(parquet::MicroSeconds {}),
             })),
             "TIMESTAMP(MICROS,false)" => Ok(LogicalType::TIMESTAMP(TimestampType {
                 is_adjusted_to_u_t_c: false,
-                unit: parquet::TimeUnit::MICROS(parquet::MicroSeconds {}),
+                unit: TimeUnit::MICROS(parquet::MicroSeconds {}),
             })),
             "TIMESTAMP(NANOS,true)" => Ok(LogicalType::TIMESTAMP(TimestampType {
                 is_adjusted_to_u_t_c: true,
-                unit: parquet::TimeUnit::MICROS(parquet::MicroSeconds {}),
+                unit: TimeUnit::MICROS(parquet::MicroSeconds {}),
             })),
             "TIMESTAMP(NANOS,false)" => Ok(LogicalType::TIMESTAMP(TimestampType {
                 is_adjusted_to_u_t_c: false,
-                unit: parquet::TimeUnit::MICROS(parquet::MicroSeconds {}),
+                unit: TimeUnit::MICROS(parquet::MicroSeconds {}),
             })),
             "STRING" => Ok(LogicalType::STRING(StringType {})),
             "JSON" => Ok(LogicalType::JSON(JsonType {})),
@@ -1435,42 +1432,42 @@ mod tests {
         );
         assert_eq!(
             ConvertedType::from(Some(LogicalType::TIME(TimeType {
-                unit: parquet::TimeUnit::MILLIS(Default::default()),
+                unit: TimeUnit::MILLIS(Default::default()),
                 is_adjusted_to_u_t_c: true,
             }))),
             ConvertedType::TIME_MILLIS
         );
         assert_eq!(
             ConvertedType::from(Some(LogicalType::TIME(TimeType {
-                unit: parquet::TimeUnit::MICROS(Default::default()),
+                unit: TimeUnit::MICROS(Default::default()),
                 is_adjusted_to_u_t_c: true,
             }))),
             ConvertedType::TIME_MICROS
         );
         assert_eq!(
             ConvertedType::from(Some(LogicalType::TIME(TimeType {
-                unit: parquet::TimeUnit::NANOS(Default::default()),
+                unit: TimeUnit::NANOS(Default::default()),
                 is_adjusted_to_u_t_c: false,
             }))),
             ConvertedType::NONE
         );
         assert_eq!(
             ConvertedType::from(Some(LogicalType::TIMESTAMP(TimestampType {
-                unit: parquet::TimeUnit::MILLIS(Default::default()),
+                unit: TimeUnit::MILLIS(Default::default()),
                 is_adjusted_to_u_t_c: true,
             }))),
             ConvertedType::TIMESTAMP_MILLIS
         );
         assert_eq!(
             ConvertedType::from(Some(LogicalType::TIMESTAMP(TimestampType {
-                unit: parquet::TimeUnit::MICROS(Default::default()),
+                unit: TimeUnit::MICROS(Default::default()),
                 is_adjusted_to_u_t_c: false,
             }))),
             ConvertedType::TIMESTAMP_MICROS
         );
         assert_eq!(
             ConvertedType::from(Some(LogicalType::TIMESTAMP(TimestampType {
-                unit: parquet::TimeUnit::NANOS(Default::default()),
+                unit: TimeUnit::NANOS(Default::default()),
                 is_adjusted_to_u_t_c: false,
             }))),
             ConvertedType::NONE
@@ -1811,9 +1808,110 @@ mod tests {
     }
 
     #[test]
-    fn test_column_order_get_sort_order() {
+    fn test_column_order_get_logical_type_sort_order() {
         // Helper to check the order in a list of values.
         // Only logical type is checked.
+        fn check_sort_order(types: Vec<LogicalType>, expected_order: SortOrder) {
+            for tpe in types {
+                assert_eq!(
+                    ColumnOrder::get_sort_order(
+                        Some(tpe),
+                        ConvertedType::NONE,
+                        Type::BYTE_ARRAY
+                    ),
+                    expected_order
+                );
+            }
+        }
+
+        // Unsigned comparison (physical type does not matter)
+        let unsigned = vec![
+            LogicalType::STRING(Default::default()),
+            LogicalType::JSON(Default::default()),
+            LogicalType::BSON(Default::default()),
+            LogicalType::ENUM(Default::default()),
+            LogicalType::UUID(Default::default()),
+            LogicalType::INTEGER(IntType {
+                bit_width: 8,
+                is_signed: false,
+            }),
+            LogicalType::INTEGER(IntType {
+                bit_width: 16,
+                is_signed: false,
+            }),
+            LogicalType::INTEGER(IntType {
+                bit_width: 32,
+                is_signed: false,
+            }),
+            LogicalType::INTEGER(IntType {
+                bit_width: 64,
+                is_signed: false,
+            }),
+        ];
+        check_sort_order(unsigned, SortOrder::UNSIGNED);
+
+        // Signed comparison (physical type does not matter)
+        let signed = vec![
+            LogicalType::INTEGER(IntType {
+                bit_width: 8,
+                is_signed: true,
+            }),
+            LogicalType::INTEGER(IntType {
+                bit_width: 8,
+                is_signed: true,
+            }),
+            LogicalType::INTEGER(IntType {
+                bit_width: 8,
+                is_signed: true,
+            }),
+            LogicalType::INTEGER(IntType {
+                bit_width: 8,
+                is_signed: true,
+            }),
+            LogicalType::DECIMAL(DecimalType {
+                scale: 20,
+                precision: 4,
+            }),
+            LogicalType::DATE(Default::default()),
+            LogicalType::TIME(TimeType {
+                is_adjusted_to_u_t_c: false,
+                unit: TimeUnit::MILLIS(Default::default()),
+            }),
+            LogicalType::TIME(TimeType {
+                is_adjusted_to_u_t_c: false,
+                unit: TimeUnit::MICROS(Default::default()),
+            }),
+            LogicalType::TIME(TimeType {
+                is_adjusted_to_u_t_c: true,
+                unit: TimeUnit::NANOS(Default::default()),
+            }),
+            LogicalType::TIMESTAMP(TimestampType {
+                is_adjusted_to_u_t_c: false,
+                unit: TimeUnit::MILLIS(Default::default()),
+            }),
+            LogicalType::TIMESTAMP(TimestampType {
+                is_adjusted_to_u_t_c: false,
+                unit: TimeUnit::MICROS(Default::default()),
+            }),
+            LogicalType::TIMESTAMP(TimestampType {
+                is_adjusted_to_u_t_c: true,
+                unit: TimeUnit::NANOS(Default::default()),
+            }),
+        ];
+        check_sort_order(signed, SortOrder::SIGNED);
+
+        // Undefined comparison
+        let undefined = vec![
+            LogicalType::LIST(Default::default()),
+            LogicalType::MAP(Default::default()),
+        ];
+        check_sort_order(undefined, SortOrder::UNDEFINED);
+    }
+
+    #[test]
+    fn test_column_order_get_coverted_type_sort_order() {
+        // Helper to check the order in a list of values.
+        // Only converted type is checked.
         fn check_sort_order(types: Vec<ConvertedType>, expected_order: SortOrder) {
             for tpe in types {
                 assert_eq!(
@@ -1898,7 +1996,7 @@ mod tests {
         );
         assert_eq!(
             ColumnOrder::get_default_sort_order(Type::FIXED_LEN_BYTE_ARRAY),
-            SortOrder::UNDEFINED
+            SortOrder::UNSIGNED
         );
     }
 
