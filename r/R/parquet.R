@@ -28,11 +28,13 @@
 #' `TRUE` (the default).
 #' @examples
 #' \donttest{
-#' tf <- tempfile()
-#' on.exit(unlink(tf))
-#' write_parquet(mtcars, tf)
-#' df <- read_parquet(tf, col_select = starts_with("d"))
-#' head(df)
+#' if (arrow_with_parquet()) {
+#'   tf <- tempfile()
+#'   on.exit(unlink(tf))
+#'   write_parquet(mtcars, tf)
+#'   df <- read_parquet(tf, col_select = starts_with("d"))
+#'   head(df)
+#' }
 #' }
 #' @export
 read_parquet <- function(file,
@@ -123,13 +125,15 @@ read_parquet <- function(file,
 #'
 #' @examples
 #' \donttest{
-#' tf1 <- tempfile(fileext = ".parquet")
-#' write_parquet(data.frame(x = 1:5), tf1)
+#' if (arrow_with_parquet()) {
+#'   tf1 <- tempfile(fileext = ".parquet")
+#'   write_parquet(data.frame(x = 1:5), tf1)
 #'
-#' # using compression
-#' if (codec_is_available("gzip")) {
-#'   tf2 <- tempfile(fileext = ".gz.parquet")
-#'   write_parquet(data.frame(x = 1:5), tf2, compression = "gzip", compression_level = 5)
+#'   # using compression
+#'   if (codec_is_available("gzip")) {
+#'     tf2 <- tempfile(fileext = ".gz.parquet")
+#'     write_parquet(data.frame(x = 1:5), tf2, compression = "gzip", compression_level = 5)
+#'   }
 #' }
 #' }
 #' @export
@@ -450,13 +454,15 @@ ParquetFileWriter$create <- function(schema,
 #' @export
 #' @examples
 #' \donttest{
-#' f <- system.file("v0.7.1.parquet", package="arrow")
-#' pq <- ParquetFileReader$create(f)
-#' pq$GetSchema()
-#' if (codec_is_available("snappy")) {
-#'   # This file has compressed data columns
-#'   tab <- pq$ReadTable()
-#'   tab$schema
+#' if (arrow_with_parquet()) {
+#'   f <- system.file("v0.7.1.parquet", package="arrow")
+#'   pq <- ParquetFileReader$create(f)
+#'   pq$GetSchema()
+#'   if (codec_is_available("snappy")) {
+#'     # This file has compressed data columns
+#'     tab <- pq$ReadTable()
+#'     tab$schema
+#'   }
 #' }
 #' }
 #' @include arrow-package.R

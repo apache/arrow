@@ -41,7 +41,7 @@
 # #if defined(ARROW_R_WITH_FEATURE)
 # and each feature is written to its own set of export files.
 
-features <- c("arrow", "s3")
+features <- c("arrow", "dataset", "parquet", "s3")
 
 suppressPackageStartupMessages({
   library(decor)
@@ -194,10 +194,16 @@ arrow_exports_cpp <- glue::glue('
 
 {feature_available("arrow")}
 
+{feature_available("dataset")}
+
+{feature_available("parquet")}
+
 {feature_available("s3")}
 
 static const R_CallMethodDef CallEntries[] = {{
 \t\t{{ "_arrow_available", (DL_FUNC)& _arrow_available, 0 }},
+\t\t{{ "_dataset_available", (DL_FUNC)& _dataset_available, 0 }},
+\t\t{{ "_parquet_available", (DL_FUNC)& _parquet_available, 0 }},
 \t\t{{ "_s3_available", (DL_FUNC)& _s3_available, 0 }},
 {cpp_functions_registration}
 {classes_finalizers_registration}

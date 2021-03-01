@@ -46,13 +46,15 @@ The optional \verb{column_indices=} argument is a 0-based integer vector indicat
 
 \examples{
 \donttest{
-f <- system.file("v0.7.1.parquet", package="arrow")
-pq <- ParquetFileReader$create(f)
-pq$GetSchema()
-if (codec_is_available("snappy")) {
-  # This file has compressed data columns
-  tab <- pq$ReadTable()
-  tab$schema
+if (arrow_with_parquet()) {
+  f <- system.file("v0.7.1.parquet", package="arrow")
+  pq <- ParquetFileReader$create(f)
+  pq$GetSchema()
+  if (codec_is_available("snappy")) {
+    # This file has compressed data columns
+    tab <- pq$ReadTable()
+    tab$schema
+  }
 }
 }
 }
