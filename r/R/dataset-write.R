@@ -55,14 +55,32 @@
 #' @return The input `dataset`, invisibly
 #' @examples
 #' \donttest{
-#' # we can group by cyl, cyl and gear or even more variables
-#' write_dataset(mtcars, tempdir(), "feather", partitioning = "cyl"))
-#' write_dataset(mtcars, tempdir(), "feather", partitioning = c("cyl", "gear"))
+#' # We can partition by one more variables
+#' one_part_dir <- tempfile()
+#' two_part_dir <- tempfile()
 #'
-#' # the latter example is the same as the following dplyr chained statement
-#' # mtcars %>%
-#' #  group_by(cyl, gear) %>%
-#' #  write_dataset(dout2, "feather")
+#' write_dataset(mtcars, one_part_dir, "parquet", partitioning = "cyl")
+#' write_dataset(mtcars, two_part_dir, "parquet", partitioning = c("cyl", "gear"))
+#'
+#' list.files(two_part_dir, pattern = "parquet", recursive = TRUE)
+#'
+#' if(requireNamespace("dplyr")) {
+#'  two_part_dir_2 <- tempfile()
+#'  two_part_dir_3 <- tempfile()
+#'
+#'  d <- dplyr::group_by(mtcars, cyl, gear)
+#'
+#'  d %>%
+#'   write_dataset(two_part_dir_2, "parquet")
+#'
+#'  # Just passing an additional hive_style option to see the difference
+#'  # in the output
+#'
+#'  d %>%
+#'   write_dataset(two_part_dir_2, "parquet", hive_style = FALSE)
+#'
+#'  list.files(two_part_dir_2, pattern = "parquet", recursive = TRUE)
+#'  list.files(two_part_dir_3, pattern = "parquet", recursive = TRUE)
 #' }
 #' @export
 write_dataset <- function(dataset,
