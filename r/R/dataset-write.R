@@ -68,7 +68,8 @@
 #'  two_part_dir_2 <- tempfile()
 #'  two_part_dir_3 <- tempfile()
 #'
-#'  d <- dplyr::group_by(mtcars, cyl, gear)
+#'  d <- mtcars %>%
+#'   group_by(cyl, gear)
 #'
 #'  d %>%
 #'   write_dataset(two_part_dir_2, "parquet")
