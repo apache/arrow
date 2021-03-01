@@ -415,4 +415,32 @@ mod tests {
         }
         Ok(output_partitions)
     }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn many_to_many_round_robin_within_tokio_task() -> Result<()> {
+        let join_handle: JoinHandle<Result<Vec<Vec<RecordBatch>>>> =
+            tokio::spawn(async move {
+                // define input partitions
+                let schema = test_schema();
+                let partition = create_vec_batches(&schema, 50);
+                let partitions =
+                    vec![partition.clone(), partition.clone(), partition.clone()];
+
+                // repartition from 3 input to 5 output
+                repartition(&schema, partitions, Partitioning::RoundRobinBatch(5)).await
+            });
+
+        let output_partitions = join_handle
+            .await
+            .map_err(|e| DataFusionError::Internal(e.to_string()))??;
+
+        assert_eq!(5, output_partitions.len());
+        assert_eq!(30, output_partitions[0].len());
+        assert_eq!(30, output_partitions[1].len());
+        assert_eq!(30, output_partitions[2].len());
+        assert_eq!(30, output_partitions[3].len());
+        assert_eq!(30, output_partitions[4].len());
+
+        Ok(())
+    }
 }
