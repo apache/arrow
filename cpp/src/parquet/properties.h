@@ -613,7 +613,7 @@ class PARQUET_EXPORT ArrowReaderProperties {
   /// implementation for characteristics of different filesystems.
   void set_cache_options(::arrow::io::CacheOptions options) { cache_options_ = options; }
 
-  ::arrow::io::CacheOptions cache_options() const { return cache_options_; }
+  const ::arrow::io::CacheOptions& cache_options() const { return cache_options_; }
 
   /// Set execution context for read coalescing.
   void set_io_context(const ::arrow::io::IOContext& ctx) { io_context_ = ctx; }

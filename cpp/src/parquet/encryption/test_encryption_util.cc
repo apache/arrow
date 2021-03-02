@@ -284,6 +284,7 @@ void FileEncryptor::EncryptFile(
 
   // Close the ParquetFileWriter
   file_writer->Close();
+  PARQUET_THROW_NOT_OK(out_file->Close());
 
   return;
 }  // namespace test
@@ -334,7 +335,10 @@ void FileDecryptor::DecryptFile(
     reader_properties.file_decryption_properties(file_decryption_properties->DeepClone());
   }
 
-  auto file_reader = parquet::ParquetFileReader::OpenFile(file, false, reader_properties);
+  std::shared_ptr<::arrow::io::RandomAccessFile> source;
+  PARQUET_ASSIGN_OR_THROW(
+      source, ::arrow::io::ReadableFile::Open(file, reader_properties.memory_pool()));
+  auto file_reader = parquet::ParquetFileReader::Open(source, reader_properties);
 
   // Get the File MetaData
   std::shared_ptr<parquet::FileMetaData> file_metadata = file_reader->metadata();
@@ -475,6 +479,7 @@ void FileDecryptor::DecryptFile(
     ASSERT_EQ(flba_md->num_values(), i);
   }
   file_reader->Close();
+  PARQUET_THROW_NOT_OK(source->Close());
 }
 
 }  // namespace test

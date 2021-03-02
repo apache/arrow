@@ -917,10 +917,10 @@ cdef class Fragment(_Weakrefable):
         """Return the physical schema of this Fragment. This schema can be
         different from the dataset read schema."""
         cdef:
-            shared_ptr[CSchema] c_schema
-
-        c_schema = GetResultValue(self.fragment.ReadPhysicalSchema())
-        return pyarrow_wrap_schema(c_schema)
+            CResult[shared_ptr[CSchema]] maybe_schema
+        with nogil:
+            maybe_schema = self.fragment.ReadPhysicalSchema()
+        return pyarrow_wrap_schema(GetResultValue(maybe_schema))
 
     @property
     def partition_expression(self):

@@ -21,6 +21,8 @@
 #include <memory>
 #include <vector>
 
+#include "arrow/util/async_generator.h"
+#include "arrow/util/optional.h"
 #include "parquet/file_reader.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
@@ -177,6 +179,19 @@ class PARQUET_EXPORT FileReader {
   virtual ::arrow::Status GetRecordBatchReader(
       const std::vector<int>& row_group_indices, const std::vector<int>& column_indices,
       std::unique_ptr<::arrow::RecordBatchReader>* out) = 0;
+
+  /// \brief Return a generator of record batches.
+  ///
+  /// The FileReader must outlive the generator, so this requires that you pass in a
+  /// shared_ptr.
+  ///
+  /// \returns error Result if either row_group_indices or column_indices contains an
+  ///     invalid index
+  virtual ::arrow::Result<::arrow::AsyncGenerator<std::shared_ptr<::arrow::RecordBatch>>>
+  GetRecordBatchGenerator(std::shared_ptr<FileReader> reader,
+                          const std::vector<int> row_group_indices,
+                          const std::vector<int> column_indices,
+                          ::arrow::internal::Executor* executor = NULLPTR) = 0;
 
   ::arrow::Status GetRecordBatchReader(const std::vector<int>& row_group_indices,
                                        const std::vector<int>& column_indices,
