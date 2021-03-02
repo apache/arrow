@@ -56,11 +56,12 @@
 #' @export
 write_dataset <- function(dataset,
                           path,
-                          format = dataset$format,
+                          format = c("parquet", "feather", "arrow", "ipc"),
                           partitioning = dplyr::group_vars(dataset),
                           basename_template = paste0("part-{i}.", as.character(format)),
                           hive_style = TRUE,
                           ...) {
+  format <- match.arg(format)
   if (inherits(dataset, "arrow_dplyr_query")) {
     if (inherits(dataset$.data, "ArrowTabular")) {
       # collect() to materialize any mutate/rename
