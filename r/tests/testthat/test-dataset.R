@@ -1066,6 +1066,13 @@ test_that("Writing a dataset: Not specified format", {
   dst_dir <- make_temp_dir()
   write_dataset(mtcars, dst_dir)
   new_ds <- open_dataset(dst_dir)
+  expect_equal(
+    list.files(dst_dir, pattern = "parquet"),
+    "part-0.parquet"
+  )
+  expect_true(
+    inherits(new_ds$format, "ParquetFileFormat")
+  )
   expect_equivalent(
     new_ds %>% collect(),
     mtcars
