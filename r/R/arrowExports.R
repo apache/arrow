@@ -136,22 +136,6 @@ LargeListArray__raw_value_offsets <- function(array){
     .Call(`_arrow_LargeListArray__raw_value_offsets`, array)
 }
 
-Array__infer_type <- function(x){
-    .Call(`_arrow_Array__infer_type`, x)
-}
-
-Array__from_vector <- function(x, s_type){
-    .Call(`_arrow_Array__from_vector`, x, s_type)
-}
-
-ChunkedArray__from_list <- function(chunks, s_type){
-    .Call(`_arrow_ChunkedArray__from_list`, chunks, s_type)
-}
-
-DictionaryArray__FromArrays <- function(type, indices, dict){
-    .Call(`_arrow_DictionaryArray__FromArrays`, type, indices, dict)
-}
-
 Array__as_vector <- function(array){
     .Call(`_arrow_Array__as_vector`, array)
 }
@@ -262,6 +246,10 @@ ChunkedArray__Equals <- function(x, y){
 
 ChunkedArray__ToString <- function(x){
     .Call(`_arrow_ChunkedArray__ToString`, x)
+}
+
+ChunkedArray__from_list <- function(chunks, s_type){
+    .Call(`_arrow_ChunkedArray__from_list`, chunks, s_type)
 }
 
 util___Codec__Create <- function(codec, compression_level){
@@ -1280,6 +1268,14 @@ ExportRecordBatch <- function(batch, array_ptr, schema_ptr){
     invisible(.Call(`_arrow_ExportRecordBatch`, batch, array_ptr, schema_ptr))
 }
 
+vec_to_arrow <- function(x, s_type){
+    .Call(`_arrow_vec_to_arrow`, x, s_type)
+}
+
+DictionaryArray__FromArrays <- function(type, indices, dict){
+    .Call(`_arrow_DictionaryArray__FromArrays`, type, indices, dict)
+}
+
 RecordBatch__num_columns <- function(x){
     .Call(`_arrow_RecordBatch__num_columns`, x)
 }
@@ -1598,6 +1594,10 @@ GetCpuThreadPoolCapacity <- function(){
 
 SetCpuThreadPoolCapacity <- function(threads){
     invisible(.Call(`_arrow_SetCpuThreadPoolCapacity`, threads))
+}
+
+Array__infer_type <- function(x){
+    .Call(`_arrow_Array__infer_type`, x)
 }
 
 
