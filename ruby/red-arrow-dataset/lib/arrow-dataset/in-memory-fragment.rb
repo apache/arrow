@@ -15,22 +15,18 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestInMemoryScanTask < Test::Unit::TestCase
-  def setup
-    @record_batches = [
-      Arrow::RecordBatch.new(visible: [true, false, true],
-                             point: [1, 2, 3]),
-    ]
-  end
-
-  sub_test_case(".new") do
-    test("[[Arrow::RecordBatch]]") do
-      fragment = ArrowDataset::InMemoryFragment.new(@record_batches.first.schema,
-                                                    @record_batches)
-      scan_task = ArrowDataset::InMemoryScanTask.new(@record_batches,
-                                                     fragment: fragment)
-      assert_equal(@record_batches,
-                   scan_task.execute.to_a)
+module ArrowDataset
+  class InMemoryFragment
+    alias_method :initialize_raw, :initialize
+    private :initialize_raw
+    def initialize(schema, record_batches)
+      record_batches = record_batches.collect do |record_batch|
+        unless record_batch.is_a?(Arrow::RecordBatch)
+          record_batch = Arrow::RecordBatch.new(record_batch)
+        end
+        record_batch
+      end
+      initialize_raw(schema, record_batches)
     end
   end
 end

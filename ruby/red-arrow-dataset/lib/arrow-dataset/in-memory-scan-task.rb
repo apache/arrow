@@ -28,7 +28,8 @@ module ArrowDataset
       end
       context = options.delete(:context) || ScanContext.new
       options[:schema] ||= record_batches.first.schema
-      initialize_raw(record_batches, options, context)
+      fragment = options.delete(:fragment)
+      initialize_raw(record_batches, options, context, fragment)
     end
   end
 end
