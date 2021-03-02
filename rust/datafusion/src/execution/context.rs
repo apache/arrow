@@ -600,7 +600,7 @@ impl ContextProvider for ExecutionContextState {
     }
 
     fn config(&self) -> &ExecutionConfig {
-        self.config
+        &self.config
     }
 }
 
