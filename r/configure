@@ -60,7 +60,7 @@ if [ -f "tools/apache-arrow.rb" ]; then
   fi
 fi
 
-if [ "$FORCE_AUTOBREW" = "true" ]; then
+if [ "$FORCE_AUTOBREW" = "true" ] || [ "$USE_TOOLS_LIBS_SCRIPT" = "true" ]; then
   ARROW_USE_PKG_CONFIG="false"
 fi
 

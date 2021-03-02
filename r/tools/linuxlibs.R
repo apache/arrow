@@ -349,9 +349,14 @@ ensure_cmake <- function() {
     # If not found, download it
     cat("**** cmake\n")
     CMAKE_VERSION <- Sys.getenv("CMAKE_VERSION", "3.19.2")
+    if (tolower(Sys.info()[["sysname"]]) %in% "darwin") {
+      post_fix <- "-macos-universal.tar.gz"
+    } else {
+      post_fix <- "-Linux-x86_64.tar.gz"
+    }
     cmake_binary_url <- paste0(
       "https://github.com/Kitware/CMake/releases/download/v", CMAKE_VERSION,
-      "/cmake-", CMAKE_VERSION, "-Linux-x86_64.tar.gz"
+      "/cmake-", CMAKE_VERSION, postfix
     )
     cmake_tar <- tempfile()
     cmake_dir <- tempfile()
