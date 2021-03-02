@@ -60,7 +60,7 @@ if [ -f "tools/apache-arrow.rb" ]; then
   fi
 fi
 
-if [ "$FORCE_AUTOBREW" = "true" ] || [ "$USE_TOOLS_LIBS_SCRIPT" = "true" ]; then
+if [ "$FORCE_AUTOBREW" = "true" ] || [ "$FORCE_TOOLS_LIBS_SCRIPT" = "true" ]; then
   ARROW_USE_PKG_CONFIG="false"
 fi
 
@@ -96,7 +96,7 @@ else
       echo "**** or retry with ARROW_USE_PKG_CONFIG=false"
     fi
   else
-    if [ "$UNAME" = "Darwin" ] && [ "$USE_TOOLS_LIBS_SCRIPT" = "" ]; then
+    if [ "$UNAME" = "Darwin" ] && [ "$FORCE_TOOLS_LIBS_SCRIPT" = "" ]; then
       if [ "$FORCE_AUTOBREW" != "true" ] && [ "`command -v brew`" ] && [ "`brew ls --versions ${PKG_BREW_NAME}`" != "" ]; then
         echo "*** Using Homebrew ${PKG_BREW_NAME}"
         BREWDIR=`brew --prefix`
@@ -133,7 +133,7 @@ else
       if [ "${LIBARROW_MINIMAL}" = "" ] && [ "${NOT_CRAN}" = "true" ]; then
         LIBARROW_MINIMAL=false; export LIBARROW_MINIMAL
       fi
-      ${R_HOME}/bin/Rscript tools/linuxlibs.R $VERSION
+      ${R_HOME}/bin/Rscript tools/nixlibs.R $VERSION
       PKG_CFLAGS="-I$(pwd)/libarrow/arrow-${VERSION}/include $PKG_CFLAGS"
 
       LIB_DIR="libarrow/arrow-${VERSION}/lib"
@@ -141,9 +141,9 @@ else
         # Enumerate the static libs, put their -l flags in BUNDLED_LIBS,
         # and put their -L location in PKG_DIRS
         #
-        # If tools/linuxlibs.R fails to produce libs, this dir won't exist
+        # If tools/nixlibs.R fails to produce libs, this dir won't exist
         # so don't try (the error message from `ls` would be misleading)
-        # Assume linuxlibs.R has handled and messaged about its failure already
+        # Assume nixlibs.R has handled and messaged about its failure already
         #
         # TODO: what about non-bundled deps?
         BUNDLED_LIBS=`cd $LIB_DIR && ls *.a`

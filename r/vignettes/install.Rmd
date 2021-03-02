@@ -166,7 +166,7 @@ run `install.packages("arrow")` or `R CMD INSTALL` but not when running `R CMD c
 unless you've set the `NOT_CRAN=true` environment variable.
 
 For the mechanics of how all this works, see the R package `configure` script,
-which calls `tools/linuxlibs.R`.
+which calls `tools/nixlibs.R`.
 If the C++ library is built from source, `inst/build_arrow_static.sh` is executed.
 This build script is also what is used to generate the prebuilt binaries.
 
