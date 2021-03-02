@@ -228,6 +228,9 @@ if(ARROW_HAVE_RUNTIME_AVX512)
   set_source_files_properties(util/bpacking_avx512.cc PROPERTIES COMPILE_FLAGS
                               ${ARROW_AVX512_FLAG})
 endif()
+if(ARROW_HAVE_NEON)
+  list(APPEND ARROW_SRCS util/bpacking_neon.cc)
+endif()
 
 if(APPLE)
   list(APPEND ARROW_SRCS vendored/datetime/ios.mm)
