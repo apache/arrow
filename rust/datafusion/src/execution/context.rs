@@ -502,7 +502,11 @@ pub struct ExecutionConfig {
     pub concurrency: usize,
     /// Default batch size when reading data sources
     pub batch_size: usize,
-    /// Case sensitive
+    /// Will function names be searched using case-sensitive matching.
+    /// If `false` both `"SELECT COUNT(*) FROM t;` and "`SELECT count(*) FROM t;` 
+    /// can be used to compute the `COUNT` aggregate. If `true` then only
+    /// `"SELECT count(*) FROM t"` can be used. 
+    /// Defaults to `true`
     pub case_sensitive: bool,
     /// Responsible for optimizing a logical plan
     optimizers: Vec<Arc<dyn OptimizerRule + Send + Sync>>,
