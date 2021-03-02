@@ -30,7 +30,7 @@
 #' @param path string path, URI, or `SubTreeFileSystem` referencing a directory
 #' to write to (directory will be created if it does not exist)
 #' @param format a string identifier of the file format. Default is to use
-#' "parquet" (see [FileFormat()])
+#' "parquet" (see [FileFormat])
 #' @param partitioning `Partitioning` or a character vector of columns to
 #' use as partition keys (to be written as path segments). Default is to
 #' use the current `group_by()` columns.

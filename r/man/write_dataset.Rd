@@ -26,7 +26,7 @@ Note that \code{select()}-ed columns may not be renamed.}
 to write to (directory will be created if it does not exist)}
 
 \item{format}{a string identifier of the file format. Default is to use
-"parquet" (see \code{\link[=FileFormat]{FileFormat()}})}
+"parquet" (see \link{FileFormat})}
 
 \item{partitioning}{\code{Partitioning} or a character vector of columns to
 use as partition keys (to be written as path segments). Default is to
