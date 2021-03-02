@@ -431,7 +431,6 @@ TEST(GroupBy, CountAndSum) {
   auto key = ArrayFromJSON(int64(), "[1, 2, 1, 3, 2, 3, null]");
 
   CountOptions count_options;
-  count_options.count_mode = CountOptions::COUNT_NON_NULL;
 
   ASSERT_OK_AND_ASSIGN(
       Datum aggregated_and_grouped,

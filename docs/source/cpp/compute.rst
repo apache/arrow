@@ -271,6 +271,7 @@ for a group::
     std::shared_ptr<arrow::Array> group_key_0 = out_array->field(2);
     std::shared_ptr<arrow::Array> group_key_1 = out_array->field(3);
 
+The output fields' names are empty.
 
 Element-wise ("scalar") functions
 ---------------------------------

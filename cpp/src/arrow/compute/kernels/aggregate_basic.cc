@@ -979,7 +979,7 @@ struct GroupByImpl : public ScalarAggregator {
   }
 
   void MergeFrom(KernelContext* ctx, KernelState&& src) override {
-    // TODO(michalursa) merge two hash tables
+    // TODO(ARROW-11840) merge two hash tables
     ctx->SetStatus(Status::NotImplemented("merging grouped aggregations"));
   }
 
@@ -1178,8 +1178,12 @@ const FunctionDoc all_doc{
     ("Null values are ignored."),
     {"array"}};
 
-// TODO(michalursa) add FunctionDoc for group_by
-const FunctionDoc group_by_doc{"", (""), {}};
+const FunctionDoc group_by_doc{
+    ("Compute aggregations on input arrays, grouped by key columns."),
+    ("Leading arguments are passed to the corresponding aggregation function\n"
+     "named in GroupByOptions, remaining inputs are used as keys for grouping."),
+    {"*args"},
+    "GroupByOptions"};
 
 }  // namespace
 
