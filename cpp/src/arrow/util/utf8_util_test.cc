@@ -140,13 +140,31 @@ class ASCIIValidationTest : public UTF8Test {};
   }
 }
 
+template <typename ValidationFunc>
+void ValidateWithPrefixes(ValidationFunc&& validate, const std::string& s) {
+  // Exercise SIMD optimizations
+  for (int prefix_size = 1; prefix_size < 64; ++prefix_size) {
+    std::string longer(prefix_size, 'x');
+    longer.append(s);
+    ASSERT_TRUE(validate(longer));
+    longer.append(prefix_size, 'y');
+    ASSERT_TRUE(validate(longer));
+  }
+}
+
 void AssertValidUTF8(const std::string& s) { ASSERT_TRUE(IsValidUTF8(s)); }
 
 void AssertInvalidUTF8(const std::string& s) { ASSERT_TRUE(IsInvalidUTF8(s)); }
 
-void AssertValidASCII(const std::string& s) { ASSERT_TRUE(IsValidASCII(s)); }
+void AssertValidASCII(const std::string& s) {
+  ASSERT_TRUE(IsValidASCII(s));
+  ValidateWithPrefixes(IsValidASCII, s);
+}
 
-void AssertInvalidASCII(const std::string& s) { ASSERT_TRUE(IsInvalidASCII(s)); }
+void AssertInvalidASCII(const std::string& s) {
+  ASSERT_TRUE(IsInvalidASCII(s));
+  ValidateWithPrefixes(IsInvalidASCII, s);
+}
 
 TEST_F(ASCIIValidationTest, AsciiValid) {
   for (const auto& s : valid_sequences_ascii) {
