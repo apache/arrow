@@ -1206,15 +1206,20 @@ TEST_F(TestVarStdKernelMergeStability, Basics) {
 }
 
 // Test round-off error
-class TestVarStdKernelRoundOff : public TestPrimitiveVarStdKernel<DoubleType> {};
+template <typename ArrowType>
+class TestVarStdKernelRoundOff : public TestPrimitiveVarStdKernel<ArrowType> {};
 
-TEST_F(TestVarStdKernelRoundOff, Basics) {
-  // build array: np.arange(321000, dtype='float64')
-  double value = 0;
+typedef ::testing::Types<Int32Type, Int64Type, FloatType, DoubleType> VarStdRoundOffTypes;
+
+TYPED_TEST_SUITE(TestVarStdKernelRoundOff, VarStdRoundOffTypes);
+TYPED_TEST(TestVarStdKernelRoundOff, Basics) {
+  // build array: np.arange(321000, dtype='xxx')
+  typename TypeParam::c_type value = 0;
   ASSERT_OK_AND_ASSIGN(
-      auto array, ArrayFromBuilderVisitor(float64(), 321000, [&](DoubleBuilder* builder) {
-        builder->UnsafeAppend(value++);
-      }));
+      auto array, ArrayFromBuilderVisitor(TypeTraits<TypeParam>::type_singleton(), 321000,
+                                          [&](NumericBuilder<TypeParam>* builder) {
+                                            builder->UnsafeAppend(value++);
+                                          }));
 
   // reference value from numpy.var()
   this->AssertVarStdIs(*array, VarianceOptions{0}, 8586749999.916667);
