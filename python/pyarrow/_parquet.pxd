@@ -388,9 +388,9 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             shared_ptr[ArrowWriterProperties] build()
         c_bool support_deprecated_int96_timestamps()
 
-    cdef enum ParquetCipherType" parquet::ParquetCipher::type":
-         AES_GCM_V1 "parquet::ParquetCipher::AES_GCM_V1"
-         AES_GCM_CTR_V1 "parquet::ParquetCipher::AES_GCM_CTR_V1"
+    cdef enum ParquetCipherType:
+        AES_GCM_V1 "parquet::ParquetCipher::AES_GCM_V1"
+        AES_GCM_CTR_V1 "parquet::ParquetCipher::AES_GCM_CTR_V1"
 
     cdef cppclass ColumnEncryptionProperties:
         cppclass Builder:
@@ -412,7 +412,7 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
     cdef cppclass FileEncryptionProperties:
         cppclass Builder:
             Builder(const c_string& footer_key)
-            Builder* set_plaintxt_footer()
+            Builder* set_plaintext_footer()
             Builder* algorithm(ParquetCipherType parquet_cipher)
             Builder* footer_key_id(const c_string& key_id)
             Builder* footer_key_metadata(const c_string& footer_key_metadata)
@@ -589,7 +589,8 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     data_page_size=*,
     compression_level=*,
     use_byte_stream_split=*,
-    data_page_version=*) except *
+    data_page_version=*,
+    lowlevel_encryption_properties=*) except *
 
 
 cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(

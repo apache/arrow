@@ -1212,31 +1212,38 @@ cdef class LowLevelEncryptionProperties(_Weakrefable):
     enable testing of low-level decryption.
     """
     cdef:
-        shared_ptr[FileEncryptionProperties] encryption_properties
+       shared_ptr[FileEncryptionProperties] encryption_properties
 
     def __cinit__(self, footer_key, column_keys):  # TODO more options?
-        builder = FileEncryptionProperties.Builder(footer_key)
+        cdef FileEncryptionProperties.Builder* builder
+        cdef c_string column
+        cdef c_map[c_string,shared_ptr[ColumnEncryptionProperties]] c_column_keys
+        builder = new FileEncryptionProperties.Builder(footer_key)
         for column, key in column_keys.items():
             c_column_keys[column] = ColumnEncryptionProperties.Builder(
                 column).key(key).build()
-            builder.column_keys(c_column_keys)
+            builder.encrypted_columns(c_column_keys)
         self.encryption_properties = builder.build()
+        del builder
 
 
 cdef shared_ptr[WriterProperties] _create_writer_properties(
-        use_dictionary=None,
-        compression=None,
-        version=None,
-        write_statistics=None,
-        data_page_size=None,
-        compression_level=None,
-        use_byte_stream_split=False,
-        data_page_version=None,
-        LowLevelEncryptionProperties lowlevel_encryption_properties=None) except *:
+    use_dictionary=None,
+    compression=None,
+    version=None,
+    write_statistics=None,
+    data_page_size=None,
+    compression_level=None,
+    use_byte_stream_split=False,
+    data_page_version=None,
+    lowlevel_encryption_properties=None
+) except *:
     """General writer properties"""
     cdef:
         shared_ptr[WriterProperties] properties
         WriterProperties.Builder props
+        LowLevelEncryptionProperties llep
+        shared_ptr[FileEncryptionProperties] encryption_properties
 
     # data_page_version
 
@@ -1315,8 +1322,11 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     if data_page_size is not None:
         props.data_pagesize(data_page_size)
 
+    # encryption
     if lowlevel_encryption_properties is not None:
-        props.encryption(lowlevel_encryption_properties.encryption_properties)
+        llep = lowlevel_encryption_properties
+        encryption_properties = llep.encryption_properties
+        props.encryption(encryption_properties)
 
     properties = props.build()
 
@@ -1408,7 +1418,8 @@ cdef class ParquetWriter(_Weakrefable):
                   use_byte_stream_split=False,
                   writer_engine_version=None,
                   data_page_version=None,
-                  lowlevel_encryption_properties=None):
+                  lowlevel_encryption_properties=None,
+                  ):
         cdef:
             shared_ptr[WriterProperties] properties
             shared_ptr[ArrowWriterProperties] arrow_properties
