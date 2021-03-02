@@ -442,6 +442,18 @@ impl Expr {
         }
     }
 
+    /// Return `IsNull(Box(self))
+    #[allow(clippy::wrong_self_convention)]
+    pub fn is_null(self) -> Expr {
+        Expr::IsNull(Box::new(self))
+    }
+
+    /// Return `IsNotNull(Box(self))
+    #[allow(clippy::wrong_self_convention)]
+    pub fn is_not_null(self) -> Expr {
+        Expr::IsNotNull(Box::new(self))
+    }
+
     /// Create a sort expression from an existing expression.
     ///
     /// ```
@@ -1386,6 +1398,17 @@ mod tests {
                 "Mutated #state Eq Utf8(\"CO\")"
             ]
         )
+    }
+
+    #[test]
+    fn filter_is_null_and_is_not_null() {
+        let col_null = Expr::Column("col1".to_string());
+        let col_not_null = Expr::Column("col2".to_string());
+        assert_eq!(format!("{:?}", col_null.is_null()), "#col1 IS NULL");
+        assert_eq!(
+            format!("{:?}", col_not_null.is_not_null()),
+            "#col2 IS NOT NULL"
+        );
     }
 
     #[derive(Default)]
