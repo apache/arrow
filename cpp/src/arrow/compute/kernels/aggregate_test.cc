@@ -338,18 +338,12 @@ Result<Datum> NaiveGroupBy(std::vector<Datum> aggregands, std::vector<Datum> key
 
     ScalarVector aggregated_scalars;
 
-    if (n_groups > 0) {
-      ARROW_ASSIGN_OR_RAISE(auto grouped_aggregand,
-                            ApplyGroupings(*groupings, *aggregand.make_array()));
+    ARROW_ASSIGN_OR_RAISE(auto grouped_aggregand,
+                          ApplyGroupings(*groupings, *aggregand.make_array()));
 
-      for (int64_t i_group = 0; i_group < n_groups; ++i_group) {
-        ARROW_ASSIGN_OR_RAISE(
-            Datum d, CallFunction(function, {grouped_aggregand->value_slice(i_group)}));
-        aggregated_scalars.push_back(d.scalar());
-      }
-    } else {
-      DCHECK_EQ(aggregand.length(), 0);
-      ARROW_ASSIGN_OR_RAISE(Datum d, CallFunction(function, {aggregand}));
+    for (int64_t i_group = 0; i_group < n_groups; ++i_group) {
+      ARROW_ASSIGN_OR_RAISE(
+          Datum d, CallFunction(function, {grouped_aggregand->value_slice(i_group)}));
       aggregated_scalars.push_back(d.scalar());
     }
 
