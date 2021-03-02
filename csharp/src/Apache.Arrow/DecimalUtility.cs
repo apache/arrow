@@ -14,9 +14,7 @@
 // limitations under the License.
 
 using System;
-using System.Linq;
 using System.Numerics;
-using System.Runtime.InteropServices;
 
 namespace Apache.Arrow
 {
@@ -33,6 +31,7 @@ namespace Apache.Arrow
             1000000000000, 10000000000000, 100000000000000, 1000000000000000, 10000000000000000, 100000000000000000,
             1000000000000000000, 10000000000000000000
         };
+
         private static int PowersOfTenLength => s_powersOfTen.Length - 1;
 
         public static decimal GetDecimal(in ArrowBuffer valueBuffer, int index, int scale, int byteWidth,
@@ -78,86 +77,68 @@ namespace Apache.Arrow
             return result;
         }
 
-        public static void GetBytes(BigInteger integerValue, int byteWidth, ref Span<byte> bytes)
+        internal static void GetBytes(decimal value, int precision, int scale, int byteWidth, Span<byte> bytes)
         {
+            // create BigInteger from decimal
+            byte[] bigIntBytes = new byte[12];
+            int[] decimalBits = decimal.GetBits(value);
+            int decScale = (decimalBits[3] >> 16) & 0x7F;
+            for (int i = 0; i < 3; i++)
+            {
+                int bit = decimalBits[i];
+                byte[] intBytes = BitConverter.GetBytes(bit);
+                for (int j = 0; j < intBytes.Length; j++)
+                {
+                    bigIntBytes[4*i+j] =intBytes[j];
+                }
+            }
+
+            BigInteger bigInt = new BigInteger(bigIntBytes);
+            if (value < 0)
+            {
+                bigInt = -bigInt;
+            }
+
+            // validate precision and scale
+            if (decScale > scale)
+                throw new OverflowException("Decimal scale can not be greater than that in the Arrow vector: " + decScale + " != " + scale);
+
+            if (bigInt >= BigInteger.Pow(10, precision))
+                throw new OverflowException("Decimal precision can not be greater than that in the Arrow vector: " + value + " has precision > " + precision);
+
+            if (decScale < scale) // pad with trailing zeros
+            {
+                bigInt *= BigInteger.Pow(10, scale - decScale);
+            }
+
+            // extract bytes from BigInteger
             if (bytes.Length != byteWidth)
             {
                 throw new OverflowException("ValueBuffer size not equal to " + byteWidth + " byte width: " + bytes.Length);
             }
 
-            Span<byte> integerBytes = integerValue.ToByteArray().AsSpan();
-            if (integerBytes.Length > byteWidth)
+            int bytesWritten;
+#if NETCOREAPP
+            if (!bigInt.TryWriteBytes(bytes, out bytesWritten, false, !BitConverter.IsLittleEndian))
+                throw new OverflowException("Could not extract bytes from integer value " + bigInt);
+#else
+            byte[] tempBytes = bigInt.ToByteArray();
+            tempBytes.CopyTo(bytes);
+            bytesWritten = tempBytes.Length;
+#endif
+
+            if (bytes.Length > byteWidth)
             {
-                throw new OverflowException("Decimal size greater than " + byteWidth + " bytes: " + integerBytes.Length);
+                throw new OverflowException("Decimal size greater than " + byteWidth + " bytes: " + bytes.Length);
             }
 
-            if (integerBytes.Length == byteWidth)
+            if (bigInt.Sign == -1)
             {
-                bytes = integerBytes;
-                return;
-            }
-
-            if (integerValue.Sign == -1)
-            {
-                integerBytes.CopyTo(bytes);
-                for (int i = integerBytes.Length; i < byteWidth; i++)
+                for (int i = bytesWritten; i < byteWidth; i++)
                 {
                     bytes[i] = 255;
                 }
             }
-            else
-            {
-                integerBytes.CopyTo(bytes);
-            }
-        }
-
-        public static bool CheckPrecisionAndScale(decimal value, int precision, int scale, out BigInteger integerValue)
-        {
-            DecimalLayout layout = new DecimalLayout(value); // use in place of decimal.GetBits(value) to avoid an allocation
-            integerValue = new BigInteger(BitConverter.GetBytes(layout.Lo).Concat(BitConverter.GetBytes(layout.Mid)).Concat(BitConverter.GetBytes(layout.Hi)).ToArray());
-
-            if (layout.Scale > scale)
-                throw new OverflowException("Decimal scale can not be greater than that in the Arrow vector: " + layout.Scale + " != " + scale);
-
-            if(integerValue >= BigInteger.Pow(10, precision))
-                throw new OverflowException("Decimal precision can not be greater than that in the Arrow vector: " + value + " has precision > " + precision);
-
-            if (layout.Scale < scale) // pad with trailing zeros
-            {
-                integerValue *= BigInteger.Pow(10, scale - layout.Scale);
-            }
-
-            if (value < 0) // sign the big int
-                integerValue = -integerValue;
-
-            return true;
-        }
-
-        [StructLayout(LayoutKind.Explicit)]
-        private readonly struct DecimalLayout
-        {
-            public DecimalLayout(decimal value)
-            {
-                this = default;
-                d = value;
-            }
-
-            [FieldOffset(0)] private readonly decimal d;
-
-            [FieldOffset(0)] private readonly int flags;
-            [FieldOffset(4)] private readonly int hi;
-#if BIGENDIAN
-            [FieldOffset(8)] private readonly int mid;
-            [FieldOffset(12)] private readonly int lo;
-#else
-            [FieldOffset(8)] private readonly int lo;
-            [FieldOffset(12)] private readonly int mid;
-#endif
-
-            internal int Scale => (flags >> 16) & 0x7F;
-            internal int Lo => lo;
-            internal int Mid => mid;
-            internal int Hi => hi;
         }
     }
 }
