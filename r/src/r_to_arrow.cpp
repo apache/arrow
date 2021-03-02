@@ -25,10 +25,14 @@
 #include <arrow/array/builder_dict.h>
 #include <arrow/array/builder_nested.h>
 #include <arrow/array/builder_primitive.h>
+#include <arrow/table.h>
 #include <arrow/type_traits.h>
 #include <arrow/util/bitmap_writer.h>
 #include <arrow/util/checked_cast.h>
 #include <arrow/util/converter.h>
+#include <arrow/util/logging.h>
+#include <arrow/util/parallel.h>
+#include <arrow/util/task_group.h>
 
 namespace arrow {
 
@@ -207,12 +211,14 @@ class RConverter : public Converter<SEXP, RConversionOptions> {
   virtual Status Append(SEXP) { return Status::NotImplemented("Append"); }
 
   virtual Status Extend(SEXP values, int64_t size) {
-    return Status::NotImplemented("ExtendMasked");
+    return Status::NotImplemented("Extend");
   }
 
   virtual Status ExtendMasked(SEXP values, SEXP mask, int64_t size) {
     return Status::NotImplemented("ExtendMasked");
   }
+
+  virtual bool CanExtendParallel(SEXP values, int64_t size) { return true; }
 };
 
 template <typename T, typename Enable = void>
@@ -992,6 +998,37 @@ std::shared_ptr<arrow::Array> vec_to_arrow__reuse_memory(SEXP x) {
   cpp11::stop("Unreachable: you might need to fix can_reuse_memory()");
 }
 
+Status vector_to_Array(SEXP x, const std::shared_ptr<arrow::DataType>& type,
+                       bool type_inferred,
+                       std::shared_ptr<internal::TaskGroup>& task_group,
+                       std::shared_ptr<arrow::Array>& out) {
+  // short circuit if `x` is already an Array
+  if (Rf_inherits(x, "Array")) {
+    out = cpp11::as_cpp<std::shared_ptr<arrow::Array>>(x);
+    return Status::OK();
+  }
+
+  RConversionOptions options;
+  options.strict = !type_inferred;
+  options.type = type;
+  options.size = vctrs::short_vec_size(x);
+
+  // maybe short circuit when zero-copy is possible
+  if (can_reuse_memory(x, options.type)) {
+    out = vec_to_arrow__reuse_memory(x);
+    return Status::OK();
+  }
+
+  // otherwise go through the converter api
+  auto converter = ValueOrStop(MakeConverter<RConverter, RConverterTrait>(
+      options.type, options, gc_memory_pool()));
+
+  RETURN_NOT_OK(converter->Extend(x, options.size));
+  ARROW_ASSIGN_OR_RAISE(out, converter->ToArray());
+
+  return Status::OK();
+}
+
 std::shared_ptr<arrow::Array> vec_to_arrow(SEXP x,
                                            const std::shared_ptr<arrow::DataType>& type,
                                            bool type_inferred) {
@@ -1015,11 +1052,86 @@ std::shared_ptr<arrow::Array> vec_to_arrow(SEXP x,
       options.type, options, gc_memory_pool()));
 
   StopIfNotOk(converter->Extend(x, options.size));
+
   return ValueOrStop(converter->ToArray());
 }
 
 }  // namespace r
 }  // namespace arrow
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
+  bool infer_schema = !Rf_inherits(schema_sxp, "Schema");
+
+  int num_fields;
+  StopIfNotOk(arrow::r::count_fields(lst, &num_fields));
+
+  // schema + metadata
+  std::shared_ptr<arrow::Schema> schema;
+  StopIfNotOk(arrow::r::InferSchemaFromDots(lst, schema_sxp, num_fields, schema));
+  StopIfNotOk(arrow::r::AddMetadataFromDots(lst, num_fields, schema));
+
+  // table
+  std::vector<std::shared_ptr<arrow::ChunkedArray>> columns(num_fields);
+
+  // for now the parallel task does not work,
+  // presumably because some ->Extend() can't actually run in parallel
+  //
+  // auto parallel_tasks =
+  //     arrow::internal::TaskGroup::MakeThreaded(arrow::internal::GetCpuThreadPool());
+  auto parallel_tasks =
+    arrow::internal::TaskGroup::MakeSerial();
+
+  std::vector<std::function<arrow::Status()>> delayed_serial_tasks;
+
+  auto extract_one_column = [&](int j, SEXP x, cpp11::r_string) {
+    if (Rf_inherits(x, "ChunkedArray")) {
+      columns[j] = cpp11::as_cpp<std::shared_ptr<arrow::ChunkedArray>>(x);
+    } else if (Rf_inherits(x, "Array")) {
+      columns[j] = std::make_shared<arrow::ChunkedArray>(
+          cpp11::as_cpp<std::shared_ptr<arrow::Array>>(x));
+    } else {
+      arrow::r::RConversionOptions options;
+      options.strict = !infer_schema;
+      options.type = schema->field(j)->type();
+      options.size = vctrs::short_vec_size(x);
+
+      // maybe short circuit when zero-copy is possible
+      if (arrow::r::can_reuse_memory(x, options.type)) {
+        columns[j] = std::make_shared<arrow::ChunkedArray>(
+            arrow::r::vec_to_arrow__reuse_memory(x));
+      } else {
+        auto converter = ValueOrStop(
+            arrow::MakeConverter<arrow::r::RConverter, arrow::r::RConverterTrait>(
+                options.type, options, gc_memory_pool()));
+
+        auto task = [&]() {
+          RETURN_NOT_OK(converter->Extend(x, options.size));
+          columns[j] =
+              std::make_shared<arrow::ChunkedArray>(converter->ToArray().ValueUnsafe());
+          return arrow::Status::OK();
+        };
+
+        if (converter->CanExtendParallel(x, options.size)) {
+          parallel_tasks->Append(task);
+        } else {
+          delayed_serial_tasks.push_back(task);
+        }
+      }
+    }
+  };
+  arrow::r::TraverseDots(lst, num_fields, extract_one_column);
+
+  arrow::Status status = arrow::Status::OK();
+  for (auto task : delayed_serial_tasks) {
+    status &= task();
+  }
+
+  status &= parallel_tasks->Finish();
+  StopIfNotOk(status);
+
+  return arrow::Table::Make(schema, columns);
+}
 
 // [[arrow::export]]
 SEXP vec_to_arrow(SEXP x, SEXP s_type) {
