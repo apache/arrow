@@ -36,7 +36,14 @@ use TimeUnit::*;
 ///
 /// Returns an `ArrowError::ComputeError(String)` if the array type is either unsupported by `sort_to_indices` or `take`.
 ///
-pub fn sort(
+pub fn sort(values: &ArrayRef, options: Option<SortOptions>) -> Result<ArrayRef> {
+    let indices = sort_to_indices(values, options, None)?;
+    take(values.as_ref(), &indices, None)
+}
+
+/// Sort the `ArrayRef` partially.
+/// Return an sorted `ArrayRef`, discarding the data after limit.
+pub fn partial_sort(
     values: &ArrayRef,
     options: Option<SortOptions>,
     limit: Option<usize>,
@@ -354,9 +361,9 @@ fn sort_boolean(
         }
         _ => {
             if !descending {
-                pdqsort::sort_by(&mut valids, |a, b| cmp(a.1, b.1));
+                valids.sort_by(|a, b| cmp(a.1, b.1));
             } else {
-                pdqsort::sort_by(&mut valids, |a, b| cmp(a.1, b.1).reverse());
+                valids.sort_by(|a, b| cmp(a.1, b.1).reverse());
                 // reverse to keep a stable ordering
                 nulls.reverse();
             }
@@ -443,9 +450,9 @@ where
         }
         _ => {
             if !descending {
-                pdqsort::sort_by(&mut valids, |a, b| cmp(a.1, b.1));
+                valids.sort_by(|a, b| cmp(a.1, b.1));
             } else {
-                pdqsort::sort_by(&mut valids, |a, b| cmp(a.1, b.1).reverse());
+                valids.sort_by(|a, b| cmp(a.1, b.1).reverse());
                 // reverse to keep a stable ordering
                 nulls.reverse();
             }
@@ -894,7 +901,12 @@ mod tests {
     {
         let output = PrimitiveArray::<T>::from(data);
         let expected = Arc::new(PrimitiveArray::<T>::from(expected_data)) as ArrayRef;
-        let output = sort(&(Arc::new(output) as ArrayRef), options, limit).unwrap();
+        let output = match limit {
+            Some(_) => {
+                partial_sort(&(Arc::new(output) as ArrayRef), options, limit).unwrap()
+            }
+            _ => sort(&(Arc::new(output) as ArrayRef), options).unwrap(),
+        };
         assert_eq!(&output, &expected)
     }
 
@@ -919,7 +931,12 @@ mod tests {
     ) {
         let output = StringArray::from(data);
         let expected = Arc::new(StringArray::from(expected_data)) as ArrayRef;
-        let output = sort(&(Arc::new(output) as ArrayRef), options, limit).unwrap();
+        let output = match limit {
+            Some(_) => {
+                partial_sort(&(Arc::new(output) as ArrayRef), options, limit).unwrap()
+            }
+            _ => sort(&(Arc::new(output) as ArrayRef), options).unwrap(),
+        };
         assert_eq!(&output, &expected)
     }
 
@@ -936,7 +953,12 @@ mod tests {
             .downcast_ref::<StringArray>()
             .expect("Unable to get dictionary values");
 
-        let sorted = sort(&(Arc::new(array) as ArrayRef), options, limit).unwrap();
+        let sorted = match limit {
+            Some(_) => {
+                partial_sort(&(Arc::new(array) as ArrayRef), options, limit).unwrap()
+            }
+            _ => sort(&(Arc::new(array) as ArrayRef), options).unwrap(),
+        };
         let sorted = sorted
             .as_any()
             .downcast_ref::<DictionaryArray<T>>()
@@ -981,7 +1003,10 @@ mod tests {
         // for FixedSizedList
         if let Some(length) = fixed_length {
             let input = Arc::new(build_fixed_size_list_nullable(data.clone(), length));
-            let sorted = sort(&(input as ArrayRef), options, limit).unwrap();
+            let sorted = match limit {
+                Some(_) => partial_sort(&(input as ArrayRef), options, limit).unwrap(),
+                _ => sort(&(input as ArrayRef), options).unwrap(),
+            };
             let expected = Arc::new(build_fixed_size_list_nullable(
                 expected_data.clone(),
                 length,
@@ -991,17 +1016,23 @@ mod tests {
         }
 
         // for List
-        // let input = Arc::new(build_generic_list_nullable::<i32, T>(data.clone()));
-        // let sorted = sort(&(input as ArrayRef), options, limit).unwrap();
-        // let expected =
-        //     Arc::new(build_generic_list_nullable::<i32, T>(expected_data.clone()))
-        //         as ArrayRef;
-        //
-        // assert_eq!(&sorted, &expected);
+        let input = Arc::new(build_generic_list_nullable::<i32, T>(data.clone()));
+        let sorted = match limit {
+            Some(_) => partial_sort(&(input as ArrayRef), options, limit).unwrap(),
+            _ => sort(&(input as ArrayRef), options).unwrap(),
+        };
+        let expected =
+            Arc::new(build_generic_list_nullable::<i32, T>(expected_data.clone()))
+                as ArrayRef;
+
+        assert_eq!(&sorted, &expected);
 
         // for LargeList
         let input = Arc::new(build_generic_list_nullable::<i64, T>(data));
-        let sorted = sort(&(input as ArrayRef), options, limit).unwrap();
+        let sorted = match limit {
+            Some(_) => partial_sort(&(input as ArrayRef), options, limit).unwrap(),
+            _ => sort(&(input as ArrayRef), options).unwrap(),
+        };
         let expected =
             Arc::new(build_generic_list_nullable::<i64, T>(expected_data)) as ArrayRef;
 

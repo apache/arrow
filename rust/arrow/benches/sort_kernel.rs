@@ -73,7 +73,7 @@ fn add_benchmark(c: &mut Criterion) {
         b.iter(|| bench_sort(&arr_a, &arr_b, None))
     });
 
-    /// with limit
+    // with limit
     {
         let arr_a = create_array(2u64.pow(12) as usize, false);
         let arr_b = create_array(2u64.pow(12) as usize, false);
@@ -87,6 +87,12 @@ fn add_benchmark(c: &mut Criterion) {
             b.iter(|| bench_sort(&arr_a, &arr_b, Some(100)))
         });
 
+        let arr_a = create_array(2u64.pow(12) as usize, false);
+        let arr_b = create_array(2u64.pow(12) as usize, false);
+        c.bench_function("sort 2^12 limit 1000", |b| {
+            b.iter(|| bench_sort(&arr_a, &arr_b, Some(1000)))
+        });
+
         let arr_a = create_array(2u64.pow(12) as usize, true);
         let arr_b = create_array(2u64.pow(12) as usize, true);
 
@@ -94,7 +100,10 @@ fn add_benchmark(c: &mut Criterion) {
             b.iter(|| bench_sort(&arr_a, &arr_b, Some(10)))
         });
         c.bench_function("sort nulls 2^12 limit 100", |b| {
-            b.iter(|| bench_sort(&arr_a, &arr_b, Some(10)))
+            b.iter(|| bench_sort(&arr_a, &arr_b, Some(100)))
+        });
+        c.bench_function("sort nulls 2^12 limit 1000", |b| {
+            b.iter(|| bench_sort(&arr_a, &arr_b, Some(1000)))
         });
     }
 }
