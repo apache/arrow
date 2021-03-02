@@ -1011,24 +1011,18 @@ fn from_thrift_helper(
 }
 
 /// Method to convert to Thrift.
-/// The `writer_version` is used to determine whether to populate `LogicalType`.
-/// Only the `ConvertedType` is populated if using version 1 of the writer.
-pub fn to_thrift(schema: &Type, writer_version: i32) -> Result<Vec<SchemaElement>> {
+pub fn to_thrift(schema: &Type) -> Result<Vec<SchemaElement>> {
     if !schema.is_group() {
         return Err(general_err!("Root schema must be Group type"));
     }
     let mut elements: Vec<SchemaElement> = Vec::new();
-    to_thrift_helper(schema, &mut elements, writer_version);
+    to_thrift_helper(schema, &mut elements);
     Ok(elements)
 }
 
 /// Constructs list of `SchemaElement` from the schema using depth-first traversal.
 /// Here we assume that schema is always valid and starts with group type.
-fn to_thrift_helper(
-    schema: &Type,
-    elements: &mut Vec<SchemaElement>,
-    writer_version: i32,
-) {
+fn to_thrift_helper(schema: &Type, elements: &mut Vec<SchemaElement>) {
     match *schema {
         Type::PrimitiveType {
             ref basic_info,
@@ -1059,11 +1053,7 @@ fn to_thrift_helper(
                 } else {
                     None
                 },
-                logical_type: if writer_version > 1 {
-                    basic_info.logical_type().map(|value| value.into())
-                } else {
-                    None
-                },
+                logical_type: basic_info.logical_type().map(|value| value.into()),
             };
 
             elements.push(element);
@@ -1092,18 +1082,14 @@ fn to_thrift_helper(
                 } else {
                     None
                 },
-                logical_type: if writer_version > 1 {
-                    basic_info.logical_type().map(|value| value.into())
-                } else {
-                    None
-                },
+                logical_type: basic_info.logical_type().map(|value| value.into()),
             };
 
             elements.push(element);
 
             // Add child elements for a group
             for field in fields {
-                to_thrift_helper(field, elements, writer_version);
+                to_thrift_helper(field, elements);
             }
         }
     }
@@ -1815,7 +1801,7 @@ mod tests {
         let schema = Type::primitive_type_builder("col", PhysicalType::INT32)
             .build()
             .unwrap();
-        let thrift_schema = to_thrift(&schema, 1);
+        let thrift_schema = to_thrift(&schema);
         assert!(thrift_schema.is_err());
         if let Err(e) = thrift_schema {
             assert_eq!(
@@ -1874,7 +1860,7 @@ mod tests {
     }
     ";
         let expected_schema = parse_message_type(message_type).unwrap();
-        let thrift_schema = to_thrift(&expected_schema, 1).unwrap();
+        let thrift_schema = to_thrift(&expected_schema).unwrap();
         let result_schema = from_thrift(&thrift_schema).unwrap();
         assert_eq!(result_schema, Arc::new(expected_schema));
     }
@@ -1890,7 +1876,7 @@ mod tests {
     }
     ";
         let expected_schema = parse_message_type(message_type).unwrap();
-        let thrift_schema = to_thrift(&expected_schema, 1).unwrap();
+        let thrift_schema = to_thrift(&expected_schema).unwrap();
         let result_schema = from_thrift(&thrift_schema).unwrap();
         assert_eq!(result_schema, Arc::new(expected_schema));
     }
@@ -1912,7 +1898,7 @@ mod tests {
     ";
 
         let expected_schema = parse_message_type(message_type).unwrap();
-        let mut thrift_schema = to_thrift(&expected_schema, 1).unwrap();
+        let mut thrift_schema = to_thrift(&expected_schema).unwrap();
         // Change all of None to Some(0)
         for mut elem in &mut thrift_schema[..] {
             if elem.num_children == None {
@@ -1937,7 +1923,7 @@ mod tests {
     ";
 
         let expected_schema = parse_message_type(message_type).unwrap();
-        let mut thrift_schema = to_thrift(&expected_schema, 1).unwrap();
+        let mut thrift_schema = to_thrift(&expected_schema).unwrap();
         thrift_schema[0].repetition_type = Some(Repetition::REQUIRED.into());
 
         let result_schema = from_thrift(&thrift_schema).unwrap();
