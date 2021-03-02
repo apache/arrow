@@ -932,12 +932,12 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
 
             SQLExpr::Function(function) => {
                 let input_name = function.name.to_string();
-                let case_sensitive = self.schema_provider.get_config().case_sensitive;
+                let case_sensitive = self.schema_provider.config().case_sensitive;
                 let name = if !case_sensitive {
-                    input_name.to_lowercase();
+                    input_name.to_lowercase()
                 } else {
-                    input_name;
-                }
+                    input_name.clone()
+                };
 
                 // first, scalar built-in
                 if let Ok(fun) = functions::BuiltinScalarFunction::from_str(&name) {
