@@ -29,6 +29,7 @@
 #include "arrow/io/file.h"
 #include "arrow/io/memory.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/future.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/ubsan.h"
 #include "parquet/column_reader.h"
@@ -250,10 +251,10 @@ class SerializedFile : public ParquetFileReader::Contents {
     file_metadata_ = std::move(metadata);
   }
 
-  void PreBuffer(const std::vector<int>& row_groups,
-                 const std::vector<int>& column_indices,
-                 const ::arrow::io::IOContext& ctx,
-                 const ::arrow::io::CacheOptions& options) {
+  ::arrow::Future<> PreBuffer(const std::vector<int>& row_groups,
+                              const std::vector<int>& column_indices,
+                              const ::arrow::io::IOContext& ctx,
+                              const ::arrow::io::CacheOptions& options) {
     cached_source_ =
         std::make_shared<::arrow::io::internal::ReadRangeCache>(source_, ctx, options);
     std::vector<::arrow::io::ReadRange> ranges;
@@ -264,6 +265,7 @@ class SerializedFile : public ParquetFileReader::Contents {
       }
     }
     PARQUET_THROW_NOT_OK(cached_source_->Cache(ranges));
+    return cached_source_->Wait();
   }
 
   void ParseMetaData() {
@@ -593,14 +595,14 @@ std::shared_ptr<RowGroupReader> ParquetFileReader::RowGroup(int i) {
   return contents_->GetRowGroup(i);
 }
 
-void ParquetFileReader::PreBuffer(const std::vector<int>& row_groups,
-                                  const std::vector<int>& column_indices,
-                                  const ::arrow::io::IOContext& ctx,
-                                  const ::arrow::io::CacheOptions& options) {
+::arrow::Future<> ParquetFileReader::PreBuffer(const std::vector<int>& row_groups,
+                                               const std::vector<int>& column_indices,
+                                               const ::arrow::io::IOContext& ctx,
+                                               const ::arrow::io::CacheOptions& options) {
   // Access private methods here
   SerializedFile* file =
       ::arrow::internal::checked_cast<SerializedFile*>(contents_.get());
-  file->PreBuffer(row_groups, column_indices, ctx, options);
+  return file->PreBuffer(row_groups, column_indices, ctx, options);
 }
 
 // ----------------------------------------------------------------------
