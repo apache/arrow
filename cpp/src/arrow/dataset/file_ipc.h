@@ -48,9 +48,9 @@ class ARROW_DS_EXPORT IpcFileFormat : public FileFormat {
   Result<std::shared_ptr<Schema>> Inspect(const FileSource& source) const override;
 
   /// \brief Open a file for scanning
-  Result<ScanTaskIterator> ScanFile(std::shared_ptr<ScanOptions> options,
-                                    std::shared_ptr<ScanContext> context,
-                                    FileFragment* fragment) const override;
+  Result<ScanTaskIterator> ScanFile(
+      std::shared_ptr<ScanOptions> options, std::shared_ptr<ScanContext> context,
+      const std::shared_ptr<FileFragment>& fragment) const override;
 
   Result<std::shared_ptr<FileWriter>> MakeWriter(
       std::shared_ptr<io::OutputStream> destination, std::shared_ptr<Schema> schema,

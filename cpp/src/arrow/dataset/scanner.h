@@ -106,13 +106,18 @@ class ARROW_DS_EXPORT ScanTask {
 
   const std::shared_ptr<ScanOptions>& options() const { return options_; }
   const std::shared_ptr<ScanContext>& context() const { return context_; }
+  const std::shared_ptr<Fragment>& fragment() const { return fragment_; }
 
  protected:
-  ScanTask(std::shared_ptr<ScanOptions> options, std::shared_ptr<ScanContext> context)
-      : options_(std::move(options)), context_(std::move(context)) {}
+  ScanTask(std::shared_ptr<ScanOptions> options, std::shared_ptr<ScanContext> context,
+           std::shared_ptr<Fragment> fragment)
+      : options_(std::move(options)),
+        context_(std::move(context)),
+        fragment_(std::move(fragment)) {}
 
   std::shared_ptr<ScanOptions> options_;
   std::shared_ptr<ScanContext> context_;
+  std::shared_ptr<Fragment> fragment_;
 };
 
 /// \brief A trivial ScanTask that yields the RecordBatch of an array.
@@ -120,8 +125,9 @@ class ARROW_DS_EXPORT InMemoryScanTask : public ScanTask {
  public:
   InMemoryScanTask(std::vector<std::shared_ptr<RecordBatch>> record_batches,
                    std::shared_ptr<ScanOptions> options,
-                   std::shared_ptr<ScanContext> context)
-      : ScanTask(std::move(options), std::move(context)),
+                   std::shared_ptr<ScanContext> context,
+                   std::shared_ptr<Fragment> fragment)
+      : ScanTask(std::move(options), std::move(context), std::move(fragment)),
         record_batches_(std::move(record_batches)) {}
 
   Result<RecordBatchIterator> Execute() override;

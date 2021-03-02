@@ -132,11 +132,12 @@ static inline Result<std::shared_ptr<csv::StreamingReader>> OpenReader(
 /// \brief A ScanTask backed by an Csv file.
 class CsvScanTask : public ScanTask {
  public:
-  CsvScanTask(std::shared_ptr<const CsvFileFormat> format, FileSource source,
-              std::shared_ptr<ScanOptions> options, std::shared_ptr<ScanContext> context)
-      : ScanTask(std::move(options), std::move(context)),
+  CsvScanTask(std::shared_ptr<const CsvFileFormat> format,
+              std::shared_ptr<ScanOptions> options, std::shared_ptr<ScanContext> context,
+              std::shared_ptr<FileFragment> fragment)
+      : ScanTask(std::move(options), std::move(context), fragment),
         format_(std::move(format)),
-        source_(std::move(source)) {}
+        source_(fragment->source()) {}
 
   Result<RecordBatchIterator> Execute() override {
     ARROW_ASSIGN_OR_RAISE(auto reader,
@@ -175,12 +176,12 @@ Result<std::shared_ptr<Schema>> CsvFileFormat::Inspect(const FileSource& source)
   return reader->schema();
 }
 
-Result<ScanTaskIterator> CsvFileFormat::ScanFile(std::shared_ptr<ScanOptions> options,
-                                                 std::shared_ptr<ScanContext> context,
-                                                 FileFragment* fragment) const {
+Result<ScanTaskIterator> CsvFileFormat::ScanFile(
+    std::shared_ptr<ScanOptions> options, std::shared_ptr<ScanContext> context,
+    const std::shared_ptr<FileFragment>& fragment) const {
   auto this_ = checked_pointer_cast<const CsvFileFormat>(shared_from_this());
-  auto task = std::make_shared<CsvScanTask>(std::move(this_), fragment->source(),
-                                            std::move(options), std::move(context));
+  auto task = std::make_shared<CsvScanTask>(std::move(this_), std::move(options),
+                                            std::move(context), std::move(fragment));
 
   return MakeVectorIterator<std::shared_ptr<ScanTask>>({std::move(task)});
 }

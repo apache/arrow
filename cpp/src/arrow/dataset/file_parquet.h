@@ -113,9 +113,9 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
   Result<std::shared_ptr<Schema>> Inspect(const FileSource& source) const override;
 
   /// \brief Open a file for scanning
-  Result<ScanTaskIterator> ScanFile(std::shared_ptr<ScanOptions> options,
-                                    std::shared_ptr<ScanContext> context,
-                                    FileFragment* file) const override;
+  Result<ScanTaskIterator> ScanFile(
+      std::shared_ptr<ScanOptions> options, std::shared_ptr<ScanContext> context,
+      const std::shared_ptr<FileFragment>& file) const override;
 
   using FileFormat::MakeFragment;
 
