@@ -29,9 +29,8 @@
 #' Note that `select()`-ed columns may not be renamed.
 #' @param path string path, URI, or `SubTreeFileSystem` referencing a directory
 #' to write to (directory will be created if it does not exist)
-#' @param format file format to write the dataset to. Currently supported
-#' formats are "feather" (aka "ipc") and "parquet". Default is to write to the
-#' same format as `dataset`.
+#' @param format a string identifier of the file format. Default is to use
+#' "parquet" (see [FileFormat()])
 #' @param partitioning `Partitioning` or a character vector of columns to
 #' use as partition keys (to be written as path segments). Default is to
 #' use the current `group_by()` columns.
