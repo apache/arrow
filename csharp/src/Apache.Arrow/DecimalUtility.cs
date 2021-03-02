@@ -21,7 +21,7 @@ namespace Apache.Arrow
     /// <summary>
     /// This is semi-optimised best attempt at converting to / from decimal and the buffers
     /// </summary>
-    internal static class DecimalUtility
+    public static class DecimalUtility
     {
         private static readonly BigInteger _maxDecimal = new BigInteger(decimal.MaxValue);
         private static readonly BigInteger _minDecimal = new BigInteger(decimal.MinValue);
@@ -77,7 +77,7 @@ namespace Apache.Arrow
             return result;
         }
 
-        internal static void GetBytes(decimal value, int precision, int scale, int byteWidth, Span<byte> bytes)
+        public static void GetBytes(decimal value, int precision, int scale, int byteWidth, Span<byte> bytes)
         {
             // create BigInteger from decimal
             byte[] bigIntBytes = new byte[12];
