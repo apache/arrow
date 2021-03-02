@@ -762,8 +762,7 @@ Associative transforms
 * \(2) Duplicates are removed from the output while the original order is
   maintained.
 
-* \(3) Output is a ``{
-     "values" : input type, "counts" : Int64}`` Struct.
+* \(3) Output is a ``{"values": input type, "counts": Int64}`` Struct.
   Each output element corresponds to a unique value in the input, along
   with the number of times this value has appeared.
 

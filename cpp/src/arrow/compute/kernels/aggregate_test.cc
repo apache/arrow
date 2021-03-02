@@ -426,6 +426,32 @@ TEST(GroupBy, SumOnly) {
                     /*verbose=*/true);
 }
 
+TEST(GroupBy, MinMaxOnly) {
+  auto aggregand = ArrayFromJSON(float64(), "[1.0, 0.0, null, 3.25, 0.125, -0.25, 0.75]");
+  auto key = ArrayFromJSON(int64(), "[1, 2, 3, 1, 2, 2, null]");
+
+  ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped, GroupBy({aggregand}, {key},
+                                                             GroupByOptions{
+                                                                 {"min_max", nullptr},
+                                                             }));
+
+  AssertDatumsEqual(ArrayFromJSON(struct_({
+                                      field("", struct_({
+                                                    field("min", float64()),
+                                                    field("max", float64()),
+                                                })),
+                                      field("", int64()),
+                                  }),
+                                  R"([
+    [{"min": 1.0,   "max": 3.25},  1],
+    [{"min": -0.25, "max": 0.125}, 2],
+    [{"min": null,  "max": null},  3],
+    [{"min": 0.75,  "max": 0.75},  null]
+  ])"),
+                    aggregated_and_grouped,
+                    /*verbose=*/true);
+}
+
 TEST(GroupBy, CountAndSum) {
   auto aggregand = ArrayFromJSON(float32(), "[1.0, 0.0, null, 3.25, 0.125, -0.25, 0.75]");
   auto key = ArrayFromJSON(int64(), "[1, 2, 1, 3, 2, 3, null]");
@@ -974,9 +1000,7 @@ class TestPrimitiveMinMaxKernel : public ::testing::Test {
 
   void AssertMinMaxIsNull(const Datum& array, const MinMaxOptions& options) {
     ASSERT_OK_AND_ASSIGN(Datum out, MinMax(array, options));
-
-    const StructScalar& value = out.scalar_as<StructScalar>();
-    for (const auto& val : value.value) {
+    for (const auto& val : out.scalar_as<StructScalar>().value) {
       ASSERT_FALSE(val->is_valid);
     }
   }
