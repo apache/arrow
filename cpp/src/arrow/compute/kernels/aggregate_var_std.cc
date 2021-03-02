@@ -77,10 +77,11 @@ enable_if_t<std::is_floating_point<SumType>::value, SumType> SumArray(
   VisitSetBitRunsVoid(data.buffers[0], data.offset, data.length,
                       [&](int64_t pos, int64_t len) {
                         const ValueType* v = &values[pos];
-                        const int64_t blocks = len / kBlockSize;
-                        const int64_t remains = len % kBlockSize;
+                        // unsigned division by constant is cheaper than signed one
+                        const uint64_t blocks = static_cast<uint64_t>(len) / kBlockSize;
+                        const uint64_t remains = static_cast<uint64_t>(len) % kBlockSize;
 
-                        for (int64_t i = 0; i < blocks; ++i) {
+                        for (uint64_t i = 0; i < blocks; ++i) {
                           SumType block_sum = 0;
                           for (int j = 0; j < kBlockSize; ++j) {
                             block_sum += func(v[j]);
@@ -91,7 +92,7 @@ enable_if_t<std::is_floating_point<SumType>::value, SumType> SumArray(
 
                         if (remains > 0) {
                           SumType block_sum = 0;
-                          for (int64_t i = 0; i < remains; ++i) {
+                          for (uint64_t i = 0; i < remains; ++i) {
                             block_sum += func(v[i]);
                           }
                           reduce(block_sum);
