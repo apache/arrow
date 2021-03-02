@@ -13,7 +13,8 @@
        || defined(__amd64) || defined(__aarch64__) || defined(_M_ARM64) \
        || defined(__MINGW64__)                                          \
        || defined(__s390x__)                                            \
-       || (defined(__ppc64__) || defined(__PPC64__) || defined(__ppc64le__) || defined(__PPC64LE__)))
+       || (defined(__ppc64__) || defined(__PPC64__) || defined(__ppc64le__) defined(__PPC64LE__)) \
+       || defined(__EMSCRIPTEN__))
 #define FASTFLOAT_64BIT
 #else
 #error Unknown platform
