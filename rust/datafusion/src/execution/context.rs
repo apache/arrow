@@ -599,8 +599,8 @@ impl ContextProvider for ExecutionContextState {
         self.aggregate_functions.get(name).cloned()
     }
 
-    fn get_config(&self) -> ExecutionConfig {
-        self.config.clone()
+    fn config(&self) -> &ExecutionConfig {
+        self.config
     }
 }
 
