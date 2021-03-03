@@ -139,8 +139,8 @@ else
 
       LIB_DIR="libarrow/arrow-${VERSION}/lib"
       if [ -d "$LIB_DIR" ]; then
-        # Enumerate the static libs, add them to BUNDLED_LIBS,
-        # and prepend the location to PKG_DIRS
+        # Enumerate the static libs, put their -l flags in BUNDLED_LIBS,
+        # and put their -L location in PKG_DIRS
         #
         # If tools/linuxlibs.R fails to produce libs, this dir won't exist
         # so don't try (the error message from `ls` would be misleading)
@@ -149,7 +149,7 @@ else
         # TODO: what about non-bundled deps?
         BUNDLED_LIBS=`cd $LIB_DIR && ls *.a`
         BUNDLED_LIBS=`echo $BUNDLED_LIBS | sed -E "s/lib(.*)\.a/-l\1/" | sed -e "s/\\.a lib/ -l/g"`
-        PKG_DIRS="-L$(pwd)/$LIB_DIR $PKG_DIRS"
+        PKG_DIRS="-L$(pwd)/$LIB_DIR"
       fi
     fi
   fi
