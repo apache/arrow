@@ -463,7 +463,8 @@ impl RleDecoder {
                         self.bit_width as usize,
                     );
                     for i in 0..num_values {
-                        buffer[values_read + i].clone_from(&dict[self.index_buf[i] as usize])
+                        buffer[values_read + i]
+                            .clone_from(&dict[self.index_buf[i] as usize])
                     }
                     self.bit_packed_left -= num_values as u32;
                     values_read += num_values;
