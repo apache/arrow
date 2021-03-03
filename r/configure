@@ -194,14 +194,16 @@ if [ $? -eq 0 ] || [ "$UNAME" = "Darwin" ]; then
   if [ $? -eq 0 ]; then
     PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_PARQUET"
     PKG_LIBS="-lparquet $PKG_LIBS"
-    # TODO: what if parquet has a different -L location than arrow?
+    # NOTE: parquet is assumed to have the same -L flag as arrow
+    # so there is no need to add its location to PKG_DIRS
   fi
   # Check for Arrow Dataset subcomponent
   grep 'set(ARROW_DATASET "ON")' $ARROW_OPTS_CMAKE >/dev/null 2>&1
   if [ $? -eq 0 ]; then
     PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_DATASET"
     PKG_LIBS="-larrow_dataset $PKG_LIBS"
-    # TODO: what if arrow-dataset has a different -L location than arrow?
+    # NOTE: arrow-dataset is assumed to have the same -L flag as arrow
+    # so there is no need to add its location to PKG_DIRS
   fi
   # Check for S3
   grep 'set(ARROW_S3 "ON")' $ARROW_OPTS_CMAKE >/dev/null 2>&1
