@@ -34,7 +34,9 @@ G_BEGIN_DECLS
  * @title: Fragment classes
  * @include: arrow-dataset-glib/arrow-dataset-glib.h
  *
- * #GADFragment is a class for a fragment.
+ * #GADFragment is a base class for all fragment classes.
+ *
+ * #GADInMemoryFragment is a class for in-memory fragment.
  *
  * Since: 4.0.0
  */
