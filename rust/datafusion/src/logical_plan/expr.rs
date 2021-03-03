@@ -1075,18 +1075,23 @@ unary_scalar_expr!(Log2, log2);
 unary_scalar_expr!(Log10, log10);
 
 // string functions
+unary_scalar_expr!(Ascii, ascii);
 unary_scalar_expr!(BitLength, bit_length);
 unary_scalar_expr!(Btrim, btrim);
 unary_scalar_expr!(CharacterLength, character_length);
 unary_scalar_expr!(CharacterLength, length);
+unary_scalar_expr!(Chr, chr);
 unary_scalar_expr!(Concat, concat);
 unary_scalar_expr!(ConcatWithSeparator, concat_ws);
+unary_scalar_expr!(InitCap, initcap);
 unary_scalar_expr!(Left, left);
 unary_scalar_expr!(Lower, lower);
 unary_scalar_expr!(Lpad, lpad);
 unary_scalar_expr!(Ltrim, ltrim);
 unary_scalar_expr!(MD5, md5);
 unary_scalar_expr!(OctetLength, octet_length);
+unary_scalar_expr!(Repeat, repeat);
+unary_scalar_expr!(Reverse, reverse);
 unary_scalar_expr!(Right, right);
 unary_scalar_expr!(Rpad, rpad);
 unary_scalar_expr!(Rtrim, rtrim);
@@ -1095,6 +1100,7 @@ unary_scalar_expr!(SHA256, sha256);
 unary_scalar_expr!(SHA384, sha384);
 unary_scalar_expr!(SHA512, sha512);
 unary_scalar_expr!(Substr, substr);
+unary_scalar_expr!(ToHex, to_hex);
 unary_scalar_expr!(Trim, trim);
 unary_scalar_expr!(Upper, upper);
 
