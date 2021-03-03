@@ -40,9 +40,10 @@ name = "datafusion-cli"
 path = "src/bin/main.rs"
 
 [features]
-default = ["cli"]
+default = ["cli", "crypto_expressions"]
 cli = ["rustyline"]
 simd = ["arrow/simd"]
+crypto_expressions = ["md-5", "sha2"]
 
 [dependencies]
 ahash = "0.7"
@@ -61,8 +62,8 @@ futures = "0.3"
 pin-project-lite= "^0.2.0"
 tokio = { version = "1.0", features = ["macros", "rt", "rt-multi-thread", "sync"] }
 log = "^0.4"
-md-5 = "^0.9.1"
-sha2 = "^0.9.1"
+md-5 = { version = "^0.9.1", optional = true }
+sha2 = { version = "^0.9.1", optional = true }
 ordered-float = "2.0"
 unicode-segmentation = "^1.7.1"
 
