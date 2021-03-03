@@ -41,6 +41,8 @@
     <chapter id="scan">
       <title>Scan</title>
       <xi:include href="xml/scanner.xml"/>
+      <title>Fragment</title>
+      <xi:include href="xml/fragment.xml"/>
     </chapter>
   </part>
 
