@@ -54,12 +54,8 @@ which case it will be V4.
 \item \code{codec}: A \link{Codec} which will be used to compress body buffers of written
 files. Default (NULL) will not compress body buffers.
 \item \code{null_fallback}: character to be used in place of missing values (\code{NA} or
-\code{NULL}) see \code{\link{hive_partition}} for more information.
+\code{NULL}) when using Hive-style partitioning. See \code{\link[=hive_partition]{hive_partition()}}.
 }}
-
-\item{hive_null_fallback}{If writing partition segments as Hive-style
-directories then this value will be used in place of any null value in a
-partition column.}
 }
 \value{
 The input \code{dataset}, invisibly
