@@ -7,7 +7,7 @@
 write_dataset(
   dataset,
   path,
-  format = dataset$format,
+  format = c("parquet", "feather", "arrow", "ipc"),
   partitioning = dplyr::group_vars(dataset),
   basename_template = paste0("part-{i}.", as.character(format)),
   hive_style = TRUE,
@@ -25,9 +25,8 @@ Note that \code{select()}-ed columns may not be renamed.}
 \item{path}{string path, URI, or \code{SubTreeFileSystem} referencing a directory
 to write to (directory will be created if it does not exist)}
 
-\item{format}{file format to write the dataset to. Currently supported
-formats are "feather" (aka "ipc") and "parquet". Default is to write to the
-same format as \code{dataset}.}
+\item{format}{a string identifier of the file format. Default is to use
+"parquet" (see \link{FileFormat})}
 
 \item{partitioning}{\code{Partitioning} or a character vector of columns to
 use as partition keys (to be written as path segments). Default is to

@@ -1061,6 +1061,24 @@ test_that("Writing a dataset: Parquet->Parquet (default)", {
   )
 })
 
+test_that("Writing a dataset: no format specified", {
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
+  dst_dir <- make_temp_dir()
+  write_dataset(mtcars, dst_dir)
+  new_ds <- open_dataset(dst_dir)
+  expect_equal(
+    list.files(dst_dir, pattern = "parquet"),
+    "part-0.parquet"
+  )
+  expect_true(
+    inherits(new_ds$format, "ParquetFileFormat")
+  )
+  expect_equivalent(
+    new_ds %>% collect(),
+    mtcars
+  )
+})
+
 test_that("Dataset writing: dplyr methods", {
   skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
   ds <- open_dataset(hive_dir)
