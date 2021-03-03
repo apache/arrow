@@ -1078,17 +1078,15 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
 
   arrow::Status status = arrow::Status::OK();
 
-  auto extract_one_column = [&](int j, SEXP x, cpp11::r_string) {
-    // no need to do anything further if a previous column has failed
-    if (!status.ok()) {
-      return;
-    }
+  auto flatten_lst = arrow::r::FlattenDots(lst, num_fields);
+  for (int j = 0; j < num_fields && status.ok(); j++) {
+    SEXP x = flatten_lst[j];
 
     if (Rf_inherits(x, "ChunkedArray")) {
       columns[j] = cpp11::as_cpp<std::shared_ptr<arrow::ChunkedArray>>(x);
     } else if (Rf_inherits(x, "Array")) {
       columns[j] = std::make_shared<arrow::ChunkedArray>(
-          cpp11::as_cpp<std::shared_ptr<arrow::Array>>(x));
+        cpp11::as_cpp<std::shared_ptr<arrow::Array>>(x));
     } else {
       arrow::r::RConversionOptions options;
       options.strict = !infer_schema;
@@ -1098,15 +1096,15 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
       // maybe short circuit when zero-copy is possible
       if (arrow::r::can_reuse_memory(x, options.type)) {
         columns[j] = std::make_shared<arrow::ChunkedArray>(
-            arrow::r::vec_to_arrow__reuse_memory(x));
+          arrow::r::vec_to_arrow__reuse_memory(x));
       } else {
         // this needs to be more informed
         bool can_extend_parallel = false;
 
         auto task = [=, &columns]() {
           auto converter_result =
-              arrow::MakeConverter<arrow::r::RConverter, arrow::r::RConverterTrait>(
-                  options.type, options, gc_memory_pool());
+            arrow::MakeConverter<arrow::r::RConverter, arrow::r::RConverterTrait>(
+                options.type, options, gc_memory_pool());
           RETURN_NOT_OK(converter_result.status());
           auto& converter = converter_result.ValueUnsafe();
 
@@ -1125,8 +1123,7 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
         }
       }
     }
-  };
-  arrow::r::TraverseDots(lst, num_fields, extract_one_column);
+  }
 
   // now that the parallel tasks have been started
   // do the delayed serial tasks
