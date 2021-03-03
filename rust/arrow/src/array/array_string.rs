@@ -88,7 +88,7 @@ impl<OffsetSize: StringOffsetSizeTrait> GenericStringArray<OffsetSize> {
         // buffer bounds/offset is ensured by the value_offset invariants
         // ISSUE: utf-8 well formedness is not checked
         let slice = std::slice::from_raw_parts(
-            self.value_data.as_ptr().offset(start.to_isize()),
+            self.value_data.as_ptr().offset(start.to_isize().unwrap()),
             (*end - *start).to_usize().unwrap(),
         );
         std::str::from_utf8_unchecked(slice)
@@ -107,7 +107,7 @@ impl<OffsetSize: StringOffsetSizeTrait> GenericStringArray<OffsetSize> {
         // ISSUE: utf-8 well formedness is not checked
         unsafe {
             let slice = std::slice::from_raw_parts(
-                self.value_data.as_ptr().offset(start.to_isize()),
+                self.value_data.as_ptr().offset(start.to_isize().unwrap()),
                 (*end - *start).to_usize().unwrap(),
             );
             std::str::from_utf8_unchecked(slice)

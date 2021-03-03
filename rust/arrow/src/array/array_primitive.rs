@@ -223,21 +223,21 @@ impl<T: ArrowPrimitiveType> fmt::Debug for PrimitiveArray<T> {
         write!(f, "PrimitiveArray<{:?}>\n[\n", T::DATA_TYPE)?;
         print_long_array(self, f, |array, index, f| match T::DATA_TYPE {
             DataType::Date32 | DataType::Date64 => {
-                let v = self.value(index).to_usize().unwrap() as i64;
+                let v = self.value(index).to_isize().unwrap() as i64;
                 match as_date::<T>(v) {
                     Some(date) => write!(f, "{:?}", date),
                     None => write!(f, "null"),
                 }
             }
             DataType::Time32(_) | DataType::Time64(_) => {
-                let v = self.value(index).to_usize().unwrap() as i64;
+                let v = self.value(index).to_isize().unwrap() as i64;
                 match as_time::<T>(v) {
                     Some(time) => write!(f, "{:?}", time),
                     None => write!(f, "null"),
                 }
             }
             DataType::Timestamp(_, _) => {
-                let v = self.value(index).to_usize().unwrap() as i64;
+                let v = self.value(index).to_isize().unwrap() as i64;
                 match as_datetime::<T>(v) {
                     Some(datetime) => write!(f, "{:?}", datetime),
                     None => write!(f, "null"),
@@ -794,18 +794,21 @@ mod tests {
     #[test]
     fn test_timestamp_fmt_debug() {
         let arr: PrimitiveArray<TimestampMillisecondType> =
-            TimestampMillisecondArray::from_vec(vec![1546214400000, 1546214400000], None);
+            TimestampMillisecondArray::from_vec(
+                vec![1546214400000, 1546214400000, -1546214400000],
+                None,
+            );
         assert_eq!(
-            "PrimitiveArray<Timestamp(Millisecond, None)>\n[\n  2018-12-31T00:00:00,\n  2018-12-31T00:00:00,\n]",
+            "PrimitiveArray<Timestamp(Millisecond, None)>\n[\n  2018-12-31T00:00:00,\n  2018-12-31T00:00:00,\n  1921-01-02T00:00:00,\n]",
             format!("{:?}", arr)
         );
     }
 
     #[test]
     fn test_date32_fmt_debug() {
-        let arr: PrimitiveArray<Date32Type> = vec![12356, 13548].into();
+        let arr: PrimitiveArray<Date32Type> = vec![12356, 13548, -365].into();
         assert_eq!(
-            "PrimitiveArray<Date32>\n[\n  2003-10-31,\n  2007-02-04,\n]",
+            "PrimitiveArray<Date32>\n[\n  2003-10-31,\n  2007-02-04,\n  1969-01-01,\n]",
             format!("{:?}", arr)
         );
     }
@@ -817,6 +820,14 @@ mod tests {
             "PrimitiveArray<Time32(Second)>\n[\n  02:00:01,\n  16:40:54,\n]",
             format!("{:?}", arr)
         );
+    }
+
+    #[test]
+    #[should_panic(expected = "invalid time")]
+    fn test_time32second_invalid_neg() {
+        // The panic should come from chrono, not from arrow
+        let arr: PrimitiveArray<Time32SecondType> = vec![-7201, -60054].into();
+        println!("{:?}", arr);
     }
 
     #[test]

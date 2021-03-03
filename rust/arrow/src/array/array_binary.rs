@@ -89,7 +89,7 @@ impl<OffsetSize: BinaryOffsetSizeTrait> GenericBinaryArray<OffsetSize> {
         // pointer alignment & location is ensured by RawPtrBox
         // buffer bounds/offset is ensured by the value_offset invariants
         std::slice::from_raw_parts(
-            self.value_data.as_ptr().offset(start.to_isize()),
+            self.value_data.as_ptr().offset(start.to_isize().unwrap()),
             (end - start).to_usize().unwrap(),
         )
     }
@@ -106,7 +106,7 @@ impl<OffsetSize: BinaryOffsetSizeTrait> GenericBinaryArray<OffsetSize> {
         // buffer bounds/offset is ensured by the value_offset invariants
         unsafe {
             std::slice::from_raw_parts(
-                self.value_data.as_ptr().offset(start.to_isize()),
+                self.value_data.as_ptr().offset(start.to_isize().unwrap()),
                 (*end - *start).to_usize().unwrap(),
             )
         }
