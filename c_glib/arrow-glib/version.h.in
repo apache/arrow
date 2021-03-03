@@ -147,6 +147,15 @@
 #define GARROW_VERSION_0_17 G_ENCODE_VERSION(0, 17)
 
 /**
+ * GARROW_VERSION_0_16:
+ *
+ * You can use this macro value for compile time API version check.
+ *
+ * Since: 0.16.0
+ */
+#define GARROW_VERSION_0_16 G_ENCODE_VERSION(0, 16)
+
+/**
  * GARROW_VERSION_0_15:
  *
  * You can use this macro value for compile time API version check.
