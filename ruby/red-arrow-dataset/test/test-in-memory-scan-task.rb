@@ -25,10 +25,7 @@ class TestInMemoryScanTask < Test::Unit::TestCase
 
   sub_test_case(".new") do
     test("[[Arrow::RecordBatch]]") do
-      fragment = ArrowDataset::InMemoryFragment.new(@record_batches.first.schema,
-                                                    @record_batches)
-      scan_task = ArrowDataset::InMemoryScanTask.new(@record_batches,
-                                                     fragment: fragment)
+      scan_task = ArrowDataset::InMemoryScanTask.new(@record_batches)
       assert_equal(@record_batches,
                    scan_task.execute.to_a)
     end
