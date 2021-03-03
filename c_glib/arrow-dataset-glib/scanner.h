@@ -102,6 +102,6 @@ gad_in_memory_scan_task_new(GArrowRecordBatch **record_batches,
                             gsize n_record_batches,
                             GADScanOptions *options,
                             GADScanContext *context,
-                            GADFragment *fragment);
+                            GADInMemoryFragment *fragment);
 
 G_END_DECLS

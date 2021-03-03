@@ -38,4 +38,4 @@ GADInMemoryScanTask *
 gad_in_memory_scan_task_new_raw(std::shared_ptr<arrow::dataset::InMemoryScanTask> *arrow_in_memory_scan_task,
                                 GADScanOptions *scan_options,
                                 GADScanContext *scan_context,
-                                GADFragment *fragment);
+                                GADInMemoryFragment *fragment);

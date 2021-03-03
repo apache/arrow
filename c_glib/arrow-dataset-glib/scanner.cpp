@@ -619,7 +619,7 @@ gad_in_memory_scan_task_class_init(GADInMemoryScanTaskClass *klass)
  * @n_record_batches: The number of record batches.
  * @options: A #GADScanOptions.
  * @context: A #GADScanContext.
- * @fragment: A #GADFragment.
+ * @fragment: A #GADInMemoryFragment.
  *
  * Returns: A newly created #GADInMemoryScanTask.
  *
@@ -630,7 +630,7 @@ gad_in_memory_scan_task_new(GArrowRecordBatch **record_batches,
                             gsize n_record_batches,
                             GADScanOptions *options,
                             GADScanContext *context,
-                            GADFragment *fragment)
+                            GADInMemoryFragment *fragment)
 {
   std::vector<std::shared_ptr<arrow::RecordBatch>> arrow_record_batches;
   arrow_record_batches.reserve(n_record_batches);
@@ -640,7 +640,7 @@ gad_in_memory_scan_task_new(GArrowRecordBatch **record_batches,
   }
   auto arrow_options = gad_scan_options_get_raw(options);
   auto arrow_context = gad_scan_context_get_raw(context);
-  auto arrow_fragment = gad_fragment_get_raw(fragment);
+  auto arrow_fragment = gad_fragment_get_raw(GAD_FRAGMENT(fragment));
   auto arrow_in_memory_scan_task =
     std::make_shared<arrow::dataset::InMemoryScanTask>(arrow_record_batches,
                                                        arrow_options,
@@ -692,7 +692,7 @@ GADInMemoryScanTask *
 gad_in_memory_scan_task_new_raw(std::shared_ptr<arrow::dataset::InMemoryScanTask> *arrow_in_memory_scan_task,
                                 GADScanOptions *options,
                                 GADScanContext *context,
-                                GADFragment *fragment)
+                                GADInMemoryFragment *fragment)
 {
   auto in_memory_scan_task =
     GAD_IN_MEMORY_SCAN_TASK(g_object_new(GAD_TYPE_IN_MEMORY_SCAN_TASK,
