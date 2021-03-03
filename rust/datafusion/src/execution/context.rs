@@ -105,11 +105,11 @@ pub struct ExecutionContext {
 impl ExecutionContext {
     /// Creates a new execution context using a default configuration.
     pub fn new() -> Self {
-        Self::with_config(ExecutionConfig::new())
+        Self::with_config(Arc::new(ExecutionConfig::new()))
     }
 
     /// Creates a new execution context using the provided configuration.
-    pub fn with_config(config: ExecutionConfig) -> Self {
+    pub fn with_config(config: Arc<ExecutionConfig>) -> Self {
         Self {
             state: Arc::new(Mutex::new(ExecutionContextState {
                 datasources: HashMap::new(),
@@ -584,7 +584,7 @@ pub struct ExecutionContextState {
     /// Aggregate functions registered in the context
     pub aggregate_functions: HashMap<String, Arc<AggregateUDF>>,
     /// Context configuration
-    pub config: ExecutionConfig,
+    pub config: Arc<ExecutionConfig>,
 }
 
 impl ContextProvider for ExecutionContextState {
@@ -603,8 +603,8 @@ impl ContextProvider for ExecutionContextState {
         self.aggregate_functions.get(name).cloned()
     }
 
-    fn config(&self) -> &ExecutionConfig {
-        &self.config
+    fn config(&self) -> Arc<ExecutionConfig> {
+        self.config.clone()
     }
 }
 
@@ -1907,7 +1907,7 @@ mod tests {
     #[tokio::test]
     async fn custom_query_planner() -> Result<()> {
         let mut ctx = ExecutionContext::with_config(
-            ExecutionConfig::new().with_query_planner(Arc::new(MyQueryPlanner {})),
+            Arc::new(ExecutionConfig::new().with_query_planner(Arc::new(MyQueryPlanner {}))),
         );
 
         let df = ctx.sql("SELECT 1")?;

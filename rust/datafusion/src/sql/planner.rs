@@ -68,7 +68,7 @@ pub trait ContextProvider {
     /// Getter for a UDAF description
     fn get_aggregate_meta(&self, name: &str) -> Option<Arc<AggregateUDF>>;
     /// Getter for a config
-    fn config(&self) -> &ExecutionConfig;
+    fn config(&self) -> Arc<ExecutionConfig>;
 }
 
 /// SQL query planner
@@ -2476,9 +2476,9 @@ mod tests {
             unimplemented!()
         }
 
-        fn config(&self) -> &ExecutionConfig {
+        fn config(&self) -> Arc<ExecutionConfig> {
             let ec = ExecutionConfig::new();
-            &ec
+            Arc::new(ec)
         }
     }
 }
