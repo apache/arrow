@@ -499,7 +499,7 @@ gad_scan_task_class_init(GADScanTaskClass *klass)
    *
    * The fragment of the scan task.
    *
-   * Since: 1.0.0
+   * Since: 4.0.0
    */
   spec = g_param_spec_object("fragment",
                              "Fragment",
@@ -558,7 +558,7 @@ gad_scan_task_get_context(GADScanTask *scan_task)
  *
  * Returns: (transfer full): A #GADFragment.
  *
- * Since: 1.0.0
+ * Since: 4.0.0
  */
 GADFragment *
 gad_scan_task_get_fragment(GADScanTask *scan_task)
