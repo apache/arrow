@@ -84,8 +84,8 @@ HivePartitioning$create <- function(schm, null_fallback = NULL) {
 #' `hive_partition()` does not matter.
 #' @param ... named list of [data types][data-type], passed to [schema()]
 #' @param null_fallback character to be used in place of missing values (`NA` or `NULL`)
-#' in columns that are being partitioned by. (default:
-#' `"__HIVE_DEFAULT_PARTITION__"`)
+#' in partition columns. Default is `"__HIVE_DEFAULT_PARTITION__"`,
+#' which is what Hive uses.
 #' @return A [HivePartitioning][Partitioning], or a `HivePartitioningFactory` if
 #' calling `hive_partition()` with no arguments.
 #' @examples
