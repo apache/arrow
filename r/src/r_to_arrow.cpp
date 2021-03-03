@@ -1105,7 +1105,7 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
             arrow::MakeConverter<arrow::r::RConverter, arrow::r::RConverterTrait>(
                 options.type, options, gc_memory_pool()));
 
-        auto task = [&]() {
+        auto task = [=]() {
           RETURN_NOT_OK(converter->Extend(x, options.size));
           columns[j] =
               std::make_shared<arrow::ChunkedArray>(converter->ToArray().ValueUnsafe());
