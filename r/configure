@@ -69,7 +69,7 @@ fi
 if [ "$INCLUDE_DIR" ] || [ "$LIB_DIR" ]; then
   echo "*** Using INCLUDE_DIR/LIB_DIR"
   PKG_CFLAGS="-I$INCLUDE_DIR $PKG_CFLAGS"
-  PKG_DIRS="-L$LIB_DIR $PKG_DIRS"
+  PKG_DIRS="-L$LIB_DIR"
 else
   # Use pkg-config if available and allowed
   pkg-config --version >/dev/null 2>&1
