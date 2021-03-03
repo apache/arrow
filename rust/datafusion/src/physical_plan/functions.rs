@@ -138,6 +138,10 @@ pub enum BuiltinScalarFunction {
     DatePart,
     /// Date truncate
     DateTrunc,
+    /// left
+    Left,
+    /// lpad
+    Lpad,
     /// lower
     Lower,
     /// trim left
@@ -148,6 +152,10 @@ pub enum BuiltinScalarFunction {
     NullIf,
     /// octet_length
     OctetLength,
+    /// right
+    Right,
+    /// rpad
+    Rpad,
     /// trim right
     Rtrim,
     /// SHA224
@@ -208,12 +216,16 @@ impl FromStr for BuiltinScalarFunction {
             "concat_ws" => BuiltinScalarFunction::ConcatWithSeparator,
             "date_part" => BuiltinScalarFunction::DatePart,
             "date_trunc" => BuiltinScalarFunction::DateTrunc,
+            "left" => BuiltinScalarFunction::Left,
             "length" => BuiltinScalarFunction::CharacterLength,
             "lower" => BuiltinScalarFunction::Lower,
+            "lpad" => BuiltinScalarFunction::Lpad,
             "ltrim" => BuiltinScalarFunction::Ltrim,
             "md5" => BuiltinScalarFunction::MD5,
             "nullif" => BuiltinScalarFunction::NullIf,
             "octet_length" => BuiltinScalarFunction::OctetLength,
+            "right" => BuiltinScalarFunction::Right,
+            "rpad" => BuiltinScalarFunction::Rpad,
             "rtrim" => BuiltinScalarFunction::Rtrim,
             "sha224" => BuiltinScalarFunction::SHA224,
             "sha256" => BuiltinScalarFunction::SHA256,
@@ -297,6 +309,16 @@ pub fn return_type(
         BuiltinScalarFunction::DateTrunc => {
             Ok(DataType::Timestamp(TimeUnit::Nanosecond, None))
         }
+        BuiltinScalarFunction::Left => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::LargeUtf8,
+            DataType::Utf8 => DataType::Utf8,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The left function can only accept strings.".to_string(),
+                ));
+            }
+        }),
         BuiltinScalarFunction::Lower => Ok(match arg_types[0] {
             DataType::LargeUtf8 => DataType::LargeUtf8,
             DataType::Utf8 => DataType::Utf8,
@@ -304,6 +326,16 @@ pub fn return_type(
                 // this error is internal as `data_types` should have captured this.
                 return Err(DataFusionError::Internal(
                     "The upper function can only accept strings.".to_string(),
+                ));
+            }
+        }),
+        BuiltinScalarFunction::Lpad => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::LargeUtf8,
+            DataType::Utf8 => DataType::Utf8,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The lpad function can only accept strings.".to_string(),
                 ));
             }
         }),
@@ -339,6 +371,26 @@ pub fn return_type(
                 // this error is internal as `data_types` should have captured this.
                 return Err(DataFusionError::Internal(
                     "The octet_length function can only accept strings.".to_string(),
+                ));
+            }
+        }),
+        BuiltinScalarFunction::Right => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::LargeUtf8,
+            DataType::Utf8 => DataType::Utf8,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The right function can only accept strings.".to_string(),
+                ));
+            }
+        }),
+        BuiltinScalarFunction::Rpad => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::LargeUtf8,
+            DataType::Utf8 => DataType::Utf8,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The rpad function can only accept strings.".to_string(),
                 ));
             }
         }),
@@ -537,7 +589,27 @@ pub fn create_physical_expr(
         }
         BuiltinScalarFunction::DatePart => datetime_expressions::date_part,
         BuiltinScalarFunction::DateTrunc => datetime_expressions::date_trunc,
+        BuiltinScalarFunction::Left => |args| match args[0].data_type() {
+            DataType::Utf8 => make_scalar_function(string_expressions::left::<i32>)(args),
+            DataType::LargeUtf8 => {
+                make_scalar_function(string_expressions::left::<i64>)(args)
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function left",
+                other,
+            ))),
+        },
         BuiltinScalarFunction::Lower => string_expressions::lower,
+        BuiltinScalarFunction::Lpad => |args| match args[0].data_type() {
+            DataType::Utf8 => make_scalar_function(string_expressions::lpad::<i32>)(args),
+            DataType::LargeUtf8 => {
+                make_scalar_function(string_expressions::lpad::<i64>)(args)
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function lpad",
+                other,
+            ))),
+        },
         BuiltinScalarFunction::Ltrim => |args| match args[0].data_type() {
             DataType::Utf8 => {
                 make_scalar_function(string_expressions::ltrim::<i32>)(args)
@@ -565,6 +637,28 @@ pub fn create_physical_expr(
                 )),
                 _ => unreachable!(),
             },
+        },
+        BuiltinScalarFunction::Right => |args| match args[0].data_type() {
+            DataType::Utf8 => {
+                make_scalar_function(string_expressions::right::<i32>)(args)
+            }
+            DataType::LargeUtf8 => {
+                make_scalar_function(string_expressions::right::<i64>)(args)
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function right",
+                other,
+            ))),
+        },
+        BuiltinScalarFunction::Rpad => |args| match args[0].data_type() {
+            DataType::Utf8 => make_scalar_function(string_expressions::rpad::<i32>)(args),
+            DataType::LargeUtf8 => {
+                make_scalar_function(string_expressions::rpad::<i64>)(args)
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function rpad",
+                other,
+            ))),
         },
         BuiltinScalarFunction::Rtrim => |args| match args[0].data_type() {
             DataType::Utf8 => {
@@ -664,6 +758,34 @@ fn signature(fun: &BuiltinScalarFunction) -> Signature {
             Signature::Exact(vec![DataType::Utf8]),
             Signature::Exact(vec![DataType::Utf8, DataType::Utf8]),
         ]),
+        BuiltinScalarFunction::Lpad | BuiltinScalarFunction::Rpad => {
+            Signature::OneOf(vec![
+                Signature::Exact(vec![DataType::Utf8, DataType::Int64]),
+                Signature::Exact(vec![DataType::LargeUtf8, DataType::Int64]),
+                Signature::Exact(vec![DataType::Utf8, DataType::Int64, DataType::Utf8]),
+                Signature::Exact(vec![
+                    DataType::LargeUtf8,
+                    DataType::Int64,
+                    DataType::Utf8,
+                ]),
+                Signature::Exact(vec![
+                    DataType::Utf8,
+                    DataType::Int64,
+                    DataType::LargeUtf8,
+                ]),
+                Signature::Exact(vec![
+                    DataType::LargeUtf8,
+                    DataType::Int64,
+                    DataType::LargeUtf8,
+                ]),
+            ])
+        }
+        BuiltinScalarFunction::Left | BuiltinScalarFunction::Right => {
+            Signature::OneOf(vec![
+                Signature::Exact(vec![DataType::Utf8, DataType::Int64]),
+                Signature::Exact(vec![DataType::LargeUtf8, DataType::Int64]),
+            ])
+        }
         BuiltinScalarFunction::ToTimestamp => Signature::Uniform(1, vec![DataType::Utf8]),
         BuiltinScalarFunction::DateTrunc => Signature::Exact(vec![
             DataType::Utf8,
@@ -1166,48 +1288,66 @@ mod tests {
             Float64Array
         );
         test_function!(
-            Ltrim,
-            &[lit(ScalarValue::Utf8(Some(" trim".to_string())))],
-            Ok(Some("trim")),
+            Left,
+            &[
+                lit(ScalarValue::Utf8(Some("abcde".to_string()))),
+                lit(ScalarValue::Int8(Some(2))),
+            ],
+            Ok(Some("ab")),
             &str,
             Utf8,
             StringArray
         );
         test_function!(
-            Ltrim,
-            &[lit(ScalarValue::Utf8(Some(" trim ".to_string())))],
-            Ok(Some("trim ")),
+            Left,
+            &[
+                lit(ScalarValue::Utf8(Some("abcde".to_string()))),
+                lit(ScalarValue::Int64(Some(200))),
+            ],
+            Ok(Some("abcde")),
             &str,
             Utf8,
             StringArray
         );
         test_function!(
-            Ltrim,
-            &[lit(ScalarValue::Utf8(Some("trim ".to_string())))],
-            Ok(Some("trim ")),
+            Left,
+            &[
+                lit(ScalarValue::Utf8(Some("abcde".to_string()))),
+                lit(ScalarValue::Int64(Some(-2))),
+            ],
+            Ok(Some("abc")),
             &str,
             Utf8,
             StringArray
         );
         test_function!(
-            Ltrim,
-            &[lit(ScalarValue::Utf8(Some("trim".to_string())))],
-            Ok(Some("trim")),
+            Left,
+            &[
+                lit(ScalarValue::Utf8(Some("abcde".to_string()))),
+                lit(ScalarValue::Int64(Some(-200))),
+            ],
+            Ok(Some("")),
             &str,
             Utf8,
             StringArray
         );
         test_function!(
-            Ltrim,
-            &[lit(ScalarValue::Utf8(Some("\n trim ".to_string())))],
-            Ok(Some("\n trim ")),
+            Left,
+            &[
+                lit(ScalarValue::Utf8(Some("abcde".to_string()))),
+                lit(ScalarValue::Int64(Some(0))),
+            ],
+            Ok(Some("")),
             &str,
             Utf8,
             StringArray
         );
         test_function!(
-            Ltrim,
-            &[lit(ScalarValue::Utf8(None))],
+            Left,
+            &[
+                lit(ScalarValue::Utf8(None)),
+                lit(ScalarValue::Int64(Some(2))),
+            ],
             Ok(None),
             &str,
             Utf8,
@@ -1252,36 +1392,37 @@ mod tests {
             StringArray
         );
         test_function!(
-            OctetLength,
-            &[lit(ScalarValue::Utf8(Some("chars".to_string())))],
-            Ok(Some(5)),
-            i32,
-            Int32,
-            Int32Array
-        );
-        test_function!(
-            OctetLength,
-            &[lit(ScalarValue::Utf8(Some("josé".to_string())))],
-            Ok(Some(5)),
-            i32,
-            Int32,
-            Int32Array
-        );
-        test_function!(
-            OctetLength,
-            &[lit(ScalarValue::Utf8(Some("".to_string())))],
-            Ok(Some(0)),
-            i32,
-            Int32,
-            Int32Array
-        );
-        test_function!(
-            OctetLength,
-            &[lit(ScalarValue::Utf8(None))],
+            Left,
+            &[
+                lit(ScalarValue::Utf8(Some("abcde".to_string()))),
+                lit(ScalarValue::Int64(None)),
+            ],
             Ok(None),
-            i32,
-            Int32,
-            Int32Array
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Left,
+            &[
+                lit(ScalarValue::Utf8(Some("joséésoj".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+            ],
+            Ok(Some("joséé")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Left,
+            &[
+                lit(ScalarValue::Utf8(Some("joséésoj".to_string()))),
+                lit(ScalarValue::Int64(Some(-3))),
+            ],
+            Ok(Some("joséé")),
+            &str,
+            Utf8,
+            StringArray
         );
         #[cfg(feature = "crypto_expressions")]
         test_function!(
@@ -1478,6 +1619,559 @@ mod tests {
             BinaryArray
         );
         test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(Some("josé".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+            ],
+            Ok(Some(" josé")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+            ],
+            Ok(Some("   hi")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(0))),
+            ],
+            Ok(Some("")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(None)),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(None)),
+                lit(ScalarValue::Int64(Some(5))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+                lit(ScalarValue::Utf8(Some("xy".to_string()))),
+            ],
+            Ok(Some("xyxhi")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(21))),
+                lit(ScalarValue::Utf8(Some("abcdef".to_string()))),
+            ],
+            Ok(Some("abcdefabcdefabcdefahi")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+                lit(ScalarValue::Utf8(Some(" ".to_string()))),
+            ],
+            Ok(Some("   hi")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+                lit(ScalarValue::Utf8(Some("".to_string()))),
+            ],
+            Ok(Some("hi")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(None)),
+                lit(ScalarValue::Int64(Some(5))),
+                lit(ScalarValue::Utf8(Some("xy".to_string()))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(None)),
+                lit(ScalarValue::Utf8(Some("xy".to_string()))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+                lit(ScalarValue::Utf8(None)),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(Some("josé".to_string()))),
+                lit(ScalarValue::Int64(Some(10))),
+                lit(ScalarValue::Utf8(Some("xy".to_string()))),
+            ],
+            Ok(Some("xyxyxyjosé")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(Some("josé".to_string()))),
+                lit(ScalarValue::Int64(Some(10))),
+                lit(ScalarValue::Utf8(Some("éñ".to_string()))),
+            ],
+            Ok(Some("éñéñéñjosé")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Ltrim,
+            &[lit(ScalarValue::Utf8(Some(" trim".to_string())))],
+            Ok(Some("trim")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Ltrim,
+            &[lit(ScalarValue::Utf8(Some(" trim ".to_string())))],
+            Ok(Some("trim ")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Ltrim,
+            &[lit(ScalarValue::Utf8(Some("trim ".to_string())))],
+            Ok(Some("trim ")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Ltrim,
+            &[lit(ScalarValue::Utf8(Some("trim".to_string())))],
+            Ok(Some("trim")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Ltrim,
+            &[lit(ScalarValue::Utf8(Some("\n trim ".to_string())))],
+            Ok(Some("\n trim ")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Ltrim,
+            &[lit(ScalarValue::Utf8(None))],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            OctetLength,
+            &[lit(ScalarValue::Utf8(Some("chars".to_string())))],
+            Ok(Some(5)),
+            i32,
+            Int32,
+            Int32Array
+        );
+        test_function!(
+            OctetLength,
+            &[lit(ScalarValue::Utf8(Some("josé".to_string())))],
+            Ok(Some(5)),
+            i32,
+            Int32,
+            Int32Array
+        );
+        test_function!(
+            OctetLength,
+            &[lit(ScalarValue::Utf8(Some("".to_string())))],
+            Ok(Some(0)),
+            i32,
+            Int32,
+            Int32Array
+        );
+        test_function!(
+            OctetLength,
+            &[lit(ScalarValue::Utf8(None))],
+            Ok(None),
+            i32,
+            Int32,
+            Int32Array
+        );
+        test_function!(
+            Right,
+            &[
+                lit(ScalarValue::Utf8(Some("abcde".to_string()))),
+                lit(ScalarValue::Int8(Some(2))),
+            ],
+            Ok(Some("de")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Right,
+            &[
+                lit(ScalarValue::Utf8(Some("abcde".to_string()))),
+                lit(ScalarValue::Int64(Some(200))),
+            ],
+            Ok(Some("abcde")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Right,
+            &[
+                lit(ScalarValue::Utf8(Some("abcde".to_string()))),
+                lit(ScalarValue::Int64(Some(-2))),
+            ],
+            Ok(Some("cde")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Right,
+            &[
+                lit(ScalarValue::Utf8(Some("abcde".to_string()))),
+                lit(ScalarValue::Int64(Some(-200))),
+            ],
+            Ok(Some("")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Right,
+            &[
+                lit(ScalarValue::Utf8(Some("abcde".to_string()))),
+                lit(ScalarValue::Int64(Some(0))),
+            ],
+            Ok(Some("")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Right,
+            &[
+                lit(ScalarValue::Utf8(None)),
+                lit(ScalarValue::Int64(Some(2))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Right,
+            &[
+                lit(ScalarValue::Utf8(Some("abcde".to_string()))),
+                lit(ScalarValue::Int64(None)),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Right,
+            &[
+                lit(ScalarValue::Utf8(Some("joséésoj".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+            ],
+            Ok(Some("éésoj")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Right,
+            &[
+                lit(ScalarValue::Utf8(Some("joséésoj".to_string()))),
+                lit(ScalarValue::Int64(Some(-3))),
+            ],
+            Ok(Some("éésoj")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(Some("josé".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+            ],
+            Ok(Some("josé ")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+            ],
+            Ok(Some("hi   ")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(0))),
+            ],
+            Ok(Some("")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(None)),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(None)),
+                lit(ScalarValue::Int64(Some(5))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+                lit(ScalarValue::Utf8(Some("xy".to_string()))),
+            ],
+            Ok(Some("hixyx")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(21))),
+                lit(ScalarValue::Utf8(Some("abcdef".to_string()))),
+            ],
+            Ok(Some("hiabcdefabcdefabcdefa")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+                lit(ScalarValue::Utf8(Some(" ".to_string()))),
+            ],
+            Ok(Some("hi   ")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+                lit(ScalarValue::Utf8(Some("".to_string()))),
+            ],
+            Ok(Some("hi")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(None)),
+                lit(ScalarValue::Int64(Some(5))),
+                lit(ScalarValue::Utf8(Some("xy".to_string()))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(None)),
+                lit(ScalarValue::Utf8(Some("xy".to_string()))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+                lit(ScalarValue::Utf8(None)),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(Some("josé".to_string()))),
+                lit(ScalarValue::Int64(Some(10))),
+                lit(ScalarValue::Utf8(Some("xy".to_string()))),
+            ],
+            Ok(Some("joséxyxyxy")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(Some("josé".to_string()))),
+                lit(ScalarValue::Int64(Some(10))),
+                lit(ScalarValue::Utf8(Some("éñ".to_string()))),
+            ],
+            Ok(Some("josééñéñéñ")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rtrim,
+            &[lit(ScalarValue::Utf8(Some("trim ".to_string())))],
+            Ok(Some("trim")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rtrim,
+            &[lit(ScalarValue::Utf8(Some(" trim ".to_string())))],
+            Ok(Some(" trim")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rtrim,
+            &[lit(ScalarValue::Utf8(Some(" trim \n".to_string())))],
+            Ok(Some(" trim \n")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rtrim,
+            &[lit(ScalarValue::Utf8(Some(" trim".to_string())))],
+            Ok(Some(" trim")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rtrim,
+            &[lit(ScalarValue::Utf8(Some("trim".to_string())))],
+            Ok(Some("trim")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rtrim,
+            &[lit(ScalarValue::Utf8(None))],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
             Substr,
             &[
                 lit(ScalarValue::Utf8(Some("alphabet".to_string()))),
@@ -1635,54 +2329,6 @@ mod tests {
                 lit(ScalarValue::Int64(Some(2))),
             ],
             Ok(Some("és")),
-            &str,
-            Utf8,
-            StringArray
-        );
-        test_function!(
-            Rtrim,
-            &[lit(ScalarValue::Utf8(Some("trim ".to_string())))],
-            Ok(Some("trim")),
-            &str,
-            Utf8,
-            StringArray
-        );
-        test_function!(
-            Rtrim,
-            &[lit(ScalarValue::Utf8(Some(" trim ".to_string())))],
-            Ok(Some(" trim")),
-            &str,
-            Utf8,
-            StringArray
-        );
-        test_function!(
-            Rtrim,
-            &[lit(ScalarValue::Utf8(Some(" trim \n".to_string())))],
-            Ok(Some(" trim \n")),
-            &str,
-            Utf8,
-            StringArray
-        );
-        test_function!(
-            Rtrim,
-            &[lit(ScalarValue::Utf8(Some(" trim".to_string())))],
-            Ok(Some(" trim")),
-            &str,
-            Utf8,
-            StringArray
-        );
-        test_function!(
-            Rtrim,
-            &[lit(ScalarValue::Utf8(Some("trim".to_string())))],
-            Ok(Some("trim")),
-            &str,
-            Utf8,
-            StringArray
-        );
-        test_function!(
-            Rtrim,
-            &[lit(ScalarValue::Utf8(None))],
-            Ok(None),
             &str,
             Utf8,
             StringArray
