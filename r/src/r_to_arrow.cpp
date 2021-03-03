@@ -217,8 +217,6 @@ class RConverter : public Converter<SEXP, RConversionOptions> {
   virtual Status ExtendMasked(SEXP values, SEXP mask, int64_t size) {
     return Status::NotImplemented("ExtendMasked");
   }
-
-  virtual bool CanExtendParallel(SEXP values, int64_t size) { return true; }
 };
 
 template <typename T, typename Enable = void>
@@ -1074,17 +1072,18 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
   // table
   std::vector<std::shared_ptr<arrow::ChunkedArray>> columns(num_fields);
 
-  // for now the parallel task does not work,
-  // presumably because some ->Extend() can't actually run in parallel
-  //
-  // auto parallel_tasks =
-  //     arrow::internal::TaskGroup::MakeThreaded(arrow::internal::GetCpuThreadPool());
   auto parallel_tasks =
-    arrow::internal::TaskGroup::MakeSerial();
-
+      arrow::internal::TaskGroup::MakeThreaded(arrow::internal::GetCpuThreadPool());
   std::vector<std::function<arrow::Status()>> delayed_serial_tasks;
 
+  arrow::Status status = arrow::Status::OK();
+
   auto extract_one_column = [&](int j, SEXP x, cpp11::r_string) {
+    // no need to do anything further if a previous column has failed
+    if (!status.ok()) {
+      return;
+    }
+
     if (Rf_inherits(x, "ChunkedArray")) {
       columns[j] = cpp11::as_cpp<std::shared_ptr<arrow::ChunkedArray>>(x);
     } else if (Rf_inherits(x, "Array")) {
@@ -1101,18 +1100,25 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
         columns[j] = std::make_shared<arrow::ChunkedArray>(
             arrow::r::vec_to_arrow__reuse_memory(x));
       } else {
-        auto converter = ValueOrStop(
-            arrow::MakeConverter<arrow::r::RConverter, arrow::r::RConverterTrait>(
-                options.type, options, gc_memory_pool()));
+        // this needs to be more informed
+        bool can_extend_parallel = false;
 
-        auto task = [=]() {
+        auto task = [=, &columns]() {
+          auto converter_result =
+              arrow::MakeConverter<arrow::r::RConverter, arrow::r::RConverterTrait>(
+                  options.type, options, gc_memory_pool());
+          RETURN_NOT_OK(converter_result.status());
+          auto& converter = converter_result.ValueUnsafe();
+
           RETURN_NOT_OK(converter->Extend(x, options.size));
-          columns[j] =
-              std::make_shared<arrow::ChunkedArray>(converter->ToArray().ValueUnsafe());
-          return arrow::Status::OK();
+          auto result = converter->ToArray();
+          if (result.status().ok()) {
+            columns[j] = std::make_shared<arrow::ChunkedArray>(result.ValueUnsafe());
+          }
+          return result.status();
         };
 
-        if (converter->CanExtendParallel(x, options.size)) {
+        if (can_extend_parallel) {
           parallel_tasks->Append(task);
         } else {
           delayed_serial_tasks.push_back(task);
@@ -1122,11 +1128,13 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
   };
   arrow::r::TraverseDots(lst, num_fields, extract_one_column);
 
-  arrow::Status status = arrow::Status::OK();
+  // now that the parallel tasks have been started
+  // do the delayed serial tasks
   for (auto task : delayed_serial_tasks) {
     status &= task();
   }
 
+  // and wait for the parallel tasks to finish
   status &= parallel_tasks->Finish();
   StopIfNotOk(status);
 
