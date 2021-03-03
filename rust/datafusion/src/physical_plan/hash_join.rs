@@ -485,8 +485,8 @@ fn build_join_indexes(
                 .into_array(left_data.1.num_rows()))
         })
         .collect::<Result<Vec<_>>>()?;
-    let hash_buff = &mut vec![0; keys_values[0].len()];
-    let hash_values = create_hashes(&keys_values, &random_state, hash_buff)?;
+    let hashes_buffer = &mut vec![0; keys_values[0].len()];
+    let hash_values = create_hashes(&keys_values, &random_state, hashes_buffer)?;
     let left = &left_data.0;
 
     match join_type {
@@ -729,45 +729,45 @@ macro_rules! hash_array {
 pub fn create_hashes<'a>(
     arrays: &[ArrayRef],
     random_state: &RandomState,
-    hashes: &'a mut Vec<u64>,
+    hashes_buffer: &'a mut Vec<u64>,
 ) -> Result<&'a mut Vec<u64>> {
     for col in arrays {
         match col.data_type() {
             DataType::UInt8 => {
-                hash_array!(UInt8Array, col, u8, hashes, random_state);
+                hash_array!(UInt8Array, col, u8, hashes_buffer, random_state);
             }
             DataType::UInt16 => {
-                hash_array!(UInt16Array, col, u16, hashes, random_state);
+                hash_array!(UInt16Array, col, u16, hashes_buffer, random_state);
             }
             DataType::UInt32 => {
-                hash_array!(UInt32Array, col, u32, hashes, random_state);
+                hash_array!(UInt32Array, col, u32, hashes_buffer, random_state);
             }
             DataType::UInt64 => {
-                hash_array!(UInt64Array, col, u64, hashes, random_state);
+                hash_array!(UInt64Array, col, u64, hashes_buffer, random_state);
             }
             DataType::Int8 => {
-                hash_array!(Int8Array, col, i8, hashes, random_state);
+                hash_array!(Int8Array, col, i8, hashes_buffer, random_state);
             }
             DataType::Int16 => {
-                hash_array!(Int16Array, col, i16, hashes, random_state);
+                hash_array!(Int16Array, col, i16, hashes_buffer, random_state);
             }
             DataType::Int32 => {
-                hash_array!(Int32Array, col, i32, hashes, random_state);
+                hash_array!(Int32Array, col, i32, hashes_buffer, random_state);
             }
             DataType::Int64 => {
-                hash_array!(Int64Array, col, i64, hashes, random_state);
+                hash_array!(Int64Array, col, i64, hashes_buffer, random_state);
             }
             DataType::Timestamp(TimeUnit::Microsecond, None) => {
-                hash_array!(TimestampMicrosecondArray, col, i64, hashes, random_state);
+                hash_array!(TimestampMicrosecondArray, col, i64, hashes_buffer, random_state);
             }
             DataType::Timestamp(TimeUnit::Nanosecond, None) => {
-                hash_array!(TimestampNanosecondArray, col, i64, hashes, random_state);
+                hash_array!(TimestampNanosecondArray, col, i64, hashes_buffer, random_state);
             }
             DataType::Boolean => {
-                hash_array!(BooleanArray, col, u8, hashes, random_state);
+                hash_array!(BooleanArray, col, u8, hashes_buffer, random_state);
             }
             DataType::Utf8 => {
-                hash_array!(StringArray, col, str, hashes, random_state);
+                hash_array!(StringArray, col, str, hashes_buffer, random_state);
             }
             _ => {
                 // This is internal because we should have caught this before.
@@ -777,7 +777,7 @@ pub fn create_hashes<'a>(
             }
         }
     }
-    Ok(hashes)
+    Ok(hashes_buffer)
 }
 
 impl Stream for HashJoinStream {
