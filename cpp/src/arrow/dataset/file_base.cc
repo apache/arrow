@@ -78,7 +78,8 @@ Result<std::shared_ptr<Schema>> FileFragment::ReadPhysicalSchemaImpl() {
 
 Result<ScanTaskIterator> FileFragment::Scan(std::shared_ptr<ScanOptions> options,
                                             std::shared_ptr<ScanContext> context) {
-  return format_->ScanFile(std::move(options), std::move(context), this);
+  auto self = std::dynamic_pointer_cast<FileFragment>(shared_from_this());
+  return format_->ScanFile(std::move(options), std::move(context), self);
 }
 
 FileSystemDataset::FileSystemDataset(std::shared_ptr<Schema> schema,
@@ -286,7 +287,6 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
   ARROW_ASSIGN_OR_RAISE(auto fragment_it, scanner->GetFragments());
   ARROW_ASSIGN_OR_RAISE(FragmentVector fragments, fragment_it.ToVector());
   ScanTaskVector scan_tasks;
-  std::vector<const Fragment*> fragment_for_task;
 
   // Avoid contention with multithreaded readers
   auto context = std::make_shared<ScanContext>(*scanner->context());
@@ -299,7 +299,6 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
     for (auto maybe_scan_task : scan_task_it) {
       ARROW_ASSIGN_OR_RAISE(auto scan_task, maybe_scan_task);
       scan_tasks.push_back(std::move(scan_task));
-      fragment_for_task.push_back(fragment.get());
     }
   }
 
@@ -310,11 +309,8 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
   util::Mutex queues_mutex;
   std::unordered_map<std::string, std::unique_ptr<WriteQueue>> queues;
 
-  auto fragment_for_task_it = fragment_for_task.begin();
   for (const auto& scan_task : scan_tasks) {
-    const Fragment* fragment = *fragment_for_task_it++;
-
-    task_group->Append([&, scan_task, fragment] {
+    task_group->Append([&, scan_task] {
       ARROW_ASSIGN_OR_RAISE(auto batches, scan_task->Execute());
 
       for (auto maybe_batch : batches) {
@@ -330,8 +326,8 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
 
         std::unordered_set<WriteQueue*> need_flushed;
         for (size_t i = 0; i < groups.batches.size(); ++i) {
-          auto partition_expression =
-              and_(std::move(groups.expressions[i]), fragment->partition_expression());
+          auto partition_expression = and_(std::move(groups.expressions[i]),
+                                           scan_task->fragment()->partition_expression());
           auto batch = std::move(groups.batches[i]);
 
           ARROW_ASSIGN_OR_RAISE(auto part,

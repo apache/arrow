@@ -86,7 +86,7 @@ inline RecordBatchIterator ProjectRecordBatch(RecordBatchIterator it,
 class FilterAndProjectScanTask : public ScanTask {
  public:
   explicit FilterAndProjectScanTask(std::shared_ptr<ScanTask> task, Expression partition)
-      : ScanTask(task->options(), task->context()),
+      : ScanTask(task->options(), task->context(), task->fragment()),
         task_(std::move(task)),
         partition_(std::move(partition)) {}
 

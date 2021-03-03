@@ -73,9 +73,13 @@ Result<ScanTaskIterator> Scanner::Scan() {
 Result<ScanTaskIterator> ScanTaskIteratorFromRecordBatch(
     std::vector<std::shared_ptr<RecordBatch>> batches,
     std::shared_ptr<ScanOptions> options, std::shared_ptr<ScanContext> context) {
-  ScanTaskVector tasks{std::make_shared<InMemoryScanTask>(batches, std::move(options),
-                                                          std::move(context))};
-  return MakeVectorIterator(std::move(tasks));
+  if (batches.empty()) {
+    return MakeVectorIterator(ScanTaskVector());
+  }
+  auto schema = batches[0]->schema();
+  auto fragment =
+      std::make_shared<InMemoryFragment>(std::move(schema), std::move(batches));
+  return fragment->Scan(std::move(options), std::move(context));
 }
 
 ScannerBuilder::ScannerBuilder(std::shared_ptr<Dataset> dataset,

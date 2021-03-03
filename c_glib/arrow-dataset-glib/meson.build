@@ -19,18 +19,21 @@
 
 sources = files(
   'file-format.cpp',
+  'fragment.cpp',
   'scanner.cpp',
 )
 
 c_headers = files(
   'arrow-dataset-glib.h',
   'file-format.h',
+  'fragment.h',
   'scanner.h',
 )
 
 cpp_headers = files(
   'arrow-dataset-glib.hpp',
   'file-format.hpp',
+  'fragment.hpp',
   'scanner.hpp',
 )
 
