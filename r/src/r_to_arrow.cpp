@@ -1057,6 +1057,11 @@ std::shared_ptr<arrow::Array> vec_to_arrow(SEXP x,
 }  // namespace r
 }  // namespace arrow
 
+bool CanExtendParallel(SEXP x, const std::shared_ptr<arrow::DataType>& type) {
+  // TODO: identify when it's ok to do things in parallel
+  return false;
+}
+
 // [[arrow::export]]
 std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
   bool infer_schema = !Rf_inherits(schema_sxp, "Schema");
@@ -1086,7 +1091,7 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
       columns[j] = cpp11::as_cpp<std::shared_ptr<arrow::ChunkedArray>>(x);
     } else if (Rf_inherits(x, "Array")) {
       columns[j] = std::make_shared<arrow::ChunkedArray>(
-        cpp11::as_cpp<std::shared_ptr<arrow::Array>>(x));
+          cpp11::as_cpp<std::shared_ptr<arrow::Array>>(x));
     } else {
       arrow::r::RConversionOptions options;
       options.strict = !infer_schema;
@@ -1096,27 +1101,21 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
       // maybe short circuit when zero-copy is possible
       if (arrow::r::can_reuse_memory(x, options.type)) {
         columns[j] = std::make_shared<arrow::ChunkedArray>(
-          arrow::r::vec_to_arrow__reuse_memory(x));
+            arrow::r::vec_to_arrow__reuse_memory(x));
       } else {
-        // this needs to be more informed
-        bool can_extend_parallel = false;
-
         auto task = [=, &columns]() {
-          auto converter_result =
-            arrow::MakeConverter<arrow::r::RConverter, arrow::r::RConverterTrait>(
-                options.type, options, gc_memory_pool());
-          RETURN_NOT_OK(converter_result.status());
-          auto& converter = converter_result.ValueUnsafe();
+          ARROW_ASSIGN_OR_RAISE(
+              auto converter,
+              (arrow::MakeConverter<arrow::r::RConverter, arrow::r::RConverterTrait>(
+                  options.type, options, gc_memory_pool())));
 
           RETURN_NOT_OK(converter->Extend(x, options.size));
-          auto result = converter->ToArray();
-          if (result.status().ok()) {
-            columns[j] = std::make_shared<arrow::ChunkedArray>(result.ValueUnsafe());
-          }
-          return result.status();
+          ARROW_ASSIGN_OR_RAISE(auto array, converter->ToArray());
+          columns[j] = std::make_shared<arrow::ChunkedArray>(array);
+          return arrow::Status::OK();
         };
 
-        if (can_extend_parallel) {
+        if (CanExtendParallel(x, options.type)) {
           parallel_tasks->Append(task);
         } else {
           delayed_serial_tasks.push_back(task);
