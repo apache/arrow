@@ -59,12 +59,6 @@ G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE(GADFragment,
       GAD_FRAGMENT(obj)))
 
 static void
-gad_fragment_dispose(GObject *object)
-{
-  G_OBJECT_CLASS(gad_fragment_parent_class)->dispose(object);
-}
-
-static void
 gad_fragment_finalize(GObject *object)
 {
   auto priv = GAD_FRAGMENT_GET_PRIVATE(object);
@@ -94,19 +88,6 @@ gad_fragment_set_property(GObject *object,
 }
 
 static void
-gad_fragment_get_property(GObject *object,
-                          guint prop_id,
-                          GValue *value,
-                          GParamSpec *pspec)
-{
-  switch (prop_id) {
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-    break;
-  }
-}
-
-static void
 gad_fragment_init(GADFragment *object)
 {
   auto priv = GAD_FRAGMENT_GET_PRIVATE(object);
@@ -118,10 +99,8 @@ gad_fragment_class_init(GADFragmentClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->dispose      = gad_fragment_dispose;
   gobject_class->finalize     = gad_fragment_finalize;
   gobject_class->set_property = gad_fragment_set_property;
-  gobject_class->get_property = gad_fragment_get_property;
 
   GParamSpec *spec;
   spec = g_param_spec_pointer("fragment",
