@@ -401,6 +401,7 @@ cmake_version <- function(cmd = "cmake") {
 with_s3_support <- function(env_vars) {
   arrow_s3 <- toupper(Sys.getenv("ARROW_S3")) == "ON" || tolower(Sys.getenv("LIBARROW_MINIMAL")) == "false"
   if (arrow_s3) {
+    # TODO: add in brew versions of these?
     # User wants S3 support. If they're using gcc, let's make sure the version is >= 4.9
     # and make sure that we have curl and openssl system libs
     if (isTRUE(cmake_gcc_version(env_vars) < "4.9")) {
