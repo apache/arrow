@@ -912,8 +912,8 @@ cdef class LowLevelDecryptionProperties(_Weakrefable):
 
     def __cinit__(self,
                   footer_key,
-                  # Map column name to key:
-                  column_keys,
+                  # Map column name (str) to key (bytes):
+                  column_keys=None,
                   disable_footer_signature_verification=False,
                   plaintext_files_allowed=False):
         cdef c_map[c_string,shared_ptr[ColumnDecryptionProperties]] c_column_keys
@@ -926,7 +926,8 @@ cdef class LowLevelDecryptionProperties(_Weakrefable):
             builder.footer_key(footer_key)
 
         if column_keys is not None:
-            for column, key in column_keys.items():
+            for pycolumn, key in column_keys.items():
+                column = pycolumn.encode("utf-8")
                 c_column_keys[column] = ColumnDecryptionProperties.Builder(
                     column).key(key).build()
             builder.column_keys(c_column_keys)
@@ -1214,15 +1215,17 @@ cdef class LowLevelEncryptionProperties(_Weakrefable):
     cdef:
        shared_ptr[FileEncryptionProperties] encryption_properties
 
-    def __cinit__(self, footer_key, column_keys):  # TODO more options?
+    def __cinit__(self, footer_key, column_keys=None):  # TODO more options?
         cdef FileEncryptionProperties.Builder* builder
         cdef c_string column
         cdef c_map[c_string,shared_ptr[ColumnEncryptionProperties]] c_column_keys
         builder = new FileEncryptionProperties.Builder(footer_key)
-        for column, key in column_keys.items():
-            c_column_keys[column] = ColumnEncryptionProperties.Builder(
-                column).key(key).build()
-            builder.encrypted_columns(c_column_keys)
+        if column_keys is not None:
+            for pycolumn, key in column_keys.items():
+                column = pycolumn.encode("utf-8")
+                c_column_keys[column] = ColumnEncryptionProperties.Builder(
+                    column).key(key).build()
+                builder.encrypted_columns(c_column_keys)
         self.encryption_properties = builder.build()
         del builder
 

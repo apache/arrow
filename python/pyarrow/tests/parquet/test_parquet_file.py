@@ -256,3 +256,37 @@ def test_iter_batches_reader(tempdir, chunk_size):
         )
 
         batch_no += 1
+
+
+def test_read_encrypted_footer_key_only():
+    """
+    It's possible to decrypt Parquet files when only the footer key was set.
+    """
+    footer_key = b"foot!abcd\xff\x0012356"
+
+    table = pa.table([pa.array([4, 5]), pa.array(["foo", "bar"])],
+                     names=['ints', 'strs'])
+    bio = pa.BufferOutputStream()
+
+    # The encryption APIs are private for now, exposed only to allow testing.
+    from pyarrow import _parquet
+    encryption_props = _parquet.LowLevelEncryptionProperties(footer_key)
+
+    pq.write_table(table, bio, lowlevel_encryption_properties=encryption_props)
+
+    # Without key, decryption fails:
+    with pytest.raises(IOError, match="no decryption found"):
+        f = pq.ParquetFile(bio.getvalue())
+
+    # With wrong key, decryption fails:
+    decryption_props = pq.LowLevelDecryptionProperties(b"a" * 16)
+    with pytest.raises(IOError, match="Failed decryption"):
+        f = pq.ParquetFile(
+            bio.getvalue(), low_level_decryption=decryption_props
+        )
+
+    # With key, decryption succeeds:
+    decryption_props = pq.LowLevelDecryptionProperties(footer_key)
+    f = pq.ParquetFile(bio.getvalue(), low_level_decryption=decryption_props)
+    assert f.reader.read_column(0).to_pylist() == [4, 5]
+    assert f.reader.read_column(1).to_pylist() == ["foo", "bar"]
