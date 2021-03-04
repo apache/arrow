@@ -579,6 +579,7 @@ arrow::Status WriteStructBatch(liborc::ColumnVectorBatch* column_vector_batch,
   for (std::size_t i = 0; i < size; i++) {
     *orc_offset = init_orc_offset;
     *arrow_offset = init_arrow_offset;
+    batch->fields[i]->resize(length);
     RETURN_NOT_OK(WriteBatch(batch->fields[i], arrow_offset, orc_offset, length,
                              *(struct_array.field(i)), outgoing_mask.get()));
   }
