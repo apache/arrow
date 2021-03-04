@@ -21,6 +21,7 @@
 
 //! String expressions
 
+use std::any::type_name;
 use std::cmp::Ordering;
 use std::str::from_utf8;
 use std::sync::Arc;
@@ -39,6 +40,57 @@ use arrow::{
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::ColumnarValue;
+
+macro_rules! downcast_string_arg {
+    ($ARG:expr, $NAME:expr, $T:ident) => {{
+        $ARG.as_any()
+            .downcast_ref::<GenericStringArray<T>>()
+            .ok_or_else(|| {
+                DataFusionError::Internal(format!(
+                    "could not cast {} to {}",
+                    $NAME,
+                    type_name::<GenericStringArray<T>>()
+                ))
+            })?
+    }};
+}
+
+macro_rules! downcast_primitive_array_arg {
+    ($ARG:expr, $NAME:expr, $T:ident) => {{
+        $ARG.as_any()
+            .downcast_ref::<PrimitiveArray<T>>()
+            .ok_or_else(|| {
+                DataFusionError::Internal(format!(
+                    "could not cast {} to {}",
+                    $NAME,
+                    type_name::<PrimitiveArray<T>>()
+                ))
+            })?
+    }};
+}
+
+macro_rules! downcast_arg {
+    ($ARG:expr, $NAME:expr, $ARRAY_TYPE:ident) => {{
+        $ARG.as_any().downcast_ref::<$ARRAY_TYPE>().ok_or_else(|| {
+            DataFusionError::Internal(format!(
+                "could not cast {} to {}",
+                $NAME,
+                type_name::<$ARRAY_TYPE>()
+            ))
+        })?
+    }};
+}
+
+macro_rules! downcast_vec {
+    ($ARGS:expr, $ARRAY_TYPE:ident) => {{
+        $ARGS
+            .iter()
+            .map(|e| match e.as_any().downcast_ref::<$ARRAY_TYPE>() {
+                Some(array) => Ok(array),
+                _ => Err(DataFusionError::Internal("failed to downcast".to_string())),
+            })
+    }};
+}
 
 /// applies a unary expression to `args[0]` that is expected to be downcastable to
 /// a `GenericStringArray` and returns a `GenericStringArray` (which may have a different offset)
@@ -65,15 +117,13 @@ where
         )));
     }
 
-    let array = args[0]
-        .as_any()
-        .downcast_ref::<GenericStringArray<T>>()
-        .ok_or_else(|| {
-            DataFusionError::Internal("failed to downcast to string".to_string())
-        })?;
+    let string_array = downcast_string_arg!(args[0], "string", T);
 
     // first map is the iterator, second is for the `Option<_>`
-    Ok(array.iter().map(|x| x.map(|x| op(x))).collect())
+    Ok(string_array
+        .iter()
+        .map(|string| string.map(|string| op(string)))
+        .collect())
 }
 
 fn handle<'a, F, R>(args: &'a [ColumnarValue], op: F, name: &str) -> Result<ColumnarValue>
@@ -125,26 +175,10 @@ where
     }
 }
 
-macro_rules! downcast_vec {
-    ($ARGS:expr, $ARRAY_TYPE:ident) => {{
-        $ARGS
-            .iter()
-            .map(|e| match e.as_any().downcast_ref::<$ARRAY_TYPE>() {
-                Some(array) => Ok(array),
-                _ => Err(DataFusionError::Internal("failed to downcast".to_string())),
-            })
-    }};
-}
-
 /// Returns the numeric code of the first character of the argument.
 /// ascii('x') = 120
 pub fn ascii<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
-    let string_array: &GenericStringArray<T> = args[0]
-        .as_any()
-        .downcast_ref::<GenericStringArray<T>>()
-        .ok_or_else(|| {
-            DataFusionError::Internal("could not cast string to StringArray".to_string())
-        })?;
+    let string_array = downcast_string_arg!(args[0], "string", T);
 
     let result = string_array
         .iter()
@@ -164,14 +198,7 @@ pub fn ascii<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
 pub fn btrim<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
     match args.len() {
         1 => {
-            let string_array: &GenericStringArray<T> = args[0]
-                .as_any()
-                .downcast_ref::<GenericStringArray<T>>()
-                .ok_or_else(|| {
-                    DataFusionError::Internal(
-                        "could not cast string to StringArray".to_string(),
-                    )
-                })?;
+            let string_array = downcast_string_arg!(args[0], "string", T);
 
             let result = string_array
                 .iter()
@@ -185,23 +212,8 @@ pub fn btrim<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
             Ok(Arc::new(result) as ArrayRef)
         }
         2 => {
-            let string_array: &GenericStringArray<T> = args[0]
-                .as_any()
-                .downcast_ref::<GenericStringArray<T>>()
-                .ok_or_else(|| {
-                    DataFusionError::Internal(
-                        "could not cast string to StringArray".to_string(),
-                    )
-                })?;
-
-            let characters_array: &GenericStringArray<T> = args[1]
-                .as_any()
-                .downcast_ref::<GenericStringArray<T>>()
-                .ok_or_else(|| {
-                    DataFusionError::Internal(
-                        "could not cast characters to StringArray".to_string(),
-                    )
-                })?;
+            let string_array = downcast_string_arg!(args[0], "string", T);
+            let characters_array = downcast_string_arg!(args[1], "characters", T);
 
             let result = string_array
                 .iter()
@@ -257,12 +269,7 @@ where
 /// Returns the character with the given code. chr(0) is disallowed because text data types cannot store that character.
 /// chr(65) = 'A'
 pub fn chr(args: &[ArrayRef]) -> Result<ArrayRef> {
-    let integer_array: &Int64Array = args[0]
-        .as_any()
-        .downcast_ref::<Int64Array>()
-        .ok_or_else(|| {
-            DataFusionError::Internal("could not cast integer to Int64Array".to_string())
-        })?;
+    let integer_array = downcast_arg!(args[0], "integer", Int64Array);
 
     // first map is the iterator, second is for the `Option<_>`
     let result = integer_array
@@ -392,12 +399,7 @@ pub fn concat_ws(args: &[ArrayRef]) -> Result<ArrayRef> {
 /// Converts the first letter of each word to upper case and the rest to lower case. Words are sequences of alphanumeric characters separated by non-alphanumeric characters.
 /// initcap('hi THOMAS') = 'Hi Thomas'
 pub fn initcap<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
-    let string_array: &GenericStringArray<T> = args[0]
-        .as_any()
-        .downcast_ref::<GenericStringArray<T>>()
-        .ok_or_else(|| {
-            DataFusionError::Internal("could not cast string to StringArray".to_string())
-        })?;
+    let string_array = downcast_string_arg!(args[0], "string", T);
 
     // first map is the iterator, second is for the `Option<_>`
     let result = string_array
@@ -427,20 +429,8 @@ pub fn initcap<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> 
 /// Returns first n characters in the string, or when n is negative, returns all but last |n| characters.
 /// left('abcde', 2) = 'ab'
 pub fn left<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
-    let string_array: &GenericStringArray<T> = args[0]
-        .as_any()
-        .downcast_ref::<GenericStringArray<T>>()
-        .ok_or_else(|| {
-            DataFusionError::Internal("could not cast string to StringArray".to_string())
-        })?;
-
-    let n_array: &Int64Array =
-        args[1]
-            .as_any()
-            .downcast_ref::<Int64Array>()
-            .ok_or_else(|| {
-                DataFusionError::Internal("could not cast n to Int64Array".to_string())
-            })?;
+    let string_array = downcast_string_arg!(args[0], "string", T);
+    let n_array = downcast_arg!(args[1], "n", Int64Array);
 
     let result = string_array
         .iter()
@@ -485,23 +475,8 @@ pub fn lower(args: &[ColumnarValue]) -> Result<ColumnarValue> {
 pub fn lpad<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
     match args.len() {
         2 => {
-            let string_array: &GenericStringArray<T> = args[0]
-                .as_any()
-                .downcast_ref::<GenericStringArray<T>>()
-                .ok_or_else(|| {
-                    DataFusionError::Internal(
-                        "could not cast string to StringArray".to_string(),
-                    )
-                })?;
-
-            let length_array: &Int64Array = args[1]
-                .as_any()
-                .downcast_ref::<Int64Array>()
-                .ok_or_else(|| {
-                    DataFusionError::Internal(
-                        "could not cast length to Int64Array".to_string(),
-                    )
-                })?;
+            let string_array = downcast_string_arg!(args[0], "string", T);
+            let length_array = downcast_arg!(args[1], "length", Int64Array);
 
             let result = string_array
                 .iter()
@@ -533,32 +508,9 @@ pub fn lpad<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
             Ok(Arc::new(result) as ArrayRef)
         }
         3 => {
-            let string_array: &GenericStringArray<T> = args[0]
-                .as_any()
-                .downcast_ref::<GenericStringArray<T>>()
-                .ok_or_else(|| {
-                    DataFusionError::Internal(
-                        "could not cast string to StringArray".to_string(),
-                    )
-                })?;
-
-            let length_array: &Int64Array = args[1]
-                .as_any()
-                .downcast_ref::<Int64Array>()
-                .ok_or_else(|| {
-                    DataFusionError::Internal(
-                        "could not cast length to Int64Array".to_string(),
-                    )
-                })?;
-
-            let fill_array: &GenericStringArray<T> = args[2]
-                .as_any()
-                .downcast_ref::<GenericStringArray<T>>()
-                .ok_or_else(|| {
-                    DataFusionError::Internal(
-                        "could not cast fill to StringArray".to_string(),
-                    )
-                })?;
+            let string_array = downcast_string_arg!(args[0], "string", T);
+            let length_array = downcast_arg!(args[1], "length", Int64Array);
+            let fill_array = downcast_string_arg!(args[2], "fill", T);
 
             let result = string_array
                 .iter()
@@ -615,14 +567,7 @@ pub fn lpad<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
 pub fn ltrim<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
     match args.len() {
         1 => {
-            let string_array: &GenericStringArray<T> = args[0]
-                .as_any()
-                .downcast_ref::<GenericStringArray<T>>()
-                .ok_or_else(|| {
-                    DataFusionError::Internal(
-                        "could not cast string to StringArray".to_string(),
-                    )
-                })?;
+            let string_array = downcast_string_arg!(args[0], "string", T);
 
             let result = string_array
                 .iter()
@@ -632,23 +577,8 @@ pub fn ltrim<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
             Ok(Arc::new(result) as ArrayRef)
         }
         2 => {
-            let string_array: &GenericStringArray<T> = args[0]
-                .as_any()
-                .downcast_ref::<GenericStringArray<T>>()
-                .ok_or_else(|| {
-                    DataFusionError::Internal(
-                        "could not cast string to StringArray".to_string(),
-                    )
-                })?;
-
-            let characters_array: &GenericStringArray<T> = args[1]
-                .as_any()
-                .downcast_ref::<GenericStringArray<T>>()
-                .ok_or_else(|| {
-                    DataFusionError::Internal(
-                        "could not cast characters to StringArray".to_string(),
-                    )
-                })?;
+            let string_array = downcast_string_arg!(args[0], "string", T);
+            let characters_array = downcast_string_arg!(args[1], "characters", T);
 
             let result = string_array
                 .iter()
@@ -675,19 +605,8 @@ pub fn ltrim<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
 /// Repeats string the specified number of times.
 /// repeat('Pg', 4) = 'PgPgPgPg'
 pub fn repeat<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
-    let string_array: &GenericStringArray<T> = args[0]
-        .as_any()
-        .downcast_ref::<GenericStringArray<T>>()
-        .ok_or_else(|| {
-            DataFusionError::Internal("could not cast string to StringArray".to_string())
-        })?;
-
-    let number_array: &Int64Array = args[1]
-        .as_any()
-        .downcast_ref::<Int64Array>()
-        .ok_or_else(|| {
-            DataFusionError::Internal("could not cast number to Int64Array".to_string())
-        })?;
+    let string_array = downcast_string_arg!(args[0], "string", T);
+    let number_array = downcast_arg!(args[1], "number", Int64Array);
 
     let result = string_array
         .iter()
@@ -705,12 +624,7 @@ pub fn repeat<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
 /// Reverses the order of the characters in the string.
 /// reverse('abcde') = 'edcba'
 pub fn reverse<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
-    let string_array: &GenericStringArray<T> = args[0]
-        .as_any()
-        .downcast_ref::<GenericStringArray<T>>()
-        .ok_or_else(|| {
-            DataFusionError::Internal("could not cast string to StringArray".to_string())
-        })?;
+    let string_array = downcast_string_arg!(args[0], "string", T);
 
     let result = string_array
         .iter()
@@ -725,20 +639,8 @@ pub fn reverse<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> 
 /// Returns last n characters in the string, or when n is negative, returns all but first |n| characters.
 /// right('abcde', 2) = 'de'
 pub fn right<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
-    let string_array: &GenericStringArray<T> = args[0]
-        .as_any()
-        .downcast_ref::<GenericStringArray<T>>()
-        .ok_or_else(|| {
-            DataFusionError::Internal("could not cast string to StringArray".to_string())
-        })?;
-
-    let n_array: &Int64Array =
-        args[1]
-            .as_any()
-            .downcast_ref::<Int64Array>()
-            .ok_or_else(|| {
-                DataFusionError::Internal("could not cast n to Int64Array".to_string())
-            })?;
+    let string_array = downcast_string_arg!(args[0], "string", T);
+    let n_array = downcast_arg!(args[1], "n", Int64Array);
 
     let result = string_array
         .iter()
@@ -777,23 +679,8 @@ pub fn right<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
 pub fn rpad<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
     match args.len() {
         2 => {
-            let string_array: &GenericStringArray<T> = args[0]
-                .as_any()
-                .downcast_ref::<GenericStringArray<T>>()
-                .ok_or_else(|| {
-                    DataFusionError::Internal(
-                        "could not cast string to StringArray".to_string(),
-                    )
-                })?;
-
-            let length_array: &Int64Array = args[1]
-                .as_any()
-                .downcast_ref::<Int64Array>()
-                .ok_or_else(|| {
-                    DataFusionError::Internal(
-                        "could not cast length to Int64Array".to_string(),
-                    )
-                })?;
+            let string_array = downcast_string_arg!(args[0], "string", T);
+            let length_array = downcast_arg!(args[1], "length", Int64Array);
 
             let result = string_array
                 .iter()
@@ -822,32 +709,9 @@ pub fn rpad<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
             Ok(Arc::new(result) as ArrayRef)
         }
         3 => {
-            let string_array: &GenericStringArray<T> = args[0]
-                .as_any()
-                .downcast_ref::<GenericStringArray<T>>()
-                .ok_or_else(|| {
-                    DataFusionError::Internal(
-                        "could not cast string to StringArray".to_string(),
-                    )
-                })?;
-
-            let length_array: &Int64Array = args[1]
-                .as_any()
-                .downcast_ref::<Int64Array>()
-                .ok_or_else(|| {
-                    DataFusionError::Internal(
-                        "could not cast length to Int64Array".to_string(),
-                    )
-                })?;
-
-            let fill_array: &GenericStringArray<T> = args[2]
-                .as_any()
-                .downcast_ref::<GenericStringArray<T>>()
-                .ok_or_else(|| {
-                    DataFusionError::Internal(
-                        "could not cast fill to StringArray".to_string(),
-                    )
-                })?;
+            let string_array = downcast_string_arg!(args[0], "string", T);
+            let length_array = downcast_arg!(args[1], "length", Int64Array);
+            let fill_array = downcast_string_arg!(args[2], "fill", T);
 
             let result = string_array
                 .iter()
@@ -895,14 +759,7 @@ pub fn rpad<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
 pub fn rtrim<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
     match args.len() {
         1 => {
-            let string_array: &GenericStringArray<T> = args[0]
-                .as_any()
-                .downcast_ref::<GenericStringArray<T>>()
-                .ok_or_else(|| {
-                    DataFusionError::Internal(
-                        "could not cast string to StringArray".to_string(),
-                    )
-                })?;
+            let string_array = downcast_string_arg!(args[0], "string", T);
 
             let result = string_array
                 .iter()
@@ -912,23 +769,8 @@ pub fn rtrim<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
             Ok(Arc::new(result) as ArrayRef)
         }
         2 => {
-            let string_array: &GenericStringArray<T> = args[0]
-                .as_any()
-                .downcast_ref::<GenericStringArray<T>>()
-                .ok_or_else(|| {
-                    DataFusionError::Internal(
-                        "could not cast string to StringArray".to_string(),
-                    )
-                })?;
-
-            let characters_array: &GenericStringArray<T> = args[1]
-                .as_any()
-                .downcast_ref::<GenericStringArray<T>>()
-                .ok_or_else(|| {
-                    DataFusionError::Internal(
-                        "could not cast characters to StringArray".to_string(),
-                    )
-                })?;
+            let string_array = downcast_string_arg!(args[0], "string", T);
+            let characters_array = downcast_string_arg!(args[1], "characters", T);
 
             let result = string_array
                 .iter()
@@ -958,23 +800,8 @@ pub fn rtrim<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
 pub fn substr<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
     match args.len() {
         2 => {
-            let string_array: &GenericStringArray<T> = args[0]
-                .as_any()
-                .downcast_ref::<GenericStringArray<T>>()
-                .ok_or_else(|| {
-                    DataFusionError::Internal(
-                        "could not cast string to StringArray".to_string(),
-                    )
-                })?;
-
-            let start_array: &Int64Array = args[1]
-                .as_any()
-                .downcast_ref::<Int64Array>()
-                .ok_or_else(|| {
-                    DataFusionError::Internal(
-                        "could not cast start to Int64Array".to_string(),
-                    )
-                })?;
+            let string_array = downcast_string_arg!(args[0], "string", T);
+            let start_array = downcast_arg!(args[1], "start", Int64Array);
 
             let result = string_array
                 .iter()
@@ -1001,32 +828,9 @@ pub fn substr<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
             Ok(Arc::new(result) as ArrayRef)
         }
         3 => {
-            let string_array: &GenericStringArray<T> = args[0]
-                .as_any()
-                .downcast_ref::<GenericStringArray<T>>()
-                .ok_or_else(|| {
-                    DataFusionError::Internal(
-                        "could not cast string to StringArray".to_string(),
-                    )
-                })?;
-
-            let start_array: &Int64Array = args[1]
-                .as_any()
-                .downcast_ref::<Int64Array>()
-                .ok_or_else(|| {
-                    DataFusionError::Internal(
-                        "could not cast start to Int64Array".to_string(),
-                    )
-                })?;
-
-            let count_array: &Int64Array = args[2]
-                .as_any()
-                .downcast_ref::<Int64Array>()
-                .ok_or_else(|| {
-                    DataFusionError::Internal(
-                        "could not cast count to Int64Array".to_string(),
-                    )
-                })?;
+            let string_array = downcast_string_arg!(args[0], "string", T);
+            let start_array = downcast_arg!(args[1], "start", Int64Array);
+            let count_array = downcast_arg!(args[2], "count", Int64Array);
 
             let result = string_array
                 .iter()
@@ -1077,14 +881,7 @@ pub fn to_hex<T: ArrowPrimitiveType>(args: &[ArrayRef]) -> Result<ArrayRef>
 where
     T::Native: StringOffsetSizeTrait,
 {
-    let integer_array: &PrimitiveArray<T> = args[0]
-        .as_any()
-        .downcast_ref::<PrimitiveArray<T>>()
-        .ok_or_else(|| {
-            DataFusionError::Internal(
-                "could not cast integer to PrimitiveArray<T>".to_string(),
-            )
-        })?;
+    let integer_array = downcast_primitive_array_arg!(args[0], "integer", T);
 
     let result = integer_array
         .iter()
