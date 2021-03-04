@@ -76,7 +76,7 @@ else()
         set(_VCPKG_PATH_TXT "$ENV{HOME}/.vcpkg/vcpkg.path.txt")
       endif()
       if(EXISTS "${_VCPKG_PATH_TXT}")
-        file(STRINGS "${_VCPKG_PATH_TXT}" VCPKG_ROOT)
+        file(READ "${_VCPKG_PATH_TXT}" VCPKG_ROOT)
       else()
         message(
           FATAL_ERROR
