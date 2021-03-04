@@ -719,11 +719,24 @@ test_that("filter() with expressions", {
 
 test_that("mutate()", {
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
+  mutated <- ds %>%
+    select(chr, dbl, int) %>%
+    filter(dbl * 2 > 14 & dbl - 50 < 3L) %>%
+    mutate(twice = int * 2)
+  expect_output(
+    print(mutated),
+"FileSystemDataset (query)
+chr: string
+dbl: double
+int: int32
+twice: expr
+
+* Filter: ((multiply_checked(dbl, 2) > 14) and (subtract_checked(dbl, 50) < 3))
+See $.data for the source Arrow object",
+    fixed = TRUE
+  )
   expect_equivalent(
-    ds %>%
-      select(chr, dbl, int) %>%
-      filter(dbl * 2 > 14 & dbl - 50 < 3L) %>%
-      mutate(twice = int * 2) %>%
+    mutated %>%
       collect() %>%
       arrange(dbl),
     rbind(
@@ -731,6 +744,26 @@ test_that("mutate()", {
       df2[1:2, c("chr", "dbl", "int")]
     ) %>%
       mutate(
+        twice = int * 2
+      )
+  )
+})
+
+test_that("transmute()", {
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
+  mutated <-
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl, int) %>%
+      filter(dbl * 2 > 14 & dbl - 50 < 3L) %>%
+      transmute(twice = int * 2) %>%
+      collect() %>%
+      arrange(twice),
+    rbind(
+      df1[8:10, "int", drop = FALSE],
+      df2[1:2, "int", drop = FALSE]
+    ) %>%
+      transmute(
         twice = int * 2
       )
   )
@@ -1155,7 +1188,7 @@ test_that("Dataset writing: no partitioning", {
 test_that("Dataset writing: partition on null", {
   skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
   ds <- open_dataset(hive_dir)
-  
+
   dst_dir <- tempfile()
   partitioning = hive_partition(lgl = boolean())
   write_dataset(ds, dst_dir, partitioning = partitioning)
