@@ -431,8 +431,8 @@ class TestORCWriterNoConversion : public ::testing::Test {
     table_schema = schema(
         {field("bool", boolean()), field("int8", int8()), field("int16", int16()),
          field("int32", int32()), field("int64", int64()), field("float", float32()),
-         field("double", float64()), field("decimal128nz", decimal(33, 4)),
-         field("decimal128z", decimal(35, 0)), field("date32", date32()),
+         field("double", float64()), field("decimal128nz", decimal(18, 4)),
+         field("decimal128z", decimal(18, 0)), field("date32", date32()),
          field("ts3", timestamp(TimeUnit::NANO)), field("string", utf8()),
          field("binary", binary())});
   }
