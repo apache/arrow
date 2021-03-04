@@ -109,12 +109,14 @@ if(NOT DEFINED VCPKG_MANIFEST_MODE AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg
   message(STATUS "vcpkg.json manifest found. Using VCPKG_MANIFEST_MODE: ON")
 endif()
 # vcpkg can install packages in two different places
-set(_INST_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed") # try here first
+set(_INST_BUILD_DIR "${CMAKE_CURRENT_BUILD_DIR}/vcpkg_installed") # try here first
+set(_INST_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed") # try here second
 set(_INST_VCPKG_ROOT "${VCPKG_ROOT}/installed")
 # Iterate over the places
 foreach(_INST_DIR
         IN
         LISTS
+        _INST_BUILD_DIR
         _INST_SOURCE_DIR
         _INST_VCPKG_ROOT
         "notfound")
@@ -123,8 +125,9 @@ foreach(_INST_DIR
                         "Install packages with vcpkg before executing cmake.")
   elseif(NOT EXISTS "${_INST_DIR}")
     continue()
-  elseif(_INST_DIR STREQUAL _INST_SOURCE_DIR AND NOT VCPKG_MANIFEST_MODE)
-    # Do not look for packages in _INST_SOURCE_DIR if manifest mode is off
+  elseif((_INST_DIR STREQUAL _INST_BUILD_DIR OR _INST_DIR STREQUAL _INST_SOURCE_DIR)
+         AND NOT VCPKG_MANIFEST_MODE)
+    # Do not look for packages in the build or source dirs if manifest mode is off
     message(STATUS "Skipped looking for installed packages in ${_INST_DIR} "
                    "because -DVCPKG_MANIFEST_MODE=OFF")
     continue()
