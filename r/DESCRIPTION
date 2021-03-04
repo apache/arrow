@@ -95,5 +95,6 @@ Collate:
     'record-batch-writer.R'
     'reexports-bit64.R'
     'reexports-tidyselect.R'
+    'runtime-info.R'
     'schema.R'
     'util.R'
