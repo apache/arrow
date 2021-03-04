@@ -53,7 +53,6 @@ struct IpcWriteOptions;
 class MessageReader;
 
 class RecordBatchStreamReader;
-class RecordBatchStreamWriter;
 class RecordBatchFileReader;
 class RecordBatchWriter;
 
