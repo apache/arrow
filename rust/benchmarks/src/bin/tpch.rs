@@ -131,7 +131,7 @@ async fn benchmark(opt: BenchmarkOpt) -> Result<Vec<arrow::record_batch::RecordB
     let config = ExecutionConfig::new()
         .with_concurrency(opt.concurrency)
         .with_batch_size(opt.batch_size);
-    let mut ctx = ExecutionContext::with_config(config);
+    let mut ctx = ExecutionContext::with_config(Arc::new(config));
 
     // register tables
     for table in TABLES {
@@ -1038,7 +1038,7 @@ async fn convert_tbl(opt: ConvertOpt) -> Result<()> {
             .file_extension(".tbl");
 
         let config = ExecutionConfig::new().with_batch_size(opt.batch_size);
-        let mut ctx = ExecutionContext::with_config(config);
+        let mut ctx = ExecutionContext::with_config(Arc::new(config));
 
         // build plan to read the TBL file
         let mut csv = ctx.read_csv(&input_path, options)?;
@@ -1602,7 +1602,7 @@ mod tests {
         let config = ExecutionConfig::new()
             .with_concurrency(1)
             .with_batch_size(10);
-        let mut ctx = ExecutionContext::with_config(config);
+        let mut ctx = ExecutionContext::with_config(Arc::new(config));
 
         for &table in TABLES {
             let schema = get_schema(table);
