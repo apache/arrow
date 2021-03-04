@@ -52,6 +52,18 @@ pub fn partial_sort(
     take(values.as_ref(), &indices, None)
 }
 
+#[inline]
+fn sort_by<T, F>(array: &mut [T], limit: usize, cmp: F)
+where
+    F: FnMut(&T, &T) -> Ordering,
+{
+    if array.len() == limit {
+        array.sort_by(cmp);
+    } else {
+        array.partial_sort(limit, cmp);
+    }
+}
+
 // implements comparison using IEEE 754 total ordering for f32
 // Original implementation from https://doc.rust-lang.org/std/primitive.f64.html#method.total_cmp
 // TODO to change to use std when it becomes stable
@@ -348,26 +360,15 @@ fn sort_boolean(
     let nulls_len = nulls.len();
 
     let mut len = values.len();
-    match limit {
-        Some(limit) => {
-            len = limit.min(len);
-            if !descending {
-                valids.partial_sort(len, |a, b| cmp(a.1, b.1));
-            } else {
-                valids.partial_sort(len, |a, b| cmp(a.1, b.1).reverse());
-                // reverse to keep a stable ordering
-                nulls.reverse();
-            }
-        }
-        _ => {
-            if !descending {
-                valids.sort_by(|a, b| cmp(a.1, b.1));
-            } else {
-                valids.sort_by(|a, b| cmp(a.1, b.1).reverse());
-                // reverse to keep a stable ordering
-                nulls.reverse();
-            }
-        }
+    if let Some(limit) = limit {
+        len = limit.min(len);
+    }
+    if !descending {
+        sort_by(&mut valids, len - nulls_len, |a, b| cmp(a.1, b.1));
+    } else {
+        sort_by(&mut valids, len - nulls_len, |a, b| cmp(a.1, b.1).reverse());
+        // reverse to keep a stable ordering
+        nulls.reverse();
     }
 
     // collect results directly into a buffer instead of a vec to avoid another aligned allocation
@@ -436,27 +437,15 @@ where
     let nulls_len = nulls.len();
     let mut len = values.len();
 
-    match limit {
-        Some(limit) => {
-            len = limit.min(len);
-
-            if !descending {
-                valids.partial_sort(len, |a, b| cmp(a.1, b.1));
-            } else {
-                valids.partial_sort(len, |a, b| cmp(a.1, b.1).reverse());
-                // reverse to keep a stable ordering
-                nulls.reverse();
-            }
-        }
-        _ => {
-            if !descending {
-                valids.sort_by(|a, b| cmp(a.1, b.1));
-            } else {
-                valids.sort_by(|a, b| cmp(a.1, b.1).reverse());
-                // reverse to keep a stable ordering
-                nulls.reverse();
-            }
-        }
+    if let Some(limit) = limit {
+        len = limit.min(len);
+    }
+    if !descending {
+        sort_by(&mut valids, len - nulls_len, |a, b| cmp(a.1, b.1));
+    } else {
+        sort_by(&mut valids, len - nulls_len, |a, b| cmp(a.1, b.1).reverse());
+        // reverse to keep a stable ordering
+        nulls.reverse();
     }
 
     // collect results directly into a buffer instead of a vec to avoid another aligned allocation
@@ -579,28 +568,18 @@ where
     let mut nulls = null_indices;
     let descending = options.descending;
     let mut len = values.len();
-    match limit {
-        Some(limit) => {
-            len = limit.min(len);
-            if !descending {
-                valids.partial_sort(len, |a, b| cmp(a.1, b.1));
-            } else {
-                valids.partial_sort(len, |a, b| cmp(a.1, b.1).reverse());
-                // reverse to keep a stable ordering
-                nulls.reverse();
-            }
-        }
-        _ => {
-            if !descending {
-                valids.sort_by(|a, b| cmp(a.1, b.1));
-            } else {
-                valids.sort_by(|a, b| cmp(a.1, b.1).reverse());
-                // reverse to keep a stable ordering
-                nulls.reverse();
-            }
-        }
-    }
+    let nulls_len = nulls.len();
 
+    if let Some(limit) = limit {
+        len = limit.min(len);
+    }
+    if !descending {
+        sort_by(&mut valids, len - nulls_len, |a, b| cmp(a.1, b.1));
+    } else {
+        sort_by(&mut valids, len - nulls_len, |a, b| cmp(a.1, b.1).reverse());
+        // reverse to keep a stable ordering
+        nulls.reverse();
+    }
     // collect the order of valid tuplies
     let mut valid_indices: Vec<u32> = valids.iter().map(|tuple| tuple.0).collect();
 
@@ -651,23 +630,25 @@ where
         );
 
     let mut len = values.len();
+    let nulls_len = null_indices.len();
     let descending = options.descending;
 
-    if let Some(size) = limit {
-        len = size.min(len);
+    if let Some(limit) = limit {
+        len = limit.min(len);
     }
-
-    // we are not using partial_sort here, because array is ArrayRef. Something is not working good in that.
     if !descending {
-        valids.sort_by(|a, b| cmp_array(a.1.as_ref(), b.1.as_ref()));
+        sort_by(&mut valids, len - nulls_len, |a, b| {
+            cmp_array(a.1.as_ref(), b.1.as_ref())
+        });
     } else {
-        valids.sort_by(|a, b| cmp_array(a.1.as_ref(), b.1.as_ref()).reverse());
+        sort_by(&mut valids, len - nulls_len, |a, b| {
+            cmp_array(a.1.as_ref(), b.1.as_ref()).reverse()
+        });
         // reverse to keep a stable ordering
         null_indices.reverse();
     }
 
     let mut valid_indices: Vec<u32> = valids.iter().map(|tuple| tuple.0).collect();
-
     if options.nulls_first {
         null_indices.append(&mut valid_indices);
         null_indices.truncate(len);
@@ -835,13 +816,11 @@ pub fn lexsort_to_indices(
 
     let mut value_indices = (0..row_count).collect::<Vec<usize>>();
     let mut len = value_indices.len();
-    match limit {
-        Some(limit) => {
-            len = len.min(limit);
-            value_indices.partial_sort(len, lex_comparator);
-        }
-        None => value_indices.sort_by(lex_comparator),
+
+    if let Some(limit) = limit {
+        len = limit.min(len);
     }
+    sort_by(&mut value_indices, len, lex_comparator);
 
     Ok(UInt32Array::from(
         (&value_indices)[0..len]
