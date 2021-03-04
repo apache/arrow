@@ -37,6 +37,7 @@ set(ARROW_FULL_SO_VERSION "@ARROW_FULL_SO_VERSION@")
 set(ARROW_LIBRARY_PATH_SUFFIXES "@ARROW_LIBRARY_PATH_SUFFIXES@")
 set(ARROW_INCLUDE_PATH_SUFFIXES "@ARROW_INCLUDE_PATH_SUFFIXES@")
 set(ARROW_SYSTEM_DEPENDENCIES "@ARROW_SYSTEM_DEPENDENCIES@")
+set(ARROW_BUNDLED_STATIC_LIBS "@ARROW_BUNDLED_STATIC_LIBS@")
 
 include("${CMAKE_CURRENT_LIST_DIR}/ArrowOptions.cmake")
 
@@ -71,7 +72,7 @@ if(NOT (TARGET arrow_shared OR TARGET arrow_static))
     get_property(arrow_static_loc TARGET arrow_static PROPERTY LOCATION)
     get_filename_component(arrow_lib_dir ${arrow_static_loc} DIRECTORY)
 
-    if(@ARROW_BUNDLED_STATIC_LIBS@)
+    if(ARROW_BUNDLED_STATIC_LIBS)
       add_library(arrow_bundled_dependencies STATIC IMPORTED)
       set_target_properties(
         arrow_bundled_dependencies
