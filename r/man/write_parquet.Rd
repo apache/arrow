@@ -95,16 +95,14 @@ disable compression, set \code{compression = "uncompressed"}.
 Note that "uncompressed" columns may still have dictionary encoding.
 }
 \examples{
-\donttest{
-if (arrow_with_parquet()) {
-  tf1 <- tempfile(fileext = ".parquet")
-  write_parquet(data.frame(x = 1:5), tf1)
+\dontrun{
+tf1 <- tempfile(fileext = ".parquet")
+write_parquet(data.frame(x = 1:5), tf1)
 
-  # using compression
-  if (codec_is_available("gzip")) {
-    tf2 <- tempfile(fileext = ".gz.parquet")
-    write_parquet(data.frame(x = 1:5), tf2, compression = "gzip", compression_level = 5)
-  }
+# using compression
+if (codec_is_available("gzip")) {
+  tf2 <- tempfile(fileext = ".gz.parquet")
+  write_parquet(data.frame(x = 1:5), tf2, compression = "gzip", compression_level = 5)
 }
 }
 }

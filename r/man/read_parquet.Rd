@@ -40,13 +40,11 @@ A \link[=Table]{arrow::Table}, or a \code{data.frame} if \code{as_data_frame} is
 This function enables you to read Parquet files into R.
 }
 \examples{
-\donttest{
-if (arrow_with_parquet()) {
-  tf <- tempfile()
-  on.exit(unlink(tf))
-  write_parquet(mtcars, tf)
-  df <- read_parquet(tf, col_select = starts_with("d"))
-  head(df)
-}
+\dontrun{
+tf <- tempfile()
+on.exit(unlink(tf))
+write_parquet(mtcars, tf)
+df <- read_parquet(tf, col_select = starts_with("d"))
+head(df)
 }
 }
