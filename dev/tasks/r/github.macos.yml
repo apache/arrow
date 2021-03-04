@@ -51,7 +51,7 @@ jobs:
         run: |
           cd arrow/r
           brew install openssl
-        if: {{ NO AUTOBREW }}
+        if: {{ NO_AUTOBREW }}
       - uses: r-lib/actions/setup-r@v1
       - name: Install dependencies
         run: |
@@ -69,8 +69,8 @@ jobs:
         env:
           _R_CHECK_CRAN_INCOMING_: false
           ARROW_USE_PKG_CONFIG: false
-          FORCE_TOOLS_LIBS_SCRIPT: "${{ {{ NO AUTOBREW }} && true || false }}"
-          LIBARROW_MINIMAL: "${{ {{ NO AUTOBREW }} && true || false }}"
+          FORCE_TOOLS_LIBS_SCRIPT: "${{ {{ NO_AUTOBREW }} && true || false }}"
+          LIBARROW_MINIMAL: "${{ {{ NO_AUTOBREW }} && true || false }}"
         run: arrow/ci/scripts/r_test.sh arrow
       - name: Dump install logs
         run: cat arrow/r/check/arrow.Rcheck/00install.out
