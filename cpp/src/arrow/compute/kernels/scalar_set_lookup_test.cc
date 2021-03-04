@@ -80,7 +80,7 @@ void CheckIsInDictionary(const std::shared_ptr<DataType>& type,
                          const std::string& expected_json, bool skip_nulls = false) {
   auto dict_type = dictionary(index_type, type);
   auto indices = ArrayFromJSON(index_type, input_index_json);
-  auto dict = ArrayFromJSON(type, value_set_json);
+  auto dict = ArrayFromJSON(type, input_dictionary_json);
 
   ASSERT_OK_AND_ASSIGN(auto input, DictionaryArray::FromArrays(dict_type, indices, dict));
   auto value_set = ArrayFromJSON(type, value_set_json);
@@ -268,6 +268,52 @@ TEST_F(TestIsInKernel, DictionaryArray) {
                         /*value_set_json=*/"[4.1, 42, -1.0]",
                         /*expected_json=*/"[true, true, false, true]",
                         /*skip_nulls=*/false);
+
+    // With nulls and skip_nulls=false
+    CheckIsInDictionary(/*type=*/utf8(),
+                        /*index_type=*/index_ty,
+                        /*input_dictionary_json=*/R"(["A", "B", "C", "D"])",
+                        /*input_index_json=*/"[1, 3, null, 0, 1]",
+                        /*value_set_json=*/R"(["C", "B", "A", null])",
+                        /*expected_json=*/"[true, false, true, true, true]",
+                        /*skip_nulls=*/false);
+    CheckIsInDictionary(/*type=*/utf8(),
+                        /*index_type=*/index_ty,
+                        /*input_dictionary_json=*/R"(["A", null, "C", "D"])",
+                        /*input_index_json=*/"[1, 3, null, 0, 1]",
+                        /*value_set_json=*/R"(["C", "B", "A", null])",
+                        /*expected_json=*/"[true, false, true, true, true]",
+                        /*skip_nulls=*/false);
+    CheckIsInDictionary(/*type=*/utf8(),
+                        /*index_type=*/index_ty,
+                        /*input_dictionary_json=*/R"(["A", null, "C", "D"])",
+                        /*input_index_json=*/"[1, 3, null, 0, 1]",
+                        /*value_set_json=*/R"(["C", "B", "A"])",
+                        /*expected_json=*/"[false, false, false, true, false]",
+                        /*skip_nulls=*/false);
+
+    // With nulls and skip_nulls=true
+    CheckIsInDictionary(/*type=*/utf8(),
+                        /*index_type=*/index_ty,
+                        /*input_dictionary_json=*/R"(["A", "B", "C", "D"])",
+                        /*input_index_json=*/"[1, 3, null, 0, 1]",
+                        /*value_set_json=*/R"(["C", "B", "A", null])",
+                        /*expected_json=*/"[true, false, false, true, true]",
+                        /*skip_nulls=*/true);
+    CheckIsInDictionary(/*type=*/utf8(),
+                        /*index_type=*/index_ty,
+                        /*input_dictionary_json=*/R"(["A", null, "C", "D"])",
+                        /*input_index_json=*/"[1, 3, null, 0, 1]",
+                        /*value_set_json=*/R"(["C", "B", "A", null])",
+                        /*expected_json=*/"[false, false, false, true, false]",
+                        /*skip_nulls=*/true);
+    CheckIsInDictionary(/*type=*/utf8(),
+                        /*index_type=*/index_ty,
+                        /*input_dictionary_json=*/R"(["A", null, "C", "D"])",
+                        /*input_index_json=*/"[1, 3, null, 0, 1]",
+                        /*value_set_json=*/R"(["C", "B", "A"])",
+                        /*expected_json=*/"[false, false, false, true, false]",
+                        /*skip_nulls=*/true);
   }
 }
 
@@ -329,7 +375,7 @@ class TestIndexInKernel : public ::testing::Test {
                               const std::string& expected_json, bool skip_nulls = false) {
     auto dict_type = dictionary(index_type, type);
     auto indices = ArrayFromJSON(index_type, input_index_json);
-    auto dict = ArrayFromJSON(type, value_set_json);
+    auto dict = ArrayFromJSON(type, input_dictionary_json);
 
     ASSERT_OK_AND_ASSIGN(auto input,
                          DictionaryArray::FromArrays(dict_type, indices, dict));
@@ -659,8 +705,54 @@ TEST_F(TestIndexInKernel, DictionaryArray) {
                            /*input_dictionary_json=*/"[4.1, -1.0, 42, 9.8]",
                            /*input_index_json=*/"[1, 2, null, 0]",
                            /*value_set_json=*/"[4.1, 42, -1.0]",
-                           /*expected_json=*/"[1, 2, null, 0]",
+                           /*expected_json=*/"[2, 1, null, 0]",
                            /*skip_nulls=*/false);
+
+    // With nulls and skip_nulls=false
+    CheckIndexInDictionary(/*type=*/utf8(),
+                           /*index_type=*/index_ty,
+                           /*input_dictionary_json=*/R"(["A", "B", "C", "D"])",
+                           /*input_index_json=*/"[1, 3, null, 0, 1]",
+                           /*value_set_json=*/R"(["C", "B", "A", null])",
+                           /*expected_json=*/"[1, null, 3, 2, 1]",
+                           /*skip_nulls=*/false);
+    CheckIndexInDictionary(/*type=*/utf8(),
+                           /*index_type=*/index_ty,
+                           /*input_dictionary_json=*/R"(["A", null, "C", "D"])",
+                           /*input_index_json=*/"[1, 3, null, 0, 1]",
+                           /*value_set_json=*/R"(["C", "B", "A", null])",
+                           /*expected_json=*/"[3, null, 3, 2, 3]",
+                           /*skip_nulls=*/false);
+    CheckIndexInDictionary(/*type=*/utf8(),
+                           /*index_type=*/index_ty,
+                           /*input_dictionary_json=*/R"(["A", null, "C", "D"])",
+                           /*input_index_json=*/"[1, 3, null, 0, 1]",
+                           /*value_set_json=*/R"(["C", "B", "A"])",
+                           /*expected_json=*/"[null, null, null, 2, null]",
+                           /*skip_nulls=*/false);
+
+    // With nulls and skip_nulls=true
+    CheckIndexInDictionary(/*type=*/utf8(),
+                           /*index_type=*/index_ty,
+                           /*input_dictionary_json=*/R"(["A", "B", "C", "D"])",
+                           /*input_index_json=*/"[1, 3, null, 0, 1]",
+                           /*value_set_json=*/R"(["C", "B", "A", null])",
+                           /*expected_json=*/"[1, null, null, 2, 1]",
+                           /*skip_nulls=*/true);
+    CheckIndexInDictionary(/*type=*/utf8(),
+                           /*index_type=*/index_ty,
+                           /*input_dictionary_json=*/R"(["A", null, "C", "D"])",
+                           /*input_index_json=*/"[1, 3, null, 0, 1]",
+                           /*value_set_json=*/R"(["C", "B", "A", null])",
+                           /*expected_json=*/"[null, null, null, 2, null]",
+                           /*skip_nulls=*/true);
+    CheckIndexInDictionary(/*type=*/utf8(),
+                           /*index_type=*/index_ty,
+                           /*input_dictionary_json=*/R"(["A", null, "C", "D"])",
+                           /*input_index_json=*/"[1, 3, null, 0, 1]",
+                           /*value_set_json=*/R"(["C", "B", "A"])",
+                           /*expected_json=*/"[null, null, null, 2, null]",
+                           /*skip_nulls=*/true);
   }
 }
 
