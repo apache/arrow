@@ -723,7 +723,7 @@ test_that("[ accepts Arrays and otherwise handles bad input", {
   )
 })
 
-test_that("[ %in% looks up string key in dictionary", {
+test_that("%in% works on dictionary arrays", {
   a1 <- Array$create(as.factor(c("A", "B", "C")))
   a2 <- DictionaryArray$create(c(0L, 1L, 2L), c(4.5, 3.2, 1.1))
   b1 <- Array$create(c(FALSE, TRUE, FALSE))
