@@ -401,17 +401,17 @@ cmake_version <- function(cmd = "cmake") {
 with_s3_support <- function(env_vars) {
   arrow_s3 <- toupper(Sys.getenv("ARROW_S3")) == "ON" || tolower(Sys.getenv("LIBARROW_MINIMAL")) == "false"
   if (arrow_s3) {
-    # TODO: add in brew versions of these?
     # User wants S3 support. If they're using gcc, let's make sure the version is >= 4.9
     # and make sure that we have curl and openssl system libs
     if (isTRUE(cmake_gcc_version(env_vars) < "4.9")) {
       cat("**** S3 support not available for gcc < 4.9; building with ARROW_S3=OFF\n")
       arrow_s3 <- FALSE
     } else if (!cmake_find_package("CURL", NULL, env_vars)) {
+      # curl on macos should be installed, so no need to alter this for macos
       cat("**** S3 support requires libcurl-devel (rpm) or libcurl4-openssl-dev (deb); building with ARROW_S3=OFF\n")
       arrow_s3 <- FALSE
     } else if (!cmake_find_package("OpenSSL", "1.0.2", env_vars)) {
-      cat("**** S3 support requires openssl-devel (rpm) or libssl-dev (deb), version >= 1.0.2; building with ARROW_S3=OFF\n")
+      cat("**** S3 support requires openssl-devel (rpm), libssl-dev (deb), openssl (brew), version >= 1.0.2; building with ARROW_S3=OFF\n")
       arrow_s3 <- FALSE
     }
   }

@@ -133,6 +133,20 @@ else
       if [ "${LIBARROW_MINIMAL}" = "" ] && [ "${NOT_CRAN}" = "true" ]; then
         LIBARROW_MINIMAL=false; export LIBARROW_MINIMAL
       fi
+
+      # find openssl on macos. macOS ships with libressl. openssl is insallable
+      # with brew, but it is generally not linked. We can over-ride this and find
+      # openssl but setting OPENSSL_ROOT_DIR (which cmake will pick up later in
+      # the installation process). FWIW, arrow's cmake process will use this
+      # same process to find openssl, but doing it now allows us to catch it in
+      # nixlibs.R and throw a nicer error.
+      if [ "$UNAME" = "Darwin" ] && [ "${OPENSSL_ROOT_DIR}" = "" ]; then
+        brew --prefix openssl >/dev/null 2>&1
+        if [ $? -eq 0 ]; then
+          export OPENSSL_ROOT_DIR="$(brew --prefix openssl)"
+        fi
+      fi
+
       ${R_HOME}/bin/Rscript tools/nixlibs.R $VERSION
       PKG_CFLAGS="-I$(pwd)/libarrow/arrow-${VERSION}/include $PKG_CFLAGS"
 
@@ -149,6 +163,14 @@ else
         BUNDLED_LIBS=`cd $LIB_DIR && ls *.a`
         BUNDLED_LIBS=`echo $BUNDLED_LIBS | sed -E "s/lib(.*)\.a/-l\1/" | sed -e "s/\\.a lib/ -l/g"`
         PKG_DIRS="-L$(pwd)/$LIB_DIR"
+        # TODO, deal with: PKG_LIBS="-L$(pwd)/$LIB_DIR $PKG_LIBS $BUNDLED_LIBS"
+
+        # openssl is not bundled, and so we must add the lib path to PKG_LIBS if
+        # we are using it. Note the order is important, this must be after the
+        # arrow lib path + the pkg and bundled libs above.
+        if [ $OPENSSL_ROOT_DIR != "" ]; then
+          PKG_DIRS="PKG_DIRS -L$OPENSSL_ROOT_DIR/lib"
+        fi
       fi
     fi
   fi

@@ -1630,6 +1630,12 @@ tasks:
     params:
       MATRIX: "${{ matrix.r_version }}"
 
+  test-r-install-macos:
+    ci: github
+    template: r/github.macos.yml
+    params:
+      NO_AUTOBREW: "true"
+
   test-r-rhub-ubuntu-gcc-release:
     ci: azure
     template: r/azure.linux.yml
