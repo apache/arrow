@@ -258,6 +258,8 @@ where
             }
         }
 
+        // calculate actual data_len, which may be different from the iterator's upper bound
+        let data_len = offsets.len() - 1;
         let array_data = ArrayData::builder(OffsetSize::DATA_TYPE)
             .len(data_len)
             .add_buffer(Buffer::from_slice_ref(&offsets))
@@ -869,6 +871,30 @@ mod tests {
     #[test]
     fn test_binary_array_from_opt_vec() {
         test_generic_binary_array_from_opt_vec::<i32>()
+    }
+
+    #[test]
+    fn test_binary_array_from_unbound_iter() {
+        // iterator that doesn't declare (upper) size bound
+        let value_iter = (0..)
+            .scan(0usize, |pos, i| {
+                if *pos < 10 {
+                    *pos += 1;
+                    Some(Some(format!("value {}", i)))
+                } else {
+                    // actually returns up to 10 values
+                    None
+                }
+            })
+            // limited using take()
+            .take(100);
+
+        let (_, upper_size_bound) = value_iter.size_hint();
+        // the upper bound, defined by take above, is 100
+        assert_eq!(upper_size_bound, Some(100));
+        let binary_array: BinaryArray = value_iter.collect();
+        // but the actual number of items in the array should be 10
+        assert_eq!(binary_array.len(), 10);
     }
 
     #[test]
