@@ -758,10 +758,22 @@ pub fn create_hashes<'a>(
                 hash_array!(Int64Array, col, i64, hashes_buffer, random_state);
             }
             DataType::Timestamp(TimeUnit::Microsecond, None) => {
-                hash_array!(TimestampMicrosecondArray, col, i64, hashes_buffer, random_state);
+                hash_array!(
+                    TimestampMicrosecondArray,
+                    col,
+                    i64,
+                    hashes_buffer,
+                    random_state
+                );
             }
             DataType::Timestamp(TimeUnit::Nanosecond, None) => {
-                hash_array!(TimestampNanosecondArray, col, i64, hashes_buffer, random_state);
+                hash_array!(
+                    TimestampNanosecondArray,
+                    col,
+                    i64,
+                    hashes_buffer,
+                    random_state
+                );
             }
             DataType::Boolean => {
                 hash_array!(BooleanArray, col, u8, hashes_buffer, random_state);
