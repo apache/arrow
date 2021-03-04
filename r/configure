@@ -32,7 +32,6 @@ PKG_RPM_NAME="(unsuppored)"
 PKG_BREW_NAME="apache-arrow"
 PKG_TEST_HEADER="<arrow/api.h>"
 PKG_LIBS="-larrow"
-BUNDLED_LIBS=""
 
 # Make some env vars case-insensitive
 ARROW_R_DEV=`echo $ARROW_R_DEV | tr '[:upper:]' '[:lower:]'`
